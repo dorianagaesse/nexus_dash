@@ -35,7 +35,7 @@ export default function Home() {
       <main className="container flex min-h-screen flex-col justify-center gap-10 py-16">
         <div className="flex flex-col gap-6">
           <div className="flex flex-wrap items-center gap-3">
-            <Badge variant="secondary">Dark mode ready</Badge>
+            <Badge variant="secondary">Theme toggle ready</Badge>
             <Badge variant="outline">Prisma + SQLite</Badge>
           </div>
           <div className="space-y-4">

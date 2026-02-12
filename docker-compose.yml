@@ -9,9 +9,11 @@ services:
     volumes:
       - .:/app
       - node_modules:/app/node_modules
+      - storage_data:/app/storage
     environment:
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: "true"
 
 volumes:
   node_modules:
+  storage_data:

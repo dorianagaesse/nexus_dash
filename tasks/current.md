@@ -1,29 +1,40 @@
-# Current Task: Task Edit Flow + Rich-Text Description Support
+# Current Task: Attachment System (Architecture + MVP)
 
 ## Task ID
-TASK-009
+TASK-019 (with TASK-018 and TASK-007 delivered in the same iteration)
 
 ## Status
 🟢 **Done (Implementation Complete, Awaiting Joint Validation)**
 
 ## Priority
-🔴 **High** - Core task usability before further dashboard expansion
+🔴 **High** - Core execution context for tasks and project notes
 
 ## Description
-Add an edit workflow for Kanban tasks/cards and support rich-text formatting in task descriptions (for both creation and editing).
+Implement attachment support with a local server-side storage strategy and S3-ready abstraction, then expose link/file attachments in both task details and project context cards.
 
 ## Acceptance Criteria / Definition of Done
 
-### ✅ Edit Flow
-- [x] User can open a task and enter edit mode
-- [x] User can update title, label, and description
-- [x] Changes persist in DB and reflect immediately in board/modal
+### ✅ Architecture (TASK-018)
+- [x] Added explicit attachment storage strategy with local filesystem backend
+- [x] Added reusable storage helper (`save/read/delete`) instead of in-route file handling
+- [x] Added attachment validation constants (kind, MIME allowlist, size limit)
+- [x] Documented architecture decision in `decisions.md`
 
-### ✅ Rich-Text Description
-- [x] Task creation supports rich-text formatting
-- [x] Task editing supports rich-text formatting
-- [x] Rich-text content is safely sanitized before persistence
-- [x] Board preview shows plain-text excerpt, detail view shows formatted content
+### ✅ Task Attachments MVP (TASK-019)
+- [x] Added Prisma `TaskAttachment` model with cascade cleanup
+- [x] Added task attachment APIs (create link/file, delete, download file)
+- [x] Added task detail modal UI to list/add/delete task attachments
+- [x] Added file size metadata display + safe download links
+
+### ✅ Context Card Attachments (TASK-007)
+- [x] Added Prisma `ResourceAttachment` model with cascade cleanup
+- [x] Added context card attachment APIs (create link/file, delete, download file)
+- [x] Added context panel UI to preview attachments on cards
+- [x] Added context edit modal UI to manage attachments
+
+### ✅ Docker/Runtime
+- [x] Added dedicated Docker volume for `/app/storage`
+- [x] Added `.gitignore` entry for local uploaded files (`/storage/uploads`)
 
 ### ✅ Verification
 - [x] `npm run lint` passes
@@ -31,11 +42,18 @@ Add an edit workflow for Kanban tasks/cards and support rich-text formatting in 
 - [ ] Joint manual validation session with user
 
 ## Implementation Notes
-- Added reusable rich text editor: `components/rich-text-editor.tsx`
-- Added rich text sanitization helpers: `lib/rich-text.ts`
-- Updated task creation modal to use rich text descriptions: `components/create-task-dialog.tsx`
-- Added task update API endpoint: `app/api/projects/[projectId]/tasks/[taskId]/route.ts`
-- Extended Kanban detail modal with editable task fields and save flow: `components/kanban-board.tsx`
+- New upload/download APIs:
+  - `app/api/projects/[projectId]/tasks/[taskId]/attachments/route.ts`
+  - `app/api/projects/[projectId]/tasks/[taskId]/attachments/[attachmentId]/route.ts`
+  - `app/api/projects/[projectId]/tasks/[taskId]/attachments/[attachmentId]/download/route.ts`
+  - `app/api/projects/[projectId]/context-cards/[cardId]/attachments/route.ts`
+  - `app/api/projects/[projectId]/context-cards/[cardId]/attachments/[attachmentId]/route.ts`
+  - `app/api/projects/[projectId]/context-cards/[cardId]/attachments/[attachmentId]/download/route.ts`
+- Attachment storage abstraction implemented in `lib/attachment-storage.ts`.
+- Upload limits and allowlist implemented in `lib/task-attachment.ts`.
+- Prisma migrations applied:
+  - `prisma/migrations/20260212210530_add_attachments/migration.sql`
+  - `prisma/migrations/20260212211407_add_attachment_indexes/migration.sql`
 
 ## Blockers / Dependencies
 
@@ -43,7 +61,8 @@ Add an edit workflow for Kanban tasks/cards and support rich-text formatting in 
 - None
 
 ### Dependencies
-- TASK-008 completed
+- TASK-018
+- TASK-007
 
 ---
 

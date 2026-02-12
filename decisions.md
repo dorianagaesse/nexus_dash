@@ -75,3 +75,57 @@ Status: Accepted
 Context: Users need stronger visual hierarchy in task descriptions for readability.
 Decision: Add `Title 1` and `Title 2` formatting controls in editor and permit `h1/h2` tags through sanitization.
 Consequences: Better structured task notes; sanitizer rules expanded but still controlled.
+Date: 2026-02-12
+Decision: Place task-creation trigger inside Kanban header via component action slot
+Status: Accepted
+Context: A separate helper card for task creation consumed space reserved for upcoming project-context content.
+Decision: Add an optional `headerAction` slot to `KanbanBoard` and render `CreateTaskDialog` directly under the board title.
+Consequences: Cleaner dashboard layout and reusable board-header extension point; board component API grows by one optional prop.
+Date: 2026-02-12
+Decision: Use HTML class-based theme toggle with localStorage persistence
+Status: Accepted
+Context: Users requested a bright mode and the app was forcing dark mode globally.
+Decision: Remove forced `dark` class from root layout, add a client theme toggle that writes `nexusdash-theme` to localStorage, and apply saved mode on boot via inline script.
+Consequences: Reliable persisted theme selection without additional theming dependencies; includes a small inline script in layout.
+Date: 2026-02-12
+Decision: Use modal-first project creation on `/projects` page
+Status: Accepted
+Context: Inline creation form consumed significant vertical space and delayed access to current projects.
+Decision: Replace inline create-project card with a compact `Create project` modal trigger and reuse existing server action submission pattern.
+Consequences: Cleaner projects-first page flow and consistent modal UX with task creation; introduces one additional client component.
+Date: 2026-02-12
+Decision: Persist blocked-task follow-up notes as first-class task data
+Status: Accepted
+Context: Blocked tasks require dedicated, editable warning context in expanded task details.
+Decision: Add optional `blockedNote` field on `Task` and expose it through dashboard payloads and task update API.
+Consequences: Better blocker traceability and clearer follow-up ownership; requires schema migration and additional task payload mapping.
+Date: 2026-02-12
+Decision: Persist Done lifecycle metadata for automatic task archiving
+Status: Accepted
+Context: Done column needs to stay compact as completed tasks accumulate over time.
+Decision: Add `completedAt` and `archivedAt` on `Task`, auto-archive stale Done tasks (>7 days) at dashboard load, and expose archived tasks via a Done-column archive dropdown.
+Consequences: Scalable Done-column UX with preserved historical visibility; introduces additional lifecycle state handling in reorder and dashboard query paths.
+Date: 2026-02-12
+Decision: Implement project context cards using existing `Resource` model discriminator
+Status: Accepted
+Context: Project context cards are needed now, while richer resource/document handling remains planned for later tasks.
+Decision: Reuse `Resource` with `type = "context-card"` and map `name -> title`, `content -> content` instead of introducing a new model.
+Consequences: Faster delivery with no schema migration; requires careful filtering by resource type and leaves room for future resource-model refinement.
+Date: 2026-02-12
+Decision: Store optional context card color on `Resource` for lightweight card theming
+Status: Accepted
+Context: Context cards need pastel background colors with user-controlled selection and random defaults at creation.
+Decision: Add optional `color` field on `Resource`, validate against a controlled pastel palette, and fallback deterministically for legacy cards without color.
+Consequences: Better visual differentiation with minimal schema impact; introduces one additional migration and validation path for context card updates.
+Date: 2026-02-12
+Decision: Persist dashboard section expansion state per project via browser storage
+Status: Accepted
+Context: Users need `Project context` and `Kanban board` to reopen in their preferred expanded/collapsed state after refresh.
+Decision: Store section state in localStorage with project-scoped keys and restore client-side on component mount.
+Consequences: Better continuity for daily usage without backend schema/API changes; component state becomes client-storage dependent.
+Date: 2026-02-12
+Decision: Introduce attachment system with local filesystem backend and S3-ready abstraction
+Status: Accepted
+Context: Tasks and context cards need link/file attachments now, while cloud object storage integration is planned for a later phase.
+Decision: Add dedicated attachment models (`TaskAttachment`, `ResourceAttachment`), validate file uploads via allowlist + size cap, and persist files under `/storage/uploads` through shared `lib/attachment-storage.ts` helpers.
+Consequences: Immediate local attachment support with predictable migration path to external object storage; adds file lifecycle management responsibilities and new API surface for upload/download/delete.

@@ -22,11 +22,15 @@ model Task {
   id          String   @id @default(cuid())
   title       String
   description String?
+  blockedNote String?
+  completedAt DateTime?
+  archivedAt  DateTime?
   status      String   @default("Backlog")
   position    Int      @default(0)
   label       String?
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  attachments TaskAttachment[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -36,7 +40,39 @@ model Resource {
   type        String
   name        String
   content     String
+  color       String?
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  attachments ResourceAttachment[]
   createdAt   DateTime @default(now())
+}
+
+model TaskAttachment {
+  id         String   @id @default(cuid())
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  kind        String
+  name        String
+  url         String?
+  storageKey  String?
+  mimeType    String?
+  sizeBytes   Int?
+  createdAt   DateTime @default(now())
+
+  @@index([taskId])
+}
+
+model ResourceAttachment {
+  id         String   @id @default(cuid())
+  resourceId  String
+  resource    Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  kind        String
+  name        String
+  url         String?
+  storageKey  String?
+  mimeType    String?
+  sizeBytes   Int?
+  createdAt   DateTime @default(now())
+
+  @@index([resourceId])
 }

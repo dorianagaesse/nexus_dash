@@ -41,6 +41,17 @@ If port `3000` is already used, run:
 APP_PORT=3001 docker compose up
 ```
 
+Attachment uploads are stored server-side under `/app/storage/uploads` (mounted as
+`storage_data` in Docker Compose).
+
+## Attachments
+
+- Supported kinds: link and file
+- File size limit: `10MB`
+- Allowed MIME types: PDF, PNG/JPEG/WebP, TXT/Markdown, CSV, JSON
+- Task attachments are managed from the task detail modal
+- Context-card attachments are managed from the context-card edit modal
+
 ## Scripts
 
 ```bash

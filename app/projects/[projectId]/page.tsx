@@ -2,29 +2,49 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 
+import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { KanbanBoard, type KanbanTask } from "@/components/kanban-board";
 import { CreateTaskDialog } from "@/components/create-task-dialog";
+import { ProjectContextPanel } from "@/components/project-context-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardDescription,
-} from "@/components/ui/card";
+import { getContextCardColorFromSeed } from "@/lib/context-card-colors";
 import { prisma } from "@/lib/prisma";
+import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
+import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import { isTaskStatus } from "@/lib/task-status";
 
-import { createTaskAction } from "./actions";
+import {
+  createContextCardAction,
+  createTaskAction,
+  deleteContextCardAction,
+  updateContextCardAction,
+} from "./actions";
 
 type SearchParams = Record<string, string | string[] | undefined>;
+const ARCHIVE_AFTER_DAYS = 7;
+const ARCHIVE_AFTER_MS = ARCHIVE_AFTER_DAYS * 24 * 60 * 60 * 1000;
 
 const STATUS_MESSAGES: Record<string, string> = {
   "task-created": "Task created successfully.",
+  "context-created": "Context card created successfully.",
+  "context-updated": "Context card updated successfully.",
+  "context-deleted": "Context card deleted successfully.",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
   "title-too-short": "Task title must be at least 2 characters long.",
   "project-not-found": "Project not found.",
   "create-failed": "Could not create task. Please retry.",
+  "context-card-missing": "Context card identifier is missing.",
+  "context-card-not-found": "Context card not found.",
+  "context-title-too-short": "Context card title must be at least 2 characters long.",
+  "context-title-too-long": "Context card title must be 120 characters or fewer.",
+  "context-content-too-long": "Context card content must be 4000 characters or fewer.",
+  "context-color-invalid": "Selected context card color is invalid.",
+  "context-create-failed": "Could not create context card. Please retry.",
+  "context-update-failed": "Could not update context card. Please retry.",
+  "context-delete-failed": "Could not delete context card. Please retry.",
 };
 
 function readQueryValue(value: string | string[] | undefined): string | null {
@@ -40,11 +60,41 @@ function readQueryValue(value: string | string[] | undefined): string | null {
 }
 
 async function getProject(projectId: string) {
+  const archiveThreshold = new Date(Date.now() - ARCHIVE_AFTER_MS);
+
+  await prisma.task.updateMany({
+    where: {
+      projectId,
+      status: "Done",
+      archivedAt: null,
+      OR: [
+        { completedAt: { lte: archiveThreshold } },
+        { completedAt: null, updatedAt: { lte: archiveThreshold } },
+      ],
+    },
+    data: {
+      archivedAt: new Date(),
+    },
+  });
+
   return prisma.project.findUnique({
     where: { id: projectId },
     include: {
       tasks: {
         orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
+        include: {
+          attachments: {
+            orderBy: [{ createdAt: "desc" }],
+          },
+        },
+      },
+      resources: {
+        orderBy: [{ createdAt: "desc" }],
+        include: {
+          attachments: {
+            orderBy: [{ createdAt: "desc" }],
+          },
+        },
       },
     },
   });
@@ -64,22 +114,66 @@ export default async function ProjectDashboardPage({
   }
 
   const kanbanTasks: KanbanTask[] = [];
+  const archivedDoneTasks: KanbanTask[] = [];
+  const contextCards = project.resources
+    .filter((resource) => resource.type === RESOURCE_TYPE_CONTEXT_CARD)
+    .map((resource) => ({
+      id: resource.id,
+      title: resource.name,
+      content: resource.content,
+      color: resource.color ?? getContextCardColorFromSeed(resource.id),
+      attachments: resource.attachments.map((attachment) => ({
+        id: attachment.id,
+        kind: attachment.kind,
+        name: attachment.name,
+        url: attachment.url,
+        mimeType: attachment.mimeType,
+        sizeBytes: attachment.sizeBytes,
+        downloadUrl:
+          attachment.kind === ATTACHMENT_KIND_FILE
+            ? `/api/projects/${project.id}/context-cards/${resource.id}/attachments/${attachment.id}/download`
+            : null,
+      })),
+    }));
 
   project.tasks.forEach((task) => {
     if (!isTaskStatus(task.status)) {
       return;
     }
 
-    kanbanTasks.push({
+    const normalizedTask: KanbanTask = {
       id: task.id,
       title: task.title,
       description: task.description,
+      blockedNote: task.blockedNote,
       label: task.label,
       status: task.status,
-    });
+      attachments: task.attachments.map((attachment) => ({
+        id: attachment.id,
+        kind: attachment.kind,
+        name: attachment.name,
+        url: attachment.url,
+        mimeType: attachment.mimeType,
+        sizeBytes: attachment.sizeBytes,
+        downloadUrl:
+          attachment.kind === ATTACHMENT_KIND_FILE
+            ? `/api/projects/${project.id}/tasks/${task.id}/attachments/${attachment.id}/download`
+            : null,
+      })),
+    };
+
+    if (task.status === "Done" && task.archivedAt) {
+      archivedDoneTasks.push(normalizedTask);
+      return;
+    }
+
+    kanbanTasks.push(normalizedTask);
   });
 
   const createTaskForProject = createTaskAction.bind(null, project.id);
+  const createContextCardForProject = createContextCardAction.bind(null, project.id);
+  const updateContextCardForProject = updateContextCardAction.bind(null, project.id);
+  const deleteContextCardForProject = deleteContextCardAction.bind(null, project.id);
   const status = readQueryValue(searchParams?.status);
   const error = readQueryValue(searchParams?.error);
 
@@ -107,9 +201,10 @@ export default async function ProjectDashboardPage({
       </div>
 
       {status && STATUS_MESSAGES[status] ? (
-        <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-          {STATUS_MESSAGES[status]}
-        </div>
+        <AutoDismissingAlert
+          message={STATUS_MESSAGES[status]}
+          className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-200"
+        />
       ) : null}
 
       {error && ERROR_MESSAGES[error] ? (
@@ -118,16 +213,20 @@ export default async function ProjectDashboardPage({
         </div>
       ) : null}
 
-      <Card className="border-dashed border-border/60 bg-muted/20 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <CardDescription>
-            Add tasks without taking space from your board.
-          </CardDescription>
-          <CreateTaskDialog action={createTaskForProject} />
-        </div>
-      </Card>
+      <ProjectContextPanel
+        projectId={project.id}
+        cards={contextCards}
+        createAction={createContextCardForProject}
+        updateAction={updateContextCardForProject}
+        deleteAction={deleteContextCardForProject}
+      />
 
-      <KanbanBoard projectId={project.id} initialTasks={kanbanTasks} />
+      <KanbanBoard
+        projectId={project.id}
+        initialTasks={kanbanTasks}
+        archivedDoneTasks={archivedDoneTasks}
+        headerAction={<CreateTaskDialog action={createTaskForProject} />}
+      />
     </main>
   );
 }

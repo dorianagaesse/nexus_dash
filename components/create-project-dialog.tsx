@@ -3,23 +3,21 @@
 import { useState } from "react";
 import { PlusSquare, X } from "lucide-react";
 
-import { RichTextEditor } from "@/components/rich-text-editor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-interface CreateTaskDialogProps {
+interface CreateProjectDialogProps {
   action: (formData: FormData) => Promise<void>;
 }
 
-export function CreateTaskDialog({ action }: CreateTaskDialogProps) {
+export function CreateProjectDialog({ action }: CreateProjectDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [description, setDescription] = useState("");
 
   return (
     <>
       <Button type="button" onClick={() => setIsOpen(true)}>
         <PlusSquare className="h-4 w-4" />
-        New task
+        Create project
       </Button>
 
       {isOpen ? (
@@ -36,7 +34,7 @@ export function CreateTaskDialog({ action }: CreateTaskDialogProps) {
             onMouseDown={(event) => event.stopPropagation()}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-lg">Create task</CardTitle>
+              <CardTitle className="text-lg">Create project</CardTitle>
               <Button type="button" variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
                 <X className="h-4 w-4" />
               </Button>
@@ -44,48 +42,36 @@ export function CreateTaskDialog({ action }: CreateTaskDialogProps) {
             <CardContent>
               <form action={action} className="grid gap-4">
                 <div className="grid gap-2">
-                  <label htmlFor="task-title" className="text-sm font-medium">
-                    Title
+                  <label htmlFor="create-name" className="text-sm font-medium">
+                    Name
                   </label>
                   <input
-                    id="task-title"
-                    name="title"
+                    id="create-name"
+                    name="name"
                     required
                     minLength={2}
                     maxLength={120}
+                    placeholder="NexusDash MVP"
                     className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    placeholder="Implement drag sorting"
                   />
                 </div>
 
                 <div className="grid gap-2">
-                  <label htmlFor="task-label" className="text-sm font-medium">
-                    Label
-                  </label>
-                  <input
-                    id="task-label"
-                    name="label"
-                    maxLength={50}
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    placeholder="Frontend"
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <label htmlFor="task-description" className="text-sm font-medium">
+                  <label htmlFor="create-description" className="text-sm font-medium">
                     Description
                   </label>
-                  <RichTextEditor
-                    id="task-description"
-                    value={description}
-                    onChange={setDescription}
-                    placeholder="Optional implementation notes..."
+                  <textarea
+                    id="create-description"
+                    name="description"
+                    rows={3}
+                    maxLength={500}
+                    placeholder="Optional project context..."
+                    className="rounded-md border border-input bg-background px-3 py-2 text-sm"
                   />
-                  <input type="hidden" name="description" value={description} />
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Button type="submit">Create task</Button>
+                  <Button type="submit">Create project</Button>
                   <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>
                     Cancel
                   </Button>

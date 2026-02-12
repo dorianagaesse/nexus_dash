@@ -54,3 +54,60 @@ Resolution: Added `Title 1`/`Title 2` formatting actions in the editor, allowed 
 Date: 2026-02-12
 Feedback update: Creation modal should close on outside click.
 Resolution: Added outside-click dismissal behavior to task creation modal and captured same requirement for project creation in backlog refinement.
+Date: 2026-02-12
+Feedback update: Task creation control should live under the Kanban title to preserve board space for project context.
+Resolution: Added a Kanban header action slot and moved the `New task` modal trigger into that slot; removed the standalone task-create helper card.
+Date: 2026-02-12
+Feedback update: App needs day/night mode with a clean bright option and persistent preference.
+Resolution: Added a global theme toggle, persisted selected mode in localStorage, bootstrapped saved mode at layout load, and adjusted success banner colors for light-mode readability.
+Date: 2026-02-12
+Feedback update: Projects home should prioritize current projects and use a compact modal for project creation with outside-click dismissal.
+Resolution: Added `CreateProjectDialog` modal component and replaced inline project creation form on `/projects` with a top-level trigger.
+Date: 2026-02-12
+Feedback update: Kanban lists should not display dashed inner borders around task zones.
+Resolution: Removed dashed border styling from the Kanban droppable area container while preserving drag-over highlight behavior.
+Date: 2026-02-12
+Feedback update: Task edit action should be an icon in the modal header next to close.
+Resolution: Moved edit trigger to an icon-only button in task detail modal header and removed the older inline "Edit task" button from modal content.
+Date: 2026-02-12
+Feedback update: Blocked tasks should be visually identifiable in the board list view.
+Resolution: Added an orange warning icon on task cards rendered in the `Blocked` column while preserving existing drag-and-open interactions.
+Date: 2026-02-12
+Feedback update: Expanded blocked tasks should include editable warning follow-up details.
+Resolution: Added persisted `blockedNote` support through Prisma schema + migration, task update API, dashboard mapping, and blocked-task modal warning section.
+Date: 2026-02-12
+Feedback update: In blocked-task edit mode, the blocker area should remain visually highlighted.
+Resolution: Styled the blocked follow-up edit panel with amber background and border to match warning semantics.
+Date: 2026-02-12
+Process update: Backlog readability needed clearer separation between open and completed work.
+Resolution: Reorganized `tasks/backlog.md` into `Pending` and `Completed` sections while preserving task history for traceability.
+Date: 2026-02-12
+Feedback update: Done tasks should auto-archive after one week and remain accessible through a Done-column archive dropdown.
+Resolution: Added Done lifecycle fields (`completedAt`, `archivedAt`), auto-archive processing for stale Done tasks on dashboard load, and an `Archive (N)` dropdown in the Done column showing archived task previews.
+Date: 2026-02-12
+Feature update: Project dashboard needs a dedicated context area above Kanban with user-defined cards.
+Resolution: Added project-scoped context card CRUD (create/edit/delete) and a top panel UI with modal add/edit flows, backed by `Resource` entries of type `context-card`.
+Date: 2026-02-12
+Feedback update: Context panel should be more minimalist when collapsed, clickable across the header line, with pastel card colors and automatic modal close after create.
+Resolution: Added a compact header with left-side arrow toggle, full-line click target for expand/collapse, auto-expand when adding a card, pastel color picker with random default, and on-submit modal close behavior.
+Date: 2026-02-12
+Feedback update: Status success messages should disappear automatically.
+Resolution: Added a reusable auto-dismissing alert component and replaced project/project-dashboard success banners with transient alerts.
+Date: 2026-02-12
+Feedback update: Context panel needs better space handling, compact cards, pastel colors, and modal-close-on-create behavior.
+Resolution: Added panel expand/collapse control, compact card layout with pastel background colors, user-selectable card color (random default on create), and explicit modal close on form submit.
+Date: 2026-02-12
+Feedback update: Dashboard sections should look more uniform with minimal visual noise and shared collapse behavior.
+Resolution: Removed the outer border from the Project context panel, increased the Project context heading size, and added an equivalent expand/collapse header interaction for the Kanban section.
+Date: 2026-02-12
+Feedback update: Project context and Kanban headers needed stronger visual alignment; section collapse preference should be tracked.
+Resolution: Normalized Project context header layout/padding to match Kanban alignment and added TASK-024 in backlog for localStorage-based persistence of panel expand/collapse state.
+Date: 2026-02-12
+Feedback update: Header action buttons should be normalized to the right of section titles and panel state should persist between reloads.
+Resolution: Moved `Add card` and `New task` actions to right-aligned header placement, added per-project localStorage persistence for context/kanban expansion state, and reprioritized backlog to move TASK-005 before TASK-022.
+Date: 2026-02-12
+Feature update: TASK-007, TASK-018, and TASK-019 implemented together as one attachment iteration.
+Resolution: Added attachment schema/models and migration, local server-side file storage helpers, task/context attachment CRUD + download APIs, and UI management flows in task detail and context card edit modal.
+Date: 2026-02-12
+Issue: Build failed because `NextResponse` body typing rejected raw `Buffer` in download routes.
+Resolution: Returned `Uint8Array` body payloads in download handlers for task/context attachments.

@@ -9,6 +9,7 @@ interface UpdateTaskPayload {
   title?: string;
   label?: string;
   description?: string;
+  blockedNote?: string;
 }
 
 function normalizeText(value: unknown): string {
@@ -40,6 +41,7 @@ export async function PATCH(
   const title = normalizeText(payload.title);
   const label = normalizeText(payload.label);
   const description = sanitizeRichText(normalizeText(payload.description));
+  const blockedNote = normalizeText(payload.blockedNote);
 
   if (title.length < MIN_TITLE_LENGTH) {
     return NextResponse.json(
@@ -64,12 +66,14 @@ export async function PATCH(
         title,
         label: label.length > 0 ? label : null,
         description,
+        blockedNote: blockedNote.length > 0 ? blockedNote : null,
       },
       select: {
         id: true,
         title: true,
         label: true,
         description: true,
+        blockedNote: true,
         status: true,
         position: true,
       },

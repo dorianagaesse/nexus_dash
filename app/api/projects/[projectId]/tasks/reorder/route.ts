@@ -83,7 +83,7 @@ export async function POST(
         projectId,
         id: { in: taskIds },
       },
-      select: { id: true },
+      select: { id: true, status: true, completedAt: true },
     });
 
     if (tasks.length !== taskIds.length) {
@@ -93,17 +93,30 @@ export async function POST(
       );
     }
 
+    const taskById = new Map(tasks.map((task) => [task.id, task]));
+
     const updateOperations = normalizedColumns.flatMap(
       (column: { status: TaskStatus; taskIds: string[] }) =>
-        column.taskIds.map((taskId, index) =>
-          prisma.task.update({
+        column.taskIds.map((taskId, index) => {
+          const existingTask = taskById.get(taskId);
+          const movedToDone =
+            column.status === "Done" && existingTask?.status !== "Done";
+
+          return prisma.task.update({
             where: { id: taskId },
             data: {
               status: column.status,
               position: index,
+              archivedAt: null,
+              completedAt:
+                column.status === "Done"
+                  ? movedToDone
+                    ? new Date()
+                    : existingTask?.completedAt ?? new Date()
+                  : null,
             },
-          })
-        )
+          });
+        })
     );
 
     await prisma.$transaction(updateOperations);

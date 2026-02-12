@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { ArrowRight, FolderKanban, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, FolderKanban, Pencil, Trash2 } from "lucide-react";
 
+import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
+import { CreateProjectDialog } from "@/components/create-project-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -85,9 +87,10 @@ export default async function ProjectsPage({
         </div>
 
         {status && STATUS_MESSAGES[status] ? (
-          <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-            {STATUS_MESSAGES[status]}
-          </div>
+          <AutoDismissingAlert
+            message={STATUS_MESSAGES[status]}
+            className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-200"
+          />
         ) : null}
 
         {error && ERROR_MESSAGES[error] ? (
@@ -96,54 +99,9 @@ export default async function ProjectsPage({
           </div>
         ) : null}
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Create project
-            </CardTitle>
-            <CardDescription>
-              New projects appear immediately in the list below.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form action={createProjectAction} className="grid gap-4">
-              <div className="grid gap-2">
-                <label htmlFor="create-name" className="text-sm font-medium">
-                  Name
-                </label>
-                <input
-                  id="create-name"
-                  name="name"
-                  required
-                  minLength={2}
-                  maxLength={120}
-                  placeholder="NexusDash MVP"
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                />
-              </div>
-              <div className="grid gap-2">
-                <label
-                  htmlFor="create-description"
-                  className="text-sm font-medium"
-                >
-                  Description
-                </label>
-                <textarea
-                  id="create-description"
-                  name="description"
-                  rows={3}
-                  maxLength={500}
-                  placeholder="Optional project context..."
-                  className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <Button type="submit">Create project</Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+        <div>
+          <CreateProjectDialog action={createProjectAction} />
+        </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           {projects.length === 0 ? (
