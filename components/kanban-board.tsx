@@ -8,9 +8,10 @@ import {
   type DropResult,
   type DraggableProvidedDraggableProps,
 } from "@hello-pangea/dnd";
-import { GripVertical } from "lucide-react";
+import { GripVertical, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import {
@@ -32,6 +33,16 @@ type TaskColumns = Record<TaskStatus, KanbanTask[]>;
 interface KanbanBoardProps {
   projectId: string;
   initialTasks: KanbanTask[];
+}
+
+function getDescriptionPreview(description: string, maxLength = 140): string {
+  const normalized = description.replace(/\s+/g, " ").trim();
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength - 3)}...`;
 }
 
 function createEmptyColumns(): TaskColumns {
@@ -96,6 +107,7 @@ export function KanbanBoard({ projectId, initialTasks }: KanbanBoardProps) {
   const [columns, setColumns] = useState<TaskColumns>(initialColumns);
   const [isSaving, startTransition] = useTransition();
   const [persistError, setPersistError] = useState<string | null>(null);
+  const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
 
   useEffect(() => {
     setColumns(initialColumns);
@@ -221,32 +233,33 @@ export function KanbanBoard({ projectId, initialTasks }: KanbanBoardProps) {
                             <article
                               ref={draggableProvided.innerRef}
                               {...draggableProvided.draggableProps}
+                              {...draggableProvided.dragHandleProps}
                               style={buildDragStyle(
                                 draggableProvided.draggableProps.style,
                                 draggableSnapshot.isDragging
                               )}
                               className={cn(
-                                "rounded-md border border-border/70 bg-card p-3 shadow-sm transition",
+                                "cursor-grab rounded-md border border-border/70 bg-card p-3 shadow-sm transition active:cursor-grabbing",
                                 draggableSnapshot.isDragging && "shadow-lg"
                               )}
+                              onClick={() => {
+                                if (!draggableSnapshot.isDragging) {
+                                  setSelectedTask(task);
+                                }
+                              }}
                             >
                               <div className="mb-2 flex items-start justify-between gap-2">
                                 <h3 className="text-sm font-medium leading-snug">
                                   {task.title}
                                 </h3>
-                                <button
-                                  type="button"
-                                  aria-label={`Drag ${task.title}`}
-                                  className="rounded-sm p-1 text-muted-foreground hover:bg-muted"
-                                  {...draggableProvided.dragHandleProps}
-                                >
+                                <span className="rounded-sm p-1 text-muted-foreground">
                                   <GripVertical className="h-4 w-4" />
-                                </button>
+                                </span>
                               </div>
 
                               {task.description ? (
-                                <p className="text-xs text-muted-foreground">
-                                  {task.description}
+                                <p className="text-xs text-muted-foreground break-words">
+                                  {getDescriptionPreview(task.description)}
                                 </p>
                               ) : null}
 
@@ -268,6 +281,35 @@ export function KanbanBoard({ projectId, initialTasks }: KanbanBoardProps) {
           ))}
         </div>
       </DragDropContext>
+
+      {selectedTask ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <Card className="w-full max-w-xl">
+            <CardHeader className="flex flex-row items-start justify-between space-y-0">
+              <div className="space-y-2">
+                <Badge variant="outline">{selectedTask.status}</Badge>
+                <CardTitle className="text-xl">{selectedTask.title}</CardTitle>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setSelectedTask(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {selectedTask.label ? (
+                <Badge variant="secondary">{selectedTask.label}</Badge>
+              ) : null}
+              <p className="min-h-[40px] whitespace-pre-wrap text-sm text-muted-foreground break-words">
+                {selectedTask.description ?? "No description provided."}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
     </div>
   );
 }

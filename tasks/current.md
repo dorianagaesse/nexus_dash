@@ -1,52 +1,43 @@
-# Current Task: Kanban Board With Drag-and-Drop Persistence
+# Current Task: Kanban Interaction Refinements
 
 ## Task ID
-TASK-003
+TASK-008
 
 ## Status
-🟢 **Done**
+🟢 **Done (Implementation Complete, Awaiting Joint Validation)**
 
 ## Priority
-🔴 **High** - Core workflow for project execution
+🔴 **High** - UX-critical Kanban refinements before next feature phase
 
 ## Description
-Implement the project dashboard Kanban board with four columns (`Backlog`, `In Progress`, `Blocked`, `Done`) using `@hello-pangea/dnd`, with persisted task status and position in SQLite via Prisma.
+Refine the Kanban board interactions so users can drag cards from any point, preview long descriptions safely, and open full task details by clicking a card.
 
 ## Acceptance Criteria / Definition of Done
 
-### ✅ Dashboard Routing
-- [x] Each project can open a dedicated dashboard route (`/projects/[projectId]`)
-- [x] Dashboard displays project context and Kanban board
+### ✅ Drag and Drop UX
+- [x] Cards can be dragged from any card area (not a dedicated handle only)
+- [x] Drag behavior still preserves position/status persistence
 
-### ✅ Kanban UI
-- [x] Four columns rendered in the expected order
-- [x] Tasks render as cards with title, description, label badge
-- [x] Empty-column states are visible and readable
-- [x] Dragging task applies visual feedback (scale/rotation)
+### ✅ Card Detail UX
+- [x] Clicking a card opens a detail view with full title/content/label/status
+- [x] Detail view is dismissible and does not break drag behavior
 
-### ✅ Persistence
-- [x] Dragging within a column persists updated positions
-- [x] Dragging across columns persists both status and position
-- [x] Persistence updates are scoped to the current project only
-- [x] Errors during persistence are handled and surfaced in UI
-
-### ✅ Task Management (Minimum)
-- [x] Ability to create tasks in project dashboard
-- [x] Newly created tasks appear in Backlog with persisted position
+### ✅ Description Rendering
+- [x] Long descriptions no longer overlap or break layout
+- [x] Board cards show truncated preview ending with ellipsis style behavior
+- [x] Full description remains visible in card detail view
 
 ### ✅ Verification
 - [x] `npm run lint` passes
 - [x] `npm run build` passes
-- [x] Temporary smoke checks performed (`/projects/[projectId]` render + reorder API + DB verification)
-- [ ] Full real-world test scenarios deferred (requested after TASK-003)
+- [ ] Joint manual validation session with user
 
 ## Implementation Notes
-- Added project dashboard route: `app/projects/[projectId]/page.tsx`
-- Added task creation server action: `app/projects/[projectId]/actions.ts`
-- Added drag-and-drop board component: `components/kanban-board.tsx`
-- Added reorder persistence endpoint: `app/api/projects/[projectId]/tasks/reorder/route.ts`
-- Added shared task status constants/types: `lib/task-status.ts`
-- Updated projects list cards to open dashboard routes: `app/projects/page.tsx`
+- Updated `components/kanban-board.tsx`:
+  - full-card drag by applying drag handle props to the full card container
+  - card click opens a task details modal
+  - description preview truncates with ellipsis-safe formatting
+- Kept existing persistence flow untouched (`/api/projects/[projectId]/tasks/reorder`) to avoid regression risk.
 
 ## Blockers / Dependencies
 
@@ -54,14 +45,7 @@ Implement the project dashboard Kanban board with four columns (`Backlog`, `In P
 - None
 
 ### Dependencies
-- TASK-002 completed
-
-## Success Metrics
-Task is **COMPLETE** when:
-- [x] Kanban drag-and-drop works on project dashboard
-- [x] Status/position persistence is written to DB
-- [x] Task creation in dashboard works
-- [x] Ready to move to TASK-004 (resource panel)
+- TASK-003 completed
 
 ---
 

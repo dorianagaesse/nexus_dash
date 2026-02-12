@@ -33,3 +33,10 @@ Resolution: Seeded a temporary project/tasks, confirmed dashboard route renderin
 Date: 2026-02-12
 Feedback update: Task creation was perceived as too large/noisy and newly created task not visible in board state.
 Resolution: Added state sync in `components/kanban-board.tsx` for incoming server data and replaced inline create form with compact modal trigger (`components/create-task-dialog.tsx`).
+Date: 2026-02-12
+Issue: Kanban card drag was limited to a small handle area and long descriptions could produce poor card readability.
+Resolution: Applied drag handle props to the full card surface and added safe description preview truncation with ellipsis.
+
+Date: 2026-02-12
+Issue: Users needed fast access to full task details without cluttering the board.
+Resolution: Added click-to-open task detail modal in `components/kanban-board.tsx` with full title/label/status/description display.

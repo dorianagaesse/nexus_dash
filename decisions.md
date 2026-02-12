@@ -57,3 +57,9 @@ Status: Accepted
 Context: Inline task form consumed too much vertical space and reduced board usability.
 Decision: Replace inline form with compact "New task" trigger opening a lightweight modal form.
 Consequences: Cleaner dashboard focus on Kanban board while preserving task creation capability.
+Date: 2026-02-12
+Decision: Make entire Kanban card the drag handle while preserving click-to-open details
+Status: Accepted
+Context: Users found small drag handle too restrictive and requested card-wide drag with full info on click.
+Decision: Attach drag handle props to the full card surface and open a detail modal on card click.
+Consequences: Faster interaction with fewer precise cursor movements; click-vs-drag behavior now depends on DnD movement threshold.
