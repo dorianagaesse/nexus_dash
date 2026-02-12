@@ -4,8 +4,8 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Tasks
 - ID: TASK-004
-  Title: Resource panel (technical info + document vault)
-  Rationale: Consolidates project context (IPs/docs) in the dashboard.
+  Title: Project context panel with user-defined info cards
+  Rationale: Each project needs lightweight contextual information above Kanban that users can add/edit quickly.
   Dependencies: TASK-003
 - ID: TASK-005
   Title: Google auth and calendar integration
@@ -15,3 +15,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Title: Full validation suite for TASK-002 and TASK-003
   Rationale: User requested real end-to-end validation after Kanban delivery.
   Dependencies: TASK-003
+- ID: TASK-007
+  Title: Extend project context cards with optional document attachments/links
+  Rationale: Preserves original resource panel intent while building on user-defined info cards model.
+  Dependencies: TASK-004

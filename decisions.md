@@ -51,3 +51,9 @@ Status: Accepted
 Context: Kanban columns and persistence logic require consistent status values across server/client.
 Decision: Add `lib/task-status.ts` as the single source of truth for status values and validation helpers.
 Consequences: Reduces string drift risk and improves strict typing for board operations.
+Date: 2026-02-12
+Decision: Use modal-based task creation on project dashboard
+Status: Accepted
+Context: Inline task form consumed too much vertical space and reduced board usability.
+Decision: Replace inline form with compact "New task" trigger opening a lightweight modal form.
+Consequences: Cleaner dashboard focus on Kanban board while preserving task creation capability.

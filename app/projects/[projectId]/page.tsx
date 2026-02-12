@@ -1,16 +1,14 @@
 import Link from "next/link";
-import { ChevronLeft, PlusSquare } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import { KanbanBoard, type KanbanTask } from "@/components/kanban-board";
+import { CreateTaskDialog } from "@/components/create-task-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardContent,
   CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import { isTaskStatus } from "@/lib/task-status";
@@ -120,65 +118,13 @@ export default async function ProjectDashboardPage({
         </div>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <PlusSquare className="h-4 w-4" />
-            Add task to Backlog
-          </CardTitle>
+      <Card className="border-dashed border-border/60 bg-muted/20 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <CardDescription>
-            New tasks enter the board in the Backlog column.
+            Add tasks without taking space from your board.
           </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form action={createTaskForProject} className="grid gap-4 lg:grid-cols-3">
-            <div className="grid gap-2 lg:col-span-1">
-              <label htmlFor="task-title" className="text-sm font-medium">
-                Title
-              </label>
-              <input
-                id="task-title"
-                name="title"
-                required
-                minLength={2}
-                maxLength={120}
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                placeholder="Implement drag sorting"
-              />
-            </div>
-
-            <div className="grid gap-2 lg:col-span-1">
-              <label htmlFor="task-label" className="text-sm font-medium">
-                Label
-              </label>
-              <input
-                id="task-label"
-                name="label"
-                maxLength={50}
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                placeholder="Frontend"
-              />
-            </div>
-
-            <div className="grid gap-2 lg:col-span-3">
-              <label htmlFor="task-description" className="text-sm font-medium">
-                Description
-              </label>
-              <textarea
-                id="task-description"
-                name="description"
-                rows={3}
-                maxLength={500}
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="Optional implementation notes..."
-              />
-            </div>
-
-            <div className="lg:col-span-3">
-              <Button type="submit">Create task</Button>
-            </div>
-          </form>
-        </CardContent>
+          <CreateTaskDialog action={createTaskForProject} />
+        </div>
       </Card>
 
       <KanbanBoard projectId={project.id} initialTasks={kanbanTasks} />

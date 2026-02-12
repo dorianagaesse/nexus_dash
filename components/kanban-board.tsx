@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   DragDropContext,
   Draggable,
@@ -96,6 +96,10 @@ export function KanbanBoard({ projectId, initialTasks }: KanbanBoardProps) {
   const [columns, setColumns] = useState<TaskColumns>(initialColumns);
   const [isSaving, startTransition] = useTransition();
   const [persistError, setPersistError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setColumns(initialColumns);
+  }, [initialColumns]);
 
   const persistColumns = useCallback(
     async (nextColumns: TaskColumns, previousColumns: TaskColumns) => {

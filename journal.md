@@ -30,3 +30,6 @@ Resolution: Switched to explicit guarded mapping using `isTaskStatus` before pus
 Date: 2026-02-12
 Validation: Temporary smoke validation for TASK-003 completed.
 Resolution: Seeded a temporary project/tasks, confirmed dashboard route rendering, called reorder API successfully, verified DB status/position updates, then removed smoke data.
+Date: 2026-02-12
+Feedback update: Task creation was perceived as too large/noisy and newly created task not visible in board state.
+Resolution: Added state sync in `components/kanban-board.tsx` for incoming server data and replaced inline create form with compact modal trigger (`components/create-task-dialog.tsx`).
