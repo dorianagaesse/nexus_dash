@@ -1,4 +1,4 @@
-FROM node:18-alpine AS base
+FROM node:18-bullseye AS base
 
 WORKDIR /app
 
@@ -7,6 +7,7 @@ RUN npm install
 
 COPY . .
 
+RUN npx prisma generate
 RUN npm run build
 
 EXPOSE 3000

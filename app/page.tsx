@@ -54,7 +54,9 @@ export default function Home() {
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
-            <Button variant="secondary">View setup checklist</Button>
+            <Button asChild variant="secondary">
+              <Link href="/projects">Open project workspace</Link>
+            </Button>
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
