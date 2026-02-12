@@ -5,7 +5,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 ## Tasks
 - ID: TASK-010
   Title: Task creation UX polish (modal close behavior + placement of \"+ New task\")
-  Rationale: Keep board compact by auto-closing create modal on submit and placing the trigger top-left under \"Kanban board\" to reserve right-side area for project context.
+  Rationale: Keep board compact by auto-closing create modal on submit, supporting outside-click close, and placing the trigger top-left under \"Kanban board\" to reserve right-side area for project context.
   Dependencies: TASK-008
 - ID: TASK-011
   Title: App theming (light/dark mode toggle with persistence)
@@ -13,7 +13,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-003
 - ID: TASK-012
   Title: Home page refinement (projects-first + create-project modal)
-  Rationale: Prioritize visibility of current projects and align project creation UX with task creation modal behavior.
+  Rationale: Prioritize visibility of current projects and align project creation UX with task creation modal behavior, including outside-click close.
   Dependencies: TASK-002
 - ID: TASK-004
   Title: Project context panel with user-defined info cards

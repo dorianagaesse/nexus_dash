@@ -428,7 +428,7 @@ export function KanbanBoard({ projectId, initialTasks }: KanbanBoardProps) {
                   {selectedTask.label ? (
                     <Badge variant="secondary">{selectedTask.label}</Badge>
                   ) : null}
-                  <div className="text-sm text-muted-foreground break-words [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_p]:mb-2">
+                  <div className="max-h-[52vh] overflow-y-auto text-sm text-muted-foreground [overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:break-words [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_p]:mb-2">
                     <div
                       dangerouslySetInnerHTML={{
                         __html:

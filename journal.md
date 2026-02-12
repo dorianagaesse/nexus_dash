@@ -47,3 +47,10 @@ Resolution: Added `sanitize-html` based sanitization (`lib/rich-text.ts`), rich-
 Date: 2026-02-12
 Issue: Users could view card details but not edit existing task content.
 Resolution: Added in-modal edit mode and persisted task updates through `PATCH /api/projects/[projectId]/tasks/[taskId]`.
+Date: 2026-02-12
+Feedback update: Rich-text needed heading presets and task detail long-content handling improvements.
+Resolution: Added `Title 1`/`Title 2` formatting actions in the editor, allowed `h1/h2` in sanitization, and constrained detail modal content with overflow-safe wrapping and scroll.
+
+Date: 2026-02-12
+Feedback update: Creation modal should close on outside click.
+Resolution: Added outside-click dismissal behavior to task creation modal and captured same requirement for project creation in backlog refinement.

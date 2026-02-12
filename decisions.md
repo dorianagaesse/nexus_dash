@@ -69,3 +69,9 @@ Status: Accepted
 Context: TASK-009 requires rich-text authoring and editing while keeping board cards compact and safe.
 Decision: Use a lightweight contenteditable editor in client UI, sanitize persisted HTML with `sanitize-html`, and convert to plain text for card previews.
 Consequences: Enables rich-text descriptions and safer rendering with limited formatting tags; introduces a sanitization dependency.
+Date: 2026-02-12
+Decision: Support heading presets in rich-text task descriptions
+Status: Accepted
+Context: Users need stronger visual hierarchy in task descriptions for readability.
+Decision: Add `Title 1` and `Title 2` formatting controls in editor and permit `h1/h2` tags through sanitization.
+Consequences: Better structured task notes; sanitizer rules expanded but still controlled.

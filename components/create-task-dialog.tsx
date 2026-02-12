@@ -23,8 +23,11 @@ export function CreateTaskDialog({ action }: CreateTaskDialogProps) {
       </Button>
 
       {isOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <Card className="w-full max-w-lg">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setIsOpen(false)}
+        >
+          <Card className="w-full max-w-lg" onClick={(event) => event.stopPropagation()}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-lg">Create task</CardTitle>
               <Button type="button" variant="ghost" size="icon" onClick={() => setIsOpen(false)}>

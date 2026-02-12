@@ -14,8 +14,8 @@ interface RichTextEditorProps {
   className?: string;
 }
 
-function exec(command: string) {
-  document.execCommand(command, false);
+function exec(command: string, value?: string) {
+  document.execCommand(command, false, value);
 }
 
 export function RichTextEditor({
@@ -43,6 +43,22 @@ export function RichTextEditor({
         <Button type="button" size="sm" variant="outline" onClick={() => exec("bold")}>
           <Bold className="h-4 w-4" />
           Bold
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => exec("formatBlock", "h1")}
+        >
+          Title 1
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => exec("formatBlock", "h2")}
+        >
+          Title 2
         </Button>
         <Button type="button" size="sm" variant="outline" onClick={() => exec("italic")}>
           <Italic className="h-4 w-4" />
@@ -87,7 +103,7 @@ export function RichTextEditor({
           "min-h-[140px] rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           "[&:empty:before]:pointer-events-none [&:empty:before]:text-muted-foreground [&:empty:before]:content-[attr(data-placeholder)]",
-          "[&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
+          "[overflow-wrap:anywhere] [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
         )}
         onInput={(event) => {
           onChange((event.currentTarget as HTMLDivElement).innerHTML);
