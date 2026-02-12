@@ -40,3 +40,10 @@ Resolution: Applied drag handle props to the full card surface and added safe de
 Date: 2026-02-12
 Issue: Users needed fast access to full task details without cluttering the board.
 Resolution: Added click-to-open task detail modal in `components/kanban-board.tsx` with full title/label/status/description display.
+Date: 2026-02-12
+Issue: Task descriptions needed formatting support while preserving safe rendering.
+Resolution: Added `sanitize-html` based sanitization (`lib/rich-text.ts`), rich-text editor UI, and plain-text preview extraction for board cards.
+
+Date: 2026-02-12
+Issue: Users could view card details but not edit existing task content.
+Resolution: Added in-modal edit mode and persisted task updates through `PATCH /api/projects/[projectId]/tasks/[taskId]`.

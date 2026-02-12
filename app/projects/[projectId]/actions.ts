@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
+import { sanitizeRichText } from "@/lib/rich-text";
 import { TASK_STATUSES } from "@/lib/task-status";
 
 const MIN_TITLE_LENGTH = 2;
@@ -29,7 +30,8 @@ export async function createTaskAction(
   formData: FormData
 ): Promise<void> {
   const title = readText(formData, "title");
-  const description = readText(formData, "description");
+  const rawDescription = readText(formData, "description");
+  const description = sanitizeRichText(rawDescription);
   const label = readText(formData, "label");
   const status = TASK_STATUSES[0];
 
@@ -58,7 +60,7 @@ export async function createTaskAction(
       data: {
         projectId,
         title,
-        description: description.length > 0 ? description : null,
+        description,
         label: label.length > 0 ? label : null,
         status,
         position: nextPosition,

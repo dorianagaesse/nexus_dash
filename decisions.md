@@ -63,3 +63,9 @@ Status: Accepted
 Context: Users found small drag handle too restrictive and requested card-wide drag with full info on click.
 Decision: Attach drag handle props to the full card surface and open a detail modal on card click.
 Consequences: Faster interaction with fewer precise cursor movements; click-vs-drag behavior now depends on DnD movement threshold.
+Date: 2026-02-12
+Decision: Store task descriptions as sanitized HTML with plain-text projection for board previews
+Status: Accepted
+Context: TASK-009 requires rich-text authoring and editing while keeping board cards compact and safe.
+Decision: Use a lightweight contenteditable editor in client UI, sanitize persisted HTML with `sanitize-html`, and convert to plain text for card previews.
+Consequences: Enables rich-text descriptions and safer rendering with limited formatting tags; introduces a sanitization dependency.

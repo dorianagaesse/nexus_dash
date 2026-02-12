@@ -8,11 +8,13 @@ import {
   type DropResult,
   type DraggableProvidedDraggableProps,
 } from "@hello-pangea/dnd";
-import { GripVertical, X } from "lucide-react";
+import { GripVertical, Pencil, X } from "lucide-react";
 
+import { RichTextEditor } from "@/components/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { richTextToPlainText } from "@/lib/rich-text";
 import { cn } from "@/lib/utils";
 import {
   isTaskStatus,
@@ -36,13 +38,13 @@ interface KanbanBoardProps {
 }
 
 function getDescriptionPreview(description: string, maxLength = 140): string {
-  const normalized = description.replace(/\s+/g, " ").trim();
+  const plainText = richTextToPlainText(description);
 
-  if (normalized.length <= maxLength) {
-    return normalized;
+  if (plainText.length <= maxLength) {
+    return plainText;
   }
 
-  return `${normalized.slice(0, maxLength - 3)}...`;
+  return `${plainText.slice(0, maxLength - 3)}...`;
 }
 
 function createEmptyColumns(): TaskColumns {
@@ -109,9 +111,28 @@ export function KanbanBoard({ projectId, initialTasks }: KanbanBoardProps) {
   const [persistError, setPersistError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
 
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editLabel, setEditLabel] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [isUpdatingTask, setIsUpdatingTask] = useState(false);
+  const [taskModalError, setTaskModalError] = useState<string | null>(null);
+
   useEffect(() => {
     setColumns(initialColumns);
   }, [initialColumns]);
+
+  useEffect(() => {
+    if (!selectedTask) {
+      return;
+    }
+
+    setIsEditMode(false);
+    setTaskModalError(null);
+    setEditTitle(selectedTask.title);
+    setEditLabel(selectedTask.label ?? "");
+    setEditDescription(selectedTask.description ?? "");
+  }, [selectedTask]);
 
   const persistColumns = useCallback(
     async (nextColumns: TaskColumns, previousColumns: TaskColumns) => {
@@ -184,6 +205,100 @@ export function KanbanBoard({ projectId, initialTasks }: KanbanBoardProps) {
     },
     [columns, persistColumns]
   );
+
+  const closeTaskModal = useCallback(() => {
+    setSelectedTask(null);
+    setIsEditMode(false);
+    setTaskModalError(null);
+  }, []);
+
+  const handleTaskUpdate = useCallback(async () => {
+    if (!selectedTask) {
+      return;
+    }
+
+    const normalizedTitle = editTitle.trim();
+    const normalizedLabel = editLabel.trim();
+
+    if (normalizedTitle.length < 2) {
+      setTaskModalError("Task title must be at least 2 characters.");
+      return;
+    }
+
+    setIsUpdatingTask(true);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/tasks/${selectedTask.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            title: normalizedTitle,
+            label: normalizedLabel,
+            description: editDescription,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        throw new Error(payload?.error ?? "Failed to update task");
+      }
+
+      const payload = (await response.json()) as {
+        task: {
+          id: string;
+          title: string;
+          label: string | null;
+          description: string | null;
+          status: string;
+        };
+      };
+
+      if (!isTaskStatus(payload.task.status)) {
+        throw new Error("Invalid task status returned by server");
+      }
+
+      const updatedTask: KanbanTask = {
+        id: payload.task.id,
+        title: payload.task.title,
+        label: payload.task.label,
+        description: payload.task.description,
+        status: payload.task.status,
+      };
+
+      setColumns((previousColumns) => {
+        const nextColumns = cloneColumns(previousColumns);
+        const taskColumn = nextColumns[updatedTask.status];
+        const taskIndex = taskColumn.findIndex((task) => task.id === updatedTask.id);
+
+        if (taskIndex === -1) {
+          return previousColumns;
+        }
+
+        taskColumn[taskIndex] = {
+          ...taskColumn[taskIndex],
+          ...updatedTask,
+        };
+
+        return nextColumns;
+      });
+
+      setSelectedTask(updatedTask);
+      setTaskModalError(null);
+      setIsEditMode(false);
+    } catch (error) {
+      console.error("[KanbanBoard.handleTaskUpdate]", error);
+      setTaskModalError("Could not save task changes.");
+    } finally {
+      setIsUpdatingTask(false);
+    }
+  }, [editDescription, editLabel, editTitle, projectId, selectedTask]);
 
   return (
     <div className="space-y-4">
@@ -288,24 +403,93 @@ export function KanbanBoard({ projectId, initialTasks }: KanbanBoardProps) {
             <CardHeader className="flex flex-row items-start justify-between space-y-0">
               <div className="space-y-2">
                 <Badge variant="outline">{selectedTask.status}</Badge>
-                <CardTitle className="text-xl">{selectedTask.title}</CardTitle>
+                {!isEditMode ? (
+                  <CardTitle className="text-xl">{selectedTask.title}</CardTitle>
+                ) : (
+                  <input
+                    value={editTitle}
+                    onChange={(event) => setEditTitle(event.target.value)}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  />
+                )}
               </div>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                onClick={() => setSelectedTask(null)}
+                onClick={closeTaskModal}
               >
                 <X className="h-4 w-4" />
               </Button>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {selectedTask.label ? (
-                <Badge variant="secondary">{selectedTask.label}</Badge>
-              ) : null}
-              <p className="min-h-[40px] whitespace-pre-wrap text-sm text-muted-foreground break-words">
-                {selectedTask.description ?? "No description provided."}
-              </p>
+            <CardContent className="space-y-4">
+              {!isEditMode ? (
+                <>
+                  {selectedTask.label ? (
+                    <Badge variant="secondary">{selectedTask.label}</Badge>
+                  ) : null}
+                  <div className="text-sm text-muted-foreground break-words [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_p]:mb-2">
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html:
+                          selectedTask.description ??
+                          "<p>No description provided.</p>",
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button type="button" variant="secondary" onClick={() => setIsEditMode(true)}>
+                      <Pencil className="h-4 w-4" />
+                      Edit task
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium">Label</label>
+                    <input
+                      value={editLabel}
+                      onChange={(event) => setEditLabel(event.target.value)}
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium">Description</label>
+                    <RichTextEditor
+                      id={`task-description-editor-${selectedTask.id}`}
+                      value={editDescription}
+                      onChange={setEditDescription}
+                      placeholder="Task details..."
+                    />
+                  </div>
+
+                  {taskModalError ? (
+                    <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+                      {taskModalError}
+                    </div>
+                  ) : null}
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      onClick={() => void handleTaskUpdate()}
+                      disabled={isUpdatingTask}
+                    >
+                      {isUpdatingTask ? "Saving..." : "Save changes"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setIsEditMode(false)}
+                      disabled={isUpdatingTask}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

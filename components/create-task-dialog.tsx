@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { PlusSquare, X } from "lucide-react";
 
+import { RichTextEditor } from "@/components/rich-text-editor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -12,6 +13,7 @@ interface CreateTaskDialogProps {
 
 export function CreateTaskDialog({ action }: CreateTaskDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [description, setDescription] = useState("");
 
   return (
     <>
@@ -63,14 +65,13 @@ export function CreateTaskDialog({ action }: CreateTaskDialogProps) {
                   <label htmlFor="task-description" className="text-sm font-medium">
                     Description
                   </label>
-                  <textarea
+                  <RichTextEditor
                     id="task-description"
-                    name="description"
-                    rows={4}
-                    maxLength={500}
-                    className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={description}
+                    onChange={setDescription}
                     placeholder="Optional implementation notes..."
                   />
+                  <input type="hidden" name="description" value={description} />
                 </div>
 
                 <div className="flex items-center gap-2">

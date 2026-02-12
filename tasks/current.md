@@ -1,31 +1,29 @@
-# Current Task: Kanban Interaction Refinements
+# Current Task: Task Edit Flow + Rich-Text Description Support
 
 ## Task ID
-TASK-008
+TASK-009
 
 ## Status
 🟢 **Done (Implementation Complete, Awaiting Joint Validation)**
 
 ## Priority
-🔴 **High** - UX-critical Kanban refinements before next feature phase
+🔴 **High** - Core task usability before further dashboard expansion
 
 ## Description
-Refine the Kanban board interactions so users can drag cards from any point, preview long descriptions safely, and open full task details by clicking a card.
+Add an edit workflow for Kanban tasks/cards and support rich-text formatting in task descriptions (for both creation and editing).
 
 ## Acceptance Criteria / Definition of Done
 
-### ✅ Drag and Drop UX
-- [x] Cards can be dragged from any card area (not a dedicated handle only)
-- [x] Drag behavior still preserves position/status persistence
+### ✅ Edit Flow
+- [x] User can open a task and enter edit mode
+- [x] User can update title, label, and description
+- [x] Changes persist in DB and reflect immediately in board/modal
 
-### ✅ Card Detail UX
-- [x] Clicking a card opens a detail view with full title/content/label/status
-- [x] Detail view is dismissible and does not break drag behavior
-
-### ✅ Description Rendering
-- [x] Long descriptions no longer overlap or break layout
-- [x] Board cards show truncated preview ending with ellipsis style behavior
-- [x] Full description remains visible in card detail view
+### ✅ Rich-Text Description
+- [x] Task creation supports rich-text formatting
+- [x] Task editing supports rich-text formatting
+- [x] Rich-text content is safely sanitized before persistence
+- [x] Board preview shows plain-text excerpt, detail view shows formatted content
 
 ### ✅ Verification
 - [x] `npm run lint` passes
@@ -33,11 +31,11 @@ Refine the Kanban board interactions so users can drag cards from any point, pre
 - [ ] Joint manual validation session with user
 
 ## Implementation Notes
-- Updated `components/kanban-board.tsx`:
-  - full-card drag by applying drag handle props to the full card container
-  - card click opens a task details modal
-  - description preview truncates with ellipsis-safe formatting
-- Kept existing persistence flow untouched (`/api/projects/[projectId]/tasks/reorder`) to avoid regression risk.
+- Added reusable rich text editor: `components/rich-text-editor.tsx`
+- Added rich text sanitization helpers: `lib/rich-text.ts`
+- Updated task creation modal to use rich text descriptions: `components/create-task-dialog.tsx`
+- Added task update API endpoint: `app/api/projects/[projectId]/tasks/[taskId]/route.ts`
+- Extended Kanban detail modal with editable task fields and save flow: `components/kanban-board.tsx`
 
 ## Blockers / Dependencies
 
@@ -45,7 +43,7 @@ Refine the Kanban board interactions so users can drag cards from any point, pre
 - None
 
 ### Dependencies
-- TASK-003 completed
+- TASK-008 completed
 
 ---
 
