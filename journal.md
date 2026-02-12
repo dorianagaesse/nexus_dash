@@ -23,3 +23,10 @@ Resolution: Switched Docker base image to `node:18-bullseye`, rebuilt image, and
 Date: 2026-02-12
 Validation: Project CRUD end-to-end test completed using live Docker app at `http://localhost:3001/projects`.
 Resolution: Created, updated, and deleted a project via server-action multipart POSTs (HTTP 303 responses), then confirmed DB project count = 0.
+Date: 2026-02-12
+Issue: TypeScript build error in `app/projects/[projectId]/page.tsx` due string `status` not narrowing to `TaskStatus`.
+Resolution: Switched to explicit guarded mapping using `isTaskStatus` before pushing tasks into `KanbanTask[]`.
+
+Date: 2026-02-12
+Validation: Temporary smoke validation for TASK-003 completed.
+Resolution: Seeded a temporary project/tasks, confirmed dashboard route rendering, called reorder API successfully, verified DB status/position updates, then removed smoke data.

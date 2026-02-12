@@ -38,3 +38,16 @@ Status: Accepted
 Context: Prisma engine failed in Alpine and Debian Bookworm images due OpenSSL runtime mismatch during Next build/runtime.
 Decision: Use `node:18-bullseye`, run `npx prisma generate` after source copy in `Dockerfile`, and run `npx prisma generate` at compose startup.
 Consequences: Reliable Prisma behavior in containerized dev/build; slightly larger image footprint.
+Date: 2026-02-12
+Decision: Implement Kanban interactions with client-side DnD + server persistence API
+Status: Accepted
+Context: TASK-003 requires drag-and-drop interactions with reliable status/position persistence.
+Decision: Use `@hello-pangea/dnd` in a client component (`components/kanban-board.tsx`) and persist board state through `POST /api/projects/[projectId]/tasks/reorder`.
+Consequences: Smooth UX with optimistic movement and explicit persistence boundary; introduces one dedicated API endpoint for board updates.
+
+Date: 2026-02-12
+Decision: Normalize task status handling via shared constants/types
+Status: Accepted
+Context: Kanban columns and persistence logic require consistent status values across server/client.
+Decision: Add `lib/task-status.ts` as the single source of truth for status values and validation helpers.
+Consequences: Reduces string drift risk and improves strict typing for board operations.

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FolderKanban, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, FolderKanban, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -180,6 +180,13 @@ export default async function ProjectsPage({
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <Button asChild>
+                  <Link href={`/projects/${project.id}`}>
+                    Open dashboard
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+
                 <form action={updateProjectAction} className="grid gap-3">
                   <input type="hidden" name="projectId" value={project.id} />
                   <div className="grid gap-2">

@@ -1,59 +1,52 @@
-# Current Task: Project CRUD Implementation
+# Current Task: Kanban Board With Drag-and-Drop Persistence
 
 ## Task ID
-TASK-002
+TASK-003
 
 ## Status
 🟢 **Done**
 
 ## Priority
-🔴 **High** - Required foundation for dashboard and Kanban features
+🔴 **High** - Core workflow for project execution
 
 ## Description
-Implement full Project CRUD at `/projects` using Prisma persistence and Next.js App Router. Users can create, update, delete, and list projects from a single management screen.
+Implement the project dashboard Kanban board with four columns (`Backlog`, `In Progress`, `Blocked`, `Done`) using `@hello-pangea/dnd`, with persisted task status and position in SQLite via Prisma.
 
 ## Acceptance Criteria / Definition of Done
 
-### ✅ Functional CRUD
-- [x] Project list renders from database
-- [x] Create project form persists data in SQLite
-- [x] Update project form persists changes
-- [x] Delete project removes project from database
-- [x] Empty state is shown when no projects exist
+### ✅ Dashboard Routing
+- [x] Each project can open a dedicated dashboard route (`/projects/[projectId]`)
+- [x] Dashboard displays project context and Kanban board
 
-### ✅ UX and Feedback
-- [x] Success feedback appears after create/update/delete
-- [x] Error feedback appears for invalid/missing inputs
-- [x] Home CTA routes to `/projects`
-- [x] No dead primary CTA buttons remain on landing page
+### ✅ Kanban UI
+- [x] Four columns rendered in the expected order
+- [x] Tasks render as cards with title, description, label badge
+- [x] Empty-column states are visible and readable
+- [x] Dragging task applies visual feedback (scale/rotation)
 
-### ✅ Technical Implementation
-- [x] CRUD uses Prisma with existing `Project` model
-- [x] Server actions used for mutations (`create/update/delete`)
-- [x] `/projects` remains server-rendered with strict typing
-- [x] Lint and build pass without warnings/errors
+### ✅ Persistence
+- [x] Dragging within a column persists updated positions
+- [x] Dragging across columns persists both status and position
+- [x] Persistence updates are scoped to the current project only
+- [x] Errors during persistence are handled and surfaced in UI
 
-### ✅ Docker Compatibility
-- [x] Docker base image updated for Prisma engine compatibility
-- [x] Prisma client generation guaranteed in image build and container startup
-- [x] Compose app runs with host-port override support (`APP_PORT`)
+### ✅ Task Management (Minimum)
+- [x] Ability to create tasks in project dashboard
+- [x] Newly created tasks appear in Backlog with persisted position
+
+### ✅ Verification
+- [x] `npm run lint` passes
+- [x] `npm run build` passes
+- [x] Temporary smoke checks performed (`/projects/[projectId]` render + reorder API + DB verification)
+- [ ] Full real-world test scenarios deferred (requested after TASK-003)
 
 ## Implementation Notes
-- Added server actions in `app/projects/actions.ts`.
-- Replaced placeholder `app/projects/page.tsx` with a full CRUD interface.
-- Updated `app/page.tsx` CTA behavior to avoid non-functional buttons.
-- Updated Docker setup (`Dockerfile`, `docker-compose.yml`) to avoid Prisma runtime failures in containers.
-
-## Verification Performed
-- [x] `npm run lint`
-- [x] `npm run build`
-- [x] `docker build -t nexus_dash-app:test .`
-- [x] `APP_PORT=3001 docker compose up -d`
-- [x] `curl http://localhost:3001/projects` returns `200`
-- [x] Create action tested via multipart form POST (`303` redirect)
-- [x] Update action tested via multipart form POST (`303` redirect)
-- [x] Delete action tested via multipart form POST (`303` redirect)
-- [x] DB verification after delete: project count returns `0`
+- Added project dashboard route: `app/projects/[projectId]/page.tsx`
+- Added task creation server action: `app/projects/[projectId]/actions.ts`
+- Added drag-and-drop board component: `components/kanban-board.tsx`
+- Added reorder persistence endpoint: `app/api/projects/[projectId]/tasks/reorder/route.ts`
+- Added shared task status constants/types: `lib/task-status.ts`
+- Updated projects list cards to open dashboard routes: `app/projects/page.tsx`
 
 ## Blockers / Dependencies
 
@@ -61,14 +54,14 @@ Implement full Project CRUD at `/projects` using Prisma persistence and Next.js 
 - None
 
 ### Dependencies
-- TASK-001 completed
+- TASK-002 completed
 
 ## Success Metrics
 Task is **COMPLETE** when:
-- [x] Project CRUD is functional and persisted
-- [x] Build and lint are green
-- [x] Docker workflow stays functional for local dev
-- [x] Ready to move to TASK-003 (Kanban board)
+- [x] Kanban drag-and-drop works on project dashboard
+- [x] Status/position persistence is written to DB
+- [x] Task creation in dashboard works
+- [x] Ready to move to TASK-004 (resource panel)
 
 ---
 
