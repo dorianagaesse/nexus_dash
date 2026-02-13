@@ -35,6 +35,18 @@ interface CalendarEventsResponse {
 }
 
 const CALENDAR_RANGE = "current-week";
+const DAY_START_HOUR = 7;
+const DAY_END_HOUR = 19;
+const HOUR_CELL_HEIGHT_PX = 56;
+const COMPACT_EVENT_HEIGHT_PX = 42;
+const TOTAL_DAY_MINUTES = (DAY_END_HOUR - DAY_START_HOUR) * 60;
+const TOTAL_GRID_HEIGHT_PX =
+  ((DAY_END_HOUR - DAY_START_HOUR) * HOUR_CELL_HEIGHT_PX);
+
+interface DayEventBucket {
+  allDay: CalendarEventItem[];
+  timed: CalendarEventItem[];
+}
 
 function toDateKey(date: Date): string {
   const year = date.getFullYear();
@@ -94,6 +106,72 @@ function formatEventTimeLabel(event: CalendarEventItem): string {
   });
 
   return `${startLabel} - ${endLabel}`;
+}
+
+function formatEventStartTimeLabel(event: CalendarEventItem): string {
+  if (event.isAllDay) {
+    return "All day";
+  }
+
+  const startDate = new Date(event.start);
+  if (Number.isNaN(startDate.getTime())) {
+    return "";
+  }
+
+  return startDate.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatHourLabel(hour: number): string {
+  const period = hour >= 12 ? "PM" : "AM";
+  const normalizedHour = ((hour + 11) % 12) + 1;
+  return `${normalizedHour}:00 ${period}`;
+}
+
+function getMinuteOfDay(date: Date): number {
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+function buildTimedEventLayout(event: CalendarEventItem): {
+  topPx: number;
+  heightPx: number;
+} | null {
+  if (event.isAllDay) {
+    return null;
+  }
+
+  const startDate = new Date(event.start);
+  if (Number.isNaN(startDate.getTime())) {
+    return null;
+  }
+
+  const endDate = event.end ? new Date(event.end) : new Date(startDate.getTime() + 30 * 60 * 1000);
+  if (Number.isNaN(endDate.getTime())) {
+    return null;
+  }
+
+  const windowStartMinute = DAY_START_HOUR * 60;
+  const windowEndMinute = DAY_END_HOUR * 60;
+  const startMinute = getMinuteOfDay(startDate);
+  const endMinute = Math.max(getMinuteOfDay(endDate), startMinute + 15);
+
+  const clippedStart = Math.max(startMinute, windowStartMinute);
+  const clippedEnd = Math.min(endMinute, windowEndMinute);
+
+  if (clippedEnd <= clippedStart) {
+    return null;
+  }
+
+  const topPx =
+    ((clippedStart - windowStartMinute) / TOTAL_DAY_MINUTES) * TOTAL_GRID_HEIGHT_PX;
+  const heightPx = Math.max(
+    24,
+    ((clippedEnd - clippedStart) / TOTAL_DAY_MINUTES) * TOTAL_GRID_HEIGHT_PX
+  );
+
+  return { topPx, heightPx };
 }
 
 export function ProjectCalendarPanel({ projectId, calendarId }: ProjectCalendarPanelProps) {
@@ -223,10 +301,13 @@ export function ProjectCalendarPanel({ projectId, calendarId }: ProjectCalendarP
   }, [rangeStart]);
 
   const eventsByDay = useMemo(() => {
-    const grouped = new Map<string, CalendarEventItem[]>();
+    const grouped = new Map<string, DayEventBucket>();
 
     weekDays.forEach((day) => {
-      grouped.set(toDateKey(day), []);
+      grouped.set(toDateKey(day), {
+        allDay: [],
+        timed: [],
+      });
     });
 
     events.forEach((event) => {
@@ -234,7 +315,25 @@ export function ProjectCalendarPanel({ projectId, calendarId }: ProjectCalendarP
       if (!key || !grouped.has(key)) {
         return;
       }
-      grouped.get(key)?.push(event);
+
+      const bucket = grouped.get(key);
+      if (!bucket) {
+        return;
+      }
+
+      if (event.isAllDay) {
+        bucket.allDay.push(event);
+      } else {
+        bucket.timed.push(event);
+      }
+    });
+
+    grouped.forEach((bucket) => {
+      bucket.timed.sort((left, right) => {
+        const leftTime = new Date(left.start).getTime();
+        const rightTime = new Date(right.start).getTime();
+        return leftTime - rightTime;
+      });
     });
 
     return grouped;
@@ -326,65 +425,190 @@ export function ProjectCalendarPanel({ projectId, calendarId }: ProjectCalendarP
                   Could not resolve the current week window.
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <div className="grid min-w-[980px] grid-cols-7 gap-2">
+                <div className="space-y-3 overflow-x-auto">
+                  <div className="grid min-w-[1180px] grid-cols-[80px_repeat(7,minmax(0,1fr))] gap-2">
+                    <div className="pt-1 text-[11px] font-medium text-muted-foreground">
+                      All day
+                    </div>
                     {weekDays.map((day) => {
                       const dayKey = toDateKey(day);
-                      const dayEvents = eventsByDay.get(dayKey) ?? [];
+                      const dayBucket = eventsByDay.get(dayKey);
+                      const allDayEvents = dayBucket?.allDay ?? [];
 
                       return (
                         <section
-                          key={dayKey}
-                          className="rounded-md border border-border/60 bg-background"
+                          key={`all-day-${dayKey}`}
+                          className="rounded-md border border-border/60 bg-background px-2 py-2"
                         >
-                          <header className="border-b border-border/60 px-2 py-1.5">
+                          <header className="mb-2 border-b border-border/60 pb-1.5">
                             <p className="text-xs font-medium text-foreground">
                               {formatDayHeader(day)}
                             </p>
                           </header>
-                          <div className="space-y-2 px-2 py-2">
-                            {dayEvents.length === 0 ? (
-                              <p className="text-xs text-muted-foreground">No events</p>
+                          <div className="space-y-1">
+                            {allDayEvents.length === 0 ? (
+                              <p className="text-[11px] text-muted-foreground">No all-day events</p>
                             ) : (
-                              dayEvents.map((event) => (
-                                <article
-                                  key={event.id}
-                                  className="rounded border border-border/60 bg-muted/10 px-2 py-1.5"
-                                >
-                                  <div className="flex items-start justify-between gap-1">
-                                    <div className="min-w-0">
-                                      <p className="truncate text-xs font-medium text-foreground">
+                              allDayEvents.map((event) => {
+                                if (event.htmlLink) {
+                                  return (
+                                    <a
+                                      key={event.id}
+                                      href={event.htmlLink}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="block rounded border border-border/60 bg-muted/20 px-2 py-1 transition hover:bg-muted/30"
+                                      title={`${event.summary} — ${formatEventTimeLabel(event)}`}
+                                    >
+                                      <p className="truncate text-[11px] font-medium text-foreground">
                                         {event.summary}
                                       </p>
-                                      <p className="text-[11px] text-muted-foreground">
-                                        {formatEventTimeLabel(event)}
-                                      </p>
-                                      {event.location ? (
-                                        <p className="truncate text-[11px] text-muted-foreground">
-                                          {event.location}
-                                        </p>
-                                      ) : null}
-                                    </div>
+                                    </a>
+                                  );
+                                }
 
-                                    {event.htmlLink ? (
-                                      <a
-                                        href={event.htmlLink}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="text-[11px] text-foreground underline underline-offset-2"
-                                      >
-                                        Open
-                                      </a>
-                                    ) : null}
-                                  </div>
-                                </article>
-                              ))
+                                return (
+                                  <article
+                                    key={event.id}
+                                    className="rounded border border-border/60 bg-muted/20 px-2 py-1"
+                                    title={`${event.summary} — ${formatEventTimeLabel(event)}`}
+                                  >
+                                    <p className="truncate text-[11px] font-medium text-foreground">
+                                      {event.summary}
+                                    </p>
+                                  </article>
+                                );
+                              })
                             )}
                           </div>
                         </section>
                       );
                     })}
                   </div>
+
+                  <div className="grid min-w-[1180px] grid-cols-[80px_repeat(7,minmax(0,1fr))] gap-2">
+                    <div
+                      className="relative rounded-md border border-border/60 bg-muted/20"
+                      style={{ height: `${TOTAL_GRID_HEIGHT_PX}px` }}
+                    >
+                      {Array.from(
+                        { length: DAY_END_HOUR - DAY_START_HOUR + 1 },
+                        (_, index) => {
+                          const hour = DAY_START_HOUR + index;
+                          const top = index * HOUR_CELL_HEIGHT_PX;
+
+                          return (
+                            <div
+                              key={`hour-label-${hour}`}
+                              className="absolute left-0 right-0"
+                              style={{ top: `${top}px` }}
+                            >
+                              <span className="absolute -top-2 left-2 rounded bg-background px-1 text-[10px] text-muted-foreground">
+                                {formatHourLabel(hour)}
+                              </span>
+                            </div>
+                          );
+                        }
+                      )}
+                    </div>
+
+                    {weekDays.map((day) => {
+                      const dayKey = toDateKey(day);
+                      const dayBucket = eventsByDay.get(dayKey);
+                      const timedEvents = dayBucket?.timed ?? [];
+
+                      return (
+                        <section
+                          key={`timed-${dayKey}`}
+                          className="relative overflow-hidden rounded-md border border-border/60 bg-background"
+                          style={{ height: `${TOTAL_GRID_HEIGHT_PX}px` }}
+                        >
+                          {Array.from(
+                            { length: DAY_END_HOUR - DAY_START_HOUR + 1 },
+                            (_, index) => {
+                              const top = index * HOUR_CELL_HEIGHT_PX;
+                              return (
+                                <div
+                                  key={`line-${dayKey}-${index}`}
+                                  className="absolute left-0 right-0 border-t border-border/40"
+                                  style={{ top: `${top}px` }}
+                                />
+                              );
+                            }
+                          )}
+
+                          {timedEvents.map((event) => {
+                            const layout = buildTimedEventLayout(event);
+                            if (!layout) {
+                              return null;
+                            }
+                            const isCompactEvent = layout.heightPx < COMPACT_EVENT_HEIGHT_PX;
+                            const eventTitle = `${event.summary} — ${formatEventTimeLabel(event)}`;
+
+                            const baseClassName =
+                              "absolute left-1 right-1 overflow-hidden rounded-md border border-sky-500/40 bg-sky-500/10 px-1.5 py-1";
+                            const style = {
+                              top: `${layout.topPx}px`,
+                              height: `${layout.heightPx}px`,
+                            };
+
+                            const content = isCompactEvent ? (
+                              <div className="flex items-center justify-between gap-1">
+                                <p className="truncate text-[10px] font-medium text-foreground">
+                                  {event.summary}
+                                </p>
+                                <span className="shrink-0 text-[10px] text-muted-foreground">
+                                  {formatEventStartTimeLabel(event)}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="min-w-0">
+                                <p className="truncate text-[11px] font-medium text-foreground">
+                                  {event.summary}
+                                </p>
+                                <p className="truncate text-[10px] text-muted-foreground">
+                                  {formatEventTimeLabel(event)}
+                                </p>
+                              </div>
+                            );
+
+                            if (event.htmlLink) {
+                              return (
+                                <a
+                                  key={event.id}
+                                  href={event.htmlLink}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  title={eventTitle}
+                                  className={`${baseClassName} transition hover:bg-sky-500/20`}
+                                  style={style}
+                                >
+                                  {content}
+                                </a>
+                              );
+                            }
+
+                            return (
+                              <article
+                                key={event.id}
+                                title={eventTitle}
+                                className={baseClassName}
+                                style={style}
+                              >
+                                {content}
+                              </article>
+                            );
+                          })}
+                        </section>
+                      );
+                    })}
+                  </div>
+
+                  {events.length === 0 ? (
+                    <div className="rounded-md border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
+                      No events in the current week.
+                    </div>
+                  ) : null}
                 </div>
               )}
             </>

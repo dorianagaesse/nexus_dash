@@ -3,6 +3,11 @@
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
 ## Pending
+- ID: TASK-032
+  Title: Calendar event creation and edit
+  Status: Pending
+  Rationale: Extend current read-only calendar integration so events can be created and edited directly from NexusDash.
+  Dependencies: TASK-005
 - ID: TASK-028
   Title: Test writing and coverage
   Status: Pending
