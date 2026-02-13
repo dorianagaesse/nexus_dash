@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { KanbanBoard, type KanbanTask } from "@/components/kanban-board";
 import { CreateTaskDialog } from "@/components/create-task-dialog";
+import { ProjectCalendarPanel } from "@/components/project-calendar-panel";
 import { ProjectContextPanel } from "@/components/project-context-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { getContextCardColorFromSeed } from "@/lib/context-card-colors";
 import { prisma } from "@/lib/prisma";
 import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
+import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import { isTaskStatus } from "@/lib/task-status";
 
 import {
@@ -30,12 +32,18 @@ const STATUS_MESSAGES: Record<string, string> = {
   "context-created": "Context card created successfully.",
   "context-updated": "Context card updated successfully.",
   "context-deleted": "Context card deleted successfully.",
+  "calendar-connected": "Google Calendar connected successfully.",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
   "title-too-short": "Task title must be at least 2 characters long.",
   "project-not-found": "Project not found.",
   "create-failed": "Could not create task. Please retry.",
+  "attachment-link-invalid":
+    "One or more attachment links are invalid. Use http:// or https:// URLs.",
+  "attachment-file-too-large": "Attachment files must be 10MB or smaller.",
+  "attachment-file-type-invalid":
+    "Unsupported attachment file type. Use PDF, image, text, CSV, or JSON.",
   "context-card-missing": "Context card identifier is missing.",
   "context-card-not-found": "Context card not found.",
   "context-title-too-short": "Context card title must be at least 2 characters long.",
@@ -45,6 +53,17 @@ const ERROR_MESSAGES: Record<string, string> = {
   "context-create-failed": "Could not create context card. Please retry.",
   "context-update-failed": "Could not update context card. Please retry.",
   "context-delete-failed": "Could not delete context card. Please retry.",
+  "calendar-config-missing":
+    "Google Calendar OAuth configuration is incomplete in .env.",
+  "calendar-auth-init-failed":
+    "Could not start Google Calendar authentication. Please retry.",
+  "calendar-auth-cancelled": "Google Calendar authentication was cancelled.",
+  "calendar-auth-state-invalid":
+    "Google Calendar authentication state check failed. Please retry.",
+  "calendar-auth-code-missing":
+    "Google Calendar callback did not return an authorization code.",
+  "calendar-auth-failed":
+    "Google Calendar authentication failed. Check OAuth credentials and test-user settings.",
 };
 
 function readQueryValue(value: string | string[] | undefined): string | null {
@@ -86,6 +105,9 @@ async function getProject(projectId: string) {
           attachments: {
             orderBy: [{ createdAt: "desc" }],
           },
+          blockedFollowUps: {
+            orderBy: [{ createdAt: "desc" }],
+          },
         },
       },
       resources: {
@@ -115,6 +137,7 @@ export default async function ProjectDashboardPage({
 
   const kanbanTasks: KanbanTask[] = [];
   const archivedDoneTasks: KanbanTask[] = [];
+  const existingLabelSet = new Set<string>();
   const contextCards = project.resources
     .filter((resource) => resource.type === RESOURCE_TYPE_CONTEXT_CARD)
     .map((resource) => ({
@@ -145,8 +168,12 @@ export default async function ProjectDashboardPage({
       id: task.id,
       title: task.title,
       description: task.description,
-      blockedNote: task.blockedNote,
-      label: task.label,
+      labels: getTaskLabelsFromStorage(task.labelsJson, task.label),
+      blockedFollowUps: task.blockedFollowUps.map((entry) => ({
+        id: entry.id,
+        content: entry.content,
+        createdAt: entry.createdAt.toISOString(),
+      })),
       status: task.status,
       attachments: task.attachments.map((attachment) => ({
         id: attachment.id,
@@ -162,6 +189,10 @@ export default async function ProjectDashboardPage({
       })),
     };
 
+    normalizedTask.labels.forEach((label) => {
+      existingLabelSet.add(label);
+    });
+
     if (task.status === "Done" && task.archivedAt) {
       archivedDoneTasks.push(normalizedTask);
       return;
@@ -174,6 +205,7 @@ export default async function ProjectDashboardPage({
   const createContextCardForProject = createContextCardAction.bind(null, project.id);
   const updateContextCardForProject = updateContextCardAction.bind(null, project.id);
   const deleteContextCardForProject = deleteContextCardAction.bind(null, project.id);
+  const calendarId = process.env.GOOGLE_CALENDAR_ID?.trim() ?? "primary";
   const status = readQueryValue(searchParams?.status);
   const error = readQueryValue(searchParams?.error);
 
@@ -225,8 +257,15 @@ export default async function ProjectDashboardPage({
         projectId={project.id}
         initialTasks={kanbanTasks}
         archivedDoneTasks={archivedDoneTasks}
-        headerAction={<CreateTaskDialog action={createTaskForProject} />}
+        headerAction={
+          <CreateTaskDialog
+            action={createTaskForProject}
+            existingLabels={Array.from(existingLabelSet)}
+          />
+        }
       />
+
+      <ProjectCalendarPanel projectId={project.id} calendarId={calendarId} />
     </main>
   );
 }

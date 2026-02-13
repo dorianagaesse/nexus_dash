@@ -40,7 +40,11 @@ export function CreateProjectDialog({ action }: CreateProjectDialogProps) {
               </Button>
             </CardHeader>
             <CardContent>
-              <form action={action} className="grid gap-4">
+              <form
+                action={action}
+                className="grid gap-4"
+                onSubmit={() => setIsOpen(false)}
+              >
                 <div className="grid gap-2">
                   <label htmlFor="create-name" className="text-sm font-medium">
                     Name

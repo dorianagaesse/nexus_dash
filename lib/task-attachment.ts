@@ -31,6 +31,26 @@ export function isAllowedAttachmentMimeType(mimeType: string): boolean {
   );
 }
 
+export function normalizeAttachmentUrl(value: string): string | null {
+  const rawValue = value.trim();
+  if (!rawValue) {
+    return null;
+  }
+
+  const hasProtocol = /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(rawValue);
+  const candidate = hasProtocol ? rawValue : `https://${rawValue}`;
+
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 export function formatAttachmentFileSize(sizeBytes: number | null): string {
   if (!sizeBytes || sizeBytes < 0) {
     return "";
@@ -45,4 +65,40 @@ export function formatAttachmentFileSize(sizeBytes: number | null): string {
   }
 
   return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export type AttachmentPreviewKind = "image" | "pdf";
+
+export function getAttachmentPreviewKind(
+  mimeType: string | null
+): AttachmentPreviewKind | null {
+  if (!mimeType) {
+    return null;
+  }
+
+  if (mimeType === "application/pdf") {
+    return "pdf";
+  }
+
+  if (mimeType.startsWith("image/")) {
+    return "image";
+  }
+
+  return null;
+}
+
+export function isAttachmentPreviewable(
+  kind: string,
+  mimeType: string | null
+): boolean {
+  return kind === ATTACHMENT_KIND_FILE && getAttachmentPreviewKind(mimeType) !== null;
+}
+
+export function buildAttachmentInlineUrl(downloadUrl: string | null): string | null {
+  if (!downloadUrl) {
+    return null;
+  }
+
+  const separator = downloadUrl.includes("?") ? "&" : "?";
+  return `${downloadUrl}${separator}disposition=inline`;
 }

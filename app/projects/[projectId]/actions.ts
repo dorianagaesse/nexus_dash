@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { deleteAttachmentFile, saveAttachmentFile } from "@/lib/attachment-storage";
 import {
   CONTEXT_CARD_COLORS,
   isContextCardColor,
@@ -10,11 +11,26 @@ import {
 import { prisma } from "@/lib/prisma";
 import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
 import { sanitizeRichText } from "@/lib/rich-text";
+import {
+  ATTACHMENT_KIND_FILE,
+  ATTACHMENT_KIND_LINK,
+  isAllowedAttachmentMimeType,
+  MAX_ATTACHMENT_FILE_SIZE_BYTES,
+  normalizeAttachmentUrl,
+} from "@/lib/task-attachment";
+import { parseTaskLabelsJson, serializeTaskLabels } from "@/lib/task-label";
 import { TASK_STATUSES } from "@/lib/task-status";
 
 const MIN_TITLE_LENGTH = 2;
 const MAX_CONTEXT_TITLE_LENGTH = 120;
 const MAX_CONTEXT_CONTENT_LENGTH = 4000;
+const ATTACHMENT_LINKS_FIELD = "attachmentLinks";
+const ATTACHMENT_FILES_FIELD = "attachmentFiles";
+
+interface ParsedAttachmentLink {
+  name: string;
+  url: string;
+}
 
 function readText(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -34,6 +50,173 @@ function resolveContextColor(value: string): string | null {
   }
 
   return value;
+}
+
+function parseAttachmentLinks(formData: FormData): {
+  links: ParsedAttachmentLink[];
+  error: string | null;
+} {
+  const rawValue = readText(formData, ATTACHMENT_LINKS_FIELD);
+
+  if (!rawValue) {
+    return { links: [], error: null };
+  }
+
+  let payload: unknown;
+
+  try {
+    payload = JSON.parse(rawValue);
+  } catch {
+    return { links: [], error: "attachment-link-invalid" };
+  }
+
+  if (!Array.isArray(payload)) {
+    return { links: [], error: "attachment-link-invalid" };
+  }
+
+  const links: ParsedAttachmentLink[] = [];
+
+  for (const item of payload) {
+    if (!item || typeof item !== "object") {
+      return { links: [], error: "attachment-link-invalid" };
+    }
+
+    const linkInput = item as { name?: unknown; url?: unknown };
+    const rawUrl = typeof linkInput.url === "string" ? linkInput.url.trim() : "";
+    const normalizedUrl = normalizeAttachmentUrl(rawUrl);
+
+    if (!normalizedUrl) {
+      return { links: [], error: "attachment-link-invalid" };
+    }
+
+    const rawName = typeof linkInput.name === "string" ? linkInput.name.trim() : "";
+    links.push({
+      name: rawName || new URL(normalizedUrl).hostname,
+      url: normalizedUrl,
+    });
+  }
+
+  return { links, error: null };
+}
+
+function readAttachmentFiles(formData: FormData): File[] {
+  return formData
+    .getAll(ATTACHMENT_FILES_FIELD)
+    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
+}
+
+function validateAttachmentFiles(files: File[]): string | null {
+  for (const file of files) {
+    if (file.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
+      return "attachment-file-too-large";
+    }
+
+    if (!isAllowedAttachmentMimeType(file.type)) {
+      return "attachment-file-type-invalid";
+    }
+  }
+
+  return null;
+}
+
+async function createTaskAttachments(
+  taskId: string,
+  links: ParsedAttachmentLink[],
+  files: File[]
+) {
+  const savedStorageKeys: string[] = [];
+
+  try {
+    if (links.length > 0) {
+      await prisma.taskAttachment.createMany({
+        data: links.map((link) => ({
+          taskId,
+          kind: ATTACHMENT_KIND_LINK,
+          name: link.name,
+          url: link.url,
+        })),
+      });
+    }
+
+    for (const file of files) {
+      const storedFile = await saveAttachmentFile({
+        scope: "task",
+        ownerId: taskId,
+        file,
+      });
+      savedStorageKeys.push(storedFile.storageKey);
+
+      await prisma.taskAttachment.create({
+        data: {
+          taskId,
+          kind: ATTACHMENT_KIND_FILE,
+          name: storedFile.originalName,
+          storageKey: storedFile.storageKey,
+          mimeType: storedFile.mimeType,
+          sizeBytes: storedFile.sizeBytes,
+        },
+      });
+    }
+  } catch (error) {
+    await Promise.all(
+      savedStorageKeys.map((storageKey) =>
+        deleteAttachmentFile(storageKey).catch((cleanupError) => {
+          console.error("[createTaskAttachments.cleanup]", cleanupError);
+        })
+      )
+    );
+    throw error;
+  }
+}
+
+async function createContextCardAttachments(
+  cardId: string,
+  links: ParsedAttachmentLink[],
+  files: File[]
+) {
+  const savedStorageKeys: string[] = [];
+
+  try {
+    if (links.length > 0) {
+      await prisma.resourceAttachment.createMany({
+        data: links.map((link) => ({
+          resourceId: cardId,
+          kind: ATTACHMENT_KIND_LINK,
+          name: link.name,
+          url: link.url,
+        })),
+      });
+    }
+
+    for (const file of files) {
+      const storedFile = await saveAttachmentFile({
+        scope: "context-card",
+        ownerId: cardId,
+        file,
+      });
+      savedStorageKeys.push(storedFile.storageKey);
+
+      await prisma.resourceAttachment.create({
+        data: {
+          resourceId: cardId,
+          kind: ATTACHMENT_KIND_FILE,
+          name: storedFile.originalName,
+          storageKey: storedFile.storageKey,
+          mimeType: storedFile.mimeType,
+          sizeBytes: storedFile.sizeBytes,
+        },
+      });
+    }
+  } catch (error) {
+    await Promise.all(
+      savedStorageKeys.map((storageKey) =>
+        deleteAttachmentFile(storageKey).catch((cleanupError) => {
+          console.error("[createContextCardAttachments.cleanup]", cleanupError);
+        })
+      )
+    );
+    throw error;
+  }
 }
 
 function redirectWithError(projectId: string, error: string): never {
@@ -59,12 +242,26 @@ export async function createTaskAction(
   const title = readText(formData, "title");
   const rawDescription = readText(formData, "description");
   const description = sanitizeRichText(rawDescription);
-  const label = readText(formData, "label");
+  const labels = parseTaskLabelsJson(readText(formData, "labels"));
+  const serializedLabels = serializeTaskLabels(labels);
   const status = TASK_STATUSES[0];
 
   if (title.length < MIN_TITLE_LENGTH) {
     redirectWithError(projectId, "title-too-short");
   }
+
+  const parsedLinks = parseAttachmentLinks(formData);
+  if (parsedLinks.error) {
+    redirectWithError(projectId, parsedLinks.error);
+  }
+
+  const attachmentFiles = readAttachmentFiles(formData);
+  const attachmentFileError = validateAttachmentFiles(attachmentFiles);
+  if (attachmentFileError) {
+    redirectWithError(projectId, attachmentFileError);
+  }
+
+  let createdTaskId: string | null = null;
 
   try {
     const project = await prisma.project.findUnique({
@@ -83,17 +280,32 @@ export async function createTaskAction(
 
     const nextPosition = (maxPosition._max.position ?? -1) + 1;
 
-    await prisma.task.create({
+    const createdTask = await prisma.task.create({
       data: {
         projectId,
         title,
         description,
-        label: label.length > 0 ? label : null,
+        label: labels[0] ?? null,
+        labelsJson: serializedLabels,
         status,
         position: nextPosition,
       },
     });
+
+    createdTaskId = createdTask.id;
+
+    await createTaskAttachments(createdTask.id, parsedLinks.links, attachmentFiles);
   } catch (error) {
+    if (createdTaskId) {
+      await prisma.task
+        .delete({
+          where: { id: createdTaskId },
+        })
+        .catch((cleanupError) => {
+          console.error("[createTaskAction.cleanup]", cleanupError);
+        });
+    }
+
     console.error("[createTaskAction]", error);
     redirectWithError(projectId, "create-failed");
   }
@@ -126,6 +338,19 @@ export async function createContextCardAction(
     redirectWithContextError(projectId, "context-color-invalid");
   }
 
+  const parsedLinks = parseAttachmentLinks(formData);
+  if (parsedLinks.error) {
+    redirectWithContextError(projectId, parsedLinks.error);
+  }
+
+  const attachmentFiles = readAttachmentFiles(formData);
+  const attachmentFileError = validateAttachmentFiles(attachmentFiles);
+  if (attachmentFileError) {
+    redirectWithContextError(projectId, attachmentFileError);
+  }
+
+  let createdCardId: string | null = null;
+
   try {
     const project = await prisma.project.findUnique({
       where: { id: projectId },
@@ -136,7 +361,7 @@ export async function createContextCardAction(
       redirectWithContextError(projectId, "project-not-found");
     }
 
-    await prisma.resource.create({
+    const createdCard = await prisma.resource.create({
       data: {
         projectId,
         type: RESOURCE_TYPE_CONTEXT_CARD,
@@ -145,7 +370,25 @@ export async function createContextCardAction(
         color,
       },
     });
+
+    createdCardId = createdCard.id;
+
+    await createContextCardAttachments(
+      createdCard.id,
+      parsedLinks.links,
+      attachmentFiles
+    );
   } catch (error) {
+    if (createdCardId) {
+      await prisma.resource
+        .delete({
+          where: { id: createdCardId },
+        })
+        .catch((cleanupError) => {
+          console.error("[createContextCardAction.cleanup]", cleanupError);
+        });
+    }
+
     console.error("[createContextCardAction]", error);
     redirectWithContextError(projectId, "context-create-failed");
   }

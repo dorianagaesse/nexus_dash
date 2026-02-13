@@ -2,14 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { sanitizeRichText } from "@/lib/rich-text";
+import { normalizeTaskLabels, serializeTaskLabels } from "@/lib/task-label";
 
 const MIN_TITLE_LENGTH = 2;
 
 interface UpdateTaskPayload {
   title?: string;
   label?: string;
+  labels?: string[];
   description?: string;
-  blockedNote?: string;
+  blockedFollowUpEntry?: string;
 }
 
 function normalizeText(value: unknown): string {
@@ -39,9 +41,14 @@ export async function PATCH(
   }
 
   const title = normalizeText(payload.title);
-  const label = normalizeText(payload.label);
+  const rawLabels =
+    Array.isArray(payload.labels) && payload.labels.length > 0
+      ? payload.labels
+      : [normalizeText(payload.label)];
+  const labels = normalizeTaskLabels(rawLabels.map((entry) => normalizeText(entry)));
+  const serializedLabels = serializeTaskLabels(labels);
   const description = sanitizeRichText(normalizeText(payload.description));
-  const blockedNote = normalizeText(payload.blockedNote);
+  const blockedFollowUpEntry = normalizeText(payload.blockedFollowUpEntry);
 
   if (title.length < MIN_TITLE_LENGTH) {
     return NextResponse.json(
@@ -60,24 +67,52 @@ export async function PATCH(
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    const updatedTask = await prisma.task.update({
-      where: { id: taskId },
-      data: {
-        title,
-        label: label.length > 0 ? label : null,
-        description,
-        blockedNote: blockedNote.length > 0 ? blockedNote : null,
-      },
-      select: {
-        id: true,
-        title: true,
-        label: true,
-        description: true,
-        blockedNote: true,
-        status: true,
-        position: true,
-      },
+    const updatedTask = await prisma.$transaction(async (tx) => {
+      await tx.task.update({
+        where: { id: taskId },
+        data: {
+          title,
+          label: labels[0] ?? null,
+          labelsJson: serializedLabels,
+          description,
+        },
+      });
+
+      if (blockedFollowUpEntry.length > 0 && existingTask.status === "Blocked") {
+        await tx.taskBlockedFollowUp.create({
+          data: {
+            taskId,
+            content: blockedFollowUpEntry,
+          },
+        });
+      }
+
+      return tx.task.findUnique({
+        where: { id: taskId },
+        select: {
+          id: true,
+          title: true,
+          label: true,
+          labelsJson: true,
+          description: true,
+          blockedNote: true,
+          status: true,
+          position: true,
+          blockedFollowUps: {
+            orderBy: [{ createdAt: "desc" }],
+            select: {
+              id: true,
+              content: true,
+              createdAt: true,
+            },
+          },
+        },
+      });
     });
+
+    if (!updatedTask) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
 
     return NextResponse.json({ task: updatedTask });
   } catch (error) {

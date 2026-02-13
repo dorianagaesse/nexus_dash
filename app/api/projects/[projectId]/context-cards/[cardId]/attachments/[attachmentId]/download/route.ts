@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   {
     params,
   }: {
@@ -20,6 +20,12 @@ export async function GET(
   }
 
   try {
+    const requestUrl = new URL(request.url);
+    const disposition =
+      requestUrl.searchParams.get("disposition") === "inline"
+        ? "inline"
+        : "attachment";
+
     const attachment = await prisma.resourceAttachment.findUnique({
       where: { id: attachmentId },
       select: {
@@ -55,7 +61,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": attachment.mimeType || "application/octet-stream",
-        "Content-Disposition": `attachment; filename*=UTF-8''${filename}`,
+        "Content-Disposition": `${disposition}; filename*=UTF-8''${filename}`,
         "Cache-Control": "private, max-age=60",
       },
     });

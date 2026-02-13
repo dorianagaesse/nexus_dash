@@ -9,6 +9,7 @@ import {
   isAllowedAttachmentMimeType,
   isAttachmentKind,
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
+  normalizeAttachmentUrl,
 } from "@/lib/task-attachment";
 
 function readText(formData: FormData, key: string): string {
@@ -17,22 +18,6 @@ function readText(formData: FormData, key: string): string {
     return "";
   }
   return value.trim();
-}
-
-function normalizeLinkUrl(value: string): string | null {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const url = new URL(value);
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      return null;
-    }
-    return url.toString();
-  } catch {
-    return null;
-  }
 }
 
 export async function POST(
@@ -78,7 +63,7 @@ export async function POST(
 
   if (kind === ATTACHMENT_KIND_LINK) {
     const rawUrl = readText(formData, "url");
-    const normalizedUrl = normalizeLinkUrl(rawUrl);
+    const normalizedUrl = normalizeAttachmentUrl(rawUrl);
     const providedName = readText(formData, "name");
 
     if (!normalizedUrl) {

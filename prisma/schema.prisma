@@ -28,9 +28,11 @@ model Task {
   status      String   @default("Backlog")
   position    Int      @default(0)
   label       String?
+  labelsJson  String?
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   attachments TaskAttachment[]
+  blockedFollowUps TaskBlockedFollowUp[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -75,4 +77,25 @@ model ResourceAttachment {
   createdAt   DateTime @default(now())
 
   @@index([resourceId])
+}
+
+model TaskBlockedFollowUp {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([taskId, createdAt])
+}
+
+model GoogleCalendarCredential {
+  id           String   @id @default("default")
+  accessToken  String?
+  refreshToken String
+  tokenType    String?
+  scope        String?
+  expiresAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

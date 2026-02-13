@@ -3,9 +3,19 @@
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
 ## Pending
+- ID: TASK-028
+  Title: Test writing and coverage
+  Status: Pending
+  Rationale: Establish automated tests and measurable coverage to prevent regressions across core workflows.
+  Dependencies: TASK-026
+- ID: TASK-029
+  Title: File preview for attachment files (image, PDF)
+  Status: Done (2026-02-13)
+  Rationale: Allow quick in-app preview for supported file types without forcing immediate download.
+  Dependencies: TASK-019
 - ID: TASK-005
   Title: Google auth and calendar integration
-  Status: Pending
+  Status: In Progress (2026-02-13)
   Rationale: Enables calendar events visibility directly in NexusDash.
   Dependencies: TASK-004
 - ID: TASK-022
@@ -35,6 +45,31 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-021, TASK-022
 
 ## Completed
+- ID: TASK-030
+  Title: Traceable blocked follow-up timeline on Kanban cards
+  Status: Done (2026-02-13)
+  Rationale: Make blocked follow-up auditable by storing append-only updates where each entry shows its creation date/time.
+  Dependencies: TASK-016
+- ID: TASK-031
+  Title: Multi-label Kanban card creation with Enter-to-add and autocomplete
+  Status: Done (2026-02-13)
+  Rationale: Improve task labeling by supporting multiple labels, Enter-to-add interactions, pastel auto-colors, and suggestions from existing labels.
+  Dependencies: TASK-003, TASK-010
+- ID: TASK-027
+  Title: Attachment UI refinement with minimalist action icons
+  Status: Done (2026-02-13)
+  Rationale: Simplify attachment zones by using compact icon-first controls for link and file actions.
+  Dependencies: TASK-026
+- ID: TASK-025
+  Title: Auto-close create-project modal on successful submit
+  Status: Done (2026-02-13)
+  Rationale: Keep create flow consistent with other modals by closing immediately after submission.
+  Dependencies: TASK-012
+- ID: TASK-026
+  Title: Enable attachments during task/context card creation
+  Status: Done (2026-02-13)
+  Rationale: Attachment support should be available at creation-time, not only after opening edit mode.
+  Dependencies: TASK-007, TASK-019
 - ID: TASK-004
   Title: Project context panel with user-defined info cards
   Status: Done (2026-02-12)

@@ -21,9 +21,20 @@ Open `http://localhost:3000`.
 
 ## Database (Prisma)
 
+`npm run dev` and `npm run start` automatically run `prisma migrate deploy` first.
+On a fresh clone/machine, this initializes `prisma/dev.db` before the app handles requests.
+
+If you create a new migration during development:
+
 ```bash
-npx prisma migrate dev --name init
+npx prisma migrate dev --name <migration_name>
 npx prisma generate
+```
+
+If you need to apply existing migrations manually:
+
+```bash
+npm run db:migrate
 ```
 
 The SQLite file is created at `prisma/dev.db` and is gitignored.

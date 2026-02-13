@@ -255,3 +255,8 @@ A task is considered **DONE** only if:
 - ✅ Code review checklist 100% validated
 - ✅ Commit made with clear message
 - ✅ `tasks/current.md` updated with "Done" status
+
+## 11. Additional Execution Rules
+
+- Always perform tests for validation before considering a task done.
+- Work with atomic commits (one logical change per commit).

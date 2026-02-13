@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronUp,
   Link2,
+  PanelsTopLeft,
   Paperclip,
   Pencil,
   PlusSquare,
@@ -13,11 +14,13 @@ import {
   X,
 } from "lucide-react";
 
+import { AttachmentPreviewModal } from "@/components/attachment-preview-modal";
 import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
 import {
   ATTACHMENT_KIND_FILE,
   ATTACHMENT_KIND_LINK,
   formatAttachmentFileSize,
+  isAttachmentPreviewable,
 } from "@/lib/task-attachment";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +44,11 @@ interface ProjectContextCard {
   attachments: ProjectContextAttachment[];
 }
 
+interface PendingAttachmentLink {
+  id: string;
+  url: string;
+}
+
 interface ProjectContextPanelProps {
   projectId: string;
   cards: ProjectContextCard[];
@@ -52,6 +60,10 @@ interface ProjectContextPanelProps {
 function getRandomContextColor() {
   const index = Math.floor(Math.random() * CONTEXT_CARD_COLORS.length);
   return CONTEXT_CARD_COLORS[index];
+}
+
+function createLocalId(): string {
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function resolveAttachmentHref(attachment: ProjectContextAttachment): string | null {
@@ -145,15 +157,22 @@ export function ProjectContextPanel({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createColor, setCreateColor] = useState<string>(getRandomContextColor());
+  const [createLinkUrl, setCreateLinkUrl] = useState("");
+  const [isCreateLinkComposerOpen, setIsCreateLinkComposerOpen] = useState(false);
+  const [createAttachmentLinks, setCreateAttachmentLinks] = useState<
+    PendingAttachmentLink[]
+  >([]);
+  const [createSelectedFiles, setCreateSelectedFiles] = useState<File[]>([]);
+  const [createFileInputKey, setCreateFileInputKey] = useState(0);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [editingColor, setEditingColor] = useState<string>(CONTEXT_CARD_COLORS[0]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [isSubmittingAttachment, setIsSubmittingAttachment] = useState(false);
-  const [linkName, setLinkName] = useState("");
-  const [linkUrl, setLinkUrl] = useState("");
-  const [fileLabel, setFileLabel] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [fileInputKey, setFileInputKey] = useState(0);
+  const [isEditLinkComposerOpen, setIsEditLinkComposerOpen] = useState(false);
+  const [editLinkUrl, setEditLinkUrl] = useState("");
+  const [editFileInputKey, setEditFileInputKey] = useState(0);
+  const [previewAttachment, setPreviewAttachment] =
+    useState<ProjectContextAttachment | null>(null);
   const [cardAttachmentsById, setCardAttachmentsById] = useState<
     Record<string, ProjectContextAttachment[]>
   >({});
@@ -177,11 +196,10 @@ export function ProjectContextPanel({
     }
     setEditingColor(editingCard.color);
     setAttachmentError(null);
-    setLinkName("");
-    setLinkUrl("");
-    setFileLabel("");
-    setSelectedFile(null);
-    setFileInputKey((previous) => previous + 1);
+    setIsEditLinkComposerOpen(false);
+    setEditLinkUrl("");
+    setEditFileInputKey((previous) => previous + 1);
+    setPreviewAttachment(null);
   }, [editingCard]);
 
   useEffect(() => {
@@ -212,14 +230,79 @@ export function ProjectContextPanel({
     );
   }, [cards]);
 
+  useEffect(() => {
+    if (!editingCard || !previewAttachment) {
+      return;
+    }
+
+    const attachments = cardAttachmentsById[editingCard.id] ?? editingCard.attachments;
+    const stillExists = attachments.some(
+      (attachment) => attachment.id === previewAttachment.id
+    );
+
+    if (!stillExists) {
+      setPreviewAttachment(null);
+    }
+  }, [cardAttachmentsById, editingCard, previewAttachment]);
+
+  const resetCreateAttachmentDraft = () => {
+    setCreateLinkUrl("");
+    setIsCreateLinkComposerOpen(false);
+    setCreateAttachmentLinks([]);
+    setCreateSelectedFiles([]);
+    setCreateFileInputKey((previous) => previous + 1);
+  };
+
+  const closeCreateModal = () => {
+    resetCreateAttachmentDraft();
+    setIsCreateOpen(false);
+  };
+
   const openCreateModal = () => {
+    resetCreateAttachmentDraft();
     setCreateColor(getRandomContextColor());
     setIsExpanded(true);
     setIsCreateOpen(true);
   };
 
+  const closeEditModal = () => {
+    setEditingCardId(null);
+    setAttachmentError(null);
+    setPreviewAttachment(null);
+  };
+
+  const handleStageCreateLink = () => {
+    const normalizedUrl = createLinkUrl.trim();
+    if (!normalizedUrl) {
+      return;
+    }
+
+    setCreateAttachmentLinks((previous) => [
+      {
+        id: createLocalId(),
+        url: normalizedUrl,
+      },
+      ...previous,
+    ]);
+    setCreateLinkUrl("");
+    setIsCreateLinkComposerOpen(false);
+  };
+
+  const handleRemoveCreateLink = (linkId: string) => {
+    setCreateAttachmentLinks((previous) =>
+      previous.filter((link) => link.id !== linkId)
+    );
+  };
+
+  const serializedCreateLinks = JSON.stringify(
+    createAttachmentLinks.map((link) => ({
+      name: "",
+      url: link.url,
+    }))
+  );
+
   const handleAddLinkAttachment = async () => {
-    if (!editingCard) {
+    if (!editingCard || !editLinkUrl.trim()) {
       return;
     }
 
@@ -229,8 +312,8 @@ export function ProjectContextPanel({
     try {
       const formData = new FormData();
       formData.append("kind", ATTACHMENT_KIND_LINK);
-      formData.append("name", linkName.trim());
-      formData.append("url", linkUrl.trim());
+      formData.append("name", "");
+      formData.append("url", editLinkUrl.trim());
 
       const response = await fetch(
         `/api/projects/${projectId}/context-cards/${editingCard.id}/attachments`,
@@ -249,8 +332,8 @@ export function ProjectContextPanel({
         ...previous,
         [editingCard.id]: [payload.attachment, ...(previous[editingCard.id] ?? [])],
       }));
-      setLinkName("");
-      setLinkUrl("");
+      setEditLinkUrl("");
+      setIsEditLinkComposerOpen(false);
     } catch (error) {
       console.error("[ProjectContextPanel.handleAddLinkAttachment]", error);
       setAttachmentError(
@@ -261,7 +344,7 @@ export function ProjectContextPanel({
     }
   };
 
-  const handleAddFileAttachment = async () => {
+  const handleAddFileAttachment = async (selectedFile: File | null) => {
     if (!editingCard || !selectedFile) {
       return;
     }
@@ -272,7 +355,7 @@ export function ProjectContextPanel({
     try {
       const formData = new FormData();
       formData.append("kind", ATTACHMENT_KIND_FILE);
-      formData.append("name", fileLabel.trim());
+      formData.append("name", "");
       formData.append("file", selectedFile);
 
       const response = await fetch(
@@ -292,9 +375,7 @@ export function ProjectContextPanel({
         ...previous,
         [editingCard.id]: [payload.attachment, ...(previous[editingCard.id] ?? [])],
       }));
-      setFileLabel("");
-      setSelectedFile(null);
-      setFileInputKey((previous) => previous + 1);
+      setEditFileInputKey((previous) => previous + 1);
     } catch (error) {
       console.error("[ProjectContextPanel.handleAddFileAttachment]", error);
       setAttachmentError(
@@ -357,7 +438,10 @@ export function ProjectContextPanel({
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
             )}
             <CardTitle className="text-lg font-semibold tracking-tight">
-              Project context
+              <span className="inline-flex items-center gap-2">
+                <PanelsTopLeft className="h-4 w-4 text-muted-foreground" />
+                Project context
+              </span>
             </CardTitle>
             {!isExpanded ? (
               <span className="ml-auto text-xs text-muted-foreground">
@@ -431,21 +515,52 @@ export function ProjectContextPanel({
                       <div className="mt-2 space-y-1">
                         {previewAttachments.map((attachment) => {
                           const href = resolveAttachmentHref(attachment);
+                          const canPreview = isAttachmentPreviewable(
+                            attachment.kind,
+                            attachment.mimeType
+                          ) && Boolean(attachment.downloadUrl);
+
+                          if (canPreview) {
+                            return (
+                              <button
+                                key={attachment.id}
+                                type="button"
+                                onClick={() => setPreviewAttachment(attachment)}
+                                className="flex min-w-0 items-center gap-1 text-xs text-slate-900 underline underline-offset-2"
+                              >
+                                <Paperclip className="h-3 w-3" />
+                                <span className="truncate">{attachment.name}</span>
+                              </button>
+                            );
+                          }
+
                           if (!href) {
                             return null;
                           }
 
                           return (
-                            <a
+                            <div
                               key={attachment.id}
-                              href={href}
-                              target={attachment.kind === ATTACHMENT_KIND_LINK ? "_blank" : undefined}
-                              rel={attachment.kind === ATTACHMENT_KIND_LINK ? "noreferrer" : undefined}
-                              className="flex items-center gap-1 text-xs text-slate-900 underline underline-offset-2"
+                              className="flex items-center gap-1"
                             >
-                              <Paperclip className="h-3 w-3" />
-                              <span className="truncate">{attachment.name}</span>
-                            </a>
+                              <a
+                                href={href}
+                                target={
+                                  attachment.kind === ATTACHMENT_KIND_LINK
+                                    ? "_blank"
+                                    : undefined
+                                }
+                                rel={
+                                  attachment.kind === ATTACHMENT_KIND_LINK
+                                    ? "noreferrer"
+                                    : undefined
+                                }
+                                className="flex min-w-0 flex-1 items-center gap-1 text-xs text-slate-900 underline underline-offset-2"
+                              >
+                                <Paperclip className="h-3 w-3" />
+                                <span className="truncate">{attachment.name}</span>
+                              </a>
+                            </div>
                           );
                         })}
                         {attachments.length > previewAttachments.length ? (
@@ -465,8 +580,13 @@ export function ProjectContextPanel({
       ) : null}
 
       {isCreateOpen ? (
-        <ModalFrame title="Add context card" onClose={() => setIsCreateOpen(false)}>
-          <form action={createAction} className="grid gap-4" onSubmit={() => setIsCreateOpen(false)}>
+        <ModalFrame title="Add context card" onClose={closeCreateModal}>
+          <form
+            action={createAction}
+            className="grid gap-4"
+            encType="multipart/form-data"
+            onSubmit={() => setIsCreateOpen(false)}
+          >
             <div className="grid gap-2">
               <label htmlFor="context-create-title" className="text-sm font-medium">
                 Title
@@ -498,10 +618,118 @@ export function ProjectContextPanel({
 
             <ColorPicker selectedColor={createColor} onSelect={setCreateColor} />
             <input type="hidden" name="color" value={createColor} />
+            <input type="hidden" name="attachmentLinks" value={serializedCreateLinks} />
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant={isCreateLinkComposerOpen ? "secondary" : "ghost"}
+                  size="icon"
+                  onClick={() => setIsCreateLinkComposerOpen((previous) => !previous)}
+                  aria-label="Add attachment link"
+                >
+                  <Link2 className="h-4 w-4" />
+                </Button>
+                <input
+                  key={createFileInputKey}
+                  id="context-create-attachment-files"
+                  type="file"
+                  name="attachmentFiles"
+                  multiple
+                  onChange={(event) =>
+                    setCreateSelectedFiles(Array.from(event.target.files ?? []))
+                  }
+                  className="hidden"
+                />
+                <Button type="button" variant="ghost" size="icon" asChild>
+                  <label
+                    htmlFor="context-create-attachment-files"
+                    aria-label="Upload attachment files"
+                    className="cursor-pointer"
+                  >
+                    <Upload className="h-4 w-4" />
+                  </label>
+                </Button>
+              </div>
+
+              {isCreateLinkComposerOpen ? (
+                <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background p-2">
+                  <input
+                    value={createLinkUrl}
+                    onChange={(event) => setCreateLinkUrl(event.target.value)}
+                    placeholder="https://..."
+                    className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-xs"
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="secondary"
+                    onClick={handleStageCreateLink}
+                    disabled={!createLinkUrl.trim()}
+                    aria-label="Confirm attachment link"
+                  >
+                    <Link2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : null}
+
+              {createAttachmentLinks.length > 0 ? (
+                <div className="space-y-2">
+                  {createAttachmentLinks.map((link) => (
+                    <div
+                      key={link.id}
+                      className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-medium text-foreground">
+                          {link.url}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveCreateLink(link.id)}
+                        aria-label="Remove staged link"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {createSelectedFiles.length > 0 ? (
+                <div className="space-y-2 rounded-md border border-border/60 bg-background p-2">
+                  {createSelectedFiles.map((file) => (
+                    <p
+                      key={`${file.name}-${file.size}`}
+                      className="truncate text-[11px] text-muted-foreground"
+                    >
+                      <Paperclip className="mr-1 inline h-3 w-3" />
+                      {file.name}
+                    </p>
+                  ))}
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => {
+                      setCreateSelectedFiles([]);
+                      setCreateFileInputKey((previous) => previous + 1);
+                    }}
+                    aria-label="Clear selected files"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : null}
+            </div>
 
             <div className="flex items-center gap-2">
               <Button type="submit">Create card</Button>
-              <Button type="button" variant="ghost" onClick={() => setIsCreateOpen(false)}>
+              <Button type="button" variant="ghost" onClick={closeCreateModal}>
                 Cancel
               </Button>
             </div>
@@ -510,8 +738,8 @@ export function ProjectContextPanel({
       ) : null}
 
       {editingCard ? (
-        <ModalFrame title="Edit context card" onClose={() => setEditingCardId(null)}>
-          <form action={updateAction} className="grid gap-4" onSubmit={() => setEditingCardId(null)}>
+        <ModalFrame title="Edit context card" onClose={closeEditModal}>
+          <form action={updateAction} className="grid gap-4" onSubmit={closeEditModal}>
             <input type="hidden" name="cardId" value={editingCard.id} />
             <div className="grid gap-2">
               <label htmlFor="context-edit-title" className="text-sm font-medium">
@@ -545,15 +773,17 @@ export function ProjectContextPanel({
             <ColorPicker selectedColor={editingColor} onSelect={setEditingColor} />
             <input type="hidden" name="color" value={editingColor} />
 
-            <div className="grid gap-3 rounded-md border border-border/60 bg-muted/20 p-3">
-              <p className="text-sm font-medium">Attachments</p>
-
+            <div className="space-y-2">
               {editingCardAttachments.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No attachments yet.</p>
               ) : (
                 <div className="space-y-2">
                   {editingCardAttachments.map((attachment) => {
                     const href = resolveAttachmentHref(attachment);
+                    const canPreview = isAttachmentPreviewable(
+                      attachment.kind,
+                      attachment.mimeType
+                    ) && Boolean(attachment.downloadUrl);
 
                     return (
                       <div
@@ -561,7 +791,16 @@ export function ProjectContextPanel({
                         className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5"
                       >
                         <div className="min-w-0">
-                          {href ? (
+                          {canPreview ? (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewAttachment(attachment)}
+                              className="truncate text-left text-xs font-medium text-foreground underline underline-offset-2"
+                              disabled={isSubmittingAttachment}
+                            >
+                              {attachment.name}
+                            </button>
+                          ) : href ? (
                             <a
                               href={href}
                               target={attachment.kind === ATTACHMENT_KIND_LINK ? "_blank" : undefined}
@@ -581,75 +820,77 @@ export function ProjectContextPanel({
                             </p>
                           ) : null}
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => void handleDeleteAttachment(attachment.id)}
-                          disabled={isSubmittingAttachment}
-                          aria-label="Delete attachment"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => void handleDeleteAttachment(attachment.id)}
+                            disabled={isSubmittingAttachment}
+                            aria-label="Delete attachment"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               )}
 
-              <div className="grid gap-2 rounded-md border border-border/60 bg-background p-2">
-                <label className="text-xs font-medium">Add link</label>
-                <input
-                  value={linkName}
-                  onChange={(event) => setLinkName(event.target.value)}
-                  maxLength={120}
-                  placeholder="Optional label"
-                  className="h-9 rounded-md border border-input bg-background px-3 text-xs"
-                />
-                <input
-                  value={linkUrl}
-                  onChange={(event) => setLinkUrl(event.target.value)}
-                  placeholder="https://..."
-                  className="h-9 rounded-md border border-input bg-background px-3 text-xs"
-                />
+              <div className="flex items-center gap-2">
                 <Button
                   type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => void handleAddLinkAttachment()}
-                  disabled={isSubmittingAttachment || !linkUrl.trim()}
+                  variant={isEditLinkComposerOpen ? "secondary" : "ghost"}
+                  size="icon"
+                  onClick={() =>
+                    setIsEditLinkComposerOpen((previous) => !previous)
+                  }
+                  disabled={isSubmittingAttachment}
+                  aria-label="Add attachment link"
                 >
                   <Link2 className="h-4 w-4" />
-                  Add link
+                </Button>
+                <input
+                  key={editFileInputKey}
+                  id="context-edit-attachment-file"
+                  type="file"
+                  onChange={(event) =>
+                    void handleAddFileAttachment(event.target.files?.[0] ?? null)
+                  }
+                  className="hidden"
+                />
+                <Button type="button" variant="ghost" size="icon" asChild disabled={isSubmittingAttachment}>
+                  <label
+                    htmlFor="context-edit-attachment-file"
+                    aria-label="Upload attachment file"
+                    className="cursor-pointer"
+                  >
+                    <Upload className="h-4 w-4" />
+                  </label>
                 </Button>
               </div>
 
-              <div className="grid gap-2 rounded-md border border-border/60 bg-background p-2">
-                <label className="text-xs font-medium">Upload file</label>
-                <input
-                  value={fileLabel}
-                  onChange={(event) => setFileLabel(event.target.value)}
-                  maxLength={120}
-                  placeholder="Optional label"
-                  className="h-9 rounded-md border border-input bg-background px-3 text-xs"
-                />
-                <input
-                  key={fileInputKey}
-                  type="file"
-                  onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
-                  className="text-xs"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => void handleAddFileAttachment()}
-                  disabled={isSubmittingAttachment || !selectedFile}
-                >
-                  <Upload className="h-4 w-4" />
-                  Upload file
-                </Button>
-              </div>
+              {isEditLinkComposerOpen ? (
+                <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background p-2">
+                  <input
+                    value={editLinkUrl}
+                    onChange={(event) => setEditLinkUrl(event.target.value)}
+                    placeholder="https://..."
+                    className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-xs"
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="secondary"
+                    onClick={() => void handleAddLinkAttachment()}
+                    disabled={isSubmittingAttachment || !editLinkUrl.trim()}
+                    aria-label="Confirm attachment link"
+                  >
+                    <Link2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : null}
 
               {attachmentError ? (
                 <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
@@ -660,13 +901,17 @@ export function ProjectContextPanel({
 
             <div className="flex items-center gap-2">
               <Button type="submit">Save card</Button>
-              <Button type="button" variant="ghost" onClick={() => setEditingCardId(null)}>
+              <Button type="button" variant="ghost" onClick={closeEditModal}>
                 Cancel
               </Button>
             </div>
           </form>
         </ModalFrame>
       ) : null}
+      <AttachmentPreviewModal
+        attachment={previewAttachment}
+        onClose={() => setPreviewAttachment(null)}
+      />
     </Card>
   );
 }
