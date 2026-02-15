@@ -1,0 +1,20 @@
+name: "Check Branch Name"
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  check-name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify branch naming
+        run: |
+          # List of allowed patterns
+          PATTERN="^(feature|fix|refactor|docs)\/.*"
+          BRANCH_NAME="${{ github.head_ref }}"
+          
+          if [[ ! $BRANCH_NAME =~ $PATTERN ]]; then
+            echo "Error: The branch name '$BRANCH_NAME' does not follow the convention."
+            echo "It must start with feature/, fix/, refactor/, or docs/."
+            exit 1
+          fi

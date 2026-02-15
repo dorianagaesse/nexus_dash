@@ -1,72 +1,52 @@
-# Current Task: Attachment System (Architecture + MVP)
+# Current Task: Git Governance Baseline
 
 ## Task ID
-TASK-019 (with TASK-018 and TASK-007 delivered in the same iteration)
+TASK-052
 
 ## Status
-🟢 **Done (Implementation Complete, Awaiting Joint Validation)**
+🟡 **In Progress**
 
 ## Priority
-🔴 **High** - Core execution context for tasks and project notes
+🔴 **High** - Required before broader collaboration and parallel agent work
 
 ## Description
-Implement attachment support with a local server-side storage strategy and S3-ready abstraction, then expose link/file attachments in both task details and project context cards.
+Define and enforce repository governance with protected `main`, short-lived branch workflow, and pull-request quality gates.
 
 ## Acceptance Criteria / Definition of Done
 
-### ✅ Architecture (TASK-018)
-- [x] Added explicit attachment storage strategy with local filesystem backend
-- [x] Added reusable storage helper (`save/read/delete`) instead of in-route file handling
-- [x] Added attachment validation constants (kind, MIME allowlist, size limit)
-- [x] Documented architecture decision in `decisions.md`
+### Policy Definition (Repo Rules)
+- [ ] `main` branch is protected in GitHub
+- [ ] Direct pushes to `main` are blocked
+- [ ] Pull requests are mandatory for merges
+- [ ] At least one approving review is required
+- [ ] Dismiss stale approvals on new commits is enabled
+- [ ] Required status checks are configured (at minimum lint/test/build once CI exists)
+- [ ] Only squash merge is enabled (or merge policy explicitly documented)
+- [ ] Auto-delete head branches after merge is enabled
 
-### ✅ Task Attachments MVP (TASK-019)
-- [x] Added Prisma `TaskAttachment` model with cascade cleanup
-- [x] Added task attachment APIs (create link/file, delete, download file)
-- [x] Added task detail modal UI to list/add/delete task attachments
-- [x] Added file size metadata display + safe download links
+### Branching Strategy
+- [ ] Trunk-style cadence documented (short-lived branches, fast merge)
+- [ ] Branch naming conventions documented: `feature/*`, `fix/*`, `refactor/*`, `docs/*`, `chore/*`, `test/*`
+- [ ] Commit and PR hygiene expectations documented in `agent.md`
 
-### ✅ Context Card Attachments (TASK-007)
-- [x] Added Prisma `ResourceAttachment` model with cascade cleanup
-- [x] Added context card attachment APIs (create link/file, delete, download file)
-- [x] Added context panel UI to preview attachments on cards
-- [x] Added context edit modal UI to manage attachments
-
-### ✅ Docker/Runtime
-- [x] Added dedicated Docker volume for `/app/storage`
-- [x] Added `.gitignore` entry for local uploaded files (`/storage/uploads`)
-
-### ✅ Verification
-- [x] `npm run lint` passes
-- [x] `npm run build` passes
-- [ ] Joint manual validation session with user
+### Verification
+- [ ] Governance settings validated on GitHub by repository owner
+- [ ] Team execution guide shared (how to open PRs and merge safely)
 
 ## Implementation Notes
-- New upload/download APIs:
-  - `app/api/projects/[projectId]/tasks/[taskId]/attachments/route.ts`
-  - `app/api/projects/[projectId]/tasks/[taskId]/attachments/[attachmentId]/route.ts`
-  - `app/api/projects/[projectId]/tasks/[taskId]/attachments/[attachmentId]/download/route.ts`
-  - `app/api/projects/[projectId]/context-cards/[cardId]/attachments/route.ts`
-  - `app/api/projects/[projectId]/context-cards/[cardId]/attachments/[attachmentId]/route.ts`
-  - `app/api/projects/[projectId]/context-cards/[cardId]/attachments/[attachmentId]/download/route.ts`
-- Attachment storage abstraction implemented in `lib/attachment-storage.ts`.
-- Upload limits and allowlist implemented in `lib/task-attachment.ts`.
-- Prisma migrations applied:
-  - `prisma/migrations/20260212210530_add_attachments/migration.sql`
-  - `prisma/migrations/20260212211407_add_attachment_indexes/migration.sql`
+- Local update done in `agent.md` to formalize branching and PR governance expectations.
+- GitHub settings must be applied by repository owner/maintainer in repository settings.
 
 ## Blockers / Dependencies
 
 ### Current Blockers
-- None
+- GitHub repository admin actions required from user.
 
 ### Dependencies
-- TASK-018
-- TASK-007
+- TASK-035
 
 ---
 
-**Last Updated**: 2026-02-12
-**Assigned To**: Agent
-**Started At**: 2026-02-12
-**Completed At**: 2026-02-12
+**Last Updated**: 2026-02-15
+**Assigned To**: User + Agent
+**Started At**: 2026-02-15

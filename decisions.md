@@ -129,3 +129,9 @@ Status: Accepted
 Context: Tasks and context cards need link/file attachments now, while cloud object storage integration is planned for a later phase.
 Decision: Add dedicated attachment models (`TaskAttachment`, `ResourceAttachment`), validate file uploads via allowlist + size cap, and persist files under `/storage/uploads` through shared `lib/attachment-storage.ts` helpers.
 Consequences: Immediate local attachment support with predictable migration path to external object storage; adds file lifecycle management responsibilities and new API surface for upload/download/delete.
+Date: 2026-02-15
+Decision: Pre-auth architecture direction (targeted medium refactor vs full rewrite)
+Status: Accepted
+Context: TASK-035 architecture audit identified boundary issues (missing user ownership model, global calendar credential singleton, very large client orchestration components, and mixed server-action/API mutation paths) that increase risk for TASK-020/TASK-021/TASK-023.
+Decision: Prefer a targeted medium refactor that strengthens boundaries (service-layer extraction, auth-ready data model, frontend panel decomposition, and operational guardrails) before full authentication/security rollout, instead of a big-bang redesign.
+Consequences: Lower delivery risk and faster incremental progress with less rework; requires short-term refactor investment before major auth/security implementation.

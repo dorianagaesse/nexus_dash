@@ -264,3 +264,27 @@ A task is considered **DONE** only if:
 - Operate with high autonomy by default: move work forward without waiting for step-by-step confirmation when requirements are clear.
 - Think before coding: build a short mental model, identify risks/edge cases, and choose the simplest reliable approach.
 - Escalate only when necessary (ambiguous requirements, conflicting constraints, or high-risk tradeoffs), with 2-3 concrete options.
+
+## 12. Git Governance & Branching
+
+### Branching Strategy (Trunk-Style Cadence)
+- `main` is the only long-lived branch.
+- All work happens on short-lived topic branches and merges back quickly (typically same day or within 1-2 days).
+- Branch naming convention:
+  - `feature/<short-description>`
+  - `fix/<short-description>`
+  - `refactor/<short-description>`
+  - `docs/<short-description>`
+  - `chore/<short-description>`
+  - `test/<short-description>`
+
+### Pull Request Rules
+- Never push directly to `main`; use pull requests only.
+- Keep pull requests small and single-purpose.
+- Require at least one approval before merge.
+- Dismiss stale approvals when new commits are pushed.
+- Merge strategy: prefer **Squash and merge** to keep history clean and rollback simpler.
+
+### Required Checks Before Merge
+- CI checks must pass before merge (lint, tests, build, and coverage gate if configured).
+- If any required check is failing, fix or explicitly defer with documented rationale before merging.
