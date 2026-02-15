@@ -33,7 +33,7 @@ export interface ReorderPayload {
 }
 
 export interface UpdateTaskPayload {
-  title?: string;
+  title: string;
   label?: string;
   labels?: string[];
   description?: string;
@@ -87,6 +87,8 @@ export function isValidReorderPayload(payload: unknown): payload is ReorderPaylo
     return false;
   }
 
+  const seenTaskIds = new Set<string>();
+
   return maybeColumns.every((column) => {
     if (!column || typeof column !== "object") {
       return false;
@@ -100,7 +102,18 @@ export function isValidReorderPayload(payload: unknown): payload is ReorderPaylo
       return false;
     }
 
-    return column.taskIds.every((id) => typeof id === "string" && id.length > 0);
+    return column.taskIds.every((id) => {
+      if (typeof id !== "string" || id.length === 0) {
+        return false;
+      }
+
+      if (seenTaskIds.has(id)) {
+        return false;
+      }
+
+      seenTaskIds.add(id);
+      return true;
+    });
   });
 }
 

@@ -57,6 +57,27 @@ describe("POST /api/projects/:projectId/tasks/reorder", () => {
     await expect(readJson(response)).resolves.toEqual({ error: "Invalid payload" });
   });
 
+  test("returns 400 for duplicate task ids across columns", async () => {
+    const request = new Request("http://localhost/api/projects/p1/tasks/reorder", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        columns: [
+          { status: "Backlog", taskIds: ["task-1"] },
+          { status: "In Progress", taskIds: ["task-1"] },
+        ],
+      }),
+    });
+
+    const response = await POST(request as never, {
+      params: { projectId: "p1" },
+    });
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({ error: "Invalid payload" });
+    expect(prismaMock.task.findMany).not.toHaveBeenCalled();
+  });
+
   test("returns ok without db writes when all columns are empty", async () => {
     const request = new Request("http://localhost/api/projects/p1/tasks/reorder", {
       method: "POST",
