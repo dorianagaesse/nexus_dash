@@ -36,7 +36,7 @@ IF: Library = single use case
 THEN: Implement manually (unless complex)
 
 IF: Library = multiple use cases OR complex maintenance
-THEN: Install dependency (document why in decisions.md)
+THEN: Install dependency (document why in adr/decisions.md)
 ```
 
 #### C. Performance vs Readability
@@ -46,7 +46,7 @@ PRIORITY 2: Optimize only if performance measurement shows real problem
 ```
 
 ### Architecture Decision Log
-- Record architectural decisions in `decisions.md` using a short entry: date, decision, context, consequences.
+- Record architectural decisions in `adr/decisions.md` using a short entry: date, decision, context, consequences.
 - Log decisions whenever you choose a major library, data model, API contract, deployment/container approach, or change system boundaries.
 
 ## 3. Code Review Checklist
@@ -214,7 +214,7 @@ const data = await fetch(url).then(r => r.json()); // ❌
 5. **Commit** with descriptive message
 6. **Update** `tasks/current.md` (status, potential blockers)
 7. **Log** in `journal.md` if error encountered
-8. **Update** `decisions.md` for any architectural changes
+8. **Update** `adr/decisions.md` for any architectural changes
 
 ### In case of blocker:
 1. Document problem in `tasks/current.md` > Blockers
