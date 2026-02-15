@@ -34,13 +34,6 @@ interface CalendarEventResponseItem {
   status: string;
 }
 
-interface CalendarQueryWindow {
-  range: "current-week" | "rolling-days";
-  days: number;
-  timeMin: Date;
-  timeMax: Date;
-}
-
 interface UpsertEventRequestPayload {
   summary: string;
   start: string;
@@ -48,52 +41,6 @@ interface UpsertEventRequestPayload {
   isAllDay: boolean;
   location?: string;
   description?: string;
-}
-
-function readDaysParam(request: NextRequest): number {
-  const rawValue = request.nextUrl.searchParams.get("days");
-  const parsed = Number.parseInt(rawValue ?? "14", 10);
-
-  if (!Number.isFinite(parsed)) {
-    return 14;
-  }
-
-  return Math.min(Math.max(parsed, 1), 60);
-}
-
-function buildCurrentWeekWindow(now: Date): CalendarQueryWindow {
-  const weekStart = new Date(now);
-  weekStart.setHours(0, 0, 0, 0);
-  const dayOfWeek = weekStart.getDay();
-  const daysSinceMonday = (dayOfWeek + 6) % 7;
-  weekStart.setDate(weekStart.getDate() - daysSinceMonday);
-
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 7);
-
-  return {
-    range: "current-week",
-    days: 7,
-    timeMin: weekStart,
-    timeMax: weekEnd,
-  };
-}
-
-function buildQueryWindow(request: NextRequest): CalendarQueryWindow {
-  const now = new Date();
-  const range = request.nextUrl.searchParams.get("range");
-
-  if (range === "current-week") {
-    return buildCurrentWeekWindow(now);
-  }
-
-  const days = readDaysParam(request);
-  return {
-    range: "rolling-days",
-    days,
-    timeMin: now,
-    timeMax: new Date(now.getTime() + days * 24 * 60 * 60 * 1000),
-  };
 }
 
 function normalizeGoogleEvent(
@@ -117,32 +64,6 @@ function normalizeGoogleEvent(
     htmlLink: event.htmlLink ?? null,
     status: event.status ?? "confirmed",
   };
-}
-
-async function fetchGoogleCalendarEvents(input: {
-  accessToken: string;
-  calendarId: string;
-  timeMin: Date;
-  timeMax: Date;
-}) {
-  const requestUrl = new URL(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
-      input.calendarId
-    )}/events`
-  );
-  requestUrl.searchParams.set("singleEvents", "true");
-  requestUrl.searchParams.set("orderBy", "startTime");
-  requestUrl.searchParams.set("maxResults", "250");
-  requestUrl.searchParams.set("showDeleted", "false");
-  requestUrl.searchParams.set("timeMin", input.timeMin.toISOString());
-  requestUrl.searchParams.set("timeMax", input.timeMax.toISOString());
-
-  return fetch(requestUrl, {
-    headers: {
-      Authorization: `Bearer ${input.accessToken}`,
-    },
-    cache: "no-store",
-  });
 }
 
 function parseGoogleErrorReason(payload: unknown): string | null {
@@ -259,78 +180,15 @@ function toGoogleEventRequest(payload: UpsertEventRequestPayload) {
   };
 }
 
-export async function GET(request: NextRequest) {
-  const queryWindow = buildQueryWindow(request);
-
-  try {
-    const auth = await getAuthorizedGoogleCalendarContext();
-    if (!auth.ok) {
-      return NextResponse.json(
-        { connected: false, error: auth.failure.error },
-        { status: auth.failure.status }
-      );
-    }
-
-    const eventsResponse = await fetchGoogleCalendarEvents({
-      accessToken: auth.context.accessToken,
-      calendarId: auth.context.calendarId,
-      timeMin: queryWindow.timeMin,
-      timeMax: queryWindow.timeMax,
-    });
-
-    if (!eventsResponse.ok) {
-      const payload = (await eventsResponse.json().catch(() => null)) as unknown;
-      const reason = parseGoogleErrorReason(payload);
-
-      if (eventsResponse.status === 401) {
-        return NextResponse.json(
-          { connected: false, error: "reauthorization-required" },
-          { status: 401 }
-        );
-      }
-
-      if (eventsResponse.status === 403 && reason === "insufficientPermissions") {
-        return NextResponse.json(
-          { connected: true, error: "insufficient-scope" },
-          { status: 403 }
-        );
-      }
-
-      console.error("[GET /api/calendar/events] google api error", payload);
-      return NextResponse.json(
-        { connected: true, error: "calendar-fetch-failed" },
-        { status: 502 }
-      );
-    }
-
-    const payload = (await eventsResponse.json()) as {
-      items?: GoogleCalendarApiEvent[];
-    };
-
-    const events = (payload.items ?? [])
-      .map((item) => normalizeGoogleEvent(item))
-      .filter((item): item is CalendarEventResponseItem => item !== null);
-
-    return NextResponse.json({
-      connected: true,
-      calendarId: auth.context.calendarId,
-      range: queryWindow.range,
-      days: queryWindow.days,
-      timeMin: queryWindow.timeMin.toISOString(),
-      timeMax: queryWindow.timeMax.toISOString(),
-      syncedAt: new Date().toISOString(),
-      events,
-    });
-  } catch (error) {
-    console.error("[GET /api/calendar/events]", error);
-    return NextResponse.json(
-      { connected: false, error: "calendar-internal-error" },
-      { status: 500 }
-    );
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { eventId: string } }
+) {
+  const eventId = params.eventId;
+  if (!eventId) {
+    return NextResponse.json({ error: "missing-event-id" }, { status: 400 });
   }
-}
 
-export async function POST(request: NextRequest) {
   try {
     const auth = await getAuthorizedGoogleCalendarContext();
     if (!auth.ok) {
@@ -353,9 +211,9 @@ export async function POST(request: NextRequest) {
     const response = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
         auth.context.calendarId
-      )}/events`,
+      )}/events/${encodeURIComponent(eventId)}`,
       {
-        method: "POST",
+        method: "PATCH",
         headers: {
           Authorization: `Bearer ${auth.context.accessToken}`,
           "Content-Type": "application/json",
@@ -379,18 +237,91 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.error("[POST /api/calendar/events] google api error", responsePayload);
-      return NextResponse.json({ error: "calendar-create-failed" }, { status: 502 });
+      if (response.status === 404) {
+        return NextResponse.json({ error: "event-not-found" }, { status: 404 });
+      }
+
+      console.error(
+        "[PATCH /api/calendar/events/:eventId] google api error",
+        responsePayload
+      );
+      return NextResponse.json({ error: "calendar-update-failed" }, { status: 502 });
     }
 
     const normalized = normalizeGoogleEvent(responsePayload as GoogleCalendarApiEvent);
     if (!normalized) {
-      return NextResponse.json({ error: "calendar-create-failed" }, { status: 502 });
+      return NextResponse.json({ error: "calendar-update-failed" }, { status: 502 });
     }
 
-    return NextResponse.json({ event: normalized }, { status: 201 });
+    return NextResponse.json({ event: normalized });
   } catch (error) {
-    console.error("[POST /api/calendar/events]", error);
+    console.error("[PATCH /api/calendar/events/:eventId]", error);
+    return NextResponse.json({ error: "calendar-internal-error" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: { eventId: string } }
+) {
+  const eventId = params.eventId;
+  if (!eventId) {
+    return NextResponse.json({ error: "missing-event-id" }, { status: 400 });
+  }
+
+  try {
+    const auth = await getAuthorizedGoogleCalendarContext();
+    if (!auth.ok) {
+      return NextResponse.json(
+        { error: auth.failure.error },
+        { status: auth.failure.status }
+      );
+    }
+
+    if (!hasCalendarWriteScope(auth.context.scope)) {
+      return NextResponse.json({ error: "insufficient-scope" }, { status: 403 });
+    }
+
+    const response = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
+        auth.context.calendarId
+      )}/events/${encodeURIComponent(eventId)}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${auth.context.accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const responsePayload = (await response.json().catch(() => null)) as unknown;
+      const reason = parseGoogleErrorReason(responsePayload);
+      if (response.status === 403 && reason === "insufficientPermissions") {
+        return NextResponse.json({ error: "insufficient-scope" }, { status: 403 });
+      }
+
+      if (response.status === 401) {
+        return NextResponse.json(
+          { error: "reauthorization-required" },
+          { status: 401 }
+        );
+      }
+
+      if (response.status === 404) {
+        return NextResponse.json({ error: "event-not-found" }, { status: 404 });
+      }
+
+      console.error(
+        "[DELETE /api/calendar/events/:eventId] google api error",
+        responsePayload
+      );
+      return NextResponse.json({ error: "calendar-delete-failed" }, { status: 502 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("[DELETE /api/calendar/events/:eventId]", error);
     return NextResponse.json({ error: "calendar-internal-error" }, { status: 500 });
   }
 }

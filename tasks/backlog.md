@@ -3,26 +3,6 @@
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
 ## Pending
-- ID: TASK-032
-  Title: Calendar event creation and edit
-  Status: Pending
-  Rationale: Extend current read-only calendar integration so events can be created and edited directly from NexusDash.
-  Dependencies: TASK-005
-- ID: TASK-028
-  Title: Test writing and coverage
-  Status: Pending
-  Rationale: Establish automated tests and measurable coverage to prevent regressions across core workflows.
-  Dependencies: TASK-026
-- ID: TASK-029
-  Title: File preview for attachment files (image, PDF)
-  Status: Done (2026-02-13)
-  Rationale: Allow quick in-app preview for supported file types without forcing immediate download.
-  Dependencies: TASK-019
-- ID: TASK-005
-  Title: Google auth and calendar integration
-  Status: In Progress (2026-02-13)
-  Rationale: Enables calendar events visibility directly in NexusDash.
-  Dependencies: TASK-004
 - ID: TASK-022
   Title: Production deployment baseline (runtime, CI/CD, secrets, observability)
   Status: Pending
@@ -50,6 +30,36 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-021, TASK-022
 
 ## Completed
+- ID: TASK-034
+  Title: API route integration tests and coverage expansion
+  Status: Done (2026-02-13)
+  Rationale: Validate real request/response contracts and error mapping across API routes to catch regressions that unit tests alone may miss.
+  Dependencies: TASK-028
+- ID: TASK-028
+  Title: Test writing and coverage
+  Status: Done (2026-02-13)
+  Rationale: Establish automated tests and measurable coverage to prevent regressions across core workflows.
+  Dependencies: TASK-026
+- ID: TASK-033
+  Title: Attachment workflow fluidity on create/edit
+  Status: Done (2026-02-13)
+  Rationale: Allow Enter-to-add for link attachments and keep create/edit modal open so users can add multiple attachments in one flow.
+  Dependencies: TASK-026, TASK-027
+- ID: TASK-032
+  Title: Calendar event creation and edit
+  Status: Done (2026-02-13)
+  Rationale: Extend current read-only calendar integration so events can be created and edited directly from NexusDash.
+  Dependencies: TASK-005
+- ID: TASK-005
+  Title: Google auth and calendar integration
+  Status: Done (2026-02-13)
+  Rationale: Enables calendar events visibility directly in NexusDash.
+  Dependencies: TASK-004
+- ID: TASK-029
+  Title: File preview for attachment files (image, PDF)
+  Status: Done (2026-02-13)
+  Rationale: Allow quick in-app preview for supported file types without forcing immediate download.
+  Dependencies: TASK-019
 - ID: TASK-030
   Title: Traceable blocked follow-up timeline on Kanban cards
   Status: Done (2026-02-13)

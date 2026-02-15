@@ -259,4 +259,8 @@ A task is considered **DONE** only if:
 ## 11. Additional Execution Rules
 
 - Always perform tests for validation before considering a task done.
-- Work with atomic commits (one logical change per commit).
+- Work with atomic commits (one logical change per commit, no unrelated changes mixed together).
+- Take ownership of each task end-to-end: analysis, implementation, validation, documentation updates, and clean handoff.
+- Operate with high autonomy by default: move work forward without waiting for step-by-step confirmation when requirements are clear.
+- Think before coding: build a short mental model, identify risks/edge cases, and choose the simplest reliable approach.
+- Escalate only when necessary (ambiguous requirements, conflicting constraints, or high-risk tradeoffs), with 2-3 concrete options.
