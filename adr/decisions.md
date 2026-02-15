@@ -135,3 +135,27 @@ Status: Accepted
 Context: TASK-035 architecture audit identified boundary issues (missing user ownership model, global calendar credential singleton, very large client orchestration components, and mixed server-action/API mutation paths) that increase risk for TASK-020/TASK-021/TASK-023.
 Decision: Prefer a targeted medium refactor that strengthens boundaries (service-layer extraction, auth-ready data model, frontend panel decomposition, and operational guardrails) before full authentication/security rollout, instead of a big-bang redesign.
 Consequences: Lower delivery risk and faster incremental progress with less rework; requires short-term refactor investment before major auth/security implementation.
+Date: 2026-02-15
+Decision: Centralize mutation and integration rules in backend service modules
+Status: Accepted
+Context: TASK-053 requires clear boundaries so server actions and API routes can share validation/business rules and remain auth-ready.
+Decision: Extract task/context-card/attachment/calendar logic into `lib/services/*` and keep route handlers/actions focused on transport concerns (request parsing, response mapping, cache revalidation, redirects).
+Consequences: Less duplication and drift across mutation paths, better testability of business logic, and cleaner insertion points for future authz checks.
+Date: 2026-02-15
+Decision: Decompose large client panels via utility modules and shared UI-state hooks
+Status: Accepted
+Context: TASK-054 targets oversized orchestration components (`kanban-board.tsx`, `project-context-panel.tsx`, `project-calendar-panel.tsx`) that were mixing rendering, formatting, local persistence, and interaction logic in single files.
+Decision: Extract panel-specific pure helpers into dedicated modules, move calendar date-time field into its own component, and standardize section-expansion localStorage behavior through `useProjectSectionExpanded`.
+Consequences: Smaller and clearer panel files with lower regression risk; future UI refactors can evolve in isolated modules without reworking full panel components.
+Date: 2026-02-15
+Decision: Unify project/task/context mutation transport on API routes
+Status: Accepted
+Context: TASK-055 requires one mutation boundary per use case so validation/auth checks are enforced consistently without split server-action/API execution paths.
+Decision: Promote API routes as the canonical mutation transport for task creation and context-card CRUD, wire client components directly to those endpoints, and retire legacy project-level server-action mutation wrappers.
+Consequences: Cleaner, single mutation entrypoints and simpler future authz middleware integration; frontend forms now handle async submit/error states explicitly.
+Date: 2026-02-15
+Decision: Adopt PostgreSQL baseline with Supabase-managed Postgres as default hosted target
+Status: Accepted
+Context: TASK-056 requires a data-platform decision before migration/auth/security phases, balancing concurrency, operational burden, lock-in risk, and delivery speed.
+Decision: Use PostgreSQL as the canonical persistence engine, target Supabase-managed Postgres by default for hosted environments, and keep Prisma schema/migrations repository-owned and provider-agnostic.
+Consequences: Enables near-term production readiness and remote multi-user capability with lower ops burden; requires explicit guardrails to avoid premature coupling to Supabase-specific platform features.
