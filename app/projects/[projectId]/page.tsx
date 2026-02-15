@@ -16,13 +16,6 @@ import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import { isTaskStatus } from "@/lib/task-status";
 
-import {
-  createContextCardAction,
-  createTaskAction,
-  deleteContextCardAction,
-  updateContextCardAction,
-} from "./actions";
-
 type SearchParams = Record<string, string | string[] | undefined>;
 const ARCHIVE_AFTER_DAYS = 7;
 const ARCHIVE_AFTER_MS = ARCHIVE_AFTER_DAYS * 24 * 60 * 60 * 1000;
@@ -201,10 +194,6 @@ export default async function ProjectDashboardPage({
     kanbanTasks.push(normalizedTask);
   });
 
-  const createTaskForProject = createTaskAction.bind(null, project.id);
-  const createContextCardForProject = createContextCardAction.bind(null, project.id);
-  const updateContextCardForProject = updateContextCardAction.bind(null, project.id);
-  const deleteContextCardForProject = deleteContextCardAction.bind(null, project.id);
   const calendarId = process.env.GOOGLE_CALENDAR_ID?.trim() ?? "primary";
   const status = readQueryValue(searchParams?.status);
   const error = readQueryValue(searchParams?.error);
@@ -248,9 +237,6 @@ export default async function ProjectDashboardPage({
       <ProjectContextPanel
         projectId={project.id}
         cards={contextCards}
-        createAction={createContextCardForProject}
-        updateAction={updateContextCardForProject}
-        deleteAction={deleteContextCardForProject}
       />
 
       <KanbanBoard
@@ -259,7 +245,7 @@ export default async function ProjectDashboardPage({
         archivedDoneTasks={archivedDoneTasks}
         headerAction={
           <CreateTaskDialog
-            action={createTaskForProject}
+            projectId={project.id}
             existingLabels={Array.from(existingLabelSet)}
           />
         }
