@@ -3,31 +3,6 @@
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
 ## Pending
-- ID: TASK-052
-  Title: Git governance baseline (protected main + short-lived branch workflow + PR gates)
-  Status: In Progress (2026-02-15)
-  Rationale: Introduce clear collaboration guardrails (branch protection, required checks, PR review rules, branch naming conventions) before more contributors/agents start shipping changes.
-  Dependencies: TASK-035
-- ID: TASK-053
-  Title: Boundary refactor phase 1 - extract backend application service layer
-  Status: Pending
-  Rationale: Move domain logic out of route handlers/server actions into explicit services so business rules are centralized, testable, and auth-ready.
-  Dependencies: TASK-035
-- ID: TASK-054
-  Title: Boundary refactor phase 2 - decompose oversized client panels into modules/hooks
-  Status: Pending
-  Rationale: Reduce regression risk and implementation complexity by splitting large orchestration components (Kanban/context/calendar) into focused, composable units.
-  Dependencies: TASK-053
-- ID: TASK-055
-  Title: Boundary refactor phase 3 - unify mutation boundaries across server actions and API routes
-  Status: Pending
-  Rationale: Enforce one mutation path per use case (shared service contracts) to remove duplicate validation and simplify upcoming authorization checks.
-  Dependencies: TASK-053, TASK-054
-- ID: TASK-056
-  Title: Data platform ADR - PostgreSQL baseline and Supabase fit assessment
-  Status: Pending
-  Rationale: Decide the long-term relational platform with explicit tradeoffs (managed Postgres/Supabase features, lock-in, scaling, operations) before migration.
-  Dependencies: TASK-035
 - ID: TASK-057
   Title: Database migration phase 1 - SQLite to PostgreSQL parity migration
   Status: Pending
@@ -145,6 +120,31 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-056
+  Title: Data platform ADR - PostgreSQL baseline and Supabase fit assessment
+  Status: Done (2026-02-15)
+  Rationale: Selected PostgreSQL as the persistence baseline and Supabase-managed Postgres as the default hosting target, with explicit guardrails to keep Prisma schema/migrations provider-agnostic and avoid premature platform coupling.
+  Dependencies: TASK-035
+- ID: TASK-055
+  Title: Boundary refactor phase 3 - unify mutation boundaries across server actions and API routes
+  Status: Done (2026-02-15)
+  Rationale: Standardized project/task/context-card create/update/delete mutations on API routes and removed legacy project server-action mutation file; client mutation UI now targets one boundary contract per use case.
+  Dependencies: TASK-053, TASK-054
+- ID: TASK-054
+  Title: Boundary refactor phase 2 - decompose oversized client panels into modules/hooks
+  Status: Done (2026-02-15)
+  Rationale: Extracted panel-specific utility modules (kanban/context/calendar), split calendar date-time picker into a dedicated component, and introduced a shared project-section expansion hook used across Kanban, Context, and Calendar panels.
+  Dependencies: TASK-053
+- ID: TASK-053
+  Title: Boundary refactor phase 1 - extract backend application service layer
+  Status: Done (2026-02-15)
+  Rationale: Extracted shared backend service modules for task/context-card/attachment/calendar flows and converted server actions plus API routes into thin adapters with preserved response contracts.
+  Dependencies: TASK-035
+- ID: TASK-052
+  Title: Git governance baseline (protected main + short-lived branch workflow + PR gates)
+  Status: Done (2026-02-15)
+  Rationale: Governance workflow is defined and documented in-repo (`agent.md` + workflow checks); GitHub protection enforcement is queued for repo-public milestone.
+  Dependencies: TASK-035
 - ID: TASK-035
   Title: Architecture audit baseline (system boundaries, risks, and technical debt)
   Status: Done (2026-02-15)

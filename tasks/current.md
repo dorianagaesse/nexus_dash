@@ -1,52 +1,25 @@
-# Current Task: Git Governance Baseline
+# Current Task: Data Platform ADR
 
 ## Task ID
-TASK-052
+TASK-056
 
 ## Status
-🟡 **In Progress**
+Done (2026-02-15)
 
-## Priority
-🔴 **High** - Required before broader collaboration and parallel agent work
+## Summary
+Data-platform decision baseline is now defined for migration and auth roadmap safety:
+- Assessed three options: self-managed PostgreSQL, generic managed PostgreSQL, and Supabase-managed PostgreSQL.
+- Chosen direction: PostgreSQL baseline with Supabase-managed Postgres as default hosting target.
+- Added guardrails to keep Prisma schema/migrations provider-agnostic and avoid coupling migration scope with auth/storage concept changes.
 
-## Description
-Define and enforce repository governance with protected `main`, short-lived branch workflow, and pull-request quality gates.
+## Validation
+- Documentation-only task (ADR + backlog/decision tracking updates).
+- No runtime code path changed.
 
-## Acceptance Criteria / Definition of Done
-
-### Policy Definition (Repo Rules)
-- [ ] `main` branch is protected in GitHub
-- [ ] Direct pushes to `main` are blocked
-- [ ] Pull requests are mandatory for merges
-- [ ] At least one approving review is required
-- [ ] Dismiss stale approvals on new commits is enabled
-- [ ] Required status checks are configured (at minimum lint/test/build once CI exists)
-- [ ] Only squash merge is enabled (or merge policy explicitly documented)
-- [ ] Auto-delete head branches after merge is enabled
-
-### Branching Strategy
-- [ ] Trunk-style cadence documented (short-lived branches, fast merge)
-- [ ] Branch naming conventions documented: `feature/*`, `fix/*`, `refactor/*`, `docs/*`, `chore/*`, `test/*`
-- [ ] Commit and PR hygiene expectations documented in `agent.md`
-
-### Verification
-- [ ] Governance settings validated on GitHub by repository owner
-- [ ] Team execution guide shared (how to open PRs and merge safely)
-
-## Implementation Notes
-- Local update done in `agent.md` to formalize branching and PR governance expectations.
-- GitHub settings must be applied by repository owner/maintainer in repository settings.
-
-## Blockers / Dependencies
-
-### Current Blockers
-- GitHub repository admin actions required from user.
-
-### Dependencies
-- TASK-035
+## Next Recommended Task
+TASK-057 (Database migration phase 1 - SQLite to PostgreSQL parity migration)
 
 ---
 
-**Last Updated**: 2026-02-15
-**Assigned To**: User + Agent
-**Started At**: 2026-02-15
+Last Updated: 2026-02-15
+Assigned To: User + Agent
