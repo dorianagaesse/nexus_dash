@@ -13,7 +13,6 @@ import {
   Draggable,
   Droppable,
   type DropResult,
-  type DraggableProvidedDraggableProps,
 } from "@hello-pangea/dnd";
 import {
   ChevronDown,
@@ -34,7 +33,19 @@ import { RichTextEditor } from "@/components/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { richTextToPlainText } from "@/lib/rich-text";
+import {
+  buildDragStyle,
+  buildPersistPayload,
+  cloneColumns,
+  createEmptyColumns,
+  formatFollowUpTimestamp,
+  getDescriptionPreview,
+  mapTasksToColumns,
+  readApiError,
+  resolveAttachmentHref,
+  type TaskColumns,
+} from "@/components/kanban-board-utils";
+import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import {
   ATTACHMENT_KIND_FILE,
   ATTACHMENT_KIND_LINK,
@@ -80,105 +91,11 @@ export interface TaskAttachment {
   downloadUrl: string | null;
 }
 
-type TaskColumns = Record<TaskStatus, KanbanTask[]>;
-
 interface KanbanBoardProps {
   projectId: string;
   initialTasks: KanbanTask[];
   archivedDoneTasks?: KanbanTask[];
   headerAction?: ReactNode;
-}
-
-function getDescriptionPreview(description: string, maxLength = 140): string {
-  const plainText = richTextToPlainText(description);
-
-  if (plainText.length <= maxLength) {
-    return plainText;
-  }
-
-  return `${plainText.slice(0, maxLength - 3)}...`;
-}
-
-function resolveAttachmentHref(attachment: TaskAttachment): string | null {
-  if (attachment.kind === ATTACHMENT_KIND_FILE) {
-    return attachment.downloadUrl;
-  }
-
-  if (attachment.kind === ATTACHMENT_KIND_LINK) {
-    return attachment.url;
-  }
-
-  return null;
-}
-
-function formatFollowUpTimestamp(value: string): string {
-  const parsedDate = new Date(value);
-  if (Number.isNaN(parsedDate.getTime())) {
-    return value;
-  }
-  return parsedDate.toLocaleDateString();
-}
-
-async function readApiError(response: Response, fallbackMessage: string): Promise<string> {
-  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-  return payload?.error ?? fallbackMessage;
-}
-
-function createEmptyColumns(): TaskColumns {
-  return {
-    Backlog: [],
-    "In Progress": [],
-    Blocked: [],
-    Done: [],
-  };
-}
-
-function mapTasksToColumns(tasks: KanbanTask[]): TaskColumns {
-  const columns = createEmptyColumns();
-
-  tasks.forEach((task) => {
-    columns[task.status].push(task);
-  });
-
-  return columns;
-}
-
-function cloneColumns(columns: TaskColumns): TaskColumns {
-  return {
-    Backlog: [...columns.Backlog],
-    "In Progress": [...columns["In Progress"]],
-    Blocked: [...columns.Blocked],
-    Done: [...columns.Done],
-  };
-}
-
-function buildDragStyle(
-  style: DraggableProvidedDraggableProps["style"],
-  isDragging: boolean
-): DraggableProvidedDraggableProps["style"] {
-  if (!isDragging || !style) {
-    return style;
-  }
-
-  const transform = style.transform;
-
-  if (!transform) {
-    return style;
-  }
-
-  return {
-    ...style,
-    transform: `${transform} rotate(1deg) scale(1.01)`,
-  };
-}
-
-function buildPersistPayload(columns: TaskColumns) {
-  return {
-    columns: TASK_STATUSES.map((status) => ({
-      status,
-      taskIds: columns[status].map((task) => task.id),
-    })),
-  };
 }
 
 export function KanbanBoard({
@@ -188,14 +105,19 @@ export function KanbanBoard({
   headerAction,
 }: KanbanBoardProps) {
   const initialColumns = useMemo(() => mapTasksToColumns(initialTasks), [initialTasks]);
-  const [columns, setColumns] = useState<TaskColumns>(initialColumns);
+  const [columns, setColumns] = useState<TaskColumns<KanbanTask>>(initialColumns);
   const [archivedDoneTasks, setArchivedDoneTasks] = useState<KanbanTask[]>(
     initialArchivedDoneTasks
   );
   const [isSaving, startTransition] = useTransition();
   const [persistError, setPersistError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
+    projectId,
+    sectionKey: "kanban",
+    defaultExpanded: true,
+    logLabel: "KanbanBoard",
+  });
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [editTitle, setEditTitle] = useState("");
@@ -221,28 +143,6 @@ export function KanbanBoard({
   useEffect(() => {
     setArchivedDoneTasks(initialArchivedDoneTasks);
   }, [initialArchivedDoneTasks]);
-
-  useEffect(() => {
-    try {
-      const storageKey = `nexusdash:project:${projectId}:kanban-expanded`;
-      const storedValue = window.localStorage.getItem(storageKey);
-
-      if (storedValue === "1" || storedValue === "0") {
-        setIsExpanded(storedValue === "1");
-      }
-    } catch (error) {
-      console.error("[KanbanBoard.loadExpandedState]", error);
-    }
-  }, [projectId]);
-
-  useEffect(() => {
-    try {
-      const storageKey = `nexusdash:project:${projectId}:kanban-expanded`;
-      window.localStorage.setItem(storageKey, isExpanded ? "1" : "0");
-    } catch (error) {
-      console.error("[KanbanBoard.persistExpandedState]", error);
-    }
-  }, [isExpanded, projectId]);
 
   useEffect(() => {
     if (!selectedTask) {
@@ -340,7 +240,10 @@ export function KanbanBoard({
   }, []);
 
   const persistColumns = useCallback(
-    async (nextColumns: TaskColumns, previousColumns: TaskColumns) => {
+    async (
+      nextColumns: TaskColumns<KanbanTask>,
+      previousColumns: TaskColumns<KanbanTask>
+    ) => {
       try {
         const response = await fetch(`/api/projects/${projectId}/tasks/reorder`, {
           method: "POST",
@@ -564,7 +467,7 @@ export function KanbanBoard({
     (taskId: string, mutateTask: (task: KanbanTask) => KanbanTask) => {
       setColumns((previousColumns) => {
         let hasChanges = false;
-        const nextColumns = createEmptyColumns();
+        const nextColumns = createEmptyColumns<KanbanTask>();
 
         TASK_STATUSES.forEach((status) => {
           nextColumns[status] = previousColumns[status].map((task) => {

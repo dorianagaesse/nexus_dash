@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { Link2, Paperclip, PlusSquare, Trash2, Upload, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import {
 } from "@/lib/task-label";
 
 interface CreateTaskDialogProps {
-  action: (formData: FormData) => Promise<void>;
+  projectId: string;
   existingLabels: string[];
 }
 
@@ -27,9 +28,10 @@ function createLocalId(): string {
 }
 
 export function CreateTaskDialog({
-  action,
+  projectId,
   existingLabels,
 }: CreateTaskDialogProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [labels, setLabels] = useState<string[]>([]);
@@ -39,6 +41,8 @@ export function CreateTaskDialog({
   const [attachmentLinks, setAttachmentLinks] = useState<PendingAttachmentLink[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [fileInputKey, setFileInputKey] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const resetDraft = () => {
     setDescription("");
@@ -53,12 +57,67 @@ export function CreateTaskDialog({
 
   const openDialog = () => {
     resetDraft();
+    setSubmitError(null);
     setIsOpen(true);
   };
 
   const closeDialog = () => {
     resetDraft();
     setIsOpen(false);
+  };
+
+  const mapCreateTaskError = (errorCode: string): string => {
+    switch (errorCode) {
+      case "title-too-short":
+        return "Task title must be at least 2 characters long.";
+      case "project-not-found":
+        return "Project not found.";
+      case "attachment-link-invalid":
+        return "One or more attachment links are invalid. Use http:// or https:// URLs.";
+      case "attachment-file-too-large":
+        return "Attachment files must be 10MB or smaller.";
+      case "attachment-file-type-invalid":
+        return "Unsupported attachment file type. Use PDF, image, text, CSV, or JSON.";
+      case "create-failed":
+        return "Could not create task. Please retry.";
+      default:
+        return "Could not create task. Please retry.";
+    }
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const formData = new FormData(event.currentTarget);
+      const response = await fetch(`/api/projects/${projectId}/tasks`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+
+      if (!response.ok) {
+        setSubmitError(mapCreateTaskError(payload?.error ?? "create-failed"));
+        return;
+      }
+
+      closeDialog();
+      router.refresh();
+    } catch (error) {
+      console.error("[CreateTaskDialog.handleSubmit]", error);
+      setSubmitError("Could not create task. Please retry.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleAddLink = () => {
@@ -155,10 +214,8 @@ export function CreateTaskDialog({
             </CardHeader>
             <CardContent>
               <form
-                action={action}
                 className="grid gap-4"
-                encType="multipart/form-data"
-                onSubmit={() => setIsOpen(false)}
+                onSubmit={handleSubmit}
               >
                 <div className="grid gap-2">
                   <label htmlFor="task-title" className="text-sm font-medium">
@@ -359,11 +416,23 @@ export function CreateTaskDialog({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Button type="submit">Create task</Button>
-                  <Button type="button" variant="ghost" onClick={closeDialog}>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? "Creating..." : "Create task"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={closeDialog}
+                    disabled={isSubmitting}
+                  >
                     Cancel
                   </Button>
                 </div>
+                {submitError ? (
+                  <p className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
+                    {submitError}
+                  </p>
+                ) : null}
               </form>
             </CardContent>
           </Card>

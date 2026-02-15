@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
-import { readAttachmentFile } from "@/lib/attachment-storage";
-import { prisma } from "@/lib/prisma";
+import { getTaskAttachmentDownload } from "@/lib/services/project-attachment-service";
 
 export async function GET(
   request: Request,
@@ -18,55 +16,30 @@ export async function GET(
     return NextResponse.json({ error: "Missing route parameters" }, { status: 400 });
   }
 
-  try {
-    const requestUrl = new URL(request.url);
-    const disposition =
-      requestUrl.searchParams.get("disposition") === "inline"
-        ? "inline"
-        : "attachment";
+  const disposition =
+    new URL(request.url).searchParams.get("disposition") === "inline"
+      ? "inline"
+      : "attachment";
 
-    const attachment = await prisma.taskAttachment.findUnique({
-      where: { id: attachmentId },
-      select: {
-        kind: true,
-        name: true,
-        mimeType: true,
-        storageKey: true,
-        task: {
-          select: {
-            id: true,
-            projectId: true,
-          },
-        },
-      },
-    });
+  const result = await getTaskAttachmentDownload({
+    projectId,
+    taskId,
+    attachmentId,
+    disposition,
+  });
 
-    if (
-      !attachment ||
-      attachment.task.id !== taskId ||
-      attachment.task.projectId !== projectId ||
-      attachment.kind !== ATTACHMENT_KIND_FILE ||
-      !attachment.storageKey
-    ) {
-      return NextResponse.json({ error: "File attachment not found" }, { status: 404 });
-    }
-
-    const buffer = await readAttachmentFile(attachment.storageKey);
-    const filename = encodeURIComponent(attachment.name || "attachment");
-
-    return new NextResponse(new Uint8Array(buffer), {
-      status: 200,
-      headers: {
-        "Content-Type": attachment.mimeType || "application/octet-stream",
-        "Content-Disposition": `${disposition}; filename*=UTF-8''${filename}`,
-        "Cache-Control": "private, max-age=60",
-      },
-    });
-  } catch (error) {
-    console.error(
-      "[GET /api/projects/:projectId/tasks/:taskId/attachments/:attachmentId/download]",
-      error
-    );
-    return NextResponse.json({ error: "Failed to read attachment" }, { status: 500 });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
   }
+
+  const body = new Uint8Array(result.data.content);
+
+  return new NextResponse(body, {
+    status: 200,
+    headers: {
+      "Content-Type": result.data.contentType,
+      "Content-Disposition": result.data.contentDisposition,
+      "Cache-Control": "private, max-age=60",
+    },
+  });
 }

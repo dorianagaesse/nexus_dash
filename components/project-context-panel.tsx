@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -13,9 +13,16 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { AttachmentPreviewModal } from "@/components/attachment-preview-modal";
 import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
+import {
+  createLocalId,
+  getRandomContextColor,
+  readApiError,
+  resolveAttachmentHref,
+} from "@/components/project-context-panel-utils";
 import {
   ATTACHMENT_KIND_FILE,
   ATTACHMENT_KIND_LINK,
@@ -24,6 +31,7 @@ import {
 } from "@/lib/task-attachment";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import { cn } from "@/lib/utils";
 
 interface ProjectContextAttachment {
@@ -52,35 +60,6 @@ interface PendingAttachmentLink {
 interface ProjectContextPanelProps {
   projectId: string;
   cards: ProjectContextCard[];
-  createAction: (formData: FormData) => Promise<void>;
-  updateAction: (formData: FormData) => Promise<void>;
-  deleteAction: (formData: FormData) => Promise<void>;
-}
-
-function getRandomContextColor() {
-  const index = Math.floor(Math.random() * CONTEXT_CARD_COLORS.length);
-  return CONTEXT_CARD_COLORS[index];
-}
-
-function createLocalId(): string {
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function resolveAttachmentHref(attachment: ProjectContextAttachment): string | null {
-  if (attachment.kind === ATTACHMENT_KIND_FILE) {
-    return attachment.downloadUrl;
-  }
-
-  if (attachment.kind === ATTACHMENT_KIND_LINK) {
-    return attachment.url;
-  }
-
-  return null;
-}
-
-async function readApiError(response: Response, fallbackMessage: string): Promise<string> {
-  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-  return payload?.error ?? fallbackMessage;
 }
 
 function ColorPicker({
@@ -150,11 +129,14 @@ function ModalFrame({
 export function ProjectContextPanel({
   projectId,
   cards,
-  createAction,
-  updateAction,
-  deleteAction,
 }: ProjectContextPanelProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const router = useRouter();
+  const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
+    projectId,
+    sectionKey: "context",
+    defaultExpanded: false,
+    logLabel: "ProjectContextPanel",
+  });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createColor, setCreateColor] = useState<string>(getRandomContextColor());
   const [createLinkUrl, setCreateLinkUrl] = useState("");
@@ -167,6 +149,11 @@ export function ProjectContextPanel({
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [editingColor, setEditingColor] = useState<string>(CONTEXT_CARD_COLORS[0]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isCreatingCard, setIsCreatingCard] = useState(false);
+  const [isUpdatingCard, setIsUpdatingCard] = useState(false);
+  const [deletingCardId, setDeletingCardId] = useState<string | null>(null);
   const [isSubmittingAttachment, setIsSubmittingAttachment] = useState(false);
   const [isEditLinkComposerOpen, setIsEditLinkComposerOpen] = useState(false);
   const [editLinkUrl, setEditLinkUrl] = useState("");
@@ -195,34 +182,13 @@ export function ProjectContextPanel({
       return;
     }
     setEditingColor(editingCard.color);
+    setEditError(null);
     setAttachmentError(null);
     setIsEditLinkComposerOpen(false);
     setEditLinkUrl("");
     setEditFileInputKey((previous) => previous + 1);
     setPreviewAttachment(null);
   }, [editingCard]);
-
-  useEffect(() => {
-    try {
-      const storageKey = `nexusdash:project:${projectId}:context-expanded`;
-      const storedValue = window.localStorage.getItem(storageKey);
-
-      if (storedValue === "1" || storedValue === "0") {
-        setIsExpanded(storedValue === "1");
-      }
-    } catch (error) {
-      console.error("[ProjectContextPanel.loadExpandedState]", error);
-    }
-  }, [projectId]);
-
-  useEffect(() => {
-    try {
-      const storageKey = `nexusdash:project:${projectId}:context-expanded`;
-      window.localStorage.setItem(storageKey, isExpanded ? "1" : "0");
-    } catch (error) {
-      console.error("[ProjectContextPanel.persistExpandedState]", error);
-    }
-  }, [isExpanded, projectId]);
 
   useEffect(() => {
     setCardAttachmentsById(
@@ -255,6 +221,7 @@ export function ProjectContextPanel({
 
   const closeCreateModal = () => {
     resetCreateAttachmentDraft();
+    setCreateError(null);
     setIsCreateOpen(false);
   };
 
@@ -267,6 +234,7 @@ export function ProjectContextPanel({
 
   const closeEditModal = () => {
     setEditingCardId(null);
+    setEditError(null);
     setAttachmentError(null);
     setPreviewAttachment(null);
   };
@@ -300,6 +268,167 @@ export function ProjectContextPanel({
       url: link.url,
     }))
   );
+
+  const mapContextMutationError = (errorCode: string, fallback: string): string => {
+    switch (errorCode) {
+      case "project-not-found":
+        return "Project not found.";
+      case "attachment-link-invalid":
+        return "One or more attachment links are invalid. Use http:// or https:// URLs.";
+      case "attachment-file-too-large":
+        return "Attachment files must be 10MB or smaller.";
+      case "attachment-file-type-invalid":
+        return "Unsupported attachment file type. Use PDF, image, text, CSV, or JSON.";
+      case "context-card-missing":
+        return "Context card identifier is missing.";
+      case "context-card-not-found":
+        return "Context card not found.";
+      case "context-title-too-short":
+        return "Context card title must be at least 2 characters long.";
+      case "context-title-too-long":
+        return "Context card title must be 120 characters or fewer.";
+      case "context-content-too-long":
+        return "Context card content must be 4000 characters or fewer.";
+      case "context-color-invalid":
+        return "Selected context card color is invalid.";
+      case "context-create-failed":
+        return "Could not create context card. Please retry.";
+      case "context-update-failed":
+        return "Could not update context card. Please retry.";
+      case "context-delete-failed":
+        return "Could not delete context card. Please retry.";
+      default:
+        return fallback;
+    }
+  };
+
+  const handleCreateCardSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isCreatingCard) {
+      return;
+    }
+
+    setIsCreatingCard(true);
+    setCreateError(null);
+
+    try {
+      const formData = new FormData(event.currentTarget);
+      const response = await fetch(`/api/projects/${projectId}/context-cards`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+
+      if (!response.ok) {
+        setCreateError(
+          mapContextMutationError(
+            payload?.error ?? "context-create-failed",
+            "Could not create context card. Please retry."
+          )
+        );
+        return;
+      }
+
+      closeCreateModal();
+      router.refresh();
+    } catch (error) {
+      console.error("[ProjectContextPanel.handleCreateCardSubmit]", error);
+      setCreateError("Could not create context card. Please retry.");
+    } finally {
+      setIsCreatingCard(false);
+    }
+  };
+
+  const handleUpdateCardSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingCard || isUpdatingCard) {
+      return;
+    }
+
+    setIsUpdatingCard(true);
+    setEditError(null);
+
+    try {
+      const formData = new FormData(event.currentTarget);
+      const response = await fetch(
+        `/api/projects/${projectId}/context-cards/${editingCard.id}`,
+        {
+          method: "PATCH",
+          body: formData,
+        }
+      );
+
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+
+      if (!response.ok) {
+        setEditError(
+          mapContextMutationError(
+            payload?.error ?? "context-update-failed",
+            "Could not update context card. Please retry."
+          )
+        );
+        return;
+      }
+
+      closeEditModal();
+      router.refresh();
+    } catch (error) {
+      console.error("[ProjectContextPanel.handleUpdateCardSubmit]", error);
+      setEditError("Could not update context card. Please retry.");
+    } finally {
+      setIsUpdatingCard(false);
+    }
+  };
+
+  const handleDeleteCard = async (cardId: string) => {
+    if (deletingCardId) {
+      return;
+    }
+
+    setDeletingCardId(cardId);
+    try {
+      const response = await fetch(`/api/projects/${projectId}/context-cards/${cardId}`, {
+        method: "DELETE",
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+
+      if (!response.ok) {
+        const message = mapContextMutationError(
+          payload?.error ?? "context-delete-failed",
+          "Could not delete context card. Please retry."
+        );
+        if (editingCardId === cardId) {
+          setEditError(message);
+        } else {
+          window.alert(message);
+        }
+        return;
+      }
+
+      if (editingCardId === cardId) {
+        closeEditModal();
+      }
+      router.refresh();
+    } catch (error) {
+      console.error("[ProjectContextPanel.handleDeleteCard]", error);
+      const message = "Could not delete context card. Please retry.";
+      if (editingCardId === cardId) {
+        setEditError(message);
+      } else {
+        window.alert(message);
+      }
+    } finally {
+      setDeletingCardId(null);
+    }
+  };
 
   const handleAddLinkAttachment = async () => {
     if (!editingCard || !editLinkUrl.trim()) {
@@ -493,18 +622,17 @@ export function ProjectContextPanel({
                           <Pencil className="h-4 w-4" />
                         </Button>
 
-                        <form action={deleteAction}>
-                          <input type="hidden" name="cardId" value={card.id} />
-                          <Button
-                            type="submit"
-                            variant="ghost"
-                            size="icon"
-                            className="text-slate-800 hover:bg-slate-900/10"
-                            aria-label="Delete context card"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </form>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="text-slate-800 hover:bg-slate-900/10"
+                          onClick={() => void handleDeleteCard(card.id)}
+                          disabled={deletingCardId === card.id}
+                          aria-label="Delete context card"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                     <p className="whitespace-pre-wrap break-words text-xs text-slate-800">
@@ -581,12 +709,7 @@ export function ProjectContextPanel({
 
       {isCreateOpen ? (
         <ModalFrame title="Add context card" onClose={closeCreateModal}>
-          <form
-            action={createAction}
-            className="grid gap-4"
-            encType="multipart/form-data"
-            onSubmit={() => setIsCreateOpen(false)}
-          >
+          <form className="grid gap-4" onSubmit={(event) => void handleCreateCardSubmit(event)}>
             <div className="grid gap-2">
               <label htmlFor="context-create-title" className="text-sm font-medium">
                 Title
@@ -728,18 +851,30 @@ export function ProjectContextPanel({
             </div>
 
             <div className="flex items-center gap-2">
-              <Button type="submit">Create card</Button>
-              <Button type="button" variant="ghost" onClick={closeCreateModal}>
+              <Button type="submit" disabled={isCreatingCard}>
+                {isCreatingCard ? "Creating..." : "Create card"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={closeCreateModal}
+                disabled={isCreatingCard}
+              >
                 Cancel
               </Button>
             </div>
+            {createError ? (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
+                {createError}
+              </div>
+            ) : null}
           </form>
         </ModalFrame>
       ) : null}
 
       {editingCard ? (
         <ModalFrame title="Edit context card" onClose={closeEditModal}>
-          <form action={updateAction} className="grid gap-4" onSubmit={closeEditModal}>
+          <form className="grid gap-4" onSubmit={(event) => void handleUpdateCardSubmit(event)}>
             <input type="hidden" name="cardId" value={editingCard.id} />
             <div className="grid gap-2">
               <label htmlFor="context-edit-title" className="text-sm font-medium">
@@ -897,11 +1032,23 @@ export function ProjectContextPanel({
                   {attachmentError}
                 </div>
               ) : null}
+              {editError ? (
+                <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
+                  {editError}
+                </div>
+              ) : null}
             </div>
 
             <div className="flex items-center gap-2">
-              <Button type="submit">Save card</Button>
-              <Button type="button" variant="ghost" onClick={closeEditModal}>
+              <Button type="submit" disabled={isUpdatingCard || isSubmittingAttachment}>
+                {isUpdatingCard ? "Saving..." : "Save card"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={closeEditModal}
+                disabled={isUpdatingCard || isSubmittingAttachment}
+              >
                 Cancel
               </Button>
             </div>

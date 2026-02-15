@@ -1,44 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { prisma } from "@/lib/prisma";
-import { isTaskStatus, TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
-
-interface ReorderColumnPayload {
-  status: string;
-  taskIds: string[];
-}
-
-interface ReorderPayload {
-  columns: ReorderColumnPayload[];
-}
-
-function isValidPayload(payload: unknown): payload is ReorderPayload {
-  if (!payload || typeof payload !== "object") {
-    return false;
-  }
-
-  const maybeColumns = (payload as ReorderPayload).columns;
-
-  if (!Array.isArray(maybeColumns)) {
-    return false;
-  }
-
-  return maybeColumns.every((column) => {
-    if (!column || typeof column !== "object") {
-      return false;
-    }
-
-    if (typeof column.status !== "string" || !isTaskStatus(column.status)) {
-      return false;
-    }
-
-    if (!Array.isArray(column.taskIds)) {
-      return false;
-    }
-
-    return column.taskIds.every((id) => typeof id === "string" && id.length > 0);
-  });
-}
+import {
+  isValidReorderPayload,
+  reorderProjectTasks,
+} from "@/lib/services/project-task-service";
 
 export async function POST(
   request: NextRequest,
@@ -59,74 +24,14 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
-  if (!isValidPayload(body)) {
+  if (!isValidReorderPayload(body)) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const normalizedColumns = TASK_STATUSES.map((status) => {
-    const matchingColumn = body.columns.find((column) => column.status === status);
-    return {
-      status,
-      taskIds: matchingColumn ? matchingColumn.taskIds : [],
-    };
-  });
-
-  const taskIds = normalizedColumns.flatMap((column) => column.taskIds);
-
-  if (taskIds.length === 0) {
-    return NextResponse.json({ ok: true });
+  const result = await reorderProjectTasks(projectId, body);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  try {
-    const tasks = await prisma.task.findMany({
-      where: {
-        projectId,
-        id: { in: taskIds },
-      },
-      select: { id: true, status: true, completedAt: true },
-    });
-
-    if (tasks.length !== taskIds.length) {
-      return NextResponse.json(
-        { error: "One or more tasks do not belong to this project" },
-        { status: 400 }
-      );
-    }
-
-    const taskById = new Map(tasks.map((task) => [task.id, task]));
-
-    const updateOperations = normalizedColumns.flatMap(
-      (column: { status: TaskStatus; taskIds: string[] }) =>
-        column.taskIds.map((taskId, index) => {
-          const existingTask = taskById.get(taskId);
-          const movedToDone =
-            column.status === "Done" && existingTask?.status !== "Done";
-
-          return prisma.task.update({
-            where: { id: taskId },
-            data: {
-              status: column.status,
-              position: index,
-              archivedAt: null,
-              completedAt:
-                column.status === "Done"
-                  ? movedToDone
-                    ? new Date()
-                    : existingTask?.completedAt ?? new Date()
-                  : null,
-            },
-          });
-        })
-    );
-
-    await prisma.$transaction(updateOperations);
-
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    console.error("[POST /api/projects/:projectId/tasks/reorder]", error);
-    return NextResponse.json(
-      { error: "Failed to persist task order" },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({ ok: true });
 }
