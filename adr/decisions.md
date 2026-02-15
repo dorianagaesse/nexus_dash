@@ -159,3 +159,9 @@ Status: Accepted
 Context: TASK-056 requires a data-platform decision before migration/auth/security phases, balancing concurrency, operational burden, lock-in risk, and delivery speed.
 Decision: Use PostgreSQL as the canonical persistence engine, target Supabase-managed Postgres by default for hosted environments, and keep Prisma schema/migrations repository-owned and provider-agnostic.
 Consequences: Enables near-term production readiness and remote multi-user capability with lower ops burden; requires explicit guardrails to avoid premature coupling to Supabase-specific platform features.
+Date: 2026-02-15
+Decision: Reset migration history for PostgreSQL parity baseline while preserving SQLite lineage
+Status: Accepted
+Context: TASK-057 migrates runtime persistence from SQLite to PostgreSQL without carrying local SQLite data; existing migration chain was SQLite-specific and incompatible as-is for PostgreSQL deploy.
+Decision: Keep prior SQLite migrations under `prisma/migrations-sqlite-legacy` for traceability, create a new PostgreSQL `prisma/migrations` baseline from the current schema, and enforce Postgres env contracts (`DATABASE_URL`, `DIRECT_URL`) in docs/runtime.
+Consequences: Clean, deployable Postgres migration history for new environments with preserved historical audit trail; teams migrating old local SQLite data must use a separate one-off data transfer path if needed.

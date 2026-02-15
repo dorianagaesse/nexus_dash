@@ -20,6 +20,8 @@ import {
   updateProjectAction,
 } from "./actions";
 
+export const dynamic = "force-dynamic";
+
 type SearchParams = Record<string, string | string[] | undefined>;
 
 const STATUS_MESSAGES: Record<string, string> = {
