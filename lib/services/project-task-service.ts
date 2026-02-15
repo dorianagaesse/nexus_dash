@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { sanitizeRichText } from "@/lib/rich-text";
-import { parseTaskLabelsJson, serializeTaskLabels } from "@/lib/task-label";
+import {
+  normalizeTaskLabels,
+  parseTaskLabelsJson,
+  serializeTaskLabels,
+} from "@/lib/task-label";
 import { isTaskStatus, TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 import {
   parseAttachmentLinksJson,
@@ -285,7 +289,7 @@ export async function updateTaskForProject(
       ? payload.labels
       : [normalizeText(payload.label)];
   const labels = rawLabels.map((entry) => normalizeText(entry)).filter(Boolean);
-  const normalizedLabels = parseTaskLabelsJson(JSON.stringify(labels));
+  const normalizedLabels = normalizeTaskLabels(labels);
   const serializedLabels = serializeTaskLabels(normalizedLabels);
   const description = sanitizeRichText(normalizeText(payload.description));
   const blockedFollowUpEntry = normalizeText(payload.blockedFollowUpEntry);
