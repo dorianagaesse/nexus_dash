@@ -37,6 +37,10 @@ describe("env.server", () => {
     expect(getOptionalServerEnv("SUPABASE_URL")).toBeNull();
   });
 
+  test("returns null for optional undefined values", () => {
+    expect(getOptionalServerEnv("UNKNOWN_OPTIONAL_ENV_KEY")).toBeNull();
+  });
+
   test("normalizes runtime environment with safe fallback", () => {
     vi.stubEnv("NODE_ENV", "production");
     expect(getRuntimeEnvironment()).toBe("production");
@@ -60,6 +64,16 @@ describe("env.server", () => {
     });
   });
 
+  test("builds database config without fallback when direct url is set", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://primary-host:5432/appdb");
+    vi.stubEnv("DIRECT_URL", "postgresql://read-replica-host:5432/appdb");
+
+    expect(getDatabaseRuntimeConfig()).toEqual({
+      databaseUrl: "postgresql://primary-host:5432/appdb",
+      directUrl: "postgresql://read-replica-host:5432/appdb",
+    });
+  });
+
   test("returns null when supabase pair is fully unset", () => {
     expect(getSupabaseClientRuntimeConfig()).toBeNull();
   });
@@ -67,6 +81,15 @@ describe("env.server", () => {
   test("throws when supabase pair is only partially configured", () => {
     vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
     vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "");
+
+    expect(() => getSupabaseClientRuntimeConfig()).toThrow(
+      "SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY must be configured together."
+    );
+  });
+
+  test("throws when supabase pair is partially configured with missing url", () => {
+    vi.stubEnv("SUPABASE_URL", "");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "pk_test_123");
 
     expect(() => getSupabaseClientRuntimeConfig()).toThrow(
       "SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY must be configured together."

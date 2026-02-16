@@ -29,15 +29,11 @@ export interface GoogleTokenResponse {
   scope?: string;
 }
 
-function readEnv(name: string): string {
-  return getRequiredServerEnv(name);
-}
-
 export function getGoogleOAuthEnv(): GoogleOAuthEnv {
   return {
-    clientId: readEnv("GOOGLE_CLIENT_ID"),
-    clientSecret: readEnv("GOOGLE_CLIENT_SECRET"),
-    redirectUri: readEnv("GOOGLE_REDIRECT_URI"),
+    clientId: getRequiredServerEnv("GOOGLE_CLIENT_ID"),
+    clientSecret: getRequiredServerEnv("GOOGLE_CLIENT_SECRET"),
+    redirectUri: getRequiredServerEnv("GOOGLE_REDIRECT_URI"),
   };
 }
 
