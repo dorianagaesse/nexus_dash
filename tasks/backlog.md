@@ -4,9 +4,9 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 - ID: TASK-039
-  Title: Deployment baseline phase 1 - runtime target and network allowlist
+  Title: Deployment baseline phase 1 - runtime target and exposure model
   Status: Pending
-  Rationale: Define production runtime target and ingress policy (including source-IP restrictions) before pipeline implementation.
+  Rationale: Define production runtime target and public exposure model for Vercel (no trusted-IP allowlist), with app-layer authentication as the primary access control.
   Dependencies: TASK-019
 - ID: TASK-040
   Title: Deployment baseline phase 2 - secrets and configuration management
@@ -28,6 +28,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Add logs, health checks, and error visibility so production issues are detectable and diagnosable.
   Dependencies: TASK-039
+- ID: TASK-065
+  Title: Attachment storage migration - local filesystem to blob/object storage
+  Status: Pending
+  Rationale: Replace local attachment persistence with blob/object storage and signed URL flows so files remain durable and accessible in serverless Vercel runtimes.
+  Dependencies: TASK-039, TASK-040
 - ID: TASK-020
   Title: Modern authentication/authorization ADR (user ownership, sharing, agent access, session model)
   Status: Pending
@@ -101,8 +106,8 @@ Use this file to capture tasks discovered during development. Each entry should 
 - ID: TASK-022
   Title: Production deployment baseline (runtime, CI/CD, secrets, observability)
   Status: Pending (Epic - split into TASK-039/TASK-040/TASK-041/TASK-042/TASK-043)
-  Rationale: Move from local Docker setup to reproducible deployment with modern operational best practices, initially restricted to allowed source IPs.
-  Dependencies: TASK-042, TASK-043
+  Rationale: Move from local Docker setup to reproducible Vercel deployment with modern operational best practices; public exposure requires completed app auth/authz and blob storage migration.
+  Dependencies: TASK-042, TASK-043, TASK-048, TASK-058, TASK-065
 - ID: TASK-021
   Title: Implement production-grade authentication and account onboarding
   Status: Pending (Epic - split into TASK-045/TASK-046/TASK-047/TASK-048/TASK-058/TASK-059)
