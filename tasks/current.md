@@ -1,30 +1,25 @@
-# Current Task: Database Migration Phase 1
+# Current Task: Validation Suite Phase 1
 
 ## Task ID
-TASK-057
+TASK-036
 
 ## Status
-Done (2026-02-15)
+Done (2026-02-16)
 
 ## Summary
-Persistence parity migration from SQLite to PostgreSQL is now completed:
-- Prisma datasource switched to PostgreSQL (`DATABASE_URL` + `DIRECT_URL`) with Supabase-compatible connection strategy.
-- Legacy SQLite migration history moved under `prisma/migrations-sqlite-legacy`, and a PostgreSQL baseline migration was added under `prisma/migrations`.
-- Docker/local docs and env templates updated so migration/runtime work with Postgres-backed environments.
+Route-level API contract coverage was expanded to include missing critical boundaries:
+- Added auth route tests for OAuth init and callback (`/api/auth/google`, `/api/auth/callback/google`).
+- Added attachment route tests for task and context-card create/delete/download flows.
+- Preserved existing contract style (module mocks + status/body assertions) and validated error mapping behavior.
 
 ## Validation
-- `prisma migrate deploy` applied PostgreSQL baseline migration successfully.
-- `npm test` -> 78 passed.
+- `npm test` -> 106 passed.
 - `npm run build` -> passed.
-- Docker validation:
-  - `docker compose up -d --build` -> image/app started
-  - `http://localhost:3000` -> 200
-  - `docker compose down` -> cleaned up.
 
 ## Next Recommended Task
-TASK-036 (Validation suite phase 1 - API regression contracts)
+TASK-037 (Validation suite phase 2 - critical UI/E2E smoke flows)
 
 ---
 
-Last Updated: 2026-02-15
+Last Updated: 2026-02-16
 Assigned To: User + Agent
