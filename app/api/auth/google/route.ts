@@ -8,6 +8,7 @@ import {
   buildGoogleOAuthUrl,
   normalizeReturnToPath,
 } from "@/lib/google-calendar";
+import { isProductionEnvironment } from "@/lib/env.server";
 
 function withErrorParam(request: NextRequest, returnTo: string, error: string): URL {
   const target = new URL(returnTo, request.url);
@@ -18,7 +19,7 @@ function withErrorParam(request: NextRequest, returnTo: string, error: string): 
 export async function GET(request: NextRequest) {
   const returnTo = normalizeReturnToPath(request.nextUrl.searchParams.get("returnTo"));
   const state = crypto.randomBytes(24).toString("hex");
-  const secure = process.env.NODE_ENV === "production";
+  const secure = isProductionEnvironment();
   let authorizationUrl = "";
 
   try {

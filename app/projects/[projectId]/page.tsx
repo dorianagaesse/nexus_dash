@@ -15,6 +15,7 @@ import { getProjectDashboardById } from "@/lib/services/project-service";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import { isTaskStatus } from "@/lib/task-status";
+import { getGoogleCalendarId } from "@/lib/google-calendar";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -148,7 +149,7 @@ export default async function ProjectDashboardPage({
     kanbanTasks.push(normalizedTask);
   });
 
-  const calendarId = process.env.GOOGLE_CALENDAR_ID?.trim() ?? "primary";
+  const calendarId = getGoogleCalendarId();
   const status = readQueryValue(searchParams?.status);
   const error = readQueryValue(searchParams?.error);
 

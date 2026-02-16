@@ -31,6 +31,21 @@ before starting the app.
 - If direct host resolution is unavailable in your network environment, set
   `DIRECT_URL` to the same value as `DATABASE_URL`.
 
+## Configuration & Secrets Baseline
+
+Environment and secret handling is centralized in `lib/env.server.ts`.
+
+- Required (server): `DATABASE_URL`
+- Required as a pair (when calendar auth is enabled): `GOOGLE_CLIENT_ID`,
+  `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
+- Optional with fallback: `DIRECT_URL` (falls back to `DATABASE_URL`)
+- Optional as a pair: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`
+
+Deployment model:
+- Local dev: `.env` (never committed)
+- CI: repository/organization secrets + workflow/job env
+- Vercel: environment-specific secrets in dashboard (Preview/Production)
+
 If you create a new migration during development:
 
 ```bash
