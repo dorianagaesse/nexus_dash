@@ -13,6 +13,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Enforce automated quality gates (lint/test/coverage) in CI so validation remains stable over time.
   Dependencies: TASK-036, TASK-037
+- ID: TASK-060
+  Title: Boundary enforcement pass - explicit module ownership and layering rules
+  Status: Pending
+  Rationale: Convert architecture intent into enforceable constraints (clear module ownership, allowed dependency directions, and targeted responsibility splits) so auth/security features do not reintroduce boundary drift.
+  Dependencies: TASK-035, TASK-038
 - ID: TASK-039
   Title: Deployment baseline phase 1 - runtime target and network allowlist
   Status: Pending
@@ -42,7 +47,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Title: Modern authentication/authorization ADR (user ownership, sharing, agent access, session model)
   Status: Pending
   Rationale: Define a state-of-the-art authz/authn model covering user-owned projects, shareable collaboration, secure agent access, and persistent web sessions without repeated login prompts.
-  Dependencies: TASK-035, TASK-039, TASK-040, TASK-057
+  Dependencies: TASK-035, TASK-039, TASK-040, TASK-057, TASK-060
 - ID: TASK-045
   Title: Authentication implementation phase 1 - user/session data model and migrations
   Status: Pending
