@@ -36,6 +36,8 @@ model Task {
   blockedFollowUps TaskBlockedFollowUp[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([projectId])
 }
 
 model Resource {
@@ -48,6 +50,8 @@ model Resource {
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   attachments ResourceAttachment[]
   createdAt   DateTime @default(now())
+
+  @@index([projectId])
 }
 
 model TaskAttachment {
