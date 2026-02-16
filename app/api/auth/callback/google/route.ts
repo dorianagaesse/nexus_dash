@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { prisma } from "@/lib/prisma";
 import {
-  GOOGLE_CALENDAR_CONNECTION_ID,
   GOOGLE_OAUTH_RETURN_TO_COOKIE,
   GOOGLE_OAUTH_STATE_COOKIE,
-  createExpiryDate,
   exchangeAuthorizationCodeForTokens,
   normalizeReturnToPath,
 } from "@/lib/google-calendar";
+import { upsertGoogleCalendarCredentialTokens } from "@/lib/services/google-calendar-credential-service";
 
 function buildRedirectUrl(
   request: NextRequest,
@@ -82,34 +80,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const tokenResponse = await exchangeAuthorizationCodeForTokens(code);
-    const existing = await prisma.googleCalendarCredential.findUnique({
-      where: { id: GOOGLE_CALENDAR_CONNECTION_ID },
-      select: { refreshToken: true },
-    });
-
-    const refreshToken = tokenResponse.refreshToken ?? existing?.refreshToken ?? null;
-
-    if (!refreshToken) {
-      throw new Error("missing-refresh-token");
-    }
-
-    await prisma.googleCalendarCredential.upsert({
-      where: { id: GOOGLE_CALENDAR_CONNECTION_ID },
-      update: {
-        accessToken: tokenResponse.accessToken,
-        refreshToken,
-        tokenType: tokenResponse.tokenType ?? null,
-        scope: tokenResponse.scope ?? null,
-        expiresAt: createExpiryDate(tokenResponse.expiresIn),
-      },
-      create: {
-        id: GOOGLE_CALENDAR_CONNECTION_ID,
-        accessToken: tokenResponse.accessToken,
-        refreshToken,
-        tokenType: tokenResponse.tokenType ?? null,
-        scope: tokenResponse.scope ?? null,
-        expiresAt: createExpiryDate(tokenResponse.expiresIn),
-      },
+    await upsertGoogleCalendarCredentialTokens({
+      accessToken: tokenResponse.accessToken,
+      expiresIn: tokenResponse.expiresIn,
+      refreshToken: tokenResponse.refreshToken,
+      tokenType: tokenResponse.tokenType,
+      scope: tokenResponse.scope,
     });
 
     return buildRedirectResponse(request, returnToPath, {

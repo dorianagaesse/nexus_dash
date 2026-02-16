@@ -1,29 +1,32 @@
-# Current Task: Validation Suite Phase 3
+# Current Task: Boundary Enforcement Pass
 
 ## Task ID
-TASK-038
+TASK-060
 
 ## Status
 Done (2026-02-16)
 
 ## Summary
-CI quality gates are now enforced through GitHub Actions:
-- Added `.github/workflows/quality-gates.yml` with two required gate jobs.
-- `quality-core` job runs lint, test, coverage threshold checks, and production build.
-- `e2e-smoke` job runs Playwright smoke tests against an isolated PostgreSQL service with Prisma migrations applied.
-- Added failure artifact upload for Playwright reports and traces to speed up CI debugging.
+Boundary ownership is now explicit and enforced:
+- Added `lib/services/project-service.ts` so project pages/actions no longer access Prisma directly.
+- Added `lib/services/google-calendar-credential-service.ts` so Google OAuth callback route no longer owns credential persistence.
+- Added lint guardrails in `.eslintrc.json` to block `@/lib/prisma` imports outside `lib/services/**`.
+- Added TASK detail doc: `tasks/task-060-boundary-enforcement.md`.
+- Recorded architecture decision in `adr/decisions.md`.
 
 ## Validation
-- `npm test` -> 106 passed.
-- `npm run test:coverage` -> passed (thresholds met).
-- `npm run test:e2e` -> 3 passed.
 - `npm run lint` -> passed.
+- `npm test` -> 110 passed.
+- `npm run test:e2e` -> 3 passed.
 - `npm run build` -> passed.
 
+## Notes
+- Build output includes a non-blocking local webpack cache rename warning (`EPERM`) in `.next/cache`; build still succeeds.
+
 ## Next Recommended Task
-TASK-060 (Boundary enforcement pass - explicit module ownership and layering rules)
+TASK-039 (Deployment baseline phase 1 - runtime target and network allowlist)
 
 ---
 
-Last Updated: 2026-02-16
+Last Updated: 2026-02-16  
 Assigned To: User + Agent

@@ -1,12 +1,14 @@
-import { prisma } from "@/lib/prisma";
 import {
-  GOOGLE_CALENDAR_CONNECTION_ID,
   GOOGLE_CALENDAR_SCOPE_EVENTS,
   GOOGLE_CALENDAR_SCOPE_FULL,
   createExpiryDate,
   getGoogleCalendarId,
   refreshAccessToken,
 } from "@/lib/google-calendar";
+import {
+  findGoogleCalendarCredential,
+  updateGoogleCalendarCredentialTokens,
+} from "@/lib/services/google-calendar-credential-service";
 
 interface AuthorizedCalendarContext {
   accessToken: string;
@@ -44,9 +46,7 @@ export function hasCalendarWriteScope(scope: string | null): boolean {
 }
 
 export async function getAuthorizedGoogleCalendarContext(): Promise<CalendarAuthResult> {
-  const credential = await prisma.googleCalendarCredential.findUnique({
-    where: { id: GOOGLE_CALENDAR_CONNECTION_ID },
-  });
+  const credential = await findGoogleCalendarCredential();
 
   if (!credential) {
     return {
@@ -67,15 +67,12 @@ export async function getAuthorizedGoogleCalendarContext(): Promise<CalendarAuth
       expiresAt = createExpiryDate(refreshed.expiresIn);
       scope = refreshed.scope ?? scope;
 
-      await prisma.googleCalendarCredential.update({
-        where: { id: GOOGLE_CALENDAR_CONNECTION_ID },
-        data: {
-          accessToken,
-          expiresAt,
-          tokenType: refreshed.tokenType ?? credential.tokenType,
-          scope,
-          refreshToken: refreshed.refreshToken ?? credential.refreshToken,
-        },
+      await updateGoogleCalendarCredentialTokens({
+        accessToken,
+        expiresIn: refreshed.expiresIn,
+        tokenType: refreshed.tokenType ?? credential.tokenType,
+        scope,
+        refreshToken: refreshed.refreshToken ?? credential.refreshToken,
       });
     } catch (error) {
       console.error("[getAuthorizedGoogleCalendarContext] refresh failed", error);

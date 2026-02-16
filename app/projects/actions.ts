@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { prisma } from "@/lib/prisma";
+import {
+  createProject,
+  deleteProject,
+  updateProject,
+} from "@/lib/services/project-service";
 
 const PROJECTS_PATH = "/projects";
 const MIN_NAME_LENGTH = 2;
@@ -33,11 +37,9 @@ export async function createProjectAction(formData: FormData): Promise<void> {
   }
 
   try {
-    await prisma.project.create({
-      data: {
-        name,
-        description: descriptionText.length > 0 ? descriptionText : null,
-      },
+    await createProject({
+      name,
+      description: descriptionText.length > 0 ? descriptionText : null,
     });
   } catch (error) {
     console.error("[createProjectAction]", error);
@@ -62,12 +64,10 @@ export async function updateProjectAction(formData: FormData): Promise<void> {
   }
 
   try {
-    await prisma.project.update({
-      where: { id: projectId },
-      data: {
-        name,
-        description: descriptionText.length > 0 ? descriptionText : null,
-      },
+    await updateProject({
+      projectId,
+      name,
+      description: descriptionText.length > 0 ? descriptionText : null,
     });
   } catch (error) {
     console.error("[updateProjectAction]", error);
@@ -86,9 +86,7 @@ export async function deleteProjectAction(formData: FormData): Promise<void> {
   }
 
   try {
-    await prisma.project.delete({
-      where: { id: projectId },
-    });
+    await deleteProject(projectId);
   } catch (error) {
     console.error("[deleteProjectAction]", error);
     redirectWithError("delete-failed");

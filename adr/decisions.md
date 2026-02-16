@@ -171,3 +171,9 @@ Status: Accepted
 Context: Supabase project branching is unavailable on the current plan, and the base Supabase branch is labeled `main (PRODUCTION)` by platform convention.
 Decision: Continue using the current Supabase `main` branch for controlled development/testing during pre-deployment phase, with repository-owned migrations and explicit documentation of this temporary constraint.
 Consequences: Maintains delivery velocity but requires disciplined handling of environment expectations; proper dev/staging/prod separation remains a required follow-up in deployment phases.
+Date: 2026-02-16
+Decision: Enforce persistence boundary through service-layer ownership and lint restrictions
+Status: Accepted
+Context: TASK-060 requires explicit, durable layering rules so upcoming auth/share/agent work does not reintroduce direct database coupling in UI/page or transport layers.
+Decision: Restrict direct Prisma access to `lib/services/**`, move remaining app-layer DB usage into dedicated services (`project-service`, `google-calendar-credential-service`), and enforce violations with ESLint `no-restricted-imports` overrides.
+Consequences: Stronger separation of concerns and safer evolution of auth/security features; introduces stricter import governance that may require small refactors when adding new flows.
