@@ -32,7 +32,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Title: Modern authentication/authorization ADR (user ownership, sharing, agent access, session model)
   Status: Pending
   Rationale: Define a state-of-the-art authz/authn model covering user-owned projects, shareable collaboration, secure agent access, and persistent web sessions without repeated login prompts.
-  Dependencies: TASK-035, TASK-039, TASK-040, TASK-057, TASK-060
+  Dependencies: TASK-035, TASK-039, TASK-040, TASK-057, TASK-060, TASK-062
 - ID: TASK-045
   Title: Authentication implementation phase 1 - user/session data model and migrations
   Status: Pending
@@ -63,6 +63,26 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Enable secure non-human access via revocable scoped tokens/service principals so agents can operate on authorized projects without sharing user sessions.
   Dependencies: TASK-046
+- ID: TASK-061
+  Title: Dependency security baseline - vulnerability remediation and scan cadence definition
+  Status: Pending
+  Rationale: Resolve known high-severity dependency vulnerabilities and define the recurring automated security-scan cadence/policy before production rollout.
+  Dependencies: TASK-038
+- ID: TASK-062
+  Title: UI decomposition phase - split oversized dashboard components into focused modules
+  Status: Pending
+  Rationale: Reduce technical debt and SRP violations by decomposing large dashboard components (`kanban-board`, `project-context-panel`, `project-calendar-panel`) into feature-level subcomponents/hooks before auth/security expansion.
+  Dependencies: TASK-054, TASK-060
+- ID: TASK-063
+  Title: Background jobs phase 1 - maintenance workload extraction (deferred)
+  Status: Pending
+  Rationale: Move maintenance writes (for example auto-archive) from request paths to scheduled/background processing after deployment/runtime baseline is in place; defer now to avoid throwaway implementation.
+  Dependencies: TASK-039, TASK-043
+- ID: TASK-064
+  Title: Security hardening - API rate limiting baseline (deferred)
+  Status: Pending
+  Rationale: Add rate limiting and abuse controls when endpoints are exposed publicly; defer now until deployment/auth topology is finalized so policy matches real traffic boundaries.
+  Dependencies: TASK-039, TASK-040, TASK-046
 - ID: TASK-049
   Title: Security baseline phase 1 - OWASP-focused assessment and threat model
   Status: Pending
