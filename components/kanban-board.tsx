@@ -429,7 +429,12 @@ export function KanbanBoard({
         return nextArchivedTasks;
       });
 
-      setSelectedTask(updatedTask);
+      setSelectedTask((previousTask) => {
+        if (!previousTask || previousTask.id !== updatedTask.id) {
+          return previousTask;
+        }
+        return updatedTask;
+      });
       setTaskModalError(null);
       if (options?.exitEditMode !== false) {
         setIsEditMode(false);

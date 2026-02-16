@@ -11,7 +11,7 @@ test.describe("critical UI smoke flows", () => {
     const projectName = uniqueProjectName("smoke-project");
 
     await createProjectFromProjectsPage(page, projectName);
-    await openNewestProjectDashboard(page);
+    await openNewestProjectDashboard(page, projectName);
 
     await expect(page.getByRole("heading", { name: projectName })).toBeVisible();
 
@@ -26,7 +26,7 @@ test.describe("critical UI smoke flows", () => {
     const editedTaskTitle = `${createdTaskTitle}-edited`;
 
     await createProjectFromProjectsPage(page, projectName);
-    await openNewestProjectDashboard(page);
+    await openNewestProjectDashboard(page, projectName);
 
     await page.getByRole("button", { name: "New task" }).click();
     await expect(page.locator("#task-title")).toBeVisible();
@@ -51,6 +51,7 @@ test.describe("critical UI smoke flows", () => {
     await page.getByLabel("Task title").fill(editedTaskTitle);
     await page.getByRole("button", { name: "Delete attachment" }).first().click();
     await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByRole("button", { name: "Edit task" })).toBeVisible();
     await page.getByRole("button", { name: "Close task" }).click();
 
     await expect(page.locator("article").filter({ hasText: editedTaskTitle }).first()).toBeVisible();
@@ -60,7 +61,7 @@ test.describe("critical UI smoke flows", () => {
     const projectName = uniqueProjectName("smoke-calendar");
 
     await createProjectFromProjectsPage(page, projectName);
-    await openNewestProjectDashboard(page);
+    await openNewestProjectDashboard(page, projectName);
 
     await page.getByRole("button", { name: "Calendar" }).click();
     await expect(page.getByText("Current week events (Monday to Sunday).")).toBeVisible();
@@ -75,8 +76,10 @@ test.describe("critical UI smoke flows", () => {
     }
 
     await refreshButton.click();
-    await expect(
-      page.getByText(/Synced at|Calendar connected|No events in the current week\./)
-    ).toBeVisible();
+    const syncedState = page
+      .getByText(/^Synced at /)
+      .or(page.getByText("Calendar connected"))
+      .or(page.getByText("No events in the current week."));
+    await expect(syncedState.first()).toBeVisible();
   });
 });

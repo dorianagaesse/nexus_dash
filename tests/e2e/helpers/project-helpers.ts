@@ -28,8 +28,18 @@ export async function createProjectFromProjectsPage(
   await expect(page.getByRole("heading", { name: projectName })).toBeVisible();
 }
 
-export async function openNewestProjectDashboard(page: Page): Promise<void> {
-  await page.getByRole("link", { name: "Open dashboard" }).first().click();
+export async function openNewestProjectDashboard(
+  page: Page,
+  projectName: string
+): Promise<void> {
+  const projectHeading = page.getByRole("heading", { name: projectName });
+  await expect(projectHeading).toBeVisible();
+
+  const projectCard = projectHeading.locator(
+    "xpath=ancestor::*[.//a[normalize-space()='Open dashboard']][1]"
+  );
+
+  await projectCard.getByRole("link", { name: "Open dashboard" }).click();
   await expect(page).toHaveURL(/\/projects\/[^/?#]+/);
   await expect(page.getByRole("heading", { name: "Kanban board" })).toBeVisible();
 }
