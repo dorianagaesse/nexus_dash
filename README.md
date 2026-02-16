@@ -2,6 +2,8 @@
 
 Personal productivity hub for managing projects, Kanban tasks, technical resources, and calendar context in one place.
 
+**📊 Architecture Quality: 8.1/10** - See [ARCHITECTURE_ASSESSMENT.md](./ARCHITECTURE_ASSESSMENT.md) for detailed code quality report.
+
 ## Tech Stack
 
 - Next.js (App Router)
