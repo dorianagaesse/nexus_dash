@@ -429,7 +429,12 @@ export function KanbanBoard({
         return nextArchivedTasks;
       });
 
-      setSelectedTask(updatedTask);
+      setSelectedTask((previousTask) => {
+        if (!previousTask || previousTask.id !== updatedTask.id) {
+          return previousTask;
+        }
+        return updatedTask;
+      });
       setTaskModalError(null);
       if (options?.exitEditMode !== false) {
         setIsEditMode(false);
@@ -829,6 +834,7 @@ export function KanbanBoard({
                   <CardTitle className="text-xl">{selectedTask.title}</CardTitle>
                 ) : (
                   <input
+                    aria-label="Task title"
                     value={editTitle}
                     onChange={(event) => setEditTitle(event.target.value)}
                     className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"

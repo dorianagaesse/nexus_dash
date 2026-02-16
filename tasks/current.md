@@ -1,23 +1,25 @@
-# Current Task: Validation Suite Phase 1
+# Current Task: Validation Suite Phase 2
 
 ## Task ID
-TASK-036
+TASK-037
 
 ## Status
 Done (2026-02-16)
 
 ## Summary
-Route-level API contract coverage was expanded to include missing critical boundaries:
-- Added auth route tests for OAuth init and callback (`/api/auth/google`, `/api/auth/callback/google`).
-- Added attachment route tests for task and context-card create/delete/download flows.
-- Preserved existing contract style (module mocks + status/body assertions) and validated error mapping behavior.
+Critical UI smoke coverage is now in place with Playwright:
+- Added Chromium-based E2E smoke tests for project creation and dashboard navigation.
+- Added task lifecycle smoke flow including staged link attachment creation, edit, and deletion checks.
+- Added calendar panel interaction smoke flow that validates actionable UI in both connected and disconnected states.
+- Introduced reusable E2E helpers and Playwright config/scripts for maintainable future expansion.
 
 ## Validation
 - `npm test` -> 106 passed.
+- `npm run test:e2e` -> 3 passed.
 - `npm run build` -> passed.
 
 ## Next Recommended Task
-TASK-037 (Validation suite phase 2 - critical UI/E2E smoke flows)
+TASK-038 (Validation suite phase 3 - CI quality gates)
 
 ---
 

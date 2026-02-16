@@ -75,4 +75,26 @@ npm run dev
 npm run build
 npm run start
 npm run lint
+npm run test
+npm run test:coverage
+npm run test:e2e
+```
+
+## E2E Smoke Tests (Playwright)
+
+The E2E suite validates critical UI journeys:
+- project creation + dashboard navigation
+- task lifecycle with attachment interaction
+- calendar panel interaction states
+
+Run once (or after Playwright upgrades):
+
+```bash
+npx playwright install chromium
+```
+
+Run smoke tests:
+
+```bash
+npm run test:e2e
 ```

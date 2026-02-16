@@ -3,11 +3,6 @@
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
 ## Pending
-- ID: TASK-037
-  Title: Validation suite phase 2 - critical UI/E2E smoke flows
-  Status: Pending
-  Rationale: Cover top-value journeys (project creation, task lifecycle, attachment interactions, calendar interactions) to catch integration regressions not visible from API tests alone.
-  Dependencies: TASK-036
 - ID: TASK-038
   Title: Validation suite phase 3 - CI quality gates
   Status: Pending
@@ -115,6 +110,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-037
+  Title: Validation suite phase 2 - critical UI/E2E smoke flows
+  Status: Done (2026-02-16)
+  Rationale: Added Playwright-based smoke coverage for high-value UI journeys (project creation/navigation, task lifecycle with attachment interactions, calendar panel interaction states) with reusable test helpers and deterministic selectors.
+  Dependencies: TASK-036
 - ID: TASK-036
   Title: Validation suite phase 1 - API regression contracts
   Status: Done (2026-02-16)
