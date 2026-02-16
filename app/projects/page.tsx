@@ -12,7 +12,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { prisma } from "@/lib/prisma";
+import {
+  listProjectsWithCounts,
+  type ProjectWithCounts,
+} from "@/lib/services/project-service";
 
 import {
   createProjectAction,
@@ -48,28 +51,14 @@ function readQueryValue(value: string | string[] | undefined): string | null {
   return value;
 }
 
-async function getProjects() {
-  return prisma.project.findMany({
-    orderBy: [{ updatedAt: "desc" }],
-    include: {
-      _count: {
-        select: {
-          tasks: true,
-          resources: true,
-        },
-      },
-    },
-  });
-}
-
-type ProjectRow = Awaited<ReturnType<typeof getProjects>>[number];
+type ProjectRow = ProjectWithCounts;
 
 export default async function ProjectsPage({
   searchParams,
 }: {
   searchParams?: SearchParams;
 }) {
-  const projects = await getProjects();
+  const projects = await listProjectsWithCounts();
   const status = readQueryValue(searchParams?.status);
   const error = readQueryValue(searchParams?.error);
 

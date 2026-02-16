@@ -10,15 +10,13 @@ import { ProjectContextPanel } from "@/components/project-context-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getContextCardColorFromSeed } from "@/lib/context-card-colors";
-import { prisma } from "@/lib/prisma";
 import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
+import { getProjectDashboardById } from "@/lib/services/project-service";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import { isTaskStatus } from "@/lib/task-status";
 
 type SearchParams = Record<string, string | string[] | undefined>;
-const ARCHIVE_AFTER_DAYS = 7;
-const ARCHIVE_AFTER_MS = ARCHIVE_AFTER_DAYS * 24 * 60 * 60 * 1000;
 
 const STATUS_MESSAGES: Record<string, string> = {
   "task-created": "Task created successfully.",
@@ -71,50 +69,6 @@ function readQueryValue(value: string | string[] | undefined): string | null {
   return value;
 }
 
-async function getProject(projectId: string) {
-  const archiveThreshold = new Date(Date.now() - ARCHIVE_AFTER_MS);
-
-  await prisma.task.updateMany({
-    where: {
-      projectId,
-      status: "Done",
-      archivedAt: null,
-      OR: [
-        { completedAt: { lte: archiveThreshold } },
-        { completedAt: null, updatedAt: { lte: archiveThreshold } },
-      ],
-    },
-    data: {
-      archivedAt: new Date(),
-    },
-  });
-
-  return prisma.project.findUnique({
-    where: { id: projectId },
-    include: {
-      tasks: {
-        orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
-        include: {
-          attachments: {
-            orderBy: [{ createdAt: "desc" }],
-          },
-          blockedFollowUps: {
-            orderBy: [{ createdAt: "desc" }],
-          },
-        },
-      },
-      resources: {
-        orderBy: [{ createdAt: "desc" }],
-        include: {
-          attachments: {
-            orderBy: [{ createdAt: "desc" }],
-          },
-        },
-      },
-    },
-  });
-}
-
 export default async function ProjectDashboardPage({
   params,
   searchParams,
@@ -122,7 +76,7 @@ export default async function ProjectDashboardPage({
   params: { projectId: string };
   searchParams?: SearchParams;
 }) {
-  const project = await getProject(params.projectId);
+  const project = await getProjectDashboardById(params.projectId);
 
   if (!project) {
     notFound();

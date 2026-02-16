@@ -1,3 +1,38 @@
 {
-  "extends": ["next/core-web-vitals"]
+  "extends": ["next/core-web-vitals"],
+  "overrides": [
+    {
+      "files": ["app/**/*.ts", "app/**/*.tsx", "components/**/*.ts", "components/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@/lib/prisma",
+                "message": "UI/page/route layers must use dedicated service modules instead of direct Prisma access."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["lib/**/*.ts", "lib/**/*.tsx"],
+      "excludedFiles": ["lib/services/**/*.ts", "lib/services/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@/lib/prisma",
+                "message": "Direct Prisma imports are restricted to lib/services/**."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }
