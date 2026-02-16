@@ -3,16 +3,6 @@
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
 ## Pending
-- ID: TASK-039
-  Title: Deployment baseline phase 1 - runtime target and exposure model
-  Status: Pending
-  Rationale: Define production runtime target and public exposure model for Vercel (no trusted-IP allowlist), with app-layer authentication as the primary access control.
-  Dependencies: TASK-019
-- ID: TASK-040
-  Title: Deployment baseline phase 2 - secrets and configuration management
-  Status: Pending
-  Rationale: Introduce a secure, reproducible config/secrets model for all environments to avoid credential drift and accidental exposure.
-  Dependencies: TASK-039
 - ID: TASK-041
   Title: Deployment baseline phase 3 - CI pipeline for build/test/image
   Status: Pending
@@ -22,7 +12,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Title: Deployment baseline phase 4 - CD deployment and rollback strategy
   Status: Pending
   Rationale: Enable controlled releases with rollback to reduce operational risk during production changes.
-  Dependencies: TASK-041
+  Dependencies: TASK-041, TASK-066
 - ID: TASK-043
   Title: Deployment baseline phase 5 - observability minimum viable stack
   Status: Pending
@@ -33,6 +23,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Replace local attachment persistence with blob/object storage and signed URL flows so files remain durable and accessible in serverless Vercel runtimes.
   Dependencies: TASK-039, TASK-040
+- ID: TASK-066
+  Title: Configuration/secrets hardening gate before production rollout
+  Status: Pending
+  Rationale: Upgrade current dev-ready config baseline to production-grade by enforcing startup fail-fast validation, aligning Prisma env contracts (`DIRECT_URL` behavior), tightening runtime-env guarantees, and extending coverage gate scope for env guardrails.
+  Dependencies: TASK-040
 - ID: TASK-020
   Title: Modern authentication/authorization ADR (user ownership, sharing, agent access, session model)
   Status: Pending
@@ -107,7 +102,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Title: Production deployment baseline (runtime, CI/CD, secrets, observability)
   Status: Pending (Epic - split into TASK-039/TASK-040/TASK-041/TASK-042/TASK-043)
   Rationale: Move from local Docker setup to reproducible Vercel deployment with modern operational best practices; public exposure requires completed app auth/authz and blob storage migration.
-  Dependencies: TASK-042, TASK-043, TASK-048, TASK-058, TASK-065
+  Dependencies: TASK-042, TASK-043, TASK-048, TASK-058, TASK-065, TASK-066
 - ID: TASK-021
   Title: Implement production-grade authentication and account onboarding
   Status: Pending (Epic - split into TASK-045/TASK-046/TASK-047/TASK-048/TASK-058/TASK-059)
@@ -120,6 +115,16 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-040
+  Title: Deployment baseline phase 2 - secrets and configuration management
+  Status: Done (2026-02-16)
+  Rationale: Centralized server configuration access in `lib/env.server.ts` (required/optional env readers, runtime mode checks, DB fallback, Supabase pair validation), migrated core server env reads to this module, added env guardrail tests, and documented the configuration baseline in README.
+  Dependencies: TASK-039
+- ID: TASK-039
+  Title: Deployment baseline phase 1 - runtime target and exposure model
+  Status: Done (2026-02-16)
+  Rationale: Confirmed Vercel as deployment runtime target and adopted a public-exposure model secured by application-layer auth/authz (no trusted-IP allowlist dependency), with blob storage migration tracked explicitly as a deployment prerequisite.
+  Dependencies: TASK-019
 - ID: TASK-060
   Title: Boundary enforcement pass - explicit module ownership and layering rules
   Status: Done (2026-02-16)
