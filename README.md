@@ -98,3 +98,9 @@ Run smoke tests:
 ```bash
 npm run test:e2e
 ```
+
+## CI Quality Gates
+
+GitHub Actions enforces two CI gates on pull requests and `main`:
+- `Quality Core`: `npm run lint`, `npm test`, `npm run test:coverage`, `npm run build`
+- `E2E Smoke`: `npm run test:e2e` against an isolated PostgreSQL service with migrations applied

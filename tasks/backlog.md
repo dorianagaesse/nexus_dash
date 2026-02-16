@@ -3,11 +3,6 @@
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
 ## Pending
-- ID: TASK-038
-  Title: Validation suite phase 3 - CI quality gates
-  Status: Pending
-  Rationale: Enforce automated quality gates (lint/test/coverage) in CI so validation remains stable over time.
-  Dependencies: TASK-036, TASK-037
 - ID: TASK-060
   Title: Boundary enforcement pass - explicit module ownership and layering rules
   Status: Pending
@@ -88,11 +83,6 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Confirm remediation effectiveness and document residual risk with explicit follow-up items.
   Dependencies: TASK-050
-- ID: TASK-006
-  Title: Full validation suite after refinement pass
-  Status: Pending (Epic - split into TASK-036/TASK-037/TASK-038)
-  Rationale: Validate project/task/theming/home flows end-to-end after UX refinements to avoid hidden regressions.
-  Dependencies: TASK-038
 - ID: TASK-022
   Title: Production deployment baseline (runtime, CI/CD, secrets, observability)
   Status: Pending (Epic - split into TASK-039/TASK-040/TASK-041/TASK-042/TASK-043)
@@ -110,6 +100,16 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-038
+  Title: Validation suite phase 3 - CI quality gates
+  Status: Done (2026-02-16)
+  Rationale: Added CI quality-gates workflow that enforces lint/test/coverage/build and Playwright smoke checks on pull requests and `main`, with PostgreSQL-backed E2E isolation and failure artifact upload.
+  Dependencies: TASK-036, TASK-037
+- ID: TASK-006
+  Title: Full validation suite after refinement pass
+  Status: Done (Epic completed via TASK-036/TASK-037/TASK-038 on 2026-02-16)
+  Rationale: Completed validation stack across API contracts, critical UI smoke journeys, and CI enforcement gates to reduce regression risk before upcoming architecture/auth/security work.
+  Dependencies: TASK-038
 - ID: TASK-037
   Title: Validation suite phase 2 - critical UI/E2E smoke flows
   Status: Done (2026-02-16)

@@ -1,25 +1,27 @@
-# Current Task: Validation Suite Phase 2
+# Current Task: Validation Suite Phase 3
 
 ## Task ID
-TASK-037
+TASK-038
 
 ## Status
 Done (2026-02-16)
 
 ## Summary
-Critical UI smoke coverage is now in place with Playwright:
-- Added Chromium-based E2E smoke tests for project creation and dashboard navigation.
-- Added task lifecycle smoke flow including staged link attachment creation, edit, and deletion checks.
-- Added calendar panel interaction smoke flow that validates actionable UI in both connected and disconnected states.
-- Introduced reusable E2E helpers and Playwright config/scripts for maintainable future expansion.
+CI quality gates are now enforced through GitHub Actions:
+- Added `.github/workflows/quality-gates.yml` with two required gate jobs.
+- `quality-core` job runs lint, test, coverage threshold checks, and production build.
+- `e2e-smoke` job runs Playwright smoke tests against an isolated PostgreSQL service with Prisma migrations applied.
+- Added failure artifact upload for Playwright reports and traces to speed up CI debugging.
 
 ## Validation
 - `npm test` -> 106 passed.
+- `npm run test:coverage` -> passed (thresholds met).
 - `npm run test:e2e` -> 3 passed.
+- `npm run lint` -> passed.
 - `npm run build` -> passed.
 
 ## Next Recommended Task
-TASK-038 (Validation suite phase 3 - CI quality gates)
+TASK-060 (Boundary enforcement pass - explicit module ownership and layering rules)
 
 ---
 
