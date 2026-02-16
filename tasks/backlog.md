@@ -3,11 +3,6 @@
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
 ## Pending
-- ID: TASK-060
-  Title: Boundary enforcement pass - explicit module ownership and layering rules
-  Status: Pending
-  Rationale: Convert architecture intent into enforceable constraints (clear module ownership, allowed dependency directions, and targeted responsibility splits) so auth/security features do not reintroduce boundary drift.
-  Dependencies: TASK-035, TASK-038
 - ID: TASK-039
   Title: Deployment baseline phase 1 - runtime target and network allowlist
   Status: Pending
@@ -100,6 +95,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-060
+  Title: Boundary enforcement pass - explicit module ownership and layering rules
+  Status: Done (2026-02-16)
+  Rationale: Enforced service-layer ownership for persistence by extracting project/dashboard and Google credential DB operations into dedicated services, then codified dependency guardrails with ESLint restrictions that block direct `@/lib/prisma` imports outside `lib/services/**`.
+  Dependencies: TASK-035, TASK-038
 - ID: TASK-038
   Title: Validation suite phase 3 - CI quality gates
   Status: Done (2026-02-16)
