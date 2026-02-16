@@ -177,3 +177,9 @@ Status: Accepted
 Context: TASK-060 requires explicit, durable layering rules so upcoming auth/share/agent work does not reintroduce direct database coupling in UI/page or transport layers.
 Decision: Restrict direct Prisma access to `lib/services/**`, move remaining app-layer DB usage into dedicated services (`project-service`, `google-calendar-credential-service`), and enforce violations with ESLint `no-restricted-imports` overrides.
 Consequences: Stronger separation of concerns and safer evolution of auth/security features; introduces stricter import governance that may require small refactors when adding new flows.
+Date: 2026-02-16
+Decision: Centralize server environment access and validation in one module
+Status: Accepted
+Context: TASK-040 requires consistent secrets/config behavior across server routes, Prisma runtime helpers, and deployment environments before CI/CD rollout.
+Decision: Add `lib/env.server.ts` as the single server-side environment access layer (required/optional readers, runtime mode checks, DB config fallback, Supabase pair validation) and migrate existing server env reads to this module.
+Consequences: Fewer scattered `process.env` reads, better testability, and clearer failure modes for missing/partial config; future env policy changes can be applied in one place.

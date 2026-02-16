@@ -6,6 +6,7 @@ import {
   exchangeAuthorizationCodeForTokens,
   normalizeReturnToPath,
 } from "@/lib/google-calendar";
+import { isProductionEnvironment } from "@/lib/env.server";
 import { upsertGoogleCalendarCredentialTokens } from "@/lib/services/google-calendar-credential-service";
 
 function buildRedirectUrl(
@@ -29,7 +30,7 @@ function buildRedirectResponse(
 ): NextResponse {
   const redirectUrl = buildRedirectUrl(request, returnToPath, query);
   const response = NextResponse.redirect(redirectUrl);
-  const secure = process.env.NODE_ENV === "production";
+  const secure = isProductionEnvironment();
 
   response.cookies.set(GOOGLE_OAUTH_STATE_COOKIE, "", {
     httpOnly: true,

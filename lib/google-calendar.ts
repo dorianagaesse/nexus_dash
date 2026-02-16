@@ -1,3 +1,5 @@
+import { getOptionalServerEnv, getRequiredServerEnv } from "@/lib/env.server";
+
 const GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 export const GOOGLE_CALENDAR_SCOPE_EVENTS =
@@ -28,11 +30,7 @@ export interface GoogleTokenResponse {
 }
 
 function readEnv(name: string): string {
-  const value = process.env[name]?.trim();
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
+  return getRequiredServerEnv(name);
 }
 
 export function getGoogleOAuthEnv(): GoogleOAuthEnv {
@@ -44,7 +42,7 @@ export function getGoogleOAuthEnv(): GoogleOAuthEnv {
 }
 
 export function getGoogleCalendarId(): string {
-  return process.env.GOOGLE_CALENDAR_ID?.trim() || "primary";
+  return getOptionalServerEnv("GOOGLE_CALENDAR_ID") ?? "primary";
 }
 
 export function buildGoogleOAuthUrl(state: string): string {
