@@ -3,11 +3,6 @@
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
 ## Pending
-- ID: TASK-036
-  Title: Validation suite phase 1 - API regression contracts
-  Status: Pending
-  Rationale: Extend route-level contract tests to core project/task/attachment/auth endpoints to protect behavior before infra/auth changes.
-  Dependencies: TASK-034
 - ID: TASK-037
   Title: Validation suite phase 2 - critical UI/E2E smoke flows
   Status: Pending
@@ -115,6 +110,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-036
+  Title: Validation suite phase 1 - API regression contracts
+  Status: Done (2026-02-16)
+  Rationale: Expanded route-level contract coverage to auth bootstrap/callback and project attachment endpoints (task + context-card create/delete/download), ensuring consistent error mapping and response contracts before auth/security/deployment changes.
+  Dependencies: TASK-034
 - ID: TASK-057
   Title: Database migration phase 1 - SQLite to PostgreSQL parity migration
   Status: Done (2026-02-15)
