@@ -3,11 +3,6 @@
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
 ## Pending
-- ID: TASK-057
-  Title: Database migration phase 1 - SQLite to PostgreSQL parity migration
-  Status: Pending
-  Rationale: Migrate persistence engine without introducing new product concepts so behavior remains stable while preparing for multi-user concurrency and production hosting.
-  Dependencies: TASK-056, TASK-055
 - ID: TASK-036
   Title: Validation suite phase 1 - API regression contracts
   Status: Pending
@@ -120,6 +115,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-057
+  Title: Database migration phase 1 - SQLite to PostgreSQL parity migration
+  Status: Done (2026-02-15)
+  Rationale: Switched Prisma datasource to PostgreSQL with repository-owned baseline migration, archived legacy SQLite migrations for traceability, and validated runtime/build/test/docker flows against Supabase-backed configuration without introducing auth/user model changes.
+  Dependencies: TASK-056, TASK-055
 - ID: TASK-056
   Title: Data platform ADR - PostgreSQL baseline and Supabase fit assessment
   Status: Done (2026-02-15)

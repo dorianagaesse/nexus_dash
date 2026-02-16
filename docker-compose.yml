@@ -13,6 +13,8 @@ services:
     environment:
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: "true"
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
+      DIRECT_URL: ${DIRECT_URL:?DIRECT_URL must be set}
 
 volumes:
   node_modules:

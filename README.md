@@ -7,7 +7,7 @@ Personal productivity hub for managing projects, Kanban tasks, technical resourc
 - Next.js (App Router)
 - TypeScript (strict)
 - Tailwind CSS + Shadcn/UI
-- Prisma + SQLite
+- Prisma + PostgreSQL (Supabase-compatible)
 - Docker + Docker Compose
 
 ## Local Setup
@@ -22,7 +22,14 @@ Open `http://localhost:3000`.
 ## Database (Prisma)
 
 `npm run dev` and `npm run start` automatically run `prisma migrate deploy` first.
-On a fresh clone/machine, this initializes `prisma/dev.db` before the app handles requests.
+On a fresh clone/machine, ensure `.env` defines `DATABASE_URL` and `DIRECT_URL`
+before starting the app.
+
+- `DATABASE_URL`: use the Supabase session pooler URI.
+- `DIRECT_URL`: use the direct PostgreSQL URI (used by Prisma migrate).
+- Include `sslmode=require` on both URLs.
+- If direct host resolution is unavailable in your network environment, set
+  `DIRECT_URL` to the same value as `DATABASE_URL`.
 
 If you create a new migration during development:
 
@@ -36,8 +43,6 @@ If you need to apply existing migrations manually:
 ```bash
 npm run db:migrate
 ```
-
-The SQLite file is created at `prisma/dev.db` and is gitignored.
 
 ## Docker (Dev)
 

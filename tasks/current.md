@@ -1,23 +1,28 @@
-# Current Task: Data Platform ADR
+# Current Task: Database Migration Phase 1
 
 ## Task ID
-TASK-056
+TASK-057
 
 ## Status
 Done (2026-02-15)
 
 ## Summary
-Data-platform decision baseline is now defined for migration and auth roadmap safety:
-- Assessed three options: self-managed PostgreSQL, generic managed PostgreSQL, and Supabase-managed PostgreSQL.
-- Chosen direction: PostgreSQL baseline with Supabase-managed Postgres as default hosting target.
-- Added guardrails to keep Prisma schema/migrations provider-agnostic and avoid coupling migration scope with auth/storage concept changes.
+Persistence parity migration from SQLite to PostgreSQL is now completed:
+- Prisma datasource switched to PostgreSQL (`DATABASE_URL` + `DIRECT_URL`) with Supabase-compatible connection strategy.
+- Legacy SQLite migration history moved under `prisma/migrations-sqlite-legacy`, and a PostgreSQL baseline migration was added under `prisma/migrations`.
+- Docker/local docs and env templates updated so migration/runtime work with Postgres-backed environments.
 
 ## Validation
-- Documentation-only task (ADR + backlog/decision tracking updates).
-- No runtime code path changed.
+- `prisma migrate deploy` applied PostgreSQL baseline migration successfully.
+- `npm test` -> 78 passed.
+- `npm run build` -> passed.
+- Docker validation:
+  - `docker compose up -d --build` -> image/app started
+  - `http://localhost:3000` -> 200
+  - `docker compose down` -> cleaned up.
 
 ## Next Recommended Task
-TASK-057 (Database migration phase 1 - SQLite to PostgreSQL parity migration)
+TASK-036 (Validation suite phase 1 - API regression contracts)
 
 ---
 
