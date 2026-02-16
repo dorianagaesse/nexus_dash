@@ -57,21 +57,29 @@ export async function deleteProject(projectId: string) {
 
 export async function getProjectDashboardById(projectId: string) {
   const archiveThreshold = new Date(Date.now() - ARCHIVE_AFTER_MS);
+  const staleDoneTaskFilter = {
+    projectId,
+    status: "Done" as const,
+    archivedAt: null,
+    OR: [
+      { completedAt: { lte: archiveThreshold } },
+      { completedAt: null, updatedAt: { lte: archiveThreshold } },
+    ],
+  };
 
-  await prisma.task.updateMany({
-    where: {
-      projectId,
-      status: "Done",
-      archivedAt: null,
-      OR: [
-        { completedAt: { lte: archiveThreshold } },
-        { completedAt: null, updatedAt: { lte: archiveThreshold } },
-      ],
-    },
-    data: {
-      archivedAt: new Date(),
-    },
+  const staleDoneTask = await prisma.task.findFirst({
+    where: staleDoneTaskFilter,
+    select: { id: true },
   });
+
+  if (staleDoneTask) {
+    await prisma.task.updateMany({
+      where: staleDoneTaskFilter,
+      data: {
+        archivedAt: new Date(),
+      },
+    });
+  }
 
   return prisma.project.findUnique({
     where: { id: projectId },

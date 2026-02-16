@@ -44,12 +44,17 @@ export async function updateGoogleCalendarCredentialTokens(
 export async function upsertGoogleCalendarCredentialTokens(
   input: GoogleCalendarTokenInput
 ) {
-  const existing = await prisma.googleCalendarCredential.findUnique({
-    where: { id: GOOGLE_CALENDAR_CONNECTION_ID },
-    select: { refreshToken: true },
-  });
+  let refreshToken = input.refreshToken ?? null;
 
-  const refreshToken = input.refreshToken ?? existing?.refreshToken ?? null;
+  if (!refreshToken) {
+    const existing = await prisma.googleCalendarCredential.findUnique({
+      where: { id: GOOGLE_CALENDAR_CONNECTION_ID },
+      select: { refreshToken: true },
+    });
+
+    refreshToken = existing?.refreshToken ?? null;
+  }
+
   if (!refreshToken) {
     throw new Error("missing-refresh-token");
   }

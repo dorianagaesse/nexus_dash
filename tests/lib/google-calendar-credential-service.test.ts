@@ -74,9 +74,6 @@ describe("google-calendar-credential-service", () => {
   });
 
   test("upserts credential using provided refresh token", async () => {
-    prismaMock.googleCalendarCredential.findUnique.mockResolvedValueOnce({
-      refreshToken: "stored-refresh",
-    });
     prismaMock.googleCalendarCredential.upsert.mockResolvedValueOnce({});
 
     await upsertGoogleCalendarCredentialTokens({
@@ -91,6 +88,7 @@ describe("google-calendar-credential-service", () => {
     expect(upsertCall.where).toEqual({ id: "default" });
     expect(upsertCall.update.refreshToken).toBe("fresh-refresh");
     expect(upsertCall.create.refreshToken).toBe("fresh-refresh");
+    expect(prismaMock.googleCalendarCredential.findUnique).not.toHaveBeenCalled();
   });
 
   test("reuses stored refresh token when token input omits it", async () => {
