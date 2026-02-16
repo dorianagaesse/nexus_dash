@@ -11,7 +11,7 @@
 
 NexusDash is a **personal productivity hub** built with Next.js 14 (App Router), TypeScript, Prisma ORM, and PostgreSQL. The application demonstrates **strong engineering fundamentals** with excellent test coverage (97%), strict TypeScript configuration, clear separation of concerns, and well-documented architectural decisions.
 
-**Overall Grade: 8.2/10** - A well-architected application with room for improvement in component modularity and input validation.
+**Overall Grade: 8.1/10** - A well-architected application with room for improvement in component modularity and input validation.
 
 ### Key Strengths
 - ✅ Excellent test coverage (97%) with comprehensive unit and E2E tests
@@ -472,11 +472,11 @@ Total Coverage: 97.15%
 | Software Engineering Best Practices | 9.0/10 | 15% | 1.35 |
 | Scalability & Future-Proofing | 7.5/10 | 10% | 0.75 |
 | Test Coverage & Quality | 9.5/10 | 15% | 1.43 |
-| Security Posture | 6.5/10 | 15% | 0.98 |
+| Security Posture | 6.5/10 | 10% | 0.65 |
 | Code Readability & Documentation | 8.5/10 | 5% | 0.43 |
 | Performance & Efficiency | 7.0/10 | 5% | 0.35 |
-| Extensibility & Modularity | 7.0/10 | 10% | 0.70 |
-| **TOTAL** | **8.2/10** | **100%** | **8.82** |
+| Extensibility & Modularity | 7.0/10 | 5% | 0.35 |
+| **TOTAL** | **8.1/10** | **100%** | **8.14** |
 
 ---
 
