@@ -183,3 +183,9 @@ Status: Accepted
 Context: TASK-040 requires consistent secrets/config behavior across server routes, Prisma runtime helpers, and deployment environments before CI/CD rollout.
 Decision: Add `lib/env.server.ts` as the single server-side environment access layer (required/optional readers, runtime mode checks, DB config fallback, Supabase pair validation) and migrate existing server env reads to this module.
 Consequences: Fewer scattered `process.env` reads, better testability, and clearer failure modes for missing/partial config; future env policy changes can be applied in one place.
+Date: 2026-02-16
+Decision: CI quality gates must include container image build verification
+Status: Accepted
+Context: TASK-041 requires validating not only source quality (lint/tests/build) but also the deployable artifact before deployment/rollback phases.
+Decision: Extend `quality-gates.yml` with a dedicated container-image job that runs after quality and E2E gates, builds the Docker image in CI, and uploads image metadata as an artifact.
+Consequences: Earlier detection of Dockerfile/runtime build regressions and clearer release readiness signals; slightly longer CI duration due to image build step.

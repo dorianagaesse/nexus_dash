@@ -3,11 +3,6 @@
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
 ## Pending
-- ID: TASK-041
-  Title: Deployment baseline phase 3 - CI pipeline for build/test/image
-  Status: Pending
-  Rationale: Add a reproducible CI pipeline that validates code and artifacts before deployment.
-  Dependencies: TASK-040
 - ID: TASK-042
   Title: Deployment baseline phase 4 - CD deployment and rollback strategy
   Status: Pending
@@ -115,6 +110,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-041
+  Title: Deployment baseline phase 3 - CI pipeline for build/test/image
+  Status: Done (2026-02-16)
+  Rationale: Extended CI with a dedicated container-image gate that runs after quality + E2E checks, validates Docker build reproducibility (`npm ci`), and publishes image metadata artifacts for traceable pre-deploy verification.
+  Dependencies: TASK-040
 - ID: TASK-040
   Title: Deployment baseline phase 2 - secrets and configuration management
   Status: Done (2026-02-16)
