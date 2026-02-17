@@ -106,3 +106,33 @@ jobs:
             playwright-report
             test-results
           if-no-files-found: ignore
+
+  container-image:
+    name: Container Image (build + metadata artifact)
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    needs:
+      - quality-core
+      - e2e-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build container image
+        run: docker buildx build --load --tag nexusdash:${{ github.sha }} .
+
+      - name: Export image metadata
+        run: |
+          docker image inspect nexusdash:${{ github.sha }} --format '{{json .}}' > container-image-metadata.json
+
+      - name: Upload image metadata artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-image-metadata
+          path: container-image-metadata.json
+          if-no-files-found: error

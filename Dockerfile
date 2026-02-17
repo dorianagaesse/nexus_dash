@@ -3,7 +3,7 @@ FROM node:18-bullseye AS base
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm install
+RUN npm ci
 
 COPY . .
 
