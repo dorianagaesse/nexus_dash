@@ -192,6 +192,37 @@ function parseGoogleErrorReason(payload: unknown): string | null {
   return typeof firstError.reason === "string" ? firstError.reason : null;
 }
 
+function summarizeGoogleApiError(input: {
+  status: number;
+  statusText: string;
+  reason: string | null;
+  payload: unknown;
+}): Record<string, unknown> {
+  const errorObject =
+    input.payload &&
+    typeof input.payload === "object" &&
+    "error" in (input.payload as Record<string, unknown>) &&
+    (input.payload as { error?: unknown }).error &&
+    typeof (input.payload as { error?: unknown }).error === "object"
+      ? ((input.payload as { error: Record<string, unknown> }).error ?? null)
+      : null;
+
+  const code = errorObject?.code;
+  const status = errorObject?.status;
+  const message = errorObject?.message;
+
+  return {
+    status: input.status,
+    statusText: input.statusText,
+    reason: input.reason ?? undefined,
+    errorCode:
+      typeof code === "string" || typeof code === "number" ? code : undefined,
+    errorStatus: typeof status === "string" ? status : undefined,
+    errorMessage:
+      typeof message === "string" ? message.slice(0, 500) : undefined,
+  };
+}
+
 function isDateOnly(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
@@ -353,7 +384,12 @@ export async function listCalendarEvents(input: {
       }
 
       logServerError("listCalendarEvents.googleApiError", "google-api-error", {
-        payload,
+        googleApi: summarizeGoogleApiError({
+          status: eventsResponse.status,
+          statusText: eventsResponse.statusText,
+          reason,
+          payload,
+        }),
       });
       return createError(502, {
         connected: true,
@@ -431,7 +467,12 @@ export async function createCalendarEvent(rawBody: unknown): Promise<
       }
 
       logServerError("createCalendarEvent.googleApiError", "google-api-error", {
-        responsePayload,
+        googleApi: summarizeGoogleApiError({
+          status: response.status,
+          statusText: response.statusText,
+          reason,
+          payload: responsePayload,
+        }),
       });
       return createError(502, { error: "calendar-create-failed" });
     }
@@ -498,7 +539,12 @@ export async function updateCalendarEvent(
       }
 
       logServerError("updateCalendarEvent.googleApiError", "google-api-error", {
-        responsePayload,
+        googleApi: summarizeGoogleApiError({
+          status: response.status,
+          statusText: response.statusText,
+          reason,
+          payload: responsePayload,
+        }),
       });
       return createError(502, { error: "calendar-update-failed" });
     }
@@ -552,7 +598,12 @@ export async function deleteCalendarEvent(
       }
 
       logServerError("deleteCalendarEvent.googleApiError", "google-api-error", {
-        responsePayload,
+        googleApi: summarizeGoogleApiError({
+          status: response.status,
+          statusText: response.statusText,
+          reason,
+          payload: responsePayload,
+        }),
       });
       return createError(502, { error: "calendar-delete-failed" });
     }

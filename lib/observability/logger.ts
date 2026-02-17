@@ -11,6 +11,38 @@ interface BaseLogPayload {
   runtimeEnvironment: string;
 }
 
+function serializeError(error: Error): LogMetadata {
+  return {
+    errorName: error.name,
+    errorMessage: error.message,
+    errorStack: error.stack ?? null,
+  };
+}
+
+function safeStringify(payload: unknown): string {
+  const seen = new WeakSet<object>();
+
+  return JSON.stringify(payload, (_key, value: unknown) => {
+    if (value instanceof Error) {
+      return serializeError(value);
+    }
+
+    if (typeof value === "bigint") {
+      return value.toString();
+    }
+
+    if (value && typeof value === "object") {
+      const objectValue = value as object;
+      if (seen.has(objectValue)) {
+        return "[Circular]";
+      }
+      seen.add(objectValue);
+    }
+
+    return value;
+  });
+}
+
 function emitLog(
   level: LogLevel,
   scope: string,
@@ -29,7 +61,7 @@ function emitLog(
     metadata,
   };
 
-  const line = JSON.stringify(payload);
+  const line = safeStringify(payload);
   if (level === "error") {
     console.error(line);
     return;
@@ -45,11 +77,7 @@ function emitLog(
 
 function normalizeError(error: unknown): LogMetadata {
   if (error instanceof Error) {
-    return {
-      errorName: error.name,
-      errorMessage: error.message,
-      errorStack: error.stack ?? null,
-    };
+    return serializeError(error);
   }
 
   if (typeof error === "string") {
