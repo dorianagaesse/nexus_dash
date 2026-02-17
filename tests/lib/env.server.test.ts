@@ -71,7 +71,9 @@ describe("env.server", () => {
 
     expect(() =>
       getDatabaseRuntimeConfig({ runtimeEnvironment: "production" })
-    ).toThrow("Missing required environment variable: DIRECT_URL");
+    ).toThrow(
+      "Missing required environment variable: DIRECT_URL (required in production)"
+    );
   });
 
   test("builds database config without fallback when direct url is set", () => {
