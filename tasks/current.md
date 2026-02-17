@@ -19,7 +19,7 @@ CI now validates both source quality and the deployable container artifact:
 - `npm test` -> passed.
 - `npm run test:coverage` -> passed.
 - `npm run build` -> passed.
-- `docker build -t nexusdash:task-041 .` -> could not run locally (Docker daemon unavailable); validated by CI container-image job.
+- `docker build -t nexusdash:task-041-local .` -> passed.
 
 ## Notes
 - Task detail document: `tasks/task-041-ci-pipeline-build-image.md`.

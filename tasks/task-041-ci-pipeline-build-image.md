@@ -18,7 +18,7 @@ Establish a reproducible CI pipeline that validates code quality and the deploya
 - `npm run lint` passes.
 - `npm test` passes.
 - `npm run build` passes.
-- `docker build -t nexusdash:task-041 .` could not run locally because Docker daemon was unavailable; CI container-image job provides build validation.
+- `docker build -t nexusdash:task-041-local .` passes.
 
 ## Follow-up
 - TASK-042 can now focus on release/deploy orchestration and rollback strategy using validated CI outputs.
