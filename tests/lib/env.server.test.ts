@@ -35,6 +35,8 @@ describe("env.server", () => {
 
   test("returns null for optional empty values", () => {
     vi.stubEnv("SUPABASE_URL", "");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "");
+    vi.stubEnv("SUPABASE_API_KEY", "");
 
     expect(getOptionalServerEnv("SUPABASE_URL")).toBeNull();
   });
@@ -88,24 +90,30 @@ describe("env.server", () => {
   });
 
   test("returns null when supabase pair is fully unset", () => {
+    vi.stubEnv("SUPABASE_URL", "");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "");
+    vi.stubEnv("SUPABASE_API_KEY", "");
+
     expect(getSupabaseClientRuntimeConfig()).toBeNull();
   });
 
   test("throws when supabase pair is only partially configured", () => {
     vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
     vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "");
+    vi.stubEnv("SUPABASE_API_KEY", "");
 
     expect(() => getSupabaseClientRuntimeConfig()).toThrow(
-      "SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY must be configured together."
+      "SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY (or legacy SUPABASE_API_KEY) must be configured together."
     );
   });
 
   test("throws when supabase pair is partially configured with missing url", () => {
     vi.stubEnv("SUPABASE_URL", "");
     vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "pk_test_123");
+    vi.stubEnv("SUPABASE_API_KEY", "");
 
     expect(() => getSupabaseClientRuntimeConfig()).toThrow(
-      "SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY must be configured together."
+      "SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY (or legacy SUPABASE_API_KEY) must be configured together."
     );
   });
 
@@ -119,11 +127,23 @@ describe("env.server", () => {
     });
   });
 
+  test("uses legacy supabase api key when modern publishable key is unset", () => {
+    vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "");
+    vi.stubEnv("SUPABASE_API_KEY", "legacy_pk_test_456");
+
+    expect(getSupabaseClientRuntimeConfig()).toEqual({
+      url: "https://example.supabase.co",
+      publishableKey: "legacy_pk_test_456",
+    });
+  });
+
   test("validates server runtime config with minimal required env", () => {
     vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
     vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
     vi.stubEnv("SUPABASE_URL", "");
     vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "");
+    vi.stubEnv("SUPABASE_API_KEY", "");
     vi.stubEnv("GOOGLE_CLIENT_ID", "");
     vi.stubEnv("GOOGLE_CLIENT_SECRET", "");
     vi.stubEnv("GOOGLE_REDIRECT_URI", "");
