@@ -195,12 +195,12 @@ jobs:
       - name: Promote deployment to production
         if: inputs.action == 'promote'
         run: |
-          npx vercel@${VERCEL_CLI_VERSION} promote "${{ inputs.deployment_id_or_url }}" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+          npx vercel@${VERCEL_CLI_VERSION} promote "${{ inputs.deployment_id_or_url }}" --yes --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
       - name: Rollback production deployment
         if: inputs.action == 'rollback'
         run: |
-          npx vercel@${VERCEL_CLI_VERSION} rollback "${{ inputs.deployment_id_or_url }}" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+          npx vercel@${VERCEL_CLI_VERSION} rollback "${{ inputs.deployment_id_or_url }}" --yes --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
       - name: Upload preview deployment artifact
         if: inputs.action == 'deploy-preview'
