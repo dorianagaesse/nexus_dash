@@ -120,3 +120,29 @@ GitHub Actions enforces three CI gates on pull requests and `main`:
 - `Quality Core`: `npm run lint`, `npm test`, `npm run test:coverage`, `npm run build`
 - `E2E Smoke`: `npm run test:e2e` against an isolated PostgreSQL service with migrations applied
 - `Container Image`: Docker image build validation with exported image metadata artifact
+
+## CD and Rollback (Vercel CLI)
+
+CD/rollback workflow: `.github/workflows/deploy-vercel.yml`
+
+Required repository secrets:
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
+
+Required Vercel project environment variables:
+- Configure all runtime app env vars from `.env.example` in Vercel project settings.
+- At minimum, ensure database/runtime-critical vars (for example `DATABASE_URL`) are set for the target environment (Preview/Production).
+
+Supported operations:
+- automatic staged production deployment after successful `Quality Gates` on `main`
+- manual workflow-dispatch operations:
+  - `deploy-preview`
+  - `deploy-production-staged`
+  - `promote` (promote a staged deployment)
+  - `rollback` (instant rollback to a previous production deployment)
+
+Notes:
+- On Vercel Hobby, rollback is limited to the previous production deployment.
+- After rollback, auto-assignment behavior may require an explicit promote to restore standard flow.
+- Workflow pins Vercel CLI to a fixed version for reproducible deploy behavior.

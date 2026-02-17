@@ -5,7 +5,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 ## Pending
 - ID: TASK-042
   Title: Deployment baseline phase 4 - CD deployment and rollback strategy
-  Status: Pending
+  Status: In Progress
   Rationale: Enable controlled releases with rollback to reduce operational risk during production changes.
   Dependencies: TASK-041, TASK-066
 - ID: TASK-043

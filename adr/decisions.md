@@ -189,3 +189,9 @@ Status: Accepted
 Context: TASK-041 requires validating not only source quality (lint/tests/build) but also the deployable artifact before deployment/rollback phases.
 Decision: Extend `quality-gates.yml` with a dedicated container-image job that runs after quality and E2E gates, builds the Docker image in CI, and uploads image metadata as an artifact.
 Consequences: Earlier detection of Dockerfile/runtime build regressions and clearer release readiness signals; slightly longer CI duration due to image build step.
+Date: 2026-02-17
+Decision: Use staged Vercel CLI deployments with explicit promote/rollback operations
+Status: Accepted
+Context: TASK-042 requires a low-risk CD baseline with rollback capability while keeping release control explicit.
+Decision: Add `deploy-vercel.yml` to create staged production deployments after successful quality gates on `main`, and expose manual `deploy-preview`, `deploy-production-staged`, `promote`, and `rollback` actions through workflow dispatch.
+Consequences: Faster recovery path and clearer release control with auditable deployment artifacts; requires Vercel repository secrets and operator discipline for promote/rollback steps.
