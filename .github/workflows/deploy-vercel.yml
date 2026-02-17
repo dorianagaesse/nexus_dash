@@ -49,6 +49,7 @@ jobs:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_CLI_VERSION: 50.18.0
+      VERCEL_SCOPE: ${{ secrets.VERCEL_ORG_ID }}
 
     steps:
       - name: Validate required Vercel secrets
@@ -82,15 +83,15 @@ jobs:
         run: npx prisma generate
 
       - name: Pull Vercel environment (production)
-        run: npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=production --token="$VERCEL_TOKEN"
+        run: npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=production --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
       - name: Build prebuilt artifact (production)
-        run: npx vercel@${VERCEL_CLI_VERSION} build --prod --token="$VERCEL_TOKEN"
+        run: npx vercel@${VERCEL_CLI_VERSION} build --prod --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
       - name: Deploy staged production build
         id: deploy_staged
         run: |
-          deployment_url=$(npx vercel@${VERCEL_CLI_VERSION} deploy --prebuilt --prod --skip-domain --token="$VERCEL_TOKEN")
+          deployment_url=$(npx vercel@${VERCEL_CLI_VERSION} deploy --prebuilt --prod --skip-domain --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN")
           echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
           echo "$deployment_url" > staged-production-deployment.txt
 
@@ -118,6 +119,7 @@ jobs:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_CLI_VERSION: 50.18.0
+      VERCEL_SCOPE: ${{ secrets.VERCEL_ORG_ID }}
 
     steps:
       - name: Validate required Vercel secrets
@@ -158,9 +160,9 @@ jobs:
         if: inputs.action == 'deploy-preview'
         id: deploy_preview
         run: |
-          npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=preview --token="$VERCEL_TOKEN"
-          npx vercel@${VERCEL_CLI_VERSION} build --token="$VERCEL_TOKEN"
-          deployment_url=$(npx vercel@${VERCEL_CLI_VERSION} deploy --prebuilt --token="$VERCEL_TOKEN")
+          npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=preview --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+          npx vercel@${VERCEL_CLI_VERSION} build --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+          deployment_url=$(npx vercel@${VERCEL_CLI_VERSION} deploy --prebuilt --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN")
           echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
           echo "$deployment_url" > preview-deployment.txt
 
@@ -168,9 +170,9 @@ jobs:
         if: inputs.action == 'deploy-production-staged'
         id: deploy_prod_staged
         run: |
-          npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=production --token="$VERCEL_TOKEN"
-          npx vercel@${VERCEL_CLI_VERSION} build --prod --token="$VERCEL_TOKEN"
-          deployment_url=$(npx vercel@${VERCEL_CLI_VERSION} deploy --prebuilt --prod --skip-domain --token="$VERCEL_TOKEN")
+          npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=production --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+          npx vercel@${VERCEL_CLI_VERSION} build --prod --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+          deployment_url=$(npx vercel@${VERCEL_CLI_VERSION} deploy --prebuilt --prod --skip-domain --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN")
           echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
           echo "$deployment_url" > staged-production-deployment.txt
 
@@ -183,7 +185,7 @@ jobs:
             exit 1
           fi
 
-          if ! npx vercel@${VERCEL_CLI_VERSION} inspect "${{ inputs.deployment_id_or_url }}" --token="$VERCEL_TOKEN" > /tmp/vercel-inspect.txt 2>&1; then
+          if ! npx vercel@${VERCEL_CLI_VERSION} inspect "${{ inputs.deployment_id_or_url }}" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN" > /tmp/vercel-inspect.txt 2>&1; then
             echo "::error::Deployment '${{ inputs.deployment_id_or_url }}' could not be validated for this project."
             echo "::error::Use a valid deployment URL/ID from previous workflow artifacts or from the Vercel dashboard."
             cat /tmp/vercel-inspect.txt
@@ -193,12 +195,12 @@ jobs:
       - name: Promote deployment to production
         if: inputs.action == 'promote'
         run: |
-          npx vercel@${VERCEL_CLI_VERSION} promote "${{ inputs.deployment_id_or_url }}" --token="$VERCEL_TOKEN"
+          npx vercel@${VERCEL_CLI_VERSION} promote "${{ inputs.deployment_id_or_url }}" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
       - name: Rollback production deployment
         if: inputs.action == 'rollback'
         run: |
-          npx vercel@${VERCEL_CLI_VERSION} rollback "${{ inputs.deployment_id_or_url }}" --token="$VERCEL_TOKEN"
+          npx vercel@${VERCEL_CLI_VERSION} rollback "${{ inputs.deployment_id_or_url }}" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
       - name: Upload preview deployment artifact
         if: inputs.action == 'deploy-preview'
