@@ -207,3 +207,9 @@ Status: Accepted
 Context: TASK-066 requires stronger config/secrets guarantees before production rollout, including startup validation and tighter Prisma env contracts.
 Decision: Add centralized `validateServerRuntimeConfig` checks (DB URL shape, optional env pair/triplet completeness, URL validation), require `DIRECT_URL` in production runtime, and execute validation at server startup via `app/layout.tsx`.
 Consequences: Misconfigured environments fail early with explicit errors, reducing runtime surprises; CI/build pipelines must provide minimal DB env variables for validation.
+Date: 2026-02-17
+Decision: Add provider-based attachment storage with Cloudflare R2 default and local fallback
+Status: Accepted
+Context: TASK-065 requires replacing local-only attachment persistence so deployment can run on serverless runtimes without relying on local disk durability.
+Decision: Introduce `StorageProvider` abstraction (save/read/delete/signed-download-url), keep local filesystem provider for development, and add Cloudflare R2 provider with signed URL download support.
+Consequences: Storage backend becomes configurable with minimal service-layer changes; production deployments gain durable object storage while local development remains simple.

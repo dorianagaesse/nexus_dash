@@ -5,6 +5,7 @@ import {
   getOptionalServerEnv,
   getRequiredServerEnv,
   getRuntimeEnvironment,
+  getStorageRuntimeConfig,
   getSupabaseClientRuntimeConfig,
   isProductionEnvironment,
   validateServerRuntimeConfig,
@@ -128,9 +129,64 @@ describe("env.server", () => {
     vi.stubEnv("GOOGLE_REDIRECT_URI", "");
     vi.stubEnv("NEXTAUTH_URL", "");
     vi.stubEnv("NEXTAUTH_SECRET", "");
+    vi.stubEnv("STORAGE_PROVIDER", "local");
+    vi.stubEnv("R2_ACCOUNT_ID", "");
+    vi.stubEnv("R2_ACCESS_KEY_ID", "");
+    vi.stubEnv("R2_SECRET_ACCESS_KEY", "");
+    vi.stubEnv("R2_BUCKET_NAME", "");
+    vi.stubEnv("R2_SIGNED_URL_TTL_SECONDS", "");
     vi.stubEnv("NODE_ENV", "production");
 
     expect(() => validateServerRuntimeConfig()).not.toThrow();
+  });
+
+  test("returns local storage runtime config by default", () => {
+    vi.stubEnv("STORAGE_PROVIDER", "");
+
+    expect(getStorageRuntimeConfig()).toEqual({
+      provider: "local",
+      r2: null,
+    });
+  });
+
+  test("returns r2 storage runtime config when fully configured", () => {
+    vi.stubEnv("STORAGE_PROVIDER", "r2");
+    vi.stubEnv("R2_ACCOUNT_ID", "acc");
+    vi.stubEnv("R2_ACCESS_KEY_ID", "key");
+    vi.stubEnv("R2_SECRET_ACCESS_KEY", "secret");
+    vi.stubEnv("R2_BUCKET_NAME", "bucket");
+    vi.stubEnv("R2_SIGNED_URL_TTL_SECONDS", "900");
+
+    expect(getStorageRuntimeConfig()).toEqual({
+      provider: "r2",
+      r2: {
+        accountId: "acc",
+        accessKeyId: "key",
+        secretAccessKey: "secret",
+        bucketName: "bucket",
+        signedUrlTtlSeconds: 900,
+      },
+    });
+  });
+
+  test("fails when storage provider is invalid", () => {
+    vi.stubEnv("STORAGE_PROVIDER", "unknown");
+
+    expect(() => getStorageRuntimeConfig()).toThrow(
+      "STORAGE_PROVIDER must be one of: local, r2."
+    );
+  });
+
+  test("fails when r2 provider is selected with missing credentials", () => {
+    vi.stubEnv("STORAGE_PROVIDER", "r2");
+    vi.stubEnv("R2_ACCOUNT_ID", "acc");
+    vi.stubEnv("R2_ACCESS_KEY_ID", "");
+    vi.stubEnv("R2_SECRET_ACCESS_KEY", "secret");
+    vi.stubEnv("R2_BUCKET_NAME", "bucket");
+
+    expect(() => getStorageRuntimeConfig()).toThrow(
+      "Missing required environment variable: R2_ACCESS_KEY_ID"
+    );
   });
 
   test("fails runtime validation when database url is not postgres", () => {
@@ -185,6 +241,29 @@ describe("env.server", () => {
 
     expect(() => validateServerRuntimeConfig()).toThrow(
       "SUPABASE_URL must be a valid absolute URL."
+    );
+  });
+
+  test("fails runtime validation when r2 env group is partially configured", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("R2_ACCOUNT_ID", "acc");
+    vi.stubEnv("R2_ACCESS_KEY_ID", "");
+    vi.stubEnv("R2_SECRET_ACCESS_KEY", "");
+    vi.stubEnv("R2_BUCKET_NAME", "");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME must be configured together."
+    );
+  });
+
+  test("fails runtime validation when r2 signed url ttl is invalid", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("R2_SIGNED_URL_TTL_SECONDS", "0");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "R2_SIGNED_URL_TTL_SECONDS must be a positive integer."
     );
   });
 });
