@@ -97,6 +97,63 @@ export function getSupabaseClientRuntimeConfig(): SupabaseClientRuntimeConfig | 
   };
 }
 
+export type StorageProviderKind = "local" | "r2";
+
+export interface R2StorageRuntimeConfig {
+  accountId: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  bucketName: string;
+  signedUrlTtlSeconds: number;
+}
+
+export interface StorageRuntimeConfig {
+  provider: StorageProviderKind;
+  r2: R2StorageRuntimeConfig | null;
+}
+
+function parsePositiveInteger(input: string | null): number | null {
+  if (!input) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(input, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
+}
+
+export function getStorageRuntimeConfig(): StorageRuntimeConfig {
+  const providerRaw = getOptionalServerEnv("STORAGE_PROVIDER");
+  const provider: StorageProviderKind =
+    providerRaw === "r2" ? "r2" : "local";
+
+  if (providerRaw && providerRaw !== "local" && providerRaw !== "r2") {
+    throw new Error("STORAGE_PROVIDER must be one of: local, r2.");
+  }
+
+  if (provider === "local") {
+    return { provider, r2: null };
+  }
+
+  const signedUrlTtlSeconds =
+    parsePositiveInteger(getOptionalServerEnv("R2_SIGNED_URL_TTL_SECONDS")) ??
+    300;
+
+  return {
+    provider,
+    r2: {
+      accountId: getRequiredServerEnv("R2_ACCOUNT_ID"),
+      accessKeyId: getRequiredServerEnv("R2_ACCESS_KEY_ID"),
+      secretAccessKey: getRequiredServerEnv("R2_SECRET_ACCESS_KEY"),
+      bucketName: getRequiredServerEnv("R2_BUCKET_NAME"),
+      signedUrlTtlSeconds,
+    },
+  };
+}
+
 function assertOptionalEnvironmentGroup(
   names: string[],
   message: string
@@ -163,4 +220,16 @@ export function validateServerRuntimeConfig(
   if (googleRedirectUri) {
     assertValidUrl("GOOGLE_REDIRECT_URI", googleRedirectUri);
   }
+
+  assertOptionalEnvironmentGroup(
+    ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"],
+    "R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME must be configured together."
+  );
+
+  const r2SignedUrlTtlRaw = getOptionalServerEnv("R2_SIGNED_URL_TTL_SECONDS");
+  if (r2SignedUrlTtlRaw && !parsePositiveInteger(r2SignedUrlTtlRaw)) {
+    throw new Error("R2_SIGNED_URL_TTL_SECONDS must be a positive integer.");
+  }
+
+  getStorageRuntimeConfig();
 }

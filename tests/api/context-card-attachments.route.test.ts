@@ -207,6 +207,7 @@ describe("context card attachment routes", () => {
     attachmentServiceMock.getContextAttachmentDownload.mockResolvedValueOnce({
       ok: true,
       data: {
+        mode: "proxy",
         contentType: "application/pdf",
         contentDisposition: "inline; filename*=UTF-8''spec.pdf",
         content: new Uint8Array([37, 80, 68, 70]),
@@ -237,6 +238,31 @@ describe("context card attachment routes", () => {
 
     const body = new Uint8Array(await response.arrayBuffer());
     expect(body).toEqual(new Uint8Array([37, 80, 68, 70]));
+  });
+
+  test("GET download redirects when service returns signed url mode", async () => {
+    attachmentServiceMock.getContextAttachmentDownload.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        mode: "redirect",
+        redirectUrl: "https://files.example.com/signed/context-a1",
+      },
+    });
+
+    const response = await downloadAttachment(
+      new Request(
+        "http://localhost/api/projects/p1/context-cards/c1/attachments/a1/download"
+      ) as never,
+      {
+        params: { projectId: "p1", cardId: "c1", attachmentId: "a1" },
+      }
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://files.example.com/signed/context-a1"
+    );
+    expect(response.headers.get("Cache-Control")).toBe("private, max-age=60");
   });
 
   test("GET download defaults to attachment disposition and maps service errors", async () => {

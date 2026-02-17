@@ -1,5 +1,6 @@
 import {
   deleteAttachmentFile,
+  getAttachmentDownloadUrl,
   readAttachmentFile,
   saveAttachmentFile,
 } from "@/lib/attachment-storage";
@@ -41,9 +42,11 @@ export interface AttachmentResponsePayload {
 }
 
 export interface AttachmentDownloadPayload {
-  contentType: string;
-  contentDisposition: string;
-  content: Uint8Array;
+  mode: "proxy" | "redirect";
+  contentType?: string;
+  contentDisposition?: string;
+  content?: Uint8Array;
+  redirectUrl?: string;
 }
 
 function readText(formData: FormData, key: string): string {
@@ -588,15 +591,34 @@ export async function getTaskAttachmentDownload(input: {
       return createError(404, "File attachment not found");
     }
 
-    const buffer = await readAttachmentFile(attachment.storageKey);
+    const contentType = attachment.mimeType || "application/octet-stream";
     const filename = encodeURIComponent(attachment.name || "attachment");
+    const contentDisposition = `${input.disposition}; filename*=UTF-8''${filename}`;
+    const signedUrl = await getAttachmentDownloadUrl({
+      storageKey: attachment.storageKey,
+      contentType,
+      contentDisposition,
+    });
+
+    if (signedUrl) {
+      return {
+        ok: true,
+        data: {
+          mode: "redirect",
+          redirectUrl: signedUrl,
+        },
+      };
+    }
+
+    const buffer = await readAttachmentFile(attachment.storageKey);
 
     return {
       ok: true,
       data: {
+        mode: "proxy",
         content: new Uint8Array(buffer),
-        contentType: attachment.mimeType || "application/octet-stream",
-        contentDisposition: `${input.disposition}; filename*=UTF-8''${filename}`,
+        contentType,
+        contentDisposition,
       },
     };
   } catch (error) {
@@ -640,15 +662,34 @@ export async function getContextAttachmentDownload(input: {
       return createError(404, "File attachment not found");
     }
 
-    const buffer = await readAttachmentFile(attachment.storageKey);
+    const contentType = attachment.mimeType || "application/octet-stream";
     const filename = encodeURIComponent(attachment.name || "attachment");
+    const contentDisposition = `${input.disposition}; filename*=UTF-8''${filename}`;
+    const signedUrl = await getAttachmentDownloadUrl({
+      storageKey: attachment.storageKey,
+      contentType,
+      contentDisposition,
+    });
+
+    if (signedUrl) {
+      return {
+        ok: true,
+        data: {
+          mode: "redirect",
+          redirectUrl: signedUrl,
+        },
+      };
+    }
+
+    const buffer = await readAttachmentFile(attachment.storageKey);
 
     return {
       ok: true,
       data: {
+        mode: "proxy",
         content: new Uint8Array(buffer),
-        contentType: attachment.mimeType || "application/octet-stream",
-        contentDisposition: `${input.disposition}; filename*=UTF-8''${filename}`,
+        contentType,
+        contentDisposition,
       },
     };
   } catch (error) {

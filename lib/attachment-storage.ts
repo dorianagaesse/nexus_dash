@@ -1,87 +1,38 @@
-import { randomUUID } from "crypto";
-import { promises as fs } from "fs";
-import path from "path";
+import { getStorageProvider } from "@/lib/storage/storage-provider";
 
-interface SaveAttachmentFileInput {
-  scope: "task" | "context-card";
-  ownerId: string;
-  file: File;
-}
+import type { SaveStorageFileInput, SaveStorageFileResult } from "@/lib/storage/types";
 
-interface SaveAttachmentFileResult {
+interface GetAttachmentDownloadUrlInput {
   storageKey: string;
-  mimeType: string;
-  sizeBytes: number;
-  originalName: string;
+  contentType: string;
+  contentDisposition: string;
 }
 
-const STORAGE_ROOT = path.join(process.cwd(), "storage", "uploads");
-
-function sanitizeFilename(filename: string): string {
-  const normalized = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const compact = normalized.replace(/_+/g, "_").replace(/^_+|_+$/g, "");
-
-  if (!compact) {
-    return "file";
-  }
-
-  return compact.slice(0, 120);
-}
-
-function resolveAbsolutePath(storageKey: string): string {
-  const normalizedKey = storageKey.replace(/\\/g, "/");
-  const absolutePath = path.resolve(STORAGE_ROOT, normalizedKey);
-  const normalizedRoot = `${path.resolve(STORAGE_ROOT)}${path.sep}`;
-
-  if (!absolutePath.startsWith(normalizedRoot)) {
-    throw new Error("Invalid storage key");
-  }
-
-  return absolutePath;
-}
-
-async function ensureDirectory(absolutePath: string): Promise<void> {
-  await fs.mkdir(path.dirname(absolutePath), { recursive: true });
-}
-
-export async function saveAttachmentFile({
-  scope,
-  ownerId,
-  file,
-}: SaveAttachmentFileInput): Promise<SaveAttachmentFileResult> {
-  const originalName = file.name || "file";
-  const safeName = sanitizeFilename(originalName);
-  const uniquePrefix = `${Date.now()}-${randomUUID().slice(0, 8)}`;
-  const storageKey = `${scope}/${ownerId}/${uniquePrefix}-${safeName}`;
-  const absolutePath = resolveAbsolutePath(storageKey);
-
-  await ensureDirectory(absolutePath);
-
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  await fs.writeFile(absolutePath, buffer);
-
-  return {
-    storageKey,
-    mimeType: file.type || "application/octet-stream",
-    sizeBytes: buffer.byteLength,
-    originalName,
-  };
+export async function saveAttachmentFile(
+  input: SaveStorageFileInput
+): Promise<SaveStorageFileResult> {
+  const provider = getStorageProvider();
+  return provider.saveFile(input);
 }
 
 export async function readAttachmentFile(storageKey: string): Promise<Buffer> {
-  const absolutePath = resolveAbsolutePath(storageKey);
-  return fs.readFile(absolutePath);
+  const provider = getStorageProvider();
+  return provider.readFile(storageKey);
 }
 
 export async function deleteAttachmentFile(storageKey: string): Promise<void> {
-  try {
-    const absolutePath = resolveAbsolutePath(storageKey);
-    await fs.unlink(absolutePath);
-  } catch (error) {
-    const err = error as NodeJS.ErrnoException;
-    if (err.code !== "ENOENT") {
-      throw error;
-    }
-  }
+  const provider = getStorageProvider();
+  await provider.deleteFile(storageKey);
 }
+
+export async function getAttachmentDownloadUrl(
+  input: GetAttachmentDownloadUrlInput
+): Promise<string | null> {
+  const provider = getStorageProvider();
+  return provider.getSignedDownloadUrl({
+    storageKey: input.storageKey,
+    contentType: input.contentType,
+    contentDisposition: input.contentDisposition,
+  });
+}
+

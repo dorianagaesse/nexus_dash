@@ -1,23 +1,21 @@
-# Current Task: Observability MVP
+# Current Task: Attachment Storage Migration
 
 ## Task ID
-TASK-043
+TASK-065
 
 ## Status
-In Progress (2026-02-17, implementation complete; PR pending)
+In Progress (2026-02-17)
 
 ## Summary
-Add a minimum observability baseline for production troubleshooting:
-- health probes (liveness/readiness)
-- structured server logging utility
-- explicit operator documentation for log/health usage
+Replace local filesystem attachment persistence with a provider-based storage boundary and Cloudflare R2 default backend while preserving download/preview behavior.
 
 ## Acceptance Criteria
-- Add a liveness endpoint that reports service uptime metadata without DB dependency.
-- Add a readiness endpoint that validates core runtime readiness (including DB reachability).
-- Introduce a shared structured server logger helper and migrate core server-side error logging to it.
-- Add API tests for health endpoints (success + failure path for readiness).
-- Document observability behavior and expected operational checks in `README.md`.
+- Introduce a `StorageProvider` abstraction used by attachment services.
+- Implement Cloudflare R2 provider (S3-compatible) as default remote provider.
+- Keep a local provider available for development fallback.
+- Add signed URL support for file access and route behavior compatibility.
+- Keep attachment create/delete/download flows working for both task and context-card attachments.
+- Update docs/env examples for storage configuration.
 
 ## Definition of Done
 - `npm run lint` passes.
@@ -25,19 +23,13 @@ Add a minimum observability baseline for production troubleshooting:
 - `npm run test:coverage` passes.
 - `npm run build` passes.
 - Branch pushed and PR opened.
-- Copilot review comments triaged: apply valid findings, challenge non-actionable findings, resolve threads.
+- Copilot review triaged and resolved (apply valid findings, challenge non-actionable findings).
 
 ## Required Input
-None expected for TASK-043 baseline.
-
-## Validation
-- `npm run lint`
-- `npm test`
-- `npm run test:coverage`
-- `npm run build` (with temporary local `NEXTAUTH_SECRET` export in shell session)
+Cloudflare R2 credentials may be required for live integration validation; implement with safe fallbacks so CI/unit tests pass without live secrets.
 
 ## Next Step
-Open PR, wait for CI/Copilot, and address review feedback.
+Design provider interface + wire attachment service migration with regression-safe tests.
 
 ---
 

@@ -21,7 +21,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-042
 - ID: TASK-065
   Title: Attachment storage migration - StorageProvider abstraction + Cloudflare R2 object storage
-  Status: Pending
+  Status: In Progress (2026-02-17)
   Rationale: Replace local attachment persistence with a provider-agnostic `StorageProvider` layer and signed URL flows, using Cloudflare R2 as the default low-cost backend while preserving portability to Vercel Blob/S3/GCS.
   Dependencies: TASK-039, TASK-040
 - ID: TASK-067
