@@ -192,6 +192,7 @@ describe("task attachment routes", () => {
     attachmentServiceMock.getTaskAttachmentDownload.mockResolvedValueOnce({
       ok: true,
       data: {
+        mode: "proxy",
         contentType: "text/plain",
         contentDisposition: "attachment; filename*=UTF-8''note.txt",
         content: new Uint8Array([104, 105]),
@@ -222,6 +223,29 @@ describe("task attachment routes", () => {
 
     const body = new Uint8Array(await response.arrayBuffer());
     expect(body).toEqual(new Uint8Array([104, 105]));
+  });
+
+  test("GET download redirects when service returns signed url mode", async () => {
+    attachmentServiceMock.getTaskAttachmentDownload.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        mode: "redirect",
+        redirectUrl: "https://files.example.com/signed/task-a1",
+      },
+    });
+
+    const response = await downloadAttachment(
+      new Request("http://localhost/api/projects/p1/tasks/t1/attachments/a1/download") as never,
+      {
+        params: { projectId: "p1", taskId: "t1", attachmentId: "a1" },
+      }
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://files.example.com/signed/task-a1"
+    );
+    expect(response.headers.get("Cache-Control")).toBe("private, max-age=60");
   });
 
   test("GET download defaults to attachment disposition and maps service errors", async () => {

@@ -42,6 +42,10 @@ Environment and secret handling is centralized in `lib/env.server.ts`.
 - Optional with fallback in non-production: `DIRECT_URL` falls back to `DATABASE_URL`
 - Optional as a pair: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`
 - Optional as a pair: `NEXTAUTH_URL`, `NEXTAUTH_SECRET`
+- Optional provider selector: `STORAGE_PROVIDER` (`local` by default, `r2` for Cloudflare R2)
+- Required when `STORAGE_PROVIDER=r2`: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
+  `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`
+- Optional with default: `R2_SIGNED_URL_TTL_SECONDS` (defaults to `300`)
 
 Startup/runtime validation:
 - The app validates runtime config at server startup (`app/layout.tsx`).
@@ -86,6 +90,9 @@ Attachment uploads are stored server-side under `/app/storage/uploads` (mounted 
 - Supported kinds: link and file
 - File size limit: `10MB`
 - Allowed MIME types: PDF, PNG/JPEG/WebP, TXT/Markdown, CSV, JSON
+- Storage provider architecture:
+  - `local`: filesystem-backed storage under `/storage/uploads` (dev-friendly)
+  - `r2`: Cloudflare R2 object storage with signed download URLs
 - Task attachments are managed from the task detail modal
 - Context-card attachments are managed from the context-card edit modal
 

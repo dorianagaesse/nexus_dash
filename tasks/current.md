@@ -1,35 +1,35 @@
-# Current Task: Configuration/Secrets Hardening Gate
+# Current Task: Attachment Storage Migration
 
 ## Task ID
-TASK-066
+TASK-065
 
 ## Status
-In Progress (2026-02-17, implementation complete; PR pending)
+In Progress (2026-02-17)
 
 ## Summary
-Implement production-grade environment hardening on top of TASK-040 baseline:
-- Add startup fail-fast runtime validation through `validateServerRuntimeConfig`.
-- Require `DIRECT_URL` in production runtime while keeping non-production fallback.
-- Validate env pair/triplet consistency (`SUPABASE_*`, `NEXTAUTH_*`, `GOOGLE_*`) and URL shape guarantees.
-- Extend CI quality-core environment setup so runtime validation is exercised during build gates.
-- Expand env-server test coverage for new guardrails.
+Replace local filesystem attachment persistence with a provider-based storage boundary and Cloudflare R2 default backend while preserving download/preview behavior.
+
+## Acceptance Criteria
+- Introduce a `StorageProvider` abstraction used by attachment services.
+- Implement Cloudflare R2 provider (S3-compatible) as default remote provider.
+- Keep a local provider available for development fallback.
+- Add signed URL support for file access and route behavior compatibility.
+- Keep attachment create/delete/download flows working for both task and context-card attachments.
+- Update docs/env examples for storage configuration.
+
+## Definition of Done
+- `npm run lint` passes.
+- `npm test` passes.
+- `npm run test:coverage` passes.
+- `npm run build` passes.
+- Branch pushed and PR opened.
+- Copilot review triaged and resolved (apply valid findings, challenge non-actionable findings).
 
 ## Required Input
-None expected during implementation.
-
-## Validation So Far
-- Local validation passed:
-  - `npm run lint`
-  - `npm test`
-  - `npm run test:coverage`
-  - `npm run build` (with complete `NEXTAUTH_*` pair in environment)
-
-## Notes
-- Task detail document added: `tasks/task-066-config-secrets-hardening.md`.
-- `.env.example` was normalized to avoid partial optional auth/OAuth config defaults.
+Cloudflare R2 credentials may be required for live integration validation; implement with safe fallbacks so CI/unit tests pass without live secrets.
 
 ## Next Step
-Open PR and run CI/Copilot review.
+Design provider interface + wire attachment service migration with regression-safe tests.
 
 ---
 

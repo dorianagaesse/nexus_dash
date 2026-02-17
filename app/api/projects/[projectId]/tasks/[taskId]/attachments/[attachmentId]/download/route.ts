@@ -32,6 +32,24 @@ export async function GET(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
+  if (result.data.mode === "redirect" && result.data.redirectUrl) {
+    return NextResponse.redirect(result.data.redirectUrl, {
+      status: 307,
+      headers: {
+        "Cache-Control": "private, max-age=60",
+      },
+    });
+  }
+
+  if (
+    result.data.mode !== "proxy" ||
+    !result.data.content ||
+    !result.data.contentType ||
+    !result.data.contentDisposition
+  ) {
+    return NextResponse.json({ error: "Invalid attachment payload" }, { status: 500 });
+  }
+
   const body = new Uint8Array(result.data.content);
 
   return new NextResponse(body, {
