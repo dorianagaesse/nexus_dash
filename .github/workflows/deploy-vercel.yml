@@ -1,0 +1,215 @@
+name: Deploy Vercel (CD + Rollback)
+
+on:
+  workflow_run:
+    workflows: ["Quality Gates"]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Operation to execute"
+        required: true
+        type: choice
+        options:
+          - deploy-preview
+          - deploy-production-staged
+          - promote
+          - rollback
+      deployment_id_or_url:
+        description: "Required for promote/rollback actions"
+        required: false
+        type: string
+      git_ref:
+        description: "Git ref for deploy actions (branch/tag/SHA)"
+        required: false
+        default: "main"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-cd-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  auto-production-staged:
+    name: Auto Deploy Production (staged)
+    if: >
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+    steps:
+      - name: Validate required Vercel secrets
+        run: |
+          missing=0
+          for key in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Missing required GitHub secret: $key"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Pull Vercel environment (production)
+        run: npx vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build prebuilt artifact (production)
+        run: npx vercel@latest build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy staged production build
+        id: deploy_staged
+        run: |
+          deployment_url=$(npx vercel@latest deploy --prebuilt --prod --skip-domain --token="$VERCEL_TOKEN")
+          echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
+          echo "$deployment_url" > staged-production-deployment.txt
+
+      - name: Upload staged deployment artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: staged-production-deployment
+          path: staged-production-deployment.txt
+          if-no-files-found: error
+
+      - name: Job summary
+        run: |
+          echo "## Staged production deployment created" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: \`${{ steps.deploy_staged.outputs.deployment_url }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Next step: run workflow dispatch with \`action=promote\` to promote this deployment." >> "$GITHUB_STEP_SUMMARY"
+
+  manual-operation:
+    name: Manual Deploy/Promote/Rollback
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+    steps:
+      - name: Validate required Vercel secrets
+        run: |
+          missing=0
+          for key in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Missing required GitHub secret: $key"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            exit 1
+          fi
+
+      - name: Checkout
+        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - name: Setup Node.js
+        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
+        run: npm ci
+
+      - name: Deploy preview
+        if: inputs.action == 'deploy-preview'
+        id: deploy_preview
+        run: |
+          npx vercel@latest pull --yes --environment=preview --token="$VERCEL_TOKEN"
+          npx vercel@latest build --token="$VERCEL_TOKEN"
+          deployment_url=$(npx vercel@latest deploy --prebuilt --token="$VERCEL_TOKEN")
+          echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
+          echo "$deployment_url" > preview-deployment.txt
+
+      - name: Deploy production (staged)
+        if: inputs.action == 'deploy-production-staged'
+        id: deploy_prod_staged
+        run: |
+          npx vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx vercel@latest build --prod --token="$VERCEL_TOKEN"
+          deployment_url=$(npx vercel@latest deploy --prebuilt --prod --skip-domain --token="$VERCEL_TOKEN")
+          echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
+          echo "$deployment_url" > staged-production-deployment.txt
+
+      - name: Promote deployment to production
+        if: inputs.action == 'promote'
+        run: |
+          if [ -z "${{ inputs.deployment_id_or_url }}" ]; then
+            echo "::error::deployment_id_or_url is required for promote."
+            exit 1
+          fi
+          npx vercel@latest promote "${{ inputs.deployment_id_or_url }}" --token="$VERCEL_TOKEN"
+
+      - name: Rollback production deployment
+        if: inputs.action == 'rollback'
+        run: |
+          if [ -z "${{ inputs.deployment_id_or_url }}" ]; then
+            echo "::error::deployment_id_or_url is required for rollback."
+            exit 1
+          fi
+          npx vercel@latest rollback "${{ inputs.deployment_id_or_url }}" --token="$VERCEL_TOKEN"
+
+      - name: Upload preview deployment artifact
+        if: inputs.action == 'deploy-preview'
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-deployment
+          path: preview-deployment.txt
+          if-no-files-found: error
+
+      - name: Upload staged production deployment artifact
+        if: inputs.action == 'deploy-production-staged'
+        uses: actions/upload-artifact@v4
+        with:
+          name: staged-production-deployment
+          path: staged-production-deployment.txt
+          if-no-files-found: error
+
+      - name: Job summary
+        if: always()
+        run: |
+          echo "## Manual Vercel operation" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Action: \`${{ inputs.action }}\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ inputs.action }}" = "deploy-preview" ]; then
+            echo "- Preview URL: \`${{ steps.deploy_preview.outputs.deployment_url }}\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ inputs.action }}" = "deploy-production-staged" ]; then
+            echo "- Staged production URL: \`${{ steps.deploy_prod_staged.outputs.deployment_url }}\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Next step: run with \`action=promote\`." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ inputs.action }}" = "promote" ] || [ "${{ inputs.action }}" = "rollback" ]; then
+            echo "- Deployment target: \`${{ inputs.deployment_id_or_url }}\`" >> "$GITHUB_STEP_SUMMARY"
+          fi

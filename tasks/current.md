@@ -1,34 +1,45 @@
-# Current Task: CI Pipeline Build/Test/Image Baseline
+# Current Task: CD Deployment and Rollback Strategy
 
 ## Task ID
-TASK-041
+TASK-042
 
 ## Status
-Done (2026-02-16)
+In Progress (2026-02-17)
 
 ## Summary
-CI now validates both source quality and the deployable container artifact:
-- Added `container-image` job to `.github/workflows/quality-gates.yml`.
-- Enforced job order so container image build runs after `quality-core` and `e2e-smoke`.
-- Added image metadata artifact upload from CI (`container-image-metadata`).
-- Improved Docker build reproducibility by switching to `npm ci` in `Dockerfile`.
-- Updated docs and architecture decision log for this CI baseline.
+Implemented the TASK-042 baseline for Vercel CLI deployment and rollback:
+- Added `.github/workflows/deploy-vercel.yml`.
+- Automatic staged production deployment now runs after successful `Quality Gates` on `main`.
+- Added manual workflow-dispatch operations:
+  - `deploy-preview`
+  - `deploy-production-staged`
+  - `promote`
+  - `rollback`
+- Added secret preflight checks for Vercel integration.
+- Updated documentation and ADR log.
 
-## Validation
-- `npm run lint` -> passed.
-- `npm test` -> passed.
-- `npm run test:coverage` -> passed.
-- `npm run build` -> passed.
-- `docker build -t nexusdash:task-041-local .` -> passed.
+## Required Input
+Configure repository secrets:
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
+
+## Validation So Far
+- Existing validation suite remains green locally:
+  - `npm run lint`
+  - `npm test`
+  - `npm run test:coverage`
+  - `npm run build`
+- Workflow execution validation is pending secrets configuration.
 
 ## Notes
-- Task detail document: `tasks/task-041-ci-pipeline-build-image.md`.
-- ADR updated in `adr/decisions.md`.
+- Task detail document: `tasks/task-042-cd-deploy-rollback-strategy.md`.
+- README section added: `CD and Rollback (Vercel CLI)`.
 
-## Next Recommended Task
-TASK-042 (Deployment baseline phase 4 - CD deployment and rollback strategy)
+## Next Step
+Run manual workflow dispatch smoke tests (`deploy-preview`, then `deploy-production-staged`, `promote`/`rollback`) once secrets are configured.
 
 ---
 
-Last Updated: 2026-02-16  
+Last Updated: 2026-02-17  
 Assigned To: User + Agent
