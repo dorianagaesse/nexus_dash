@@ -4,7 +4,7 @@
 TASK-042
 
 ## Status
-In Progress (2026-02-17)
+In Progress (2026-02-17, pending secret-backed deployment execution tests)
 
 ## Summary
 Implemented the TASK-042 baseline for Vercel CLI deployment and rollback:

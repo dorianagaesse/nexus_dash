@@ -130,6 +130,10 @@ Required repository secrets:
 - `VERCEL_ORG_ID`
 - `VERCEL_PROJECT_ID`
 
+Required Vercel project environment variables:
+- Configure all runtime app env vars from `.env.example` in Vercel project settings.
+- At minimum, ensure database/runtime-critical vars (for example `DATABASE_URL`) are set for the target environment (Preview/Production).
+
 Supported operations:
 - automatic staged production deployment after successful `Quality Gates` on `main`
 - manual workflow-dispatch operations:
@@ -141,3 +145,4 @@ Supported operations:
 Notes:
 - On Vercel Hobby, rollback is limited to the previous production deployment.
 - After rollback, auto-assignment behavior may require an explicit promote to restore standard flow.
+- Workflow pins Vercel CLI to a fixed version for reproducible deploy behavior.

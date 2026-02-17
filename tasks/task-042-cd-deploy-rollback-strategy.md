@@ -31,6 +31,9 @@ Introduce a controlled CD baseline with explicit rollback paths using Vercel CLI
   - `VERCEL_TOKEN`
   - `VERCEL_ORG_ID`
   - `VERCEL_PROJECT_ID`
+- Vercel project environment variables:
+  - Mirror required runtime vars from `.env.example` into Vercel environments.
+  - Ensure `DATABASE_URL` (and other required runtime vars) are configured for Preview/Production.
 
 ## Validation
 - Workflow file added and schema-level syntax validated by GitHub Actions on PR.
