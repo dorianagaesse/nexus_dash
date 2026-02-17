@@ -39,7 +39,7 @@ function sanitizeFilename(filename: string): string {
 
 function createStorageKey(scope: string, ownerId: string, originalName: string): string {
   const safeName = sanitizeFilename(originalName || "file");
-  const uniquePrefix = `${Date.now()}-${randomUUID().slice(0, 8)}`;
+  const uniquePrefix = `${process.hrtime.bigint()}-${randomUUID().slice(0, 8)}`;
   return `${scope}/${ownerId}/${uniquePrefix}-${safeName}`;
 }
 

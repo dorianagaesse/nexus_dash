@@ -42,7 +42,7 @@ export class LocalStorageProvider implements StorageProvider {
   async saveFile(input: SaveStorageFileInput): Promise<SaveStorageFileResult> {
     const originalName = input.file.name || "file";
     const safeName = sanitizeFilename(originalName);
-    const uniquePrefix = `${Date.now()}-${randomUUID().slice(0, 8)}`;
+    const uniquePrefix = `${process.hrtime.bigint()}-${randomUUID().slice(0, 8)}`;
     const storageKey = `${input.scope}/${input.ownerId}/${uniquePrefix}-${safeName}`;
     const absolutePath = resolveAbsolutePath(storageKey);
 
