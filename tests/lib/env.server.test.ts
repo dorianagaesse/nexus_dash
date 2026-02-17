@@ -378,6 +378,50 @@ describe("env.server", () => {
     );
   });
 
+  test("allows mixed provider endpoints when database is Supabase and direct is non-Supabase", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@project.pooler.supabase.com:5432/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://admin-user:pwd@remote-db.example.com:5432/postgres?sslmode=require"
+    );
+
+    expect(() => validateServerRuntimeConfig()).not.toThrow();
+  });
+
+  test("allows mixed provider endpoints when database is non-Supabase and direct is Supabase", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@runtime-db.example.com:5432/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://admin-user:pwd@db.project-ref.supabase.co:5432/postgres?sslmode=require"
+    );
+
+    expect(() => validateServerRuntimeConfig()).not.toThrow();
+  });
+
+  test("applies remote hardening when only direct url is remote", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@localhost:5432/postgres"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://admin-user:pwd@db.project-ref.supabase.co:5432/postgres"
+    );
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "DIRECT_URL must enforce TLS for remote production hosts (for example ?sslmode=require)."
+    );
+  });
+
   test("allows local production endpoints without remote-only hardening checks", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv(

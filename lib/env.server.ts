@@ -219,8 +219,7 @@ function parseDatabaseConnectionString(
   const usesSecureTransport =
     SECURE_SSL_MODES.has(sslMode) ||
     ssl === "true" ||
-    ssl === "1" ||
-    ssl === "require";
+    ssl === "1";
   const isSupabaseHost =
     host.endsWith(".supabase.co") || host.endsWith(".supabase.com");
   const isSupabasePoolerHost = host.endsWith(".pooler.supabase.com");
@@ -267,13 +266,13 @@ function assertProductionDatabaseConnectionHardening(
     );
   }
 
-  if (!databaseUrl.usesSecureTransport) {
+  if (!databaseUrl.isLocalHost && !databaseUrl.usesSecureTransport) {
     throw new Error(
       "DATABASE_URL must enforce TLS for remote production hosts (for example ?sslmode=require)."
     );
   }
 
-  if (!directUrl.usesSecureTransport) {
+  if (!directUrl.isLocalHost && !directUrl.usesSecureTransport) {
     throw new Error(
       "DIRECT_URL must enforce TLS for remote production hosts (for example ?sslmode=require)."
     );
@@ -285,7 +284,8 @@ function assertProductionDatabaseConnectionHardening(
     );
   }
 
-  const isSupabaseConnection = databaseUrl.isSupabaseHost || directUrl.isSupabaseHost;
+  const isSupabaseConnection =
+    databaseUrl.isSupabaseHost && directUrl.isSupabaseHost;
   if (!isSupabaseConnection) {
     return;
   }
