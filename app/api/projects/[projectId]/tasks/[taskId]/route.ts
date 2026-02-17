@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { logServerWarning } from "@/lib/observability/logger";
 import {
   type UpdateTaskPayload,
   updateTaskForProject,
@@ -20,7 +21,11 @@ export async function PATCH(
   try {
     payload = (await request.json()) as UpdateTaskPayload;
   } catch (error) {
-    console.error("[PATCH /api/projects/:projectId/tasks/:taskId] invalid json", error);
+    logServerWarning(
+      "PATCH /api/projects/:projectId/tasks/:taskId.invalidJson",
+      "Invalid JSON payload",
+      { error }
+    );
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 

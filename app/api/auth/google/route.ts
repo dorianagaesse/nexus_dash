@@ -9,6 +9,7 @@ import {
   normalizeReturnToPath,
 } from "@/lib/google-calendar";
 import { isProductionEnvironment } from "@/lib/env.server";
+import { logServerError } from "@/lib/observability/logger";
 
 function withErrorParam(request: NextRequest, returnTo: string, error: string): URL {
   const target = new URL(returnTo, request.url);
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
   try {
     authorizationUrl = buildGoogleOAuthUrl(state);
   } catch (error) {
-    console.error("[GET /api/auth/google] config error", error);
+    logServerError("GET /api/auth/google.configError", error);
     const fallback = withErrorParam(request, returnTo, "calendar-config-missing");
     return NextResponse.redirect(fallback);
   }
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error("[GET /api/auth/google] response creation failed", error);
+    logServerError("GET /api/auth/google.responseCreationFailed", error);
     const fallback = withErrorParam(request, "/projects", "calendar-auth-init-failed");
     return NextResponse.redirect(fallback);
   }

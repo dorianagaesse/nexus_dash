@@ -134,6 +134,16 @@ GitHub Actions enforces three CI gates on pull requests and `main`:
 - `E2E Smoke`: `npm run test:e2e` against an isolated PostgreSQL service with migrations applied
 - `Container Image`: Docker image build validation with exported image metadata artifact
 
+## Observability Baseline
+
+- Liveness probe: `GET /api/health/live`
+  - Returns `200` when the service process is up.
+- Readiness probe: `GET /api/health/ready`
+  - Returns `200` when the app can reach PostgreSQL.
+  - Returns `503` when core dependencies are unavailable.
+- API responses include `x-request-id` for correlation across logs and client reports.
+- Server-side logs use structured JSON records via `lib/observability/logger.ts`.
+
 ## CD and Rollback (Vercel CLI)
 
 CD/rollback workflow: `.github/workflows/deploy-vercel.yml`

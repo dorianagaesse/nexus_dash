@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { logServerWarning } from "@/lib/observability/logger";
 import {
   isValidReorderPayload,
   reorderProjectTasks,
@@ -20,7 +21,11 @@ export async function POST(
   try {
     body = await request.json();
   } catch (error) {
-    console.error("[POST /api/projects/:projectId/tasks/reorder] invalid json", error);
+    logServerWarning(
+      "POST /api/projects/:projectId/tasks/reorder.invalidJson",
+      "Invalid JSON payload",
+      { error }
+    );
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 

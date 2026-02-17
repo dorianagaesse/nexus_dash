@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { logServerWarning } from "@/lib/observability/logger";
 import { createContextCardForProject } from "@/lib/services/context-card-service";
 
 const ATTACHMENT_FILES_FIELD = "attachmentFiles";
@@ -31,7 +32,11 @@ export async function POST(
   try {
     formData = await request.formData();
   } catch (error) {
-    console.error("[POST /api/projects/:projectId/context-cards] invalid form", error);
+    logServerWarning(
+      "POST /api/projects/:projectId/context-cards.invalidForm",
+      "Invalid form payload",
+      { error }
+    );
     return NextResponse.json({ error: "Invalid form payload" }, { status: 400 });
   }
 

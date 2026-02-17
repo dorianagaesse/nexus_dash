@@ -2,6 +2,7 @@ import {
   getAuthorizedGoogleCalendarContext,
   hasCalendarWriteScope,
 } from "@/lib/google-calendar-access";
+import { logServerError } from "@/lib/observability/logger";
 
 interface ServiceErrorResult {
   ok: false;
@@ -191,6 +192,37 @@ function parseGoogleErrorReason(payload: unknown): string | null {
   return typeof firstError.reason === "string" ? firstError.reason : null;
 }
 
+function summarizeGoogleApiError(input: {
+  status: number;
+  statusText: string;
+  reason: string | null;
+  payload: unknown;
+}): Record<string, unknown> {
+  const errorObject =
+    input.payload &&
+    typeof input.payload === "object" &&
+    "error" in (input.payload as Record<string, unknown>) &&
+    (input.payload as { error?: unknown }).error &&
+    typeof (input.payload as { error?: unknown }).error === "object"
+      ? ((input.payload as { error: Record<string, unknown> }).error ?? null)
+      : null;
+
+  const code = errorObject?.code;
+  const status = errorObject?.status;
+  const message = errorObject?.message;
+
+  return {
+    status: input.status,
+    statusText: input.statusText,
+    reason: input.reason ?? undefined,
+    errorCode:
+      typeof code === "string" || typeof code === "number" ? code : undefined,
+    errorStatus: typeof status === "string" ? status : undefined,
+    errorMessage:
+      typeof message === "string" ? message.slice(0, 500) : undefined,
+  };
+}
+
 function isDateOnly(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
@@ -351,7 +383,14 @@ export async function listCalendarEvents(input: {
         });
       }
 
-      console.error("[listCalendarEvents] google api error", payload);
+      logServerError("listCalendarEvents.googleApiError", "google-api-error", {
+        googleApi: summarizeGoogleApiError({
+          status: eventsResponse.status,
+          statusText: eventsResponse.statusText,
+          reason,
+          payload,
+        }),
+      });
       return createError(502, {
         connected: true,
         error: "calendar-fetch-failed",
@@ -377,7 +416,7 @@ export async function listCalendarEvents(input: {
       events,
     });
   } catch (error) {
-    console.error("[listCalendarEvents]", error);
+    logServerError("listCalendarEvents", error);
     return createError(500, {
       connected: false,
       error: "calendar-internal-error",
@@ -427,7 +466,14 @@ export async function createCalendarEvent(rawBody: unknown): Promise<
         return createError(401, { error: "reauthorization-required" });
       }
 
-      console.error("[createCalendarEvent] google api error", responsePayload);
+      logServerError("createCalendarEvent.googleApiError", "google-api-error", {
+        googleApi: summarizeGoogleApiError({
+          status: response.status,
+          statusText: response.statusText,
+          reason,
+          payload: responsePayload,
+        }),
+      });
       return createError(502, { error: "calendar-create-failed" });
     }
 
@@ -438,7 +484,7 @@ export async function createCalendarEvent(rawBody: unknown): Promise<
 
     return createSuccess(201, { event: normalized });
   } catch (error) {
-    console.error("[createCalendarEvent]", error);
+    logServerError("createCalendarEvent", error);
     return createError(500, { error: "calendar-internal-error" });
   }
 }
@@ -492,7 +538,14 @@ export async function updateCalendarEvent(
         return createError(404, { error: "event-not-found" });
       }
 
-      console.error("[updateCalendarEvent] google api error", responsePayload);
+      logServerError("updateCalendarEvent.googleApiError", "google-api-error", {
+        googleApi: summarizeGoogleApiError({
+          status: response.status,
+          statusText: response.statusText,
+          reason,
+          payload: responsePayload,
+        }),
+      });
       return createError(502, { error: "calendar-update-failed" });
     }
 
@@ -503,7 +556,7 @@ export async function updateCalendarEvent(
 
     return createSuccess(200, { event: normalized });
   } catch (error) {
-    console.error("[updateCalendarEvent]", error);
+    logServerError("updateCalendarEvent", error);
     return createError(500, { error: "calendar-internal-error" });
   }
 }
@@ -544,13 +597,20 @@ export async function deleteCalendarEvent(
         return createError(404, { error: "event-not-found" });
       }
 
-      console.error("[deleteCalendarEvent] google api error", responsePayload);
+      logServerError("deleteCalendarEvent.googleApiError", "google-api-error", {
+        googleApi: summarizeGoogleApiError({
+          status: response.status,
+          statusText: response.statusText,
+          reason,
+          payload: responsePayload,
+        }),
+      });
       return createError(502, { error: "calendar-delete-failed" });
     }
 
     return createSuccess(200, { ok: true as const });
   } catch (error) {
-    console.error("[deleteCalendarEvent]", error);
+    logServerError("deleteCalendarEvent", error);
     return createError(500, { error: "calendar-internal-error" });
   }
 }

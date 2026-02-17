@@ -9,6 +9,7 @@ import {
   findGoogleCalendarCredential,
   updateGoogleCalendarCredentialTokens,
 } from "@/lib/services/google-calendar-credential-service";
+import { logServerError } from "@/lib/observability/logger";
 
 interface AuthorizedCalendarContext {
   accessToken: string;
@@ -75,7 +76,7 @@ export async function getAuthorizedGoogleCalendarContext(): Promise<CalendarAuth
         refreshToken: refreshed.refreshToken ?? credential.refreshToken,
       });
     } catch (error) {
-      console.error("[getAuthorizedGoogleCalendarContext] refresh failed", error);
+      logServerError("getAuthorizedGoogleCalendarContext.refresh", error);
       return {
         ok: false,
         failure: { status: 401, error: "reauthorization-required" },

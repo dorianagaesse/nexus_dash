@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { logServerError } from "@/lib/observability/logger";
 import {
   createProject,
   deleteProject,
@@ -42,7 +43,7 @@ export async function createProjectAction(formData: FormData): Promise<void> {
       description: descriptionText.length > 0 ? descriptionText : null,
     });
   } catch (error) {
-    console.error("[createProjectAction]", error);
+    logServerError("createProjectAction", error);
     redirectWithError("create-failed");
   }
 
@@ -70,7 +71,7 @@ export async function updateProjectAction(formData: FormData): Promise<void> {
       description: descriptionText.length > 0 ? descriptionText : null,
     });
   } catch (error) {
-    console.error("[updateProjectAction]", error);
+    logServerError("updateProjectAction", error);
     redirectWithError("update-failed");
   }
 
@@ -88,7 +89,7 @@ export async function deleteProjectAction(formData: FormData): Promise<void> {
   try {
     await deleteProject(projectId);
   } catch (error) {
-    console.error("[deleteProjectAction]", error);
+    logServerError("deleteProjectAction", error);
     redirectWithError("delete-failed");
   }
 
