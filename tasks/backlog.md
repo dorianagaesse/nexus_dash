@@ -3,26 +3,32 @@
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
 ## Pending
+### Execution Queue (Now / Next)
 - ID: TASK-042
   Title: Deployment baseline phase 4 - CD deployment and rollback strategy
   Status: In Progress
   Rationale: Enable controlled releases with rollback to reduce operational risk during production changes.
   Dependencies: TASK-041, TASK-066
-- ID: TASK-043
-  Title: Deployment baseline phase 5 - observability minimum viable stack
-  Status: Pending
-  Rationale: Add logs, health checks, and error visibility so production issues are detectable and diagnosable.
-  Dependencies: TASK-039
-- ID: TASK-065
-  Title: Attachment storage migration - local filesystem to blob/object storage
-  Status: Pending
-  Rationale: Replace local attachment persistence with blob/object storage and signed URL flows so files remain durable and accessible in serverless Vercel runtimes.
-  Dependencies: TASK-039, TASK-040
 - ID: TASK-066
   Title: Configuration/secrets hardening gate before production rollout
   Status: Pending
   Rationale: Upgrade current dev-ready config baseline to production-grade by enforcing startup fail-fast validation, aligning Prisma env contracts (`DIRECT_URL` behavior), tightening runtime-env guarantees, and extending coverage gate scope for env guardrails.
   Dependencies: TASK-040
+- ID: TASK-043
+  Title: Deployment baseline phase 5 - observability minimum viable stack
+  Status: Pending
+  Rationale: Add logs, health checks, and error visibility so production issues are detectable and diagnosable.
+  Dependencies: TASK-042
+- ID: TASK-065
+  Title: Attachment storage migration - local filesystem to blob/object storage
+  Status: Pending
+  Rationale: Replace local attachment persistence with blob/object storage and signed URL flows so files remain durable and accessible in serverless Vercel runtimes.
+  Dependencies: TASK-039, TASK-040
+- ID: TASK-062
+  Title: UI decomposition phase - split oversized dashboard components into focused modules
+  Status: Pending
+  Rationale: Reduce technical debt and SRP violations by decomposing large dashboard components (`kanban-board`, `project-context-panel`, `project-calendar-panel`) into feature-level subcomponents/hooks before auth/security expansion.
+  Dependencies: TASK-054, TASK-060
 - ID: TASK-020
   Title: Modern authentication/authorization ADR (user ownership, sharing, agent access, session model)
   Status: Pending
@@ -43,11 +49,6 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Add account creation and onboarding flows aligned with the approved auth architecture.
   Dependencies: TASK-046
-- ID: TASK-048
-  Title: Authentication implementation phase 4 - auth tests and hardening
-  Status: Pending
-  Rationale: Validate auth behavior and edge cases with automated tests before security remediation pass.
-  Dependencies: TASK-046, TASK-047, TASK-058, TASK-059
 - ID: TASK-058
   Title: Authorization implementation - project sharing, membership roles, and invitations
   Status: Pending
@@ -58,26 +59,16 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Enable secure non-human access via revocable scoped tokens/service principals so agents can operate on authorized projects without sharing user sessions.
   Dependencies: TASK-046
+- ID: TASK-048
+  Title: Authentication implementation phase 4 - auth tests and hardening
+  Status: Pending
+  Rationale: Validate auth behavior and edge cases with automated tests before security remediation pass.
+  Dependencies: TASK-046, TASK-047, TASK-058, TASK-059
 - ID: TASK-061
   Title: Dependency security baseline - vulnerability remediation and scan cadence definition
   Status: Pending
   Rationale: Resolve known high-severity dependency vulnerabilities and define the recurring automated security-scan cadence/policy before production rollout.
   Dependencies: TASK-038
-- ID: TASK-062
-  Title: UI decomposition phase - split oversized dashboard components into focused modules
-  Status: Pending
-  Rationale: Reduce technical debt and SRP violations by decomposing large dashboard components (`kanban-board`, `project-context-panel`, `project-calendar-panel`) into feature-level subcomponents/hooks before auth/security expansion.
-  Dependencies: TASK-054, TASK-060
-- ID: TASK-063
-  Title: Background jobs phase 1 - maintenance workload extraction (deferred)
-  Status: Pending
-  Rationale: Move maintenance writes (for example auto-archive) from request paths to scheduled/background processing after deployment/runtime baseline is in place; defer now to avoid throwaway implementation.
-  Dependencies: TASK-039, TASK-043
-- ID: TASK-064
-  Title: Security hardening - API rate limiting baseline (deferred)
-  Status: Pending
-  Rationale: Add rate limiting and abuse controls when endpoints are exposed publicly; defer now until deployment/auth topology is finalized so policy matches real traffic boundaries.
-  Dependencies: TASK-039, TASK-040, TASK-046
 - ID: TASK-049
   Title: Security baseline phase 1 - OWASP-focused assessment and threat model
   Status: Pending
@@ -93,6 +84,20 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Confirm remediation effectiveness and document residual risk with explicit follow-up items.
   Dependencies: TASK-050
+
+### Deferred (Intentional)
+- ID: TASK-063
+  Title: Background jobs phase 1 - maintenance workload extraction (deferred)
+  Status: Pending
+  Rationale: Move maintenance writes (for example auto-archive) from request paths to scheduled/background processing after deployment/runtime baseline is in place; defer now to avoid throwaway implementation.
+  Dependencies: TASK-039, TASK-043
+- ID: TASK-064
+  Title: Security hardening - API rate limiting baseline (deferred)
+  Status: Pending
+  Rationale: Add rate limiting and abuse controls when endpoints are exposed publicly; defer now until deployment/auth topology is finalized so policy matches real traffic boundaries.
+  Dependencies: TASK-039, TASK-040, TASK-046
+
+### Epic Tracking (Non-Executable)
 - ID: TASK-022
   Title: Production deployment baseline (runtime, CI/CD, secrets, observability)
   Status: Pending (Epic - split into TASK-039/TASK-040/TASK-041/TASK-042/TASK-043)
