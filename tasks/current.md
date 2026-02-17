@@ -1,21 +1,22 @@
-# Current Task: Attachment Storage Migration
+# Current Task: Database Connection Hardening
 
 ## Task ID
-TASK-065
+TASK-067
 
 ## Status
 In Progress (2026-02-17)
 
 ## Summary
-Replace local filesystem attachment persistence with a provider-based storage boundary and Cloudflare R2 default backend while preserving download/preview behavior.
+Harden database connection handling for production by enforcing pooler/direct split guardrails, improving connection-string safety checks, and documenting a credential-hygiene runbook.
 
 ## Acceptance Criteria
-- Introduce a `StorageProvider` abstraction used by attachment services.
-- Implement Cloudflare R2 provider (S3-compatible) as default remote provider.
-- Keep a local provider available for development fallback.
-- Add signed URL support for file access and route behavior compatibility.
-- Keep attachment create/delete/download flows working for both task and context-card attachments.
-- Update docs/env examples for storage configuration.
+- Add explicit runtime validation rules for production database configuration.
+- Detect and reject unsafe/misconfigured connection pairs for remote hosts (for example pooler/direct misuse).
+- Preserve local/CI developer ergonomics (no false positives for local hosts).
+- Enforce secure connection requirements for remote production DB URLs.
+- Add tests for new connection-validation behavior (success + failure cases).
+- Add a database hardening runbook covering connection roles, rotation, and verification checklist.
+- Keep existing app/runtime behavior stable outside database-config validation paths.
 
 ## Definition of Done
 - `npm run lint` passes.
@@ -26,10 +27,10 @@ Replace local filesystem attachment persistence with a provider-based storage bo
 - Copilot review triaged and resolved (apply valid findings, challenge non-actionable findings).
 
 ## Required Input
-Cloudflare R2 credentials may be required for live integration validation; implement with safe fallbacks so CI/unit tests pass without live secrets.
+No blocking input required; implement with current env contract and safe CI-compatible defaults.
 
 ## Next Step
-Design provider interface + wire attachment service migration with regression-safe tests.
+Push branch, open PR, and triage Copilot review comments.
 
 ---
 

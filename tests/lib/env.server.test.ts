@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
   getDatabaseRuntimeConfig,
@@ -11,7 +11,32 @@ import {
   validateServerRuntimeConfig,
 } from "@/lib/env.server";
 
+const ENV_KEYS_TO_RESET = [
+  "NODE_ENV",
+  "DATABASE_URL",
+  "DIRECT_URL",
+  "SUPABASE_URL",
+  "SUPABASE_PUBLISHABLE_KEY",
+  "NEXTAUTH_URL",
+  "NEXTAUTH_SECRET",
+  "GOOGLE_CLIENT_ID",
+  "GOOGLE_CLIENT_SECRET",
+  "GOOGLE_REDIRECT_URI",
+  "STORAGE_PROVIDER",
+  "R2_ACCOUNT_ID",
+  "R2_ACCESS_KEY_ID",
+  "R2_SECRET_ACCESS_KEY",
+  "R2_BUCKET_NAME",
+  "R2_SIGNED_URL_TTL_SECONDS",
+];
+
 describe("env.server", () => {
+  beforeEach(() => {
+    for (const key of ENV_KEYS_TO_RESET) {
+      vi.stubEnv(key, "");
+    }
+  });
+
   afterEach(() => {
     vi.unstubAllEnvs();
   });
@@ -120,21 +145,15 @@ describe("env.server", () => {
   });
 
   test("validates server runtime config with minimal required env", () => {
-    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
-    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
-    vi.stubEnv("SUPABASE_URL", "");
-    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "");
-    vi.stubEnv("GOOGLE_CLIENT_ID", "");
-    vi.stubEnv("GOOGLE_CLIENT_SECRET", "");
-    vi.stubEnv("GOOGLE_REDIRECT_URI", "");
-    vi.stubEnv("NEXTAUTH_URL", "");
-    vi.stubEnv("NEXTAUTH_SECRET", "");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@runtime-db.example.com:5432/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://admin-user:pwd@direct-db.example.com:5432/postgres?sslmode=require"
+    );
     vi.stubEnv("STORAGE_PROVIDER", "local");
-    vi.stubEnv("R2_ACCOUNT_ID", "");
-    vi.stubEnv("R2_ACCESS_KEY_ID", "");
-    vi.stubEnv("R2_SECRET_ACCESS_KEY", "");
-    vi.stubEnv("R2_BUCKET_NAME", "");
-    vi.stubEnv("R2_SIGNED_URL_TTL_SECONDS", "");
     vi.stubEnv("NODE_ENV", "production");
 
     expect(() => validateServerRuntimeConfig()).not.toThrow();
@@ -265,5 +284,111 @@ describe("env.server", () => {
     expect(() => validateServerRuntimeConfig()).toThrow(
       "R2_SIGNED_URL_TTL_SECONDS must be a positive integer."
     );
+  });
+
+  test("fails runtime validation when production remote urls are equal", () => {
+    const sameUrl =
+      "postgresql://user:pwd@pooler.supabase.com:5432/postgres?sslmode=require";
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DATABASE_URL", sameUrl);
+    vi.stubEnv("DIRECT_URL", sameUrl);
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "DATABASE_URL and DIRECT_URL must differ in production when using remote database hosts."
+    );
+  });
+
+  test("fails runtime validation when production remote urls target the same endpoint", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@db.shared-host.com:5432/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://admin-user:pwd@db.shared-host.com:5432/postgres?sslmode=require"
+    );
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "DATABASE_URL and DIRECT_URL must target different endpoints in production (pooled runtime vs direct admin/migration)."
+    );
+  });
+
+  test("fails runtime validation when production remote database url has no tls", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@pooler.supabase.com:5432/postgres"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://admin-user:pwd@db.project-ref.supabase.co:5432/postgres?sslmode=require"
+    );
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "DATABASE_URL must enforce TLS for remote production hosts (for example ?sslmode=require)."
+    );
+  });
+
+  test("fails runtime validation when production remote direct url has no tls", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@pooler.supabase.com:5432/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://admin-user:pwd@db.project-ref.supabase.co:5432/postgres"
+    );
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "DIRECT_URL must enforce TLS for remote production hosts (for example ?sslmode=require)."
+    );
+  });
+
+  test("fails runtime validation when production direct url points to a pooler host", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@pooler.supabase.com:5432/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://admin-user:pwd@project.pooler.supabase.com:5432/postgres?sslmode=require"
+    );
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "DIRECT_URL must target a direct database endpoint, not a pooler host."
+    );
+  });
+
+  test("fails runtime validation when supabase database url is not a pooler host in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@db.project-ref.supabase.co:5432/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://admin-user:pwd@db.project-ref-2.supabase.co:5432/postgres?sslmode=require"
+    );
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "DATABASE_URL must use the Supabase pooler host in production (expected *.pooler.supabase.com)."
+    );
+  });
+
+  test("allows local production endpoints without remote-only hardening checks", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@localhost:5432/postgres"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://admin-user:pwd@127.0.0.1:5432/postgres"
+    );
+
+    expect(() => validateServerRuntimeConfig()).not.toThrow();
   });
 });

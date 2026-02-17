@@ -182,6 +182,127 @@ function assertPostgresConnectionString(name: string, value: string): void {
   }
 }
 
+const LOCAL_DATABASE_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+const SECURE_SSL_MODES = new Set(["require", "verify-ca", "verify-full"]);
+const DEFAULT_POSTGRES_PORT = "5432";
+
+interface ParsedDatabaseConnectionString {
+  rawValue: string;
+  host: string;
+  port: string;
+  isLocalHost: boolean;
+  isPoolerHost: boolean;
+  isSupabaseHost: boolean;
+  isSupabasePoolerHost: boolean;
+  usesSecureTransport: boolean;
+}
+
+function isLocalDatabaseHost(host: string): boolean {
+  return LOCAL_DATABASE_HOSTS.has(host) || host.endsWith(".local");
+}
+
+function parseDatabaseConnectionString(
+  name: string,
+  value: string
+): ParsedDatabaseConnectionString {
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(value);
+  } catch {
+    throw new Error(`${name} must be a valid absolute URL.`);
+  }
+
+  const host = parsedUrl.hostname.toLowerCase();
+  const port = parsedUrl.port || DEFAULT_POSTGRES_PORT;
+  const sslMode = (parsedUrl.searchParams.get("sslmode") ?? "").toLowerCase();
+  const ssl = (parsedUrl.searchParams.get("ssl") ?? "").toLowerCase();
+  const usesSecureTransport =
+    SECURE_SSL_MODES.has(sslMode) ||
+    ssl === "true" ||
+    ssl === "1" ||
+    ssl === "require";
+  const isSupabaseHost =
+    host.endsWith(".supabase.co") || host.endsWith(".supabase.com");
+  const isSupabasePoolerHost = host.endsWith(".pooler.supabase.com");
+  const isPoolerHost = /(^|[.-])pooler([.-]|$)/.test(host);
+
+  return {
+    rawValue: value,
+    host,
+    port,
+    isLocalHost: isLocalDatabaseHost(host),
+    isPoolerHost,
+    isSupabaseHost,
+    isSupabasePoolerHost,
+    usesSecureTransport,
+  };
+}
+
+function assertProductionDatabaseConnectionHardening(
+  databaseUrl: ParsedDatabaseConnectionString,
+  directUrl: ParsedDatabaseConnectionString,
+  runtimeEnvironment: RuntimeEnvironment
+): void {
+  if (runtimeEnvironment !== "production") {
+    return;
+  }
+
+  const hasRemoteHost = !databaseUrl.isLocalHost || !directUrl.isLocalHost;
+  if (!hasRemoteHost) {
+    return;
+  }
+
+  if (databaseUrl.rawValue === directUrl.rawValue) {
+    throw new Error(
+      "DATABASE_URL and DIRECT_URL must differ in production when using remote database hosts."
+    );
+  }
+
+  if (
+    databaseUrl.host === directUrl.host &&
+    databaseUrl.port === directUrl.port
+  ) {
+    throw new Error(
+      "DATABASE_URL and DIRECT_URL must target different endpoints in production (pooled runtime vs direct admin/migration)."
+    );
+  }
+
+  if (!databaseUrl.usesSecureTransport) {
+    throw new Error(
+      "DATABASE_URL must enforce TLS for remote production hosts (for example ?sslmode=require)."
+    );
+  }
+
+  if (!directUrl.usesSecureTransport) {
+    throw new Error(
+      "DIRECT_URL must enforce TLS for remote production hosts (for example ?sslmode=require)."
+    );
+  }
+
+  if (directUrl.isPoolerHost) {
+    throw new Error(
+      "DIRECT_URL must target a direct database endpoint, not a pooler host."
+    );
+  }
+
+  const isSupabaseConnection = databaseUrl.isSupabaseHost || directUrl.isSupabaseHost;
+  if (!isSupabaseConnection) {
+    return;
+  }
+
+  if (!databaseUrl.isSupabasePoolerHost) {
+    throw new Error(
+      "DATABASE_URL must use the Supabase pooler host in production (expected *.pooler.supabase.com)."
+    );
+  }
+
+  if (directUrl.isSupabasePoolerHost) {
+    throw new Error(
+      "DIRECT_URL must use the Supabase direct host in production (for example db.<project-ref>.supabase.co), not the pooler host."
+    );
+  }
+}
+
 export interface ServerRuntimeValidationOptions {
   runtimeEnvironment?: RuntimeEnvironment;
 }
@@ -195,6 +316,19 @@ export function validateServerRuntimeConfig(
 
   assertPostgresConnectionString("DATABASE_URL", database.databaseUrl);
   assertPostgresConnectionString("DIRECT_URL", database.directUrl);
+  const parsedDatabaseUrl = parseDatabaseConnectionString(
+    "DATABASE_URL",
+    database.databaseUrl
+  );
+  const parsedDirectUrl = parseDatabaseConnectionString(
+    "DIRECT_URL",
+    database.directUrl
+  );
+  assertProductionDatabaseConnectionHardening(
+    parsedDatabaseUrl,
+    parsedDirectUrl,
+    runtimeEnvironment
+  );
 
   const supabaseConfig = getSupabaseClientRuntimeConfig();
   if (supabaseConfig) {
