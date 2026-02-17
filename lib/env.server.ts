@@ -77,9 +77,22 @@ export interface SupabaseClientRuntimeConfig {
   publishableKey: string;
 }
 
+function getSupabasePublishableKey(): string | null {
+  const modernKey = getOptionalServerEnv("SUPABASE_PUBLISHABLE_KEY");
+  if (modernKey) {
+    return modernKey;
+  }
+
+  // Backward compatibility for older environments not yet migrated.
+  // IMPORTANT: SUPABASE_API_KEY here must be the legacy publishable/anon key,
+  // never a service-role key.
+  // TODO(task-022): remove SUPABASE_API_KEY fallback after env migration completes.
+  return getOptionalServerEnv("SUPABASE_API_KEY");
+}
+
 export function getSupabaseClientRuntimeConfig(): SupabaseClientRuntimeConfig | null {
   const url = getOptionalServerEnv("SUPABASE_URL");
-  const publishableKey = getOptionalServerEnv("SUPABASE_PUBLISHABLE_KEY");
+  const publishableKey = getSupabasePublishableKey();
 
   if (!url && !publishableKey) {
     return null;
@@ -87,7 +100,7 @@ export function getSupabaseClientRuntimeConfig(): SupabaseClientRuntimeConfig | 
 
   if (!url || !publishableKey) {
     throw new Error(
-      "SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY must be configured together."
+      "SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY (or legacy SUPABASE_API_KEY) must be configured together."
     );
   }
 
