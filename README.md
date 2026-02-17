@@ -25,11 +25,12 @@ Open `http://localhost:3000`.
 On a fresh clone/machine, ensure `.env` defines `DATABASE_URL` and `DIRECT_URL`
 before starting the app.
 
-- `DATABASE_URL`: use the Supabase session pooler URI.
-- `DIRECT_URL`: use the direct PostgreSQL URI (used by Prisma migrate).
-- Include `sslmode=require` on both URLs.
-- If direct host resolution is unavailable in your network environment, set
-  `DIRECT_URL` to the same value as `DATABASE_URL`.
+- `DATABASE_URL`: runtime DB traffic (use the pooled endpoint in production).
+- `DIRECT_URL`: direct DB traffic for Prisma migrate/admin operations.
+- In production with remote hosts, `DATABASE_URL` and `DIRECT_URL` must be
+  different endpoints and must enforce TLS (for example `?sslmode=require`).
+- In local/CI contexts with localhost hosts, split/TLS hardening checks are
+  intentionally relaxed to preserve developer ergonomics.
 
 ## Configuration & Secrets Baseline
 
@@ -53,6 +54,11 @@ Environment and secret handling is centralized in `lib/env.server.ts`.
 Startup/runtime validation:
 - The app validates runtime config at server startup (`app/layout.tsx`).
 - Invalid or partial env configuration fails fast with explicit error messages.
+- Production DB guardrails enforce pooler/direct split safety, remote TLS, and
+  Supabase-specific endpoint checks.
+
+DB hardening runbook:
+- `docs/runbooks/database-connection-hardening.md`
 
 Deployment model:
 - Local dev: `.env` (never committed)
