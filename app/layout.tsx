@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 
 import { ThemeToggle } from "@/components/theme-toggle";
+import { validateServerRuntimeConfig } from "@/lib/env.server";
 
 import "./globals.css";
+
+validateServerRuntimeConfig();
 
 const inter = Inter({
   variable: "--font-sans",

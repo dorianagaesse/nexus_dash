@@ -41,9 +41,30 @@ export interface DatabaseRuntimeConfig {
   directUrl: string;
 }
 
-export function getDatabaseRuntimeConfig(): DatabaseRuntimeConfig {
+export interface DatabaseRuntimeConfigOptions {
+  runtimeEnvironment?: RuntimeEnvironment;
+}
+
+export function getDatabaseRuntimeConfig(
+  options: DatabaseRuntimeConfigOptions = {}
+): DatabaseRuntimeConfig {
+  const runtimeEnvironment =
+    options.runtimeEnvironment ?? getRuntimeEnvironment();
   const databaseUrl = getRequiredServerEnv("DATABASE_URL");
-  const directUrl = getOptionalServerEnv("DIRECT_URL") ?? databaseUrl;
+  const directUrl = getOptionalServerEnv("DIRECT_URL");
+
+  if (!directUrl) {
+    if (runtimeEnvironment === "production") {
+      throw new Error(
+        "Missing required environment variable: DIRECT_URL (required in production)"
+      );
+    }
+
+    return {
+      databaseUrl,
+      directUrl: databaseUrl,
+    };
+  }
 
   return {
     databaseUrl,
@@ -74,4 +95,72 @@ export function getSupabaseClientRuntimeConfig(): SupabaseClientRuntimeConfig | 
     url,
     publishableKey,
   };
+}
+
+function assertOptionalEnvironmentGroup(
+  names: string[],
+  message: string
+): void {
+  const providedCount = names.reduce((count, name) => {
+    return getOptionalServerEnv(name) ? count + 1 : count;
+  }, 0);
+
+  if (providedCount > 0 && providedCount < names.length) {
+    throw new Error(message);
+  }
+}
+
+function assertValidUrl(name: string, value: string): void {
+  try {
+    // URL constructor ensures protocol/host parsing.
+    new URL(value);
+  } catch {
+    throw new Error(`${name} must be a valid absolute URL.`);
+  }
+}
+
+function assertPostgresConnectionString(name: string, value: string): void {
+  if (!/^postgres(ql)?:\/\//.test(value)) {
+    throw new Error(`${name} must use a PostgreSQL connection string.`);
+  }
+}
+
+export interface ServerRuntimeValidationOptions {
+  runtimeEnvironment?: RuntimeEnvironment;
+}
+
+export function validateServerRuntimeConfig(
+  options: ServerRuntimeValidationOptions = {}
+): void {
+  const runtimeEnvironment =
+    options.runtimeEnvironment ?? getRuntimeEnvironment();
+  const database = getDatabaseRuntimeConfig({ runtimeEnvironment });
+
+  assertPostgresConnectionString("DATABASE_URL", database.databaseUrl);
+  assertPostgresConnectionString("DIRECT_URL", database.directUrl);
+
+  const supabaseConfig = getSupabaseClientRuntimeConfig();
+  if (supabaseConfig) {
+    assertValidUrl("SUPABASE_URL", supabaseConfig.url);
+  }
+
+  assertOptionalEnvironmentGroup(
+    ["NEXTAUTH_URL", "NEXTAUTH_SECRET"],
+    "NEXTAUTH_URL and NEXTAUTH_SECRET must be configured together."
+  );
+
+  const nextAuthUrl = getOptionalServerEnv("NEXTAUTH_URL");
+  if (nextAuthUrl) {
+    assertValidUrl("NEXTAUTH_URL", nextAuthUrl);
+  }
+
+  assertOptionalEnvironmentGroup(
+    ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"],
+    "GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI must be configured together."
+  );
+
+  const googleRedirectUri = getOptionalServerEnv("GOOGLE_REDIRECT_URI");
+  if (googleRedirectUri) {
+    assertValidUrl("GOOGLE_REDIRECT_URI", googleRedirectUri);
+  }
 }
