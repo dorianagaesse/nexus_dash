@@ -4,7 +4,7 @@
 TASK-042
 
 ## Status
-In Progress (2026-02-17, pending secret-backed deployment execution tests)
+In Progress (2026-02-17, preview deploy smoke passed; pending staged/promote/rollback smoke)
 
 ## Summary
 Implemented the TASK-042 baseline for Vercel CLI deployment and rollback:
@@ -30,7 +30,9 @@ Configure repository secrets:
   - `npm test`
   - `npm run test:coverage`
   - `npm run build`
-- Workflow execution validation is pending secrets configuration.
+- Workflow execution validation:
+  - `deploy-preview` workflow-dispatch run passed on `main` (2026-02-17).
+  - `deploy-production-staged` and `promote`/`rollback` smoke runs still pending.
 
 ## Notes
 - Task detail document: `tasks/task-042-cd-deploy-rollback-strategy.md`.
