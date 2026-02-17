@@ -38,8 +38,14 @@ Environment and secret handling is centralized in `lib/env.server.ts`.
 - Required (server): `DATABASE_URL`
 - Required as a pair (when calendar auth is enabled): `GOOGLE_CLIENT_ID`,
   `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
-- Optional with fallback: `DIRECT_URL` (falls back to `DATABASE_URL`)
+- Required in production: `DIRECT_URL`
+- Optional with fallback in non-production: `DIRECT_URL` falls back to `DATABASE_URL`
 - Optional as a pair: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`
+- Optional as a pair: `NEXTAUTH_URL`, `NEXTAUTH_SECRET`
+
+Startup/runtime validation:
+- The app validates runtime config at server startup (`app/layout.tsx`).
+- Invalid or partial env configuration fails fast with explicit error messages.
 
 Deployment model:
 - Local dev: `.env` (never committed)

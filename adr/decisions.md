@@ -195,3 +195,15 @@ Status: Accepted
 Context: TASK-042 requires a low-risk CD baseline with rollback capability while keeping release control explicit.
 Decision: Add `deploy-vercel.yml` to create staged production deployments after successful quality gates on `main`, and expose manual `deploy-preview`, `deploy-production-staged`, `promote`, and `rollback` actions through workflow dispatch.
 Consequences: Faster recovery path and clearer release control with auditable deployment artifacts; requires Vercel repository secrets and operator discipline for promote/rollback steps.
+Date: 2026-02-17
+Decision: Force explicit Vercel scope and non-interactive promote/rollback in CI
+Status: Accepted
+Context: Manual `promote`/`rollback` operations failed in GitHub Actions due scope drift and confirmation prompts in non-interactive runs.
+Decision: Pass explicit scope (`--scope`) to Vercel CLI operations and add `--yes` to `promote`/`rollback` commands in `deploy-vercel.yml`.
+Consequences: Deterministic CI deploy context and reliable manual promotion/rollback execution; workflow now depends on consistent scope resolution from `VERCEL_ORG_ID`.
+Date: 2026-02-17
+Decision: Enforce runtime env fail-fast validation with production DIRECT_URL requirement
+Status: Accepted
+Context: TASK-066 requires stronger config/secrets guarantees before production rollout, including startup validation and tighter Prisma env contracts.
+Decision: Add centralized `validateServerRuntimeConfig` checks (DB URL shape, optional env pair/triplet completeness, URL validation), require `DIRECT_URL` in production runtime, and execute validation at server startup via `app/layout.tsx`.
+Consequences: Misconfigured environments fail early with explicit errors, reducing runtime surprises; CI/build pipelines must provide minimal DB env variables for validation.

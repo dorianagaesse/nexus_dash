@@ -7,6 +7,7 @@ import {
   getRuntimeEnvironment,
   getSupabaseClientRuntimeConfig,
   isProductionEnvironment,
+  validateServerRuntimeConfig,
 } from "@/lib/env.server";
 
 describe("env.server", () => {
@@ -64,6 +65,15 @@ describe("env.server", () => {
     });
   });
 
+  test("requires direct url in production runtime", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "");
+
+    expect(() =>
+      getDatabaseRuntimeConfig({ runtimeEnvironment: "production" })
+    ).toThrow("Missing required environment variable: DIRECT_URL");
+  });
+
   test("builds database config without fallback when direct url is set", () => {
     vi.stubEnv("DATABASE_URL", "postgresql://primary-host:5432/appdb");
     vi.stubEnv("DIRECT_URL", "postgresql://read-replica-host:5432/appdb");
@@ -104,5 +114,75 @@ describe("env.server", () => {
       url: "https://example.supabase.co",
       publishableKey: "pk_test_123",
     });
+  });
+
+  test("validates server runtime config with minimal required env", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("SUPABASE_URL", "");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "");
+    vi.stubEnv("GOOGLE_CLIENT_ID", "");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "");
+    vi.stubEnv("GOOGLE_REDIRECT_URI", "");
+    vi.stubEnv("NEXTAUTH_URL", "");
+    vi.stubEnv("NEXTAUTH_SECRET", "");
+    vi.stubEnv("NODE_ENV", "production");
+
+    expect(() => validateServerRuntimeConfig()).not.toThrow();
+  });
+
+  test("fails runtime validation when database url is not postgres", () => {
+    vi.stubEnv("DATABASE_URL", "mysql://db-host:3306/app");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "DATABASE_URL must use a PostgreSQL connection string."
+    );
+  });
+
+  test("fails runtime validation when nextauth pair is partially configured", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("NEXTAUTH_URL", "https://app.example.com");
+    vi.stubEnv("NEXTAUTH_SECRET", "");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "NEXTAUTH_URL and NEXTAUTH_SECRET must be configured together."
+    );
+  });
+
+  test("fails runtime validation when google oauth triplet is partially configured", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("GOOGLE_CLIENT_ID", "client-id");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "");
+    vi.stubEnv("GOOGLE_REDIRECT_URI", "https://app.example.com/callback");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI must be configured together."
+    );
+  });
+
+  test("fails runtime validation when google redirect uri is invalid", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("GOOGLE_CLIENT_ID", "client-id");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("GOOGLE_REDIRECT_URI", "/relative-callback");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "GOOGLE_REDIRECT_URI must be a valid absolute URL."
+    );
+  });
+
+  test("fails runtime validation when supabase url is not absolute", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("SUPABASE_URL", "/relative");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "pk_test");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "SUPABASE_URL must be a valid absolute URL."
+    );
   });
 });

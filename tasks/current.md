@@ -1,45 +1,35 @@
-# Current Task: CD Deployment and Rollback Strategy
+# Current Task: Configuration/Secrets Hardening Gate
 
 ## Task ID
-TASK-042
+TASK-066
 
 ## Status
-In Progress (2026-02-17, preview deploy smoke passed; pending staged/promote/rollback smoke)
+In Progress (2026-02-17, implementation complete; PR pending)
 
 ## Summary
-Implemented the TASK-042 baseline for Vercel CLI deployment and rollback:
-- Added `.github/workflows/deploy-vercel.yml`.
-- Automatic staged production deployment now runs after successful `Quality Gates` on `main`.
-- Added manual workflow-dispatch operations:
-  - `deploy-preview`
-  - `deploy-production-staged`
-  - `promote`
-  - `rollback`
-- Added secret preflight checks for Vercel integration.
-- Updated documentation and ADR log.
+Implement production-grade environment hardening on top of TASK-040 baseline:
+- Add startup fail-fast runtime validation through `validateServerRuntimeConfig`.
+- Require `DIRECT_URL` in production runtime while keeping non-production fallback.
+- Validate env pair/triplet consistency (`SUPABASE_*`, `NEXTAUTH_*`, `GOOGLE_*`) and URL shape guarantees.
+- Extend CI quality-core environment setup so runtime validation is exercised during build gates.
+- Expand env-server test coverage for new guardrails.
 
 ## Required Input
-Configure repository secrets:
-- `VERCEL_TOKEN`
-- `VERCEL_ORG_ID`
-- `VERCEL_PROJECT_ID`
+None expected during implementation.
 
 ## Validation So Far
-- Existing validation suite remains green locally:
+- Local validation passed:
   - `npm run lint`
   - `npm test`
   - `npm run test:coverage`
-  - `npm run build`
-- Workflow execution validation:
-  - `deploy-preview` workflow-dispatch run passed on `main` (2026-02-17).
-  - `deploy-production-staged` and `promote`/`rollback` smoke runs still pending.
+  - `npm run build` (with complete `NEXTAUTH_*` pair in environment)
 
 ## Notes
-- Task detail document: `tasks/task-042-cd-deploy-rollback-strategy.md`.
-- README section added: `CD and Rollback (Vercel CLI)`.
+- Task detail document added: `tasks/task-066-config-secrets-hardening.md`.
+- `.env.example` was normalized to avoid partial optional auth/OAuth config defaults.
 
 ## Next Step
-Run manual workflow dispatch smoke tests (`deploy-preview`, then `deploy-production-staged`, `promote`/`rollback`) once secrets are configured.
+Open PR and run CI/Copilot review.
 
 ---
 

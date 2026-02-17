@@ -11,7 +11,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-041, TASK-066
 - ID: TASK-066
   Title: Configuration/secrets hardening gate before production rollout
-  Status: Pending
+  Status: In Progress (2026-02-17)
   Rationale: Upgrade current dev-ready config baseline to production-grade by enforcing startup fail-fast validation, aligning Prisma env contracts (`DIRECT_URL` behavior), tightening runtime-env guarantees, and extending coverage gate scope for env guardrails.
   Dependencies: TASK-040
 - ID: TASK-043
