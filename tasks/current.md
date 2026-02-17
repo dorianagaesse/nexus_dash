@@ -1,35 +1,43 @@
-# Current Task: Configuration/Secrets Hardening Gate
+# Current Task: Observability MVP
 
 ## Task ID
-TASK-066
+TASK-043
 
 ## Status
 In Progress (2026-02-17, implementation complete; PR pending)
 
 ## Summary
-Implement production-grade environment hardening on top of TASK-040 baseline:
-- Add startup fail-fast runtime validation through `validateServerRuntimeConfig`.
-- Require `DIRECT_URL` in production runtime while keeping non-production fallback.
-- Validate env pair/triplet consistency (`SUPABASE_*`, `NEXTAUTH_*`, `GOOGLE_*`) and URL shape guarantees.
-- Extend CI quality-core environment setup so runtime validation is exercised during build gates.
-- Expand env-server test coverage for new guardrails.
+Add a minimum observability baseline for production troubleshooting:
+- health probes (liveness/readiness)
+- structured server logging utility
+- explicit operator documentation for log/health usage
+
+## Acceptance Criteria
+- Add a liveness endpoint that reports service uptime metadata without DB dependency.
+- Add a readiness endpoint that validates core runtime readiness (including DB reachability).
+- Introduce a shared structured server logger helper and migrate core server-side error logging to it.
+- Add API tests for health endpoints (success + failure path for readiness).
+- Document observability behavior and expected operational checks in `README.md`.
+
+## Definition of Done
+- `npm run lint` passes.
+- `npm test` passes.
+- `npm run test:coverage` passes.
+- `npm run build` passes.
+- Branch pushed and PR opened.
+- Copilot review comments triaged: apply valid findings, challenge non-actionable findings, resolve threads.
 
 ## Required Input
-None expected during implementation.
+None expected for TASK-043 baseline.
 
-## Validation So Far
-- Local validation passed:
-  - `npm run lint`
-  - `npm test`
-  - `npm run test:coverage`
-  - `npm run build` (with complete `NEXTAUTH_*` pair in environment)
-
-## Notes
-- Task detail document added: `tasks/task-066-config-secrets-hardening.md`.
-- `.env.example` was normalized to avoid partial optional auth/OAuth config defaults.
+## Validation
+- `npm run lint`
+- `npm test`
+- `npm run test:coverage`
+- `npm run build` (with temporary local `NEXTAUTH_SECRET` export in shell session)
 
 ## Next Step
-Open PR and run CI/Copilot review.
+Open PR, wait for CI/Copilot, and address review feedback.
 
 ---
 

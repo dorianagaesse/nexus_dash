@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { logServerWarning } from "@/lib/observability/logger";
 import { createTaskForProject } from "@/lib/services/project-task-service";
 
 const ATTACHMENT_FILES_FIELD = "attachmentFiles";
@@ -31,7 +32,9 @@ export async function POST(
   try {
     formData = await request.formData();
   } catch (error) {
-    console.error("[POST /api/projects/:projectId/tasks] invalid form", error);
+    logServerWarning("POST /api/projects/:projectId/tasks.invalidForm", "Invalid form payload", {
+      error,
+    });
     return NextResponse.json({ error: "Invalid form payload" }, { status: 400 });
   }
 

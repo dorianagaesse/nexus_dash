@@ -207,3 +207,9 @@ Status: Accepted
 Context: TASK-066 requires stronger config/secrets guarantees before production rollout, including startup validation and tighter Prisma env contracts.
 Decision: Add centralized `validateServerRuntimeConfig` checks (DB URL shape, optional env pair/triplet completeness, URL validation), require `DIRECT_URL` in production runtime, and execute validation at server startup via `app/layout.tsx`.
 Consequences: Misconfigured environments fail early with explicit errors, reducing runtime surprises; CI/build pipelines must provide minimal DB env variables for validation.
+Date: 2026-02-17
+Decision: Introduce observability MVP with health probes, request correlation, and structured server logging
+Status: Accepted
+Context: TASK-043 needs a minimum operational baseline so production incidents are detectable and diagnosable without full APM rollout.
+Decision: Add liveness/readiness API probes (`/api/health/live`, `/api/health/ready`), attach `x-request-id` to API requests/responses via middleware, and centralize server logging through structured JSON helpers in `lib/observability/logger.ts`.
+Consequences: Faster troubleshooting and safer rollout checks with low implementation complexity; logs become more consistent but require downstream consumers to parse structured JSON records.

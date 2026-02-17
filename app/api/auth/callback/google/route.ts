@@ -7,6 +7,7 @@ import {
   normalizeReturnToPath,
 } from "@/lib/google-calendar";
 import { isProductionEnvironment } from "@/lib/env.server";
+import { logServerError } from "@/lib/observability/logger";
 import { upsertGoogleCalendarCredentialTokens } from "@/lib/services/google-calendar-credential-service";
 
 function buildRedirectUrl(
@@ -93,7 +94,7 @@ export async function GET(request: NextRequest) {
       status: "calendar-connected",
     });
   } catch (error) {
-    console.error("[GET /api/auth/callback/google] token exchange failed", error);
+    logServerError("GET /api/auth/callback/google.tokenExchangeFailed", error);
     return buildRedirectResponse(request, returnToPath, {
       error: "calendar-auth-failed",
     });

@@ -10,6 +10,7 @@ import {
   parseAttachmentLinksJson,
   validateAttachmentFiles,
 } from "@/lib/services/attachment-input-service";
+import { logServerError } from "@/lib/observability/logger";
 import { createTaskAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
 
 const MIN_TITLE_LENGTH = 2;
@@ -197,11 +198,11 @@ export async function createTaskForProject(
           where: { id: createdTaskId },
         })
         .catch((cleanupError) => {
-          console.error("[createTaskForProject.cleanup]", cleanupError);
+          logServerError("createTaskForProject.cleanup", cleanupError);
         });
     }
 
-    console.error("[createTaskForProject]", error);
+    logServerError("createTaskForProject", error);
     return createError(500, "create-failed");
   }
 }
@@ -273,7 +274,7 @@ export async function reorderProjectTasks(
       data: { ok: true },
     };
   } catch (error) {
-    console.error("[reorderProjectTasks]", error);
+    logServerError("reorderProjectTasks", error);
     return createError(500, "Failed to persist task order");
   }
 }
@@ -362,7 +363,7 @@ export async function updateTaskForProject(
       },
     };
   } catch (error) {
-    console.error("[updateTaskForProject]", error);
+    logServerError("updateTaskForProject", error);
     return createError(500, "Failed to update task");
   }
 }

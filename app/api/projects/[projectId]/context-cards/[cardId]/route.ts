@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { logServerWarning } from "@/lib/observability/logger";
 import {
   deleteContextCardForProject,
   updateContextCardForProject,
@@ -26,9 +27,10 @@ export async function PATCH(
   try {
     formData = await request.formData();
   } catch (error) {
-    console.error(
-      "[PATCH /api/projects/:projectId/context-cards/:cardId] invalid form",
-      error
+    logServerWarning(
+      "PATCH /api/projects/:projectId/context-cards/:cardId.invalidForm",
+      "Invalid form payload",
+      { error }
     );
     return NextResponse.json({ error: "Invalid form payload" }, { status: 400 });
   }

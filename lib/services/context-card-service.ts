@@ -8,6 +8,7 @@ import {
   parseAttachmentLinksJson,
   validateAttachmentFiles,
 } from "@/lib/services/attachment-input-service";
+import { logServerError } from "@/lib/observability/logger";
 import { createContextAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
 
 const MIN_TITLE_LENGTH = 2;
@@ -146,11 +147,11 @@ export async function createContextCardForProject(
           where: { id: createdCardId },
         })
         .catch((cleanupError) => {
-          console.error("[createContextCardForProject.cleanup]", cleanupError);
+          logServerError("createContextCardForProject.cleanup", cleanupError);
         });
     }
 
-    console.error("[createContextCardForProject]", error);
+    logServerError("createContextCardForProject", error);
     return createError(500, "context-create-failed");
   }
 }
@@ -211,7 +212,7 @@ export async function updateContextCardForProject(
       data: { ok: true },
     };
   } catch (error) {
-    console.error("[updateContextCardForProject]", error);
+    logServerError("updateContextCardForProject", error);
     return createError(500, "context-update-failed");
   }
 }
@@ -248,7 +249,7 @@ export async function deleteContextCardForProject(
       data: { ok: true },
     };
   } catch (error) {
-    console.error("[deleteContextCardForProject]", error);
+    logServerError("deleteContextCardForProject", error);
     return createError(500, "context-delete-failed");
   }
 }

@@ -13,6 +13,7 @@ import {
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   normalizeAttachmentUrl,
 } from "@/lib/task-attachment";
+import { logServerError } from "@/lib/observability/logger";
 
 import type { ParsedAttachmentLink } from "@/lib/services/attachment-input-service";
 
@@ -141,7 +142,7 @@ export async function createTaskAttachmentsFromDraft(input: {
     await Promise.all(
       savedStorageKeys.map((storageKey) =>
         deleteAttachmentFile(storageKey).catch((cleanupError) => {
-          console.error("[createTaskAttachmentsFromDraft.cleanup]", cleanupError);
+          logServerError("createTaskAttachmentsFromDraft.cleanup", cleanupError);
         })
       )
     );
@@ -191,7 +192,10 @@ export async function createContextAttachmentsFromDraft(input: {
     await Promise.all(
       savedStorageKeys.map((storageKey) =>
         deleteAttachmentFile(storageKey).catch((cleanupError) => {
-          console.error("[createContextAttachmentsFromDraft.cleanup]", cleanupError);
+          logServerError(
+            "createContextAttachmentsFromDraft.cleanup",
+            cleanupError
+          );
         })
       )
     );
@@ -251,7 +255,7 @@ export async function createTaskAttachmentFromForm(input: {
         data: withTaskDownloadUrl(input.projectId, input.taskId, attachment),
       };
     } catch (error) {
-      console.error("[createTaskAttachmentFromForm.link]", error);
+      logServerError("createTaskAttachmentFromForm.link", error);
       return createError(500, "Failed to create attachment");
     }
   }
@@ -314,11 +318,11 @@ export async function createTaskAttachmentFromForm(input: {
   } catch (error) {
     if (storageKey) {
       await deleteAttachmentFile(storageKey).catch((cleanupError) => {
-        console.error("[createTaskAttachmentFromForm.cleanup]", cleanupError);
+        logServerError("createTaskAttachmentFromForm.cleanup", cleanupError);
       });
     }
 
-    console.error("[createTaskAttachmentFromForm.file]", error);
+    logServerError("createTaskAttachmentFromForm.file", error);
     return createError(500, "Failed to upload attachment");
   }
 }
@@ -379,7 +383,7 @@ export async function createContextAttachmentFromForm(input: {
         data: withContextDownloadUrl(input.projectId, input.cardId, attachment),
       };
     } catch (error) {
-      console.error("[createContextAttachmentFromForm.link]", error);
+      logServerError("createContextAttachmentFromForm.link", error);
       return createError(500, "Failed to create attachment");
     }
   }
@@ -442,11 +446,11 @@ export async function createContextAttachmentFromForm(input: {
   } catch (error) {
     if (storageKey) {
       await deleteAttachmentFile(storageKey).catch((cleanupError) => {
-        console.error("[createContextAttachmentFromForm.cleanup]", cleanupError);
+        logServerError("createContextAttachmentFromForm.cleanup", cleanupError);
       });
     }
 
-    console.error("[createContextAttachmentFromForm.file]", error);
+    logServerError("createContextAttachmentFromForm.file", error);
     return createError(500, "Failed to upload attachment");
   }
 }
@@ -486,7 +490,7 @@ export async function deleteTaskAttachmentForProject(input: {
 
     if (attachment.kind === ATTACHMENT_KIND_FILE && attachment.storageKey) {
       await deleteAttachmentFile(attachment.storageKey).catch((error) => {
-        console.error("[deleteTaskAttachmentForProject.cleanup]", error);
+        logServerError("deleteTaskAttachmentForProject.cleanup", error);
       });
     }
 
@@ -495,7 +499,7 @@ export async function deleteTaskAttachmentForProject(input: {
       data: { ok: true },
     };
   } catch (error) {
-    console.error("[deleteTaskAttachmentForProject]", error);
+    logServerError("deleteTaskAttachmentForProject", error);
     return createError(500, "Failed to delete attachment");
   }
 }
@@ -537,7 +541,7 @@ export async function deleteContextAttachmentForProject(input: {
 
     if (attachment.kind === ATTACHMENT_KIND_FILE && attachment.storageKey) {
       await deleteAttachmentFile(attachment.storageKey).catch((error) => {
-        console.error("[deleteContextAttachmentForProject.cleanup]", error);
+        logServerError("deleteContextAttachmentForProject.cleanup", error);
       });
     }
 
@@ -546,7 +550,7 @@ export async function deleteContextAttachmentForProject(input: {
       data: { ok: true },
     };
   } catch (error) {
-    console.error("[deleteContextAttachmentForProject]", error);
+    logServerError("deleteContextAttachmentForProject", error);
     return createError(500, "Failed to delete attachment");
   }
 }
@@ -596,7 +600,7 @@ export async function getTaskAttachmentDownload(input: {
       },
     };
   } catch (error) {
-    console.error("[getTaskAttachmentDownload]", error);
+    logServerError("getTaskAttachmentDownload", error);
     return createError(500, "Failed to read attachment");
   }
 }
@@ -648,7 +652,7 @@ export async function getContextAttachmentDownload(input: {
       },
     };
   } catch (error) {
-    console.error("[getContextAttachmentDownload]", error);
+    logServerError("getContextAttachmentDownload", error);
     return createError(500, "Failed to read attachment");
   }
 }
