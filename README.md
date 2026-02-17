@@ -41,7 +41,8 @@ Environment and secret handling is centralized in `lib/env.server.ts`.
 - Required in production: `DIRECT_URL`
 - Optional with fallback in non-production: `DIRECT_URL` falls back to `DATABASE_URL`
 - Optional as a pair: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`
-  Legacy compatibility: `SUPABASE_API_KEY` is accepted as a fallback for
+  Legacy compatibility: `SUPABASE_API_KEY` (legacy publishable/anon client key only;
+  never service-role/server key) is accepted as a fallback for
   `SUPABASE_PUBLISHABLE_KEY` during migration.
 - Optional as a pair: `NEXTAUTH_URL`, `NEXTAUTH_SECRET`
 - Optional provider selector: `STORAGE_PROVIDER` (`local` by default, `r2` for Cloudflare R2)

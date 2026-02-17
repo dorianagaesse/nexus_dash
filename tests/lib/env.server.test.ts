@@ -89,7 +89,7 @@ describe("env.server", () => {
     });
   });
 
-  test("returns null when supabase pair is fully unset", () => {
+  test("returns null when supabase pair is fully empty/unset", () => {
     vi.stubEnv("SUPABASE_URL", "");
     vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "");
     vi.stubEnv("SUPABASE_API_KEY", "");

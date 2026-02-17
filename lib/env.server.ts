@@ -84,6 +84,9 @@ function getSupabasePublishableKey(): string | null {
   }
 
   // Backward compatibility for older environments not yet migrated.
+  // IMPORTANT: SUPABASE_API_KEY here must be the legacy publishable/anon key,
+  // never a service-role key.
+  // TODO(task-022): remove SUPABASE_API_KEY fallback after env migration completes.
   return getOptionalServerEnv("SUPABASE_API_KEY");
 }
 
