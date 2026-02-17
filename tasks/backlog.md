@@ -20,9 +20,9 @@ Use this file to capture tasks discovered during development. Each entry should 
   Rationale: Add logs, health checks, and error visibility so production issues are detectable and diagnosable.
   Dependencies: TASK-042
 - ID: TASK-065
-  Title: Attachment storage migration - local filesystem to blob/object storage
+  Title: Attachment storage migration - StorageProvider abstraction + Cloudflare R2 object storage
   Status: Pending
-  Rationale: Replace local attachment persistence with blob/object storage and signed URL flows so files remain durable and accessible in serverless Vercel runtimes.
+  Rationale: Replace local attachment persistence with a provider-agnostic `StorageProvider` layer and signed URL flows, using Cloudflare R2 as the default low-cost backend while preserving portability to Vercel Blob/S3/GCS.
   Dependencies: TASK-039, TASK-040
 - ID: TASK-062
   Title: UI decomposition phase - split oversized dashboard components into focused modules
