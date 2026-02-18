@@ -4,29 +4,9 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-042
-  Title: Deployment baseline phase 4 - CD deployment and rollback strategy
-  Status: Done (2026-02-17)
-  Rationale: Enable controlled releases with rollback to reduce operational risk during production changes.
-  Dependencies: TASK-041, TASK-066
-- ID: TASK-066
-  Title: Configuration/secrets hardening gate before production rollout
-  Status: Done (2026-02-17)
-  Rationale: Upgrade current dev-ready config baseline to production-grade by enforcing startup fail-fast validation, aligning Prisma env contracts (`DIRECT_URL` behavior), tightening runtime-env guarantees, and extending coverage gate scope for env guardrails.
-  Dependencies: TASK-040
-- ID: TASK-043
-  Title: Deployment baseline phase 5 - observability minimum viable stack
-  Status: In Progress (2026-02-17)
-  Rationale: Add logs, health checks, and error visibility so production issues are detectable and diagnosable.
-  Dependencies: TASK-042
-- ID: TASK-065
-  Title: Attachment storage migration - StorageProvider abstraction + Cloudflare R2 object storage
-  Status: Done (2026-02-17)
-  Rationale: Replace local attachment persistence with a provider-agnostic `StorageProvider` layer and signed URL flows, using Cloudflare R2 as the default low-cost backend while preserving portability to Vercel Blob/S3/GCS.
-  Dependencies: TASK-039, TASK-040
 - ID: TASK-067
   Title: Database connection hardening - pooler/direct split, credential hygiene, and runbook
-  Status: Pending
+  Status: In Progress (2026-02-17)
   Rationale: Production reliability/security requires explicit separation of runtime pooled connections vs direct migration/admin connections, credential rotation guidance, and environment-specific connection runbooks.
   Dependencies: TASK-066
 - ID: TASK-062
@@ -120,6 +100,26 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-043
+  Title: Deployment baseline phase 5 - observability minimum viable stack
+  Status: Done (2026-02-17)
+  Rationale: Added liveness/readiness endpoints, request-id propagation middleware, and structured server logging with targeted hardening (request-id validation, metadata Error serialization, bounded upstream error payload logging, readiness timeout) plus regression coverage.
+  Dependencies: TASK-042
+- ID: TASK-065
+  Title: Attachment storage migration - StorageProvider abstraction + Cloudflare R2 object storage
+  Status: Done (2026-02-17)
+  Rationale: Introduced provider-based attachment storage with local and Cloudflare R2 implementations, signed URL redirect download path, env/docs/test updates, and key uniqueness hardening for concurrent uploads.
+  Dependencies: TASK-039, TASK-040
+- ID: TASK-066
+  Title: Configuration/secrets hardening gate before production rollout
+  Status: Done (2026-02-17)
+  Rationale: Strengthened startup fail-fast runtime validation, enforced production `DIRECT_URL` requirement, and expanded coverage for env guardrails across auth/storage/database configuration.
+  Dependencies: TASK-040
+- ID: TASK-042
+  Title: Deployment baseline phase 4 - CD deployment and rollback strategy
+  Status: Done (2026-02-17)
+  Rationale: Added Vercel CLI staged production deploy workflow with manual promote/rollback operations, deployment artifacts, and validation checks.
+  Dependencies: TASK-041, TASK-066
 - ID: TASK-041
   Title: Deployment baseline phase 3 - CI pipeline for build/test/image
   Status: Done (2026-02-16)
