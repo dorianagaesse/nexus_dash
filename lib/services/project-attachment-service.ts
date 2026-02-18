@@ -61,6 +61,17 @@ function createError(status: number, error: string): ServiceErrorResult {
   return { ok: false, status, error };
 }
 
+function getAttachmentUploadErrorMessage(error: unknown): string {
+  if (
+    error instanceof Error &&
+    error.message.includes("Local attachment storage is unavailable")
+  ) {
+    return "Attachment storage is not configured for this environment. Configure STORAGE_PROVIDER=r2 and R2 credentials, then redeploy.";
+  }
+
+  return "Failed to upload attachment";
+}
+
 function withTaskDownloadUrl(
   projectId: string,
   taskId: string,
@@ -326,7 +337,7 @@ export async function createTaskAttachmentFromForm(input: {
     }
 
     logServerError("createTaskAttachmentFromForm.file", error);
-    return createError(500, "Failed to upload attachment");
+    return createError(500, getAttachmentUploadErrorMessage(error));
   }
 }
 
@@ -454,7 +465,7 @@ export async function createContextAttachmentFromForm(input: {
     }
 
     logServerError("createContextAttachmentFromForm.file", error);
-    return createError(500, "Failed to upload attachment");
+    return createError(500, getAttachmentUploadErrorMessage(error));
   }
 }
 

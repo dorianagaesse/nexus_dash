@@ -681,7 +681,7 @@ export function KanbanBoard({
       </div>
 
       {isExpanded && persistError ? (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {persistError}
         </div>
       ) : null}
@@ -1230,14 +1230,14 @@ export function KanbanBoard({
                     ) : null}
 
                     {attachmentError ? (
-                      <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
+                      <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                         {attachmentError}
                       </div>
                     ) : null}
                   </div>
 
                   {taskModalError ? (
-                    <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+                    <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                       {taskModalError}
                     </div>
                   ) : null}

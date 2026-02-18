@@ -864,7 +864,7 @@ export function ProjectContextPanel({
               </Button>
             </div>
             {createError ? (
-              <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {createError}
               </div>
             ) : null}
@@ -1028,12 +1028,12 @@ export function ProjectContextPanel({
               ) : null}
 
               {attachmentError ? (
-                <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
+                <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   {attachmentError}
                 </div>
               ) : null}
               {editError ? (
-                <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
+                <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   {editError}
                 </div>
               ) : null}

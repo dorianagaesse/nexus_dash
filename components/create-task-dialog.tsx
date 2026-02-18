@@ -429,7 +429,7 @@ export function CreateTaskDialog({
                   </Button>
                 </div>
                 {submitError ? (
-                  <p className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
+                  <p className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                     {submitError}
                   </p>
                 ) : null}

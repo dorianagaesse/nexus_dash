@@ -184,7 +184,7 @@ export default async function ProjectDashboardPage({
       ) : null}
 
       {error && ERROR_MESSAGES[error] ? (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive-foreground">
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {ERROR_MESSAGES[error]}
         </div>
       ) : null}
