@@ -43,18 +43,21 @@ function loadDotEnv(filePath: string) {
   }
 }
 
-loadDotEnv(path.join(process.cwd(), ".env"));
-
 const smokeEnabled = process.env.R2_SMOKE === "1";
+if (smokeEnabled) {
+  loadDotEnv(path.join(process.cwd(), ".env"));
+}
+
+const storageProvider = process.env.STORAGE_PROVIDER;
 const requiredVars = [
-  "STORAGE_PROVIDER",
   "R2_ACCOUNT_ID",
   "R2_ACCESS_KEY_ID",
   "R2_SECRET_ACCESS_KEY",
   "R2_BUCKET_NAME",
 ];
 const missingVars = requiredVars.filter((key) => !process.env[key]);
-const shouldRun = smokeEnabled && missingVars.length === 0;
+const shouldRun =
+  smokeEnabled && storageProvider === "r2" && missingVars.length === 0;
 const describeSmoke = shouldRun ? describe : describe.skip;
 
 describeSmoke("R2 storage smoke", () => {
@@ -63,12 +66,18 @@ describeSmoke("R2 storage smoke", () => {
   let cardId = "";
 
   afterAll(async () => {
-    if (projectId) {
-      await prisma.project.delete({ where: { id: projectId } }).catch(() => undefined);
+    try {
+      if (projectId) {
+        await prisma.project.delete({ where: { id: projectId } }).catch(() => undefined);
+      }
+    } finally {
+      await prisma.$disconnect();
     }
   });
 
-  it("executes task and context-card file lifecycle against R2", async () => {
+  it(
+    "executes task and context-card file lifecycle against R2",
+    async () => {
     expect(process.env.STORAGE_PROVIDER).toBe("r2");
 
     const project = await prisma.project.create({
@@ -215,14 +224,16 @@ describeSmoke("R2 storage smoke", () => {
     });
     expect(deletedCardAttachment).toBeNull();
 
-    await expect(readAttachmentFile(cardStorageKey)).rejects.toThrow();
-  });
+      await expect(readAttachmentFile(cardStorageKey)).rejects.toThrow();
+    },
+    30_000
+  );
 });
 
 if (!shouldRun) {
   // Keep reason visible in logs when the smoke is skipped.
   // eslint-disable-next-line no-console
   console.log(
-    `[r2-smoke] skipped (R2_SMOKE=${process.env.R2_SMOKE ?? "unset"}, missing=${missingVars.join(",") || "none"})`
+    `[r2-smoke] skipped (R2_SMOKE=${process.env.R2_SMOKE ?? "unset"}, STORAGE_PROVIDER=${storageProvider ?? "unset"}, missing=${missingVars.join(",") || "none"})`
   );
 }
