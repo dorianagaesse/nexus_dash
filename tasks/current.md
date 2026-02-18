@@ -1,22 +1,20 @@
-# Current Task: Database Connection Hardening
+# Current Task: UI Decomposition Phase
 
 ## Task ID
-TASK-067
+TASK-062
 
 ## Status
-In Progress (2026-02-17)
+Ready (2026-02-18)
 
 ## Summary
-Harden database connection handling for production by enforcing pooler/direct split guardrails, improving connection-string safety checks, and documenting a credential-hygiene runbook.
+Decompose oversized dashboard client panels into smaller, focused modules/hooks/components while preserving behavior and existing contracts.
 
 ## Acceptance Criteria
-- Add explicit runtime validation rules for production database configuration.
-- Detect and reject unsafe/misconfigured connection pairs for remote hosts (for example pooler/direct misuse).
-- Preserve local/CI developer ergonomics (no false positives for local hosts).
-- Enforce secure connection requirements for remote production DB URLs.
-- Add tests for new connection-validation behavior (success + failure cases).
-- Add a database hardening runbook covering connection roles, rotation, and verification checklist.
-- Keep existing app/runtime behavior stable outside database-config validation paths.
+- Split `kanban-board`, `project-context-panel`, and `project-calendar-panel` into cohesive submodules with explicit responsibilities.
+- Preserve existing UX and API behavior (no user-facing functional regression).
+- Keep imports/layering aligned with boundary rules from TASK-060.
+- Add/update tests where decomposition introduces risk (logic extraction, critical interaction paths).
+- Keep each PR small and atomic (single panel or cohesive slice per PR).
 
 ## Definition of Done
 - `npm run lint` passes.
@@ -24,15 +22,16 @@ Harden database connection handling for production by enforcing pooler/direct sp
 - `npm run test:coverage` passes.
 - `npm run build` passes.
 - Branch pushed and PR opened.
-- Copilot review triaged and resolved (apply valid findings, challenge non-actionable findings).
+- Copilot review triaged/resolved (apply valid findings, challenge non-actionable findings).
+- `tasks/backlog.md` and `tasks/current.md` updated to reflect progress.
 
 ## Required Input
-No blocking input required; implement with current env contract and safe CI-compatible defaults.
+No blocking input required for phase 1 decomposition. Provider/auth decisions remain tracked in TASK-020/TASK-047/TASK-068.
 
 ## Next Step
-Push branch, open PR, and triage Copilot review comments.
+Start with one panel slice (recommended first: `kanban-board`) and deliver in a small dedicated PR.
 
 ---
 
-Last Updated: 2026-02-17  
+Last Updated: 2026-02-18  
 Assigned To: User + Agent

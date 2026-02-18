@@ -111,3 +111,6 @@ Resolution: Added attachment schema/models and migration, local server-side file
 Date: 2026-02-12
 Issue: Build failed because `NextResponse` body typing rejected raw `Buffer` in download routes.
 Resolution: Returned `Uint8Array` body payloads in download handlers for task/context attachments.
+Date: 2026-02-18
+Planning update: Auth product vision clarified around signed-out home entry, persistent modern sessions, and phased provider rollout.
+Resolution: Updated backlog scope for TASK-020/TASK-045/TASK-047, added TASK-068 for social provider rollout sequencing, moved TASK-067 to completed, and reset `tasks/current.md` to TASK-062 readiness with explicit acceptance criteria/DoD.

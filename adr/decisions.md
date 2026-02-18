@@ -213,3 +213,9 @@ Status: Accepted
 Context: TASK-065 requires replacing local-only attachment persistence so deployment can run on serverless runtimes without relying on local disk durability.
 Decision: Introduce `StorageProvider` abstraction (save/read/delete/signed-download-url), keep local filesystem provider for development, and add Cloudflare R2 provider with signed URL download support.
 Consequences: Storage backend becomes configurable with minimal service-layer changes; production deployments gain durable object storage while local development remains simple.
+Date: 2026-02-18
+Decision: Auth UX and session baseline must include home-page entry flow and persistent server-side session lifecycle
+Status: Accepted
+Context: Product direction requires "real auth" from the user perspective (signed-out landing behavior, sign in/up options, and persistent sessions) before public multi-user usage scales.
+Decision: Fold explicit home-page auth entry behavior (`Sign in`/`Sign up` for signed-out users, workspace redirect for signed-in users), modern session lifecycle policy (rotation/revocation/TTL), and phased provider rollout into auth scope (TASK-020/TASK-045/TASK-047, plus TASK-068 for additional social providers).
+Consequences: Auth implementation scope is clearer and more testable, reducing ambiguity between backend-only auth and full product UX; initial auth delivery remains phased to control risk.
