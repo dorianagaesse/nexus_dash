@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
 
+import { AttachmentStorageUnavailableError } from "@/lib/storage/errors";
 import type {
   GetSignedDownloadUrlInput,
   SaveStorageFileInput,
@@ -60,8 +61,17 @@ export class LocalStorageProvider implements StorageProvider {
       await fs.writeFile(absolutePath, buffer);
     } catch (error) {
       if (isFilesystemPermissionError(error)) {
-        throw new Error(
-          "Local attachment storage is unavailable in this runtime. Configure STORAGE_PROVIDER=r2 with R2 credentials."
+        const originalError = error as NodeJS.ErrnoException;
+        throw new AttachmentStorageUnavailableError(
+          "Local attachment storage is unavailable in this runtime. Configure STORAGE_PROVIDER=r2 with R2 credentials.",
+          {
+            cause: originalError,
+            filesystemCode: originalError.code,
+            filesystemPath:
+              typeof originalError.path === "string"
+                ? originalError.path
+                : null,
+          }
         );
       }
 

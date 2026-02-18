@@ -16,6 +16,7 @@ import {
   normalizeAttachmentUrl,
 } from "@/lib/task-attachment";
 import { logServerError } from "@/lib/observability/logger";
+import { isAttachmentStorageUnavailableError } from "@/lib/storage/errors";
 
 import type { ParsedAttachmentLink } from "@/lib/services/attachment-input-service";
 
@@ -63,10 +64,7 @@ function createError(status: number, error: string): ServiceErrorResult {
 }
 
 function getAttachmentUploadErrorMessage(error: unknown): string {
-  if (
-    error instanceof Error &&
-    error.message.includes("Local attachment storage is unavailable")
-  ) {
+  if (isAttachmentStorageUnavailableError(error)) {
     return "Attachment storage is not configured for this environment. Configure STORAGE_PROVIDER=r2 and R2 credentials, then redeploy.";
   }
 
