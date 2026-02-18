@@ -117,3 +117,6 @@ Resolution: Updated backlog scope for TASK-020/TASK-045/TASK-047, added TASK-068
 Date: 2026-02-18
 Planning update: Auth/session model was locked before implementation work to reduce ambiguity for TASK-020/TASK-045/TASK-059.
 Resolution: Confirmed hybrid direction (DB-backed user sessions + JWT-style scoped tokens for agents/API), added TASK-069 as next mandatory Cloudflare R2 validation gate, and updated `tasks/current.md` to run R2 smoke before TASK-062 decomposition.
+Date: 2026-02-18
+Validation update: TASK-069 Cloudflare R2 storage gate executed end to end with real R2 credentials.
+Resolution: Added gated smoke test `tests/lib/r2-smoke.test.ts` (`R2_SMOKE=1`), validated task/context-card file flows (upload, signed redirect download mode, delete), verified DB row cleanup and object read-miss post-delete, and moved `tasks/current.md` back to TASK-062.

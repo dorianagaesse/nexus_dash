@@ -1,35 +1,35 @@
-# Current Task: Cloudflare R2 Validation Gate
+# Current Task: UI Decomposition Phase
 
 ## Task ID
-TASK-069
+TASK-062
 
 ## Status
 Ready (2026-02-18)
 
 ## Summary
-Validate Cloudflare R2 storage end to end before starting the next code-heavy delivery phase.
+Decompose oversized dashboard client panels into smaller, focused modules/hooks/components while preserving behavior and existing contracts.
 
 ## Acceptance Criteria
-- With `STORAGE_PROVIDER=r2`, file attachment upload succeeds for task and context-card flows.
-- Download flow returns valid signed redirect behavior for stored files.
-- Delete flow removes DB attachment entry and underlying R2 object.
-- Failure behavior is explicit (misconfigured R2 env fails fast at startup with actionable error).
-- Validation steps and outcomes are captured in docs/journal for reproducibility.
+- Split `kanban-board`, `project-context-panel`, and `project-calendar-panel` into cohesive submodules with explicit responsibilities.
+- Preserve existing UX and API behavior (no user-facing functional regression).
+- Keep imports/layering aligned with boundary rules from TASK-060.
+- Add/update tests where decomposition introduces risk (logic extraction, critical interaction paths).
+- Keep each PR small and atomic (single panel or cohesive slice per PR).
 
 ## Definition of Done
-- Manual R2 smoke path (upload/download/delete) executed and logged.
-- Targeted automated tests pass (`npm test -- tests/lib/env.server.test.ts tests/api/task-attachments.route.test.ts tests/api/context-card-attachments.route.test.ts` or equivalent suite).
-- `npm run lint` passes for touched files.
+- `npm run lint` passes.
+- `npm test` passes.
+- `npm run test:coverage` passes.
 - `npm run build` passes.
 - Branch pushed and PR opened.
 - Copilot review triaged/resolved (apply valid findings, challenge non-actionable findings).
-- `tasks/backlog.md`, `tasks/current.md`, `journal.md`, and `adr/decisions.md` updated to reflect outcomes.
+- `tasks/backlog.md` and `tasks/current.md` updated to reflect progress.
 
 ## Required Input
-User provides Cloudflare account + bucket + R2 credentials in local/CI env (or confirms existing values are valid) for real smoke validation.
+No blocking input required for phase 1 decomposition. Provider/auth decisions remain tracked in TASK-020/TASK-047/TASK-068.
 
 ## Next Step
-Run R2 smoke validation and close TASK-069; then move back to TASK-062 decomposition work.
+Start with one panel slice (recommended first: `kanban-board`) and deliver in a small dedicated PR.
 
 ---
 
