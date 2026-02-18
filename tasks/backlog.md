@@ -4,25 +4,25 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-067
-  Title: Database connection hardening - pooler/direct split, credential hygiene, and runbook
-  Status: In Progress (2026-02-17)
-  Rationale: Production reliability/security requires explicit separation of runtime pooled connections vs direct migration/admin connections, credential rotation guidance, and environment-specific connection runbooks.
-  Dependencies: TASK-066
+- ID: TASK-069
+  Title: Cloudflare R2 storage validation - end-to-end smoke and deployment readiness
+  Status: Pending
+  Rationale: Validate the R2 storage path in real conditions (upload, download signed URL, delete, and fallback/error behavior) before UI decomposition/auth expansion to avoid storage regressions in deployed environments.
+  Dependencies: TASK-065, TASK-066
 - ID: TASK-062
   Title: UI decomposition phase - split oversized dashboard components into focused modules
   Status: Pending
   Rationale: Reduce technical debt and SRP violations by decomposing large dashboard components (`kanban-board`, `project-context-panel`, `project-calendar-panel`) into feature-level subcomponents/hooks before auth/security expansion.
-  Dependencies: TASK-054, TASK-060
+  Dependencies: TASK-054, TASK-060, TASK-069
 - ID: TASK-020
   Title: Modern authentication/authorization ADR (user ownership, sharing, agent access, session model)
   Status: Pending
-  Rationale: Define a state-of-the-art authz/authn model covering user-owned projects, shareable collaboration, secure agent access, and persistent web sessions without repeated login prompts.
+  Rationale: Define a state-of-the-art authz/authn model covering user-owned projects, shareable collaboration, secure agent access, and persistent web sessions without repeated login prompts, including explicit signed-out home-page entry behavior (`Sign in`/`Sign up`), DB-backed user sessions, and JWT-style scoped agent/API tokens.
   Dependencies: TASK-035, TASK-039, TASK-040, TASK-057, TASK-060, TASK-062
 - ID: TASK-045
   Title: Authentication implementation phase 1 - user/session data model and migrations
   Status: Pending
-  Rationale: Establish durable auth persistence primitives before middleware/UI implementation.
+  Rationale: Establish durable auth persistence primitives (Auth.js/Prisma-compatible user/account/session entities, revocation support, session lifecycle) before middleware/UI implementation.
   Dependencies: TASK-020, TASK-057
 - ID: TASK-046
   Title: Authentication implementation phase 2 - auth core and route protection
@@ -30,10 +30,15 @@ Use this file to capture tasks discovered during development. Each entry should 
   Rationale: Implement login/session lifecycle and protect project/task APIs and pages behind authenticated access.
   Dependencies: TASK-045
 - ID: TASK-047
-  Title: Authentication implementation phase 3 - account onboarding UX
+  Title: Authentication implementation phase 3 - home-page auth entry and account onboarding UX
   Status: Pending
-  Rationale: Add account creation and onboarding flows aligned with the approved auth architecture.
+  Rationale: Add signed-out home-page authentication entry points and onboarding flows aligned with the approved auth architecture (email + social provider strategy).
   Dependencies: TASK-046
+- ID: TASK-068
+  Title: Authentication provider rollout - phase social providers (Google/GitHub) after baseline email auth
+  Status: Pending
+  Rationale: Keep initial auth delivery focused and stable, then add additional social providers in a controlled phase with consistent consent/callback/session behavior.
+  Dependencies: TASK-047
 - ID: TASK-058
   Title: Authorization implementation - project sharing, membership roles, and invitations
   Status: Pending
@@ -42,7 +47,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 - ID: TASK-059
   Title: Agent access implementation - scoped API tokens, rotation, and audit trail
   Status: Pending
-  Rationale: Enable secure non-human access via revocable scoped tokens/service principals so agents can operate on authorized projects without sharing user sessions.
+  Rationale: Enable secure non-human access via revocable JWT-style scoped tokens/service principals so agents can operate on authorized projects without sharing user sessions.
   Dependencies: TASK-046
 - ID: TASK-048
   Title: Authentication implementation phase 4 - auth tests and hardening
@@ -100,6 +105,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-067
+  Title: Database connection hardening - pooler/direct split, credential hygiene, and runbook
+  Status: Done (2026-02-18)
+  Rationale: Added production DB runtime guardrails (remote TLS enforcement, pooler/direct endpoint split checks, Supabase endpoint sanity rules), extended env runtime tests for edge cases, and documented credential/rotation runbook.
+  Dependencies: TASK-066
 - ID: TASK-043
   Title: Deployment baseline phase 5 - observability minimum viable stack
   Status: Done (2026-02-17)

@@ -111,3 +111,9 @@ Resolution: Added attachment schema/models and migration, local server-side file
 Date: 2026-02-12
 Issue: Build failed because `NextResponse` body typing rejected raw `Buffer` in download routes.
 Resolution: Returned `Uint8Array` body payloads in download handlers for task/context attachments.
+Date: 2026-02-18
+Planning update: Auth product vision clarified around signed-out home entry, persistent modern sessions, and phased provider rollout.
+Resolution: Updated backlog scope for TASK-020/TASK-045/TASK-047, added TASK-068 for social provider rollout sequencing, moved TASK-067 to completed, and refreshed `tasks/current.md` with explicit acceptance criteria/DoD (later re-pointed to TASK-069).
+Date: 2026-02-18
+Planning update: Auth/session model was locked before implementation work to reduce ambiguity for TASK-020/TASK-045/TASK-059.
+Resolution: Confirmed hybrid direction (DB-backed user sessions + JWT-style scoped tokens for agents/API), added TASK-069 as next mandatory Cloudflare R2 validation gate, and updated `tasks/current.md` to run R2 smoke before TASK-062 decomposition.

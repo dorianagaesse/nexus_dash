@@ -207,14 +207,21 @@ const data = await fetch(url).then(r => r.json()); // ❌
 
 ### For each new task:
 
-1. **Read** `tasks/current.md` completely
-2. **Plan** the approach (mental model before coding)
-3. **Implement** following the checklist above
-4. **Test** manually all use cases
-5. **Commit** with descriptive message
-6. **Update** `tasks/current.md` (status, potential blockers)
-7. **Log** in `journal.md` if error encountered
-8. **Update** `adr/decisions.md` for any architectural changes
+1. **Set** `tasks/current.md` before coding:
+   - task id/title
+   - status
+   - acceptance criteria
+   - definition of done
+2. **Read** `tasks/current.md` completely
+3. **Plan** the approach (mental model before coding)
+4. **Implement** following the checklist above
+5. **Test** manually all use cases
+6. **Commit** with descriptive message
+7. **Update** `tasks/current.md` (status, progress, next step)
+8. **Log** in `journal.md` for key execution updates or blockers
+9. **Update** `adr/decisions.md` for architectural-impact changes
+
+Before task handoff, verify `tasks/current.md`, `journal.md`, and `adr/decisions.md` are aligned with what was implemented.
 
 ### In case of blocker:
 1. Document problem in `tasks/current.md` > Blockers

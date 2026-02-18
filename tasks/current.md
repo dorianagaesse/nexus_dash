@@ -1,38 +1,37 @@
-# Current Task: Database Connection Hardening
+# Current Task: Cloudflare R2 Validation Gate
 
 ## Task ID
-TASK-067
+TASK-069
 
 ## Status
-In Progress (2026-02-17)
+Ready (2026-02-18)
 
 ## Summary
-Harden database connection handling for production by enforcing pooler/direct split guardrails, improving connection-string safety checks, and documenting a credential-hygiene runbook.
+Validate Cloudflare R2 storage end to end before starting the next code-heavy delivery phase.
 
 ## Acceptance Criteria
-- Add explicit runtime validation rules for production database configuration.
-- Detect and reject unsafe/misconfigured connection pairs for remote hosts (for example pooler/direct misuse).
-- Preserve local/CI developer ergonomics (no false positives for local hosts).
-- Enforce secure connection requirements for remote production DB URLs.
-- Add tests for new connection-validation behavior (success + failure cases).
-- Add a database hardening runbook covering connection roles, rotation, and verification checklist.
-- Keep existing app/runtime behavior stable outside database-config validation paths.
+- With `STORAGE_PROVIDER=r2`, file attachment upload succeeds for task and context-card flows.
+- Download flow returns valid signed redirect behavior for stored files.
+- Delete flow removes DB attachment entry and underlying R2 object.
+- Failure behavior is explicit (misconfigured R2 env fails fast at startup with actionable error).
+- Validation steps and outcomes are captured in docs/journal for reproducibility.
 
 ## Definition of Done
-- `npm run lint` passes.
-- `npm test` passes.
-- `npm run test:coverage` passes.
+- Manual R2 smoke path (upload/download/delete) executed and logged.
+- Targeted automated tests pass (`npm test -- tests/lib/env.server.test.ts tests/api/task-attachments.route.test.ts tests/api/context-card-attachments.route.test.ts` or equivalent suite).
+- `npm run lint` passes for touched files.
 - `npm run build` passes.
 - Branch pushed and PR opened.
-- Copilot review triaged and resolved (apply valid findings, challenge non-actionable findings).
+- Copilot review triaged/resolved (apply valid findings, challenge non-actionable findings).
+- `tasks/backlog.md`, `tasks/current.md`, `journal.md`, and `adr/decisions.md` updated to reflect outcomes.
 
 ## Required Input
-No blocking input required; implement with current env contract and safe CI-compatible defaults.
+User provides Cloudflare account + bucket + R2 credentials in local/CI env (or confirms existing values are valid) for real smoke validation.
 
 ## Next Step
-Push branch, open PR, and triage Copilot review comments.
+Run R2 smoke validation and close TASK-069; then move back to TASK-062 decomposition work.
 
 ---
 
-Last Updated: 2026-02-17  
+Last Updated: 2026-02-18  
 Assigned To: User + Agent
