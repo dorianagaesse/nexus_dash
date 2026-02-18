@@ -4,16 +4,11 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-069
-  Title: Cloudflare R2 storage validation - end-to-end smoke and deployment readiness
-  Status: Pending
-  Rationale: Validate the R2 storage path in real conditions (upload, download signed URL, delete, and fallback/error behavior) before UI decomposition/auth expansion to avoid storage regressions in deployed environments.
-  Dependencies: TASK-065, TASK-066
 - ID: TASK-062
   Title: UI decomposition phase - split oversized dashboard components into focused modules
   Status: Pending
   Rationale: Reduce technical debt and SRP violations by decomposing large dashboard components (`kanban-board`, `project-context-panel`, `project-calendar-panel`) into feature-level subcomponents/hooks before auth/security expansion.
-  Dependencies: TASK-054, TASK-060, TASK-069
+  Dependencies: TASK-054, TASK-060
 - ID: TASK-020
   Title: Modern authentication/authorization ADR (user ownership, sharing, agent access, session model)
   Status: Pending
@@ -105,6 +100,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-069
+  Title: Cloudflare R2 storage validation - end-to-end smoke and deployment readiness
+  Status: Done (2026-02-18)
+  Rationale: Validated R2-backed attachment lifecycle across task and context-card flows (upload, signed-download redirect mode, delete + DB removal + storage read-miss), and added a gated reproducible smoke test (`R2_SMOKE=1`) for future verification.
+  Dependencies: TASK-065, TASK-066
 - ID: TASK-067
   Title: Database connection hardening - pooler/direct split, credential hygiene, and runbook
   Status: Done (2026-02-18)
