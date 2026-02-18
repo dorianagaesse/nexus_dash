@@ -11,6 +11,7 @@ import {
   ATTACHMENT_KIND_LINK,
   isAllowedAttachmentMimeType,
   isAttachmentKind,
+  MAX_ATTACHMENT_FILE_SIZE_LABEL,
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   normalizeAttachmentUrl,
 } from "@/lib/task-attachment";
@@ -285,7 +286,7 @@ export async function createTaskAttachmentFromForm(input: {
   }
 
   if (fileEntry.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
-    return createError(400, "File exceeds 10MB limit");
+    return createError(400, `File exceeds ${MAX_ATTACHMENT_FILE_SIZE_LABEL} limit`);
   }
 
   if (!isAllowedAttachmentMimeType(fileEntry.type)) {
@@ -413,7 +414,7 @@ export async function createContextAttachmentFromForm(input: {
   }
 
   if (fileEntry.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
-    return createError(400, "File exceeds 10MB limit");
+    return createError(400, `File exceeds ${MAX_ATTACHMENT_FILE_SIZE_LABEL} limit`);
   }
 
   if (!isAllowedAttachmentMimeType(fileEntry.type)) {

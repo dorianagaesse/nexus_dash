@@ -8,7 +8,9 @@ export const ATTACHMENT_KINDS = [
 
 export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];
 
-export const MAX_ATTACHMENT_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+// Keep under Vercel serverless payload thresholds to avoid 413 before route handlers run.
+export const MAX_ATTACHMENT_FILE_SIZE_BYTES = 4 * 1024 * 1024;
+export const MAX_ATTACHMENT_FILE_SIZE_LABEL = "4MB";
 
 export const ALLOWED_ATTACHMENT_MIME_TYPES = [
   "application/pdf",
