@@ -18,7 +18,7 @@ Validate Cloudflare R2 storage end to end before starting the next code-heavy de
 
 ## Definition of Done
 - Manual R2 smoke path (upload/download/delete) executed and logged.
-- Targeted automated tests pass (`npm test -- lib/storage/r2-storage-provider.test.ts` or equivalent suite).
+- Targeted automated tests pass (`npm test -- tests/lib/env.server.test.ts tests/api/task-attachments.route.test.ts tests/api/context-card-attachments.route.test.ts` or equivalent suite).
 - `npm run lint` passes for touched files.
 - `npm run build` passes.
 - Branch pushed and PR opened.
