@@ -12,8 +12,8 @@ NexusDash est un hub centralisé de productivité personnelle. Il permet à l'ut
 - **Icons**: Lucide React
 - **Drag & Drop**: `@hello-pangea/dnd`
 - **Database**: PostgreSQL via Prisma ORM (Supabase-hosted in current baseline)
-- **Authentication/API**: Next.js API routes + Google OAuth (Calendar integration); full user auth model planned via TASK-020/TASK-045+
-- **File Handling**: Local storage (public/uploads) ou simple stockage base64 pour petits documents
+- **Authentication/API**: Next.js API routes + Google OAuth (Calendar integration); app auth target is DB-backed user sessions + JWT-style scoped tokens for agent/API access (planned via TASK-020/TASK-045/TASK-059)
+- **File Handling**: StorageProvider abstraction with local dev fallback and Cloudflare R2 object storage target for deployed environments
 - **Containerization**: Docker + Docker Compose (dev and production parity)
 
 ## 3. Core Features & Requirements
