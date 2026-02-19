@@ -52,7 +52,7 @@ export function AttachmentPreviewModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 p-4"
+      className="fixed inset-0 z-[110] flex min-h-dvh w-screen items-center justify-center overscroll-y-contain bg-black/75 p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();

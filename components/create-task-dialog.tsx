@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link2, Paperclip, PlusSquare, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -13,12 +13,16 @@ import {
   normalizeTaskLabel,
 } from "@/lib/task-label";
 import {
+  DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES,
+  DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL,
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_ATTACHMENT_FILE_SIZE_LABEL,
 } from "@/lib/task-attachment";
+import { uploadFileAttachmentDirect } from "@/lib/direct-upload-client";
 
 interface CreateTaskDialogProps {
   projectId: string;
+  storageProvider: "local" | "r2";
   existingLabels: string[];
 }
 
@@ -27,7 +31,12 @@ interface PendingAttachmentLink {
   url: string;
 }
 
-const ATTACHMENT_FILE_SIZE_ERROR_MESSAGE = `Attachment files must be ${MAX_ATTACHMENT_FILE_SIZE_LABEL} or smaller.`;
+interface BackgroundUploadProgress {
+  phase: "uploading" | "done" | "failed";
+  total: number;
+  completed: number;
+  failed: number;
+}
 
 function createLocalId(): string {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -35,6 +44,7 @@ function createLocalId(): string {
 
 export function CreateTaskDialog({
   projectId,
+  storageProvider,
   existingLabels,
 }: CreateTaskDialogProps) {
   const router = useRouter();
@@ -49,6 +59,33 @@ export function CreateTaskDialog({
   const [fileInputKey, setFileInputKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [backgroundUploadProgress, setBackgroundUploadProgress] =
+    useState<BackgroundUploadProgress | null>(null);
+
+  const maxAttachmentFileSizeBytes =
+    storageProvider === "r2"
+      ? DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES
+      : MAX_ATTACHMENT_FILE_SIZE_BYTES;
+  const maxAttachmentFileSizeLabel =
+    storageProvider === "r2"
+      ? DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL
+      : MAX_ATTACHMENT_FILE_SIZE_LABEL;
+  const attachmentFileSizeErrorMessage = `Attachment files must be ${maxAttachmentFileSizeLabel} or smaller.`;
+
+  useEffect(() => {
+    if (
+      !backgroundUploadProgress ||
+      backgroundUploadProgress.phase === "uploading"
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setBackgroundUploadProgress(null);
+    }, 8000);
+
+    return () => window.clearTimeout(timer);
+  }, [backgroundUploadProgress]);
 
   const resetDraft = () => {
     setDescription("");
@@ -81,7 +118,7 @@ export function CreateTaskDialog({
       case "attachment-link-invalid":
         return "One or more attachment links are invalid. Use http:// or https:// URLs.";
       case "attachment-file-too-large":
-        return ATTACHMENT_FILE_SIZE_ERROR_MESSAGE;
+        return attachmentFileSizeErrorMessage;
       case "attachment-file-type-invalid":
         return "Unsupported attachment file type. Use PDF, image, text, CSV, or JSON.";
       case "create-failed":
@@ -91,14 +128,67 @@ export function CreateTaskDialog({
     }
   };
 
+  const uploadFilesInBackground = useCallback(
+    async (taskId: string, files: File[]) => {
+      if (files.length === 0) {
+        return;
+      }
+
+      setBackgroundUploadProgress({
+        phase: "uploading",
+        total: files.length,
+        completed: 0,
+        failed: 0,
+      });
+
+      let completed = 0;
+      let failed = 0;
+
+      await Promise.all(
+        files.map(async (file) => {
+          try {
+            await uploadFileAttachmentDirect({
+              file,
+              uploadTargetUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/upload-url`,
+              finalizeUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/direct`,
+              cleanupUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/direct/cleanup`,
+              fallbackErrorMessage: `Could not upload file attachment "${file.name}".`,
+            });
+          } catch (error) {
+            failed += 1;
+            console.error("[CreateTaskDialog.uploadFilesInBackground]", error);
+          } finally {
+            completed += 1;
+            setBackgroundUploadProgress({
+              phase: "uploading",
+              total: files.length,
+              completed,
+              failed,
+            });
+          }
+        })
+      );
+
+      setBackgroundUploadProgress({
+        phase: failed > 0 ? "failed" : "done",
+        total: files.length,
+        completed,
+        failed,
+      });
+
+      router.refresh();
+    },
+    [projectId, router]
+  );
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isSubmitting) {
       return;
     }
 
-    if (selectedFiles.some((file) => file.size > MAX_ATTACHMENT_FILE_SIZE_BYTES)) {
-      setSubmitError(ATTACHMENT_FILE_SIZE_ERROR_MESSAGE);
+    if (selectedFiles.some((file) => file.size > maxAttachmentFileSizeBytes)) {
+      setSubmitError(attachmentFileSizeErrorMessage);
       return;
     }
 
@@ -107,22 +197,35 @@ export function CreateTaskDialog({
 
     try {
       const formData = new FormData(event.currentTarget);
+      const filesForBackgroundUpload =
+        storageProvider === "r2" ? [...selectedFiles] : [];
+
+      if (storageProvider === "r2") {
+        formData.delete("attachmentFiles");
+      }
+
       const response = await fetch(`/api/projects/${projectId}/tasks`, {
         method: "POST",
         body: formData,
       });
 
       const payload = (await response.json().catch(() => null)) as
-        | { error?: string }
+        | { error?: string; taskId?: string }
         | null;
 
       if (!response.ok) {
         setSubmitError(mapCreateTaskError(payload?.error ?? "create-failed"));
         return;
       }
+      const createdTaskId =
+        payload && typeof payload.taskId === "string" ? payload.taskId : null;
 
       closeDialog();
       router.refresh();
+
+      if (storageProvider === "r2" && createdTaskId && filesForBackgroundUpload.length > 0) {
+        void uploadFilesInBackground(createdTaskId, filesForBackgroundUpload);
+      }
     } catch (error) {
       console.error("[CreateTaskDialog.handleSubmit]", error);
       setSubmitError("Could not create task. Please retry.");
@@ -198,15 +301,24 @@ export function CreateTaskDialog({
   };
 
   return (
-    <>
+    <div className="space-y-2">
       <Button type="button" onClick={openDialog}>
         <PlusSquare className="h-4 w-4" />
         New task
       </Button>
+      {backgroundUploadProgress ? (
+        <p className="text-xs text-muted-foreground">
+          {backgroundUploadProgress.phase === "uploading"
+            ? `Uploading attachments in background (${backgroundUploadProgress.completed}/${backgroundUploadProgress.total})...`
+            : backgroundUploadProgress.phase === "done"
+              ? `Background upload complete (${backgroundUploadProgress.total}/${backgroundUploadProgress.total}).`
+              : `Background upload finished with ${backgroundUploadProgress.failed} failure(s).`}
+        </p>
+      ) : null}
 
       {isOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 sm:items-center"
+          className="fixed inset-0 z-50 flex min-h-dvh w-screen items-start justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-4 sm:items-center"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               closeDialog();
@@ -337,12 +449,12 @@ export function CreateTaskDialog({
                       onChange={(event) => {
                         const nextFiles = Array.from(event.target.files ?? []);
                         const hasOversizedFile = nextFiles.some(
-                          (file) => file.size > MAX_ATTACHMENT_FILE_SIZE_BYTES
+                          (file) => file.size > maxAttachmentFileSizeBytes
                         );
 
                         if (hasOversizedFile) {
                           setSelectedFiles([]);
-                          setSubmitError(ATTACHMENT_FILE_SIZE_ERROR_MESSAGE);
+                          setSubmitError(attachmentFileSizeErrorMessage);
                           setFileInputKey((previous) => previous + 1);
                           return;
                         }
@@ -462,6 +574,6 @@ export function CreateTaskDialog({
           </Card>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }

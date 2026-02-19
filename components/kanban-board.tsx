@@ -97,12 +97,22 @@ export interface TaskAttachment {
   downloadUrl: string | null;
 }
 
+interface PendingAttachmentUpload {
+  id: string;
+  name: string;
+  sizeBytes: number;
+}
+
 interface KanbanBoardProps {
   projectId: string;
   storageProvider: "local" | "r2";
   initialTasks: KanbanTask[];
   archivedDoneTasks?: KanbanTask[];
   headerAction?: ReactNode;
+}
+
+function createLocalUploadId(): string {
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 export function KanbanBoard({
@@ -141,6 +151,9 @@ export function KanbanBoard({
   const [taskModalError, setTaskModalError] = useState<string | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [isSubmittingAttachment, setIsSubmittingAttachment] = useState(false);
+  const [pendingAttachmentUploads, setPendingAttachmentUploads] = useState<
+    PendingAttachmentUpload[]
+  >([]);
   const [isLinkComposerOpen, setIsLinkComposerOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [fileInputKey, setFileInputKey] = useState(0);
@@ -178,6 +191,7 @@ export function KanbanBoard({
     setEditDescription(selectedTask.description ?? "");
     setNewBlockedFollowUpEntry("");
     setAttachmentError(null);
+    setPendingAttachmentUploads([]);
     setIsLinkComposerOpen(false);
     setLinkUrl("");
     setFileInputKey((previous) => previous + 1);
@@ -609,8 +623,18 @@ export function KanbanBoard({
         return;
       }
 
-      setIsSubmittingAttachment(true);
       setAttachmentError(null);
+      const pendingUploadId = createLocalUploadId();
+      const taskId = selectedTask.id;
+      setPendingAttachmentUploads((previous) => [
+        {
+          id: pendingUploadId,
+          name: selectedFile.name,
+          sizeBytes: selectedFile.size,
+        },
+        ...previous,
+      ]);
+      setFileInputKey((previous) => previous + 1);
 
       try {
         let attachment: TaskAttachment;
@@ -618,9 +642,9 @@ export function KanbanBoard({
         if (storageProvider === "r2") {
           attachment = await uploadFileAttachmentDirect<TaskAttachment>({
             file: selectedFile,
-            uploadTargetUrl: `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments/upload-url`,
-            finalizeUrl: `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments/direct`,
-            cleanupUrl: `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments/direct/cleanup`,
+            uploadTargetUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/upload-url`,
+            finalizeUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/direct`,
+            cleanupUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/direct/cleanup`,
             fallbackErrorMessage: "Could not upload file attachment.",
           });
         } else {
@@ -630,7 +654,7 @@ export function KanbanBoard({
           formData.append("file", selectedFile);
 
           const response = await fetch(
-            `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments`,
+            `/api/projects/${projectId}/tasks/${taskId}/attachments`,
             {
               method: "POST",
               body: formData,
@@ -649,11 +673,10 @@ export function KanbanBoard({
           attachment = payload.attachment;
         }
 
-        applyTaskMutation(selectedTask.id, (task) => ({
+        applyTaskMutation(taskId, (task) => ({
           ...task,
           attachments: [attachment, ...task.attachments],
         }));
-        setFileInputKey((previous) => previous + 1);
       } catch (error) {
         console.error("[KanbanBoard.handleAddFileAttachment]", error);
         setAttachmentError(
@@ -662,7 +685,9 @@ export function KanbanBoard({
             : "Could not upload file attachment."
         );
       } finally {
-        setIsSubmittingAttachment(false);
+        setPendingAttachmentUploads((previous) =>
+          previous.filter((upload) => upload.id !== pendingUploadId)
+        );
       }
     },
     [
@@ -910,7 +935,7 @@ export function KanbanBoard({
       {isClient && selectedTask
         ? createPortal(
             <div
-              className="fixed inset-0 z-[90] flex items-start justify-center overflow-y-auto bg-black/70 p-4 sm:items-center"
+              className="fixed inset-0 z-[90] flex min-h-dvh w-screen items-start justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-4 sm:items-center"
               onMouseDown={(event) => {
                 if (event.target === event.currentTarget) {
                   closeTaskModal();
@@ -1018,7 +1043,8 @@ export function KanbanBoard({
                       </div>
                       <div className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
                         <p className="text-sm font-medium">Attachments</p>
-                        {selectedTask.attachments.length === 0 ? (
+                        {selectedTask.attachments.length === 0 &&
+                        pendingAttachmentUploads.length === 0 ? (
                           <p className="text-xs text-muted-foreground">
                             No attachments yet.
                           </p>
@@ -1317,6 +1343,27 @@ export function KanbanBoard({
                             })}
                           </div>
                         )}
+                        {pendingAttachmentUploads.length > 0 ? (
+                          <div className="space-y-2">
+                            {pendingAttachmentUploads.map((upload) => (
+                              <div
+                                key={upload.id}
+                                className="flex items-center justify-between gap-2 rounded-md border border-dashed border-border/70 bg-muted/20 px-2 py-1.5"
+                              >
+                                <div className="min-w-0">
+                                  <p className="truncate text-xs font-medium text-foreground">
+                                    {upload.name}
+                                  </p>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    Uploading...{" "}
+                                    {formatAttachmentFileSize(upload.sizeBytes)}
+                                  </p>
+                                </div>
+                                <Upload className="h-4 w-4 animate-pulse text-muted-foreground" />
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
 
                         <div className="flex items-center gap-2">
                           <Button
@@ -1347,7 +1394,6 @@ export function KanbanBoard({
                             variant="ghost"
                             size="icon"
                             asChild
-                            disabled={isSubmittingAttachment}
                           >
                             <label
                               htmlFor="task-edit-attachment-file"

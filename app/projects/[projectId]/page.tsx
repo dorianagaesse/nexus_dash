@@ -208,6 +208,7 @@ export default async function ProjectDashboardPage({
         headerAction={
           <CreateTaskDialog
             projectId={project.id}
+            storageProvider={storageProvider}
             existingLabels={Array.from(existingLabelSet)}
           />
         }
