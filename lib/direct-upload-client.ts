@@ -23,7 +23,7 @@ function buildCorsPreflightErrorMessage(fallbackErrorMessage: string): string {
       ? window.location.origin
       : "this application origin";
 
-  return `${fallbackErrorMessage} Direct upload preflight was blocked for ${origin}. Configure Cloudflare R2 bucket CORS to allow this origin with PUT/GET/HEAD/OPTIONS and Content-Type headers.`;
+  return `${fallbackErrorMessage} Direct upload request failed before reaching storage for ${origin}. This is commonly caused by missing Cloudflare R2 CORS rules. Configure the bucket to allow this origin with PUT/GET/HEAD/OPTIONS and Content-Type headers.`;
 }
 
 async function readApiError(
