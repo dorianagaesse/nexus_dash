@@ -2,17 +2,28 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const attachmentServiceMock = vi.hoisted(() => ({
   createTaskAttachmentFromForm: vi.fn(),
+  createTaskAttachmentUploadTarget: vi.fn(),
+  finalizeTaskAttachmentDirectUpload: vi.fn(),
+  cleanupTaskDirectUploadObject: vi.fn(),
   deleteTaskAttachmentForProject: vi.fn(),
   getTaskAttachmentDownload: vi.fn(),
 }));
 
 vi.mock("@/lib/services/project-attachment-service", () => ({
   createTaskAttachmentFromForm: attachmentServiceMock.createTaskAttachmentFromForm,
+  createTaskAttachmentUploadTarget:
+    attachmentServiceMock.createTaskAttachmentUploadTarget,
+  finalizeTaskAttachmentDirectUpload:
+    attachmentServiceMock.finalizeTaskAttachmentDirectUpload,
+  cleanupTaskDirectUploadObject: attachmentServiceMock.cleanupTaskDirectUploadObject,
   deleteTaskAttachmentForProject: attachmentServiceMock.deleteTaskAttachmentForProject,
   getTaskAttachmentDownload: attachmentServiceMock.getTaskAttachmentDownload,
 }));
 
 import { POST as postAttachment } from "@/app/api/projects/[projectId]/tasks/[taskId]/attachments/route";
+import { POST as postAttachmentUploadUrl } from "@/app/api/projects/[projectId]/tasks/[taskId]/attachments/upload-url/route";
+import { POST as postAttachmentDirectFinalize } from "@/app/api/projects/[projectId]/tasks/[taskId]/attachments/direct/route";
+import { POST as postAttachmentDirectCleanup } from "@/app/api/projects/[projectId]/tasks/[taskId]/attachments/direct/cleanup/route";
 import { DELETE as deleteAttachment } from "@/app/api/projects/[projectId]/tasks/[taskId]/attachments/[attachmentId]/route";
 import { GET as downloadAttachment } from "@/app/api/projects/[projectId]/tasks/[taskId]/attachments/[attachmentId]/download/route";
 
@@ -126,6 +137,144 @@ describe("task attachment routes", () => {
 
     expect(response.status).toBe(404);
     await expect(readJson(response)).resolves.toEqual({ error: "Task not found" });
+  });
+
+  test("POST upload-url returns 400 when route params are missing", async () => {
+    const request = new Request(
+      "http://localhost/api/projects/p1/tasks//attachments/upload-url",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          name: "spec.pdf",
+          mimeType: "application/pdf",
+          sizeBytes: 123,
+        }),
+      }
+    );
+
+    const response = await postAttachmentUploadUrl(request as never, {
+      params: { projectId: "p1", taskId: "" },
+    });
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "Missing route parameters",
+    });
+  });
+
+  test("POST upload-url creates signed target through service", async () => {
+    attachmentServiceMock.createTaskAttachmentUploadTarget.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        upload: {
+          storageKey: "task/t1/key-file.pdf",
+          uploadUrl: "https://example.r2/upload",
+          method: "PUT",
+          headers: { "Content-Type": "application/pdf" },
+          expiresInSeconds: 300,
+          maxFileSizeBytes: 26214400,
+          maxFileSizeLabel: "25MB",
+        },
+      },
+    });
+
+    const request = new Request(
+      "http://localhost/api/projects/p1/tasks/t1/attachments/upload-url",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "spec.pdf",
+          mimeType: "application/pdf",
+          sizeBytes: 123,
+        }),
+      }
+    );
+
+    const response = await postAttachmentUploadUrl(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({
+      upload: {
+        storageKey: "task/t1/key-file.pdf",
+        uploadUrl: "https://example.r2/upload",
+        method: "PUT",
+        headers: { "Content-Type": "application/pdf" },
+        expiresInSeconds: 300,
+        maxFileSizeBytes: 26214400,
+        maxFileSizeLabel: "25MB",
+      },
+    });
+    expect(attachmentServiceMock.createTaskAttachmentUploadTarget).toHaveBeenCalledWith({
+      projectId: "p1",
+      taskId: "t1",
+      name: "spec.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 123,
+    });
+  });
+
+  test("POST direct finalize maps service errors", async () => {
+    attachmentServiceMock.finalizeTaskAttachmentDirectUpload.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      error: "Uploaded file not found",
+    });
+
+    const request = new Request(
+      "http://localhost/api/projects/p1/tasks/t1/attachments/direct",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          storageKey: "task/t1/missing.pdf",
+          name: "missing.pdf",
+          mimeType: "application/pdf",
+          sizeBytes: 123,
+        }),
+      }
+    );
+
+    const response = await postAttachmentDirectFinalize(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(404);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "Uploaded file not found",
+    });
+  });
+
+  test("POST direct cleanup delegates to cleanup service", async () => {
+    attachmentServiceMock.cleanupTaskDirectUploadObject.mockResolvedValueOnce({
+      ok: true,
+      data: { ok: true },
+    });
+
+    const request = new Request(
+      "http://localhost/api/projects/p1/tasks/t1/attachments/direct/cleanup",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          storageKey: "task/t1/key-spec.pdf",
+        }),
+      }
+    );
+
+    const response = await postAttachmentDirectCleanup(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({ ok: true });
+    expect(attachmentServiceMock.cleanupTaskDirectUploadObject).toHaveBeenCalledWith({
+      projectId: "p1",
+      taskId: "t1",
+      storageKey: "task/t1/key-spec.pdf",
+    });
   });
 
   test("DELETE returns 400 when route params are missing", async () => {

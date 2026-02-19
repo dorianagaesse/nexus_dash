@@ -1,6 +1,12 @@
 import { getStorageProvider } from "@/lib/storage/storage-provider";
 
-import type { SaveStorageFileInput, SaveStorageFileResult } from "@/lib/storage/types";
+import type {
+  CreateSignedUploadUrlInput,
+  CreateSignedUploadUrlResult,
+  SaveStorageFileInput,
+  SaveStorageFileResult,
+  StoredFileMetadata,
+} from "@/lib/storage/types";
 
 interface GetAttachmentDownloadUrlInput {
   storageKey: string;
@@ -34,5 +40,19 @@ export async function getAttachmentDownloadUrl(
     contentType: input.contentType,
     contentDisposition: input.contentDisposition,
   });
+}
+
+export async function createAttachmentSignedUploadUrl(
+  input: CreateSignedUploadUrlInput
+): Promise<CreateSignedUploadUrlResult | null> {
+  const provider = getStorageProvider();
+  return provider.createSignedUploadUrl(input);
+}
+
+export async function readAttachmentStoredFileMetadata(
+  storageKey: string
+): Promise<StoredFileMetadata | null> {
+  const provider = getStorageProvider();
+  return provider.readStoredFileMetadata(storageKey);
 }
 

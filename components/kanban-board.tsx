@@ -49,11 +49,14 @@ import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expan
 import {
   ATTACHMENT_KIND_FILE,
   ATTACHMENT_KIND_LINK,
+  DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES,
+  DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL,
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_ATTACHMENT_FILE_SIZE_LABEL,
   formatAttachmentFileSize,
   isAttachmentPreviewable,
 } from "@/lib/task-attachment";
+import { uploadFileAttachmentDirect } from "@/lib/direct-upload-client";
 import {
   MAX_TASK_LABELS,
   getTaskLabelsFromStorage,
@@ -95,15 +98,15 @@ export interface TaskAttachment {
 
 interface KanbanBoardProps {
   projectId: string;
+  storageProvider: "local" | "r2";
   initialTasks: KanbanTask[];
   archivedDoneTasks?: KanbanTask[];
   headerAction?: ReactNode;
 }
 
-const ATTACHMENT_FILE_SIZE_ERROR_MESSAGE = `Attachment files must be ${MAX_ATTACHMENT_FILE_SIZE_LABEL} or smaller.`;
-
 export function KanbanBoard({
   projectId,
+  storageProvider,
   initialTasks,
   archivedDoneTasks: initialArchivedDoneTasks = [],
   headerAction,
@@ -139,6 +142,15 @@ export function KanbanBoard({
   const [previewAttachment, setPreviewAttachment] = useState<TaskAttachment | null>(
     null
   );
+  const maxAttachmentFileSizeBytes =
+    storageProvider === "r2"
+      ? DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES
+      : MAX_ATTACHMENT_FILE_SIZE_BYTES;
+  const maxAttachmentFileSizeLabel =
+    storageProvider === "r2"
+      ? DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL
+      : MAX_ATTACHMENT_FILE_SIZE_LABEL;
+  const attachmentFileSizeErrorMessage = `Attachment files must be ${maxAttachmentFileSizeLabel} or smaller.`;
 
   useEffect(() => {
     setColumns(initialColumns);
@@ -564,8 +576,8 @@ export function KanbanBoard({
       return;
     }
 
-    if (selectedFile.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
-      setAttachmentError(ATTACHMENT_FILE_SIZE_ERROR_MESSAGE);
+    if (selectedFile.size > maxAttachmentFileSizeBytes) {
+      setAttachmentError(attachmentFileSizeErrorMessage);
       setFileInputKey((previous) => previous + 1);
       return;
     }
@@ -574,27 +586,41 @@ export function KanbanBoard({
     setAttachmentError(null);
 
     try {
-      const formData = new FormData();
-      formData.append("kind", ATTACHMENT_KIND_FILE);
-      formData.append("name", "");
-      formData.append("file", selectedFile);
+      let attachment: TaskAttachment;
 
-      const response = await fetch(
-        `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments`,
-        {
-          method: "POST",
-          body: formData,
+      if (storageProvider === "r2") {
+        attachment = await uploadFileAttachmentDirect<TaskAttachment>({
+          file: selectedFile,
+          uploadTargetUrl: `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments/upload-url`,
+          finalizeUrl: `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments/direct`,
+          cleanupUrl: `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments/direct/cleanup`,
+          fallbackErrorMessage: "Could not upload file attachment.",
+        });
+      } else {
+        const formData = new FormData();
+        formData.append("kind", ATTACHMENT_KIND_FILE);
+        formData.append("name", "");
+        formData.append("file", selectedFile);
+
+        const response = await fetch(
+          `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(await readApiError(response, "Could not upload file attachment."));
         }
-      );
 
-      if (!response.ok) {
-        throw new Error(await readApiError(response, "Could not upload file attachment."));
+        const payload = (await response.json()) as { attachment: TaskAttachment };
+        attachment = payload.attachment;
       }
 
-      const payload = (await response.json()) as { attachment: TaskAttachment };
       applyTaskMutation(selectedTask.id, (task) => ({
         ...task,
-        attachments: [payload.attachment, ...task.attachments],
+        attachments: [attachment, ...task.attachments],
       }));
       setFileInputKey((previous) => previous + 1);
     } catch (error) {
@@ -605,7 +631,14 @@ export function KanbanBoard({
     } finally {
       setIsSubmittingAttachment(false);
     }
-  }, [applyTaskMutation, projectId, selectedTask]);
+  }, [
+    applyTaskMutation,
+    attachmentFileSizeErrorMessage,
+    maxAttachmentFileSizeBytes,
+    projectId,
+    selectedTask,
+    storageProvider,
+  ]);
 
   const handleDeleteAttachment = useCallback(
     async (attachmentId: string) => {
@@ -826,7 +859,7 @@ export function KanbanBoard({
 
       {selectedTask ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 sm:items-center"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               closeTaskModal();
@@ -834,7 +867,7 @@ export function KanbanBoard({
           }}
         >
           <Card
-            className="w-full max-w-xl"
+            className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <CardHeader className="flex flex-row items-start justify-between space-y-0">

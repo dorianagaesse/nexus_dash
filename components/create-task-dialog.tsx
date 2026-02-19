@@ -206,7 +206,7 @@ export function CreateTaskDialog({
 
       {isOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 sm:items-center"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               closeDialog();
@@ -214,7 +214,7 @@ export function CreateTaskDialog({
           }}
         >
           <Card
-            className="w-full max-w-lg"
+            className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0">

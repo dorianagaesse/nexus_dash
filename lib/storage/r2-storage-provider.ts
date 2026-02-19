@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 
 import {
+  HeadObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
@@ -9,9 +10,12 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import type {
+  CreateSignedUploadUrlInput,
+  CreateSignedUploadUrlResult,
   GetSignedDownloadUrlInput,
   SaveStorageFileInput,
   SaveStorageFileResult,
+  StoredFileMetadata,
   StorageProvider,
 } from "@/lib/storage/types";
 
@@ -47,6 +51,24 @@ function clampSignedUrlTtl(value: number): number {
   return Math.min(
     Math.max(value, MIN_SIGNED_URL_TTL_SECONDS),
     MAX_SIGNED_URL_TTL_SECONDS
+  );
+}
+
+function isNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const namedError = error as {
+    name?: string;
+    Code?: string;
+    $metadata?: { httpStatusCode?: number };
+  };
+
+  return (
+    namedError.name === "NotFound" ||
+    namedError.Code === "NotFound" ||
+    namedError.$metadata?.httpStatusCode === 404
   );
 }
 
@@ -133,6 +155,59 @@ export class R2StorageProvider implements StorageProvider {
     return getSignedUrl(this.client, command, {
       expiresIn: this.signedUrlTtlSeconds,
     });
+  }
+
+  async createSignedUploadUrl(
+    input: CreateSignedUploadUrlInput
+  ): Promise<CreateSignedUploadUrlResult | null> {
+    const storageKey = createStorageKey(
+      input.scope,
+      input.ownerId,
+      input.originalName || "file"
+    );
+
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: storageKey,
+      ContentType: input.mimeType || "application/octet-stream",
+    });
+
+    const uploadUrl = await getSignedUrl(this.client, command, {
+      expiresIn: this.signedUrlTtlSeconds,
+    });
+
+    return {
+      storageKey,
+      uploadUrl,
+      method: "PUT",
+      headers: {
+        "Content-Type": input.mimeType || "application/octet-stream",
+      },
+      expiresInSeconds: this.signedUrlTtlSeconds,
+    };
+  }
+
+  async readStoredFileMetadata(storageKey: string): Promise<StoredFileMetadata | null> {
+    try {
+      const result = await this.client.send(
+        new HeadObjectCommand({
+          Bucket: this.bucketName,
+          Key: storageKey,
+        })
+      );
+
+      return {
+        sizeBytes:
+          typeof result.ContentLength === "number" ? result.ContentLength : null,
+        mimeType: result.ContentType ?? null,
+      };
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return null;
+      }
+
+      throw error;
+    }
   }
 }
 

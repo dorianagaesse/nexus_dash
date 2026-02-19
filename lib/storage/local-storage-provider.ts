@@ -4,9 +4,12 @@ import path from "path";
 
 import { AttachmentStorageUnavailableError } from "@/lib/storage/errors";
 import type {
+  CreateSignedUploadUrlInput,
+  CreateSignedUploadUrlResult,
   GetSignedDownloadUrlInput,
   SaveStorageFileInput,
   SaveStorageFileResult,
+  StoredFileMetadata,
   StorageProvider,
 } from "@/lib/storage/types";
 
@@ -107,6 +110,31 @@ export class LocalStorageProvider implements StorageProvider {
     _input: GetSignedDownloadUrlInput
   ): Promise<string | null> {
     return null;
+  }
+
+  async createSignedUploadUrl(
+    _input: CreateSignedUploadUrlInput
+  ): Promise<CreateSignedUploadUrlResult | null> {
+    return null;
+  }
+
+  async readStoredFileMetadata(storageKey: string): Promise<StoredFileMetadata | null> {
+    try {
+      const absolutePath = resolveAbsolutePath(storageKey);
+      const stats = await fs.stat(absolutePath);
+
+      return {
+        sizeBytes: stats.size,
+        mimeType: null,
+      };
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code === "ENOENT") {
+        return null;
+      }
+
+      throw error;
+    }
   }
 }
 

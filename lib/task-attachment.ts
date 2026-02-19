@@ -8,9 +8,13 @@ export const ATTACHMENT_KINDS = [
 
 export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];
 
-// Keep under Vercel serverless payload thresholds to avoid 413 before route handlers run.
+// Keep form-based uploads under Vercel serverless payload thresholds.
 export const MAX_ATTACHMENT_FILE_SIZE_BYTES = 4 * 1024 * 1024;
 export const MAX_ATTACHMENT_FILE_SIZE_LABEL = "4MB";
+
+// Direct-to-R2 uploads bypass app API payload limits and can safely allow larger files.
+export const DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+export const DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL = "25MB";
 
 export const ALLOWED_ATTACHMENT_MIME_TYPES = [
   "application/pdf",

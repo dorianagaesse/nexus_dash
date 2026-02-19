@@ -26,11 +26,14 @@ import {
 import {
   ATTACHMENT_KIND_FILE,
   ATTACHMENT_KIND_LINK,
+  DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES,
+  DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL,
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_ATTACHMENT_FILE_SIZE_LABEL,
   formatAttachmentFileSize,
   isAttachmentPreviewable,
 } from "@/lib/task-attachment";
+import { uploadFileAttachmentDirect } from "@/lib/direct-upload-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
@@ -61,10 +64,9 @@ interface PendingAttachmentLink {
 
 interface ProjectContextPanelProps {
   projectId: string;
+  storageProvider: "local" | "r2";
   cards: ProjectContextCard[];
 }
-
-const ATTACHMENT_FILE_SIZE_ERROR_MESSAGE = `Attachment files must be ${MAX_ATTACHMENT_FILE_SIZE_LABEL} or smaller.`;
 
 function ColorPicker({
   selectedColor,
@@ -110,14 +112,17 @@ function ModalFrame({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 sm:items-center"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
         }
       }}
     >
-      <Card className="w-full max-w-lg" onMouseDown={(event) => event.stopPropagation()}>
+      <Card
+        className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-lg">{title}</CardTitle>
           <Button type="button" variant="ghost" size="icon" onClick={onClose}>
@@ -132,6 +137,7 @@ function ModalFrame({
 
 export function ProjectContextPanel({
   projectId,
+  storageProvider,
   cards,
 }: ProjectContextPanelProps) {
   const router = useRouter();
@@ -167,6 +173,16 @@ export function ProjectContextPanel({
   const [cardAttachmentsById, setCardAttachmentsById] = useState<
     Record<string, ProjectContextAttachment[]>
   >({});
+  const maxAttachmentFileSizeBytes =
+    storageProvider === "r2"
+      ? DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES
+      : MAX_ATTACHMENT_FILE_SIZE_BYTES;
+  const maxAttachmentFileSizeLabel =
+    storageProvider === "r2"
+      ? DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL
+      : MAX_ATTACHMENT_FILE_SIZE_LABEL;
+  const attachmentFileSizeErrorMessage = `Attachment files must be ${maxAttachmentFileSizeLabel} or smaller.`;
+  const formAttachmentFileSizeErrorMessage = `Attachment files must be ${MAX_ATTACHMENT_FILE_SIZE_LABEL} or smaller.`;
 
   const editingCard = useMemo(
     () => cards.find((card) => card.id === editingCardId) ?? null,
@@ -280,7 +296,7 @@ export function ProjectContextPanel({
       case "attachment-link-invalid":
         return "One or more attachment links are invalid. Use http:// or https:// URLs.";
       case "attachment-file-too-large":
-        return ATTACHMENT_FILE_SIZE_ERROR_MESSAGE;
+        return formAttachmentFileSizeErrorMessage;
       case "attachment-file-type-invalid":
         return "Unsupported attachment file type. Use PDF, image, text, CSV, or JSON.";
       case "context-card-missing":
@@ -313,7 +329,7 @@ export function ProjectContextPanel({
     }
 
     if (createSelectedFiles.some((file) => file.size > MAX_ATTACHMENT_FILE_SIZE_BYTES)) {
-      setCreateError(ATTACHMENT_FILE_SIZE_ERROR_MESSAGE);
+      setCreateError(formAttachmentFileSizeErrorMessage);
       return;
     }
 
@@ -487,8 +503,8 @@ export function ProjectContextPanel({
       return;
     }
 
-    if (selectedFile.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
-      setAttachmentError(ATTACHMENT_FILE_SIZE_ERROR_MESSAGE);
+    if (selectedFile.size > maxAttachmentFileSizeBytes) {
+      setAttachmentError(attachmentFileSizeErrorMessage);
       setEditFileInputKey((previous) => previous + 1);
       return;
     }
@@ -497,27 +513,43 @@ export function ProjectContextPanel({
     setAttachmentError(null);
 
     try {
-      const formData = new FormData();
-      formData.append("kind", ATTACHMENT_KIND_FILE);
-      formData.append("name", "");
-      formData.append("file", selectedFile);
+      let attachment: ProjectContextAttachment;
 
-      const response = await fetch(
-        `/api/projects/${projectId}/context-cards/${editingCard.id}/attachments`,
-        {
-          method: "POST",
-          body: formData,
+      if (storageProvider === "r2") {
+        attachment = await uploadFileAttachmentDirect<ProjectContextAttachment>({
+          file: selectedFile,
+          uploadTargetUrl: `/api/projects/${projectId}/context-cards/${editingCard.id}/attachments/upload-url`,
+          finalizeUrl: `/api/projects/${projectId}/context-cards/${editingCard.id}/attachments/direct`,
+          cleanupUrl: `/api/projects/${projectId}/context-cards/${editingCard.id}/attachments/direct/cleanup`,
+          fallbackErrorMessage: "Could not upload file attachment.",
+        });
+      } else {
+        const formData = new FormData();
+        formData.append("kind", ATTACHMENT_KIND_FILE);
+        formData.append("name", "");
+        formData.append("file", selectedFile);
+
+        const response = await fetch(
+          `/api/projects/${projectId}/context-cards/${editingCard.id}/attachments`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(await readApiError(response, "Could not upload file attachment."));
         }
-      );
 
-      if (!response.ok) {
-        throw new Error(await readApiError(response, "Could not upload file attachment."));
+        const payload = (await response.json()) as {
+          attachment: ProjectContextAttachment;
+        };
+        attachment = payload.attachment;
       }
 
-      const payload = (await response.json()) as { attachment: ProjectContextAttachment };
       setCardAttachmentsById((previous) => ({
         ...previous,
-        [editingCard.id]: [payload.attachment, ...(previous[editingCard.id] ?? [])],
+        [editingCard.id]: [attachment, ...(previous[editingCard.id] ?? [])],
       }));
       setEditFileInputKey((previous) => previous + 1);
     } catch (error) {
@@ -783,7 +815,7 @@ export function ProjectContextPanel({
 
                     if (hasOversizedFile) {
                       setCreateSelectedFiles([]);
-                      setCreateError(ATTACHMENT_FILE_SIZE_ERROR_MESSAGE);
+                      setCreateError(formAttachmentFileSizeErrorMessage);
                       setCreateFileInputKey((previous) => previous + 1);
                       return;
                     }
