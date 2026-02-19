@@ -54,7 +54,7 @@ describe("direct-upload-client", () => {
         fallbackErrorMessage: "Could not upload file attachment.",
       })
     ).rejects.toThrow(
-      "Could not upload file attachment. Direct upload request failed before reaching storage for https://nexus-dash-wheat.vercel.app. This is commonly caused by missing Cloudflare R2 CORS rules. Configure the bucket to allow this origin with PUT/GET/HEAD/OPTIONS and Content-Type headers."
+      "Could not upload file attachment. Direct upload request failed before reaching storage for https://nexus-dash-wheat.vercel.app. This is commonly caused by missing Cloudflare R2 CORS rules. Configure the bucket to allow this origin with PUT/GET/HEAD methods and Content-Type headers."
     );
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
