@@ -8,6 +8,7 @@ import {
   useTransition,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   DragDropContext,
   Draggable,
@@ -111,8 +112,12 @@ export function KanbanBoard({
   archivedDoneTasks: initialArchivedDoneTasks = [],
   headerAction,
 }: KanbanBoardProps) {
-  const initialColumns = useMemo(() => mapTasksToColumns(initialTasks), [initialTasks]);
-  const [columns, setColumns] = useState<TaskColumns<KanbanTask>>(initialColumns);
+  const initialColumns = useMemo(
+    () => mapTasksToColumns(initialTasks),
+    [initialTasks]
+  );
+  const [columns, setColumns] =
+    useState<TaskColumns<KanbanTask>>(initialColumns);
   const [archivedDoneTasks, setArchivedDoneTasks] = useState<KanbanTask[]>(
     initialArchivedDoneTasks
   );
@@ -139,9 +144,9 @@ export function KanbanBoard({
   const [isLinkComposerOpen, setIsLinkComposerOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [fileInputKey, setFileInputKey] = useState(0);
-  const [previewAttachment, setPreviewAttachment] = useState<TaskAttachment | null>(
-    null
-  );
+  const [isClient, setIsClient] = useState(false);
+  const [previewAttachment, setPreviewAttachment] =
+    useState<TaskAttachment | null>(null);
   const maxAttachmentFileSizeBytes =
     storageProvider === "r2"
       ? DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES
@@ -192,6 +197,10 @@ export function KanbanBoard({
       setPreviewAttachment(null);
     }
   }, [previewAttachment, selectedTask]);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const allKnownLabels = useMemo(() => {
     const labels = new Set<string>();
@@ -261,13 +270,16 @@ export function KanbanBoard({
       previousColumns: TaskColumns<KanbanTask>
     ) => {
       try {
-        const response = await fetch(`/api/projects/${projectId}/tasks/reorder`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(buildPersistPayload(nextColumns)),
-        });
+        const response = await fetch(
+          `/api/projects/${projectId}/tasks/reorder`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(buildPersistPayload(nextColumns)),
+          }
+        );
 
         if (!response.ok) {
           throw new Error("Persist request failed");
@@ -338,140 +350,150 @@ export function KanbanBoard({
     setPreviewAttachment(null);
   }, []);
 
-  const persistTaskChanges = useCallback(async (options?: { exitEditMode?: boolean }) => {
-    if (!selectedTask) {
-      return false;
-    }
-
-    const normalizedTitle = editTitle.trim();
-    const normalizedBlockedEntry = newBlockedFollowUpEntry.trim();
-
-    if (normalizedTitle.length < 2) {
-      setTaskModalError("Task title must be at least 2 characters.");
-      return false;
-    }
-
-    setIsUpdatingTask(true);
-
-    try {
-      const response = await fetch(
-        `/api/projects/${projectId}/tasks/${selectedTask.id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            title: normalizedTitle,
-            labels: editLabels,
-            description: editDescription,
-            blockedFollowUpEntry: normalizedBlockedEntry,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as
-          | { error?: string }
-          | null;
-        throw new Error(payload?.error ?? "Failed to update task");
+  const persistTaskChanges = useCallback(
+    async (options?: { exitEditMode?: boolean }) => {
+      if (!selectedTask) {
+        return false;
       }
 
-      const payload = (await response.json()) as {
-        task: {
-          id: string;
-          title: string;
-          label: string | null;
-          labelsJson: string | null;
-          description: string | null;
-          blockedNote: string | null;
-          status: string;
-          blockedFollowUps: TaskBlockedFollowUp[];
-        };
-      };
+      const normalizedTitle = editTitle.trim();
+      const normalizedBlockedEntry = newBlockedFollowUpEntry.trim();
 
-      if (!isTaskStatus(payload.task.status)) {
-        throw new Error("Invalid task status returned by server");
+      if (normalizedTitle.length < 2) {
+        setTaskModalError("Task title must be at least 2 characters.");
+        return false;
       }
 
-      const updatedTask: KanbanTask = {
-        id: payload.task.id,
-        title: payload.task.title,
-        labels: getTaskLabelsFromStorage(payload.task.labelsJson, payload.task.label),
-        description: payload.task.description,
-        blockedFollowUps: payload.task.blockedFollowUps.map((entry) => ({
-          ...entry,
-          createdAt: entry.createdAt,
-        })),
-        status: payload.task.status,
-        attachments: selectedTask.attachments,
-      };
+      setIsUpdatingTask(true);
 
-      setColumns((previousColumns) => {
-        const nextColumns = cloneColumns(previousColumns);
-        const taskColumn = nextColumns[updatedTask.status];
-        const taskIndex = taskColumn.findIndex((task) => task.id === updatedTask.id);
-
-        if (taskIndex === -1) {
-          return previousColumns;
-        }
-
-        taskColumn[taskIndex] = {
-          ...taskColumn[taskIndex],
-          ...updatedTask,
-        };
-
-        return nextColumns;
-      });
-
-      setArchivedDoneTasks((previousArchivedTasks) => {
-        const taskIndex = previousArchivedTasks.findIndex(
-          (task) => task.id === updatedTask.id
+      try {
+        const response = await fetch(
+          `/api/projects/${projectId}/tasks/${selectedTask.id}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              title: normalizedTitle,
+              labels: editLabels,
+              description: editDescription,
+              blockedFollowUpEntry: normalizedBlockedEntry,
+            }),
+          }
         );
 
-        if (taskIndex === -1) {
-          return previousArchivedTasks;
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as {
+            error?: string;
+          } | null;
+          throw new Error(payload?.error ?? "Failed to update task");
         }
 
-        if (updatedTask.status !== "Done") {
-          return previousArchivedTasks.filter((task) => task.id !== updatedTask.id);
-        }
-
-        const nextArchivedTasks = [...previousArchivedTasks];
-        nextArchivedTasks[taskIndex] = {
-          ...nextArchivedTasks[taskIndex],
-          ...updatedTask,
+        const payload = (await response.json()) as {
+          task: {
+            id: string;
+            title: string;
+            label: string | null;
+            labelsJson: string | null;
+            description: string | null;
+            blockedNote: string | null;
+            status: string;
+            blockedFollowUps: TaskBlockedFollowUp[];
+          };
         };
-        return nextArchivedTasks;
-      });
 
-      setSelectedTask((previousTask) => {
-        if (!previousTask || previousTask.id !== updatedTask.id) {
-          return previousTask;
+        if (!isTaskStatus(payload.task.status)) {
+          throw new Error("Invalid task status returned by server");
         }
-        return updatedTask;
-      });
-      setTaskModalError(null);
-      if (options?.exitEditMode !== false) {
-        setIsEditMode(false);
+
+        const updatedTask: KanbanTask = {
+          id: payload.task.id,
+          title: payload.task.title,
+          labels: getTaskLabelsFromStorage(
+            payload.task.labelsJson,
+            payload.task.label
+          ),
+          description: payload.task.description,
+          blockedFollowUps: payload.task.blockedFollowUps.map((entry) => ({
+            ...entry,
+            createdAt: entry.createdAt,
+          })),
+          status: payload.task.status,
+          attachments: selectedTask.attachments,
+        };
+
+        setColumns((previousColumns) => {
+          const nextColumns = cloneColumns(previousColumns);
+          const taskColumn = nextColumns[updatedTask.status];
+          const taskIndex = taskColumn.findIndex(
+            (task) => task.id === updatedTask.id
+          );
+
+          if (taskIndex === -1) {
+            return previousColumns;
+          }
+
+          taskColumn[taskIndex] = {
+            ...taskColumn[taskIndex],
+            ...updatedTask,
+          };
+
+          return nextColumns;
+        });
+
+        setArchivedDoneTasks((previousArchivedTasks) => {
+          const taskIndex = previousArchivedTasks.findIndex(
+            (task) => task.id === updatedTask.id
+          );
+
+          if (taskIndex === -1) {
+            return previousArchivedTasks;
+          }
+
+          if (updatedTask.status !== "Done") {
+            return previousArchivedTasks.filter(
+              (task) => task.id !== updatedTask.id
+            );
+          }
+
+          const nextArchivedTasks = [...previousArchivedTasks];
+          nextArchivedTasks[taskIndex] = {
+            ...nextArchivedTasks[taskIndex],
+            ...updatedTask,
+          };
+          return nextArchivedTasks;
+        });
+
+        setSelectedTask((previousTask) => {
+          if (!previousTask || previousTask.id !== updatedTask.id) {
+            return previousTask;
+          }
+          return updatedTask;
+        });
+        setTaskModalError(null);
+        if (options?.exitEditMode !== false) {
+          setIsEditMode(false);
+        }
+        setNewBlockedFollowUpEntry("");
+        return true;
+      } catch (error) {
+        console.error("[KanbanBoard.handleTaskUpdate]", error);
+        setTaskModalError("Could not save task changes.");
+        return false;
+      } finally {
+        setIsUpdatingTask(false);
       }
-      setNewBlockedFollowUpEntry("");
-      return true;
-    } catch (error) {
-      console.error("[KanbanBoard.handleTaskUpdate]", error);
-      setTaskModalError("Could not save task changes.");
-      return false;
-    } finally {
-      setIsUpdatingTask(false);
-    }
-  }, [
-    editDescription,
-    editLabels,
-    editTitle,
-    newBlockedFollowUpEntry,
-    projectId,
-    selectedTask,
-  ]);
+    },
+    [
+      editDescription,
+      editLabels,
+      editTitle,
+      newBlockedFollowUpEntry,
+      projectId,
+      selectedTask,
+    ]
+  );
 
   const handleTaskUpdate = useCallback(async () => {
     await persistTaskChanges({ exitEditMode: true });
@@ -551,7 +573,9 @@ export function KanbanBoard({
       );
 
       if (!response.ok) {
-        throw new Error(await readApiError(response, "Could not add link attachment."));
+        throw new Error(
+          await readApiError(response, "Could not add link attachment.")
+        );
       }
 
       const payload = (await response.json()) as { attachment: TaskAttachment };
@@ -564,81 +588,92 @@ export function KanbanBoard({
     } catch (error) {
       console.error("[KanbanBoard.handleAddLinkAttachment]", error);
       setAttachmentError(
-        error instanceof Error ? error.message : "Could not add link attachment."
+        error instanceof Error
+          ? error.message
+          : "Could not add link attachment."
       );
     } finally {
       setIsSubmittingAttachment(false);
     }
   }, [applyTaskMutation, linkUrl, projectId, selectedTask]);
 
-  const handleAddFileAttachment = useCallback(async (selectedFile: File | null) => {
-    if (!selectedTask || !selectedFile) {
-      return;
-    }
-
-    if (selectedFile.size > maxAttachmentFileSizeBytes) {
-      setAttachmentError(attachmentFileSizeErrorMessage);
-      setFileInputKey((previous) => previous + 1);
-      return;
-    }
-
-    setIsSubmittingAttachment(true);
-    setAttachmentError(null);
-
-    try {
-      let attachment: TaskAttachment;
-
-      if (storageProvider === "r2") {
-        attachment = await uploadFileAttachmentDirect<TaskAttachment>({
-          file: selectedFile,
-          uploadTargetUrl: `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments/upload-url`,
-          finalizeUrl: `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments/direct`,
-          cleanupUrl: `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments/direct/cleanup`,
-          fallbackErrorMessage: "Could not upload file attachment.",
-        });
-      } else {
-        const formData = new FormData();
-        formData.append("kind", ATTACHMENT_KIND_FILE);
-        formData.append("name", "");
-        formData.append("file", selectedFile);
-
-        const response = await fetch(
-          `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments`,
-          {
-            method: "POST",
-            body: formData,
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(await readApiError(response, "Could not upload file attachment."));
-        }
-
-        const payload = (await response.json()) as { attachment: TaskAttachment };
-        attachment = payload.attachment;
+  const handleAddFileAttachment = useCallback(
+    async (selectedFile: File | null) => {
+      if (!selectedTask || !selectedFile) {
+        return;
       }
 
-      applyTaskMutation(selectedTask.id, (task) => ({
-        ...task,
-        attachments: [attachment, ...task.attachments],
-      }));
-      setFileInputKey((previous) => previous + 1);
-    } catch (error) {
-      console.error("[KanbanBoard.handleAddFileAttachment]", error);
-      setAttachmentError(
-        error instanceof Error ? error.message : "Could not upload file attachment."
-      );
-    } finally {
-      setIsSubmittingAttachment(false);
-    }
-  }, [
-    applyTaskMutation,
-    attachmentFileSizeErrorMessage,
-    maxAttachmentFileSizeBytes,
-    projectId,
-    selectedTask,
-    storageProvider,
-  ]);
+      if (selectedFile.size > maxAttachmentFileSizeBytes) {
+        setAttachmentError(attachmentFileSizeErrorMessage);
+        setFileInputKey((previous) => previous + 1);
+        return;
+      }
+
+      setIsSubmittingAttachment(true);
+      setAttachmentError(null);
+
+      try {
+        let attachment: TaskAttachment;
+
+        if (storageProvider === "r2") {
+          attachment = await uploadFileAttachmentDirect<TaskAttachment>({
+            file: selectedFile,
+            uploadTargetUrl: `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments/upload-url`,
+            finalizeUrl: `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments/direct`,
+            cleanupUrl: `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments/direct/cleanup`,
+            fallbackErrorMessage: "Could not upload file attachment.",
+          });
+        } else {
+          const formData = new FormData();
+          formData.append("kind", ATTACHMENT_KIND_FILE);
+          formData.append("name", "");
+          formData.append("file", selectedFile);
+
+          const response = await fetch(
+            `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments`,
+            {
+              method: "POST",
+              body: formData,
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(
+              await readApiError(response, "Could not upload file attachment.")
+            );
+          }
+
+          const payload = (await response.json()) as {
+            attachment: TaskAttachment;
+          };
+          attachment = payload.attachment;
+        }
+
+        applyTaskMutation(selectedTask.id, (task) => ({
+          ...task,
+          attachments: [attachment, ...task.attachments],
+        }));
+        setFileInputKey((previous) => previous + 1);
+      } catch (error) {
+        console.error("[KanbanBoard.handleAddFileAttachment]", error);
+        setAttachmentError(
+          error instanceof Error
+            ? error.message
+            : "Could not upload file attachment."
+        );
+      } finally {
+        setIsSubmittingAttachment(false);
+      }
+    },
+    [
+      applyTaskMutation,
+      attachmentFileSizeErrorMessage,
+      maxAttachmentFileSizeBytes,
+      projectId,
+      selectedTask,
+      storageProvider,
+    ]
+  );
 
   const handleDeleteAttachment = useCallback(
     async (attachmentId: string) => {
@@ -658,7 +693,9 @@ export function KanbanBoard({
         );
 
         if (!response.ok) {
-          throw new Error(await readApiError(response, "Could not delete attachment."));
+          throw new Error(
+            await readApiError(response, "Could not delete attachment.")
+          );
         }
 
         applyTaskMutation(selectedTask.id, (task) => ({
@@ -670,7 +707,9 @@ export function KanbanBoard({
       } catch (error) {
         console.error("[KanbanBoard.handleDeleteAttachment]", error);
         setAttachmentError(
-          error instanceof Error ? error.message : "Could not delete attachment."
+          error instanceof Error
+            ? error.message
+            : "Could not delete attachment."
         );
       } finally {
         setIsSubmittingAttachment(false);
@@ -681,8 +720,10 @@ export function KanbanBoard({
 
   const totalTaskCount = useMemo(
     () =>
-      TASK_STATUSES.reduce((count, status) => count + columns[status].length, 0) +
-      archivedDoneTasks.length,
+      TASK_STATUSES.reduce(
+        (count, status) => count + columns[status].length,
+        0
+      ) + archivedDoneTasks.length,
     [archivedDoneTasks.length, columns]
   );
 
@@ -754,7 +795,9 @@ export function KanbanBoard({
                             className="w-full rounded-md border border-border/60 bg-card px-2 py-2 text-left transition hover:bg-muted/40"
                             onClick={() => setSelectedTask(task)}
                           >
-                            <p className="text-xs font-medium text-foreground">{task.title}</p>
+                            <p className="text-xs font-medium text-foreground">
+                              {task.title}
+                            </p>
                             {task.description ? (
                               <p className="mt-1 text-xs text-muted-foreground">
                                 {getDescriptionPreview(task.description, 90)}
@@ -783,7 +826,11 @@ export function KanbanBoard({
                         ) : null}
 
                         {columns[status].map((task, index) => (
-                          <Draggable key={task.id} draggableId={task.id} index={index}>
+                          <Draggable
+                            key={task.id}
+                            draggableId={task.id}
+                            index={index}
+                          >
                             {(draggableProvided, draggableSnapshot) => (
                               <article
                                 ref={draggableProvided.innerRef}
@@ -835,7 +882,10 @@ export function KanbanBoard({
                                       <span
                                         key={label}
                                         className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium text-slate-900"
-                                        style={{ backgroundColor: getTaskLabelColor(label) }}
+                                        style={{
+                                          backgroundColor:
+                                            getTaskLabelColor(label),
+                                        }}
                                       >
                                         {label}
                                       </span>
@@ -857,457 +907,521 @@ export function KanbanBoard({
         </DragDropContext>
       ) : null}
 
-      {selectedTask ? (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 sm:items-center"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closeTaskModal();
-            }
-          }}
-        >
-          <Card
-            className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <CardHeader className="flex flex-row items-start justify-between space-y-0">
-              <div className="space-y-2">
-                <Badge variant="outline">{selectedTask.status}</Badge>
-                {!isEditMode ? (
-                  <CardTitle className="text-xl">{selectedTask.title}</CardTitle>
-                ) : (
-                  <input
-                    aria-label="Task title"
-                    value={editTitle}
-                    onChange={(event) => setEditTitle(event.target.value)}
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  />
-                )}
-              </div>
-              <div className="flex items-center gap-1">
-                {!isEditMode ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setIsEditMode(true)}
-                    aria-label="Edit task"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={closeTaskModal}
-                  aria-label="Close task"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {!isEditMode ? (
-                <>
-                  {selectedTask.labels.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {selectedTask.labels.map((label) => (
-                        <span
-                          key={label}
-                          className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium text-slate-900"
-                          style={{ backgroundColor: getTaskLabelColor(label) }}
-                        >
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                  {selectedTask.status === "Blocked" ? (
-                    <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200">
-                      <div className="mb-1 flex items-center gap-2 font-medium">
-                        <TriangleAlert className="h-4 w-4" />
-                        Blocked follow-up
-                      </div>
-                      {selectedTask.blockedFollowUps.length === 0 ? (
-                        <p className="whitespace-pre-wrap break-words">
-                          No follow-up added yet.
-                        </p>
-                      ) : (
-                        <div className="space-y-1.5">
-                          {selectedTask.blockedFollowUps.map((entry) => (
-                            <article
-                              key={entry.id}
-                              className="grid grid-cols-[90px_1fr] items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1.5"
-                            >
-                              <p className="text-[11px] font-medium opacity-90">
-                                {formatFollowUpTimestamp(entry.createdAt)}
-                              </p>
-                              <p className="whitespace-pre-wrap break-words text-[13px]">
-                                {entry.content}
-                              </p>
-                            </article>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
-                  <div className="max-h-[52vh] overflow-y-auto text-sm text-muted-foreground [overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:break-words [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_p]:mb-2">
-                    <div
-                      dangerouslySetInnerHTML={{
-                        __html:
-                          selectedTask.description ??
-                          "<p>No description provided.</p>",
-                      }}
-                    />
-                  </div>
-                  <div className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
-                    <p className="text-sm font-medium">Attachments</p>
-                    {selectedTask.attachments.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No attachments yet.</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {selectedTask.attachments.map((attachment) => {
-                          const href = resolveAttachmentHref(attachment);
-                          const canPreview = isAttachmentPreviewable(
-                            attachment.kind,
-                            attachment.mimeType
-                          ) && Boolean(attachment.downloadUrl);
-
-                          return (
-                            <div
-                              key={attachment.id}
-                              className="flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5"
-                            >
-                              <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
-                              <div className="min-w-0 flex-1">
-                                {canPreview ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setPreviewAttachment(attachment)}
-                                    className="truncate text-left text-xs font-medium text-foreground underline underline-offset-2"
-                                  >
-                                    {attachment.name}
-                                  </button>
-                                ) : href ? (
-                                  <a
-                                    href={href}
-                                    target={
-                                      attachment.kind === ATTACHMENT_KIND_LINK
-                                        ? "_blank"
-                                        : undefined
-                                    }
-                                    rel={
-                                      attachment.kind === ATTACHMENT_KIND_LINK
-                                        ? "noreferrer"
-                                        : undefined
-                                    }
-                                    className="truncate text-xs font-medium text-foreground underline underline-offset-2"
-                                  >
-                                    {attachment.name}
-                                  </a>
-                                ) : (
-                                  <p className="truncate text-xs font-medium text-foreground">
-                                    {attachment.name}
-                                  </p>
-                                )}
-                                {attachment.kind === ATTACHMENT_KIND_FILE ? (
-                                  <p className="text-[11px] text-muted-foreground">
-                                    {formatAttachmentFileSize(attachment.sizeBytes)}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="grid gap-2">
-                    <label htmlFor="task-edit-label-input" className="text-sm font-medium">
-                      Labels
-                    </label>
-                    <div className="rounded-md border border-input bg-background p-2">
-                      <div className="flex flex-wrap gap-2">
-                        {editLabels.map((label) => (
-                          <span
-                            key={label}
-                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-slate-900"
-                            style={{ backgroundColor: getTaskLabelColor(label) }}
-                          >
-                            {label}
-                            <button
-                              type="button"
-                              className="rounded-sm p-0.5 hover:bg-slate-900/10"
-                              onClick={() => removeEditLabel(label)}
-                              aria-label={`Remove label ${label}`}
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </span>
-                        ))}
-                        <input
-                          id="task-edit-label-input"
-                          value={editLabelInput}
-                          onChange={(event) => setEditLabelInput(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === ",") {
-                              event.preventDefault();
-                              addEditLabel(editLabelInput);
-                            }
-                          }}
-                          maxLength={60}
-                          className="h-8 min-w-[160px] flex-1 bg-transparent px-1 text-sm outline-none"
-                          placeholder={
-                            editLabels.length >= MAX_TASK_LABELS
-                              ? "Label limit reached"
-                              : "Type label and press Enter"
-                          }
-                          disabled={editLabels.length >= MAX_TASK_LABELS}
-                        />
-                      </div>
-                    </div>
-                    {editLabelSuggestions.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {editLabelSuggestions.map((suggestion) => (
-                          <button
-                            key={suggestion}
-                            type="button"
-                            onClick={() => addEditLabel(suggestion)}
-                            className="rounded-full border border-border/70 bg-background px-2 py-1 text-xs text-foreground hover:bg-muted"
-                          >
-                            {suggestion}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium">Description</label>
-                    <RichTextEditor
-                      id={`task-description-editor-${selectedTask.id}`}
-                      value={editDescription}
-                      onChange={setEditDescription}
-                      placeholder="Task details..."
-                    />
-                  </div>
-
-                  {selectedTask.status === "Blocked" ? (
-                    <div className="grid gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">
-                      {selectedTask.blockedFollowUps.length === 0 ? (
-                        <p className="text-xs text-amber-700/80 dark:text-amber-200/90">
-                          No follow-up entries yet.
-                        </p>
-                      ) : (
-                        <div className="space-y-1.5">
-                          {selectedTask.blockedFollowUps.map((entry) => (
-                            <article
-                              key={entry.id}
-                              className="grid grid-cols-[90px_1fr] items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1.5"
-                            >
-                              <p className="text-[11px] font-medium text-amber-800/90 dark:text-amber-100/90">
-                                {formatFollowUpTimestamp(entry.createdAt)}
-                              </p>
-                              <p className="whitespace-pre-wrap break-words text-[13px] text-amber-900 dark:text-amber-100">
-                                {entry.content}
-                              </p>
-                            </article>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-2">
-                        <input
-                          value={newBlockedFollowUpEntry}
-                          onChange={(event) => setNewBlockedFollowUpEntry(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                              event.preventDefault();
-                              void handleAddBlockedFollowUpEntry();
-                            }
-                          }}
-                          maxLength={1200}
-                          placeholder="Add follow-up and press Enter"
-                          className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-                          disabled={isUpdatingTask}
-                        />
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => void handleAddBlockedFollowUpEntry()}
-                          disabled={isUpdatingTask || !newBlockedFollowUpEntry.trim()}
-                        >
-                          Add
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
-
+      {isClient && selectedTask
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[90] flex items-start justify-center overflow-y-auto bg-black/70 p-4 sm:items-center"
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget) {
+                  closeTaskModal();
+                }
+              }}
+            >
+              <Card
+                className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto"
+                onMouseDown={(event) => event.stopPropagation()}
+              >
+                <CardHeader className="flex flex-row items-start justify-between space-y-0">
                   <div className="space-y-2">
-                    {selectedTask.attachments.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No attachments yet.</p>
+                    <Badge variant="outline">{selectedTask.status}</Badge>
+                    {!isEditMode ? (
+                      <CardTitle className="text-xl">
+                        {selectedTask.title}
+                      </CardTitle>
                     ) : (
-                      <div className="space-y-2">
-                        {selectedTask.attachments.map((attachment) => {
-                          const href = resolveAttachmentHref(attachment);
-                          const canPreview = isAttachmentPreviewable(
-                            attachment.kind,
-                            attachment.mimeType
-                          ) && Boolean(attachment.downloadUrl);
-
-                          return (
-                            <div
-                              key={attachment.id}
-                              className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5"
-                            >
-                              <div className="min-w-0">
-                                {canPreview ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setPreviewAttachment(attachment)}
-                                    className="truncate text-left text-xs font-medium text-foreground underline underline-offset-2"
-                                  >
-                                    {attachment.name}
-                                  </button>
-                                ) : href ? (
-                                  <a
-                                    href={href}
-                                    target={
-                                      attachment.kind === ATTACHMENT_KIND_LINK
-                                        ? "_blank"
-                                        : undefined
-                                    }
-                                    rel={
-                                      attachment.kind === ATTACHMENT_KIND_LINK
-                                        ? "noreferrer"
-                                        : undefined
-                                    }
-                                    className="truncate text-xs font-medium text-foreground underline underline-offset-2"
-                                  >
-                                    {attachment.name}
-                                  </a>
-                                ) : (
-                                  <p className="truncate text-xs font-medium text-foreground">
-                                    {attachment.name}
-                                  </p>
-                                )}
-                                {attachment.kind === ATTACHMENT_KIND_FILE ? (
-                                  <p className="text-[11px] text-muted-foreground">
-                                    {formatAttachmentFileSize(attachment.sizeBytes)}
-                                  </p>
-                                ) : null}
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => void handleDeleteAttachment(attachment.id)}
-                                  disabled={isSubmittingAttachment}
-                                  aria-label="Delete attachment"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                      <input
+                        aria-label="Task title"
+                        value={editTitle}
+                        onChange={(event) => setEditTitle(event.target.value)}
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      />
                     )}
-
-                    <div className="flex items-center gap-2">
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {!isEditMode ? (
                       <Button
                         type="button"
-                        variant={isLinkComposerOpen ? "secondary" : "ghost"}
+                        variant="ghost"
                         size="icon"
-                        onClick={() => setIsLinkComposerOpen((previous) => !previous)}
-                        disabled={isSubmittingAttachment}
-                        aria-label="Add attachment link"
+                        onClick={() => setIsEditMode(true)}
+                        aria-label="Edit task"
                       >
-                        <Link2 className="h-4 w-4" />
+                        <Pencil className="h-4 w-4" />
                       </Button>
-                      <input
-                        key={fileInputKey}
-                        id="task-edit-attachment-file"
-                        type="file"
-                        onChange={(event) =>
-                          void handleAddFileAttachment(event.target.files?.[0] ?? null)
-                        }
-                        className="hidden"
-                      />
-                      <Button type="button" variant="ghost" size="icon" asChild disabled={isSubmittingAttachment}>
-                        <label
-                          htmlFor="task-edit-attachment-file"
-                          aria-label="Upload attachment file"
-                          className="cursor-pointer"
-                        >
-                          <Upload className="h-4 w-4" />
-                        </label>
-                      </Button>
-                    </div>
-
-                    {isLinkComposerOpen ? (
-                      <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background p-2">
-                        <input
-                          value={linkUrl}
-                          onChange={(event) => setLinkUrl(event.target.value)}
-                          placeholder="https://..."
-                          className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-xs"
-                        />
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="secondary"
-                          onClick={() => void handleAddLinkAttachment()}
-                          disabled={isSubmittingAttachment || !linkUrl.trim()}
-                          aria-label="Confirm attachment link"
-                        >
-                          <Link2 className="h-4 w-4" />
-                        </Button>
-                      </div>
                     ) : null}
-
-                    {attachmentError ? (
-                      <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                        {attachmentError}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {taskModalError ? (
-                    <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                      {taskModalError}
-                    </div>
-                  ) : null}
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      onClick={() => void handleTaskUpdate()}
-                      disabled={isUpdatingTask}
-                    >
-                      {isUpdatingTask ? "Saving..." : "Save changes"}
-                    </Button>
                     <Button
                       type="button"
                       variant="ghost"
-                      onClick={() => setIsEditMode(false)}
-                      disabled={isUpdatingTask}
+                      size="icon"
+                      onClick={closeTaskModal}
+                      aria-label="Close task"
                     >
-                      Cancel
+                      <X className="h-4 w-4" />
                     </Button>
                   </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!isEditMode ? (
+                    <>
+                      {selectedTask.labels.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {selectedTask.labels.map((label) => (
+                            <span
+                              key={label}
+                              className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium text-slate-900"
+                              style={{
+                                backgroundColor: getTaskLabelColor(label),
+                              }}
+                            >
+                              {label}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      {selectedTask.status === "Blocked" ? (
+                        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200">
+                          <div className="mb-1 flex items-center gap-2 font-medium">
+                            <TriangleAlert className="h-4 w-4" />
+                            Blocked follow-up
+                          </div>
+                          {selectedTask.blockedFollowUps.length === 0 ? (
+                            <p className="whitespace-pre-wrap break-words">
+                              No follow-up added yet.
+                            </p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {selectedTask.blockedFollowUps.map((entry) => (
+                                <article
+                                  key={entry.id}
+                                  className="grid grid-cols-[90px_1fr] items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1.5"
+                                >
+                                  <p className="text-[11px] font-medium opacity-90">
+                                    {formatFollowUpTimestamp(entry.createdAt)}
+                                  </p>
+                                  <p className="whitespace-pre-wrap break-words text-[13px]">
+                                    {entry.content}
+                                  </p>
+                                </article>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+                      <div className="max-h-[52vh] overflow-y-auto text-sm text-muted-foreground [overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:break-words [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_p]:mb-2">
+                        <div
+                          dangerouslySetInnerHTML={{
+                            __html:
+                              selectedTask.description ??
+                              "<p>No description provided.</p>",
+                          }}
+                        />
+                      </div>
+                      <div className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
+                        <p className="text-sm font-medium">Attachments</p>
+                        {selectedTask.attachments.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            No attachments yet.
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {selectedTask.attachments.map((attachment) => {
+                              const href = resolveAttachmentHref(attachment);
+                              const canPreview =
+                                isAttachmentPreviewable(
+                                  attachment.kind,
+                                  attachment.mimeType
+                                ) && Boolean(attachment.downloadUrl);
+
+                              return (
+                                <div
+                                  key={attachment.id}
+                                  className="flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5"
+                                >
+                                  <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <div className="min-w-0 flex-1">
+                                    {canPreview ? (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setPreviewAttachment(attachment)
+                                        }
+                                        className="truncate text-left text-xs font-medium text-foreground underline underline-offset-2"
+                                      >
+                                        {attachment.name}
+                                      </button>
+                                    ) : href ? (
+                                      <a
+                                        href={href}
+                                        target={
+                                          attachment.kind ===
+                                          ATTACHMENT_KIND_LINK
+                                            ? "_blank"
+                                            : undefined
+                                        }
+                                        rel={
+                                          attachment.kind ===
+                                          ATTACHMENT_KIND_LINK
+                                            ? "noreferrer"
+                                            : undefined
+                                        }
+                                        className="truncate text-xs font-medium text-foreground underline underline-offset-2"
+                                      >
+                                        {attachment.name}
+                                      </a>
+                                    ) : (
+                                      <p className="truncate text-xs font-medium text-foreground">
+                                        {attachment.name}
+                                      </p>
+                                    )}
+                                    {attachment.kind ===
+                                    ATTACHMENT_KIND_FILE ? (
+                                      <p className="text-[11px] text-muted-foreground">
+                                        {formatAttachmentFileSize(
+                                          attachment.sizeBytes
+                                        )}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="grid gap-2">
+                        <label
+                          htmlFor="task-edit-label-input"
+                          className="text-sm font-medium"
+                        >
+                          Labels
+                        </label>
+                        <div className="rounded-md border border-input bg-background p-2">
+                          <div className="flex flex-wrap gap-2">
+                            {editLabels.map((label) => (
+                              <span
+                                key={label}
+                                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-slate-900"
+                                style={{
+                                  backgroundColor: getTaskLabelColor(label),
+                                }}
+                              >
+                                {label}
+                                <button
+                                  type="button"
+                                  className="rounded-sm p-0.5 hover:bg-slate-900/10"
+                                  onClick={() => removeEditLabel(label)}
+                                  aria-label={`Remove label ${label}`}
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </span>
+                            ))}
+                            <input
+                              id="task-edit-label-input"
+                              value={editLabelInput}
+                              onChange={(event) =>
+                                setEditLabelInput(event.target.value)
+                              }
+                              onKeyDown={(event) => {
+                                if (
+                                  event.key === "Enter" ||
+                                  event.key === ","
+                                ) {
+                                  event.preventDefault();
+                                  addEditLabel(editLabelInput);
+                                }
+                              }}
+                              maxLength={60}
+                              className="h-8 min-w-[160px] flex-1 bg-transparent px-1 text-sm outline-none"
+                              placeholder={
+                                editLabels.length >= MAX_TASK_LABELS
+                                  ? "Label limit reached"
+                                  : "Type label and press Enter"
+                              }
+                              disabled={editLabels.length >= MAX_TASK_LABELS}
+                            />
+                          </div>
+                        </div>
+                        {editLabelSuggestions.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {editLabelSuggestions.map((suggestion) => (
+                              <button
+                                key={suggestion}
+                                type="button"
+                                onClick={() => addEditLabel(suggestion)}
+                                className="rounded-full border border-border/70 bg-background px-2 py-1 text-xs text-foreground hover:bg-muted"
+                              >
+                                {suggestion}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium">
+                          Description
+                        </label>
+                        <RichTextEditor
+                          id={`task-description-editor-${selectedTask.id}`}
+                          value={editDescription}
+                          onChange={setEditDescription}
+                          placeholder="Task details..."
+                        />
+                      </div>
+
+                      {selectedTask.status === "Blocked" ? (
+                        <div className="grid gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+                          {selectedTask.blockedFollowUps.length === 0 ? (
+                            <p className="text-xs text-amber-700/80 dark:text-amber-200/90">
+                              No follow-up entries yet.
+                            </p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {selectedTask.blockedFollowUps.map((entry) => (
+                                <article
+                                  key={entry.id}
+                                  className="grid grid-cols-[90px_1fr] items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1.5"
+                                >
+                                  <p className="text-[11px] font-medium text-amber-800/90 dark:text-amber-100/90">
+                                    {formatFollowUpTimestamp(entry.createdAt)}
+                                  </p>
+                                  <p className="whitespace-pre-wrap break-words text-[13px] text-amber-900 dark:text-amber-100">
+                                    {entry.content}
+                                  </p>
+                                </article>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2">
+                            <input
+                              value={newBlockedFollowUpEntry}
+                              onChange={(event) =>
+                                setNewBlockedFollowUpEntry(event.target.value)
+                              }
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  void handleAddBlockedFollowUpEntry();
+                                }
+                              }}
+                              maxLength={1200}
+                              placeholder="Add follow-up and press Enter"
+                              className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                              disabled={isUpdatingTask}
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              onClick={() =>
+                                void handleAddBlockedFollowUpEntry()
+                              }
+                              disabled={
+                                isUpdatingTask ||
+                                !newBlockedFollowUpEntry.trim()
+                              }
+                            >
+                              Add
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="space-y-2">
+                        {selectedTask.attachments.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            No attachments yet.
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {selectedTask.attachments.map((attachment) => {
+                              const href = resolveAttachmentHref(attachment);
+                              const canPreview =
+                                isAttachmentPreviewable(
+                                  attachment.kind,
+                                  attachment.mimeType
+                                ) && Boolean(attachment.downloadUrl);
+
+                              return (
+                                <div
+                                  key={attachment.id}
+                                  className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5"
+                                >
+                                  <div className="min-w-0">
+                                    {canPreview ? (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setPreviewAttachment(attachment)
+                                        }
+                                        className="truncate text-left text-xs font-medium text-foreground underline underline-offset-2"
+                                      >
+                                        {attachment.name}
+                                      </button>
+                                    ) : href ? (
+                                      <a
+                                        href={href}
+                                        target={
+                                          attachment.kind ===
+                                          ATTACHMENT_KIND_LINK
+                                            ? "_blank"
+                                            : undefined
+                                        }
+                                        rel={
+                                          attachment.kind ===
+                                          ATTACHMENT_KIND_LINK
+                                            ? "noreferrer"
+                                            : undefined
+                                        }
+                                        className="truncate text-xs font-medium text-foreground underline underline-offset-2"
+                                      >
+                                        {attachment.name}
+                                      </a>
+                                    ) : (
+                                      <p className="truncate text-xs font-medium text-foreground">
+                                        {attachment.name}
+                                      </p>
+                                    )}
+                                    {attachment.kind ===
+                                    ATTACHMENT_KIND_FILE ? (
+                                      <p className="text-[11px] text-muted-foreground">
+                                        {formatAttachmentFileSize(
+                                          attachment.sizeBytes
+                                        )}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() =>
+                                        void handleDeleteAttachment(
+                                          attachment.id
+                                        )
+                                      }
+                                      disabled={isSubmittingAttachment}
+                                      aria-label="Delete attachment"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant={isLinkComposerOpen ? "secondary" : "ghost"}
+                            size="icon"
+                            onClick={() =>
+                              setIsLinkComposerOpen((previous) => !previous)
+                            }
+                            disabled={isSubmittingAttachment}
+                            aria-label="Add attachment link"
+                          >
+                            <Link2 className="h-4 w-4" />
+                          </Button>
+                          <input
+                            key={fileInputKey}
+                            id="task-edit-attachment-file"
+                            type="file"
+                            onChange={(event) =>
+                              void handleAddFileAttachment(
+                                event.target.files?.[0] ?? null
+                              )
+                            }
+                            className="hidden"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            asChild
+                            disabled={isSubmittingAttachment}
+                          >
+                            <label
+                              htmlFor="task-edit-attachment-file"
+                              aria-label="Upload attachment file"
+                              className="cursor-pointer"
+                            >
+                              <Upload className="h-4 w-4" />
+                            </label>
+                          </Button>
+                        </div>
+
+                        {isLinkComposerOpen ? (
+                          <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background p-2">
+                            <input
+                              value={linkUrl}
+                              onChange={(event) =>
+                                setLinkUrl(event.target.value)
+                              }
+                              placeholder="https://..."
+                              className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-xs"
+                            />
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="secondary"
+                              onClick={() => void handleAddLinkAttachment()}
+                              disabled={
+                                isSubmittingAttachment || !linkUrl.trim()
+                              }
+                              aria-label="Confirm attachment link"
+                            >
+                              <Link2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : null}
+
+                        {attachmentError ? (
+                          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                            {attachmentError}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {taskModalError ? (
+                        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                          {taskModalError}
+                        </div>
+                      ) : null}
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          onClick={() => void handleTaskUpdate()}
+                          disabled={isUpdatingTask}
+                        >
+                          {isUpdatingTask ? "Saving..." : "Save changes"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => setIsEditMode(false)}
+                          disabled={isUpdatingTask}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>,
+            document.body
+          )
+        : null}
       <AttachmentPreviewModal
         attachment={previewAttachment}
         onClose={() => setPreviewAttachment(null)}

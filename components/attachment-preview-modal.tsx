@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { ExternalLink, X } from "lucide-react";
 import Image from "next/image";
 
@@ -27,6 +29,12 @@ export function AttachmentPreviewModal({
   attachment,
   onClose,
 }: AttachmentPreviewModalProps) {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   if (!attachment) {
     return null;
   }
@@ -38,9 +46,13 @@ export function AttachmentPreviewModal({
     previewKind !== null &&
     previewUrl !== null;
 
-  return (
+  if (!isClient) {
+    return null;
+  }
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4"
+      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -52,7 +64,9 @@ export function AttachmentPreviewModal({
         onMouseDown={(event) => event.stopPropagation()}
       >
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-          <CardTitle className="truncate text-base">{attachment.name}</CardTitle>
+          <CardTitle className="truncate text-base">
+            {attachment.name}
+          </CardTitle>
           <div className="flex items-center gap-1">
             {previewUrl ? (
               <Button variant="ghost" size="sm" asChild>
@@ -101,6 +115,7 @@ export function AttachmentPreviewModal({
           ) : null}
         </CardContent>
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 }
