@@ -4,7 +4,7 @@
 TASK-071
 
 ## Status
-In Progress (2026-02-19)
+In Review (2026-02-19, PR #31)
 
 ## Summary
 Make task creation and attachment upload feel instant/smooth by removing blocking waits from the create flow and running R2 file transfers in background while preserving reliability and clear error feedback.
@@ -32,7 +32,7 @@ Make task creation and attachment upload feel instant/smooth by removing blockin
 No blocking input expected for implementation.
 
 ## Next Step
-Implement non-blocking create-task + background R2 upload orchestration, then validate local and deployed behavior.
+Resolve PR #31 review/merge, then run deployed smoke validation. For preview deploy workflow, set `DIRECT_URL` in Vercel Preview environment to unblock manual `deploy-preview` builds.
 
 ---
 
