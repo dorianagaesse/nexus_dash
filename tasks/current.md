@@ -4,7 +4,7 @@
 TASK-070
 
 ## Status
-In Progress (2026-02-19)
+In Review (2026-02-19, PR #29)
 
 ## Summary
 Implement serverless-safe direct upload for file attachments (task/context-card edit flows) so large files no longer go through Next.js API request bodies, and fix modal overlay rendering so the top white-bar artifact does not appear when opening existing tasks.
@@ -35,7 +35,7 @@ Implement serverless-safe direct upload for file attachments (task/context-card 
 No blocking input expected for implementation; if Cloudflare R2 CORS policy blocks browser PUT, user action may be required to update bucket CORS rules.
 
 ## Next Step
-Implement signed-upload target + finalize API routes in service layer, switch R2 client upload path in Kanban/Context edit modals, then run full validation and open PR.
+Merge PR #29, run a production smoke validation on Vercel (`task` + `context-card` direct uploads including >4MB file), then close TASK-070 in backlog if validation passes.
 
 ---
 
