@@ -10,6 +10,7 @@ import { ProjectContextPanel } from "@/components/project-context-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getContextCardColorFromSeed } from "@/lib/context-card-colors";
+import { getStorageRuntimeConfig } from "@/lib/env.server";
 import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
 import { getProjectDashboardById } from "@/lib/services/project-service";
 import {
@@ -153,6 +154,7 @@ export default async function ProjectDashboardPage({
   });
 
   const calendarId = getGoogleCalendarId();
+  const storageProvider = getStorageRuntimeConfig().provider;
   const status = readQueryValue(searchParams?.status);
   const error = readQueryValue(searchParams?.error);
 
@@ -194,11 +196,13 @@ export default async function ProjectDashboardPage({
 
       <ProjectContextPanel
         projectId={project.id}
+        storageProvider={storageProvider}
         cards={contextCards}
       />
 
       <KanbanBoard
         projectId={project.id}
+        storageProvider={storageProvider}
         initialTasks={kanbanTasks}
         archivedDoneTasks={archivedDoneTasks}
         headerAction={

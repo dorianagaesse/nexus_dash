@@ -2,18 +2,26 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const attachmentServiceMock = vi.hoisted(() => ({
   createContextAttachmentFromForm: vi.fn(),
+  createContextAttachmentUploadTarget: vi.fn(),
+  finalizeContextAttachmentDirectUpload: vi.fn(),
   deleteContextAttachmentForProject: vi.fn(),
   getContextAttachmentDownload: vi.fn(),
 }));
 
 vi.mock("@/lib/services/project-attachment-service", () => ({
   createContextAttachmentFromForm: attachmentServiceMock.createContextAttachmentFromForm,
+  createContextAttachmentUploadTarget:
+    attachmentServiceMock.createContextAttachmentUploadTarget,
+  finalizeContextAttachmentDirectUpload:
+    attachmentServiceMock.finalizeContextAttachmentDirectUpload,
   deleteContextAttachmentForProject:
     attachmentServiceMock.deleteContextAttachmentForProject,
   getContextAttachmentDownload: attachmentServiceMock.getContextAttachmentDownload,
 }));
 
 import { POST as postAttachment } from "@/app/api/projects/[projectId]/context-cards/[cardId]/attachments/route";
+import { POST as postAttachmentUploadUrl } from "@/app/api/projects/[projectId]/context-cards/[cardId]/attachments/upload-url/route";
+import { POST as postAttachmentDirectFinalize } from "@/app/api/projects/[projectId]/context-cards/[cardId]/attachments/direct/route";
 import { DELETE as deleteAttachment } from "@/app/api/projects/[projectId]/context-cards/[cardId]/attachments/[attachmentId]/route";
 import { GET as downloadAttachment } from "@/app/api/projects/[projectId]/context-cards/[cardId]/attachments/[attachmentId]/download/route";
 
@@ -140,6 +148,93 @@ describe("context card attachment routes", () => {
     expect(response.status).toBe(404);
     await expect(readJson(response)).resolves.toEqual({
       error: "Context card not found",
+    });
+  });
+
+  test("POST upload-url creates context signed target through service", async () => {
+    attachmentServiceMock.createContextAttachmentUploadTarget.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        upload: {
+          storageKey: "context-card/c1/key-spec.pdf",
+          uploadUrl: "https://example.r2/upload",
+          method: "PUT",
+          headers: { "Content-Type": "application/pdf" },
+          expiresInSeconds: 300,
+          maxFileSizeBytes: 26214400,
+          maxFileSizeLabel: "25MB",
+        },
+      },
+    });
+
+    const request = new Request(
+      "http://localhost/api/projects/p1/context-cards/c1/attachments/upload-url",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "spec.pdf",
+          mimeType: "application/pdf",
+          sizeBytes: 123,
+        }),
+      }
+    );
+
+    const response = await postAttachmentUploadUrl(request as never, {
+      params: { projectId: "p1", cardId: "c1" },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({
+      upload: {
+        storageKey: "context-card/c1/key-spec.pdf",
+        uploadUrl: "https://example.r2/upload",
+        method: "PUT",
+        headers: { "Content-Type": "application/pdf" },
+        expiresInSeconds: 300,
+        maxFileSizeBytes: 26214400,
+        maxFileSizeLabel: "25MB",
+      },
+    });
+    expect(
+      attachmentServiceMock.createContextAttachmentUploadTarget
+    ).toHaveBeenCalledWith({
+      projectId: "p1",
+      cardId: "c1",
+      name: "spec.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 123,
+    });
+  });
+
+  test("POST direct finalize maps context service errors", async () => {
+    attachmentServiceMock.finalizeContextAttachmentDirectUpload.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      error: "Uploaded file not found",
+    });
+
+    const request = new Request(
+      "http://localhost/api/projects/p1/context-cards/c1/attachments/direct",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          storageKey: "context-card/c1/missing.pdf",
+          name: "missing.pdf",
+          mimeType: "application/pdf",
+          sizeBytes: 123,
+        }),
+      }
+    );
+
+    const response = await postAttachmentDirectFinalize(request as never, {
+      params: { projectId: "p1", cardId: "c1" },
+    });
+
+    expect(response.status).toBe(404);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "Uploaded file not found",
     });
   });
 

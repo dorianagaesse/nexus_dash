@@ -1,7 +1,9 @@
 import {
+  createAttachmentSignedUploadUrl,
   deleteAttachmentFile,
   getAttachmentDownloadUrl,
   readAttachmentFile,
+  readAttachmentStoredFileMetadata,
   saveAttachmentFile,
 } from "@/lib/attachment-storage";
 import { prisma } from "@/lib/prisma";
@@ -9,6 +11,8 @@ import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
 import {
   ATTACHMENT_KIND_FILE,
   ATTACHMENT_KIND_LINK,
+  DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES,
+  DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL,
   isAllowedAttachmentMimeType,
   isAttachmentKind,
   MAX_ATTACHMENT_FILE_SIZE_LABEL,
@@ -51,6 +55,22 @@ export interface AttachmentDownloadPayload {
   redirectUrl?: string;
 }
 
+export interface AttachmentDirectUploadTargetPayload {
+  storageKey: string;
+  uploadUrl: string;
+  method: "PUT";
+  headers: Record<string, string>;
+  expiresInSeconds: number;
+  maxFileSizeBytes: number;
+  maxFileSizeLabel: string;
+}
+
+interface DirectUploadInput {
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
 function readText(formData: FormData, key: string): string {
   const value = formData.get(key);
   if (typeof value !== "string") {
@@ -61,6 +81,56 @@ function readText(formData: FormData, key: string): string {
 
 function createError(status: number, error: string): ServiceErrorResult {
   return { ok: false, status, error };
+}
+
+function isPositiveFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+function normalizeDirectUploadInput(
+  input: DirectUploadInput
+): ServiceResult<{
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+}> {
+  const normalizedName = input.name.trim() || "file";
+  const normalizedMimeType = input.mimeType.trim();
+
+  if (!isPositiveFiniteNumber(input.sizeBytes)) {
+    return createError(400, "File is empty");
+  }
+
+  if (input.sizeBytes > DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES) {
+    return createError(
+      400,
+      `File exceeds ${DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL} limit`
+    );
+  }
+
+  if (!isAllowedAttachmentMimeType(normalizedMimeType)) {
+    return createError(
+      400,
+      "Unsupported file type. Use PDF, image, text, CSV, or JSON."
+    );
+  }
+
+  return {
+    ok: true,
+    data: {
+      name: normalizedName,
+      mimeType: normalizedMimeType,
+      sizeBytes: input.sizeBytes,
+    },
+  };
+}
+
+function hasExpectedStoragePrefix(
+  storageKey: string,
+  scope: "task" | "context-card",
+  ownerId: string
+): boolean {
+  return storageKey.startsWith(`${scope}/${ownerId}/`);
 }
 
 function getAttachmentUploadErrorMessage(error: unknown): string {
@@ -465,6 +535,330 @@ export async function createContextAttachmentFromForm(input: {
 
     logServerError("createContextAttachmentFromForm.file", error);
     return createError(500, getAttachmentUploadErrorMessage(error));
+  }
+}
+
+export async function createTaskAttachmentUploadTarget(input: {
+  projectId: string;
+  taskId: string;
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+}): Promise<ServiceResult<{ upload: AttachmentDirectUploadTargetPayload }>> {
+  const task = await prisma.task.findUnique({
+    where: { id: input.taskId },
+    select: { id: true, projectId: true },
+  });
+
+  if (!task || task.projectId !== input.projectId) {
+    return createError(404, "Task not found");
+  }
+
+  const normalizedUpload = normalizeDirectUploadInput({
+    name: input.name,
+    mimeType: input.mimeType,
+    sizeBytes: input.sizeBytes,
+  });
+
+  if (!normalizedUpload.ok) {
+    return normalizedUpload;
+  }
+
+  try {
+    const signedUpload = await createAttachmentSignedUploadUrl({
+      scope: "task",
+      ownerId: input.taskId,
+      originalName: normalizedUpload.data.name,
+      mimeType: normalizedUpload.data.mimeType,
+      sizeBytes: normalizedUpload.data.sizeBytes,
+    });
+
+    if (!signedUpload) {
+      return createError(
+        400,
+        "Direct upload is not available for the current storage provider."
+      );
+    }
+
+    return {
+      ok: true,
+      data: {
+        upload: {
+          ...signedUpload,
+          maxFileSizeBytes: DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES,
+          maxFileSizeLabel: DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL,
+        },
+      },
+    };
+  } catch (error) {
+    logServerError("createTaskAttachmentUploadTarget", error);
+    return createError(500, getAttachmentUploadErrorMessage(error));
+  }
+}
+
+export async function finalizeTaskAttachmentDirectUpload(input: {
+  projectId: string;
+  taskId: string;
+  storageKey: string;
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+}): Promise<ServiceResult<AttachmentResponsePayload>> {
+  const task = await prisma.task.findUnique({
+    where: { id: input.taskId },
+    select: { id: true, projectId: true },
+  });
+
+  if (!task || task.projectId !== input.projectId) {
+    return createError(404, "Task not found");
+  }
+
+  const normalizedStorageKey = input.storageKey.trim();
+  if (!hasExpectedStoragePrefix(normalizedStorageKey, "task", input.taskId)) {
+    return createError(400, "Invalid storage key");
+  }
+
+  const normalizedUpload = normalizeDirectUploadInput({
+    name: input.name,
+    mimeType: input.mimeType,
+    sizeBytes: input.sizeBytes,
+  });
+
+  if (!normalizedUpload.ok) {
+    return normalizedUpload;
+  }
+
+  try {
+    const metadata = await readAttachmentStoredFileMetadata(normalizedStorageKey);
+    if (!metadata) {
+      return createError(404, "Uploaded file not found");
+    }
+
+    const resolvedSizeBytes = metadata.sizeBytes ?? normalizedUpload.data.sizeBytes;
+    const resolvedMimeType = metadata.mimeType ?? normalizedUpload.data.mimeType;
+
+    if (resolvedSizeBytes <= 0) {
+      await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
+        logServerError("finalizeTaskAttachmentDirectUpload.cleanup", cleanupError);
+      });
+      return createError(400, "File is empty");
+    }
+
+    if (resolvedSizeBytes > DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES) {
+      await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
+        logServerError("finalizeTaskAttachmentDirectUpload.cleanup", cleanupError);
+      });
+      return createError(
+        400,
+        `File exceeds ${DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL} limit`
+      );
+    }
+
+    if (!isAllowedAttachmentMimeType(resolvedMimeType)) {
+      await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
+        logServerError("finalizeTaskAttachmentDirectUpload.cleanup", cleanupError);
+      });
+      return createError(
+        400,
+        "Unsupported file type. Use PDF, image, text, CSV, or JSON."
+      );
+    }
+
+    const attachment = await prisma.taskAttachment.create({
+      data: {
+        taskId: input.taskId,
+        kind: ATTACHMENT_KIND_FILE,
+        name: normalizedUpload.data.name,
+        storageKey: normalizedStorageKey,
+        mimeType: resolvedMimeType,
+        sizeBytes: resolvedSizeBytes,
+      },
+      select: {
+        id: true,
+        kind: true,
+        name: true,
+        url: true,
+        mimeType: true,
+        sizeBytes: true,
+      },
+    });
+
+    return {
+      ok: true,
+      data: withTaskDownloadUrl(input.projectId, input.taskId, attachment),
+    };
+  } catch (error) {
+    await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
+      logServerError("finalizeTaskAttachmentDirectUpload.cleanup", cleanupError);
+    });
+    logServerError("finalizeTaskAttachmentDirectUpload", error);
+    return createError(500, "Failed to upload attachment");
+  }
+}
+
+export async function createContextAttachmentUploadTarget(input: {
+  projectId: string;
+  cardId: string;
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+}): Promise<ServiceResult<{ upload: AttachmentDirectUploadTargetPayload }>> {
+  const card = await prisma.resource.findUnique({
+    where: { id: input.cardId },
+    select: { id: true, projectId: true, type: true },
+  });
+
+  if (
+    !card ||
+    card.projectId !== input.projectId ||
+    card.type !== RESOURCE_TYPE_CONTEXT_CARD
+  ) {
+    return createError(404, "Context card not found");
+  }
+
+  const normalizedUpload = normalizeDirectUploadInput({
+    name: input.name,
+    mimeType: input.mimeType,
+    sizeBytes: input.sizeBytes,
+  });
+
+  if (!normalizedUpload.ok) {
+    return normalizedUpload;
+  }
+
+  try {
+    const signedUpload = await createAttachmentSignedUploadUrl({
+      scope: "context-card",
+      ownerId: input.cardId,
+      originalName: normalizedUpload.data.name,
+      mimeType: normalizedUpload.data.mimeType,
+      sizeBytes: normalizedUpload.data.sizeBytes,
+    });
+
+    if (!signedUpload) {
+      return createError(
+        400,
+        "Direct upload is not available for the current storage provider."
+      );
+    }
+
+    return {
+      ok: true,
+      data: {
+        upload: {
+          ...signedUpload,
+          maxFileSizeBytes: DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES,
+          maxFileSizeLabel: DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL,
+        },
+      },
+    };
+  } catch (error) {
+    logServerError("createContextAttachmentUploadTarget", error);
+    return createError(500, getAttachmentUploadErrorMessage(error));
+  }
+}
+
+export async function finalizeContextAttachmentDirectUpload(input: {
+  projectId: string;
+  cardId: string;
+  storageKey: string;
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+}): Promise<ServiceResult<AttachmentResponsePayload>> {
+  const card = await prisma.resource.findUnique({
+    where: { id: input.cardId },
+    select: { id: true, projectId: true, type: true },
+  });
+
+  if (
+    !card ||
+    card.projectId !== input.projectId ||
+    card.type !== RESOURCE_TYPE_CONTEXT_CARD
+  ) {
+    return createError(404, "Context card not found");
+  }
+
+  const normalizedStorageKey = input.storageKey.trim();
+  if (!hasExpectedStoragePrefix(normalizedStorageKey, "context-card", input.cardId)) {
+    return createError(400, "Invalid storage key");
+  }
+
+  const normalizedUpload = normalizeDirectUploadInput({
+    name: input.name,
+    mimeType: input.mimeType,
+    sizeBytes: input.sizeBytes,
+  });
+
+  if (!normalizedUpload.ok) {
+    return normalizedUpload;
+  }
+
+  try {
+    const metadata = await readAttachmentStoredFileMetadata(normalizedStorageKey);
+    if (!metadata) {
+      return createError(404, "Uploaded file not found");
+    }
+
+    const resolvedSizeBytes = metadata.sizeBytes ?? normalizedUpload.data.sizeBytes;
+    const resolvedMimeType = metadata.mimeType ?? normalizedUpload.data.mimeType;
+
+    if (resolvedSizeBytes <= 0) {
+      await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
+        logServerError("finalizeContextAttachmentDirectUpload.cleanup", cleanupError);
+      });
+      return createError(400, "File is empty");
+    }
+
+    if (resolvedSizeBytes > DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES) {
+      await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
+        logServerError("finalizeContextAttachmentDirectUpload.cleanup", cleanupError);
+      });
+      return createError(
+        400,
+        `File exceeds ${DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL} limit`
+      );
+    }
+
+    if (!isAllowedAttachmentMimeType(resolvedMimeType)) {
+      await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
+        logServerError("finalizeContextAttachmentDirectUpload.cleanup", cleanupError);
+      });
+      return createError(
+        400,
+        "Unsupported file type. Use PDF, image, text, CSV, or JSON."
+      );
+    }
+
+    const attachment = await prisma.resourceAttachment.create({
+      data: {
+        resourceId: input.cardId,
+        kind: ATTACHMENT_KIND_FILE,
+        name: normalizedUpload.data.name,
+        storageKey: normalizedStorageKey,
+        mimeType: resolvedMimeType,
+        sizeBytes: resolvedSizeBytes,
+      },
+      select: {
+        id: true,
+        kind: true,
+        name: true,
+        url: true,
+        mimeType: true,
+        sizeBytes: true,
+      },
+    });
+
+    return {
+      ok: true,
+      data: withContextDownloadUrl(input.projectId, input.cardId, attachment),
+    };
+  } catch (error) {
+    await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
+      logServerError("finalizeContextAttachmentDirectUpload.cleanup", cleanupError);
+    });
+    logServerError("finalizeContextAttachmentDirectUpload", error);
+    return createError(500, "Failed to upload attachment");
   }
 }
 
