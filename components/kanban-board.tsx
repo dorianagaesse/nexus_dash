@@ -169,6 +169,7 @@ export function KanbanBoard({
       ? DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL
       : MAX_ATTACHMENT_FILE_SIZE_LABEL;
   const attachmentFileSizeErrorMessage = `Attachment files must be ${maxAttachmentFileSizeLabel} or smaller.`;
+  const hasPendingAttachmentUploads = pendingAttachmentUploads.length > 0;
 
   useEffect(() => {
     setColumns(initialColumns);
@@ -1332,7 +1333,10 @@ export function KanbanBoard({
                                           attachment.id
                                         )
                                       }
-                                      disabled={isSubmittingAttachment}
+                                      disabled={
+                                        isSubmittingAttachment ||
+                                        hasPendingAttachmentUploads
+                                      }
                                       aria-label="Delete attachment"
                                     >
                                       <Trash2 className="h-4 w-4" />
@@ -1373,7 +1377,10 @@ export function KanbanBoard({
                             onClick={() =>
                               setIsLinkComposerOpen((previous) => !previous)
                             }
-                            disabled={isSubmittingAttachment}
+                            disabled={
+                              isSubmittingAttachment ||
+                              hasPendingAttachmentUploads
+                            }
                             aria-label="Add attachment link"
                           >
                             <Link2 className="h-4 w-4" />
@@ -1421,7 +1428,9 @@ export function KanbanBoard({
                               variant="secondary"
                               onClick={() => void handleAddLinkAttachment()}
                               disabled={
-                                isSubmittingAttachment || !linkUrl.trim()
+                                isSubmittingAttachment ||
+                                hasPendingAttachmentUploads ||
+                                !linkUrl.trim()
                               }
                               aria-label="Confirm attachment link"
                             >

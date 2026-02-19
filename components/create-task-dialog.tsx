@@ -141,11 +141,10 @@ export function CreateTaskDialog({
         failed: 0,
       });
 
-      let completed = 0;
-      let failed = 0;
-
-      await Promise.all(
+      const uploadFailures = await Promise.all(
         files.map(async (file) => {
+          let uploadFailed = false;
+
           try {
             await uploadFileAttachmentDirect({
               file,
@@ -155,24 +154,32 @@ export function CreateTaskDialog({
               fallbackErrorMessage: `Could not upload file attachment "${file.name}".`,
             });
           } catch (error) {
-            failed += 1;
+            uploadFailed = true;
             console.error("[CreateTaskDialog.uploadFilesInBackground]", error);
           } finally {
-            completed += 1;
-            setBackgroundUploadProgress({
-              phase: "uploading",
-              total: files.length,
-              completed,
-              failed,
+            setBackgroundUploadProgress((previous) => {
+              if (!previous) {
+                return previous;
+              }
+
+              return {
+                phase: "uploading",
+                total: previous.total,
+                completed: previous.completed + 1,
+                failed: previous.failed + (uploadFailed ? 1 : 0),
+              };
             });
           }
+
+          return uploadFailed;
         })
       );
 
+      const failed = uploadFailures.filter(Boolean).length;
       setBackgroundUploadProgress({
         phase: failed > 0 ? "failed" : "done",
         total: files.length,
-        completed,
+        completed: files.length,
         failed,
       });
 
