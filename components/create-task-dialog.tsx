@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link2, Paperclip, PlusSquare, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -18,7 +18,10 @@ import {
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_ATTACHMENT_FILE_SIZE_LABEL,
 } from "@/lib/task-attachment";
-import { uploadFileAttachmentDirect } from "@/lib/direct-upload-client";
+import {
+  uploadFilesDirectInBackground,
+  type DirectUploadBackgroundProgress,
+} from "@/lib/direct-upload-client";
 
 interface CreateTaskDialogProps {
   projectId: string;
@@ -29,13 +32,6 @@ interface CreateTaskDialogProps {
 interface PendingAttachmentLink {
   id: string;
   url: string;
-}
-
-interface BackgroundUploadProgress {
-  phase: "uploading" | "done" | "failed";
-  total: number;
-  completed: number;
-  failed: number;
 }
 
 function createLocalId(): string {
@@ -60,7 +56,7 @@ export function CreateTaskDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [backgroundUploadProgress, setBackgroundUploadProgress] =
-    useState<BackgroundUploadProgress | null>(null);
+    useState<DirectUploadBackgroundProgress | null>(null);
 
   const maxAttachmentFileSizeBytes =
     storageProvider === "r2"
@@ -128,66 +124,6 @@ export function CreateTaskDialog({
     }
   };
 
-  const uploadFilesInBackground = useCallback(
-    async (taskId: string, files: File[]) => {
-      if (files.length === 0) {
-        return;
-      }
-
-      setBackgroundUploadProgress({
-        phase: "uploading",
-        total: files.length,
-        completed: 0,
-        failed: 0,
-      });
-
-      const uploadFailures = await Promise.all(
-        files.map(async (file) => {
-          let uploadFailed = false;
-
-          try {
-            await uploadFileAttachmentDirect({
-              file,
-              uploadTargetUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/upload-url`,
-              finalizeUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/direct`,
-              cleanupUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/direct/cleanup`,
-              fallbackErrorMessage: `Could not upload file attachment "${file.name}".`,
-            });
-          } catch (error) {
-            uploadFailed = true;
-            console.error("[CreateTaskDialog.uploadFilesInBackground]", error);
-          } finally {
-            setBackgroundUploadProgress((previous) => {
-              if (!previous) {
-                return previous;
-              }
-
-              return {
-                phase: "uploading",
-                total: previous.total,
-                completed: previous.completed + 1,
-                failed: previous.failed + (uploadFailed ? 1 : 0),
-              };
-            });
-          }
-
-          return uploadFailed;
-        })
-      );
-
-      const failed = uploadFailures.filter(Boolean).length;
-      setBackgroundUploadProgress({
-        phase: failed > 0 ? "failed" : "done",
-        total: files.length,
-        completed: files.length,
-        failed,
-      });
-
-      router.refresh();
-    },
-    [projectId, router]
-  );
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isSubmitting) {
@@ -230,8 +166,26 @@ export function CreateTaskDialog({
       closeDialog();
       router.refresh();
 
-      if (storageProvider === "r2" && createdTaskId && filesForBackgroundUpload.length > 0) {
-        void uploadFilesInBackground(createdTaskId, filesForBackgroundUpload);
+      if (
+        storageProvider === "r2" &&
+        createdTaskId &&
+        filesForBackgroundUpload.length > 0
+      ) {
+        void uploadFilesDirectInBackground({
+          uploads: filesForBackgroundUpload.map((file) => ({
+            file,
+            uploadTargetUrl: `/api/projects/${projectId}/tasks/${createdTaskId}/attachments/upload-url`,
+            finalizeUrl: `/api/projects/${projectId}/tasks/${createdTaskId}/attachments/direct`,
+            cleanupUrl: `/api/projects/${projectId}/tasks/${createdTaskId}/attachments/direct/cleanup`,
+            fallbackErrorMessage: `Could not upload file attachment "${file.name}".`,
+          })),
+          onProgress: setBackgroundUploadProgress,
+          onItemError: (error) => {
+            console.error("[CreateTaskDialog.backgroundUpload]", error);
+          },
+        }).finally(() => {
+          router.refresh();
+        });
       }
     } catch (error) {
       console.error("[CreateTaskDialog.handleSubmit]", error);

@@ -17,6 +17,27 @@ interface UploadFileDirectInput<TAttachment> {
   fallbackErrorMessage: string;
 }
 
+export interface DirectUploadBackgroundProgress {
+  phase: "uploading" | "done" | "failed";
+  total: number;
+  completed: number;
+  failed: number;
+}
+
+export interface DirectUploadBackgroundItem {
+  file: File;
+  uploadTargetUrl: string;
+  finalizeUrl: string;
+  cleanupUrl?: string;
+  fallbackErrorMessage: string;
+}
+
+interface UploadFilesDirectBackgroundInput {
+  uploads: DirectUploadBackgroundItem[];
+  onProgress?: (progress: DirectUploadBackgroundProgress) => void;
+  onItemError?: (error: unknown, file: File) => void;
+}
+
 function buildCorsPreflightErrorMessage(fallbackErrorMessage: string): string {
   const origin =
     typeof window !== "undefined"
@@ -153,4 +174,58 @@ export async function uploadFileAttachmentDirect<TAttachment>({
     }
     throw error;
   }
+}
+
+export async function uploadFilesDirectInBackground({
+  uploads,
+  onProgress,
+  onItemError,
+}: UploadFilesDirectBackgroundInput): Promise<DirectUploadBackgroundProgress> {
+  const total = uploads.length;
+  let completed = 0;
+  let failed = 0;
+
+  const initialProgress: DirectUploadBackgroundProgress = {
+    phase: "uploading",
+    total,
+    completed,
+    failed,
+  };
+  onProgress?.(initialProgress);
+
+  for (const upload of uploads) {
+    let uploadFailed = false;
+
+    try {
+      await uploadFileAttachmentDirect({
+        file: upload.file,
+        uploadTargetUrl: upload.uploadTargetUrl,
+        finalizeUrl: upload.finalizeUrl,
+        cleanupUrl: upload.cleanupUrl,
+        fallbackErrorMessage: upload.fallbackErrorMessage,
+      });
+    } catch (error) {
+      uploadFailed = true;
+      failed += 1;
+      onItemError?.(error, upload.file);
+    } finally {
+      completed += 1;
+      onProgress?.({
+        phase: "uploading",
+        total,
+        completed,
+        failed,
+      });
+    }
+  }
+
+  const finalProgress: DirectUploadBackgroundProgress = {
+    phase: failed > 0 ? "failed" : "done",
+    total,
+    completed,
+    failed,
+  };
+  onProgress?.(finalProgress);
+
+  return finalProgress;
 }

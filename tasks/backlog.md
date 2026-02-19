@@ -4,11 +4,26 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-071
-  Title: Smooth upload/creation UX - non-blocking task creation and background attachment uploads
+- ID: TASK-075
+  Title: Context-card attachment parity - direct-to-R2 create flow + shared background uploader
   Status: Pending
-  Rationale: Remove perceived UI "sleep" during task creation and attachment upload by decoupling task creation from heavy file transfer, running R2 file uploads in background, and reflecting progress/failures without blocking user interaction.
-  Dependencies: TASK-070
+  Rationale: Context-card create still follows multipart-style attachment submit constraints while task create already uses direct R2 flow; align behavior and factor shared upload orchestration to avoid duplicated logic and inconsistent size/UX limits.
+  Dependencies: TASK-065, TASK-071
+- ID: TASK-072
+  Title: Mutation responsiveness pass - reduce blocking waits on create/save interactions
+  Status: Pending
+  Rationale: Users still perceive blocking delays after create/save actions; add optimistic mutation feedback and defer non-critical revalidation work to background refresh for smoother UX.
+  Dependencies: TASK-071
+- ID: TASK-073
+  Title: Projects dashboard entry performance - async project list loading and instant shell
+  Status: Pending
+  Rationale: Opening dashboard should feel immediate; render shell instantly and fetch project list asynchronously with loading skeletons and navigation prefetch.
+  Dependencies: TASK-039, TASK-042
+- ID: TASK-074
+  Title: Project page performance - panel-level async loading and progressive hydration
+  Status: Pending
+  Rationale: Opening a project currently waits on a large server payload; split heavy panel data paths and progressively stream/hydrate to reduce time-to-interactive.
+  Dependencies: TASK-073
 - ID: TASK-062
   Title: UI decomposition phase - split oversized dashboard components into focused modules
   Status: Pending
@@ -105,6 +120,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-071
+  Title: Smooth upload/creation UX - non-blocking task creation and background attachment uploads
+  Status: Done (2026-02-19)
+  Rationale: Implemented background R2 uploads for task creation, added progress/error feedback, reduced modal upload blocking, and fixed overlay sizing behavior to prevent top white-bar artifacts.
+  Dependencies: TASK-070
 - ID: TASK-070
   Title: Attachment uploads phase 2 - direct-to-R2 upload pipeline (serverless-safe)
   Status: Done (2026-02-19)

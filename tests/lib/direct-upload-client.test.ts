@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { uploadFileAttachmentDirect } from "@/lib/direct-upload-client";
+import {
+  uploadFileAttachmentDirect,
+  uploadFilesDirectInBackground,
+} from "@/lib/direct-upload-client";
 
 describe("direct-upload-client", () => {
   afterEach(() => {
@@ -63,6 +66,107 @@ describe("direct-upload-client", () => {
       expect.objectContaining({
         method: "POST",
       })
+    );
+  });
+
+  test("reports deterministic progress and failures for background direct uploads", async () => {
+    const progressSnapshots: Array<{
+      phase: "uploading" | "done" | "failed";
+      total: number;
+      completed: number;
+      failed: number;
+    }> = [];
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+
+      if (url.includes("/upload-url/success")) {
+        return new Response(
+          JSON.stringify({
+            upload: {
+              storageKey: "task/p1/success.pdf",
+              uploadUrl: "https://r2.example/success.pdf",
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/pdf",
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (url.includes("/upload-url/fail")) {
+        return new Response(
+          JSON.stringify({
+            upload: {
+              storageKey: "task/p1/fail.pdf",
+              uploadUrl: "https://r2.example/fail.pdf",
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/pdf",
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (url === "https://r2.example/success.pdf") {
+        return new Response(null, { status: 200 });
+      }
+
+      if (url === "https://r2.example/fail.pdf") {
+        return new Response(null, { status: 500 });
+      }
+
+      if (url.includes("/finalize/success")) {
+        return new Response(
+          JSON.stringify({ attachment: { id: "att-success" } }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (url.includes("/cleanup/fail")) {
+        return new Response(null, { status: 204 });
+      }
+
+      return new Response(null, { status: 404 });
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await uploadFilesDirectInBackground({
+      uploads: [
+        {
+          file: new File(["1"], "success.pdf", { type: "application/pdf" }),
+          uploadTargetUrl: "/upload-url/success",
+          finalizeUrl: "/finalize/success",
+          cleanupUrl: "/cleanup/success",
+          fallbackErrorMessage: "upload-failed-success",
+        },
+        {
+          file: new File(["2"], "fail.pdf", { type: "application/pdf" }),
+          uploadTargetUrl: "/upload-url/fail",
+          finalizeUrl: "/finalize/fail",
+          cleanupUrl: "/cleanup/fail",
+          fallbackErrorMessage: "upload-failed-fail",
+        },
+      ],
+      onProgress: (progress) => {
+        progressSnapshots.push(progress);
+      },
+    });
+
+    expect(progressSnapshots.at(-1)).toEqual({
+      phase: "failed",
+      total: 2,
+      completed: 2,
+      failed: 1,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/cleanup/fail",
+      expect.objectContaining({ method: "POST" })
     );
   });
 });

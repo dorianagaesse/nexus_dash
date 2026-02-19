@@ -1,21 +1,22 @@
-# Current Task: Smooth Upload/Creation UX (Non-Blocking)
+# Current Task: Context-Card Direct Upload Parity + Shared Upload Flow
 
 ## Task ID
-TASK-071
+TASK-075
 
 ## Status
-In Review (2026-02-19, PR #31)
+In Progress (2026-02-19)
 
 ## Summary
-Make task creation and attachment upload feel instant/smooth by removing blocking waits from the create flow and running R2 file transfers in background while preserving reliability and clear error feedback.
+Make context-card creation follow the same direct-to-R2 upload strategy as task creation, and factor shared background upload orchestration so both flows use one clean upload path.
 
 ## Acceptance Criteria
-- Task creation no longer blocks on R2 file transfer; task can be created first, then files upload in background.
-- During background upload, UI remains usable (no full-screen freeze / no modal lock-up).
-- Success/failure feedback is explicit for background uploads (including partial failure scenarios).
-- Existing create-task validation and API contracts remain stable.
-- Existing edit-mode attachment upload flow remains correct and non-regressive.
-- Confirm deployed production alias (`nexus-dash-wheat.vercel.app`) points to latest deployment.
+- Context-card create flow uses provider-aware upload behavior:
+  - `local` provider keeps existing multipart upload.
+  - `r2` provider creates card first, then uploads files in background via direct upload API endpoints.
+- Context-card create file-size validation uses provider-aware limits (`DIRECT_UPLOAD_MAX...` for R2, `MAX...` for local).
+- Shared background upload helper is used by both task-create and context-card-create flows (no duplicated orchestration logic).
+- Background upload success/failure progress is visible to users after create-card submit.
+- Existing task-create background upload behavior remains functional after refactor.
 
 ## Definition of Done
 - `npm run lint` passes.
@@ -25,14 +26,14 @@ Make task creation and attachment upload feel instant/smooth by removing blockin
 - Branch pushed and PR opened.
 - PR checks pass on GitHub.
 - Copilot review triaged/resolved (apply valid findings, challenge non-actionable findings).
-- Deployment validation monitored after merge trigger (staged/prod workflow status checked).
-- `tasks/backlog.md` and `tasks/current.md` remain aligned with TASK-071 progress.
+- `tasks/backlog.md` and `tasks/current.md` remain aligned with TASK-075 progress.
+- Manual preview smoke done: context-card create with attachment >4MB succeeds on R2 deployment URL.
 
 ## Required Input
 No blocking input expected for implementation.
 
 ## Next Step
-Resolve PR #31 review/merge, then run deployed smoke validation. For preview deploy workflow, set `DIRECT_URL` in Vercel Preview environment to unblock manual `deploy-preview` builds.
+Implement direct-upload parity + shared helper, then validate local and deployment checks.
 
 ---
 
