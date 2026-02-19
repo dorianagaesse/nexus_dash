@@ -4,6 +4,7 @@ const attachmentServiceMock = vi.hoisted(() => ({
   createTaskAttachmentFromForm: vi.fn(),
   createTaskAttachmentUploadTarget: vi.fn(),
   finalizeTaskAttachmentDirectUpload: vi.fn(),
+  cleanupTaskDirectUploadObject: vi.fn(),
   deleteTaskAttachmentForProject: vi.fn(),
   getTaskAttachmentDownload: vi.fn(),
 }));
@@ -14,6 +15,7 @@ vi.mock("@/lib/services/project-attachment-service", () => ({
     attachmentServiceMock.createTaskAttachmentUploadTarget,
   finalizeTaskAttachmentDirectUpload:
     attachmentServiceMock.finalizeTaskAttachmentDirectUpload,
+  cleanupTaskDirectUploadObject: attachmentServiceMock.cleanupTaskDirectUploadObject,
   deleteTaskAttachmentForProject: attachmentServiceMock.deleteTaskAttachmentForProject,
   getTaskAttachmentDownload: attachmentServiceMock.getTaskAttachmentDownload,
 }));
@@ -21,6 +23,7 @@ vi.mock("@/lib/services/project-attachment-service", () => ({
 import { POST as postAttachment } from "@/app/api/projects/[projectId]/tasks/[taskId]/attachments/route";
 import { POST as postAttachmentUploadUrl } from "@/app/api/projects/[projectId]/tasks/[taskId]/attachments/upload-url/route";
 import { POST as postAttachmentDirectFinalize } from "@/app/api/projects/[projectId]/tasks/[taskId]/attachments/direct/route";
+import { POST as postAttachmentDirectCleanup } from "@/app/api/projects/[projectId]/tasks/[taskId]/attachments/direct/cleanup/route";
 import { DELETE as deleteAttachment } from "@/app/api/projects/[projectId]/tasks/[taskId]/attachments/[attachmentId]/route";
 import { GET as downloadAttachment } from "@/app/api/projects/[projectId]/tasks/[taskId]/attachments/[attachmentId]/download/route";
 
@@ -241,6 +244,36 @@ describe("task attachment routes", () => {
     expect(response.status).toBe(404);
     await expect(readJson(response)).resolves.toEqual({
       error: "Uploaded file not found",
+    });
+  });
+
+  test("POST direct cleanup delegates to cleanup service", async () => {
+    attachmentServiceMock.cleanupTaskDirectUploadObject.mockResolvedValueOnce({
+      ok: true,
+      data: { ok: true },
+    });
+
+    const request = new Request(
+      "http://localhost/api/projects/p1/tasks/t1/attachments/direct/cleanup",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          storageKey: "task/t1/key-spec.pdf",
+        }),
+      }
+    );
+
+    const response = await postAttachmentDirectCleanup(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({ ok: true });
+    expect(attachmentServiceMock.cleanupTaskDirectUploadObject).toHaveBeenCalledWith({
+      projectId: "p1",
+      taskId: "t1",
+      storageKey: "task/t1/key-spec.pdf",
     });
   });
 

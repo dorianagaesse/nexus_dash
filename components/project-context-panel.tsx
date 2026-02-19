@@ -520,6 +520,7 @@ export function ProjectContextPanel({
           file: selectedFile,
           uploadTargetUrl: `/api/projects/${projectId}/context-cards/${editingCard.id}/attachments/upload-url`,
           finalizeUrl: `/api/projects/${projectId}/context-cards/${editingCard.id}/attachments/direct`,
+          cleanupUrl: `/api/projects/${projectId}/context-cards/${editingCard.id}/attachments/direct/cleanup`,
           fallbackErrorMessage: "Could not upload file attachment.",
         });
       } else {

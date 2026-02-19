@@ -593,6 +593,7 @@ export function KanbanBoard({
           file: selectedFile,
           uploadTargetUrl: `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments/upload-url`,
           finalizeUrl: `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments/direct`,
+          cleanupUrl: `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments/direct/cleanup`,
           fallbackErrorMessage: "Could not upload file attachment.",
         });
       } else {

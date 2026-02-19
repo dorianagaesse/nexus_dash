@@ -55,6 +55,7 @@ import {
   createContextAttachmentFromForm,
   createTaskAttachmentUploadTarget,
   createTaskAttachmentFromForm,
+  finalizeContextAttachmentDirectUpload,
   finalizeTaskAttachmentDirectUpload,
 } from "@/lib/services/project-attachment-service";
 
@@ -238,6 +239,51 @@ describe("project-attachment-service", () => {
       },
     });
     expect(prismaMock.taskAttachment.create).toHaveBeenCalledTimes(1);
+    expect(attachmentStorageMock.deleteAttachmentFile).not.toHaveBeenCalled();
+  });
+
+  test("finalizes context direct upload by reading metadata and persisting attachment", async () => {
+    prismaMock.resource.findUnique.mockResolvedValueOnce({
+      id: "card-1",
+      projectId: "project-1",
+      type: RESOURCE_TYPE_CONTEXT_CARD,
+    });
+    attachmentStorageMock.readAttachmentStoredFileMetadata.mockResolvedValueOnce({
+      sizeBytes: 2048,
+      mimeType: "application/pdf",
+    });
+    prismaMock.resourceAttachment.create.mockResolvedValueOnce({
+      id: "att-ctx-1",
+      kind: "file",
+      name: "spec.pdf",
+      url: null,
+      mimeType: "application/pdf",
+      sizeBytes: 2048,
+    });
+
+    const result = await finalizeContextAttachmentDirectUpload({
+      projectId: "project-1",
+      cardId: "card-1",
+      storageKey: "context-card/card-1/key-spec.pdf",
+      name: "spec.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 2048,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        id: "att-ctx-1",
+        kind: "file",
+        name: "spec.pdf",
+        url: null,
+        mimeType: "application/pdf",
+        sizeBytes: 2048,
+        downloadUrl:
+          "/api/projects/project-1/context-cards/card-1/attachments/att-ctx-1/download",
+      },
+    });
+    expect(prismaMock.resourceAttachment.create).toHaveBeenCalledTimes(1);
     expect(attachmentStorageMock.deleteAttachmentFile).not.toHaveBeenCalled();
   });
 });

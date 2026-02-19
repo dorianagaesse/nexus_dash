@@ -862,6 +862,78 @@ export async function finalizeContextAttachmentDirectUpload(input: {
   }
 }
 
+export async function cleanupTaskDirectUploadObject(input: {
+  projectId: string;
+  taskId: string;
+  storageKey: string;
+}): Promise<ServiceResult<{ ok: true }>> {
+  const task = await prisma.task.findUnique({
+    where: { id: input.taskId },
+    select: { id: true, projectId: true },
+  });
+
+  if (!task || task.projectId !== input.projectId) {
+    return createError(404, "Task not found");
+  }
+
+  const normalizedStorageKey = input.storageKey.trim();
+  if (!hasExpectedStoragePrefix(normalizedStorageKey, "task", input.taskId)) {
+    return createError(400, "Invalid storage key");
+  }
+
+  try {
+    await deleteAttachmentFile(normalizedStorageKey).catch((error) => {
+      logServerError("cleanupTaskDirectUploadObject.cleanup", error);
+    });
+
+    return {
+      ok: true,
+      data: { ok: true },
+    };
+  } catch (error) {
+    logServerError("cleanupTaskDirectUploadObject", error);
+    return createError(500, "Failed to cleanup uploaded file");
+  }
+}
+
+export async function cleanupContextDirectUploadObject(input: {
+  projectId: string;
+  cardId: string;
+  storageKey: string;
+}): Promise<ServiceResult<{ ok: true }>> {
+  const card = await prisma.resource.findUnique({
+    where: { id: input.cardId },
+    select: { id: true, projectId: true, type: true },
+  });
+
+  if (
+    !card ||
+    card.projectId !== input.projectId ||
+    card.type !== RESOURCE_TYPE_CONTEXT_CARD
+  ) {
+    return createError(404, "Context card not found");
+  }
+
+  const normalizedStorageKey = input.storageKey.trim();
+  if (!hasExpectedStoragePrefix(normalizedStorageKey, "context-card", input.cardId)) {
+    return createError(400, "Invalid storage key");
+  }
+
+  try {
+    await deleteAttachmentFile(normalizedStorageKey).catch((error) => {
+      logServerError("cleanupContextDirectUploadObject.cleanup", error);
+    });
+
+    return {
+      ok: true,
+      data: { ok: true },
+    };
+  } catch (error) {
+    logServerError("cleanupContextDirectUploadObject", error);
+    return createError(500, "Failed to cleanup uploaded file");
+  }
+}
+
 export async function deleteTaskAttachmentForProject(input: {
   projectId: string;
   taskId: string;

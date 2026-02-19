@@ -4,6 +4,7 @@ const attachmentServiceMock = vi.hoisted(() => ({
   createContextAttachmentFromForm: vi.fn(),
   createContextAttachmentUploadTarget: vi.fn(),
   finalizeContextAttachmentDirectUpload: vi.fn(),
+  cleanupContextDirectUploadObject: vi.fn(),
   deleteContextAttachmentForProject: vi.fn(),
   getContextAttachmentDownload: vi.fn(),
 }));
@@ -14,6 +15,8 @@ vi.mock("@/lib/services/project-attachment-service", () => ({
     attachmentServiceMock.createContextAttachmentUploadTarget,
   finalizeContextAttachmentDirectUpload:
     attachmentServiceMock.finalizeContextAttachmentDirectUpload,
+  cleanupContextDirectUploadObject:
+    attachmentServiceMock.cleanupContextDirectUploadObject,
   deleteContextAttachmentForProject:
     attachmentServiceMock.deleteContextAttachmentForProject,
   getContextAttachmentDownload: attachmentServiceMock.getContextAttachmentDownload,
@@ -22,6 +25,7 @@ vi.mock("@/lib/services/project-attachment-service", () => ({
 import { POST as postAttachment } from "@/app/api/projects/[projectId]/context-cards/[cardId]/attachments/route";
 import { POST as postAttachmentUploadUrl } from "@/app/api/projects/[projectId]/context-cards/[cardId]/attachments/upload-url/route";
 import { POST as postAttachmentDirectFinalize } from "@/app/api/projects/[projectId]/context-cards/[cardId]/attachments/direct/route";
+import { POST as postAttachmentDirectCleanup } from "@/app/api/projects/[projectId]/context-cards/[cardId]/attachments/direct/cleanup/route";
 import { DELETE as deleteAttachment } from "@/app/api/projects/[projectId]/context-cards/[cardId]/attachments/[attachmentId]/route";
 import { GET as downloadAttachment } from "@/app/api/projects/[projectId]/context-cards/[cardId]/attachments/[attachmentId]/download/route";
 
@@ -235,6 +239,38 @@ describe("context card attachment routes", () => {
     expect(response.status).toBe(404);
     await expect(readJson(response)).resolves.toEqual({
       error: "Uploaded file not found",
+    });
+  });
+
+  test("POST direct cleanup delegates to cleanup service", async () => {
+    attachmentServiceMock.cleanupContextDirectUploadObject.mockResolvedValueOnce({
+      ok: true,
+      data: { ok: true },
+    });
+
+    const request = new Request(
+      "http://localhost/api/projects/p1/context-cards/c1/attachments/direct/cleanup",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          storageKey: "context-card/c1/key-spec.pdf",
+        }),
+      }
+    );
+
+    const response = await postAttachmentDirectCleanup(request as never, {
+      params: { projectId: "p1", cardId: "c1" },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({ ok: true });
+    expect(
+      attachmentServiceMock.cleanupContextDirectUploadObject
+    ).toHaveBeenCalledWith({
+      projectId: "p1",
+      cardId: "c1",
+      storageKey: "context-card/c1/key-spec.pdf",
     });
   });
 
