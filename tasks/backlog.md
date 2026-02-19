@@ -4,11 +4,11 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-070
-  Title: Attachment uploads phase 2 - direct-to-R2 upload pipeline (serverless-safe)
+- ID: TASK-071
+  Title: Smooth upload/creation UX - non-blocking task creation and background attachment uploads
   Status: Pending
-  Rationale: Eliminate Vercel request-body limits (`413 FUNCTION_PAYLOAD_TOO_LARGE`) by moving file transfer off app API routes to a direct upload flow (pre-signed upload URL + finalize metadata endpoint), while preserving attachment validation, authorization, and auditability.
-  Dependencies: TASK-065, TASK-069
+  Rationale: Remove perceived UI "sleep" during task creation and attachment upload by decoupling task creation from heavy file transfer, running R2 file uploads in background, and reflecting progress/failures without blocking user interaction.
+  Dependencies: TASK-070
 - ID: TASK-062
   Title: UI decomposition phase - split oversized dashboard components into focused modules
   Status: Pending
@@ -105,6 +105,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-070
+  Title: Attachment uploads phase 2 - direct-to-R2 upload pipeline (serverless-safe)
+  Status: Done (2026-02-19)
+  Rationale: Eliminated Vercel request-body limits (`413 FUNCTION_PAYLOAD_TOO_LARGE`) by moving file transfer off app API routes to a direct upload flow (pre-signed upload URL + finalize metadata endpoint), with hardened error mapping and modal overlay rendering fixes.
+  Dependencies: TASK-065, TASK-069
 - ID: TASK-069
   Title: Cloudflare R2 storage validation - end-to-end smoke and deployment readiness
   Status: Done (2026-02-18)
