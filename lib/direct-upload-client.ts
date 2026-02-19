@@ -194,8 +194,6 @@ export async function uploadFilesDirectInBackground({
   onProgress?.(initialProgress);
 
   for (const upload of uploads) {
-    let uploadFailed = false;
-
     try {
       await uploadFileAttachmentDirect({
         file: upload.file,
@@ -205,7 +203,6 @@ export async function uploadFilesDirectInBackground({
         fallbackErrorMessage: upload.fallbackErrorMessage,
       });
     } catch (error) {
-      uploadFailed = true;
       failed += 1;
       onItemError?.(error, upload.file);
     } finally {

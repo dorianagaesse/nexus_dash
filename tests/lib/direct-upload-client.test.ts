@@ -158,12 +158,30 @@ describe("direct-upload-client", () => {
       },
     });
 
+    expect(progressSnapshots[0]).toEqual({
+      phase: "uploading",
+      total: 2,
+      completed: 0,
+      failed: 0,
+    });
+    expect(
+      progressSnapshots.some(
+        (snapshot) =>
+          snapshot.phase === "uploading" &&
+          snapshot.completed > 0 &&
+          snapshot.completed < snapshot.total
+      )
+    ).toBe(true);
     expect(progressSnapshots.at(-1)).toEqual({
       phase: "failed",
       total: 2,
       completed: 2,
       failed: 1,
     });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/finalize/success",
+      expect.objectContaining({ method: "POST" })
+    );
     expect(fetchMock).toHaveBeenCalledWith(
       "/cleanup/fail",
       expect.objectContaining({ method: "POST" })
