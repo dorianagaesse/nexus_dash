@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
 
+import { AttachmentStorageUnavailableError } from "@/lib/storage/errors";
 import type {
   GetSignedDownloadUrlInput,
   SaveStorageFileInput,
@@ -38,6 +39,11 @@ async function ensureDirectory(absolutePath: string): Promise<void> {
   await fs.mkdir(path.dirname(absolutePath), { recursive: true });
 }
 
+function isFilesystemPermissionError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | null | undefined)?.code;
+  return code === "EROFS" || code === "EACCES" || code === "EPERM";
+}
+
 export class LocalStorageProvider implements StorageProvider {
   async saveFile(input: SaveStorageFileInput): Promise<SaveStorageFileResult> {
     const originalName = input.file.name || "file";
@@ -46,11 +52,31 @@ export class LocalStorageProvider implements StorageProvider {
     const storageKey = `${input.scope}/${input.ownerId}/${uniquePrefix}-${safeName}`;
     const absolutePath = resolveAbsolutePath(storageKey);
 
-    await ensureDirectory(absolutePath);
+    let buffer = Buffer.alloc(0);
+    try {
+      await ensureDirectory(absolutePath);
 
-    const arrayBuffer = await input.file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    await fs.writeFile(absolutePath, buffer);
+      const arrayBuffer = await input.file.arrayBuffer();
+      buffer = Buffer.from(arrayBuffer);
+      await fs.writeFile(absolutePath, buffer);
+    } catch (error) {
+      if (isFilesystemPermissionError(error)) {
+        const originalError = error as NodeJS.ErrnoException;
+        throw new AttachmentStorageUnavailableError(
+          "Local attachment storage is unavailable in this runtime. Configure STORAGE_PROVIDER=r2 with R2 credentials.",
+          {
+            cause: originalError,
+            filesystemCode: originalError.code,
+            filesystemPath:
+              typeof originalError.path === "string"
+                ? originalError.path
+                : undefined,
+          }
+        );
+      }
+
+      throw error;
+    }
 
     return {
       storageKey,

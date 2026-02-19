@@ -11,10 +11,12 @@ import {
   ATTACHMENT_KIND_LINK,
   isAllowedAttachmentMimeType,
   isAttachmentKind,
+  MAX_ATTACHMENT_FILE_SIZE_LABEL,
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   normalizeAttachmentUrl,
 } from "@/lib/task-attachment";
 import { logServerError } from "@/lib/observability/logger";
+import { isAttachmentStorageUnavailableError } from "@/lib/storage/errors";
 
 import type { ParsedAttachmentLink } from "@/lib/services/attachment-input-service";
 
@@ -59,6 +61,14 @@ function readText(formData: FormData, key: string): string {
 
 function createError(status: number, error: string): ServiceErrorResult {
   return { ok: false, status, error };
+}
+
+function getAttachmentUploadErrorMessage(error: unknown): string {
+  if (isAttachmentStorageUnavailableError(error)) {
+    return "Attachment storage is not configured for this environment. Configure STORAGE_PROVIDER=r2 and R2 credentials, then redeploy.";
+  }
+
+  return "Failed to upload attachment";
 }
 
 function withTaskDownloadUrl(
@@ -274,7 +284,7 @@ export async function createTaskAttachmentFromForm(input: {
   }
 
   if (fileEntry.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
-    return createError(400, "File exceeds 10MB limit");
+    return createError(400, `File exceeds ${MAX_ATTACHMENT_FILE_SIZE_LABEL} limit`);
   }
 
   if (!isAllowedAttachmentMimeType(fileEntry.type)) {
@@ -326,7 +336,7 @@ export async function createTaskAttachmentFromForm(input: {
     }
 
     logServerError("createTaskAttachmentFromForm.file", error);
-    return createError(500, "Failed to upload attachment");
+    return createError(500, getAttachmentUploadErrorMessage(error));
   }
 }
 
@@ -402,7 +412,7 @@ export async function createContextAttachmentFromForm(input: {
   }
 
   if (fileEntry.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
-    return createError(400, "File exceeds 10MB limit");
+    return createError(400, `File exceeds ${MAX_ATTACHMENT_FILE_SIZE_LABEL} limit`);
   }
 
   if (!isAllowedAttachmentMimeType(fileEntry.type)) {
@@ -454,7 +464,7 @@ export async function createContextAttachmentFromForm(input: {
     }
 
     logServerError("createContextAttachmentFromForm.file", error);
-    return createError(500, "Failed to upload attachment");
+    return createError(500, getAttachmentUploadErrorMessage(error));
   }
 }
 

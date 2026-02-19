@@ -12,7 +12,10 @@ import { Button } from "@/components/ui/button";
 import { getContextCardColorFromSeed } from "@/lib/context-card-colors";
 import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
 import { getProjectDashboardById } from "@/lib/services/project-service";
-import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
+import {
+  ATTACHMENT_KIND_FILE,
+  MAX_ATTACHMENT_FILE_SIZE_LABEL,
+} from "@/lib/task-attachment";
 import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import { isTaskStatus } from "@/lib/task-status";
 import { getGoogleCalendarId } from "@/lib/google-calendar";
@@ -33,7 +36,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   "create-failed": "Could not create task. Please retry.",
   "attachment-link-invalid":
     "One or more attachment links are invalid. Use http:// or https:// URLs.",
-  "attachment-file-too-large": "Attachment files must be 10MB or smaller.",
+  "attachment-file-too-large": `Attachment files must be ${MAX_ATTACHMENT_FILE_SIZE_LABEL} or smaller.`,
   "attachment-file-type-invalid":
     "Unsupported attachment file type. Use PDF, image, text, CSV, or JSON.",
   "context-card-missing": "Context card identifier is missing.",
@@ -184,7 +187,7 @@ export default async function ProjectDashboardPage({
       ) : null}
 
       {error && ERROR_MESSAGES[error] ? (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive-foreground">
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {ERROR_MESSAGES[error]}
         </div>
       ) : null}

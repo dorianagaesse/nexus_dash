@@ -43,7 +43,7 @@ export function ThemeToggle() {
       type="button"
       variant="outline"
       size="sm"
-      className="fixed right-4 top-4 z-[60]"
+      className="fixed right-4 top-4 z-40"
       onClick={handleToggle}
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
     >

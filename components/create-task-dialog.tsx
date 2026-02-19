@@ -12,6 +12,10 @@ import {
   getTaskLabelColor,
   normalizeTaskLabel,
 } from "@/lib/task-label";
+import {
+  MAX_ATTACHMENT_FILE_SIZE_BYTES,
+  MAX_ATTACHMENT_FILE_SIZE_LABEL,
+} from "@/lib/task-attachment";
 
 interface CreateTaskDialogProps {
   projectId: string;
@@ -22,6 +26,8 @@ interface PendingAttachmentLink {
   id: string;
   url: string;
 }
+
+const ATTACHMENT_FILE_SIZE_ERROR_MESSAGE = `Attachment files must be ${MAX_ATTACHMENT_FILE_SIZE_LABEL} or smaller.`;
 
 function createLocalId(): string {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -75,7 +81,7 @@ export function CreateTaskDialog({
       case "attachment-link-invalid":
         return "One or more attachment links are invalid. Use http:// or https:// URLs.";
       case "attachment-file-too-large":
-        return "Attachment files must be 10MB or smaller.";
+        return ATTACHMENT_FILE_SIZE_ERROR_MESSAGE;
       case "attachment-file-type-invalid":
         return "Unsupported attachment file type. Use PDF, image, text, CSV, or JSON.";
       case "create-failed":
@@ -88,6 +94,11 @@ export function CreateTaskDialog({
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isSubmitting) {
+      return;
+    }
+
+    if (selectedFiles.some((file) => file.size > MAX_ATTACHMENT_FILE_SIZE_BYTES)) {
+      setSubmitError(ATTACHMENT_FILE_SIZE_ERROR_MESSAGE);
       return;
     }
 
@@ -323,9 +334,22 @@ export function CreateTaskDialog({
                       type="file"
                       name="attachmentFiles"
                       multiple
-                      onChange={(event) =>
-                        setSelectedFiles(Array.from(event.target.files ?? []))
-                      }
+                      onChange={(event) => {
+                        const nextFiles = Array.from(event.target.files ?? []);
+                        const hasOversizedFile = nextFiles.some(
+                          (file) => file.size > MAX_ATTACHMENT_FILE_SIZE_BYTES
+                        );
+
+                        if (hasOversizedFile) {
+                          setSelectedFiles([]);
+                          setSubmitError(ATTACHMENT_FILE_SIZE_ERROR_MESSAGE);
+                          setFileInputKey((previous) => previous + 1);
+                          return;
+                        }
+
+                        setSelectedFiles(nextFiles);
+                        setSubmitError(null);
+                      }}
                       className="hidden"
                     />
                     <Button type="button" variant="ghost" size="icon" asChild>
@@ -429,7 +453,7 @@ export function CreateTaskDialog({
                   </Button>
                 </div>
                 {submitError ? (
-                  <p className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
+                  <p className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                     {submitError}
                   </p>
                 ) : null}

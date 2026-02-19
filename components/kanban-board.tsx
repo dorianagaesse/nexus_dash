@@ -49,6 +49,8 @@ import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expan
 import {
   ATTACHMENT_KIND_FILE,
   ATTACHMENT_KIND_LINK,
+  MAX_ATTACHMENT_FILE_SIZE_BYTES,
+  MAX_ATTACHMENT_FILE_SIZE_LABEL,
   formatAttachmentFileSize,
   isAttachmentPreviewable,
 } from "@/lib/task-attachment";
@@ -97,6 +99,8 @@ interface KanbanBoardProps {
   archivedDoneTasks?: KanbanTask[];
   headerAction?: ReactNode;
 }
+
+const ATTACHMENT_FILE_SIZE_ERROR_MESSAGE = `Attachment files must be ${MAX_ATTACHMENT_FILE_SIZE_LABEL} or smaller.`;
 
 export function KanbanBoard({
   projectId,
@@ -560,6 +564,12 @@ export function KanbanBoard({
       return;
     }
 
+    if (selectedFile.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
+      setAttachmentError(ATTACHMENT_FILE_SIZE_ERROR_MESSAGE);
+      setFileInputKey((previous) => previous + 1);
+      return;
+    }
+
     setIsSubmittingAttachment(true);
     setAttachmentError(null);
 
@@ -681,7 +691,7 @@ export function KanbanBoard({
       </div>
 
       {isExpanded && persistError ? (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {persistError}
         </div>
       ) : null}
@@ -1230,14 +1240,14 @@ export function KanbanBoard({
                     ) : null}
 
                     {attachmentError ? (
-                      <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
+                      <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                         {attachmentError}
                       </div>
                     ) : null}
                   </div>
 
                   {taskModalError ? (
-                    <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+                    <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                       {taskModalError}
                     </div>
                   ) : null}

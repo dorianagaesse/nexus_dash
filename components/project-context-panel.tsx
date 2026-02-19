@@ -26,6 +26,8 @@ import {
 import {
   ATTACHMENT_KIND_FILE,
   ATTACHMENT_KIND_LINK,
+  MAX_ATTACHMENT_FILE_SIZE_BYTES,
+  MAX_ATTACHMENT_FILE_SIZE_LABEL,
   formatAttachmentFileSize,
   isAttachmentPreviewable,
 } from "@/lib/task-attachment";
@@ -61,6 +63,8 @@ interface ProjectContextPanelProps {
   projectId: string;
   cards: ProjectContextCard[];
 }
+
+const ATTACHMENT_FILE_SIZE_ERROR_MESSAGE = `Attachment files must be ${MAX_ATTACHMENT_FILE_SIZE_LABEL} or smaller.`;
 
 function ColorPicker({
   selectedColor,
@@ -276,7 +280,7 @@ export function ProjectContextPanel({
       case "attachment-link-invalid":
         return "One or more attachment links are invalid. Use http:// or https:// URLs.";
       case "attachment-file-too-large":
-        return "Attachment files must be 10MB or smaller.";
+        return ATTACHMENT_FILE_SIZE_ERROR_MESSAGE;
       case "attachment-file-type-invalid":
         return "Unsupported attachment file type. Use PDF, image, text, CSV, or JSON.";
       case "context-card-missing":
@@ -305,6 +309,11 @@ export function ProjectContextPanel({
   const handleCreateCardSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isCreatingCard) {
+      return;
+    }
+
+    if (createSelectedFiles.some((file) => file.size > MAX_ATTACHMENT_FILE_SIZE_BYTES)) {
+      setCreateError(ATTACHMENT_FILE_SIZE_ERROR_MESSAGE);
       return;
     }
 
@@ -475,6 +484,12 @@ export function ProjectContextPanel({
 
   const handleAddFileAttachment = async (selectedFile: File | null) => {
     if (!editingCard || !selectedFile) {
+      return;
+    }
+
+    if (selectedFile.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
+      setAttachmentError(ATTACHMENT_FILE_SIZE_ERROR_MESSAGE);
+      setEditFileInputKey((previous) => previous + 1);
       return;
     }
 
@@ -760,9 +775,22 @@ export function ProjectContextPanel({
                   type="file"
                   name="attachmentFiles"
                   multiple
-                  onChange={(event) =>
-                    setCreateSelectedFiles(Array.from(event.target.files ?? []))
-                  }
+                  onChange={(event) => {
+                    const nextFiles = Array.from(event.target.files ?? []);
+                    const hasOversizedFile = nextFiles.some(
+                      (file) => file.size > MAX_ATTACHMENT_FILE_SIZE_BYTES
+                    );
+
+                    if (hasOversizedFile) {
+                      setCreateSelectedFiles([]);
+                      setCreateError(ATTACHMENT_FILE_SIZE_ERROR_MESSAGE);
+                      setCreateFileInputKey((previous) => previous + 1);
+                      return;
+                    }
+
+                    setCreateSelectedFiles(nextFiles);
+                    setCreateError(null);
+                  }}
                   className="hidden"
                 />
                 <Button type="button" variant="ghost" size="icon" asChild>
@@ -864,7 +892,7 @@ export function ProjectContextPanel({
               </Button>
             </div>
             {createError ? (
-              <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {createError}
               </div>
             ) : null}
@@ -1028,12 +1056,12 @@ export function ProjectContextPanel({
               ) : null}
 
               {attachmentError ? (
-                <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
+                <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   {attachmentError}
                 </div>
               ) : null}
               {editError ? (
-                <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground">
+                <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   {editError}
                 </div>
               ) : null}
