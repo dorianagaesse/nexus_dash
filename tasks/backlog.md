@@ -4,6 +4,11 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-070
+  Title: Attachment uploads phase 2 - direct-to-R2 upload pipeline (serverless-safe)
+  Status: Pending
+  Rationale: Eliminate Vercel request-body limits (`413 FUNCTION_PAYLOAD_TOO_LARGE`) by moving file transfer off app API routes to a direct upload flow (pre-signed upload URL + finalize metadata endpoint), while preserving attachment validation, authorization, and auditability.
+  Dependencies: TASK-065, TASK-069
 - ID: TASK-062
   Title: UI decomposition phase - split oversized dashboard components into focused modules
   Status: Pending
