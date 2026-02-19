@@ -70,7 +70,7 @@ export class LocalStorageProvider implements StorageProvider {
             filesystemPath:
               typeof originalError.path === "string"
                 ? originalError.path
-                : null,
+                : undefined,
           }
         );
       }
