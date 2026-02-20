@@ -1,20 +1,20 @@
-# Current Task: Mutation Responsiveness Pass (Create/Save UX)
+# Current Task: Projects Dashboard Entry Performance (Async Shell)
 
 ## Task ID
-TASK-072
+TASK-073
 
 ## Status
 In Progress (2026-02-20)
 
 ## Summary
-Reduce perceived blocking waits on create/save interactions by moving non-critical refresh/revalidation to background flow and surfacing explicit progress/error feedback while users keep interacting.
+Make `/projects` feel immediate by rendering shell content instantly and streaming project list content asynchronously with loading placeholders.
 
 ## Acceptance Criteria
-- Task create flow no longer forces modal-open wait for server completion; request runs in background with explicit status feedback.
-- Context-card create/update flows no longer block the user in modal while awaiting server response; background status is visible in panel header.
-- Task edit save exits edit mode quickly and completes persistence in background with clear success/failure feedback.
-- Existing API contracts remain unchanged and error mapping remains user-readable.
-- Non-critical `router.refresh()` calls are deferred to background scheduling after optimistic UI transition.
+- `/projects` page renders core shell immediately (title, actions, status/error banners) while project grid is loaded asynchronously.
+- Project list rendering is streamed behind a visible skeleton fallback instead of blocking full page content.
+- Existing server actions (`createProjectAction`, `updateProjectAction`, `deleteProjectAction`) remain intact and functional.
+- Navigation affordances remain responsive without forcing aggressive dynamic prefetching.
+- No behavior regression for empty project state or existing project edit/delete forms.
 
 ## Definition of Done
 - `npm run lint` passes.
@@ -24,14 +24,14 @@ Reduce perceived blocking waits on create/save interactions by moving non-critic
 - Branch pushed and PR opened.
 - PR checks pass on GitHub.
 - Copilot review triaged/resolved (apply valid findings, challenge non-actionable findings).
-- `tasks/backlog.md` and `tasks/current.md` remain aligned with TASK-072 progress.
-- Manual smoke validated in local/dev: create task, save task edits, create context-card, save context-card.
+- `tasks/backlog.md` and `tasks/current.md` remain aligned with TASK-073 progress.
+- Manual smoke validated in local/dev: landing page → projects route loads shell immediately; project cards appear asynchronously.
 
 ## Required Input
 No blocking input expected for implementation.
 
 ## Next Step
-Implement non-blocking create/save UX pass, run full validation, open PR, triage Copilot comments.
+Implement streamed project list shell, validate non-regression, open PR, triage Copilot comments.
 
 ---
 

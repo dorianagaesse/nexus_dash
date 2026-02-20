@@ -4,15 +4,10 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-072
-  Title: Mutation responsiveness pass - reduce blocking waits on create/save interactions
-  Status: In Progress
-  Rationale: Users still perceive blocking delays after create/save actions; add optimistic mutation feedback and defer non-critical revalidation work to background refresh for smoother UX.
-  Dependencies: TASK-071
 - ID: TASK-073
   Title: Projects dashboard entry performance - async project list loading and instant shell
-  Status: Pending
-  Rationale: Opening dashboard should feel immediate; render shell instantly and fetch project list asynchronously with loading skeletons and navigation prefetch.
+  Status: In Progress
+  Rationale: Opening dashboard should feel immediate; render shell instantly and fetch project list asynchronously with loading skeletons while avoiding over-eager dynamic prefetch load.
   Dependencies: TASK-039, TASK-042
 - ID: TASK-074
   Title: Project page performance - panel-level async loading and progressive hydration
@@ -115,6 +110,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-072
+  Title: Mutation responsiveness pass - reduce blocking waits on create/save interactions
+  Status: Done (2026-02-20)
+  Rationale: Shifted task/context-card create-save flows to non-blocking UX with background mutation status feedback, plus unmount-safe async guards and accessible live-region announcements.
+  Dependencies: TASK-071
 - ID: TASK-075
   Title: Context-card attachment parity - direct-to-R2 create flow + shared background uploader
   Status: Done (2026-02-20)

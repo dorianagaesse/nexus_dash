@@ -55,7 +55,9 @@ export default function Home() {
               </Link>
             </Button>
             <Button asChild variant="secondary">
-              <Link href="/projects">Open project workspace</Link>
+              <Link href="/projects">
+                Open project workspace
+              </Link>
             </Button>
           </div>
         </div>
