@@ -19,6 +19,7 @@ Define the authoritative auth/authz architecture for NexusDash before implementa
   - migration plan for existing data and Google calendar credential scoping.
 - Backlog includes a dedicated follow-up execution task for multi-user data/storage boundary transition (`TASK-076`), sequenced before route protection rollout.
 - ADR includes a concrete roadmap mapping to TASK-045/TASK-046/TASK-047/TASK-058/TASK-059/TASK-048.
+- Companion boundary ADR for TASK-076 exists at `adr/task-076-supabase-r2-google-calendar-boundaries.md` and defines Supabase/R2/Google Calendar user-scope requirements.
 - `tasks/backlog.md`, `tasks/current.md`, and `adr/decisions.md` are aligned with TASK-020 progress.
 
 ## Definition of Done

@@ -129,3 +129,6 @@ Resolution: Added `adr/task-020-modern-auth-authorization-adr.md` covering Prism
 Date: 2026-02-20
 Planning update: Multi-user boundary transition was separated as a dedicated implementation step.
 Resolution: Added TASK-076 to `tasks/backlog.md`, updated dependency graph (TASK-046/TASK-058/TASK-059), updated `tasks/current.md` next-step sequencing, and extended TASK-020 ADR with explicit Supabase/Postgres and Cloudflare R2 multi-user boundary requirements.
+Date: 2026-02-20
+Planning update: TASK-076 scope expanded to include user-scoped Google Calendar boundaries.
+Resolution: Updated TASK-076 rationale in `tasks/backlog.md`, expanded TASK-020 ADR boundary scope to include Google credential ownership migration, and added companion ADR `adr/task-076-supabase-r2-google-calendar-boundaries.md` describing Supabase/R2/Google Calendar multi-user boundary implementation work.

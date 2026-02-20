@@ -243,3 +243,9 @@ Status: Proposed
 Context: TASK-020 ADR clarified that principal-scoped authorization and storage ownership isolation are a distinct implementation concern not fully covered by schema bootstrap (TASK-045) or route protection (TASK-046) alone.
 Decision: Add TASK-076 to execution queue and sequence it after TASK-045 and before TASK-046, with explicit scope for service-layer principal filtering, Supabase credential boundary checks, and Cloudflare R2 ownership/signed-URL authorization alignment.
 Consequences: Reduces authorization drift and cross-user data leakage risk during auth rollout; increases near-term implementation scope but creates clearer and safer boundaries for TASK-046/TASK-058/TASK-059.
+Date: 2026-02-20
+Decision: Extend TASK-076 boundary scope to include user-scoped Google Calendar credentials and operations
+Status: Proposed
+Context: Existing calendar integration persists OAuth tokens in a singleton credential (`GoogleCalendarCredential.id = "default"`) and resolves calendar access globally, which conflicts with planned multi-user ownership boundaries.
+Decision: Update TASK-076 to explicitly cover Supabase/Postgres principal boundaries, Cloudflare R2 ownership isolation, and Google Calendar principal-scoped OAuth/token/service flows; record detailed implementation contract in `adr/task-076-supabase-r2-google-calendar-boundaries.md`.
+Consequences: Calendar integration aligns with user-based model and avoids cross-user token/data leakage; introduces additional schema migration and service refactor work during TASK-076.

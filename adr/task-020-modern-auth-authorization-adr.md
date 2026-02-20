@@ -16,6 +16,7 @@ Adopt a hybrid, production-grade auth architecture with clear actor boundaries:
 
 This ADR is the implementation contract for TASK-045, TASK-076, TASK-046, TASK-047, TASK-058, TASK-059, and TASK-048.
 Execution sequencing includes a dedicated multi-user boundary transition task (`TASK-076`) between schema bootstrap and route-protection rollout.
+Detailed Supabase/R2/Google Calendar boundary execution rules are captured in `adr/task-076-supabase-r2-google-calendar-boundaries.md`.
 
 ## 2) Context
 
@@ -111,6 +112,10 @@ Roadmap constraints:
   - Enforce permission checks before issuing signed URLs.
   - Standardize tenant-safe object key strategy and attachment metadata ownership (`uploadedByUserId`).
   - Add cleanup/audit mechanisms for orphaned objects and ownership drift.
+- Google Calendar boundary changes:
+  - Replace singleton `GoogleCalendarCredential` token ownership with user-scoped Google calendar credentials.
+  - Bind OAuth initiation/callback to the authenticated principal and prevent cross-user token attachment.
+  - Resolve calendar API contexts from current principal + authorization checks, not global credential lookup.
 
 ## 7) Data Model Changes (Planned)
 
@@ -176,6 +181,7 @@ Policy rules:
   - Transition service-layer DB access to principal-scoped authorization filtering.
   - Apply multi-user ownership constraints to attachment metadata and R2 signed URL issuance paths.
   - Validate Supabase credential boundaries (runtime vs migrate/admin) for least privilege.
+  - Replace global Google Calendar credential singleton with user-scoped credential flow and principal-bound OAuth callback handling.
 - TASK-046:
   - Integrate Auth.js runtime, session retrieval helpers, route/page protection.
   - Add service-layer principal requirement for protected operations.

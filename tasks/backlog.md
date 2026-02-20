@@ -15,9 +15,9 @@ Use this file to capture tasks discovered during development. Each entry should 
   Rationale: Establish durable auth persistence primitives (Auth.js/Prisma-compatible user/account/session entities, revocation support, session lifecycle) before middleware/UI implementation.
   Dependencies: TASK-020, TASK-057
 - ID: TASK-076
-  Title: Multi-user data/storage boundary transition - principal-scoped DB access and R2 ownership isolation
+  Title: Multi-user data/storage/integration boundary transition - principal-scoped DB access, R2 ownership isolation, and user-scoped Google Calendar
   Status: Pending
-  Rationale: Convert project/task/resource/attachment access from ID-scoped behavior to principal-scoped behavior by introducing ownership/membership filters in service-layer queries and user-aware R2 object/metadata boundaries (`uploadedBy`, tenant-safe keys, signed URL authorization checks) before full route protection and sharing rollout.
+  Rationale: Convert project/task/resource/attachment access from ID-scoped behavior to principal-scoped behavior by introducing ownership/membership filters in service-layer queries, user-aware R2 object/metadata boundaries (`uploadedBy`, tenant-safe keys, signed URL authorization checks), and user-scoped Google Calendar OAuth/token ownership (replace global singleton credential flow) before full route protection and sharing rollout.
   Dependencies: TASK-020, TASK-045, TASK-065, TASK-060
 - ID: TASK-046
   Title: Authentication implementation phase 2 - auth core and route protection
