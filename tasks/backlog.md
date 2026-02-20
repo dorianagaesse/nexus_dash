@@ -4,14 +4,9 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-073
-  Title: Projects dashboard entry performance - async project list loading and instant shell
-  Status: In Progress
-  Rationale: Opening dashboard should feel immediate; render shell instantly and fetch project list asynchronously with loading skeletons while avoiding over-eager dynamic prefetch load.
-  Dependencies: TASK-039, TASK-042
 - ID: TASK-074
   Title: Project page performance - panel-level async loading and progressive hydration
-  Status: Pending
+  Status: In Progress
   Rationale: Opening a project currently waits on a large server payload; split heavy panel data paths and progressively stream/hydrate to reduce time-to-interactive.
   Dependencies: TASK-073
 - ID: TASK-062
@@ -110,6 +105,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-073
+  Title: Projects dashboard entry performance - async project list loading and instant shell
+  Status: Done (2026-02-20)
+  Rationale: Split `/projects` into immediate shell + streamed grid (`Suspense` fallback), added route-level loading skeleton, and removed over-eager forced prefetch on dynamic routes after review.
+  Dependencies: TASK-039, TASK-042
 - ID: TASK-072
   Title: Mutation responsiveness pass - reduce blocking waits on create/save interactions
   Status: Done (2026-02-20)

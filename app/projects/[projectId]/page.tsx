@@ -1,25 +1,25 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
-import { KanbanBoard, type KanbanTask } from "@/components/kanban-board";
-import { CreateTaskDialog } from "@/components/create-task-dialog";
-import { ProjectCalendarPanel } from "@/components/project-calendar-panel";
-import { ProjectContextPanel } from "@/components/project-context-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getContextCardColorFromSeed } from "@/lib/context-card-colors";
 import { getStorageRuntimeConfig } from "@/lib/env.server";
-import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
-import { getProjectDashboardById } from "@/lib/services/project-service";
-import {
-  ATTACHMENT_KIND_FILE,
-  MAX_ATTACHMENT_FILE_SIZE_LABEL,
-} from "@/lib/task-attachment";
-import { getTaskLabelsFromStorage } from "@/lib/task-label";
-import { isTaskStatus } from "@/lib/task-status";
 import { getGoogleCalendarId } from "@/lib/google-calendar";
+import { getProjectSummaryById } from "@/lib/services/project-service";
+import { MAX_ATTACHMENT_FILE_SIZE_LABEL } from "@/lib/task-attachment";
+
+import { KanbanBoardSection, KanbanBoardSkeleton } from "./kanban-board-section";
+import {
+  ProjectCalendarPanelSection,
+  ProjectCalendarPanelSkeleton,
+} from "./project-calendar-panel-section";
+import {
+  ProjectContextPanelSection,
+  ProjectContextPanelSkeleton,
+} from "./project-context-panel-section";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -81,77 +81,11 @@ export default async function ProjectDashboardPage({
   params: { projectId: string };
   searchParams?: SearchParams;
 }) {
-  const project = await getProjectDashboardById(params.projectId);
+  const project = await getProjectSummaryById(params.projectId);
 
   if (!project) {
     notFound();
   }
-
-  const kanbanTasks: KanbanTask[] = [];
-  const archivedDoneTasks: KanbanTask[] = [];
-  const existingLabelSet = new Set<string>();
-  const contextCards = project.resources
-    .filter((resource) => resource.type === RESOURCE_TYPE_CONTEXT_CARD)
-    .map((resource) => ({
-      id: resource.id,
-      title: resource.name,
-      content: resource.content,
-      color: resource.color ?? getContextCardColorFromSeed(resource.id),
-      attachments: resource.attachments.map((attachment) => ({
-        id: attachment.id,
-        kind: attachment.kind,
-        name: attachment.name,
-        url: attachment.url,
-        mimeType: attachment.mimeType,
-        sizeBytes: attachment.sizeBytes,
-        downloadUrl:
-          attachment.kind === ATTACHMENT_KIND_FILE
-            ? `/api/projects/${project.id}/context-cards/${resource.id}/attachments/${attachment.id}/download`
-            : null,
-      })),
-    }));
-
-  project.tasks.forEach((task) => {
-    if (!isTaskStatus(task.status)) {
-      return;
-    }
-
-    const normalizedTask: KanbanTask = {
-      id: task.id,
-      title: task.title,
-      description: task.description,
-      labels: getTaskLabelsFromStorage(task.labelsJson, task.label),
-      blockedFollowUps: task.blockedFollowUps.map((entry) => ({
-        id: entry.id,
-        content: entry.content,
-        createdAt: entry.createdAt.toISOString(),
-      })),
-      status: task.status,
-      attachments: task.attachments.map((attachment) => ({
-        id: attachment.id,
-        kind: attachment.kind,
-        name: attachment.name,
-        url: attachment.url,
-        mimeType: attachment.mimeType,
-        sizeBytes: attachment.sizeBytes,
-        downloadUrl:
-          attachment.kind === ATTACHMENT_KIND_FILE
-            ? `/api/projects/${project.id}/tasks/${task.id}/attachments/${attachment.id}/download`
-            : null,
-      })),
-    };
-
-    normalizedTask.labels.forEach((label) => {
-      existingLabelSet.add(label);
-    });
-
-    if (task.status === "Done" && task.archivedAt) {
-      archivedDoneTasks.push(normalizedTask);
-      return;
-    }
-
-    kanbanTasks.push(normalizedTask);
-  });
 
   const calendarId = getGoogleCalendarId();
   const storageProvider = getStorageRuntimeConfig().provider;
@@ -164,7 +98,7 @@ export default async function ProjectDashboardPage({
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Badge variant="secondary">Project dashboard</Badge>
-            <Badge variant="outline">{project.tasks.length} tasks</Badge>
+            <Badge variant="outline">{project._count.tasks} tasks</Badge>
           </div>
           <h1 className="text-3xl font-semibold tracking-tight">{project.name}</h1>
           <p className="max-w-3xl text-sm text-muted-foreground">
@@ -194,27 +128,26 @@ export default async function ProjectDashboardPage({
         </div>
       ) : null}
 
-      <ProjectContextPanel
-        projectId={project.id}
-        storageProvider={storageProvider}
-        cards={contextCards}
-      />
+      <Suspense fallback={<ProjectContextPanelSkeleton />}>
+        <ProjectContextPanelSection
+          projectId={project.id}
+          storageProvider={storageProvider}
+        />
+      </Suspense>
 
-      <KanbanBoard
-        projectId={project.id}
-        storageProvider={storageProvider}
-        initialTasks={kanbanTasks}
-        archivedDoneTasks={archivedDoneTasks}
-        headerAction={
-          <CreateTaskDialog
-            projectId={project.id}
-            storageProvider={storageProvider}
-            existingLabels={Array.from(existingLabelSet)}
-          />
-        }
-      />
+      <Suspense fallback={<KanbanBoardSkeleton />}>
+        <KanbanBoardSection
+          projectId={project.id}
+          storageProvider={storageProvider}
+        />
+      </Suspense>
 
-      <ProjectCalendarPanel projectId={project.id} calendarId={calendarId} />
+      <Suspense fallback={<ProjectCalendarPanelSkeleton />}>
+        <ProjectCalendarPanelSection
+          projectId={project.id}
+          calendarId={calendarId}
+        />
+      </Suspense>
     </main>
   );
 }
