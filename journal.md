@@ -120,3 +120,6 @@ Resolution: Confirmed hybrid direction (DB-backed user sessions + JWT-style scop
 Date: 2026-02-18
 Validation update: TASK-069 Cloudflare R2 storage gate executed end to end with real R2 credentials.
 Resolution: Added gated smoke test `tests/lib/r2-smoke.test.ts` (`R2_SMOKE=1`), validated task/context-card file flows (upload, signed redirect download mode, delete), verified DB row cleanup and object read-miss post-delete, and moved `tasks/current.md` back to TASK-062.
+Date: 2026-02-20
+Execution update: TASK-062 dashboard decomposition pass delivered across Kanban/context/calendar panels.
+Resolution: Marked TASK-074 done in backlog/current tracking, decomposed oversized panel components into focused UI modules (`components/kanban/*`, `components/context-panel/*`, `components/calendar-panel/*`) plus shared panel type files, preserved existing API/mutation behavior, and validated with `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`.

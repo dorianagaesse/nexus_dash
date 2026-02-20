@@ -225,3 +225,9 @@ Status: Accepted
 Context: Product goals require strong user-session security (revocation, durable login UX, account lifecycle) and future non-human access for personal project automation agents.
 Decision: Use DB-backed sessions for interactive user authentication (Auth.js + Prisma adapter path) and reserve JWT-style scoped tokens for agent/API access in TASK-059, rather than adopting pure JWT browser sessions for all actors.
 Consequences: Better user-session control, auditability, and revocation semantics for the dashboard; keeps agent access flexible without coupling browser login security to long-lived bearer tokens.
+Date: 2026-02-20
+Decision: Complete dashboard panel decomposition with module-level UI extraction
+Status: Accepted
+Context: TASK-062 identified that `kanban-board.tsx`, `project-context-panel.tsx`, and `project-calendar-panel.tsx` were still oversized orchestration files even after earlier utility extraction, increasing change-risk before auth/security work.
+Decision: Keep existing data/mutation contracts intact while extracting rendering-heavy UI surfaces into focused modules (`components/kanban/*`, `components/context-panel/*`, `components/calendar-panel/*`) and shared panel types files, leaving parent components as state/action orchestrators.
+Consequences: Lower regression surface per change and clearer ownership boundaries for future iterations; introduces additional component interfaces/prop wiring that must remain aligned during future feature work.
