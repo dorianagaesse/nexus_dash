@@ -1,20 +1,20 @@
-# Current Task: Projects Dashboard Entry Performance (Async Shell)
+# Current Task: Project Page Performance (Panel-Level Async Loading)
 
 ## Task ID
-TASK-073
+TASK-074
 
 ## Status
 In Progress (2026-02-20)
 
 ## Summary
-Make `/projects` feel immediate by rendering shell content instantly and streaming project list content asynchronously with loading placeholders.
+Reduce `/projects/[projectId]` time-to-interactive by keeping page shell lightweight and loading heavy panels (Kanban/context) through separate async server sections with progressive fallbacks.
 
 ## Acceptance Criteria
-- `/projects` page renders core shell immediately (title, actions, status/error banners) while project grid is loaded asynchronously.
-- Project list rendering is streamed behind a visible skeleton fallback instead of blocking full page content.
-- Existing server actions (`createProjectAction`, `updateProjectAction`, `deleteProjectAction`) remain intact and functional.
-- Navigation affordances remain responsive without forcing aggressive dynamic prefetching.
-- No behavior regression for empty project state or existing project edit/delete forms.
+- `/projects/[projectId]` renders shell content (title, badges, nav, status/error banners) without waiting for full panel payload.
+- Kanban and context panel data are fetched in dedicated async server sections and rendered behind visible skeleton fallbacks.
+- Project not-found behavior remains correct (`notFound()`).
+- Existing panel behaviors remain intact (task create/edit/move, context card CRUD, attachment actions, calendar panel visibility).
+- No regression in existing API contracts and payload shapes consumed by client components.
 
 ## Definition of Done
 - `npm run lint` passes.
@@ -24,16 +24,16 @@ Make `/projects` feel immediate by rendering shell content instantly and streami
 - Branch pushed and PR opened.
 - PR checks pass on GitHub.
 - Copilot review triaged/resolved (apply valid findings, challenge non-actionable findings).
-- `tasks/backlog.md` and `tasks/current.md` remain aligned with TASK-073 progress.
-- Manual smoke validated in local/dev: landing page → projects route loads shell immediately; project cards appear asynchronously.
+- `tasks/backlog.md` and `tasks/current.md` remain aligned with TASK-074 progress.
+- Manual smoke validated in local/dev: project page shell appears first, then heavy panels resolve progressively without functional regression.
 
 ## Required Input
 No blocking input expected for implementation.
 
 ## Next Step
-Implement streamed project list shell, validate non-regression, open PR, triage Copilot comments.
+Implement panel-level async section loading for project dashboard, validate non-regression, open PR, triage Copilot comments.
 
 ---
 
-Last Updated: 2026-02-20  
+Last Updated: 2026-02-20
 Assigned To: User + Agent
