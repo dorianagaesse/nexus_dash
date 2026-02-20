@@ -1,39 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   CalendarDays,
   ChevronDown,
   ChevronUp,
   ExternalLink,
-  Pencil,
   PlusSquare,
   RefreshCcw,
-  Trash2,
-  X,
 } from "lucide-react";
 
-import { CalendarDateTimeField } from "@/components/calendar-date-time-field";
+import { CalendarEventModal } from "@/components/calendar-panel/calendar-event-modal";
+import { CalendarWeekGrid } from "@/components/calendar-panel/calendar-week-grid";
 import {
   buildDefaultTimedWindow,
-  buildTimedEventLayout,
   buildWeekDays,
-  CALENDAR_COMPACT_EVENT_HEIGHT_PX,
-  CALENDAR_DAY_END_HOUR,
-  CALENDAR_DAY_START_HOUR,
-  CALENDAR_HOUR_CELL_HEIGHT_PX,
   CALENDAR_RANGE,
-  CALENDAR_TOTAL_GRID_HEIGHT_PX,
-  formatDayHeader,
-  formatEventStartTimeLabel,
-  formatEventTimeLabel,
-  formatHourLabel,
   groupEventsByDay,
   mapEventMutationError,
   parseEventForForm,
   toDateInputValue,
-  toDateKey,
   type CalendarEventItem,
   type CalendarEventsResponse,
 } from "@/components/project-calendar-panel-utils";
@@ -407,241 +393,13 @@ export function ProjectCalendarPanel({ projectId, calendarId }: ProjectCalendarP
                   </div>
                 </div>
 
-                {weekDays.length === 0 ? (
-                  <div className="rounded-md border border-dashed border-border/60 px-4 py-6 text-sm text-muted-foreground">
-                    Could not resolve the current week window.
-                  </div>
-                ) : (
-                  <div className="space-y-3 overflow-x-auto">
-                    <div className="grid min-w-[1180px] grid-cols-[80px_repeat(7,minmax(0,1fr))] gap-2">
-                      <div className="pt-1 text-[11px] font-medium text-muted-foreground">
-                        All day
-                      </div>
-                      {weekDays.map((day) => {
-                        const dayKey = toDateKey(day);
-                        const dayBucket = eventsByDay.get(dayKey);
-                        const allDayEvents = dayBucket?.allDay ?? [];
-
-                        return (
-                          <section
-                            key={`all-day-${dayKey}`}
-                            className="rounded-md border border-border/60 bg-background px-2 py-2"
-                          >
-                            <header className="mb-2 border-b border-border/60 pb-1.5">
-                              <p className="text-xs font-medium text-foreground">
-                                {formatDayHeader(day)}
-                              </p>
-                            </header>
-                            <div className="space-y-1">
-                              {allDayEvents.length === 0 ? (
-                                <p className="text-[11px] text-muted-foreground">No all-day events</p>
-                              ) : (
-                                allDayEvents.map((event) => {
-                                  const canOpen = Boolean(event.htmlLink);
-                                  const eventTitle = `${event.summary} - ${formatEventTimeLabel(event)}`;
-
-                                  return (
-                                    <article
-                                      key={event.id}
-                                      className={cn(
-                                        "flex items-center gap-1 rounded border border-border/60 bg-muted/20 px-2 py-1",
-                                        canOpen ? "cursor-pointer transition hover:bg-muted/30" : ""
-                                      )}
-                                      title={eventTitle}
-                                      onClick={() => openGoogleEvent(event)}
-                                      onKeyDown={(keyboardEvent) => {
-                                        if (
-                                          canOpen &&
-                                          (keyboardEvent.key === "Enter" || keyboardEvent.key === " ")
-                                        ) {
-                                          keyboardEvent.preventDefault();
-                                          openGoogleEvent(event);
-                                        }
-                                      }}
-                                      role={canOpen ? "button" : undefined}
-                                      tabIndex={canOpen ? 0 : undefined}
-                                    >
-                                      <p className="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground">
-                                        {event.summary}
-                                      </p>
-                                      <button
-                                        type="button"
-                                        onClick={(mouseEvent) => {
-                                          mouseEvent.stopPropagation();
-                                          openEditEventModal(event);
-                                        }}
-                                        className="rounded p-0.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                                        aria-label="Edit calendar event"
-                                      >
-                                        <Pencil className="h-3 w-3" />
-                                      </button>
-                                    </article>
-                                  );
-                                })
-                              )}
-                            </div>
-                          </section>
-                        );
-                      })}
-                    </div>
-
-                    <div className="grid min-w-[1180px] grid-cols-[80px_repeat(7,minmax(0,1fr))] gap-2">
-                      <div
-                        className="relative rounded-md border border-border/60 bg-muted/20"
-                        style={{ height: `${CALENDAR_TOTAL_GRID_HEIGHT_PX}px` }}
-                      >
-                        {Array.from(
-                          {
-                            length:
-                              CALENDAR_DAY_END_HOUR - CALENDAR_DAY_START_HOUR + 1,
-                          },
-                          (_, index) => {
-                            const hour = CALENDAR_DAY_START_HOUR + index;
-                            const top = index * CALENDAR_HOUR_CELL_HEIGHT_PX;
-
-                            return (
-                              <div
-                                key={`hour-label-${hour}`}
-                                className="absolute left-0 right-0"
-                                style={{ top: `${top}px` }}
-                              >
-                                <span className="absolute -top-2 left-2 rounded bg-background px-1 text-[10px] text-muted-foreground">
-                                  {formatHourLabel(hour)}
-                                </span>
-                              </div>
-                            );
-                          }
-                        )}
-                      </div>
-
-                      {weekDays.map((day) => {
-                        const dayKey = toDateKey(day);
-                        const dayBucket = eventsByDay.get(dayKey);
-                        const timedEvents = dayBucket?.timed ?? [];
-
-                        return (
-                          <section
-                            key={`timed-${dayKey}`}
-                            className="relative overflow-hidden rounded-md border border-border/60 bg-background"
-                            style={{ height: `${CALENDAR_TOTAL_GRID_HEIGHT_PX}px` }}
-                          >
-                            {Array.from(
-                              {
-                                length:
-                                  CALENDAR_DAY_END_HOUR - CALENDAR_DAY_START_HOUR + 1,
-                              },
-                              (_, index) => {
-                                const top = index * CALENDAR_HOUR_CELL_HEIGHT_PX;
-                                return (
-                                  <div
-                                    key={`line-${dayKey}-${index}`}
-                                    className="absolute left-0 right-0 border-t border-border/40"
-                                    style={{ top: `${top}px` }}
-                                  />
-                                );
-                              }
-                            )}
-
-                            {timedEvents.map((event) => {
-                              const layout = buildTimedEventLayout(event);
-                              if (!layout) {
-                                return null;
-                              }
-
-                              const isCompactEvent =
-                                layout.heightPx < CALENDAR_COMPACT_EVENT_HEIGHT_PX;
-                              const canOpen = Boolean(event.htmlLink);
-                              const eventTitle = `${event.summary} - ${formatEventTimeLabel(event)}`;
-
-                              const baseClassName =
-                                "absolute left-1 right-1 overflow-hidden rounded-md border border-sky-500/40 bg-sky-500/10 px-1.5 py-1";
-                              const style = {
-                                top: `${layout.topPx}px`,
-                                height: `${layout.heightPx}px`,
-                              };
-
-                              const content = isCompactEvent ? (
-                                <div className="flex min-w-0 items-center gap-1">
-                                  <p className="min-w-0 flex-1 truncate text-[10px] font-medium text-foreground">
-                                    {event.summary}
-                                  </p>
-                                  <span className="shrink-0 text-[10px] text-muted-foreground">
-                                    {formatEventStartTimeLabel(event)}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={(mouseEvent) => {
-                                      mouseEvent.stopPropagation();
-                                      openEditEventModal(event);
-                                    }}
-                                    className="shrink-0 rounded p-0.5 text-muted-foreground transition hover:bg-sky-500/20 hover:text-foreground"
-                                    aria-label="Edit calendar event"
-                                  >
-                                    <Pencil className="h-3 w-3" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="flex min-w-0 items-start gap-1">
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-[11px] font-medium text-foreground">
-                                      {event.summary}
-                                    </p>
-                                    <p className="truncate text-[10px] text-muted-foreground">
-                                      {formatEventTimeLabel(event)}
-                                    </p>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={(mouseEvent) => {
-                                      mouseEvent.stopPropagation();
-                                      openEditEventModal(event);
-                                    }}
-                                    className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground transition hover:bg-sky-500/20 hover:text-foreground"
-                                    aria-label="Edit calendar event"
-                                  >
-                                    <Pencil className="h-3 w-3" />
-                                  </button>
-                                </div>
-                              );
-
-                              return (
-                                <article
-                                  key={event.id}
-                                  title={eventTitle}
-                                  className={cn(
-                                    baseClassName,
-                                    canOpen ? "cursor-pointer transition hover:bg-sky-500/20" : ""
-                                  )}
-                                  style={style}
-                                  onClick={() => openGoogleEvent(event)}
-                                  onKeyDown={(keyboardEvent) => {
-                                    if (
-                                      canOpen &&
-                                      (keyboardEvent.key === "Enter" || keyboardEvent.key === " ")
-                                    ) {
-                                      keyboardEvent.preventDefault();
-                                      openGoogleEvent(event);
-                                    }
-                                  }}
-                                  role={canOpen ? "button" : undefined}
-                                  tabIndex={canOpen ? 0 : undefined}
-                                >
-                                  {content}
-                                </article>
-                              );
-                            })}
-                          </section>
-                        );
-                      })}
-                    </div>
-
-                    {events.length === 0 ? (
-                      <div className="rounded-md border border-dashed border-border/60 px-4 py-4 text-sm text-muted-foreground">
-                        No events in the current week.
-                      </div>
-                    ) : null}
-                  </div>
-                )}
+                <CalendarWeekGrid
+                  weekDays={weekDays}
+                  eventsByDay={eventsByDay}
+                  eventsCount={events.length}
+                  onOpenGoogleEvent={openGoogleEvent}
+                  onOpenEditEventModal={openEditEventModal}
+                />
               </>
             ) : null}
 
@@ -667,203 +425,35 @@ export function ProjectCalendarPanel({ projectId, calendarId }: ProjectCalendarP
         ) : null}
       </Card>
 
-      {isBrowserReady && isEventModalOpen ? createPortal(
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          onMouseDown={(mouseEvent) => {
-            if (mouseEvent.target === mouseEvent.currentTarget) {
-              closeEventModal();
-            }
-          }}
-        >
-          <Card
-            className="w-full max-w-lg"
-            onMouseDown={(mouseEvent) => mouseEvent.stopPropagation()}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-lg">
-                {eventModalMode === "create" ? "Create calendar event" : "Edit calendar event"}
-              </CardTitle>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={closeEventModal}
-                disabled={isEventMutationPending}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <form
-                className="grid gap-4"
-                onSubmit={(submitEvent) => {
-                  submitEvent.preventDefault();
-                  void submitEventForm();
-                }}
-              >
-                <div className="grid gap-2">
-                  <label htmlFor="calendar-event-summary" className="text-sm font-medium">
-                    Title
-                  </label>
-                  <input
-                    id="calendar-event-summary"
-                    value={eventSummary}
-                    onChange={(event) => setEventSummary(event.target.value)}
-                    minLength={1}
-                    maxLength={200}
-                    required
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    placeholder="Weekly planning"
-                    disabled={isEventMutationPending}
-                  />
-                </div>
-
-                <label className="inline-flex items-center gap-2 text-sm font-medium">
-                  <input
-                    type="checkbox"
-                    checked={eventAllDay}
-                    onChange={(event) => setEventAllDay(event.target.checked)}
-                    className="h-4 w-4 rounded border-input"
-                    disabled={isEventMutationPending}
-                  />
-                  All day event
-                </label>
-
-                {eventAllDay ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="grid gap-2">
-                      <label htmlFor="calendar-event-start-date" className="text-sm font-medium">
-                        Start date
-                      </label>
-                      <CalendarDateTimeField
-                        id="calendar-event-start-date"
-                        value={eventStartDate}
-                        onChange={setEventStartDate}
-                        includeTime={false}
-                        disabled={isEventMutationPending}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <label htmlFor="calendar-event-end-date" className="text-sm font-medium">
-                        End date
-                      </label>
-                      <CalendarDateTimeField
-                        id="calendar-event-end-date"
-                        value={eventEndDate}
-                        onChange={setEventEndDate}
-                        includeTime={false}
-                        disabled={isEventMutationPending}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="grid gap-2">
-                      <label htmlFor="calendar-event-start-date-time" className="text-sm font-medium">
-                        Start
-                      </label>
-                      <CalendarDateTimeField
-                        id="calendar-event-start-date-time"
-                        value={eventStartDateTime}
-                        onChange={setEventStartDateTime}
-                        includeTime
-                        disabled={isEventMutationPending}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <label htmlFor="calendar-event-end-date-time" className="text-sm font-medium">
-                        End
-                      </label>
-                      <CalendarDateTimeField
-                        id="calendar-event-end-date-time"
-                        value={eventEndDateTime}
-                        onChange={setEventEndDateTime}
-                        includeTime
-                        disabled={isEventMutationPending}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid gap-2">
-                  <label htmlFor="calendar-event-location" className="text-sm font-medium">
-                    Location (optional)
-                  </label>
-                  <input
-                    id="calendar-event-location"
-                    value={eventLocation}
-                    onChange={(event) => setEventLocation(event.target.value)}
-                    maxLength={200}
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    placeholder="Office / Video call / Address"
-                    disabled={isEventMutationPending}
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <label htmlFor="calendar-event-description" className="text-sm font-medium">
-                    Description (optional)
-                  </label>
-                  <textarea
-                    id="calendar-event-description"
-                    value={eventDescription}
-                    onChange={(event) => setEventDescription(event.target.value)}
-                    maxLength={4000}
-                    rows={4}
-                    className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    placeholder="Event details..."
-                    disabled={isEventMutationPending}
-                  />
-                </div>
-
-                {eventFormError ? (
-                  <div className="space-y-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive dark:text-red-200">
-                    <p>{eventFormError}</p>
-                    {eventFormError.includes("Reconnect Google Calendar") ? (
-                      <Button type="button" variant="outline" size="sm" asChild>
-                        <a href={connectUrl}>Reconnect</a>
-                      </Button>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <div className="flex items-center gap-2">
-                  {eventModalMode === "edit" ? (
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      onClick={() => void handleDeleteEvent()}
-                      disabled={isEventMutationPending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      {isDeletingEvent ? "Deleting..." : "Delete event"}
-                    </Button>
-                  ) : null}
-                  <Button type="submit" disabled={isEventMutationPending}>
-                    {isSavingEvent
-                      ? eventModalMode === "create"
-                        ? "Creating..."
-                        : "Saving..."
-                      : eventModalMode === "create"
-                        ? "Create event"
-                        : "Save changes"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={closeEventModal}
-                    disabled={isEventMutationPending}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>,
-        document.body
-      ) : null}
+      <CalendarEventModal
+        isOpen={isEventModalOpen}
+        isBrowserReady={isBrowserReady}
+        eventModalMode={eventModalMode}
+        isEventMutationPending={isEventMutationPending}
+        isSavingEvent={isSavingEvent}
+        isDeletingEvent={isDeletingEvent}
+        eventSummary={eventSummary}
+        eventAllDay={eventAllDay}
+        eventStartDate={eventStartDate}
+        eventEndDate={eventEndDate}
+        eventStartDateTime={eventStartDateTime}
+        eventEndDateTime={eventEndDateTime}
+        eventLocation={eventLocation}
+        eventDescription={eventDescription}
+        eventFormError={eventFormError}
+        connectUrl={connectUrl}
+        onClose={closeEventModal}
+        onSubmit={submitEventForm}
+        onDelete={handleDeleteEvent}
+        onEventSummaryChange={setEventSummary}
+        onEventAllDayChange={setEventAllDay}
+        onEventStartDateChange={setEventStartDate}
+        onEventEndDateChange={setEventEndDate}
+        onEventStartDateTimeChange={setEventStartDateTime}
+        onEventEndDateTimeChange={setEventEndDateTime}
+        onEventLocationChange={setEventLocation}
+        onEventDescriptionChange={setEventDescription}
+      />
     </>
   );
 }

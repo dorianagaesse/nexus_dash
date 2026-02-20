@@ -4,14 +4,9 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-074
-  Title: Project page performance - panel-level async loading and progressive hydration
-  Status: In Progress
-  Rationale: Opening a project currently waits on a large server payload; split heavy panel data paths and progressively stream/hydrate to reduce time-to-interactive.
-  Dependencies: TASK-073
 - ID: TASK-062
   Title: UI decomposition phase - split oversized dashboard components into focused modules
-  Status: Pending
+  Status: In Progress
   Rationale: Reduce technical debt and SRP violations by decomposing large dashboard components (`kanban-board`, `project-context-panel`, `project-calendar-panel`) into feature-level subcomponents/hooks before auth/security expansion.
   Dependencies: TASK-054, TASK-060
 - ID: TASK-020
@@ -105,6 +100,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-074
+  Title: Project page performance - panel-level async loading and progressive hydration
+  Status: Done (2026-02-20)
+  Rationale: Split `/projects/[projectId]` into lightweight shell + panel-level async server sections with progressive Suspense fallbacks, preserving not-found behavior and existing panel interaction contracts while improving perceived load speed.
+  Dependencies: TASK-073
 - ID: TASK-073
   Title: Projects dashboard entry performance - async project list loading and instant shell
   Status: Done (2026-02-20)
