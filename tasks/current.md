@@ -4,7 +4,7 @@
 TASK-062
 
 ## Status
-In Progress (2026-02-20)
+In Review (2026-02-20)
 
 ## Summary
 Complete the unfinished frontend decomposition pass by splitting oversized dashboard orchestration components into focused modules/hooks while preserving current UX and API contracts.
@@ -44,7 +44,7 @@ Current pain points in codebase (as of 2026-02-20):
 No blocking input expected for implementation.
 
 ## Next Step
-Refactor dashboard panel components into focused modules/hooks, then validate with full quality gates and PR review.
+Await PR review/approval for `TASK-062` (`#36`), merge once approved, then mark task done and move to the next backlog item.
 
 ---
 
