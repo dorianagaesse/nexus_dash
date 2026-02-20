@@ -123,3 +123,6 @@ Resolution: Added gated smoke test `tests/lib/r2-smoke.test.ts` (`R2_SMOKE=1`), 
 Date: 2026-02-20
 Execution update: TASK-062 dashboard decomposition pass delivered across Kanban/context/calendar panels.
 Resolution: Marked TASK-074 done in backlog/current tracking, decomposed oversized panel components into focused UI modules (`components/kanban/*`, `components/context-panel/*`, `components/calendar-panel/*`) plus shared panel type files, preserved existing API/mutation behavior, and validated with `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`.
+Date: 2026-02-20
+Planning update: TASK-020 promoted to current with implementation-ready auth/authz ADR drafting.
+Resolution: Added `adr/task-020-modern-auth-authorization-adr.md` covering Prisma + DB sessions for users, optional Redis session cache for scale, scoped API key + short-lived JWT model for agents, role-based project authorization, migration strategy, and roadmap mapping to TASK-045/046/047/058/059/048.

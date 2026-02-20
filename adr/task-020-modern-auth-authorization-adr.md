@@ -1,0 +1,203 @@
+# TASK-020 Modern Authentication/Authorization ADR
+
+Date: 2026-02-20
+Status: Draft (Proposed)
+
+## 1) Decision Summary
+
+Adopt a hybrid, production-grade auth architecture with clear actor boundaries:
+
+- Keep `Prisma + PostgreSQL (Supabase-hosted)` as the system of record.
+- Use `Auth.js` (NextAuth) with Prisma adapter and database-backed user sessions for browser/user auth.
+- Keep application servers stateless; auth state is stored in DB (with optional Redis cache layer for session lookups).
+- Use scoped API key credentials for non-human actors, and mint short-lived JWT access tokens for agent/API runtime calls.
+- Enforce authorization in the service layer (`lib/services/**`) with project membership + role checks.
+- Defer public API exposure until core auth/authz hardening and testing tasks are completed.
+
+This ADR is the implementation contract for TASK-045, TASK-046, TASK-047, TASK-058, TASK-059, and TASK-048.
+
+## 2) Context
+
+Current app state:
+- No first-class user/account/session model in Prisma schema.
+- Project/task/resource access is effectively ID-scoped, not principal-scoped.
+- Middleware currently adds request IDs only; no auth guard in request pipeline.
+- Google calendar credential persistence is global singleton, not user-scoped.
+
+Roadmap constraints:
+- Need modern auth UX (signed-out home entry, persistent sessions).
+- Need secure agent/non-human access model.
+- Need to keep delivery velocity and existing service-layer boundaries.
+- Need stateless scaling behavior for Vercel/serverless runtime.
+
+## 3) Goals
+
+- Provide secure multi-user authn/authz baseline with revocation and auditability.
+- Make authorization explicit and enforceable at service boundaries.
+- Support non-human access with scoped, revocable credentials.
+- Preserve stateless server operation (no in-memory session dependency).
+- Keep implementation incremental across backlog phases.
+
+## 4) Non-Goals
+
+- Public third-party API exposure in this phase.
+- Replacing Prisma domain data access with Supabase REST/PostgREST for core entities.
+- Introducing tenant-level enterprise SSO/SAML at this stage.
+
+## 5) Option Assessment
+
+### Option A: Pure stateless JWT sessions for browser + agents
+- Pros: minimal DB session reads.
+- Cons: weak revocation semantics, higher token leakage blast radius, harder secure account/session lifecycle.
+- Verdict: rejected for user browser auth.
+
+### Option B: DB sessions for users + scoped API keys/JWT for agents (selected)
+- Pros: strong user-session revocation/control, clear actor split, practical security posture, supports stateless app compute.
+- Cons: more moving parts (session tables, token exchange flow, scope checks, audit events).
+- Verdict: selected.
+
+### Option C: Supabase Auth as primary app auth boundary (without Prisma-auth alignment)
+- Pros: fast initial auth bootstrap.
+- Cons: duplicates identity boundary versus existing Prisma service architecture; increases integration complexity now.
+- Verdict: deferred, not selected for current roadmap.
+
+## 6) Target Architecture
+
+### 6.1 User Authentication (Interactive)
+- Auth runtime: `Auth.js` + Prisma adapter.
+- Session strategy: database sessions (`Session` table), cookie-based session tokens.
+- Session cookie rules:
+  - `httpOnly`, `secure` in production, `sameSite=lax`, strict TTL/rotation policy.
+- Optional cache layer:
+  - Redis read-through cache for session lookup acceleration (non-authoritative).
+  - DB remains source of truth.
+
+### 6.2 Authorization (User Access Control)
+- Resource ownership:
+  - Each project has one owner user.
+- Collaboration:
+  - Project membership relation with role enum: `owner`, `editor`, `viewer`.
+- Enforcement:
+  - All service methods that read/write project-scoped entities must validate principal + role.
+  - API routes/pages remain transport/UI adapters; authorization logic lives in services.
+
+### 6.3 Agent/API Authentication (Non-Human)
+- Credential model:
+  - Long-lived API key credential (one-time display, hashed at rest).
+- Runtime auth:
+  - API key used to obtain short-lived JWT access token with bounded scopes.
+- Token characteristics:
+  - Short TTL (target 5-15 minutes).
+  - Includes principal, scope set, project constraints, and token ID (`jti`).
+- Revocation model:
+  - API key revocation is immediate and authoritative.
+  - JWT remains short-lived to minimize revocation lag.
+
+### 6.4 Public API Exposure
+- Explicitly deferred until:
+  - user auth baseline + authorization + agent token scope model + hardening tests are complete.
+
+## 7) Data Model Changes (Planned)
+
+### 7.1 Auth.js-Compatible Entities
+- `User`
+- `Account`
+- `Session`
+- `VerificationToken`
+
+### 7.2 Authorization Entities
+- `Project.ownerId` (FK -> `User`)
+- `ProjectMembership` (projectId, userId, role, createdAt, updatedAt)
+- `ProjectInvitation` (projectId, email, role, tokenHash, expiresAt, acceptedAt, revokedAt)
+
+### 7.3 Agent Access Entities
+- `ApiCredential` (hashed key, label, creator user, expiry, revokedAt, lastUsedAt)
+- `ApiCredentialScope` (credential to scope/project constraint mapping)
+- `AuthAuditEvent` (actor, action, target, timestamp, requestId, metadata)
+
+### 7.4 Existing Integration Migration
+- Replace singleton `GoogleCalendarCredential` with user-scoped credential relation.
+
+## 8) Authorization Policy Baseline
+
+Project-role permission matrix:
+- `owner`: full read/write/delete + membership/invite management.
+- `editor`: project read + task/context/calendar mutation; no ownership transfer/delete.
+- `viewer`: read-only project/task/context/calendar.
+
+Agent scope examples:
+- `project:read`
+- `task:write`
+- `context:write`
+- `calendar:read`
+
+Policy rules:
+- Default deny when principal/scope/role checks fail.
+- No direct data access path bypassing service-layer authorization guards.
+
+## 9) Security Baseline Requirements
+
+- Hash secrets at rest (API keys, invite tokens, password hashes).
+- Strong password hashing (`argon2id` preferred; acceptable fallback `bcrypt` with strong cost).
+- Rate-limit and abuse controls for auth endpoints (detailed policy in security phases).
+- CSRF protections for session-based browser flows.
+- Session rotation on sensitive actions and clear sign-out invalidation behavior.
+- Structured auth audit logging with request correlation IDs.
+
+## 10) Server Statelessness Strategy
+
+- No in-memory authoritative session store on app instances.
+- DB as authoritative state.
+- Optional Redis cache to reduce DB read pressure for high session volume.
+- JWT verification remains stateless at request time, with lifecycle bounded by short TTL and key revocation at issuance source.
+
+## 11) Implementation Roadmap Mapping
+
+- TASK-045:
+  - Add user/session/auth schema and migrations.
+  - Add ownership/membership foundation.
+  - Add user-scoped calendar credential model.
+- TASK-046:
+  - Integrate Auth.js runtime, session retrieval helpers, route/page protection.
+  - Add service-layer principal requirement for protected operations.
+- TASK-047:
+  - Signed-out home entry (`Sign in`/`Sign up`), onboarding, signed-in redirect behavior.
+- TASK-058:
+  - Membership roles + invitation flows + permission enforcement coverage.
+- TASK-059:
+  - API key issuance/rotation/revocation + short-lived agent JWT exchange + scope enforcement.
+- TASK-048:
+  - Full auth/authz regression suite, edge-case hardening, and security validation.
+
+## 12) Migration and Backward Compatibility
+
+- For existing single-user data:
+  - Create bootstrap owner user.
+  - Backfill existing projects with `ownerId` and owner membership row.
+- Maintain existing project/task/resource IDs and payload contracts where feasible.
+- Roll out auth gates incrementally to avoid full freeze/big-bang cutover.
+
+## 13) Testing Strategy
+
+Must-have coverage before closing auth epic phases:
+- Session lifecycle tests (create, refresh/rotation, revoke, sign-out).
+- Authorization tests by role for all project-scoped APIs.
+- Agent token tests (scope allow/deny, expiry, revoked credential behavior).
+- E2E flows for signed-out -> sign-in -> workspace -> protected route enforcement.
+- Regression tests for invite acceptance and cross-project access isolation.
+
+## 14) Risks and Mitigations
+
+- Risk: authorization drift across endpoints.
+  - Mitigation: central service-layer guards + contract tests for forbidden/unauthorized responses.
+- Risk: token sprawl and weak revocation semantics.
+  - Mitigation: hashed API credentials, short JWT TTL, explicit rotation/revocation endpoints.
+- Risk: migration complexity from singleton calendar credential.
+  - Mitigation: phased migration with compatibility fallback during rollout window.
+
+## 15) Open Questions (To Resolve Before TASK-045 Merge)
+
+- Email verification and password reset provider choice (Resend/Postmark/etc.).
+- Redis introduction timing (immediate vs deferred until session load justifies it).
+- Exact agent scope taxonomy and whether any scope implies transitive permissions.
+- UI/UX constraints for membership/invite management in initial release.

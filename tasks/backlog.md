@@ -4,14 +4,9 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-062
-  Title: UI decomposition phase - split oversized dashboard components into focused modules
-  Status: In Progress
-  Rationale: Reduce technical debt and SRP violations by decomposing large dashboard components (`kanban-board`, `project-context-panel`, `project-calendar-panel`) into feature-level subcomponents/hooks before auth/security expansion.
-  Dependencies: TASK-054, TASK-060
 - ID: TASK-020
   Title: Modern authentication/authorization ADR (user ownership, sharing, agent access, session model)
-  Status: Pending
+  Status: In Progress
   Rationale: Define a state-of-the-art authz/authn model covering user-owned projects, shareable collaboration, secure agent access, and persistent web sessions without repeated login prompts, including explicit signed-out home-page entry behavior (`Sign in`/`Sign up`), DB-backed user sessions, and JWT-style scoped agent/API tokens.
   Dependencies: TASK-035, TASK-039, TASK-040, TASK-057, TASK-060, TASK-062
 - ID: TASK-045
@@ -100,6 +95,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-062
+  Title: UI decomposition phase - split oversized dashboard components into focused modules
+  Status: Done (2026-02-20)
+  Rationale: Completed focused dashboard panel decomposition by extracting Kanban/context/calendar rendering-heavy surfaces into dedicated modules while preserving existing API contracts and user interactions.
+  Dependencies: TASK-054, TASK-060
 - ID: TASK-074
   Title: Project page performance - panel-level async loading and progressive hydration
   Status: Done (2026-02-20)

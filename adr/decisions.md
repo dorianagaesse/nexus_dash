@@ -231,3 +231,9 @@ Status: Accepted
 Context: TASK-062 identified that `kanban-board.tsx`, `project-context-panel.tsx`, and `project-calendar-panel.tsx` were still oversized orchestration files even after earlier utility extraction, increasing change-risk before auth/security work.
 Decision: Keep existing data/mutation contracts intact while extracting rendering-heavy UI surfaces into focused modules (`components/kanban/*`, `components/context-panel/*`, `components/calendar-panel/*`) and shared panel types files, leaving parent components as state/action orchestrators.
 Consequences: Lower regression surface per change and clearer ownership boundaries for future iterations; introduces additional component interfaces/prop wiring that must remain aligned during future feature work.
+Date: 2026-02-20
+Decision: Draft modern auth/authz architecture contract with hybrid session/token model
+Status: Proposed
+Context: TASK-020 must define implementation-ready auth/authz boundaries before TASK-045/TASK-046/TASK-047/TASK-058/TASK-059 to avoid rework and authorization drift.
+Decision: Document a hybrid architecture using Prisma + PostgreSQL as system of record, Auth.js database-backed user sessions, role-based project memberships, and scoped agent API credentials with short-lived JWT runtime access tokens; keep stateless server operation with DB authority and optional Redis session cache.
+Consequences: Implementation phases can proceed with explicit actor boundaries, migration strategy, and security controls; final acceptance is required before TASK-045 execution.
