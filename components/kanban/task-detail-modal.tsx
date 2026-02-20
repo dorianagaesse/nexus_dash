@@ -12,6 +12,7 @@ import {
 } from "@/components/kanban-board-utils";
 import { AttachmentPreviewModal } from "@/components/attachment-preview-modal";
 import { RichTextEditor } from "@/components/rich-text-editor";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -118,9 +119,7 @@ export function TaskDetailModal({
           >
             <CardHeader className="flex flex-row items-start justify-between space-y-0">
               <div className="space-y-2">
-                <span className="inline-flex rounded-md border border-border px-2.5 py-1 text-xs font-medium">
-                  {selectedTask.status}
-                </span>
+                <Badge variant="outline">{selectedTask.status}</Badge>
                 {!isEditMode ? (
                   <CardTitle className="text-xl">{selectedTask.title}</CardTitle>
                 ) : (
