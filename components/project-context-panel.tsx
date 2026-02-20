@@ -33,7 +33,11 @@ import {
   formatAttachmentFileSize,
   isAttachmentPreviewable,
 } from "@/lib/task-attachment";
-import { uploadFileAttachmentDirect } from "@/lib/direct-upload-client";
+import {
+  uploadFileAttachmentDirect,
+  uploadFilesDirectInBackground,
+  type DirectUploadBackgroundProgress,
+} from "@/lib/direct-upload-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
@@ -112,7 +116,7 @@ function ModalFrame({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex min-h-dvh w-screen items-start justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-4 sm:items-center"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -161,6 +165,8 @@ export function ProjectContextPanel({
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+  const [createBackgroundUploadProgress, setCreateBackgroundUploadProgress] =
+    useState<DirectUploadBackgroundProgress | null>(null);
   const [isCreatingCard, setIsCreatingCard] = useState(false);
   const [isUpdatingCard, setIsUpdatingCard] = useState(false);
   const [deletingCardId, setDeletingCardId] = useState<string | null>(null);
@@ -182,7 +188,6 @@ export function ProjectContextPanel({
       ? DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL
       : MAX_ATTACHMENT_FILE_SIZE_LABEL;
   const attachmentFileSizeErrorMessage = `Attachment files must be ${maxAttachmentFileSizeLabel} or smaller.`;
-  const formAttachmentFileSizeErrorMessage = `Attachment files must be ${MAX_ATTACHMENT_FILE_SIZE_LABEL} or smaller.`;
 
   const editingCard = useMemo(
     () => cards.find((card) => card.id === editingCardId) ?? null,
@@ -230,6 +235,21 @@ export function ProjectContextPanel({
       setPreviewAttachment(null);
     }
   }, [cardAttachmentsById, editingCard, previewAttachment]);
+
+  useEffect(() => {
+    if (
+      !createBackgroundUploadProgress ||
+      createBackgroundUploadProgress.phase === "uploading"
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setCreateBackgroundUploadProgress(null);
+    }, 8000);
+
+    return () => window.clearTimeout(timer);
+  }, [createBackgroundUploadProgress]);
 
   const resetCreateAttachmentDraft = () => {
     setCreateLinkUrl("");
@@ -296,7 +316,7 @@ export function ProjectContextPanel({
       case "attachment-link-invalid":
         return "One or more attachment links are invalid. Use http:// or https:// URLs.";
       case "attachment-file-too-large":
-        return formAttachmentFileSizeErrorMessage;
+        return attachmentFileSizeErrorMessage;
       case "attachment-file-type-invalid":
         return "Unsupported attachment file type. Use PDF, image, text, CSV, or JSON.";
       case "context-card-missing":
@@ -328,8 +348,8 @@ export function ProjectContextPanel({
       return;
     }
 
-    if (createSelectedFiles.some((file) => file.size > MAX_ATTACHMENT_FILE_SIZE_BYTES)) {
-      setCreateError(formAttachmentFileSizeErrorMessage);
+    if (createSelectedFiles.some((file) => file.size > maxAttachmentFileSizeBytes)) {
+      setCreateError(attachmentFileSizeErrorMessage);
       return;
     }
 
@@ -338,13 +358,20 @@ export function ProjectContextPanel({
 
     try {
       const formData = new FormData(event.currentTarget);
+      const filesForBackgroundUpload =
+        storageProvider === "r2" ? [...createSelectedFiles] : [];
+
+      if (storageProvider === "r2") {
+        formData.delete("attachmentFiles");
+      }
+
       const response = await fetch(`/api/projects/${projectId}/context-cards`, {
         method: "POST",
         body: formData,
       });
 
       const payload = (await response.json().catch(() => null)) as
-        | { error?: string }
+        | { error?: string; cardId?: string }
         | null;
 
       if (!response.ok) {
@@ -356,9 +383,33 @@ export function ProjectContextPanel({
         );
         return;
       }
+      const createdCardId =
+        payload && typeof payload.cardId === "string" ? payload.cardId : null;
 
       closeCreateModal();
       router.refresh();
+
+      if (
+        storageProvider === "r2" &&
+        createdCardId &&
+        filesForBackgroundUpload.length > 0
+      ) {
+        void uploadFilesDirectInBackground({
+          uploads: filesForBackgroundUpload.map((file) => ({
+            file,
+            uploadTargetUrl: `/api/projects/${projectId}/context-cards/${createdCardId}/attachments/upload-url`,
+            finalizeUrl: `/api/projects/${projectId}/context-cards/${createdCardId}/attachments/direct`,
+            cleanupUrl: `/api/projects/${projectId}/context-cards/${createdCardId}/attachments/direct/cleanup`,
+            fallbackErrorMessage: `Could not upload file attachment "${file.name}".`,
+          })),
+          onProgress: setCreateBackgroundUploadProgress,
+          onItemError: (error) => {
+            console.error("[ProjectContextPanel.createBackgroundUpload]", error);
+          },
+        }).finally(() => {
+          router.refresh();
+        });
+      }
     } catch (error) {
       console.error("[ProjectContextPanel.handleCreateCardSubmit]", error);
       setCreateError("Could not create context card. Please retry.");
@@ -635,6 +686,15 @@ export function ProjectContextPanel({
             Keep project notes in compact cards above the board.
           </p>
         ) : null}
+        {createBackgroundUploadProgress ? (
+          <p className="text-xs text-muted-foreground">
+            {createBackgroundUploadProgress.phase === "uploading"
+              ? `Uploading context attachments in background (${createBackgroundUploadProgress.completed}/${createBackgroundUploadProgress.total})...`
+              : createBackgroundUploadProgress.phase === "done"
+                ? `Context attachment upload complete (${createBackgroundUploadProgress.total}/${createBackgroundUploadProgress.total}).`
+                : `Context attachment upload finished with ${createBackgroundUploadProgress.failed} failure(s).`}
+          </p>
+        ) : null}
       </CardHeader>
 
       {isExpanded ? (
@@ -810,12 +870,12 @@ export function ProjectContextPanel({
                   onChange={(event) => {
                     const nextFiles = Array.from(event.target.files ?? []);
                     const hasOversizedFile = nextFiles.some(
-                      (file) => file.size > MAX_ATTACHMENT_FILE_SIZE_BYTES
+                      (file) => file.size > maxAttachmentFileSizeBytes
                     );
 
                     if (hasOversizedFile) {
                       setCreateSelectedFiles([]);
-                      setCreateError(formAttachmentFileSizeErrorMessage);
+                      setCreateError(attachmentFileSizeErrorMessage);
                       setCreateFileInputKey((previous) => previous + 1);
                       return;
                     }
