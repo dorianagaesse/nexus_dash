@@ -7,7 +7,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 - ID: TASK-073
   Title: Projects dashboard entry performance - async project list loading and instant shell
   Status: In Progress
-  Rationale: Opening dashboard should feel immediate; render shell instantly and fetch project list asynchronously with loading skeletons and navigation prefetch.
+  Rationale: Opening dashboard should feel immediate; render shell instantly and fetch project list asynchronously with loading skeletons while avoiding over-eager dynamic prefetch load.
   Dependencies: TASK-039, TASK-042
 - ID: TASK-074
   Title: Project page performance - panel-level async loading and progressive hydration

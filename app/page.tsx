@@ -49,13 +49,13 @@ export default function Home() {
           </div>
           <div className="flex flex-wrap gap-3">
             <Button asChild>
-              <Link href="/projects" prefetch>
+              <Link href="/projects">
                 Start a new project
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
             <Button asChild variant="secondary">
-              <Link href="/projects" prefetch>
+              <Link href="/projects">
                 Open project workspace
               </Link>
             </Button>

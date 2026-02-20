@@ -57,7 +57,7 @@ export async function ProjectsGrid() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Button asChild>
-              <Link href={`/projects/${project.id}`} prefetch>
+              <Link href={`/projects/${project.id}`}>
                 Open dashboard
                 <ArrowRight className="h-4 w-4" />
               </Link>

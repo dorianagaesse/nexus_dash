@@ -13,7 +13,7 @@ Make `/projects` feel immediate by rendering shell content instantly and streami
 - `/projects` page renders core shell immediately (title, actions, status/error banners) while project grid is loaded asynchronously.
 - Project list rendering is streamed behind a visible skeleton fallback instead of blocking full page content.
 - Existing server actions (`createProjectAction`, `updateProjectAction`, `deleteProjectAction`) remain intact and functional.
-- Navigation affordances are explicitly prefetch-friendly for dashboard entry links.
+- Navigation affordances remain responsive without forcing aggressive dynamic prefetching.
 - No behavior regression for empty project state or existing project edit/delete forms.
 
 ## Definition of Done
