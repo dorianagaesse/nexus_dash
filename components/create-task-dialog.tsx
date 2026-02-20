@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link2, Paperclip, PlusSquare, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -48,6 +48,7 @@ export function CreateTaskDialog({
   storageProvider,
   existingLabels,
 }: CreateTaskDialogProps) {
+  const isMountedRef = useRef(true);
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [description, setDescription] = useState("");
@@ -74,6 +75,12 @@ export function CreateTaskDialog({
       ? DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL
       : MAX_ATTACHMENT_FILE_SIZE_LABEL;
   const attachmentFileSizeErrorMessage = `Attachment files must be ${maxAttachmentFileSizeLabel} or smaller.`;
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (
@@ -188,11 +195,17 @@ export function CreateTaskDialog({
 
         if (!response.ok) {
           const message = mapCreateTaskError(payload?.error ?? "create-failed");
+          if (!isMountedRef.current) {
+            return;
+          }
           setSubmitError(message);
           setCreateTaskRequestStatus({
             phase: "failed",
             message,
           });
+          return;
+        }
+        if (!isMountedRef.current) {
           return;
         }
         const createdTaskId =
@@ -216,7 +229,12 @@ export function CreateTaskDialog({
               cleanupUrl: `/api/projects/${projectId}/tasks/${createdTaskId}/attachments/direct/cleanup`,
               fallbackErrorMessage: `Could not upload file attachment "${file.name}".`,
             })),
-            onProgress: setBackgroundUploadProgress,
+            onProgress: (progress) => {
+              if (!isMountedRef.current) {
+                return;
+              }
+              setBackgroundUploadProgress(progress);
+            },
             onItemError: (error) => {
               console.error("[CreateTaskDialog.backgroundUpload]", error);
             },
@@ -226,6 +244,9 @@ export function CreateTaskDialog({
         }
       } catch (error) {
         console.error("[CreateTaskDialog.handleSubmit]", error);
+        if (!isMountedRef.current) {
+          return;
+        }
         setSubmitError("Could not create task. Please retry.");
         setCreateTaskRequestStatus({
           phase: "failed",
@@ -314,6 +335,8 @@ export function CreateTaskDialog({
               ? "rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
               : "text-xs text-muted-foreground"
           }
+          role="status"
+          aria-live="polite"
         >
           {createTaskRequestStatus.message}
         </p>
