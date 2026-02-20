@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link2, Paperclip, PlusSquare, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -34,6 +34,11 @@ interface PendingAttachmentLink {
   url: string;
 }
 
+interface CreateTaskRequestStatus {
+  phase: "creating" | "done" | "failed";
+  message: string;
+}
+
 function createLocalId(): string {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -43,6 +48,7 @@ export function CreateTaskDialog({
   storageProvider,
   existingLabels,
 }: CreateTaskDialogProps) {
+  const isMountedRef = useRef(true);
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [description, setDescription] = useState("");
@@ -55,6 +61,8 @@ export function CreateTaskDialog({
   const [fileInputKey, setFileInputKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [createTaskRequestStatus, setCreateTaskRequestStatus] =
+    useState<CreateTaskRequestStatus | null>(null);
   const [backgroundUploadProgress, setBackgroundUploadProgress] =
     useState<DirectUploadBackgroundProgress | null>(null);
 
@@ -67,6 +75,27 @@ export function CreateTaskDialog({
       ? DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL
       : MAX_ATTACHMENT_FILE_SIZE_LABEL;
   const attachmentFileSizeErrorMessage = `Attachment files must be ${maxAttachmentFileSizeLabel} or smaller.`;
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      !createTaskRequestStatus ||
+      createTaskRequestStatus.phase === "creating"
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setCreateTaskRequestStatus(null);
+    }, 8000);
+
+    return () => window.clearTimeout(timer);
+  }, [createTaskRequestStatus]);
 
   useEffect(() => {
     if (
@@ -137,62 +166,94 @@ export function CreateTaskDialog({
 
     setIsSubmitting(true);
     setSubmitError(null);
+    setCreateTaskRequestStatus({
+      phase: "creating",
+      message: "Creating task in background...",
+    });
 
-    try {
-      const formData = new FormData(event.currentTarget);
-      const filesForBackgroundUpload =
-        storageProvider === "r2" ? [...selectedFiles] : [];
+    const formData = new FormData(event.currentTarget);
+    const filesForBackgroundUpload =
+      storageProvider === "r2" ? [...selectedFiles] : [];
 
-      if (storageProvider === "r2") {
-        formData.delete("attachmentFiles");
-      }
+    if (storageProvider === "r2") {
+      formData.delete("attachmentFiles");
+    }
 
-      const response = await fetch(`/api/projects/${projectId}/tasks`, {
-        method: "POST",
-        body: formData,
-      });
+    closeDialog();
+    setIsSubmitting(false);
 
-      const payload = (await response.json().catch(() => null)) as
-        | { error?: string; taskId?: string }
-        | null;
+    void (async () => {
+      try {
+        const response = await fetch(`/api/projects/${projectId}/tasks`, {
+          method: "POST",
+          body: formData,
+        });
 
-      if (!response.ok) {
-        setSubmitError(mapCreateTaskError(payload?.error ?? "create-failed"));
-        return;
-      }
-      const createdTaskId =
-        payload && typeof payload.taskId === "string" ? payload.taskId : null;
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string; taskId?: string }
+          | null;
 
-      closeDialog();
-      router.refresh();
+        if (!response.ok) {
+          const message = mapCreateTaskError(payload?.error ?? "create-failed");
+          if (!isMountedRef.current) {
+            return;
+          }
+          setSubmitError(message);
+          setCreateTaskRequestStatus({
+            phase: "failed",
+            message,
+          });
+          return;
+        }
+        if (!isMountedRef.current) {
+          return;
+        }
+        const createdTaskId =
+          payload && typeof payload.taskId === "string" ? payload.taskId : null;
+        setCreateTaskRequestStatus({
+          phase: "done",
+          message: "Task created. Refreshing board...",
+        });
+        window.setTimeout(() => router.refresh(), 0);
 
-      if (
-        storageProvider === "r2" &&
-        createdTaskId &&
-        filesForBackgroundUpload.length > 0
-      ) {
-        void uploadFilesDirectInBackground({
-          uploads: filesForBackgroundUpload.map((file) => ({
-            file,
-            uploadTargetUrl: `/api/projects/${projectId}/tasks/${createdTaskId}/attachments/upload-url`,
-            finalizeUrl: `/api/projects/${projectId}/tasks/${createdTaskId}/attachments/direct`,
-            cleanupUrl: `/api/projects/${projectId}/tasks/${createdTaskId}/attachments/direct/cleanup`,
-            fallbackErrorMessage: `Could not upload file attachment "${file.name}".`,
-          })),
-          onProgress: setBackgroundUploadProgress,
-          onItemError: (error) => {
-            console.error("[CreateTaskDialog.backgroundUpload]", error);
-          },
-        }).finally(() => {
-          router.refresh();
+        if (
+          storageProvider === "r2" &&
+          createdTaskId &&
+          filesForBackgroundUpload.length > 0
+        ) {
+          void uploadFilesDirectInBackground({
+            uploads: filesForBackgroundUpload.map((file) => ({
+              file,
+              uploadTargetUrl: `/api/projects/${projectId}/tasks/${createdTaskId}/attachments/upload-url`,
+              finalizeUrl: `/api/projects/${projectId}/tasks/${createdTaskId}/attachments/direct`,
+              cleanupUrl: `/api/projects/${projectId}/tasks/${createdTaskId}/attachments/direct/cleanup`,
+              fallbackErrorMessage: `Could not upload file attachment "${file.name}".`,
+            })),
+            onProgress: (progress) => {
+              if (!isMountedRef.current) {
+                return;
+              }
+              setBackgroundUploadProgress(progress);
+            },
+            onItemError: (error) => {
+              console.error("[CreateTaskDialog.backgroundUpload]", error);
+            },
+          }).finally(() => {
+            window.setTimeout(() => router.refresh(), 0);
+          });
+        }
+      } catch (error) {
+        console.error("[CreateTaskDialog.handleSubmit]", error);
+        if (!isMountedRef.current) {
+          return;
+        }
+        setSubmitError("Could not create task. Please retry.");
+        setCreateTaskRequestStatus({
+          phase: "failed",
+          message: "Could not create task. Please retry.",
         });
       }
-    } catch (error) {
-      console.error("[CreateTaskDialog.handleSubmit]", error);
-      setSubmitError("Could not create task. Please retry.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    })();
   };
 
   const handleAddLink = () => {
@@ -267,6 +328,19 @@ export function CreateTaskDialog({
         <PlusSquare className="h-4 w-4" />
         New task
       </Button>
+      {createTaskRequestStatus ? (
+        <p
+          className={
+            createTaskRequestStatus.phase === "failed"
+              ? "rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+              : "text-xs text-muted-foreground"
+          }
+          role="status"
+          aria-live="polite"
+        >
+          {createTaskRequestStatus.message}
+        </p>
+      ) : null}
       {backgroundUploadProgress ? (
         <p className="text-xs text-muted-foreground">
           {backgroundUploadProgress.phase === "uploading"

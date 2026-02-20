@@ -103,6 +103,11 @@ interface PendingAttachmentUpload {
   sizeBytes: number;
 }
 
+interface TaskMutationStatus {
+  phase: "running" | "done" | "failed";
+  message: string;
+}
+
 interface KanbanBoardProps {
   projectId: string;
   storageProvider: "local" | "r2";
@@ -149,6 +154,8 @@ export function KanbanBoard({
   const [newBlockedFollowUpEntry, setNewBlockedFollowUpEntry] = useState("");
   const [isUpdatingTask, setIsUpdatingTask] = useState(false);
   const [taskModalError, setTaskModalError] = useState<string | null>(null);
+  const [taskMutationStatus, setTaskMutationStatus] =
+    useState<TaskMutationStatus | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [isSubmittingAttachment, setIsSubmittingAttachment] = useState(false);
   const [pendingAttachmentUploads, setPendingAttachmentUploads] = useState<
@@ -216,6 +223,18 @@ export function KanbanBoard({
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (!taskMutationStatus || taskMutationStatus.phase === "running") {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setTaskMutationStatus(null);
+    }, 8000);
+
+    return () => window.clearTimeout(timer);
+  }, [taskMutationStatus]);
 
   const allKnownLabels = useMemo(() => {
     const labels = new Set<string>();
@@ -511,8 +530,37 @@ export function KanbanBoard({
   );
 
   const handleTaskUpdate = useCallback(async () => {
-    await persistTaskChanges({ exitEditMode: true });
-  }, [persistTaskChanges]);
+    if (!selectedTask) {
+      return;
+    }
+
+    if (editTitle.trim().length < 2) {
+      setTaskModalError("Task title must be at least 2 characters.");
+      return;
+    }
+
+    setTaskMutationStatus({
+      phase: "running",
+      message: "Saving task in background...",
+    });
+    setTaskModalError(null);
+    setIsEditMode(false);
+
+    const didSave = await persistTaskChanges({ exitEditMode: false });
+    if (didSave) {
+      setTaskMutationStatus({
+        phase: "done",
+        message: "Task saved.",
+      });
+      return;
+    }
+
+    setTaskMutationStatus({
+      phase: "failed",
+      message: "Could not save task changes. Please retry.",
+    });
+    setIsEditMode(true);
+  }, [editTitle, persistTaskChanges, selectedTask]);
 
   const handleAddBlockedFollowUpEntry = useCallback(async () => {
     if (!newBlockedFollowUpEntry.trim()) {
@@ -784,6 +832,19 @@ export function KanbanBoard({
           {isExpanded ? (
             <span className="text-xs text-muted-foreground">
               {isSaving ? "Saving movement..." : "Drag cards to update status"}
+            </span>
+          ) : null}
+          {taskMutationStatus ? (
+            <span
+              className={
+                taskMutationStatus.phase === "failed"
+                  ? "rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+                  : "text-xs text-muted-foreground"
+              }
+              role="status"
+              aria-live="polite"
+            >
+              {taskMutationStatus.message}
             </span>
           ) : null}
           {headerAction ? <div>{headerAction}</div> : null}

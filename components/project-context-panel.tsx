@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -64,6 +64,11 @@ interface ProjectContextCard {
 interface PendingAttachmentLink {
   id: string;
   url: string;
+}
+
+interface ContextMutationStatus {
+  phase: "running" | "done" | "failed";
+  message: string;
 }
 
 interface ProjectContextPanelProps {
@@ -144,6 +149,7 @@ export function ProjectContextPanel({
   storageProvider,
   cards,
 }: ProjectContextPanelProps) {
+  const isMountedRef = useRef(true);
   const router = useRouter();
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
@@ -167,6 +173,8 @@ export function ProjectContextPanel({
   const [editError, setEditError] = useState<string | null>(null);
   const [createBackgroundUploadProgress, setCreateBackgroundUploadProgress] =
     useState<DirectUploadBackgroundProgress | null>(null);
+  const [contextMutationStatus, setContextMutationStatus] =
+    useState<ContextMutationStatus | null>(null);
   const [isCreatingCard, setIsCreatingCard] = useState(false);
   const [isUpdatingCard, setIsUpdatingCard] = useState(false);
   const [deletingCardId, setDeletingCardId] = useState<string | null>(null);
@@ -188,6 +196,12 @@ export function ProjectContextPanel({
       ? DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL
       : MAX_ATTACHMENT_FILE_SIZE_LABEL;
   const attachmentFileSizeErrorMessage = `Attachment files must be ${maxAttachmentFileSizeLabel} or smaller.`;
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const editingCard = useMemo(
     () => cards.find((card) => card.id === editingCardId) ?? null,
@@ -237,6 +251,18 @@ export function ProjectContextPanel({
   }, [cardAttachmentsById, editingCard, previewAttachment]);
 
   useEffect(() => {
+    if (!contextMutationStatus || contextMutationStatus.phase === "running") {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setContextMutationStatus(null);
+    }, 8000);
+
+    return () => window.clearTimeout(timer);
+  }, [contextMutationStatus]);
+
+  useEffect(() => {
     if (
       !createBackgroundUploadProgress ||
       createBackgroundUploadProgress.phase === "uploading"
@@ -268,6 +294,7 @@ export function ProjectContextPanel({
   const openCreateModal = () => {
     resetCreateAttachmentDraft();
     setCreateColor(getRandomContextColor());
+    setCreateError(null);
     setIsExpanded(true);
     setIsCreateOpen(true);
   };
@@ -355,67 +382,99 @@ export function ProjectContextPanel({
 
     setIsCreatingCard(true);
     setCreateError(null);
+    setContextMutationStatus({
+      phase: "running",
+      message: "Creating context card in background...",
+    });
 
-    try {
-      const formData = new FormData(event.currentTarget);
-      const filesForBackgroundUpload =
-        storageProvider === "r2" ? [...createSelectedFiles] : [];
+    const formData = new FormData(event.currentTarget);
+    const filesForBackgroundUpload =
+      storageProvider === "r2" ? [...createSelectedFiles] : [];
 
-      if (storageProvider === "r2") {
-        formData.delete("attachmentFiles");
-      }
+    if (storageProvider === "r2") {
+      formData.delete("attachmentFiles");
+    }
 
-      const response = await fetch(`/api/projects/${projectId}/context-cards`, {
-        method: "POST",
-        body: formData,
-      });
+    closeCreateModal();
+    setIsCreatingCard(false);
 
-      const payload = (await response.json().catch(() => null)) as
-        | { error?: string; cardId?: string }
-        | null;
+    void (async () => {
+      try {
+        const response = await fetch(`/api/projects/${projectId}/context-cards`, {
+          method: "POST",
+          body: formData,
+        });
 
-      if (!response.ok) {
-        setCreateError(
-          mapContextMutationError(
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string; cardId?: string }
+          | null;
+
+        if (!response.ok) {
+          const message = mapContextMutationError(
             payload?.error ?? "context-create-failed",
             "Could not create context card. Please retry."
-          )
-        );
-        return;
-      }
-      const createdCardId =
-        payload && typeof payload.cardId === "string" ? payload.cardId : null;
+          );
+          if (!isMountedRef.current) {
+            return;
+          }
+          setCreateError(message);
+          setContextMutationStatus({
+            phase: "failed",
+            message,
+          });
+          return;
+        }
+        if (!isMountedRef.current) {
+          return;
+        }
+        const createdCardId =
+          payload && typeof payload.cardId === "string" ? payload.cardId : null;
 
-      closeCreateModal();
-      router.refresh();
+        setContextMutationStatus({
+          phase: "done",
+          message: "Context card created. Refreshing context panel...",
+        });
+        window.setTimeout(() => router.refresh(), 0);
 
-      if (
-        storageProvider === "r2" &&
-        createdCardId &&
-        filesForBackgroundUpload.length > 0
-      ) {
-        void uploadFilesDirectInBackground({
-          uploads: filesForBackgroundUpload.map((file) => ({
-            file,
-            uploadTargetUrl: `/api/projects/${projectId}/context-cards/${createdCardId}/attachments/upload-url`,
-            finalizeUrl: `/api/projects/${projectId}/context-cards/${createdCardId}/attachments/direct`,
-            cleanupUrl: `/api/projects/${projectId}/context-cards/${createdCardId}/attachments/direct/cleanup`,
-            fallbackErrorMessage: `Could not upload file attachment "${file.name}".`,
-          })),
-          onProgress: setCreateBackgroundUploadProgress,
-          onItemError: (error) => {
-            console.error("[ProjectContextPanel.createBackgroundUpload]", error);
-          },
-        }).finally(() => {
-          router.refresh();
+        if (
+          storageProvider === "r2" &&
+          createdCardId &&
+          filesForBackgroundUpload.length > 0
+        ) {
+          void uploadFilesDirectInBackground({
+            uploads: filesForBackgroundUpload.map((file) => ({
+              file,
+              uploadTargetUrl: `/api/projects/${projectId}/context-cards/${createdCardId}/attachments/upload-url`,
+              finalizeUrl: `/api/projects/${projectId}/context-cards/${createdCardId}/attachments/direct`,
+              cleanupUrl: `/api/projects/${projectId}/context-cards/${createdCardId}/attachments/direct/cleanup`,
+              fallbackErrorMessage: `Could not upload file attachment "${file.name}".`,
+            })),
+            onProgress: (progress) => {
+              if (!isMountedRef.current) {
+                return;
+              }
+              setCreateBackgroundUploadProgress(progress);
+            },
+            onItemError: (error) => {
+              console.error("[ProjectContextPanel.createBackgroundUpload]", error);
+            },
+          }).finally(() => {
+            window.setTimeout(() => router.refresh(), 0);
+          });
+        }
+      } catch (error) {
+        console.error("[ProjectContextPanel.handleCreateCardSubmit]", error);
+        const message = "Could not create context card. Please retry.";
+        if (!isMountedRef.current) {
+          return;
+        }
+        setCreateError(message);
+        setContextMutationStatus({
+          phase: "failed",
+          message,
         });
       }
-    } catch (error) {
-      console.error("[ProjectContextPanel.handleCreateCardSubmit]", error);
-      setCreateError("Could not create context card. Please retry.");
-    } finally {
-      setIsCreatingCard(false);
-    }
+    })();
   };
 
   const handleUpdateCardSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -426,39 +485,67 @@ export function ProjectContextPanel({
 
     setIsUpdatingCard(true);
     setEditError(null);
+    setContextMutationStatus({
+      phase: "running",
+      message: "Saving context card in background...",
+    });
 
-    try {
-      const formData = new FormData(event.currentTarget);
-      const response = await fetch(
-        `/api/projects/${projectId}/context-cards/${editingCard.id}`,
-        {
-          method: "PATCH",
-          body: formData,
-        }
-      );
+    const formData = new FormData(event.currentTarget);
+    const editingCardIdSnapshot = editingCard.id;
+    closeEditModal();
+    setIsUpdatingCard(false);
 
-      const payload = (await response.json().catch(() => null)) as
-        | { error?: string }
-        | null;
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/projects/${projectId}/context-cards/${editingCardIdSnapshot}`,
+          {
+            method: "PATCH",
+            body: formData,
+          }
+        );
 
-      if (!response.ok) {
-        setEditError(
-          mapContextMutationError(
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+
+        if (!response.ok) {
+          const message = mapContextMutationError(
             payload?.error ?? "context-update-failed",
             "Could not update context card. Please retry."
-          )
-        );
-        return;
-      }
+          );
+          if (!isMountedRef.current) {
+            return;
+          }
+          setEditError(message);
+          setContextMutationStatus({
+            phase: "failed",
+            message,
+          });
+          return;
+        }
+        if (!isMountedRef.current) {
+          return;
+        }
 
-      closeEditModal();
-      router.refresh();
-    } catch (error) {
-      console.error("[ProjectContextPanel.handleUpdateCardSubmit]", error);
-      setEditError("Could not update context card. Please retry.");
-    } finally {
-      setIsUpdatingCard(false);
-    }
+        setContextMutationStatus({
+          phase: "done",
+          message: "Context card saved. Refreshing context panel...",
+        });
+        window.setTimeout(() => router.refresh(), 0);
+      } catch (error) {
+        console.error("[ProjectContextPanel.handleUpdateCardSubmit]", error);
+        const message = "Could not update context card. Please retry.";
+        if (!isMountedRef.current) {
+          return;
+        }
+        setEditError(message);
+        setContextMutationStatus({
+          phase: "failed",
+          message,
+        });
+      }
+    })();
   };
 
   const handleDeleteCard = async (cardId: string) => {
@@ -693,6 +780,19 @@ export function ProjectContextPanel({
               : createBackgroundUploadProgress.phase === "done"
                 ? `Context attachment upload complete (${createBackgroundUploadProgress.total}/${createBackgroundUploadProgress.total}).`
                 : `Context attachment upload finished with ${createBackgroundUploadProgress.failed} failure(s).`}
+          </p>
+        ) : null}
+        {contextMutationStatus ? (
+          <p
+            className={
+              contextMutationStatus.phase === "failed"
+                ? "rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+                : "text-xs text-muted-foreground"
+            }
+            role="status"
+            aria-live="polite"
+          >
+            {contextMutationStatus.message}
           </p>
         ) : null}
       </CardHeader>

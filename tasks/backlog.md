@@ -4,14 +4,9 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-075
-  Title: Context-card attachment parity - direct-to-R2 create flow + shared background uploader
-  Status: Pending
-  Rationale: Context-card create still follows multipart-style attachment submit constraints while task create already uses direct R2 flow; align behavior and factor shared upload orchestration to avoid duplicated logic and inconsistent size/UX limits.
-  Dependencies: TASK-065, TASK-071
 - ID: TASK-072
   Title: Mutation responsiveness pass - reduce blocking waits on create/save interactions
-  Status: Pending
+  Status: In Progress
   Rationale: Users still perceive blocking delays after create/save actions; add optimistic mutation feedback and defer non-critical revalidation work to background refresh for smoother UX.
   Dependencies: TASK-071
 - ID: TASK-073
@@ -120,6 +115,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-075
+  Title: Context-card attachment parity - direct-to-R2 create flow + shared background uploader
+  Status: Done (2026-02-20)
+  Rationale: Aligned context-card create with task-create direct R2 strategy, added a shared background upload helper, and standardized provider-aware size validation plus progress feedback.
+  Dependencies: TASK-065, TASK-071
 - ID: TASK-071
   Title: Smooth upload/creation UX - non-blocking task creation and background attachment uploads
   Status: Done (2026-02-19)
