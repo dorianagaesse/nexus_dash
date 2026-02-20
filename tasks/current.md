@@ -17,6 +17,7 @@ Define the authoritative auth/authz architecture for NexusDash before implementa
   - agent access model (API key credentials + scoped short-lived JWT runtime tokens),
   - stateless-server strategy (DB authority + optional Redis session cache),
   - migration plan for existing data and Google calendar credential scoping.
+- Backlog includes a dedicated follow-up execution task for multi-user data/storage boundary transition (`TASK-076`), sequenced before route protection rollout.
 - ADR includes a concrete roadmap mapping to TASK-045/TASK-046/TASK-047/TASK-058/TASK-059/TASK-048.
 - `tasks/backlog.md`, `tasks/current.md`, and `adr/decisions.md` are aligned with TASK-020 progress.
 
@@ -29,7 +30,7 @@ Define the authoritative auth/authz architecture for NexusDash before implementa
 No blocking input required for ADR drafting. Acceptance status can be confirmed after review.
 
 ## Next Step
-Review and approve ADR decisions, then start TASK-045 (auth data model + migration) with the ADR as source of truth.
+Review and approve ADR decisions, then start TASK-045 followed by TASK-076 before entering TASK-046 route-protection implementation.
 
 ---
 

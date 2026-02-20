@@ -14,7 +14,8 @@ Adopt a hybrid, production-grade auth architecture with clear actor boundaries:
 - Enforce authorization in the service layer (`lib/services/**`) with project membership + role checks.
 - Defer public API exposure until core auth/authz hardening and testing tasks are completed.
 
-This ADR is the implementation contract for TASK-045, TASK-046, TASK-047, TASK-058, TASK-059, and TASK-048.
+This ADR is the implementation contract for TASK-045, TASK-076, TASK-046, TASK-047, TASK-058, TASK-059, and TASK-048.
+Execution sequencing includes a dedicated multi-user boundary transition task (`TASK-076`) between schema bootstrap and route-protection rollout.
 
 ## 2) Context
 
@@ -97,6 +98,20 @@ Roadmap constraints:
 - Explicitly deferred until:
   - user auth baseline + authorization + agent token scope model + hardening tests are complete.
 
+### 6.5 Multi-User Data and Storage Boundary Transition (`TASK-076`)
+- Database boundary changes:
+  - Move project/task/resource reads and writes to principal-scoped queries (actor + membership role), not route ID-only filtering.
+  - Ensure all service-layer operations enforce ownership/membership authorization before persistence or fetch.
+  - Backfill and enforce ownership relations so no project-scoped object is orphaned from a principal context.
+- Supabase/Postgres operational boundary:
+  - Keep Prisma migrations as canonical schema control.
+  - Use least-privilege runtime DB credentials and separate migration/admin credentials.
+- Cloudflare R2 boundary changes:
+  - Keep bucket private; all upload/download access is brokered by authorized app endpoints.
+  - Enforce permission checks before issuing signed URLs.
+  - Standardize tenant-safe object key strategy and attachment metadata ownership (`uploadedByUserId`).
+  - Add cleanup/audit mechanisms for orphaned objects and ownership drift.
+
 ## 7) Data Model Changes (Planned)
 
 ### 7.1 Auth.js-Compatible Entities
@@ -157,6 +172,10 @@ Policy rules:
   - Add user/session/auth schema and migrations.
   - Add ownership/membership foundation.
   - Add user-scoped calendar credential model.
+- TASK-076:
+  - Transition service-layer DB access to principal-scoped authorization filtering.
+  - Apply multi-user ownership constraints to attachment metadata and R2 signed URL issuance paths.
+  - Validate Supabase credential boundaries (runtime vs migrate/admin) for least privilege.
 - TASK-046:
   - Integrate Auth.js runtime, session retrieval helpers, route/page protection.
   - Add service-layer principal requirement for protected operations.

@@ -126,3 +126,6 @@ Resolution: Marked TASK-074 done in backlog/current tracking, decomposed oversiz
 Date: 2026-02-20
 Planning update: TASK-020 promoted to current with implementation-ready auth/authz ADR drafting.
 Resolution: Added `adr/task-020-modern-auth-authorization-adr.md` covering Prisma + DB sessions for users, optional Redis session cache for scale, scoped API key + short-lived JWT model for agents, role-based project authorization, migration strategy, and roadmap mapping to TASK-045/046/047/058/059/048.
+Date: 2026-02-20
+Planning update: Multi-user boundary transition was separated as a dedicated implementation step.
+Resolution: Added TASK-076 to `tasks/backlog.md`, updated dependency graph (TASK-046/TASK-058/TASK-059), updated `tasks/current.md` next-step sequencing, and extended TASK-020 ADR with explicit Supabase/Postgres and Cloudflare R2 multi-user boundary requirements.

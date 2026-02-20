@@ -237,3 +237,9 @@ Status: Proposed
 Context: TASK-020 must define implementation-ready auth/authz boundaries before TASK-045/TASK-046/TASK-047/TASK-058/TASK-059 to avoid rework and authorization drift.
 Decision: Document a hybrid architecture using Prisma + PostgreSQL as system of record, Auth.js database-backed user sessions, role-based project memberships, and scoped agent API credentials with short-lived JWT runtime access tokens; keep stateless server operation with DB authority and optional Redis session cache.
 Consequences: Implementation phases can proceed with explicit actor boundaries, migration strategy, and security controls; final acceptance is required before TASK-045 execution.
+Date: 2026-02-20
+Decision: Add dedicated multi-user boundary transition task before auth route-protection rollout
+Status: Proposed
+Context: TASK-020 ADR clarified that principal-scoped authorization and storage ownership isolation are a distinct implementation concern not fully covered by schema bootstrap (TASK-045) or route protection (TASK-046) alone.
+Decision: Add TASK-076 to execution queue and sequence it after TASK-045 and before TASK-046, with explicit scope for service-layer principal filtering, Supabase credential boundary checks, and Cloudflare R2 ownership/signed-URL authorization alignment.
+Consequences: Reduces authorization drift and cross-user data leakage risk during auth rollout; increases near-term implementation scope but creates clearer and safer boundaries for TASK-046/TASK-058/TASK-059.

@@ -14,11 +14,16 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Establish durable auth persistence primitives (Auth.js/Prisma-compatible user/account/session entities, revocation support, session lifecycle) before middleware/UI implementation.
   Dependencies: TASK-020, TASK-057
+- ID: TASK-076
+  Title: Multi-user data/storage boundary transition - principal-scoped DB access and R2 ownership isolation
+  Status: Pending
+  Rationale: Convert project/task/resource/attachment access from ID-scoped behavior to principal-scoped behavior by introducing ownership/membership filters in service-layer queries and user-aware R2 object/metadata boundaries (`uploadedBy`, tenant-safe keys, signed URL authorization checks) before full route protection and sharing rollout.
+  Dependencies: TASK-020, TASK-045, TASK-065, TASK-060
 - ID: TASK-046
   Title: Authentication implementation phase 2 - auth core and route protection
   Status: Pending
   Rationale: Implement login/session lifecycle and protect project/task APIs and pages behind authenticated access.
-  Dependencies: TASK-045
+  Dependencies: TASK-045, TASK-076
 - ID: TASK-047
   Title: Authentication implementation phase 3 - home-page auth entry and account onboarding UX
   Status: Pending
@@ -33,12 +38,12 @@ Use this file to capture tasks discovered during development. Each entry should 
   Title: Authorization implementation - project sharing, membership roles, and invitations
   Status: Pending
   Rationale: Support collaborative usage by introducing project-level membership (owner/editor/viewer), secure sharing/invite flows, and permission checks across UI and APIs.
-  Dependencies: TASK-046, TASK-047
+  Dependencies: TASK-046, TASK-047, TASK-076
 - ID: TASK-059
   Title: Agent access implementation - scoped API tokens, rotation, and audit trail
   Status: Pending
   Rationale: Enable secure non-human access via revocable JWT-style scoped tokens/service principals so agents can operate on authorized projects without sharing user sessions.
-  Dependencies: TASK-046
+  Dependencies: TASK-046, TASK-076
 - ID: TASK-048
   Title: Authentication implementation phase 4 - auth tests and hardening
   Status: Pending
