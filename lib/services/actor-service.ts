@@ -1,10 +1,12 @@
 import { getOptionalServerEnv, getRuntimeEnvironment } from "@/lib/env.server";
+import { logServerWarning } from "@/lib/observability/logger";
 import { prisma } from "@/lib/prisma";
 
 const BOOTSTRAP_USER_ID = "bootstrap-owner";
 const BOOTSTRAP_USER_NAME = "Bootstrap Owner";
 const BOOTSTRAP_USER_EMAIL = "bootstrap@nexusdash.local";
 const LEGACY_ACTOR_USER_ID_ENV = "NEXUSDASH_LEGACY_ACTOR_USER_ID";
+let hasLoggedProductionBootstrapFallback = false;
 
 function normalizeUserId(value: string | null | undefined): string | null {
   if (typeof value !== "string") {
@@ -32,17 +34,10 @@ async function ensureUserById(userId: string): Promise<void> {
     return;
   }
 
-  const existing = await prisma.user.findUnique({
+  await prisma.user.upsert({
     where: { id: userId },
-    select: { id: true },
-  });
-
-  if (existing) {
-    return;
-  }
-
-  await prisma.user.create({
-    data: {
+    update: {},
+    create: {
       id: userId,
       name: `Legacy Actor (${userId.slice(0, 12)})`,
     },
@@ -68,6 +63,14 @@ export async function resolveActorUserId(input?: {
       await ensureUserById(preferred);
       return preferred;
     }
+  }
+
+  if (!hasLoggedProductionBootstrapFallback) {
+    logServerWarning(
+      "resolveActorUserId.productionBootstrapFallback",
+      "Auth bootstrap fallback is active in production. TASK-046 auth middleware is not enabled yet."
+    );
+    hasLoggedProductionBootstrapFallback = true;
   }
 
   await ensureUserById(BOOTSTRAP_USER_ID);
