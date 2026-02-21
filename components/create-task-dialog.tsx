@@ -77,6 +77,8 @@ export function CreateTaskDialog({
   const attachmentFileSizeErrorMessage = `Attachment files must be ${maxAttachmentFileSizeLabel} or smaller.`;
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
       isMountedRef.current = false;
     };
