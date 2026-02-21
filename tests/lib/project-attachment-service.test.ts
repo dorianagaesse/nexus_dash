@@ -31,6 +31,14 @@ const loggerMock = vi.hoisted(() => ({
   logServerError: vi.fn(),
 }));
 
+const actorServiceMock = vi.hoisted(() => ({
+  resolveActorUserId: vi.fn(),
+}));
+
+const projectAuthorizationMock = vi.hoisted(() => ({
+  hasProjectAccess: vi.fn(),
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: prismaMock,
 }));
@@ -50,6 +58,14 @@ vi.mock("@/lib/observability/logger", () => ({
   logServerError: loggerMock.logServerError,
 }));
 
+vi.mock("@/lib/services/actor-service", () => ({
+  resolveActorUserId: actorServiceMock.resolveActorUserId,
+}));
+
+vi.mock("@/lib/services/project-authorization-service", () => ({
+  hasProjectAccess: projectAuthorizationMock.hasProjectAccess,
+}));
+
 import {
   createContextAttachmentUploadTarget,
   createContextAttachmentFromForm,
@@ -62,6 +78,8 @@ import {
 describe("project-attachment-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    actorServiceMock.resolveActorUserId.mockResolvedValue("user-1");
+    projectAuthorizationMock.hasProjectAccess.mockResolvedValue(true);
   });
 
   test("maps task upload storage-unavailable errors to actionable message", async () => {
@@ -129,7 +147,7 @@ describe("project-attachment-service", () => {
       projectId: "project-1",
     });
     attachmentStorageMock.createAttachmentSignedUploadUrl.mockResolvedValueOnce({
-      storageKey: "task/task-1/key-spec.pdf",
+      storageKey: "task/user-1/task-1/key-spec.pdf",
       uploadUrl: "https://example.r2/upload",
       method: "PUT",
       headers: { "Content-Type": "application/pdf" },
@@ -148,7 +166,7 @@ describe("project-attachment-service", () => {
       ok: true,
       data: {
         upload: {
-          storageKey: "task/task-1/key-spec.pdf",
+          storageKey: "task/user-1/task-1/key-spec.pdf",
           uploadUrl: "https://example.r2/upload",
           method: "PUT",
           headers: { "Content-Type": "application/pdf" },
@@ -167,7 +185,7 @@ describe("project-attachment-service", () => {
       type: RESOURCE_TYPE_CONTEXT_CARD,
     });
     attachmentStorageMock.createAttachmentSignedUploadUrl.mockResolvedValueOnce({
-      storageKey: "context-card/card-1/key-spec.pdf",
+      storageKey: "context-card/user-1/card-1/key-spec.pdf",
       uploadUrl: "https://example.r2/upload",
       method: "PUT",
       headers: { "Content-Type": "application/pdf" },
@@ -186,7 +204,7 @@ describe("project-attachment-service", () => {
       ok: true,
       data: {
         upload: {
-          storageKey: "context-card/card-1/key-spec.pdf",
+          storageKey: "context-card/user-1/card-1/key-spec.pdf",
           uploadUrl: "https://example.r2/upload",
           method: "PUT",
           headers: { "Content-Type": "application/pdf" },
@@ -219,7 +237,7 @@ describe("project-attachment-service", () => {
     const result = await finalizeTaskAttachmentDirectUpload({
       projectId: "project-1",
       taskId: "task-1",
-      storageKey: "task/task-1/key-spec.pdf",
+      storageKey: "task/user-1/task-1/key-spec.pdf",
       name: "spec.pdf",
       mimeType: "application/pdf",
       sizeBytes: 2048,
@@ -264,7 +282,7 @@ describe("project-attachment-service", () => {
     const result = await finalizeContextAttachmentDirectUpload({
       projectId: "project-1",
       cardId: "card-1",
-      storageKey: "context-card/card-1/key-spec.pdf",
+      storageKey: "context-card/user-1/card-1/key-spec.pdf",
       name: "spec.pdf",
       mimeType: "application/pdf",
       sizeBytes: 2048,

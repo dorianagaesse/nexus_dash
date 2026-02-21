@@ -4,15 +4,25 @@ import { NextRequest } from "next/server";
 const googleCalendarMock = vi.hoisted(() => ({
   GOOGLE_OAUTH_STATE_COOKIE: "nexusdash_google_oauth_state",
   GOOGLE_OAUTH_RETURN_TO_COOKIE: "nexusdash_google_oauth_return_to",
+  GOOGLE_OAUTH_ACTOR_COOKIE: "nexusdash_google_oauth_actor",
   buildGoogleOAuthUrl: vi.fn(),
   normalizeReturnToPath: vi.fn(),
+}));
+
+const actorServiceMock = vi.hoisted(() => ({
+  resolveActorUserId: vi.fn(),
 }));
 
 vi.mock("@/lib/google-calendar", () => ({
   GOOGLE_OAUTH_STATE_COOKIE: googleCalendarMock.GOOGLE_OAUTH_STATE_COOKIE,
   GOOGLE_OAUTH_RETURN_TO_COOKIE: googleCalendarMock.GOOGLE_OAUTH_RETURN_TO_COOKIE,
+  GOOGLE_OAUTH_ACTOR_COOKIE: googleCalendarMock.GOOGLE_OAUTH_ACTOR_COOKIE,
   buildGoogleOAuthUrl: googleCalendarMock.buildGoogleOAuthUrl,
   normalizeReturnToPath: googleCalendarMock.normalizeReturnToPath,
+}));
+
+vi.mock("@/lib/services/actor-service", () => ({
+  resolveActorUserId: actorServiceMock.resolveActorUserId,
 }));
 
 import { GET } from "@/app/api/auth/google/route";
@@ -28,6 +38,7 @@ describe("GET /api/auth/google", () => {
     googleCalendarMock.buildGoogleOAuthUrl.mockReturnValue(
       "https://accounts.example.com/oauth?state=test-state"
     );
+    actorServiceMock.resolveActorUserId.mockResolvedValue("user-1");
   });
 
   test("redirects to oauth provider and sets state + returnTo cookies", async () => {
@@ -47,6 +58,7 @@ describe("GET /api/auth/google", () => {
     const setCookie = readSetCookieHeaders(response);
     expect(setCookie).toContain("nexusdash_google_oauth_state=");
     expect(setCookie).toContain("nexusdash_google_oauth_return_to=%2Fprojects%2Fp1");
+    expect(setCookie).toContain("nexusdash_google_oauth_actor=user-1");
   });
 
   test("redirects back with config error when oauth url build fails", async () => {

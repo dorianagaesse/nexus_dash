@@ -249,3 +249,15 @@ Status: Proposed
 Context: Existing calendar integration persists OAuth tokens in a singleton credential (`GoogleCalendarCredential.id = "default"`) and resolves calendar access globally, which conflicts with planned multi-user ownership boundaries.
 Decision: Update TASK-076 to explicitly cover Supabase/Postgres principal boundaries, Cloudflare R2 ownership isolation, and Google Calendar principal-scoped OAuth/token/service flows; record detailed implementation contract in `adr/task-076-supabase-r2-google-calendar-boundaries.md`.
 Consequences: Calendar integration aligns with user-based model and avoids cross-user token/data leakage; introduces additional schema migration and service refactor work during TASK-076.
+Date: 2026-02-21
+Decision: Implement auth persistence foundation with bootstrap-compatible principal model
+Status: Accepted
+Context: TASK-045 requires Auth.js-compatible persistence entities and ownership primitives before route-level auth rollout, while current runtime is still pre-auth single-user.
+Decision: Add `User`/`Account`/`Session`/`VerificationToken`, project ownership/membership schema, and user-scoped Google calendar credential schema, with a controlled bootstrap principal (`bootstrap-owner`) to keep current behavior functional until TASK-046.
+Consequences: Schema is auth-ready and role-aware without breaking current pre-auth flows; temporary bootstrap fallback must be replaced by real session principal resolution in TASK-046.
+Date: 2026-02-21
+Decision: Enforce service-layer principal scoping across project, attachment, and calendar boundaries
+Status: Accepted
+Context: TASK-076 requires principal-scoped access controls and storage/integration ownership boundaries before broader collaboration and agent access features.
+Decision: Introduce shared actor/project-authorization services, apply project membership/owner checks in service methods, move attachment storage owner keys to actor-scoped prefixes, and bind Google OAuth callback/token storage to actor-specific credential ownership.
+Consequences: Reduces cross-user data and token leakage risk before full auth middleware; increases service-layer authorization plumbing and migration complexity, but keeps boundaries explicit and testable.

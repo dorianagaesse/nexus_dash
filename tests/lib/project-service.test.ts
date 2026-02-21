@@ -7,6 +7,7 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
   },
   project: {
+    findFirst: vi.fn(),
     findUnique: vi.fn(),
   },
   resource: {
@@ -14,8 +15,29 @@ const prismaMock = vi.hoisted(() => ({
   },
 }));
 
+const actorServiceMock = vi.hoisted(() => ({
+  resolveActorUserId: vi.fn(),
+}));
+
+const projectAuthorizationMock = vi.hoisted(() => ({
+  buildProjectAccessWhere: vi.fn(),
+  hasProjectAccess: vi.fn(),
+  ensureProjectOwnerMembership: vi.fn(),
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: prismaMock,
+}));
+
+vi.mock("@/lib/services/actor-service", () => ({
+  resolveActorUserId: actorServiceMock.resolveActorUserId,
+}));
+
+vi.mock("@/lib/services/project-authorization-service", () => ({
+  buildProjectAccessWhere: projectAuthorizationMock.buildProjectAccessWhere,
+  hasProjectAccess: projectAuthorizationMock.hasProjectAccess,
+  ensureProjectOwnerMembership:
+    projectAuthorizationMock.ensureProjectOwnerMembership,
 }));
 
 import {
@@ -29,6 +51,12 @@ import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
 describe("project-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    actorServiceMock.resolveActorUserId.mockResolvedValue("bootstrap-owner");
+    projectAuthorizationMock.buildProjectAccessWhere.mockReturnValue({});
+    projectAuthorizationMock.hasProjectAccess.mockResolvedValue(true);
+    projectAuthorizationMock.ensureProjectOwnerMembership.mockResolvedValue(
+      undefined
+    );
   });
 
   test("archives stale done tasks before loading dashboard", async () => {
@@ -66,7 +94,7 @@ describe("project-service", () => {
   });
 
   test("loads summary with task count projection", async () => {
-    prismaMock.project.findUnique.mockResolvedValueOnce({
+    prismaMock.project.findFirst.mockResolvedValueOnce({
       id: "project-1",
       name: "Project 1",
       description: null,
@@ -83,7 +111,7 @@ describe("project-service", () => {
         tasks: 4,
       },
     });
-    expect(prismaMock.project.findUnique).toHaveBeenCalledWith({
+    expect(prismaMock.project.findFirst).toHaveBeenCalledWith({
       where: { id: "project-1" },
       select: {
         id: true,

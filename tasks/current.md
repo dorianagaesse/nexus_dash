@@ -1,39 +1,36 @@
-# Current Task: Modern Authentication/Authorization ADR
+# Current Task: TASK-045 + TASK-076 Auth Foundation and Multi-User Boundaries
 
-## Task ID
-TASK-020
+## Task IDs
+TASK-045, TASK-076
 
 ## Status
-In Progress (2026-02-20)
+In Review (2026-02-21)
 
 ## Summary
-Define the authoritative auth/authz architecture for NexusDash before implementation phases, with explicit decisions for user sessions, project ownership/membership, non-human access, and future public API exposure.
+Implement the first auth persistence/data-model foundation and the multi-user boundary transition so the codebase is principal-scoped (DB, R2, Google Calendar) before route-level auth protection rollout in TASK-046.
 
 ## Acceptance Criteria
-- A detailed ADR is drafted and stored in `adr/task-020-modern-auth-authorization-adr.md`.
-- ADR defines:
-  - identity/session model for users (DB-backed sessions, lifecycle controls),
-  - authorization model for projects (ownership + role-based membership),
-  - agent access model (API key credentials + scoped short-lived JWT runtime tokens),
-  - stateless-server strategy (DB authority + optional Redis session cache),
-  - migration plan for existing data and Google calendar credential scoping.
-- Backlog includes a dedicated follow-up execution task for multi-user data/storage boundary transition (`TASK-076`), sequenced before route protection rollout.
-- ADR includes a concrete roadmap mapping to TASK-045/TASK-046/TASK-047/TASK-058/TASK-059/TASK-048.
-- Companion boundary ADR for TASK-076 exists at `adr/task-076-supabase-r2-google-calendar-boundaries.md` and defines Supabase/R2/Google Calendar user-scope requirements.
-- `tasks/backlog.md`, `tasks/current.md`, and `adr/decisions.md` are aligned with TASK-020 progress.
+- Prisma schema includes Auth.js-compatible identity/session entities (`User`, `Account`, `Session`, `VerificationToken`) with migrations.
+- Project ownership and membership primitives are implemented (`Project.ownerId`, membership relation/role model) and used by services.
+- Service-layer data access is principal-scoped (owner/membership checks), replacing ID-only project/task/resource access paths.
+- Attachment lifecycle enforces ownership-aware metadata and signed URL authorization checks, aligned with Cloudflare R2 boundary requirements.
+- Google Calendar credential/token storage is user-scoped (no singleton global credential), and calendar service/auth callback flows bind to principal context.
+- Existing project/task/context/attachment/calendar behavior remains functional for current single-user flow via controlled bootstrap fallback principal until TASK-046 auth runtime.
+- `tasks/backlog.md`, `tasks/current.md`, `journal.md`, and `adr/decisions.md` are aligned with implemented changes.
 
 ## Definition of Done
-- ADR reviewed for internal consistency and implementation readiness.
-- `TASK-020` remains in review/proposed state until explicit acceptance.
-- Follow-up tasks and boundaries are unambiguous enough to implement without architectural guesswork.
+- Migration deploys successfully (`prisma migrate deploy`) and code compiles/lints/tests pass.
+- No remaining global Google credential data path.
+- No direct project/task/resource mutation/read path bypasses principal authorization in service layer.
+- PR is opened, reviewed feedback is addressed, and all review conversations are resolved before merge readiness.
 
 ## Required Input
-No blocking input required for ADR drafting. Acceptance status can be confirmed after review.
+No blocking product input required for implementation.
 
 ## Next Step
-Review and approve ADR decisions, then start TASK-045 followed by TASK-076 before entering TASK-046 route-protection implementation.
+Open PR for TASK-045/TASK-076 implementation, process Copilot review feedback, then prepare TASK-046 kickoff once review is closed and checks are green.
 
 ---
 
-Last Updated: 2026-02-20
+Last Updated: 2026-02-21
 Assigned To: User + Agent

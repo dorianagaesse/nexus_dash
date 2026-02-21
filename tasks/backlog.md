@@ -4,19 +4,14 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-020
-  Title: Modern authentication/authorization ADR (user ownership, sharing, agent access, session model)
-  Status: In Progress
-  Rationale: Define a state-of-the-art authz/authn model covering user-owned projects, shareable collaboration, secure agent access, and persistent web sessions without repeated login prompts, including explicit signed-out home-page entry behavior (`Sign in`/`Sign up`), DB-backed user sessions, and JWT-style scoped agent/API tokens.
-  Dependencies: TASK-035, TASK-039, TASK-040, TASK-057, TASK-060, TASK-062
 - ID: TASK-045
   Title: Authentication implementation phase 1 - user/session data model and migrations
-  Status: Pending
+  Status: In Review (2026-02-21)
   Rationale: Establish durable auth persistence primitives (Auth.js/Prisma-compatible user/account/session entities, revocation support, session lifecycle) before middleware/UI implementation.
   Dependencies: TASK-020, TASK-057
 - ID: TASK-076
   Title: Multi-user data/storage/integration boundary transition - principal-scoped DB access, R2 ownership isolation, and user-scoped Google Calendar
-  Status: Pending
+  Status: In Review (2026-02-21)
   Rationale: Convert project/task/resource/attachment access from ID-scoped behavior to principal-scoped behavior by introducing ownership/membership filters in service-layer queries, user-aware R2 object/metadata boundaries (`uploadedBy`, tenant-safe keys, signed URL authorization checks), and user-scoped Google Calendar OAuth/token ownership (replace global singleton credential flow) before full route protection and sharing rollout.
   Dependencies: TASK-020, TASK-045, TASK-065, TASK-060
 - ID: TASK-046
@@ -100,6 +95,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-020
+  Title: Modern authentication/authorization ADR (user ownership, sharing, agent access, session model)
+  Status: Done (2026-02-21)
+  Rationale: Auth/authz architecture contract accepted and merged with implementation sequencing across TASK-045/TASK-076/TASK-046/TASK-047/TASK-058/TASK-059/TASK-048, including dedicated Supabase/R2/Google Calendar boundary ADR.
+  Dependencies: TASK-035, TASK-039, TASK-040, TASK-057, TASK-060, TASK-062
 - ID: TASK-062
   Title: UI decomposition phase - split oversized dashboard components into focused modules
   Status: Done (2026-02-20)

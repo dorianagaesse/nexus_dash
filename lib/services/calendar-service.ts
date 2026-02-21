@@ -3,6 +3,8 @@ import {
   hasCalendarWriteScope,
 } from "@/lib/google-calendar-access";
 import { logServerError } from "@/lib/observability/logger";
+import { resolveActorUserId } from "@/lib/services/actor-service";
+import { hasProjectAccess } from "@/lib/services/project-authorization-service";
 
 interface ServiceErrorResult {
   ok: false;
@@ -318,8 +320,32 @@ function toGoogleEventRequest(payload: UpsertEventRequestPayload) {
   };
 }
 
-async function resolveWritableCalendarContext() {
-  const auth = await getAuthorizedGoogleCalendarContext();
+async function resolveCalendarActorContext(input: {
+  actorUserId?: string | null;
+  projectId?: string | null;
+  minimumProjectRole: "viewer" | "editor";
+}) {
+  const actorUserId = await resolveActorUserId({
+    preferredUserId: input.actorUserId ?? null,
+  });
+
+  if (input.projectId) {
+    const hasAccess = await hasProjectAccess({
+      projectId: input.projectId,
+      actorUserId,
+      minimumRole: input.minimumProjectRole,
+    });
+
+    if (!hasAccess) {
+      return createError(404, { error: "project-not-found" });
+    }
+  }
+
+  return createSuccess(200, { actorUserId });
+}
+
+async function resolveWritableCalendarContext(input: { userId: string }) {
+  const auth = await getAuthorizedGoogleCalendarContext({ userId: input.userId });
   if (!auth.ok) {
     return createError(auth.failure.status, { error: auth.failure.error });
   }
@@ -334,6 +360,8 @@ async function resolveWritableCalendarContext() {
 export async function listCalendarEvents(input: {
   rangeRaw: string | null;
   daysRaw: string | null;
+  projectId?: string | null;
+  actorUserId?: string | null;
   now?: Date;
 }): Promise<
   ServiceResult<{
@@ -350,7 +378,18 @@ export async function listCalendarEvents(input: {
   const queryWindow = buildQueryWindow(input);
 
   try {
-    const auth = await getAuthorizedGoogleCalendarContext();
+    const actor = await resolveCalendarActorContext({
+      actorUserId: input.actorUserId ?? null,
+      projectId: input.projectId ?? null,
+      minimumProjectRole: "viewer",
+    });
+    if (!actor.ok) {
+      return actor;
+    }
+
+    const auth = await getAuthorizedGoogleCalendarContext({
+      userId: actor.body.actorUserId,
+    });
     if (!auth.ok) {
       return createError(auth.failure.status, {
         connected: false,
@@ -430,7 +469,28 @@ export async function createCalendarEvent(rawBody: unknown): Promise<
   }>
 > {
   try {
-    const auth = await resolveWritableCalendarContext();
+    const actor = await resolveCalendarActorContext({
+      actorUserId:
+        typeof rawBody === "object" &&
+        rawBody &&
+        "actorUserId" in (rawBody as Record<string, unknown>)
+          ? ((rawBody as { actorUserId?: unknown }).actorUserId as string | null)
+          : null,
+      projectId:
+        typeof rawBody === "object" &&
+        rawBody &&
+        "projectId" in (rawBody as Record<string, unknown>)
+          ? ((rawBody as { projectId?: unknown }).projectId as string | null)
+          : null,
+      minimumProjectRole: "editor",
+    });
+    if (!actor.ok) {
+      return actor;
+    }
+
+    const auth = await resolveWritableCalendarContext({
+      userId: actor.body.actorUserId,
+    });
     if (!auth.ok) {
       return auth;
     }
@@ -498,7 +558,28 @@ export async function updateCalendarEvent(
   }>
 > {
   try {
-    const auth = await resolveWritableCalendarContext();
+    const actor = await resolveCalendarActorContext({
+      actorUserId:
+        typeof rawBody === "object" &&
+        rawBody &&
+        "actorUserId" in (rawBody as Record<string, unknown>)
+          ? ((rawBody as { actorUserId?: unknown }).actorUserId as string | null)
+          : null,
+      projectId:
+        typeof rawBody === "object" &&
+        rawBody &&
+        "projectId" in (rawBody as Record<string, unknown>)
+          ? ((rawBody as { projectId?: unknown }).projectId as string | null)
+          : null,
+      minimumProjectRole: "editor",
+    });
+    if (!actor.ok) {
+      return actor;
+    }
+
+    const auth = await resolveWritableCalendarContext({
+      userId: actor.body.actorUserId,
+    });
     if (!auth.ok) {
       return auth;
     }
@@ -562,10 +643,22 @@ export async function updateCalendarEvent(
 }
 
 export async function deleteCalendarEvent(
-  eventId: string
+  eventId: string,
+  input?: { projectId?: string | null; actorUserId?: string | null }
 ): Promise<ServiceResult<{ ok: true }>> {
   try {
-    const auth = await resolveWritableCalendarContext();
+    const actor = await resolveCalendarActorContext({
+      actorUserId: input?.actorUserId ?? null,
+      projectId: input?.projectId ?? null,
+      minimumProjectRole: "editor",
+    });
+    if (!actor.ok) {
+      return actor;
+    }
+
+    const auth = await resolveWritableCalendarContext({
+      userId: actor.body.actorUserId,
+    });
     if (!auth.ok) {
       return auth;
     }

@@ -11,6 +11,9 @@ const txMock = vi.hoisted(() => ({
 }));
 
 const prismaMock = vi.hoisted(() => ({
+  project: {
+    findFirst: vi.fn(),
+  },
   task: {
     findUnique: vi.fn(),
   },
@@ -30,6 +33,7 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
 describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.project.findFirst.mockResolvedValue({ id: "p1" });
     prismaMock.$transaction.mockImplementation(async (callback: (tx: typeof txMock) => unknown) =>
       callback(txMock)
     );

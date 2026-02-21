@@ -132,3 +132,9 @@ Resolution: Added TASK-076 to `tasks/backlog.md`, updated dependency graph (TASK
 Date: 2026-02-20
 Planning update: TASK-076 scope expanded to include user-scoped Google Calendar boundaries.
 Resolution: Updated TASK-076 rationale in `tasks/backlog.md`, expanded TASK-020 ADR boundary scope to include Google credential ownership migration, and added companion ADR `adr/task-076-supabase-r2-google-calendar-boundaries.md` describing Supabase/R2/Google Calendar multi-user boundary implementation work.
+Date: 2026-02-21
+Execution update: Implemented TASK-045 + TASK-076 foundation and boundary refactor on `feature/task-045-076-auth-boundaries`.
+Resolution: Added Auth.js-compatible Prisma entities (`User`, `Account`, `Session`, `VerificationToken`), project ownership/membership schema, actor-scoped service authorization helpers, user-scoped Google Calendar credential flow (OAuth actor binding + per-user token storage), and actor-scoped attachment ownership metadata/storage-key boundaries for R2 flows.
+Date: 2026-02-21
+Validation update: Auth foundation and boundary refactor verified with full quality gates.
+Resolution: Successfully ran `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`; updated targeted API/lib tests for new actor/project authorization semantics and Google OAuth cookie/token contracts.

@@ -9,8 +9,8 @@ const prismaMock = vi.hoisted(() => ({
 }));
 
 const googleCalendarMock = vi.hoisted(() => ({
-  GOOGLE_CALENDAR_CONNECTION_ID: "default",
   createExpiryDate: vi.fn(),
+  getGoogleCalendarId: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -18,8 +18,8 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 vi.mock("@/lib/google-calendar", () => ({
-  GOOGLE_CALENDAR_CONNECTION_ID: googleCalendarMock.GOOGLE_CALENDAR_CONNECTION_ID,
   createExpiryDate: googleCalendarMock.createExpiryDate,
+  getGoogleCalendarId: googleCalendarMock.getGoogleCalendarId,
 }));
 
 import {
@@ -34,18 +34,19 @@ describe("google-calendar-credential-service", () => {
     googleCalendarMock.createExpiryDate.mockReturnValue(
       new Date("2026-02-16T00:00:00.000Z")
     );
+    googleCalendarMock.getGoogleCalendarId.mockReturnValue("primary");
   });
 
-  test("finds credential by fixed connection id", async () => {
+  test("finds credential by user id", async () => {
     prismaMock.googleCalendarCredential.findUnique.mockResolvedValueOnce({
-      id: "default",
+      userId: "user-1",
     });
 
-    const result = await findGoogleCalendarCredential();
+    const result = await findGoogleCalendarCredential("user-1");
 
-    expect(result).toEqual({ id: "default" });
+    expect(result).toEqual({ userId: "user-1" });
     expect(prismaMock.googleCalendarCredential.findUnique).toHaveBeenCalledWith({
-      where: { id: "default" },
+      where: { userId: "user-1" },
     });
   });
 
@@ -53,6 +54,7 @@ describe("google-calendar-credential-service", () => {
     prismaMock.googleCalendarCredential.update.mockResolvedValueOnce({});
 
     await updateGoogleCalendarCredentialTokens({
+      userId: "user-1",
       accessToken: "new-access",
       expiresIn: 3600,
       refreshToken: "refresh",
@@ -62,12 +64,15 @@ describe("google-calendar-credential-service", () => {
 
     expect(googleCalendarMock.createExpiryDate).toHaveBeenCalledWith(3600);
     expect(prismaMock.googleCalendarCredential.update).toHaveBeenCalledWith({
-      where: { id: "default" },
+      where: { userId: "user-1" },
       data: {
         accessToken: "new-access",
         refreshToken: "refresh",
         tokenType: "Bearer",
         scope: "scope-a",
+        providerAccountId: undefined,
+        calendarId: undefined,
+        revokedAt: null,
         expiresAt: new Date("2026-02-16T00:00:00.000Z"),
       },
     });
@@ -77,6 +82,7 @@ describe("google-calendar-credential-service", () => {
     prismaMock.googleCalendarCredential.upsert.mockResolvedValueOnce({});
 
     await upsertGoogleCalendarCredentialTokens({
+      userId: "user-1",
       accessToken: "access-token",
       expiresIn: 3600,
       refreshToken: "fresh-refresh",
@@ -85,9 +91,10 @@ describe("google-calendar-credential-service", () => {
     });
 
     const upsertCall = prismaMock.googleCalendarCredential.upsert.mock.calls[0][0];
-    expect(upsertCall.where).toEqual({ id: "default" });
+    expect(upsertCall.where).toEqual({ userId: "user-1" });
     expect(upsertCall.update.refreshToken).toBe("fresh-refresh");
     expect(upsertCall.create.refreshToken).toBe("fresh-refresh");
+    expect(upsertCall.create.calendarId).toBe("primary");
     expect(prismaMock.googleCalendarCredential.findUnique).not.toHaveBeenCalled();
   });
 
@@ -98,6 +105,7 @@ describe("google-calendar-credential-service", () => {
     prismaMock.googleCalendarCredential.upsert.mockResolvedValueOnce({});
 
     await upsertGoogleCalendarCredentialTokens({
+      userId: "user-1",
       accessToken: "access-token",
       expiresIn: 3600,
       tokenType: "Bearer",
@@ -114,6 +122,7 @@ describe("google-calendar-credential-service", () => {
 
     await expect(
       upsertGoogleCalendarCredentialTokens({
+        userId: "user-1",
         accessToken: "access-token",
         expiresIn: 3600,
         tokenType: "Bearer",

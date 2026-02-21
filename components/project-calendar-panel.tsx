@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   ChevronDown,
@@ -30,12 +30,11 @@ import { cn } from "@/lib/utils";
 
 interface ProjectCalendarPanelProps {
   projectId: string;
-  calendarId: string | null;
 }
 
 type EventModalMode = "create" | "edit";
 
-export function ProjectCalendarPanel({ projectId, calendarId }: ProjectCalendarPanelProps) {
+export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
     sectionKey: "calendar",
@@ -45,6 +44,7 @@ export function ProjectCalendarPanel({ projectId, calendarId }: ProjectCalendarP
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [events, setEvents] = useState<CalendarEventItem[]>([]);
+  const [resolvedCalendarId, setResolvedCalendarId] = useState<string | null>(null);
   const [syncedAt, setSyncedAt] = useState<string | null>(null);
   const [rangeStart, setRangeStart] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,15 +71,15 @@ export function ProjectCalendarPanel({ projectId, calendarId }: ProjectCalendarP
   );
 
   const calendarUrl = useMemo(() => {
-    const resolvedCalendarId = calendarId?.trim();
-    if (resolvedCalendarId) {
+    const targetCalendarId = resolvedCalendarId?.trim();
+    if (targetCalendarId) {
       const url = new URL("https://calendar.google.com/calendar/u/0/r");
-      url.searchParams.set("cid", resolvedCalendarId);
+      url.searchParams.set("cid", targetCalendarId);
       return url.toString();
     }
 
     return "https://calendar.google.com/calendar/u/0/r";
-  }, [calendarId]);
+  }, [resolvedCalendarId]);
 
   const resetEventForm = () => {
     const defaults = buildDefaultTimedWindow();
@@ -139,52 +139,62 @@ export function ProjectCalendarPanel({ projectId, calendarId }: ProjectCalendarP
     setIsBrowserReady(true);
   }, []);
 
-  const loadEvents = async (signal?: AbortSignal) => {
-    setIsLoading(true);
-    setError(null);
+  const loadEvents = useCallback(
+    async (signal?: AbortSignal) => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const response = await fetch(`/api/calendar/events?range=${CALENDAR_RANGE}`, {
-        method: "GET",
-        cache: "no-store",
-        signal,
-      });
+      try {
+        const response = await fetch(
+          `/api/calendar/events?range=${CALENDAR_RANGE}&projectId=${encodeURIComponent(
+            projectId
+          )}`,
+          {
+            method: "GET",
+            cache: "no-store",
+            signal,
+          }
+        );
 
-      const payload = (await response.json().catch(() => null)) as
-        | CalendarEventsResponse
-        | null;
+        const payload = (await response.json().catch(() => null)) as
+          | CalendarEventsResponse
+          | null;
 
-      if (response.status === 401) {
-        setIsConnected(false);
-        setEvents([]);
-        setSyncedAt(null);
-        return;
+        if (response.status === 401) {
+          setIsConnected(false);
+          setEvents([]);
+          setResolvedCalendarId(null);
+          setSyncedAt(null);
+          return;
+        }
+
+        if (!response.ok || !payload) {
+          throw new Error(payload?.error ?? "Could not load calendar events.");
+        }
+
+        setIsConnected(payload.connected);
+        setEvents(payload.events ?? []);
+        setResolvedCalendarId(payload.calendarId ?? null);
+        setSyncedAt(payload.syncedAt ?? null);
+        setRangeStart(payload.timeMin ?? null);
+      } catch (fetchError) {
+        if (fetchError instanceof Error && fetchError.name === "AbortError") {
+          return;
+        }
+
+        console.error("[ProjectCalendarPanel.loadEvents]", fetchError);
+        setError(
+          fetchError instanceof Error
+            ? fetchError.message
+            : "Could not load calendar events."
+        );
+        setRangeStart(null);
+      } finally {
+        setIsLoading(false);
       }
-
-      if (!response.ok || !payload) {
-        throw new Error(payload?.error ?? "Could not load calendar events.");
-      }
-
-      setIsConnected(payload.connected);
-      setEvents(payload.events ?? []);
-      setSyncedAt(payload.syncedAt ?? null);
-      setRangeStart(payload.timeMin ?? null);
-    } catch (fetchError) {
-      if (fetchError instanceof Error && fetchError.name === "AbortError") {
-        return;
-      }
-
-      console.error("[ProjectCalendarPanel.loadEvents]", fetchError);
-      setError(
-        fetchError instanceof Error
-          ? fetchError.message
-          : "Could not load calendar events."
-      );
-      setRangeStart(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [projectId]
+  );
 
   const submitEventForm = async () => {
     const trimmedSummary = eventSummary.trim();
@@ -211,8 +221,10 @@ export function ProjectCalendarPanel({ projectId, calendarId }: ProjectCalendarP
     try {
       const endpoint =
         eventModalMode === "create"
-          ? "/api/calendar/events"
-          : `/api/calendar/events/${editingEventId}`;
+          ? `/api/calendar/events?projectId=${encodeURIComponent(projectId)}`
+          : `/api/calendar/events/${editingEventId}?projectId=${encodeURIComponent(
+              projectId
+            )}`;
       const method = eventModalMode === "create" ? "POST" : "PATCH";
 
       const response = await fetch(endpoint, {
@@ -266,7 +278,11 @@ export function ProjectCalendarPanel({ projectId, calendarId }: ProjectCalendarP
     setEventFormError(null);
 
     try {
-      const response = await fetch(`/api/calendar/events/${editingEventId}`, {
+      const response = await fetch(
+        `/api/calendar/events/${editingEventId}?projectId=${encodeURIComponent(
+          projectId
+        )}`,
+        {
         method: "DELETE",
       });
 
@@ -302,7 +318,7 @@ export function ProjectCalendarPanel({ projectId, calendarId }: ProjectCalendarP
     return () => {
       controller.abort();
     };
-  }, [isExpanded]);
+  }, [isExpanded, loadEvents]);
 
   const weekDays = useMemo(() => buildWeekDays(rangeStart), [rangeStart]);
   const eventsByDay = useMemo(() => groupEventsByDay(events, weekDays), [events, weekDays]);

@@ -11,6 +11,8 @@ import {
   validateAttachmentFiles,
 } from "@/lib/services/attachment-input-service";
 import { logServerError } from "@/lib/observability/logger";
+import { resolveActorUserId } from "@/lib/services/actor-service";
+import { hasProjectAccess } from "@/lib/services/project-authorization-service";
 import { createTaskAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
 
 const MIN_TITLE_LENGTH = 2;
@@ -52,6 +54,7 @@ interface CreateTaskForProjectInput {
   labelsJsonRaw: string;
   attachmentLinksJsonRaw: string;
   attachmentFiles: File[];
+  actorUserId?: string | null;
 }
 
 interface UpdatedTaskPayload {
@@ -148,12 +151,16 @@ export async function createTaskForProject(
   let createdTaskId: string | null = null;
 
   try {
-    const project = await prisma.project.findUnique({
-      where: { id: input.projectId },
-      select: { id: true },
+    const actorUserId = await resolveActorUserId({
+      preferredUserId: input.actorUserId ?? null,
+    });
+    const hasAccess = await hasProjectAccess({
+      projectId: input.projectId,
+      actorUserId,
+      minimumRole: "editor",
     });
 
-    if (!project) {
+    if (!hasAccess) {
       return createError(404, "project-not-found");
     }
 
@@ -183,6 +190,7 @@ export async function createTaskForProject(
       taskId: createdTask.id,
       links: parsedLinks.links,
       files: input.attachmentFiles,
+      actorUserId,
     });
 
     return {
@@ -209,8 +217,22 @@ export async function createTaskForProject(
 
 export async function reorderProjectTasks(
   projectId: string,
-  payload: ReorderPayload
+  payload: ReorderPayload,
+  actorUserIdInput?: string | null
 ): Promise<ServiceResult<{ ok: true }>> {
+  const actorUserId = await resolveActorUserId({
+    preferredUserId: actorUserIdInput ?? null,
+  });
+  const hasAccess = await hasProjectAccess({
+    projectId,
+    actorUserId,
+    minimumRole: "editor",
+  });
+
+  if (!hasAccess) {
+    return createError(404, "Project not found");
+  }
+
   const normalizedColumns = TASK_STATUSES.map((status) => {
     const matchingColumn = payload.columns.find((column) => column.status === status);
     return {
@@ -282,8 +304,22 @@ export async function reorderProjectTasks(
 export async function updateTaskForProject(
   projectId: string,
   taskId: string,
-  payload: UpdateTaskPayload
+  payload: UpdateTaskPayload,
+  actorUserIdInput?: string | null
 ): Promise<ServiceResult<{ task: UpdatedTaskPayload }>> {
+  const actorUserId = await resolveActorUserId({
+    preferredUserId: actorUserIdInput ?? null,
+  });
+  const hasAccess = await hasProjectAccess({
+    projectId,
+    actorUserId,
+    minimumRole: "editor",
+  });
+
+  if (!hasAccess) {
+    return createError(404, "Task not found");
+  }
+
   const title = normalizeText(payload.title);
   const rawLabels =
     Array.isArray(payload.labels) && payload.labels.length > 0

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
+  project: {
+    findFirst: vi.fn(),
+  },
   task: {
     findMany: vi.fn(),
     update: vi.fn(),
@@ -21,6 +24,7 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
 describe("POST /api/projects/:projectId/tasks/reorder", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.project.findFirst.mockResolvedValue({ id: "p1" });
   });
 
   test("returns 400 for invalid json payload", async () => {

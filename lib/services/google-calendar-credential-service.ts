@@ -1,28 +1,34 @@
 import {
-  GOOGLE_CALENDAR_CONNECTION_ID,
   createExpiryDate,
+  getGoogleCalendarId,
 } from "@/lib/google-calendar";
 import { prisma } from "@/lib/prisma";
 
 interface GoogleCalendarTokenInput {
+  userId: string;
   accessToken: string;
   expiresIn: number;
   refreshToken?: string | null;
   tokenType?: string | null;
   scope?: string | null;
+  providerAccountId?: string | null;
+  calendarId?: string | null;
 }
 
 interface GoogleCalendarTokenUpdateInput {
+  userId: string;
   accessToken: string;
   expiresIn: number;
   refreshToken: string;
   tokenType: string | null;
   scope: string | null;
+  providerAccountId?: string | null;
+  calendarId?: string | null;
 }
 
-export async function findGoogleCalendarCredential() {
+export async function findGoogleCalendarCredential(userId: string) {
   return prisma.googleCalendarCredential.findUnique({
-    where: { id: GOOGLE_CALENDAR_CONNECTION_ID },
+    where: { userId },
   });
 }
 
@@ -30,12 +36,15 @@ export async function updateGoogleCalendarCredentialTokens(
   input: GoogleCalendarTokenUpdateInput
 ) {
   return prisma.googleCalendarCredential.update({
-    where: { id: GOOGLE_CALENDAR_CONNECTION_ID },
+    where: { userId: input.userId },
     data: {
       accessToken: input.accessToken,
       refreshToken: input.refreshToken,
       tokenType: input.tokenType,
       scope: input.scope,
+      providerAccountId: input.providerAccountId ?? undefined,
+      calendarId: input.calendarId ?? undefined,
+      revokedAt: null,
       expiresAt: createExpiryDate(input.expiresIn),
     },
   });
@@ -48,7 +57,7 @@ export async function upsertGoogleCalendarCredentialTokens(
 
   if (!refreshToken) {
     const existing = await prisma.googleCalendarCredential.findUnique({
-      where: { id: GOOGLE_CALENDAR_CONNECTION_ID },
+      where: { userId: input.userId },
       select: { refreshToken: true },
     });
 
@@ -60,22 +69,28 @@ export async function upsertGoogleCalendarCredentialTokens(
   }
 
   const expiresAt = createExpiryDate(input.expiresIn);
+  const calendarId = input.calendarId ?? getGoogleCalendarId();
 
   await prisma.googleCalendarCredential.upsert({
-    where: { id: GOOGLE_CALENDAR_CONNECTION_ID },
+    where: { userId: input.userId },
     update: {
       accessToken: input.accessToken,
       refreshToken,
       tokenType: input.tokenType ?? null,
       scope: input.scope ?? null,
+      providerAccountId: input.providerAccountId ?? undefined,
+      calendarId,
+      revokedAt: null,
       expiresAt,
     },
     create: {
-      id: GOOGLE_CALENDAR_CONNECTION_ID,
+      userId: input.userId,
       accessToken: input.accessToken,
       refreshToken,
       tokenType: input.tokenType ?? null,
       scope: input.scope ?? null,
+      providerAccountId: input.providerAccountId ?? null,
+      calendarId,
       expiresAt,
     },
   });

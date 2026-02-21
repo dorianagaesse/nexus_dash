@@ -7,7 +7,6 @@ import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getStorageRuntimeConfig } from "@/lib/env.server";
-import { getGoogleCalendarId } from "@/lib/google-calendar";
 import { getProjectSummaryById } from "@/lib/services/project-service";
 import { MAX_ATTACHMENT_FILE_SIZE_LABEL } from "@/lib/task-attachment";
 
@@ -87,7 +86,6 @@ export default async function ProjectDashboardPage({
     notFound();
   }
 
-  const calendarId = getGoogleCalendarId();
   const storageProvider = getStorageRuntimeConfig().provider;
   const status = readQueryValue(searchParams?.status);
   const error = readQueryValue(searchParams?.error);
@@ -143,10 +141,7 @@ export default async function ProjectDashboardPage({
       </Suspense>
 
       <Suspense fallback={<ProjectCalendarPanelSkeleton />}>
-        <ProjectCalendarPanelSection
-          projectId={project.id}
-          calendarId={calendarId}
-        />
+        <ProjectCalendarPanelSection projectId={project.id} />
       </Suspense>
     </main>
   );

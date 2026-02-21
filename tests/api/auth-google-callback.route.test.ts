@@ -8,6 +8,7 @@ const credentialServiceMock = vi.hoisted(() => ({
 const googleCalendarMock = vi.hoisted(() => ({
   GOOGLE_OAUTH_STATE_COOKIE: "nexusdash_google_oauth_state",
   GOOGLE_OAUTH_RETURN_TO_COOKIE: "nexusdash_google_oauth_return_to",
+  GOOGLE_OAUTH_ACTOR_COOKIE: "nexusdash_google_oauth_actor",
   exchangeAuthorizationCodeForTokens: vi.fn(),
   normalizeReturnToPath: vi.fn(),
 }));
@@ -20,6 +21,7 @@ vi.mock("@/lib/services/google-calendar-credential-service", () => ({
 vi.mock("@/lib/google-calendar", () => ({
   GOOGLE_OAUTH_STATE_COOKIE: googleCalendarMock.GOOGLE_OAUTH_STATE_COOKIE,
   GOOGLE_OAUTH_RETURN_TO_COOKIE: googleCalendarMock.GOOGLE_OAUTH_RETURN_TO_COOKIE,
+  GOOGLE_OAUTH_ACTOR_COOKIE: googleCalendarMock.GOOGLE_OAUTH_ACTOR_COOKIE,
   exchangeAuthorizationCodeForTokens:
     googleCalendarMock.exchangeAuthorizationCodeForTokens,
   normalizeReturnToPath: googleCalendarMock.normalizeReturnToPath,
@@ -56,6 +58,7 @@ describe("GET /api/auth/callback/google", () => {
         {
           nexusdash_google_oauth_state: "abc",
           nexusdash_google_oauth_return_to: "/projects/p1",
+          nexusdash_google_oauth_actor: "user-1",
         }
       )
     );
@@ -80,6 +83,7 @@ describe("GET /api/auth/callback/google", () => {
       createRequest("http://localhost/api/auth/callback/google?state=wrong&code=abc", {
         nexusdash_google_oauth_state: "expected",
         nexusdash_google_oauth_return_to: "/projects/p1",
+        nexusdash_google_oauth_actor: "user-1",
       })
     );
 
@@ -95,6 +99,7 @@ describe("GET /api/auth/callback/google", () => {
       createRequest("http://localhost/api/auth/callback/google?state=expected", {
         nexusdash_google_oauth_state: "expected",
         nexusdash_google_oauth_return_to: "/projects/p1",
+        nexusdash_google_oauth_actor: "user-1",
       })
     );
 
@@ -123,6 +128,7 @@ describe("GET /api/auth/callback/google", () => {
         {
           nexusdash_google_oauth_state: "expected",
           nexusdash_google_oauth_return_to: "/projects/p1",
+          nexusdash_google_oauth_actor: "user-1",
         }
       )
     );
@@ -135,6 +141,7 @@ describe("GET /api/auth/callback/google", () => {
       "auth-code"
     );
     expect(credentialServiceMock.upsertGoogleCalendarCredentialTokens).toHaveBeenCalledWith({
+      userId: "user-1",
       accessToken: "access-token",
       expiresIn: 3600,
       refreshToken: "refresh-token",
@@ -160,6 +167,7 @@ describe("GET /api/auth/callback/google", () => {
         {
           nexusdash_google_oauth_state: "expected",
           nexusdash_google_oauth_return_to: "/projects/p1",
+          nexusdash_google_oauth_actor: "user-1",
         }
       )
     );

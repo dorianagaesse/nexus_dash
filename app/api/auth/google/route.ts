@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
+  GOOGLE_OAUTH_ACTOR_COOKIE,
   GOOGLE_OAUTH_RETURN_TO_COOKIE,
   GOOGLE_OAUTH_STATE_COOKIE,
   buildGoogleOAuthUrl,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/google-calendar";
 import { isProductionEnvironment } from "@/lib/env.server";
 import { logServerError } from "@/lib/observability/logger";
+import { resolveActorUserId } from "@/lib/services/actor-service";
 
 function withErrorParam(request: NextRequest, returnTo: string, error: string): URL {
   const target = new URL(returnTo, request.url);
@@ -21,6 +23,7 @@ export async function GET(request: NextRequest) {
   const returnTo = normalizeReturnToPath(request.nextUrl.searchParams.get("returnTo"));
   const state = crypto.randomBytes(24).toString("hex");
   const secure = isProductionEnvironment();
+  const actorUserId = await resolveActorUserId();
   let authorizationUrl = "";
 
   try {
@@ -43,6 +46,14 @@ export async function GET(request: NextRequest) {
     });
 
     response.cookies.set(GOOGLE_OAUTH_RETURN_TO_COOKIE, returnTo, {
+      httpOnly: true,
+      secure,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 10,
+    });
+
+    response.cookies.set(GOOGLE_OAUTH_ACTOR_COOKIE, actorUserId, {
       httpOnly: true,
       secure,
       sameSite: "lax",

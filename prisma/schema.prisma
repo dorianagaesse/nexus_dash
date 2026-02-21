@@ -9,80 +9,168 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum ProjectMembershipRole {
+  owner
+  editor
+  viewer
+}
+
+model User {
+  id                          String                     @id @default(cuid())
+  name                        String?
+  email                       String?                    @unique
+  emailVerified               DateTime?
+  image                       String?
+  createdAt                   DateTime                   @default(now())
+  updatedAt                   DateTime                   @updatedAt
+  accounts                    Account[]
+  sessions                    Session[]
+  ownedProjects               Project[]                  @relation("ProjectOwner")
+  projectMemberships          ProjectMembership[]
+  taskAttachmentsUploaded     TaskAttachment[]           @relation("TaskAttachmentUploadedBy")
+  resourceAttachmentsUploaded ResourceAttachment[]       @relation("ResourceAttachmentUploadedBy")
+  googleCalendarCredentials   GoogleCalendarCredential[]
+}
+
+model Account {
+  id                String   @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.Text
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
 model Project {
-  id          String     @id @default(cuid())
+  id          String              @id @default(cuid())
   name        String
   description String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-
+  ownerId     String              @default("bootstrap-owner")
+  owner       User                @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
   tasks       Task[]
   resources   Resource[]
+  memberships ProjectMembership[]
+
+  @@index([ownerId])
+}
+
+model ProjectMembership {
+  id        String                @id @default(cuid())
+  projectId String
+  userId    String
+  role      ProjectMembershipRole @default(viewer)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  project   Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
 }
 
 model Task {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  blockedNote String?
-  completedAt DateTime?
-  archivedAt  DateTime?
-  status      String   @default("Backlog")
-  position    Int      @default(0)
-  label       String?
-  labelsJson  String?
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  attachments TaskAttachment[]
+  id               String                @id @default(cuid())
+  title            String
+  description      String?
+  blockedNote      String?
+  completedAt      DateTime?
+  archivedAt       DateTime?
+  status           String                @default("Backlog")
+  position         Int                   @default(0)
+  label            String?
+  labelsJson       String?
+  projectId        String
+  project          Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  attachments      TaskAttachment[]
   blockedFollowUps TaskBlockedFollowUp[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
 
   @@index([projectId])
 }
 
 model Resource {
-  id          String   @id @default(cuid())
+  id          String               @id @default(cuid())
   type        String
   name        String
   content     String
   color       String?
   projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project     Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
   attachments ResourceAttachment[]
-  createdAt   DateTime @default(now())
+  createdAt   DateTime             @default(now())
 
   @@index([projectId])
 }
 
 model TaskAttachment {
-  id         String   @id @default(cuid())
-  taskId      String
-  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  kind        String
-  name        String
-  url         String?
-  storageKey  String?
-  mimeType    String?
-  sizeBytes   Int?
-  createdAt   DateTime @default(now())
+  id               String   @id @default(cuid())
+  taskId           String
+  uploadedByUserId String   @default("bootstrap-owner")
+  task             Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedBy       User     @relation("TaskAttachmentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  kind             String
+  name             String
+  url              String?
+  storageKey       String?
+  mimeType         String?
+  sizeBytes        Int?
+  createdAt        DateTime @default(now())
 
   @@index([taskId])
+  @@index([uploadedByUserId])
 }
 
 model ResourceAttachment {
-  id         String   @id @default(cuid())
-  resourceId  String
-  resource    Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
-  kind        String
-  name        String
-  url         String?
-  storageKey  String?
-  mimeType    String?
-  sizeBytes   Int?
-  createdAt   DateTime @default(now())
+  id               String   @id @default(cuid())
+  resourceId       String
+  uploadedByUserId String   @default("bootstrap-owner")
+  resource         Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  uploadedBy       User     @relation("ResourceAttachmentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  kind             String
+  name             String
+  url              String?
+  storageKey       String?
+  mimeType         String?
+  sizeBytes        Int?
+  createdAt        DateTime @default(now())
 
   @@index([resourceId])
+  @@index([uploadedByUserId])
 }
 
 model TaskBlockedFollowUp {
@@ -96,12 +184,19 @@ model TaskBlockedFollowUp {
 }
 
 model GoogleCalendarCredential {
-  id           String   @id @default("default")
-  accessToken  String?
-  refreshToken String
-  tokenType    String?
-  scope        String?
-  expiresAt    DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerAccountId String?
+  calendarId        String    @default("primary")
+  accessToken       String?
+  refreshToken      String
+  tokenType         String?
+  scope             String?
+  expiresAt         DateTime?
+  revokedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([providerAccountId])
 }

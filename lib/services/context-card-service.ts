@@ -9,6 +9,8 @@ import {
   validateAttachmentFiles,
 } from "@/lib/services/attachment-input-service";
 import { logServerError } from "@/lib/observability/logger";
+import { resolveActorUserId } from "@/lib/services/actor-service";
+import { hasProjectAccess } from "@/lib/services/project-authorization-service";
 import { createContextAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
 
 const MIN_TITLE_LENGTH = 2;
@@ -35,6 +37,7 @@ interface CreateContextCardInput {
   color: string;
   attachmentLinksJsonRaw: string;
   attachmentFiles: File[];
+  actorUserId?: string | null;
 }
 
 interface UpdateContextCardInput {
@@ -43,11 +46,13 @@ interface UpdateContextCardInput {
   title: string;
   content: string;
   color: string;
+  actorUserId?: string | null;
 }
 
 interface DeleteContextCardInput {
   projectId: string;
   cardId: string;
+  actorUserId?: string | null;
 }
 
 function createError(status: number, error: string): ServiceErrorResult {
@@ -109,12 +114,16 @@ export async function createContextCardForProject(
   let createdCardId: string | null = null;
 
   try {
-    const project = await prisma.project.findUnique({
-      where: { id: input.projectId },
-      select: { id: true },
+    const actorUserId = await resolveActorUserId({
+      preferredUserId: input.actorUserId ?? null,
+    });
+    const hasAccess = await hasProjectAccess({
+      projectId: input.projectId,
+      actorUserId,
+      minimumRole: "editor",
     });
 
-    if (!project) {
+    if (!hasAccess) {
       return createError(404, "project-not-found");
     }
 
@@ -134,6 +143,7 @@ export async function createContextCardForProject(
       cardId: createdCard.id,
       links: parsedLinks.links,
       files: input.attachmentFiles,
+      actorUserId,
     });
 
     return {
@@ -185,6 +195,19 @@ export async function updateContextCardForProject(
   }
 
   try {
+    const actorUserId = await resolveActorUserId({
+      preferredUserId: input.actorUserId ?? null,
+    });
+    const hasAccess = await hasProjectAccess({
+      projectId: input.projectId,
+      actorUserId,
+      minimumRole: "editor",
+    });
+
+    if (!hasAccess) {
+      return createError(404, "context-card-not-found");
+    }
+
     const existingCard = await prisma.resource.findUnique({
       where: { id: cardId },
       select: { id: true, projectId: true, type: true },
@@ -227,6 +250,19 @@ export async function deleteContextCardForProject(
   }
 
   try {
+    const actorUserId = await resolveActorUserId({
+      preferredUserId: input.actorUserId ?? null,
+    });
+    const hasAccess = await hasProjectAccess({
+      projectId: input.projectId,
+      actorUserId,
+      minimumRole: "editor",
+    });
+
+    if (!hasAccess) {
+      return createError(404, "context-card-not-found");
+    }
+
     const existingCard = await prisma.resource.findUnique({
       where: { id: cardId },
       select: { id: true, projectId: true, type: true },
