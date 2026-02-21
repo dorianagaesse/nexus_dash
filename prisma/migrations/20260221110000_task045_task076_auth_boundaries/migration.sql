@@ -81,6 +81,7 @@ ALTER TABLE "ResourceAttachment" ADD COLUMN "uploadedByUserId" TEXT NOT NULL DEF
 
 -- Replace singleton Google calendar credential table with user-scoped credentials.
 ALTER TABLE "GoogleCalendarCredential" RENAME TO "GoogleCalendarCredentialLegacy";
+ALTER TABLE "GoogleCalendarCredentialLegacy" RENAME CONSTRAINT "GoogleCalendarCredential_pkey" TO "GoogleCalendarCredentialLegacy_pkey";
 
 CREATE TABLE "GoogleCalendarCredential" (
     "id" TEXT NOT NULL,
