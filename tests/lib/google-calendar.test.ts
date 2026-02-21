@@ -78,6 +78,8 @@ describe("google-calendar", () => {
   test("normalizes return path", () => {
     expect(normalizeReturnToPath(null)).toBe("/projects");
     expect(normalizeReturnToPath("/projects/p1")).toBe("/projects/p1");
+    expect(normalizeReturnToPath("//malicious.com")).toBe("/projects");
+    expect(normalizeReturnToPath("//malicious.com/path")).toBe("/projects");
     expect(normalizeReturnToPath("https://external")).toBe("/projects");
   });
 

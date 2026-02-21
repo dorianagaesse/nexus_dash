@@ -152,7 +152,7 @@ export function normalizeReturnToPath(value: string | null): string {
     return "/projects";
   }
 
-  if (value.startsWith("/")) {
+  if (value.startsWith("/") && !value.startsWith("//")) {
     return value;
   }
 
