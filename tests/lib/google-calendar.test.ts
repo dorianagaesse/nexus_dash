@@ -79,6 +79,8 @@ describe("google-calendar", () => {
     expect(normalizeReturnToPath(null)).toBe("/projects");
     expect(normalizeReturnToPath("/projects/p1")).toBe("/projects/p1");
     expect(normalizeReturnToPath("https://external")).toBe("/projects");
+    expect(normalizeReturnToPath("//malicious.com")).toBe("/projects");
+    expect(normalizeReturnToPath("//malicious.com/path")).toBe("/projects");
   });
 
   test("creates near-future expiry date", () => {
