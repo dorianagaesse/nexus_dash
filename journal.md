@@ -123,3 +123,12 @@ Resolution: Added gated smoke test `tests/lib/r2-smoke.test.ts` (`R2_SMOKE=1`), 
 Date: 2026-02-20
 Execution update: TASK-062 dashboard decomposition pass delivered across Kanban/context/calendar panels.
 Resolution: Marked TASK-074 done in backlog/current tracking, decomposed oversized panel components into focused UI modules (`components/kanban/*`, `components/context-panel/*`, `components/calendar-panel/*`) plus shared panel type files, preserved existing API/mutation behavior, and validated with `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`.
+Date: 2026-02-20
+Planning update: TASK-020 promoted to current with implementation-ready auth/authz ADR drafting.
+Resolution: Added `adr/task-020-modern-auth-authorization-adr.md` covering Prisma + DB sessions for users, optional Redis session cache for scale, scoped API key + short-lived JWT model for agents, role-based project authorization, migration strategy, and roadmap mapping to TASK-045/046/047/058/059/048.
+Date: 2026-02-20
+Planning update: Multi-user boundary transition was separated as a dedicated implementation step.
+Resolution: Added TASK-076 to `tasks/backlog.md`, updated dependency graph (TASK-046/TASK-058/TASK-059), updated `tasks/current.md` next-step sequencing, and extended TASK-020 ADR with explicit Supabase/Postgres and Cloudflare R2 multi-user boundary requirements.
+Date: 2026-02-20
+Planning update: TASK-076 scope expanded to include user-scoped Google Calendar boundaries.
+Resolution: Updated TASK-076 rationale in `tasks/backlog.md`, expanded TASK-020 ADR boundary scope to include Google credential ownership migration, and added companion ADR `adr/task-076-supabase-r2-google-calendar-boundaries.md` describing Supabase/R2/Google Calendar multi-user boundary implementation work.

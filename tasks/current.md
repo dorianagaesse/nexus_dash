@@ -1,50 +1,37 @@
-# Current Task: UI Decomposition Phase (Dashboard Panels)
+# Current Task: Modern Authentication/Authorization ADR
 
 ## Task ID
-TASK-062
+TASK-020
 
 ## Status
-In Review (2026-02-20)
+In Progress (2026-02-20)
 
 ## Summary
-Complete the unfinished frontend decomposition pass by splitting oversized dashboard orchestration components into focused modules/hooks while preserving current UX and API contracts.
-
-Current pain points in codebase (as of 2026-02-20):
-- `components/kanban-board.tsx` is ~1547 lines and mixes board rendering, drag persistence, task-modal orchestration, edit-state handling, and attachment mutations.
-- `components/project-context-panel.tsx` is ~1284 lines and mixes panel layout, create/edit modal rendering, attachment flows, and mutation status lifecycle.
-- `components/project-calendar-panel.tsx` is ~869 lines and mixes calendar fetch orchestration, weekly grid rendering, and event modal CRUD behavior.
+Define the authoritative auth/authz architecture for NexusDash before implementation phases, with explicit decisions for user sessions, project ownership/membership, non-human access, and future public API exposure.
 
 ## Acceptance Criteria
-- Extract feature-level UI modules for each oversized dashboard panel:
-  - Kanban: header/board column rendering and task modal surface split into dedicated modules.
-  - Context panel: modal/frame + create/edit card UI surfaces split into dedicated modules.
-  - Calendar panel: week grid/event list and event modal UI split into dedicated modules.
-- Keep transport/business behavior unchanged:
-  - Existing API routes, payload shapes, and error mappings remain compatible.
-  - Existing interaction flows remain intact (drag reorder, task edit/attachments, context-card CRUD/attachments, calendar create/edit/delete).
-- Improve local maintainability:
-  - Parent panel files become orchestration-focused (state + callbacks), with rendering-heavy sections moved out.
-  - No regression in accessibility semantics (button roles, keyboard handlers, focus-safe modal close actions).
-- Project docs remain aligned:
-  - `tasks/backlog.md` reflects TASK-074 done and TASK-062 in progress.
-  - `tasks/current.md` tracks this decomposition scope.
+- A detailed ADR is drafted and stored in `adr/task-020-modern-auth-authorization-adr.md`.
+- ADR defines:
+  - identity/session model for users (DB-backed sessions, lifecycle controls),
+  - authorization model for projects (ownership + role-based membership),
+  - agent access model (API key credentials + scoped short-lived JWT runtime tokens),
+  - stateless-server strategy (DB authority + optional Redis session cache),
+  - migration plan for existing data and Google calendar credential scoping.
+- Backlog includes a dedicated follow-up execution task for multi-user data/storage boundary transition (`TASK-076`), sequenced before route protection rollout.
+- ADR includes a concrete roadmap mapping to TASK-045/TASK-046/TASK-047/TASK-058/TASK-059/TASK-048.
+- Companion boundary ADR for TASK-076 exists at `adr/task-076-supabase-r2-google-calendar-boundaries.md` and defines Supabase/R2/Google Calendar user-scope requirements.
+- `tasks/backlog.md`, `tasks/current.md`, and `adr/decisions.md` are aligned with TASK-020 progress.
 
 ## Definition of Done
-- `npm run lint` passes.
-- `npm test` passes.
-- `npm run test:coverage` passes.
-- `npm run build` passes.
-- Branch pushed and PR opened.
-- PR checks pass on GitHub.
-- Copilot review triaged/resolved (apply valid findings, challenge non-actionable findings).
-- Any architecture-impacting decisions logged in `adr/decisions.md`.
-- Manual smoke validated for `/projects/[projectId]`: no functional regressions in Kanban/context/calendar interactions.
+- ADR reviewed for internal consistency and implementation readiness.
+- `TASK-020` remains in review/proposed state until explicit acceptance.
+- Follow-up tasks and boundaries are unambiguous enough to implement without architectural guesswork.
 
 ## Required Input
-No blocking input expected for implementation.
+No blocking input required for ADR drafting. Acceptance status can be confirmed after review.
 
 ## Next Step
-Await PR review/approval for `TASK-062` (`#36`), merge once approved, then mark task done and move to the next backlog item.
+Review and approve ADR decisions, then start TASK-045 followed by TASK-076 before entering TASK-046 route-protection implementation.
 
 ---
 

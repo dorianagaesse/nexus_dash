@@ -4,14 +4,9 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-062
-  Title: UI decomposition phase - split oversized dashboard components into focused modules
-  Status: In Progress
-  Rationale: Reduce technical debt and SRP violations by decomposing large dashboard components (`kanban-board`, `project-context-panel`, `project-calendar-panel`) into feature-level subcomponents/hooks before auth/security expansion.
-  Dependencies: TASK-054, TASK-060
 - ID: TASK-020
   Title: Modern authentication/authorization ADR (user ownership, sharing, agent access, session model)
-  Status: Pending
+  Status: In Progress
   Rationale: Define a state-of-the-art authz/authn model covering user-owned projects, shareable collaboration, secure agent access, and persistent web sessions without repeated login prompts, including explicit signed-out home-page entry behavior (`Sign in`/`Sign up`), DB-backed user sessions, and JWT-style scoped agent/API tokens.
   Dependencies: TASK-035, TASK-039, TASK-040, TASK-057, TASK-060, TASK-062
 - ID: TASK-045
@@ -19,11 +14,16 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Establish durable auth persistence primitives (Auth.js/Prisma-compatible user/account/session entities, revocation support, session lifecycle) before middleware/UI implementation.
   Dependencies: TASK-020, TASK-057
+- ID: TASK-076
+  Title: Multi-user data/storage/integration boundary transition - principal-scoped DB access, R2 ownership isolation, and user-scoped Google Calendar
+  Status: Pending
+  Rationale: Convert project/task/resource/attachment access from ID-scoped behavior to principal-scoped behavior by introducing ownership/membership filters in service-layer queries, user-aware R2 object/metadata boundaries (`uploadedBy`, tenant-safe keys, signed URL authorization checks), and user-scoped Google Calendar OAuth/token ownership (replace global singleton credential flow) before full route protection and sharing rollout.
+  Dependencies: TASK-020, TASK-045, TASK-065, TASK-060
 - ID: TASK-046
   Title: Authentication implementation phase 2 - auth core and route protection
   Status: Pending
   Rationale: Implement login/session lifecycle and protect project/task APIs and pages behind authenticated access.
-  Dependencies: TASK-045
+  Dependencies: TASK-045, TASK-076
 - ID: TASK-047
   Title: Authentication implementation phase 3 - home-page auth entry and account onboarding UX
   Status: Pending
@@ -38,12 +38,12 @@ Use this file to capture tasks discovered during development. Each entry should 
   Title: Authorization implementation - project sharing, membership roles, and invitations
   Status: Pending
   Rationale: Support collaborative usage by introducing project-level membership (owner/editor/viewer), secure sharing/invite flows, and permission checks across UI and APIs.
-  Dependencies: TASK-046, TASK-047
+  Dependencies: TASK-046, TASK-047, TASK-076
 - ID: TASK-059
   Title: Agent access implementation - scoped API tokens, rotation, and audit trail
   Status: Pending
   Rationale: Enable secure non-human access via revocable JWT-style scoped tokens/service principals so agents can operate on authorized projects without sharing user sessions.
-  Dependencies: TASK-046
+  Dependencies: TASK-046, TASK-076
 - ID: TASK-048
   Title: Authentication implementation phase 4 - auth tests and hardening
   Status: Pending
@@ -100,6 +100,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-062
+  Title: UI decomposition phase - split oversized dashboard components into focused modules
+  Status: Done (2026-02-20)
+  Rationale: Completed focused dashboard panel decomposition by extracting Kanban/context/calendar rendering-heavy surfaces into dedicated modules while preserving existing API contracts and user interactions.
+  Dependencies: TASK-054, TASK-060
 - ID: TASK-074
   Title: Project page performance - panel-level async loading and progressive hydration
   Status: Done (2026-02-20)
