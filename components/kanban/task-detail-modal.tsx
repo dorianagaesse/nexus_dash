@@ -133,10 +133,10 @@ export function TaskDetailModal({
           }}
         >
           <Card
-            className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto overflow-x-hidden"
+            className="flex max-h-[calc(100vh-2rem)] w-full max-w-xl flex-col overflow-hidden"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <CardHeader className="flex flex-row items-start justify-between space-y-0">
+            <CardHeader className="flex shrink-0 flex-row items-start justify-between space-y-0">
               <div className="space-y-2">
                 <Badge variant="outline">{selectedTask.status}</Badge>
                 {!isEditMode ? (
@@ -175,7 +175,7 @@ export function TaskDetailModal({
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 overflow-y-auto">
               {!isEditMode ? (
                 <TaskReadOnlyContent
                   selectedTask={selectedTask}
@@ -343,7 +343,10 @@ function TaskReadOnlyContent({
         </div>
       ) : null}
       {selectedTask.status === "Blocked" ? (
-        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200">
+        <div
+          className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200"
+          onDoubleClick={onActivateEditMode}
+        >
           <div className="mb-1 flex items-center gap-2 font-medium">
             <TriangleAlert className="h-4 w-4" />
             Blocked follow-up
