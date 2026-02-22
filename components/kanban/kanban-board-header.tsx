@@ -1,12 +1,9 @@
 import { ChevronDown, ChevronUp, Columns3 } from "lucide-react";
 
-import type { TaskMutationStatus } from "@/components/kanban-board-types";
-
 interface KanbanBoardHeaderProps {
   isExpanded: boolean;
   totalTaskCount: number;
   isSaving: boolean;
-  taskMutationStatus: TaskMutationStatus | null;
   headerAction?: React.ReactNode;
   onToggleExpanded: () => void;
 }
@@ -15,7 +12,6 @@ export function KanbanBoardHeader({
   isExpanded,
   totalTaskCount,
   isSaving,
-  taskMutationStatus,
   headerAction,
   onToggleExpanded,
 }: KanbanBoardHeaderProps) {
@@ -49,19 +45,6 @@ export function KanbanBoardHeader({
         {isExpanded ? (
           <span className="text-xs text-muted-foreground">
             {isSaving ? "Saving movement..." : "Drag cards to update status"}
-          </span>
-        ) : null}
-        {taskMutationStatus ? (
-          <span
-            className={
-              taskMutationStatus.phase === "failed"
-                ? "rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
-                : "text-xs text-muted-foreground"
-            }
-            role="status"
-            aria-live="polite"
-          >
-            {taskMutationStatus.message}
           </span>
         ) : null}
         {headerAction ? <div>{headerAction}</div> : null}

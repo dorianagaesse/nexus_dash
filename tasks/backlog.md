@@ -6,12 +6,12 @@ Use this file to capture tasks discovered during development. Each entry should 
 ### Execution Queue (Now / Next)
 - ID: TASK-078
   Title: UX polish phase 1 - context/task interaction model, options menus, confirmation flows, and modal visual bug fix
-  Status: In Progress (2026-02-22)
+  Status: In Review (PR #45, checks pass, Copilot threads resolved) (2026-02-22)
   Rationale: Improve daily usability by replacing crowded inline actions with contextual option menus, adding safer destructive confirmations, enabling fast inline editing gestures (double-click), introducing explicit task movement controls, and fixing modal top-edge visual artifacts during task creation.
   Dependencies: TASK-062, TASK-071, TASK-072, TASK-075
 - ID: TASK-077
   Title: Mutation/upload UX smoothing - global toast queue, finite async feedback, and removal of persistent inline background status text
-  Status: Pending
+  Status: In Progress (2026-02-22)
   Rationale: Replace long-lived inline status lines (`creating ... in background`, upload progress text blocks) with concise stacked FIFO toasts (auto-dismiss), explicit failure surfacing, and finite timeout behavior so users always receive clear completion/failure signals without stale UI states, including success/failure toasts for delete actions (task/card/attachment).
   Dependencies: TASK-078, TASK-076, TASK-071, TASK-075
 - ID: TASK-020

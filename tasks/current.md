@@ -1,62 +1,58 @@
-# Current Task: TASK-078 UX Polish Phase 1 - Context/Task Interaction and Safety Flows
+# Current Task: TASK-077 Mutation/Upload UX Smoothing - Global Toast Queue and Finite Feedback
 
 ## Task ID
-TASK-078
+TASK-077
 
 ## Status
 In Progress (2026-02-22)
 
 ## Objective
-Deliver a first-pass UX quality upgrade on project dashboard interaction surfaces (Context cards + Kanban tasks) so common actions are clearer, safer, and faster.
+Replace long-lived inline mutation/upload status lines with a global stacked toast system so feedback is clear, short-lived, and consistent across task/context-card/attachment flows.
 
 ## Why Now
-- Recent work improved async behavior and performance, but daily interaction ergonomics still feel inconsistent.
-- Current inline icon actions are dense and error-prone.
-- Destructive actions need stronger safety affordances.
-- A visual regression remains when opening the task-create modal (top-edge color strip).
+- Current UI still shows persistent background status text that can become stale.
+- Recent interaction improvements (TASK-078) need matching feedback ergonomics.
+- Users need quick success/failure confirmation without requiring panel refreshes or hunting for status text.
 
 ## Scope
-- Context cards:
-  - Clicking a card opens an expanded read-only preview (same base color family as card).
-  - Replace inline edit/delete icons with a dot-options action menu.
-  - Move edit/delete into options menu.
-  - Add stronger destructive visibility for delete (danger styling).
-  - Add explicit delete confirmation dialog.
-  - Enable double-click edit activation on editable fields.
-- Kanban tasks:
-  - Add dot-options menu on task cards.
-  - Include: `Edit`, `Move to`, `Delete`.
-  - Add hover-driven `Move to >` submenu listing all kanban lists.
-  - Add delete confirmation dialog.
-  - Enable double-click edit activation on editable fields.
-- Visual polish:
-  - Fix the top-edge bar artifact shown when opening the create-task modal.
+- Create a shared global toast queue system:
+  - FIFO stacking behavior.
+  - Auto-dismiss (default 4 seconds).
+  - Distinct visual treatment for success and error toasts.
+  - Manual close affordance.
+- Replace persistent inline mutation/upload status text in:
+  - task create flow
+  - context-card create/update/delete flow
+  - task update/delete flow
+  - task/context attachment add/delete flows
+- Ensure toast coverage explicitly includes:
+  - task created / updated / deleted
+  - card created / updated / deleted
+  - attachment uploaded / deleted
+  - upload/mutation failures
 
 ## Out of Scope
-- Multi-user authorization boundaries and principal scoping (TASK-076).
-- Global toast system and mutation-feedback unification (TASK-077), except ensuring this task produces the required action hooks/states.
-- New backend auth flows.
+- New auth/authz behavior.
+- Multi-user ownership changes (TASK-076).
+- Structural redesign of modal layouts beyond status feedback replacement.
 
 ## Acceptance Criteria
-- Context card options menu replaces visible inline edit/delete buttons in collapsed grid.
-- Context card preview opens on click and is read-only.
-- Context card delete uses confirmation dialog; destructive action is visually distinct.
-- Task card options menu exists with `Edit`, `Move to`, and `Delete`.
-- `Move to` submenu supports direct move between kanban lists without drag-and-drop.
-- Task delete uses confirmation dialog and updates board state correctly.
-- Double-click edit activation works for task and context-card editable fields.
-- Task-create modal top-edge visual artifact is resolved in desktop and mobile layouts.
+- No persistent inline `creating...`, `saving...`, or upload progress text blocks remain in dashboard panels/modals.
+- Toasts appear for mutation/upload success and failure states.
+- Multiple rapid events queue and dismiss in FIFO order.
+- Delete operations surface explicit success/failure toasts (task/card/attachment).
+- Toast system is reusable and not duplicated per panel.
 - Lint/tests/build remain green.
 
 ## Definition of Done
-- UX behavior is implemented with no functional regression in task/context create/edit/delete flows.
-- Upon completion, mark `TASK-078` as done and update `tasks/current.md` to the next task in the queue.
-- Dedicated PR opened for TASK-078 scope only.
-- PR checks pass and preview deployment is validated for target interactions.
+- Implementation is delivered in a dedicated TASK-077 PR.
+- Copilot review comments are answered directly and resolved.
+- PR checks are green after final push.
+- `tasks/current.md` and `tasks/backlog.md` reflect task progression accurately.
 
 ## Implementation Notes
-- Prefer composable UI primitives (shared menu/confirmation patterns) to avoid divergence between task and context implementations.
-- Keep accessibility first: keyboard-reachable menus, focus handling in dialogs, and clear labels for destructive actions.
+- Keep toast API minimal (`push`, `dismiss`) and framework-native (React context + hook).
+- Prefer small integration points in existing mutation handlers over broad refactors.
 
 ---
 

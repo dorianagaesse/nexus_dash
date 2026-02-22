@@ -15,11 +15,11 @@ import {
   type KanbanTask,
   type PendingAttachmentUpload,
   type TaskAttachment,
-  type TaskMutationStatus,
 } from "@/components/kanban-board-types";
 import { KanbanBoardHeader } from "@/components/kanban/kanban-board-header";
 import { KanbanColumnsGrid } from "@/components/kanban/kanban-columns-grid";
 import { TaskDetailModal } from "@/components/kanban/task-detail-modal";
+import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   buildPersistPayload,
@@ -82,6 +82,7 @@ export function KanbanBoard({
   const [pendingDeleteTask, setPendingDeleteTask] = useState<KanbanTask | null>(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
   const shouldOpenTaskInEditModeRef = useRef(false);
+  const { pushToast } = useToast();
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
     sectionKey: "kanban",
@@ -97,8 +98,6 @@ export function KanbanBoard({
   const [newBlockedFollowUpEntry, setNewBlockedFollowUpEntry] = useState("");
   const [isUpdatingTask, setIsUpdatingTask] = useState(false);
   const [taskModalError, setTaskModalError] = useState<string | null>(null);
-  const [taskMutationStatus, setTaskMutationStatus] =
-    useState<TaskMutationStatus | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [isSubmittingAttachment, setIsSubmittingAttachment] = useState(false);
   const [pendingAttachmentUploads, setPendingAttachmentUploads] = useState<
@@ -167,18 +166,6 @@ export function KanbanBoard({
   useEffect(() => {
     setIsClient(true);
   }, []);
-
-  useEffect(() => {
-    if (!taskMutationStatus || taskMutationStatus.phase === "running") {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setTaskMutationStatus(null);
-    }, 8000);
-
-    return () => window.clearTimeout(timer);
-  }, [taskMutationStatus]);
 
   const allKnownLabels = useMemo(() => {
     const labels = new Set<string>();
@@ -500,28 +487,24 @@ export function KanbanBoard({
       return;
     }
 
-    setTaskMutationStatus({
-      phase: "running",
-      message: "Saving task in background...",
-    });
     setTaskModalError(null);
     setIsEditMode(false);
 
     const didSave = await persistTaskChanges({ exitEditMode: false });
     if (didSave) {
-      setTaskMutationStatus({
-        phase: "done",
+      pushToast({
+        variant: "success",
         message: "Task saved.",
       });
       return;
     }
 
-    setTaskMutationStatus({
-      phase: "failed",
+    pushToast({
+      variant: "error",
       message: "Could not save task changes. Please retry.",
     });
     setIsEditMode(true);
-  }, [editTitle, persistTaskChanges, selectedTask]);
+  }, [editTitle, persistTaskChanges, pushToast, selectedTask]);
 
   const handleMoveTaskToStatus = useCallback(
     (task: KanbanTask, nextStatus: TaskStatus) => {
@@ -564,12 +547,12 @@ export function KanbanBoard({
         void persistColumns(nextColumns, previousColumns);
       });
 
-      setTaskMutationStatus({
-        phase: "done",
+      pushToast({
+        variant: "success",
         message: `Task moved to ${nextStatus}.`,
       });
     },
-    [columns, persistColumns]
+    [columns, persistColumns, pushToast]
   );
 
   const confirmDeleteTask = useCallback(async () => {
@@ -578,10 +561,6 @@ export function KanbanBoard({
     }
 
     setIsDeletingTask(true);
-    setTaskMutationStatus({
-      phase: "running",
-      message: "Deleting task...",
-    });
 
     try {
       const response = await fetch(
@@ -614,21 +593,21 @@ export function KanbanBoard({
         return null;
       });
 
-      setTaskMutationStatus({
-        phase: "done",
+      pushToast({
+        variant: "success",
         message: "Task deleted.",
       });
     } catch (error) {
       console.error("[KanbanBoard.confirmDeleteTask]", error);
-      setTaskMutationStatus({
-        phase: "failed",
+      pushToast({
+        variant: "error",
         message: error instanceof Error ? error.message : "Could not delete task.",
       });
     } finally {
       setPendingDeleteTask(null);
       setIsDeletingTask(false);
     }
-  }, [isDeletingTask, pendingDeleteTask, projectId]);
+  }, [isDeletingTask, pendingDeleteTask, projectId, pushToast]);
 
   const handleAddBlockedFollowUpEntry = useCallback(async () => {
     if (!newBlockedFollowUpEntry.trim()) {
@@ -716,15 +695,23 @@ export function KanbanBoard({
       }));
       setLinkUrl("");
       setIsLinkComposerOpen(false);
+      pushToast({
+        variant: "success",
+        message: "Attachment link added.",
+      });
     } catch (error) {
       console.error("[KanbanBoard.handleAddLinkAttachment]", error);
-      setAttachmentError(
-        error instanceof Error ? error.message : "Could not add link attachment."
-      );
+      const message =
+        error instanceof Error ? error.message : "Could not add link attachment.";
+      setAttachmentError(message);
+      pushToast({
+        variant: "error",
+        message,
+      });
     } finally {
       setIsSubmittingAttachment(false);
     }
-  }, [applyTaskMutation, linkUrl, projectId, selectedTask]);
+  }, [applyTaskMutation, linkUrl, projectId, pushToast, selectedTask]);
 
   const handleAddFileAttachment = useCallback(
     async (selectedFile: File | null) => {
@@ -792,13 +779,21 @@ export function KanbanBoard({
           ...task,
           attachments: [attachment, ...task.attachments],
         }));
+        pushToast({
+          variant: "success",
+          message: "Attachment uploaded.",
+        });
       } catch (error) {
         console.error("[KanbanBoard.handleAddFileAttachment]", error);
-        setAttachmentError(
+        const message =
           error instanceof Error
             ? error.message
-            : "Could not upload file attachment."
-        );
+            : "Could not upload file attachment.";
+        setAttachmentError(message);
+        pushToast({
+          variant: "error",
+          message,
+        });
       } finally {
         setPendingAttachmentUploads((previous) =>
           previous.filter((upload) => upload.id !== pendingUploadId)
@@ -812,6 +807,7 @@ export function KanbanBoard({
       projectId,
       selectedTask,
       storageProvider,
+      pushToast,
     ]
   );
 
@@ -844,16 +840,24 @@ export function KanbanBoard({
             (attachment) => attachment.id !== attachmentId
           ),
         }));
+        pushToast({
+          variant: "success",
+          message: "Attachment deleted.",
+        });
       } catch (error) {
         console.error("[KanbanBoard.handleDeleteAttachment]", error);
-        setAttachmentError(
-          error instanceof Error ? error.message : "Could not delete attachment."
-        );
+        const message =
+          error instanceof Error ? error.message : "Could not delete attachment.";
+        setAttachmentError(message);
+        pushToast({
+          variant: "error",
+          message,
+        });
       } finally {
         setIsSubmittingAttachment(false);
       }
     },
-    [applyTaskMutation, projectId, selectedTask]
+    [applyTaskMutation, projectId, pushToast, selectedTask]
   );
 
   const totalTaskCount = useMemo(
@@ -869,7 +873,6 @@ export function KanbanBoard({
         isExpanded={isExpanded}
         totalTaskCount={totalTaskCount}
         isSaving={isSaving}
-        taskMutationStatus={taskMutationStatus}
         headerAction={headerAction}
         onToggleExpanded={() => setIsExpanded((previous) => !previous)}
       />
