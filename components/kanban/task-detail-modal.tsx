@@ -44,6 +44,7 @@ interface TaskDetailModalProps {
   fileInputKey: number;
   previewAttachment: TaskAttachment | null;
   onClose: () => void;
+  onActivateEditMode: () => void;
   onToggleEditMode: (nextValue: boolean) => void;
   onEditTitleChange: (value: string) => void;
   onEditLabelInputChange: (value: string) => void;
@@ -82,6 +83,7 @@ export function TaskDetailModal({
   fileInputKey,
   previewAttachment,
   onClose,
+  onActivateEditMode,
   onToggleEditMode,
   onEditTitleChange,
   onEditLabelInputChange,
@@ -121,7 +123,12 @@ export function TaskDetailModal({
               <div className="space-y-2">
                 <Badge variant="outline">{selectedTask.status}</Badge>
                 {!isEditMode ? (
-                  <CardTitle className="text-xl">{selectedTask.title}</CardTitle>
+                  <CardTitle
+                    className="text-xl"
+                    onDoubleClick={onActivateEditMode}
+                  >
+                    {selectedTask.title}
+                  </CardTitle>
                 ) : (
                   <input
                     aria-label="Task title"
@@ -160,6 +167,7 @@ export function TaskDetailModal({
                   selectedTask={selectedTask}
                   pendingAttachmentUploads={pendingAttachmentUploads}
                   onPreviewAttachment={onPreviewAttachmentChange}
+                  onActivateEditMode={onActivateEditMode}
                 />
               ) : (
                 <TaskEditContent
@@ -211,10 +219,12 @@ function TaskReadOnlyContent({
   selectedTask,
   pendingAttachmentUploads,
   onPreviewAttachment,
+  onActivateEditMode,
 }: {
   selectedTask: KanbanTask;
   pendingAttachmentUploads: PendingAttachmentUpload[];
   onPreviewAttachment: (attachment: TaskAttachment | null) => void;
+  onActivateEditMode: () => void;
 }) {
   return (
     <>
@@ -262,6 +272,7 @@ function TaskReadOnlyContent({
       ) : null}
       <div className="max-h-[52vh] overflow-y-auto text-sm text-muted-foreground [overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:break-words [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_p]:mb-2">
         <div
+          onDoubleClick={onActivateEditMode}
           dangerouslySetInnerHTML={{
             __html: selectedTask.description ?? "<p>No description provided.</p>",
           }}

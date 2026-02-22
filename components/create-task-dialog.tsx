@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { Link2, Paperclip, PlusSquare, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -353,30 +354,28 @@ export function CreateTaskDialog({
         </p>
       ) : null}
 
-      {isOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex min-h-dvh w-screen items-start justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-4 sm:items-center"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closeDialog();
-            }
-          }}
-        >
-          <Card
-            className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-lg">Create task</CardTitle>
-              <Button type="button" variant="ghost" size="icon" onClick={closeDialog}>
-                <X className="h-4 w-4" />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <form
-                className="grid gap-4"
-                onSubmit={handleSubmit}
+      {isOpen && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[90] flex min-h-dvh w-screen items-start justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-4 sm:items-center"
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget) {
+                  closeDialog();
+                }
+              }}
+            >
+              <Card
+                className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto"
+                onMouseDown={(event) => event.stopPropagation()}
               >
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                  <CardTitle className="text-lg">Create task</CardTitle>
+                  <Button type="button" variant="ghost" size="icon" onClick={closeDialog}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <form className="grid gap-4" onSubmit={handleSubmit}>
                 <div className="grid gap-2">
                   <label htmlFor="task-title" className="text-sm font-medium">
                     Title
@@ -606,11 +605,13 @@ export function CreateTaskDialog({
                     {submitError}
                   </p>
                 ) : null}
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
+                  </form>
+                </CardContent>
+              </Card>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }

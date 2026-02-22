@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
   type ReactNode,
@@ -19,6 +20,7 @@ import {
 import { KanbanBoardHeader } from "@/components/kanban/kanban-board-header";
 import { KanbanColumnsGrid } from "@/components/kanban/kanban-columns-grid";
 import { TaskDetailModal } from "@/components/kanban/task-detail-modal";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   buildPersistPayload,
   cloneColumns,
@@ -42,7 +44,7 @@ import {
   getTaskLabelsFromStorage,
   normalizeTaskLabel,
 } from "@/lib/task-label";
-import { isTaskStatus, TASK_STATUSES } from "@/lib/task-status";
+import { isTaskStatus, TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 
 export type { KanbanTask } from "@/components/kanban-board-types";
 
@@ -77,6 +79,9 @@ export function KanbanBoard({
   const [isSaving, startTransition] = useTransition();
   const [persistError, setPersistError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
+  const [pendingDeleteTask, setPendingDeleteTask] = useState<KanbanTask | null>(null);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
+  const shouldOpenTaskInEditModeRef = useRef(false);
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
     sectionKey: "kanban",
@@ -129,7 +134,8 @@ export function KanbanBoard({
       return;
     }
 
-    setIsEditMode(false);
+    setIsEditMode(shouldOpenTaskInEditModeRef.current);
+    shouldOpenTaskInEditModeRef.current = false;
     setTaskModalError(null);
     setEditTitle(selectedTask.title);
     setEditLabels(selectedTask.labels);
@@ -313,10 +319,26 @@ export function KanbanBoard({
 
   const closeTaskModal = useCallback(() => {
     setSelectedTask(null);
+    shouldOpenTaskInEditModeRef.current = false;
     setIsEditMode(false);
     setTaskModalError(null);
     setAttachmentError(null);
     setPreviewAttachment(null);
+  }, []);
+
+  const handleSelectTask = useCallback((task: KanbanTask) => {
+    shouldOpenTaskInEditModeRef.current = false;
+    setSelectedTask(task);
+  }, []);
+
+  const openTaskInEditMode = useCallback((task: KanbanTask) => {
+    shouldOpenTaskInEditModeRef.current = true;
+    setSelectedTask(task);
+  }, []);
+
+  const handleActivateTaskEditMode = useCallback(() => {
+    setIsEditMode(true);
+    setTaskModalError(null);
   }, []);
 
   const persistTaskChanges = useCallback(
@@ -500,6 +522,113 @@ export function KanbanBoard({
     });
     setIsEditMode(true);
   }, [editTitle, persistTaskChanges, selectedTask]);
+
+  const handleMoveTaskToStatus = useCallback(
+    (task: KanbanTask, nextStatus: TaskStatus) => {
+      if (task.status === nextStatus) {
+        return;
+      }
+
+      const previousColumns = cloneColumns(columns);
+      const nextColumns = cloneColumns(columns);
+      const sourceTasks = nextColumns[task.status];
+      const sourceIndex = sourceTasks.findIndex((entry) => entry.id === task.id);
+
+      if (sourceIndex === -1) {
+        return;
+      }
+
+      const [movedTask] = sourceTasks.splice(sourceIndex, 1);
+      if (!movedTask) {
+        return;
+      }
+
+      nextColumns[nextStatus].unshift({
+        ...movedTask,
+        status: nextStatus,
+      });
+
+      setColumns(nextColumns);
+      setSelectedTask((previousTask) => {
+        if (!previousTask || previousTask.id !== task.id) {
+          return previousTask;
+        }
+        return {
+          ...previousTask,
+          status: nextStatus,
+        };
+      });
+      setPersistError(null);
+
+      startTransition(() => {
+        void persistColumns(nextColumns, previousColumns);
+      });
+
+      setTaskMutationStatus({
+        phase: "done",
+        message: `Task moved to ${nextStatus}.`,
+      });
+    },
+    [columns, persistColumns]
+  );
+
+  const confirmDeleteTask = useCallback(async () => {
+    if (!pendingDeleteTask || isDeletingTask) {
+      return;
+    }
+
+    setIsDeletingTask(true);
+    setTaskMutationStatus({
+      phase: "running",
+      message: "Deleting task...",
+    });
+
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/tasks/${pendingDeleteTask.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "Could not delete task."));
+      }
+
+      setColumns((previousColumns) => {
+        const nextColumns = createEmptyColumns<KanbanTask>();
+        TASK_STATUSES.forEach((status) => {
+          nextColumns[status] = previousColumns[status].filter(
+            (task) => task.id !== pendingDeleteTask.id
+          );
+        });
+        return nextColumns;
+      });
+      setArchivedDoneTasks((previousTasks) =>
+        previousTasks.filter((task) => task.id !== pendingDeleteTask.id)
+      );
+      setSelectedTask((previousTask) => {
+        if (!previousTask || previousTask.id !== pendingDeleteTask.id) {
+          return previousTask;
+        }
+        return null;
+      });
+
+      setTaskMutationStatus({
+        phase: "done",
+        message: "Task deleted.",
+      });
+    } catch (error) {
+      console.error("[KanbanBoard.confirmDeleteTask]", error);
+      setTaskMutationStatus({
+        phase: "failed",
+        message: error instanceof Error ? error.message : "Could not delete task.",
+      });
+    } finally {
+      setPendingDeleteTask(null);
+      setIsDeletingTask(false);
+    }
+  }, [isDeletingTask, pendingDeleteTask, projectId]);
 
   const handleAddBlockedFollowUpEntry = useCallback(async () => {
     if (!newBlockedFollowUpEntry.trim()) {
@@ -756,7 +885,10 @@ export function KanbanBoard({
           columns={columns}
           archivedDoneTasks={archivedDoneTasks}
           onDragEnd={onDragEnd}
-          onSelectTask={setSelectedTask}
+          onSelectTask={handleSelectTask}
+          onEditTask={openTaskInEditMode}
+          onRequestDeleteTask={setPendingDeleteTask}
+          onMoveTask={handleMoveTaskToStatus}
         />
       ) : null}
 
@@ -781,6 +913,7 @@ export function KanbanBoard({
         fileInputKey={fileInputKey}
         previewAttachment={previewAttachment}
         onClose={closeTaskModal}
+        onActivateEditMode={handleActivateTaskEditMode}
         onToggleEditMode={setIsEditMode}
         onEditTitleChange={setEditTitle}
         onEditLabelInputChange={setEditLabelInput}
@@ -798,6 +931,20 @@ export function KanbanBoard({
         onAddFileAttachment={handleAddFileAttachment}
         onDeleteAttachment={handleDeleteAttachment}
         onPreviewAttachmentChange={setPreviewAttachment}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(pendingDeleteTask)}
+        title="Delete task?"
+        description={
+          pendingDeleteTask
+            ? `This will permanently delete "${pendingDeleteTask.title}" and all of its attachments.`
+            : "This will permanently delete this task and all of its attachments."
+        }
+        confirmLabel="Delete task"
+        isConfirming={isDeletingTask}
+        onConfirm={confirmDeleteTask}
+        onCancel={() => setPendingDeleteTask(null)}
       />
     </div>
   );

@@ -4,10 +4,18 @@ import {
   Droppable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { GripVertical, TriangleAlert } from "lucide-react";
+import {
+  ChevronRight,
+  GripVertical,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 
 import type { KanbanTask } from "@/components/kanban-board-types";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   buildDragStyle,
@@ -23,6 +31,9 @@ interface KanbanColumnsGridProps {
   archivedDoneTasks: KanbanTask[];
   onDragEnd: (result: DropResult) => void;
   onSelectTask: (task: KanbanTask) => void;
+  onEditTask: (task: KanbanTask) => void;
+  onRequestDeleteTask: (task: KanbanTask) => void;
+  onMoveTask: (task: KanbanTask, nextStatus: TaskStatus) => void;
 }
 
 export function KanbanColumnsGrid({
@@ -30,6 +41,9 @@ export function KanbanColumnsGrid({
   archivedDoneTasks,
   onDragEnd,
   onSelectTask,
+  onEditTask,
+  onRequestDeleteTask,
+  onMoveTask,
 }: KanbanColumnsGridProps) {
   return (
     <DragDropContext onDragEnd={onDragEnd}>
@@ -41,6 +55,9 @@ export function KanbanColumnsGrid({
             tasks={columns[status]}
             archivedDoneTasks={status === "Done" ? archivedDoneTasks : []}
             onSelectTask={onSelectTask}
+            onEditTask={onEditTask}
+            onRequestDeleteTask={onRequestDeleteTask}
+            onMoveTask={onMoveTask}
           />
         ))}
       </div>
@@ -53,6 +70,9 @@ interface KanbanColumnProps {
   tasks: KanbanTask[];
   archivedDoneTasks: KanbanTask[];
   onSelectTask: (task: KanbanTask) => void;
+  onEditTask: (task: KanbanTask) => void;
+  onRequestDeleteTask: (task: KanbanTask) => void;
+  onMoveTask: (task: KanbanTask, nextStatus: TaskStatus) => void;
 }
 
 function KanbanColumn({
@@ -60,6 +80,9 @@ function KanbanColumn({
   tasks,
   archivedDoneTasks,
   onSelectTask,
+  onEditTask,
+  onRequestDeleteTask,
+  onMoveTask,
 }: KanbanColumnProps) {
   return (
     <Card className="min-h-[300px]">
@@ -117,7 +140,6 @@ function KanbanColumn({
                     <article
                       ref={draggableProvided.innerRef}
                       {...draggableProvided.draggableProps}
-                      {...draggableProvided.dragHandleProps}
                       style={buildDragStyle(
                         draggableProvided.draggableProps.style,
                         draggableSnapshot.isDragging
@@ -131,10 +153,21 @@ function KanbanColumn({
                           onSelectTask(task);
                         }
                       }}
+                      onDoubleClick={(event) => {
+                        event.stopPropagation();
+                        onEditTask(task);
+                      }}
                     >
                       <div className="mb-2 flex items-start justify-between gap-2">
                         <h3 className="text-sm font-medium leading-snug">{task.title}</h3>
                         <div className="flex items-center gap-1">
+                          <TaskOptionsMenu
+                            task={task}
+                            status={status}
+                            onEditTask={onEditTask}
+                            onRequestDeleteTask={onRequestDeleteTask}
+                            onMoveTask={onMoveTask}
+                          />
                           {status === "Blocked" ? (
                             <span
                               className="rounded-sm p-1 text-amber-500"
@@ -144,9 +177,15 @@ function KanbanColumn({
                               <TriangleAlert className="h-4 w-4" />
                             </span>
                           ) : null}
-                          <span className="rounded-sm p-1 text-muted-foreground">
+                          <button
+                            type="button"
+                            className="rounded-sm p-1 text-muted-foreground"
+                            aria-label="Drag task"
+                            onClick={(event) => event.stopPropagation()}
+                            {...draggableProvided.dragHandleProps}
+                          >
                             <GripVertical className="h-4 w-4" />
-                          </span>
+                          </button>
                         </div>
                       </div>
 
@@ -181,5 +220,83 @@ function KanbanColumn({
         </Droppable>
       </CardContent>
     </Card>
+  );
+}
+
+interface TaskOptionsMenuProps {
+  task: KanbanTask;
+  status: TaskStatus;
+  onEditTask: (task: KanbanTask) => void;
+  onRequestDeleteTask: (task: KanbanTask) => void;
+  onMoveTask: (task: KanbanTask, nextStatus: TaskStatus) => void;
+}
+
+function TaskOptionsMenu({
+  task,
+  status,
+  onEditTask,
+  onRequestDeleteTask,
+  onMoveTask,
+}: TaskOptionsMenuProps) {
+  return (
+    <details className="relative" onClick={(event) => event.stopPropagation()}>
+      <summary className="list-none [&::-webkit-details-marker]:hidden">
+        <button
+          type="button"
+          className="rounded-sm p-1 text-muted-foreground hover:bg-muted"
+          aria-label="Task options"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+      </summary>
+      <div className="absolute right-0 z-20 mt-1 w-40 rounded-md border border-border/70 bg-background p-1 shadow-md">
+        <Button
+          type="button"
+          variant="ghost"
+          className="w-full justify-start"
+          onClick={() => onEditTask(task)}
+        >
+          <Pencil className="h-4 w-4" />
+          Edit
+        </Button>
+        <div className="group relative">
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full justify-between"
+            onClick={(event) => event.preventDefault()}
+          >
+            <span className="inline-flex items-center gap-2">
+              Move to
+            </span>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <div className="invisible absolute left-full top-0 z-30 ml-1 w-36 rounded-md border border-border/70 bg-background p-1 opacity-0 shadow-md transition group-hover:visible group-hover:opacity-100">
+            {TASK_STATUSES.map((nextStatus) => (
+              <Button
+                key={nextStatus}
+                type="button"
+                variant="ghost"
+                className="w-full justify-start"
+                disabled={nextStatus === status}
+                onClick={() => onMoveTask(task, nextStatus)}
+              >
+                {nextStatus}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={() => onRequestDeleteTask(task)}
+        >
+          <Trash2 className="h-4 w-4" />
+          Delete
+        </Button>
+      </div>
+    </details>
   );
 }

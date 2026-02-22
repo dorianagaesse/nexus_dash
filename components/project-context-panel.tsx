@@ -8,6 +8,7 @@ import { AttachmentPreviewModal } from "@/components/attachment-preview-modal";
 import { ContextCardsGrid } from "@/components/context-panel/context-cards-grid";
 import { ContextCreateModal } from "@/components/context-panel/context-create-modal";
 import { ContextEditModal } from "@/components/context-panel/context-edit-modal";
+import { ContextPreviewModal } from "@/components/context-panel/context-preview-modal";
 import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
 import type {
   ContextMutationStatus,
@@ -35,6 +36,7 @@ import {
 } from "@/lib/direct-upload-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import { cn } from "@/lib/utils";
 
@@ -84,6 +86,8 @@ export function ProjectContextPanel({
   const [editFileInputKey, setEditFileInputKey] = useState(0);
   const [previewAttachment, setPreviewAttachment] =
     useState<ProjectContextAttachment | null>(null);
+  const [previewCardId, setPreviewCardId] = useState<string | null>(null);
+  const [pendingDeleteCardId, setPendingDeleteCardId] = useState<string | null>(null);
   const [cardAttachmentsById, setCardAttachmentsById] = useState<
     Record<string, ProjectContextAttachment[]>
   >({});
@@ -118,6 +122,24 @@ export function ProjectContextPanel({
     return cardAttachmentsById[editingCard.id] ?? editingCard.attachments;
   }, [cardAttachmentsById, editingCard]);
 
+  const previewCard = useMemo(
+    () => cards.find((card) => card.id === previewCardId) ?? null,
+    [cards, previewCardId]
+  );
+
+  const previewCardAttachments = useMemo(() => {
+    if (!previewCard) {
+      return [];
+    }
+
+    return cardAttachmentsById[previewCard.id] ?? previewCard.attachments;
+  }, [cardAttachmentsById, previewCard]);
+
+  const pendingDeleteCard = useMemo(
+    () => cards.find((card) => card.id === pendingDeleteCardId) ?? null,
+    [cards, pendingDeleteCardId]
+  );
+
   useEffect(() => {
     if (!editingCard) {
       return;
@@ -151,6 +173,17 @@ export function ProjectContextPanel({
       setPreviewAttachment(null);
     }
   }, [cardAttachmentsById, editingCard, previewAttachment]);
+
+  useEffect(() => {
+    if (!previewCardId) {
+      return;
+    }
+
+    const stillExists = cards.some((card) => card.id === previewCardId);
+    if (!stillExists) {
+      setPreviewCardId(null);
+    }
+  }, [cards, previewCardId]);
 
   useEffect(() => {
     if (!contextMutationStatus || contextMutationStatus.phase === "running") {
@@ -206,6 +239,11 @@ export function ProjectContextPanel({
     setEditError(null);
     setAttachmentError(null);
     setPreviewAttachment(null);
+  };
+
+  const openEditModal = (cardId: string) => {
+    setPreviewCardId(null);
+    setEditingCardId(cardId);
   };
 
   const handleStageCreateLink = () => {
@@ -459,7 +497,16 @@ export function ProjectContextPanel({
     })();
   };
 
-  const handleDeleteCard = async (cardId: string) => {
+  const requestDeleteCard = (cardId: string) => {
+    setPendingDeleteCardId(cardId);
+  };
+
+  const handleDeleteCard = async () => {
+    if (!pendingDeleteCardId) {
+      return;
+    }
+
+    const cardId = pendingDeleteCardId;
     if (deletingCardId) {
       return;
     }
@@ -481,26 +528,39 @@ export function ProjectContextPanel({
         );
         if (editingCardId === cardId) {
           setEditError(message);
-        } else {
-          window.alert(message);
         }
+        setContextMutationStatus({
+          phase: "failed",
+          message,
+        });
         return;
       }
 
       if (editingCardId === cardId) {
         closeEditModal();
       }
-      router.refresh();
+      if (previewCardId === cardId) {
+        setPreviewCardId(null);
+      }
+
+      setContextMutationStatus({
+        phase: "done",
+        message: "Context card deleted.",
+      });
+      window.setTimeout(() => router.refresh(), 0);
     } catch (error) {
       console.error("[ProjectContextPanel.handleDeleteCard]", error);
       const message = "Could not delete context card. Please retry.";
       if (editingCardId === cardId) {
         setEditError(message);
-      } else {
-        window.alert(message);
       }
+      setContextMutationStatus({
+        phase: "failed",
+        message,
+      });
     } finally {
       setDeletingCardId(null);
+      setPendingDeleteCardId(null);
     }
   };
 
@@ -714,8 +774,9 @@ export function ProjectContextPanel({
             cards={cards}
             cardAttachmentsById={cardAttachmentsById}
             deletingCardId={deletingCardId}
-            onEditCard={setEditingCardId}
-            onDeleteCard={handleDeleteCard}
+            onOpenPreview={setPreviewCardId}
+            onEditCard={openEditModal}
+            onDeleteCard={requestDeleteCard}
             onPreviewAttachment={(attachment) => setPreviewAttachment(attachment)}
           />
         </CardContent>
@@ -769,6 +830,31 @@ export function ProjectContextPanel({
         onAddFileAttachment={handleAddFileAttachment}
         onEditLinkUrlChange={setEditLinkUrl}
         onAddLinkAttachment={handleAddLinkAttachment}
+      />
+
+      <ContextPreviewModal
+        isOpen={Boolean(previewCard)}
+        card={previewCard}
+        attachments={previewCardAttachments}
+        onClose={() => setPreviewCardId(null)}
+        onEdit={openEditModal}
+        onPreviewAttachment={(attachment) => setPreviewAttachment(attachment)}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(pendingDeleteCardId)}
+        title="Delete context card?"
+        description={
+          pendingDeleteCard
+            ? `This will permanently remove "${pendingDeleteCard.title}" and all of its attachments.`
+            : "This will permanently remove this context card and all of its attachments."
+        }
+        confirmLabel="Delete card"
+        isConfirming={Boolean(
+          pendingDeleteCardId && deletingCardId === pendingDeleteCardId
+        )}
+        onConfirm={handleDeleteCard}
+        onCancel={() => setPendingDeleteCardId(null)}
       />
 
       <AttachmentPreviewModal

@@ -1,4 +1,4 @@
-import { Paperclip, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Paperclip, Pencil, Trash2 } from "lucide-react";
 
 import type {
   ProjectContextAttachment,
@@ -12,8 +12,9 @@ interface ContextCardsGridProps {
   cards: ProjectContextCard[];
   cardAttachmentsById: Record<string, ProjectContextAttachment[]>;
   deletingCardId: string | null;
+  onOpenPreview: (cardId: string) => void;
   onEditCard: (cardId: string) => void;
-  onDeleteCard: (cardId: string) => void | Promise<void>;
+  onDeleteCard: (cardId: string) => void;
   onPreviewAttachment: (attachment: ProjectContextAttachment) => void;
 }
 
@@ -21,6 +22,7 @@ export function ContextCardsGrid({
   cards,
   cardAttachmentsById,
   deletingCardId,
+  onOpenPreview,
   onEditCard,
   onDeleteCard,
   onPreviewAttachment,
@@ -42,37 +44,62 @@ export function ContextCardsGrid({
         return (
           <article
             key={card.id}
-            className="rounded-md border p-2.5"
+            className="cursor-pointer rounded-md border p-2.5 transition hover:ring-2 hover:ring-slate-900/15"
             style={{ backgroundColor: card.color, borderColor: "rgb(15 23 42 / 0.15)" }}
+            onClick={() => onOpenPreview(card.id)}
           >
             <div className="mb-1.5 flex items-start justify-between gap-2">
-              <h3 className="text-sm font-semibold text-slate-900">{card.title}</h3>
-              <div className="flex items-center gap-0.5">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="text-slate-800 hover:bg-slate-900/10"
-                  onClick={() => onEditCard(card.id)}
-                  aria-label="Edit context card"
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="text-slate-800 hover:bg-slate-900/10"
-                  onClick={() => void onDeleteCard(card.id)}
-                  disabled={deletingCardId === card.id}
-                  aria-label="Delete context card"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+              <h3
+                className="text-sm font-semibold text-slate-900"
+                onDoubleClick={(event) => {
+                  event.stopPropagation();
+                  onEditCard(card.id);
+                }}
+              >
+                {card.title}
+              </h3>
+              <details className="relative" onClick={(event) => event.stopPropagation()}>
+                <summary className="list-none [&::-webkit-details-marker]:hidden">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-slate-800 hover:bg-slate-900/10"
+                    aria-label="Context card options"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </summary>
+                <div className="absolute right-0 z-20 mt-1 w-36 rounded-md border border-border/70 bg-background p-1 shadow-md">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => onEditCard(card.id)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => onDeleteCard(card.id)}
+                    disabled={deletingCardId === card.id}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </Button>
+                </div>
+              </details>
             </div>
-            <p className="whitespace-pre-wrap break-words text-xs text-slate-800">
+            <p
+              className="whitespace-pre-wrap break-words text-xs text-slate-800"
+              onDoubleClick={(event) => {
+                event.stopPropagation();
+                onEditCard(card.id);
+              }}
+            >
               {card.content || "No content."}
             </p>
 
@@ -89,7 +116,10 @@ export function ContextCardsGrid({
                       <button
                         key={attachment.id}
                         type="button"
-                        onClick={() => onPreviewAttachment(attachment)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onPreviewAttachment(attachment);
+                        }}
                         className="flex min-w-0 items-center gap-1 text-xs text-slate-900 underline underline-offset-2"
                       >
                         <Paperclip className="h-3 w-3" />
@@ -108,6 +138,7 @@ export function ContextCardsGrid({
                         href={href}
                         target={attachment.kind === ATTACHMENT_KIND_LINK ? "_blank" : undefined}
                         rel={attachment.kind === ATTACHMENT_KIND_LINK ? "noreferrer" : undefined}
+                        onClick={(event) => event.stopPropagation()}
                         className="flex min-w-0 flex-1 items-center gap-1 text-xs text-slate-900 underline underline-offset-2"
                       >
                         <Paperclip className="h-3 w-3" />
