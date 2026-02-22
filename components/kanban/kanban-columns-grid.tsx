@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import {
   DragDropContext,
   Draggable,
@@ -29,6 +30,7 @@ import { cn } from "@/lib/utils";
 interface KanbanColumnsGridProps {
   columns: TaskColumns<KanbanTask>;
   archivedDoneTasks: KanbanTask[];
+  selectedTaskId: string | null;
   onDragEnd: (result: DropResult) => void;
   onSelectTask: (task: KanbanTask) => void;
   onEditTask: (task: KanbanTask) => void;
@@ -39,6 +41,7 @@ interface KanbanColumnsGridProps {
 export function KanbanColumnsGrid({
   columns,
   archivedDoneTasks,
+  selectedTaskId,
   onDragEnd,
   onSelectTask,
   onEditTask,
@@ -54,6 +57,7 @@ export function KanbanColumnsGrid({
             status={status}
             tasks={columns[status]}
             archivedDoneTasks={status === "Done" ? archivedDoneTasks : []}
+            selectedTaskId={selectedTaskId}
             onSelectTask={onSelectTask}
             onEditTask={onEditTask}
             onRequestDeleteTask={onRequestDeleteTask}
@@ -69,6 +73,7 @@ interface KanbanColumnProps {
   status: TaskStatus;
   tasks: KanbanTask[];
   archivedDoneTasks: KanbanTask[];
+  selectedTaskId: string | null;
   onSelectTask: (task: KanbanTask) => void;
   onEditTask: (task: KanbanTask) => void;
   onRequestDeleteTask: (task: KanbanTask) => void;
@@ -79,6 +84,7 @@ function KanbanColumn({
   status,
   tasks,
   archivedDoneTasks,
+  selectedTaskId,
   onSelectTask,
   onEditTask,
   onRequestDeleteTask,
@@ -146,6 +152,7 @@ function KanbanColumn({
                       )}
                       className={cn(
                         "cursor-grab rounded-md border border-border/70 bg-card p-3 shadow-sm transition active:cursor-grabbing",
+                        selectedTaskId === task.id && "ring-1 ring-slate-900/20",
                         draggableSnapshot.isDragging && "shadow-lg"
                       )}
                       onClick={() => {
@@ -161,13 +168,15 @@ function KanbanColumn({
                       <div className="mb-2 flex items-start justify-between gap-2">
                         <h3 className="text-sm font-medium leading-snug">{task.title}</h3>
                         <div className="flex items-center gap-1">
-                          <TaskOptionsMenu
-                            task={task}
-                            status={status}
-                            onEditTask={onEditTask}
-                            onRequestDeleteTask={onRequestDeleteTask}
-                            onMoveTask={onMoveTask}
-                          />
+                          {selectedTaskId === task.id ? (
+                            <TaskOptionsMenu
+                              task={task}
+                              status={status}
+                              onEditTask={onEditTask}
+                              onRequestDeleteTask={onRequestDeleteTask}
+                              onMoveTask={onMoveTask}
+                            />
+                          ) : null}
                           {status === "Blocked" ? (
                             <span
                               className="rounded-sm p-1 text-amber-500"
@@ -238,65 +247,106 @@ function TaskOptionsMenu({
   onRequestDeleteTask,
   onMoveTask,
 }: TaskOptionsMenuProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && menuRef.current && !menuRef.current.contains(target)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isMenuOpen]);
+
   return (
-    <details className="relative" onClick={(event) => event.stopPropagation()}>
-      <summary
+    <div
+      ref={menuRef}
+      className="relative"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <button
+        type="button"
         className="list-none rounded-sm p-1 text-muted-foreground hover:bg-muted [&::-webkit-details-marker]:hidden"
         aria-label="Task options"
-        onClick={(event) => event.stopPropagation()}
+        aria-expanded={isMenuOpen}
+        onClick={() => setIsMenuOpen((previous) => !previous)}
       >
         <MoreHorizontal className="h-4 w-4" />
-      </summary>
-      <div
-        className="absolute right-0 z-20 mt-1 w-40 rounded-md border border-border/70 bg-background p-1 shadow-md"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <Button
-          type="button"
-          variant="ghost"
-          className="w-full justify-start"
-          onClick={() => onEditTask(task)}
-        >
-          <Pencil className="h-4 w-4" />
-          Edit
-        </Button>
-
-        <details className="group relative" onClick={(event) => event.stopPropagation()}>
-          <summary
-            className="list-none rounded-sm p-2 text-sm text-foreground hover:bg-muted [&::-webkit-details-marker]:hidden"
-            onClick={(event) => event.stopPropagation()}
+      </button>
+      {isMenuOpen ? (
+        <div className="absolute right-0 z-20 mt-1 w-40 rounded-md border border-border/70 bg-background p-1 shadow-md">
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full justify-start"
+            onClick={() => {
+              setIsMenuOpen(false);
+              onEditTask(task);
+            }}
           >
-            <span className="inline-flex w-full items-center justify-between gap-2">
-              Move to
-              <ChevronRight className="h-4 w-4" />
-            </span>
-          </summary>
-          <div className="invisible absolute left-full top-0 z-30 ml-1 w-36 rounded-md border border-border/70 bg-background p-1 opacity-0 shadow-md transition group-open:visible group-open:opacity-100">
-            {TASK_STATUSES.map((nextStatus) => (
-              <Button
-                key={nextStatus}
-                type="button"
-                variant="ghost"
-                className="w-full justify-start"
-                disabled={nextStatus === status}
-                onClick={() => onMoveTask(task, nextStatus)}
-              >
-                {nextStatus}
-              </Button>
-            ))}
-          </div>
-        </details>
+            <Pencil className="h-4 w-4" />
+            Edit
+          </Button>
 
-        <Button
-          type="button"
-          variant="ghost"
-          className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
-          onClick={() => onRequestDeleteTask(task)}
-        >
-          <Trash2 className="h-4 w-4" />
-          Delete
-        </Button>
-      </div>
-    </details>
+          <div className="group relative">
+            <div className="rounded-sm p-2 text-sm text-foreground hover:bg-muted">
+              <span className="inline-flex w-full items-center justify-between gap-2">
+                Move to
+                <ChevronRight className="h-4 w-4" />
+              </span>
+            </div>
+            <div className="invisible pointer-events-none absolute left-full top-0 z-30 ml-1 w-36 rounded-md border border-border/70 bg-background p-1 opacity-0 shadow-md transition group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+              {TASK_STATUSES.map((nextStatus) => (
+                <Button
+                  key={nextStatus}
+                  type="button"
+                  variant="ghost"
+                  className="w-full justify-start"
+                  disabled={nextStatus === status}
+                  onClick={() => {
+                    onMoveTask(task, nextStatus);
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  {nextStatus}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => {
+              setIsMenuOpen(false);
+              onRequestDeleteTask(task);
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </Button>
+        </div>
+      ) : null}
+    </div>
   );
 }
