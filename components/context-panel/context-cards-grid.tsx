@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { MoreHorizontal, Paperclip, Pencil, Trash2 } from "lucide-react";
 
 import type {
@@ -7,6 +7,7 @@ import type {
 } from "@/components/project-context-panel-types";
 import { resolveAttachmentHref } from "@/components/project-context-panel-utils";
 import { Button } from "@/components/ui/button";
+import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import { ATTACHMENT_KIND_LINK, isAttachmentPreviewable } from "@/lib/task-attachment";
 
 interface ContextCardsGridProps {
@@ -149,34 +150,7 @@ function ContextCardOptionsMenu({
   onDeleteCard,
 }: ContextCardOptionsMenuProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!isMenuOpen) {
-      return;
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null;
-      if (target && menuRef.current && !menuRef.current.contains(target)) {
-        setIsMenuOpen(false);
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [isMenuOpen]);
+  const menuRef = useDismissibleMenu<HTMLDivElement>(isMenuOpen, () => setIsMenuOpen(false));
 
   return (
     <div

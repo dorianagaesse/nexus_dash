@@ -4,6 +4,11 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-079
+  Title: Projects page edit/delete safety UX - gated save action, contextual options menu, and double-click edit activation
+  Status: In Progress (branch `feature/task-079-project-card-edit-controls`) (2026-02-22)
+  Rationale: The current projects page exposes always-editable fields and an always-visible save action, causing accidental reorder/update behavior and increasing destructive-action risk; align project-card interactions with context/task UX by introducing explicit edit mode, contextual options, and confirm-gated deletion.
+  Dependencies: TASK-078, TASK-077, TASK-012
 - ID: TASK-078
   Title: UX polish phase 1 - context/task interaction model, options menus, confirmation flows, and modal visual bug fix
   Status: In Review (PR #45, checks pass, Copilot threads resolved) (2026-02-22)
