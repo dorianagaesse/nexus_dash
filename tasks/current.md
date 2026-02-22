@@ -50,7 +50,7 @@ Deliver a first-pass UX quality upgrade on project dashboard interaction surface
 
 ## Definition of Done
 - UX behavior is implemented with no functional regression in task/context create/edit/delete flows.
-- Backlog and current task tracking are updated consistently (`TASK-078` current, `TASK-077` ordered directly after).
+- Upon completion, mark `TASK-078` as done and update `tasks/current.md` to the next task in the queue.
 - Dedicated PR opened for TASK-078 scope only.
 - PR checks pass and preview deployment is validated for target interactions.
 
