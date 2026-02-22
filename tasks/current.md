@@ -4,7 +4,7 @@
 TASK-077
 
 ## Status
-In Progress (2026-02-22)
+In Review (PR #46, checks pass) (2026-02-22)
 
 ## Objective
 Replace long-lived inline mutation/upload status lines with a global stacked toast system so feedback is clear, short-lived, and consistent across task/context-card/attachment flows.

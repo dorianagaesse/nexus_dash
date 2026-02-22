@@ -11,7 +11,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-062, TASK-071, TASK-072, TASK-075
 - ID: TASK-077
   Title: Mutation/upload UX smoothing - global toast queue, finite async feedback, and removal of persistent inline background status text
-  Status: In Progress (2026-02-22)
+  Status: In Review (PR #46, checks pass) (2026-02-22)
   Rationale: Replace long-lived inline status lines (`creating ... in background`, upload progress text blocks) with concise stacked FIFO toasts (auto-dismiss), explicit failure surfacing, and finite timeout behavior so users always receive clear completion/failure signals without stale UI states, including success/failure toasts for delete actions (task/card/attachment).
   Dependencies: TASK-078, TASK-076, TASK-071, TASK-075
 - ID: TASK-020
