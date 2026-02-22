@@ -4,26 +4,21 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-079
+  Title: Projects page edit/delete safety UX - gated save action, contextual options menu, and double-click edit activation
+  Status: In Progress (branch `feature/task-079-project-card-edit-controls`) (2026-02-22)
+  Rationale: The current projects page exposes always-editable fields and an always-visible save action, causing accidental reorder/update behavior and increasing destructive-action risk; align project-card interactions with context/task UX by introducing explicit edit mode, contextual options, and confirm-gated deletion.
+  Dependencies: TASK-078, TASK-077, TASK-012
 - ID: TASK-078
   Title: UX polish phase 1 - context/task interaction model, options menus, confirmation flows, and modal visual bug fix
-  Status: In Progress (2026-02-22)
+  Status: In Review (PR #45, checks pass, Copilot threads resolved) (2026-02-22)
   Rationale: Improve daily usability by replacing crowded inline actions with contextual option menus, adding safer destructive confirmations, enabling fast inline editing gestures (double-click), introducing explicit task movement controls, and fixing modal top-edge visual artifacts during task creation.
   Dependencies: TASK-062, TASK-071, TASK-072, TASK-075
 - ID: TASK-077
   Title: Mutation/upload UX smoothing - global toast queue, finite async feedback, and removal of persistent inline background status text
-  Status: Pending
+  Status: In Review (stacked into PR #45 branch; final checks tracked on PR #45) (2026-02-22)
   Rationale: Replace long-lived inline status lines (`creating ... in background`, upload progress text blocks) with concise stacked FIFO toasts (auto-dismiss), explicit failure surfacing, and finite timeout behavior so users always receive clear completion/failure signals without stale UI states, including success/failure toasts for delete actions (task/card/attachment).
   Dependencies: TASK-078, TASK-076, TASK-071, TASK-075
-- ID: TASK-020
-  Title: Modern authentication/authorization ADR (user ownership, sharing, agent access, session model)
-  Status: Done (2026-02-21)
-  Rationale: Define a state-of-the-art authz/authn model covering user-owned projects, shareable collaboration, secure agent access, and persistent web sessions without repeated login prompts, including explicit signed-out home-page entry behavior (`Sign in`/`Sign up`), DB-backed user sessions, and JWT-style scoped agent/API tokens.
-  Dependencies: TASK-035, TASK-039, TASK-040, TASK-057, TASK-060, TASK-062
-- ID: TASK-045
-  Title: Authentication implementation phase 1 - user/session data model and migrations
-  Status: Done (2026-02-22)
-  Rationale: Establish durable auth persistence primitives (Auth.js/Prisma-compatible user/account/session entities, revocation support, session lifecycle) before middleware/UI implementation.
-  Dependencies: TASK-020, TASK-057
 - ID: TASK-076
   Title: Multi-user data/storage/integration boundary transition - principal-scoped DB access, R2 ownership isolation, and user-scoped Google Calendar
   Status: Pending
@@ -110,6 +105,16 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-020
+  Title: Modern authentication/authorization ADR (user ownership, sharing, agent access, session model)
+  Status: Done (2026-02-21)
+  Rationale: Define a state-of-the-art authz/authn model covering user-owned projects, shareable collaboration, secure agent access, and persistent web sessions without repeated login prompts, including explicit signed-out home-page entry behavior (`Sign in`/`Sign up`), DB-backed user sessions, and JWT-style scoped agent/API tokens.
+  Dependencies: TASK-035, TASK-039, TASK-040, TASK-057, TASK-060, TASK-062
+- ID: TASK-045
+  Title: Authentication implementation phase 1 - user/session data model and migrations
+  Status: Done (2026-02-22)
+  Rationale: Establish durable auth persistence primitives (Auth.js/Prisma-compatible user/account/session entities, revocation support, session lifecycle) before middleware/UI implementation.
+  Dependencies: TASK-020, TASK-057
 - ID: TASK-062
   Title: UI decomposition phase - split oversized dashboard components into focused modules
   Status: Done (2026-02-20)

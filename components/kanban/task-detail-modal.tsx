@@ -1,5 +1,16 @@
+import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Link2, Paperclip, Pencil, Trash2, TriangleAlert, Upload, X } from "lucide-react";
+import {
+  ChevronRight,
+  Link2,
+  MoreHorizontal,
+  Paperclip,
+  Pencil,
+  Trash2,
+  TriangleAlert,
+  Upload,
+  X,
+} from "lucide-react";
 
 import {
   type KanbanTask,
@@ -15,6 +26,7 @@ import { RichTextEditor } from "@/components/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import {
   ATTACHMENT_KIND_FILE,
   ATTACHMENT_KIND_LINK,
@@ -22,6 +34,7 @@ import {
   isAttachmentPreviewable,
 } from "@/lib/task-attachment";
 import { MAX_TASK_LABELS, getTaskLabelColor } from "@/lib/task-label";
+import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 
 interface TaskDetailModalProps {
   isOpen: boolean;
@@ -44,6 +57,7 @@ interface TaskDetailModalProps {
   fileInputKey: number;
   previewAttachment: TaskAttachment | null;
   onClose: () => void;
+  onActivateEditMode: () => void;
   onToggleEditMode: (nextValue: boolean) => void;
   onEditTitleChange: (value: string) => void;
   onEditLabelInputChange: (value: string) => void;
@@ -59,6 +73,8 @@ interface TaskDetailModalProps {
   onAddFileAttachment: (file: File | null) => void | Promise<void>;
   onDeleteAttachment: (attachmentId: string) => void | Promise<void>;
   onPreviewAttachmentChange: (attachment: TaskAttachment | null) => void;
+  onMoveTask: (nextStatus: TaskStatus) => void;
+  onRequestDeleteTask: () => void;
 }
 
 export function TaskDetailModal({
@@ -82,6 +98,7 @@ export function TaskDetailModal({
   fileInputKey,
   previewAttachment,
   onClose,
+  onActivateEditMode,
   onToggleEditMode,
   onEditTitleChange,
   onEditLabelInputChange,
@@ -97,6 +114,8 @@ export function TaskDetailModal({
   onAddFileAttachment,
   onDeleteAttachment,
   onPreviewAttachmentChange,
+  onMoveTask,
+  onRequestDeleteTask,
 }: TaskDetailModalProps) {
   if (!isOpen || !selectedTask) {
     return null;
@@ -114,14 +133,19 @@ export function TaskDetailModal({
           }}
         >
           <Card
-            className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto"
+            className="flex max-h-[calc(100vh-2rem)] w-full max-w-xl flex-col overflow-hidden"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <CardHeader className="flex flex-row items-start justify-between space-y-0">
+            <CardHeader className="flex shrink-0 flex-row items-start justify-between space-y-0">
               <div className="space-y-2">
                 <Badge variant="outline">{selectedTask.status}</Badge>
                 {!isEditMode ? (
-                  <CardTitle className="text-xl">{selectedTask.title}</CardTitle>
+                  <CardTitle
+                    className="text-xl"
+                    onDoubleClick={onActivateEditMode}
+                  >
+                    {selectedTask.title}
+                  </CardTitle>
                 ) : (
                   <input
                     aria-label="Task title"
@@ -133,15 +157,12 @@ export function TaskDetailModal({
               </div>
               <div className="flex items-center gap-1">
                 {!isEditMode ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onToggleEditMode(true)}
-                    aria-label="Edit task"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
+                  <TaskOptionsMenu
+                    currentStatus={selectedTask.status}
+                    onStartEdit={() => onToggleEditMode(true)}
+                    onMoveTask={onMoveTask}
+                    onRequestDeleteTask={onRequestDeleteTask}
+                  />
                 ) : null}
                 <Button
                   type="button"
@@ -154,12 +175,13 @@ export function TaskDetailModal({
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 overflow-y-auto">
               {!isEditMode ? (
                 <TaskReadOnlyContent
                   selectedTask={selectedTask}
                   pendingAttachmentUploads={pendingAttachmentUploads}
                   onPreviewAttachment={onPreviewAttachmentChange}
+                  onActivateEditMode={onActivateEditMode}
                 />
               ) : (
                 <TaskEditContent
@@ -207,14 +229,101 @@ export function TaskDetailModal({
   );
 }
 
+interface TaskOptionsMenuProps {
+  currentStatus: TaskStatus;
+  onStartEdit: () => void;
+  onMoveTask: (nextStatus: TaskStatus) => void;
+  onRequestDeleteTask: () => void;
+}
+
+function TaskOptionsMenu({
+  currentStatus,
+  onStartEdit,
+  onMoveTask,
+  onRequestDeleteTask,
+}: TaskOptionsMenuProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useDismissibleMenu<HTMLDivElement>(isMenuOpen, () => setIsMenuOpen(false));
+
+  return (
+    <div ref={menuRef} className="relative">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="Task options"
+        aria-expanded={isMenuOpen}
+        onClick={() => setIsMenuOpen((previous) => !previous)}
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </Button>
+      {isMenuOpen ? (
+        <div className="absolute right-0 z-20 mt-1 w-40 rounded-md border border-border/70 bg-background p-1 shadow-md">
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full justify-start"
+            onClick={() => {
+              onStartEdit();
+              setIsMenuOpen(false);
+            }}
+          >
+            <Pencil className="h-4 w-4" />
+            Edit
+          </Button>
+          <div className="group relative">
+            <div className="rounded-sm p-2 text-sm text-foreground hover:bg-muted">
+              <span className="inline-flex w-full items-center justify-between gap-2">
+                Move to
+                <ChevronRight className="h-4 w-4" />
+              </span>
+            </div>
+            <div className="invisible pointer-events-none absolute right-full top-0 z-30 mr-1 w-36 rounded-md border border-border/70 bg-background p-1 opacity-0 shadow-md transition group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+              {TASK_STATUSES.map((nextStatus) => (
+                <Button
+                  key={nextStatus}
+                  type="button"
+                  variant="ghost"
+                  className="w-full justify-start"
+                  disabled={nextStatus === currentStatus}
+                  onClick={() => {
+                    onMoveTask(nextStatus);
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  {nextStatus}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => {
+              setIsMenuOpen(false);
+              onRequestDeleteTask();
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function TaskReadOnlyContent({
   selectedTask,
   pendingAttachmentUploads,
   onPreviewAttachment,
+  onActivateEditMode,
 }: {
   selectedTask: KanbanTask;
   pendingAttachmentUploads: PendingAttachmentUpload[];
   onPreviewAttachment: (attachment: TaskAttachment | null) => void;
+  onActivateEditMode: () => void;
 }) {
   return (
     <>
@@ -234,7 +343,10 @@ function TaskReadOnlyContent({
         </div>
       ) : null}
       {selectedTask.status === "Blocked" ? (
-        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200">
+        <div
+          className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200"
+          onDoubleClick={onActivateEditMode}
+        >
           <div className="mb-1 flex items-center gap-2 font-medium">
             <TriangleAlert className="h-4 w-4" />
             Blocked follow-up
@@ -262,6 +374,7 @@ function TaskReadOnlyContent({
       ) : null}
       <div className="max-h-[52vh] overflow-y-auto text-sm text-muted-foreground [overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:break-words [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_p]:mb-2">
         <div
+          onDoubleClick={onActivateEditMode}
           dangerouslySetInnerHTML={{
             __html: selectedTask.description ?? "<p>No description provided.</p>",
           }}

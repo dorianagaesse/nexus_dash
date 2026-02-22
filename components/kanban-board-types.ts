@@ -31,8 +31,3 @@ export interface PendingAttachmentUpload {
   name: string;
   sizeBytes: number;
 }
-
-export interface TaskMutationStatus {
-  phase: "running" | "done" | "failed";
-  message: string;
-}

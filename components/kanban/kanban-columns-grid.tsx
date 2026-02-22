@@ -23,6 +23,7 @@ interface KanbanColumnsGridProps {
   archivedDoneTasks: KanbanTask[];
   onDragEnd: (result: DropResult) => void;
   onSelectTask: (task: KanbanTask) => void;
+  onEditTask: (task: KanbanTask) => void;
 }
 
 export function KanbanColumnsGrid({
@@ -30,6 +31,7 @@ export function KanbanColumnsGrid({
   archivedDoneTasks,
   onDragEnd,
   onSelectTask,
+  onEditTask,
 }: KanbanColumnsGridProps) {
   return (
     <DragDropContext onDragEnd={onDragEnd}>
@@ -41,6 +43,7 @@ export function KanbanColumnsGrid({
             tasks={columns[status]}
             archivedDoneTasks={status === "Done" ? archivedDoneTasks : []}
             onSelectTask={onSelectTask}
+            onEditTask={onEditTask}
           />
         ))}
       </div>
@@ -53,6 +56,7 @@ interface KanbanColumnProps {
   tasks: KanbanTask[];
   archivedDoneTasks: KanbanTask[];
   onSelectTask: (task: KanbanTask) => void;
+  onEditTask: (task: KanbanTask) => void;
 }
 
 function KanbanColumn({
@@ -60,6 +64,7 @@ function KanbanColumn({
   tasks,
   archivedDoneTasks,
   onSelectTask,
+  onEditTask,
 }: KanbanColumnProps) {
   return (
     <Card className="min-h-[300px]">
@@ -131,6 +136,10 @@ function KanbanColumn({
                           onSelectTask(task);
                         }
                       }}
+                      onDoubleClick={(event) => {
+                        event.stopPropagation();
+                        onEditTask(task);
+                      }}
                     >
                       <div className="mb-2 flex items-start justify-between gap-2">
                         <h3 className="text-sm font-medium leading-snug">{task.title}</h3>
@@ -144,7 +153,11 @@ function KanbanColumn({
                               <TriangleAlert className="h-4 w-4" />
                             </span>
                           ) : null}
-                          <span className="rounded-sm p-1 text-muted-foreground">
+                          <span
+                            className="rounded-sm p-1 text-muted-foreground"
+                            aria-label="Drag task"
+                            title="Drag task"
+                          >
                             <GripVertical className="h-4 w-4" />
                           </span>
                         </div>

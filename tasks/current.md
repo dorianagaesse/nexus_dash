@@ -1,62 +1,55 @@
-# Current Task: TASK-078 UX Polish Phase 1 - Context/Task Interaction and Safety Flows
+# Current Task: TASK-079 Projects Page Edit/Delete Safety UX
 
 ## Task ID
-TASK-078
+TASK-079
 
 ## Status
-In Progress (2026-02-22)
+In Progress (branch `feature/task-079-project-card-edit-controls`) (2026-02-22)
 
 ## Objective
-Deliver a first-pass UX quality upgrade on project dashboard interaction surfaces (Context cards + Kanban tasks) so common actions are clearer, safer, and faster.
+Make project-card updates intentional by replacing always-editable fields and always-visible `Save changes` with explicit edit mode and contextual actions.
 
 ## Why Now
-- Recent work improved async behavior and performance, but daily interaction ergonomics still feel inconsistent.
-- Current inline icon actions are dense and error-prone.
-- Destructive actions need stronger safety affordances.
-- A visual regression remains when opening the task-create modal (top-edge color strip).
+- `Save changes` is currently always visible/clickable, even when nothing changed.
+- Submitting unchanged cards can still mutate ordering (updated timestamp side effects).
+- Direct adjacency of save/delete increases accidental destructive risk.
 
 ## Scope
-- Context cards:
-  - Clicking a card opens an expanded read-only preview (same base color family as card).
-  - Replace inline edit/delete icons with a dot-options action menu.
-  - Move edit/delete into options menu.
-  - Add stronger destructive visibility for delete (danger styling).
-  - Add explicit delete confirmation dialog.
-  - Enable double-click edit activation on editable fields.
-- Kanban tasks:
-  - Add dot-options menu on task cards.
-  - Include: `Edit`, `Move to`, `Delete`.
-  - Add hover-driven `Move to >` submenu listing all kanban lists.
-  - Add delete confirmation dialog.
-  - Enable double-click edit activation on editable fields.
-- Visual polish:
-  - Fix the top-edge bar artifact shown when opening the create-task modal.
+- Projects page cards:
+  - Render name/description as read-only by default.
+  - Add top-right options menu with `Edit` and `Delete`.
+  - Keep delete behind confirmation dialog.
+  - Activate edit mode via:
+    - options menu `Edit`
+    - double-click name
+    - double-click description
+- Edit mode behavior:
+  - Show editable name/description inputs only in edit mode.
+  - Show `Save changes` only when values differ from persisted values.
+  - Hide `Save changes` when no change is pending.
+- Reuse/factor:
+  - Reuse shared options-menu dismissal behavior (outside click + Escape) through a common hook.
 
 ## Out of Scope
-- Multi-user authorization boundaries and principal scoping (TASK-076).
-- Global toast system and mutation-feedback unification (TASK-077), except ensuring this task produces the required action hooks/states.
-- New backend auth flows.
+- Auth/authz behavior.
+- Project sharing/permissions model.
+- Kanban/context/task domain logic changes outside shared menu behavior reuse.
 
 ## Acceptance Criteria
-- Context card options menu replaces visible inline edit/delete buttons in collapsed grid.
-- Context card preview opens on click and is read-only.
-- Context card delete uses confirmation dialog; destructive action is visually distinct.
-- Task card options menu exists with `Edit`, `Move to`, and `Delete`.
-- `Move to` submenu supports direct move between kanban lists without drag-and-drop.
-- Task delete uses confirmation dialog and updates board state correctly.
-- Double-click edit activation works for task and context-card editable fields.
-- Task-create modal top-edge visual artifact is resolved in desktop and mobile layouts.
-- Lint/tests/build remain green.
+- Default project card fields are non-editable.
+- `Save changes` appears only when the user modified name and/or description.
+- Options menu exists on project cards with `Edit` and `Delete`.
+- Double-click on project name/description enters edit mode.
+- Deleting a project requires explicit confirmation.
+- Menu open/close behavior is consistent with other options menus.
+- Lint/test suites pass.
 
 ## Definition of Done
-- UX behavior is implemented with no functional regression in task/context create/edit/delete flows.
-- Upon completion, mark `TASK-078` as done and update `tasks/current.md` to the next task in the queue.
-- Dedicated PR opened for TASK-078 scope only.
-- PR checks pass and preview deployment is validated for target interactions.
-
-## Implementation Notes
-- Prefer composable UI primitives (shared menu/confirmation patterns) to avoid divergence between task and context implementations.
-- Keep accessibility first: keyboard-reachable menus, focus handling in dialogs, and clear labels for destructive actions.
+- Dedicated PR opened from `feature/task-079-project-card-edit-controls`.
+- Checks pass.
+- Copilot review comments are handled (valid ones implemented, threads resolved).
+- Manual preview deployment is executed and shared.
+- `tasks/backlog.md` and `tasks/current.md` reflect final task state.
 
 ---
 

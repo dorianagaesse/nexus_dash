@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { logServerWarning } from "@/lib/observability/logger";
 import {
+  deleteTaskForProject,
   type UpdateTaskPayload,
   updateTaskForProject,
 } from "@/lib/services/project-task-service";
@@ -35,4 +36,22 @@ export async function PATCH(
   }
 
   return NextResponse.json({ task: result.data.task });
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: { projectId: string; taskId: string } }
+) {
+  const { projectId, taskId } = params;
+
+  if (!projectId || !taskId) {
+    return NextResponse.json({ error: "Missing route parameters" }, { status: 400 });
+  }
+
+  const result = await deleteTaskForProject(projectId, taskId);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
+  }
+
+  return NextResponse.json({ ok: true });
 }

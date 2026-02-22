@@ -1,5 +1,7 @@
+import { deleteAttachmentFile } from "@/lib/attachment-storage";
 import { prisma } from "@/lib/prisma";
 import { sanitizeRichText } from "@/lib/rich-text";
+import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import {
   normalizeTaskLabels,
   parseTaskLabelsJson,
@@ -79,6 +81,14 @@ function normalizeText(value: unknown): string {
     return "";
   }
   return value.trim();
+}
+
+function isPrismaNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  return "code" in error && (error as { code?: string }).code === "P2025";
 }
 
 export function isValidReorderPayload(payload: unknown): payload is ReorderPayload {
@@ -365,5 +375,59 @@ export async function updateTaskForProject(
   } catch (error) {
     logServerError("updateTaskForProject", error);
     return createError(500, "Failed to update task");
+  }
+}
+
+export async function deleteTaskForProject(
+  projectId: string,
+  taskId: string
+): Promise<ServiceResult<{ ok: true }>> {
+  try {
+    const existingTask = await prisma.task.findUnique({
+      where: { id: taskId },
+      select: {
+        id: true,
+        projectId: true,
+        attachments: {
+          where: {
+            kind: ATTACHMENT_KIND_FILE,
+            NOT: { storageKey: null },
+          },
+          select: { storageKey: true },
+        },
+      },
+    });
+
+    if (!existingTask || existingTask.projectId !== projectId) {
+      return createError(404, "Task not found");
+    }
+
+    const storageKeys = existingTask.attachments
+      .map((attachment) => attachment.storageKey)
+      .filter((storageKey): storageKey is string => Boolean(storageKey));
+
+    await prisma.task.delete({
+      where: { id: taskId },
+    });
+
+    await Promise.all(
+      storageKeys.map((storageKey) =>
+        deleteAttachmentFile(storageKey).catch((cleanupError) => {
+          logServerError("deleteTaskForProject.cleanup", cleanupError);
+        })
+      )
+    );
+
+    return {
+      ok: true,
+      data: { ok: true },
+    };
+  } catch (error) {
+    if (isPrismaNotFoundError(error)) {
+      return createError(404, "Task not found");
+    }
+
+    logServerError("deleteTaskForProject", error);
+    return createError(500, "Failed to delete task");
   }
 }
