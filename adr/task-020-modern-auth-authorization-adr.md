@@ -1,7 +1,7 @@
 # TASK-020 Modern Authentication/Authorization ADR
 
 Date: 2026-02-20
-Status: Draft (Proposed)
+Status: Accepted (2026-02-21)
 
 ## 1) Decision Summary
 
@@ -13,6 +13,7 @@ Adopt a hybrid, production-grade auth architecture with clear actor boundaries:
 - Use scoped API key credentials for non-human actors, and mint short-lived JWT access tokens for agent/API runtime calls.
 - Enforce authorization in the service layer (`lib/services/**`) with project membership + role checks.
 - Defer public API exposure until core auth/authz hardening and testing tasks are completed.
+- Enforce delivery guardrails for implementation tasks: one task per PR, automatic Copilot reviewer only (no manual tagging), and mandatory green CI plus preview deployment before merge for deployment-affecting changes.
 
 This ADR is the implementation contract for TASK-045, TASK-076, TASK-046, TASK-047, TASK-058, TASK-059, and TASK-048.
 Execution sequencing includes a dedicated multi-user boundary transition task (`TASK-076`) between schema bootstrap and route-protection rollout.
@@ -31,6 +32,18 @@ Roadmap constraints:
 - Need secure agent/non-human access model.
 - Need to keep delivery velocity and existing service-layer boundaries.
 - Need stateless scaling behavior for Vercel/serverless runtime.
+
+## 2.1) Delivery Guardrails (Binding)
+
+- One task per branch/PR. Complex tasks must not be bundled in a shared PR.
+- No manual `@copilot review` tagging in PR comments. Copilot reviewer is automatic.
+- Any task that changes runtime/build/migrations/infrastructure-facing behavior must pass:
+  - all required GitHub checks,
+  - successful preview deployment validation before merge.
+- If a preview deployment fails, fix and re-validate in the same task PR before merge approval.
+- Merges must preserve rollback safety:
+  - schema foundation (`TASK-045`) ships before principal-boundary behavior (`TASK-076`),
+  - route protection (`TASK-046`) starts only after both are complete.
 
 ## 3) Goals
 
@@ -175,9 +188,10 @@ Policy rules:
 
 - TASK-045:
   - Add user/session/auth schema and migrations.
-  - Add ownership/membership foundation.
-  - Add user-scoped calendar credential model.
+  - Keep scope limited to Auth.js-compatible persistence bootstrap (`User`, `Account`, `Session`, `VerificationToken`) in a standalone PR.
 - TASK-076:
+  - Add ownership/membership foundation (`Project.ownerId`, `ProjectMembership`, `ProjectInvitation`) and backfill strategy.
+  - Add user-scoped calendar credential model and migration away from global singleton credential ownership.
   - Transition service-layer DB access to principal-scoped authorization filtering.
   - Apply multi-user ownership constraints to attachment metadata and R2 signed URL issuance paths.
   - Validate Supabase credential boundaries (runtime vs migrate/admin) for least privilege.
@@ -193,6 +207,21 @@ Policy rules:
   - API key issuance/rotation/revocation + short-lived agent JWT exchange + scope enforcement.
 - TASK-048:
   - Full auth/authz regression suite, edge-case hardening, and security validation.
+
+### 11.1 Scope Boundary for TASK-045 (must be standalone PR)
+- Includes schema entities and migration-safe data bootstrap only.
+- Includes service scaffolding needed to support new entities without changing broad authorization behavior.
+- Excludes full principal-boundary retrofit across storage/calendar/project services (that is `TASK-076`).
+
+### 11.2 Scope Boundary for TASK-076 (must be standalone PR)
+- Includes principal-scoped authorization enforcement across service boundaries.
+- Includes Supabase/R2/Google Calendar ownership boundary enforcement.
+- Excludes user/session schema bootstrapping work already delivered by `TASK-045`.
+
+### 11.3 Merge Gates for TASK-045 and TASK-076
+- Green required CI checks.
+- Preview deployment validated as healthy for the task PR commit.
+- Copilot review conversations answered and resolved in-thread before merge.
 
 ## 12) Migration and Backward Compatibility
 
@@ -220,7 +249,7 @@ Must-have coverage before closing auth epic phases:
 - Risk: migration complexity from singleton calendar credential.
   - Mitigation: phased migration with compatibility fallback during rollout window.
 
-## 15) Open Questions (To Resolve Before TASK-045 Merge)
+## 15) Open Questions (Tracked for Subsequent Auth Phases)
 
 - Email verification and password reset provider choice (Resend/Postmark/etc.).
 - Redis introduction timing (immediate vs deferred until session load justifies it).
