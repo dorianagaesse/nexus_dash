@@ -1,13 +1,22 @@
+import { useEffect, useRef, useState } from "react";
 import {
   DragDropContext,
   Draggable,
   Droppable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { GripVertical, TriangleAlert } from "lucide-react";
+import {
+  ChevronRight,
+  GripVertical,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 
 import type { KanbanTask } from "@/components/kanban-board-types";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   buildDragStyle,
@@ -21,15 +30,23 @@ import { cn } from "@/lib/utils";
 interface KanbanColumnsGridProps {
   columns: TaskColumns<KanbanTask>;
   archivedDoneTasks: KanbanTask[];
+  selectedTaskId: string | null;
   onDragEnd: (result: DropResult) => void;
   onSelectTask: (task: KanbanTask) => void;
+  onEditTask: (task: KanbanTask) => void;
+  onRequestDeleteTask: (task: KanbanTask) => void;
+  onMoveTask: (task: KanbanTask, nextStatus: TaskStatus) => void;
 }
 
 export function KanbanColumnsGrid({
   columns,
   archivedDoneTasks,
+  selectedTaskId,
   onDragEnd,
   onSelectTask,
+  onEditTask,
+  onRequestDeleteTask,
+  onMoveTask,
 }: KanbanColumnsGridProps) {
   return (
     <DragDropContext onDragEnd={onDragEnd}>
@@ -40,7 +57,11 @@ export function KanbanColumnsGrid({
             status={status}
             tasks={columns[status]}
             archivedDoneTasks={status === "Done" ? archivedDoneTasks : []}
+            selectedTaskId={selectedTaskId}
             onSelectTask={onSelectTask}
+            onEditTask={onEditTask}
+            onRequestDeleteTask={onRequestDeleteTask}
+            onMoveTask={onMoveTask}
           />
         ))}
       </div>
@@ -52,14 +73,22 @@ interface KanbanColumnProps {
   status: TaskStatus;
   tasks: KanbanTask[];
   archivedDoneTasks: KanbanTask[];
+  selectedTaskId: string | null;
   onSelectTask: (task: KanbanTask) => void;
+  onEditTask: (task: KanbanTask) => void;
+  onRequestDeleteTask: (task: KanbanTask) => void;
+  onMoveTask: (task: KanbanTask, nextStatus: TaskStatus) => void;
 }
 
 function KanbanColumn({
   status,
   tasks,
   archivedDoneTasks,
+  selectedTaskId,
   onSelectTask,
+  onEditTask,
+  onRequestDeleteTask,
+  onMoveTask,
 }: KanbanColumnProps) {
   return (
     <Card className="min-h-[300px]">
@@ -117,13 +146,13 @@ function KanbanColumn({
                     <article
                       ref={draggableProvided.innerRef}
                       {...draggableProvided.draggableProps}
-                      {...draggableProvided.dragHandleProps}
                       style={buildDragStyle(
                         draggableProvided.draggableProps.style,
                         draggableSnapshot.isDragging
                       )}
                       className={cn(
                         "cursor-grab rounded-md border border-border/70 bg-card p-3 shadow-sm transition active:cursor-grabbing",
+                        selectedTaskId === task.id && "ring-1 ring-slate-900/20",
                         draggableSnapshot.isDragging && "shadow-lg"
                       )}
                       onClick={() => {
@@ -131,10 +160,23 @@ function KanbanColumn({
                           onSelectTask(task);
                         }
                       }}
+                      onDoubleClick={(event) => {
+                        event.stopPropagation();
+                        onEditTask(task);
+                      }}
                     >
                       <div className="mb-2 flex items-start justify-between gap-2">
                         <h3 className="text-sm font-medium leading-snug">{task.title}</h3>
                         <div className="flex items-center gap-1">
+                          {selectedTaskId === task.id ? (
+                            <TaskOptionsMenu
+                              task={task}
+                              status={status}
+                              onEditTask={onEditTask}
+                              onRequestDeleteTask={onRequestDeleteTask}
+                              onMoveTask={onMoveTask}
+                            />
+                          ) : null}
                           {status === "Blocked" ? (
                             <span
                               className="rounded-sm p-1 text-amber-500"
@@ -144,9 +186,15 @@ function KanbanColumn({
                               <TriangleAlert className="h-4 w-4" />
                             </span>
                           ) : null}
-                          <span className="rounded-sm p-1 text-muted-foreground">
+                          <button
+                            type="button"
+                            className="rounded-sm p-1 text-muted-foreground"
+                            aria-label="Drag task"
+                            onClick={(event) => event.stopPropagation()}
+                            {...draggableProvided.dragHandleProps}
+                          >
                             <GripVertical className="h-4 w-4" />
-                          </span>
+                          </button>
                         </div>
                       </div>
 
@@ -181,5 +229,124 @@ function KanbanColumn({
         </Droppable>
       </CardContent>
     </Card>
+  );
+}
+
+interface TaskOptionsMenuProps {
+  task: KanbanTask;
+  status: TaskStatus;
+  onEditTask: (task: KanbanTask) => void;
+  onRequestDeleteTask: (task: KanbanTask) => void;
+  onMoveTask: (task: KanbanTask, nextStatus: TaskStatus) => void;
+}
+
+function TaskOptionsMenu({
+  task,
+  status,
+  onEditTask,
+  onRequestDeleteTask,
+  onMoveTask,
+}: TaskOptionsMenuProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && menuRef.current && !menuRef.current.contains(target)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isMenuOpen]);
+
+  return (
+    <div
+      ref={menuRef}
+      className="relative"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <button
+        type="button"
+        className="list-none rounded-sm p-1 text-muted-foreground hover:bg-muted [&::-webkit-details-marker]:hidden"
+        aria-label="Task options"
+        aria-expanded={isMenuOpen}
+        onClick={() => setIsMenuOpen((previous) => !previous)}
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+      {isMenuOpen ? (
+        <div className="absolute right-0 z-20 mt-1 w-40 rounded-md border border-border/70 bg-background p-1 shadow-md">
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full justify-start"
+            onClick={() => {
+              setIsMenuOpen(false);
+              onEditTask(task);
+            }}
+          >
+            <Pencil className="h-4 w-4" />
+            Edit
+          </Button>
+
+          <div className="group relative">
+            <div className="rounded-sm p-2 text-sm text-foreground hover:bg-muted">
+              <span className="inline-flex w-full items-center justify-between gap-2">
+                Move to
+                <ChevronRight className="h-4 w-4" />
+              </span>
+            </div>
+            <div className="invisible pointer-events-none absolute left-full top-0 z-30 ml-1 w-36 rounded-md border border-border/70 bg-background p-1 opacity-0 shadow-md transition group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+              {TASK_STATUSES.map((nextStatus) => (
+                <Button
+                  key={nextStatus}
+                  type="button"
+                  variant="ghost"
+                  className="w-full justify-start"
+                  disabled={nextStatus === status}
+                  onClick={() => {
+                    onMoveTask(task, nextStatus);
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  {nextStatus}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => {
+              setIsMenuOpen(false);
+              onRequestDeleteTask(task);
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </Button>
+        </div>
+      ) : null}
+    </div>
   );
 }

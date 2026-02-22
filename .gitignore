@@ -49,3 +49,7 @@ next-env.d.ts
 
 # local file attachments
 /storage/uploads
+
+# local scratch artifacts
+/tmp/
+/tmp_query.sql

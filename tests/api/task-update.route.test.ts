@@ -13,6 +13,7 @@ const txMock = vi.hoisted(() => ({
 const prismaMock = vi.hoisted(() => ({
   task: {
     findUnique: vi.fn(),
+    delete: vi.fn(),
   },
   $transaction: vi.fn(),
 }));
@@ -21,7 +22,15 @@ vi.mock("@/lib/prisma", () => ({
   prisma: prismaMock,
 }));
 
-import { PATCH } from "@/app/api/projects/[projectId]/tasks/[taskId]/route";
+const attachmentStorageMock = vi.hoisted(() => ({
+  deleteAttachmentFile: vi.fn(),
+}));
+
+vi.mock("@/lib/attachment-storage", () => ({
+  deleteAttachmentFile: attachmentStorageMock.deleteAttachmentFile,
+}));
+
+import { DELETE, PATCH } from "@/app/api/projects/[projectId]/tasks/[taskId]/route";
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
@@ -33,6 +42,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     prismaMock.$transaction.mockImplementation(async (callback: (tx: typeof txMock) => unknown) =>
       callback(txMock)
     );
+    attachmentStorageMock.deleteAttachmentFile.mockResolvedValue(undefined);
   });
 
   test("returns 400 for invalid json payload", async () => {
@@ -213,6 +223,102 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     expect(response.status).toBe(500);
     await expect(readJson(response)).resolves.toEqual({
       error: "Failed to update task",
+    });
+  });
+});
+
+describe("DELETE /api/projects/:projectId/tasks/:taskId", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    attachmentStorageMock.deleteAttachmentFile.mockResolvedValue(undefined);
+  });
+
+  test("returns 404 when task is missing or outside project scope", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce(null);
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "DELETE",
+    });
+
+    const response = await DELETE(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(404);
+    await expect(readJson(response)).resolves.toEqual({ error: "Task not found" });
+    expect(prismaMock.task.delete).not.toHaveBeenCalled();
+  });
+
+  test("deletes task and cleans up file attachments", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      attachments: [{ storageKey: "task/t1/test-a.pdf" }, { storageKey: "task/t1/test-b.png" }],
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "DELETE",
+    });
+
+    const response = await DELETE(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({ ok: true });
+    expect(prismaMock.task.delete).toHaveBeenCalledWith({
+      where: { id: "t1" },
+    });
+    expect(attachmentStorageMock.deleteAttachmentFile).toHaveBeenCalledTimes(2);
+    expect(attachmentStorageMock.deleteAttachmentFile).toHaveBeenNthCalledWith(
+      1,
+      "task/t1/test-a.pdf"
+    );
+    expect(attachmentStorageMock.deleteAttachmentFile).toHaveBeenNthCalledWith(
+      2,
+      "task/t1/test-b.png"
+    );
+  });
+
+  test("returns 500 when delete fails", async () => {
+    prismaMock.task.findUnique.mockRejectedValueOnce(new Error("db-failure"));
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "DELETE",
+    });
+
+    const response = await DELETE(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(500);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "Failed to delete task",
+    });
+  });
+
+  test("returns 404 when task disappears before delete persists", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      attachments: [],
+    });
+    const notFoundError = Object.assign(new Error("record not found"), {
+      code: "P2025",
+    });
+    prismaMock.task.delete.mockRejectedValueOnce(notFoundError);
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "DELETE",
+    });
+
+    const response = await DELETE(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(404);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "Task not found",
     });
   });
 });

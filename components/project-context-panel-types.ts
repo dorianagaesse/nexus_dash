@@ -20,8 +20,3 @@ export interface PendingAttachmentLink {
   id: string;
   url: string;
 }
-
-export interface ContextMutationStatus {
-  phase: "running" | "done" | "failed";
-  message: string;
-}

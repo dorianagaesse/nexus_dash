@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { Link2, Paperclip, PlusSquare, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { RichTextEditor } from "@/components/rich-text-editor";
+import { useToast } from "@/components/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -18,10 +20,7 @@ import {
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_ATTACHMENT_FILE_SIZE_LABEL,
 } from "@/lib/task-attachment";
-import {
-  uploadFilesDirectInBackground,
-  type DirectUploadBackgroundProgress,
-} from "@/lib/direct-upload-client";
+import { uploadFilesDirectInBackground } from "@/lib/direct-upload-client";
 
 interface CreateTaskDialogProps {
   projectId: string;
@@ -32,11 +31,6 @@ interface CreateTaskDialogProps {
 interface PendingAttachmentLink {
   id: string;
   url: string;
-}
-
-interface CreateTaskRequestStatus {
-  phase: "creating" | "done" | "failed";
-  message: string;
 }
 
 function createLocalId(): string {
@@ -50,6 +44,7 @@ export function CreateTaskDialog({
 }: CreateTaskDialogProps) {
   const isMountedRef = useRef(true);
   const router = useRouter();
+  const { pushToast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [labels, setLabels] = useState<string[]>([]);
@@ -61,10 +56,6 @@ export function CreateTaskDialog({
   const [fileInputKey, setFileInputKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [createTaskRequestStatus, setCreateTaskRequestStatus] =
-    useState<CreateTaskRequestStatus | null>(null);
-  const [backgroundUploadProgress, setBackgroundUploadProgress] =
-    useState<DirectUploadBackgroundProgress | null>(null);
 
   const maxAttachmentFileSizeBytes =
     storageProvider === "r2"
@@ -83,36 +74,6 @@ export function CreateTaskDialog({
       isMountedRef.current = false;
     };
   }, []);
-
-  useEffect(() => {
-    if (
-      !createTaskRequestStatus ||
-      createTaskRequestStatus.phase === "creating"
-    ) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setCreateTaskRequestStatus(null);
-    }, 8000);
-
-    return () => window.clearTimeout(timer);
-  }, [createTaskRequestStatus]);
-
-  useEffect(() => {
-    if (
-      !backgroundUploadProgress ||
-      backgroundUploadProgress.phase === "uploading"
-    ) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setBackgroundUploadProgress(null);
-    }, 8000);
-
-    return () => window.clearTimeout(timer);
-  }, [backgroundUploadProgress]);
 
   const resetDraft = () => {
     setDescription("");
@@ -168,10 +129,6 @@ export function CreateTaskDialog({
 
     setIsSubmitting(true);
     setSubmitError(null);
-    setCreateTaskRequestStatus({
-      phase: "creating",
-      message: "Creating task in background...",
-    });
 
     const formData = new FormData(event.currentTarget);
     const filesForBackgroundUpload =
@@ -201,8 +158,8 @@ export function CreateTaskDialog({
             return;
           }
           setSubmitError(message);
-          setCreateTaskRequestStatus({
-            phase: "failed",
+          pushToast({
+            variant: "error",
             message,
           });
           return;
@@ -212,9 +169,9 @@ export function CreateTaskDialog({
         }
         const createdTaskId =
           payload && typeof payload.taskId === "string" ? payload.taskId : null;
-        setCreateTaskRequestStatus({
-          phase: "done",
-          message: "Task created. Refreshing board...",
+        pushToast({
+          variant: "success",
+          message: "Task created.",
         });
         window.setTimeout(() => router.refresh(), 0);
 
@@ -231,15 +188,26 @@ export function CreateTaskDialog({
               cleanupUrl: `/api/projects/${projectId}/tasks/${createdTaskId}/attachments/direct/cleanup`,
               fallbackErrorMessage: `Could not upload file attachment "${file.name}".`,
             })),
-            onProgress: (progress) => {
-              if (!isMountedRef.current) {
-                return;
-              }
-              setBackgroundUploadProgress(progress);
-            },
             onItemError: (error) => {
               console.error("[CreateTaskDialog.backgroundUpload]", error);
             },
+          }).then((progress) => {
+            if (!isMountedRef.current) {
+              return;
+            }
+
+            if (progress.failed > 0) {
+              pushToast({
+                variant: "error",
+                message: `Attachment upload completed with ${progress.failed} failure(s).`,
+              });
+              return;
+            }
+
+            pushToast({
+              variant: "success",
+              message: `Attachment upload complete (${progress.total}).`,
+            });
           }).finally(() => {
             window.setTimeout(() => router.refresh(), 0);
           });
@@ -249,10 +217,11 @@ export function CreateTaskDialog({
         if (!isMountedRef.current) {
           return;
         }
-        setSubmitError("Could not create task. Please retry.");
-        setCreateTaskRequestStatus({
-          phase: "failed",
-          message: "Could not create task. Please retry.",
+        const message = "Could not create task. Please retry.";
+        setSubmitError(message);
+        pushToast({
+          variant: "error",
+          message,
         });
       }
     })();
@@ -330,53 +299,28 @@ export function CreateTaskDialog({
         <PlusSquare className="h-4 w-4" />
         New task
       </Button>
-      {createTaskRequestStatus ? (
-        <p
-          className={
-            createTaskRequestStatus.phase === "failed"
-              ? "rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
-              : "text-xs text-muted-foreground"
-          }
-          role="status"
-          aria-live="polite"
-        >
-          {createTaskRequestStatus.message}
-        </p>
-      ) : null}
-      {backgroundUploadProgress ? (
-        <p className="text-xs text-muted-foreground">
-          {backgroundUploadProgress.phase === "uploading"
-            ? `Uploading attachments in background (${backgroundUploadProgress.completed}/${backgroundUploadProgress.total})...`
-            : backgroundUploadProgress.phase === "done"
-              ? `Background upload complete (${backgroundUploadProgress.total}/${backgroundUploadProgress.total}).`
-              : `Background upload finished with ${backgroundUploadProgress.failed} failure(s).`}
-        </p>
-      ) : null}
-
-      {isOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex min-h-dvh w-screen items-start justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-4 sm:items-center"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closeDialog();
-            }
-          }}
-        >
-          <Card
-            className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-lg">Create task</CardTitle>
-              <Button type="button" variant="ghost" size="icon" onClick={closeDialog}>
-                <X className="h-4 w-4" />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <form
-                className="grid gap-4"
-                onSubmit={handleSubmit}
+      {isOpen && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[90] flex min-h-dvh w-screen items-start justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-4 sm:items-center"
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget) {
+                  closeDialog();
+                }
+              }}
+            >
+              <Card
+                className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto"
+                onMouseDown={(event) => event.stopPropagation()}
               >
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                  <CardTitle className="text-lg">Create task</CardTitle>
+                  <Button type="button" variant="ghost" size="icon" onClick={closeDialog}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <form className="grid gap-4" onSubmit={handleSubmit}>
                 <div className="grid gap-2">
                   <label htmlFor="task-title" className="text-sm font-medium">
                     Title
@@ -606,11 +550,13 @@ export function CreateTaskDialog({
                     {submitError}
                   </p>
                 ) : null}
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
+                  </form>
+                </CardContent>
+              </Card>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }
