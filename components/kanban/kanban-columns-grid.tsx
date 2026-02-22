@@ -240,17 +240,17 @@ function TaskOptionsMenu({
 }: TaskOptionsMenuProps) {
   return (
     <details className="relative" onClick={(event) => event.stopPropagation()}>
-      <summary className="list-none [&::-webkit-details-marker]:hidden">
-        <button
-          type="button"
-          className="rounded-sm p-1 text-muted-foreground hover:bg-muted"
-          aria-label="Task options"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
+      <summary
+        className="list-none rounded-sm p-1 text-muted-foreground hover:bg-muted [&::-webkit-details-marker]:hidden"
+        aria-label="Task options"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <MoreHorizontal className="h-4 w-4" />
       </summary>
-      <div className="absolute right-0 z-20 mt-1 w-40 rounded-md border border-border/70 bg-background p-1 shadow-md">
+      <div
+        className="absolute right-0 z-20 mt-1 w-40 rounded-md border border-border/70 bg-background p-1 shadow-md"
+        onClick={(event) => event.stopPropagation()}
+      >
         <Button
           type="button"
           variant="ghost"
@@ -260,19 +260,18 @@ function TaskOptionsMenu({
           <Pencil className="h-4 w-4" />
           Edit
         </Button>
-        <div className="group relative">
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full justify-between"
-            onClick={(event) => event.preventDefault()}
+
+        <details className="group relative" onClick={(event) => event.stopPropagation()}>
+          <summary
+            className="list-none rounded-sm p-2 text-sm text-foreground hover:bg-muted [&::-webkit-details-marker]:hidden"
+            onClick={(event) => event.stopPropagation()}
           >
-            <span className="inline-flex items-center gap-2">
+            <span className="inline-flex w-full items-center justify-between gap-2">
               Move to
+              <ChevronRight className="h-4 w-4" />
             </span>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <div className="invisible absolute left-full top-0 z-30 ml-1 w-36 rounded-md border border-border/70 bg-background p-1 opacity-0 shadow-md transition group-hover:visible group-hover:opacity-100">
+          </summary>
+          <div className="invisible absolute left-full top-0 z-30 ml-1 w-36 rounded-md border border-border/70 bg-background p-1 opacity-0 shadow-md transition group-open:visible group-open:opacity-100">
             {TASK_STATUSES.map((nextStatus) => (
               <Button
                 key={nextStatus}
@@ -286,7 +285,8 @@ function TaskOptionsMenu({
               </Button>
             ))}
           </div>
-        </div>
+        </details>
+
         <Button
           type="button"
           variant="ghost"

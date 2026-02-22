@@ -296,4 +296,29 @@ describe("DELETE /api/projects/:projectId/tasks/:taskId", () => {
       error: "Failed to delete task",
     });
   });
+
+  test("returns 404 when task disappears before delete persists", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      attachments: [],
+    });
+    const notFoundError = Object.assign(new Error("record not found"), {
+      code: "P2025",
+    });
+    prismaMock.task.delete.mockRejectedValueOnce(notFoundError);
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "DELETE",
+    });
+
+    const response = await DELETE(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(404);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "Task not found",
+    });
+  });
 });

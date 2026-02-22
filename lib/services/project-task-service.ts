@@ -83,6 +83,14 @@ function normalizeText(value: unknown): string {
   return value.trim();
 }
 
+function isPrismaNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  return "code" in error && (error as { code?: string }).code === "P2025";
+}
+
 export function isValidReorderPayload(payload: unknown): payload is ReorderPayload {
   if (!payload || typeof payload !== "object") {
     return false;
@@ -415,6 +423,10 @@ export async function deleteTaskForProject(
       data: { ok: true },
     };
   } catch (error) {
+    if (isPrismaNotFoundError(error)) {
+      return createError(404, "Task not found");
+    }
+
     logServerError("deleteTaskForProject", error);
     return createError(500, "Failed to delete task");
   }

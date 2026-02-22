@@ -32,7 +32,7 @@ export function ConfirmDialog({
     <div
       className="fixed inset-0 z-[120] flex min-h-dvh w-screen items-center justify-center bg-black/70 p-4"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
+        if (event.target === event.currentTarget && !isConfirming) {
           onCancel();
         }
       }}
@@ -51,7 +51,18 @@ export function ConfirmDialog({
               type="button"
               variant="destructive"
               disabled={isConfirming}
-              onClick={() => void onConfirm()}
+              onClick={() => {
+                try {
+                  const result = onConfirm();
+                  if (result instanceof Promise) {
+                    void result.catch((error: unknown) => {
+                      console.error("[ConfirmDialog.onConfirm]", error);
+                    });
+                  }
+                } catch (error) {
+                  console.error("[ConfirmDialog.onConfirm]", error);
+                }
+              }}
             >
               {isConfirming ? "Deleting..." : confirmLabel}
             </Button>

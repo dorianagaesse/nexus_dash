@@ -59,16 +59,11 @@ export function ContextCardsGrid({
                 {card.title}
               </h3>
               <details className="relative" onClick={(event) => event.stopPropagation()}>
-                <summary className="list-none [&::-webkit-details-marker]:hidden">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="text-slate-800 hover:bg-slate-900/10"
-                    aria-label="Context card options"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
+                <summary
+                  className="list-none rounded-md p-1 text-slate-800 hover:bg-slate-900/10 [&::-webkit-details-marker]:hidden"
+                  aria-label="Context card options"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
                 </summary>
                 <div className="absolute right-0 z-20 mt-1 w-36 rounded-md border border-border/70 bg-background p-1 shadow-md">
                   <Button
