@@ -104,7 +104,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Title: Mutation/upload UX smoothing - global toast queue, finite async feedback, and removal of persistent inline background status text
   Status: Done (2026-02-22)
   Rationale: Replaced persistent inline background mutation text with a global FIFO toast queue and standardized success/failure feedback for create/update/delete/upload flows.
-  Dependencies: TASK-078, TASK-076, TASK-071, TASK-075
+  Dependencies: TASK-078, TASK-071, TASK-075
 - ID: TASK-020
   Title: Modern authentication/authorization ADR (user ownership, sharing, agent access, session model)
   Status: Done (2026-02-21)
