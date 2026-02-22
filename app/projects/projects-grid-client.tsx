@@ -134,28 +134,15 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
               />
             ) : null}
           </div>
-          {!isEditMode ? (
-            <>
-              <CardTitle onDoubleClick={handleStartEdit}>{project.name}</CardTitle>
-              <CardDescription>Updated {project.updatedAtLabel}</CardDescription>
-            </>
-          ) : (
-            <div className="grid gap-2">
-              <label htmlFor={`name-${project.id}`} className="text-sm font-medium">
-                Name
-              </label>
-              <input
-                id={`name-${project.id}`}
-                name="name"
-                required
-                minLength={2}
-                maxLength={120}
-                value={nameDraft}
-                onChange={(event) => setNameDraft(event.target.value)}
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-              />
-            </div>
-          )}
+          <CardTitle
+            onDoubleClick={(event) => {
+              event.stopPropagation();
+              handleStartEdit();
+            }}
+          >
+            {project.name}
+          </CardTitle>
+          <CardDescription>Updated {project.updatedAtLabel}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Button asChild>
@@ -165,32 +152,56 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
             </Link>
           </Button>
 
-          <form action={onUpdateProject} className="grid gap-3">
+          <form
+            action={onUpdateProject}
+            className="grid gap-3"
+            onSubmit={() => setIsEditMode(false)}
+          >
             <input type="hidden" name="projectId" value={project.id} />
-            {!isEditMode ? (
+            {isEditMode ? (
+              <>
+                <div className="grid gap-2">
+                  <label htmlFor={`name-${project.id}`} className="text-sm font-medium">
+                    Name
+                  </label>
+                  <input
+                    id={`name-${project.id}`}
+                    name="name"
+                    required
+                    minLength={2}
+                    maxLength={120}
+                    value={nameDraft}
+                    onChange={(event) => setNameDraft(event.target.value)}
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor={`description-${project.id}`} className="text-sm font-medium">
+                    Description
+                  </label>
+                  <textarea
+                    id={`description-${project.id}`}
+                    name="description"
+                    rows={3}
+                    maxLength={500}
+                    value={descriptionDraft}
+                    onChange={(event) => setDescriptionDraft(event.target.value)}
+                    className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+              </>
+            ) : (
               <div className="grid gap-2">
                 <label className="text-sm font-medium">Description</label>
                 <p
                   className="min-h-16 whitespace-pre-wrap rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground"
-                  onDoubleClick={handleStartEdit}
+                  onDoubleClick={(event) => {
+                    event.stopPropagation();
+                    handleStartEdit();
+                  }}
                 >
                   {descriptionPreview}
                 </p>
-              </div>
-            ) : (
-              <div className="grid gap-2">
-                <label htmlFor={`description-${project.id}`} className="text-sm font-medium">
-                  Description
-                </label>
-                <textarea
-                  id={`description-${project.id}`}
-                  name="description"
-                  rows={3}
-                  maxLength={500}
-                  value={descriptionDraft}
-                  onChange={(event) => setDescriptionDraft(event.target.value)}
-                  className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-                />
               </div>
             )}
 
