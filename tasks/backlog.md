@@ -4,24 +4,9 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-079
-  Title: Projects page edit/delete safety UX - gated save action, contextual options menu, and double-click edit activation
-  Status: In Progress (branch `feature/task-079-project-card-edit-controls`) (2026-02-22)
-  Rationale: The current projects page exposes always-editable fields and an always-visible save action, causing accidental reorder/update behavior and increasing destructive-action risk; align project-card interactions with context/task UX by introducing explicit edit mode, contextual options, and confirm-gated deletion.
-  Dependencies: TASK-078, TASK-077, TASK-012
-- ID: TASK-078
-  Title: UX polish phase 1 - context/task interaction model, options menus, confirmation flows, and modal visual bug fix
-  Status: In Review (PR #45, checks pass, Copilot threads resolved) (2026-02-22)
-  Rationale: Improve daily usability by replacing crowded inline actions with contextual option menus, adding safer destructive confirmations, enabling fast inline editing gestures (double-click), introducing explicit task movement controls, and fixing modal top-edge visual artifacts during task creation.
-  Dependencies: TASK-062, TASK-071, TASK-072, TASK-075
-- ID: TASK-077
-  Title: Mutation/upload UX smoothing - global toast queue, finite async feedback, and removal of persistent inline background status text
-  Status: In Review (stacked into PR #45 branch; final checks tracked on PR #45) (2026-02-22)
-  Rationale: Replace long-lived inline status lines (`creating ... in background`, upload progress text blocks) with concise stacked FIFO toasts (auto-dismiss), explicit failure surfacing, and finite timeout behavior so users always receive clear completion/failure signals without stale UI states, including success/failure toasts for delete actions (task/card/attachment).
-  Dependencies: TASK-078, TASK-076, TASK-071, TASK-075
 - ID: TASK-076
   Title: Multi-user data/storage/integration boundary transition - principal-scoped DB access, R2 ownership isolation, and user-scoped Google Calendar
-  Status: Pending
+  Status: In Progress (Current) (2026-02-22)
   Rationale: Convert project/task/resource/attachment access from ID-scoped behavior to principal-scoped behavior by introducing ownership/membership filters in service-layer queries, user-aware R2 object/metadata boundaries (`uploadedBy`, tenant-safe keys, signed URL authorization checks), and user-scoped Google Calendar OAuth/token ownership (replace global singleton credential flow) before full route protection and sharing rollout.
   Dependencies: TASK-020, TASK-045, TASK-065, TASK-060
 - ID: TASK-046
@@ -105,6 +90,21 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-079
+  Title: Projects page edit/delete safety UX - gated save action, contextual options menu, and double-click edit activation
+  Status: Done (2026-02-22)
+  Rationale: Reworked project cards to non-editable-by-default with explicit edit mode (options menu + double-click activation), showed save action only for dirty state, and added confirm-gated project deletion to reduce accidental destructive mutations.
+  Dependencies: TASK-078, TASK-077, TASK-012
+- ID: TASK-078
+  Title: UX polish phase 1 - context/task interaction model, options menus, confirmation flows, and modal visual bug fix
+  Status: Done (2026-02-22)
+  Rationale: Introduced contextual options menus for context cards and task modal actions, safer deletion confirmations, task move controls, double-click edit gestures, and fixed modal overflow/top-edge visual issues.
+  Dependencies: TASK-062, TASK-071, TASK-072, TASK-075
+- ID: TASK-077
+  Title: Mutation/upload UX smoothing - global toast queue, finite async feedback, and removal of persistent inline background status text
+  Status: Done (2026-02-22)
+  Rationale: Replaced persistent inline background mutation text with a global FIFO toast queue and standardized success/failure feedback for create/update/delete/upload flows.
+  Dependencies: TASK-078, TASK-071, TASK-075
 - ID: TASK-020
   Title: Modern authentication/authorization ADR (user ownership, sharing, agent access, session model)
   Status: Done (2026-02-21)
