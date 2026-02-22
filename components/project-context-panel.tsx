@@ -9,9 +9,9 @@ import { ContextCardsGrid } from "@/components/context-panel/context-cards-grid"
 import { ContextCreateModal } from "@/components/context-panel/context-create-modal";
 import { ContextEditModal } from "@/components/context-panel/context-edit-modal";
 import { ContextPreviewModal } from "@/components/context-panel/context-preview-modal";
+import { useToast } from "@/components/toast-provider";
 import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
 import type {
-  ContextMutationStatus,
   PendingAttachmentLink,
   ProjectContextAttachment,
   ProjectContextCard,
@@ -32,7 +32,6 @@ import {
 import {
   uploadFileAttachmentDirect,
   uploadFilesDirectInBackground,
-  type DirectUploadBackgroundProgress,
 } from "@/lib/direct-upload-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,6 +52,7 @@ export function ProjectContextPanel({
 }: ProjectContextPanelProps) {
   const isMountedRef = useRef(true);
   const router = useRouter();
+  const { pushToast } = useToast();
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
     sectionKey: "context",
@@ -73,10 +73,6 @@ export function ProjectContextPanel({
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
-  const [createBackgroundUploadProgress, setCreateBackgroundUploadProgress] =
-    useState<DirectUploadBackgroundProgress | null>(null);
-  const [contextMutationStatus, setContextMutationStatus] =
-    useState<ContextMutationStatus | null>(null);
   const [isCreatingCard, setIsCreatingCard] = useState(false);
   const [isUpdatingCard, setIsUpdatingCard] = useState(false);
   const [deletingCardId, setDeletingCardId] = useState<string | null>(null);
@@ -184,33 +180,6 @@ export function ProjectContextPanel({
       setPreviewCardId(null);
     }
   }, [cards, previewCardId]);
-
-  useEffect(() => {
-    if (!contextMutationStatus || contextMutationStatus.phase === "running") {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setContextMutationStatus(null);
-    }, 8000);
-
-    return () => window.clearTimeout(timer);
-  }, [contextMutationStatus]);
-
-  useEffect(() => {
-    if (
-      !createBackgroundUploadProgress ||
-      createBackgroundUploadProgress.phase === "uploading"
-    ) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setCreateBackgroundUploadProgress(null);
-    }, 8000);
-
-    return () => window.clearTimeout(timer);
-  }, [createBackgroundUploadProgress]);
 
   const resetCreateAttachmentDraft = () => {
     setCreateLinkUrl("");
@@ -331,10 +300,6 @@ export function ProjectContextPanel({
 
     setIsCreatingCard(true);
     setCreateError(null);
-    setContextMutationStatus({
-      phase: "running",
-      message: "Creating context card in background...",
-    });
 
     const formData = new FormData(event.currentTarget);
     const filesForBackgroundUpload =
@@ -367,8 +332,8 @@ export function ProjectContextPanel({
             return;
           }
           setCreateError(message);
-          setContextMutationStatus({
-            phase: "failed",
+          pushToast({
+            variant: "error",
             message,
           });
           return;
@@ -379,9 +344,9 @@ export function ProjectContextPanel({
         const createdCardId =
           payload && typeof payload.cardId === "string" ? payload.cardId : null;
 
-        setContextMutationStatus({
-          phase: "done",
-          message: "Context card created. Refreshing context panel...",
+        pushToast({
+          variant: "success",
+          message: "Context card created.",
         });
         window.setTimeout(() => router.refresh(), 0);
 
@@ -398,15 +363,26 @@ export function ProjectContextPanel({
               cleanupUrl: `/api/projects/${projectId}/context-cards/${createdCardId}/attachments/direct/cleanup`,
               fallbackErrorMessage: `Could not upload file attachment "${file.name}".`,
             })),
-            onProgress: (progress) => {
-              if (!isMountedRef.current) {
-                return;
-              }
-              setCreateBackgroundUploadProgress(progress);
-            },
             onItemError: (error) => {
               console.error("[ProjectContextPanel.createBackgroundUpload]", error);
             },
+          }).then((progress) => {
+            if (!isMountedRef.current) {
+              return;
+            }
+
+            if (progress.failed > 0) {
+              pushToast({
+                variant: "error",
+                message: `Context attachment upload completed with ${progress.failed} failure(s).`,
+              });
+              return;
+            }
+
+            pushToast({
+              variant: "success",
+              message: `Context attachment upload complete (${progress.total}).`,
+            });
           }).finally(() => {
             window.setTimeout(() => router.refresh(), 0);
           });
@@ -418,8 +394,8 @@ export function ProjectContextPanel({
           return;
         }
         setCreateError(message);
-        setContextMutationStatus({
-          phase: "failed",
+        pushToast({
+          variant: "error",
           message,
         });
       }
@@ -434,10 +410,6 @@ export function ProjectContextPanel({
 
     setIsUpdatingCard(true);
     setEditError(null);
-    setContextMutationStatus({
-      phase: "running",
-      message: "Saving context card in background...",
-    });
 
     const formData = new FormData(event.currentTarget);
     const editingCardIdSnapshot = editingCard.id;
@@ -467,8 +439,8 @@ export function ProjectContextPanel({
             return;
           }
           setEditError(message);
-          setContextMutationStatus({
-            phase: "failed",
+          pushToast({
+            variant: "error",
             message,
           });
           return;
@@ -477,9 +449,9 @@ export function ProjectContextPanel({
           return;
         }
 
-        setContextMutationStatus({
-          phase: "done",
-          message: "Context card saved. Refreshing context panel...",
+        pushToast({
+          variant: "success",
+          message: "Context card saved.",
         });
         window.setTimeout(() => router.refresh(), 0);
       } catch (error) {
@@ -489,8 +461,8 @@ export function ProjectContextPanel({
           return;
         }
         setEditError(message);
-        setContextMutationStatus({
-          phase: "failed",
+        pushToast({
+          variant: "error",
           message,
         });
       }
@@ -529,8 +501,8 @@ export function ProjectContextPanel({
         if (editingCardId === cardId) {
           setEditError(message);
         }
-        setContextMutationStatus({
-          phase: "failed",
+        pushToast({
+          variant: "error",
           message,
         });
         return;
@@ -543,8 +515,8 @@ export function ProjectContextPanel({
         setPreviewCardId(null);
       }
 
-      setContextMutationStatus({
-        phase: "done",
+      pushToast({
+        variant: "success",
         message: "Context card deleted.",
       });
       window.setTimeout(() => router.refresh(), 0);
@@ -554,8 +526,8 @@ export function ProjectContextPanel({
       if (editingCardId === cardId) {
         setEditError(message);
       }
-      setContextMutationStatus({
-        phase: "failed",
+      pushToast({
+        variant: "error",
         message,
       });
     } finally {
@@ -597,11 +569,19 @@ export function ProjectContextPanel({
       }));
       setEditLinkUrl("");
       setIsEditLinkComposerOpen(false);
+      pushToast({
+        variant: "success",
+        message: "Attachment link added.",
+      });
     } catch (error) {
       console.error("[ProjectContextPanel.handleAddLinkAttachment]", error);
-      setAttachmentError(
-        error instanceof Error ? error.message : "Could not add link attachment."
-      );
+      const message =
+        error instanceof Error ? error.message : "Could not add link attachment.";
+      setAttachmentError(message);
+      pushToast({
+        variant: "error",
+        message,
+      });
     } finally {
       setIsSubmittingAttachment(false);
     }
@@ -661,11 +641,19 @@ export function ProjectContextPanel({
         [editingCard.id]: [attachment, ...(previous[editingCard.id] ?? [])],
       }));
       setEditFileInputKey((previous) => previous + 1);
+      pushToast({
+        variant: "success",
+        message: "Attachment uploaded.",
+      });
     } catch (error) {
       console.error("[ProjectContextPanel.handleAddFileAttachment]", error);
-      setAttachmentError(
-        error instanceof Error ? error.message : "Could not upload file attachment."
-      );
+      const message =
+        error instanceof Error ? error.message : "Could not upload file attachment.";
+      setAttachmentError(message);
+      pushToast({
+        variant: "error",
+        message,
+      });
     } finally {
       setIsSubmittingAttachment(false);
     }
@@ -697,11 +685,19 @@ export function ProjectContextPanel({
           (attachment) => attachment.id !== attachmentId
         ),
       }));
+      pushToast({
+        variant: "success",
+        message: "Attachment deleted.",
+      });
     } catch (error) {
       console.error("[ProjectContextPanel.handleDeleteAttachment]", error);
-      setAttachmentError(
-        error instanceof Error ? error.message : "Could not delete attachment."
-      );
+      const message =
+        error instanceof Error ? error.message : "Could not delete attachment.";
+      setAttachmentError(message);
+      pushToast({
+        variant: "error",
+        message,
+      });
     } finally {
       setIsSubmittingAttachment(false);
     }
@@ -742,28 +738,6 @@ export function ProjectContextPanel({
         {isExpanded ? (
           <p className="text-sm text-muted-foreground">
             Keep project notes in compact cards above the board.
-          </p>
-        ) : null}
-        {createBackgroundUploadProgress ? (
-          <p className="text-xs text-muted-foreground">
-            {createBackgroundUploadProgress.phase === "uploading"
-              ? `Uploading context attachments in background (${createBackgroundUploadProgress.completed}/${createBackgroundUploadProgress.total})...`
-              : createBackgroundUploadProgress.phase === "done"
-                ? `Context attachment upload complete (${createBackgroundUploadProgress.total}/${createBackgroundUploadProgress.total}).`
-                : `Context attachment upload finished with ${createBackgroundUploadProgress.failed} failure(s).`}
-          </p>
-        ) : null}
-        {contextMutationStatus ? (
-          <p
-            className={
-              contextMutationStatus.phase === "failed"
-                ? "rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
-                : "text-xs text-muted-foreground"
-            }
-            role="status"
-            aria-live="polite"
-          >
-            {contextMutationStatus.message}
           </p>
         ) : null}
       </CardHeader>

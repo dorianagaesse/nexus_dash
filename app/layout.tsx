@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ToastProvider } from "@/components/toast-provider";
 import { validateServerRuntimeConfig } from "@/lib/env.server";
 
 import "./globals.css";
@@ -48,8 +49,10 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${jetBrainsMono.variable} min-h-screen antialiased`}
       >
-        <ThemeToggle />
-        {children}
+        <ToastProvider>
+          <ThemeToggle />
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );
