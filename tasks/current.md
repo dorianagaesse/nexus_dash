@@ -1,52 +1,64 @@
-# Current Task: TASK-045 Authentication Phase 1 - User/Session Data Model and Migrations
+# Current Task: TASK-078 UX Polish Phase 1 - Context/Task Interaction and Safety Flows
 
 ## Task ID
-TASK-045
+TASK-078
 
 ## Status
-In Progress (2026-02-21)
+In Progress (2026-02-22)
 
-## Summary
-Implement the authentication persistence foundation in Prisma/PostgreSQL by introducing Auth.js-compatible user/account/session/token tables and a safe migration path, without mixing TASK-076 principal-boundary refactors.
+## Objective
+Deliver a first-pass UX quality upgrade on project dashboard interaction surfaces (Context cards + Kanban tasks) so common actions are clearer, safer, and faster.
 
-## Scope Boundaries
-- In scope:
-  - Prisma schema additions for `User`, `Account`, `Session`, and `VerificationToken`.
-  - Forward-only migration SQL for staging/prod-safe deployment.
-  - Minimal code/test updates required to keep current app behavior stable.
-- Out of scope:
-  - Broad principal-scoped service authorization changes (TASK-076).
-  - Route/page auth protection and middleware enforcement (TASK-046).
-  - Public API auth/token exposure (TASK-059).
+## Why Now
+- Recent work improved async behavior and performance, but daily interaction ergonomics still feel inconsistent.
+- Current inline icon actions are dense and error-prone.
+- Destructive actions need stronger safety affordances.
+- A visual regression remains when opening the task-create modal (top-edge color strip).
+
+## Scope
+- Context cards:
+  - Clicking a card opens an expanded read-only preview (same base color family as card).
+  - Replace inline edit/delete icons with a dot-options action menu.
+  - Move edit/delete into options menu.
+  - Add stronger destructive visibility for delete (danger styling).
+  - Add explicit delete confirmation dialog.
+  - Enable double-click edit activation on editable fields.
+- Kanban tasks:
+  - Add dot-options menu on task cards.
+  - Include: `Edit`, `Move to`, `Delete`.
+  - Add hover-driven `Move to >` submenu listing all kanban lists.
+  - Add delete confirmation dialog.
+  - Enable double-click edit activation on editable fields.
+- Visual polish:
+  - Fix the top-edge bar artifact shown when opening the create-task modal.
+
+## Out of Scope
+- Multi-user authorization boundaries and principal scoping (TASK-076).
+- Global toast system and mutation-feedback unification (TASK-077), except ensuring this task produces the required action hooks/states.
+- New backend auth flows.
 
 ## Acceptance Criteria
-- Prisma schema includes Auth.js-compatible persistence models:
-  - `User`
-  - `Account`
-  - `Session`
-  - `VerificationToken`
-- A new migration exists in `prisma/migrations/**` and applies cleanly using `prisma migrate deploy`.
-- Migration is applied successfully to staging Supabase from local environment.
-- Existing app functionality remains stable (no regressions in current API/UI flows).
-- Local validation succeeds:
-  - lint
-  - tests
-  - build
-- A dedicated PR is opened for `TASK-045` only (no mixed-task implementation).
-- PR workflow completes with:
-  - green required GitHub checks,
-  - Copilot review handled in-thread (reply + resolve where applicable),
-  - successful preview deployment explicitly validated.
+- Context card options menu replaces visible inline edit/delete buttons in collapsed grid.
+- Context card preview opens on click and is read-only.
+- Context card delete uses confirmation dialog; destructive action is visually distinct.
+- Task card options menu exists with `Edit`, `Move to`, and `Delete`.
+- `Move to` submenu supports direct move between kanban lists without drag-and-drop.
+- Task delete uses confirmation dialog and updates board state correctly.
+- Double-click edit activation works for task and context-card editable fields.
+- Task-create modal top-edge visual artifact is resolved in desktop and mobile layouts.
+- Lint/tests/build remain green.
 
 ## Definition of Done
-- `TASK-020` marked done and `TASK-045` marked current/in progress in task tracking files.
-- `TASK-045` implementation merged only after all acceptance criteria are satisfied.
-- Changes are production-safe, tested, and documented enough to start `TASK-076` cleanly next.
+- UX behavior is implemented with no functional regression in task/context create/edit/delete flows.
+- Upon completion, mark `TASK-078` as done and update `tasks/current.md` to the next task in the queue.
+- Dedicated PR opened for TASK-078 scope only.
+- PR checks pass and preview deployment is validated for target interactions.
 
-## Next Step
-Implement schema + migration foundation, validate locally and on staging, then open and drive the `TASK-045` PR to completion.
+## Implementation Notes
+- Prefer composable UI primitives (shared menu/confirmation patterns) to avoid divergence between task and context implementations.
+- Keep accessibility first: keyboard-reachable menus, focus handling in dialogs, and clear labels for destructive actions.
 
 ---
 
-Last Updated: 2026-02-21
+Last Updated: 2026-02-22
 Assigned To: User + Agent
