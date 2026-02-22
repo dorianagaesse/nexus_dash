@@ -155,24 +155,13 @@ export function TaskDetailModal({
                 )}
               </div>
               <div className="flex items-center gap-1">
-                {!isEditMode ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onToggleEditMode(true)}
-                    aria-label="Edit task"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                ) : null}
-                {isEditMode ? (
-                  <TaskEditOptionsMenu
-                    currentStatus={selectedTask.status}
-                    onMoveTask={onMoveTask}
-                    onRequestDeleteTask={onRequestDeleteTask}
-                  />
-                ) : null}
+                <TaskOptionsMenu
+                  currentStatus={selectedTask.status}
+                  isEditMode={isEditMode}
+                  onStartEdit={() => onToggleEditMode(true)}
+                  onMoveTask={onMoveTask}
+                  onRequestDeleteTask={onRequestDeleteTask}
+                />
                 <Button
                   type="button"
                   variant="ghost"
@@ -238,17 +227,21 @@ export function TaskDetailModal({
   );
 }
 
-interface TaskEditOptionsMenuProps {
+interface TaskOptionsMenuProps {
   currentStatus: TaskStatus;
+  isEditMode: boolean;
+  onStartEdit: () => void;
   onMoveTask: (nextStatus: TaskStatus) => void;
   onRequestDeleteTask: () => void;
 }
 
-function TaskEditOptionsMenu({
+function TaskOptionsMenu({
   currentStatus,
+  isEditMode,
+  onStartEdit,
   onMoveTask,
   onRequestDeleteTask,
-}: TaskEditOptionsMenuProps) {
+}: TaskOptionsMenuProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -293,6 +286,19 @@ function TaskEditOptionsMenu({
       </Button>
       {isMenuOpen ? (
         <div className="absolute right-0 z-20 mt-1 w-40 rounded-md border border-border/70 bg-background p-1 shadow-md">
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full justify-start"
+            disabled={isEditMode}
+            onClick={() => {
+              onStartEdit();
+              setIsMenuOpen(false);
+            }}
+          >
+            <Pencil className="h-4 w-4" />
+            {isEditMode ? "Editing" : "Edit"}
+          </Button>
           <div className="group relative">
             <div className="rounded-sm p-2 text-sm text-foreground hover:bg-muted">
               <span className="inline-flex w-full items-center justify-between gap-2">
