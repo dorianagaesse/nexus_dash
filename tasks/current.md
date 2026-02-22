@@ -1,58 +1,55 @@
-# Current Task: TASK-077 Mutation/Upload UX Smoothing - Global Toast Queue and Finite Feedback
+# Current Task: TASK-079 Projects Page Edit/Delete Safety UX
 
 ## Task ID
-TASK-077
+TASK-079
 
 ## Status
-In Review (PR #46, checks pass) (2026-02-22)
+In Progress (branch `feature/task-079-project-card-edit-controls`) (2026-02-22)
 
 ## Objective
-Replace long-lived inline mutation/upload status lines with a global stacked toast system so feedback is clear, short-lived, and consistent across task/context-card/attachment flows.
+Make project-card updates intentional by replacing always-editable fields and always-visible `Save changes` with explicit edit mode and contextual actions.
 
 ## Why Now
-- Current UI still shows persistent background status text that can become stale.
-- Recent interaction improvements (TASK-078) need matching feedback ergonomics.
-- Users need quick success/failure confirmation without requiring panel refreshes or hunting for status text.
+- `Save changes` is currently always visible/clickable, even when nothing changed.
+- Submitting unchanged cards can still mutate ordering (updated timestamp side effects).
+- Direct adjacency of save/delete increases accidental destructive risk.
 
 ## Scope
-- Create a shared global toast queue system:
-  - FIFO stacking behavior.
-  - Auto-dismiss (default 4 seconds).
-  - Distinct visual treatment for success and error toasts.
-  - Manual close affordance.
-- Replace persistent inline mutation/upload status text in:
-  - task create flow
-  - context-card create/update/delete flow
-  - task update/delete flow
-  - task/context attachment add/delete flows
-- Ensure toast coverage explicitly includes:
-  - task created / updated / deleted
-  - card created / updated / deleted
-  - attachment uploaded / deleted
-  - upload/mutation failures
+- Projects page cards:
+  - Render name/description as read-only by default.
+  - Add top-right options menu with `Edit` and `Delete`.
+  - Keep delete behind confirmation dialog.
+  - Activate edit mode via:
+    - options menu `Edit`
+    - double-click name
+    - double-click description
+- Edit mode behavior:
+  - Show editable name/description inputs only in edit mode.
+  - Show `Save changes` only when values differ from persisted values.
+  - Hide `Save changes` when no change is pending.
+- Reuse/factor:
+  - Reuse shared options-menu dismissal behavior (outside click + Escape) through a common hook.
 
 ## Out of Scope
-- New auth/authz behavior.
-- Multi-user ownership changes (TASK-076).
-- Structural redesign of modal layouts beyond status feedback replacement.
+- Auth/authz behavior.
+- Project sharing/permissions model.
+- Kanban/context/task domain logic changes outside shared menu behavior reuse.
 
 ## Acceptance Criteria
-- No persistent inline `creating...`, `saving...`, or upload progress text blocks remain in dashboard panels/modals.
-- Toasts appear for mutation/upload success and failure states.
-- Multiple rapid events queue and dismiss in FIFO order.
-- Delete operations surface explicit success/failure toasts (task/card/attachment).
-- Toast system is reusable and not duplicated per panel.
-- Lint/tests/build remain green.
+- Default project card fields are non-editable.
+- `Save changes` appears only when the user modified name and/or description.
+- Options menu exists on project cards with `Edit` and `Delete`.
+- Double-click on project name/description enters edit mode.
+- Deleting a project requires explicit confirmation.
+- Menu open/close behavior is consistent with other options menus.
+- Lint/test suites pass.
 
 ## Definition of Done
-- Implementation is delivered in a dedicated TASK-077 PR.
-- Copilot review comments are answered directly and resolved.
-- PR checks are green after final push.
-- `tasks/current.md` and `tasks/backlog.md` reflect task progression accurately.
-
-## Implementation Notes
-- Keep toast API minimal (`push`, `dismiss`) and framework-native (React context + hook).
-- Prefer small integration points in existing mutation handlers over broad refactors.
+- Dedicated PR opened from `feature/task-079-project-card-edit-controls`.
+- Checks pass.
+- Copilot review comments are handled (valid ones implemented, threads resolved).
+- Manual preview deployment is executed and shared.
+- `tasks/backlog.md` and `tasks/current.md` reflect final task state.
 
 ---
 
