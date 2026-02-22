@@ -44,18 +44,20 @@ test.describe("critical UI smoke flows", () => {
     await expect(createdTaskCard).toBeVisible();
 
     await createdTaskCard.click();
-    await expect(page.getByRole("button", { name: "Edit task" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Task options" })).toBeVisible();
     await expect(page.getByText("example.com")).toBeVisible();
 
-    await page.getByRole("button", { name: "Edit task" }).click();
+    await page.getByRole("button", { name: "Task options" }).click();
+    await page.getByRole("button", { name: "Edit" }).click();
     await page.getByLabel("Task title").fill(editedTaskTitle);
     await page.getByRole("button", { name: "Save changes" }).click();
-    await expect(page.getByRole("button", { name: "Edit task" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Task options" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Edit task" }).click();
+    await page.getByRole("button", { name: "Task options" }).click();
+    await page.getByRole("button", { name: "Edit" }).click();
     await page.getByRole("button", { name: "Delete attachment" }).first().click();
     await expect(page.getByText("No attachments yet.")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Edit task" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Task options" })).toBeVisible();
     await page.getByRole("button", { name: "Close task" }).click();
 
     await expect(page.locator("article").filter({ hasText: editedTaskTitle }).first()).toBeVisible();
