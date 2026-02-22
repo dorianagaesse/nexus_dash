@@ -132,7 +132,7 @@ export function TaskDetailModal({
           }}
         >
           <Card
-            className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto"
+            className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto overflow-x-hidden"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <CardHeader className="flex flex-row items-start justify-between space-y-0">
@@ -155,13 +155,14 @@ export function TaskDetailModal({
                 )}
               </div>
               <div className="flex items-center gap-1">
-                <TaskOptionsMenu
-                  currentStatus={selectedTask.status}
-                  isEditMode={isEditMode}
-                  onStartEdit={() => onToggleEditMode(true)}
-                  onMoveTask={onMoveTask}
-                  onRequestDeleteTask={onRequestDeleteTask}
-                />
+                {!isEditMode ? (
+                  <TaskOptionsMenu
+                    currentStatus={selectedTask.status}
+                    onStartEdit={() => onToggleEditMode(true)}
+                    onMoveTask={onMoveTask}
+                    onRequestDeleteTask={onRequestDeleteTask}
+                  />
+                ) : null}
                 <Button
                   type="button"
                   variant="ghost"
@@ -229,7 +230,6 @@ export function TaskDetailModal({
 
 interface TaskOptionsMenuProps {
   currentStatus: TaskStatus;
-  isEditMode: boolean;
   onStartEdit: () => void;
   onMoveTask: (nextStatus: TaskStatus) => void;
   onRequestDeleteTask: () => void;
@@ -237,7 +237,6 @@ interface TaskOptionsMenuProps {
 
 function TaskOptionsMenu({
   currentStatus,
-  isEditMode,
   onStartEdit,
   onMoveTask,
   onRequestDeleteTask,
@@ -290,14 +289,13 @@ function TaskOptionsMenu({
             type="button"
             variant="ghost"
             className="w-full justify-start"
-            disabled={isEditMode}
             onClick={() => {
               onStartEdit();
               setIsMenuOpen(false);
             }}
           >
             <Pencil className="h-4 w-4" />
-            {isEditMode ? "Editing" : "Edit"}
+            Edit
           </Button>
           <div className="group relative">
             <div className="rounded-sm p-2 text-sm text-foreground hover:bg-muted">
@@ -306,7 +304,7 @@ function TaskOptionsMenu({
                 <ChevronRight className="h-4 w-4" />
               </span>
             </div>
-            <div className="invisible pointer-events-none absolute left-full top-0 z-30 ml-1 w-36 rounded-md border border-border/70 bg-background p-1 opacity-0 shadow-md transition group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+            <div className="invisible pointer-events-none absolute right-full top-0 z-30 mr-1 w-36 rounded-md border border-border/70 bg-background p-1 opacity-0 shadow-md transition group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:opacity-100">
               {TASK_STATUSES.map((nextStatus) => (
                 <Button
                   key={nextStatus}
