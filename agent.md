@@ -138,7 +138,7 @@ async function getUser(id: string) {
 - Next.js pages (already tested via manual navigation)
 
 ### Framework
-- **Unit/Integration**: Jest + React Testing Library
+- **Unit/Integration**: Vitest + React Testing Library
 - **E2E**: Playwright (if explicitly requested)
 
 ## 6. Communication Style
@@ -284,14 +284,25 @@ A task is considered **DONE** only if:
   - `docs/<short-description>`
   - `chore/<short-description>`
   - `test/<short-description>`
+- For backlog task execution, include task id in branch names when possible:
+  - `feature/task-045-<short-description>`
+  - `fix/task-076-<short-description>`
 
 ### Pull Request Rules
 - Never push directly to `main`; use pull requests only.
 - Keep pull requests small and single-purpose.
+- One task = one PR (always). Never bundle multiple backlog tasks in a single PR.
 - Require at least one approval before merge.
 - Dismiss stale approvals when new commits are pushed.
 - Merge strategy: prefer **Squash and merge** to keep history clean and rollback simpler.
+- Copilot reviewer is automatically added by GitHub. Do **not** post manual `@copilot review` comments.
+- For Copilot review feedback:
+  - Reply directly on each Copilot thread.
+  - Implement valid suggestions (or explain rejection with rationale).
+  - Resolve conversations once handled.
+- After each push, actively monitor the PR until review and checks are complete (do not leave PRs unchecked).
 
 ### Required Checks Before Merge
 - CI checks must pass before merge (lint, tests, build, and coverage gate if configured).
 - If any required check is failing, fix or explicitly defer with documented rationale before merging.
+- For deployment-affecting changes, preview deployment must be successful before merge.
