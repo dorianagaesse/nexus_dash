@@ -79,7 +79,6 @@ export function KanbanBoard({
   const [isSaving, startTransition] = useTransition();
   const [persistError, setPersistError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [pendingDeleteTask, setPendingDeleteTask] = useState<KanbanTask | null>(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
   const shouldOpenTaskInEditModeRef = useRef(false);
@@ -128,20 +127,6 @@ export function KanbanBoard({
   useEffect(() => {
     setArchivedDoneTasks(initialArchivedDoneTasks);
   }, [initialArchivedDoneTasks]);
-
-  useEffect(() => {
-    if (!activeTaskId) {
-      return;
-    }
-
-    const stillExists = TASK_STATUSES.some((status) =>
-      columns[status].some((task) => task.id === activeTaskId)
-    );
-
-    if (!stillExists) {
-      setActiveTaskId(null);
-    }
-  }, [activeTaskId, columns]);
 
   useEffect(() => {
     if (!selectedTask) {
@@ -330,13 +315,11 @@ export function KanbanBoard({
 
   const handleSelectTask = useCallback((task: KanbanTask) => {
     shouldOpenTaskInEditModeRef.current = false;
-    setActiveTaskId(task.id);
     setSelectedTask(task);
   }, []);
 
   const openTaskInEditMode = useCallback((task: KanbanTask) => {
     shouldOpenTaskInEditModeRef.current = true;
-    setActiveTaskId(task.id);
     setSelectedTask(task);
   }, []);
 
@@ -609,9 +592,6 @@ export function KanbanBoard({
         }
         return null;
       });
-      setActiveTaskId((previousTaskId) =>
-        previousTaskId === pendingDeleteTask.id ? null : previousTaskId
-      );
 
       pushToast({
         variant: "success",
@@ -907,12 +887,9 @@ export function KanbanBoard({
         <KanbanColumnsGrid
           columns={columns}
           archivedDoneTasks={archivedDoneTasks}
-          selectedTaskId={activeTaskId}
           onDragEnd={onDragEnd}
           onSelectTask={handleSelectTask}
           onEditTask={openTaskInEditMode}
-          onRequestDeleteTask={setPendingDeleteTask}
-          onMoveTask={handleMoveTaskToStatus}
         />
       ) : null}
 
@@ -955,6 +932,19 @@ export function KanbanBoard({
         onAddFileAttachment={handleAddFileAttachment}
         onDeleteAttachment={handleDeleteAttachment}
         onPreviewAttachmentChange={setPreviewAttachment}
+        onMoveTask={(nextStatus) => {
+          if (!selectedTask) {
+            return;
+          }
+          handleMoveTaskToStatus(selectedTask, nextStatus);
+        }}
+        onRequestDeleteTask={() => {
+          if (!selectedTask) {
+            return;
+          }
+          setPendingDeleteTask(selectedTask);
+          closeTaskModal();
+        }}
       />
 
       <ConfirmDialog

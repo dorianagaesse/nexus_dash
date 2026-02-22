@@ -1,5 +1,16 @@
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link2, Paperclip, Pencil, Trash2, TriangleAlert, Upload, X } from "lucide-react";
+import {
+  ChevronRight,
+  Link2,
+  MoreHorizontal,
+  Paperclip,
+  Pencil,
+  Trash2,
+  TriangleAlert,
+  Upload,
+  X,
+} from "lucide-react";
 
 import {
   type KanbanTask,
@@ -22,6 +33,7 @@ import {
   isAttachmentPreviewable,
 } from "@/lib/task-attachment";
 import { MAX_TASK_LABELS, getTaskLabelColor } from "@/lib/task-label";
+import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 
 interface TaskDetailModalProps {
   isOpen: boolean;
@@ -60,6 +72,8 @@ interface TaskDetailModalProps {
   onAddFileAttachment: (file: File | null) => void | Promise<void>;
   onDeleteAttachment: (attachmentId: string) => void | Promise<void>;
   onPreviewAttachmentChange: (attachment: TaskAttachment | null) => void;
+  onMoveTask: (nextStatus: TaskStatus) => void;
+  onRequestDeleteTask: () => void;
 }
 
 export function TaskDetailModal({
@@ -99,6 +113,8 @@ export function TaskDetailModal({
   onAddFileAttachment,
   onDeleteAttachment,
   onPreviewAttachmentChange,
+  onMoveTask,
+  onRequestDeleteTask,
 }: TaskDetailModalProps) {
   if (!isOpen || !selectedTask) {
     return null;
@@ -149,6 +165,13 @@ export function TaskDetailModal({
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
+                ) : null}
+                {isEditMode ? (
+                  <TaskEditOptionsMenu
+                    currentStatus={selectedTask.status}
+                    onMoveTask={onMoveTask}
+                    onRequestDeleteTask={onRequestDeleteTask}
+                  />
                 ) : null}
                 <Button
                   type="button"
@@ -212,6 +235,104 @@ export function TaskDetailModal({
         onClose={() => onPreviewAttachmentChange(null)}
       />
     </>
+  );
+}
+
+interface TaskEditOptionsMenuProps {
+  currentStatus: TaskStatus;
+  onMoveTask: (nextStatus: TaskStatus) => void;
+  onRequestDeleteTask: () => void;
+}
+
+function TaskEditOptionsMenu({
+  currentStatus,
+  onMoveTask,
+  onRequestDeleteTask,
+}: TaskEditOptionsMenuProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && menuRef.current && !menuRef.current.contains(target)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isMenuOpen]);
+
+  return (
+    <div ref={menuRef} className="relative">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="Task options"
+        aria-expanded={isMenuOpen}
+        onClick={() => setIsMenuOpen((previous) => !previous)}
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </Button>
+      {isMenuOpen ? (
+        <div className="absolute right-0 z-20 mt-1 w-40 rounded-md border border-border/70 bg-background p-1 shadow-md">
+          <div className="group relative">
+            <div className="rounded-sm p-2 text-sm text-foreground hover:bg-muted">
+              <span className="inline-flex w-full items-center justify-between gap-2">
+                Move to
+                <ChevronRight className="h-4 w-4" />
+              </span>
+            </div>
+            <div className="invisible pointer-events-none absolute left-full top-0 z-30 ml-1 w-36 rounded-md border border-border/70 bg-background p-1 opacity-0 shadow-md transition group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+              {TASK_STATUSES.map((nextStatus) => (
+                <Button
+                  key={nextStatus}
+                  type="button"
+                  variant="ghost"
+                  className="w-full justify-start"
+                  disabled={nextStatus === currentStatus}
+                  onClick={() => {
+                    onMoveTask(nextStatus);
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  {nextStatus}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => {
+              setIsMenuOpen(false);
+              onRequestDeleteTask();
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </Button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
