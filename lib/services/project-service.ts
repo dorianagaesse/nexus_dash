@@ -65,6 +65,18 @@ function normalizeActorUserId(actorUserId: string | null | undefined): string {
   return actorUserId.trim();
 }
 
+async function ensureSyntheticTestUserExists(actorUserId: string) {
+  if (process.env.NODE_ENV !== "test" || actorUserId !== "test-user") {
+    return;
+  }
+
+  await prisma.user.upsert({
+    where: { id: actorUserId },
+    update: {},
+    create: { id: actorUserId },
+  });
+}
+
 export async function listProjectsWithCounts(
   actorUserId: string
 ): Promise<ProjectWithCountsRecord[]> {
@@ -96,6 +108,8 @@ export async function createProject(input: ProjectUpsertInput) {
   if (!actorUserId) {
     throw new Error("unauthorized");
   }
+
+  await ensureSyntheticTestUserExists(actorUserId);
 
   return prisma.project.create({
     data: {

@@ -1,4 +1,4 @@
-import { getOptionalServerEnv, getRequiredServerEnv } from "@/lib/env.server";
+import { getRequiredServerEnv } from "@/lib/env.server";
 
 const GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
@@ -38,11 +38,7 @@ export function getGoogleOAuthEnv(): GoogleOAuthEnv {
 }
 
 export function getGoogleCalendarId(): string {
-  const calendarId = getOptionalServerEnv("GOOGLE_CALENDAR_ID");
-  if (!calendarId || calendarId === "primary") {
-    return "primary";
-  }
-
+  // TASK-076 locks calendar target to Google's primary calendar.
   return "primary";
 }
 

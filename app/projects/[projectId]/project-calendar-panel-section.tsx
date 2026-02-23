@@ -5,12 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ProjectCalendarPanelSectionProps {
   projectId: string;
-  actorUserId: string;
 }
 
 export function ProjectCalendarPanelSection({
   projectId,
-  actorUserId: _actorUserId,
 }: ProjectCalendarPanelSectionProps) {
   return <ProjectCalendarPanel projectId={projectId} />;
 }

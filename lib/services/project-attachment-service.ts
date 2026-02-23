@@ -135,22 +135,25 @@ function normalizeDirectUploadInput(
 }
 
 function buildStoragePrefix(
-  actorUserId: string,
+  uploaderUserId: string,
   projectId: string,
   scope: "task" | "context-card",
   ownerId: string
 ): string {
-  return `v1/${actorUserId}/${projectId}/${scope}/${ownerId}/`;
+  return `v1/${uploaderUserId}/${projectId}/${scope}/${ownerId}/`;
 }
 
 function hasExpectedStoragePrefix(
   storageKey: string,
-  actorUserId: string,
+  uploaderUserId: string,
   projectId: string,
   scope: "task" | "context-card",
   ownerId: string
 ): boolean {
-  return storageKey.startsWith(buildStoragePrefix(actorUserId, projectId, scope, ownerId));
+  // Prefix ownership is tied to original uploader key lineage, not current actor.
+  return storageKey.startsWith(
+    buildStoragePrefix(uploaderUserId, projectId, scope, ownerId)
+  );
 }
 
 function getAttachmentUploadErrorMessage(error: unknown): string {

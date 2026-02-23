@@ -362,6 +362,17 @@ export function validateServerRuntimeConfig(
     ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"],
     "GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI must be configured together."
   );
+  const googleClientId = getOptionalServerEnv("GOOGLE_CLIENT_ID");
+
+  if (
+    runtimeEnvironment === "production" &&
+    googleClientId &&
+    !getOptionalServerEnv("GOOGLE_TOKEN_ENCRYPTION_KEY")
+  ) {
+    throw new Error(
+      "GOOGLE_TOKEN_ENCRYPTION_KEY is required in production when Google Calendar OAuth is enabled."
+    );
+  }
 
   const googleRedirectUri = getOptionalServerEnv("GOOGLE_REDIRECT_URI");
   if (googleRedirectUri) {

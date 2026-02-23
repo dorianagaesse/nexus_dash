@@ -2,6 +2,10 @@ import {
   createExpiryDate,
 } from "@/lib/google-calendar";
 import { prisma } from "@/lib/prisma";
+import {
+  decryptGoogleToken,
+  encryptGoogleToken,
+} from "@/lib/services/google-token-crypto";
 
 interface GoogleCalendarTokenInput {
   userId: string;
@@ -24,9 +28,21 @@ interface GoogleCalendarTokenUpdateInput {
 }
 
 export async function findGoogleCalendarCredential(userId: string) {
-  return prisma.googleCalendarCredential.findUnique({
+  const credential = await prisma.googleCalendarCredential.findUnique({
     where: { userId },
   });
+
+  if (!credential) {
+    return null;
+  }
+
+  return {
+    ...credential,
+    accessToken: credential.accessToken
+      ? decryptGoogleToken(credential.accessToken)
+      : null,
+    refreshToken: decryptGoogleToken(credential.refreshToken),
+  };
 }
 
 export async function updateGoogleCalendarCredentialTokens(
@@ -35,8 +51,8 @@ export async function updateGoogleCalendarCredentialTokens(
   return prisma.googleCalendarCredential.update({
     where: { userId: input.userId },
     data: {
-      accessToken: input.accessToken,
-      refreshToken: input.refreshToken,
+      accessToken: encryptGoogleToken(input.accessToken),
+      refreshToken: encryptGoogleToken(input.refreshToken),
       tokenType: input.tokenType,
       scope: input.scope,
       expiresAt: createExpiryDate(input.expiresIn),
@@ -55,7 +71,9 @@ export async function upsertGoogleCalendarCredentialTokens(
       select: { refreshToken: true },
     });
 
-    refreshToken = existing?.refreshToken ?? null;
+    refreshToken = existing?.refreshToken
+      ? decryptGoogleToken(existing.refreshToken)
+      : null;
   }
 
   if (!refreshToken) {
@@ -67,8 +85,8 @@ export async function upsertGoogleCalendarCredentialTokens(
   await prisma.googleCalendarCredential.upsert({
     where: { userId: input.userId },
     update: {
-      accessToken: input.accessToken,
-      refreshToken,
+      accessToken: encryptGoogleToken(input.accessToken),
+      refreshToken: encryptGoogleToken(refreshToken),
       tokenType: input.tokenType ?? null,
       scope: input.scope ?? null,
       providerAccountId: input.providerAccountId ?? null,
@@ -78,8 +96,8 @@ export async function upsertGoogleCalendarCredentialTokens(
     },
     create: {
       userId: input.userId,
-      accessToken: input.accessToken,
-      refreshToken,
+      accessToken: encryptGoogleToken(input.accessToken),
+      refreshToken: encryptGoogleToken(refreshToken),
       tokenType: input.tokenType ?? null,
       scope: input.scope ?? null,
       providerAccountId: input.providerAccountId ?? null,

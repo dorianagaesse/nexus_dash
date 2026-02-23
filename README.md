@@ -39,6 +39,8 @@ Environment and secret handling is centralized in `lib/env.server.ts`.
 - Required (server): `DATABASE_URL`
 - Required as a pair (when calendar auth is enabled): `GOOGLE_CLIENT_ID`,
   `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
+- Required in production when Google OAuth is enabled:
+  `GOOGLE_TOKEN_ENCRYPTION_KEY` (used for at-rest Google token encryption)
 - Required in production: `DIRECT_URL`
 - Optional with fallback in non-production: `DIRECT_URL` falls back to `DATABASE_URL`
 - Optional as a pair: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`

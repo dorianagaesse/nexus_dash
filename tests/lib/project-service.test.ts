@@ -7,7 +7,11 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
   },
   project: {
+    create: vi.fn(),
     findFirst: vi.fn(),
+  },
+  user: {
+    upsert: vi.fn(),
   },
   resource: {
     findMany: vi.fn(),
@@ -19,6 +23,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import {
+  createProject,
   getProjectDashboardById,
   getProjectSummaryById,
   listProjectContextResources,
@@ -161,6 +166,37 @@ describe("project-service", () => {
       include: {
         attachments: {
           orderBy: [{ createdAt: "desc" }],
+        },
+      },
+    });
+  });
+
+  test("creates synthetic test user before project insert when actor is test-user", async () => {
+    prismaMock.user.upsert.mockResolvedValueOnce({ id: "test-user" });
+    prismaMock.project.create.mockResolvedValueOnce({ id: "project-1" });
+
+    const result = await createProject({
+      actorUserId: "test-user",
+      name: "Project 1",
+      description: null,
+    });
+
+    expect(result).toEqual({ id: "project-1" });
+    expect(prismaMock.user.upsert).toHaveBeenCalledWith({
+      where: { id: "test-user" },
+      update: {},
+      create: { id: "test-user" },
+    });
+    expect(prismaMock.project.create).toHaveBeenCalledWith({
+      data: {
+        ownerId: "test-user",
+        name: "Project 1",
+        description: null,
+        memberships: {
+          create: {
+            userId: "test-user",
+            role: "owner",
+          },
         },
       },
     });

@@ -56,7 +56,16 @@ export async function getAuthorizedGoogleCalendarContext(
     };
   }
 
-  const credential = await findGoogleCalendarCredential(normalizedActorUserId);
+  let credential;
+  try {
+    credential = await findGoogleCalendarCredential(normalizedActorUserId);
+  } catch (error) {
+    logServerError("getAuthorizedGoogleCalendarContext.credentialLookup", error);
+    return {
+      ok: false,
+      failure: { status: 401, error: "reauthorization-required" },
+    };
+  }
 
   if (!credential) {
     return {

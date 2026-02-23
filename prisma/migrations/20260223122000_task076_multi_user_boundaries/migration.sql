@@ -1,3 +1,6 @@
+-- TASK-076 intentionally applies a reset-path migration for clean staging/prod test data.
+-- Existing rows are not backfilled; NOT NULL ownership columns are enforced immediately.
+
 -- CreateEnum
 CREATE TYPE "ProjectMembershipRole" AS ENUM ('owner', 'editor', 'viewer');
 
