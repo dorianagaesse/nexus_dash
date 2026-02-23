@@ -67,6 +67,11 @@ Deployment model:
 - CI: repository/organization secrets + workflow/job env
 - Vercel: environment-specific secrets in dashboard (Preview/Production)
 
+Vercel env contract runbook:
+- `docs/runbooks/vercel-env-contract-and-secrets.md`
+- Includes required Google OAuth env set, sensitive/non-sensitive policy, and
+  preview/production verification workflow.
+
 If you create a new migration during development:
 
 ```bash

@@ -306,3 +306,26 @@ A task is considered **DONE** only if:
 - CI checks must pass before merge (lint, tests, build, and coverage gate if configured).
 - If any required check is failing, fix or explicitly defer with documented rationale before merging.
 - For deployment-affecting changes, preview deployment must be successful before merge.
+
+## 13. Environment Contract and Secrets Discipline
+
+- Before starting deploy-affecting work, verify env contract against:
+  - `README.md` (configuration baseline)
+  - `docs/runbooks/vercel-env-contract-and-secrets.md`
+- Treat these as required controls, not optional guidance:
+  - Google OAuth-enabled environments must set:
+    - `GOOGLE_CLIENT_ID`
+    - `GOOGLE_CLIENT_SECRET`
+    - `GOOGLE_REDIRECT_URI`
+    - `GOOGLE_TOKEN_ENCRYPTION_KEY`
+  - `GOOGLE_TOKEN_ENCRYPTION_KEY` must be stable per environment unless a
+    deliberate token re-authorization plan is accepted.
+  - `GOOGLE_CALENDAR_ID` must be unset or `primary`.
+- Sensitive variable policy:
+  - Mark secrets as sensitive in Vercel for Preview and Production.
+  - Respect Vercel platform limitations for Development target sensitivity.
+- Before PR handoff/merge for infra-sensitive changes:
+  1. Confirm env presence in target environment(s).
+  2. Confirm sensitive classification is correct where supported.
+  3. Trigger manual preview deploy.
+  4. Record preview URL and validation outcome in task docs/journal.
