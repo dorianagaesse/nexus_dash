@@ -4,7 +4,7 @@
 TASK-046
 
 ## Status
-In Progress (Current) (2026-02-23)
+In Review (PR Open) (2026-02-23)
 
 ## Objective
 Implement authentication core runtime and enforce route/API protection so all protected resources require a valid signed-in user session.
@@ -62,19 +62,32 @@ Implement authentication core runtime and enforce route/API protection so all pr
 - Manual preview deployment validates protected/authorized behavior.
 - Task tracking updated in `tasks/current.md`, `tasks/backlog.md`, and `journal.md`.
 
-## Inputs Needed Before Implementation
-1. Signed-out page behavior:
-   - `A` Redirect to `/` (Recommended)
-   - `B` Redirect to a dedicated `/auth/sign-in` route
-2. Protected API unauthenticated response contract:
-   - `A` `401 { error: "unauthorized" }` (Recommended)
-   - `B` `403 { error: "forbidden" }`
-3. Phase-2 sign-in capability approach:
-   - `A` Minimal backend/session core now, full sign-in UI in TASK-047 (Recommended)
-   - `B` Include minimal sign-in UI in TASK-046
+## Decided Inputs
+1. Signed-out page behavior: `A` redirect to `/`.
+2. Protected API unauthenticated response contract: `A` return `401 { error: "unauthorized" }`.
+3. Phase-2 sign-in capability approach: `A` implement backend/session guard core now, keep sign-in/up UI for TASK-047.
+
+## Execution Outcome (Current PR)
+- Branch: `feature/task-046-auth-core-route-protection`
+- PR: https://github.com/dorianagaesse/nexus_dash/pull/52
+- Implemented shared auth guards:
+  - `requireSessionUserIdFromServer` for page/layout protection.
+  - `requireAuthenticatedApiUser` for API `401` contract enforcement.
+- Protected route groups:
+  - `app/projects/layout.tsx`
+  - `app/account/layout.tsx`
+- Applied API auth guard to protected calendar/project endpoints under `app/api/calendar/**` and `app/api/projects/**`.
+- Added regression tests:
+  - `tests/lib/api-guard.test.ts`
+  - `tests/lib/server-guard.test.ts`
+- Validation run:
+  - `npm run lint` passed
+  - `npm test` passed
+  - `npm run test:coverage` passed
+  - `npm run build` passed with temporary local process-level env overrides (local `.env.production.local` contains placeholder-only values)
 
 ## Next Step
-Lock the 3 input choices above, then execute implementation on a new feature branch.
+Complete CI + review resolution, then trigger manual preview deploy and confirm signed-out guard behavior.
 
 ---
 
