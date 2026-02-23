@@ -4,11 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-080
-  Title: Account settings - per-user Google Calendar target configuration
-  Status: Pending
-  Rationale: Add an authenticated account/settings area where each user can optionally define their own Google Calendar target id (advanced mode), while keeping `primary` as default behavior to preserve simple onboarding.
-  Dependencies: TASK-046, TASK-076
 - ID: TASK-046
   Title: Authentication implementation phase 2 - auth core and route protection
   Status: Pending
@@ -90,6 +85,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-080
+  Title: Account settings - per-user Google Calendar target configuration
+  Status: Done (2026-02-23)
+  Rationale: Added `/account/settings` with per-user calendar target save/reset (`primary` default), introduced authenticated account menu + logout endpoint, validated CI/Copilot/preview gates, and wired calendar target normalization/fallback behavior end to end.
+  Dependencies: TASK-046, TASK-076
 - ID: TASK-076
   Title: Multi-user data/storage/integration boundary transition - principal-scoped DB access, R2 ownership isolation, and user-scoped Google Calendar
   Status: Done (2026-02-23)

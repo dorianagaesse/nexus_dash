@@ -6,6 +6,7 @@ import {
 } from "@/lib/google-calendar";
 import {
   findGoogleCalendarCredential,
+  normalizeGoogleCalendarId,
   updateGoogleCalendarCredentialTokens,
 } from "@/lib/services/google-calendar-credential-service";
 import { logServerError } from "@/lib/observability/logger";
@@ -114,7 +115,7 @@ export async function getAuthorizedGoogleCalendarContext(
     ok: true,
     context: {
       accessToken,
-      calendarId: credential.calendarId,
+      calendarId: normalizeGoogleCalendarId(credential.calendarId),
       scope,
     },
   };

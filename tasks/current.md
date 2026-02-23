@@ -1,141 +1,77 @@
-# Current Task: TASK-076 Multi-User Boundary Transition (DB + R2 + Google Calendar)
+# Current Task: TASK-080 Account Settings - Per-User Google Calendar Target Configuration
 
 ## Task ID
-TASK-076
+TASK-080
 
 ## Status
-Done (PR Ready) (2026-02-23)
+Done (PR Open) (2026-02-23)
 
 ## Objective
-Enforce principal-scoped ownership boundaries end-to-end so project/task/context-card/attachment/calendar access is user-aware by default, with no singleton credentials and no cross-user data visibility.
-
-## Locked Decisions (Do Not Re-open During Implementation)
-- Data reset policy:
-  - Staging/prod test data can be dropped.
-  - No legacy compatibility layer, no backfill scripts, no phased fallback.
-  - Use strict fail-closed behavior after migration (`missing ownership` => reject).
-- Session/auth model:
-  - Keep server stateless as much as possible.
-  - Users: DB-backed sessions (`User`/`Session`) resolved per request from secure cookie token.
-  - Agents (later TASK-059): scoped API credentials + short-lived JWT access tokens.
-- Canonical identity source:
-  - Authorization must use server-validated session user id only.
-  - Never trust client-provided `userId` for permission checks.
-- R2 ownership model:
-  - Start fresh with ownership-aware keys from day 1.
-  - No legacy key reads.
-  - Recommended key prefix: `v1/{userId}/{projectId}/...`.
-- Google Calendar model:
-  - One calendar per user.
-  - No singleton/default shared credential.
-  - User connects via OAuth and app uses Google `primary` calendar only for now.
-  - Do not introduce calendar picker/multi-calendar selection in TASK-076.
+Allow each authenticated user to configure their own Google Calendar target ID in account settings, while keeping `primary` as the default behavior.
 
 ## Why Now
-- TASK-045 established auth schema primitives (`User`/`Session`), but data access and integrations are still mostly project-id scoped.
-- Full route protection (TASK-046) and sharing model (TASK-058) are unsafe without ownership boundaries at service/storage/integration layers.
-- Current Google Calendar integration still relies on global credential assumptions, which conflicts with the multi-user target.
+- TASK-076 removed singleton calendar ownership and established per-user credential boundaries.
+- Calendar target selection is still effectively fixed to `primary` in code.
+- Multi-user onboarding needs a user-owned settings surface for optional advanced calendar routing.
+
+## Dependencies
+- TASK-076 (Done): per-user Google credential model and principal-scoped calendar access foundation.
+- TASK-046 (Pending): auth core and route protection baseline for account/settings access control.
+
+## Locked Decisions
+- `primary` remains the default calendar target.
+- Custom calendar ID is optional and per-user only.
+- No global/shared env calendar target for end-user behavior.
+- No multi-calendar picker UX/API discovery in TASK-080.
 
 ## Scope
-- Database authorization boundaries:
-  - Introduce principal-aware service-layer reads/writes for projects, tasks, context cards, and attachments.
-  - Add project ownership/membership linkage required for private-by-default access.
-  - Ensure non-owner/non-member access paths return not-found/forbidden consistently.
-- R2 storage boundaries:
-  - Bind attachment metadata and object-key strategy to project/user ownership boundaries.
-  - Enforce authorization checks before issuing signed download URLs.
-  - Preserve compatibility for local storage provider in development.
-- Google Calendar boundaries:
-  - Replace singleton credential resolution with user-scoped OAuth credential lookup.
-  - Ensure calendar CRUD uses the current principal identity, not a global fallback.
-  - Define clear behavior for users without calendar linkage.
-- Migration and rollout safety:
-  - Keep migration strategy simple due explicit data reset policy.
-  - Keep implementation staged and testable in preview/staging before production merge.
-
-## Google OAuth Clarification
-- App-level Google OAuth client id/secret is configured once in your Google Cloud project.
-- All users authenticate through the same OAuth app; each user grants consent with their own Google account.
-- Client id/secret identifies your app to Google APIs; it is not tied to one end user calendar.
-- Per-user access is determined by each user OAuth grant/token pair stored in app DB.
-
-## User Inputs Required (Owner Preparation)
-- Confirm data reset authorization for staging/prod test data before implementation starts.
-- Ensure Google Cloud OAuth app is configured:
-  - Valid redirect URI(s) for local + preview + production.
-  - Calendar scopes approved.
-  - Offline access enabled (refresh token issuance).
-- Confirm one-calendar policy:
-  - Locked: always use Google `primary` calendar.
-- Env hygiene for calendar:
-  - Do not keep personal email calendar ids in env for shared environments.
-  - Keep `GOOGLE_CALENDAR_ID` unset (preferred) or set to `primary` only.
-
-## Implementation Checklist (Execution Order)
-1. Branch and setup:
-   - Create `feature/task-076-multi-user-boundaries` from `main`.
-   - Verify staging env variables for Supabase and R2 are active in local + preview.
-2. Schema and persistence boundaries:
-   - Add/confirm project ownership/membership schema required for private-by-default access.
-   - Apply migrations to staging.
-   - Hard reset test data as agreed (DB + R2).
-3. Service-layer authorization:
-   - Thread `actorUserId` through project/task/context/attachment services.
-   - Enforce principal-scoped filtering on reads and writes.
-   - Return consistent not-found/forbidden behavior for unauthorized access.
-4. R2 boundary enforcement:
-   - Generate ownership-aware object keys (`v1/{userId}/{projectId}/...`).
-   - Enforce authorization check before signed URL issuance and delete.
-   - Persist uploader/ownership metadata needed for audits and checks.
-5. Google Calendar user scoping:
-   - Replace singleton credential resolution with per-user credential lookup.
-   - Ensure calendar CRUD uses `actorUserId` credential mapping.
-   - Keep calendar target as `primary` for each connected user.
-   - Add clear UX/error states for users without connected calendar.
-6. Tests:
-   - Add service/API regression tests for cross-user denial and owner success cases.
-   - Add tests for R2 signed URL authorization and unauthorized denial.
-   - Add tests for Google Calendar per-user credential isolation behavior.
-7. Validation:
-   - Run lint/test locally.
-   - Open PR and monitor checks + preview deploy.
-   - Manually verify with two users: no cross-user project/task/attachment/calendar visibility.
-8. PR governance:
-   - Address Copilot comments directly on threads.
-   - Resolve conversations after implementation.
-   - Keep PR scope to TASK-076 only.
+- Add authenticated account/settings surface for Google Calendar target configuration.
+- Read/write the current user's `GoogleCalendarCredential.calendarId`.
+- Support reset-to-default behavior (`primary`) when empty or reset action is used.
+- Ensure calendar service operations resolve and use the user-configured target.
+- Keep authorization fail-closed (users can only read/update their own setting).
 
 ## Out of Scope
-- Public API exposure and external API key productization.
-- Full project-sharing invitation UX (TASK-058 UI flows).
-- Non-essential visual polish unrelated to ownership/auth boundaries.
+- OAuth provider expansion and sign-in UX rollout (TASK-046/TASK-047/TASK-068).
+- Multi-calendar browsing/picker from Google API.
+- Team/org-level defaults and sharing behavior.
+
+## Delivered
+1. Added top-right authenticated account menu (Settings + Log out) and integrated it with the existing theme toggle.
+2. Added `/account/settings` page with per-user calendar target input, save action, and explicit reset-to-primary action.
+3. Added `account-settings-service` with fail-closed actor checks, minimal validation, and defaulting logic.
+4. Added `POST /api/auth/logout` to revoke the active DB session and clear all supported auth session cookies.
+5. Hardened calendar target normalization and fallback usage in calendar credential/access services.
+6. Added regression coverage for:
+   - account settings read/update + reset/default behavior
+   - cross-user denial guard at service boundary
+   - logout route behavior and cookie/session cleanup
+   - calendar id normalization helpers
 
 ## Acceptance Criteria
-- A user can only access their own projects/resources unless explicitly authorized by membership.
-- Service-layer queries/mutations enforce principal scope for project/task/context-card/attachment operations.
-- R2 signed URL issuance and object metadata/key ownership checks are principal-aware.
-- Google Calendar operations are user-scoped and no longer rely on singleton credentials.
-- Regression tests cover authorization boundary success/failure paths for critical APIs/services.
-- `tasks/backlog.md`, ADR references, and implementation notes stay aligned with delivered scope.
-- Staging reset strategy is executed (no legacy data compatibility path retained).
+- Authenticated user can view and update their own calendar target ID.
+- Empty/reset behavior stores or resolves to `primary`.
+- One user cannot modify or read another user's calendar setting.
+- Calendar operations use the stored per-user target ID.
+- Regression tests cover settings update and authz boundaries.
 
 ## Definition of Done
-- Dedicated feature branch and PR for TASK-076 only.
-- CI checks pass and preview deployment is validated.
-- Copilot review comments handled directly in PR threads; conversations resolved after implementation.
-- Manual validation confirms no cross-user leakage for DB resources, R2 attachments, and calendar data.
-- Task tracking updated (`tasks/current.md` and `tasks/backlog.md`) before handoff.
-- Implementation reflects locked decisions above (stateless session pattern, strict principal scope, no legacy fallbacks).
+- Dedicated branch + PR for TASK-080 only.
+- CI checks pass.
+- Copilot review comments handled and resolved.
+- Manual preview validation confirms end-to-end settings behavior.
+- Task tracking updated in `tasks/current.md`, `tasks/backlog.md`, and `journal.md`.
 
 ## Next Step
-Merge PR `#49` after final owner review, then start TASK-046 (route protection/auth core) on top of the new principal-scoped boundaries.
+Merge PR `#50`, then begin TASK-046 (auth core and route protection) with TASK-080 account/settings entry already in place.
 
 ## Execution Outcome (2026-02-23)
-- PR opened: https://github.com/dorianagaesse/nexus_dash/pull/49
-- Copilot review comments addressed and threads resolved.
-- Remote checks passed (`Quality Core`, `E2E Smoke`, `Container Image`, branch-name check).
-- Manual preview deploy triggered via `deploy-vercel.yml` (`action=deploy-preview`).
-- Preview URL: https://nexus-dash-n5pw6dlxt-dorian-agaesses-projects.vercel.app
+- Branch: `feature/task-080-account-settings`
+- PR: https://github.com/dorianagaesse/nexus_dash/pull/50
+- Copilot review: completed with no actionable inline comments.
+- Remote checks: `check-name`, `Quality Core`, `E2E Smoke`, and `Container Image` all passed.
+- Manual preview deploy: triggered via `deploy-vercel.yml` (`action=deploy-preview`, `git_ref=feature/task-080-account-settings`).
+- Preview URL: https://nexus-dash-7s1tprkyi-dorian-agaesses-projects.vercel.app
 
 ---
 
