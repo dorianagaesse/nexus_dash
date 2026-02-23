@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
+import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { finalizeContextAttachmentDirectUpload } from "@/lib/services/project-attachment-service";
 
@@ -15,7 +15,11 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { projectId: string; cardId: string } }
 ) {
-  const actorUserId = (await getSessionUserIdFromRequest(request)) ?? "";
+  const authenticatedUser = await requireAuthenticatedApiUser(request);
+  if (!authenticatedUser.ok) {
+    return authenticatedUser.response;
+  }
+  const actorUserId = authenticatedUser.userId;
   const { projectId, cardId } = params;
 
   if (!projectId || !cardId) {

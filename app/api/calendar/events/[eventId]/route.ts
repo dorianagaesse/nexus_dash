@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
+import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import {
   deleteCalendarEvent,
   updateCalendarEvent,
@@ -10,7 +10,11 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { eventId: string } }
 ) {
-  const actorUserId = (await getSessionUserIdFromRequest(request)) ?? "";
+  const authenticatedUser = await requireAuthenticatedApiUser(request);
+  if (!authenticatedUser.ok) {
+    return authenticatedUser.response;
+  }
+  const actorUserId = authenticatedUser.userId;
   const eventId = params.eventId;
   if (!eventId) {
     return NextResponse.json({ error: "missing-event-id" }, { status: 400 });
@@ -26,7 +30,11 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { eventId: string } }
 ) {
-  const actorUserId = (await getSessionUserIdFromRequest(request)) ?? "";
+  const authenticatedUser = await requireAuthenticatedApiUser(request);
+  if (!authenticatedUser.ok) {
+    return authenticatedUser.response;
+  }
+  const actorUserId = authenticatedUser.userId;
   const eventId = params.eventId;
   if (!eventId) {
     return NextResponse.json({ error: "missing-event-id" }, { status: 400 });

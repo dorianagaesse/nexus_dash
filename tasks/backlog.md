@@ -6,7 +6,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 ### Execution Queue (Now / Next)
 - ID: TASK-046
   Title: Authentication implementation phase 2 - auth core and route protection
-  Status: Pending
+  Status: In Progress (Current) (2026-02-23)
   Rationale: Implement login/session lifecycle and protect project/task APIs and pages behind authenticated access.
   Dependencies: TASK-045, TASK-076
 - ID: TASK-047

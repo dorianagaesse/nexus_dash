@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
+import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import {
   DEFAULT_GOOGLE_CALENDAR_ID,
   MAX_GOOGLE_CALENDAR_ID_LENGTH,
@@ -47,10 +47,7 @@ export default async function AccountSettingsPage({
 }: {
   searchParams?: SearchParams;
 }) {
-  const actorUserId = await getSessionUserIdFromServer();
-  if (!actorUserId) {
-    notFound();
-  }
+  const actorUserId = await requireSessionUserIdFromServer();
 
   const settingsResult = await getGoogleCalendarTargetSettings(actorUserId);
   if (!settingsResult.ok) {

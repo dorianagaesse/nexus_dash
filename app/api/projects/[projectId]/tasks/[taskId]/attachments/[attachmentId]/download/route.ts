@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
+import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import { getTaskAttachmentDownload } from "@/lib/services/project-attachment-service";
 
 export async function GET(
@@ -11,7 +11,11 @@ export async function GET(
     params: { projectId: string; taskId: string; attachmentId: string };
   }
 ) {
-  const actorUserId = (await getSessionUserIdFromRequest(request)) ?? "";
+  const authenticatedUser = await requireAuthenticatedApiUser(request);
+  if (!authenticatedUser.ok) {
+    return authenticatedUser.response;
+  }
+  const actorUserId = authenticatedUser.userId;
   const { projectId, taskId, attachmentId } = params;
 
   if (!projectId || !taskId || !attachmentId) {
