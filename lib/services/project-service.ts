@@ -66,7 +66,9 @@ function normalizeActorUserId(actorUserId: string | null | undefined): string {
 }
 
 async function ensureSyntheticTestUserExists(actorUserId: string) {
-  if (process.env.NODE_ENV !== "test" || actorUserId !== "test-user") {
+  const allowSyntheticUser =
+    process.env.NODE_ENV === "test" || process.env.CI === "true";
+  if (!allowSyntheticUser || actorUserId !== "test-user") {
     return;
   }
 

@@ -14,6 +14,10 @@ interface CookieEnabledRequest {
   headers: Headers;
 }
 
+function shouldUseSyntheticTestUser(): boolean {
+  return process.env.NODE_ENV === "test" || process.env.CI === "true";
+}
+
 export async function getSessionUserIdFromRequest(
   request: NextRequest | Request
 ): Promise<string | null> {
@@ -29,7 +33,7 @@ export async function getSessionUserIdFromRequest(
     readSessionTokenFromCookieHeader(request.headers.get("cookie"));
 
   if (!sessionToken) {
-    if (process.env.NODE_ENV === "test") {
+    if (shouldUseSyntheticTestUser()) {
       return "test-user";
     }
     return null;
@@ -45,7 +49,7 @@ export async function getSessionUserIdFromServer(): Promise<string | null> {
   });
 
   if (!sessionToken) {
-    if (process.env.NODE_ENV === "test") {
+    if (shouldUseSyntheticTestUser()) {
       return "test-user";
     }
     return null;
