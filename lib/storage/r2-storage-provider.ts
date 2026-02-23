@@ -41,10 +41,16 @@ function sanitizeFilename(filename: string): string {
   return compact.slice(0, 120);
 }
 
-function createStorageKey(scope: string, ownerId: string, originalName: string): string {
-  const safeName = sanitizeFilename(originalName || "file");
+function createStorageKey(input: {
+  actorUserId: string;
+  projectId: string;
+  scope: string;
+  ownerId: string;
+  originalName: string;
+}): string {
+  const safeName = sanitizeFilename(input.originalName || "file");
   const uniquePrefix = `${process.hrtime.bigint()}-${randomUUID().slice(0, 8)}`;
-  return `${scope}/${ownerId}/${uniquePrefix}-${safeName}`;
+  return `v1/${input.actorUserId}/${input.projectId}/${input.scope}/${input.ownerId}/${uniquePrefix}-${safeName}`;
 }
 
 function clampSignedUrlTtl(value: number): number {
@@ -95,7 +101,13 @@ export class R2StorageProvider implements StorageProvider {
 
   async saveFile(input: SaveStorageFileInput): Promise<SaveStorageFileResult> {
     const originalName = input.file.name || "file";
-    const storageKey = createStorageKey(input.scope, input.ownerId, originalName);
+    const storageKey = createStorageKey({
+      actorUserId: input.actorUserId,
+      projectId: input.projectId,
+      scope: input.scope,
+      ownerId: input.ownerId,
+      originalName,
+    });
     const buffer = Buffer.from(await input.file.arrayBuffer());
     const mimeType = input.file.type || "application/octet-stream";
 
@@ -160,11 +172,13 @@ export class R2StorageProvider implements StorageProvider {
   async createSignedUploadUrl(
     input: CreateSignedUploadUrlInput
   ): Promise<CreateSignedUploadUrlResult | null> {
-    const storageKey = createStorageKey(
-      input.scope,
-      input.ownerId,
-      input.originalName || "file"
-    );
+    const storageKey = createStorageKey({
+      actorUserId: input.actorUserId,
+      projectId: input.projectId,
+      scope: input.scope,
+      ownerId: input.ownerId,
+      originalName: input.originalName || "file",
+    });
 
     const command = new PutObjectCommand({
       Bucket: this.bucketName,

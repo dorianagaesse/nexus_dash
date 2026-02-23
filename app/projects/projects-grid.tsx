@@ -7,13 +7,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
 import { listProjectsWithCounts } from "@/lib/services/project-service";
 
 import { ProjectsGridClient } from "./projects-grid-client";
 import { deleteProjectAction, updateProjectAction } from "./actions";
 
 export async function ProjectsGrid() {
-  const projects = await listProjectsWithCounts();
+  const actorUserId = await getSessionUserIdFromServer();
+  const projects = actorUserId ? await listProjectsWithCounts(actorUserId) : [];
   const projectCards = projects.map((project) => ({
     id: project.id,
     name: project.name,

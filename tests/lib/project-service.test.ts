@@ -7,7 +7,7 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
   },
   project: {
-    findUnique: vi.fn(),
+    findFirst: vi.fn(),
   },
   resource: {
     findMany: vi.fn(),
@@ -27,6 +27,8 @@ import {
 import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
 
 describe("project-service", () => {
+  const actorUserId = "user-1";
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -34,9 +36,9 @@ describe("project-service", () => {
   test("archives stale done tasks before loading dashboard", async () => {
     prismaMock.task.findFirst.mockResolvedValueOnce({ id: "task-1" });
     prismaMock.task.updateMany.mockResolvedValueOnce({ count: 1 });
-    prismaMock.project.findUnique.mockResolvedValueOnce({ id: "project-1" });
+    prismaMock.project.findFirst.mockResolvedValueOnce({ id: "project-1" });
 
-    const result = await getProjectDashboardById("project-1");
+    const result = await getProjectDashboardById("project-1", actorUserId);
 
     expect(result).toEqual({ id: "project-1" });
     expect(prismaMock.task.findFirst).toHaveBeenCalledTimes(1);
@@ -56,17 +58,17 @@ describe("project-service", () => {
 
   test("skips archive write when no stale done task exists", async () => {
     prismaMock.task.findFirst.mockResolvedValueOnce(null);
-    prismaMock.project.findUnique.mockResolvedValueOnce({ id: "project-1" });
+    prismaMock.project.findFirst.mockResolvedValueOnce({ id: "project-1" });
 
-    await getProjectDashboardById("project-1");
+    await getProjectDashboardById("project-1", actorUserId);
 
     expect(prismaMock.task.findFirst).toHaveBeenCalledTimes(1);
     expect(prismaMock.task.updateMany).not.toHaveBeenCalled();
-    expect(prismaMock.project.findUnique).toHaveBeenCalledTimes(1);
+    expect(prismaMock.project.findFirst).toHaveBeenCalledTimes(1);
   });
 
   test("loads summary with task count projection", async () => {
-    prismaMock.project.findUnique.mockResolvedValueOnce({
+    prismaMock.project.findFirst.mockResolvedValueOnce({
       id: "project-1",
       name: "Project 1",
       description: null,
@@ -75,7 +77,7 @@ describe("project-service", () => {
       },
     });
 
-    const result = await getProjectSummaryById("project-1");
+    const result = await getProjectSummaryById("project-1", actorUserId);
 
     expect(result).toMatchObject({
       id: "project-1",
@@ -83,8 +85,14 @@ describe("project-service", () => {
         tasks: 4,
       },
     });
-    expect(prismaMock.project.findUnique).toHaveBeenCalledWith({
-      where: { id: "project-1" },
+    expect(prismaMock.project.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "project-1",
+        OR: [
+          { ownerId: actorUserId },
+          { memberships: { some: { userId: actorUserId } } },
+        ],
+      },
       select: {
         id: true,
         name: true,
@@ -105,13 +113,21 @@ describe("project-service", () => {
       { id: "task-a", status: "Backlog" },
     ]);
 
-    const result = await listProjectKanbanTasks("project-1");
+    const result = await listProjectKanbanTasks("project-1", actorUserId);
 
     expect(result).toEqual([{ id: "task-a", status: "Backlog" }]);
     expect(prismaMock.task.findFirst).toHaveBeenCalledTimes(1);
     expect(prismaMock.task.updateMany).toHaveBeenCalledTimes(1);
     expect(prismaMock.task.findMany).toHaveBeenCalledWith({
-      where: { projectId: "project-1" },
+      where: {
+        projectId: "project-1",
+        project: {
+          OR: [
+            { ownerId: actorUserId },
+            { memberships: { some: { userId: actorUserId } } },
+          ],
+        },
+      },
       orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
       include: {
         attachments: {
@@ -127,12 +143,18 @@ describe("project-service", () => {
   test("loads context resources filtered to context-card type", async () => {
     prismaMock.resource.findMany.mockResolvedValueOnce([{ id: "res-1" }]);
 
-    const result = await listProjectContextResources("project-1");
+    const result = await listProjectContextResources("project-1", actorUserId);
 
     expect(result).toEqual([{ id: "res-1" }]);
     expect(prismaMock.resource.findMany).toHaveBeenCalledWith({
       where: {
         projectId: "project-1",
+        project: {
+          OR: [
+            { ownerId: actorUserId },
+            { memberships: { some: { userId: actorUserId } } },
+          ],
+        },
         type: RESOURCE_TYPE_CONTEXT_CARD,
       },
       orderBy: [{ createdAt: "desc" }],

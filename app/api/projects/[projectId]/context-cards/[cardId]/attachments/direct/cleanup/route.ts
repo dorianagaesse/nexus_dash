@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
 import { logServerWarning } from "@/lib/observability/logger";
 import { cleanupContextDirectUploadObject } from "@/lib/services/project-attachment-service";
 
@@ -11,6 +12,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { projectId: string; cardId: string } }
 ) {
+  const actorUserId = (await getSessionUserIdFromRequest(request)) ?? "";
   const { projectId, cardId } = params;
 
   if (!projectId || !cardId) {
@@ -30,6 +32,7 @@ export async function POST(
   }
 
   const result = await cleanupContextDirectUploadObject({
+    actorUserId,
     projectId,
     cardId,
     storageKey: typeof payload.storageKey === "string" ? payload.storageKey : "",

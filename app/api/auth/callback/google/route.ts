@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
 import {
+  GOOGLE_OAUTH_ACTOR_COOKIE,
   GOOGLE_OAUTH_RETURN_TO_COOKIE,
   GOOGLE_OAUTH_STATE_COOKIE,
   exchangeAuthorizationCodeForTokens,
@@ -49,11 +51,22 @@ function buildRedirectResponse(
     maxAge: 0,
   });
 
+  response.cookies.set(GOOGLE_OAUTH_ACTOR_COOKIE, "", {
+    httpOnly: true,
+    secure,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+
   return response;
 }
 
 export async function GET(request: NextRequest) {
+  const actorUserId = await getSessionUserIdFromRequest(request);
   const expectedState = request.cookies.get(GOOGLE_OAUTH_STATE_COOKIE)?.value ?? null;
+  const expectedActorUserId =
+    request.cookies.get(GOOGLE_OAUTH_ACTOR_COOKIE)?.value ?? null;
   const returnToPath = normalizeReturnToPath(
     request.cookies.get(GOOGLE_OAUTH_RETURN_TO_COOKIE)?.value ?? null
   );
@@ -74,6 +87,12 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  if (!actorUserId || !expectedActorUserId || actorUserId !== expectedActorUserId) {
+    return buildRedirectResponse(request, returnToPath, {
+      error: "calendar-auth-state-invalid",
+    });
+  }
+
   if (!code) {
     return buildRedirectResponse(request, returnToPath, {
       error: "calendar-auth-code-missing",
@@ -83,6 +102,7 @@ export async function GET(request: NextRequest) {
   try {
     const tokenResponse = await exchangeAuthorizationCodeForTokens(code);
     await upsertGoogleCalendarCredentialTokens({
+      userId: actorUserId,
       accessToken: tokenResponse.accessToken,
       expiresIn: tokenResponse.expiresIn,
       refreshToken: tokenResponse.refreshToken,

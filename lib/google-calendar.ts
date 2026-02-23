@@ -12,7 +12,7 @@ const GOOGLE_CALENDAR_SCOPE = GOOGLE_CALENDAR_SCOPE_EVENTS;
 
 export const GOOGLE_OAUTH_STATE_COOKIE = "nexusdash_google_oauth_state";
 export const GOOGLE_OAUTH_RETURN_TO_COOKIE = "nexusdash_google_oauth_return_to";
-export const GOOGLE_CALENDAR_CONNECTION_ID = "default";
+export const GOOGLE_OAUTH_ACTOR_COOKIE = "nexusdash_google_oauth_actor";
 export const DEFAULT_CALENDAR_EVENT_DAYS = 14;
 
 interface GoogleOAuthEnv {
@@ -38,7 +38,12 @@ export function getGoogleOAuthEnv(): GoogleOAuthEnv {
 }
 
 export function getGoogleCalendarId(): string {
-  return getOptionalServerEnv("GOOGLE_CALENDAR_ID") ?? "primary";
+  const calendarId = getOptionalServerEnv("GOOGLE_CALENDAR_ID");
+  if (!calendarId || calendarId === "primary") {
+    return "primary";
+  }
+
+  return "primary";
 }
 
 export function buildGoogleOAuthUrl(state: string): string {

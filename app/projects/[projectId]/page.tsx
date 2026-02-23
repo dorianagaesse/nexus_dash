@@ -6,8 +6,8 @@ import { notFound } from "next/navigation";
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
 import { getStorageRuntimeConfig } from "@/lib/env.server";
-import { getGoogleCalendarId } from "@/lib/google-calendar";
 import { getProjectSummaryById } from "@/lib/services/project-service";
 import { MAX_ATTACHMENT_FILE_SIZE_LABEL } from "@/lib/task-attachment";
 
@@ -81,13 +81,17 @@ export default async function ProjectDashboardPage({
   params: { projectId: string };
   searchParams?: SearchParams;
 }) {
-  const project = await getProjectSummaryById(params.projectId);
+  const actorUserId = await getSessionUserIdFromServer();
+  if (!actorUserId) {
+    notFound();
+  }
+
+  const project = await getProjectSummaryById(params.projectId, actorUserId);
 
   if (!project) {
     notFound();
   }
 
-  const calendarId = getGoogleCalendarId();
   const storageProvider = getStorageRuntimeConfig().provider;
   const status = readQueryValue(searchParams?.status);
   const error = readQueryValue(searchParams?.error);
@@ -131,6 +135,7 @@ export default async function ProjectDashboardPage({
       <Suspense fallback={<ProjectContextPanelSkeleton />}>
         <ProjectContextPanelSection
           projectId={project.id}
+          actorUserId={actorUserId}
           storageProvider={storageProvider}
         />
       </Suspense>
@@ -138,15 +143,13 @@ export default async function ProjectDashboardPage({
       <Suspense fallback={<KanbanBoardSkeleton />}>
         <KanbanBoardSection
           projectId={project.id}
+          actorUserId={actorUserId}
           storageProvider={storageProvider}
         />
       </Suspense>
 
       <Suspense fallback={<ProjectCalendarPanelSkeleton />}>
-        <ProjectCalendarPanelSection
-          projectId={project.id}
-          calendarId={calendarId}
-        />
+        <ProjectCalendarPanelSection projectId={project.id} actorUserId={actorUserId} />
       </Suspense>
     </main>
   );

@@ -14,6 +14,7 @@ import {
 } from "@/lib/services/attachment-input-service";
 import { logServerError } from "@/lib/observability/logger";
 import { createTaskAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
+import { requireProjectRole } from "@/lib/services/project-access-service";
 
 const MIN_TITLE_LENGTH = 2;
 
@@ -48,6 +49,7 @@ export interface UpdateTaskPayload {
 }
 
 interface CreateTaskForProjectInput {
+  actorUserId: string;
   projectId: string;
   title: string;
   description: string;
@@ -135,6 +137,20 @@ export function isValidReorderPayload(payload: unknown): payload is ReorderPaylo
 export async function createTaskForProject(
   input: CreateTaskForProjectInput
 ): Promise<ServiceResult<{ id: string }>> {
+  const actorUserId = normalizeText(input.actorUserId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId,
+    projectId: input.projectId,
+    minimumRole: "editor",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   const title = normalizeText(input.title);
   if (title.length < MIN_TITLE_LENGTH) {
     return createError(400, "title-too-short");
@@ -158,17 +174,17 @@ export async function createTaskForProject(
   let createdTaskId: string | null = null;
 
   try {
-    const project = await prisma.project.findUnique({
-      where: { id: input.projectId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return createError(404, "project-not-found");
-    }
-
     const maxPosition = await prisma.task.aggregate({
-      where: { projectId: input.projectId, status },
+      where: {
+        projectId: input.projectId,
+        status,
+        project: {
+          OR: [
+            { ownerId: actorUserId },
+            { memberships: { some: { userId: actorUserId } } },
+          ],
+        },
+      },
       _max: { position: true },
     });
 
@@ -190,6 +206,8 @@ export async function createTaskForProject(
     createdTaskId = createdTask.id;
 
     await createTaskAttachmentsFromDraft({
+      actorUserId,
+      projectId: input.projectId,
       taskId: createdTask.id,
       links: parsedLinks.links,
       files: input.attachmentFiles,
@@ -219,8 +237,23 @@ export async function createTaskForProject(
 
 export async function reorderProjectTasks(
   projectId: string,
-  payload: ReorderPayload
+  payload: ReorderPayload,
+  actorUserId: string
 ): Promise<ServiceResult<{ ok: true }>> {
+  const normalizedActorUserId = normalizeText(actorUserId);
+  if (!normalizedActorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId: normalizedActorUserId,
+    projectId,
+    minimumRole: "editor",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   const normalizedColumns = TASK_STATUSES.map((status) => {
     const matchingColumn = payload.columns.find((column) => column.status === status);
     return {
@@ -243,6 +276,12 @@ export async function reorderProjectTasks(
       where: {
         projectId,
         id: { in: taskIds },
+        project: {
+          OR: [
+            { ownerId: normalizedActorUserId },
+            { memberships: { some: { userId: normalizedActorUserId } } },
+          ],
+        },
       },
       select: { id: true, status: true, completedAt: true },
     });
@@ -292,8 +331,23 @@ export async function reorderProjectTasks(
 export async function updateTaskForProject(
   projectId: string,
   taskId: string,
-  payload: UpdateTaskPayload
+  payload: UpdateTaskPayload,
+  actorUserId: string
 ): Promise<ServiceResult<{ task: UpdatedTaskPayload }>> {
+  const normalizedActorUserId = normalizeText(actorUserId);
+  if (!normalizedActorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId: normalizedActorUserId,
+    projectId,
+    minimumRole: "editor",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   const title = normalizeText(payload.title);
   const rawLabels =
     Array.isArray(payload.labels) && payload.labels.length > 0
@@ -380,8 +434,23 @@ export async function updateTaskForProject(
 
 export async function deleteTaskForProject(
   projectId: string,
-  taskId: string
+  taskId: string,
+  actorUserId: string
 ): Promise<ServiceResult<{ ok: true }>> {
+  const normalizedActorUserId = normalizeText(actorUserId);
+  if (!normalizedActorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId: normalizedActorUserId,
+    projectId,
+    minimumRole: "editor",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   try {
     const existingTask = await prisma.task.findUnique({
       where: { id: taskId },

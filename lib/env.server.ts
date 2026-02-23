@@ -368,6 +368,11 @@ export function validateServerRuntimeConfig(
     assertValidUrl("GOOGLE_REDIRECT_URI", googleRedirectUri);
   }
 
+  const googleCalendarId = getOptionalServerEnv("GOOGLE_CALENDAR_ID");
+  if (googleCalendarId && googleCalendarId !== "primary") {
+    throw new Error("GOOGLE_CALENDAR_ID must be unset or set to 'primary'.");
+  }
+
   assertOptionalEnvironmentGroup(
     ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"],
     "R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME must be configured together."

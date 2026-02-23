@@ -124,6 +124,7 @@ describe("context card attachment routes", () => {
     });
     expect(attachmentServiceMock.createContextAttachmentFromForm).toHaveBeenCalledTimes(1);
     expect(attachmentServiceMock.createContextAttachmentFromForm).toHaveBeenCalledWith({
+      actorUserId: "test-user",
       projectId: "p1",
       cardId: "c1",
       formData: expect.any(FormData),
@@ -203,6 +204,7 @@ describe("context card attachment routes", () => {
     expect(
       attachmentServiceMock.createContextAttachmentUploadTarget
     ).toHaveBeenCalledWith({
+      actorUserId: "test-user",
       projectId: "p1",
       cardId: "c1",
       name: "spec.pdf",
@@ -268,6 +270,7 @@ describe("context card attachment routes", () => {
     expect(
       attachmentServiceMock.cleanupContextDirectUploadObject
     ).toHaveBeenCalledWith({
+      actorUserId: "test-user",
       projectId: "p1",
       cardId: "c1",
       storageKey: "context-card/c1/key-spec.pdf",
@@ -299,6 +302,7 @@ describe("context card attachment routes", () => {
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toEqual({ ok: true });
     expect(attachmentServiceMock.deleteContextAttachmentForProject).toHaveBeenCalledWith({
+      actorUserId: "test-user",
       projectId: "p1",
       cardId: "c1",
       attachmentId: "a1",
@@ -361,6 +365,7 @@ describe("context card attachment routes", () => {
     );
     expect(response.headers.get("Cache-Control")).toBe("private, max-age=60");
     expect(attachmentServiceMock.getContextAttachmentDownload).toHaveBeenCalledWith({
+      actorUserId: "test-user",
       projectId: "p1",
       cardId: "c1",
       attachmentId: "a1",
@@ -417,6 +422,7 @@ describe("context card attachment routes", () => {
       error: "File attachment not found",
     });
     expect(attachmentServiceMock.getContextAttachmentDownload).toHaveBeenCalledWith({
+      actorUserId: "test-user",
       projectId: "p1",
       cardId: "c1",
       attachmentId: "a1",

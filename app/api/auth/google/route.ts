@@ -3,11 +3,13 @@ import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
+  GOOGLE_OAUTH_ACTOR_COOKIE,
   GOOGLE_OAUTH_RETURN_TO_COOKIE,
   GOOGLE_OAUTH_STATE_COOKIE,
   buildGoogleOAuthUrl,
   normalizeReturnToPath,
 } from "@/lib/google-calendar";
+import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
 import { isProductionEnvironment } from "@/lib/env.server";
 import { logServerError } from "@/lib/observability/logger";
 
@@ -18,7 +20,13 @@ function withErrorParam(request: NextRequest, returnTo: string, error: string): 
 }
 
 export async function GET(request: NextRequest) {
+  const actorUserId = await getSessionUserIdFromRequest(request);
   const returnTo = normalizeReturnToPath(request.nextUrl.searchParams.get("returnTo"));
+  if (!actorUserId) {
+    const fallback = withErrorParam(request, returnTo, "unauthorized");
+    return NextResponse.redirect(fallback);
+  }
+
   const state = crypto.randomBytes(24).toString("hex");
   const secure = isProductionEnvironment();
   let authorizationUrl = "";
@@ -43,6 +51,14 @@ export async function GET(request: NextRequest) {
     });
 
     response.cookies.set(GOOGLE_OAUTH_RETURN_TO_COOKIE, returnTo, {
+      httpOnly: true,
+      secure,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 10,
+    });
+
+    response.cookies.set(GOOGLE_OAUTH_ACTOR_COOKIE, actorUserId, {
       httpOnly: true,
       secure,
       sameSite: "lax",

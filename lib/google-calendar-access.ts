@@ -2,7 +2,6 @@ import {
   GOOGLE_CALENDAR_SCOPE_EVENTS,
   GOOGLE_CALENDAR_SCOPE_FULL,
   createExpiryDate,
-  getGoogleCalendarId,
   refreshAccessToken,
 } from "@/lib/google-calendar";
 import {
@@ -46,8 +45,18 @@ export function hasCalendarWriteScope(scope: string | null): boolean {
   );
 }
 
-export async function getAuthorizedGoogleCalendarContext(): Promise<CalendarAuthResult> {
-  const credential = await findGoogleCalendarCredential();
+export async function getAuthorizedGoogleCalendarContext(
+  actorUserId: string
+): Promise<CalendarAuthResult> {
+  const normalizedActorUserId = actorUserId.trim();
+  if (!normalizedActorUserId) {
+    return {
+      ok: false,
+      failure: { status: 401, error: "unauthorized" },
+    };
+  }
+
+  const credential = await findGoogleCalendarCredential(normalizedActorUserId);
 
   if (!credential) {
     return {
@@ -69,6 +78,7 @@ export async function getAuthorizedGoogleCalendarContext(): Promise<CalendarAuth
       scope = refreshed.scope ?? scope;
 
       await updateGoogleCalendarCredentialTokens({
+        userId: normalizedActorUserId,
         accessToken,
         expiresIn: refreshed.expiresIn,
         tokenType: refreshed.tokenType ?? credential.tokenType,
@@ -95,7 +105,7 @@ export async function getAuthorizedGoogleCalendarContext(): Promise<CalendarAuth
     ok: true,
     context: {
       accessToken,
-      calendarId: getGoogleCalendarId(),
+      calendarId: credential.calendarId,
       scope,
     },
   };

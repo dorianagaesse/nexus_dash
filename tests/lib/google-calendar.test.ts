@@ -32,8 +32,8 @@ describe("google-calendar", () => {
     });
   });
 
-  test("returns configured calendar id with fallback", () => {
-    expect(getGoogleCalendarId()).toBe("calendar@example.com");
+  test("returns primary calendar id with fallback", () => {
+    expect(getGoogleCalendarId()).toBe("primary");
     vi.stubEnv("GOOGLE_CALENDAR_ID", "");
     expect(getGoogleCalendarId()).toBe("primary");
   });

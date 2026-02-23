@@ -132,3 +132,6 @@ Resolution: Added TASK-076 to `tasks/backlog.md`, updated dependency graph (TASK
 Date: 2026-02-20
 Planning update: TASK-076 scope expanded to include user-scoped Google Calendar boundaries.
 Resolution: Updated TASK-076 rationale in `tasks/backlog.md`, expanded TASK-020 ADR boundary scope to include Google credential ownership migration, and added companion ADR `adr/task-076-supabase-r2-google-calendar-boundaries.md` describing Supabase/R2/Google Calendar multi-user boundary implementation work.
+Date: 2026-02-23
+Execution update: TASK-076 principal-scoped multi-user boundary transition implemented across DB services, attachment storage, and Google Calendar flows.
+Resolution: Added ownership/membership schema (`Project.ownerId`, `ProjectMembership`, attachment uploader ownership, user-scoped Google credentials), refactored service and route signatures to require server-resolved actor user id, moved storage keys to `v1/{userId}/{projectId}/...`, and replaced singleton calendar credential handling with per-user OAuth binding (`primary` calendar default); validated with `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build` (with local safe DB env override values).

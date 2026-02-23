@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
 import { logServerError } from "@/lib/observability/logger";
 import {
   createProject,
@@ -30,6 +31,11 @@ function redirectWithError(error: string): never {
 }
 
 export async function createProjectAction(formData: FormData): Promise<void> {
+  const actorUserId = await getSessionUserIdFromServer();
+  if (!actorUserId) {
+    redirectWithError("unauthorized");
+  }
+
   const name = readText(formData, "name");
   const descriptionText = readText(formData, "description");
 
@@ -39,6 +45,7 @@ export async function createProjectAction(formData: FormData): Promise<void> {
 
   try {
     await createProject({
+      actorUserId,
       name,
       description: descriptionText.length > 0 ? descriptionText : null,
     });
@@ -52,6 +59,11 @@ export async function createProjectAction(formData: FormData): Promise<void> {
 }
 
 export async function updateProjectAction(formData: FormData): Promise<void> {
+  const actorUserId = await getSessionUserIdFromServer();
+  if (!actorUserId) {
+    redirectWithError("unauthorized");
+  }
+
   const projectId = readText(formData, "projectId");
   const name = readText(formData, "name");
   const descriptionText = readText(formData, "description");
@@ -66,6 +78,7 @@ export async function updateProjectAction(formData: FormData): Promise<void> {
 
   try {
     await updateProject({
+      actorUserId,
       projectId,
       name,
       description: descriptionText.length > 0 ? descriptionText : null,
@@ -80,6 +93,11 @@ export async function updateProjectAction(formData: FormData): Promise<void> {
 }
 
 export async function deleteProjectAction(formData: FormData): Promise<void> {
+  const actorUserId = await getSessionUserIdFromServer();
+  if (!actorUserId) {
+    redirectWithError("unauthorized");
+  }
+
   const projectId = readText(formData, "projectId");
 
   if (!projectId) {
@@ -87,7 +105,7 @@ export async function deleteProjectAction(formData: FormData): Promise<void> {
   }
 
   try {
-    await deleteProject(projectId);
+    await deleteProject({ actorUserId, projectId });
   } catch (error) {
     logServerError("deleteProjectAction", error);
     redirectWithError("delete-failed");

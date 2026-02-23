@@ -10,6 +10,7 @@ import {
 } from "@/lib/services/attachment-input-service";
 import { logServerError } from "@/lib/observability/logger";
 import { createContextAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
+import { requireProjectRole } from "@/lib/services/project-access-service";
 
 const MIN_TITLE_LENGTH = 2;
 const MAX_CONTEXT_TITLE_LENGTH = 120;
@@ -29,6 +30,7 @@ interface ServiceSuccessResult<T> {
 type ServiceResult<T> = ServiceSuccessResult<T> | ServiceErrorResult;
 
 interface CreateContextCardInput {
+  actorUserId: string;
   projectId: string;
   title: string;
   content: string;
@@ -38,6 +40,7 @@ interface CreateContextCardInput {
 }
 
 interface UpdateContextCardInput {
+  actorUserId: string;
   projectId: string;
   cardId: string;
   title: string;
@@ -46,6 +49,7 @@ interface UpdateContextCardInput {
 }
 
 interface DeleteContextCardInput {
+  actorUserId: string;
   projectId: string;
   cardId: string;
 }
@@ -76,6 +80,20 @@ function resolveContextColor(value: string): string | null {
 export async function createContextCardForProject(
   input: CreateContextCardInput
 ): Promise<ServiceResult<{ id: string }>> {
+  const actorUserId = normalizeText(input.actorUserId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId,
+    projectId: input.projectId,
+    minimumRole: "editor",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   const title = normalizeText(input.title);
   const content = normalizeText(input.content);
   const color = resolveContextColor(normalizeText(input.color));
@@ -109,15 +127,6 @@ export async function createContextCardForProject(
   let createdCardId: string | null = null;
 
   try {
-    const project = await prisma.project.findUnique({
-      where: { id: input.projectId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return createError(404, "project-not-found");
-    }
-
     const createdCard = await prisma.resource.create({
       data: {
         projectId: input.projectId,
@@ -131,6 +140,8 @@ export async function createContextCardForProject(
     createdCardId = createdCard.id;
 
     await createContextAttachmentsFromDraft({
+      actorUserId,
+      projectId: input.projectId,
       cardId: createdCard.id,
       links: parsedLinks.links,
       files: input.attachmentFiles,
@@ -159,6 +170,20 @@ export async function createContextCardForProject(
 export async function updateContextCardForProject(
   input: UpdateContextCardInput
 ): Promise<ServiceResult<{ ok: true }>> {
+  const actorUserId = normalizeText(input.actorUserId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId,
+    projectId: input.projectId,
+    minimumRole: "editor",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   const cardId = normalizeText(input.cardId);
   const title = normalizeText(input.title);
   const content = normalizeText(input.content);
@@ -220,6 +245,20 @@ export async function updateContextCardForProject(
 export async function deleteContextCardForProject(
   input: DeleteContextCardInput
 ): Promise<ServiceResult<{ ok: true }>> {
+  const actorUserId = normalizeText(input.actorUserId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId,
+    projectId: input.projectId,
+    minimumRole: "editor",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   const cardId = normalizeText(input.cardId);
 
   if (!cardId) {

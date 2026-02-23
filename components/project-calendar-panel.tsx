@@ -30,12 +30,11 @@ import { cn } from "@/lib/utils";
 
 interface ProjectCalendarPanelProps {
   projectId: string;
-  calendarId: string | null;
 }
 
 type EventModalMode = "create" | "edit";
 
-export function ProjectCalendarPanel({ projectId, calendarId }: ProjectCalendarPanelProps) {
+export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
     sectionKey: "calendar",
@@ -70,16 +69,7 @@ export function ProjectCalendarPanel({ projectId, calendarId }: ProjectCalendarP
     [projectId]
   );
 
-  const calendarUrl = useMemo(() => {
-    const resolvedCalendarId = calendarId?.trim();
-    if (resolvedCalendarId) {
-      const url = new URL("https://calendar.google.com/calendar/u/0/r");
-      url.searchParams.set("cid", resolvedCalendarId);
-      return url.toString();
-    }
-
-    return "https://calendar.google.com/calendar/u/0/r";
-  }, [calendarId]);
+  const calendarUrl = "https://calendar.google.com/calendar/u/0/r";
 
   const resetEventForm = () => {
     const defaults = buildDefaultTimedWindow();

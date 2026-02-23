@@ -9,6 +9,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: In Progress (Current) (2026-02-22)
   Rationale: Convert project/task/resource/attachment access from ID-scoped behavior to principal-scoped behavior by introducing ownership/membership filters in service-layer queries, user-aware R2 object/metadata boundaries (`uploadedBy`, tenant-safe keys, signed URL authorization checks), and user-scoped Google Calendar OAuth/token ownership (replace global singleton credential flow) before full route protection and sharing rollout.
   Dependencies: TASK-020, TASK-045, TASK-065, TASK-060
+- ID: TASK-080
+  Title: Account settings - per-user Google Calendar target configuration
+  Status: Pending
+  Rationale: Add an authenticated account/settings area where each user can optionally define their own Google Calendar target id (advanced mode), while keeping `primary` as default behavior to preserve simple onboarding.
+  Dependencies: TASK-046, TASK-076
 - ID: TASK-046
   Title: Authentication implementation phase 2 - auth core and route protection
   Status: Pending

@@ -1,15 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
+import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
 import { deleteContextAttachmentForProject } from "@/lib/services/project-attachment-service";
 
 export async function DELETE(
-  _request: Request,
+  request: NextRequest,
   {
     params,
   }: {
     params: { projectId: string; cardId: string; attachmentId: string };
   }
 ) {
+  const actorUserId = (await getSessionUserIdFromRequest(request)) ?? "";
   const { projectId, cardId, attachmentId } = params;
 
   if (!projectId || !cardId || !attachmentId) {
@@ -17,6 +19,7 @@ export async function DELETE(
   }
 
   const result = await deleteContextAttachmentForProject({
+    actorUserId,
     projectId,
     cardId,
     attachmentId,

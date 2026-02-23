@@ -318,8 +318,8 @@ function toGoogleEventRequest(payload: UpsertEventRequestPayload) {
   };
 }
 
-async function resolveWritableCalendarContext() {
-  const auth = await getAuthorizedGoogleCalendarContext();
+async function resolveWritableCalendarContext(actorUserId: string) {
+  const auth = await getAuthorizedGoogleCalendarContext(actorUserId);
   if (!auth.ok) {
     return createError(auth.failure.status, { error: auth.failure.error });
   }
@@ -332,6 +332,7 @@ async function resolveWritableCalendarContext() {
 }
 
 export async function listCalendarEvents(input: {
+  actorUserId: string;
   rangeRaw: string | null;
   daysRaw: string | null;
   now?: Date;
@@ -350,7 +351,7 @@ export async function listCalendarEvents(input: {
   const queryWindow = buildQueryWindow(input);
 
   try {
-    const auth = await getAuthorizedGoogleCalendarContext();
+    const auth = await getAuthorizedGoogleCalendarContext(input.actorUserId);
     if (!auth.ok) {
       return createError(auth.failure.status, {
         connected: false,
@@ -424,13 +425,16 @@ export async function listCalendarEvents(input: {
   }
 }
 
-export async function createCalendarEvent(rawBody: unknown): Promise<
+export async function createCalendarEvent(
+  rawBody: unknown,
+  actorUserId: string
+): Promise<
   ServiceResult<{
     event: CalendarEventResponseItem;
   }>
 > {
   try {
-    const auth = await resolveWritableCalendarContext();
+    const auth = await resolveWritableCalendarContext(actorUserId);
     if (!auth.ok) {
       return auth;
     }
@@ -491,14 +495,15 @@ export async function createCalendarEvent(rawBody: unknown): Promise<
 
 export async function updateCalendarEvent(
   eventId: string,
-  rawBody: unknown
+  rawBody: unknown,
+  actorUserId: string
 ): Promise<
   ServiceResult<{
     event: CalendarEventResponseItem;
   }>
 > {
   try {
-    const auth = await resolveWritableCalendarContext();
+    const auth = await resolveWritableCalendarContext(actorUserId);
     if (!auth.ok) {
       return auth;
     }
@@ -562,10 +567,11 @@ export async function updateCalendarEvent(
 }
 
 export async function deleteCalendarEvent(
-  eventId: string
+  eventId: string,
+  actorUserId: string
 ): Promise<ServiceResult<{ ok: true }>> {
   try {
-    const auth = await resolveWritableCalendarContext();
+    const auth = await resolveWritableCalendarContext(actorUserId);
     if (!auth.ok) {
       return auth;
     }

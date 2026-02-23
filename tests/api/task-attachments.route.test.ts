@@ -208,6 +208,7 @@ describe("task attachment routes", () => {
       },
     });
     expect(attachmentServiceMock.createTaskAttachmentUploadTarget).toHaveBeenCalledWith({
+      actorUserId: "test-user",
       projectId: "p1",
       taskId: "t1",
       name: "spec.pdf",
@@ -271,6 +272,7 @@ describe("task attachment routes", () => {
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toEqual({ ok: true });
     expect(attachmentServiceMock.cleanupTaskDirectUploadObject).toHaveBeenCalledWith({
+      actorUserId: "test-user",
       projectId: "p1",
       taskId: "t1",
       storageKey: "task/t1/key-spec.pdf",
@@ -302,6 +304,7 @@ describe("task attachment routes", () => {
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toEqual({ ok: true });
     expect(attachmentServiceMock.deleteTaskAttachmentForProject).toHaveBeenCalledWith({
+      actorUserId: "test-user",
       projectId: "p1",
       taskId: "t1",
       attachmentId: "a1",
@@ -364,6 +367,7 @@ describe("task attachment routes", () => {
     );
     expect(response.headers.get("Cache-Control")).toBe("private, max-age=60");
     expect(attachmentServiceMock.getTaskAttachmentDownload).toHaveBeenCalledWith({
+      actorUserId: "test-user",
       projectId: "p1",
       taskId: "t1",
       attachmentId: "a1",
@@ -416,6 +420,7 @@ describe("task attachment routes", () => {
       error: "File attachment not found",
     });
     expect(attachmentServiceMock.getTaskAttachmentDownload).toHaveBeenCalledWith({
+      actorUserId: "test-user",
       projectId: "p1",
       taskId: "t1",
       attachmentId: "a1",

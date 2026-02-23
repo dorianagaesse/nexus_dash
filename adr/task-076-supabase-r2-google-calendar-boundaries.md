@@ -1,7 +1,7 @@
 # TASK-076 Supabase, Cloudflare R2, and Google Calendar Multi-User Boundary ADR
 
 Date: 2026-02-20
-Status: Draft (Proposed)
+Status: Accepted (Implemented 2026-02-23)
 
 ## 1) Decision Summary
 
@@ -72,7 +72,7 @@ Service methods in `lib/services/**` accept principal context and enforce permis
   - authorized principal in app,
   - valid Google scope/token for that principal.
 
-## 5) Data Model Changes (Planned)
+## 5) Data Model Changes (Implemented in TASK-076)
 
 Minimum required:
 
@@ -97,7 +97,7 @@ Constraint choice for first iteration:
 - One active Google connection per user for lower complexity.
 - Keep schema extensible for multiple connections per user later.
 
-## 6) Service and API Refactor Plan
+## 6) Service and API Refactor Result
 
 ### 6.1 Supabase/DB Service Layer
 
@@ -121,13 +121,12 @@ Constraint choice for first iteration:
   - callback validates state and principal binding before token persistence.
 - Update calendar APIs to principal/project-aware boundaries (route shape can stay temporarily, but service checks must include principal and project authorization).
 
-## 7) Migration Strategy
+## 7) Migration Strategy (Applied)
 
-1. Add new schema fields/tables for ownership + user-scoped calendar credentials.
-2. Backfill existing single-user data with bootstrap owner principal.
-3. Migrate existing singleton Google credential into that bootstrap user.
-4. Introduce principal-scoped service APIs and migrate callers.
-5. Remove singleton credential paths after parity validation.
+1. Added new schema fields/tables for ownership + user-scoped calendar credentials.
+2. Applied strict reset-path migration (no legacy backfill), per locked implementation decision.
+3. Introduced principal-scoped service APIs and migrated route/page callers.
+4. Removed singleton credential paths after parity validation.
 
 ## 8) Security and Operations Requirements
 
