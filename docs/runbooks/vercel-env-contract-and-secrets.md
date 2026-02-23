@@ -16,7 +16,12 @@ environments for NexusDash.
 - `GOOGLE_REDIRECT_URI`
 - `GOOGLE_TOKEN_ENCRYPTION_KEY`
 
-If Google OAuth is enabled, all four should be configured in Vercel.
+If Google OAuth is enabled:
+
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` must
+  be configured together.
+- `GOOGLE_TOKEN_ENCRYPTION_KEY` must be configured for environments running
+  production runtime checks (production and preview in this project).
 
 ## Sensitivity Policy
 
@@ -30,6 +35,9 @@ Set as sensitive in Vercel (Preview + Production):
 - `R2_SECRET_ACCESS_KEY`
 - `R2_ACCESS_KEY_ID`
 
+`R2_ACCESS_KEY_ID` is treated as sensitive here for defense-in-depth and to
+avoid key-id leakage in screenshots/log captures.
+
 Can stay non-sensitive:
 
 - `GOOGLE_CLIENT_ID`
@@ -38,6 +46,7 @@ Can stay non-sensitive:
 - `R2_BUCKET_NAME`
 - `R2_ACCOUNT_ID`
 - `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY`
 
 Important:
 
@@ -51,7 +60,7 @@ Important:
 - Keep `GOOGLE_TOKEN_ENCRYPTION_KEY` stable per environment. Rotating it
   requires token re-authorization because existing encrypted tokens may become
   unreadable.
-- `GOOGLE_CALENDAR_ID` should be unset or `primary` only.
+- `GOOGLE_CALENDAR_ID` must be unset or `primary` only.
 
 ## Verification Commands
 
