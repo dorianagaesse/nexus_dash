@@ -4,14 +4,9 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-046
-  Title: Authentication implementation phase 2 - auth core and route protection
-  Status: In Review (PR Open) (Current) (2026-02-23)
-  Rationale: Implement login/session lifecycle and protect project/task APIs and pages behind authenticated access.
-  Dependencies: TASK-045, TASK-076
 - ID: TASK-047
   Title: Authentication implementation phase 3 - home-page auth entry and account onboarding UX
-  Status: Pending
+  Status: Planned (Current) (2026-02-23)
   Rationale: Add signed-out home-page authentication entry points and onboarding flows aligned with the approved auth architecture (email + social provider strategy).
   Dependencies: TASK-046
 - ID: TASK-068
@@ -85,6 +80,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-046
+  Title: Authentication implementation phase 2 - auth core and route protection
+  Status: Done (2026-02-23)
+  Rationale: Implemented auth runtime guardrails across protected pages/APIs with server-validated sessions, added regression coverage, passed CI/Copilot/preview gates, and merged to main via PR #52.
+  Dependencies: TASK-045, TASK-076
 - ID: TASK-080
   Title: Account settings - per-user Google Calendar target configuration
   Status: Done (2026-02-23)
