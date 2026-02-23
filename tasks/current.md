@@ -4,7 +4,7 @@
 TASK-046
 
 ## Status
-In Review (PR Open) (2026-02-23)
+Done (PR Open) (2026-02-23)
 
 ## Objective
 Implement authentication core runtime and enforce route/API protection so all protected resources require a valid signed-in user session.
@@ -85,9 +85,13 @@ Implement authentication core runtime and enforce route/API protection so all pr
   - `npm test` passed
   - `npm run test:coverage` passed
   - `npm run build` passed with temporary local process-level env overrides (local `.env.production.local` contains placeholder-only values)
+- Copilot review: 3 comments addressed with follow-up commit (`709eba2`) and all review threads resolved.
+- Remote checks: `check-name`, `Quality Core`, `E2E Smoke`, and `Container Image` all passed on PR head.
+- Manual preview deployment: triggered via `deploy-vercel.yml` (`action=deploy-preview`, `git_ref=feature/task-046-auth-core-route-protection`).
+- Preview URL: https://nexus-dash-2ahst74ap-dorian-agaesses-projects.vercel.app
 
 ## Next Step
-Complete CI + review resolution, then trigger manual preview deploy and confirm signed-out guard behavior.
+Ready for merge to `main`, then start TASK-047.
 
 ---
 
