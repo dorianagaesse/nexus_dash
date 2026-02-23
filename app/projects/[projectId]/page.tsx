@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
+import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { getStorageRuntimeConfig } from "@/lib/env.server";
 import { getProjectSummaryById } from "@/lib/services/project-service";
 import { MAX_ATTACHMENT_FILE_SIZE_LABEL } from "@/lib/task-attachment";
@@ -81,10 +81,7 @@ export default async function ProjectDashboardPage({
   params: { projectId: string };
   searchParams?: SearchParams;
 }) {
-  const actorUserId = await getSessionUserIdFromServer();
-  if (!actorUserId) {
-    notFound();
-  }
+  const actorUserId = await requireSessionUserIdFromServer();
 
   const project = await getProjectSummaryById(params.projectId, actorUserId);
 

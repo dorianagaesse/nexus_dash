@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
+import * as React from "react";
 
 import {
   readSessionTokenFromCookieHeader,
@@ -43,17 +44,30 @@ export async function getSessionUserIdFromRequest(
 }
 
 export async function getSessionUserIdFromServer(): Promise<string | null> {
-  const cookieStore = cookies();
-  const sessionToken = readSessionTokenFromCookieReader((name) => {
-    return cookieStore.get(name)?.value ?? null;
-  });
-
-  if (!sessionToken) {
-    if (shouldUseSyntheticTestUser()) {
-      return "test-user";
-    }
-    return null;
-  }
-
-  return resolveSessionUserIdByToken(sessionToken);
+  return getCachedSessionUserIdFromServer();
 }
+
+const reactCache =
+  (
+    React as unknown as {
+      cache?: <T extends (...args: never[]) => unknown>(fn: T) => T;
+    }
+  ).cache ?? (<T extends (...args: never[]) => unknown>(fn: T) => fn);
+
+const getCachedSessionUserIdFromServer = reactCache(
+  async (): Promise<string | null> => {
+    const cookieStore = cookies();
+    const sessionToken = readSessionTokenFromCookieReader((name) => {
+      return cookieStore.get(name)?.value ?? null;
+    });
+
+    if (!sessionToken) {
+      if (shouldUseSyntheticTestUser()) {
+        return "test-user";
+      }
+      return null;
+    }
+
+    return resolveSessionUserIdByToken(sessionToken);
+  }
+);
