@@ -6,7 +6,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 ### Execution Queue (Now / Next)
 - ID: TASK-080
   Title: Account settings - per-user Google Calendar target configuration
-  Status: Pending
+  Status: In Progress (Current) (2026-02-23)
   Rationale: Add an authenticated account/settings area where each user can optionally define their own Google Calendar target id (advanced mode), while keeping `primary` as default behavior to preserve simple onboarding.
   Dependencies: TASK-046, TASK-076
 - ID: TASK-046

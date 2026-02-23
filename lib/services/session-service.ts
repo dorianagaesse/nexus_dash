@@ -80,3 +80,14 @@ export async function resolveSessionUserIdByToken(
 
   return session.userId;
 }
+
+export async function deleteSessionByToken(sessionToken: string): Promise<void> {
+  const normalizedToken = normalizeSessionToken(sessionToken);
+  if (!normalizedToken) {
+    return;
+  }
+
+  await prisma.session.deleteMany({
+    where: { sessionToken: normalizedToken },
+  });
+}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type Theme = "light" | "dark";
 
@@ -13,7 +14,11 @@ function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === "dark");
 }
 
-export function ThemeToggle() {
+interface ThemeToggleProps {
+  className?: string;
+}
+
+export function ThemeToggle({ className }: ThemeToggleProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [theme, setTheme] = useState<Theme>("light");
 
@@ -43,7 +48,7 @@ export function ThemeToggle() {
       type="button"
       variant="outline"
       size="sm"
-      className="fixed right-4 top-4 z-40"
+      className={cn(className)}
       onClick={handleToggle}
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
     >

@@ -4,6 +4,7 @@ const prismaMock = vi.hoisted(() => ({
   googleCalendarCredential: {
     findUnique: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
     upsert: vi.fn(),
   },
 }));
@@ -31,7 +32,11 @@ vi.mock("@/lib/services/google-token-crypto", () => ({
 }));
 
 import {
+  DEFAULT_GOOGLE_CALENDAR_ID,
   findGoogleCalendarCredential,
+  findGoogleCalendarCredentialCalendarId,
+  normalizeGoogleCalendarId,
+  updateGoogleCalendarCredentialCalendarId,
   updateGoogleCalendarCredentialTokens,
   upsertGoogleCalendarCredentialTokens,
 } from "@/lib/services/google-calendar-credential-service";
@@ -86,6 +91,41 @@ describe("google-calendar-credential-service", () => {
         expiresAt: new Date("2026-02-16T00:00:00.000Z"),
       },
     });
+  });
+
+  test("normalizes missing calendar id to primary when reading calendar target", async () => {
+    prismaMock.googleCalendarCredential.findUnique.mockResolvedValueOnce({
+      calendarId: "  ",
+    });
+
+    const result = await findGoogleCalendarCredentialCalendarId("user-1");
+
+    expect(result).toBe(DEFAULT_GOOGLE_CALENDAR_ID);
+    expect(prismaMock.googleCalendarCredential.findUnique).toHaveBeenCalledWith({
+      where: { userId: "user-1" },
+      select: { calendarId: true },
+    });
+  });
+
+  test("updates calendar id for existing credential row", async () => {
+    prismaMock.googleCalendarCredential.updateMany.mockResolvedValueOnce({ count: 1 });
+
+    const didUpdate = await updateGoogleCalendarCredentialCalendarId({
+      userId: "user-1",
+      calendarId: "  team@example.com  ",
+    });
+
+    expect(didUpdate).toBe(true);
+    expect(prismaMock.googleCalendarCredential.updateMany).toHaveBeenCalledWith({
+      where: { userId: "user-1" },
+      data: { calendarId: "team@example.com" },
+    });
+  });
+
+  test("normalizeGoogleCalendarId falls back to primary", () => {
+    expect(normalizeGoogleCalendarId("")).toBe(DEFAULT_GOOGLE_CALENDAR_ID);
+    expect(normalizeGoogleCalendarId("  ")).toBe(DEFAULT_GOOGLE_CALENDAR_ID);
+    expect(normalizeGoogleCalendarId("team@example.com")).toBe("team@example.com");
   });
 
   test("upserts credential using provided refresh token", async () => {

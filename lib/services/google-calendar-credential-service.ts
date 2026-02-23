@@ -27,6 +27,19 @@ interface GoogleCalendarTokenUpdateInput {
   scope: string | null;
 }
 
+interface GoogleCalendarCalendarIdUpdateInput {
+  userId: string;
+  calendarId: string;
+}
+
+export const DEFAULT_GOOGLE_CALENDAR_ID = "primary";
+export const MAX_GOOGLE_CALENDAR_ID_LENGTH = 255;
+
+export function normalizeGoogleCalendarId(calendarId: string | null | undefined): string {
+  const normalized = typeof calendarId === "string" ? calendarId.trim() : "";
+  return normalized.length > 0 ? normalized : DEFAULT_GOOGLE_CALENDAR_ID;
+}
+
 export async function findGoogleCalendarCredential(userId: string) {
   const credential = await prisma.googleCalendarCredential.findUnique({
     where: { userId },
@@ -45,6 +58,19 @@ export async function findGoogleCalendarCredential(userId: string) {
   };
 }
 
+export async function findGoogleCalendarCredentialCalendarId(userId: string) {
+  const credential = await prisma.googleCalendarCredential.findUnique({
+    where: { userId },
+    select: { calendarId: true },
+  });
+
+  if (!credential) {
+    return null;
+  }
+
+  return normalizeGoogleCalendarId(credential.calendarId);
+}
+
 export async function updateGoogleCalendarCredentialTokens(
   input: GoogleCalendarTokenUpdateInput
 ) {
@@ -58,6 +84,19 @@ export async function updateGoogleCalendarCredentialTokens(
       expiresAt: createExpiryDate(input.expiresIn),
     },
   });
+}
+
+export async function updateGoogleCalendarCredentialCalendarId(
+  input: GoogleCalendarCalendarIdUpdateInput
+) {
+  const result = await prisma.googleCalendarCredential.updateMany({
+    where: { userId: input.userId },
+    data: {
+      calendarId: normalizeGoogleCalendarId(input.calendarId),
+    },
+  });
+
+  return result.count > 0;
 }
 
 export async function upsertGoogleCalendarCredentialTokens(
@@ -90,7 +129,7 @@ export async function upsertGoogleCalendarCredentialTokens(
       tokenType: input.tokenType ?? null,
       scope: input.scope ?? null,
       providerAccountId: input.providerAccountId ?? null,
-      calendarId: input.calendarId?.trim() || "primary",
+      calendarId: normalizeGoogleCalendarId(input.calendarId),
       expiresAt,
       revokedAt: null,
     },
@@ -101,7 +140,7 @@ export async function upsertGoogleCalendarCredentialTokens(
       tokenType: input.tokenType ?? null,
       scope: input.scope ?? null,
       providerAccountId: input.providerAccountId ?? null,
-      calendarId: input.calendarId?.trim() || "primary",
+      calendarId: normalizeGoogleCalendarId(input.calendarId),
       expiresAt,
     },
   });
