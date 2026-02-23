@@ -8,14 +8,16 @@ import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 
 interface ProjectContextPanelSectionProps {
   projectId: string;
+  actorUserId: string;
   storageProvider: "local" | "r2";
 }
 
 export async function ProjectContextPanelSection({
   projectId,
+  actorUserId,
   storageProvider,
 }: ProjectContextPanelSectionProps) {
-  const resources = await listProjectContextResources(projectId);
+  const resources = await listProjectContextResources(projectId, actorUserId);
 
   const cards = resources.map((resource) => ({
     id: resource.id,

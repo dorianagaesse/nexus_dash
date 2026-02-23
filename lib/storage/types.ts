@@ -1,5 +1,7 @@
 export interface SaveStorageFileInput {
   scope: "task" | "context-card";
+  actorUserId: string;
+  projectId: string;
   ownerId: string;
   file: File;
 }
@@ -19,6 +21,8 @@ export interface GetSignedDownloadUrlInput {
 
 export interface CreateSignedUploadUrlInput {
   scope: "task" | "context-card";
+  actorUserId: string;
+  projectId: string;
   ownerId: string;
   originalName: string;
   mimeType: string;

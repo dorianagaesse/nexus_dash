@@ -21,6 +21,7 @@ import {
 } from "@/lib/task-attachment";
 import { logServerError } from "@/lib/observability/logger";
 import { isAttachmentStorageUnavailableError } from "@/lib/storage/errors";
+import { requireProjectRole } from "@/lib/services/project-access-service";
 
 import type { ParsedAttachmentLink } from "@/lib/services/attachment-input-service";
 
@@ -83,6 +84,14 @@ function createError(status: number, error: string): ServiceErrorResult {
   return { ok: false, status, error };
 }
 
+function normalizeActorUserId(actorUserId: string | null | undefined): string {
+  if (typeof actorUserId !== "string") {
+    return "";
+  }
+
+  return actorUserId.trim();
+}
+
 function isPositiveFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
@@ -125,12 +134,26 @@ function normalizeDirectUploadInput(
   };
 }
 
+function buildStoragePrefix(
+  uploaderUserId: string,
+  projectId: string,
+  scope: "task" | "context-card",
+  ownerId: string
+): string {
+  return `v1/${uploaderUserId}/${projectId}/${scope}/${ownerId}/`;
+}
+
 function hasExpectedStoragePrefix(
   storageKey: string,
+  uploaderUserId: string,
+  projectId: string,
   scope: "task" | "context-card",
   ownerId: string
 ): boolean {
-  return storageKey.startsWith(`${scope}/${ownerId}/`);
+  // Prefix ownership is tied to original uploader key lineage, not current actor.
+  return storageKey.startsWith(
+    buildStoragePrefix(uploaderUserId, projectId, scope, ownerId)
+  );
 }
 
 function getAttachmentUploadErrorMessage(error: unknown): string {
@@ -184,6 +207,8 @@ function withContextDownloadUrl(
 }
 
 export async function createTaskAttachmentsFromDraft(input: {
+  actorUserId: string;
+  projectId: string;
   taskId: string;
   links: ParsedAttachmentLink[];
   files: File[];
@@ -195,6 +220,7 @@ export async function createTaskAttachmentsFromDraft(input: {
       await prisma.taskAttachment.createMany({
         data: input.links.map((link) => ({
           taskId: input.taskId,
+          uploadedByUserId: input.actorUserId,
           kind: ATTACHMENT_KIND_LINK,
           name: link.name,
           url: link.url,
@@ -205,6 +231,8 @@ export async function createTaskAttachmentsFromDraft(input: {
     for (const file of input.files) {
       const storedFile = await saveAttachmentFile({
         scope: "task",
+        actorUserId: input.actorUserId,
+        projectId: input.projectId,
         ownerId: input.taskId,
         file,
       });
@@ -213,6 +241,7 @@ export async function createTaskAttachmentsFromDraft(input: {
       await prisma.taskAttachment.create({
         data: {
           taskId: input.taskId,
+          uploadedByUserId: input.actorUserId,
           kind: ATTACHMENT_KIND_FILE,
           name: storedFile.originalName,
           storageKey: storedFile.storageKey,
@@ -234,6 +263,8 @@ export async function createTaskAttachmentsFromDraft(input: {
 }
 
 export async function createContextAttachmentsFromDraft(input: {
+  actorUserId: string;
+  projectId: string;
   cardId: string;
   links: ParsedAttachmentLink[];
   files: File[];
@@ -245,6 +276,7 @@ export async function createContextAttachmentsFromDraft(input: {
       await prisma.resourceAttachment.createMany({
         data: input.links.map((link) => ({
           resourceId: input.cardId,
+          uploadedByUserId: input.actorUserId,
           kind: ATTACHMENT_KIND_LINK,
           name: link.name,
           url: link.url,
@@ -255,6 +287,8 @@ export async function createContextAttachmentsFromDraft(input: {
     for (const file of input.files) {
       const storedFile = await saveAttachmentFile({
         scope: "context-card",
+        actorUserId: input.actorUserId,
+        projectId: input.projectId,
         ownerId: input.cardId,
         file,
       });
@@ -263,6 +297,7 @@ export async function createContextAttachmentsFromDraft(input: {
       await prisma.resourceAttachment.create({
         data: {
           resourceId: input.cardId,
+          uploadedByUserId: input.actorUserId,
           kind: ATTACHMENT_KIND_FILE,
           name: storedFile.originalName,
           storageKey: storedFile.storageKey,
@@ -287,10 +322,25 @@ export async function createContextAttachmentsFromDraft(input: {
 }
 
 export async function createTaskAttachmentFromForm(input: {
+  actorUserId: string;
   projectId: string;
   taskId: string;
   formData: FormData;
 }): Promise<ServiceResult<AttachmentResponsePayload>> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId,
+    projectId: input.projectId,
+    minimumRole: "editor",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   const task = await prisma.task.findUnique({
     where: { id: input.taskId },
     select: { id: true, projectId: true },
@@ -319,6 +369,7 @@ export async function createTaskAttachmentFromForm(input: {
       const attachment = await prisma.taskAttachment.create({
         data: {
           taskId: input.taskId,
+          uploadedByUserId: actorUserId,
           kind: ATTACHMENT_KIND_LINK,
           name: providedName || new URL(normalizedUrl).hostname,
           url: normalizedUrl,
@@ -370,6 +421,8 @@ export async function createTaskAttachmentFromForm(input: {
   try {
     const storedFile = await saveAttachmentFile({
       scope: "task",
+      actorUserId,
+      projectId: input.projectId,
       ownerId: input.taskId,
       file: fileEntry,
     });
@@ -378,6 +431,7 @@ export async function createTaskAttachmentFromForm(input: {
     const attachment = await prisma.taskAttachment.create({
       data: {
         taskId: input.taskId,
+        uploadedByUserId: actorUserId,
         kind: ATTACHMENT_KIND_FILE,
         name: providedName || storedFile.originalName,
         storageKey: storedFile.storageKey,
@@ -411,10 +465,25 @@ export async function createTaskAttachmentFromForm(input: {
 }
 
 export async function createContextAttachmentFromForm(input: {
+  actorUserId: string;
   projectId: string;
   cardId: string;
   formData: FormData;
 }): Promise<ServiceResult<AttachmentResponsePayload>> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId,
+    projectId: input.projectId,
+    minimumRole: "editor",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   const card = await prisma.resource.findUnique({
     where: { id: input.cardId },
     select: { id: true, projectId: true, type: true },
@@ -447,6 +516,7 @@ export async function createContextAttachmentFromForm(input: {
       const attachment = await prisma.resourceAttachment.create({
         data: {
           resourceId: input.cardId,
+          uploadedByUserId: actorUserId,
           kind: ATTACHMENT_KIND_LINK,
           name: providedName || new URL(normalizedUrl).hostname,
           url: normalizedUrl,
@@ -498,6 +568,8 @@ export async function createContextAttachmentFromForm(input: {
   try {
     const storedFile = await saveAttachmentFile({
       scope: "context-card",
+      actorUserId,
+      projectId: input.projectId,
       ownerId: input.cardId,
       file: fileEntry,
     });
@@ -506,6 +578,7 @@ export async function createContextAttachmentFromForm(input: {
     const attachment = await prisma.resourceAttachment.create({
       data: {
         resourceId: input.cardId,
+        uploadedByUserId: actorUserId,
         kind: ATTACHMENT_KIND_FILE,
         name: providedName || storedFile.originalName,
         storageKey: storedFile.storageKey,
@@ -539,12 +612,27 @@ export async function createContextAttachmentFromForm(input: {
 }
 
 export async function createTaskAttachmentUploadTarget(input: {
+  actorUserId: string;
   projectId: string;
   taskId: string;
   name: string;
   mimeType: string;
   sizeBytes: number;
 }): Promise<ServiceResult<{ upload: AttachmentDirectUploadTargetPayload }>> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId,
+    projectId: input.projectId,
+    minimumRole: "editor",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   const task = await prisma.task.findUnique({
     where: { id: input.taskId },
     select: { id: true, projectId: true },
@@ -567,6 +655,8 @@ export async function createTaskAttachmentUploadTarget(input: {
   try {
     const signedUpload = await createAttachmentSignedUploadUrl({
       scope: "task",
+      actorUserId,
+      projectId: input.projectId,
       ownerId: input.taskId,
       originalName: normalizedUpload.data.name,
       mimeType: normalizedUpload.data.mimeType,
@@ -597,6 +687,7 @@ export async function createTaskAttachmentUploadTarget(input: {
 }
 
 export async function finalizeTaskAttachmentDirectUpload(input: {
+  actorUserId: string;
   projectId: string;
   taskId: string;
   storageKey: string;
@@ -604,6 +695,20 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
   mimeType: string;
   sizeBytes: number;
 }): Promise<ServiceResult<AttachmentResponsePayload>> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId,
+    projectId: input.projectId,
+    minimumRole: "editor",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   const task = await prisma.task.findUnique({
     where: { id: input.taskId },
     select: { id: true, projectId: true },
@@ -614,7 +719,15 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
   }
 
   const normalizedStorageKey = input.storageKey.trim();
-  if (!hasExpectedStoragePrefix(normalizedStorageKey, "task", input.taskId)) {
+  if (
+    !hasExpectedStoragePrefix(
+      normalizedStorageKey,
+      actorUserId,
+      input.projectId,
+      "task",
+      input.taskId
+    )
+  ) {
     return createError(400, "Invalid storage key");
   }
 
@@ -667,6 +780,7 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
     const attachment = await prisma.taskAttachment.create({
       data: {
         taskId: input.taskId,
+        uploadedByUserId: actorUserId,
         kind: ATTACHMENT_KIND_FILE,
         name: normalizedUpload.data.name,
         storageKey: normalizedStorageKey,
@@ -697,12 +811,27 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
 }
 
 export async function createContextAttachmentUploadTarget(input: {
+  actorUserId: string;
   projectId: string;
   cardId: string;
   name: string;
   mimeType: string;
   sizeBytes: number;
 }): Promise<ServiceResult<{ upload: AttachmentDirectUploadTargetPayload }>> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId,
+    projectId: input.projectId,
+    minimumRole: "editor",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   const card = await prisma.resource.findUnique({
     where: { id: input.cardId },
     select: { id: true, projectId: true, type: true },
@@ -729,6 +858,8 @@ export async function createContextAttachmentUploadTarget(input: {
   try {
     const signedUpload = await createAttachmentSignedUploadUrl({
       scope: "context-card",
+      actorUserId,
+      projectId: input.projectId,
       ownerId: input.cardId,
       originalName: normalizedUpload.data.name,
       mimeType: normalizedUpload.data.mimeType,
@@ -759,6 +890,7 @@ export async function createContextAttachmentUploadTarget(input: {
 }
 
 export async function finalizeContextAttachmentDirectUpload(input: {
+  actorUserId: string;
   projectId: string;
   cardId: string;
   storageKey: string;
@@ -766,6 +898,20 @@ export async function finalizeContextAttachmentDirectUpload(input: {
   mimeType: string;
   sizeBytes: number;
 }): Promise<ServiceResult<AttachmentResponsePayload>> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId,
+    projectId: input.projectId,
+    minimumRole: "editor",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   const card = await prisma.resource.findUnique({
     where: { id: input.cardId },
     select: { id: true, projectId: true, type: true },
@@ -780,7 +926,15 @@ export async function finalizeContextAttachmentDirectUpload(input: {
   }
 
   const normalizedStorageKey = input.storageKey.trim();
-  if (!hasExpectedStoragePrefix(normalizedStorageKey, "context-card", input.cardId)) {
+  if (
+    !hasExpectedStoragePrefix(
+      normalizedStorageKey,
+      actorUserId,
+      input.projectId,
+      "context-card",
+      input.cardId
+    )
+  ) {
     return createError(400, "Invalid storage key");
   }
 
@@ -833,6 +987,7 @@ export async function finalizeContextAttachmentDirectUpload(input: {
     const attachment = await prisma.resourceAttachment.create({
       data: {
         resourceId: input.cardId,
+        uploadedByUserId: actorUserId,
         kind: ATTACHMENT_KIND_FILE,
         name: normalizedUpload.data.name,
         storageKey: normalizedStorageKey,
@@ -863,10 +1018,25 @@ export async function finalizeContextAttachmentDirectUpload(input: {
 }
 
 export async function cleanupTaskDirectUploadObject(input: {
+  actorUserId: string;
   projectId: string;
   taskId: string;
   storageKey: string;
 }): Promise<ServiceResult<{ ok: true }>> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId,
+    projectId: input.projectId,
+    minimumRole: "editor",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   const task = await prisma.task.findUnique({
     where: { id: input.taskId },
     select: { id: true, projectId: true },
@@ -877,7 +1047,15 @@ export async function cleanupTaskDirectUploadObject(input: {
   }
 
   const normalizedStorageKey = input.storageKey.trim();
-  if (!hasExpectedStoragePrefix(normalizedStorageKey, "task", input.taskId)) {
+  if (
+    !hasExpectedStoragePrefix(
+      normalizedStorageKey,
+      actorUserId,
+      input.projectId,
+      "task",
+      input.taskId
+    )
+  ) {
     return createError(400, "Invalid storage key");
   }
 
@@ -897,10 +1075,25 @@ export async function cleanupTaskDirectUploadObject(input: {
 }
 
 export async function cleanupContextDirectUploadObject(input: {
+  actorUserId: string;
   projectId: string;
   cardId: string;
   storageKey: string;
 }): Promise<ServiceResult<{ ok: true }>> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId,
+    projectId: input.projectId,
+    minimumRole: "editor",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   const card = await prisma.resource.findUnique({
     where: { id: input.cardId },
     select: { id: true, projectId: true, type: true },
@@ -915,7 +1108,15 @@ export async function cleanupContextDirectUploadObject(input: {
   }
 
   const normalizedStorageKey = input.storageKey.trim();
-  if (!hasExpectedStoragePrefix(normalizedStorageKey, "context-card", input.cardId)) {
+  if (
+    !hasExpectedStoragePrefix(
+      normalizedStorageKey,
+      actorUserId,
+      input.projectId,
+      "context-card",
+      input.cardId
+    )
+  ) {
     return createError(400, "Invalid storage key");
   }
 
@@ -935,10 +1136,25 @@ export async function cleanupContextDirectUploadObject(input: {
 }
 
 export async function deleteTaskAttachmentForProject(input: {
+  actorUserId: string;
   projectId: string;
   taskId: string;
   attachmentId: string;
 }): Promise<ServiceResult<{ ok: true }>> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId,
+    projectId: input.projectId,
+    minimumRole: "editor",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   try {
     const attachment = await prisma.taskAttachment.findUnique({
       where: { id: input.attachmentId },
@@ -946,6 +1162,7 @@ export async function deleteTaskAttachmentForProject(input: {
         id: true,
         kind: true,
         storageKey: true,
+        uploadedByUserId: true,
         task: {
           select: {
             id: true,
@@ -959,6 +1176,20 @@ export async function deleteTaskAttachmentForProject(input: {
       !attachment ||
       attachment.task.id !== input.taskId ||
       attachment.task.projectId !== input.projectId
+    ) {
+      return createError(404, "Attachment not found");
+    }
+
+    if (
+      attachment.kind === ATTACHMENT_KIND_FILE &&
+      attachment.storageKey &&
+      !hasExpectedStoragePrefix(
+        attachment.storageKey,
+        attachment.uploadedByUserId,
+        input.projectId,
+        "task",
+        input.taskId
+      )
     ) {
       return createError(404, "Attachment not found");
     }
@@ -984,10 +1215,25 @@ export async function deleteTaskAttachmentForProject(input: {
 }
 
 export async function deleteContextAttachmentForProject(input: {
+  actorUserId: string;
   projectId: string;
   cardId: string;
   attachmentId: string;
 }): Promise<ServiceResult<{ ok: true }>> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId,
+    projectId: input.projectId,
+    minimumRole: "editor",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   try {
     const attachment = await prisma.resourceAttachment.findUnique({
       where: { id: input.attachmentId },
@@ -995,6 +1241,7 @@ export async function deleteContextAttachmentForProject(input: {
         id: true,
         kind: true,
         storageKey: true,
+        uploadedByUserId: true,
         resource: {
           select: {
             id: true,
@@ -1010,6 +1257,20 @@ export async function deleteContextAttachmentForProject(input: {
       attachment.resource.id !== input.cardId ||
       attachment.resource.projectId !== input.projectId ||
       attachment.resource.type !== RESOURCE_TYPE_CONTEXT_CARD
+    ) {
+      return createError(404, "Attachment not found");
+    }
+
+    if (
+      attachment.kind === ATTACHMENT_KIND_FILE &&
+      attachment.storageKey &&
+      !hasExpectedStoragePrefix(
+        attachment.storageKey,
+        attachment.uploadedByUserId,
+        input.projectId,
+        "context-card",
+        input.cardId
+      )
     ) {
       return createError(404, "Attachment not found");
     }
@@ -1035,11 +1296,26 @@ export async function deleteContextAttachmentForProject(input: {
 }
 
 export async function getTaskAttachmentDownload(input: {
+  actorUserId: string;
   projectId: string;
   taskId: string;
   attachmentId: string;
   disposition: "inline" | "attachment";
 }): Promise<ServiceResult<AttachmentDownloadPayload>> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId,
+    projectId: input.projectId,
+    minimumRole: "viewer",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   try {
     const attachment = await prisma.taskAttachment.findUnique({
       where: { id: input.attachmentId },
@@ -1048,6 +1324,7 @@ export async function getTaskAttachmentDownload(input: {
         name: true,
         mimeType: true,
         storageKey: true,
+        uploadedByUserId: true,
         task: {
           select: {
             id: true,
@@ -1062,7 +1339,14 @@ export async function getTaskAttachmentDownload(input: {
       attachment.task.id !== input.taskId ||
       attachment.task.projectId !== input.projectId ||
       attachment.kind !== ATTACHMENT_KIND_FILE ||
-      !attachment.storageKey
+      !attachment.storageKey ||
+      !hasExpectedStoragePrefix(
+        attachment.storageKey,
+        attachment.uploadedByUserId,
+        input.projectId,
+        "task",
+        input.taskId
+      )
     ) {
       return createError(404, "File attachment not found");
     }
@@ -1104,11 +1388,26 @@ export async function getTaskAttachmentDownload(input: {
 }
 
 export async function getContextAttachmentDownload(input: {
+  actorUserId: string;
   projectId: string;
   cardId: string;
   attachmentId: string;
   disposition: "inline" | "attachment";
 }): Promise<ServiceResult<AttachmentDownloadPayload>> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const access = await requireProjectRole({
+    actorUserId,
+    projectId: input.projectId,
+    minimumRole: "viewer",
+  });
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
   try {
     const attachment = await prisma.resourceAttachment.findUnique({
       where: { id: input.attachmentId },
@@ -1117,6 +1416,7 @@ export async function getContextAttachmentDownload(input: {
         name: true,
         mimeType: true,
         storageKey: true,
+        uploadedByUserId: true,
         resource: {
           select: {
             id: true,
@@ -1133,7 +1433,14 @@ export async function getContextAttachmentDownload(input: {
       attachment.resource.projectId !== input.projectId ||
       attachment.resource.type !== RESOURCE_TYPE_CONTEXT_CARD ||
       attachment.kind !== ATTACHMENT_KIND_FILE ||
-      !attachment.storageKey
+      !attachment.storageKey ||
+      !hasExpectedStoragePrefix(
+        attachment.storageKey,
+        attachment.uploadedByUserId,
+        input.projectId,
+        "context-card",
+        input.cardId
+      )
     ) {
       return createError(404, "File attachment not found");
     }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
 import { logServerWarning } from "@/lib/observability/logger";
 import { createContextCardForProject } from "@/lib/services/context-card-service";
 
@@ -23,6 +24,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  const actorUserId = (await getSessionUserIdFromRequest(request)) ?? "";
   const { projectId } = params;
   if (!projectId) {
     return NextResponse.json({ error: "Missing project id" }, { status: 400 });
@@ -41,6 +43,7 @@ export async function POST(
   }
 
   const result = await createContextCardForProject({
+    actorUserId,
     projectId,
     title: readText(formData, "title"),
     content: readText(formData, "content"),

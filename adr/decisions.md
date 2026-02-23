@@ -249,3 +249,9 @@ Status: Accepted
 Context: Existing calendar integration persists OAuth tokens in a singleton credential (`GoogleCalendarCredential.id = "default"`) and resolves calendar access globally, which conflicts with planned multi-user ownership boundaries.
 Decision: Update TASK-076 to explicitly cover Supabase/Postgres principal boundaries, Cloudflare R2 ownership isolation, and Google Calendar principal-scoped OAuth/token/service flows; record detailed implementation contract in `adr/task-076-supabase-r2-google-calendar-boundaries.md`.
 Consequences: Calendar integration aligns with user-based model and avoids cross-user token/data leakage; introduces additional schema migration and service refactor work during TASK-076.
+Date: 2026-02-23
+Decision: Enforce principal-scoped boundaries end-to-end for projects, attachments, and Google Calendar credentials
+Status: Accepted
+Context: TASK-076 required removing remaining ID-only and singleton integration paths before route protection/sharing phases.
+Decision: Added `Project.ownerId` + `ProjectMembership`, attachment uploader ownership fields, user-scoped `GoogleCalendarCredential`, actor-aware service signatures, ownership-aware storage key prefixes (`v1/{userId}/{projectId}/...`), and session-resolved principal propagation across project/task/context/attachment/calendar APIs.
+Consequences: Cross-user leakage paths are closed by default and service boundaries are auth-ready; migration is reset-path only (no legacy compatibility), requiring clean staging data as agreed.

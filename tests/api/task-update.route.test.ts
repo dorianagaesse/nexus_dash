@@ -11,6 +11,9 @@ const txMock = vi.hoisted(() => ({
 }));
 
 const prismaMock = vi.hoisted(() => ({
+  project: {
+    findFirst: vi.fn(),
+  },
   task: {
     findUnique: vi.fn(),
     delete: vi.fn(),
@@ -39,6 +42,10 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
 describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.project.findFirst.mockResolvedValue({
+      ownerId: "test-user",
+      memberships: [],
+    });
     prismaMock.$transaction.mockImplementation(async (callback: (tx: typeof txMock) => unknown) =>
       callback(txMock)
     );
@@ -230,6 +237,10 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
 describe("DELETE /api/projects/:projectId/tasks/:taskId", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.project.findFirst.mockResolvedValue({
+      ownerId: "test-user",
+      memberships: [],
+    });
     attachmentStorageMock.deleteAttachmentFile.mockResolvedValue(undefined);
   });
 

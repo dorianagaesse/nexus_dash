@@ -1,15 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
+import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
 import { getContextAttachmentDownload } from "@/lib/services/project-attachment-service";
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   {
     params,
   }: {
     params: { projectId: string; cardId: string; attachmentId: string };
   }
 ) {
+  const actorUserId = (await getSessionUserIdFromRequest(request)) ?? "";
   const { projectId, cardId, attachmentId } = params;
 
   if (!projectId || !cardId || !attachmentId) {
@@ -22,6 +24,7 @@ export async function GET(
       : "attachment";
 
   const result = await getContextAttachmentDownload({
+    actorUserId,
     projectId,
     cardId,
     attachmentId,

@@ -10,14 +10,16 @@ import { isTaskStatus } from "@/lib/task-status";
 
 interface KanbanBoardSectionProps {
   projectId: string;
+  actorUserId: string;
   storageProvider: "local" | "r2";
 }
 
 export async function KanbanBoardSection({
   projectId,
+  actorUserId,
   storageProvider,
 }: KanbanBoardSectionProps) {
-  const tasks = await listProjectKanbanTasks(projectId);
+  const tasks = await listProjectKanbanTasks(projectId, actorUserId);
   const kanbanTasks: KanbanTask[] = [];
   const archivedDoneTasks: KanbanTask[] = [];
   const existingLabelSet = new Set<string>();

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
 import { logServerWarning } from "@/lib/observability/logger";
 import {
   isValidReorderPayload,
@@ -10,6 +11,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
+  const actorUserId = (await getSessionUserIdFromRequest(request)) ?? "";
   const projectId = params.projectId;
 
   if (!projectId) {
@@ -33,7 +35,7 @@ export async function POST(
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const result = await reorderProjectTasks(projectId, body);
+  const result = await reorderProjectTasks(projectId, body, actorUserId);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }

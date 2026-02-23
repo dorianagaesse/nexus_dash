@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
 import { logServerWarning } from "@/lib/observability/logger";
 import {
   deleteContextCardForProject,
@@ -18,6 +19,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { projectId: string; cardId: string } }
 ) {
+  const actorUserId = (await getSessionUserIdFromRequest(request)) ?? "";
   const { projectId, cardId } = params;
   if (!projectId || !cardId) {
     return NextResponse.json({ error: "Missing route parameters" }, { status: 400 });
@@ -36,6 +38,7 @@ export async function PATCH(
   }
 
   const result = await updateContextCardForProject({
+    actorUserId,
     projectId,
     cardId,
     title: readText(formData, "title"),
@@ -51,15 +54,17 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { projectId: string; cardId: string } }
 ) {
+  const actorUserId = (await getSessionUserIdFromRequest(request)) ?? "";
   const { projectId, cardId } = params;
   if (!projectId || !cardId) {
     return NextResponse.json({ error: "Missing route parameters" }, { status: 400 });
   }
 
   const result = await deleteContextCardForProject({
+    actorUserId,
     projectId,
     cardId,
   });

@@ -4,6 +4,9 @@ import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
 import { AttachmentStorageUnavailableError } from "@/lib/storage/errors";
 
 const prismaMock = vi.hoisted(() => ({
+  project: {
+    findFirst: vi.fn(),
+  },
   task: {
     findUnique: vi.fn(),
   },
@@ -60,8 +63,11 @@ import {
 } from "@/lib/services/project-attachment-service";
 
 describe("project-attachment-service", () => {
+  const actorUserId = "user-1";
+
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.project.findFirst.mockResolvedValue({ ownerId: actorUserId, memberships: [] });
   });
 
   test("maps task upload storage-unavailable errors to actionable message", async () => {
@@ -78,6 +84,7 @@ describe("project-attachment-service", () => {
     formData.set("file", new File(["hello"], "note.txt", { type: "text/plain" }));
 
     const result = await createTaskAttachmentFromForm({
+      actorUserId,
       projectId: "project-1",
       taskId: "task-1",
       formData,
@@ -108,6 +115,7 @@ describe("project-attachment-service", () => {
     formData.set("file", new File(["hello"], "note.txt", { type: "text/plain" }));
 
     const result = await createContextAttachmentFromForm({
+      actorUserId,
       projectId: "project-1",
       cardId: "card-1",
       formData,
@@ -137,6 +145,7 @@ describe("project-attachment-service", () => {
     });
 
     const result = await createTaskAttachmentUploadTarget({
+      actorUserId,
       projectId: "project-1",
       taskId: "task-1",
       name: "spec.pdf",
@@ -175,6 +184,7 @@ describe("project-attachment-service", () => {
     });
 
     const result = await createContextAttachmentUploadTarget({
+      actorUserId,
       projectId: "project-1",
       cardId: "card-1",
       name: "spec.pdf",
@@ -217,9 +227,10 @@ describe("project-attachment-service", () => {
     });
 
     const result = await finalizeTaskAttachmentDirectUpload({
+      actorUserId,
       projectId: "project-1",
       taskId: "task-1",
-      storageKey: "task/task-1/key-spec.pdf",
+      storageKey: "v1/user-1/project-1/task/task-1/key-spec.pdf",
       name: "spec.pdf",
       mimeType: "application/pdf",
       sizeBytes: 2048,
@@ -262,9 +273,10 @@ describe("project-attachment-service", () => {
     });
 
     const result = await finalizeContextAttachmentDirectUpload({
+      actorUserId,
       projectId: "project-1",
       cardId: "card-1",
-      storageKey: "context-card/card-1/key-spec.pdf",
+      storageKey: "v1/user-1/project-1/context-card/card-1/key-spec.pdf",
       name: "spec.pdf",
       mimeType: "application/pdf",
       sizeBytes: 2048,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
 import { logServerWarning } from "@/lib/observability/logger";
 import { finalizeTaskAttachmentDirectUpload } from "@/lib/services/project-attachment-service";
 
@@ -14,6 +15,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { projectId: string; taskId: string } }
 ) {
+  const actorUserId = (await getSessionUserIdFromRequest(request)) ?? "";
   const { projectId, taskId } = params;
 
   if (!projectId || !taskId) {
@@ -33,6 +35,7 @@ export async function POST(
   }
 
   const result = await finalizeTaskAttachmentDirectUpload({
+    actorUserId,
     projectId,
     taskId,
     storageKey: typeof payload.storageKey === "string" ? payload.storageKey : "",

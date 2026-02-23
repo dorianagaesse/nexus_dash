@@ -55,6 +55,7 @@ describe("context cards mutation routes", () => {
     expect(response.status).toBe(201);
     await expect(readJson(response)).resolves.toEqual({ cardId: "card-1" });
     expect(contextCardServiceMock.createContextCardForProject).toHaveBeenCalledWith({
+      actorUserId: "test-user",
       projectId: "p1",
       title: "Sprint notes",
       content: "Context body",
@@ -90,6 +91,7 @@ describe("context cards mutation routes", () => {
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toEqual({ ok: true });
     expect(contextCardServiceMock.updateContextCardForProject).toHaveBeenCalledWith({
+      actorUserId: "test-user",
       projectId: "p1",
       cardId: "c1",
       title: "Updated title",
@@ -118,6 +120,7 @@ describe("context cards mutation routes", () => {
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toEqual({ ok: true });
     expect(contextCardServiceMock.deleteContextCardForProject).toHaveBeenCalledWith({
+      actorUserId: "test-user",
       projectId: "p1",
       cardId: "c1",
     });

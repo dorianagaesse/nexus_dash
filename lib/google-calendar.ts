@@ -1,4 +1,4 @@
-import { getOptionalServerEnv, getRequiredServerEnv } from "@/lib/env.server";
+import { getRequiredServerEnv } from "@/lib/env.server";
 
 const GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
@@ -12,7 +12,7 @@ const GOOGLE_CALENDAR_SCOPE = GOOGLE_CALENDAR_SCOPE_EVENTS;
 
 export const GOOGLE_OAUTH_STATE_COOKIE = "nexusdash_google_oauth_state";
 export const GOOGLE_OAUTH_RETURN_TO_COOKIE = "nexusdash_google_oauth_return_to";
-export const GOOGLE_CALENDAR_CONNECTION_ID = "default";
+export const GOOGLE_OAUTH_ACTOR_COOKIE = "nexusdash_google_oauth_actor";
 export const DEFAULT_CALENDAR_EVENT_DAYS = 14;
 
 interface GoogleOAuthEnv {
@@ -38,7 +38,8 @@ export function getGoogleOAuthEnv(): GoogleOAuthEnv {
 }
 
 export function getGoogleCalendarId(): string {
-  return getOptionalServerEnv("GOOGLE_CALENDAR_ID") ?? "primary";
+  // TASK-076 locks calendar target to Google's primary calendar.
+  return "primary";
 }
 
 export function buildGoogleOAuthUrl(state: string): string {

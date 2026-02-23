@@ -52,7 +52,7 @@ export class LocalStorageProvider implements StorageProvider {
     const originalName = input.file.name || "file";
     const safeName = sanitizeFilename(originalName);
     const uniquePrefix = `${process.hrtime.bigint()}-${randomUUID().slice(0, 8)}`;
-    const storageKey = `${input.scope}/${input.ownerId}/${uniquePrefix}-${safeName}`;
+    const storageKey = `v1/${input.actorUserId}/${input.projectId}/${input.scope}/${input.ownerId}/${uniquePrefix}-${safeName}`;
     const absolutePath = resolveAbsolutePath(storageKey);
 
     let buffer = Buffer.alloc(0);

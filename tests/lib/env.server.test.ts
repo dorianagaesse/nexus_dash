@@ -272,6 +272,32 @@ describe("env.server", () => {
     );
   });
 
+  test("fails runtime validation when production google oauth is enabled without token encryption key", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DATABASE_URL", "postgresql://localhost:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://localhost:5433/postgres");
+    vi.stubEnv("GOOGLE_CLIENT_ID", "client-id");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("GOOGLE_REDIRECT_URI", "https://app.example.com/callback");
+    vi.stubEnv("GOOGLE_TOKEN_ENCRYPTION_KEY", "");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "GOOGLE_TOKEN_ENCRYPTION_KEY is required in production when Google Calendar OAuth is enabled."
+    );
+  });
+
+  test("passes runtime validation when production google oauth includes token encryption key", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DATABASE_URL", "postgresql://localhost:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://localhost:5433/postgres");
+    vi.stubEnv("GOOGLE_CLIENT_ID", "client-id");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("GOOGLE_REDIRECT_URI", "https://app.example.com/callback");
+    vi.stubEnv("GOOGLE_TOKEN_ENCRYPTION_KEY", "dev-test-key");
+
+    expect(() => validateServerRuntimeConfig()).not.toThrow();
+  });
+
   test("fails runtime validation when supabase url is not absolute", () => {
     vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
     vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");

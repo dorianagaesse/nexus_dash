@@ -20,6 +20,7 @@ const STATUS_MESSAGES: Record<string, string> = {
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
+  unauthorized: "You must be signed in to manage projects.",
   "name-too-short": "Project name must be at least 2 characters long.",
   "missing-project-id": "Project identifier is missing.",
   "create-failed": "Could not create project. Please retry.",

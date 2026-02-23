@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const googleCalendarMock = vi.hoisted(() => ({
+  GOOGLE_OAUTH_ACTOR_COOKIE: "nexusdash_google_oauth_actor",
   GOOGLE_OAUTH_STATE_COOKIE: "nexusdash_google_oauth_state",
   GOOGLE_OAUTH_RETURN_TO_COOKIE: "nexusdash_google_oauth_return_to",
   buildGoogleOAuthUrl: vi.fn(),
@@ -9,6 +10,7 @@ const googleCalendarMock = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/google-calendar", () => ({
+  GOOGLE_OAUTH_ACTOR_COOKIE: googleCalendarMock.GOOGLE_OAUTH_ACTOR_COOKIE,
   GOOGLE_OAUTH_STATE_COOKIE: googleCalendarMock.GOOGLE_OAUTH_STATE_COOKIE,
   GOOGLE_OAUTH_RETURN_TO_COOKIE: googleCalendarMock.GOOGLE_OAUTH_RETURN_TO_COOKIE,
   buildGoogleOAuthUrl: googleCalendarMock.buildGoogleOAuthUrl,
