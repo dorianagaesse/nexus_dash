@@ -138,3 +138,6 @@ Resolution: Added ownership/membership schema (`Project.ownerId`, `ProjectMember
 Date: 2026-02-23
 PR governance update: TASK-076 pull request completed CI/review/deploy gate checks.
 Resolution: Opened PR `#49`, handled all Copilot review comments with direct thread replies and resolved conversations, re-ran CI to green (`Quality Core`, `E2E Smoke`, `Container Image`, branch-name check), and triggered manual preview deploy via `deploy-vercel.yml` (`action=deploy-preview`) with URL `https://nexus-dash-n5pw6dlxt-dorian-agaesses-projects.vercel.app`.
+Date: 2026-02-23
+Execution update: TASK-080 account settings and session menu workflow delivered end to end.
+Resolution: Added authenticated top-right account menu (`Settings`, `Log out`), implemented `/account/settings` with per-user Google Calendar target save/reset semantics (`primary` default), added logout route that revokes DB session token and clears auth cookies, expanded service/API regression tests for settings and logout paths, opened PR `#50`, validated green remote checks (`check-name`, `Quality Core`, `E2E Smoke`, `Container Image`), received Copilot review with no actionable inline comments, and triggered manual preview deployment (`deploy-vercel.yml`, `action=deploy-preview`, `git_ref=feature/task-080-account-settings`) at `https://nexus-dash-7s1tprkyi-dorian-agaesses-projects.vercel.app`.

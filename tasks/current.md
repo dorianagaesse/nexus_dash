@@ -4,7 +4,7 @@
 TASK-080
 
 ## Status
-In Progress (Current) (2026-02-23)
+Done (PR Open) (2026-02-23)
 
 ## Objective
 Allow each authenticated user to configure their own Google Calendar target ID in account settings, while keeping `primary` as the default behavior.
@@ -36,17 +36,17 @@ Allow each authenticated user to configure their own Google Calendar target ID i
 - Multi-calendar browsing/picker from Google API.
 - Team/org-level defaults and sharing behavior.
 
-## Implementation Checklist
-1. Confirm settings route placement and navigation entry point.
-2. Add service-layer methods for current-user calendar settings read/update.
-3. Add route/action boundary for settings mutation with actor-user validation.
-4. Build settings UI (view current value, edit, save, reset to `primary`).
-5. Ensure calendar CRUD paths use configured value with safe fallback.
-6. Add tests:
-   - authorized read/update success
-   - cross-user denial
-   - reset/default behavior
-7. Run validation (`lint`, `test`, `test:coverage`, `build`), then open PR.
+## Delivered
+1. Added top-right authenticated account menu (Settings + Log out) and integrated it with the existing theme toggle.
+2. Added `/account/settings` page with per-user calendar target input, save action, and explicit reset-to-primary action.
+3. Added `account-settings-service` with fail-closed actor checks, minimal validation, and defaulting logic.
+4. Added `POST /api/auth/logout` to revoke the active DB session and clear all supported auth session cookies.
+5. Hardened calendar target normalization and fallback usage in calendar credential/access services.
+6. Added regression coverage for:
+   - account settings read/update + reset/default behavior
+   - cross-user denial guard at service boundary
+   - logout route behavior and cookie/session cleanup
+   - calendar id normalization helpers
 
 ## Acceptance Criteria
 - Authenticated user can view and update their own calendar target ID.
@@ -62,13 +62,16 @@ Allow each authenticated user to configure their own Google Calendar target ID i
 - Manual preview validation confirms end-to-end settings behavior.
 - Task tracking updated in `tasks/current.md`, `tasks/backlog.md`, and `journal.md`.
 
-## Open Inputs (To Confirm Before Implementation)
-- Preferred settings route path and nav placement (for example `/account/settings` vs `/settings`).
-- Validation policy for custom calendar IDs (minimal non-empty string vs stricter format checks).
-- UX copy for reset behavior (`Use primary calendar` wording).
-
 ## Next Step
-Create `feature/task-080-calendar-settings` from `main`, scaffold settings boundary and UI, then wire calendar service consumption and tests.
+Merge PR `#50`, then begin TASK-046 (auth core and route protection) with TASK-080 account/settings entry already in place.
+
+## Execution Outcome (2026-02-23)
+- Branch: `feature/task-080-account-settings`
+- PR: https://github.com/dorianagaesse/nexus_dash/pull/50
+- Copilot review: completed with no actionable inline comments.
+- Remote checks: `check-name`, `Quality Core`, `E2E Smoke`, and `Container Image` all passed.
+- Manual preview deploy: triggered via `deploy-vercel.yml` (`action=deploy-preview`, `git_ref=feature/task-080-account-settings`).
+- Preview URL: https://nexus-dash-7s1tprkyi-dorian-agaesses-projects.vercel.app
 
 ---
 
