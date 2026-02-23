@@ -4,7 +4,7 @@
 TASK-076
 
 ## Status
-In Progress (Current) (2026-02-22)
+Done (PR Ready) (2026-02-23)
 
 ## Objective
 Enforce principal-scoped ownership boundaries end-to-end so project/task/context-card/attachment/calendar access is user-aware by default, with no singleton credentials and no cross-user data visibility.
@@ -128,7 +128,14 @@ Enforce principal-scoped ownership boundaries end-to-end so project/task/context
 - Implementation reflects locked decisions above (stateless session pattern, strict principal scope, no legacy fallbacks).
 
 ## Next Step
-Open PR for `feature/task-076-multi-user-boundaries`, monitor CI and Copilot review threads, resolve any comments, and trigger manual preview deploy after checks pass.
+Merge PR `#49` after final owner review, then start TASK-046 (route protection/auth core) on top of the new principal-scoped boundaries.
+
+## Execution Outcome (2026-02-23)
+- PR opened: https://github.com/dorianagaesse/nexus_dash/pull/49
+- Copilot review comments addressed and threads resolved.
+- Remote checks passed (`Quality Core`, `E2E Smoke`, `Container Image`, branch-name check).
+- Manual preview deploy triggered via `deploy-vercel.yml` (`action=deploy-preview`).
+- Preview URL: https://nexus-dash-n5pw6dlxt-dorian-agaesses-projects.vercel.app
 
 ---
 

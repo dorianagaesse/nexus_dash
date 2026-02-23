@@ -4,11 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-076
-  Title: Multi-user data/storage/integration boundary transition - principal-scoped DB access, R2 ownership isolation, and user-scoped Google Calendar
-  Status: In Progress (Current) (2026-02-22)
-  Rationale: Convert project/task/resource/attachment access from ID-scoped behavior to principal-scoped behavior by introducing ownership/membership filters in service-layer queries, user-aware R2 object/metadata boundaries (`uploadedBy`, tenant-safe keys, signed URL authorization checks), and user-scoped Google Calendar OAuth/token ownership (replace global singleton credential flow) before full route protection and sharing rollout.
-  Dependencies: TASK-020, TASK-045, TASK-065, TASK-060
 - ID: TASK-080
   Title: Account settings - per-user Google Calendar target configuration
   Status: Pending
@@ -95,6 +90,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-076
+  Title: Multi-user data/storage/integration boundary transition - principal-scoped DB access, R2 ownership isolation, and user-scoped Google Calendar
+  Status: Done (2026-02-23)
+  Rationale: Delivered principal-aware ownership boundaries across DB services/routes, attachment storage key/metadata checks, and per-user Google Calendar credential flows; PR checks passed, Copilot review threads resolved, and manual preview deployment validated.
+  Dependencies: TASK-020, TASK-045, TASK-065, TASK-060
 - ID: TASK-079
   Title: Projects page edit/delete safety UX - gated save action, contextual options menu, and double-click edit activation
   Status: Done (2026-02-22)
