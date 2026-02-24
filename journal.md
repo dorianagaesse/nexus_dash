@@ -153,3 +153,6 @@ Resolution: Replaced signed-out `/` with `Sign in`/`Sign up` entry UX, added ser
 Date: 2026-02-24
 PR governance update: TASK-047 PR checks/Copilot/preview gates completed.
 Resolution: Opened PR `#54`, passed remote checks (`check-name`, `Quality Core`, `E2E Smoke`, `Container Image`), observed completed Copilot review workflow with no actionable inline review threads, and triggered manual preview deployment (`deploy-vercel.yml`, `action=deploy-preview`, `git_ref=feature/task-047-home-auth-entry-onboarding-ux`) at `https://nexus-dash-4lipxdhzq-dorian-agaesses-projects.vercel.app`.
+Date: 2026-02-24
+PR governance follow-up: TASK-047 Copilot threads resolved after review pass.
+Resolution: Addressed all 3 Copilot inline comments on PR `#54` (additional auth-edge tests + homepage error lookup consistency), pushed commit `145da6e`, revalidated green CI checks (`check-name`, `Quality Core`, `E2E Smoke`, `Container Image`), resolved all review conversations, and triggered a fresh manual preview deployment at `https://nexus-dash-d65zx5w61-dorian-agaesses-projects.vercel.app`.

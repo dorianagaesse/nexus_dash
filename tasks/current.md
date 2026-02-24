@@ -100,10 +100,10 @@ Await PR merge to `main`, then proceed to TASK-068/TASK-058 sequencing.
   - `E2E Smoke (Playwright)` passed
   - `Container Image (build + metadata artifact)` passed
 - Copilot review workflow:
-  - `Copilot code review` run completed with no actionable inline review threads on PR.
+  - `Copilot code review` raised 3 suggestions; all were implemented and all review threads were resolved.
 - Manual preview deployment:
   - Triggered via `deploy-vercel.yml` (`action=deploy-preview`, `git_ref=feature/task-047-home-auth-entry-onboarding-ux`).
-  - Preview URL: https://nexus-dash-4lipxdhzq-dorian-agaesses-projects.vercel.app
+  - Preview URL: https://nexus-dash-d65zx5w61-dorian-agaesses-projects.vercel.app
 
 ---
 
