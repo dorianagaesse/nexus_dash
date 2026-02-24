@@ -147,3 +147,9 @@ Resolution: Added centralized auth guards for server/page access (`lib/auth/serv
 Date: 2026-02-23
 PR governance update: TASK-046 review, checks, and preview deployment completed.
 Resolution: Addressed and resolved all Copilot review threads on PR `#52`, re-ran CI to green (`check-name`, `Quality Core`, `E2E Smoke`, `Container Image`), corrected preview Vercel env contract gaps (empty DB/OAuth/R2 fields) so build-time runtime validation passes, and successfully triggered manual preview deployment (`deploy-vercel.yml`, `action=deploy-preview`, `git_ref=feature/task-046-auth-core-route-protection`) at `https://nexus-dash-2ahst74ap-dorian-agaesses-projects.vercel.app`.
+Date: 2026-02-24
+Execution update: TASK-047 home-page auth entry and credentials onboarding implemented end to end.
+Resolution: Replaced signed-out `/` with `Sign in`/`Sign up` entry UX, added server-action credential onboarding (`app/home-auth-actions.ts`) with secure HttpOnly session cookie issuance, introduced `scrypt` password hashing/verification services, added `User.passwordHash` schema + migration, and validated via `npx prisma generate`, `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build` (with temporary process-level env overrides for local runtime-guard compatibility).
+Date: 2026-02-24
+PR governance update: TASK-047 PR checks/Copilot/preview gates completed.
+Resolution: Opened PR `#54`, passed remote checks (`check-name`, `Quality Core`, `E2E Smoke`, `Container Image`), observed completed Copilot review workflow with no actionable inline review threads, and triggered manual preview deployment (`deploy-vercel.yml`, `action=deploy-preview`, `git_ref=feature/task-047-home-auth-entry-onboarding-ux`) at `https://nexus-dash-4lipxdhzq-dorian-agaesses-projects.vercel.app`.

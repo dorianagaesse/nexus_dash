@@ -4,7 +4,7 @@
 TASK-047
 
 ## Status
-Planned (Current) (2026-02-23)
+In Review (PR Open) (Current) (2026-02-24)
 
 ## Objective
 Deliver the signed-out entry experience on `/` with clear `Sign in` / `Sign up` flows, then route authenticated users into the protected app (`/projects`) without manual session workarounds.
@@ -67,9 +67,45 @@ Deliver the signed-out entry experience on `/` with clear `Sign in` / `Sign up` 
 3. Post-auth navigation: `A` redirect to `/projects`.
 
 ## Next Step
-Start implementation on dedicated feature branch and ship TASK-047 end to end.
+Await PR merge to `main`, then proceed to TASK-068/TASK-058 sequencing.
+
+## Execution Outcome (Current PR)
+- Branch: `feature/task-047-home-auth-entry-onboarding-ux`
+- PR: https://github.com/dorianagaesse/nexus_dash/pull/54
+- Implemented signed-out auth entry on home (`/`):
+  - Added dedicated `Sign in` and `Sign up` forms with clear validation feedback.
+  - Redirected authenticated users from `/` to `/projects`.
+- Implemented credentials auth core:
+  - Added server actions `app/home-auth-actions.ts` for sign-in/sign-up.
+  - Added password hashing + verification service (`scrypt`) in `lib/services/password-service.ts`.
+  - Added email/password auth service in `lib/services/credential-auth-service.ts`.
+  - Added session issuance helper in `lib/services/session-service.ts` and secure HttpOnly session cookie set on successful auth.
+- Persistence updates:
+  - Added optional `User.passwordHash` in Prisma schema.
+  - Added migration `prisma/migrations/20260224223000_task047_email_password_auth/migration.sql`.
+- Added regression tests:
+  - `tests/lib/password-service.test.ts`
+  - `tests/lib/credential-auth-service.test.ts`
+  - `tests/app/home-auth-actions.test.ts`
+  - `tests/app/home-page.test.ts`
+- Validation run:
+  - `npx prisma generate` passed
+  - `npm run lint` passed
+  - `npm test` passed
+  - `npm run test:coverage` passed
+  - `npm run build` passed with temporary local process-level env overrides for DB split/runtime OAuth guard values
+- Remote checks:
+  - `check-name` passed
+  - `Quality Core (lint, test, coverage, build)` passed
+  - `E2E Smoke (Playwright)` passed
+  - `Container Image (build + metadata artifact)` passed
+- Copilot review workflow:
+  - `Copilot code review` run completed with no actionable inline review threads on PR.
+- Manual preview deployment:
+  - Triggered via `deploy-vercel.yml` (`action=deploy-preview`, `git_ref=feature/task-047-home-auth-entry-onboarding-ux`).
+  - Preview URL: https://nexus-dash-4lipxdhzq-dorian-agaesses-projects.vercel.app
 
 ---
 
-Last Updated: 2026-02-23
+Last Updated: 2026-02-24
 Assigned To: User + Agent

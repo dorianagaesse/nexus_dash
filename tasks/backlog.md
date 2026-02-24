@@ -6,7 +6,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 ### Execution Queue (Now / Next)
 - ID: TASK-047
   Title: Authentication implementation phase 3 - home-page auth entry and account onboarding UX
-  Status: Planned (Current) (2026-02-23)
+  Status: In Review (PR Open) (Current) (2026-02-24)
   Rationale: Add signed-out home-page authentication entry points and onboarding flows aligned with the approved auth architecture (email + social provider strategy).
   Dependencies: TASK-046
 - ID: TASK-068
