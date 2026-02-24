@@ -64,7 +64,8 @@ export default async function Home({
 
   const errorForm = readQueryValue(searchParams?.form);
   const errorCode = readQueryValue(searchParams?.error);
-  const errorMessage = errorCode ? ERROR_MESSAGES[errorCode] : null;
+  const errorMessage =
+    errorCode && ERROR_MESSAGES[errorCode] ? ERROR_MESSAGES[errorCode] : null;
 
   return (
     <div className="min-h-screen bg-background text-foreground">

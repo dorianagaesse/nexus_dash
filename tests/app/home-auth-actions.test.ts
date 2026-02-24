@@ -77,6 +77,36 @@ describe("home auth actions", () => {
     expect(cookieStoreMock.set).not.toHaveBeenCalled();
   });
 
+  test("signInAction redirects authenticated users directly to projects", async () => {
+    sessionUserMock.getSessionUserIdFromServer.mockResolvedValueOnce("user-1");
+
+    const formData = new FormData();
+    formData.set("email", "user@example.com");
+    formData.set("password", "password123");
+
+    await expect(signInAction(formData)).rejects.toThrow("NEXT_REDIRECT:/projects");
+    expect(credentialAuthMock.signInWithEmailPassword).not.toHaveBeenCalled();
+  });
+
+  test("signInAction redirects with auth-unavailable on service exception", async () => {
+    credentialAuthMock.signInWithEmailPassword.mockRejectedValueOnce(
+      new Error("db-down")
+    );
+
+    const formData = new FormData();
+    formData.set("email", "user@example.com");
+    formData.set("password", "password123");
+
+    await expect(signInAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/?form=signin&error=auth-unavailable"
+    );
+
+    expect(logServerErrorMock).toHaveBeenCalledWith(
+      "signInAction",
+      expect.any(Error)
+    );
+  });
+
   test("signInAction sets session cookie and redirects to projects on success", async () => {
     credentialAuthMock.signInWithEmailPassword.mockResolvedValueOnce({
       ok: true,
@@ -114,6 +144,64 @@ describe("home auth actions", () => {
 
     await expect(signUpAction(formData)).rejects.toThrow("NEXT_REDIRECT:/projects");
     expect(credentialAuthMock.signUpWithEmailPassword).not.toHaveBeenCalled();
+  });
+
+  test("signUpAction sets session cookie and redirects to projects on success", async () => {
+    credentialAuthMock.signUpWithEmailPassword.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        userId: "user-1",
+        sessionToken: "session-token",
+        expiresAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    });
+
+    const formData = new FormData();
+    formData.set("email", "user@example.com");
+    formData.set("password", "password123");
+
+    await expect(signUpAction(formData)).rejects.toThrow("NEXT_REDIRECT:/projects");
+
+    expect(cookieStoreMock.set).toHaveBeenCalledWith(
+      "nexusdash.session-token",
+      "session-token",
+      expect.objectContaining({
+        httpOnly: true,
+        sameSite: "lax",
+        secure: false,
+        path: "/",
+      })
+    );
+  });
+
+  test("signUpAction redirects with email-in-use error code", async () => {
+    credentialAuthMock.signUpWithEmailPassword.mockResolvedValueOnce({
+      ok: false,
+      error: "email-in-use",
+    });
+
+    const formData = new FormData();
+    formData.set("email", "user@example.com");
+    formData.set("password", "password123");
+
+    await expect(signUpAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/?form=signup&error=email-in-use"
+    );
+  });
+
+  test("signUpAction redirects with invalid-email error code", async () => {
+    credentialAuthMock.signUpWithEmailPassword.mockResolvedValueOnce({
+      ok: false,
+      error: "invalid-email",
+    });
+
+    const formData = new FormData();
+    formData.set("email", "user@example.com");
+    formData.set("password", "password123");
+
+    await expect(signUpAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/?form=signup&error=invalid-email"
+    );
   });
 
   test("signUpAction redirects with auth-unavailable on service exception", async () => {

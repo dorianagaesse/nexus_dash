@@ -70,6 +70,19 @@ describe("credential-auth-service", () => {
     expect(passwordServiceMock.hashPassword).not.toHaveBeenCalled();
   });
 
+  test("signUp rejects passwords longer than 128 characters", async () => {
+    const result = await signUpWithEmailPassword({
+      emailRaw: "user@example.com",
+      passwordRaw: "x".repeat(129),
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "password-too-long",
+    });
+    expect(passwordServiceMock.hashPassword).not.toHaveBeenCalled();
+  });
+
   test("signUp returns email-in-use when unique constraint fails", async () => {
     passwordServiceMock.hashPassword.mockResolvedValueOnce("hash-1");
     prismaMock.user.create.mockRejectedValueOnce({ code: "P2002" });
@@ -127,6 +140,19 @@ describe("credential-auth-service", () => {
       error: "invalid-credentials",
     });
     expect(passwordServiceMock.verifyPassword).not.toHaveBeenCalled();
+  });
+
+  test("signIn returns invalid credentials when password is too long", async () => {
+    const result = await signInWithEmailPassword({
+      emailRaw: "user@example.com",
+      passwordRaw: "x".repeat(129),
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "invalid-credentials",
+    });
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
   });
 
   test("signIn returns invalid credentials when password does not match", async () => {
