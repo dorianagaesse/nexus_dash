@@ -1,3 +1,5 @@
+import crypto from "node:crypto";
+
 import { prisma } from "@/lib/prisma";
 
 export const SESSION_COOKIE_NAMES = [
@@ -7,6 +9,9 @@ export const SESSION_COOKIE_NAMES = [
   "next-auth.session-token",
   "nexusdash.session-token",
 ] as const;
+
+export const PRIMARY_SESSION_COOKIE_NAME = "nexusdash.session-token";
+export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 
 type CookieReader = (name: string) => string | null;
 
@@ -79,6 +84,32 @@ export async function resolveSessionUserIdByToken(
   }
 
   return session.userId;
+}
+
+export async function createSessionForUser(userId: string): Promise<{
+  sessionToken: string;
+  expiresAt: Date;
+}> {
+  const normalizedUserId = userId.trim();
+  if (!normalizedUserId) {
+    throw new Error("invalid-user-id");
+  }
+
+  const sessionToken = crypto.randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
+
+  await prisma.session.create({
+    data: {
+      sessionToken,
+      userId: normalizedUserId,
+      expires: expiresAt,
+    },
+  });
+
+  return {
+    sessionToken,
+    expiresAt,
+  };
 }
 
 export async function deleteSessionByToken(sessionToken: string): Promise<void> {
