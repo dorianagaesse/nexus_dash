@@ -15,6 +15,7 @@ import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
 import { MIN_PASSWORD_LENGTH } from "@/lib/services/credential-auth-service";
 
 import { signInAction, signUpAction } from "./home-auth-actions";
+import { AuthSubmitButton } from "./auth-submit-button";
 
 const highlights = [
   {
@@ -93,8 +94,8 @@ export default async function Home({
         <section className="space-y-8">
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant="secondary">NexusDash workspace</Badge>
-            <Badge variant="outline">Secure authentication</Badge>
-            <Badge variant="outline">Email + password</Badge>
+            <Badge variant="outline">Scrypt password hashing</Badge>
+            <Badge variant="outline">DB-backed sessions</Badge>
           </div>
           <div className="space-y-4 md:space-y-5">
             <h1 className="max-w-3xl text-4xl font-semibold tracking-tight md:text-5xl">
@@ -123,12 +124,6 @@ export default async function Home({
 
         <Card className="border-border/70 bg-card/95 shadow-2xl shadow-black/20">
           <CardHeader className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                Account access
-              </span>
-              <span className="text-xs text-muted-foreground">Secure session</span>
-            </div>
             <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted p-1">
               <Link
                 href="/?form=signin"
@@ -208,9 +203,11 @@ export default async function Home({
                     className={inputClassName}
                   />
                 </div>
-                <Button type="submit" className="w-full">
-                  Continue to dashboard
-                </Button>
+                <AuthSubmitButton
+                  className="w-full"
+                  defaultLabel="Continue to dashboard"
+                  pendingLabel="Signing you in..."
+                />
               </form>
             ) : (
               <form action={signUpAction} className="grid gap-4">
