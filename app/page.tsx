@@ -18,16 +18,19 @@ import { signInAction, signUpAction } from "./home-auth-actions";
 
 const highlights = [
   {
-    title: "Project Hub",
-    description: "Centralize projects with focused dashboards and quick access.",
+    title: "Shared Project Hub",
+    description:
+      "Keep planning, context, and delivery updates in one workspace instead of scattered tools.",
   },
   {
-    title: "Kanban Flow",
-    description: "Track work across Backlog, In Progress, Blocked, and Done.",
+    title: "Execution Flow",
+    description:
+      "Move tasks through Backlog, In Progress, Blocked, and Done with zero context switching.",
   },
   {
-    title: "Calendar Sync",
-    description: "Surface upcoming meetings from your Google Calendar.",
+    title: "Calendar Context",
+    description:
+      "Bring key events into project execution so meetings and delivery stay aligned.",
   },
 ];
 
@@ -80,27 +83,36 @@ export default async function Home({
     errorCode && ERROR_MESSAGES[errorCode] ? ERROR_MESSAGES[errorCode] : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 text-foreground">
-      <main className="container grid min-h-screen items-center gap-8 py-10 lg:grid-cols-[1.2fr_minmax(360px,460px)] lg:gap-12 lg:py-16">
+    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,#1f293710,transparent_45%),radial-gradient(circle_at_85%_15%,#0ea5e910,transparent_28%),linear-gradient(to_bottom,hsl(var(--background)),hsl(var(--background)),hsl(var(--muted)/0.3))] text-foreground">
+      <div className="pointer-events-none absolute inset-0 opacity-40">
+        <div className="absolute left-[-20%] top-[-12rem] h-[28rem] w-[28rem] rounded-full bg-slate-500/10 blur-3xl" />
+        <div className="absolute right-[-10%] top-[8rem] h-[20rem] w-[20rem] rounded-full bg-sky-400/10 blur-3xl" />
+      </div>
+
+      <main className="container relative z-10 grid min-h-screen items-center gap-8 py-10 lg:grid-cols-[1.2fr_minmax(360px,460px)] lg:gap-14 lg:py-16">
         <section className="space-y-8">
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant="secondary">NexusDash workspace</Badge>
-            <Badge variant="secondary">Authentication required</Badge>
+            <Badge variant="outline">Secure authentication</Badge>
             <Badge variant="outline">Email + password</Badge>
           </div>
           <div className="space-y-4 md:space-y-5">
             <h1 className="max-w-3xl text-4xl font-semibold tracking-tight md:text-5xl">
-              Secure access to your project hub.
+              Run projects from one focused command center.
             </h1>
             <p className="max-w-2xl text-base text-muted-foreground md:text-lg">
-              Keep project planning, Kanban execution, resources, and calendar events
-              in one protected workflow.
+              Capture context, move work across Kanban, and stay aligned with calendar
+              events, all behind a protected multi-user workspace.
             </p>
           </div>
+
           <div className="grid gap-4 md:grid-cols-3">
-            {highlights.map((item) => (
-              <Card key={item.title} className="bg-card/70 backdrop-blur">
-                <CardHeader className="space-y-2">
+            {highlights.map((item, index) => (
+              <Card key={item.title} className="border-border/70 bg-card/70 backdrop-blur">
+                <CardHeader className="space-y-3">
+                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    0{index + 1}
+                  </span>
                   <CardTitle className="text-lg">{item.title}</CardTitle>
                   <CardDescription>{item.description}</CardDescription>
                 </CardHeader>
@@ -109,8 +121,14 @@ export default async function Home({
           </div>
         </section>
 
-        <Card className="border-border/70 bg-card/95 shadow-lg">
+        <Card className="border-border/70 bg-card/95 shadow-2xl shadow-black/20">
           <CardHeader className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                Account access
+              </span>
+              <span className="text-xs text-muted-foreground">Secure session</span>
+            </div>
             <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted p-1">
               <Link
                 href="/?form=signin"
@@ -143,8 +161,8 @@ export default async function Home({
               </CardTitle>
               <CardDescription>
                 {isSignIn
-                  ? "Use your email and password to continue to your projects."
-                  : "Get started with a new NexusDash account in less than a minute."}
+                  ? "Use your email and password to continue to your dashboard."
+                  : "Create your account and start building in minutes."}
               </CardDescription>
             </div>
           </CardHeader>
@@ -169,6 +187,7 @@ export default async function Home({
                     name="email"
                     type="email"
                     autoComplete="email"
+                    placeholder="you@company.com"
                     required
                     maxLength={320}
                     className={inputClassName}
@@ -183,13 +202,14 @@ export default async function Home({
                     name="password"
                     type="password"
                     autoComplete="current-password"
+                    placeholder="Enter your password"
                     required
                     maxLength={128}
                     className={inputClassName}
                   />
                 </div>
                 <Button type="submit" className="w-full">
-                  Sign in
+                  Continue to dashboard
                 </Button>
               </form>
             ) : (
@@ -203,6 +223,7 @@ export default async function Home({
                     name="email"
                     type="email"
                     autoComplete="email"
+                    placeholder="you@company.com"
                     required
                     maxLength={320}
                     className={inputClassName}
@@ -217,6 +238,7 @@ export default async function Home({
                     name="password"
                     type="password"
                     autoComplete="new-password"
+                    placeholder="Create a strong password"
                     required
                     minLength={MIN_PASSWORD_LENGTH}
                     maxLength={128}
@@ -227,7 +249,7 @@ export default async function Home({
                   </p>
                 </div>
                 <Button type="submit" variant="secondary" className="w-full">
-                  Create account
+                  Create workspace account
                 </Button>
               </form>
             )}
