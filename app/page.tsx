@@ -94,8 +94,8 @@ export default async function Home({
         <section className="space-y-8">
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant="secondary">NexusDash workspace</Badge>
-            <Badge variant="outline">Scrypt password hashing</Badge>
-            <Badge variant="outline">DB-backed sessions</Badge>
+            <Badge variant="outline">Next.js 14 + Server Actions</Badge>
+            <Badge variant="outline">Prisma + Supabase PostgreSQL</Badge>
           </div>
           <div className="space-y-4 md:space-y-5">
             <h1 className="max-w-3xl text-4xl font-semibold tracking-tight md:text-5xl">
