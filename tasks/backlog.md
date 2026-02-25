@@ -4,11 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-047
-  Title: Authentication implementation phase 3 - home-page auth entry and account onboarding UX
-  Status: In Review (PR Open) (Current) (2026-02-24)
-  Rationale: Add signed-out home-page authentication entry points and onboarding flows aligned with the approved auth architecture (email + social provider strategy).
-  Dependencies: TASK-046
 - ID: TASK-081
   Title: Account identity phase 1 - username onboarding, discriminator, and signup password confirmation
   Status: Pending
@@ -90,7 +85,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-042, TASK-043, TASK-048, TASK-058, TASK-065, TASK-066
 - ID: TASK-021
   Title: Implement production-grade authentication and account onboarding
-  Status: Pending (Epic - split into TASK-045/TASK-046/TASK-047/TASK-048/TASK-058/TASK-059)
+  Status: Pending (Epic - split into TASK-045/TASK-046/TASK-047/TASK-048/TASK-058/TASK-059/TASK-081/TASK-082/TASK-083/TASK-084)
   Rationale: Add user accounts, persistent sessions, and modern authentication UX aligned with architecture decision.
   Dependencies: TASK-048, TASK-058, TASK-059
 - ID: TASK-023
@@ -100,6 +95,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-047
+  Title: Authentication implementation phase 3 - home-page auth entry and account onboarding UX
+  Status: Done (2026-02-25)
+  Rationale: Delivered signed-out homepage auth entry (`Sign in` / `Sign up`) with credentials onboarding, secure DB-backed session creation, and authenticated redirect behavior to `/projects`; validated via CI/Copilot/preview and merged through PR #54.
+  Dependencies: TASK-046
 - ID: TASK-046
   Title: Authentication implementation phase 2 - auth core and route protection
   Status: Done (2026-02-23)
