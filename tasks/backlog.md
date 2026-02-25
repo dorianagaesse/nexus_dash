@@ -9,6 +9,26 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: In Review (PR Open) (Current) (2026-02-24)
   Rationale: Add signed-out home-page authentication entry points and onboarding flows aligned with the approved auth architecture (email + social provider strategy).
   Dependencies: TASK-046
+- ID: TASK-081
+  Title: Account identity phase 1 - username onboarding, discriminator, and signup password confirmation
+  Status: Pending
+  Rationale: Capture a user-chosen username during signup, append a generated discriminator suffix (for example `name#1234`) without username-availability prechecks, and require password confirmation UX/validation while keeping `user.id` as the only authorization identifier.
+  Dependencies: TASK-047
+- ID: TASK-082
+  Title: Account profile phase 2 - account page and user-menu identity UX
+  Status: Pending
+  Rationale: Add an authenticated account profile page for updating mutable identity fields (username/password) and extend the user menu with `Welcome <username>!`, `Account`, `Settings`, and `Log out` entries aligned with current navigation patterns.
+  Dependencies: TASK-080, TASK-081
+- ID: TASK-083
+  Title: Email verification lifecycle - signup verification tokens, confirmation route, and guarded session state
+  Status: Pending
+  Rationale: Enforce verified email ownership using expiring single-use verification tokens and Auth.js-compatible lifecycle handling to align onboarding with industry-standard credential-account security baselines.
+  Dependencies: TASK-047, TASK-081
+- ID: TASK-084
+  Title: Password recovery lifecycle - forgot-password request, reset token flow, and secure password rotation
+  Status: Pending
+  Rationale: Provide standard account-recovery capabilities through email-delivered, single-use, short-lived reset links with replay protection and post-reset session invalidation.
+  Dependencies: TASK-046, TASK-083
 - ID: TASK-068
   Title: Authentication provider rollout - phase social providers (Google/GitHub) after baseline email auth
   Status: Pending
