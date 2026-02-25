@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
 import { MIN_PASSWORD_LENGTH } from "@/lib/services/credential-auth-service";
 
@@ -30,6 +32,7 @@ const highlights = [
 ];
 
 type SearchParams = Record<string, string | string[] | undefined>;
+type HomeAuthForm = "signin" | "signup";
 
 const ERROR_MESSAGES: Record<string, string> = {
   "invalid-email": "Enter a valid email address.",
@@ -52,6 +55,13 @@ function readQueryValue(value: string | string[] | undefined): string | null {
   return value;
 }
 
+function resolveActiveForm(value: string | null): HomeAuthForm {
+  return value === "signup" ? "signup" : "signin";
+}
+
+const inputClassName =
+  "h-11 rounded-md border border-input bg-background px-3 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+
 export default async function Home({
   searchParams,
 }: {
@@ -62,43 +72,94 @@ export default async function Home({
     redirect("/projects");
   }
 
-  const errorForm = readQueryValue(searchParams?.form);
+  const formValue = readQueryValue(searchParams?.form);
+  const activeForm = resolveActiveForm(formValue);
+  const isSignIn = activeForm === "signin";
   const errorCode = readQueryValue(searchParams?.error);
   const errorMessage =
     errorCode && ERROR_MESSAGES[errorCode] ? ERROR_MESSAGES[errorCode] : null;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <main className="container flex min-h-screen flex-col justify-center gap-10 py-16">
-        <div className="flex flex-col gap-6">
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 text-foreground">
+      <main className="container grid min-h-screen items-center gap-8 py-10 lg:grid-cols-[1.2fr_minmax(360px,460px)] lg:gap-12 lg:py-16">
+        <section className="space-y-8">
           <div className="flex flex-wrap items-center gap-3">
+            <Badge variant="secondary">NexusDash workspace</Badge>
             <Badge variant="secondary">Authentication required</Badge>
             <Badge variant="outline">Email + password</Badge>
           </div>
-          <div className="space-y-4">
-            <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
-              Sign in to access your NexusDash projects.
+          <div className="space-y-4 md:space-y-5">
+            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight md:text-5xl">
+              Secure access to your project hub.
             </h1>
             <p className="max-w-2xl text-base text-muted-foreground md:text-lg">
-              Manage projects, Kanban tasks, resources, and calendar events from one
-              protected workspace.
+              Keep project planning, Kanban execution, resources, and calendar events
+              in one protected workflow.
             </p>
           </div>
-        </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {highlights.map((item) => (
+              <Card key={item.title} className="bg-card/70 backdrop-blur">
+                <CardHeader className="space-y-2">
+                  <CardTitle className="text-lg">{item.title}</CardTitle>
+                  <CardDescription>{item.description}</CardDescription>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
+        </section>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl">Sign in</CardTitle>
-              <CardDescription>Use your existing account credentials.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {errorForm === "signin" && errorMessage ? (
-                <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                  {errorMessage}
-                </div>
-              ) : null}
-              <form action={signInAction} className="grid gap-3">
+        <Card className="border-border/70 bg-card/95 shadow-lg">
+          <CardHeader className="space-y-4">
+            <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted p-1">
+              <Link
+                href="/?form=signin"
+                aria-current={isSignIn ? "page" : undefined}
+                className={cn(
+                  "rounded-md px-3 py-2 text-center text-sm font-medium transition",
+                  isSignIn
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/?form=signup"
+                aria-current={!isSignIn ? "page" : undefined}
+                className={cn(
+                  "rounded-md px-3 py-2 text-center text-sm font-medium transition",
+                  !isSignIn
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Sign up
+              </Link>
+            </div>
+            <div className="space-y-1">
+              <CardTitle className="text-2xl">
+                {isSignIn ? "Welcome back" : "Create your account"}
+              </CardTitle>
+              <CardDescription>
+                {isSignIn
+                  ? "Use your email and password to continue to your projects."
+                  : "Get started with a new NexusDash account in less than a minute."}
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            {errorMessage ? (
+              <div
+                role="alert"
+                className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+              >
+                {errorMessage}
+              </div>
+            ) : null}
+
+            {isSignIn ? (
+              <form action={signInAction} className="grid gap-4">
                 <div className="grid gap-2">
                   <label htmlFor="signin-email" className="text-sm font-medium">
                     Email
@@ -110,7 +171,7 @@ export default async function Home({
                     autoComplete="email"
                     required
                     maxLength={320}
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    className={inputClassName}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -124,26 +185,15 @@ export default async function Home({
                     autoComplete="current-password"
                     required
                     maxLength={128}
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    className={inputClassName}
                   />
                 </div>
-                <Button type="submit">Sign in</Button>
+                <Button type="submit" className="w-full">
+                  Sign in
+                </Button>
               </form>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl">Sign up</CardTitle>
-              <CardDescription>Create a new account to get started.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {errorForm === "signup" && errorMessage ? (
-                <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                  {errorMessage}
-                </div>
-              ) : null}
-              <form action={signUpAction} className="grid gap-3">
+            ) : (
+              <form action={signUpAction} className="grid gap-4">
                 <div className="grid gap-2">
                   <label htmlFor="signup-email" className="text-sm font-medium">
                     Email
@@ -155,7 +205,7 @@ export default async function Home({
                     autoComplete="email"
                     required
                     maxLength={320}
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    className={inputClassName}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -170,30 +220,29 @@ export default async function Home({
                     required
                     minLength={MIN_PASSWORD_LENGTH}
                     maxLength={128}
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    className={inputClassName}
                   />
                   <p className="text-xs text-muted-foreground">
                     Use at least {MIN_PASSWORD_LENGTH} characters.
                   </p>
                 </div>
-                <Button type="submit" variant="secondary">
-                  Sign up
+                <Button type="submit" variant="secondary" className="w-full">
+                  Create account
                 </Button>
               </form>
-            </CardContent>
-          </Card>
-        </div>
+            )}
 
-        <div className="grid gap-4 md:grid-cols-3">
-          {highlights.map((item) => (
-            <Card key={item.title}>
-              <CardHeader className="space-y-2">
-                <CardTitle className="text-lg">{item.title}</CardTitle>
-                <CardDescription>{item.description}</CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
+            <p className="text-sm text-muted-foreground">
+              {isSignIn ? "New to NexusDash?" : "Already have an account?"}{" "}
+              <Link
+                href={isSignIn ? "/?form=signup" : "/?form=signin"}
+                className="font-medium text-foreground underline-offset-4 hover:underline"
+              >
+                {isSignIn ? "Create an account" : "Sign in"}
+              </Link>
+            </p>
+          </CardContent>
+        </Card>
       </main>
     </div>
   );
