@@ -1,10 +1,8 @@
-import Link from "next/link";
 import { Suspense } from "react";
 
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { CreateProjectDialog } from "@/components/create-project-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 import { createProjectAction } from "./actions";
 import { ProjectsGrid, ProjectsGridSkeleton } from "./projects-grid";
@@ -81,12 +79,6 @@ export default function ProjectsPage({
         <Suspense fallback={<ProjectsGridSkeleton />}>
           <ProjectsGrid />
         </Suspense>
-
-        <div>
-          <Button asChild variant="ghost">
-            <Link href="/">Back to home</Link>
-          </Button>
-        </div>
       </div>
     </main>
   );

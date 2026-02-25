@@ -64,7 +64,7 @@ function resolveActiveForm(value: string | null): HomeAuthForm {
 }
 
 const inputClassName =
-  "h-11 rounded-md border border-input bg-background px-3 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "h-11 rounded-md border border-slate-700 bg-slate-900 px-3 text-sm text-slate-100 placeholder:text-slate-400 outline-none transition focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 dark:border-slate-300 dark:bg-white dark:text-slate-900 dark:placeholder:text-slate-500 dark:focus-visible:ring-sky-600 dark:focus-visible:ring-offset-white";
 
 export default async function Home({
   searchParams,
@@ -122,17 +122,17 @@ export default async function Home({
           </div>
         </section>
 
-        <Card className="border-border/70 bg-card/95 shadow-2xl shadow-black/20">
+        <Card className="border border-slate-800/80 bg-slate-950 text-slate-100 shadow-2xl shadow-black/30 dark:border-slate-200 dark:bg-white dark:text-slate-900 dark:shadow-black/20">
           <CardHeader className="space-y-4">
-            <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted p-1">
+            <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-800 bg-slate-900 p-1 dark:border-slate-200 dark:bg-slate-100">
               <Link
                 href="/?form=signin"
                 aria-current={isSignIn ? "page" : undefined}
                 className={cn(
                   "rounded-md px-3 py-2 text-center text-sm font-medium transition",
                   isSignIn
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-slate-100 text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100"
+                    : "text-slate-400 hover:text-slate-200 dark:text-slate-500 dark:hover:text-slate-800"
                 )}
               >
                 Sign in
@@ -143,8 +143,8 @@ export default async function Home({
                 className={cn(
                   "rounded-md px-3 py-2 text-center text-sm font-medium transition",
                   !isSignIn
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-slate-100 text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100"
+                    : "text-slate-400 hover:text-slate-200 dark:text-slate-500 dark:hover:text-slate-800"
                 )}
               >
                 Sign up
@@ -154,7 +154,7 @@ export default async function Home({
               <CardTitle className="text-2xl">
                 {isSignIn ? "Welcome back" : "Create your account"}
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-slate-300 dark:text-slate-600">
                 {isSignIn
                   ? "Use your email and password to continue to your dashboard."
                   : "Create your account and start building in minutes."}
@@ -165,7 +165,7 @@ export default async function Home({
             {errorMessage ? (
               <div
                 role="alert"
-                className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+                className="rounded-md border border-rose-400/40 bg-rose-500/15 px-4 py-3 text-sm text-rose-200 dark:text-rose-700"
               >
                 {errorMessage}
               </div>
@@ -241,7 +241,7 @@ export default async function Home({
                     maxLength={128}
                     className={inputClassName}
                   />
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-slate-400 dark:text-slate-600">
                     Use at least {MIN_PASSWORD_LENGTH} characters.
                   </p>
                 </div>
@@ -251,11 +251,11 @@ export default async function Home({
               </form>
             )}
 
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-slate-400 dark:text-slate-600">
               {isSignIn ? "New to NexusDash?" : "Already have an account?"}{" "}
               <Link
                 href={isSignIn ? "/?form=signup" : "/?form=signin"}
-                className="font-medium text-foreground underline-offset-4 hover:underline"
+                className="font-medium text-slate-100 underline-offset-4 hover:underline dark:text-slate-900"
               >
                 {isSignIn ? "Create an account" : "Sign in"}
               </Link>
