@@ -22,7 +22,8 @@ Strengthen account identity onboarding by adding a first-class `username` input 
 ## Locked Decisions
 - Authorization identity remains `user.id` only (username is mutable profile data).
 - Username availability checks are not required in this phase.
-- Discriminator format: Option `B` (`#` + 6 base36 chars, example `name#8F2K1Q`).
+- Username policy: Option `A` (3-20 chars, `a-z`, `0-9`, `_`, `.`).
+- Discriminator format: Option `B` (`#` + 6 lowercase base36 chars, example `name#8f2k1q`).
 - Display strategy: Option `B` (show base username in normal UI; show full `username#suffix` in account/menu details).
 
 ## Scope
@@ -77,9 +78,7 @@ Strengthen account identity onboarding by adding a first-class `username` input 
 - Tracking docs updated: `tasks/current.md`, `tasks/backlog.md`, `journal.md`.
 
 ## Open Input (Pending)
-1. Username policy defaults:
-   - Option A: 3-20 chars, `a-z`, `0-9`, `_`, `.`
-   - Option B: 3-30 chars, `a-z`, `0-9`, `_`, `.`, `-`
+- None.
 
 ---
 
