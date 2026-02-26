@@ -16,6 +16,14 @@ const passwordServiceMock = vi.hoisted(() => ({
   verifyPassword: vi.fn(),
 }));
 
+const cryptoMock = vi.hoisted(() => ({
+  randomInt: vi.fn(),
+}));
+
+vi.mock("node:crypto", () => ({
+  randomInt: cryptoMock.randomInt,
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: prismaMock,
 }));
@@ -31,9 +39,14 @@ vi.mock("@/lib/services/password-service", () => ({
 
 import {
   MIN_PASSWORD_LENGTH,
+  MAX_USERNAME_LENGTH,
+  MIN_USERNAME_LENGTH,
   signInWithEmailPassword,
   signUpWithEmailPassword,
+  USERNAME_DISCRIMINATOR_LENGTH,
 } from "@/lib/services/credential-auth-service";
+
+const VALID_SIGN_UP_PASSWORD = "Password123!";
 
 describe("credential-auth-service", () => {
   beforeEach(() => {
@@ -42,12 +55,15 @@ describe("credential-auth-service", () => {
       sessionToken: "session-token",
       expiresAt: new Date("2026-03-01T00:00:00.000Z"),
     });
+    cryptoMock.randomInt.mockReturnValue(1);
   });
 
   test("signUp rejects invalid email", async () => {
     const result = await signUpWithEmailPassword({
+      usernameRaw: "test.user",
       emailRaw: "invalid-email",
-      passwordRaw: "password123",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
     });
 
     expect(result).toEqual({
@@ -57,10 +73,27 @@ describe("credential-auth-service", () => {
     expect(passwordServiceMock.hashPassword).not.toHaveBeenCalled();
   });
 
+  test("signUp rejects invalid username", async () => {
+    const result = await signUpWithEmailPassword({
+      usernameRaw: "INVALID USER",
+      emailRaw: "user@example.com",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "invalid-username",
+    });
+    expect(passwordServiceMock.hashPassword).not.toHaveBeenCalled();
+  });
+
   test("signUp rejects short passwords", async () => {
     const result = await signUpWithEmailPassword({
+      usernameRaw: "test.user",
       emailRaw: "user@example.com",
       passwordRaw: "x".repeat(MIN_PASSWORD_LENGTH - 1),
+      passwordConfirmationRaw: "x".repeat(MIN_PASSWORD_LENGTH - 1),
     });
 
     expect(result).toEqual({
@@ -72,8 +105,10 @@ describe("credential-auth-service", () => {
 
   test("signUp rejects passwords longer than 128 characters", async () => {
     const result = await signUpWithEmailPassword({
+      usernameRaw: "test.user",
       emailRaw: "user@example.com",
       passwordRaw: "x".repeat(129),
+      passwordConfirmationRaw: "x".repeat(129),
     });
 
     expect(result).toEqual({
@@ -83,13 +118,45 @@ describe("credential-auth-service", () => {
     expect(passwordServiceMock.hashPassword).not.toHaveBeenCalled();
   });
 
+  test("signUp rejects when password confirmation does not match", async () => {
+    const result = await signUpWithEmailPassword({
+      usernameRaw: "test.user",
+      emailRaw: "user@example.com",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: "Password321!",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "password-confirmation-mismatch",
+    });
+    expect(passwordServiceMock.hashPassword).not.toHaveBeenCalled();
+  });
+
+  test("signUp rejects passwords that do not satisfy complexity requirements", async () => {
+    const result = await signUpWithEmailPassword({
+      usernameRaw: "test.user",
+      emailRaw: "user@example.com",
+      passwordRaw: "password123",
+      passwordConfirmationRaw: "password123",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "password-requirements-not-met",
+    });
+    expect(passwordServiceMock.hashPassword).not.toHaveBeenCalled();
+  });
+
   test("signUp returns email-in-use when unique constraint fails", async () => {
     passwordServiceMock.hashPassword.mockResolvedValueOnce("hash-1");
     prismaMock.user.create.mockRejectedValueOnce({ code: "P2002" });
 
     const result = await signUpWithEmailPassword({
+      usernameRaw: "test.user",
       emailRaw: "user@example.com",
-      passwordRaw: "password123",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
     });
 
     expect(result).toEqual({
@@ -98,24 +165,79 @@ describe("credential-auth-service", () => {
     });
   });
 
-  test("signUp creates user, session, and normalizes email", async () => {
+  test("signUp retries when username discriminator collides", async () => {
+    passwordServiceMock.hashPassword.mockResolvedValue("hash-1");
+    cryptoMock.randomInt.mockReturnValueOnce(1).mockReturnValueOnce(2);
+    prismaMock.user.create
+      .mockRejectedValueOnce({
+        code: "P2002",
+        meta: {
+          target: ["username", "usernameDiscriminator"],
+        },
+      })
+      .mockResolvedValueOnce({ id: "user-1" });
+
+    const result = await signUpWithEmailPassword({
+      usernameRaw: "test.user",
+      emailRaw: "user@example.com",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
+    });
+
+    expect(prismaMock.user.create).toHaveBeenCalledTimes(2);
+    expect(prismaMock.user.create).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          usernameDiscriminator: "000001",
+        }),
+      })
+    );
+    expect(prismaMock.user.create).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          usernameDiscriminator: "000002",
+        }),
+      })
+    );
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        userId: "user-1",
+        sessionToken: "session-token",
+        expiresAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    });
+  });
+
+  test("signUp creates user, session, and normalizes email and username", async () => {
     passwordServiceMock.hashPassword.mockResolvedValueOnce("hash-1");
     prismaMock.user.create.mockResolvedValueOnce({ id: "user-1" });
 
     const result = await signUpWithEmailPassword({
+      usernameRaw: "  TEST.USER  ",
       emailRaw: "  USER@Example.com ",
-      passwordRaw: "password123",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
     });
 
     expect(prismaMock.user.create).toHaveBeenCalledWith({
       data: {
         email: "user@example.com",
+        name: "test.user",
+        username: "test.user",
+        usernameDiscriminator: "000001",
         passwordHash: "hash-1",
       },
       select: {
         id: true,
       },
     });
+    expect(cryptoMock.randomInt).toHaveBeenCalledWith(
+      0,
+      36 ** USERNAME_DISCRIMINATOR_LENGTH
+    );
     expect(sessionServiceMock.createSessionForUser).toHaveBeenCalledWith("user-1");
     expect(result).toEqual({
       ok: true,
@@ -125,6 +247,28 @@ describe("credential-auth-service", () => {
         expiresAt: new Date("2026-03-01T00:00:00.000Z"),
       },
     });
+  });
+
+  test("signUp allows boundary username lengths", async () => {
+    passwordServiceMock.hashPassword.mockResolvedValue("hash-1");
+    prismaMock.user.create.mockResolvedValue({ id: "user-1" });
+
+    const shortResult = await signUpWithEmailPassword({
+      usernameRaw: "a".repeat(MIN_USERNAME_LENGTH),
+      emailRaw: "short@example.com",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
+    });
+
+    const longResult = await signUpWithEmailPassword({
+      usernameRaw: "a".repeat(MAX_USERNAME_LENGTH),
+      emailRaw: "long@example.com",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
+    });
+
+    expect(shortResult.ok).toBe(true);
+    expect(longResult.ok).toBe(true);
   });
 
   test("signIn returns invalid credentials when user is missing", async () => {

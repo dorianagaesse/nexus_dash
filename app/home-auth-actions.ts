@@ -80,13 +80,17 @@ export async function signUpAction(formData: FormData): Promise<void> {
   }
 
   const email = readText(formData, "email");
+  const username = readText(formData, "username");
   const password = readText(formData, "password");
+  const confirmPassword = readText(formData, "confirmPassword");
 
   let result: Awaited<ReturnType<typeof signUpWithEmailPassword>>;
   try {
     result = await signUpWithEmailPassword({
       emailRaw: email,
+      usernameRaw: username,
       passwordRaw: password,
+      passwordConfirmationRaw: confirmPassword,
     });
   } catch (error) {
     logServerError("signUpAction", error);

@@ -4,11 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-081
-  Title: Account identity phase 1 - username onboarding, discriminator, and signup password confirmation
-  Status: Pending
-  Rationale: Capture a user-chosen username during signup, append a generated discriminator suffix (for example `name#1234`) without username-availability prechecks, and require password confirmation UX/validation while keeping `user.id` as the only authorization identifier.
-  Dependencies: TASK-047
 - ID: TASK-082
   Title: Account profile phase 2 - account page and user-menu identity UX
   Status: Pending
@@ -95,6 +90,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-081
+  Title: Account identity phase 1 - username onboarding, discriminator, and signup password confirmation
+  Status: Done (2026-02-26)
+  Rationale: Added username onboarding + confirm-password validation in sign-up flow, introduced persisted username identity fields (`username`, `usernameDiscriminator`) with uniqueness constraints/migration, implemented collision-safe discriminator generation with retry handling, and exposed full `username#suffix` identity in account-menu context while preserving `user.id` as the sole authorization identifier.
+  Dependencies: TASK-047
 - ID: TASK-047
   Title: Authentication implementation phase 3 - home-page auth entry and account onboarding UX
   Status: Done (2026-02-25)

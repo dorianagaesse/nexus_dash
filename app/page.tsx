@@ -12,10 +12,19 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
-import { MIN_PASSWORD_LENGTH } from "@/lib/services/credential-auth-service";
+import {
+  MAX_USERNAME_LENGTH,
+  MIN_PASSWORD_LENGTH,
+  MIN_USERNAME_LENGTH,
+} from "@/lib/services/credential-auth-service";
 
 import { signInAction, signUpAction } from "./home-auth-actions";
 import { AuthSubmitButton } from "./auth-submit-button";
+import {
+  HomeSignupEmailFeedback,
+  HomeSignupPasswordFeedback,
+  HomeSignupUsernameSuffix,
+} from "./home-signup-live-feedback";
 
 const highlights = [
   {
@@ -40,8 +49,13 @@ type HomeAuthForm = "signin" | "signup";
 
 const ERROR_MESSAGES: Record<string, string> = {
   "invalid-email": "Enter a valid email address.",
+  "invalid-username":
+    "Username must be 3-20 characters and use only lowercase letters, numbers, dots, or underscores.",
   "password-too-short": `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
   "password-too-long": "Password is too long.",
+  "password-requirements-not-met":
+    "Password must include uppercase, lowercase, number, and symbol characters.",
+  "password-confirmation-mismatch": "Passwords do not match.",
   "invalid-credentials": "Incorrect email or password.",
   "email-in-use": "An account with this email already exists.",
   "auth-unavailable": "Authentication is temporarily unavailable. Please retry.",
@@ -212,6 +226,30 @@ export default async function Home({
             ) : (
               <form action={signUpAction} className="grid gap-4">
                 <div className="grid gap-2">
+                  <label htmlFor="signup-username" className="text-sm font-medium">
+                    Username
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="signup-username"
+                      name="username"
+                      type="text"
+                      autoComplete="username"
+                      placeholder="your.name"
+                      required
+                      minLength={MIN_USERNAME_LENGTH}
+                      maxLength={MAX_USERNAME_LENGTH}
+                      pattern="[a-z0-9._]+"
+                      className={cn(inputClassName, "w-full pr-24")}
+                    />
+                    <HomeSignupUsernameSuffix usernameInputId="signup-username" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Use {MIN_USERNAME_LENGTH}-{MAX_USERNAME_LENGTH} lowercase letters,
+                    numbers, dots, or underscores.
+                  </p>
+                </div>
+                <div className="grid gap-2">
                   <label htmlFor="signup-email" className="text-sm font-medium">
                     Email
                   </label>
@@ -225,6 +263,7 @@ export default async function Home({
                     maxLength={320}
                     className={inputClassName}
                   />
+                  <HomeSignupEmailFeedback emailInputId="signup-email" />
                 </div>
                 <div className="grid gap-2">
                   <label htmlFor="signup-password" className="text-sm font-medium">
@@ -242,9 +281,34 @@ export default async function Home({
                     className={inputClassName}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Use at least {MIN_PASSWORD_LENGTH} characters.
+                    Use at least {MIN_PASSWORD_LENGTH} characters with uppercase,
+                    lowercase, number, and symbol.
                   </p>
                 </div>
+                <div className="grid gap-2">
+                  <label
+                    htmlFor="signup-confirm-password"
+                    className="text-sm font-medium"
+                  >
+                    Confirm password
+                  </label>
+                  <input
+                    id="signup-confirm-password"
+                    name="confirmPassword"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Re-enter your password"
+                    required
+                    minLength={MIN_PASSWORD_LENGTH}
+                    maxLength={128}
+                    className={inputClassName}
+                  />
+                </div>
+                <HomeSignupPasswordFeedback
+                  passwordInputId="signup-password"
+                  confirmPasswordInputId="signup-confirm-password"
+                  minPasswordLength={MIN_PASSWORD_LENGTH}
+                />
                 <Button type="submit" variant="secondary" className="w-full">
                   Create workspace account
                 </Button>

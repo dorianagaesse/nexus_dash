@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-02-26
+- Type: Execution
+- Summary: TASK-081 delivered username onboarding, discriminator identity, and signup confirm-password validation.
+- Evidence: Updated auth service/actions/homepage signup UX, added Prisma migration `20260226113000_task081_username_identity`, added identity summary service + account-menu display (`username#suffix`), and validated with `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build` (with safe DB env overrides).
+
+### 2026-02-26
+- Type: Blocker
+- Summary: Local migration-apply validation could not be completed in this execution environment.
+- Evidence: `npm run db:migrate` failed without `DIRECT_URL`, then failed again with local placeholder URLs due no running Postgres; Docker-based fallback could not run because Docker daemon socket was unavailable.
+
 ### 2026-02-24
 - Type: Execution
 - Summary: TASK-047 delivered signed-out home auth entry + credentials onboarding.

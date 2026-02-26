@@ -83,7 +83,9 @@ describe("home page auth entry", () => {
     expect(serialized).toContain("Sign in");
     expect(serialized).toContain("Sign up");
     expect(serialized).toContain("signup-email");
+    expect(serialized).toContain("signup-username");
     expect(serialized).toContain("signup-password");
+    expect(serialized).toContain("signup-confirm-password");
     expect(serialized).not.toContain("signin-email");
     expect(serialized).not.toContain("signin-password");
   });
