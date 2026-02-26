@@ -20,6 +20,7 @@ import {
 
 import { signInAction, signUpAction } from "./home-auth-actions";
 import { AuthSubmitButton } from "./auth-submit-button";
+import { HomeSignupLiveFeedback } from "./home-signup-live-feedback";
 
 const highlights = [
   {
@@ -292,6 +293,12 @@ export default async function Home({
                     className={inputClassName}
                   />
                 </div>
+                <HomeSignupLiveFeedback
+                  usernameInputId="signup-username"
+                  passwordInputId="signup-password"
+                  confirmPasswordInputId="signup-confirm-password"
+                  minPasswordLength={MIN_PASSWORD_LENGTH}
+                />
                 <Button type="submit" variant="secondary" className="w-full">
                   Create workspace account
                 </Button>
