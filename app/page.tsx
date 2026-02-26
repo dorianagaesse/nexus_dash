@@ -20,7 +20,10 @@ import {
 
 import { signInAction, signUpAction } from "./home-auth-actions";
 import { AuthSubmitButton } from "./auth-submit-button";
-import { HomeSignupLiveFeedback } from "./home-signup-live-feedback";
+import {
+  HomeSignupPasswordFeedback,
+  HomeSignupUsernameSuffix,
+} from "./home-signup-live-feedback";
 
 const highlights = [
   {
@@ -49,6 +52,8 @@ const ERROR_MESSAGES: Record<string, string> = {
     "Username must be 3-20 characters and use only lowercase letters, numbers, dots, or underscores.",
   "password-too-short": `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
   "password-too-long": "Password is too long.",
+  "password-requirements-not-met":
+    "Password must include uppercase, lowercase, number, and symbol characters.",
   "password-confirmation-mismatch": "Passwords do not match.",
   "invalid-credentials": "Incorrect email or password.",
   "email-in-use": "An account with this email already exists.",
@@ -223,18 +228,21 @@ export default async function Home({
                   <label htmlFor="signup-username" className="text-sm font-medium">
                     Username
                   </label>
-                  <input
-                    id="signup-username"
-                    name="username"
-                    type="text"
-                    autoComplete="username"
-                    placeholder="your.name"
-                    required
-                    minLength={MIN_USERNAME_LENGTH}
-                    maxLength={MAX_USERNAME_LENGTH}
-                    pattern="[a-z0-9._]+"
-                    className={inputClassName}
-                  />
+                  <div className="relative">
+                    <input
+                      id="signup-username"
+                      name="username"
+                      type="text"
+                      autoComplete="username"
+                      placeholder="your.name"
+                      required
+                      minLength={MIN_USERNAME_LENGTH}
+                      maxLength={MAX_USERNAME_LENGTH}
+                      pattern="[a-z0-9._]+"
+                      className={cn(inputClassName, "pr-24")}
+                    />
+                    <HomeSignupUsernameSuffix usernameInputId="signup-username" />
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     Use {MIN_USERNAME_LENGTH}-{MAX_USERNAME_LENGTH} lowercase letters,
                     numbers, dots, or underscores.
@@ -271,7 +279,8 @@ export default async function Home({
                     className={inputClassName}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Use at least {MIN_PASSWORD_LENGTH} characters.
+                    Use at least {MIN_PASSWORD_LENGTH} characters with uppercase,
+                    lowercase, number, and symbol.
                   </p>
                 </div>
                 <div className="grid gap-2">
@@ -293,8 +302,7 @@ export default async function Home({
                     className={inputClassName}
                   />
                 </div>
-                <HomeSignupLiveFeedback
-                  usernameInputId="signup-username"
+                <HomeSignupPasswordFeedback
                   passwordInputId="signup-password"
                   confirmPasswordInputId="signup-confirm-password"
                   minPasswordLength={MIN_PASSWORD_LENGTH}

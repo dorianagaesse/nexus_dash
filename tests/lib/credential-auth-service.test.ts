@@ -46,6 +46,8 @@ import {
   USERNAME_DISCRIMINATOR_LENGTH,
 } from "@/lib/services/credential-auth-service";
 
+const VALID_SIGN_UP_PASSWORD = "Password123!";
+
 describe("credential-auth-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -60,8 +62,8 @@ describe("credential-auth-service", () => {
     const result = await signUpWithEmailPassword({
       usernameRaw: "test.user",
       emailRaw: "invalid-email",
-      passwordRaw: "password123",
-      passwordConfirmationRaw: "password123",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
     });
 
     expect(result).toEqual({
@@ -75,8 +77,8 @@ describe("credential-auth-service", () => {
     const result = await signUpWithEmailPassword({
       usernameRaw: "INVALID USER",
       emailRaw: "user@example.com",
-      passwordRaw: "password123",
-      passwordConfirmationRaw: "password123",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
     });
 
     expect(result).toEqual({
@@ -120,13 +122,28 @@ describe("credential-auth-service", () => {
     const result = await signUpWithEmailPassword({
       usernameRaw: "test.user",
       emailRaw: "user@example.com",
-      passwordRaw: "password123",
-      passwordConfirmationRaw: "password321",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: "Password321!",
     });
 
     expect(result).toEqual({
       ok: false,
       error: "password-confirmation-mismatch",
+    });
+    expect(passwordServiceMock.hashPassword).not.toHaveBeenCalled();
+  });
+
+  test("signUp rejects passwords that do not satisfy complexity requirements", async () => {
+    const result = await signUpWithEmailPassword({
+      usernameRaw: "test.user",
+      emailRaw: "user@example.com",
+      passwordRaw: "password123",
+      passwordConfirmationRaw: "password123",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "password-requirements-not-met",
     });
     expect(passwordServiceMock.hashPassword).not.toHaveBeenCalled();
   });
@@ -138,8 +155,8 @@ describe("credential-auth-service", () => {
     const result = await signUpWithEmailPassword({
       usernameRaw: "test.user",
       emailRaw: "user@example.com",
-      passwordRaw: "password123",
-      passwordConfirmationRaw: "password123",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
     });
 
     expect(result).toEqual({
@@ -163,8 +180,8 @@ describe("credential-auth-service", () => {
     const result = await signUpWithEmailPassword({
       usernameRaw: "test.user",
       emailRaw: "user@example.com",
-      passwordRaw: "password123",
-      passwordConfirmationRaw: "password123",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
     });
 
     expect(prismaMock.user.create).toHaveBeenCalledTimes(2);
@@ -201,8 +218,8 @@ describe("credential-auth-service", () => {
     const result = await signUpWithEmailPassword({
       usernameRaw: "  TEST.USER  ",
       emailRaw: "  USER@Example.com ",
-      passwordRaw: "password123",
-      passwordConfirmationRaw: "password123",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
     });
 
     expect(prismaMock.user.create).toHaveBeenCalledWith({
@@ -239,15 +256,15 @@ describe("credential-auth-service", () => {
     const shortResult = await signUpWithEmailPassword({
       usernameRaw: "a".repeat(MIN_USERNAME_LENGTH),
       emailRaw: "short@example.com",
-      passwordRaw: "password123",
-      passwordConfirmationRaw: "password123",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
     });
 
     const longResult = await signUpWithEmailPassword({
       usernameRaw: "a".repeat(MAX_USERNAME_LENGTH),
       emailRaw: "long@example.com",
-      passwordRaw: "password123",
-      passwordConfirmationRaw: "password123",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
     });
 
     expect(shortResult.ok).toBe(true);

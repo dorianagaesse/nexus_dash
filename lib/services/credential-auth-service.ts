@@ -16,12 +16,17 @@ const USERNAME_DISCRIMINATOR_SPACE = 36 ** USERNAME_DISCRIMINATOR_LENGTH;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_PATTERN = /^[a-z0-9._]+$/;
+const PASSWORD_UPPERCASE_PATTERN = /[A-Z]/;
+const PASSWORD_LOWERCASE_PATTERN = /[a-z]/;
+const PASSWORD_NUMBER_PATTERN = /\d/;
+const PASSWORD_SYMBOL_PATTERN = /[^A-Za-z0-9]/;
 
 type AuthFailureCode =
   | "invalid-email"
   | "invalid-username"
   | "password-too-short"
   | "password-too-long"
+  | "password-requirements-not-met"
   | "password-confirmation-mismatch"
   | "email-in-use"
   | "invalid-credentials";
@@ -107,6 +112,15 @@ function validatePasswordLength(
   return "ok";
 }
 
+function validatePasswordRequirements(password: string): boolean {
+  return (
+    PASSWORD_UPPERCASE_PATTERN.test(password) &&
+    PASSWORD_LOWERCASE_PATTERN.test(password) &&
+    PASSWORD_NUMBER_PATTERN.test(password) &&
+    PASSWORD_SYMBOL_PATTERN.test(password)
+  );
+}
+
 async function issueSession(userId: string): Promise<AuthSuccess> {
   const session = await createSessionForUser(userId);
   return {
@@ -158,6 +172,10 @@ export async function signUpWithEmailPassword(input: {
   const passwordValidation = validatePasswordLength(input.passwordRaw);
   if (passwordValidation !== "ok") {
     return { ok: false, error: passwordValidation };
+  }
+
+  if (!validatePasswordRequirements(input.passwordRaw)) {
+    return { ok: false, error: "password-requirements-not-met" };
   }
 
   if (input.passwordRaw !== input.passwordConfirmationRaw) {
