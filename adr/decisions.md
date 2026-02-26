@@ -16,6 +16,13 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-02-26 - Introduce username + discriminator identity contract for credentials signup
+- Status: Accepted
+- Context: Account onboarding needed a user-chosen identity without username-availability prechecks, while preserving `user.id` as the authorization key.
+- Decision: Added `User.username` and `User.usernameDiscriminator` fields with composite uniqueness, validated username policy (`3-20`, lowercase alnum + `.` + `_`), enforced confirm-password matching, and generated collision-safe 6-char base36 discriminator suffixes during signup.
+- Consequences: Signup identity is now deterministic and human-readable (`username#suffix`) for account-context surfaces; future account profile flows must preserve discriminator uniqueness semantics when introducing username edits.
+- Links: `tasks/current.md`, `prisma/migrations/20260226113000_task081_username_identity/migration.sql`
+
 ## 2026-02-23 - Enforce principal-scoped boundaries for DB/storage/calendar
 - Status: Accepted
 - Context: Multi-user readiness required removing remaining singleton and ID-only access paths.

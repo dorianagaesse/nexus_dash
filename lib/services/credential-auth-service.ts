@@ -1,17 +1,28 @@
+import { randomInt } from "node:crypto";
+
 import { prisma } from "@/lib/prisma";
 import { createSessionForUser } from "@/lib/services/session-service";
 import { hashPassword, verifyPassword } from "@/lib/services/password-service";
 
 export const MIN_PASSWORD_LENGTH = 8;
+export const MIN_USERNAME_LENGTH = 3;
+export const MAX_USERNAME_LENGTH = 20;
+export const USERNAME_DISCRIMINATOR_LENGTH = 6;
+
 const MAX_EMAIL_LENGTH = 320;
 const MAX_PASSWORD_LENGTH = 128;
+const MAX_USERNAME_GENERATION_ATTEMPTS = 12;
+const USERNAME_DISCRIMINATOR_SPACE = 36 ** USERNAME_DISCRIMINATOR_LENGTH;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const USERNAME_PATTERN = /^[a-z0-9._]+$/;
 
 type AuthFailureCode =
   | "invalid-email"
+  | "invalid-username"
   | "password-too-short"
   | "password-too-long"
+  | "password-confirmation-mismatch"
   | "email-in-use"
   | "invalid-credentials";
 
@@ -39,12 +50,47 @@ function isUniqueConstraintViolation(error: unknown): boolean {
   return "code" in error && (error as { code?: unknown }).code === "P2002";
 }
 
+function readUniqueConstraintTargets(error: unknown): string[] {
+  if (!error || typeof error !== "object") {
+    return [];
+  }
+
+  const candidate = error as {
+    meta?: {
+      target?: string[] | string;
+    };
+  };
+
+  const targets = candidate.meta?.target;
+  if (Array.isArray(targets)) {
+    return targets.filter((target): target is string => typeof target === "string");
+  }
+
+  if (typeof targets === "string") {
+    return [targets];
+  }
+
+  return [];
+}
+
 function normalizeEmail(emailRaw: string): string {
   return emailRaw.trim().toLowerCase();
 }
 
+function normalizeUsername(usernameRaw: string): string {
+  return usernameRaw.trim().toLowerCase();
+}
+
 function validateEmail(email: string): boolean {
   return email.length > 0 && email.length <= MAX_EMAIL_LENGTH && EMAIL_PATTERN.test(email);
+}
+
+function validateUsername(username: string): boolean {
+  return (
+    username.length >= MIN_USERNAME_LENGTH &&
+    username.length <= MAX_USERNAME_LENGTH &&
+    USERNAME_PATTERN.test(username)
+  );
 }
 
 function validatePasswordLength(
@@ -73,13 +119,40 @@ async function issueSession(userId: string): Promise<AuthSuccess> {
   };
 }
 
+function generateUsernameDiscriminator(): string {
+  return randomInt(0, USERNAME_DISCRIMINATOR_SPACE)
+    .toString(36)
+    .padStart(USERNAME_DISCRIMINATOR_LENGTH, "0");
+}
+
+function isEmailUniqueConstraint(error: unknown): boolean {
+  const targets = readUniqueConstraintTargets(error);
+  return targets.length === 0 || targets.includes("email");
+}
+
+function isUsernameDiscriminatorConstraint(error: unknown): boolean {
+  const targets = readUniqueConstraintTargets(error);
+  return (
+    targets.length > 0 &&
+    targets.includes("username") &&
+    targets.includes("usernameDiscriminator")
+  );
+}
+
 export async function signUpWithEmailPassword(input: {
   emailRaw: string;
+  usernameRaw: string;
   passwordRaw: string;
+  passwordConfirmationRaw: string;
 }): Promise<EmailPasswordAuthResult> {
   const email = normalizeEmail(input.emailRaw);
   if (!validateEmail(email)) {
     return { ok: false, error: "invalid-email" };
+  }
+
+  const username = normalizeUsername(input.usernameRaw);
+  if (!validateUsername(username)) {
+    return { ok: false, error: "invalid-username" };
   }
 
   const passwordValidation = validatePasswordLength(input.passwordRaw);
@@ -87,27 +160,46 @@ export async function signUpWithEmailPassword(input: {
     return { ok: false, error: passwordValidation };
   }
 
+  if (input.passwordRaw !== input.passwordConfirmationRaw) {
+    return { ok: false, error: "password-confirmation-mismatch" };
+  }
+
   const passwordHash = await hashPassword(input.passwordRaw);
 
-  try {
-    const createdUser = await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-      },
-      select: {
-        id: true,
-      },
-    });
+  for (let attempt = 0; attempt < MAX_USERNAME_GENERATION_ATTEMPTS; attempt += 1) {
+    try {
+      const createdUser = await prisma.user.create({
+        data: {
+          email,
+          name: username,
+          username,
+          usernameDiscriminator: generateUsernameDiscriminator(),
+          passwordHash,
+        },
+        select: {
+          id: true,
+        },
+      });
 
-    return issueSession(createdUser.id);
-  } catch (error) {
-    if (isUniqueConstraintViolation(error)) {
-      return { ok: false, error: "email-in-use" };
+      return issueSession(createdUser.id);
+    } catch (error) {
+      if (!isUniqueConstraintViolation(error)) {
+        throw error;
+      }
+
+      if (isEmailUniqueConstraint(error)) {
+        return { ok: false, error: "email-in-use" };
+      }
+
+      if (isUsernameDiscriminatorConstraint(error)) {
+        continue;
+      }
+
+      throw error;
     }
-
-    throw error;
   }
+
+  throw new Error("username-discriminator-generation-failed");
 }
 
 export async function signInWithEmailPassword(input: {

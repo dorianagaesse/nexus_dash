@@ -4,7 +4,7 @@
 TASK-081
 
 ## Status
-Planned (Current) (2026-02-25)
+Done (2026-02-26)
 
 ## Objective
 Strengthen account identity onboarding by adding a first-class `username` input at signup, generating a unique public display variant with a discriminator suffix, and requiring password confirmation checks before account creation.
@@ -80,7 +80,25 @@ Strengthen account identity onboarding by adding a first-class `username` input 
 ## Open Input (Pending)
 - None.
 
+## Execution Outcome (2026-02-26)
+- Implemented username onboarding in sign-up flow with policy enforcement (`3-20`, `a-z`, `0-9`, `_`, `.`).
+- Added confirm-password validation and error mapping in server action + UI.
+- Added Prisma schema/migration for `User.username` and `User.usernameDiscriminator` plus uniqueness/index constraints.
+- Added collision-safe discriminator generation (`#` + 6-char base36 suffix) with retry on unique collisions.
+- Added authenticated account-menu identity context showing full `username#suffix` where available.
+- Extended test coverage for signup validation, discriminator retry behavior, action payload wiring, and identity summary service.
+
+## Validation Evidence
+- `npm run lint` ✅
+- `npm test` ✅
+- `npm run test:coverage` ✅
+- `npm run build` ✅ (with safe local `DATABASE_URL` + `DIRECT_URL` overrides)
+- `npm run db:migrate` ⚠️ blocked in this environment:
+  - first failure: missing `DIRECT_URL`
+  - second failure: no local PostgreSQL available
+  - Docker fallback unavailable (daemon not running)
+
 ---
 
-Last Updated: 2026-02-25
+Last Updated: 2026-02-26
 Assigned To: User + Agent

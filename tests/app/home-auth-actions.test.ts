@@ -139,8 +139,10 @@ describe("home auth actions", () => {
     sessionUserMock.getSessionUserIdFromServer.mockResolvedValueOnce("user-1");
 
     const formData = new FormData();
+    formData.set("username", "test.user");
     formData.set("email", "user@example.com");
     formData.set("password", "password123");
+    formData.set("confirmPassword", "password123");
 
     await expect(signUpAction(formData)).rejects.toThrow("NEXT_REDIRECT:/projects");
     expect(credentialAuthMock.signUpWithEmailPassword).not.toHaveBeenCalled();
@@ -157,10 +159,19 @@ describe("home auth actions", () => {
     });
 
     const formData = new FormData();
+    formData.set("username", "test.user");
     formData.set("email", "user@example.com");
     formData.set("password", "password123");
+    formData.set("confirmPassword", "password123");
 
     await expect(signUpAction(formData)).rejects.toThrow("NEXT_REDIRECT:/projects");
+
+    expect(credentialAuthMock.signUpWithEmailPassword).toHaveBeenCalledWith({
+      usernameRaw: "test.user",
+      emailRaw: "user@example.com",
+      passwordRaw: "password123",
+      passwordConfirmationRaw: "password123",
+    });
 
     expect(cookieStoreMock.set).toHaveBeenCalledWith(
       "nexusdash.session-token",
@@ -181,8 +192,10 @@ describe("home auth actions", () => {
     });
 
     const formData = new FormData();
+    formData.set("username", "test.user");
     formData.set("email", "user@example.com");
     formData.set("password", "password123");
+    formData.set("confirmPassword", "password123");
 
     await expect(signUpAction(formData)).rejects.toThrow(
       "NEXT_REDIRECT:/?form=signup&error=email-in-use"
@@ -196,11 +209,30 @@ describe("home auth actions", () => {
     });
 
     const formData = new FormData();
+    formData.set("username", "test.user");
     formData.set("email", "user@example.com");
     formData.set("password", "password123");
+    formData.set("confirmPassword", "password123");
 
     await expect(signUpAction(formData)).rejects.toThrow(
       "NEXT_REDIRECT:/?form=signup&error=invalid-email"
+    );
+  });
+
+  test("signUpAction redirects with password-confirmation-mismatch error code", async () => {
+    credentialAuthMock.signUpWithEmailPassword.mockResolvedValueOnce({
+      ok: false,
+      error: "password-confirmation-mismatch",
+    });
+
+    const formData = new FormData();
+    formData.set("username", "test.user");
+    formData.set("email", "user@example.com");
+    formData.set("password", "password123");
+    formData.set("confirmPassword", "password321");
+
+    await expect(signUpAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/?form=signup&error=password-confirmation-mismatch"
     );
   });
 
@@ -210,8 +242,10 @@ describe("home auth actions", () => {
     );
 
     const formData = new FormData();
+    formData.set("username", "test.user");
     formData.set("email", "user@example.com");
     formData.set("password", "password123");
+    formData.set("confirmPassword", "password123");
 
     await expect(signUpAction(formData)).rejects.toThrow(
       "NEXT_REDIRECT:/?form=signup&error=auth-unavailable"

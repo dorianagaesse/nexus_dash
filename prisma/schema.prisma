@@ -14,6 +14,8 @@ model User {
   name          String?
   email         String?   @unique
   passwordHash  String?
+  username      String?   @db.VarChar(20)
+  usernameDiscriminator String? @db.VarChar(6)
   emailVerified DateTime?
   image         String?
   createdAt     DateTime  @default(now())
@@ -26,6 +28,9 @@ model User {
   taskAttachments TaskAttachment[]       @relation("TaskAttachmentUploader")
   resourceAttachments ResourceAttachment[] @relation("ResourceAttachmentUploader")
   googleCalendarCredential GoogleCalendarCredential?
+
+  @@unique([username, usernameDiscriminator])
+  @@index([username])
 }
 
 model Account {

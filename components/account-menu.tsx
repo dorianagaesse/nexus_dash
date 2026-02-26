@@ -9,9 +9,10 @@ import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 
 interface AccountMenuProps {
   isAuthenticated: boolean;
+  usernameTag: string | null;
 }
 
-export function AccountMenu({ isAuthenticated }: AccountMenuProps) {
+export function AccountMenu({ isAuthenticated, usernameTag }: AccountMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useDismissibleMenu<HTMLDivElement>(isOpen, () => setIsOpen(false));
 
@@ -34,6 +35,14 @@ export function AccountMenu({ isAuthenticated }: AccountMenuProps) {
       </Button>
       {isOpen ? (
         <div className="absolute right-0 z-30 mt-1 w-44 rounded-md border border-border/70 bg-background p-1 shadow-md">
+          {usernameTag ? (
+            <div className="border-b border-border/70 px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                Signed in as
+              </p>
+              <p className="truncate text-xs font-medium">{usernameTag}</p>
+            </div>
+          ) : null}
           <Button type="button" variant="ghost" className="w-full justify-start" asChild>
             <Link href="/account/settings" onClick={() => setIsOpen(false)}>
               <Settings className="h-4 w-4" />
