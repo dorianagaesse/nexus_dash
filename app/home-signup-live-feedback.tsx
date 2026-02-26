@@ -4,16 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
-type HomeSignupLiveFeedbackProps = {
+type HomeSignupUsernameSuffixProps = {
   usernameInputId: string;
+};
+
+type HomeSignupPasswordFeedbackProps = {
   passwordInputId: string;
   confirmPasswordInputId: string;
   minPasswordLength: number;
 };
 
-type PasswordRule = {
-  id: string;
-  label: string;
+type PasswordHint = {
+  id: "length" | "uppercase" | "lowercase" | "number" | "symbol";
+  shortLabel: string;
+  longLabel: string;
   passed: boolean;
 };
 
@@ -34,24 +38,67 @@ function buildDiscriminatorPreview(username: string): string {
   return hash.toString(36).padStart(6, "0").slice(0, 6);
 }
 
-export function HomeSignupLiveFeedback({
+export function HomeSignupUsernameSuffix({
   usernameInputId,
+}: HomeSignupUsernameSuffixProps) {
+  const [username, setUsername] = useState("");
+
+  useEffect(() => {
+    const usernameInput = document.getElementById(usernameInputId);
+    if (!(usernameInput instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const syncInitialState = () => {
+      setUsername(usernameInput.value);
+    };
+
+    const handleUsernameInput = () => {
+      setUsername(usernameInput.value);
+    };
+
+    syncInitialState();
+    usernameInput.addEventListener("input", handleUsernameInput);
+
+    return () => {
+      usernameInput.removeEventListener("input", handleUsernameInput);
+    };
+  }, [usernameInputId]);
+
+  const normalizedUsername = normalizeUsername(username);
+  const discriminatorPreview = useMemo(
+    () => buildDiscriminatorPreview(normalizedUsername),
+    [normalizedUsername]
+  );
+
+  if (!normalizedUsername) {
+    return null;
+  }
+
+  return (
+    <span
+      className="pointer-events-none absolute inset-y-0 right-3 flex select-none items-center text-sm font-medium text-muted-foreground"
+      aria-hidden="true"
+    >
+      #{discriminatorPreview}
+    </span>
+  );
+}
+
+export function HomeSignupPasswordFeedback({
   passwordInputId,
   confirmPasswordInputId,
   minPasswordLength,
-}: HomeSignupLiveFeedbackProps) {
-  const [username, setUsername] = useState("");
+}: HomeSignupPasswordFeedbackProps) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
 
   useEffect(() => {
-    const usernameInput = document.getElementById(usernameInputId);
     const passwordInput = document.getElementById(passwordInputId);
     const confirmPasswordInput = document.getElementById(confirmPasswordInputId);
 
     if (
-      !(usernameInput instanceof HTMLInputElement) ||
       !(passwordInput instanceof HTMLInputElement) ||
       !(confirmPasswordInput instanceof HTMLInputElement)
     ) {
@@ -59,13 +106,8 @@ export function HomeSignupLiveFeedback({
     }
 
     const syncInitialState = () => {
-      setUsername(usernameInput.value);
       setPassword(passwordInput.value);
       setConfirmPassword(confirmPasswordInput.value);
-    };
-
-    const handleUsernameInput = () => {
-      setUsername(usernameInput.value);
     };
 
     const handlePasswordInput = () => {
@@ -86,110 +128,91 @@ export function HomeSignupLiveFeedback({
 
     syncInitialState();
 
-    usernameInput.addEventListener("input", handleUsernameInput);
     passwordInput.addEventListener("input", handlePasswordInput);
     passwordInput.addEventListener("focus", handlePasswordFocus);
     passwordInput.addEventListener("blur", handlePasswordBlur);
     confirmPasswordInput.addEventListener("input", handleConfirmPasswordInput);
 
     return () => {
-      usernameInput.removeEventListener("input", handleUsernameInput);
       passwordInput.removeEventListener("input", handlePasswordInput);
       passwordInput.removeEventListener("focus", handlePasswordFocus);
       passwordInput.removeEventListener("blur", handlePasswordBlur);
       confirmPasswordInput.removeEventListener("input", handleConfirmPasswordInput);
     };
-  }, [confirmPasswordInputId, passwordInputId, usernameInputId]);
+  }, [confirmPasswordInputId, passwordInputId]);
 
-  const normalizedUsername = normalizeUsername(username);
-  const discriminatorPreview = useMemo(
-    () => buildDiscriminatorPreview(normalizedUsername),
-    [normalizedUsername]
-  );
-
-  const passwordRules: PasswordRule[] = [
+  const passwordHints: PasswordHint[] = [
     {
       id: "length",
-      label: `At least ${minPasswordLength} characters`,
+      shortLabel: "8+",
+      longLabel: `At least ${minPasswordLength} characters`,
       passed: password.length >= minPasswordLength,
     },
     {
       id: "uppercase",
-      label: "At least one uppercase letter",
+      shortLabel: "A-Z",
+      longLabel: "At least one uppercase letter",
       passed: /[A-Z]/.test(password),
     },
     {
       id: "lowercase",
-      label: "At least one lowercase letter",
+      shortLabel: "a-z",
+      longLabel: "At least one lowercase letter",
       passed: /[a-z]/.test(password),
     },
     {
       id: "number",
-      label: "At least one number",
+      shortLabel: "0-9",
+      longLabel: "At least one number",
       passed: /\d/.test(password),
     },
     {
       id: "symbol",
-      label: "At least one symbol",
+      shortLabel: "#",
+      longLabel: "At least one symbol",
       passed: /[^A-Za-z0-9]/.test(password),
     },
   ];
 
-  const showConfirmPasswordFeedback = confirmPassword.length > 0;
-  const passwordsMatch = confirmPassword.length > 0 && password === confirmPassword;
+  const hasConfirmPasswordInput = confirmPassword.length > 0;
+  const passwordsMismatch = hasConfirmPasswordInput && password !== confirmPassword;
 
   return (
-    <div className="grid gap-3">
-      {normalizedUsername ? (
-        <div className="grid gap-1">
-          <p className="text-xs text-muted-foreground">
-            Username tag preview:{" "}
-            <span className="font-semibold text-foreground">
-              {normalizedUsername}#{discriminatorPreview}
-            </span>
-          </p>
-          <p className="text-[11px] text-muted-foreground">
-            Final discriminator is assigned when the account is created.
-          </p>
-        </div>
-      ) : null}
-
-      {isPasswordFocused ? (
-        <div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2">
-          <p className="text-xs font-medium text-muted-foreground">Password checklist</p>
-          <ul className="mt-2 grid gap-1 text-xs">
-            {passwordRules.map((rule) => (
-              <li
-                key={rule.id}
-                className={cn(
-                  "flex items-center gap-2",
-                  rule.passed ? "text-emerald-600" : "text-muted-foreground"
-                )}
-              >
-                <span className="font-semibold" aria-hidden="true">
-                  {rule.passed ? "✓" : "•"}
-                </span>
-                <span>{rule.label}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {showConfirmPasswordFeedback ? (
-        <p
+    <div className="grid gap-1">
+      <div className="min-h-6">
+        <div
           className={cn(
-            "text-xs font-medium",
-            passwordsMatch ? "text-emerald-600" : "text-destructive"
+            "flex flex-wrap items-center gap-1 transition-opacity",
+            isPasswordFocused ? "opacity-100" : "opacity-0"
           )}
-          role="status"
           aria-live="polite"
         >
-          {passwordsMatch
-            ? "Confirm password matches."
-            : "Confirm password does not match yet."}
-        </p>
-      ) : null}
+          {passwordHints.map((hint) => (
+            <span
+              key={hint.id}
+              title={hint.longLabel}
+              className={cn(
+                "select-none rounded-sm border px-1.5 py-0.5 text-[11px] font-medium",
+                hint.passed
+                  ? "border-emerald-500/40 text-emerald-600"
+                  : "border-border/70 text-muted-foreground"
+              )}
+            >
+              {hint.shortLabel}
+            </span>
+          ))}
+        </div>
+      </div>
+      <p
+        className={cn(
+          "min-h-5 text-xs font-medium",
+          passwordsMismatch ? "text-destructive" : "invisible"
+        )}
+        role="status"
+        aria-live="polite"
+      >
+        Passwords do not match.
+      </p>
     </div>
   );
 }
