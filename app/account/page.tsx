@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { Badge } from "@/components/ui/badge";
@@ -72,9 +72,9 @@ export default async function AccountProfilePage({
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         <Link
           href="/projects"
-          className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex w-fit items-center gap-1 text-sm text-foreground transition-opacity hover:opacity-80"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4" />
           Back to projects
         </Link>
         <Badge variant="secondary" className="w-fit">
