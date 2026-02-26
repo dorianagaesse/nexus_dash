@@ -26,6 +26,14 @@ function buildUsernameTag(
   return `${username}#${usernameDiscriminator}`;
 }
 
+function getEmailLocalPart(email: string | null | undefined): string | null {
+  if (!email || !email.includes("@")) {
+    return null;
+  }
+
+  return email.split("@", 1)[0] ?? null;
+}
+
 export async function getAccountIdentitySummary(
   actorUserId: string
 ): Promise<AccountIdentitySummary | null> {
@@ -49,10 +57,11 @@ export async function getAccountIdentitySummary(
   }
 
   const usernameTag = buildUsernameTag(user.username, user.usernameDiscriminator);
+  const emailLocalPart = getEmailLocalPart(user.email);
   const displayName =
     user.username ??
     user.name ??
-    user.email?.split("@")[0] ??
+    emailLocalPart ??
     "Account";
 
   return {

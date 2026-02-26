@@ -199,7 +199,9 @@ export async function signUpWithEmailPassword(input: {
     }
   }
 
-  throw new Error("username-discriminator-generation-failed");
+  throw new Error(
+    `failed-to-generate-unique-discriminator: username=${username}, attempts=${MAX_USERNAME_GENERATION_ATTEMPTS}`
+  );
 }
 
 export async function signInWithEmailPassword(input: {

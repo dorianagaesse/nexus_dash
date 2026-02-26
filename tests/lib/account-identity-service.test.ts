@@ -66,4 +66,22 @@ describe("account-identity-service", () => {
       usernameTag: null,
     });
   });
+
+  test("falls back to Account when email has no local-part separator", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      name: null,
+      email: "invalid-email-format",
+      username: null,
+      usernameDiscriminator: null,
+    });
+
+    const result = await getAccountIdentitySummary("user-1");
+
+    expect(result).toEqual({
+      displayName: "Account",
+      username: null,
+      usernameDiscriminator: null,
+      usernameTag: null,
+    });
+  });
 });
