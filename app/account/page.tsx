@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { Badge } from "@/components/ui/badge";
@@ -69,9 +70,13 @@ export default async function AccountProfilePage({
   return (
     <main className="container py-16">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-        <Button asChild variant="ghost" className="w-fit px-0">
-          <Link href="/">Back home</Link>
-        </Button>
+        <Link
+          href="/projects"
+          className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Back to projects
+        </Link>
         <Badge variant="secondary" className="w-fit">
           Account profile
         </Badge>
