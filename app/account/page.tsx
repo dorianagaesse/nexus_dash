@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import {
+  MAX_PASSWORD_LENGTH,
   MIN_PASSWORD_LENGTH,
   MAX_USERNAME_LENGTH,
   MIN_USERNAME_LENGTH,
@@ -114,9 +115,13 @@ export default async function AccountProfilePage({
                   <input
                     id="account-username"
                     name="username"
+                    type="text"
                     defaultValue={profileResult.data.username}
                     autoComplete="username"
+                    required
+                    minLength={MIN_USERNAME_LENGTH}
                     maxLength={MAX_USERNAME_LENGTH}
+                    pattern="[a-z0-9._]+"
                     className="h-10 w-full rounded-md border border-input bg-background px-3 pr-24 text-sm"
                   />
                   <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground select-none">
@@ -160,6 +165,9 @@ export default async function AccountProfilePage({
                   name="currentPassword"
                   type="password"
                   autoComplete="current-password"
+                  required
+                  minLength={MIN_PASSWORD_LENGTH}
+                  maxLength={MAX_PASSWORD_LENGTH}
                   className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                 />
               </div>
@@ -173,6 +181,9 @@ export default async function AccountProfilePage({
                   name="newPassword"
                   type="password"
                   autoComplete="new-password"
+                  required
+                  minLength={MIN_PASSWORD_LENGTH}
+                  maxLength={MAX_PASSWORD_LENGTH}
                   className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                 />
               </div>
@@ -189,6 +200,9 @@ export default async function AccountProfilePage({
                   name="confirmNewPassword"
                   type="password"
                   autoComplete="new-password"
+                  required
+                  minLength={MIN_PASSWORD_LENGTH}
+                  maxLength={MAX_PASSWORD_LENGTH}
                   className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                 />
                 <p className="text-xs text-muted-foreground">

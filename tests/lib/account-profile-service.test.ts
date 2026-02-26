@@ -289,6 +289,79 @@ describe("account-profile-service", () => {
     expect(sessionServiceMock.deleteAllOtherSessionsForUser).not.toHaveBeenCalled();
   });
 
+  test("rejects password updates when new password is too short", async () => {
+    const result = await updateAccountPassword({
+      actorUserId: "user-1",
+      currentPasswordRaw: "Current123!",
+      newPasswordRaw: "Aa1!",
+      newPasswordConfirmationRaw: "Aa1!",
+      currentSessionToken: "session-token",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "password-too-short",
+    });
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+    expect(passwordServiceMock.verifyPassword).not.toHaveBeenCalled();
+  });
+
+  test("rejects password updates when new password is too long", async () => {
+    const tooLongPassword = `A${"a".repeat(127)}!1`;
+    const result = await updateAccountPassword({
+      actorUserId: "user-1",
+      currentPasswordRaw: "Current123!",
+      newPasswordRaw: tooLongPassword,
+      newPasswordConfirmationRaw: tooLongPassword,
+      currentSessionToken: "session-token",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "password-too-long",
+    });
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+    expect(passwordServiceMock.verifyPassword).not.toHaveBeenCalled();
+  });
+
+  test("rejects password updates when new password requirements are not met", async () => {
+    const result = await updateAccountPassword({
+      actorUserId: "user-1",
+      currentPasswordRaw: "Current123!",
+      newPasswordRaw: "alllowercase123!",
+      newPasswordConfirmationRaw: "alllowercase123!",
+      currentSessionToken: "session-token",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "password-requirements-not-met",
+    });
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+    expect(passwordServiceMock.verifyPassword).not.toHaveBeenCalled();
+  });
+
+  test("rejects password updates when confirmation does not match", async () => {
+    const result = await updateAccountPassword({
+      actorUserId: "user-1",
+      currentPasswordRaw: "Current123!",
+      newPasswordRaw: "NewPassword123!",
+      newPasswordConfirmationRaw: "DifferentPassword123!",
+      currentSessionToken: "session-token",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "password-confirmation-mismatch",
+    });
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+    expect(passwordServiceMock.verifyPassword).not.toHaveBeenCalled();
+  });
+
   test("updates password and revokes all other sessions", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
       passwordHash: "hash-1",
