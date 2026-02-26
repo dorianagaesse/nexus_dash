@@ -236,6 +236,23 @@ describe("home auth actions", () => {
     );
   });
 
+  test("signUpAction redirects with password-requirements-not-met error code", async () => {
+    credentialAuthMock.signUpWithEmailPassword.mockResolvedValueOnce({
+      ok: false,
+      error: "password-requirements-not-met",
+    });
+
+    const formData = new FormData();
+    formData.set("username", "test.user");
+    formData.set("email", "user@example.com");
+    formData.set("password", "password123");
+    formData.set("confirmPassword", "password123");
+
+    await expect(signUpAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/?form=signup&error=password-requirements-not-met"
+    );
+  });
+
   test("signUpAction redirects with auth-unavailable on service exception", async () => {
     credentialAuthMock.signUpWithEmailPassword.mockRejectedValueOnce(
       new Error("db-down")
