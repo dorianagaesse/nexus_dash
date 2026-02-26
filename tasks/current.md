@@ -100,6 +100,8 @@ Deliver authenticated account self-service for mutable identity fields (`usernam
 - `npm test` ✅
 - `npm run test:coverage` ✅
 - `npm run build` ✅ (with safe local `DATABASE_URL` + `DIRECT_URL` overrides)
+- PR: `#60` (`feature/task-082-account-profile` -> `main`)
+- Preview deploy: `https://nexus-dash-r4om5vt99-dorian-agaesses-projects.vercel.app`
 
 ---
 
