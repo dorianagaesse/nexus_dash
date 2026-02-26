@@ -69,6 +69,9 @@ export default async function AccountProfilePage({
   return (
     <main className="container py-16">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+        <Button asChild variant="ghost" className="w-fit px-0">
+          <Link href="/">Back home</Link>
+        </Button>
         <Badge variant="secondary" className="w-fit">
           Account profile
         </Badge>
