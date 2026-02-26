@@ -122,3 +122,31 @@ export async function deleteSessionByToken(sessionToken: string): Promise<void> 
     where: { sessionToken: normalizedToken },
   });
 }
+
+export async function deleteAllOtherSessionsForUser(
+  userId: string,
+  sessionTokenToKeep: string | null
+): Promise<void> {
+  const normalizedUserId = userId.trim();
+  if (!normalizedUserId) {
+    return;
+  }
+
+  const normalizedTokenToKeep = normalizeSessionToken(sessionTokenToKeep);
+
+  if (!normalizedTokenToKeep) {
+    await prisma.session.deleteMany({
+      where: { userId: normalizedUserId },
+    });
+    return;
+  }
+
+  await prisma.session.deleteMany({
+    where: {
+      userId: normalizedUserId,
+      NOT: {
+        sessionToken: normalizedTokenToKeep,
+      },
+    },
+  });
+}
