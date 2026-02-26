@@ -1,102 +1,107 @@
-# Current Task: TASK-081 Account Identity Phase 1 - Username Onboarding, Discriminator, and Signup Password Confirmation
+# Current Task: TASK-082 Account Profile Phase 2 - Account Page and User-Menu Identity UX
 
 ## Task ID
-TASK-081
+TASK-082
 
 ## Status
 Done (2026-02-26)
 
 ## Objective
-Strengthen account identity onboarding by adding a first-class `username` input at signup, generating a unique public display variant with a discriminator suffix, and requiring password confirmation checks before account creation.
+Deliver authenticated account self-service for mutable identity fields (`username`, `password`) and align the account menu with explicit identity-oriented navigation (`Welcome <username>!`, `Account`, `Settings`, `Log out`).
 
 ## Why Now
-- TASK-047 is complete and merged, so baseline credentials signup/signin UX exists.
-- Username and confirm-password were explicitly requested as immediate UX/security upgrades.
-- This phase prepares cleanly for TASK-082 (account page updates), TASK-083 (email verification), and TASK-084 (password recovery).
+- TASK-081 established persisted username identity and signup validation.
+- TASK-080 established account settings routing baseline and authenticated account menu shell.
+- This is the next required step before email verification/recovery hardening (TASK-083/TASK-084).
 
 ## Dependencies
-- TASK-047 (Done): signed-out homepage auth entry and credentials onboarding flow.
-- TASK-046 (Done): route/API protection and session runtime.
-- TASK-045 (Done): auth data model foundation.
+- TASK-080 (Done): account settings page + account menu baseline.
+- TASK-081 (Done): username/discriminator identity model and onboarding.
+- TASK-046 (Done): authenticated route/API protection runtime.
 
 ## Locked Decisions
-- Authorization identity remains `user.id` only (username is mutable profile data).
-- Username availability checks are not required in this phase.
-- Username policy: Option `A` (3-20 chars, `a-z`, `0-9`, `_`, `.`).
-- Discriminator format: Option `B` (`#` + 6 lowercase base36 chars, example `name#8f2k1q`).
-- Display strategy: Option `B` (show base username in normal UI; show full `username#suffix` in account/menu details).
+- Authorization identity remains `user.id` only; username is mutable profile data.
+- Username format remains `3-20` chars with `[a-z0-9._]` policy.
+- Backend remains source of truth; frontend validation is UX-only.
+- Account page remains server-protected under authenticated layout.
 
 ## Scope
-- Add username collection to sign-up flow (UI + server validation).
-- Add confirm-password field and match validation at sign-up.
-- Persist username profile fields in DB via migration and service updates.
-- Generate and persist deterministic/unique discriminator suffix on account creation.
-- Display resulting username identity in post-auth session-facing surfaces where applicable.
-- Add automated tests for validation, generation rules, and create-account behavior.
+- Add authenticated `/account` page focused on profile identity actions.
+- Add username update flow with validation, normalization, and conflict-safe persistence.
+- Add password update flow with secure verification and rotation behavior.
+- Update account menu labels/items:
+  - greeting: `Welcome <display-name>!`
+  - actions: `Account`, `Settings`, `Log out`
+- Keep visual style aligned with existing UI patterns.
+- Add regression tests for account profile mutations and menu rendering behavior.
 
 ## Out of Scope
-- Account self-service edit page (TASK-082).
-- Email verification token lifecycle (TASK-083).
-- Forgot-password/reset flow (TASK-084).
-- Social providers and provider profile linking (TASK-068).
+- Email verification token flow (TASK-083).
+- Password reset via email/forgot-password (TASK-084).
+- Social provider profile linking (TASK-068).
+- RLS rollout (separate chore already tracked).
 
 ## Implementation Checklist
-1. Define username schema contract (base username + generated suffix/display form).
-2. Add Prisma schema + migration for username fields and uniqueness constraints.
-3. Update signup action/service validation:
-   - username syntax/length validation
-   - password confirmation match validation
-   - generated suffix assignment and collision handling
-4. Update home sign-up UI to collect username and confirm password.
-5. Ensure sanitized error messages (no account-enumeration leaks).
-6. Add/adjust tests:
-   - username validation and normalization
-   - suffix generation uniqueness/collision behavior
-   - confirm-password validation
-   - successful signup persistence/session behavior
-7. Run validation (`lint`, `test`, `test:coverage`, `build`) and prepare PR.
+1. Define `/account` information architecture (identity summary + edit sections).
+2. Implement server action/service endpoints for:
+   - username update
+   - password change
+3. Enforce backend validation and sanitized error mapping.
+4. Update account menu UX copy/actions consistently across authenticated screens.
+5. Add/update tests:
+   - username update success/fail cases
+   - password change success/fail cases
+   - menu entries visibility and routing behavior
+6. Run validation (`lint`, `test`, `test:coverage`, `build`).
+7. Open PR and validate preview deployment.
 
 ## Acceptance Criteria
-- Sign-up form requires `username`, `password`, and `confirm password`.
-- Signup fails with clear user-facing feedback when:
-  - username is invalid by policy
-  - password and confirmation do not match
-- Successful signup persists username identity data and creates a valid session.
-- Generated username display variant is unique within system constraints.
-- Authorization behavior remains based on `user.id` and is unaffected by username mutation.
-- Regression tests cover both successful and failing flows for new onboarding fields.
+- Authenticated users can open `/account` and update username with policy enforcement.
+- Authenticated users can change password through account page controls.
+- Validation/error feedback is clear but non-enumerating.
+- Account menu shows greeting + `Account` + `Settings` + `Log out` in the expected order.
+- No regression to session authorization boundaries (`user.id` remains principal key).
+- Automated tests cover core success/failure paths for new behavior.
 
 ## Definition of Done
-- Branch + PR scoped to TASK-081.
-- DB migration applied and validated locally (and documented for staging/prod rollout).
-- CI checks pass (`check-name`, quality, e2e/container if triggered by workflow).
-- Copilot review comments resolved and marked complete.
-- Manual preview deploy validated for:
-  - sign-up with username + confirm password
-  - expected validation messages
-  - successful redirect/session after valid signup
+- Branch + PR scoped to TASK-082.
+- CI checks pass (quality + relevant gates).
+- Copilot review comments resolved.
+- Preview deployment validated manually for:
+  - account page render/access control
+  - username update flow
+  - password update flow
+  - account menu navigation/actions
 - Tracking docs updated: `tasks/current.md`, `tasks/backlog.md`, `journal.md`.
 
 ## Open Input (Pending)
 - None.
 
 ## Execution Outcome (2026-02-26)
-- Implemented username onboarding in sign-up flow with policy enforcement (`3-20`, `a-z`, `0-9`, `_`, `.`).
-- Added confirm-password validation and error mapping in server action + UI.
-- Added Prisma schema/migration for `User.username` and `User.usernameDiscriminator` plus uniqueness/index constraints.
-- Added collision-safe discriminator generation (`#` + 6-char base36 suffix) with retry on unique collisions.
-- Added authenticated account-menu identity context showing full `username#suffix` where available.
-- Extended test coverage for signup validation, discriminator retry behavior, action payload wiring, and identity summary service.
+- Added authenticated `/account` profile page with two actions:
+  - username update with inline discriminator display and policy enforcement
+  - password rotation requiring current password and confirmation
+- Added server actions for account profile updates with safe redirects/status mapping.
+- Added `account-profile-service` for backend validation + mutation handling:
+  - username normalization/validation
+  - discriminator preservation by default, regeneration on unique collision
+  - password validation + current-password verification
+  - revocation of all other sessions after successful password change
+- Added shared account security policy module to centralize username/password rules across signup and account-profile updates.
+- Updated account menu UX to include:
+  - `Welcome <display-name>!`
+  - `Account`, `Settings`, `Log out`
+- Added regression tests for:
+  - account profile service behavior
+  - account menu authenticated/unauthenticated rendering contract
 
 ## Validation Evidence
 - `npm run lint` ✅
 - `npm test` ✅
 - `npm run test:coverage` ✅
 - `npm run build` ✅ (with safe local `DATABASE_URL` + `DIRECT_URL` overrides)
-- `npm run db:migrate` ⚠️ blocked in this environment:
-  - first failure: missing `DIRECT_URL`
-  - second failure: no local PostgreSQL available
-  - Docker fallback unavailable (daemon not running)
+- PR: `#60` (`feature/task-082-account-profile` -> `main`)
+- Preview deploy: `https://nexus-dash-r4om5vt99-dorian-agaesses-projects.vercel.app`
 
 ---
 

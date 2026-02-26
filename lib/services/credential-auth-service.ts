@@ -1,25 +1,28 @@
-import { randomInt } from "node:crypto";
-
 import { prisma } from "@/lib/prisma";
 import { createSessionForUser } from "@/lib/services/session-service";
 import { hashPassword, verifyPassword } from "@/lib/services/password-service";
+import {
+  MAX_USERNAME_LENGTH,
+  MIN_PASSWORD_LENGTH,
+  MIN_USERNAME_LENGTH,
+  USERNAME_DISCRIMINATOR_LENGTH,
+  generateUsernameDiscriminator,
+  normalizeEmail,
+  normalizeUsername,
+  validateEmail,
+  validatePasswordLength,
+  validatePasswordRequirements,
+  validateUsername,
+} from "@/lib/services/account-security-policy";
 
-export const MIN_PASSWORD_LENGTH = 8;
-export const MIN_USERNAME_LENGTH = 3;
-export const MAX_USERNAME_LENGTH = 20;
-export const USERNAME_DISCRIMINATOR_LENGTH = 6;
+export {
+  MAX_USERNAME_LENGTH,
+  MIN_PASSWORD_LENGTH,
+  MIN_USERNAME_LENGTH,
+  USERNAME_DISCRIMINATOR_LENGTH,
+};
 
-const MAX_EMAIL_LENGTH = 320;
-const MAX_PASSWORD_LENGTH = 128;
 const MAX_USERNAME_GENERATION_ATTEMPTS = 12;
-const USERNAME_DISCRIMINATOR_SPACE = 36 ** USERNAME_DISCRIMINATOR_LENGTH;
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const USERNAME_PATTERN = /^[a-z0-9._]+$/;
-const PASSWORD_UPPERCASE_PATTERN = /[A-Z]/;
-const PASSWORD_LOWERCASE_PATTERN = /[a-z]/;
-const PASSWORD_NUMBER_PATTERN = /\d/;
-const PASSWORD_SYMBOL_PATTERN = /[^A-Za-z0-9]/;
 
 type AuthFailureCode =
   | "invalid-email"
@@ -78,49 +81,6 @@ function readUniqueConstraintTargets(error: unknown): string[] {
   return [];
 }
 
-function normalizeEmail(emailRaw: string): string {
-  return emailRaw.trim().toLowerCase();
-}
-
-function normalizeUsername(usernameRaw: string): string {
-  return usernameRaw.trim().toLowerCase();
-}
-
-function validateEmail(email: string): boolean {
-  return email.length > 0 && email.length <= MAX_EMAIL_LENGTH && EMAIL_PATTERN.test(email);
-}
-
-function validateUsername(username: string): boolean {
-  return (
-    username.length >= MIN_USERNAME_LENGTH &&
-    username.length <= MAX_USERNAME_LENGTH &&
-    USERNAME_PATTERN.test(username)
-  );
-}
-
-function validatePasswordLength(
-  password: string
-): "ok" | "password-too-short" | "password-too-long" {
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    return "password-too-short";
-  }
-
-  if (password.length > MAX_PASSWORD_LENGTH) {
-    return "password-too-long";
-  }
-
-  return "ok";
-}
-
-function validatePasswordRequirements(password: string): boolean {
-  return (
-    PASSWORD_UPPERCASE_PATTERN.test(password) &&
-    PASSWORD_LOWERCASE_PATTERN.test(password) &&
-    PASSWORD_NUMBER_PATTERN.test(password) &&
-    PASSWORD_SYMBOL_PATTERN.test(password)
-  );
-}
-
 async function issueSession(userId: string): Promise<AuthSuccess> {
   const session = await createSessionForUser(userId);
   return {
@@ -131,12 +91,6 @@ async function issueSession(userId: string): Promise<AuthSuccess> {
       expiresAt: session.expiresAt,
     },
   };
-}
-
-function generateUsernameDiscriminator(): string {
-  return randomInt(0, USERNAME_DISCRIMINATOR_SPACE)
-    .toString(36)
-    .padStart(USERNAME_DISCRIMINATOR_LENGTH, "0");
 }
 
 function isEmailUniqueConstraint(error: unknown): boolean {

@@ -4,11 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-082
-  Title: Account profile phase 2 - account page and user-menu identity UX
-  Status: Pending
-  Rationale: Add an authenticated account profile page for updating mutable identity fields (username/password) and extend the user menu with `Welcome <username>!`, `Account`, `Settings`, and `Log out` entries aligned with current navigation patterns.
-  Dependencies: TASK-080, TASK-081
 - ID: TASK-083
   Title: Email verification lifecycle - signup verification tokens, confirmation route, and guarded session state
   Status: Pending
@@ -95,6 +90,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-082
+  Title: Account profile phase 2 - account page and user-menu identity UX
+  Status: Done (2026-02-26)
+  Rationale: Added authenticated `/account` self-service for username/password updates, enforced backend validation + current-password verification, implemented session revocation for all other sessions after password changes, and updated account menu identity UX with `Welcome <username>!`, `Account`, `Settings`, and `Log out`.
+  Dependencies: TASK-080, TASK-081
 - ID: TASK-081
   Title: Account identity phase 1 - username onboarding, discriminator, and signup password confirmation
   Status: Done (2026-02-26)
