@@ -92,7 +92,13 @@ jobs:
         run: npx prisma generate
 
       - name: Apply Prisma migrations
-        run: npx prisma migrate deploy
+        run: |
+          if npx prisma migrate deploy; then
+            echo "Prisma migrations applied via configured DIRECT_URL."
+            exit 0
+          fi
+          echo "::warning::Prisma migrate via DIRECT_URL failed; retrying with DATABASE_URL fallback."
+          DIRECT_URL="$DATABASE_URL" npx prisma migrate deploy
 
       - name: Pull Vercel environment (production)
         run: npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=production --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
@@ -179,7 +185,13 @@ jobs:
 
       - name: Apply Prisma migrations
         if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
-        run: npx prisma migrate deploy
+        run: |
+          if npx prisma migrate deploy; then
+            echo "Prisma migrations applied via configured DIRECT_URL."
+            exit 0
+          fi
+          echo "::warning::Prisma migrate via DIRECT_URL failed; retrying with DATABASE_URL fallback."
+          DIRECT_URL="$DATABASE_URL" npx prisma migrate deploy
 
       - name: Deploy preview
         if: inputs.action == 'deploy-preview'
