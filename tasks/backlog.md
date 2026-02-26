@@ -24,6 +24,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Provide standard account-recovery capabilities through email-delivered, single-use, short-lived reset links with replay protection and post-reset session invalidation.
   Dependencies: TASK-046, TASK-083
+- ID: TASK-085
+  Title: PostgreSQL hardening - enable RLS policies with staged rollout (staging then production)
+  Status: Pending
+  Rationale: Enforce tenant isolation at the database layer by enabling Row-Level Security on user/project-scoped tables, defining explicit allow policies for authenticated principals, validating behavior in staging first, then promoting to production with rollback-safe migration/runbook coverage.
+  Dependencies: TASK-046, TASK-067, TASK-076
 - ID: TASK-068
   Title: Authentication provider rollout - phase social providers (Google/GitHub) after baseline email auth
   Status: Pending
