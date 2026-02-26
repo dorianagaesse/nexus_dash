@@ -1,89 +1,164 @@
 # NexusDash
 
-Personal productivity hub for managing projects, Kanban tasks, technical resources, and calendar context in one place.
+NexusDash is a project execution workspace that combines:
+
+- project management
+- Kanban task flow
+- project context cards
+- file/link attachments
+- Google Calendar context
+
+in one authenticated application.
+
+## Current Product State
+
+Implemented today:
+
+- Credentials auth from `/` (sign-up + sign-in)
+- DB-backed session cookies
+- Protected routes: `/projects/**`, `/account/**`
+- Project CRUD
+- Project dashboard with:
+  - Context cards (CRUD + attachments)
+  - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`)
+  - Calendar panel (Google Calendar list/create/update/delete)
+- Per-user Google Calendar connection and calendar target setting (`/account/settings`)
+- Attachment storage abstraction:
+  - `local` provider (filesystem)
+  - `r2` provider (Cloudflare R2)
 
 ## Tech Stack
 
-- Next.js (App Router)
+- Next.js 14 (App Router)
 - TypeScript (strict)
-- Tailwind CSS + Shadcn/UI
-- Prisma + PostgreSQL (Supabase-compatible)
+- Tailwind CSS + Shadcn UI
+- Prisma + PostgreSQL
+- Vitest + Playwright
 - Docker + Docker Compose
 
 ## Local Setup
 
+### 1. Prerequisites
+
+- Node.js 18+ (Node 20 recommended)
+- npm
+- PostgreSQL database (local or remote)
+
+### 2. Environment
+
+Copy env template:
+
+```bash
+cp .env.example .env
+```
+
+Set at minimum:
+
+- `DATABASE_URL`
+- `DIRECT_URL`
+
+### 3. Install and run
+
 ```bash
 npm install
+npx prisma generate
 npm run dev
 ```
 
 Open `http://localhost:3000`.
 
-## Database (Prisma)
+`npm run dev` runs `prisma migrate deploy` before starting Next.js.
 
-`npm run dev` and `npm run start` automatically run `prisma migrate deploy` first.
-On a fresh clone/machine, ensure `.env` defines `DATABASE_URL` and `DIRECT_URL`
-before starting the app.
+## Auth and Sessions
 
-- `DATABASE_URL`: runtime DB traffic (use the pooled endpoint in production).
-- `DIRECT_URL`: direct DB traffic for Prisma migrate/admin operations.
-- In production with remote hosts, `DATABASE_URL` and `DIRECT_URL` must be
-  different endpoints and must enforce TLS (for example `?sslmode=require`).
-- In local/CI contexts with localhost hosts, split/TLS hardening checks are
-  intentionally relaxed to preserve developer ergonomics.
+- Homepage (`/`) is the sign-in/sign-up entry when signed out.
+- After authentication, users are redirected to `/projects`.
+- Session persistence is database-backed (`Session` table) with HttpOnly cookie handling.
+- Logout endpoint: `POST /api/auth/logout`.
 
-## Configuration & Secrets Baseline
+## Database and Migrations
 
-Environment and secret handling is centralized in `lib/env.server.ts`.
-
-- Required (server): `DATABASE_URL`
-- Required as a pair (when calendar auth is enabled): `GOOGLE_CLIENT_ID`,
-  `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
-- Required in production when Google OAuth is enabled:
-  `GOOGLE_TOKEN_ENCRYPTION_KEY` (used for at-rest Google token encryption)
-- Required in production: `DIRECT_URL`
-- Optional with fallback in non-production: `DIRECT_URL` falls back to `DATABASE_URL`
-- Optional as a pair: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`
-  Legacy compatibility: `SUPABASE_API_KEY` (legacy publishable/anon client key only;
-  never service-role/server key) is accepted as a fallback for
-  `SUPABASE_PUBLISHABLE_KEY` during migration.
-- Optional as a pair: `NEXTAUTH_URL`, `NEXTAUTH_SECRET`
-- Optional provider selector: `STORAGE_PROVIDER` (`local` by default, `r2` for Cloudflare R2)
-- Required when `STORAGE_PROVIDER=r2`: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
-  `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`
-- Optional with default: `R2_SIGNED_URL_TTL_SECONDS` (defaults to `300`)
-
-Startup/runtime validation:
-- The app validates runtime config at server startup (`app/layout.tsx`).
-- Invalid or partial env configuration fails fast with explicit error messages.
-- Production DB guardrails enforce pooler/direct split safety, remote TLS, and
-  Supabase-specific endpoint checks.
-
-DB hardening runbook:
-- `docs/runbooks/database-connection-hardening.md`
-
-Deployment model:
-- Local dev: `.env` (never committed)
-- CI: repository/organization secrets + workflow/job env
-- Vercel: environment-specific secrets in dashboard (Preview/Production)
-
-Vercel env contract runbook:
-- `docs/runbooks/vercel-env-contract-and-secrets.md`
-- Includes required Google OAuth env set, sensitive/non-sensitive policy, and
-  preview/production verification workflow.
-
-If you create a new migration during development:
-
-```bash
-npx prisma migrate dev --name <migration_name>
-npx prisma generate
-```
-
-If you need to apply existing migrations manually:
+Scripts:
 
 ```bash
 npm run db:migrate
 ```
+
+Notes:
+
+- Datasource is PostgreSQL (`prisma/schema.prisma`).
+- Runtime and migration connection roles are split via `DATABASE_URL` + `DIRECT_URL`.
+- In production with remote hosts, runtime validation enforces:
+  - different runtime/direct endpoints
+  - TLS
+  - Supabase pooler/direct host sanity rules (when Supabase hosts are used)
+
+## Environment Contract (Server)
+
+Environment access/validation is centralized in `lib/env.server.ts` and executed at startup (`app/layout.tsx`).
+
+### Required
+
+- `DATABASE_URL`
+
+### Required in production
+
+- `DIRECT_URL`
+
+### Optional grouped vars (must be complete if any value is set)
+
+- Google OAuth group:
+  - `GOOGLE_CLIENT_ID`
+  - `GOOGLE_CLIENT_SECRET`
+  - `GOOGLE_REDIRECT_URI`
+- NextAuth compatibility group:
+  - `NEXTAUTH_URL`
+  - `NEXTAUTH_SECRET`
+- Supabase client group:
+  - `SUPABASE_URL`
+  - `SUPABASE_PUBLISHABLE_KEY`
+  - legacy fallback accepted for migration only: `SUPABASE_API_KEY`
+- R2 credentials group:
+  - `R2_ACCOUNT_ID`
+  - `R2_ACCESS_KEY_ID`
+  - `R2_SECRET_ACCESS_KEY`
+  - `R2_BUCKET_NAME`
+
+### Additional rules
+
+- In production, when Google OAuth is enabled, `GOOGLE_TOKEN_ENCRYPTION_KEY` is required.
+- `GOOGLE_CALENDAR_ID` must be unset or `primary`.
+- `STORAGE_PROVIDER` must be `local` or `r2` (default `local`).
+
+Runbooks:
+
+- `docs/runbooks/vercel-env-contract-and-secrets.md`
+- `docs/runbooks/database-connection-hardening.md`
+
+## Attachments and Storage
+
+Supported kinds:
+
+- `link`
+- `file`
+
+Allowed file types:
+
+- PDF
+- JPEG / PNG / WebP
+- TXT / Markdown
+- CSV
+- JSON
+
+Upload limits:
+
+- Form-based upload: `4MB`
+- Direct upload flow (signed upload target): `25MB`
+
+Provider behavior:
+
+- `local`: filesystem-backed (`/storage/uploads`)
+- `r2`: Cloudflare R2 with signed download URLs and direct upload support
 
 ## Docker (Dev)
 
@@ -91,26 +166,12 @@ npm run db:migrate
 docker compose up
 ```
 
-The app runs on `http://localhost:3000` with hot reload enabled via bind mounts.
-If port `3000` is already used, run:
+Notes:
 
-```bash
-APP_PORT=3001 docker compose up
-```
-
-Attachment uploads are stored server-side under `/app/storage/uploads` (mounted as
-`storage_data` in Docker Compose).
-
-## Attachments
-
-- Supported kinds: link and file
-- File size limit: `10MB`
-- Allowed MIME types: PDF, PNG/JPEG/WebP, TXT/Markdown, CSV, JSON
-- Storage provider architecture:
-  - `local`: filesystem-backed storage under `/storage/uploads` (dev-friendly)
-  - `r2`: Cloudflare R2 object storage with signed download URLs
-- Task attachments are managed from the task detail modal
-- Context-card attachments are managed from the context-card edit modal
+- App binds to `${APP_PORT:-3000}` on host.
+- Container startup runs `npx prisma generate` then `npm run dev`.
+- Storage volume is mounted at `/app/storage`.
+- `DATABASE_URL` and `DIRECT_URL` are required by compose config.
 
 ## Scripts
 
@@ -119,69 +180,76 @@ npm run dev
 npm run build
 npm run start
 npm run lint
-npm run test
+npm test
 npm run test:coverage
 npm run test:e2e
+npm run test:e2e:headed
+npm run db:migrate
 ```
 
-## E2E Smoke Tests (Playwright)
+## Testing
 
-The E2E suite validates critical UI journeys:
-- project creation + dashboard navigation
-- task lifecycle with attachment interaction
-- calendar panel interaction states
-
-Run once (or after Playwright upgrades):
+### Unit/API tests
 
 ```bash
-npx playwright install chromium
+npm test
+npm run test:coverage
 ```
 
-Run smoke tests:
+### E2E (Playwright)
+
+Install browser once:
+
+```bash
+npx playwright install --with-deps chromium
+```
+
+Run:
 
 ```bash
 npm run test:e2e
 ```
 
-## CI Quality Gates
+## CI/CD
 
-GitHub Actions enforces three CI gates on pull requests and `main`:
-- `Quality Core`: `npm run lint`, `npm test`, `npm run test:coverage`, `npm run build`
-- `E2E Smoke`: `npm run test:e2e` against an isolated PostgreSQL service with migrations applied
-- `Container Image`: Docker image build validation with exported image metadata artifact
+### CI workflows
 
-## Observability Baseline
+- `Quality Core (lint, test, coverage, build)`
+- `E2E Smoke (Playwright)`
+- `Container Image (build + metadata artifact)`
+- `Check Branch Name` (PR branch naming contract)
 
-- Liveness probe: `GET /api/health/live`
-  - Returns `200` when the service process is up.
-- Readiness probe: `GET /api/health/ready`
-  - Returns `200` when the app can reach PostgreSQL.
-  - Returns `503` when core dependencies are unavailable.
-- API responses include `x-request-id` for correlation across logs and client reports.
-- Server-side logs use structured JSON records via `lib/observability/logger.ts`.
+### CD workflow
 
-## CD and Rollback (Vercel CLI)
+Workflow: `.github/workflows/deploy-vercel.yml`
 
-CD/rollback workflow: `.github/workflows/deploy-vercel.yml`
+Supports:
 
-Required repository secrets:
+- automatic staged production deploy after successful `Quality Gates` on `main`
+- manual actions:
+  - `deploy-preview`
+  - `deploy-production-staged`
+  - `promote`
+  - `rollback`
+
+Required GitHub secrets:
+
 - `VERCEL_TOKEN`
 - `VERCEL_ORG_ID`
 - `VERCEL_PROJECT_ID`
 
-Required Vercel project environment variables:
-- Configure all runtime app env vars from `.env.example` in Vercel project settings.
-- At minimum, ensure database/runtime-critical vars (for example `DATABASE_URL`) are set for the target environment (Preview/Production).
+## Observability
 
-Supported operations:
-- automatic staged production deployment after successful `Quality Gates` on `main`
-- manual workflow-dispatch operations:
-  - `deploy-preview`
-  - `deploy-production-staged`
-  - `promote` (promote a staged deployment)
-  - `rollback` (instant rollback to a previous production deployment)
+- `GET /api/health/live`: process liveness
+- `GET /api/health/ready`: dependency readiness (database reachability)
+- API request/response correlation via `x-request-id`
+- Structured server logging in `lib/observability/logger.ts`
 
-Notes:
-- On Vercel Hobby, rollback is limited to the previous production deployment.
-- After rollback, auto-assignment behavior may require an explicit promote to restore standard flow.
-- Workflow pins Vercel CLI to a fixed version for reproducible deploy behavior.
+## Project Documentation Map
+
+- `project.md`: current architecture/product blueprint
+- `agent.md`: repository-specific execution contract
+- `tasks/current.md`: active task scope
+- `tasks/backlog.md`: pending/completed task queue
+- `journal.md`: execution log
+- `adr/decisions.md` + `adr/*.md`: architecture decisions
