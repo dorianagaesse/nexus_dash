@@ -81,7 +81,7 @@ export function HomeSignupUsernameSuffix({
 
   return (
     <span
-      className="pointer-events-none absolute inset-y-0 right-3 flex select-none items-center text-sm font-medium text-muted-foreground"
+      className="pointer-events-none absolute inset-y-0 right-3 flex select-none items-center text-sm font-medium text-muted-foreground/70"
       aria-hidden="true"
     >
       #{discriminatorPreview}

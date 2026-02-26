@@ -240,7 +240,7 @@ export default async function Home({
                       minLength={MIN_USERNAME_LENGTH}
                       maxLength={MAX_USERNAME_LENGTH}
                       pattern="[a-z0-9._]+"
-                      className={cn(inputClassName, "pr-24")}
+                      className={cn(inputClassName, "w-full pr-24")}
                     />
                     <HomeSignupUsernameSuffix usernameInputId="signup-username" />
                   </div>
