@@ -21,6 +21,7 @@ import {
 import { signInAction, signUpAction } from "./home-auth-actions";
 import { AuthSubmitButton } from "./auth-submit-button";
 import {
+  HomeSignupEmailFeedback,
   HomeSignupPasswordFeedback,
   HomeSignupUsernameSuffix,
 } from "./home-signup-live-feedback";
@@ -262,6 +263,7 @@ export default async function Home({
                     maxLength={320}
                     className={inputClassName}
                   />
+                  <HomeSignupEmailFeedback emailInputId="signup-email" />
                 </div>
                 <div className="grid gap-2">
                   <label htmlFor="signup-password" className="text-sm font-medium">

@@ -8,6 +8,10 @@ type HomeSignupUsernameSuffixProps = {
   usernameInputId: string;
 };
 
+type HomeSignupEmailFeedbackProps = {
+  emailInputId: string;
+};
+
 type HomeSignupPasswordFeedbackProps = {
   passwordInputId: string;
   confirmPasswordInputId: string;
@@ -82,6 +86,60 @@ export function HomeSignupUsernameSuffix({
     >
       #{discriminatorPreview}
     </span>
+  );
+}
+
+export function HomeSignupEmailFeedback({
+  emailInputId,
+}: HomeSignupEmailFeedbackProps) {
+  const [hasTypeMismatch, setHasTypeMismatch] = useState(false);
+  const [isTouched, setIsTouched] = useState(false);
+
+  useEffect(() => {
+    const emailInput = document.getElementById(emailInputId);
+    if (!(emailInput instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const syncInitialState = () => {
+      setHasTypeMismatch(
+        emailInput.value.length > 0 ? emailInput.validity.typeMismatch : false
+      );
+    };
+
+    const handleEmailInput = () => {
+      setHasTypeMismatch(
+        emailInput.value.length > 0 ? emailInput.validity.typeMismatch : false
+      );
+    };
+
+    const handleEmailBlur = () => {
+      setIsTouched(true);
+    };
+
+    syncInitialState();
+    emailInput.addEventListener("input", handleEmailInput);
+    emailInput.addEventListener("blur", handleEmailBlur);
+
+    return () => {
+      emailInput.removeEventListener("input", handleEmailInput);
+      emailInput.removeEventListener("blur", handleEmailBlur);
+    };
+  }, [emailInputId]);
+
+  const showInvalidEmail = isTouched && hasTypeMismatch;
+
+  return (
+    <p
+      className={cn(
+        "min-h-5 text-xs font-medium",
+        showInvalidEmail ? "text-destructive" : "invisible"
+      )}
+      role="status"
+      aria-live="polite"
+    >
+      Enter a valid email address.
+    </p>
   );
 }
 
