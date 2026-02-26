@@ -91,6 +91,9 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
+      - name: Apply Prisma migrations
+        run: npx prisma migrate deploy
+
       - name: Pull Vercel environment (production)
         run: npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=production --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
@@ -173,6 +176,10 @@ jobs:
       - name: Generate Prisma client
         if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
         run: npx prisma generate
+
+      - name: Apply Prisma migrations
+        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
+        run: npx prisma migrate deploy
 
       - name: Deploy preview
         if: inputs.action == 'deploy-preview'
