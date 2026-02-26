@@ -1,257 +1,122 @@
-# Architecture Decisions (ADR Log)
+# Architecture Decisions (Working Log)
 
-Use this file to record architectural decisions. Keep entries short and factual.
+Use this file for concise architecture-impacting decisions only.
+Keep UI-only or task-only notes in `journal.md`.
 
-## Template
+## Entry Template
+
+```md
+## YYYY-MM-DD - <short decision title>
+- Status: Accepted | Superseded | Deprecated | Proposed
+- Context: <why this decision was needed>
+- Decision: <what we chose>
+- Consequences: <tradeoffs, constraints, follow-ups>
+- Links: <ADR/tasks/PRs if relevant>
 ```
-Date: YYYY-MM-DD
-Decision: <short title>
-Status: Proposed | Accepted | Deprecated
-Context: <why this decision is needed>
-Decision: <what was chosen and why>
-Consequences: <tradeoffs, risks, follow-ups>
-```
 
----
-Date: 2026-02-11
-Decision: Baseline stack setup (Next.js App Router + Prisma SQLite + Tailwind/Shadcn + Docker)
-Status: Accepted
-Context: TASK-001 requires a consistent foundation for the NexusDash app.
-Decision: Use Next.js 14 App Router with TypeScript strict mode, Tailwind CSS + Shadcn UI components, Prisma ORM with SQLite, and Docker/Docker Compose for dev parity.
-Consequences: Fast local iteration with a lightweight DB, consistent containerized dev flow, and a clear UI foundation for future features.
-Date: 2026-02-11
-Decision: Compose host port is configurable with safe default
-Status: Accepted
-Context: Local developer environments may already occupy host port `3000`, which blocked `docker compose up`.
-Decision: Keep container port fixed at `3000` and map host port using `${APP_PORT:-3000}` in `docker-compose.yml`, documented in README.
-Consequences: Default behavior remains `localhost:3000`, while developers can override to avoid conflicts without editing compose files.
-Date: 2026-02-12
-Decision: Use Next.js server actions for Project CRUD
-Status: Accepted
-Context: TASK-002 requires simple create/update/delete flows with low ceremony and direct Prisma access.
-Decision: Implement CRUD mutations via server actions (`app/projects/actions.ts`) and render projects with a server component page (`app/projects/page.tsx`).
-Consequences: Smaller API surface and simpler forms, with redirects used for status/error feedback.
+## Active Decisions
 
-Date: 2026-02-12
-Decision: Use Debian Bullseye Node image for Prisma-compatible Docker runtime
-Status: Accepted
-Context: Prisma engine failed in Alpine and Debian Bookworm images due OpenSSL runtime mismatch during Next build/runtime.
-Decision: Use `node:18-bullseye`, run `npx prisma generate` after source copy in `Dockerfile`, and run `npx prisma generate` at compose startup.
-Consequences: Reliable Prisma behavior in containerized dev/build; slightly larger image footprint.
-Date: 2026-02-12
-Decision: Implement Kanban interactions with client-side DnD + server persistence API
-Status: Accepted
-Context: TASK-003 requires drag-and-drop interactions with reliable status/position persistence.
-Decision: Use `@hello-pangea/dnd` in a client component (`components/kanban-board.tsx`) and persist board state through `POST /api/projects/[projectId]/tasks/reorder`.
-Consequences: Smooth UX with optimistic movement and explicit persistence boundary; introduces one dedicated API endpoint for board updates.
+## 2026-02-23 - Enforce principal-scoped boundaries for DB/storage/calendar
+- Status: Accepted
+- Context: Multi-user readiness required removing remaining singleton and ID-only access paths.
+- Decision: Enforced actor-aware service contracts, ownership/membership checks, user-scoped Google credentials, and ownership-safe storage keys (`v1/{userId}/{projectId}/...`).
+- Consequences: Cross-user leakage risks are significantly reduced; strict ownership assumptions are now part of all project-scoped service contracts.
+- Links: `adr/task-076-supabase-r2-google-calendar-boundaries.md`
 
-Date: 2026-02-12
-Decision: Normalize task status handling via shared constants/types
-Status: Accepted
-Context: Kanban columns and persistence logic require consistent status values across server/client.
-Decision: Add `lib/task-status.ts` as the single source of truth for status values and validation helpers.
-Consequences: Reduces string drift risk and improves strict typing for board operations.
-Date: 2026-02-12
-Decision: Use modal-based task creation on project dashboard
-Status: Accepted
-Context: Inline task form consumed too much vertical space and reduced board usability.
-Decision: Replace inline form with compact "New task" trigger opening a lightweight modal form.
-Consequences: Cleaner dashboard focus on Kanban board while preserving task creation capability.
-Date: 2026-02-12
-Decision: Make entire Kanban card the drag handle while preserving click-to-open details
-Status: Accepted
-Context: Users found small drag handle too restrictive and requested card-wide drag with full info on click.
-Decision: Attach drag handle props to the full card surface and open a detail modal on card click.
-Consequences: Faster interaction with fewer precise cursor movements; click-vs-drag behavior now depends on DnD movement threshold.
-Date: 2026-02-12
-Decision: Store task descriptions as sanitized HTML with plain-text projection for board previews
-Status: Accepted
-Context: TASK-009 requires rich-text authoring and editing while keeping board cards compact and safe.
-Decision: Use a lightweight contenteditable editor in client UI, sanitize persisted HTML with `sanitize-html`, and convert to plain text for card previews.
-Consequences: Enables rich-text descriptions and safer rendering with limited formatting tags; introduces a sanitization dependency.
-Date: 2026-02-12
-Decision: Support heading presets in rich-text task descriptions
-Status: Accepted
-Context: Users need stronger visual hierarchy in task descriptions for readability.
-Decision: Add `Title 1` and `Title 2` formatting controls in editor and permit `h1/h2` tags through sanitization.
-Consequences: Better structured task notes; sanitizer rules expanded but still controlled.
-Date: 2026-02-12
-Decision: Place task-creation trigger inside Kanban header via component action slot
-Status: Accepted
-Context: A separate helper card for task creation consumed space reserved for upcoming project-context content.
-Decision: Add an optional `headerAction` slot to `KanbanBoard` and render `CreateTaskDialog` directly under the board title.
-Consequences: Cleaner dashboard layout and reusable board-header extension point; board component API grows by one optional prop.
-Date: 2026-02-12
-Decision: Use HTML class-based theme toggle with localStorage persistence
-Status: Accepted
-Context: Users requested a bright mode and the app was forcing dark mode globally.
-Decision: Remove forced `dark` class from root layout, add a client theme toggle that writes `nexusdash-theme` to localStorage, and apply saved mode on boot via inline script.
-Consequences: Reliable persisted theme selection without additional theming dependencies; includes a small inline script in layout.
-Date: 2026-02-12
-Decision: Use modal-first project creation on `/projects` page
-Status: Accepted
-Context: Inline creation form consumed significant vertical space and delayed access to current projects.
-Decision: Replace inline create-project card with a compact `Create project` modal trigger and reuse existing server action submission pattern.
-Consequences: Cleaner projects-first page flow and consistent modal UX with task creation; introduces one additional client component.
-Date: 2026-02-12
-Decision: Persist blocked-task follow-up notes as first-class task data
-Status: Accepted
-Context: Blocked tasks require dedicated, editable warning context in expanded task details.
-Decision: Add optional `blockedNote` field on `Task` and expose it through dashboard payloads and task update API.
-Consequences: Better blocker traceability and clearer follow-up ownership; requires schema migration and additional task payload mapping.
-Date: 2026-02-12
-Decision: Persist Done lifecycle metadata for automatic task archiving
-Status: Accepted
-Context: Done column needs to stay compact as completed tasks accumulate over time.
-Decision: Add `completedAt` and `archivedAt` on `Task`, auto-archive stale Done tasks (>7 days) at dashboard load, and expose archived tasks via a Done-column archive dropdown.
-Consequences: Scalable Done-column UX with preserved historical visibility; introduces additional lifecycle state handling in reorder and dashboard query paths.
-Date: 2026-02-12
-Decision: Implement project context cards using existing `Resource` model discriminator
-Status: Accepted
-Context: Project context cards are needed now, while richer resource/document handling remains planned for later tasks.
-Decision: Reuse `Resource` with `type = "context-card"` and map `name -> title`, `content -> content` instead of introducing a new model.
-Consequences: Faster delivery with no schema migration; requires careful filtering by resource type and leaves room for future resource-model refinement.
-Date: 2026-02-12
-Decision: Store optional context card color on `Resource` for lightweight card theming
-Status: Accepted
-Context: Context cards need pastel background colors with user-controlled selection and random defaults at creation.
-Decision: Add optional `color` field on `Resource`, validate against a controlled pastel palette, and fallback deterministically for legacy cards without color.
-Consequences: Better visual differentiation with minimal schema impact; introduces one additional migration and validation path for context card updates.
-Date: 2026-02-12
-Decision: Persist dashboard section expansion state per project via browser storage
-Status: Accepted
-Context: Users need `Project context` and `Kanban board` to reopen in their preferred expanded/collapsed state after refresh.
-Decision: Store section state in localStorage with project-scoped keys and restore client-side on component mount.
-Consequences: Better continuity for daily usage without backend schema/API changes; component state becomes client-storage dependent.
-Date: 2026-02-12
-Decision: Introduce attachment system with local filesystem backend and S3-ready abstraction
-Status: Accepted
-Context: Tasks and context cards need link/file attachments now, while cloud object storage integration is planned for a later phase.
-Decision: Add dedicated attachment models (`TaskAttachment`, `ResourceAttachment`), validate file uploads via allowlist + size cap, and persist files under `/storage/uploads` through shared `lib/attachment-storage.ts` helpers.
-Consequences: Immediate local attachment support with predictable migration path to external object storage; adds file lifecycle management responsibilities and new API surface for upload/download/delete.
-Date: 2026-02-15
-Decision: Pre-auth architecture direction (targeted medium refactor vs full rewrite)
-Status: Accepted
-Context: TASK-035 architecture audit identified boundary issues (missing user ownership model, global calendar credential singleton, very large client orchestration components, and mixed server-action/API mutation paths) that increase risk for TASK-020/TASK-021/TASK-023.
-Decision: Prefer a targeted medium refactor that strengthens boundaries (service-layer extraction, auth-ready data model, frontend panel decomposition, and operational guardrails) before full authentication/security rollout, instead of a big-bang redesign.
-Consequences: Lower delivery risk and faster incremental progress with less rework; requires short-term refactor investment before major auth/security implementation.
-Date: 2026-02-15
-Decision: Centralize mutation and integration rules in backend service modules
-Status: Accepted
-Context: TASK-053 requires clear boundaries so server actions and API routes can share validation/business rules and remain auth-ready.
-Decision: Extract task/context-card/attachment/calendar logic into `lib/services/*` and keep route handlers/actions focused on transport concerns (request parsing, response mapping, cache revalidation, redirects).
-Consequences: Less duplication and drift across mutation paths, better testability of business logic, and cleaner insertion points for future authz checks.
-Date: 2026-02-15
-Decision: Decompose large client panels via utility modules and shared UI-state hooks
-Status: Accepted
-Context: TASK-054 targets oversized orchestration components (`kanban-board.tsx`, `project-context-panel.tsx`, `project-calendar-panel.tsx`) that were mixing rendering, formatting, local persistence, and interaction logic in single files.
-Decision: Extract panel-specific pure helpers into dedicated modules, move calendar date-time field into its own component, and standardize section-expansion localStorage behavior through `useProjectSectionExpanded`.
-Consequences: Smaller and clearer panel files with lower regression risk; future UI refactors can evolve in isolated modules without reworking full panel components.
-Date: 2026-02-15
-Decision: Unify project/task/context mutation transport on API routes
-Status: Accepted
-Context: TASK-055 requires one mutation boundary per use case so validation/auth checks are enforced consistently without split server-action/API execution paths.
-Decision: Promote API routes as the canonical mutation transport for task creation and context-card CRUD, wire client components directly to those endpoints, and retire legacy project-level server-action mutation wrappers.
-Consequences: Cleaner, single mutation entrypoints and simpler future authz middleware integration; frontend forms now handle async submit/error states explicitly.
-Date: 2026-02-15
-Decision: Adopt PostgreSQL baseline with Supabase-managed Postgres as default hosted target
-Status: Accepted
-Context: TASK-056 requires a data-platform decision before migration/auth/security phases, balancing concurrency, operational burden, lock-in risk, and delivery speed.
-Decision: Use PostgreSQL as the canonical persistence engine, target Supabase-managed Postgres by default for hosted environments, and keep Prisma schema/migrations repository-owned and provider-agnostic.
-Consequences: Enables near-term production readiness and remote multi-user capability with lower ops burden; requires explicit guardrails to avoid premature coupling to Supabase-specific platform features.
-Date: 2026-02-15
-Decision: Reset migration history for PostgreSQL parity baseline while preserving SQLite lineage
-Status: Accepted
-Context: TASK-057 migrates runtime persistence from SQLite to PostgreSQL without carrying local SQLite data; existing migration chain was SQLite-specific and incompatible as-is for PostgreSQL deploy.
-Decision: Keep prior SQLite migrations under `prisma/migrations-sqlite-legacy` for traceability, create a new PostgreSQL `prisma/migrations` baseline from the current schema, and enforce Postgres env contracts (`DATABASE_URL`, `DIRECT_URL`) in docs/runtime.
-Consequences: Clean, deployable Postgres migration history for new environments with preserved historical audit trail; teams migrating old local SQLite data must use a separate one-off data transfer path if needed.
-Date: 2026-02-15
-Decision: Use single Supabase project branch as interim environment until deployment split
-Status: Accepted
-Context: Supabase project branching is unavailable on the current plan, and the base Supabase branch is labeled `main (PRODUCTION)` by platform convention.
-Decision: Continue using the current Supabase `main` branch for controlled development/testing during pre-deployment phase, with repository-owned migrations and explicit documentation of this temporary constraint.
-Consequences: Maintains delivery velocity but requires disciplined handling of environment expectations; proper dev/staging/prod separation remains a required follow-up in deployment phases.
-Date: 2026-02-16
-Decision: Enforce persistence boundary through service-layer ownership and lint restrictions
-Status: Accepted
-Context: TASK-060 requires explicit, durable layering rules so upcoming auth/share/agent work does not reintroduce direct database coupling in UI/page or transport layers.
-Decision: Restrict direct Prisma access to `lib/services/**`, move remaining app-layer DB usage into dedicated services (`project-service`, `google-calendar-credential-service`), and enforce violations with ESLint `no-restricted-imports` overrides.
-Consequences: Stronger separation of concerns and safer evolution of auth/security features; introduces stricter import governance that may require small refactors when adding new flows.
-Date: 2026-02-16
-Decision: Centralize server environment access and validation in one module
-Status: Accepted
-Context: TASK-040 requires consistent secrets/config behavior across server routes, Prisma runtime helpers, and deployment environments before CI/CD rollout.
-Decision: Add `lib/env.server.ts` as the single server-side environment access layer (required/optional readers, runtime mode checks, DB config fallback, Supabase pair validation) and migrate existing server env reads to this module.
-Consequences: Fewer scattered `process.env` reads, better testability, and clearer failure modes for missing/partial config; future env policy changes can be applied in one place.
-Date: 2026-02-16
-Decision: CI quality gates must include container image build verification
-Status: Accepted
-Context: TASK-041 requires validating not only source quality (lint/tests/build) but also the deployable artifact before deployment/rollback phases.
-Decision: Extend `quality-gates.yml` with a dedicated container-image job that runs after quality and E2E gates, builds the Docker image in CI, and uploads image metadata as an artifact.
-Consequences: Earlier detection of Dockerfile/runtime build regressions and clearer release readiness signals; slightly longer CI duration due to image build step.
-Date: 2026-02-17
-Decision: Use staged Vercel CLI deployments with explicit promote/rollback operations
-Status: Accepted
-Context: TASK-042 requires a low-risk CD baseline with rollback capability while keeping release control explicit.
-Decision: Add `deploy-vercel.yml` to create staged production deployments after successful quality gates on `main`, and expose manual `deploy-preview`, `deploy-production-staged`, `promote`, and `rollback` actions through workflow dispatch.
-Consequences: Faster recovery path and clearer release control with auditable deployment artifacts; requires Vercel repository secrets and operator discipline for promote/rollback steps.
-Date: 2026-02-17
-Decision: Force explicit Vercel scope and non-interactive promote/rollback in CI
-Status: Accepted
-Context: Manual `promote`/`rollback` operations failed in GitHub Actions due scope drift and confirmation prompts in non-interactive runs.
-Decision: Pass explicit scope (`--scope`) to Vercel CLI operations and add `--yes` to `promote`/`rollback` commands in `deploy-vercel.yml`.
-Consequences: Deterministic CI deploy context and reliable manual promotion/rollback execution; workflow now depends on consistent scope resolution from `VERCEL_ORG_ID`.
-Date: 2026-02-17
-Decision: Enforce runtime env fail-fast validation with production DIRECT_URL requirement
-Status: Accepted
-Context: TASK-066 requires stronger config/secrets guarantees before production rollout, including startup validation and tighter Prisma env contracts.
-Decision: Add centralized `validateServerRuntimeConfig` checks (DB URL shape, optional env pair/triplet completeness, URL validation), require `DIRECT_URL` in production runtime, and execute validation at server startup via `app/layout.tsx`.
-Consequences: Misconfigured environments fail early with explicit errors, reducing runtime surprises; CI/build pipelines must provide minimal DB env variables for validation.
-Date: 2026-02-17
-Decision: Add provider-based attachment storage with Cloudflare R2 default and local fallback
-Status: Accepted
-Context: TASK-065 requires replacing local-only attachment persistence so deployment can run on serverless runtimes without relying on local disk durability.
-Decision: Introduce `StorageProvider` abstraction (save/read/delete/signed-download-url), keep local filesystem provider for development, and add Cloudflare R2 provider with signed URL download support.
-Consequences: Storage backend becomes configurable with minimal service-layer changes; production deployments gain durable object storage while local development remains simple.
-Date: 2026-02-18
-Decision: Auth UX and session baseline must include home-page entry flow and persistent server-side session lifecycle
-Status: Accepted
-Context: Product direction requires "real auth" from the user perspective (signed-out landing behavior, sign in/up options, and persistent sessions) before public multi-user usage scales.
-Decision: Fold explicit home-page auth entry behavior (`Sign in`/`Sign up` for signed-out users, workspace redirect for signed-in users), modern session lifecycle policy (rotation/revocation/TTL), and phased provider rollout into auth scope (TASK-020/TASK-045/TASK-047, plus TASK-068 for additional social providers).
-Consequences: Auth implementation scope is clearer and more testable, reducing ambiguity between backend-only auth and full product UX; initial auth delivery remains phased to control risk.
-Date: 2026-02-18
-Decision: Lock hybrid auth/session model (DB-backed user sessions + JWT-style scoped agent/API tokens)
-Status: Accepted
-Context: Product goals require strong user-session security (revocation, durable login UX, account lifecycle) and future non-human access for personal project automation agents.
-Decision: Use DB-backed sessions for interactive user authentication (Auth.js + Prisma adapter path) and reserve JWT-style scoped tokens for agent/API access in TASK-059, rather than adopting pure JWT browser sessions for all actors.
-Consequences: Better user-session control, auditability, and revocation semantics for the dashboard; keeps agent access flexible without coupling browser login security to long-lived bearer tokens.
-Date: 2026-02-20
-Decision: Complete dashboard panel decomposition with module-level UI extraction
-Status: Accepted
-Context: TASK-062 identified that `kanban-board.tsx`, `project-context-panel.tsx`, and `project-calendar-panel.tsx` were still oversized orchestration files even after earlier utility extraction, increasing change-risk before auth/security work.
-Decision: Keep existing data/mutation contracts intact while extracting rendering-heavy UI surfaces into focused modules (`components/kanban/*`, `components/context-panel/*`, `components/calendar-panel/*`) and shared panel types files, leaving parent components as state/action orchestrators.
-Consequences: Lower regression surface per change and clearer ownership boundaries for future iterations; introduces additional component interfaces/prop wiring that must remain aligned during future feature work.
-Date: 2026-02-20
-Decision: Draft modern auth/authz architecture contract with hybrid session/token model
-Status: Accepted
-Context: TASK-020 must define implementation-ready auth/authz boundaries before TASK-045/TASK-046/TASK-047/TASK-058/TASK-059 to avoid rework and authorization drift.
-Decision: Document a hybrid architecture using Prisma + PostgreSQL as system of record, Auth.js database-backed user sessions, role-based project memberships, and scoped agent API credentials with short-lived JWT runtime access tokens; keep stateless server operation with DB authority and optional Redis session cache.
-Consequences: Implementation phases proceed with explicit actor boundaries, migration strategy, and security controls.
-Date: 2026-02-20
-Decision: Add dedicated multi-user boundary transition task before auth route-protection rollout
-Status: Accepted
-Context: TASK-020 ADR clarified that principal-scoped authorization and storage ownership isolation are a distinct implementation concern not fully covered by schema bootstrap (TASK-045) or route protection (TASK-046) alone.
-Decision: Add TASK-076 to execution queue and sequence it after TASK-045 and before TASK-046, with explicit scope for service-layer principal filtering, Supabase credential boundary checks, and Cloudflare R2 ownership/signed-URL authorization alignment.
-Consequences: Reduces authorization drift and cross-user data leakage risk during auth rollout; increases near-term implementation scope but creates clearer and safer boundaries for TASK-046/TASK-058/TASK-059.
-Date: 2026-02-20
-Decision: Extend TASK-076 boundary scope to include user-scoped Google Calendar credentials and operations
-Status: Accepted
-Context: Existing calendar integration persists OAuth tokens in a singleton credential (`GoogleCalendarCredential.id = "default"`) and resolves calendar access globally, which conflicts with planned multi-user ownership boundaries.
-Decision: Update TASK-076 to explicitly cover Supabase/Postgres principal boundaries, Cloudflare R2 ownership isolation, and Google Calendar principal-scoped OAuth/token/service flows; record detailed implementation contract in `adr/task-076-supabase-r2-google-calendar-boundaries.md`.
-Consequences: Calendar integration aligns with user-based model and avoids cross-user token/data leakage; introduces additional schema migration and service refactor work during TASK-076.
-Date: 2026-02-23
-Decision: Enforce principal-scoped boundaries end-to-end for projects, attachments, and Google Calendar credentials
-Status: Accepted
-Context: TASK-076 required removing remaining ID-only and singleton integration paths before route protection/sharing phases.
-Decision: Added `Project.ownerId` + `ProjectMembership`, attachment uploader ownership fields, user-scoped `GoogleCalendarCredential`, actor-aware service signatures, ownership-aware storage key prefixes (`v1/{userId}/{projectId}/...`), and session-resolved principal propagation across project/task/context/attachment/calendar APIs.
-Consequences: Cross-user leakage paths are closed by default and service boundaries are auth-ready; migration is reset-path only (no legacy compatibility), requiring clean staging data as agreed.
+## 2026-02-20 - Define modern auth/authz contract before auth rollout
+- Status: Accepted
+- Context: Upcoming auth tasks needed a locked boundary model to prevent iterative rework.
+- Decision: Adopted hybrid contract: DB-backed user sessions + scoped non-human token model, role-based project authorization, service-layer enforcement.
+- Consequences: Auth implementation became phased and explicit, with clear sequencing constraints.
+- Links: `adr/task-020-modern-auth-authorization-adr.md`
+
+## 2026-02-20 - Execute dedicated boundary transition before route protection
+- Status: Accepted
+- Context: Schema bootstrap alone was insufficient to guarantee data isolation.
+- Decision: Introduced TASK-076 as required implementation step before TASK-046 route/API protection.
+- Consequences: Added short-term implementation scope, reduced long-term authorization drift risk.
+- Links: `adr/task-020-modern-auth-authorization-adr.md`, `adr/task-076-supabase-r2-google-calendar-boundaries.md`
+
+## 2026-02-18 - Keep hybrid auth/session direction
+- Status: Accepted
+- Context: Product needs durable user sessions plus future agent/API access.
+- Decision: Keep DB-backed user sessions for interactive auth; reserve scoped JWT-style tokens for non-human actors.
+- Consequences: Better revocation/control for user auth; agent access remains a separate implementation phase.
+- Links: `adr/task-020-modern-auth-authorization-adr.md`
+
+## 2026-02-17 - Use staged Vercel deploy workflow with manual promote/rollback
+- Status: Accepted
+- Context: Needed low-risk release control with quick rollback path.
+- Decision: Added Vercel CLI workflow supporting staged production deploy, preview deploy, promote, and rollback.
+- Consequences: Clear operational release path; requires disciplined secret/env management.
+- Links: `.github/workflows/deploy-vercel.yml`
+
+## 2026-02-17 - Enforce startup fail-fast runtime config validation
+- Status: Accepted
+- Context: Production misconfiguration risk was too high without strict env checks.
+- Decision: Centralized runtime validation and enforced production `DIRECT_URL` + DB hardening invariants.
+- Consequences: Misconfigured environments fail early; CI/deploy environments must provide minimum DB contract.
+- Links: `lib/env.server.ts`, `docs/runbooks/database-connection-hardening.md`
+
+## 2026-02-17 - Keep provider-based attachment storage (`local` + `r2`)
+- Status: Accepted
+- Context: Serverless deployments cannot rely on local filesystem durability.
+- Decision: Added `StorageProvider` abstraction with local fallback and Cloudflare R2 implementation.
+- Consequences: Flexible storage backend with minimal service churn; direct upload support depends on provider capability.
+- Links: `lib/storage/`, `tasks/task-065-storage-provider-r2.md`
+
+## 2026-02-16 - Enforce service-layer ownership for persistence access
+- Status: Accepted
+- Context: Direct DB access from transport/UI layers created auth and maintenance risk.
+- Decision: Restricted Prisma usage to `lib/services/**` and enforced via lint restrictions.
+- Consequences: Stronger layering and cleaner authz insertion points; new features must honor service boundaries.
+- Links: `tasks/task-060-boundary-enforcement.md`
+
+## 2026-02-16 - CI gates include deploy artifact verification
+- Status: Accepted
+- Context: Source-only checks were insufficient for deployment safety.
+- Decision: Added container image build + metadata artifact gate after quality + E2E checks.
+- Consequences: Better deploy confidence at the cost of longer CI runtime.
+- Links: `.github/workflows/quality-gates.yml`, `tasks/task-041-ci-pipeline-build-image.md`
+
+## 2026-02-16 - Centralize server env access contract
+- Status: Accepted
+- Context: Scattered `process.env` usage caused drift and inconsistent validation.
+- Decision: Introduced `lib/env.server.ts` as the single env access/validation layer.
+- Consequences: Easier testing and policy evolution; all server code should use this module.
+- Links: `tasks/task-040-secrets-config-management.md`
+
+## 2026-02-15 - Adopt PostgreSQL baseline, Supabase as default hosted target
+- Status: Accepted
+- Context: SQLite constraints blocked multi-user and production readiness.
+- Decision: Switched canonical runtime to PostgreSQL; use Supabase-hosted Postgres by default, while keeping app/provider contracts Prisma-owned.
+- Consequences: Production-ready data path with managed ops tradeoffs.
+- Links: `adr/task-056-data-platform-adr.md`
+
+## 2026-02-15 - Reset migrations for PostgreSQL baseline and archive SQLite history
+- Status: Accepted
+- Context: Existing migration chain was SQLite lineage and not deploy-safe for Postgres baseline.
+- Decision: Started new Postgres migration history under `prisma/migrations`; moved old chain to `prisma/migrations-sqlite-legacy`.
+- Consequences: Clean Postgres deploy path; old SQLite data migration is explicitly out-of-band.
+- Links: `adr/task-057-supabase-environment-strategy.md`
+
+## 2026-02-15 - Targeted medium refactor before full auth/security phases
+- Status: Accepted
+- Context: Architecture audit found boundary gaps and high change risk.
+- Decision: Chose phased medium refactor (service extraction, schema/boundary hardening, UI decomposition) over big-bang rewrite.
+- Consequences: Lower rework risk and better delivery continuity.
+- Links: `tasks/task-035-architecture-audit.md`
+
+## Historical (Still Useful Context)
+
+## 2026-02-12 - Use `node:18-bullseye` Docker base for Prisma compatibility
+- Status: Accepted
+- Context: Alpine/Bookworm OpenSSL mismatches broke Prisma runtime/build.
+- Decision: Standardized Docker base on Debian Bullseye image.
+- Consequences: Stable Prisma behavior with larger image footprint.
+
+## 2026-02-11 - Compose host port is configurable (`APP_PORT`)
+- Status: Accepted
+- Context: Local port conflicts blocked developer startup.
+- Decision: Keep container port `3000`, map host port with `${APP_PORT:-3000}`.
+- Consequences: Safer local onboarding in mixed environments.

@@ -1,93 +1,88 @@
-# Project Blueprint: NexusDash
+# NexusDash Project Blueprint (Current State)
 
-## 1. Vision & Overview
+Last verified: 2026-02-26
 
-NexusDash est un hub centralisé de productivité personnelle. Il permet à l'utilisateur de gérer plusieurs projets, chacun contenant un tableau Kanban spécialisé, un référentiel de ressources techniques (IPs, documents), et une intégration en direct avec Google Calendar. L'objectif est d'éliminer le changement constant d'onglets en consolidant la gestion des tâches et les données de référence techniques dans une seule vue.
+## 1. Vision
 
-## 2. Tech Stack
+NexusDash is a personal/team execution workspace that keeps project planning, delivery tracking, contextual notes, file attachments, and calendar execution in one place.
 
-- **Framework**: Next.js 14+ (App Router)
-- **Language**: TypeScript (Strict mode)
-- **Styling**: Tailwind CSS + Shadcn/UI (Components)
-- **Icons**: Lucide React
-- **Drag & Drop**: `@hello-pangea/dnd`
-- **Database**: PostgreSQL via Prisma ORM (Supabase-hosted in current baseline)
-- **Authentication/API**: Next.js API routes + Google OAuth (Calendar integration); app auth target is DB-backed user sessions + JWT-style scoped tokens for agent/API access (planned via TASK-020/TASK-045/TASK-059)
-- **File Handling**: StorageProvider abstraction with local dev fallback and Cloudflare R2 object storage target for deployed environments
-- **Containerization**: Docker + Docker Compose (dev and production parity)
+## 2. Current Product Scope (Implemented)
 
-## 3. Core Features & Requirements
+- Email/password sign-up and sign-in from `/`.
+- DB-backed session authentication with protected app routes (`/projects/**`, `/account/**`).
+- Multi-project workspace with project CRUD.
+- Project dashboard with three core panels:
+  - Context cards (create/edit/delete + attachments)
+  - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`) with reorder and task detail modal
+  - Google Calendar panel (read/create/update/delete events when connected)
+- Attachment system for tasks and context cards:
+  - Link + file attachments
+  - Local storage provider and Cloudflare R2 provider
+  - Provider-aware upload flows (form upload + direct upload pipeline)
+- Per-user Google Calendar credential ownership and per-user calendar target setting (`/account/settings`).
+- Operational baseline:
+  - Health probes (`/api/health/live`, `/api/health/ready`)
+  - Request ID propagation (`x-request-id`)
+  - Structured server logging
 
-### A. Project Management (Root Level)
+## 3. Architecture and Stack
 
-- Landing page affichant une grille de projets existants
-- Capacité de Créer, Mettre à jour et Supprimer (CRUD) des projets
-- Chaque carte de projet renvoie vers un dashboard de projet dédié
+- Framework: Next.js 14 App Router + TypeScript strict
+- UI: Tailwind CSS + Shadcn UI + Lucide + `@hello-pangea/dnd`
+- Data: Prisma 5 + PostgreSQL
+- Auth model (current):
+  - Credentials onboarding + DB sessions
+  - Google OAuth used for Calendar integration (user-scoped credentials)
+- Storage: `StorageProvider` abstraction (`local` or `r2`)
+- Testing: Vitest + Playwright
+- Runtime/deploy: Docker, GitHub Actions, Vercel CLI staged production deploy/promotion/rollback
 
-### B. The Project Dashboard (Layout)
+## 4. Data Model Snapshot
 
-#### 1. Top Section (Resource Header)
-- Panel Collapsible/Expandable
-- **Technical Info**: Table/Liste pour adresses IP VM, credentials, ou liens
-- **Document Vault**: Liste de fichiers avec bouton "Preview" (PDF/Images) et "Download"
+Current schema includes:
 
-#### 2. Middle Section (Kanban Board)
-- **Quatre Colonnes**: `Backlog`, `In Progress`, `Blocked`, `Done`
-- **Cards**: Titre, Description, et Label avec code couleur (Badge)
-- **Interactions**: Drag and Drop des cartes entre colonnes ; persistance de position en DB
+- Auth/session: `User`, `Account`, `Session`, `VerificationToken`
+- Authorization boundaries: `Project.ownerId`, `ProjectMembership` (`owner|editor|viewer`)
+- Domain: `Project`, `Task`, `Resource` (context cards), `TaskBlockedFollowUp`
+- Attachments: `TaskAttachment`, `ResourceAttachment` with `uploadedByUserId`
+- Calendar: `GoogleCalendarCredential` (one row per user)
 
-#### 3. Bottom/Side Section (Google Calendar)
-- Widget récupérant les événements du Google Calendar principal de l'utilisateur
-- Affichage des réunions/deadlines à venir
+Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
-## 4. Database Schema (Prisma)
-```prisma
-model Project {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  tasks       Task[]
-  resources   Resource[]
-}
+## 5. Delivery and Operations Baseline
 
-model Task {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  status      String   @default("Backlog") // Backlog, In Progress, Blocked, Done
-  position    Int      @default(0)
-  label       String?  // Couleur du badge
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
+- `npm run dev` and `npm run start` run `prisma migrate deploy` before app startup.
+- Runtime config is validated at server startup via `validateServerRuntimeConfig()`.
+- CI quality gates:
+  - `Quality Core`
+  - `E2E Smoke`
+  - `Container Image`
+- CD workflow supports:
+  - staged production deploy
+  - manual preview deploy
+  - promote
+  - rollback
 
-model Resource {
-  id          String   @id @default(cuid())
-  type        String   // "technical" ou "document"
-  name        String
-  content     String   // IP/credentials ou chemin fichier
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-}
-```
+## 6. Known Gaps (Intentionally Pending)
 
-## 5. UI/UX Guidelines
+- Project sharing/invitation flows are not implemented yet (membership model exists, UX flows pending).
+- Agent/API scoped token model is not implemented yet.
+- Email verification and password recovery are not implemented yet.
 
-- **Theme**: Modern Dark Mode par défaut (utilisant les couleurs Radix)
-- **Kanban Cards**: Bordures propres, ombres subtiles. En drag, la carte doit avoir un léger effet de rotation ou scale
-- **Transitions**: Transitions de hauteur fluides pour la section "Expandable" des ressources
-- **Labels**: Les badges doivent avoir un texte à haut contraste et un fond semi-transparent de la couleur choisie
+## 7. Active Priorities
 
-## 6. Development Milestones (Roadmap)
+From `tasks/current.md` + `tasks/backlog.md`:
 
-1. **Phase 1**: Setup Next.js, Prisma, Tailwind, and Docker (Dockerfile + docker-compose). CRUD Project basique
-2. **Phase 2**: Implémenter la logique Kanban avec `@hello-pangea/dnd` et persistance du statut
-3. **Phase 3**: Créer le panel Resource Expandable et logique Upload/Preview de fichiers
-4. **Phase 4**: Intégrer NextAuth et Google Calendar API
-5. **Phase 5**: Polish Final (Animations, notifications Toast pour les erreurs)
+1. TASK-081: username onboarding + discriminator + signup password confirmation
+2. TASK-082: account profile page + identity UX updates
+3. TASK-083: email verification lifecycle
+4. TASK-084: password recovery lifecycle
+
+## 8. Source-of-Truth Docs
+
+- Product/runtime overview: `README.md`
+- Agent workflow rules: `agent.md`
+- Current execution scope: `tasks/current.md`
+- Queue and sequencing: `tasks/backlog.md`
+- Execution log: `journal.md`
+- Architecture decisions: `adr/decisions.md` + task-specific ADRs in `adr/`

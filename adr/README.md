@@ -1,15 +1,27 @@
-# ADR Folder
+# ADR Directory Guide
 
-This folder stores architecture decision records and related decision notes.
+This folder contains architecture decision records.
 
-## Files
+## File Roles
 
-- `adr/decisions.md`: chronological ADR log used by day-to-day development workflow.
-- `adr/task-020-modern-auth-authorization-adr.md`: detailed auth/authz architecture decision for user sessions, project authorization, and agent access.
-- `adr/task-076-supabase-r2-google-calendar-boundaries.md`: dedicated boundary contract for multi-user Supabase, Cloudflare R2, and Google Calendar integration isolation.
-- `adr/task-056-data-platform-adr.md`: detailed analysis for TASK-056 (PostgreSQL baseline + Supabase fit).
-- `adr/task-057-supabase-environment-strategy.md`: interim environment strategy while Supabase branching is unavailable on current plan.
+- `adr/decisions.md`
+  - Short operational log of architecture-impacting decisions.
+  - Use for concise entries and links.
 
-## Update Rule
+- `adr/task-*.md`
+  - Detailed ADR documents for decisions that need deeper analysis, options, and implementation contract.
 
-When a task introduces a major architectural choice, add or update an entry in `adr/decisions.md` and link any detailed companion document in this folder.
+- `adr/TEMPLATE.md`
+  - Copy this template when creating a new detailed ADR.
+
+## Current Detailed ADRs
+
+- `adr/task-020-modern-auth-authorization-adr.md`
+- `adr/task-056-data-platform-adr.md`
+- `adr/task-057-supabase-environment-strategy.md`
+- `adr/task-076-supabase-r2-google-calendar-boundaries.md`
+
+## Usage Rule
+
+1. Add/update a short entry in `adr/decisions.md` for any architecture-impacting choice.
+2. If the decision needs option analysis, migration plan, or cross-task contract, create/update a detailed `adr/task-*.md` file and link it from `adr/decisions.md`.
