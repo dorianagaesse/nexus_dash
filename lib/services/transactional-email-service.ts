@@ -1,4 +1,7 @@
-import { getOptionalServerEnv, isProductionEnvironment } from "@/lib/env.server";
+import {
+  getOptionalServerEnv,
+  isLiveProductionDeployment,
+} from "@/lib/env.server";
 import { logServerInfo, logServerWarning } from "@/lib/observability/logger";
 
 const RESEND_API_ENDPOINT = "https://api.resend.com/emails";
@@ -36,12 +39,16 @@ function resolveResendApiKey(): string | null {
 export async function sendTransactionalEmail(
   input: SendTransactionalEmailInput
 ): Promise<SendTransactionalEmailResult> {
-  if (!isProductionEnvironment()) {
-    logServerInfo("sendTransactionalEmail", "Email delivery skipped outside production.", {
-      to: input.to,
-      subject: input.subject,
-      delivery: "skipped",
-    });
+  if (!isLiveProductionDeployment()) {
+    logServerInfo(
+      "sendTransactionalEmail",
+      "Email delivery skipped outside live production deployment.",
+      {
+        to: input.to,
+        subject: input.subject,
+        delivery: "skipped",
+      }
+    );
     return {
       ok: true,
       delivery: "skipped",
