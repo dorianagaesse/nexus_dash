@@ -23,9 +23,9 @@ export default defineConfig({
   webServer: externalBaseURL
     ? undefined
     : {
-        // `npm run start` runs migrations again; run Next directly here to avoid
-        // flaky startup failures in CI after migrations have already been applied.
-        command: `npm run db:migrate && npm run build && npx next start --hostname 127.0.0.1 --port ${PORT}`,
+        // CI applies migrations in a dedicated step before Playwright runs.
+        // Start Next directly here to avoid duplicate migration lock contention.
+        command: `npm run build && npx next start --hostname 127.0.0.1 --port ${PORT}`,
         url: `${localBaseURL}/projects`,
         timeout: 300_000,
         reuseExistingServer: !process.env.CI,
