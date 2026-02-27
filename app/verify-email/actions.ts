@@ -44,37 +44,37 @@ export async function resendVerificationEmailAction(): Promise<void> {
     redirect(HOME_PATH);
   }
 
+  let result: Awaited<ReturnType<typeof issueEmailVerificationForUser>>;
   try {
     const requestOrigin = resolveRequestOriginFromHeaders(headers());
-    const result = await issueEmailVerificationForUser({
+    result = await issueEmailVerificationForUser({
       actorUserId,
       requestOrigin,
     });
-
-    if (!result.ok) {
-      if (result.error === "already-verified") {
-        redirect(PROJECTS_PATH);
-      }
-
-      logServerWarning(
-        "resendVerificationEmailAction.issueEmailVerificationForUser",
-        "Could not resend verification email.",
-        {
-          actorUserId,
-          error: result.error,
-          status: result.status,
-        }
-      );
-      redirectWithError(mapIssueError(result.error));
-    }
-
-    const status =
-      result.data.delivery === "sent" ? "resend-sent" : "resend-queued";
-    redirectWithStatus(status);
   } catch (error) {
     logServerError("resendVerificationEmailAction", error);
     redirectWithError("verification-email-send-failed");
   }
+
+  if (!result.ok) {
+    if (result.error === "already-verified") {
+      redirect(PROJECTS_PATH);
+    }
+
+    logServerWarning(
+      "resendVerificationEmailAction.issueEmailVerificationForUser",
+      "Could not resend verification email.",
+      {
+        actorUserId,
+        error: result.error,
+        status: result.status,
+      }
+    );
+    redirectWithError(mapIssueError(result.error));
+  }
+
+  const status = result.data.delivery === "sent" ? "resend-sent" : "resend-queued";
+  redirectWithStatus(status);
 }
 
 export async function continueAfterVerificationAction(): Promise<void> {
@@ -83,17 +83,20 @@ export async function continueAfterVerificationAction(): Promise<void> {
     redirect(HOME_PATH);
   }
 
+  let status: Awaited<ReturnType<typeof getEmailVerificationStatus>>;
   try {
-    const status = await getEmailVerificationStatus(actorUserId);
-    if (!status.ok) {
-      redirect(HOME_PATH);
-    }
-
-    if (status.data.isVerified) {
-      redirect(PROJECTS_PATH);
-    }
+    status = await getEmailVerificationStatus(actorUserId);
   } catch (error) {
     logServerError("continueAfterVerificationAction", error);
+    redirectWithError("verification-pending");
+  }
+
+  if (!status.ok) {
+    redirect(HOME_PATH);
+  }
+
+  if (status.data.isVerified) {
+    redirect(PROJECTS_PATH);
   }
 
   redirectWithError("verification-pending");
