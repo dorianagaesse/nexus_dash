@@ -29,12 +29,28 @@ model User {
   resourceAttachments ResourceAttachment[] @relation("ResourceAttachmentUploader")
   googleCalendarCredential GoogleCalendarCredential?
   emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens PasswordResetToken[]
 
   @@unique([username, usernameDiscriminator])
   @@index([username])
 }
 
 model EmailVerificationToken {
+  id         String   @id @default(cuid())
+  userId     String
+  email      String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, expiresAt])
+}
+
+model PasswordResetToken {
   id         String   @id @default(cuid())
   userId     String
   email      String
