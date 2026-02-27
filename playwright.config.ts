@@ -23,8 +23,9 @@ export default defineConfig({
   webServer: externalBaseURL
     ? undefined
     : {
-        command: `npm run build && npm run start -- --hostname 127.0.0.1 --port ${PORT}`,
-        url: `${localBaseURL}/projects`,
+        // Build is executed before Playwright launches; keep web server startup fast.
+        command: `npx next start --hostname 127.0.0.1 --port ${PORT}`,
+        url: `${localBaseURL}/api/health/live`,
         timeout: 180_000,
         reuseExistingServer: !process.env.CI,
       },

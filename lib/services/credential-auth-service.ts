@@ -38,6 +38,7 @@ interface AuthSuccess {
   ok: true;
   data: {
     userId: string;
+    emailVerified: boolean;
     sessionToken: string;
     expiresAt: Date;
   };
@@ -81,12 +82,16 @@ function readUniqueConstraintTargets(error: unknown): string[] {
   return [];
 }
 
-async function issueSession(userId: string): Promise<AuthSuccess> {
-  const session = await createSessionForUser(userId);
+async function issueSession(input: {
+  userId: string;
+  emailVerified: boolean;
+}): Promise<AuthSuccess> {
+  const session = await createSessionForUser(input.userId);
   return {
     ok: true,
     data: {
-      userId,
+      userId: input.userId,
+      emailVerified: input.emailVerified,
       sessionToken: session.sessionToken,
       expiresAt: session.expiresAt,
     },
@@ -150,10 +155,14 @@ export async function signUpWithEmailPassword(input: {
         },
         select: {
           id: true,
+          emailVerified: true,
         },
       });
 
-      return issueSession(createdUser.id);
+      return issueSession({
+        userId: createdUser.id,
+        emailVerified: Boolean(createdUser.emailVerified),
+      });
     } catch (error) {
       if (!isUniqueConstraintViolation(error)) {
         throw error;
@@ -195,6 +204,7 @@ export async function signInWithEmailPassword(input: {
     select: {
       id: true,
       passwordHash: true,
+      emailVerified: true,
     },
   });
 
@@ -207,5 +217,8 @@ export async function signInWithEmailPassword(input: {
     return { ok: false, error: "invalid-credentials" };
   }
 
-  return issueSession(user.id);
+  return issueSession({
+    userId: user.id,
+    emailVerified: Boolean(user.emailVerified),
+  });
 }

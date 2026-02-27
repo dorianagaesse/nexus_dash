@@ -72,7 +72,10 @@ Open `http://localhost:3000`.
 ## Auth and Sessions
 
 - Homepage (`/`) is the sign-in/sign-up entry when signed out.
-- After authentication, users are redirected to `/projects`.
+- Credentials accounts require email verification before workspace access.
+- Unverified signed-in users are redirected to `/verify-email`.
+- Verification callback endpoint: `GET /api/auth/verify-email?token=...`.
+- After verified authentication, users are redirected to `/projects`.
 - Session persistence is database-backed (`Session` table) with HttpOnly cookie handling.
 - Logout endpoint: `POST /api/auth/logout`.
 
@@ -104,6 +107,7 @@ Environment access/validation is centralized in `lib/env.server.ts` and executed
 ### Required in production
 
 - `DIRECT_URL`
+- `RESEND_API_KEY` (email verification delivery)
 
 ### Optional grouped vars (must be complete if any value is set)
 
@@ -128,6 +132,8 @@ Environment access/validation is centralized in `lib/env.server.ts` and executed
 
 - In production, when Google OAuth is enabled, `GOOGLE_TOKEN_ENCRYPTION_KEY` is required.
 - `GOOGLE_CALENDAR_ID` must be unset or `primary`.
+- `RESEND_FROM_EMAIL` defaults to `NexusDash <noreply@nexus-dash.app>` when unset.
+- `TRUSTED_ORIGINS` (optional) can restrict verification-link origins in production.
 - `STORAGE_PROVIDER` must be `local` or `r2` (default `local`).
 
 Runbooks:

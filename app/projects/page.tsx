@@ -15,10 +15,12 @@ const STATUS_MESSAGES: Record<string, string> = {
   created: "Project created successfully.",
   updated: "Project updated successfully.",
   deleted: "Project deleted successfully.",
+  "email-verified": "Email verified. Your workspace is now fully unlocked.",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
   unauthorized: "You must be signed in to manage projects.",
+  "email-unverified": "Verify your email to access project APIs and workspace actions.",
   "name-too-short": "Project name must be at least 2 characters long.",
   "missing-project-id": "Project identifier is missing.",
   "create-failed": "Could not create project. Please retry.",

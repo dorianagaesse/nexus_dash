@@ -16,7 +16,11 @@ interface CookieEnabledRequest {
 }
 
 function shouldUseSyntheticTestUser(): boolean {
-  return process.env.NODE_ENV === "test" || process.env.CI === "true";
+  if (process.env.ENABLE_SYNTHETIC_TEST_USER === "1") {
+    return true;
+  }
+
+  return process.env.VITEST === "true";
 }
 
 export async function getSessionUserIdFromRequest(

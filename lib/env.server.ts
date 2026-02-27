@@ -1,4 +1,5 @@
 export type RuntimeEnvironment = "development" | "test" | "production";
+export type VercelEnvironment = "development" | "preview" | "production";
 
 function readRawEnv(name: string): string | undefined {
   const value = process.env[name];
@@ -34,6 +35,33 @@ export function getRuntimeEnvironment(): RuntimeEnvironment {
 
 export function isProductionEnvironment(): boolean {
   return getRuntimeEnvironment() === "production";
+}
+
+export function getVercelEnvironment(): VercelEnvironment | null {
+  const vercelEnv = getOptionalServerEnv("VERCEL_ENV");
+  if (
+    vercelEnv === "development" ||
+    vercelEnv === "preview" ||
+    vercelEnv === "production"
+  ) {
+    return vercelEnv;
+  }
+
+  return null;
+}
+
+export function isLiveProductionDeployment(): boolean {
+  if (!isProductionEnvironment()) {
+    return false;
+  }
+
+  const vercelEnv = getVercelEnvironment();
+  if (!vercelEnv) {
+    // Non-Vercel production runtimes should still be treated as live production.
+    return true;
+  }
+
+  return vercelEnv === "production";
 }
 
 export interface DatabaseRuntimeConfig {
@@ -186,6 +214,13 @@ function assertValidUrl(name: string, value: string): void {
     new URL(value);
   } catch {
     throw new Error(`${name} must be a valid absolute URL.`);
+  }
+}
+
+function assertEmailAddressLike(name: string, value: string): void {
+  const trimmed = value.trim();
+  if (!trimmed.includes("@")) {
+    throw new Error(`${name} must look like a valid email identity.`);
   }
 }
 
@@ -382,6 +417,17 @@ export function validateServerRuntimeConfig(
   const googleCalendarId = getOptionalServerEnv("GOOGLE_CALENDAR_ID");
   if (googleCalendarId && googleCalendarId !== "primary") {
     throw new Error("GOOGLE_CALENDAR_ID must be unset or set to 'primary'.");
+  }
+
+  const resendFromEmail = getOptionalServerEnv("RESEND_FROM_EMAIL");
+  if (resendFromEmail) {
+    assertEmailAddressLike("RESEND_FROM_EMAIL", resendFromEmail);
+  }
+
+  if (isLiveProductionDeployment() && !getOptionalServerEnv("RESEND_API_KEY")) {
+    throw new Error(
+      "RESEND_API_KEY is required in production for email verification delivery."
+    );
   }
 
   assertOptionalEnvironmentGroup(

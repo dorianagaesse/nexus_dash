@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 
+import { signInAsVerifiedUser } from "./helpers/auth-helpers";
 import {
   createProjectFromProjectsPage,
   openNewestProjectDashboard,
@@ -7,6 +8,10 @@ import {
 } from "./helpers/project-helpers";
 
 test.describe("critical UI smoke flows", () => {
+  test.beforeEach(async ({ page }) => {
+    await signInAsVerifiedUser(page);
+  });
+
   test("project creation and dashboard navigation flow", async ({ page }) => {
     const projectName = uniqueProjectName("smoke-project");
 

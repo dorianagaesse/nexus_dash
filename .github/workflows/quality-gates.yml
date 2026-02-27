@@ -20,6 +20,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public
       DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public
+      RESEND_API_KEY: ci-placeholder-resend-key
 
     steps:
       - name: Checkout
@@ -74,6 +75,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public
       DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public
       NODE_ENV: test
+      RESEND_API_KEY: ci-placeholder-resend-key
 
     steps:
       - name: Checkout

@@ -8,8 +8,10 @@ RUN npm ci
 COPY . .
 ARG DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public
 ARG DIRECT_URL=postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public
+ARG RESEND_API_KEY=ci-placeholder-resend-key
 ENV DATABASE_URL=$DATABASE_URL
 ENV DIRECT_URL=$DIRECT_URL
+ENV RESEND_API_KEY=$RESEND_API_KEY
 
 RUN npx prisma generate
 RUN npm run build

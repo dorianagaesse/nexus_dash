@@ -7,12 +7,15 @@ import {
   getRuntimeEnvironment,
   getStorageRuntimeConfig,
   getSupabaseClientRuntimeConfig,
+  getVercelEnvironment,
+  isLiveProductionDeployment,
   isProductionEnvironment,
   validateServerRuntimeConfig,
 } from "@/lib/env.server";
 
 const ENV_KEYS_TO_RESET = [
   "NODE_ENV",
+  "VERCEL_ENV",
   "DATABASE_URL",
   "DIRECT_URL",
   "SUPABASE_URL",
@@ -23,6 +26,8 @@ const ENV_KEYS_TO_RESET = [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
   "GOOGLE_REDIRECT_URI",
+  "RESEND_API_KEY",
+  "RESEND_FROM_EMAIL",
   "STORAGE_PROVIDER",
   "R2_ACCOUNT_ID",
   "R2_ACCESS_KEY_ID",
@@ -36,6 +41,7 @@ describe("env.server", () => {
     for (const key of ENV_KEYS_TO_RESET) {
       vi.stubEnv(key, "");
     }
+    vi.stubEnv("RESEND_API_KEY", "re_test_key");
   });
 
   afterEach(() => {
@@ -82,6 +88,24 @@ describe("env.server", () => {
 
     vi.stubEnv("NODE_ENV", "staging");
     expect(getRuntimeEnvironment()).toBe("development");
+  });
+
+  test("resolves Vercel environment and live production deployment mode", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    expect(getVercelEnvironment()).toBe("preview");
+    expect(isLiveProductionDeployment()).toBe(false);
+
+    vi.stubEnv("VERCEL_ENV", "production");
+    expect(getVercelEnvironment()).toBe("production");
+    expect(isLiveProductionDeployment()).toBe(true);
+
+    vi.stubEnv("VERCEL_ENV", "");
+    expect(getVercelEnvironment()).toBeNull();
+    expect(isLiveProductionDeployment()).toBe(true);
+
+    vi.stubEnv("NODE_ENV", "development");
+    expect(isLiveProductionDeployment()).toBe(false);
   });
 
   test("builds database config and falls back direct url to database url", () => {
@@ -173,6 +197,7 @@ describe("env.server", () => {
       "DIRECT_URL",
       "postgresql://admin-user:pwd@direct-db.example.com:5432/postgres?sslmode=require"
     );
+    vi.stubEnv("RESEND_API_KEY", "re_test_key");
     vi.stubEnv("STORAGE_PROVIDER", "local");
     vi.stubEnv("NODE_ENV", "production");
 
@@ -294,8 +319,40 @@ describe("env.server", () => {
     vi.stubEnv("GOOGLE_CLIENT_SECRET", "client-secret");
     vi.stubEnv("GOOGLE_REDIRECT_URI", "https://app.example.com/callback");
     vi.stubEnv("GOOGLE_TOKEN_ENCRYPTION_KEY", "dev-test-key");
+    vi.stubEnv("RESEND_API_KEY", "re_test_key");
 
     expect(() => validateServerRuntimeConfig()).not.toThrow();
+  });
+
+  test("fails runtime validation when production resend key is missing", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DATABASE_URL", "postgresql://localhost:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://localhost:5433/postgres");
+    vi.stubEnv("RESEND_API_KEY", "");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "RESEND_API_KEY is required in production for email verification delivery."
+    );
+  });
+
+  test("passes runtime validation in Vercel preview when resend key is missing", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("DATABASE_URL", "postgresql://localhost:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://localhost:5433/postgres");
+    vi.stubEnv("RESEND_API_KEY", "");
+
+    expect(() => validateServerRuntimeConfig()).not.toThrow();
+  });
+
+  test("fails runtime validation when resend from email is malformed", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("RESEND_FROM_EMAIL", "invalid-email");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "RESEND_FROM_EMAIL must look like a valid email identity."
+    );
   });
 
   test("fails runtime validation when supabase url is not absolute", () => {
