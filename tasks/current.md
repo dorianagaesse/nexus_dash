@@ -1,55 +1,61 @@
-# Current Task: TASK-086 Account Page Adjustment - Email Change Verification, Compact Layout, and Settings Navigation
+# Current Task: TASK-084 Password Recovery Lifecycle - Forgot Password Request, Reset Token Flow, and Secure Password Rotation
 
 ## Task ID
-TASK-086
+TASK-084
 
 ## Status
-In Progress (2026-02-27)
+In Progress (2026-02-28)
 
 ## Objective
-Extend account self-service so users can update their email address safely, enforce verification on the new email, and improve `/account` information density with a cleaner modern layout.
+Deliver a production-grade password recovery flow for credentials users with secure, single-use, expiring reset links, replay protection, and post-reset session invalidation.
 
 ## Why Now
-- TASK-082 delivered account profile controls, but email change is still missing.
-- TASK-083 delivered verification lifecycle; email updates should reuse it.
-- Current `/account` composition is functional but too vertically sparse for the amount of editable data.
+- TASK-083 established tokenized email lifecycle + delivery baseline.
+- Credentials auth is live and now needs complete account recovery coverage.
+- Password recovery is a standard requirement for secure account onboarding UX.
 
 ## Dependencies
-- TASK-082 (Done): account profile page + username/password update flows.
-- TASK-083 (Done): verification token lifecycle + `/verify-email` flow + guarded session behavior.
-- TASK-046 (Done): authenticated route/action guardrails.
+- TASK-046 (Done): authenticated route/API guardrails and session primitives.
+- TASK-083 (Done): transactional email/token lifecycle baseline and Resend integration.
+
+## Locked Decisions
+- Recovery UX uses email reset links (no code-entry flow in this task).
+- Reset links are single-use and short-lived.
+- Token values are stored hashed only (never raw).
+- Password reset invalidates all existing sessions for the subject account.
+- Recovery request responses are user-enumeration safe at UX level.
 
 ## Scope
-- Add account email update capability from `/account`.
-- On successful email update:
-  - reset verification state for that user (`emailVerified = null`)
-  - issue a fresh verification email token via existing verification service
-  - redirect user to `/verify-email` with clear status/error feedback
-- Reorganize `/account` layout to reduce vertical footprint while keeping modern, readable visual structure.
-- Add explicit navigation affordance to `/account/settings` on the account page.
-- Add regression tests for new account email update service behavior and action-level flow handling.
+- Add forgot-password request flow with email input.
+- Issue password-reset tokens with expiry + replay protection.
+- Send reset email links through transactional email service.
+- Add reset-password form flow with new password + confirmation.
+- Rotate stored password hash on successful token consume.
+- Invalidate active sessions after successful password reset.
+- Add tests for token lifecycle, replay protection, and reset success/failure flows.
 
 ## Out of Scope
-- Password reset lifecycle (TASK-084).
-- Social-provider account linking/email synchronization.
-- Username availability service or public profile discovery.
+- MFA recovery factors.
+- Social-provider-only account recovery harmonization.
+- Additional anti-abuse controls beyond token-level constraints in this task.
 
 ## Acceptance Criteria
-- Signed-in verified users can submit a new valid email from `/account`.
-- Email updates enforce normalization/validation and uniqueness.
-- Changing email clears `emailVerified` and requires verifying the new email before protected app usage.
-- Verification issuance failures are handled safely with clear user-facing errors.
-- `/account` presents a more compact layout than before without regressing existing username/password flows.
-- A visible control links to `/account/settings`.
-- Automated tests cover critical email-change success/failure branches.
+- User can submit forgot-password request and receive reset email in production.
+- Reset link can be consumed once and expires after TTL.
+- Invalid/expired/consumed links fail safely with user-friendly messaging.
+- Password reset enforces existing password policy and confirmation checks.
+- Successful reset revokes active sessions for the account.
+- Tests cover critical success/failure/security paths.
 
 ## Definition of Done
-- Backlog updated with TASK-086 and TASK-083 completion.
-- `/account` implementation and tests merged via PR.
-- CI + preview deployment checks pass.
-- Copilot review comments (if any) are addressed and resolved.
+- Branch + PR for TASK-084.
+- Prisma schema + migration committed.
+- CI checks pass (check-name, quality, container).
+- Copilot review comments addressed/resolved.
+- Preview deploy is green.
+- Tracking docs updated (`tasks/current.md`, `tasks/backlog.md`, `journal.md` as applicable).
 
 ---
 
-Last Updated: 2026-02-27
+Last Updated: 2026-02-28
 Assigned To: User + Agent
