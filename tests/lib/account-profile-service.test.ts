@@ -39,6 +39,7 @@ vi.mock("@/lib/services/session-service", () => ({
 
 import {
   getAccountProfile,
+  updateAccountEmail,
   updateAccountPassword,
   updateAccountUsername,
 } from "@/lib/services/account-profile-service";
@@ -63,6 +64,7 @@ describe("account-profile-service", () => {
   test("returns profile summary for authenticated user", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
       email: "user@example.com",
+      emailVerified: new Date("2026-02-27T00:00:00.000Z"),
       username: "test.user",
       usernameDiscriminator: "abc123",
     });
@@ -74,6 +76,7 @@ describe("account-profile-service", () => {
       status: 200,
       data: {
         email: "user@example.com",
+        isEmailVerified: true,
         username: "test.user",
         usernameDiscriminator: "abc123",
         usernameTag: "test.user#abc123",
@@ -84,6 +87,7 @@ describe("account-profile-service", () => {
   test("returns profile with nullable identity fields for legacy users", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
       email: "legacy@example.com",
+      emailVerified: null,
       username: null,
       usernameDiscriminator: null,
     });
@@ -95,10 +99,119 @@ describe("account-profile-service", () => {
       status: 200,
       data: {
         email: "legacy@example.com",
+        isEmailVerified: false,
         username: "",
         usernameDiscriminator: null,
         usernameTag: null,
       },
+    });
+  });
+
+  test("rejects email update with invalid email", async () => {
+    const result = await updateAccountEmail({
+      actorUserId: "user-1",
+      emailRaw: "invalid",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "invalid-email",
+    });
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  test("rejects cross-user email updates", async () => {
+    const result = await updateAccountEmail({
+      actorUserId: "user-1",
+      subjectUserId: "user-2",
+      emailRaw: "new@example.com",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 403,
+      error: "forbidden",
+    });
+  });
+
+  test("returns unchanged when email stays the same after normalization", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      email: "user@example.com",
+    });
+
+    const result = await updateAccountEmail({
+      actorUserId: "user-1",
+      emailRaw: " USER@example.com ",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      status: 200,
+      data: {
+        email: "user@example.com",
+        emailChanged: false,
+      },
+    });
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  test("updates email, resets verification, and clears prior verification tokens", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      email: "before@example.com",
+    });
+    prismaMock.user.update.mockResolvedValueOnce({
+      email: "after@example.com",
+    });
+
+    const result = await updateAccountEmail({
+      actorUserId: "user-1",
+      emailRaw: "After@example.com",
+    });
+
+    expect(prismaMock.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        email: "after@example.com",
+        emailVerified: null,
+        emailVerificationTokens: {
+          deleteMany: {},
+        },
+      },
+      select: {
+        email: true,
+      },
+    });
+    expect(result).toEqual({
+      ok: true,
+      status: 200,
+      data: {
+        email: "after@example.com",
+        emailChanged: true,
+      },
+    });
+  });
+
+  test("returns email-in-use on unique email constraint violation", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      email: "before@example.com",
+    });
+    prismaMock.user.update.mockRejectedValueOnce({
+      code: "P2002",
+      meta: {
+        target: ["email"],
+      },
+    });
+
+    const result = await updateAccountEmail({
+      actorUserId: "user-1",
+      emailRaw: "new@example.com",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 409,
+      error: "email-in-use",
     });
   });
 

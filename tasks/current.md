@@ -1,100 +1,53 @@
-# Current Task: TASK-083 Email Verification Lifecycle - Signup Verification Tokens, Confirmation Route, and Guarded Session State
+# Current Task: TASK-086 Account Page Adjustment - Email Change Verification, Compact Layout, and Settings Navigation
 
 ## Task ID
-TASK-083
+TASK-086
 
 ## Status
-Planned (Current) (2026-02-27)
+In Progress (2026-02-27)
 
 ## Objective
-Add production-grade email ownership verification for credentials accounts using a one-click verification link flow, while keeping authentication and authorization boundaries secure and user-friendly.
+Extend account self-service so users can update their email address safely, enforce verification on the new email, and improve `/account` information density with a cleaner modern layout.
 
 ## Why Now
-- TASK-047, TASK-081, and TASK-082 are completed and merged.
-- Credentials onboarding exists, but verified-email ownership is not yet enforced.
-- TASK-084 (forgot-password) depends on a robust outbound email and token lifecycle baseline.
+- TASK-082 delivered account profile controls, but email change is still missing.
+- TASK-083 delivered verification lifecycle; email updates should reuse it.
+- Current `/account` composition is functional but too vertically sparse for the amount of editable data.
 
 ## Dependencies
-- TASK-047 (Done): home auth entry + credentials session onboarding.
-- TASK-081 (Done): username onboarding + account identity model.
-- TASK-082 (Done): account profile + menu identity surfaces.
-- TASK-046 (Done): authenticated route/API guardrails.
-
-## Locked Decisions
-- Verification UX path: redirect unverified users to `/verify-email`.
-- Verification method: one-click link in email (no code entry flow in this task).
-- Access policy: users can sign in, but app usage is gated until email is verified.
-- Legacy-user migration policy: existing users are marked verified to avoid lockout.
-- Token TTL: 1 hour.
-- Token properties: single-use + replay-resistant (stored hashed, never raw).
-- Resend policy: 60-second cooldown + daily resend cap.
-- Sender identity: `NexusDash <noreply@nexus-dash.app>`.
-- Environment policy: real email sending in production only; preview/dev use safe non-sending behavior.
-- Authorization identity remains `user.id`; verification does not change principal semantics.
+- TASK-082 (Done): account profile page + username/password update flows.
+- TASK-083 (Done): verification token lifecycle + `/verify-email` flow + guarded session behavior.
+- TASK-046 (Done): authenticated route/action guardrails.
 
 ## Scope
-- Generate verification links during credentials sign-up.
-- Add `/verify-email` screen for unverified users with:
-  - status messaging
-  - resend action
-  - continue action after verification
-- Add verification callback route that validates token, marks user as verified, and invalidates token.
-- Enforce guarded-session behavior so unverified users cannot access protected app surfaces.
-- Implement production-only email delivery via Resend.
-- Add rate limiting for resend attempts (cooldown + daily cap).
-- Add migration/data update for legacy users to preserve access continuity.
-- Add automated tests for token lifecycle, gating rules, and resend protections.
+- Add account email update capability from `/account`.
+- On successful email update:
+  - reset verification state for that user (`emailVerified = null`)
+  - issue a fresh verification email token via existing verification service
+  - redirect user to `/verify-email` with clear status/error feedback
+- Reorganize `/account` layout to reduce vertical footprint while keeping modern, readable visual structure.
+- Add explicit navigation affordance to `/account/settings` on the account page.
+- Add regression tests for new account email update service behavior and action-level flow handling.
 
 ## Out of Scope
-- Password reset/forgot-password flow (TASK-084).
-- Social provider verification harmonization (TASK-068).
-- Additional identity factors (SMS, TOTP, passkeys).
-- Code-based email verification entry UX.
-
-## Implementation Checklist
-1. Define verification token contract (identifier, hashed token, expiry, single-use invalidation).
-2. Add/adjust persistence + migration strategy for:
-   - verification token usage
-   - legacy-user email verification backfill
-3. Implement email verification service:
-   - token issue
-   - resend guardrails
-   - token consume/mark verified
-4. Implement Resend mailer adapter for production send path.
-5. Implement preview/dev non-send behavior (safe fallback, no secret leakage).
-6. Implement `/verify-email` page and callback route integration.
-7. Enforce session gating for unverified users on protected app routes.
-8. Add regression tests:
-   - token generation/expiry/single-use
-   - resend cooldown + daily cap
-   - gated access for unverified users
-   - successful verify + redirect/unlock path
-9. Run validation (`lint`, `test`, `test:coverage`, `build`) and open PR.
+- Password reset lifecycle (TASK-084).
+- Social-provider account linking/email synchronization.
+- Username availability service or public profile discovery.
 
 ## Acceptance Criteria
-- New credentials sign-up triggers verification email workflow.
-- Unverified authenticated users are redirected to `/verify-email` when accessing protected app pages.
-- Verification link marks the correct account as verified and cannot be replayed.
-- Expired/invalid tokens fail safely with user-friendly messaging.
-- Resend is rate-limited by cooldown and daily cap.
-- Existing accounts remain usable after rollout (legacy users backfilled as verified).
-- Production sends via Resend; preview/dev do not send real emails.
-- Automated tests cover success/failure/security-critical paths.
+- Signed-in verified users can submit a new valid email from `/account`.
+- Email updates enforce normalization/validation and uniqueness.
+- Changing email clears `emailVerified` and requires verifying the new email before protected app usage.
+- Verification issuance failures are handled safely with clear user-facing errors.
+- `/account` presents a more compact layout than before without regressing existing username/password flows.
+- A visible control links to `/account/settings`.
+- Automated tests cover critical email-change success/failure branches.
 
 ## Definition of Done
-- Branch + PR scoped to TASK-083.
-- Schema/migration updates applied and documented for staging/prod rollout.
-- CI checks pass (`check-name`, quality, and applicable workflow gates).
-- Copilot review comments addressed and resolved.
-- Manual preview verification validates:
-  - `/verify-email` gating UI behavior
-  - invalid/expired token handling
-  - guarded access behavior for unverified sessions
-- Manual production verification validates real email delivery and successful link verification.
-- Tracking docs updated: `tasks/current.md`, `tasks/backlog.md`, `journal.md`.
-
-## Open Input (Pending)
-- None.
+- Backlog updated with TASK-086 and TASK-083 completion.
+- `/account` implementation and tests merged via PR.
+- CI + preview deployment checks pass.
+- Copilot review comments (if any) are addressed and resolved.
 
 ---
 
