@@ -23,11 +23,10 @@ export default defineConfig({
   webServer: externalBaseURL
     ? undefined
     : {
-        // CI applies migrations in a dedicated step before Playwright runs.
-        // Start Next directly here to avoid duplicate migration lock contention.
-        command: `npm run build && npx next start --hostname 127.0.0.1 --port ${PORT}`,
+        // Build is executed before Playwright launches; keep web server startup fast.
+        command: `npx next start --hostname 127.0.0.1 --port ${PORT}`,
         url: `${localBaseURL}/projects`,
-        timeout: 300_000,
+        timeout: 180_000,
         reuseExistingServer: !process.env.CI,
       },
   projects: [
