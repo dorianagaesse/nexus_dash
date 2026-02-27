@@ -1,4 +1,5 @@
 export type RuntimeEnvironment = "development" | "test" | "production";
+export type VercelEnvironment = "development" | "preview" | "production";
 
 function readRawEnv(name: string): string | undefined {
   const value = process.env[name];
@@ -34,6 +35,33 @@ export function getRuntimeEnvironment(): RuntimeEnvironment {
 
 export function isProductionEnvironment(): boolean {
   return getRuntimeEnvironment() === "production";
+}
+
+export function getVercelEnvironment(): VercelEnvironment | null {
+  const vercelEnv = getOptionalServerEnv("VERCEL_ENV");
+  if (
+    vercelEnv === "development" ||
+    vercelEnv === "preview" ||
+    vercelEnv === "production"
+  ) {
+    return vercelEnv;
+  }
+
+  return null;
+}
+
+export function isLiveProductionDeployment(): boolean {
+  if (!isProductionEnvironment()) {
+    return false;
+  }
+
+  const vercelEnv = getVercelEnvironment();
+  if (!vercelEnv) {
+    // Non-Vercel production runtimes should still be treated as live production.
+    return true;
+  }
+
+  return vercelEnv === "production";
 }
 
 export interface DatabaseRuntimeConfig {
@@ -396,10 +424,7 @@ export function validateServerRuntimeConfig(
     assertEmailAddressLike("RESEND_FROM_EMAIL", resendFromEmail);
   }
 
-  if (
-    runtimeEnvironment === "production" &&
-    !getOptionalServerEnv("RESEND_API_KEY")
-  ) {
+  if (isLiveProductionDeployment() && !getOptionalServerEnv("RESEND_API_KEY")) {
     throw new Error(
       "RESEND_API_KEY is required in production for email verification delivery."
     );

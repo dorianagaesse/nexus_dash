@@ -7,12 +7,15 @@ import {
   getRuntimeEnvironment,
   getStorageRuntimeConfig,
   getSupabaseClientRuntimeConfig,
+  getVercelEnvironment,
+  isLiveProductionDeployment,
   isProductionEnvironment,
   validateServerRuntimeConfig,
 } from "@/lib/env.server";
 
 const ENV_KEYS_TO_RESET = [
   "NODE_ENV",
+  "VERCEL_ENV",
   "DATABASE_URL",
   "DIRECT_URL",
   "SUPABASE_URL",
@@ -85,6 +88,24 @@ describe("env.server", () => {
 
     vi.stubEnv("NODE_ENV", "staging");
     expect(getRuntimeEnvironment()).toBe("development");
+  });
+
+  test("resolves Vercel environment and live production deployment mode", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    expect(getVercelEnvironment()).toBe("preview");
+    expect(isLiveProductionDeployment()).toBe(false);
+
+    vi.stubEnv("VERCEL_ENV", "production");
+    expect(getVercelEnvironment()).toBe("production");
+    expect(isLiveProductionDeployment()).toBe(true);
+
+    vi.stubEnv("VERCEL_ENV", "");
+    expect(getVercelEnvironment()).toBeNull();
+    expect(isLiveProductionDeployment()).toBe(true);
+
+    vi.stubEnv("NODE_ENV", "development");
+    expect(isLiveProductionDeployment()).toBe(false);
   });
 
   test("builds database config and falls back direct url to database url", () => {
@@ -312,6 +333,16 @@ describe("env.server", () => {
     expect(() => validateServerRuntimeConfig()).toThrow(
       "RESEND_API_KEY is required in production for email verification delivery."
     );
+  });
+
+  test("passes runtime validation in Vercel preview when resend key is missing", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("DATABASE_URL", "postgresql://localhost:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://localhost:5433/postgres");
+    vi.stubEnv("RESEND_API_KEY", "");
+
+    expect(() => validateServerRuntimeConfig()).not.toThrow();
   });
 
   test("fails runtime validation when resend from email is malformed", () => {
