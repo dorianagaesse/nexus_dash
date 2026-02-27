@@ -49,6 +49,9 @@ describe("email-verification-service", () => {
     prismaMock.$transaction.mockImplementation(async (callback) => {
       return callback({
         emailVerificationToken: {
+          count: prismaMock.emailVerificationToken.count,
+          findFirst: prismaMock.emailVerificationToken.findFirst,
+          create: prismaMock.emailVerificationToken.create,
           findUnique: prismaMock.emailVerificationToken.findUnique,
           updateMany: prismaMock.emailVerificationToken.updateMany,
         },
@@ -93,6 +96,26 @@ describe("email-verification-service", () => {
     expect(transactionalEmailMock.sendTransactionalEmail).not.toHaveBeenCalled();
   });
 
+  test("returns email-unavailable when user email is missing or invalid", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: "user-1",
+      email: null,
+      emailVerified: null,
+    });
+
+    const result = await issueEmailVerificationForUser({
+      actorUserId: "user-1",
+      requestOrigin: "https://nexus-dash.app",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "email-unavailable",
+    });
+    expect(prismaMock.emailVerificationToken.create).not.toHaveBeenCalled();
+  });
+
   test("returns resend-cooldown when user requests too quickly", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
       id: "user-1",
@@ -113,6 +136,28 @@ describe("email-verification-service", () => {
       ok: false,
       status: 429,
       error: "resend-cooldown",
+    });
+    expect(prismaMock.emailVerificationToken.create).not.toHaveBeenCalled();
+  });
+
+  test("returns resend-limit-reached when daily resend cap is hit", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: "user-1",
+      email: "user@example.com",
+      emailVerified: null,
+    });
+    prismaMock.emailVerificationToken.count.mockResolvedValueOnce(5);
+    prismaMock.emailVerificationToken.findFirst.mockResolvedValueOnce(null);
+
+    const result = await issueEmailVerificationForUser({
+      actorUserId: "user-1",
+      requestOrigin: "https://nexus-dash.app",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 429,
+      error: "resend-limit-reached",
     });
     expect(prismaMock.emailVerificationToken.create).not.toHaveBeenCalled();
   });
@@ -237,6 +282,48 @@ describe("email-verification-service", () => {
       consumedAt: null,
       user: {
         email: "user@example.com",
+      },
+    });
+
+    const result = await consumeEmailVerificationToken("raw-token");
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "token-expired",
+    });
+  });
+
+  test("rejects consumed token replay attempts", async () => {
+    prismaMock.emailVerificationToken.findUnique.mockResolvedValueOnce({
+      id: "evt_1",
+      userId: "user-1",
+      email: "user@example.com",
+      expiresAt: new Date("2026-02-27T10:30:00.000Z"),
+      consumedAt: new Date("2026-02-27T10:10:00.000Z"),
+      user: {
+        email: "user@example.com",
+      },
+    });
+
+    const result = await consumeEmailVerificationToken("raw-token");
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "token-expired",
+    });
+  });
+
+  test("rejects token when current user email no longer matches token email", async () => {
+    prismaMock.emailVerificationToken.findUnique.mockResolvedValueOnce({
+      id: "evt_1",
+      userId: "user-1",
+      email: "user@example.com",
+      expiresAt: new Date("2026-02-27T10:30:00.000Z"),
+      consumedAt: null,
+      user: {
+        email: "different@example.com",
       },
     });
 

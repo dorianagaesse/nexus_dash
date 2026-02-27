@@ -24,6 +24,7 @@ export async function requireAuthenticatedApiUser(
   request: NextRequest | Request
 ): Promise<AuthenticatedApiUserResult> {
   const actorUserId = await getSessionUserIdFromRequest(request);
+  const runtimeEnvironment = getRuntimeEnvironment();
 
   if (!actorUserId) {
     return {
@@ -36,7 +37,7 @@ export async function requireAuthenticatedApiUser(
   // Keep compatibility by skipping verification gate in test runtime.
   const enforceVerificationInTests =
     getOptionalServerEnv("ENFORCE_EMAIL_VERIFICATION_IN_TESTS") === "1";
-  if (getRuntimeEnvironment() === "test" && !enforceVerificationInTests) {
+  if (runtimeEnvironment === "test" && !enforceVerificationInTests) {
     return {
       ok: true,
       userId: actorUserId,
@@ -47,7 +48,7 @@ export async function requireAuthenticatedApiUser(
   try {
     emailVerified = await isEmailVerifiedForUser(actorUserId);
   } catch (error) {
-    if (process.env.NODE_ENV === "test") {
+    if (runtimeEnvironment === "test") {
       emailVerified = true;
     } else {
       logServerError("requireAuthenticatedApiUser.emailVerificationCheck", error, {

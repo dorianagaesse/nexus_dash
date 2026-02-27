@@ -93,6 +93,14 @@ function buildVerificationUrl(requestOrigin: string, rawToken: string): string {
   return url.toString();
 }
 
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 function formatExpiryLabel(tokenTtlSeconds: number): string {
   const ttlMinutes = Math.floor(tokenTtlSeconds / 60);
   if (ttlMinutes < 60) {
@@ -107,6 +115,7 @@ function buildVerificationEmail(input: {
   verificationUrl: string;
 }): { subject: string; text: string; html: string } {
   const expiryLabel = formatExpiryLabel(EMAIL_VERIFICATION_TOKEN_TTL_SECONDS);
+  const safeVerificationUrl = escapeHtmlAttribute(input.verificationUrl);
 
   const subject = "Verify your NexusDash email";
   const text =
@@ -118,7 +127,7 @@ function buildVerificationEmail(input: {
   const html =
     `<p>Verify your email to unlock your NexusDash workspace.</p>` +
     `<p>This link expires in <strong>${expiryLabel}</strong>.</p>` +
-    `<p><a href="${input.verificationUrl}">Verify email</a></p>` +
+    `<p><a href="${safeVerificationUrl}">Verify email</a></p>` +
     `<p>If you did not request this, you can ignore this email.</p>`;
 
   return { subject, text, html };
@@ -196,54 +205,64 @@ export async function issueEmailVerificationForUser(
   const now = Date.now();
   const resendWindowFloor = new Date(now - EMAIL_VERIFICATION_RESEND_WINDOW_MS);
 
-  const [recentTokenCount, latestToken] = await Promise.all([
-    prisma.emailVerificationToken.count({
-      where: {
-        userId: normalizedActorUserId,
-        createdAt: {
-          gte: resendWindowFloor,
-        },
-      },
-    }),
-    prisma.emailVerificationToken.findFirst({
-      where: { userId: normalizedActorUserId },
-      orderBy: { createdAt: "desc" },
-      select: {
-        createdAt: true,
-      },
-    }),
-  ]);
-
-  if (recentTokenCount >= EMAIL_VERIFICATION_RESEND_DAILY_LIMIT) {
-    return createError(429, "resend-limit-reached");
-  }
-
-  if (latestToken) {
-    const elapsedMs = now - latestToken.createdAt.getTime();
-    const cooldownMs = EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS * 1000;
-    if (elapsedMs < cooldownMs) {
-      return createError(429, "resend-cooldown");
-    }
-  }
-
   const rawToken = createVerificationToken();
   const tokenHash = hashVerificationToken(rawToken);
   const expiresAt = new Date(now + EMAIL_VERIFICATION_TOKEN_TTL_SECONDS * 1000);
   const verificationUrl = buildVerificationUrl(input.requestOrigin, rawToken);
   const message = buildVerificationEmail({ verificationUrl });
+  const tokenCreationResult = await prisma.$transaction(async (tx) => {
+    const [recentTokenCount, latestToken] = await Promise.all([
+      tx.emailVerificationToken.count({
+        where: {
+          userId: normalizedActorUserId,
+          createdAt: {
+            gte: resendWindowFloor,
+          },
+        },
+      }),
+      tx.emailVerificationToken.findFirst({
+        where: { userId: normalizedActorUserId },
+        orderBy: { createdAt: "desc" },
+        select: {
+          createdAt: true,
+        },
+      }),
+    ]);
 
-  const createdToken = await prisma.emailVerificationToken.create({
-    data: {
-      userId: normalizedActorUserId,
-      email,
-      tokenHash,
-      expiresAt,
-    },
-    select: {
-      id: true,
-      expiresAt: true,
-    },
+    if (recentTokenCount >= EMAIL_VERIFICATION_RESEND_DAILY_LIMIT) {
+      return createError(429, "resend-limit-reached");
+    }
+
+    if (latestToken) {
+      const elapsedMs = now - latestToken.createdAt.getTime();
+      const cooldownMs = EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS * 1000;
+      if (elapsedMs < cooldownMs) {
+        return createError(429, "resend-cooldown");
+      }
+    }
+
+    const createdToken = await tx.emailVerificationToken.create({
+      data: {
+        userId: normalizedActorUserId,
+        email,
+        tokenHash,
+        expiresAt,
+      },
+      select: {
+        id: true,
+        expiresAt: true,
+      },
+    });
+
+    return createSuccess(202, {
+      tokenId: createdToken.id,
+      expiresAt: createdToken.expiresAt,
+    });
   });
+
+  if (!tokenCreationResult.ok) {
+    return tokenCreationResult;
+  }
 
   const deliveryResult = await sendTransactionalEmail({
     to: email,
@@ -254,14 +273,14 @@ export async function issueEmailVerificationForUser(
 
   if (!deliveryResult.ok) {
     await prisma.emailVerificationToken.deleteMany({
-      where: { id: createdToken.id },
+      where: { id: tokenCreationResult.data.tokenId },
     });
 
     return createError(503, "verification-email-send-failed");
   }
 
   return createSuccess(202, {
-    expiresAt: createdToken.expiresAt,
+    expiresAt: tokenCreationResult.data.expiresAt,
     delivery: deliveryResult.delivery,
   });
 }

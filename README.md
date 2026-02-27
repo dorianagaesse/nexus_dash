@@ -133,6 +133,7 @@ Environment access/validation is centralized in `lib/env.server.ts` and executed
 - In production, when Google OAuth is enabled, `GOOGLE_TOKEN_ENCRYPTION_KEY` is required.
 - `GOOGLE_CALENDAR_ID` must be unset or `primary`.
 - `RESEND_FROM_EMAIL` defaults to `NexusDash <noreply@nexus-dash.app>` when unset.
+- `TRUSTED_ORIGINS` (optional) can restrict verification-link origins in production.
 - `STORAGE_PROVIDER` must be `local` or `r2` (default `local`).
 
 Runbooks:
