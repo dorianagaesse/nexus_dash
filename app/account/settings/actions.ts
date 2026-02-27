@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
+import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { logServerError } from "@/lib/observability/logger";
 import { updateGoogleCalendarTargetSettings } from "@/lib/services/account-settings-service";
 
@@ -25,10 +25,7 @@ function redirectWithStatus(status: string): never {
 export async function updateGoogleCalendarSettingsAction(
   formData: FormData
 ): Promise<void> {
-  const actorUserId = await getSessionUserIdFromServer();
-  if (!actorUserId) {
-    redirectWithError("unauthorized");
-  }
+  const actorUserId = await requireVerifiedSessionUserIdFromServer();
 
   const intent = readText(formData, "intent");
   const calendarIdRaw = intent === "reset" ? "" : readText(formData, "calendarId");

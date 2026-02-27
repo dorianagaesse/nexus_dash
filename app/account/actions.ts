@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
+import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { logServerError } from "@/lib/observability/logger";
 import { updateAccountPassword, updateAccountUsername } from "@/lib/services/account-profile-service";
 import { readSessionTokenFromCookieReader } from "@/lib/services/session-service";
@@ -31,10 +31,7 @@ function revalidateAccountPaths() {
 }
 
 export async function updateAccountUsernameAction(formData: FormData): Promise<void> {
-  const actorUserId = await getSessionUserIdFromServer();
-  if (!actorUserId) {
-    redirectWithError("unauthorized");
-  }
+  const actorUserId = await requireVerifiedSessionUserIdFromServer();
 
   const username = readText(formData, "username");
 
@@ -61,10 +58,7 @@ export async function updateAccountUsernameAction(formData: FormData): Promise<v
 }
 
 export async function updateAccountPasswordAction(formData: FormData): Promise<void> {
-  const actorUserId = await getSessionUserIdFromServer();
-  if (!actorUserId) {
-    redirectWithError("unauthorized");
-  }
+  const actorUserId = await requireVerifiedSessionUserIdFromServer();
 
   const currentPassword = readText(formData, "currentPassword");
   const newPassword = readText(formData, "newPassword");

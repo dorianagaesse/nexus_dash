@@ -205,6 +205,7 @@ describe("credential-auth-service", () => {
       ok: true,
       data: {
         userId: "user-1",
+        emailVerified: false,
         sessionToken: "session-token",
         expiresAt: new Date("2026-03-01T00:00:00.000Z"),
       },
@@ -213,7 +214,10 @@ describe("credential-auth-service", () => {
 
   test("signUp creates user, session, and normalizes email and username", async () => {
     passwordServiceMock.hashPassword.mockResolvedValueOnce("hash-1");
-    prismaMock.user.create.mockResolvedValueOnce({ id: "user-1" });
+    prismaMock.user.create.mockResolvedValueOnce({
+      id: "user-1",
+      emailVerified: null,
+    });
 
     const result = await signUpWithEmailPassword({
       usernameRaw: "  TEST.USER  ",
@@ -232,6 +236,7 @@ describe("credential-auth-service", () => {
       },
       select: {
         id: true,
+        emailVerified: true,
       },
     });
     expect(cryptoMock.randomInt).toHaveBeenCalledWith(
@@ -243,6 +248,7 @@ describe("credential-auth-service", () => {
       ok: true,
       data: {
         userId: "user-1",
+        emailVerified: false,
         sessionToken: "session-token",
         expiresAt: new Date("2026-03-01T00:00:00.000Z"),
       },
@@ -251,7 +257,10 @@ describe("credential-auth-service", () => {
 
   test("signUp allows boundary username lengths", async () => {
     passwordServiceMock.hashPassword.mockResolvedValue("hash-1");
-    prismaMock.user.create.mockResolvedValue({ id: "user-1" });
+    prismaMock.user.create.mockResolvedValue({
+      id: "user-1",
+      emailVerified: null,
+    });
 
     const shortResult = await signUpWithEmailPassword({
       usernameRaw: "a".repeat(MIN_USERNAME_LENGTH),
@@ -338,6 +347,7 @@ describe("credential-auth-service", () => {
       ok: true,
       data: {
         userId: "user-1",
+        emailVerified: false,
         sessionToken: "session-token",
         expiresAt: new Date("2026-03-01T00:00:00.000Z"),
       },

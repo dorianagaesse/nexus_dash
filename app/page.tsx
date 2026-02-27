@@ -17,6 +17,7 @@ import {
   MIN_PASSWORD_LENGTH,
   MIN_USERNAME_LENGTH,
 } from "@/lib/services/credential-auth-service";
+import { isEmailVerifiedForUser } from "@/lib/services/email-verification-service";
 
 import { signInAction, signUpAction } from "./home-auth-actions";
 import { AuthSubmitButton } from "./auth-submit-button";
@@ -61,6 +62,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   "auth-unavailable": "Authentication is temporarily unavailable. Please retry.",
 };
 
+const STATUS_MESSAGES: Record<string, string> = {
+  "email-verified": "Email verified. Sign in to continue.",
+};
+
 function readQueryValue(value: string | string[] | undefined): string | null {
   if (!value) {
     return null;
@@ -87,7 +92,8 @@ export default async function Home({
 }) {
   const actorUserId = await getSessionUserIdFromServer();
   if (actorUserId) {
-    redirect("/projects");
+    const emailVerified = await isEmailVerifiedForUser(actorUserId);
+    redirect(emailVerified ? "/projects" : "/verify-email");
   }
 
   const formValue = readQueryValue(searchParams?.form);
@@ -96,6 +102,9 @@ export default async function Home({
   const errorCode = readQueryValue(searchParams?.error);
   const errorMessage =
     errorCode && ERROR_MESSAGES[errorCode] ? ERROR_MESSAGES[errorCode] : null;
+  const statusCode = readQueryValue(searchParams?.status);
+  const statusMessage =
+    statusCode && STATUS_MESSAGES[statusCode] ? STATUS_MESSAGES[statusCode] : null;
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,#1f293710,transparent_45%),radial-gradient(circle_at_85%_15%,#0ea5e910,transparent_28%),linear-gradient(to_bottom,hsl(var(--background)),hsl(var(--background)),hsl(var(--muted)/0.3))] text-foreground">
@@ -182,6 +191,12 @@ export default async function Home({
                 className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
               >
                 {errorMessage}
+              </div>
+            ) : null}
+
+            {statusMessage ? (
+              <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-200">
+                {statusMessage}
               </div>
             ) : null}
 

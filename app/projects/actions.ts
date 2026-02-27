@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
+import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { logServerError } from "@/lib/observability/logger";
 import {
   createProject,
@@ -31,10 +31,7 @@ function redirectWithError(error: string): never {
 }
 
 export async function createProjectAction(formData: FormData): Promise<void> {
-  const actorUserId = await getSessionUserIdFromServer();
-  if (!actorUserId) {
-    redirectWithError("unauthorized");
-  }
+  const actorUserId = await requireVerifiedSessionUserIdFromServer();
 
   const name = readText(formData, "name");
   const descriptionText = readText(formData, "description");
@@ -59,10 +56,7 @@ export async function createProjectAction(formData: FormData): Promise<void> {
 }
 
 export async function updateProjectAction(formData: FormData): Promise<void> {
-  const actorUserId = await getSessionUserIdFromServer();
-  if (!actorUserId) {
-    redirectWithError("unauthorized");
-  }
+  const actorUserId = await requireVerifiedSessionUserIdFromServer();
 
   const projectId = readText(formData, "projectId");
   const name = readText(formData, "name");
@@ -93,10 +87,7 @@ export async function updateProjectAction(formData: FormData): Promise<void> {
 }
 
 export async function deleteProjectAction(formData: FormData): Promise<void> {
-  const actorUserId = await getSessionUserIdFromServer();
-  if (!actorUserId) {
-    redirectWithError("unauthorized");
-  }
+  const actorUserId = await requireVerifiedSessionUserIdFromServer();
 
   const projectId = readText(formData, "projectId");
 

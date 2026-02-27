@@ -5,10 +5,18 @@ const sessionUserMock = vi.hoisted(() => ({
   getSessionUserIdFromServer: vi.fn(),
 }));
 
+const emailVerificationMock = vi.hoisted(() => ({
+  isEmailVerifiedForUser: vi.fn(),
+}));
+
 const redirectMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/session-user", () => ({
   getSessionUserIdFromServer: sessionUserMock.getSessionUserIdFromServer,
+}));
+
+vi.mock("@/lib/services/email-verification-service", () => ({
+  isEmailVerifiedForUser: emailVerificationMock.isEmailVerifiedForUser,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -42,16 +50,29 @@ function serializeReactTree(value: unknown): string {
 describe("home page auth entry", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    emailVerificationMock.isEmailVerifiedForUser.mockResolvedValue(true);
   });
 
   test("redirects signed-in users to projects", async () => {
     sessionUserMock.getSessionUserIdFromServer.mockResolvedValueOnce("user-1");
+    emailVerificationMock.isEmailVerifiedForUser.mockResolvedValueOnce(true);
     redirectMock.mockImplementationOnce(() => {
       throw new Error("NEXT_REDIRECT");
     });
 
     await expect(Home({})).rejects.toThrow("NEXT_REDIRECT");
     expect(redirectMock).toHaveBeenCalledWith("/projects");
+  });
+
+  test("redirects signed-in unverified users to verify-email", async () => {
+    sessionUserMock.getSessionUserIdFromServer.mockResolvedValueOnce("user-1");
+    emailVerificationMock.isEmailVerifiedForUser.mockResolvedValueOnce(false);
+    redirectMock.mockImplementationOnce(() => {
+      throw new Error("NEXT_REDIRECT");
+    });
+
+    await expect(Home({})).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirectMock).toHaveBeenCalledWith("/verify-email");
   });
 
   test("renders sign-in form by default for signed-out users", async () => {

@@ -189,6 +189,13 @@ function assertValidUrl(name: string, value: string): void {
   }
 }
 
+function assertEmailAddressLike(name: string, value: string): void {
+  const trimmed = value.trim();
+  if (!trimmed.includes("@")) {
+    throw new Error(`${name} must look like a valid email identity.`);
+  }
+}
+
 function assertPostgresConnectionString(name: string, value: string): void {
   if (!/^postgres(ql)?:\/\//.test(value)) {
     throw new Error(`${name} must use a PostgreSQL connection string.`);
@@ -382,6 +389,20 @@ export function validateServerRuntimeConfig(
   const googleCalendarId = getOptionalServerEnv("GOOGLE_CALENDAR_ID");
   if (googleCalendarId && googleCalendarId !== "primary") {
     throw new Error("GOOGLE_CALENDAR_ID must be unset or set to 'primary'.");
+  }
+
+  const resendFromEmail = getOptionalServerEnv("RESEND_FROM_EMAIL");
+  if (resendFromEmail) {
+    assertEmailAddressLike("RESEND_FROM_EMAIL", resendFromEmail);
+  }
+
+  if (
+    runtimeEnvironment === "production" &&
+    !getOptionalServerEnv("RESEND_API_KEY")
+  ) {
+    throw new Error(
+      "RESEND_API_KEY is required in production for email verification delivery."
+    );
   }
 
   assertOptionalEnvironmentGroup(
