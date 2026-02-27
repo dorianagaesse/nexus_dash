@@ -27,7 +27,7 @@ export default defineConfig({
         // flaky startup failures in CI after migrations have already been applied.
         command: `npm run db:migrate && npm run build && npx next start --hostname 127.0.0.1 --port ${PORT}`,
         url: `${localBaseURL}/projects`,
-        timeout: 180_000,
+        timeout: 300_000,
         reuseExistingServer: !process.env.CI,
       },
   projects: [
