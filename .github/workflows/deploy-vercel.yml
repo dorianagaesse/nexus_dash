@@ -75,6 +75,19 @@ jobs:
             exit 1
           fi
 
+      - name: Validate required production secrets
+        run: |
+          missing=0
+          for key in RESEND_API_KEY; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Missing required production secret: $key"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -157,6 +170,28 @@ jobs:
           for key in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
             if [ -z "${!key}" ]; then
               echo "::error::Missing required GitHub secret: $key"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            exit 1
+          fi
+
+      - name: Ensure Resend key fallback for preview deploys
+        if: inputs.action == 'deploy-preview'
+        run: |
+          if [ -z "$RESEND_API_KEY" ]; then
+            echo "::warning::RESEND_API_KEY is empty for preview deploy. Using ci-placeholder-resend-key."
+            echo "RESEND_API_KEY=ci-placeholder-resend-key" >> "$GITHUB_ENV"
+          fi
+
+      - name: Validate required production secrets
+        if: inputs.action != 'deploy-preview'
+        run: |
+          missing=0
+          for key in RESEND_API_KEY; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Missing required production secret: $key"
               missing=1
             fi
           done
