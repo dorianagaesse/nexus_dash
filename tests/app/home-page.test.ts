@@ -117,6 +117,21 @@ describe("home page auth entry", () => {
     expect(serialized).not.toContain("signup-password");
   });
 
+  test("prefills sign-in email from query string", async () => {
+    sessionUserMock.getSessionUserIdFromServer.mockResolvedValueOnce(null);
+
+    const element = await Home({
+      searchParams: {
+        form: "signin",
+        email: "person@example.com",
+      },
+    });
+    const serialized = serializeReactTree(element);
+
+    expect(serialized).toContain("signin-email");
+    expect(serialized).toContain("person@example.com");
+  });
+
   test("renders sign-up form when query param requests it", async () => {
     sessionUserMock.getSessionUserIdFromServer.mockResolvedValueOnce(null);
 
@@ -137,5 +152,20 @@ describe("home page auth entry", () => {
     expect(serialized).toContain("signup-confirm-password");
     expect(serialized).not.toContain("signin-email");
     expect(serialized).not.toContain("signin-password");
+  });
+
+  test("prefills sign-up email from query string", async () => {
+    sessionUserMock.getSessionUserIdFromServer.mockResolvedValueOnce(null);
+
+    const element = await Home({
+      searchParams: {
+        form: "signup",
+        email: "person@example.com",
+      },
+    });
+    const serialized = serializeReactTree(element);
+
+    expect(serialized).toContain("signup-email");
+    expect(serialized).toContain("person@example.com");
   });
 });
