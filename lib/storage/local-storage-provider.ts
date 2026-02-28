@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
 
+import { resolveAttachmentMimeType } from "@/lib/task-attachment";
 import { AttachmentStorageUnavailableError } from "@/lib/storage/errors";
 import type {
   CreateSignedUploadUrlInput,
@@ -83,7 +84,9 @@ export class LocalStorageProvider implements StorageProvider {
 
     return {
       storageKey,
-      mimeType: input.file.type || "application/octet-stream",
+      mimeType:
+        resolveAttachmentMimeType(input.file.type, originalName) ??
+        "application/octet-stream",
       sizeBytes: buffer.byteLength,
       originalName,
     };

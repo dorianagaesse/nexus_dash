@@ -10,6 +10,7 @@ import {
   isAttachmentKind,
   isAttachmentPreviewable,
   normalizeAttachmentUrl,
+  resolveAttachmentMimeType,
 } from "@/lib/task-attachment";
 
 describe("task-attachment", () => {
@@ -21,7 +22,19 @@ describe("task-attachment", () => {
 
   test("validates allowed mime types", () => {
     expect(isAllowedAttachmentMimeType("application/pdf")).toBe(true);
+    expect(isAllowedAttachmentMimeType(" image/heic ")).toBe(true);
+    expect(isAllowedAttachmentMimeType("IMAGE/HEIF")).toBe(true);
     expect(isAllowedAttachmentMimeType("application/zip")).toBe(false);
+  });
+
+  test("resolves attachment mime type from mime value or file extension fallback", () => {
+    expect(resolveAttachmentMimeType("image/jpeg", "photo.heic")).toBe("image/jpeg");
+    expect(resolveAttachmentMimeType("", "photo.HEIC")).toBe("image/heic");
+    expect(resolveAttachmentMimeType("application/octet-stream", "export.csv")).toBe(
+      "text/csv"
+    );
+    expect(resolveAttachmentMimeType("application/zip", "photo.heic")).toBeNull();
+    expect(resolveAttachmentMimeType("", "archive.zip")).toBeNull();
   });
 
   test("normalizes urls and rejects invalid protocols", () => {
