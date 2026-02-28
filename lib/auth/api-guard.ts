@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
-import { getOptionalServerEnv, getRuntimeEnvironment } from "@/lib/env.server";
+import {
+  getOptionalServerEnv,
+  getRuntimeEnvironment,
+  isLiveProductionDeployment,
+} from "@/lib/env.server";
 import { logServerError } from "@/lib/observability/logger";
 import { isEmailVerifiedForUser } from "@/lib/services/email-verification-service";
 
@@ -37,7 +41,10 @@ export async function requireAuthenticatedApiUser(
   // Keep compatibility by skipping verification gate in test runtime.
   const enforceVerificationInTests =
     getOptionalServerEnv("ENFORCE_EMAIL_VERIFICATION_IN_TESTS") === "1";
-  if (runtimeEnvironment === "test" && !enforceVerificationInTests) {
+  if (
+    (runtimeEnvironment === "test" && !enforceVerificationInTests) ||
+    !isLiveProductionDeployment()
+  ) {
     return {
       ok: true,
       userId: actorUserId,

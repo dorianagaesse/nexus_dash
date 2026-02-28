@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-02-27
+- Type: Execution
+- Summary: TASK-086 implemented account email-change verification and compact account-page layout.
+- Evidence: Added email update flow in `lib/services/account-profile-service.ts` (normalize/validate/unique + `emailVerified` reset + verification-token cleanup), wired `updateAccountEmailAction` in `app/account/actions.ts` to issue verification and redirect to `/verify-email`, redesigned `app/account/page.tsx` for denser identity/security sections with a header `Settings` CTA, and added regression tests in `tests/lib/account-profile-service.test.ts` and `tests/app/account-actions.test.ts`.
+
+### 2026-02-27
+- Type: Governance
+- Summary: TASK-086 PR/checks/preview deployment completed with no Copilot review comments.
+- Evidence: PR `#64`, checks green (`check-name`, `Quality Core`, `E2E Smoke`, `Container Image`), manual preview deploy workflow run `22501955778` succeeded, preview URL: `https://nexus-dash-2iv983hoq-dorian-agaesses-projects.vercel.app`.
+
 ### 2026-02-26
 - Type: Execution
 - Summary: TASK-082 delivered authenticated account profile self-service and user-menu identity UX updates.

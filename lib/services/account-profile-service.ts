@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import {
   generateUsernameDiscriminator,
+  normalizeEmail,
   normalizeUsername,
+  validateEmail,
   validatePasswordLength,
   validatePasswordRequirements,
   validateUsername,
@@ -37,6 +39,12 @@ interface UpdatePasswordInput {
   newPasswordRaw: string;
   newPasswordConfirmationRaw: string;
   currentSessionToken: string | null;
+  subjectUserId?: string;
+}
+
+interface UpdateEmailInput {
+  actorUserId: string;
+  emailRaw: string;
   subjectUserId?: string;
 }
 
@@ -120,6 +128,11 @@ function isUsernameDiscriminatorConstraint(error: unknown): boolean {
   );
 }
 
+function isEmailConstraint(error: unknown): boolean {
+  const targets = readUniqueConstraintTargets(error);
+  return targets.length === 0 || targets.includes("email");
+}
+
 function isUnauthorizedOrForbidden(
   actorUserId: string,
   subjectUserId?: string
@@ -142,6 +155,7 @@ export async function getAccountProfile(
 ): Promise<
   AccountProfileResult<{
     email: string | null;
+    isEmailVerified: boolean;
     username: string;
     usernameDiscriminator: string | null;
     usernameTag: string | null;
@@ -156,6 +170,7 @@ export async function getAccountProfile(
     where: { id: normalizedActorUserId },
     select: {
       email: true,
+      emailVerified: true,
       username: true,
       usernameDiscriminator: true,
     },
@@ -167,10 +182,76 @@ export async function getAccountProfile(
 
   return createSuccess(200, {
     email: user.email ?? null,
+    isEmailVerified: Boolean(user.emailVerified),
     username: user.username ?? "",
     usernameDiscriminator: user.usernameDiscriminator ?? null,
     usernameTag: buildUsernameTag(user.username, user.usernameDiscriminator),
   });
+}
+
+export async function updateAccountEmail(
+  input: UpdateEmailInput
+): Promise<
+  AccountProfileResult<{
+    email: string;
+    emailChanged: boolean;
+  }>
+> {
+  const authError = isUnauthorizedOrForbidden(input.actorUserId, input.subjectUserId);
+  if (authError) {
+    return authError;
+  }
+
+  const actorUserId = normalizeUserId(input.actorUserId);
+  const normalizedEmail = normalizeEmail(input.emailRaw);
+  if (!validateEmail(normalizedEmail)) {
+    return createError(400, "invalid-email");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: actorUserId },
+    select: {
+      email: true,
+    },
+  });
+
+  if (!user) {
+    return createError(401, "unauthorized");
+  }
+
+  if (normalizeEmail(user.email ?? "") === normalizedEmail) {
+    return createSuccess(200, {
+      email: normalizedEmail,
+      emailChanged: false,
+    });
+  }
+
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: actorUserId },
+      data: {
+        email: normalizedEmail,
+        emailVerified: null,
+        emailVerificationTokens: {
+          deleteMany: {},
+        },
+      },
+      select: {
+        email: true,
+      },
+    });
+
+    return createSuccess(200, {
+      email: normalizeEmail(updatedUser.email ?? normalizedEmail),
+      emailChanged: true,
+    });
+  } catch (error) {
+    if (isUniqueConstraintViolation(error) && isEmailConstraint(error)) {
+      return createError(409, "email-in-use");
+    }
+
+    throw error;
+  }
 }
 
 export async function updateAccountUsername(

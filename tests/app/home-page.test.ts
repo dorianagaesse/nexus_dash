@@ -9,6 +9,10 @@ const emailVerificationMock = vi.hoisted(() => ({
   isEmailVerifiedForUser: vi.fn(),
 }));
 
+const envMock = vi.hoisted(() => ({
+  isLiveProductionDeployment: vi.fn(),
+}));
+
 const redirectMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/session-user", () => ({
@@ -18,6 +22,17 @@ vi.mock("@/lib/auth/session-user", () => ({
 vi.mock("@/lib/services/email-verification-service", () => ({
   isEmailVerifiedForUser: emailVerificationMock.isEmailVerifiedForUser,
 }));
+
+vi.mock("@/lib/env.server", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/env.server")>(
+    "@/lib/env.server"
+  );
+
+  return {
+    ...actual,
+    isLiveProductionDeployment: envMock.isLiveProductionDeployment,
+  };
+});
 
 vi.mock("next/navigation", () => ({
   redirect: redirectMock,
@@ -50,6 +65,7 @@ function serializeReactTree(value: unknown): string {
 describe("home page auth entry", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    envMock.isLiveProductionDeployment.mockReturnValue(true);
     emailVerificationMock.isEmailVerifiedForUser.mockResolvedValue(true);
   });
 
@@ -73,6 +89,18 @@ describe("home page auth entry", () => {
 
     await expect(Home({})).rejects.toThrow("NEXT_REDIRECT");
     expect(redirectMock).toHaveBeenCalledWith("/verify-email");
+  });
+
+  test("redirects signed-in users to projects outside live production", async () => {
+    sessionUserMock.getSessionUserIdFromServer.mockResolvedValueOnce("user-1");
+    envMock.isLiveProductionDeployment.mockReturnValueOnce(false);
+    emailVerificationMock.isEmailVerifiedForUser.mockResolvedValueOnce(false);
+    redirectMock.mockImplementationOnce(() => {
+      throw new Error("NEXT_REDIRECT");
+    });
+
+    await expect(Home({})).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirectMock).toHaveBeenCalledWith("/projects");
   });
 
   test("renders sign-in form by default for signed-out users", async () => {

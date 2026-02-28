@@ -4,11 +4,11 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-083
-  Title: Email verification lifecycle - signup verification tokens, confirmation route, and guarded session state
+- ID: TASK-086
+  Title: Account page adjustment - email change verification flow, compact layout, and settings navigation
   Status: Pending
-  Rationale: Enforce verified email ownership using expiring single-use verification tokens and Auth.js-compatible lifecycle handling to align onboarding with industry-standard credential-account security baselines.
-  Dependencies: TASK-047, TASK-081
+  Rationale: Complete account self-service by allowing email updates with mandatory re-verification, while tightening account-page information density and navigation clarity for better day-to-day usability.
+  Dependencies: TASK-082, TASK-083
 - ID: TASK-084
   Title: Password recovery lifecycle - forgot-password request, reset token flow, and secure password rotation
   Status: Pending
@@ -90,6 +90,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-083
+  Title: Email verification lifecycle - signup verification tokens, confirmation route, and guarded session state
+  Status: Done (2026-02-27)
+  Rationale: Added one-click verification lifecycle for credentials users with hashed single-use TTL tokens, guarded-session access enforcement for unverified accounts, `/verify-email` status + resend UX, production-gated transactional email delivery, and callback validation with replay/expiry handling.
+  Dependencies: TASK-047, TASK-081
 - ID: TASK-082
   Title: Account profile phase 2 - account page and user-menu identity UX
   Status: Done (2026-02-26)

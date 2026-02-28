@@ -23,6 +23,7 @@ const redirectMock = vi.hoisted(() => vi.fn());
 const logServerErrorMock = vi.hoisted(() => vi.fn());
 const logServerWarningMock = vi.hoisted(() => vi.fn());
 const isProductionEnvironmentMock = vi.hoisted(() => vi.fn(() => false));
+const isLiveProductionDeploymentMock = vi.hoisted(() => vi.fn(() => true));
 
 vi.mock("next/headers", () => ({
   cookies: () => cookieStoreMock,
@@ -61,6 +62,7 @@ vi.mock("@/lib/env.server", async () => {
   return {
     ...actual,
     isProductionEnvironment: isProductionEnvironmentMock,
+    isLiveProductionDeployment: isLiveProductionDeploymentMock,
   };
 });
 
@@ -69,6 +71,7 @@ import { signInAction, signUpAction } from "@/app/home-auth-actions";
 describe("home auth actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    isLiveProductionDeploymentMock.mockReturnValue(true);
     sessionUserMock.getSessionUserIdFromServer.mockResolvedValue(null);
     emailVerificationMock.isEmailVerifiedForUser.mockResolvedValue(true);
     emailVerificationMock.issueEmailVerificationForUser.mockResolvedValue({
@@ -201,6 +204,25 @@ describe("home auth actions", () => {
     );
   });
 
+  test("signInAction redirects unverified users to projects outside live production", async () => {
+    isLiveProductionDeploymentMock.mockReturnValueOnce(false);
+    credentialAuthMock.signInWithEmailPassword.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        userId: "user-1",
+        emailVerified: false,
+        sessionToken: "session-token",
+        expiresAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    });
+
+    const formData = new FormData();
+    formData.set("email", "user@example.com");
+    formData.set("password", "password123");
+
+    await expect(signInAction(formData)).rejects.toThrow("NEXT_REDIRECT:/projects");
+  });
+
   test("signUpAction redirects authenticated users directly to projects", async () => {
     sessionUserMock.getSessionUserIdFromServer.mockResolvedValueOnce("user-1");
     emailVerificationMock.isEmailVerifiedForUser.mockResolvedValueOnce(true);
@@ -257,6 +279,28 @@ describe("home auth actions", () => {
       actorUserId: "user-1",
       requestOrigin: "https://nexus-dash.app",
     });
+  });
+
+  test("signUpAction bypasses verification screen outside live production", async () => {
+    isLiveProductionDeploymentMock.mockReturnValueOnce(false);
+    credentialAuthMock.signUpWithEmailPassword.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        userId: "user-1",
+        emailVerified: false,
+        sessionToken: "session-token",
+        expiresAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    });
+
+    const formData = new FormData();
+    formData.set("username", "test.user");
+    formData.set("email", "user@example.com");
+    formData.set("password", "password123");
+    formData.set("confirmPassword", "password123");
+
+    await expect(signUpAction(formData)).rejects.toThrow("NEXT_REDIRECT:/projects");
+    expect(emailVerificationMock.issueEmailVerificationForUser).not.toHaveBeenCalled();
   });
 
   test("signUpAction redirects to queued status when delivery is skipped", async () => {
