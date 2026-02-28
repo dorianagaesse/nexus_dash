@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +26,7 @@ import {
   HomeSignupPasswordFeedback,
   HomeSignupUsernameSuffix,
 } from "./home-signup-live-feedback";
+import { HomeAuthModeToggleLink } from "./home-auth-mode-toggle-link";
 
 const highlights = [
   {
@@ -83,6 +83,19 @@ function resolveActiveForm(value: string | null): HomeAuthForm {
   return value === "signup" ? "signup" : "signin";
 }
 
+function resolvePrefilledEmail(value: string | null): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  if (!normalized || normalized.length > 320) {
+    return undefined;
+  }
+
+  return normalized;
+}
+
 const inputClassName =
   "h-11 rounded-md border border-input bg-background px-3 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
@@ -103,6 +116,7 @@ export default async function Home({
 
   const formValue = readQueryValue(searchParams?.form);
   const activeForm = resolveActiveForm(formValue);
+  const prefilledEmail = resolvePrefilledEmail(readQueryValue(searchParams?.email));
   const isSignIn = activeForm === "signin";
   const errorCode = readQueryValue(searchParams?.error);
   const errorMessage =
@@ -153,9 +167,9 @@ export default async function Home({
         <Card className="border-border/70 bg-card/95 shadow-2xl shadow-black/20">
           <CardHeader className="space-y-4">
             <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted p-1">
-              <Link
-                href="/?form=signin"
-                aria-current={isSignIn ? "page" : undefined}
+              <HomeAuthModeToggleLink
+                targetForm="signin"
+                ariaCurrent={isSignIn ? "page" : undefined}
                 className={cn(
                   "rounded-md px-3 py-2 text-center text-sm font-medium transition",
                   isSignIn
@@ -164,10 +178,10 @@ export default async function Home({
                 )}
               >
                 Sign in
-              </Link>
-              <Link
-                href="/?form=signup"
-                aria-current={!isSignIn ? "page" : undefined}
+              </HomeAuthModeToggleLink>
+              <HomeAuthModeToggleLink
+                targetForm="signup"
+                ariaCurrent={!isSignIn ? "page" : undefined}
                 className={cn(
                   "rounded-md px-3 py-2 text-center text-sm font-medium transition",
                   !isSignIn
@@ -176,7 +190,7 @@ export default async function Home({
                 )}
               >
                 Sign up
-              </Link>
+              </HomeAuthModeToggleLink>
             </div>
             <div className="space-y-1">
               <CardTitle className="text-2xl">
@@ -206,7 +220,7 @@ export default async function Home({
             ) : null}
 
             {isSignIn ? (
-              <form action={signInAction} className="grid gap-4">
+              <form key="signin-form" action={signInAction} className="grid gap-4">
                 <div className="grid gap-2">
                   <label htmlFor="signin-email" className="text-sm font-medium">
                     Email
@@ -217,6 +231,7 @@ export default async function Home({
                     type="email"
                     autoComplete="email"
                     placeholder="you@company.com"
+                    defaultValue={prefilledEmail}
                     required
                     maxLength={320}
                     className={inputClassName}
@@ -244,7 +259,7 @@ export default async function Home({
                 />
               </form>
             ) : (
-              <form action={signUpAction} className="grid gap-4">
+              <form key="signup-form" action={signUpAction} className="grid gap-4">
                 <div className="grid gap-2">
                   <label htmlFor="signup-username" className="text-sm font-medium">
                     Username
@@ -279,6 +294,7 @@ export default async function Home({
                     type="email"
                     autoComplete="email"
                     placeholder="you@company.com"
+                    defaultValue={prefilledEmail}
                     required
                     maxLength={320}
                     className={inputClassName}
@@ -337,12 +353,12 @@ export default async function Home({
 
             <p className="text-sm text-muted-foreground">
               {isSignIn ? "New to NexusDash?" : "Already have an account?"}{" "}
-              <Link
-                href={isSignIn ? "/?form=signup" : "/?form=signin"}
+              <HomeAuthModeToggleLink
+                targetForm={isSignIn ? "signup" : "signin"}
                 className="font-medium text-foreground underline-offset-4 hover:underline"
               >
                 {isSignIn ? "Create an account" : "Sign in"}
-              </Link>
+              </HomeAuthModeToggleLink>
             </p>
           </CardContent>
         </Card>
