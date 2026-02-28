@@ -9,6 +9,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
+import { resolveAttachmentMimeType } from "@/lib/task-attachment";
 import type {
   CreateSignedUploadUrlInput,
   CreateSignedUploadUrlResult,
@@ -109,7 +110,9 @@ export class R2StorageProvider implements StorageProvider {
       originalName,
     });
     const buffer = Buffer.from(await input.file.arrayBuffer());
-    const mimeType = input.file.type || "application/octet-stream";
+    const mimeType =
+      resolveAttachmentMimeType(input.file.type, originalName) ??
+      "application/octet-stream";
 
     await this.client.send(
       new PutObjectCommand({

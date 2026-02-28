@@ -13,11 +13,11 @@ import {
   ATTACHMENT_KIND_LINK,
   DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES,
   DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL,
-  isAllowedAttachmentMimeType,
   isAttachmentKind,
   MAX_ATTACHMENT_FILE_SIZE_LABEL,
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   normalizeAttachmentUrl,
+  resolveAttachmentMimeType,
 } from "@/lib/task-attachment";
 import { logServerError } from "@/lib/observability/logger";
 import { isAttachmentStorageUnavailableError } from "@/lib/storage/errors";
@@ -104,7 +104,7 @@ function normalizeDirectUploadInput(
   sizeBytes: number;
 }> {
   const normalizedName = input.name.trim() || "file";
-  const normalizedMimeType = input.mimeType.trim();
+  const resolvedMimeType = resolveAttachmentMimeType(input.mimeType, normalizedName);
 
   if (!isPositiveFiniteNumber(input.sizeBytes)) {
     return createError(400, "File is empty");
@@ -117,7 +117,7 @@ function normalizeDirectUploadInput(
     );
   }
 
-  if (!isAllowedAttachmentMimeType(normalizedMimeType)) {
+  if (!resolvedMimeType) {
     return createError(
       400,
       "Unsupported file type. Use PDF, image, text, CSV, or JSON."
@@ -128,7 +128,7 @@ function normalizeDirectUploadInput(
     ok: true,
     data: {
       name: normalizedName,
-      mimeType: normalizedMimeType,
+      mimeType: resolvedMimeType,
       sizeBytes: input.sizeBytes,
     },
   };
@@ -238,6 +238,10 @@ export async function createTaskAttachmentsFromDraft(input: {
       });
       savedStorageKeys.push(storedFile.storageKey);
 
+      const resolvedMimeType =
+        resolveAttachmentMimeType(storedFile.mimeType, storedFile.originalName) ??
+        "application/octet-stream";
+
       await prisma.taskAttachment.create({
         data: {
           taskId: input.taskId,
@@ -245,7 +249,7 @@ export async function createTaskAttachmentsFromDraft(input: {
           kind: ATTACHMENT_KIND_FILE,
           name: storedFile.originalName,
           storageKey: storedFile.storageKey,
-          mimeType: storedFile.mimeType,
+          mimeType: resolvedMimeType,
           sizeBytes: storedFile.sizeBytes,
         },
       });
@@ -294,6 +298,10 @@ export async function createContextAttachmentsFromDraft(input: {
       });
       savedStorageKeys.push(storedFile.storageKey);
 
+      const resolvedMimeType =
+        resolveAttachmentMimeType(storedFile.mimeType, storedFile.originalName) ??
+        "application/octet-stream";
+
       await prisma.resourceAttachment.create({
         data: {
           resourceId: input.cardId,
@@ -301,7 +309,7 @@ export async function createContextAttachmentsFromDraft(input: {
           kind: ATTACHMENT_KIND_FILE,
           name: storedFile.originalName,
           storageKey: storedFile.storageKey,
-          mimeType: storedFile.mimeType,
+          mimeType: resolvedMimeType,
           sizeBytes: storedFile.sizeBytes,
         },
       });
@@ -408,7 +416,8 @@ export async function createTaskAttachmentFromForm(input: {
     return createError(400, `File exceeds ${MAX_ATTACHMENT_FILE_SIZE_LABEL} limit`);
   }
 
-  if (!isAllowedAttachmentMimeType(fileEntry.type)) {
+  const resolvedFormMimeType = resolveAttachmentMimeType(fileEntry.type, fileEntry.name);
+  if (!resolvedFormMimeType) {
     return createError(
       400,
       "Unsupported file type. Use PDF, image, text, CSV, or JSON."
@@ -428,6 +437,10 @@ export async function createTaskAttachmentFromForm(input: {
     });
     storageKey = storedFile.storageKey;
 
+    const resolvedStoredMimeType =
+      resolveAttachmentMimeType(storedFile.mimeType, storedFile.originalName) ??
+      resolvedFormMimeType;
+
     const attachment = await prisma.taskAttachment.create({
       data: {
         taskId: input.taskId,
@@ -435,7 +448,7 @@ export async function createTaskAttachmentFromForm(input: {
         kind: ATTACHMENT_KIND_FILE,
         name: providedName || storedFile.originalName,
         storageKey: storedFile.storageKey,
-        mimeType: storedFile.mimeType,
+        mimeType: resolvedStoredMimeType,
         sizeBytes: storedFile.sizeBytes,
       },
       select: {
@@ -555,7 +568,8 @@ export async function createContextAttachmentFromForm(input: {
     return createError(400, `File exceeds ${MAX_ATTACHMENT_FILE_SIZE_LABEL} limit`);
   }
 
-  if (!isAllowedAttachmentMimeType(fileEntry.type)) {
+  const resolvedFormMimeType = resolveAttachmentMimeType(fileEntry.type, fileEntry.name);
+  if (!resolvedFormMimeType) {
     return createError(
       400,
       "Unsupported file type. Use PDF, image, text, CSV, or JSON."
@@ -575,6 +589,10 @@ export async function createContextAttachmentFromForm(input: {
     });
     storageKey = storedFile.storageKey;
 
+    const resolvedStoredMimeType =
+      resolveAttachmentMimeType(storedFile.mimeType, storedFile.originalName) ??
+      resolvedFormMimeType;
+
     const attachment = await prisma.resourceAttachment.create({
       data: {
         resourceId: input.cardId,
@@ -582,7 +600,7 @@ export async function createContextAttachmentFromForm(input: {
         kind: ATTACHMENT_KIND_FILE,
         name: providedName || storedFile.originalName,
         storageKey: storedFile.storageKey,
-        mimeType: storedFile.mimeType,
+        mimeType: resolvedStoredMimeType,
         sizeBytes: storedFile.sizeBytes,
       },
       select: {
@@ -748,7 +766,9 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
     }
 
     const resolvedSizeBytes = metadata.sizeBytes ?? normalizedUpload.data.sizeBytes;
-    const resolvedMimeType = metadata.mimeType ?? normalizedUpload.data.mimeType;
+    const resolvedMimeType =
+      resolveAttachmentMimeType(metadata.mimeType, normalizedUpload.data.name) ??
+      normalizedUpload.data.mimeType;
 
     if (resolvedSizeBytes <= 0) {
       await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
@@ -767,7 +787,7 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
       );
     }
 
-    if (!isAllowedAttachmentMimeType(resolvedMimeType)) {
+    if (!resolveAttachmentMimeType(resolvedMimeType, normalizedUpload.data.name)) {
       await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
         logServerError("finalizeTaskAttachmentDirectUpload.cleanup", cleanupError);
       });
@@ -955,7 +975,9 @@ export async function finalizeContextAttachmentDirectUpload(input: {
     }
 
     const resolvedSizeBytes = metadata.sizeBytes ?? normalizedUpload.data.sizeBytes;
-    const resolvedMimeType = metadata.mimeType ?? normalizedUpload.data.mimeType;
+    const resolvedMimeType =
+      resolveAttachmentMimeType(metadata.mimeType, normalizedUpload.data.name) ??
+      normalizedUpload.data.mimeType;
 
     if (resolvedSizeBytes <= 0) {
       await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
@@ -974,7 +996,7 @@ export async function finalizeContextAttachmentDirectUpload(input: {
       );
     }
 
-    if (!isAllowedAttachmentMimeType(resolvedMimeType)) {
+    if (!resolveAttachmentMimeType(resolvedMimeType, normalizedUpload.data.name)) {
       await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
         logServerError("finalizeContextAttachmentDirectUpload.cleanup", cleanupError);
       });

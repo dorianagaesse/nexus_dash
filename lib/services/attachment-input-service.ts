@@ -1,6 +1,6 @@
 import {
-  isAllowedAttachmentMimeType,
   normalizeAttachmentUrl,
+  resolveAttachmentMimeType,
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
 } from "@/lib/task-attachment";
 
@@ -67,7 +67,7 @@ export function validateAttachmentFiles(
       return "attachment-file-too-large";
     }
 
-    if (!isAllowedAttachmentMimeType(file.type)) {
+    if (!resolveAttachmentMimeType(file.type, file.name)) {
       return "attachment-file-type-invalid";
     }
   }

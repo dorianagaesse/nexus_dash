@@ -169,6 +169,37 @@ describe("project-attachment-service", () => {
     });
   });
 
+  test("normalizes direct-upload mime type from filename when browser reports empty mime", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      projectId: "project-1",
+    });
+    attachmentStorageMock.createAttachmentSignedUploadUrl.mockResolvedValueOnce({
+      storageKey: "task/task-1/key-ios-photo.heic",
+      uploadUrl: "https://example.r2/upload",
+      method: "PUT",
+      headers: { "Content-Type": "image/heic" },
+      expiresInSeconds: 300,
+    });
+
+    const result = await createTaskAttachmentUploadTarget({
+      actorUserId,
+      projectId: "project-1",
+      taskId: "task-1",
+      name: "ios-photo.HEIC",
+      mimeType: "",
+      sizeBytes: 1024,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(attachmentStorageMock.createAttachmentSignedUploadUrl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        originalName: "ios-photo.HEIC",
+        mimeType: "image/heic",
+      })
+    );
+  });
+
   test("creates context direct-upload target when storage provider supports signed uploads", async () => {
     prismaMock.resource.findUnique.mockResolvedValueOnce({
       id: "card-1",

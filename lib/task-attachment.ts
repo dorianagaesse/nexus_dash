@@ -19,22 +19,89 @@ export const DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL = "25MB";
 export const ALLOWED_ATTACHMENT_MIME_TYPES = [
   "application/pdf",
   "image/jpeg",
+  "image/jpg",
+  "image/pjpeg",
   "image/png",
   "image/webp",
+  "image/heic",
+  "image/heif",
+  "image/avif",
+  "image/gif",
   "text/plain",
   "text/markdown",
   "text/csv",
   "application/json",
 ] as const;
 
+const EXTENSION_TO_MIME_TYPE: Record<string, string> = {
+  pdf: "application/pdf",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  heic: "image/heic",
+  heif: "image/heif",
+  avif: "image/avif",
+  gif: "image/gif",
+  txt: "text/plain",
+  md: "text/markdown",
+  markdown: "text/markdown",
+  csv: "text/csv",
+  json: "application/json",
+};
+
+function normalizeMimeType(rawMimeType: string | null | undefined): string {
+  if (!rawMimeType) {
+    return "";
+  }
+
+  return rawMimeType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+}
+
+function inferMimeTypeFromFilename(filename: string | null | undefined): string | null {
+  if (!filename) {
+    return null;
+  }
+
+  const trimmed = filename.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const extension = trimmed.split(".").pop()?.toLowerCase();
+  if (!extension) {
+    return null;
+  }
+
+  return EXTENSION_TO_MIME_TYPE[extension] ?? null;
+}
+
 export function isAttachmentKind(value: string): value is AttachmentKind {
   return ATTACHMENT_KINDS.includes(value as AttachmentKind);
 }
 
 export function isAllowedAttachmentMimeType(mimeType: string): boolean {
+  const normalizedMimeType = normalizeMimeType(mimeType);
   return ALLOWED_ATTACHMENT_MIME_TYPES.includes(
-    mimeType as (typeof ALLOWED_ATTACHMENT_MIME_TYPES)[number]
+    normalizedMimeType as (typeof ALLOWED_ATTACHMENT_MIME_TYPES)[number]
   );
+}
+
+export function resolveAttachmentMimeType(
+  rawMimeType: string | null | undefined,
+  filename: string | null | undefined
+): string | null {
+  const normalizedMimeType = normalizeMimeType(rawMimeType);
+  if (isAllowedAttachmentMimeType(normalizedMimeType)) {
+    return normalizedMimeType;
+  }
+
+  const inferredMimeType = inferMimeTypeFromFilename(filename);
+  if (inferredMimeType && isAllowedAttachmentMimeType(inferredMimeType)) {
+    return inferredMimeType;
+  }
+
+  return null;
 }
 
 export function normalizeAttachmentUrl(value: string): string | null {
