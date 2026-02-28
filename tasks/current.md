@@ -1,59 +1,40 @@
-# Current Task: TASK-084 Password Recovery Lifecycle - Forgot Password Request, Reset Token Flow, and Secure Password Rotation
+# Current Task: TASK-087 Product Metadata Surface - Repository Link and Running Version Visibility
 
 ## Task ID
-TASK-084
+TASK-087
 
 ## Status
 In Progress (2026-02-28)
 
 ## Objective
-Deliver a production-grade password recovery flow for credentials users with secure, single-use, expiring reset links, replay protection, and post-reset session invalidation.
+Add a polished in-app metadata surface that links to the GitHub repository and displays the running app version.
 
 ## Why Now
-- TASK-083 established tokenized email lifecycle + delivery baseline.
-- Credentials auth is live and now needs complete account recovery coverage.
-- Password recovery is a standard requirement for secure account onboarding UX.
-
-## Dependencies
-- TASK-046 (Done): authenticated route/API guardrails and session primitives.
-- TASK-083 (Done): transactional email/token lifecycle baseline and Resend integration.
-
-## Locked Decisions
-- Recovery UX uses email reset links (no code-entry flow in this task).
-- Reset links are single-use and short-lived.
-- Token values are stored hashed only (never raw).
-- Password reset invalidates all existing sessions for the subject account.
-- Recovery request responses are user-enumeration safe at UX level.
+- Deferred backlog item selected as a low-risk, high-signal upgrade.
+- Improves release transparency and debugging clarity without touching core domain flows.
 
 ## Scope
-- Add forgot-password request flow with email input.
-- Issue password-reset tokens with expiry + replay protection.
-- Send reset email links through transactional email service.
-- Add reset-password form flow with new password + confirmation.
-- Rotate stored password hash on successful token consume.
-- Invalidate active sessions after successful password reset.
-- Add tests for token lifecycle, replay protection, and reset success/failure flows.
+- Add reusable app metadata resolver (repository URL + version label).
+- Render a compact, modern metadata UI element aligned with existing design language.
+- Support optional environment-based metadata overrides.
+- Add unit coverage for metadata formatting behavior.
 
 ## Out of Scope
-- MFA recovery factors.
-- Social-provider-only account recovery harmonization.
-- Additional anti-abuse controls beyond token-level constraints in this task.
+- Full release-management/versioning workflow design.
+- Changelog generation and release-note automation.
 
 ## Acceptance Criteria
-- User can submit forgot-password request and receive reset email in production.
-- Reset link can be consumed once and expires after TTL.
-- Invalid/expired/consumed links fail safely with user-friendly messaging.
-- Password reset enforces existing password policy and confirmation checks.
-- Successful reset revokes active sessions for the account.
-- Tests cover critical success/failure/security paths.
+- Users can open the repository from the app UI.
+- UI displays a version label (for example `v1.2.13` or `v1.2.13+abc1234`).
+- Metadata display remains visually consistent across signed-in/signed-out states.
+- Tests cover override/fallback formatting logic.
 
 ## Definition of Done
-- Branch + PR for TASK-084.
-- Prisma schema + migration committed.
-- CI checks pass (check-name, quality, container).
-- Copilot review comments addressed/resolved.
-- Preview deploy is green.
-- Tracking docs updated (`tasks/current.md`, `tasks/backlog.md`, `journal.md` as applicable).
+- Branch + PR opened.
+- CI checks green.
+- Copilot comments resolved.
+- Preview deployment successful.
+- Tracking files updated (`tasks/current.md`).
 
 ---
 
