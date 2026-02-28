@@ -78,30 +78,32 @@ export default async function AccountProfilePage({
   return (
     <main className="container py-12">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Button asChild variant="ghost" className="-ml-2 w-fit px-2 text-sm">
+            <Link href="/projects">
+              <ArrowLeft className="h-4 w-4" />
+              Back to projects
+            </Link>
+          </Button>
+          <Button
+            asChild
+            variant="outline"
+            className="rounded-full border-border/60 px-3 py-1.5 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
+          >
+            <Link href="/account/settings" className="inline-flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Settings
+            </Link>
+          </Button>
+        </div>
         <Badge variant="secondary" className="w-fit">
           Account profile
         </Badge>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight">Account</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage your identity, email, and password.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button asChild variant="secondary">
-              <Link href="/account/settings">
-                <Settings className="h-4 w-4" />
-                Settings
-              </Link>
-            </Button>
-            <Button asChild variant="ghost">
-              <Link href="/projects">
-                <ArrowLeft className="h-4 w-4" />
-                Back to projects
-              </Link>
-            </Button>
-          </div>
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold tracking-tight">Account</h1>
+          <p className="text-sm text-muted-foreground">
+            Manage your identity, email, and password.
+          </p>
         </div>
 
         {status && STATUS_MESSAGES[status] ? (
