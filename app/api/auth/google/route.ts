@@ -34,8 +34,15 @@ export async function GET(request: NextRequest) {
   let authorizationUrl = "";
 
   try {
-    const requestOrigin = resolveRequestOriginFromHeaders(request.headers);
-    const redirectUri = resolveGoogleOAuthRedirectUri(requestOrigin);
+    // Prefer an explicitly configured callback URI when present.
+    // Fallback to trusted-origin derivation only when override is absent.
+    let redirectUri = "";
+    try {
+      redirectUri = resolveGoogleOAuthRedirectUri();
+    } catch {
+      const requestOrigin = resolveRequestOriginFromHeaders(request.headers);
+      redirectUri = resolveGoogleOAuthRedirectUri(requestOrigin);
+    }
     authorizationUrl = buildGoogleOAuthUrl(state, redirectUri);
   } catch (error) {
     logServerError("GET /api/auth/google.configError", error);

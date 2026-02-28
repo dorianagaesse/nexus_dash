@@ -185,7 +185,7 @@ describe("GET /api/auth/callback/google", () => {
   });
 
   test("redirects with config error when callback redirect uri cannot be resolved", async () => {
-    googleCalendarMock.resolveGoogleOAuthRedirectUri.mockImplementationOnce(() => {
+    googleCalendarMock.resolveGoogleOAuthRedirectUri.mockImplementation(() => {
       throw new Error("missing-google-redirect-uri");
     });
 
@@ -205,5 +205,52 @@ describe("GET /api/auth/callback/google", () => {
       "http://localhost/projects/p1?error=calendar-config-missing"
     );
     expect(googleCalendarMock.exchangeAuthorizationCodeForTokens).not.toHaveBeenCalled();
+  });
+
+  test("falls back to request origin when explicit callback redirect uri is not configured", async () => {
+    googleCalendarMock.resolveGoogleOAuthRedirectUri.mockImplementation(
+      (origin?: string) => {
+        if (!origin) {
+          throw new Error("missing-google-redirect-uri");
+        }
+
+        return `${origin}/api/auth/callback/google`;
+      }
+    );
+    googleCalendarMock.exchangeAuthorizationCodeForTokens.mockResolvedValueOnce({
+      accessToken: "access-token",
+      expiresIn: 3600,
+      refreshToken: "refresh-token",
+      tokenType: "Bearer",
+      scope: "scope-a",
+    });
+    credentialServiceMock.upsertGoogleCalendarCredentialTokens.mockResolvedValueOnce(
+      undefined
+    );
+
+    const response = await GET(
+      createRequest(
+        "http://localhost/api/auth/callback/google?state=expected&code=auth-code",
+        {
+          nexusdash_google_oauth_state: "expected",
+          nexusdash_google_oauth_return_to: "/projects/p1",
+          nexusdash_google_oauth_actor: "test-user",
+        }
+      )
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "http://localhost/projects/p1?status=calendar-connected"
+    );
+    expect(googleCalendarMock.resolveGoogleOAuthRedirectUri).toHaveBeenNthCalledWith(1);
+    expect(googleCalendarMock.resolveGoogleOAuthRedirectUri).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:3000"
+    );
+    expect(googleCalendarMock.exchangeAuthorizationCodeForTokens).toHaveBeenCalledWith(
+      "auth-code",
+      "http://localhost:3000/api/auth/callback/google"
+    );
   });
 });

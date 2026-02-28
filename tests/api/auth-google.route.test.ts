@@ -49,9 +49,7 @@ describe("GET /api/auth/google", () => {
       "https://accounts.example.com/oauth?state=test-state"
     );
     expect(googleCalendarMock.buildGoogleOAuthUrl).toHaveBeenCalledTimes(1);
-    expect(googleCalendarMock.resolveGoogleOAuthRedirectUri).toHaveBeenCalledWith(
-      "http://localhost:3000"
-    );
+    expect(googleCalendarMock.resolveGoogleOAuthRedirectUri).toHaveBeenCalledWith();
     expect(typeof googleCalendarMock.buildGoogleOAuthUrl.mock.calls[0][0]).toBe("string");
     expect(googleCalendarMock.buildGoogleOAuthUrl.mock.calls[0][1]).toBe(
       "http://localhost/api/auth/callback/google"
@@ -75,5 +73,35 @@ describe("GET /api/auth/google", () => {
     expect(response.status).toBe(307);
     const location = response.headers.get("location");
     expect(location).toBe("http://localhost/projects/p2?error=calendar-config-missing");
+  });
+
+  test("falls back to request origin when explicit redirect uri is not configured", async () => {
+    googleCalendarMock.normalizeReturnToPath.mockReturnValue("/projects/p3");
+    googleCalendarMock.resolveGoogleOAuthRedirectUri.mockImplementation(
+      (origin?: string) => {
+        if (!origin) {
+          throw new Error("missing-google-redirect-uri");
+        }
+
+        return `${origin}/api/auth/callback/google`;
+      }
+    );
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/auth/google?returnTo=/projects/p3")
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://accounts.example.com/oauth?state=test-state"
+    );
+    expect(googleCalendarMock.resolveGoogleOAuthRedirectUri).toHaveBeenNthCalledWith(1);
+    expect(googleCalendarMock.resolveGoogleOAuthRedirectUri).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:3000"
+    );
+    expect(googleCalendarMock.buildGoogleOAuthUrl.mock.calls[0][1]).toBe(
+      "http://localhost:3000/api/auth/callback/google"
+    );
   });
 });
