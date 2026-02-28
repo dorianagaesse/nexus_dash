@@ -96,6 +96,14 @@ export function resolveAttachmentMimeType(
     return normalizedMimeType;
   }
 
+  const canUseFilenameFallback =
+    normalizedMimeType.length === 0 ||
+    normalizedMimeType === "application/octet-stream" ||
+    normalizedMimeType === "binary/octet-stream";
+  if (!canUseFilenameFallback) {
+    return null;
+  }
+
   const inferredMimeType = inferMimeTypeFromFilename(filename);
   if (inferredMimeType && isAllowedAttachmentMimeType(inferredMimeType)) {
     return inferredMimeType;

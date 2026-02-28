@@ -33,6 +33,7 @@ describe("task-attachment", () => {
     expect(resolveAttachmentMimeType("application/octet-stream", "export.csv")).toBe(
       "text/csv"
     );
+    expect(resolveAttachmentMimeType("application/zip", "photo.heic")).toBeNull();
     expect(resolveAttachmentMimeType("", "archive.zip")).toBeNull();
   });
 
