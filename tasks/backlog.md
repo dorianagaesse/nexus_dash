@@ -4,6 +4,11 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-087
+  Title: New user info - full name capture at sign-up and editable account profile display
+  Status: Pending
+  Rationale: Improve account identity quality by collecting a real-world full name at onboarding, surfacing it on `/account`, and allowing secure profile edits so user metadata is immediately useful across the app.
+  Dependencies: TASK-047, TASK-082
 - ID: TASK-086
   Title: Account page adjustment - email change verification flow, compact layout, and settings navigation
   Status: Pending

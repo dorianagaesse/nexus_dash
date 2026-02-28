@@ -1,55 +1,54 @@
-# Current Task: TASK-086 Account Page Adjustment - Email Change Verification, Compact Layout, and Settings Navigation
+# Current Task: TASK-087 New User Info - Full Name Capture and Account Profile Editing
 
 ## Task ID
-TASK-086
+TASK-087
 
 ## Status
-In Progress (2026-02-27)
+In Progress (2026-02-28)
 
 ## Objective
-Extend account self-service so users can update their email address safely, enforce verification on the new email, and improve `/account` information density with a cleaner modern layout.
+Add a `Full name` field to credential sign-up, persist it safely, show it clearly on `/account`, and allow users to edit it with validation and regression coverage.
 
 ## Why Now
-- TASK-082 delivered account profile controls, but email change is still missing.
-- TASK-083 delivered verification lifecycle; email updates should reuse it.
-- Current `/account` composition is functional but too vertically sparse for the amount of editable data.
+- Username + email are in place, but human-readable identity metadata is still incomplete.
+- Account profile editing now exists and is the right place to expose/update full name.
+- This aligns onboarding quality with expected product-level account UX.
 
 ## Dependencies
-- TASK-082 (Done): account profile page + username/password update flows.
-- TASK-083 (Done): verification token lifecycle + `/verify-email` flow + guarded session behavior.
+- TASK-047 (Done): credentials sign-in/sign-up entry and onboarding UX.
+- TASK-082 (Done): account page actions and profile update baseline.
 - TASK-046 (Done): authenticated route/action guardrails.
 
 ## Scope
-- Add account email update capability from `/account`.
-- On successful email update:
-  - reset verification state for that user (`emailVerified = null`)
-  - issue a fresh verification email token via existing verification service
-  - redirect user to `/verify-email` with clear status/error feedback
-- Reorganize `/account` layout to reduce vertical footprint while keeping modern, readable visual structure.
-- Add explicit navigation affordance to `/account/settings` on the account page.
-- Add regression tests for new account email update service behavior and action-level flow handling.
+- Add `Full name` input to sign-up form and server action payload handling.
+- Persist full name in the user data model (schema + migration updates as needed).
+- Display full name on `/account` and add edit capability from account profile.
+- Add server-side normalization/validation for full name updates.
+- Add/update tests for sign-up and account update flows that touch full name.
+- Keep authorization based on `user.id` only (full name is profile metadata, not an identifier).
 
 ## Out of Scope
-- Password reset lifecycle (TASK-084).
-- Social-provider account linking/email synchronization.
-- Username availability service or public profile discovery.
+- Username/discriminator redesign.
+- Social-provider profile sync/mapping for full name.
+- Public profile/discovery features.
 
 ## Acceptance Criteria
-- Signed-in verified users can submit a new valid email from `/account`.
-- Email updates enforce normalization/validation and uniqueness.
-- Changing email clears `emailVerified` and requires verifying the new email before protected app usage.
-- Verification issuance failures are handled safely with clear user-facing errors.
-- `/account` presents a more compact layout than before without regressing existing username/password flows.
-- A visible control links to `/account/settings`.
-- Automated tests cover critical email-change success/failure branches.
+- New users can provide full name during sign-up.
+- Full name is persisted and visible on `/account`.
+- Signed-in users can update full name from account page.
+- Invalid full-name inputs are rejected with clear feedback.
+- Regression tests cover success/failure branches for full-name create/update paths.
 
 ## Definition of Done
-- Backlog updated with TASK-086 and TASK-083 completion.
-- `/account` implementation and tests merged via PR.
-- CI + preview deployment checks pass.
+- Backlog includes TASK-087 and `tasks/current.md` points to TASK-087.
+- Implementation + tests merged via PR with green CI.
+- Preview deploy is green and full-name flow is manually verifiable.
 - Copilot review comments (if any) are addressed and resolved.
+
+## Data Note
+- Existing non-critical data can be erased for this task if needed to simplify schema rollout.
 
 ---
 
-Last Updated: 2026-02-27
+Last Updated: 2026-02-28
 Assigned To: User + Agent
