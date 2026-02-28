@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 
+import { getRuntimeEnvironment } from "@/lib/env.server";
 import { prisma } from "@/lib/prisma";
 import {
   normalizeEmail,
@@ -14,9 +15,12 @@ export const PASSWORD_RESET_PATH = "/reset-password";
 export const PASSWORD_RESET_TOKEN_TTL_SECONDS = 60 * 60;
 export const PASSWORD_RESET_RESEND_COOLDOWN_SECONDS = 60;
 export const PASSWORD_RESET_RESEND_DAILY_LIMIT = 5;
+export const PASSWORD_RESET_RETRY_COOKIE_NAME = "nexusdash.reset-token";
+export const PASSWORD_RESET_RETRY_COOKIE_TTL_SECONDS = 10 * 60;
 
 const PASSWORD_RESET_TOKEN_BYTES = 32;
 const PASSWORD_RESET_RESEND_WINDOW_MS = 24 * 60 * 60 * 1000;
+const PASSWORD_RESET_MIN_RESPONSE_MS = 350;
 const DEFAULT_APP_ORIGIN = "http://localhost:3000";
 
 interface ServiceSuccess<T extends Record<string, unknown>> {
@@ -84,10 +88,17 @@ function createResetToken(): string {
 function resolveAppOrigin(requestOrigin: string): string {
   try {
     const parsed = new URL(requestOrigin);
-    return parsed.origin;
+    if (
+      (parsed.protocol === "http:" || parsed.protocol === "https:") &&
+      parsed.origin !== "null"
+    ) {
+      return parsed.origin;
+    }
   } catch {
-    return DEFAULT_APP_ORIGIN;
+    // Fall back below.
   }
+
+  return DEFAULT_APP_ORIGIN;
 }
 
 function buildPasswordResetUrl(requestOrigin: string, rawToken: string): string {
@@ -141,6 +152,23 @@ function isTokenExpired(token: { consumedAt: Date | null; expiresAt: Date }): bo
   return Boolean(token.consumedAt) || token.expiresAt.getTime() <= Date.now();
 }
 
+async function withMinimumResponseDuration<T>(
+  startedAtMs: number,
+  value: T
+): Promise<T> {
+  if (getRuntimeEnvironment() === "test") {
+    return value;
+  }
+
+  const elapsedMs = Date.now() - startedAtMs;
+  const remainingMs = PASSWORD_RESET_MIN_RESPONSE_MS - elapsedMs;
+  if (remainingMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, remainingMs));
+  }
+
+  return value;
+}
+
 export async function requestPasswordResetForEmail(
   input: RequestPasswordResetInput
 ): Promise<
@@ -148,11 +176,15 @@ export async function requestPasswordResetForEmail(
     delivery: "sent" | "skipped";
   }>
 > {
+  const startedAtMs = Date.now();
   const email = normalizeEmail(input.emailRaw);
   if (!validateEmail(email)) {
-    return createSuccess(202, {
-      delivery: "skipped",
-    });
+    return withMinimumResponseDuration(
+      startedAtMs,
+      createSuccess(202, {
+        delivery: "skipped",
+      })
+    );
   }
 
   const user = await prisma.user.findUnique({
@@ -165,9 +197,12 @@ export async function requestPasswordResetForEmail(
   });
 
   if (!user?.passwordHash) {
-    return createSuccess(202, {
-      delivery: "skipped",
-    });
+    return withMinimumResponseDuration(
+      startedAtMs,
+      createSuccess(202, {
+        delivery: "skipped",
+      })
+    );
   }
 
   const now = Date.now();
@@ -225,7 +260,7 @@ export async function requestPasswordResetForEmail(
   });
 
   if (!tokenCreationResult.ok) {
-    return tokenCreationResult;
+    return withMinimumResponseDuration(startedAtMs, tokenCreationResult);
   }
 
   const resetUrl = buildPasswordResetUrl(input.requestOrigin, rawToken);
@@ -241,12 +276,18 @@ export async function requestPasswordResetForEmail(
     await prisma.passwordResetToken.deleteMany({
       where: { id: tokenCreationResult.data.tokenId },
     });
-    return createError(503, "password-reset-email-send-failed");
+    return withMinimumResponseDuration(
+      startedAtMs,
+      createError(503, "password-reset-email-send-failed")
+    );
   }
 
-  return createSuccess(202, {
-    delivery: deliveryResult.delivery,
-  });
+  return withMinimumResponseDuration(
+    startedAtMs,
+    createSuccess(202, {
+      delivery: deliveryResult.delivery,
+    })
+  );
 }
 
 export async function validatePasswordResetToken(

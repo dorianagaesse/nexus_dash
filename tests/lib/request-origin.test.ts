@@ -64,4 +64,21 @@ describe("request-origin", () => {
 
     expect(origin).toBe("https://nexus-dash.app");
   });
+
+  test("throws in production when no trusted origin is configured", () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.NEXTAUTH_URL;
+    delete process.env.TRUSTED_ORIGINS;
+
+    expect(() =>
+      resolveRequestOriginFromHeaders(
+        new TestHeaders({
+          "x-forwarded-proto": "https",
+          "x-forwarded-host": "nexus-dash.app",
+        })
+      )
+    ).toThrow(
+      "Unable to resolve trusted request origin in production. Configure TRUSTED_ORIGINS or NEXTAUTH_URL."
+    );
+  });
 });

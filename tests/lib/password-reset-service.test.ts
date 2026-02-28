@@ -234,6 +234,37 @@ describe("password-reset-service", () => {
     });
   });
 
+  test("falls back to default app origin when request origin protocol is invalid", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: "user-1",
+      email: "user@example.com",
+      passwordHash: "hash-1",
+    });
+    prismaMock.passwordResetToken.count.mockResolvedValueOnce(0);
+    prismaMock.passwordResetToken.findFirst.mockResolvedValueOnce(null);
+    prismaMock.passwordResetToken.create.mockResolvedValueOnce({
+      id: "prt_1",
+    });
+
+    const result = await requestPasswordResetForEmail({
+      emailRaw: "user@example.com",
+      requestOrigin: "javascript:alert(1)",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      status: 202,
+      data: {
+        delivery: "sent",
+      },
+    });
+    expect(transactionalEmailMock.sendTransactionalEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        html: expect.stringContaining("http://localhost:3000/reset-password?token="),
+      })
+    );
+  });
+
   test("validatePasswordResetToken rejects expired token", async () => {
     prismaMock.passwordResetToken.findUnique.mockResolvedValueOnce({
       userId: "user-1",

@@ -1,10 +1,14 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { validatePasswordResetToken } from "@/lib/services/password-reset-service";
+import {
+  PASSWORD_RESET_RETRY_COOKIE_NAME,
+  validatePasswordResetToken,
+} from "@/lib/services/password-reset-service";
 import { MIN_PASSWORD_LENGTH } from "@/lib/services/credential-auth-service";
 
 import { resetPasswordAction } from "./actions";
@@ -50,7 +54,8 @@ export default async function ResetPasswordPage({
 }: {
   searchParams?: SearchParams;
 }) {
-  const token = readQueryValue(searchParams?.token) ?? "";
+  const retryToken = cookies().get(PASSWORD_RESET_RETRY_COOKIE_NAME)?.value ?? "";
+  const token = readQueryValue(searchParams?.token) ?? retryToken;
   const explicitErrorCode = readQueryValue(searchParams?.error);
   const tokenValidationResult = token
     ? await validatePasswordResetToken(token)
