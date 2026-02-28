@@ -7,8 +7,10 @@ import {
   GOOGLE_OAUTH_STATE_COOKIE,
   exchangeAuthorizationCodeForTokens,
   normalizeReturnToPath,
+  resolveGoogleOAuthRedirectUri,
 } from "@/lib/google-calendar";
 import { isProductionEnvironment } from "@/lib/env.server";
+import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
 import { logServerError } from "@/lib/observability/logger";
 import { upsertGoogleCalendarCredentialTokens } from "@/lib/services/google-calendar-credential-service";
 
@@ -99,8 +101,19 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  let redirectUri = "";
   try {
-    const tokenResponse = await exchangeAuthorizationCodeForTokens(code);
+    const requestOrigin = resolveRequestOriginFromHeaders(request.headers);
+    redirectUri = resolveGoogleOAuthRedirectUri(requestOrigin);
+  } catch (error) {
+    logServerError("GET /api/auth/callback/google.configError", error);
+    return buildRedirectResponse(request, returnToPath, {
+      error: "calendar-config-missing",
+    });
+  }
+
+  try {
+    const tokenResponse = await exchangeAuthorizationCodeForTokens(code, redirectUri);
     await upsertGoogleCalendarCredentialTokens({
       userId: actorUserId,
       accessToken: tokenResponse.accessToken,

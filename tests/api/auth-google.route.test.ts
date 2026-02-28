@@ -6,6 +6,7 @@ const googleCalendarMock = vi.hoisted(() => ({
   GOOGLE_OAUTH_STATE_COOKIE: "nexusdash_google_oauth_state",
   GOOGLE_OAUTH_RETURN_TO_COOKIE: "nexusdash_google_oauth_return_to",
   buildGoogleOAuthUrl: vi.fn(),
+  resolveGoogleOAuthRedirectUri: vi.fn(),
   normalizeReturnToPath: vi.fn(),
 }));
 
@@ -14,6 +15,7 @@ vi.mock("@/lib/google-calendar", () => ({
   GOOGLE_OAUTH_STATE_COOKIE: googleCalendarMock.GOOGLE_OAUTH_STATE_COOKIE,
   GOOGLE_OAUTH_RETURN_TO_COOKIE: googleCalendarMock.GOOGLE_OAUTH_RETURN_TO_COOKIE,
   buildGoogleOAuthUrl: googleCalendarMock.buildGoogleOAuthUrl,
+  resolveGoogleOAuthRedirectUri: googleCalendarMock.resolveGoogleOAuthRedirectUri,
   normalizeReturnToPath: googleCalendarMock.normalizeReturnToPath,
 }));
 
@@ -27,6 +29,9 @@ describe("GET /api/auth/google", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     googleCalendarMock.normalizeReturnToPath.mockReturnValue("/projects");
+    googleCalendarMock.resolveGoogleOAuthRedirectUri.mockReturnValue(
+      "http://localhost/api/auth/callback/google"
+    );
     googleCalendarMock.buildGoogleOAuthUrl.mockReturnValue(
       "https://accounts.example.com/oauth?state=test-state"
     );
@@ -44,7 +49,13 @@ describe("GET /api/auth/google", () => {
       "https://accounts.example.com/oauth?state=test-state"
     );
     expect(googleCalendarMock.buildGoogleOAuthUrl).toHaveBeenCalledTimes(1);
+    expect(googleCalendarMock.resolveGoogleOAuthRedirectUri).toHaveBeenCalledWith(
+      "http://localhost:3000"
+    );
     expect(typeof googleCalendarMock.buildGoogleOAuthUrl.mock.calls[0][0]).toBe("string");
+    expect(googleCalendarMock.buildGoogleOAuthUrl.mock.calls[0][1]).toBe(
+      "http://localhost/api/auth/callback/google"
+    );
 
     const setCookie = readSetCookieHeaders(response);
     expect(setCookie).toContain("nexusdash_google_oauth_state=");

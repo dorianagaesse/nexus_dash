@@ -8,9 +8,11 @@ import {
   GOOGLE_OAUTH_STATE_COOKIE,
   buildGoogleOAuthUrl,
   normalizeReturnToPath,
+  resolveGoogleOAuthRedirectUri,
 } from "@/lib/google-calendar";
 import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
 import { isProductionEnvironment } from "@/lib/env.server";
+import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
 import { logServerError } from "@/lib/observability/logger";
 
 function withErrorParam(request: NextRequest, returnTo: string, error: string): URL {
@@ -32,7 +34,9 @@ export async function GET(request: NextRequest) {
   let authorizationUrl = "";
 
   try {
-    authorizationUrl = buildGoogleOAuthUrl(state);
+    const requestOrigin = resolveRequestOriginFromHeaders(request.headers);
+    const redirectUri = resolveGoogleOAuthRedirectUri(requestOrigin);
+    authorizationUrl = buildGoogleOAuthUrl(state, redirectUri);
   } catch (error) {
     logServerError("GET /api/auth/google.configError", error);
     const fallback = withErrorParam(request, returnTo, "calendar-config-missing");

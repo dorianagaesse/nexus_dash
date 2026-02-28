@@ -394,10 +394,27 @@ export function validateServerRuntimeConfig(
   }
 
   assertOptionalEnvironmentGroup(
-    ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"],
-    "GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI must be configured together."
+    ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be configured together."
   );
   const googleClientId = getOptionalServerEnv("GOOGLE_CLIENT_ID");
+  const googleRedirectUri = getOptionalServerEnv("GOOGLE_REDIRECT_URI");
+  if (googleRedirectUri) {
+    assertValidUrl("GOOGLE_REDIRECT_URI", googleRedirectUri);
+  }
+
+  const trustedOrigins = getOptionalServerEnv("TRUSTED_ORIGINS");
+  const nextAuthUrlForGoogle = getOptionalServerEnv("NEXTAUTH_URL");
+  const hasGoogleRedirectResolution =
+    Boolean(googleRedirectUri) ||
+    Boolean(trustedOrigins) ||
+    Boolean(nextAuthUrlForGoogle);
+
+  if (googleClientId && !hasGoogleRedirectResolution) {
+    throw new Error(
+      "Google OAuth requires GOOGLE_REDIRECT_URI or a trusted app origin (TRUSTED_ORIGINS/NEXTAUTH_URL)."
+    );
+  }
 
   if (
     runtimeEnvironment === "production" &&
@@ -407,11 +424,6 @@ export function validateServerRuntimeConfig(
     throw new Error(
       "GOOGLE_TOKEN_ENCRYPTION_KEY is required in production when Google Calendar OAuth is enabled."
     );
-  }
-
-  const googleRedirectUri = getOptionalServerEnv("GOOGLE_REDIRECT_URI");
-  if (googleRedirectUri) {
-    assertValidUrl("GOOGLE_REDIRECT_URI", googleRedirectUri);
   }
 
   const googleCalendarId = getOptionalServerEnv("GOOGLE_CALENDAR_ID");
