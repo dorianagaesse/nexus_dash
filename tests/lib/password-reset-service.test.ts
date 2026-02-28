@@ -32,6 +32,7 @@ vi.mock("@/lib/services/transactional-email-service", () => ({
 }));
 
 import {
+  PASSWORD_RESET_RESEND_DAILY_LIMIT,
   PASSWORD_RESET_RESEND_COOLDOWN_SECONDS,
   requestPasswordResetForEmail,
   resetPasswordWithToken,
@@ -131,6 +132,31 @@ describe("password-reset-service", () => {
       error: "reset-cooldown",
     });
     expect(prismaMock.passwordResetToken.create).not.toHaveBeenCalled();
+  });
+
+  test("returns reset-limit-reached when daily resend cap is reached", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: "user-1",
+      email: "user@example.com",
+      passwordHash: "hash-1",
+    });
+    prismaMock.passwordResetToken.count.mockResolvedValueOnce(
+      PASSWORD_RESET_RESEND_DAILY_LIMIT
+    );
+    prismaMock.passwordResetToken.findFirst.mockResolvedValueOnce(null);
+
+    const result = await requestPasswordResetForEmail({
+      emailRaw: "user@example.com",
+      requestOrigin: "https://nexus-dash.app",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 429,
+      error: "reset-limit-reached",
+    });
+    expect(prismaMock.passwordResetToken.create).not.toHaveBeenCalled();
+    expect(transactionalEmailMock.sendTransactionalEmail).not.toHaveBeenCalled();
   });
 
   test("creates token and sends reset email for eligible request", async () => {
