@@ -169,7 +169,7 @@ export default async function Home({
             <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted p-1">
               <HomeAuthModeToggleLink
                 targetForm="signin"
-                aria-current={isSignIn ? "page" : undefined}
+                ariaCurrent={isSignIn ? "page" : undefined}
                 className={cn(
                   "rounded-md px-3 py-2 text-center text-sm font-medium transition",
                   isSignIn
@@ -181,7 +181,7 @@ export default async function Home({
               </HomeAuthModeToggleLink>
               <HomeAuthModeToggleLink
                 targetForm="signup"
-                aria-current={!isSignIn ? "page" : undefined}
+                ariaCurrent={!isSignIn ? "page" : undefined}
                 className={cn(
                   "rounded-md px-3 py-2 text-center text-sm font-medium transition",
                   !isSignIn
