@@ -9,11 +9,6 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Complete account self-service by allowing email updates with mandatory re-verification, while tightening account-page information density and navigation clarity for better day-to-day usability.
   Dependencies: TASK-082, TASK-083
-- ID: TASK-084
-  Title: Password recovery lifecycle - forgot-password request, reset token flow, and secure password rotation
-  Status: Pending
-  Rationale: Provide standard account-recovery capabilities through email-delivered, single-use, short-lived reset links with replay protection and post-reset session invalidation.
-  Dependencies: TASK-046, TASK-083
 - ID: TASK-085
   Title: PostgreSQL hardening - enable RLS policies with staged rollout (staging then production)
   Status: Pending
@@ -61,6 +56,26 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-050
 
 ### Deferred (Intentional)
+- ID: TASK-087
+  Title: Product metadata surface - repository link and running version visibility
+  Status: Pending
+  Rationale: Improve transparency and operability by exposing the public GitHub repository and the currently running app version (for example `v1.2.13`) in-app, with implementation preceded by a short decision pass on version source strategy (tag-based vs commit-based) and placement UX.
+  Dependencies: TASK-041, TASK-042
+- ID: TASK-088
+  Title: Milestone architecture and security audit - post-auth/account hardening review
+  Status: Pending
+  Rationale: Run a focused architecture and security audit after current auth/account milestones to validate boundary integrity, session/token lifecycle safety, tenancy controls, and deployment/secrets posture before broader feature expansion.
+  Dependencies: TASK-084, TASK-085, TASK-086
+- ID: TASK-089
+  Title: Automatic avatar creation - generated identity avatar baseline
+  Status: Pending
+  Rationale: Improve account identity UX by introducing automatic avatar generation for users without uploaded photos, with implementation deferred until we choose generator style, determinism rules, and privacy/caching behavior.
+  Dependencies: TASK-047, TASK-082
+- ID: TASK-090
+  Title: Internationalization baseline - FR/EN translation capabilities
+  Status: Pending
+  Rationale: Enable bilingual product usage (French and English) with consistent UI copy, locale routing/state strategy, and fallback behavior; defer implementation until we confirm i18n architecture and translation workflow.
+  Dependencies: TASK-047, TASK-060
 - ID: TASK-063
   Title: Background jobs phase 1 - maintenance workload extraction (deferred)
   Status: Pending
@@ -90,6 +105,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-084
+  Title: Password recovery lifecycle - forgot-password request, reset token flow, and secure password rotation
+  Status: Done (2026-02-28)
+  Rationale: Delivered end-to-end password recovery with forgot-password request flow, hashed single-use reset tokens, expiry/replay protection, reset-password UX/actions, password rotation, and session revocation; hardened origin/token handling after review and merged via PR #71.
+  Dependencies: TASK-046, TASK-083
 - ID: TASK-083
   Title: Email verification lifecycle - signup verification tokens, confirmation route, and guarded session state
   Status: Done (2026-02-27)
