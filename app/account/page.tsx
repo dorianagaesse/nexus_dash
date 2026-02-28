@@ -85,13 +85,16 @@ export default async function AccountProfilePage({
               Back to projects
             </Link>
           </Button>
-          <Link
-            href="/account/settings"
-            className="inline-flex items-center gap-2 rounded-full border border-border/60 px-3 py-1.5 text-sm font-medium text-muted-foreground transition hover:border-border hover:text-foreground"
+          <Button
+            asChild
+            variant="outline"
+            className="rounded-full border-border/60 px-3 py-1.5 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
           >
-            <Settings className="h-4 w-4" />
-            Settings
-          </Link>
+            <Link href="/account/settings" className="inline-flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Settings
+            </Link>
+          </Button>
         </div>
         <Badge variant="secondary" className="w-fit">
           Account profile
