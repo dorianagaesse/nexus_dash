@@ -60,7 +60,9 @@ export default async function ResetPasswordPage({
     ? null
     : mapTokenErrorToPageError(tokenValidationResult.error);
 
-  const errorCode = explicitErrorCode ?? implicitTokenErrorCode;
+  const errorCode = tokenValidationResult.ok
+    ? explicitErrorCode
+    : implicitTokenErrorCode;
   const errorMessage =
     errorCode && ERROR_MESSAGES[errorCode] ? ERROR_MESSAGES[errorCode] : null;
   const canSubmitForm = tokenValidationResult.ok;
