@@ -217,6 +217,25 @@ function assertValidUrl(name: string, value: string): void {
   }
 }
 
+function hasValidTrustedOrigin(value: string | null): boolean {
+  if (!value) {
+    return false;
+  }
+
+  return value
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0)
+    .some((origin) => {
+      try {
+        new URL(origin);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+}
+
 function assertEmailAddressLike(name: string, value: string): void {
   const trimmed = value.trim();
   if (!trimmed.includes("@")) {
@@ -404,11 +423,15 @@ export function validateServerRuntimeConfig(
   }
 
   const trustedOrigins = getOptionalServerEnv("TRUSTED_ORIGINS");
-  const nextAuthUrlForGoogle = getOptionalServerEnv("NEXTAUTH_URL");
+  const trustedOriginsAreValid = hasValidTrustedOrigin(trustedOrigins);
+  if (trustedOrigins && !trustedOriginsAreValid) {
+    throw new Error("TRUSTED_ORIGINS must contain at least one valid absolute URL.");
+  }
+
   const hasGoogleRedirectResolution =
     Boolean(googleRedirectUri) ||
-    Boolean(trustedOrigins) ||
-    Boolean(nextAuthUrlForGoogle);
+    trustedOriginsAreValid ||
+    Boolean(nextAuthUrl);
 
   if (googleClientId && !hasGoogleRedirectResolution) {
     throw new Error(

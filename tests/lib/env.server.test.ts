@@ -300,6 +300,20 @@ describe("env.server", () => {
     );
   });
 
+  test("fails runtime validation when trusted origins are configured but invalid", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("GOOGLE_CLIENT_ID", "client-id");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("GOOGLE_REDIRECT_URI", "");
+    vi.stubEnv("NEXTAUTH_URL", "");
+    vi.stubEnv("TRUSTED_ORIGINS", "not-a-url");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "TRUSTED_ORIGINS must contain at least one valid absolute URL."
+    );
+  });
+
   test("fails runtime validation when google redirect uri is invalid", () => {
     vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
     vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
