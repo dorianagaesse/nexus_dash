@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
+import { isLiveProductionDeployment } from "@/lib/env.server";
 import {
   MAX_USERNAME_LENGTH,
   MIN_PASSWORD_LENGTH,
@@ -92,6 +93,10 @@ export default async function Home({
 }) {
   const actorUserId = await getSessionUserIdFromServer();
   if (actorUserId) {
+    if (!isLiveProductionDeployment()) {
+      redirect("/projects");
+    }
+
     const emailVerified = await isEmailVerifiedForUser(actorUserId);
     redirect(emailVerified ? "/projects" : "/verify-email");
   }

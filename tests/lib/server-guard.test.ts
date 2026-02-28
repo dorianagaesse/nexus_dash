@@ -8,6 +8,10 @@ const emailVerificationMock = vi.hoisted(() => ({
   isEmailVerifiedForUser: vi.fn(),
 }));
 
+const envMock = vi.hoisted(() => ({
+  isLiveProductionDeployment: vi.fn(),
+}));
+
 const redirectMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/session-user", () => ({
@@ -16,6 +20,10 @@ vi.mock("@/lib/auth/session-user", () => ({
 
 vi.mock("@/lib/services/email-verification-service", () => ({
   isEmailVerifiedForUser: emailVerificationMock.isEmailVerifiedForUser,
+}));
+
+vi.mock("@/lib/env.server", () => ({
+  isLiveProductionDeployment: envMock.isLiveProductionDeployment,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -30,6 +38,7 @@ import {
 describe("server-guard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    envMock.isLiveProductionDeployment.mockReturnValue(true);
     emailVerificationMock.isEmailVerifiedForUser.mockResolvedValue(true);
   });
 
@@ -73,5 +82,16 @@ describe("server-guard", () => {
       "NEXT_REDIRECT"
     );
     expect(redirectMock).toHaveBeenCalledWith("/verify-email");
+  });
+
+  test("skips verification gate when deployment is not live production", async () => {
+    sessionUserMock.getSessionUserIdFromServer.mockResolvedValueOnce("user-1");
+    envMock.isLiveProductionDeployment.mockReturnValueOnce(false);
+
+    const result = await requireVerifiedSessionUserIdFromServer();
+
+    expect(result).toBe("user-1");
+    expect(emailVerificationMock.isEmailVerifiedForUser).not.toHaveBeenCalled();
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 });

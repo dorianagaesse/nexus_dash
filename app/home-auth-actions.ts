@@ -4,7 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
-import { isProductionEnvironment } from "@/lib/env.server";
+import { isLiveProductionDeployment, isProductionEnvironment } from "@/lib/env.server";
 import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
 import { logServerError, logServerWarning } from "@/lib/observability/logger";
 import {
@@ -52,6 +52,10 @@ function setSessionCookie(sessionToken: string, expiresAt: Date): void {
 }
 
 async function resolvePostAuthRedirectPath(actorUserId: string): Promise<string> {
+  if (!isLiveProductionDeployment()) {
+    return PROJECTS_PATH;
+  }
+
   const emailVerified = await isEmailVerifiedForUser(actorUserId);
   return emailVerified ? PROJECTS_PATH : VERIFY_EMAIL_PATH;
 }
@@ -82,7 +86,7 @@ export async function signInAction(formData: FormData): Promise<void> {
   }
 
   setSessionCookie(result.data.sessionToken, result.data.expiresAt);
-  if (!result.data.emailVerified) {
+  if (!result.data.emailVerified && isLiveProductionDeployment()) {
     redirect(`${VERIFY_EMAIL_PATH}?status=verification-required`);
   }
 
@@ -119,6 +123,9 @@ export async function signUpAction(formData: FormData): Promise<void> {
   }
 
   setSessionCookie(result.data.sessionToken, result.data.expiresAt);
+  if (!isLiveProductionDeployment()) {
+    redirect(PROJECTS_PATH);
+  }
 
   let issueResult: Awaited<ReturnType<typeof issueEmailVerificationForUser>>;
   try {
