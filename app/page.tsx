@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,8 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 const STATUS_MESSAGES: Record<string, string> = {
   "email-verified": "Email verified. Sign in to continue.",
+  "password-reset-success":
+    "Password reset complete. Sign in with your new password.",
 };
 
 function readQueryValue(value: string | string[] | undefined): string | null {
@@ -251,6 +254,14 @@ export default async function Home({
                     maxLength={128}
                     className={inputClassName}
                   />
+                  <div className="text-right">
+                    <Link
+                      href="/forgot-password"
+                      className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
                 </div>
                 <AuthSubmitButton
                   className="w-full"

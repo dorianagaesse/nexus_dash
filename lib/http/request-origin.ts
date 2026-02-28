@@ -64,7 +64,7 @@ function isAllowedOrigin(origin: string): boolean {
 
   const trustedOrigin = resolveTrustedProductionOrigin();
   if (!trustedOrigin) {
-    return true;
+    return false;
   }
 
   return origin === trustedOrigin;
@@ -88,6 +88,17 @@ function buildOrigin(protocol: string | null, host: string | null): string | nul
 }
 
 export function resolveRequestOriginFromHeaders(headers: HeaderReader): string {
+  const trustedOrigin = resolveTrustedProductionOrigin();
+  if (isProductionEnvironment()) {
+    if (trustedOrigin) {
+      return trustedOrigin;
+    }
+
+    throw new Error(
+      "Unable to resolve trusted request origin in production. Configure TRUSTED_ORIGINS or NEXTAUTH_URL."
+    );
+  }
+
   const forwardedOrigin = buildOrigin(
     getPrimaryHeaderValue(headers.get("x-forwarded-proto")),
     getPrimaryHeaderValue(headers.get("x-forwarded-host"))
@@ -105,7 +116,6 @@ export function resolveRequestOriginFromHeaders(headers: HeaderReader): string {
     }
   }
 
-  const trustedOrigin = resolveTrustedProductionOrigin();
   if (trustedOrigin) {
     return trustedOrigin;
   }
