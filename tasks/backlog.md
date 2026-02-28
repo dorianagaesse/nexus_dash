@@ -4,11 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-086
-  Title: Account page adjustment - email change verification flow, compact layout, and settings navigation
-  Status: Pending
-  Rationale: Complete account self-service by allowing email updates with mandatory re-verification, while tightening account-page information density and navigation clarity for better day-to-day usability.
-  Dependencies: TASK-082, TASK-083
 - ID: TASK-085
   Title: PostgreSQL hardening - enable RLS policies with staged rollout (staging then production)
   Status: Pending
@@ -105,6 +100,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-086
+  Title: Account page adjustment - email change verification flow, compact layout, and settings navigation
+  Status: Done (2026-02-28)
+  Rationale: Completed account self-service adjustments with verified email-change flow, denser account-page organization, and improved settings navigation placement to keep the page clearer and more practical in daily use.
+  Dependencies: TASK-082, TASK-083
 - ID: TASK-084
   Title: Password recovery lifecycle - forgot-password request, reset token flow, and secure password rotation
   Status: Done (2026-02-28)
