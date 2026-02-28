@@ -43,8 +43,33 @@ function readRevision(): string | null {
   return revision.slice(0, 7);
 }
 
+function normalizeRepositoryUrl(rawUrl: string | null): string {
+  if (!rawUrl) {
+    return DEFAULT_REPOSITORY_URL;
+  }
+
+  const trimmed = rawUrl.trim();
+  if (!trimmed) {
+    return DEFAULT_REPOSITORY_URL;
+  }
+
+  const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed);
+  const candidate = hasScheme ? trimmed : `https://${trimmed}`;
+
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return parsed.toString();
+    }
+  } catch {
+    return DEFAULT_REPOSITORY_URL;
+  }
+
+  return DEFAULT_REPOSITORY_URL;
+}
+
 function readRepositoryUrl(): string {
-  return readOptionalEnv("APP_REPOSITORY_URL") ?? DEFAULT_REPOSITORY_URL;
+  return normalizeRepositoryUrl(readOptionalEnv("APP_REPOSITORY_URL"));
 }
 
 export interface AppMetadataSummary {

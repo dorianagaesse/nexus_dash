@@ -13,9 +13,11 @@ export function AppMetadataPill() {
         href={metadata.repositoryUrl}
         target="_blank"
         rel="noopener noreferrer"
+        aria-label="Open NexusDash GitHub repository"
         className="inline-flex items-center gap-1 rounded-full px-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <Github className="h-3.5 w-3.5" aria-hidden />
+        <span className="sr-only">Repository</span>
         <span className="hidden sm:inline">Repository</span>
         <ArrowUpRight className="h-3 w-3" aria-hidden />
       </Link>

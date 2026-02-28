@@ -10,13 +10,22 @@ describe("app-metadata", () => {
   const originalCommitSha = process.env.COMMIT_SHA;
   const originalRepositoryUrl = process.env.APP_REPOSITORY_URL;
 
+  function restoreEnv(name: string, value: string | undefined): void {
+    if (value === undefined) {
+      delete process.env[name];
+      return;
+    }
+
+    process.env[name] = value;
+  }
+
   afterEach(() => {
-    process.env.APP_VERSION = originalAppVersion;
-    process.env.NEXT_PUBLIC_APP_VERSION = originalPublicAppVersion;
-    process.env.VERCEL_GIT_COMMIT_SHA = originalVercelSha;
-    process.env.GITHUB_SHA = originalGithubSha;
-    process.env.COMMIT_SHA = originalCommitSha;
-    process.env.APP_REPOSITORY_URL = originalRepositoryUrl;
+    restoreEnv("APP_VERSION", originalAppVersion);
+    restoreEnv("NEXT_PUBLIC_APP_VERSION", originalPublicAppVersion);
+    restoreEnv("VERCEL_GIT_COMMIT_SHA", originalVercelSha);
+    restoreEnv("GITHUB_SHA", originalGithubSha);
+    restoreEnv("COMMIT_SHA", originalCommitSha);
+    restoreEnv("APP_REPOSITORY_URL", originalRepositoryUrl);
   });
 
   test("uses configured version and commit sha when provided", () => {
@@ -50,5 +59,21 @@ describe("app-metadata", () => {
     const summary = getAppMetadataSummary();
 
     expect(summary.repositoryUrl).toBe("https://example.com/repo");
+  });
+
+  test("normalizes repository override when scheme is omitted", () => {
+    process.env.APP_REPOSITORY_URL = "github.com/acme/workspace";
+
+    const summary = getAppMetadataSummary();
+
+    expect(summary.repositoryUrl).toBe("https://github.com/acme/workspace");
+  });
+
+  test("falls back to default repository url for unsupported schemes", () => {
+    process.env.APP_REPOSITORY_URL = "javascript:alert('xss')";
+
+    const summary = getAppMetadataSummary();
+
+    expect(summary.repositoryUrl).toBe("https://github.com/dorianagaesse/nexus_dash");
   });
 });
