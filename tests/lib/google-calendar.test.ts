@@ -9,6 +9,7 @@ import {
   normalizeReturnToPath,
   parseTokenResponse,
   refreshAccessToken,
+  resolveGoogleOAuthRedirectUri,
 } from "@/lib/google-calendar";
 
 describe("google-calendar", () => {
@@ -28,7 +29,6 @@ describe("google-calendar", () => {
     expect(getGoogleOAuthEnv()).toEqual({
       clientId: "client-id",
       clientSecret: "client-secret",
-      redirectUri: "http://localhost:3000/api/auth/google/callback",
     });
   });
 
@@ -39,15 +39,43 @@ describe("google-calendar", () => {
   });
 
   test("builds oauth url with required params", () => {
-    const url = new URL(buildGoogleOAuthUrl("state-token"));
+    const url = new URL(
+      buildGoogleOAuthUrl("state-token", "http://localhost:3000/api/auth/callback/google")
+    );
 
     expect(url.origin).toBe("https://accounts.google.com");
     expect(url.searchParams.get("client_id")).toBe("client-id");
     expect(url.searchParams.get("state")).toBe("state-token");
     expect(url.searchParams.get("response_type")).toBe("code");
+    expect(url.searchParams.get("redirect_uri")).toBe(
+      "http://localhost:3000/api/auth/callback/google"
+    );
     expect(url.searchParams.get("scope")).toBe(
       "https://www.googleapis.com/auth/calendar.events"
     );
+  });
+
+  test("resolves redirect uri from configured env override", () => {
+    expect(resolveGoogleOAuthRedirectUri("https://ignored.example.com")).toBe(
+      "http://localhost:3000/api/auth/google/callback"
+    );
+  });
+
+  test("resolves redirect uri from trusted app origin when env override is unset", () => {
+    vi.stubEnv("GOOGLE_REDIRECT_URI", "");
+
+    expect(resolveGoogleOAuthRedirectUri("https://nexus-dash.app")).toBe(
+      "https://nexus-dash.app/api/auth/callback/google"
+    );
+  });
+
+  test("throws when redirect uri cannot be resolved", () => {
+    vi.stubEnv("GOOGLE_REDIRECT_URI", "");
+
+    expect(() => resolveGoogleOAuthRedirectUri("javascript:alert(1)")).toThrow(
+      "invalid-google-redirect-origin"
+    );
+    expect(() => resolveGoogleOAuthRedirectUri()).toThrow("missing-google-redirect-uri");
   });
 
   test("parses valid token response", () => {
@@ -98,7 +126,10 @@ describe("google-calendar", () => {
       )
     );
 
-    const response = await exchangeAuthorizationCodeForTokens("code-123");
+    const response = await exchangeAuthorizationCodeForTokens(
+      "code-123",
+      "http://localhost:3000/api/auth/callback/google"
+    );
 
     expect(response.accessToken).toBe("acc");
     expect(fetchSpy).toHaveBeenCalledTimes(1);

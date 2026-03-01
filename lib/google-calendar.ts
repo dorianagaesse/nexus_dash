@@ -1,7 +1,8 @@
-import { getRequiredServerEnv } from "@/lib/env.server";
+import { getOptionalServerEnv, getRequiredServerEnv } from "@/lib/env.server";
 
 const GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
+export const GOOGLE_OAUTH_CALLBACK_PATH = "/api/auth/callback/google";
 export const GOOGLE_CALENDAR_SCOPE_EVENTS =
   "https://www.googleapis.com/auth/calendar.events";
 export const GOOGLE_CALENDAR_SCOPE_READONLY =
@@ -18,7 +19,6 @@ export const DEFAULT_CALENDAR_EVENT_DAYS = 14;
 interface GoogleOAuthEnv {
   clientId: string;
   clientSecret: string;
-  redirectUri: string;
 }
 
 export interface GoogleTokenResponse {
@@ -33,8 +33,47 @@ export function getGoogleOAuthEnv(): GoogleOAuthEnv {
   return {
     clientId: getRequiredServerEnv("GOOGLE_CLIENT_ID"),
     clientSecret: getRequiredServerEnv("GOOGLE_CLIENT_SECRET"),
-    redirectUri: getRequiredServerEnv("GOOGLE_REDIRECT_URI"),
   };
+}
+
+function normalizeOrigin(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return null;
+    }
+
+    if (parsed.origin === "null") {
+      return null;
+    }
+
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+export function resolveGoogleOAuthRedirectUri(appOrigin?: string): string {
+  const configuredRedirectUri = getOptionalServerEnv("GOOGLE_REDIRECT_URI");
+  if (configuredRedirectUri) {
+    return configuredRedirectUri;
+  }
+
+  if (!appOrigin) {
+    throw new Error("missing-google-redirect-uri");
+  }
+
+  const origin = normalizeOrigin(appOrigin);
+  if (!origin) {
+    throw new Error("invalid-google-redirect-origin");
+  }
+
+  return new URL(GOOGLE_OAUTH_CALLBACK_PATH, origin).toString();
 }
 
 export function getGoogleCalendarId(): string {
@@ -42,11 +81,11 @@ export function getGoogleCalendarId(): string {
   return "primary";
 }
 
-export function buildGoogleOAuthUrl(state: string): string {
+export function buildGoogleOAuthUrl(state: string, redirectUri: string): string {
   const env = getGoogleOAuthEnv();
   const params = new URLSearchParams({
     client_id: env.clientId,
-    redirect_uri: env.redirectUri,
+    redirect_uri: redirectUri,
     response_type: "code",
     access_type: "offline",
     prompt: "consent",
@@ -116,14 +155,15 @@ async function postTokenForm(
 }
 
 export async function exchangeAuthorizationCodeForTokens(
-  code: string
+  code: string,
+  redirectUri: string
 ): Promise<GoogleTokenResponse> {
   const env = getGoogleOAuthEnv();
   const body = new URLSearchParams({
     code,
     client_id: env.clientId,
     client_secret: env.clientSecret,
-    redirect_uri: env.redirectUri,
+    redirect_uri: redirectUri,
     grant_type: "authorization_code",
   });
 

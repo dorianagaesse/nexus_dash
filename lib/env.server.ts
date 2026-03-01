@@ -217,6 +217,25 @@ function assertValidUrl(name: string, value: string): void {
   }
 }
 
+function hasValidTrustedOrigin(value: string | null): boolean {
+  if (!value) {
+    return false;
+  }
+
+  return value
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0)
+    .some((origin) => {
+      try {
+        new URL(origin);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+}
+
 function assertEmailAddressLike(name: string, value: string): void {
   const trimmed = value.trim();
   if (!trimmed.includes("@")) {
@@ -394,10 +413,31 @@ export function validateServerRuntimeConfig(
   }
 
   assertOptionalEnvironmentGroup(
-    ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"],
-    "GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI must be configured together."
+    ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be configured together."
   );
   const googleClientId = getOptionalServerEnv("GOOGLE_CLIENT_ID");
+  const googleRedirectUri = getOptionalServerEnv("GOOGLE_REDIRECT_URI");
+  if (googleRedirectUri) {
+    assertValidUrl("GOOGLE_REDIRECT_URI", googleRedirectUri);
+  }
+
+  const trustedOrigins = getOptionalServerEnv("TRUSTED_ORIGINS");
+  const trustedOriginsAreValid = hasValidTrustedOrigin(trustedOrigins);
+  if (trustedOrigins && !trustedOriginsAreValid) {
+    throw new Error("TRUSTED_ORIGINS must contain at least one valid absolute URL.");
+  }
+
+  const hasGoogleRedirectResolution =
+    Boolean(googleRedirectUri) ||
+    trustedOriginsAreValid ||
+    Boolean(nextAuthUrl);
+
+  if (googleClientId && !hasGoogleRedirectResolution) {
+    throw new Error(
+      "Google OAuth requires GOOGLE_REDIRECT_URI or a trusted app origin (TRUSTED_ORIGINS/NEXTAUTH_URL)."
+    );
+  }
 
   if (
     runtimeEnvironment === "production" &&
@@ -407,11 +447,6 @@ export function validateServerRuntimeConfig(
     throw new Error(
       "GOOGLE_TOKEN_ENCRYPTION_KEY is required in production when Google Calendar OAuth is enabled."
     );
-  }
-
-  const googleRedirectUri = getOptionalServerEnv("GOOGLE_REDIRECT_URI");
-  if (googleRedirectUri) {
-    assertValidUrl("GOOGLE_REDIRECT_URI", googleRedirectUri);
   }
 
   const googleCalendarId = getOptionalServerEnv("GOOGLE_CALENDAR_ID");

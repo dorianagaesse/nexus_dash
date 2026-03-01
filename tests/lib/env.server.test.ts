@@ -23,6 +23,7 @@ const ENV_KEYS_TO_RESET = [
   "SUPABASE_API_KEY",
   "NEXTAUTH_URL",
   "NEXTAUTH_SECRET",
+  "TRUSTED_ORIGINS",
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
   "GOOGLE_REDIRECT_URI",
@@ -278,10 +279,38 @@ describe("env.server", () => {
     vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
     vi.stubEnv("GOOGLE_CLIENT_ID", "client-id");
     vi.stubEnv("GOOGLE_CLIENT_SECRET", "");
-    vi.stubEnv("GOOGLE_REDIRECT_URI", "https://app.example.com/callback");
+    vi.stubEnv("GOOGLE_REDIRECT_URI", "");
 
     expect(() => validateServerRuntimeConfig()).toThrow(
-      "GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI must be configured together."
+      "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be configured together."
+    );
+  });
+
+  test("fails runtime validation when google oauth is enabled without redirect resolution config", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("GOOGLE_CLIENT_ID", "client-id");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("GOOGLE_REDIRECT_URI", "");
+    vi.stubEnv("TRUSTED_ORIGINS", "");
+    vi.stubEnv("NEXTAUTH_URL", "");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "Google OAuth requires GOOGLE_REDIRECT_URI or a trusted app origin (TRUSTED_ORIGINS/NEXTAUTH_URL)."
+    );
+  });
+
+  test("fails runtime validation when trusted origins are configured but invalid", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("GOOGLE_CLIENT_ID", "client-id");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("GOOGLE_REDIRECT_URI", "");
+    vi.stubEnv("NEXTAUTH_URL", "");
+    vi.stubEnv("TRUSTED_ORIGINS", "not-a-url");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "TRUSTED_ORIGINS must contain at least one valid absolute URL."
     );
   });
 
