@@ -30,7 +30,16 @@ describe("context cards mutation routes", () => {
   test("POST creates context card from form payload", async () => {
     contextCardServiceMock.createContextCardForProject.mockResolvedValueOnce({
       ok: true,
-      data: { id: "card-1" },
+      data: {
+        id: "card-1",
+        card: {
+          id: "card-1",
+          title: "Sprint notes",
+          content: "Context body",
+          color: "#abc",
+          attachments: [],
+        },
+      },
     });
 
     const formData = new FormData();
@@ -53,7 +62,16 @@ describe("context cards mutation routes", () => {
     });
 
     expect(response.status).toBe(201);
-    await expect(readJson(response)).resolves.toEqual({ cardId: "card-1" });
+    await expect(readJson(response)).resolves.toEqual({
+      cardId: "card-1",
+      card: {
+        id: "card-1",
+        title: "Sprint notes",
+        content: "Context body",
+        color: "#abc",
+        attachments: [],
+      },
+    });
     expect(contextCardServiceMock.createContextCardForProject).toHaveBeenCalledWith({
       actorUserId: "test-user",
       projectId: "p1",

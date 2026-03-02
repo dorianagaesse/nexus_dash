@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type RefObject, useMemo, useRef, useState } from "react";
+import { type FormEvent, type RefObject, useEffect, useMemo, useState } from "react";
 import { ArrowRight, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -21,14 +21,19 @@ export interface ProjectGridItem {
   name: string;
   description: string | null;
   updatedAtLabel: string;
+  updatedAtIso?: string;
   taskCount: number;
   resourceCount: number;
 }
 
 interface ProjectsGridClientProps {
   projects: ProjectGridItem[];
-  onUpdateProject: (formData: FormData) => Promise<void>;
-  onDeleteProject: (formData: FormData) => Promise<void>;
+  onUpdateProject: (input: {
+    projectId: string;
+    name: string;
+    description: string;
+  }) => Promise<void>;
+  onDeleteProject: (projectId: string) => Promise<void>;
 }
 
 export function ProjectsGridClient({
@@ -52,8 +57,12 @@ export function ProjectsGridClient({
 
 interface ProjectCardProps {
   project: ProjectGridItem;
-  onUpdateProject: (formData: FormData) => Promise<void>;
-  onDeleteProject: (formData: FormData) => Promise<void>;
+  onUpdateProject: (input: {
+    projectId: string;
+    name: string;
+    description: string;
+  }) => Promise<void>;
+  onDeleteProject: (projectId: string) => Promise<void>;
 }
 
 function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardProps) {
@@ -62,12 +71,22 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
   const [isEditMode, setIsEditMode] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleteSubmitting, setIsDeleteSubmitting] = useState(false);
+  const [isSaveSubmitting, setIsSaveSubmitting] = useState(false);
   const [isOptionsMenuOpen, setIsOptionsMenuOpen] = useState(false);
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
-  const deleteFormRef = useRef<HTMLFormElement | null>(null);
   const optionsMenuRef = useDismissibleMenu<HTMLDivElement>(isOptionsMenuOpen, () =>
     setIsOptionsMenuOpen(false)
   );
+
+  useEffect(() => {
+    if (isEditMode) {
+      return;
+    }
+
+    setNameDraft(project.name);
+    setDescriptionDraft(project.description ?? "");
+  }, [isEditMode, project.description, project.name]);
 
   const persistedName = project.name.trim();
   const persistedDescription = (project.description ?? "").trim();
@@ -89,22 +108,58 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
   };
 
   const handleStartEdit = () => {
+    setMutationError(null);
     setIsEditMode(true);
     setIsOptionsMenuOpen(false);
   };
 
   const handleCancelEdit = () => {
     resetDrafts();
+    setMutationError(null);
     setIsEditMode(false);
   };
 
+  const handleSubmitUpdate = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isSaveSubmitting || !canSave) {
+      return;
+    }
+
+    setIsSaveSubmitting(true);
+    setMutationError(null);
+    try {
+      await onUpdateProject({
+        projectId: project.id,
+        name: nextName,
+        description: nextDescription,
+      });
+      setIsEditMode(false);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Could not update project. Please retry.";
+      setMutationError(message);
+    } finally {
+      setIsSaveSubmitting(false);
+    }
+  };
+
   const handleConfirmDelete = async () => {
-    if (!deleteFormRef.current || isDeleteSubmitting) {
+    if (isDeleteSubmitting) {
       return;
     }
 
     setIsDeleteSubmitting(true);
-    deleteFormRef.current.requestSubmit();
+    setMutationError(null);
+    try {
+      await onDeleteProject(project.id);
+      setIsDeleteDialogOpen(false);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Could not delete project. Please retry.";
+      setMutationError(message);
+    } finally {
+      setIsDeleteSubmitting(false);
+    }
   };
 
   return (
@@ -153,11 +208,9 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
           </Button>
 
           <form
-            action={onUpdateProject}
             className="grid gap-3"
-            onSubmit={() => setIsEditMode(false)}
+            onSubmit={(event) => void handleSubmitUpdate(event)}
           >
-            <input type="hidden" name="projectId" value={project.id} />
             {isEditMode ? (
               <>
                 <div className="grid gap-2">
@@ -208,20 +261,26 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
             {isEditMode ? (
               <div className="flex flex-wrap items-center gap-2">
                 {canSave ? (
-                  <Button type="submit" variant="secondary">
+                  <Button type="submit" variant="secondary" disabled={isSaveSubmitting}>
                     <Pencil className="h-4 w-4" />
-                    Save changes
+                    {isSaveSubmitting ? "Saving..." : "Save changes"}
                   </Button>
                 ) : null}
-                <Button type="button" variant="ghost" onClick={handleCancelEdit}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleCancelEdit}
+                  disabled={isSaveSubmitting}
+                >
                   Cancel
                 </Button>
               </div>
             ) : null}
-          </form>
-
-          <form ref={deleteFormRef} action={onDeleteProject} className="hidden">
-            <input type="hidden" name="projectId" value={project.id} />
+            {mutationError ? (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {mutationError}
+              </div>
+            ) : null}
           </form>
         </CardContent>
       </Card>

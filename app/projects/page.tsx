@@ -1,11 +1,8 @@
-import { Suspense } from "react";
+import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
+import { listProjectsWithCounts } from "@/lib/services/project-service";
 
-import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
-import { CreateProjectDialog } from "@/components/create-project-dialog";
-import { Badge } from "@/components/ui/badge";
-
-import { createProjectAction } from "./actions";
-import { ProjectsGrid, ProjectsGridSkeleton } from "./projects-grid";
+import { type ProjectGridItem } from "./projects-grid-client";
+import { ProjectsWorkspaceClient } from "./projects-workspace-client";
 
 export const dynamic = "force-dynamic";
 
@@ -43,45 +40,41 @@ export default function ProjectsPage({
 }: {
   searchParams?: SearchParams;
 }) {
+  const actorUserIdPromise = getSessionUserIdFromServer();
+  return (
+    <ProjectsPageContent actorUserIdPromise={actorUserIdPromise} searchParams={searchParams} />
+  );
+}
+
+async function ProjectsPageContent({
+  actorUserIdPromise,
+  searchParams,
+}: {
+  actorUserIdPromise: Promise<string | null>;
+  searchParams?: SearchParams;
+}) {
+  const actorUserId = await actorUserIdPromise;
+  const projects = actorUserId ? await listProjectsWithCounts(actorUserId) : [];
+  const projectCards: ProjectGridItem[] = projects.map((project) => ({
+    id: project.id,
+    name: project.name,
+    description: project.description,
+    updatedAtLabel: project.updatedAt.toLocaleString(),
+    updatedAtIso: project.updatedAt.toISOString(),
+    taskCount: project._count.tasks,
+    resourceCount: project._count.resources,
+  }));
+
   const status = readQueryValue(searchParams?.status);
   const error = readQueryValue(searchParams?.error);
+  const statusMessage = status ? STATUS_MESSAGES[status] ?? null : null;
+  const errorMessage = error ? ERROR_MESSAGES[error] ?? null : null;
 
   return (
-    <main className="container py-16">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <Badge variant="secondary" className="w-fit">
-          Project management
-        </Badge>
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Project workspace
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Create, update, and delete projects from one place.
-          </p>
-        </div>
-
-        {status && STATUS_MESSAGES[status] ? (
-          <AutoDismissingAlert
-            message={STATUS_MESSAGES[status]}
-            className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-200"
-          />
-        ) : null}
-
-        {error && ERROR_MESSAGES[error] ? (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {ERROR_MESSAGES[error]}
-          </div>
-        ) : null}
-
-        <div>
-          <CreateProjectDialog action={createProjectAction} />
-        </div>
-
-        <Suspense fallback={<ProjectsGridSkeleton />}>
-          <ProjectsGrid />
-        </Suspense>
-      </div>
-    </main>
+    <ProjectsWorkspaceClient
+      initialProjects={projectCards}
+      statusMessage={statusMessage}
+      errorMessage={errorMessage}
+    />
   );
 }

@@ -15,6 +15,7 @@ interface UploadFileDirectInput<TAttachment> {
   finalizeUrl: string;
   cleanupUrl?: string;
   fallbackErrorMessage: string;
+  onStageChange?: (event: Omit<DirectUploadStageEvent, "file">) => void;
 }
 
 export interface DirectUploadBackgroundProgress {
@@ -32,10 +33,23 @@ export interface DirectUploadBackgroundItem {
   fallbackErrorMessage: string;
 }
 
-interface UploadFilesDirectBackgroundInput {
+export type DirectUploadStage = "target" | "put" | "finalize";
+
+export interface DirectUploadStageEvent {
+  file: File;
+  stage: DirectUploadStage;
+  status: "start" | "done" | "failed";
+  durationMs?: number;
+  error?: unknown;
+}
+
+interface UploadFilesDirectBackgroundInput<TAttachment> {
   uploads: DirectUploadBackgroundItem[];
+  concurrency?: number;
   onProgress?: (progress: DirectUploadBackgroundProgress) => void;
   onItemError?: (error: unknown, file: File) => void;
+  onItemSuccess?: (attachment: TAttachment, file: File) => void;
+  onStageChange?: (event: DirectUploadStageEvent) => void;
 }
 
 function buildCorsPreflightErrorMessage(fallbackErrorMessage: string): string {
@@ -68,9 +82,38 @@ export async function uploadFileAttachmentDirect<TAttachment>({
   finalizeUrl,
   cleanupUrl,
   fallbackErrorMessage,
+  onStageChange,
 }: UploadFileDirectInput<TAttachment>): Promise<TAttachment> {
   let uploadedStorageKey: string | null = null;
   let finalized = false;
+
+  const runStage = async <TResult>(
+    stage: DirectUploadStage,
+    callback: () => Promise<TResult>
+  ): Promise<TResult> => {
+    const stageStartedAt = performance.now();
+    onStageChange?.({
+      stage,
+      status: "start",
+    });
+    try {
+      const result = await callback();
+      onStageChange?.({
+        stage,
+        status: "done",
+        durationMs: Math.max(0, performance.now() - stageStartedAt),
+      });
+      return result;
+    } catch (error) {
+      onStageChange?.({
+        stage,
+        status: "failed",
+        durationMs: Math.max(0, performance.now() - stageStartedAt),
+        error,
+      });
+      throw error;
+    }
+  };
 
   async function cleanupUploadedFile(storageKey: string): Promise<void> {
     if (!cleanupUrl) {
@@ -89,23 +132,23 @@ export async function uploadFileAttachmentDirect<TAttachment>({
   }
 
   try {
-    const uploadTargetResponse = await fetch(uploadTargetUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: file.name,
-        mimeType: file.type,
-        sizeBytes: file.size,
-      }),
+    const uploadTargetResponse = await runStage("target", async () => {
+      const response = await fetch(uploadTargetUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: file.name,
+          mimeType: file.type,
+          sizeBytes: file.size,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await readApiError(response, fallbackErrorMessage));
+      }
+      return response;
     });
-
-    if (!uploadTargetResponse.ok) {
-      throw new Error(
-        await readApiError(uploadTargetResponse, fallbackErrorMessage)
-      );
-    }
 
     const uploadTargetPayload =
       (await uploadTargetResponse.json()) as DirectUploadTargetResponse;
@@ -119,12 +162,17 @@ export async function uploadFileAttachmentDirect<TAttachment>({
 
     uploadedStorageKey = uploadTargetPayload.upload.storageKey;
 
-    let uploadResponse: Response;
     try {
-      uploadResponse = await fetch(uploadTargetPayload.upload.uploadUrl, {
-        method: uploadTargetPayload.upload.method,
-        headers: uploadTargetPayload.upload.headers,
-        body: file,
+      await runStage("put", async () => {
+        const response = await fetch(uploadTargetPayload.upload.uploadUrl, {
+          method: uploadTargetPayload.upload.method,
+          headers: uploadTargetPayload.upload.headers,
+          body: file,
+        });
+        if (!response.ok) {
+          throw new Error(fallbackErrorMessage);
+        }
+        return response;
       });
     } catch (error) {
       if (error instanceof TypeError) {
@@ -133,29 +181,24 @@ export async function uploadFileAttachmentDirect<TAttachment>({
       throw error;
     }
 
-    if (!uploadResponse.ok) {
-      throw new Error(fallbackErrorMessage);
-    }
-
-    const finalizeResponse = await fetch(finalizeUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        storageKey: uploadTargetPayload.upload.storageKey,
-        name: file.name,
-        mimeType: file.type,
-        sizeBytes: file.size,
-      }),
+    const finalizeResponse = await runStage("finalize", async () => {
+      const response = await fetch(finalizeUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          storageKey: uploadTargetPayload.upload.storageKey,
+          name: file.name,
+          mimeType: file.type,
+          sizeBytes: file.size,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await readApiError(response, fallbackErrorMessage));
+      }
+      return response;
     });
-
-    if (!finalizeResponse.ok) {
-      await cleanupUploadedFile(uploadTargetPayload.upload.storageKey);
-      throw new Error(
-        await readApiError(finalizeResponse, fallbackErrorMessage)
-      );
-    }
 
     const finalizePayload = (await finalizeResponse.json()) as {
       attachment?: TAttachment;
@@ -176,14 +219,22 @@ export async function uploadFileAttachmentDirect<TAttachment>({
   }
 }
 
-export async function uploadFilesDirectInBackground({
+export async function uploadFilesDirectInBackground<TAttachment = unknown>({
   uploads,
+  concurrency = 3,
   onProgress,
   onItemError,
-}: UploadFilesDirectBackgroundInput): Promise<DirectUploadBackgroundProgress> {
+  onItemSuccess,
+  onStageChange,
+}: UploadFilesDirectBackgroundInput<TAttachment>): Promise<DirectUploadBackgroundProgress> {
   const total = uploads.length;
   let completed = 0;
   let failed = 0;
+  let cursor = 0;
+  const workerCount = Math.min(
+    total,
+    Math.max(1, Math.floor(Number.isFinite(concurrency) ? concurrency : 3))
+  );
 
   const initialProgress: DirectUploadBackgroundProgress = {
     phase: "uploading",
@@ -193,28 +244,47 @@ export async function uploadFilesDirectInBackground({
   };
   onProgress?.(initialProgress);
 
-  for (const upload of uploads) {
-    try {
-      await uploadFileAttachmentDirect({
-        file: upload.file,
-        uploadTargetUrl: upload.uploadTargetUrl,
-        finalizeUrl: upload.finalizeUrl,
-        cleanupUrl: upload.cleanupUrl,
-        fallbackErrorMessage: upload.fallbackErrorMessage,
-      });
-    } catch (error) {
-      failed += 1;
-      onItemError?.(error, upload.file);
-    } finally {
-      completed += 1;
-      onProgress?.({
-        phase: "uploading",
-        total,
-        completed,
-        failed,
-      });
+  const runWorker = async () => {
+    while (true) {
+      const nextIndex = cursor;
+      cursor += 1;
+
+      if (nextIndex >= uploads.length) {
+        return;
+      }
+
+      const upload = uploads[nextIndex];
+      try {
+        const attachment = await uploadFileAttachmentDirect<TAttachment>({
+          file: upload.file,
+          uploadTargetUrl: upload.uploadTargetUrl,
+          finalizeUrl: upload.finalizeUrl,
+          cleanupUrl: upload.cleanupUrl,
+          fallbackErrorMessage: upload.fallbackErrorMessage,
+          onStageChange: (event) => {
+            onStageChange?.({
+              file: upload.file,
+              ...event,
+            });
+          },
+        });
+        onItemSuccess?.(attachment, upload.file);
+      } catch (error) {
+        failed += 1;
+        onItemError?.(error, upload.file);
+      } finally {
+        completed += 1;
+        onProgress?.({
+          phase: "uploading",
+          total,
+          completed,
+          failed,
+        });
+      }
     }
-  }
+  };
+
+  await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
 
   const finalProgress: DirectUploadBackgroundProgress = {
     phase: failed > 0 ? "failed" : "done",

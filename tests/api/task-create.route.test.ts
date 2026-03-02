@@ -39,7 +39,21 @@ describe("POST /api/projects/:projectId/tasks", () => {
   test("creates task from multipart form payload", async () => {
     projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
       ok: true,
-      data: { id: "task-created" },
+      data: {
+        id: "task-created",
+        task: {
+          id: "task-created",
+          title: "New Task",
+          label: "backend",
+          labelsJson: '["backend"]',
+          description: "Description",
+          blockedNote: null,
+          status: "Backlog",
+          position: 0,
+          blockedFollowUps: [],
+          attachments: [],
+        },
+      },
     });
 
     const formData = new FormData();
@@ -65,7 +79,21 @@ describe("POST /api/projects/:projectId/tasks", () => {
     });
 
     expect(response.status).toBe(201);
-    await expect(readJson(response)).resolves.toEqual({ taskId: "task-created" });
+    await expect(readJson(response)).resolves.toEqual({
+      taskId: "task-created",
+      task: {
+        id: "task-created",
+        title: "New Task",
+        label: "backend",
+        labelsJson: '["backend"]',
+        description: "Description",
+        blockedNote: null,
+        status: "Backlog",
+        position: 0,
+        blockedFollowUps: [],
+        attachments: [],
+      },
+    });
     expect(projectTaskServiceMock.createTaskForProject).toHaveBeenCalledTimes(1);
 
     const call = projectTaskServiceMock.createTaskForProject.mock.calls[0][0];

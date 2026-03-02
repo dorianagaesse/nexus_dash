@@ -4,6 +4,11 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-091
+  Title: Task create cold-path latency reduction - remove first-run outlier to meet strict p95 target
+  Status: Pending
+  Rationale: ISSUE-070 improved steady-state responsiveness and upload throughput, but task create raw p95 remains above 1.0s due a first-run warm-up outlier; this follow-up isolates and removes cold-path overhead so strict p95 acceptance is met without caveats.
+  Dependencies: TASK-070, TASK-071, TASK-072, TASK-077
 - ID: TASK-085
   Title: PostgreSQL hardening - enable RLS policies with staged rollout (staging then production)
   Status: Pending

@@ -74,6 +74,18 @@ interface UpdatedTaskPayload {
   }[];
 }
 
+interface CreatedTaskPayload extends UpdatedTaskPayload {
+  attachments: {
+    id: string;
+    kind: string;
+    name: string;
+    url: string | null;
+    mimeType: string | null;
+    sizeBytes: number | null;
+    downloadUrl: string | null;
+  }[];
+}
+
 function createError(status: number, error: string): ServiceErrorResult {
   return { ok: false, status, error };
 }
@@ -136,7 +148,7 @@ export function isValidReorderPayload(payload: unknown): payload is ReorderPaylo
 
 export async function createTaskForProject(
   input: CreateTaskForProjectInput
-): Promise<ServiceResult<{ id: string }>> {
+): Promise<ServiceResult<{ id: string; task: CreatedTaskPayload }>> {
   const actorUserId = normalizeText(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
@@ -213,10 +225,57 @@ export async function createTaskForProject(
       files: input.attachmentFiles,
     });
 
+    const createdTaskWithDetails = await prisma.task.findUnique({
+      where: { id: createdTask.id },
+      select: {
+        id: true,
+        title: true,
+        label: true,
+        labelsJson: true,
+        description: true,
+        blockedNote: true,
+        status: true,
+        position: true,
+        blockedFollowUps: {
+          orderBy: [{ createdAt: "desc" }],
+          select: {
+            id: true,
+            content: true,
+            createdAt: true,
+          },
+        },
+        attachments: {
+          orderBy: [{ createdAt: "desc" }],
+          select: {
+            id: true,
+            kind: true,
+            name: true,
+            url: true,
+            mimeType: true,
+            sizeBytes: true,
+          },
+        },
+      },
+    });
+
+    if (!createdTaskWithDetails) {
+      throw new Error("create-task-details-missing");
+    }
+
     return {
       ok: true,
       data: {
         id: createdTask.id,
+        task: {
+          ...createdTaskWithDetails,
+          attachments: createdTaskWithDetails.attachments.map((attachment) => ({
+            ...attachment,
+            downloadUrl:
+              attachment.kind === ATTACHMENT_KIND_FILE
+                ? `/api/projects/${input.projectId}/tasks/${createdTask.id}/attachments/${attachment.id}/download`
+                : null,
+          })),
+        },
       },
     };
   } catch (error) {

@@ -4,6 +4,7 @@ import {
 } from "@/lib/context-card-colors";
 import { prisma } from "@/lib/prisma";
 import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
+import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import {
   parseAttachmentLinksJson,
   validateAttachmentFiles,
@@ -54,6 +55,22 @@ interface DeleteContextCardInput {
   cardId: string;
 }
 
+interface CreatedContextCardPayload {
+  id: string;
+  title: string;
+  content: string;
+  color: string;
+  attachments: {
+    id: string;
+    kind: string;
+    name: string;
+    url: string | null;
+    mimeType: string | null;
+    sizeBytes: number | null;
+    downloadUrl: string | null;
+  }[];
+}
+
 function createError(status: number, error: string): ServiceErrorResult {
   return { ok: false, status, error };
 }
@@ -79,7 +96,7 @@ function resolveContextColor(value: string): string | null {
 
 export async function createContextCardForProject(
   input: CreateContextCardInput
-): Promise<ServiceResult<{ id: string }>> {
+): Promise<ServiceResult<{ id: string; card: CreatedContextCardPayload }>> {
   const actorUserId = normalizeText(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
@@ -147,9 +164,49 @@ export async function createContextCardForProject(
       files: input.attachmentFiles,
     });
 
+    const createdCardWithDetails = await prisma.resource.findUnique({
+      where: { id: createdCard.id },
+      select: {
+        id: true,
+        name: true,
+        content: true,
+        color: true,
+        attachments: {
+          orderBy: [{ createdAt: "desc" }],
+          select: {
+            id: true,
+            kind: true,
+            name: true,
+            url: true,
+            mimeType: true,
+            sizeBytes: true,
+          },
+        },
+      },
+    });
+
+    if (!createdCardWithDetails) {
+      throw new Error("create-context-card-details-missing");
+    }
+
     return {
       ok: true,
-      data: { id: createdCard.id },
+      data: {
+        id: createdCard.id,
+        card: {
+          id: createdCardWithDetails.id,
+          title: createdCardWithDetails.name,
+          content: createdCardWithDetails.content,
+          color: createdCardWithDetails.color ?? CONTEXT_CARD_COLORS[0],
+          attachments: createdCardWithDetails.attachments.map((attachment) => ({
+            ...attachment,
+            downloadUrl:
+              attachment.kind === ATTACHMENT_KIND_FILE
+                ? `/api/projects/${input.projectId}/context-cards/${createdCard.id}/attachments/${attachment.id}/download`
+                : null,
+          })),
+        },
+      },
     };
   } catch (error) {
     if (createdCardId) {

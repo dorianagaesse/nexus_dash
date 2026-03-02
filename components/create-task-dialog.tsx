@@ -3,14 +3,16 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { Link2, Paperclip, PlusSquare, Trash2, Upload, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 
+import type { KanbanTask, TaskAttachment } from "@/components/kanban-board-types";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { useToast } from "@/components/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createClientTimer } from "@/lib/client-performance";
 import {
   MAX_TASK_LABELS,
+  getTaskLabelsFromStorage,
   getTaskLabelColor,
   normalizeTaskLabel,
 } from "@/lib/task-label";
@@ -26,6 +28,10 @@ interface CreateTaskDialogProps {
   projectId: string;
   storageProvider: "local" | "r2";
   existingLabels: string[];
+  onTaskCreateOptimistic?: (task: KanbanTask) => void;
+  onTaskCreated?: (task: KanbanTask, temporaryTaskId?: string) => void;
+  onTaskCreateFailed?: (temporaryTaskId: string) => void;
+  onTaskAttachmentUploaded?: (taskId: string, attachment: TaskAttachment) => void;
 }
 
 interface PendingAttachmentLink {
@@ -41,9 +47,12 @@ export function CreateTaskDialog({
   projectId,
   storageProvider,
   existingLabels,
+  onTaskCreateOptimistic,
+  onTaskCreated,
+  onTaskCreateFailed,
+  onTaskAttachmentUploaded,
 }: CreateTaskDialogProps) {
   const isMountedRef = useRef(true);
-  const router = useRouter();
   const { pushToast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [description, setDescription] = useState("");
@@ -116,6 +125,41 @@ export function CreateTaskDialog({
     }
   };
 
+  const mapCreatedTask = (payload: {
+    id: string;
+    title: string;
+    label: string | null;
+    labelsJson: string | null;
+    description: string | null;
+    blockedNote: string | null;
+    status: string;
+    blockedFollowUps: { id: string; content: string; createdAt: string }[];
+    attachments: TaskAttachment[];
+  }): KanbanTask | null => {
+    if (
+      payload.status !== "Backlog" &&
+      payload.status !== "In Progress" &&
+      payload.status !== "Blocked" &&
+      payload.status !== "Done"
+    ) {
+      return null;
+    }
+
+    return {
+      id: payload.id,
+      title: payload.title,
+      labels: getTaskLabelsFromStorage(payload.labelsJson, payload.label),
+      description: payload.description,
+      blockedFollowUps: payload.blockedFollowUps.map((entry) => ({
+        id: entry.id,
+        content: entry.content,
+        createdAt: entry.createdAt,
+      })),
+      status: payload.status,
+      attachments: payload.attachments,
+    };
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isSubmitting) {
@@ -131,6 +175,25 @@ export function CreateTaskDialog({
     setSubmitError(null);
 
     const formData = new FormData(event.currentTarget);
+    const optimisticTaskId = `tmp-${createLocalId()}`;
+    const optimisticTaskTitle = String(formData.get("title") ?? "").trim();
+    const optimisticTask: KanbanTask = {
+      id: optimisticTaskId,
+      title: optimisticTaskTitle,
+      labels,
+      description,
+      blockedFollowUps: [],
+      status: "Backlog",
+      attachments: attachmentLinks.map((link) => ({
+        id: `tmp-link-${createLocalId()}`,
+        kind: "link",
+        name: link.url,
+        url: link.url,
+        mimeType: null,
+        sizeBytes: null,
+        downloadUrl: null,
+      })),
+    };
     const filesForBackgroundUpload =
       storageProvider === "r2" ? [...selectedFiles] : [];
 
@@ -140,8 +203,10 @@ export function CreateTaskDialog({
 
     closeDialog();
     setIsSubmitting(false);
+    onTaskCreateOptimistic?.(optimisticTask);
 
     void (async () => {
+      const taskCreateTimer = createClientTimer("task.create");
       try {
         const response = await fetch(`/api/projects/${projectId}/tasks`, {
           method: "POST",
@@ -149,11 +214,30 @@ export function CreateTaskDialog({
         });
 
         const payload = (await response.json().catch(() => null)) as
-          | { error?: string; taskId?: string }
+          | {
+              error?: string;
+              taskId?: string;
+              task?: {
+                id: string;
+                title: string;
+                label: string | null;
+                labelsJson: string | null;
+                description: string | null;
+                blockedNote: string | null;
+                status: string;
+                blockedFollowUps: { id: string; content: string; createdAt: string }[];
+                attachments: TaskAttachment[];
+              };
+            }
           | null;
 
         if (!response.ok) {
           const message = mapCreateTaskError(payload?.error ?? "create-failed");
+          taskCreateTimer.end({
+            status: "failed",
+            errorCode: payload?.error ?? "create-failed",
+          });
+          onTaskCreateFailed?.(optimisticTaskId);
           if (!isMountedRef.current) {
             return;
           }
@@ -169,18 +253,35 @@ export function CreateTaskDialog({
         }
         const createdTaskId =
           payload && typeof payload.taskId === "string" ? payload.taskId : null;
+        const createdTask = payload?.task ? mapCreatedTask(payload.task) : null;
+        if (createdTask) {
+          onTaskCreated?.(createdTask, optimisticTaskId);
+        } else {
+          onTaskCreateFailed?.(optimisticTaskId);
+        }
         pushToast({
           variant: "success",
           message: "Task created.",
         });
-        window.setTimeout(() => router.refresh(), 0);
+        taskCreateTimer.end({
+          status: "success",
+          hasBackgroundUploads:
+            storageProvider === "r2" && filesForBackgroundUpload.length > 0,
+        });
 
         if (
           storageProvider === "r2" &&
           createdTaskId &&
           filesForBackgroundUpload.length > 0
         ) {
-          void uploadFilesDirectInBackground({
+          const stageToMessage: Record<string, string> = {
+            target: "Preparing upload target...",
+            put: "Uploading file bytes...",
+            finalize: "Finalizing uploaded files...",
+          };
+          const displayedStages = new Set<string>();
+
+          void uploadFilesDirectInBackground<TaskAttachment>({
             uploads: filesForBackgroundUpload.map((file) => ({
               file,
               uploadTargetUrl: `/api/projects/${projectId}/tasks/${createdTaskId}/attachments/upload-url`,
@@ -188,6 +289,28 @@ export function CreateTaskDialog({
               cleanupUrl: `/api/projects/${projectId}/tasks/${createdTaskId}/attachments/direct/cleanup`,
               fallbackErrorMessage: `Could not upload file attachment "${file.name}".`,
             })),
+            concurrency: 3,
+            onItemSuccess: (attachment) => {
+              onTaskAttachmentUploaded?.(createdTaskId, attachment);
+            },
+            onStageChange: (event) => {
+              if (event.status !== "start") {
+                return;
+              }
+              if (displayedStages.has(event.stage)) {
+                return;
+              }
+              displayedStages.add(event.stage);
+              const message = stageToMessage[event.stage];
+              if (!message) {
+                return;
+              }
+              pushToast({
+                variant: "info",
+                message,
+                durationMs: 2200,
+              });
+            },
             onItemError: (error) => {
               console.error("[CreateTaskDialog.backgroundUpload]", error);
             },
@@ -208,12 +331,15 @@ export function CreateTaskDialog({
               variant: "success",
               message: `Attachment upload complete (${progress.total}).`,
             });
-          }).finally(() => {
-            window.setTimeout(() => router.refresh(), 0);
           });
         }
       } catch (error) {
         console.error("[CreateTaskDialog.handleSubmit]", error);
+        taskCreateTimer.end({
+          status: "failed",
+          errorCode: "create-failed",
+        });
+        onTaskCreateFailed?.(optimisticTaskId);
         if (!isMountedRef.current) {
           return;
         }

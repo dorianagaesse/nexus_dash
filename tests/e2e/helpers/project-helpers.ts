@@ -24,7 +24,12 @@ export async function createProjectFromProjectsPage(
   const createForm = page.locator("#create-name").locator("xpath=ancestor::form");
   await createForm.getByRole("button", { name: "Create project" }).click();
 
-  await expect(page.getByText("Project created successfully.")).toBeVisible();
+  await expect(
+    page
+      .getByText("Project created successfully.")
+      .or(page.getByText("Project created."))
+      .first()
+  ).toBeVisible();
   await expect(page.getByRole("heading", { name: projectName })).toBeVisible();
 }
 

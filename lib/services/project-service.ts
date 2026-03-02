@@ -36,6 +36,17 @@ type ProjectSummaryRecord = Prisma.ProjectGetPayload<{
   };
 }>;
 
+type ProjectMutationRecord = Prisma.ProjectGetPayload<{
+  include: {
+    _count: {
+      select: {
+        tasks: true;
+        resources: true;
+      };
+    };
+  };
+}>;
+
 type ProjectWithCountsRecord = Prisma.ProjectGetPayload<{
   include: {
     _count: {
@@ -105,6 +116,26 @@ export type ProjectWithCounts = Awaited<
   ReturnType<typeof listProjectsWithCounts>
 >[number];
 
+export interface ProjectMutationPayload {
+  id: string;
+  name: string;
+  description: string | null;
+  updatedAt: string;
+  taskCount: number;
+  resourceCount: number;
+}
+
+function mapProjectMutationPayload(project: ProjectMutationRecord): ProjectMutationPayload {
+  return {
+    id: project.id,
+    name: project.name,
+    description: project.description,
+    updatedAt: project.updatedAt.toISOString(),
+    taskCount: project._count.tasks,
+    resourceCount: project._count.resources,
+  };
+}
+
 export async function createProject(input: ProjectUpsertInput) {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
@@ -163,6 +194,37 @@ export async function deleteProject(input: {
   return prisma.project.delete({
     where: { id: input.projectId },
   });
+}
+
+export async function getProjectMutationPayloadById(input: {
+  actorUserId: string;
+  projectId: string;
+}): Promise<ProjectMutationPayload | null> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) {
+    return null;
+  }
+
+  const project = await prisma.project.findFirst({
+    where: {
+      id: input.projectId,
+      ...buildProjectPrincipalWhere(actorUserId),
+    },
+    include: {
+      _count: {
+        select: {
+          tasks: true,
+          resources: true,
+        },
+      },
+    },
+  });
+
+  if (!project) {
+    return null;
+  }
+
+  return mapProjectMutationPayload(project as ProjectMutationRecord);
 }
 
 function buildStaleDoneTaskFilter(projectId: string, actorUserId: string) {

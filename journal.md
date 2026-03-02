@@ -12,6 +12,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-03-02
+- Type: Execution
+- Summary: ISSUE-070 delivered API + optimistic mutation responsiveness improvements across projects/tasks/context cards, direct-upload bounded concurrency, and route/client timing instrumentation.
+- Evidence: Added project mutation routes (`app/api/projects/route.ts`, `app/api/projects/[projectId]/route.ts`), introduced optimistic projects workspace (`app/projects/projects-workspace-client.tsx`), removed refresh-driven flows in task/context panels (`components/create-task-dialog.tsx`, `components/project-context-panel.tsx`), added bounded-concurrency uploader and stage callbacks (`lib/direct-upload-client.ts`), and added timing helpers (`lib/observability/server-timing.ts`, `lib/client-performance.ts`).
+
+### 2026-03-02
+- Type: Validation
+- Summary: ISSUE-070 validation and perf comparison completed with significant mobile multi-file upload improvement and project-create p95 target met.
+- Evidence: Commands passed: `npm run lint`, `npm test`, `npm run test:coverage`, `npm run build` (with safe env overrides). Perf artifacts: `.tmp/perf-before.json`, `.tmp/perf-after.json`. Metrics: project create p95 `966ms -> 949ms`; task create raw p95 `1977ms -> 1931ms` (steady-state under `1.0s`, one warm-up outlier remains); mobile upload raw mean `4746ms -> 2707ms` (~43% faster), p50 `3992ms -> 1947ms`, p95 `7016ms -> 4985ms`.
+
+### 2026-03-02
+- Type: Governance
+- Summary: Posted ISSUE-070 implementation report with measured outcomes and explicit residual-gap follow-up, and kept the issue open pending strict task-create p95 closure.
+- Evidence: GitHub comment: `https://github.com/dorianagaesse/nexus_dash/issues/70#issuecomment-3981395171`; follow-up queued in backlog as `TASK-091`.
+
 ### 2026-02-27
 - Type: Execution
 - Summary: TASK-086 implemented account email-change verification and compact account-page layout.

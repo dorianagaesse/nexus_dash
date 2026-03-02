@@ -7,10 +7,10 @@ import {
   useRef,
   useState,
   useTransition,
-  type ReactNode,
 } from "react";
 import type { DropResult } from "@hello-pangea/dnd";
 
+import { CreateTaskDialog } from "@/components/create-task-dialog";
 import {
   type KanbanTask,
   type PendingAttachmentUpload,
@@ -21,6 +21,7 @@ import { KanbanColumnsGrid } from "@/components/kanban/kanban-columns-grid";
 import { TaskDetailModal } from "@/components/kanban/task-detail-modal";
 import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { createClientTimer } from "@/lib/client-performance";
 import {
   buildPersistPayload,
   cloneColumns,
@@ -53,7 +54,7 @@ interface KanbanBoardProps {
   storageProvider: "local" | "r2";
   initialTasks: KanbanTask[];
   archivedDoneTasks?: KanbanTask[];
-  headerAction?: ReactNode;
+  existingLabels?: string[];
 }
 
 function createLocalUploadId(): string {
@@ -65,7 +66,7 @@ export function KanbanBoard({
   storageProvider,
   initialTasks,
   archivedDoneTasks: initialArchivedDoneTasks = [],
-  headerAction,
+  existingLabels = [],
 }: KanbanBoardProps) {
   const initialColumns = useMemo(
     () => mapTasksToColumns(initialTasks),
@@ -182,6 +183,11 @@ export function KanbanBoard({
 
     return Array.from(labels);
   }, [archivedDoneTasks, columns]);
+
+  const createTaskDialogLabels = useMemo(() => {
+    const merged = new Set<string>([...existingLabels, ...allKnownLabels]);
+    return Array.from(merged);
+  }, [allKnownLabels, existingLabels]);
 
   const editLabelSuggestions = useMemo(() => {
     const query = editLabelInput.trim().toLowerCase();
@@ -343,6 +349,7 @@ export function KanbanBoard({
       }
 
       setIsUpdatingTask(true);
+      const taskUpdateTimer = createClientTimer("task.update");
 
       try {
         const response = await fetch(
@@ -458,9 +465,11 @@ export function KanbanBoard({
           setIsEditMode(false);
         }
         setNewBlockedFollowUpEntry("");
+        taskUpdateTimer.end({ status: "success" });
         return true;
       } catch (error) {
         console.error("[KanbanBoard.handleTaskUpdate]", error);
+        taskUpdateTimer.end({ status: "failed" });
         setTaskModalError("Could not save task changes.");
         return false;
       } finally {
@@ -658,6 +667,81 @@ export function KanbanBoard({
       });
     },
     []
+  );
+
+  const handleTaskCreateOptimistic = useCallback((task: KanbanTask) => {
+    setColumns((previousColumns) => {
+      const nextColumns = cloneColumns(previousColumns);
+      const existingTask = TASK_STATUSES.some((status) =>
+        nextColumns[status].some((entry) => entry.id === task.id)
+      );
+      if (existingTask) {
+        return previousColumns;
+      }
+
+      nextColumns[task.status] = [task, ...nextColumns[task.status]];
+      return nextColumns;
+    });
+  }, []);
+
+  const handleTaskCreated = useCallback(
+    (task: KanbanTask, temporaryTaskId?: string) => {
+      setColumns((previousColumns) => {
+        const nextColumns = cloneColumns(previousColumns);
+
+        if (temporaryTaskId) {
+          TASK_STATUSES.forEach((status) => {
+            nextColumns[status] = nextColumns[status].filter(
+              (entry) => entry.id !== temporaryTaskId
+            );
+          });
+        }
+
+        const existingTask = TASK_STATUSES.some((status) =>
+          nextColumns[status].some((entry) => entry.id === task.id)
+        );
+        if (existingTask) {
+          return nextColumns;
+        }
+
+        nextColumns[task.status] = [task, ...nextColumns[task.status]];
+        return nextColumns;
+      });
+    },
+    []
+  );
+
+  const handleTaskCreateFailed = useCallback((temporaryTaskId: string) => {
+    setColumns((previousColumns) => {
+      const nextColumns = cloneColumns(previousColumns);
+      let didRemove = false;
+      TASK_STATUSES.forEach((status) => {
+        const beforeLength = nextColumns[status].length;
+        nextColumns[status] = nextColumns[status].filter(
+          (entry) => entry.id !== temporaryTaskId
+        );
+        didRemove = didRemove || beforeLength !== nextColumns[status].length;
+      });
+
+      return didRemove ? nextColumns : previousColumns;
+    });
+  }, []);
+
+  const handleTaskAttachmentUploaded = useCallback(
+    (taskId: string, attachment: TaskAttachment) => {
+      applyTaskMutation(taskId, (task) => {
+        const alreadyExists = task.attachments.some((entry) => entry.id === attachment.id);
+        if (alreadyExists) {
+          return task;
+        }
+
+        return {
+          ...task,
+          attachments: [attachment, ...task.attachments],
+        };
+      });
+    },
+    [applyTaskMutation]
   );
 
   const handleAddLinkAttachment = useCallback(async () => {
@@ -873,7 +957,17 @@ export function KanbanBoard({
         isExpanded={isExpanded}
         totalTaskCount={totalTaskCount}
         isSaving={isSaving}
-        headerAction={headerAction}
+        headerAction={
+          <CreateTaskDialog
+            projectId={projectId}
+            storageProvider={storageProvider}
+            existingLabels={createTaskDialogLabels}
+            onTaskCreateOptimistic={handleTaskCreateOptimistic}
+            onTaskCreated={handleTaskCreated}
+            onTaskCreateFailed={handleTaskCreateFailed}
+            onTaskAttachmentUploaded={handleTaskAttachmentUploaded}
+          />
+        }
         onToggleExpanded={() => setIsExpanded((previous) => !previous)}
       />
 

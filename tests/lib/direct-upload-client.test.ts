@@ -76,6 +76,12 @@ describe("direct-upload-client", () => {
       completed: number;
       failed: number;
     }> = [];
+    const successfulAttachments: string[] = [];
+    const stageEvents: Array<{
+      fileName: string;
+      stage: string;
+      status: string;
+    }> = [];
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === "string" ? input : input.toString();
@@ -156,6 +162,16 @@ describe("direct-upload-client", () => {
       onProgress: (progress) => {
         progressSnapshots.push(progress);
       },
+      onItemSuccess: (attachment) => {
+        successfulAttachments.push(String((attachment as { id: string }).id));
+      },
+      onStageChange: (event) => {
+        stageEvents.push({
+          fileName: event.file.name,
+          stage: event.stage,
+          status: event.status,
+        });
+      },
     });
 
     expect(progressSnapshots[0]).toEqual({
@@ -178,6 +194,21 @@ describe("direct-upload-client", () => {
       completed: 2,
       failed: 1,
     });
+    expect(successfulAttachments).toEqual(["att-success"]);
+    expect(
+      stageEvents.some(
+        (event) =>
+          event.fileName === "success.pdf" &&
+          event.stage === "finalize" &&
+          event.status === "done"
+      )
+    ).toBe(true);
+    expect(
+      stageEvents.some(
+        (event) =>
+          event.fileName === "fail.pdf" && event.stage === "put" && event.status === "failed"
+      )
+    ).toBe(true);
     expect(fetchMock).toHaveBeenCalledWith(
       "/finalize/success",
       expect.objectContaining({ method: "POST" })
@@ -186,5 +217,78 @@ describe("direct-upload-client", () => {
       "/cleanup/fail",
       expect.objectContaining({ method: "POST" })
     );
+  });
+
+  test("limits background direct uploads to configured concurrency", async () => {
+    let activePuts = 0;
+    let maxConcurrentPuts = 0;
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+
+      if (url.includes("/upload-url/")) {
+        const suffix = url.split("/").at(-1) ?? "0";
+        return new Response(
+          JSON.stringify({
+            upload: {
+              storageKey: `task/p1/${suffix}.pdf`,
+              uploadUrl: `https://r2.example/${suffix}.pdf`,
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/pdf",
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (url.startsWith("https://r2.example/")) {
+        activePuts += 1;
+        maxConcurrentPuts = Math.max(maxConcurrentPuts, activePuts);
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        activePuts -= 1;
+        return new Response(null, { status: 200 });
+      }
+
+      if (url.includes("/finalize/")) {
+        const suffix = url.split("/").at(-1) ?? "0";
+        return new Response(
+          JSON.stringify({ attachment: { id: `att-${suffix}` } }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(null, { status: 404 });
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await uploadFilesDirectInBackground({
+      uploads: [
+        {
+          file: new File(["1"], "a.pdf", { type: "application/pdf" }),
+          uploadTargetUrl: "/upload-url/1",
+          finalizeUrl: "/finalize/1",
+          fallbackErrorMessage: "failed-a",
+        },
+        {
+          file: new File(["2"], "b.pdf", { type: "application/pdf" }),
+          uploadTargetUrl: "/upload-url/2",
+          finalizeUrl: "/finalize/2",
+          fallbackErrorMessage: "failed-b",
+        },
+        {
+          file: new File(["3"], "c.pdf", { type: "application/pdf" }),
+          uploadTargetUrl: "/upload-url/3",
+          finalizeUrl: "/finalize/3",
+          fallbackErrorMessage: "failed-c",
+        },
+      ],
+      concurrency: 2,
+    });
+
+    expect(maxConcurrentPuts).toBeLessThanOrEqual(2);
+    expect(maxConcurrentPuts).toBeGreaterThan(1);
   });
 });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { createRouteTimer } from "@/lib/observability/server-timing";
 import { createTaskForProject } from "@/lib/services/project-task-service";
 
 const ATTACHMENT_FILES_FIELD = "attachmentFiles";
@@ -24,39 +25,58 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
+  const timer = createRouteTimer("POST /api/projects/:projectId/tasks", request);
+  const authenticatedUser = await timer.measure("auth", () =>
+    requireAuthenticatedApiUser(request)
+  );
   if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+    return timer.finalize({ response: authenticatedUser.response });
   }
   const actorUserId = authenticatedUser.userId;
   const { projectId } = params;
   if (!projectId) {
-    return NextResponse.json({ error: "Missing project id" }, { status: 400 });
+    return timer.finalize({
+      response: NextResponse.json({ error: "Missing project id" }, { status: 400 }),
+    });
   }
 
   let formData: FormData;
   try {
-    formData = await request.formData();
+    formData = await timer.measure("parse", () => request.formData());
   } catch (error) {
     logServerWarning("POST /api/projects/:projectId/tasks.invalidForm", "Invalid form payload", {
       error,
     });
-    return NextResponse.json({ error: "Invalid form payload" }, { status: 400 });
+    return timer.finalize({
+      response: NextResponse.json({ error: "Invalid form payload" }, { status: 400 }),
+    });
   }
 
-  const result = await createTaskForProject({
-    actorUserId,
-    projectId,
-    title: readText(formData, "title"),
-    description: readText(formData, "description"),
-    labelsJsonRaw: readText(formData, "labels"),
-    attachmentLinksJsonRaw: readText(formData, "attachmentLinks"),
-    attachmentFiles: readAttachmentFiles(formData),
-  });
+  const result = await timer.measure("service:create", () =>
+    createTaskForProject({
+      actorUserId,
+      projectId,
+      title: readText(formData, "title"),
+      description: readText(formData, "description"),
+      labelsJsonRaw: readText(formData, "labels"),
+      attachmentLinksJsonRaw: readText(formData, "attachmentLinks"),
+      attachmentFiles: readAttachmentFiles(formData),
+    })
+  );
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return timer.finalize({
+      response: NextResponse.json({ error: result.error }, { status: result.status }),
+    });
   }
 
-  return NextResponse.json({ taskId: result.data.id }, { status: 201 });
+  return timer.finalize({
+    response: NextResponse.json(
+      {
+        taskId: result.data.id,
+        task: result.data.task,
+      },
+      { status: 201 }
+    ),
+  });
 }
