@@ -348,10 +348,18 @@ export function ProjectContextPanel({
           variant: "success",
           message: "Context card created.",
         });
-        window.setTimeout(() => router.refresh(), 0);
+
+        const hasBackgroundUploads =
+          storageProvider === "r2" &&
+          Boolean(createdCardId) &&
+          filesForBackgroundUpload.length > 0;
+
+        if (!hasBackgroundUploads) {
+          window.setTimeout(() => router.refresh(), 0);
+        }
 
         if (
-          storageProvider === "r2" &&
+          hasBackgroundUploads &&
           createdCardId &&
           filesForBackgroundUpload.length > 0
         ) {

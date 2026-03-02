@@ -173,10 +173,18 @@ export function CreateTaskDialog({
           variant: "success",
           message: "Task created.",
         });
-        window.setTimeout(() => router.refresh(), 0);
+
+        const hasBackgroundUploads =
+          storageProvider === "r2" &&
+          Boolean(createdTaskId) &&
+          filesForBackgroundUpload.length > 0;
+
+        if (!hasBackgroundUploads) {
+          window.setTimeout(() => router.refresh(), 0);
+        }
 
         if (
-          storageProvider === "r2" &&
+          hasBackgroundUploads &&
           createdTaskId &&
           filesForBackgroundUpload.length > 0
         ) {
