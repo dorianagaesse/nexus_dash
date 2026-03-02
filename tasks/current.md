@@ -1,42 +1,41 @@
-# Current Task: TASK-087 Product Metadata Surface - Repository Link and Running Version Visibility
+# Current Task: ISSUE-070 Mutation/Upload Latency and Responsiveness
 
 ## Task ID
-TASK-087
+ISSUE-070
 
 ## Status
-In Progress (2026-02-28)
+In Progress (2026-03-02)
 
 ## Objective
-Add a polished in-app metadata surface that links to the GitHub repository and displays the running app version.
+Deliver targeted, low-risk responsiveness improvements focused on the highest-impact bottlenecks.
 
 ## Why Now
-- Deferred backlog item selected as a low-risk, high-signal upgrade.
-- Improves release transparency and debugging clarity without touching core domain flows.
+- Multi-file direct uploads are sequential on mainline and can be materially faster with bounded concurrency.
+- Create flows with background uploads currently trigger duplicate refreshes, adding avoidable UI latency.
 
-## Scope
-- Add reusable app metadata resolver (repository URL + version label).
-- Render a compact, modern metadata UI element aligned with existing design language.
-- Support optional environment-based metadata overrides.
-- Add unit coverage for metadata formatting behavior.
+## Scope (Targeted)
+- Add bounded concurrency to `uploadFilesDirectInBackground` (default `3`) while keeping behavior backward compatible.
+- Keep existing cleanup/error semantics and add tests for concurrency and item success callbacks.
+- Remove duplicate `router.refresh()` calls in:
+  - task create flow with background uploads
+  - context-card create flow with background uploads
 
 ## Out of Scope
-- Full release-management/versioning workflow design.
-- Changelog generation and release-note automation.
+- Broad mutation architecture refactors.
+- New project mutation API surface.
+- Optimistic UI rewrites for project/task/context mutations.
 
 ## Acceptance Criteria
-- Users can open the repository from the app UI.
-- UI displays a version label (for example `v1.2.13` or `v1.2.13+abc1234`).
-- Metadata display remains visually consistent across signed-in/signed-out states.
-- Tests cover override/fallback formatting logic.
+- Upload helper executes multiple files with bounded parallelism and preserves failure handling.
+- Create flows no longer do immediate + final duplicate refresh when background uploads are present.
+- Validation green for lint/tests/build on this branch.
 
 ## Definition of Done
-- Branch + PR opened.
-- CI checks green.
-- Copilot comments resolved.
-- Preview deployment successful.
-- Tracking files updated (`tasks/current.md`).
+- Branch + PR opened and linked to issue #70.
+- Atomic commits for each change set.
+- Copilot review comments addressed and resolved where valid.
 
 ---
 
-Last Updated: 2026-02-28
+Last Updated: 2026-03-02
 Assigned To: User + Agent

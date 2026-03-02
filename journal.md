@@ -123,3 +123,8 @@ Most useful entries are:
 Low-value entries to avoid going forward:
 - minor UI tweaks without task linkage
 - repetitive step-by-step notes that already exist in PR history
+
+### 2026-03-02
+- Type: Execution
+- Summary: ISSUE-070 targeted remediation implemented as low-risk performance patch set (no broad architecture rewrite).
+- Evidence: Added bounded concurrency (`default=3`) and success callback support in `lib/direct-upload-client.ts`; extended uploader tests in `tests/lib/direct-upload-client.test.ts`; removed duplicate create-flow refreshes in `components/create-task-dialog.tsx` and `components/project-context-panel.tsx`.
