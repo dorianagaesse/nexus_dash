@@ -348,21 +348,14 @@ export function ProjectContextPanel({
           variant: "success",
           message: "Context card created.",
         });
+        window.setTimeout(() => router.refresh(), 0);
 
-        const hasBackgroundUploads =
+        const canRunBackgroundUploads =
           storageProvider === "r2" &&
-          Boolean(createdCardId) &&
+          createdCardId !== null &&
           filesForBackgroundUpload.length > 0;
 
-        if (!hasBackgroundUploads) {
-          window.setTimeout(() => router.refresh(), 0);
-        }
-
-        if (
-          hasBackgroundUploads &&
-          createdCardId &&
-          filesForBackgroundUpload.length > 0
-        ) {
+        if (canRunBackgroundUploads) {
           void uploadFilesDirectInBackground({
             uploads: filesForBackgroundUpload.map((file) => ({
               file,
@@ -391,8 +384,10 @@ export function ProjectContextPanel({
               variant: "success",
               message: `Context attachment upload complete (${progress.total}).`,
             });
-          }).finally(() => {
-            window.setTimeout(() => router.refresh(), 0);
+
+            if (progress.completed > progress.failed) {
+              window.setTimeout(() => router.refresh(), 0);
+            }
           });
         }
       } catch (error) {
