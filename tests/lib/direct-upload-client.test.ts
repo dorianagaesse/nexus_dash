@@ -187,4 +187,76 @@ describe("direct-upload-client", () => {
       expect.objectContaining({ method: "POST" })
     );
   });
+
+  test("uses bounded concurrency for background direct uploads", async () => {
+    let inFlightUploads = 0;
+    let maxInFlightUploads = 0;
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+
+      if (url.startsWith("/upload-url/")) {
+        const fileName = url.split("/").at(-1) ?? "unknown";
+        return new Response(
+          JSON.stringify({
+            upload: {
+              storageKey: `task/p1/${fileName}`,
+              uploadUrl: `https://r2.example/${fileName}`,
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/pdf",
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (url.startsWith("https://r2.example/")) {
+        inFlightUploads += 1;
+        maxInFlightUploads = Math.max(maxInFlightUploads, inFlightUploads);
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        inFlightUploads -= 1;
+        return new Response(null, { status: 200 });
+      }
+
+      if (url.startsWith("/finalize/")) {
+        return new Response(
+          JSON.stringify({ attachment: { id: "att-success" } }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(null, { status: 404 });
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const uploads = [1, 2, 3, 4].map((index) => ({
+      file: new File([`${index}`], `file-${index}.pdf`, {
+        type: "application/pdf",
+      }),
+      uploadTargetUrl: `/upload-url/file-${index}.pdf`,
+      finalizeUrl: `/finalize/file-${index}.pdf`,
+      fallbackErrorMessage: "upload-failed",
+    }));
+
+    const successFiles: string[] = [];
+    const finalProgress = await uploadFilesDirectInBackground({
+      uploads,
+      concurrency: 2,
+      onItemSuccess: (file) => {
+        successFiles.push(file.name);
+      },
+    });
+
+    expect(finalProgress).toEqual({
+      phase: "done",
+      total: 4,
+      completed: 4,
+      failed: 0,
+    });
+    expect(maxInFlightUploads).toBe(2);
+    expect(successFiles).toHaveLength(4);
+  });
 });
