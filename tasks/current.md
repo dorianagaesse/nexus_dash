@@ -1,41 +1,41 @@
-# Current Task: ISSUE-070 Mutation/Upload Latency and Responsiveness
+# Current Task: ISSUE-079 Mobile Auth Toggle Scroll Reset
 
 ## Task ID
-ISSUE-070
+ISSUE-079
 
 ## Status
-In Progress (2026-03-02)
+In Progress (2026-03-03)
 
 ## Objective
-Deliver targeted, low-risk responsiveness improvements focused on the highest-impact bottlenecks.
+Prevent mobile auth form toggles from jumping the page back to the top.
 
 ## Why Now
-- Multi-file direct uploads are sequential on mainline and can be materially faster with bounded concurrency.
-- Create flows with background uploads currently trigger duplicate refreshes, adding avoidable UI latency.
+- Issue #79 reports that tapping `Sign up` / `Sign in` on mobile resets scroll to top.
+- This creates friction because users must repeatedly scroll back down to the auth card before continuing.
 
-## Scope (Targeted)
-- Add bounded concurrency to `uploadFilesDirectInBackground` (default `3`) while keeping behavior backward compatible.
-- Keep existing cleanup/error semantics and add tests for concurrency and item success callbacks.
-- Remove duplicate `router.refresh()` calls in:
-  - task create flow with background uploads
-  - context-card create flow with background uploads
+## Scope
+- Keep auth-toggle navigation on the same visual section without resetting scroll.
+- Preserve existing query-string behavior (`form`, optional normalized `email`) when toggling auth mode.
+- Ensure both tab-style toggle buttons and inline mode-switch links use scroll-preserving navigation.
+- Validate no regression in auth homepage rendering and toggle-link helper behavior.
 
 ## Out of Scope
-- Broad mutation architecture refactors.
-- New project mutation API surface.
-- Optimistic UI rewrites for project/task/context mutations.
+- Authentication service contract changes.
+- Form payload/schema updates for sign-in or sign-up.
+- Broader homepage layout redesign.
 
 ## Acceptance Criteria
-- Upload helper executes multiple files with bounded parallelism and preserves failure handling.
-- Create flows no longer do immediate + final duplicate refresh when background uploads are present.
-- Validation green for lint/tests/build on this branch.
+- Tapping `Sign up` / `Sign in` no longer forces viewport back to top on mobile.
+- Form toggle navigation remains stateful and preserves existing query behavior.
+- Validation baseline is green for this branch.
 
 ## Definition of Done
-- Branch + PR opened and linked to issue #70.
-- Atomic commits for each change set.
-- Copilot review comments addressed and resolved where valid.
+- Branch + PR opened and linked to issue #79.
+- CI checks green.
+- Copilot review threads handled/resolved.
+- Tracking files updated (`tasks/current.md`, `journal.md`).
 
 ---
 
-Last Updated: 2026-03-02
+Last Updated: 2026-03-03
 Assigned To: User + Agent
