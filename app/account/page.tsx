@@ -151,10 +151,13 @@ export default async function AccountProfilePage({
                     type="text"
                     defaultValue={profileResult.data.username}
                     autoComplete="username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     required
                     minLength={MIN_USERNAME_LENGTH}
                     maxLength={MAX_USERNAME_LENGTH}
-                    pattern="[a-z0-9._]+"
+                    pattern="[A-Za-z0-9._]+"
                     className="h-10 w-full rounded-md border border-input bg-background px-3 pr-24 text-sm"
                   />
                   <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground select-none">

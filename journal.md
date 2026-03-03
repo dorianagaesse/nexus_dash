@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-03-03
+- Type: Execution
+- Summary: ISSUE-080 fixed mobile username auto-capitalization friction on signup/account username forms.
+- Evidence: Updated username inputs in `app/page.tsx` and `app/account/page.tsx` to disable mobile auto-capitalization/autocorrect (`autoCapitalize="none"`, `autoCorrect="off"`, `spellCheck={false}`) and relaxed client-side pattern to `[A-Za-z0-9._]+` so server-side lowercase normalization can remain authoritative.
+
+### 2026-03-03
+- Type: Validation
+- Summary: ISSUE-080 validation baseline executed successfully after implementation.
+- Evidence: `npm run lint`; `npm test`; `npm run test:coverage`; `npm run build` (first run failed due existing env contract mismatch in local `.env`, then passed with safe overrides for `DATABASE_URL`, `DIRECT_URL`, and `GOOGLE_TOKEN_ENCRYPTION_KEY`).
+
 ### 2026-02-27
 - Type: Execution
 - Summary: TASK-086 implemented account email-change verification and compact account-page layout.

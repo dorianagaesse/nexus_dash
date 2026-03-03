@@ -1,42 +1,42 @@
-# Current Task: TASK-087 Product Metadata Surface - Repository Link and Running Version Visibility
+# Current Task: ISSUE-080 Username Mobile Auto-Capitalization Signup Friction
 
 ## Task ID
-TASK-087
+ISSUE-080
 
 ## Status
-In Progress (2026-02-28)
+In Progress (2026-03-03)
 
 ## Objective
-Add a polished in-app metadata surface that links to the GitHub repository and displays the running app version.
+Prevent mobile keyboard auto-capitalization from causing username submission failures.
 
 ## Why Now
-- Deferred backlog item selected as a low-risk, high-signal upgrade.
-- Improves release transparency and debugging clarity without touching core domain flows.
+- Issue #80 reports signup friction on mobile due to uppercase first-letter input.
+- Existing backend username normalization already lowercases values, so frontend constraints should not block casing-only input differences.
 
 ## Scope
-- Add reusable app metadata resolver (repository URL + version label).
-- Render a compact, modern metadata UI element aligned with existing design language.
-- Support optional environment-based metadata overrides.
-- Add unit coverage for metadata formatting behavior.
+- Update username form input behavior to reduce auto-capitalization/correction friction on mobile.
+- Ensure frontend validation does not reject usernames solely due to uppercase letters.
+- Preserve server-side normalization and validation as source of truth.
+- Add regression coverage for signup form attributes.
 
 ## Out of Scope
-- Full release-management/versioning workflow design.
-- Changelog generation and release-note automation.
+- Username policy changes (allowed characters/length).
+- Auth service architecture changes.
+- Identity model schema changes.
 
 ## Acceptance Criteria
-- Users can open the repository from the app UI.
-- UI displays a version label (for example `v1.2.13` or `v1.2.13+abc1234`).
-- Metadata display remains visually consistent across signed-in/signed-out states.
-- Tests cover override/fallback formatting logic.
+- Uppercase characters in typed username no longer cause frontend submission rejection solely due to casing.
+- Mobile-focused input attributes are set to reduce auto-capitalization/autocorrect interference.
+- Username persistence behavior remains normalized/consistent in backend services.
+- Validation baseline is green for this branch.
 
 ## Definition of Done
-- Branch + PR opened.
+- Branch + PR opened and linked to issue #80.
 - CI checks green.
-- Copilot comments resolved.
-- Preview deployment successful.
-- Tracking files updated (`tasks/current.md`).
+- Copilot review threads handled/resolved.
+- Tracking files updated (`tasks/current.md`, `journal.md`).
 
 ---
 
-Last Updated: 2026-02-28
+Last Updated: 2026-03-03
 Assigned To: User + Agent
