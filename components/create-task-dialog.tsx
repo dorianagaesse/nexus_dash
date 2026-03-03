@@ -175,11 +175,12 @@ export function CreateTaskDialog({
         });
         window.setTimeout(() => router.refresh(), 0);
 
-        if (
+        const canRunBackgroundUploads =
           storageProvider === "r2" &&
-          createdTaskId &&
-          filesForBackgroundUpload.length > 0
-        ) {
+          createdTaskId !== null &&
+          filesForBackgroundUpload.length > 0;
+
+        if (canRunBackgroundUploads) {
           void uploadFilesDirectInBackground({
             uploads: filesForBackgroundUpload.map((file) => ({
               file,
@@ -208,8 +209,10 @@ export function CreateTaskDialog({
               variant: "success",
               message: `Attachment upload complete (${progress.total}).`,
             });
-          }).finally(() => {
-            window.setTimeout(() => router.refresh(), 0);
+
+            if (progress.completed > progress.failed) {
+              window.setTimeout(() => router.refresh(), 0);
+            }
           });
         }
       } catch (error) {
