@@ -34,8 +34,10 @@ export interface DirectUploadBackgroundItem {
 
 interface UploadFilesDirectBackgroundInput {
   uploads: DirectUploadBackgroundItem[];
+  concurrency?: number;
   onProgress?: (progress: DirectUploadBackgroundProgress) => void;
   onItemError?: (error: unknown, file: File) => void;
+  onItemSuccess?: (file: File) => void;
 }
 
 function buildCorsPreflightErrorMessage(fallbackErrorMessage: string): string {
@@ -178,12 +180,15 @@ export async function uploadFileAttachmentDirect<TAttachment>({
 
 export async function uploadFilesDirectInBackground({
   uploads,
+  concurrency = 3,
   onProgress,
   onItemError,
+  onItemSuccess,
 }: UploadFilesDirectBackgroundInput): Promise<DirectUploadBackgroundProgress> {
   const total = uploads.length;
   let completed = 0;
   let failed = 0;
+  let nextIndex = 0;
 
   const initialProgress: DirectUploadBackgroundProgress = {
     phase: "uploading",
@@ -193,28 +198,57 @@ export async function uploadFilesDirectInBackground({
   };
   onProgress?.(initialProgress);
 
-  for (const upload of uploads) {
-    try {
-      await uploadFileAttachmentDirect({
-        file: upload.file,
-        uploadTargetUrl: upload.uploadTargetUrl,
-        finalizeUrl: upload.finalizeUrl,
-        cleanupUrl: upload.cleanupUrl,
-        fallbackErrorMessage: upload.fallbackErrorMessage,
-      });
-    } catch (error) {
-      failed += 1;
-      onItemError?.(error, upload.file);
-    } finally {
-      completed += 1;
-      onProgress?.({
-        phase: "uploading",
-        total,
-        completed,
-        failed,
-      });
+  if (total === 0) {
+    const emptyProgress: DirectUploadBackgroundProgress = {
+      phase: "done",
+      total,
+      completed,
+      failed,
+    };
+    onProgress?.(emptyProgress);
+    return emptyProgress;
+  }
+
+  const workerCount = Math.min(
+    total,
+    Math.max(1, Math.trunc(concurrency) || 1)
+  );
+
+  async function runWorker(): Promise<void> {
+    while (true) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+
+      if (currentIndex >= total) {
+        return;
+      }
+
+      const upload = uploads[currentIndex];
+      try {
+        await uploadFileAttachmentDirect({
+          file: upload.file,
+          uploadTargetUrl: upload.uploadTargetUrl,
+          finalizeUrl: upload.finalizeUrl,
+          cleanupUrl: upload.cleanupUrl,
+          fallbackErrorMessage: upload.fallbackErrorMessage,
+        });
+        onItemSuccess?.(upload.file);
+      } catch (error) {
+        failed += 1;
+        onItemError?.(error, upload.file);
+      } finally {
+        completed += 1;
+        onProgress?.({
+          phase: "uploading",
+          total,
+          completed,
+          failed,
+        });
+      }
     }
   }
+
+  await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
 
   const finalProgress: DirectUploadBackgroundProgress = {
     phase: failed > 0 ? "failed" : "done",
