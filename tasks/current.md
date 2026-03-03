@@ -1,42 +1,41 @@
-# Current Task: TASK-087 Product Metadata Surface - Repository Link and Running Version Visibility
+# Current Task: ISSUE-079 Mobile Auth Toggle Scroll Reset
 
 ## Task ID
-TASK-087
+ISSUE-079
 
 ## Status
-In Progress (2026-02-28)
+In Progress (2026-03-03)
 
 ## Objective
-Add a polished in-app metadata surface that links to the GitHub repository and displays the running app version.
+Prevent mobile auth form toggles from jumping the page back to the top.
 
 ## Why Now
-- Deferred backlog item selected as a low-risk, high-signal upgrade.
-- Improves release transparency and debugging clarity without touching core domain flows.
+- Issue #79 reports that tapping `Sign up` / `Sign in` on mobile resets scroll to top.
+- This creates friction because users must repeatedly scroll back down to the auth card before continuing.
 
 ## Scope
-- Add reusable app metadata resolver (repository URL + version label).
-- Render a compact, modern metadata UI element aligned with existing design language.
-- Support optional environment-based metadata overrides.
-- Add unit coverage for metadata formatting behavior.
+- Keep auth-toggle navigation on the same visual section without resetting scroll.
+- Preserve existing query-string behavior (`form`, optional normalized `email`) when toggling auth mode.
+- Ensure both tab-style toggle buttons and inline mode-switch links use scroll-preserving navigation.
+- Validate no regression in auth homepage rendering and toggle-link helper behavior.
 
 ## Out of Scope
-- Full release-management/versioning workflow design.
-- Changelog generation and release-note automation.
+- Authentication service contract changes.
+- Form payload/schema updates for sign-in or sign-up.
+- Broader homepage layout redesign.
 
 ## Acceptance Criteria
-- Users can open the repository from the app UI.
-- UI displays a version label (for example `v1.2.13` or `v1.2.13+abc1234`).
-- Metadata display remains visually consistent across signed-in/signed-out states.
-- Tests cover override/fallback formatting logic.
+- Tapping `Sign up` / `Sign in` no longer forces viewport back to top on mobile.
+- Form toggle navigation remains stateful and preserves existing query behavior.
+- Validation baseline is green for this branch.
 
 ## Definition of Done
-- Branch + PR opened.
+- Branch + PR opened and linked to issue #79.
 - CI checks green.
-- Copilot comments resolved.
-- Preview deployment successful.
-- Tracking files updated (`tasks/current.md`).
+- Copilot review threads handled/resolved.
+- Tracking files updated (`tasks/current.md`, `journal.md`).
 
 ---
 
-Last Updated: 2026-02-28
+Last Updated: 2026-03-03
 Assigned To: User + Agent

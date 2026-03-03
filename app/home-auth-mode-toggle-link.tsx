@@ -82,12 +82,13 @@ export function HomeAuthModeToggleLink({
     }
 
     event.preventDefault();
-    router.push(nextHref);
+    router.push(nextHref, { scroll: false });
   };
 
   return (
     <Link
       href={baseHref}
+      scroll={false}
       onClick={handleClick}
       aria-current={ariaCurrent}
       className={className}
