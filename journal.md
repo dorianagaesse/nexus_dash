@@ -22,6 +22,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Summary: ISSUE-080 validation baseline executed successfully after implementation.
 - Evidence: `npm run lint`; `npm test`; `npm run test:coverage`; `npm run build` (first run failed due to existing env contract mismatch in local `.env`, then passed with safe overrides for `DATABASE_URL`, `DIRECT_URL`, and `GOOGLE_TOKEN_ENCRYPTION_KEY`).
 
+### 2026-03-03
+- Type: Execution
+- Summary: ISSUE-079 fixed mobile auth toggle scroll-reset behavior on home sign-in/sign-up mode switches.
+- Evidence: Updated `app/home-auth-mode-toggle-link.tsx` to force scroll-preserving query navigation by setting `scroll={false}` on `Link` and `{ scroll: false }` in `router.push(...)`.
+
+### 2026-03-03
+- Type: Validation
+- Summary: ISSUE-079 validation baseline executed successfully after implementation.
+- Evidence: `npm run lint`; `npm test -- --run tests/app/home-auth-mode-toggle-link.test.ts tests/app/home-page.test.ts`; `npm test`; `npm run test:coverage`; `npm run build` (first run failed due to existing local `.env` `DATABASE_URL`/`DIRECT_URL` production hardening mismatch, then passed with temporary safe overrides for `DATABASE_URL`, `DIRECT_URL`, `GOOGLE_TOKEN_ENCRYPTION_KEY`, and `RESEND_API_KEY`).
+
 ### 2026-02-27
 - Type: Execution
 - Summary: TASK-086 implemented account email-change verification and compact account-page layout.
@@ -133,3 +143,8 @@ Most useful entries are:
 Low-value entries to avoid going forward:
 - minor UI tweaks without task linkage
 - repetitive step-by-step notes that already exist in PR history
+
+### 2026-03-02
+- Type: Execution
+- Summary: ISSUE-070 targeted remediation implemented as low-risk performance patch set (no broad architecture rewrite).
+- Evidence: Added bounded concurrency (`default=3`) and success callback support in `lib/direct-upload-client.ts`; extended uploader tests in `tests/lib/direct-upload-client.test.ts`; removed duplicate create-flow refreshes in `components/create-task-dialog.tsx` and `components/project-context-panel.tsx`.
