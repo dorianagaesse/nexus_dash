@@ -22,6 +22,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Summary: ISSUE-081 local validation baseline passed for lint/unit/coverage/build; e2e could not complete due missing local PostgreSQL service.
 - Evidence: `npm run lint`; `npm test`; `npm run test:coverage`; `npx prisma generate`; `DATABASE_URL=... DIRECT_URL=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build` (pass). Installed Playwright browser via `npx playwright install chromium`; `npm run test:e2e` failed because Prisma could not reach `localhost:5432` in this environment.
 
+### 2026-03-04
+- Type: Governance
+- Summary: ISSUE-081 PR opened for review and CI checks.
+- Evidence: PR `#85` (`fix/username-discriminator-4-digits` -> `main`), URL: `https://github.com/dorianagaesse/nexus_dash/pull/85`.
+
 ### 2026-03-03
 - Type: Execution
 - Summary: ISSUE-080 fixed mobile username auto-capitalization friction on signup/account username forms.
