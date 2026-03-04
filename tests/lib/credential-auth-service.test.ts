@@ -212,6 +212,29 @@ describe("credential-auth-service", () => {
     });
   });
 
+  test("signUp returns username-in-use when collision retry budget is exhausted", async () => {
+    passwordServiceMock.hashPassword.mockResolvedValue("hash-1");
+    prismaMock.user.create.mockRejectedValue({
+      code: "P2002",
+      meta: {
+        target: ["username", "usernameDiscriminator"],
+      },
+    });
+
+    const result = await signUpWithEmailPassword({
+      usernameRaw: "test.user",
+      emailRaw: "user@example.com",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
+    });
+
+    expect(prismaMock.user.create).toHaveBeenCalledTimes(12);
+    expect(result).toEqual({
+      ok: false,
+      error: "username-in-use",
+    });
+  });
+
   test("signUp creates user, session, and normalizes email and username", async () => {
     passwordServiceMock.hashPassword.mockResolvedValueOnce("hash-1");
     prismaMock.user.create.mockResolvedValueOnce({

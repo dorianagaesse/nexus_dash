@@ -27,6 +27,7 @@ const MAX_USERNAME_GENERATION_ATTEMPTS = 12;
 type AuthFailureCode =
   | "invalid-email"
   | "invalid-username"
+  | "username-in-use"
   | "password-too-short"
   | "password-too-long"
   | "password-requirements-not-met"
@@ -180,9 +181,7 @@ export async function signUpWithEmailPassword(input: {
     }
   }
 
-  throw new Error(
-    `failed-to-generate-unique-discriminator: username=${username}, attempts=${MAX_USERNAME_GENERATION_ATTEMPTS}`
-  );
+  return { ok: false, error: "username-in-use" };
 }
 
 export async function signInWithEmailPassword(input: {

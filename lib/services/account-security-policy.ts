@@ -1,14 +1,17 @@
 import { randomInt } from "node:crypto";
+import {
+  USERNAME_DISCRIMINATOR_LENGTH,
+  USERNAME_DISCRIMINATOR_SPACE,
+  isUsernameDiscriminator,
+} from "@/lib/username-discriminator";
 
 export const MIN_PASSWORD_LENGTH = 8;
 export const MAX_PASSWORD_LENGTH = 128;
 export const MIN_USERNAME_LENGTH = 3;
 export const MAX_USERNAME_LENGTH = 20;
-export const USERNAME_DISCRIMINATOR_LENGTH = 4;
+export { USERNAME_DISCRIMINATOR_LENGTH };
 
 const MAX_EMAIL_LENGTH = 320;
-const USERNAME_DISCRIMINATOR_SPACE = 10 ** USERNAME_DISCRIMINATOR_LENGTH;
-const USERNAME_DISCRIMINATOR_PATTERN = /^\d+$/;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_PATTERN = /^[a-z0-9._]+$/;
@@ -43,10 +46,7 @@ export function validateUsername(username: string): boolean {
 }
 
 export function validateUsernameDiscriminator(discriminator: string): boolean {
-  return (
-    discriminator.length === USERNAME_DISCRIMINATOR_LENGTH &&
-    USERNAME_DISCRIMINATOR_PATTERN.test(discriminator)
-  );
+  return isUsernameDiscriminator(discriminator);
 }
 
 export function validatePasswordLength(

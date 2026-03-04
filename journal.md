@@ -27,6 +27,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Summary: ISSUE-081 PR opened for review and CI checks.
 - Evidence: PR `#85` (`fix/username-discriminator-4-digits` -> `main`), URL: `https://github.com/dorianagaesse/nexus_dash/pull/85`.
 
+### 2026-03-04
+- Type: Execution
+- Summary: Addressed Copilot review feedback for ISSUE-081 with retry exhaustion handling and shared discriminator constants.
+- Evidence: Added shared client-safe constants/helper in `lib/username-discriminator.ts`; updated `lib/services/account-security-policy.ts` and `app/home-signup-live-feedback.tsx` to consume shared discriminator config; updated `signUpWithEmailPassword` in `lib/services/credential-auth-service.ts` to return `username-in-use` when collision retry budget is exhausted; aligned e2e helper formatting to left-padding in `tests/e2e/helpers/auth-helpers.ts`.
+
+### 2026-03-04
+- Type: Validation
+- Summary: Re-ran validation after Copilot-driven refinements.
+- Evidence: `npm run lint`; `npm test`; `npm run test:coverage`; `DATABASE_URL=... DIRECT_URL=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build` (all pass).
+
 ### 2026-03-03
 - Type: Execution
 - Summary: ISSUE-080 fixed mobile username auto-capitalization friction on signup/account username forms.
