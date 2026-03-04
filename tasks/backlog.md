@@ -49,6 +49,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Confirm remediation effectiveness and document residual risk with explicit follow-up items.
   Dependencies: TASK-050
+- ID: TASK-091
+  Title: Mobile UI adaptation - responsive layout and interaction polish
+  Status: Pending
+  Rationale: The current experience is optimized for desktop and degrades on smaller screens; adapt core views (home, projects grid, project workspace, modals, and key controls) for mobile readability, touch ergonomics, and overflow-safe navigation.
+  Dependencies: TASK-012, TASK-024
 
 ### Deferred (Intentional)
 - ID: TASK-087
