@@ -20,7 +20,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ### 2026-03-03
 - Type: Validation
 - Summary: ISSUE-080 validation baseline executed successfully after implementation.
-- Evidence: `npm run lint`; `npm test`; `npm run test:coverage`; `npm run build` (first run failed due existing env contract mismatch in local `.env`, then passed with safe overrides for `DATABASE_URL`, `DIRECT_URL`, and `GOOGLE_TOKEN_ENCRYPTION_KEY`).
+- Evidence: `npm run lint`; `npm test`; `npm run test:coverage`; `npm run build` (first run failed due to existing env contract mismatch in local `.env`, then passed with safe overrides for `DATABASE_URL`, `DIRECT_URL`, and `GOOGLE_TOKEN_ENCRYPTION_KEY`).
 
 ### 2026-02-27
 - Type: Execution

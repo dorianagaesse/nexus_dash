@@ -294,8 +294,8 @@ export default async function Home({
                     <HomeSignupUsernameSuffix usernameInputId="signup-username" />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Use {MIN_USERNAME_LENGTH}-{MAX_USERNAME_LENGTH} lowercase letters,
-                    numbers, dots, or underscores.
+                    Use {MIN_USERNAME_LENGTH}-{MAX_USERNAME_LENGTH} letters, numbers,
+                    dots, or underscores. Uppercase input is normalized to lowercase.
                   </p>
                 </div>
                 <div className="grid gap-2">
