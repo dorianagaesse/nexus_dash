@@ -281,18 +281,21 @@ export default async function Home({
                       name="username"
                       type="text"
                       autoComplete="username"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
                       placeholder="your.name"
                       required
                       minLength={MIN_USERNAME_LENGTH}
                       maxLength={MAX_USERNAME_LENGTH}
-                      pattern="[a-z0-9._]+"
+                      pattern="[A-Za-z0-9._]+"
                       className={cn(inputClassName, "w-full pr-24")}
                     />
                     <HomeSignupUsernameSuffix usernameInputId="signup-username" />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Use {MIN_USERNAME_LENGTH}-{MAX_USERNAME_LENGTH} lowercase letters,
-                    numbers, dots, or underscores.
+                    Use {MIN_USERNAME_LENGTH}-{MAX_USERNAME_LENGTH} letters, numbers,
+                    dots, or underscores. Uppercase input is normalized to lowercase.
                   </p>
                 </div>
                 <div className="grid gap-2">

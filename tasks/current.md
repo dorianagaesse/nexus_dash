@@ -1,36 +1,37 @@
-# Current Task: ISSUE-079 Mobile Auth Toggle Scroll Reset
+# Current Task: ISSUE-080 Username Mobile Auto-Capitalization Signup Friction
 
 ## Task ID
-ISSUE-079
+ISSUE-080
 
 ## Status
 In Progress (2026-03-03)
 
 ## Objective
-Prevent mobile auth form toggles from jumping the page back to the top.
+Prevent mobile keyboard auto-capitalization from causing username submission failures.
 
 ## Why Now
-- Issue #79 reports that tapping `Sign up` / `Sign in` on mobile resets scroll to top.
-- This creates friction because users must repeatedly scroll back down to the auth card before continuing.
+- Issue #80 reports signup friction on mobile due to uppercase first-letter input.
+- Existing backend username normalization already lowercases values, so frontend constraints should not block casing-only input differences.
 
 ## Scope
-- Keep auth-toggle navigation on the same visual section without resetting scroll.
-- Preserve existing query-string behavior (`form`, optional normalized `email`) when toggling auth mode.
-- Ensure both tab-style toggle buttons and inline mode-switch links use scroll-preserving navigation.
-- Validate no regression in auth homepage rendering and toggle-link helper behavior.
+- Update username form input behavior to reduce auto-capitalization/correction friction on mobile.
+- Ensure frontend validation does not reject usernames solely due to uppercase letters.
+- Preserve server-side normalization and validation as source of truth.
+- Add regression coverage for signup form attributes.
 
 ## Out of Scope
-- Authentication service contract changes.
-- Form payload/schema updates for sign-in or sign-up.
-- Broader homepage layout redesign.
+- Username policy changes (allowed characters/length).
+- Auth service architecture changes.
+- Identity model schema changes.
 
 ## Acceptance Criteria
-- Tapping `Sign up` / `Sign in` no longer forces viewport back to top on mobile.
-- Form toggle navigation remains stateful and preserves existing query behavior.
+- Uppercase characters in typed username no longer cause frontend submission rejection solely due to casing.
+- Mobile-focused input attributes are set to reduce auto-capitalization/autocorrect interference.
+- Username persistence behavior remains normalized/consistent in backend services.
 - Validation baseline is green for this branch.
 
 ## Definition of Done
-- Branch + PR opened and linked to issue #79.
+- Branch + PR opened and linked to issue #80.
 - CI checks green.
 - Copilot review threads handled/resolved.
 - Tracking files updated (`tasks/current.md`, `journal.md`).
