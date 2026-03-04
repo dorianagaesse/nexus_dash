@@ -30,8 +30,10 @@ function normalizeUsername(value: string): string {
 }
 
 function buildDiscriminatorPreview(username: string): string {
+  const discriminatorSpace = 10_000;
+
   if (!username) {
-    return "000000";
+    return "0000";
   }
 
   let hash = 0;
@@ -39,7 +41,7 @@ function buildDiscriminatorPreview(username: string): string {
     hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
   }
 
-  return hash.toString(36).padStart(6, "0").slice(0, 6);
+  return (hash % discriminatorSpace).toString().padStart(4, "0");
 }
 
 export function HomeSignupUsernameSuffix({

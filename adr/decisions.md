@@ -16,6 +16,13 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-03-04 - Narrow username discriminator contract to 4-digit numeric format
+- Status: Accepted
+- Context: Username identity tags previously used 6-character base36 discriminators, but product direction now requires a shorter numeric-only suffix.
+- Decision: Updated generation to `0000-9999`, added discriminator format validation in account identity/profile services, and applied schema/migration hardening (`VARCHAR(4)` + numeric regex check constraint).
+- Consequences: New tags are more predictable and easier to communicate; legacy invalid discriminator values are sanitized and regenerated during username updates.
+- Links: `tasks/current.md`, `prisma/migrations/20260304221000_task092_username_discriminator_numeric4/migration.sql`
+
 ## 2026-02-26 - Introduce username + discriminator identity contract for credentials signup
 - Status: Accepted
 - Context: Account onboarding needed a user-chosen identity without username-availability prechecks, while preserving `user.id` as the authorization key.

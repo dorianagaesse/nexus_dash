@@ -17,8 +17,8 @@ function toSafeUsernameBase(rawValue: string): string {
 }
 
 function toUsernameDiscriminator(rawValue: string): string {
-  const normalized = rawValue.replace(/[^a-z0-9]/g, "").slice(0, 6);
-  return normalized.length === 6 ? normalized : normalized.padEnd(6, "0");
+  const normalized = rawValue.replace(/\D/g, "").slice(0, 4);
+  return normalized.length === 4 ? normalized : normalized.padEnd(4, "0");
 }
 
 function resolveBaseUrl(): URL {

@@ -36,7 +36,7 @@ describe("account-identity-service", () => {
       name: "Test User",
       email: "user@example.com",
       username: "test.user",
-      usernameDiscriminator: "1a2b3c",
+      usernameDiscriminator: "1234",
     });
 
     const result = await getAccountIdentitySummary("user-1");
@@ -44,8 +44,26 @@ describe("account-identity-service", () => {
     expect(result).toEqual({
       displayName: "test.user",
       username: "test.user",
-      usernameDiscriminator: "1a2b3c",
-      usernameTag: "test.user#1a2b3c",
+      usernameDiscriminator: "1234",
+      usernameTag: "test.user#1234",
+    });
+  });
+
+  test("hides invalid legacy discriminator from account identity summary", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      name: "Test User",
+      email: "user@example.com",
+      username: "test.user",
+      usernameDiscriminator: "ab12cd",
+    });
+
+    const result = await getAccountIdentitySummary("user-1");
+
+    expect(result).toEqual({
+      displayName: "test.user",
+      username: "test.user",
+      usernameDiscriminator: null,
+      usernameTag: null,
     });
   });
 

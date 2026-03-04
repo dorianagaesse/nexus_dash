@@ -3,6 +3,7 @@ import {
   generateUsernameDiscriminator,
   normalizeEmail,
   normalizeUsername,
+  validateUsernameDiscriminator,
   validateEmail,
   validatePasswordLength,
   validatePasswordRequirements,
@@ -62,7 +63,11 @@ function buildUsernameTag(
   username: string | null | undefined,
   usernameDiscriminator: string | null | undefined
 ): string | null {
-  if (!username || !usernameDiscriminator) {
+  if (
+    !username ||
+    !usernameDiscriminator ||
+    !validateUsernameDiscriminator(usernameDiscriminator)
+  ) {
     return null;
   }
 
@@ -180,12 +185,18 @@ export async function getAccountProfile(
     return createError(404, "profile-not-found");
   }
 
+  const usernameDiscriminator = validateUsernameDiscriminator(
+    user.usernameDiscriminator ?? ""
+  )
+    ? user.usernameDiscriminator
+    : null;
+
   return createSuccess(200, {
     email: user.email ?? null,
     isEmailVerified: Boolean(user.emailVerified),
     username: user.username ?? "",
-    usernameDiscriminator: user.usernameDiscriminator ?? null,
-    usernameTag: buildUsernameTag(user.username, user.usernameDiscriminator),
+    usernameDiscriminator,
+    usernameTag: buildUsernameTag(user.username, usernameDiscriminator),
   });
 }
 
@@ -288,8 +299,13 @@ export async function updateAccountUsername(
     return createError(401, "unauthorized");
   }
 
-  let usernameDiscriminator = user.usernameDiscriminator ?? generateUsernameDiscriminator();
-  let regenerated = !user.usernameDiscriminator;
+  const existingDiscriminator = validateUsernameDiscriminator(
+    user.usernameDiscriminator ?? ""
+  )
+    ? user.usernameDiscriminator
+    : null;
+  let usernameDiscriminator = existingDiscriminator ?? generateUsernameDiscriminator();
+  let regenerated = !existingDiscriminator;
 
   // Keep the current discriminator on first attempt to preserve identity continuity.
   for (let attempt = 0; attempt < MAX_USERNAME_UPDATE_ATTEMPTS; attempt += 1) {

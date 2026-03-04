@@ -189,7 +189,7 @@ describe("credential-auth-service", () => {
       1,
       expect.objectContaining({
         data: expect.objectContaining({
-          usernameDiscriminator: "000001",
+          usernameDiscriminator: "0001",
         }),
       })
     );
@@ -197,7 +197,7 @@ describe("credential-auth-service", () => {
       2,
       expect.objectContaining({
         data: expect.objectContaining({
-          usernameDiscriminator: "000002",
+          usernameDiscriminator: "0002",
         }),
       })
     );
@@ -231,7 +231,7 @@ describe("credential-auth-service", () => {
         email: "user@example.com",
         name: "test.user",
         username: "test.user",
-        usernameDiscriminator: "000001",
+        usernameDiscriminator: "0001",
         passwordHash: "hash-1",
       },
       select: {
@@ -241,7 +241,7 @@ describe("credential-auth-service", () => {
     });
     expect(cryptoMock.randomInt).toHaveBeenCalledWith(
       0,
-      36 ** USERNAME_DISCRIMINATOR_LENGTH
+      10 ** USERNAME_DISCRIMINATOR_LENGTH
     );
     expect(sessionServiceMock.createSessionForUser).toHaveBeenCalledWith("user-1");
     expect(result).toEqual({
