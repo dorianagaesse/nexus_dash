@@ -13,6 +13,12 @@ function hashResetToken(rawToken: string): string {
   return createHash("sha256").update(rawToken).digest("base64url");
 }
 
+function randomUsernameDiscriminator(): string {
+  return Math.floor(Math.random() * 10_000)
+    .toString()
+    .padStart(4, "0");
+}
+
 test.describe("password recovery flow", () => {
   test("forgot-password request creates reset token without account enumeration", async ({
     page,
@@ -25,7 +31,7 @@ test.describe("password recovery flow", () => {
         email,
         name: "Recovery User",
         username: `recover${suffix.replace(/[^a-z0-9]/g, "").slice(0, 8)}`,
-        usernameDiscriminator: randomBytes(3).toString("hex"),
+        usernameDiscriminator: randomUsernameDiscriminator(),
         passwordHash,
         emailVerified: new Date(),
       },
@@ -64,7 +70,7 @@ test.describe("password recovery flow", () => {
         email,
         name: "Reset User",
         username: `reset${suffix.replace(/[^a-z0-9]/g, "").slice(0, 9)}`,
-        usernameDiscriminator: randomBytes(3).toString("hex"),
+        usernameDiscriminator: randomUsernameDiscriminator(),
         passwordHash: await hashPassword(oldPassword),
         emailVerified: new Date(),
       },

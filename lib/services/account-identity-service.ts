@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { validateUsernameDiscriminator } from "@/lib/services/account-security-policy";
 
 interface AccountIdentitySummary {
   displayName: string;
@@ -19,7 +20,11 @@ function buildUsernameTag(
   username: string | null | undefined,
   usernameDiscriminator: string | null | undefined
 ): string | null {
-  if (!username || !usernameDiscriminator) {
+  if (
+    !username ||
+    !usernameDiscriminator ||
+    !validateUsernameDiscriminator(usernameDiscriminator)
+  ) {
     return null;
   }
 
@@ -56,7 +61,12 @@ export async function getAccountIdentitySummary(
     return null;
   }
 
-  const usernameTag = buildUsernameTag(user.username, user.usernameDiscriminator);
+  const usernameDiscriminator = validateUsernameDiscriminator(
+    user.usernameDiscriminator ?? ""
+  )
+    ? user.usernameDiscriminator
+    : null;
+  const usernameTag = buildUsernameTag(user.username, usernameDiscriminator);
   const emailLocalPart = getEmailLocalPart(user.email);
   const displayName =
     user.username ??
@@ -67,7 +77,7 @@ export async function getAccountIdentitySummary(
   return {
     displayName,
     username: user.username ?? null,
-    usernameDiscriminator: user.usernameDiscriminator ?? null,
+    usernameDiscriminator,
     usernameTag,
   };
 }

@@ -1,42 +1,43 @@
-# Current Task: ISSUE-080 Username Mobile Auto-Capitalization Signup Friction
+# Current Task: ISSUE-081 Username Discriminator Numeric-4 Contract
 
 ## Task ID
-ISSUE-080
+ISSUE-081
 
 ## Status
-In Progress (2026-03-03)
+In Review (2026-03-04)
 
 ## Objective
-Prevent mobile keyboard auto-capitalization from causing username submission failures.
+Enforce username discriminator format as exactly 4 numeric digits across generation, storage, and account identity surfaces.
 
 ## Why Now
-- Issue #80 reports signup friction on mobile due to uppercase first-letter input.
-- Existing backend username normalization already lowercases values, so frontend constraints should not block casing-only input differences.
+- Current discriminator behavior uses 6-character base36 values, which no longer matches the expected identity format.
+- A strict 4-digit numeric contract keeps tags predictable and easier to communicate.
 
 ## Scope
-- Update username form input behavior to reduce auto-capitalization/correction friction on mobile.
-- Ensure frontend validation does not reject usernames solely due to uppercase letters.
-- Preserve server-side normalization and validation as source of truth.
-- Add regression coverage for signup form attributes.
+- Update discriminator generation policy from 6-char base36 to 4-digit numeric.
+- Sanitize legacy invalid discriminator values for account/profile display and username updates.
+- Align Prisma schema/migration with the new discriminator format constraint.
+- Update UI preview and regression tests (unit + e2e helpers) for the numeric-4 contract.
 
 ## Out of Scope
-- Username policy changes (allowed characters/length).
-- Auth service architecture changes.
-- Identity model schema changes.
+- Username syntax/length policy changes.
+- Auth/session architecture changes.
+- Broader profile UX redesign.
 
 ## Acceptance Criteria
-- Uppercase characters in typed username no longer cause frontend submission rejection solely due to casing.
-- Mobile-focused input attributes are set to reduce auto-capitalization/autocorrect interference.
-- Username persistence behavior remains normalized/consistent in backend services.
+- Newly generated discriminators are always 4 digits (`0000`-`9999`).
+- Account profile and identity summary do not expose legacy invalid discriminator formats.
+- Username update flow regenerates invalid/legacy discriminator values when needed.
+- Prisma schema + migration enforce `usernameDiscriminator` as `VARCHAR(4)` with numeric-only check.
 - Validation baseline is green for this branch.
 
 ## Definition of Done
-- Branch + PR opened and linked to issue #80.
+- Branch + PR opened and linked to issue #81.
 - CI checks green.
 - Copilot review threads handled/resolved.
-- Tracking files updated (`tasks/current.md`, `journal.md`).
+- Tracking files updated (`tasks/current.md`, `journal.md`, `adr/decisions.md`).
 
 ---
 
-Last Updated: 2026-03-03
+Last Updated: 2026-03-04
 Assigned To: User + Agent

@@ -189,7 +189,7 @@ describe("credential-auth-service", () => {
       1,
       expect.objectContaining({
         data: expect.objectContaining({
-          usernameDiscriminator: "000001",
+          usernameDiscriminator: "0001",
         }),
       })
     );
@@ -197,7 +197,7 @@ describe("credential-auth-service", () => {
       2,
       expect.objectContaining({
         data: expect.objectContaining({
-          usernameDiscriminator: "000002",
+          usernameDiscriminator: "0002",
         }),
       })
     );
@@ -209,6 +209,29 @@ describe("credential-auth-service", () => {
         sessionToken: "session-token",
         expiresAt: new Date("2026-03-01T00:00:00.000Z"),
       },
+    });
+  });
+
+  test("signUp returns username-in-use when collision retry budget is exhausted", async () => {
+    passwordServiceMock.hashPassword.mockResolvedValue("hash-1");
+    prismaMock.user.create.mockRejectedValue({
+      code: "P2002",
+      meta: {
+        target: ["username", "usernameDiscriminator"],
+      },
+    });
+
+    const result = await signUpWithEmailPassword({
+      usernameRaw: "test.user",
+      emailRaw: "user@example.com",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
+    });
+
+    expect(prismaMock.user.create).toHaveBeenCalledTimes(12);
+    expect(result).toEqual({
+      ok: false,
+      error: "username-in-use",
     });
   });
 
@@ -231,7 +254,7 @@ describe("credential-auth-service", () => {
         email: "user@example.com",
         name: "test.user",
         username: "test.user",
-        usernameDiscriminator: "000001",
+        usernameDiscriminator: "0001",
         passwordHash: "hash-1",
       },
       select: {
@@ -241,7 +264,7 @@ describe("credential-auth-service", () => {
     });
     expect(cryptoMock.randomInt).toHaveBeenCalledWith(
       0,
-      36 ** USERNAME_DISCRIMINATOR_LENGTH
+      10 ** USERNAME_DISCRIMINATOR_LENGTH
     );
     expect(sessionServiceMock.createSessionForUser).toHaveBeenCalledWith("user-1");
     expect(result).toEqual({

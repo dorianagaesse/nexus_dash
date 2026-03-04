@@ -32,7 +32,7 @@ describe("account-menu", () => {
       React.createElement(AccountMenu, {
         isAuthenticated: true,
         displayName: "test.user",
-        usernameTag: "test.user#abc123",
+        usernameTag: "test.user#1234",
       })
     );
 

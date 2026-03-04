@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import {
+  USERNAME_DISCRIMINATOR_LENGTH,
+  USERNAME_DISCRIMINATOR_SPACE,
+} from "@/lib/username-discriminator";
 import { cn } from "@/lib/utils";
 
 type HomeSignupUsernameSuffixProps = {
@@ -31,7 +35,7 @@ function normalizeUsername(value: string): string {
 
 function buildDiscriminatorPreview(username: string): string {
   if (!username) {
-    return "000000";
+    return "0".repeat(USERNAME_DISCRIMINATOR_LENGTH);
   }
 
   let hash = 0;
@@ -39,7 +43,9 @@ function buildDiscriminatorPreview(username: string): string {
     hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
   }
 
-  return hash.toString(36).padStart(6, "0").slice(0, 6);
+  return (hash % USERNAME_DISCRIMINATOR_SPACE)
+    .toString()
+    .padStart(USERNAME_DISCRIMINATOR_LENGTH, "0");
 }
 
 export function HomeSignupUsernameSuffix({

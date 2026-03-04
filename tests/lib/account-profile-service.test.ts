@@ -66,6 +66,29 @@ describe("account-profile-service", () => {
       email: "user@example.com",
       emailVerified: new Date("2026-02-27T00:00:00.000Z"),
       username: "test.user",
+      usernameDiscriminator: "1234",
+    });
+
+    const result = await getAccountProfile("user-1");
+
+    expect(result).toEqual({
+      ok: true,
+      status: 200,
+      data: {
+        email: "user@example.com",
+        isEmailVerified: true,
+        username: "test.user",
+        usernameDiscriminator: "1234",
+        usernameTag: "test.user#1234",
+      },
+    });
+  });
+
+  test("sanitizes legacy non-numeric discriminator in profile summary", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      email: "user@example.com",
+      emailVerified: new Date("2026-02-27T00:00:00.000Z"),
+      username: "test.user",
       usernameDiscriminator: "abc123",
     });
 
@@ -78,8 +101,8 @@ describe("account-profile-service", () => {
         email: "user@example.com",
         isEmailVerified: true,
         username: "test.user",
-        usernameDiscriminator: "abc123",
-        usernameTag: "test.user#abc123",
+        usernameDiscriminator: null,
+        usernameTag: null,
       },
     });
   });
@@ -247,11 +270,11 @@ describe("account-profile-service", () => {
   test("updates username and keeps discriminator when no collision occurs", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
       username: "before",
-      usernameDiscriminator: "aaa111",
+      usernameDiscriminator: "1111",
     });
     prismaMock.user.update.mockResolvedValueOnce({
       username: "after",
-      usernameDiscriminator: "aaa111",
+      usernameDiscriminator: "1111",
     });
 
     const result = await updateAccountUsername({
@@ -263,7 +286,7 @@ describe("account-profile-service", () => {
       where: { id: "user-1" },
       data: {
         username: "after",
-        usernameDiscriminator: "aaa111",
+        usernameDiscriminator: "1111",
         name: "after",
       },
       select: {
@@ -276,8 +299,8 @@ describe("account-profile-service", () => {
       status: 200,
       data: {
         username: "after",
-        usernameDiscriminator: "aaa111",
-        usernameTag: "after#aaa111",
+        usernameDiscriminator: "1111",
+        usernameTag: "after#1111",
         discriminatorRegenerated: false,
       },
     });
@@ -287,7 +310,7 @@ describe("account-profile-service", () => {
     cryptoMock.randomInt.mockReturnValueOnce(2);
     prismaMock.user.findUnique.mockResolvedValueOnce({
       username: "before",
-      usernameDiscriminator: "aaa111",
+      usernameDiscriminator: "1111",
     });
     prismaMock.user.update
       .mockRejectedValueOnce({
@@ -298,7 +321,7 @@ describe("account-profile-service", () => {
       })
       .mockResolvedValueOnce({
         username: "after",
-        usernameDiscriminator: "000002",
+        usernameDiscriminator: "0002",
       });
 
     const result = await updateAccountUsername({
@@ -311,7 +334,7 @@ describe("account-profile-service", () => {
       2,
       expect.objectContaining({
         data: expect.objectContaining({
-          usernameDiscriminator: "000002",
+          usernameDiscriminator: "0002",
         }),
       })
     );
@@ -320,8 +343,8 @@ describe("account-profile-service", () => {
       status: 200,
       data: {
         username: "after",
-        usernameDiscriminator: "000002",
-        usernameTag: "after#000002",
+        usernameDiscriminator: "0002",
+        usernameTag: "after#0002",
         discriminatorRegenerated: true,
       },
     });
@@ -335,7 +358,7 @@ describe("account-profile-service", () => {
     });
     prismaMock.user.update.mockResolvedValueOnce({
       username: "after",
-      usernameDiscriminator: "000005",
+      usernameDiscriminator: "0005",
     });
 
     const result = await updateAccountUsername({
@@ -348,8 +371,48 @@ describe("account-profile-service", () => {
       status: 200,
       data: {
         username: "after",
-        usernameDiscriminator: "000005",
-        usernameTag: "after#000005",
+        usernameDiscriminator: "0005",
+        usernameTag: "after#0005",
+        discriminatorRegenerated: true,
+      },
+    });
+  });
+
+  test("regenerates discriminator when user has legacy non-numeric discriminator", async () => {
+    cryptoMock.randomInt.mockReturnValueOnce(7);
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      username: "before",
+      usernameDiscriminator: "ab12cd",
+    });
+    prismaMock.user.update.mockResolvedValueOnce({
+      username: "after",
+      usernameDiscriminator: "0007",
+    });
+
+    const result = await updateAccountUsername({
+      actorUserId: "user-1",
+      usernameRaw: "after",
+    });
+
+    expect(prismaMock.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        username: "after",
+        usernameDiscriminator: "0007",
+        name: "after",
+      },
+      select: {
+        username: true,
+        usernameDiscriminator: true,
+      },
+    });
+    expect(result).toEqual({
+      ok: true,
+      status: 200,
+      data: {
+        username: "after",
+        usernameDiscriminator: "0007",
+        usernameTag: "after#0007",
         discriminatorRegenerated: true,
       },
     });
@@ -358,7 +421,7 @@ describe("account-profile-service", () => {
   test("returns username-in-use when repeated collisions exceed retry budget", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
       username: "before",
-      usernameDiscriminator: "aaa111",
+      usernameDiscriminator: "1111",
     });
     prismaMock.user.update.mockRejectedValue({
       code: "P2002",

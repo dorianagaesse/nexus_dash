@@ -54,6 +54,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   "invalid-email": "Enter a valid email address.",
   "invalid-username":
     "Username must be 3-20 characters and use only lowercase letters, numbers, dots, or underscores.",
+  "username-in-use": "Could not allocate a unique username tag. Please retry.",
   "password-too-short": `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
   "password-too-long": "Password is too long.",
   "password-requirements-not-met":
