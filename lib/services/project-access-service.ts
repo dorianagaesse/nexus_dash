@@ -1,6 +1,7 @@
 import { ProjectMembershipRole } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import type { DbClient } from "@/lib/services/rls-context";
 
 type ProjectRoleRequirement = ProjectMembershipRole;
 
@@ -57,13 +58,16 @@ export async function requireProjectRole(input: {
   actorUserId: string;
   projectId: string;
   minimumRole: ProjectRoleRequirement;
+  db?: DbClient;
 }): Promise<ProjectAccessResult> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
     return { ok: false, status: 401, error: "unauthorized" };
   }
 
-  const project = await prisma.project.findFirst({
+  const db = input.db ?? prisma;
+
+  const project = await db.project.findFirst({
     where: {
       id: input.projectId,
       ...buildProjectPrincipalWhere(actorUserId),

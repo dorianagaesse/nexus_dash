@@ -57,7 +57,7 @@ Mapping note: `contributor` = DB enum `editor`.
 | Resource | Owner | Contributor (`editor`) | Notes |
 | --- | --- | --- | --- |
 | Project | create/read/update/delete | read | Locked: contributor cannot mutate project metadata. Project rows may only be created with `ownerId = app.current_user_id()`. |
-| ProjectMembership | read/create/update/delete | read | Membership/invite management owner-only. |
+| ProjectMembership | read/create/update/delete | read (own membership row) | Membership/invite management owner-only in v1; contributor can read own membership row but not full project membership list. |
 | Task | read/create/update/delete | read/create/update | Contributor cannot delete task rows. |
 | Resource (context cards) | read/create/update/delete | read/create/update | Contributor cannot delete card rows. |
 | TaskBlockedFollowUp | read/create/update/delete | read/create/update | Delete owner-only for parity with task delete policy. |

@@ -22,6 +22,8 @@ import {
 import { logServerError } from "@/lib/observability/logger";
 import { isAttachmentStorageUnavailableError } from "@/lib/storage/errors";
 import { requireProjectRole } from "@/lib/services/project-access-service";
+import { withActorRlsContext } from "@/lib/services/rls-context";
+import type { DbClient } from "@/lib/services/rls-context";
 
 import type { ParsedAttachmentLink } from "@/lib/services/attachment-input-service";
 
@@ -212,12 +214,14 @@ export async function createTaskAttachmentsFromDraft(input: {
   taskId: string;
   links: ParsedAttachmentLink[];
   files: File[];
+  db?: DbClient;
 }): Promise<void> {
+  const db = input.db ?? prisma;
   const savedStorageKeys: string[] = [];
 
   try {
     if (input.links.length > 0) {
-      await prisma.taskAttachment.createMany({
+      await db.taskAttachment.createMany({
         data: input.links.map((link) => ({
           taskId: input.taskId,
           uploadedByUserId: input.actorUserId,
@@ -242,7 +246,7 @@ export async function createTaskAttachmentsFromDraft(input: {
         resolveAttachmentMimeType(storedFile.mimeType, storedFile.originalName) ??
         "application/octet-stream";
 
-      await prisma.taskAttachment.create({
+      await db.taskAttachment.create({
         data: {
           taskId: input.taskId,
           uploadedByUserId: input.actorUserId,
@@ -272,12 +276,14 @@ export async function createContextAttachmentsFromDraft(input: {
   cardId: string;
   links: ParsedAttachmentLink[];
   files: File[];
+  db?: DbClient;
 }): Promise<void> {
+  const db = input.db ?? prisma;
   const savedStorageKeys: string[] = [];
 
   try {
     if (input.links.length > 0) {
-      await prisma.resourceAttachment.createMany({
+      await db.resourceAttachment.createMany({
         data: input.links.map((link) => ({
           resourceId: input.cardId,
           uploadedByUserId: input.actorUserId,
@@ -302,7 +308,7 @@ export async function createContextAttachmentsFromDraft(input: {
         resolveAttachmentMimeType(storedFile.mimeType, storedFile.originalName) ??
         "application/octet-stream";
 
-      await prisma.resourceAttachment.create({
+      await db.resourceAttachment.create({
         data: {
           resourceId: input.cardId,
           uploadedByUserId: input.actorUserId,
@@ -340,47 +346,121 @@ export async function createTaskAttachmentFromForm(input: {
     return createError(401, "unauthorized");
   }
 
-  const access = await requireProjectRole({
-    actorUserId,
-    projectId: input.projectId,
-    minimumRole: "editor",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
-  }
-
-  const task = await prisma.task.findUnique({
-    where: { id: input.taskId },
-    select: { id: true, projectId: true },
-  });
-
-  if (!task || task.projectId !== input.projectId) {
-    return createError(404, "Task not found");
-  }
-
-  const kind = readText(input.formData, "kind");
-
-  if (!isAttachmentKind(kind)) {
-    return createError(400, "Invalid attachment kind");
-  }
-
-  if (kind === ATTACHMENT_KIND_LINK) {
-    const rawUrl = readText(input.formData, "url");
-    const normalizedUrl = normalizeAttachmentUrl(rawUrl);
-    const providedName = readText(input.formData, "name");
-
-    if (!normalizedUrl) {
-      return createError(400, "Invalid link URL");
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "editor",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
     }
 
+    const task = await db.task.findUnique({
+      where: { id: input.taskId },
+      select: { id: true, projectId: true },
+    });
+
+    if (!task || task.projectId !== input.projectId) {
+      return createError(404, "Task not found");
+    }
+
+    const kind = readText(input.formData, "kind");
+
+    if (!isAttachmentKind(kind)) {
+      return createError(400, "Invalid attachment kind");
+    }
+
+    if (kind === ATTACHMENT_KIND_LINK) {
+      const rawUrl = readText(input.formData, "url");
+      const normalizedUrl = normalizeAttachmentUrl(rawUrl);
+      const providedName = readText(input.formData, "name");
+
+      if (!normalizedUrl) {
+        return createError(400, "Invalid link URL");
+      }
+
+      try {
+        const attachment = await db.taskAttachment.create({
+          data: {
+            taskId: input.taskId,
+            uploadedByUserId: actorUserId,
+            kind: ATTACHMENT_KIND_LINK,
+            name: providedName || new URL(normalizedUrl).hostname,
+            url: normalizedUrl,
+          },
+          select: {
+            id: true,
+            kind: true,
+            name: true,
+            url: true,
+            mimeType: true,
+            sizeBytes: true,
+          },
+        });
+
+        return {
+          ok: true,
+          data: withTaskDownloadUrl(input.projectId, input.taskId, attachment),
+        };
+      } catch (error) {
+        logServerError("createTaskAttachmentFromForm.link", error);
+        return createError(500, "Failed to create attachment");
+      }
+    }
+
+    const fileEntry = input.formData.get("file");
+
+    if (!(fileEntry instanceof File)) {
+      return createError(400, "Missing file");
+    }
+
+    if (fileEntry.size <= 0) {
+      return createError(400, "File is empty");
+    }
+
+    if (fileEntry.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
+      return createError(400, `File exceeds ${MAX_ATTACHMENT_FILE_SIZE_LABEL} limit`);
+    }
+
+    const resolvedFormMimeType = resolveAttachmentMimeType(
+      fileEntry.type,
+      fileEntry.name
+    );
+    if (!resolvedFormMimeType) {
+      return createError(
+        400,
+        "Unsupported file type. Use PDF, image, text, CSV, or JSON."
+      );
+    }
+
+    const providedName = readText(input.formData, "name");
+    let storageKey: string | null = null;
+
     try {
-      const attachment = await prisma.taskAttachment.create({
+      const storedFile = await saveAttachmentFile({
+        scope: "task",
+        actorUserId,
+        projectId: input.projectId,
+        ownerId: input.taskId,
+        file: fileEntry,
+      });
+      storageKey = storedFile.storageKey;
+
+      const resolvedStoredMimeType =
+        resolveAttachmentMimeType(storedFile.mimeType, storedFile.originalName) ??
+        resolvedFormMimeType;
+
+      const attachment = await db.taskAttachment.create({
         data: {
           taskId: input.taskId,
           uploadedByUserId: actorUserId,
-          kind: ATTACHMENT_KIND_LINK,
-          name: providedName || new URL(normalizedUrl).hostname,
-          url: normalizedUrl,
+          kind: ATTACHMENT_KIND_FILE,
+          name: providedName || storedFile.originalName,
+          storageKey: storedFile.storageKey,
+          mimeType: resolvedStoredMimeType,
+          sizeBytes: storedFile.sizeBytes,
         },
         select: {
           id: true,
@@ -397,84 +477,16 @@ export async function createTaskAttachmentFromForm(input: {
         data: withTaskDownloadUrl(input.projectId, input.taskId, attachment),
       };
     } catch (error) {
-      logServerError("createTaskAttachmentFromForm.link", error);
-      return createError(500, "Failed to create attachment");
+      if (storageKey) {
+        await deleteAttachmentFile(storageKey).catch((cleanupError) => {
+          logServerError("createTaskAttachmentFromForm.cleanup", cleanupError);
+        });
+      }
+
+      logServerError("createTaskAttachmentFromForm.file", error);
+      return createError(500, getAttachmentUploadErrorMessage(error));
     }
-  }
-
-  const fileEntry = input.formData.get("file");
-
-  if (!(fileEntry instanceof File)) {
-    return createError(400, "Missing file");
-  }
-
-  if (fileEntry.size <= 0) {
-    return createError(400, "File is empty");
-  }
-
-  if (fileEntry.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
-    return createError(400, `File exceeds ${MAX_ATTACHMENT_FILE_SIZE_LABEL} limit`);
-  }
-
-  const resolvedFormMimeType = resolveAttachmentMimeType(fileEntry.type, fileEntry.name);
-  if (!resolvedFormMimeType) {
-    return createError(
-      400,
-      "Unsupported file type. Use PDF, image, text, CSV, or JSON."
-    );
-  }
-
-  const providedName = readText(input.formData, "name");
-  let storageKey: string | null = null;
-
-  try {
-    const storedFile = await saveAttachmentFile({
-      scope: "task",
-      actorUserId,
-      projectId: input.projectId,
-      ownerId: input.taskId,
-      file: fileEntry,
-    });
-    storageKey = storedFile.storageKey;
-
-    const resolvedStoredMimeType =
-      resolveAttachmentMimeType(storedFile.mimeType, storedFile.originalName) ??
-      resolvedFormMimeType;
-
-    const attachment = await prisma.taskAttachment.create({
-      data: {
-        taskId: input.taskId,
-        uploadedByUserId: actorUserId,
-        kind: ATTACHMENT_KIND_FILE,
-        name: providedName || storedFile.originalName,
-        storageKey: storedFile.storageKey,
-        mimeType: resolvedStoredMimeType,
-        sizeBytes: storedFile.sizeBytes,
-      },
-      select: {
-        id: true,
-        kind: true,
-        name: true,
-        url: true,
-        mimeType: true,
-        sizeBytes: true,
-      },
-    });
-
-    return {
-      ok: true,
-      data: withTaskDownloadUrl(input.projectId, input.taskId, attachment),
-    };
-  } catch (error) {
-    if (storageKey) {
-      await deleteAttachmentFile(storageKey).catch((cleanupError) => {
-        logServerError("createTaskAttachmentFromForm.cleanup", cleanupError);
-      });
-    }
-
-    logServerError("createTaskAttachmentFromForm.file", error);
-    return createError(500, getAttachmentUploadErrorMessage(error));
-  }
+  });
 }
 
 export async function createContextAttachmentFromForm(input: {
@@ -488,51 +500,125 @@ export async function createContextAttachmentFromForm(input: {
     return createError(401, "unauthorized");
   }
 
-  const access = await requireProjectRole({
-    actorUserId,
-    projectId: input.projectId,
-    minimumRole: "editor",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
-  }
-
-  const card = await prisma.resource.findUnique({
-    where: { id: input.cardId },
-    select: { id: true, projectId: true, type: true },
-  });
-
-  if (
-    !card ||
-    card.projectId !== input.projectId ||
-    card.type !== RESOURCE_TYPE_CONTEXT_CARD
-  ) {
-    return createError(404, "Context card not found");
-  }
-
-  const kind = readText(input.formData, "kind");
-
-  if (!isAttachmentKind(kind)) {
-    return createError(400, "Invalid attachment kind");
-  }
-
-  if (kind === ATTACHMENT_KIND_LINK) {
-    const rawUrl = readText(input.formData, "url");
-    const normalizedUrl = normalizeAttachmentUrl(rawUrl);
-    const providedName = readText(input.formData, "name");
-
-    if (!normalizedUrl) {
-      return createError(400, "Invalid link URL");
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "editor",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
     }
 
+    const card = await db.resource.findUnique({
+      where: { id: input.cardId },
+      select: { id: true, projectId: true, type: true },
+    });
+
+    if (
+      !card ||
+      card.projectId !== input.projectId ||
+      card.type !== RESOURCE_TYPE_CONTEXT_CARD
+    ) {
+      return createError(404, "Context card not found");
+    }
+
+    const kind = readText(input.formData, "kind");
+
+    if (!isAttachmentKind(kind)) {
+      return createError(400, "Invalid attachment kind");
+    }
+
+    if (kind === ATTACHMENT_KIND_LINK) {
+      const rawUrl = readText(input.formData, "url");
+      const normalizedUrl = normalizeAttachmentUrl(rawUrl);
+      const providedName = readText(input.formData, "name");
+
+      if (!normalizedUrl) {
+        return createError(400, "Invalid link URL");
+      }
+
+      try {
+        const attachment = await db.resourceAttachment.create({
+          data: {
+            resourceId: input.cardId,
+            uploadedByUserId: actorUserId,
+            kind: ATTACHMENT_KIND_LINK,
+            name: providedName || new URL(normalizedUrl).hostname,
+            url: normalizedUrl,
+          },
+          select: {
+            id: true,
+            kind: true,
+            name: true,
+            url: true,
+            mimeType: true,
+            sizeBytes: true,
+          },
+        });
+
+        return {
+          ok: true,
+          data: withContextDownloadUrl(input.projectId, input.cardId, attachment),
+        };
+      } catch (error) {
+        logServerError("createContextAttachmentFromForm.link", error);
+        return createError(500, "Failed to create attachment");
+      }
+    }
+
+    const fileEntry = input.formData.get("file");
+
+    if (!(fileEntry instanceof File)) {
+      return createError(400, "Missing file");
+    }
+
+    if (fileEntry.size <= 0) {
+      return createError(400, "File is empty");
+    }
+
+    if (fileEntry.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
+      return createError(400, `File exceeds ${MAX_ATTACHMENT_FILE_SIZE_LABEL} limit`);
+    }
+
+    const resolvedFormMimeType = resolveAttachmentMimeType(
+      fileEntry.type,
+      fileEntry.name
+    );
+    if (!resolvedFormMimeType) {
+      return createError(
+        400,
+        "Unsupported file type. Use PDF, image, text, CSV, or JSON."
+      );
+    }
+
+    const providedName = readText(input.formData, "name");
+    let storageKey: string | null = null;
+
     try {
-      const attachment = await prisma.resourceAttachment.create({
+      const storedFile = await saveAttachmentFile({
+        scope: "context-card",
+        actorUserId,
+        projectId: input.projectId,
+        ownerId: input.cardId,
+        file: fileEntry,
+      });
+      storageKey = storedFile.storageKey;
+
+      const resolvedStoredMimeType =
+        resolveAttachmentMimeType(storedFile.mimeType, storedFile.originalName) ??
+        resolvedFormMimeType;
+
+      const attachment = await db.resourceAttachment.create({
         data: {
           resourceId: input.cardId,
           uploadedByUserId: actorUserId,
-          kind: ATTACHMENT_KIND_LINK,
-          name: providedName || new URL(normalizedUrl).hostname,
-          url: normalizedUrl,
+          kind: ATTACHMENT_KIND_FILE,
+          name: providedName || storedFile.originalName,
+          storageKey: storedFile.storageKey,
+          mimeType: resolvedStoredMimeType,
+          sizeBytes: storedFile.sizeBytes,
         },
         select: {
           id: true,
@@ -549,84 +635,16 @@ export async function createContextAttachmentFromForm(input: {
         data: withContextDownloadUrl(input.projectId, input.cardId, attachment),
       };
     } catch (error) {
-      logServerError("createContextAttachmentFromForm.link", error);
-      return createError(500, "Failed to create attachment");
+      if (storageKey) {
+        await deleteAttachmentFile(storageKey).catch((cleanupError) => {
+          logServerError("createContextAttachmentFromForm.cleanup", cleanupError);
+        });
+      }
+
+      logServerError("createContextAttachmentFromForm.file", error);
+      return createError(500, getAttachmentUploadErrorMessage(error));
     }
-  }
-
-  const fileEntry = input.formData.get("file");
-
-  if (!(fileEntry instanceof File)) {
-    return createError(400, "Missing file");
-  }
-
-  if (fileEntry.size <= 0) {
-    return createError(400, "File is empty");
-  }
-
-  if (fileEntry.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
-    return createError(400, `File exceeds ${MAX_ATTACHMENT_FILE_SIZE_LABEL} limit`);
-  }
-
-  const resolvedFormMimeType = resolveAttachmentMimeType(fileEntry.type, fileEntry.name);
-  if (!resolvedFormMimeType) {
-    return createError(
-      400,
-      "Unsupported file type. Use PDF, image, text, CSV, or JSON."
-    );
-  }
-
-  const providedName = readText(input.formData, "name");
-  let storageKey: string | null = null;
-
-  try {
-    const storedFile = await saveAttachmentFile({
-      scope: "context-card",
-      actorUserId,
-      projectId: input.projectId,
-      ownerId: input.cardId,
-      file: fileEntry,
-    });
-    storageKey = storedFile.storageKey;
-
-    const resolvedStoredMimeType =
-      resolveAttachmentMimeType(storedFile.mimeType, storedFile.originalName) ??
-      resolvedFormMimeType;
-
-    const attachment = await prisma.resourceAttachment.create({
-      data: {
-        resourceId: input.cardId,
-        uploadedByUserId: actorUserId,
-        kind: ATTACHMENT_KIND_FILE,
-        name: providedName || storedFile.originalName,
-        storageKey: storedFile.storageKey,
-        mimeType: resolvedStoredMimeType,
-        sizeBytes: storedFile.sizeBytes,
-      },
-      select: {
-        id: true,
-        kind: true,
-        name: true,
-        url: true,
-        mimeType: true,
-        sizeBytes: true,
-      },
-    });
-
-    return {
-      ok: true,
-      data: withContextDownloadUrl(input.projectId, input.cardId, attachment),
-    };
-  } catch (error) {
-    if (storageKey) {
-      await deleteAttachmentFile(storageKey).catch((cleanupError) => {
-        logServerError("createContextAttachmentFromForm.cleanup", cleanupError);
-      });
-    }
-
-    logServerError("createContextAttachmentFromForm.file", error);
-    return createError(500, getAttachmentUploadErrorMessage(error));
-  }
+  });
 }
 
 export async function createTaskAttachmentUploadTarget(input: {
@@ -642,66 +660,69 @@ export async function createTaskAttachmentUploadTarget(input: {
     return createError(401, "unauthorized");
   }
 
-  const access = await requireProjectRole({
-    actorUserId,
-    projectId: input.projectId,
-    minimumRole: "editor",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
-  }
-
-  const task = await prisma.task.findUnique({
-    where: { id: input.taskId },
-    select: { id: true, projectId: true },
-  });
-
-  if (!task || task.projectId !== input.projectId) {
-    return createError(404, "Task not found");
-  }
-
-  const normalizedUpload = normalizeDirectUploadInput({
-    name: input.name,
-    mimeType: input.mimeType,
-    sizeBytes: input.sizeBytes,
-  });
-
-  if (!normalizedUpload.ok) {
-    return normalizedUpload;
-  }
-
-  try {
-    const signedUpload = await createAttachmentSignedUploadUrl({
-      scope: "task",
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
       actorUserId,
       projectId: input.projectId,
-      ownerId: input.taskId,
-      originalName: normalizedUpload.data.name,
-      mimeType: normalizedUpload.data.mimeType,
-      sizeBytes: normalizedUpload.data.sizeBytes,
+      minimumRole: "editor",
+      db,
     });
-
-    if (!signedUpload) {
-      return createError(
-        400,
-        "Direct upload is not available for the current storage provider."
-      );
+    if (!access.ok) {
+      return createError(access.status, access.error);
     }
 
-    return {
-      ok: true,
-      data: {
-        upload: {
-          ...signedUpload,
-          maxFileSizeBytes: DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES,
-          maxFileSizeLabel: DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL,
+    const task = await db.task.findUnique({
+      where: { id: input.taskId },
+      select: { id: true, projectId: true },
+    });
+
+    if (!task || task.projectId !== input.projectId) {
+      return createError(404, "Task not found");
+    }
+
+    const normalizedUpload = normalizeDirectUploadInput({
+      name: input.name,
+      mimeType: input.mimeType,
+      sizeBytes: input.sizeBytes,
+    });
+
+    if (!normalizedUpload.ok) {
+      return normalizedUpload;
+    }
+
+    try {
+      const signedUpload = await createAttachmentSignedUploadUrl({
+        scope: "task",
+        actorUserId,
+        projectId: input.projectId,
+        ownerId: input.taskId,
+        originalName: normalizedUpload.data.name,
+        mimeType: normalizedUpload.data.mimeType,
+        sizeBytes: normalizedUpload.data.sizeBytes,
+      });
+
+      if (!signedUpload) {
+        return createError(
+          400,
+          "Direct upload is not available for the current storage provider."
+        );
+      }
+
+      return {
+        ok: true,
+        data: {
+          upload: {
+            ...signedUpload,
+            maxFileSizeBytes: DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES,
+            maxFileSizeLabel: DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL,
+          },
         },
-      },
-    };
-  } catch (error) {
-    logServerError("createTaskAttachmentUploadTarget", error);
-    return createError(500, getAttachmentUploadErrorMessage(error));
-  }
+      };
+    } catch (error) {
+      logServerError("createTaskAttachmentUploadTarget", error);
+      return createError(500, getAttachmentUploadErrorMessage(error));
+    }
+  });
 }
 
 export async function finalizeTaskAttachmentDirectUpload(input: {
@@ -718,116 +739,119 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
     return createError(401, "unauthorized");
   }
 
-  const access = await requireProjectRole({
-    actorUserId,
-    projectId: input.projectId,
-    minimumRole: "editor",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
-  }
-
-  const task = await prisma.task.findUnique({
-    where: { id: input.taskId },
-    select: { id: true, projectId: true },
-  });
-
-  if (!task || task.projectId !== input.projectId) {
-    return createError(404, "Task not found");
-  }
-
-  const normalizedStorageKey = input.storageKey.trim();
-  if (
-    !hasExpectedStoragePrefix(
-      normalizedStorageKey,
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
       actorUserId,
-      input.projectId,
-      "task",
-      input.taskId
-    )
-  ) {
-    return createError(400, "Invalid storage key");
-  }
+      projectId: input.projectId,
+      minimumRole: "editor",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
 
-  const normalizedUpload = normalizeDirectUploadInput({
-    name: input.name,
-    mimeType: input.mimeType,
-    sizeBytes: input.sizeBytes,
+    const task = await db.task.findUnique({
+      where: { id: input.taskId },
+      select: { id: true, projectId: true },
+    });
+
+    if (!task || task.projectId !== input.projectId) {
+      return createError(404, "Task not found");
+    }
+
+    const normalizedStorageKey = input.storageKey.trim();
+    if (
+      !hasExpectedStoragePrefix(
+        normalizedStorageKey,
+        actorUserId,
+        input.projectId,
+        "task",
+        input.taskId
+      )
+    ) {
+      return createError(400, "Invalid storage key");
+    }
+
+    const normalizedUpload = normalizeDirectUploadInput({
+      name: input.name,
+      mimeType: input.mimeType,
+      sizeBytes: input.sizeBytes,
+    });
+
+    if (!normalizedUpload.ok) {
+      return normalizedUpload;
+    }
+
+    try {
+      const metadata = await readAttachmentStoredFileMetadata(normalizedStorageKey);
+      if (!metadata) {
+        return createError(404, "Uploaded file not found");
+      }
+
+      const resolvedSizeBytes = metadata.sizeBytes ?? normalizedUpload.data.sizeBytes;
+      const resolvedMimeType =
+        resolveAttachmentMimeType(metadata.mimeType, normalizedUpload.data.name) ??
+        normalizedUpload.data.mimeType;
+
+      if (resolvedSizeBytes <= 0) {
+        await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
+          logServerError("finalizeTaskAttachmentDirectUpload.cleanup", cleanupError);
+        });
+        return createError(400, "File is empty");
+      }
+
+      if (resolvedSizeBytes > DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES) {
+        await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
+          logServerError("finalizeTaskAttachmentDirectUpload.cleanup", cleanupError);
+        });
+        return createError(
+          400,
+          `File exceeds ${DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL} limit`
+        );
+      }
+
+      if (!resolveAttachmentMimeType(resolvedMimeType, normalizedUpload.data.name)) {
+        await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
+          logServerError("finalizeTaskAttachmentDirectUpload.cleanup", cleanupError);
+        });
+        return createError(
+          400,
+          "Unsupported file type. Use PDF, image, text, CSV, or JSON."
+        );
+      }
+
+      const attachment = await db.taskAttachment.create({
+        data: {
+          taskId: input.taskId,
+          uploadedByUserId: actorUserId,
+          kind: ATTACHMENT_KIND_FILE,
+          name: normalizedUpload.data.name,
+          storageKey: normalizedStorageKey,
+          mimeType: resolvedMimeType,
+          sizeBytes: resolvedSizeBytes,
+        },
+        select: {
+          id: true,
+          kind: true,
+          name: true,
+          url: true,
+          mimeType: true,
+          sizeBytes: true,
+        },
+      });
+
+      return {
+        ok: true,
+        data: withTaskDownloadUrl(input.projectId, input.taskId, attachment),
+      };
+    } catch (error) {
+      await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
+        logServerError("finalizeTaskAttachmentDirectUpload.cleanup", cleanupError);
+      });
+      logServerError("finalizeTaskAttachmentDirectUpload", error);
+      return createError(500, "Failed to upload attachment");
+    }
   });
-
-  if (!normalizedUpload.ok) {
-    return normalizedUpload;
-  }
-
-  try {
-    const metadata = await readAttachmentStoredFileMetadata(normalizedStorageKey);
-    if (!metadata) {
-      return createError(404, "Uploaded file not found");
-    }
-
-    const resolvedSizeBytes = metadata.sizeBytes ?? normalizedUpload.data.sizeBytes;
-    const resolvedMimeType =
-      resolveAttachmentMimeType(metadata.mimeType, normalizedUpload.data.name) ??
-      normalizedUpload.data.mimeType;
-
-    if (resolvedSizeBytes <= 0) {
-      await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
-        logServerError("finalizeTaskAttachmentDirectUpload.cleanup", cleanupError);
-      });
-      return createError(400, "File is empty");
-    }
-
-    if (resolvedSizeBytes > DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES) {
-      await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
-        logServerError("finalizeTaskAttachmentDirectUpload.cleanup", cleanupError);
-      });
-      return createError(
-        400,
-        `File exceeds ${DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL} limit`
-      );
-    }
-
-    if (!resolveAttachmentMimeType(resolvedMimeType, normalizedUpload.data.name)) {
-      await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
-        logServerError("finalizeTaskAttachmentDirectUpload.cleanup", cleanupError);
-      });
-      return createError(
-        400,
-        "Unsupported file type. Use PDF, image, text, CSV, or JSON."
-      );
-    }
-
-    const attachment = await prisma.taskAttachment.create({
-      data: {
-        taskId: input.taskId,
-        uploadedByUserId: actorUserId,
-        kind: ATTACHMENT_KIND_FILE,
-        name: normalizedUpload.data.name,
-        storageKey: normalizedStorageKey,
-        mimeType: resolvedMimeType,
-        sizeBytes: resolvedSizeBytes,
-      },
-      select: {
-        id: true,
-        kind: true,
-        name: true,
-        url: true,
-        mimeType: true,
-        sizeBytes: true,
-      },
-    });
-
-    return {
-      ok: true,
-      data: withTaskDownloadUrl(input.projectId, input.taskId, attachment),
-    };
-  } catch (error) {
-    await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
-      logServerError("finalizeTaskAttachmentDirectUpload.cleanup", cleanupError);
-    });
-    logServerError("finalizeTaskAttachmentDirectUpload", error);
-    return createError(500, "Failed to upload attachment");
-  }
 }
 
 export async function createContextAttachmentUploadTarget(input: {
@@ -843,70 +867,73 @@ export async function createContextAttachmentUploadTarget(input: {
     return createError(401, "unauthorized");
   }
 
-  const access = await requireProjectRole({
-    actorUserId,
-    projectId: input.projectId,
-    minimumRole: "editor",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
-  }
-
-  const card = await prisma.resource.findUnique({
-    where: { id: input.cardId },
-    select: { id: true, projectId: true, type: true },
-  });
-
-  if (
-    !card ||
-    card.projectId !== input.projectId ||
-    card.type !== RESOURCE_TYPE_CONTEXT_CARD
-  ) {
-    return createError(404, "Context card not found");
-  }
-
-  const normalizedUpload = normalizeDirectUploadInput({
-    name: input.name,
-    mimeType: input.mimeType,
-    sizeBytes: input.sizeBytes,
-  });
-
-  if (!normalizedUpload.ok) {
-    return normalizedUpload;
-  }
-
-  try {
-    const signedUpload = await createAttachmentSignedUploadUrl({
-      scope: "context-card",
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
       actorUserId,
       projectId: input.projectId,
-      ownerId: input.cardId,
-      originalName: normalizedUpload.data.name,
-      mimeType: normalizedUpload.data.mimeType,
-      sizeBytes: normalizedUpload.data.sizeBytes,
+      minimumRole: "editor",
+      db,
     });
-
-    if (!signedUpload) {
-      return createError(
-        400,
-        "Direct upload is not available for the current storage provider."
-      );
+    if (!access.ok) {
+      return createError(access.status, access.error);
     }
 
-    return {
-      ok: true,
-      data: {
-        upload: {
-          ...signedUpload,
-          maxFileSizeBytes: DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES,
-          maxFileSizeLabel: DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL,
+    const card = await db.resource.findUnique({
+      where: { id: input.cardId },
+      select: { id: true, projectId: true, type: true },
+    });
+
+    if (
+      !card ||
+      card.projectId !== input.projectId ||
+      card.type !== RESOURCE_TYPE_CONTEXT_CARD
+    ) {
+      return createError(404, "Context card not found");
+    }
+
+    const normalizedUpload = normalizeDirectUploadInput({
+      name: input.name,
+      mimeType: input.mimeType,
+      sizeBytes: input.sizeBytes,
+    });
+
+    if (!normalizedUpload.ok) {
+      return normalizedUpload;
+    }
+
+    try {
+      const signedUpload = await createAttachmentSignedUploadUrl({
+        scope: "context-card",
+        actorUserId,
+        projectId: input.projectId,
+        ownerId: input.cardId,
+        originalName: normalizedUpload.data.name,
+        mimeType: normalizedUpload.data.mimeType,
+        sizeBytes: normalizedUpload.data.sizeBytes,
+      });
+
+      if (!signedUpload) {
+        return createError(
+          400,
+          "Direct upload is not available for the current storage provider."
+        );
+      }
+
+      return {
+        ok: true,
+        data: {
+          upload: {
+            ...signedUpload,
+            maxFileSizeBytes: DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES,
+            maxFileSizeLabel: DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL,
+          },
         },
-      },
-    };
-  } catch (error) {
-    logServerError("createContextAttachmentUploadTarget", error);
-    return createError(500, getAttachmentUploadErrorMessage(error));
-  }
+      };
+    } catch (error) {
+      logServerError("createContextAttachmentUploadTarget", error);
+      return createError(500, getAttachmentUploadErrorMessage(error));
+    }
+  });
 }
 
 export async function finalizeContextAttachmentDirectUpload(input: {
@@ -923,120 +950,123 @@ export async function finalizeContextAttachmentDirectUpload(input: {
     return createError(401, "unauthorized");
   }
 
-  const access = await requireProjectRole({
-    actorUserId,
-    projectId: input.projectId,
-    minimumRole: "editor",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
-  }
-
-  const card = await prisma.resource.findUnique({
-    where: { id: input.cardId },
-    select: { id: true, projectId: true, type: true },
-  });
-
-  if (
-    !card ||
-    card.projectId !== input.projectId ||
-    card.type !== RESOURCE_TYPE_CONTEXT_CARD
-  ) {
-    return createError(404, "Context card not found");
-  }
-
-  const normalizedStorageKey = input.storageKey.trim();
-  if (
-    !hasExpectedStoragePrefix(
-      normalizedStorageKey,
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
       actorUserId,
-      input.projectId,
-      "context-card",
-      input.cardId
-    )
-  ) {
-    return createError(400, "Invalid storage key");
-  }
+      projectId: input.projectId,
+      minimumRole: "editor",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
 
-  const normalizedUpload = normalizeDirectUploadInput({
-    name: input.name,
-    mimeType: input.mimeType,
-    sizeBytes: input.sizeBytes,
+    const card = await db.resource.findUnique({
+      where: { id: input.cardId },
+      select: { id: true, projectId: true, type: true },
+    });
+
+    if (
+      !card ||
+      card.projectId !== input.projectId ||
+      card.type !== RESOURCE_TYPE_CONTEXT_CARD
+    ) {
+      return createError(404, "Context card not found");
+    }
+
+    const normalizedStorageKey = input.storageKey.trim();
+    if (
+      !hasExpectedStoragePrefix(
+        normalizedStorageKey,
+        actorUserId,
+        input.projectId,
+        "context-card",
+        input.cardId
+      )
+    ) {
+      return createError(400, "Invalid storage key");
+    }
+
+    const normalizedUpload = normalizeDirectUploadInput({
+      name: input.name,
+      mimeType: input.mimeType,
+      sizeBytes: input.sizeBytes,
+    });
+
+    if (!normalizedUpload.ok) {
+      return normalizedUpload;
+    }
+
+    try {
+      const metadata = await readAttachmentStoredFileMetadata(normalizedStorageKey);
+      if (!metadata) {
+        return createError(404, "Uploaded file not found");
+      }
+
+      const resolvedSizeBytes = metadata.sizeBytes ?? normalizedUpload.data.sizeBytes;
+      const resolvedMimeType =
+        resolveAttachmentMimeType(metadata.mimeType, normalizedUpload.data.name) ??
+        normalizedUpload.data.mimeType;
+
+      if (resolvedSizeBytes <= 0) {
+        await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
+          logServerError("finalizeContextAttachmentDirectUpload.cleanup", cleanupError);
+        });
+        return createError(400, "File is empty");
+      }
+
+      if (resolvedSizeBytes > DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES) {
+        await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
+          logServerError("finalizeContextAttachmentDirectUpload.cleanup", cleanupError);
+        });
+        return createError(
+          400,
+          `File exceeds ${DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL} limit`
+        );
+      }
+
+      if (!resolveAttachmentMimeType(resolvedMimeType, normalizedUpload.data.name)) {
+        await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
+          logServerError("finalizeContextAttachmentDirectUpload.cleanup", cleanupError);
+        });
+        return createError(
+          400,
+          "Unsupported file type. Use PDF, image, text, CSV, or JSON."
+        );
+      }
+
+      const attachment = await db.resourceAttachment.create({
+        data: {
+          resourceId: input.cardId,
+          uploadedByUserId: actorUserId,
+          kind: ATTACHMENT_KIND_FILE,
+          name: normalizedUpload.data.name,
+          storageKey: normalizedStorageKey,
+          mimeType: resolvedMimeType,
+          sizeBytes: resolvedSizeBytes,
+        },
+        select: {
+          id: true,
+          kind: true,
+          name: true,
+          url: true,
+          mimeType: true,
+          sizeBytes: true,
+        },
+      });
+
+      return {
+        ok: true,
+        data: withContextDownloadUrl(input.projectId, input.cardId, attachment),
+      };
+    } catch (error) {
+      await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
+        logServerError("finalizeContextAttachmentDirectUpload.cleanup", cleanupError);
+      });
+      logServerError("finalizeContextAttachmentDirectUpload", error);
+      return createError(500, "Failed to upload attachment");
+    }
   });
-
-  if (!normalizedUpload.ok) {
-    return normalizedUpload;
-  }
-
-  try {
-    const metadata = await readAttachmentStoredFileMetadata(normalizedStorageKey);
-    if (!metadata) {
-      return createError(404, "Uploaded file not found");
-    }
-
-    const resolvedSizeBytes = metadata.sizeBytes ?? normalizedUpload.data.sizeBytes;
-    const resolvedMimeType =
-      resolveAttachmentMimeType(metadata.mimeType, normalizedUpload.data.name) ??
-      normalizedUpload.data.mimeType;
-
-    if (resolvedSizeBytes <= 0) {
-      await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
-        logServerError("finalizeContextAttachmentDirectUpload.cleanup", cleanupError);
-      });
-      return createError(400, "File is empty");
-    }
-
-    if (resolvedSizeBytes > DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES) {
-      await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
-        logServerError("finalizeContextAttachmentDirectUpload.cleanup", cleanupError);
-      });
-      return createError(
-        400,
-        `File exceeds ${DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL} limit`
-      );
-    }
-
-    if (!resolveAttachmentMimeType(resolvedMimeType, normalizedUpload.data.name)) {
-      await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
-        logServerError("finalizeContextAttachmentDirectUpload.cleanup", cleanupError);
-      });
-      return createError(
-        400,
-        "Unsupported file type. Use PDF, image, text, CSV, or JSON."
-      );
-    }
-
-    const attachment = await prisma.resourceAttachment.create({
-      data: {
-        resourceId: input.cardId,
-        uploadedByUserId: actorUserId,
-        kind: ATTACHMENT_KIND_FILE,
-        name: normalizedUpload.data.name,
-        storageKey: normalizedStorageKey,
-        mimeType: resolvedMimeType,
-        sizeBytes: resolvedSizeBytes,
-      },
-      select: {
-        id: true,
-        kind: true,
-        name: true,
-        url: true,
-        mimeType: true,
-        sizeBytes: true,
-      },
-    });
-
-    return {
-      ok: true,
-      data: withContextDownloadUrl(input.projectId, input.cardId, attachment),
-    };
-  } catch (error) {
-    await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
-      logServerError("finalizeContextAttachmentDirectUpload.cleanup", cleanupError);
-    });
-    logServerError("finalizeContextAttachmentDirectUpload", error);
-    return createError(500, "Failed to upload attachment");
-  }
 }
 
 export async function cleanupTaskDirectUploadObject(input: {
@@ -1050,50 +1080,53 @@ export async function cleanupTaskDirectUploadObject(input: {
     return createError(401, "unauthorized");
   }
 
-  const access = await requireProjectRole({
-    actorUserId,
-    projectId: input.projectId,
-    minimumRole: "editor",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
-  }
-
-  const task = await prisma.task.findUnique({
-    where: { id: input.taskId },
-    select: { id: true, projectId: true },
-  });
-
-  if (!task || task.projectId !== input.projectId) {
-    return createError(404, "Task not found");
-  }
-
-  const normalizedStorageKey = input.storageKey.trim();
-  if (
-    !hasExpectedStoragePrefix(
-      normalizedStorageKey,
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
       actorUserId,
-      input.projectId,
-      "task",
-      input.taskId
-    )
-  ) {
-    return createError(400, "Invalid storage key");
-  }
+      projectId: input.projectId,
+      minimumRole: "editor",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
 
-  try {
-    await deleteAttachmentFile(normalizedStorageKey).catch((error) => {
-      logServerError("cleanupTaskDirectUploadObject.cleanup", error);
+    const task = await db.task.findUnique({
+      where: { id: input.taskId },
+      select: { id: true, projectId: true },
     });
 
-    return {
-      ok: true,
-      data: { ok: true },
-    };
-  } catch (error) {
-    logServerError("cleanupTaskDirectUploadObject", error);
-    return createError(500, "Failed to cleanup uploaded file");
-  }
+    if (!task || task.projectId !== input.projectId) {
+      return createError(404, "Task not found");
+    }
+
+    const normalizedStorageKey = input.storageKey.trim();
+    if (
+      !hasExpectedStoragePrefix(
+        normalizedStorageKey,
+        actorUserId,
+        input.projectId,
+        "task",
+        input.taskId
+      )
+    ) {
+      return createError(400, "Invalid storage key");
+    }
+
+    try {
+      await deleteAttachmentFile(normalizedStorageKey).catch((error) => {
+        logServerError("cleanupTaskDirectUploadObject.cleanup", error);
+      });
+
+      return {
+        ok: true,
+        data: { ok: true },
+      };
+    } catch (error) {
+      logServerError("cleanupTaskDirectUploadObject", error);
+      return createError(500, "Failed to cleanup uploaded file");
+    }
+  });
 }
 
 export async function cleanupContextDirectUploadObject(input: {
@@ -1107,54 +1140,57 @@ export async function cleanupContextDirectUploadObject(input: {
     return createError(401, "unauthorized");
   }
 
-  const access = await requireProjectRole({
-    actorUserId,
-    projectId: input.projectId,
-    minimumRole: "editor",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
-  }
-
-  const card = await prisma.resource.findUnique({
-    where: { id: input.cardId },
-    select: { id: true, projectId: true, type: true },
-  });
-
-  if (
-    !card ||
-    card.projectId !== input.projectId ||
-    card.type !== RESOURCE_TYPE_CONTEXT_CARD
-  ) {
-    return createError(404, "Context card not found");
-  }
-
-  const normalizedStorageKey = input.storageKey.trim();
-  if (
-    !hasExpectedStoragePrefix(
-      normalizedStorageKey,
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
       actorUserId,
-      input.projectId,
-      "context-card",
-      input.cardId
-    )
-  ) {
-    return createError(400, "Invalid storage key");
-  }
+      projectId: input.projectId,
+      minimumRole: "editor",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
 
-  try {
-    await deleteAttachmentFile(normalizedStorageKey).catch((error) => {
-      logServerError("cleanupContextDirectUploadObject.cleanup", error);
+    const card = await db.resource.findUnique({
+      where: { id: input.cardId },
+      select: { id: true, projectId: true, type: true },
     });
 
-    return {
-      ok: true,
-      data: { ok: true },
-    };
-  } catch (error) {
-    logServerError("cleanupContextDirectUploadObject", error);
-    return createError(500, "Failed to cleanup uploaded file");
-  }
+    if (
+      !card ||
+      card.projectId !== input.projectId ||
+      card.type !== RESOURCE_TYPE_CONTEXT_CARD
+    ) {
+      return createError(404, "Context card not found");
+    }
+
+    const normalizedStorageKey = input.storageKey.trim();
+    if (
+      !hasExpectedStoragePrefix(
+        normalizedStorageKey,
+        actorUserId,
+        input.projectId,
+        "context-card",
+        input.cardId
+      )
+    ) {
+      return createError(400, "Invalid storage key");
+    }
+
+    try {
+      await deleteAttachmentFile(normalizedStorageKey).catch((error) => {
+        logServerError("cleanupContextDirectUploadObject.cleanup", error);
+      });
+
+      return {
+        ok: true,
+        data: { ok: true },
+      };
+    } catch (error) {
+      logServerError("cleanupContextDirectUploadObject", error);
+      return createError(500, "Failed to cleanup uploaded file");
+    }
+  });
 }
 
 export async function deleteTaskAttachmentForProject(input: {
@@ -1168,72 +1204,75 @@ export async function deleteTaskAttachmentForProject(input: {
     return createError(401, "unauthorized");
   }
 
-  const access = await requireProjectRole({
-    actorUserId,
-    projectId: input.projectId,
-    minimumRole: "editor",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
-  }
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "owner",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
 
-  try {
-    const attachment = await prisma.taskAttachment.findUnique({
-      where: { id: input.attachmentId },
-      select: {
-        id: true,
-        kind: true,
-        storageKey: true,
-        uploadedByUserId: true,
-        task: {
-          select: {
-            id: true,
-            projectId: true,
+    try {
+      const attachment = await db.taskAttachment.findUnique({
+        where: { id: input.attachmentId },
+        select: {
+          id: true,
+          kind: true,
+          storageKey: true,
+          uploadedByUserId: true,
+          task: {
+            select: {
+              id: true,
+              projectId: true,
+            },
           },
         },
-      },
-    });
-
-    if (
-      !attachment ||
-      attachment.task.id !== input.taskId ||
-      attachment.task.projectId !== input.projectId
-    ) {
-      return createError(404, "Attachment not found");
-    }
-
-    if (
-      attachment.kind === ATTACHMENT_KIND_FILE &&
-      attachment.storageKey &&
-      !hasExpectedStoragePrefix(
-        attachment.storageKey,
-        attachment.uploadedByUserId,
-        input.projectId,
-        "task",
-        input.taskId
-      )
-    ) {
-      return createError(404, "Attachment not found");
-    }
-
-    await prisma.taskAttachment.delete({
-      where: { id: attachment.id },
-    });
-
-    if (attachment.kind === ATTACHMENT_KIND_FILE && attachment.storageKey) {
-      await deleteAttachmentFile(attachment.storageKey).catch((error) => {
-        logServerError("deleteTaskAttachmentForProject.cleanup", error);
       });
-    }
 
-    return {
-      ok: true,
-      data: { ok: true },
-    };
-  } catch (error) {
-    logServerError("deleteTaskAttachmentForProject", error);
-    return createError(500, "Failed to delete attachment");
-  }
+      if (
+        !attachment ||
+        attachment.task.id !== input.taskId ||
+        attachment.task.projectId !== input.projectId
+      ) {
+        return createError(404, "Attachment not found");
+      }
+
+      if (
+        attachment.kind === ATTACHMENT_KIND_FILE &&
+        attachment.storageKey &&
+        !hasExpectedStoragePrefix(
+          attachment.storageKey,
+          attachment.uploadedByUserId,
+          input.projectId,
+          "task",
+          input.taskId
+        )
+      ) {
+        return createError(404, "Attachment not found");
+      }
+
+      await db.taskAttachment.delete({
+        where: { id: attachment.id },
+      });
+
+      if (attachment.kind === ATTACHMENT_KIND_FILE && attachment.storageKey) {
+        await deleteAttachmentFile(attachment.storageKey).catch((error) => {
+          logServerError("deleteTaskAttachmentForProject.cleanup", error);
+        });
+      }
+
+      return {
+        ok: true,
+        data: { ok: true },
+      };
+    } catch (error) {
+      logServerError("deleteTaskAttachmentForProject", error);
+      return createError(500, "Failed to delete attachment");
+    }
+  });
 }
 
 export async function deleteContextAttachmentForProject(input: {
@@ -1247,74 +1286,77 @@ export async function deleteContextAttachmentForProject(input: {
     return createError(401, "unauthorized");
   }
 
-  const access = await requireProjectRole({
-    actorUserId,
-    projectId: input.projectId,
-    minimumRole: "editor",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
-  }
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "owner",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
 
-  try {
-    const attachment = await prisma.resourceAttachment.findUnique({
-      where: { id: input.attachmentId },
-      select: {
-        id: true,
-        kind: true,
-        storageKey: true,
-        uploadedByUserId: true,
-        resource: {
-          select: {
-            id: true,
-            projectId: true,
-            type: true,
+    try {
+      const attachment = await db.resourceAttachment.findUnique({
+        where: { id: input.attachmentId },
+        select: {
+          id: true,
+          kind: true,
+          storageKey: true,
+          uploadedByUserId: true,
+          resource: {
+            select: {
+              id: true,
+              projectId: true,
+              type: true,
+            },
           },
         },
-      },
-    });
-
-    if (
-      !attachment ||
-      attachment.resource.id !== input.cardId ||
-      attachment.resource.projectId !== input.projectId ||
-      attachment.resource.type !== RESOURCE_TYPE_CONTEXT_CARD
-    ) {
-      return createError(404, "Attachment not found");
-    }
-
-    if (
-      attachment.kind === ATTACHMENT_KIND_FILE &&
-      attachment.storageKey &&
-      !hasExpectedStoragePrefix(
-        attachment.storageKey,
-        attachment.uploadedByUserId,
-        input.projectId,
-        "context-card",
-        input.cardId
-      )
-    ) {
-      return createError(404, "Attachment not found");
-    }
-
-    await prisma.resourceAttachment.delete({
-      where: { id: attachment.id },
-    });
-
-    if (attachment.kind === ATTACHMENT_KIND_FILE && attachment.storageKey) {
-      await deleteAttachmentFile(attachment.storageKey).catch((error) => {
-        logServerError("deleteContextAttachmentForProject.cleanup", error);
       });
-    }
 
-    return {
-      ok: true,
-      data: { ok: true },
-    };
-  } catch (error) {
-    logServerError("deleteContextAttachmentForProject", error);
-    return createError(500, "Failed to delete attachment");
-  }
+      if (
+        !attachment ||
+        attachment.resource.id !== input.cardId ||
+        attachment.resource.projectId !== input.projectId ||
+        attachment.resource.type !== RESOURCE_TYPE_CONTEXT_CARD
+      ) {
+        return createError(404, "Attachment not found");
+      }
+
+      if (
+        attachment.kind === ATTACHMENT_KIND_FILE &&
+        attachment.storageKey &&
+        !hasExpectedStoragePrefix(
+          attachment.storageKey,
+          attachment.uploadedByUserId,
+          input.projectId,
+          "context-card",
+          input.cardId
+        )
+      ) {
+        return createError(404, "Attachment not found");
+      }
+
+      await db.resourceAttachment.delete({
+        where: { id: attachment.id },
+      });
+
+      if (attachment.kind === ATTACHMENT_KIND_FILE && attachment.storageKey) {
+        await deleteAttachmentFile(attachment.storageKey).catch((error) => {
+          logServerError("deleteContextAttachmentForProject.cleanup", error);
+        });
+      }
+
+      return {
+        ok: true,
+        data: { ok: true },
+      };
+    } catch (error) {
+      logServerError("deleteContextAttachmentForProject", error);
+      return createError(500, "Failed to delete attachment");
+    }
+  });
 }
 
 export async function getTaskAttachmentDownload(input: {
@@ -1329,84 +1371,87 @@ export async function getTaskAttachmentDownload(input: {
     return createError(401, "unauthorized");
   }
 
-  const access = await requireProjectRole({
-    actorUserId,
-    projectId: input.projectId,
-    minimumRole: "viewer",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
-  }
-
-  try {
-    const attachment = await prisma.taskAttachment.findUnique({
-      where: { id: input.attachmentId },
-      select: {
-        kind: true,
-        name: true,
-        mimeType: true,
-        storageKey: true,
-        uploadedByUserId: true,
-        task: {
-          select: {
-            id: true,
-            projectId: true,
-          },
-        },
-      },
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "viewer",
+      db,
     });
-
-    if (
-      !attachment ||
-      attachment.task.id !== input.taskId ||
-      attachment.task.projectId !== input.projectId ||
-      attachment.kind !== ATTACHMENT_KIND_FILE ||
-      !attachment.storageKey ||
-      !hasExpectedStoragePrefix(
-        attachment.storageKey,
-        attachment.uploadedByUserId,
-        input.projectId,
-        "task",
-        input.taskId
-      )
-    ) {
-      return createError(404, "File attachment not found");
+    if (!access.ok) {
+      return createError(access.status, access.error);
     }
 
-    const contentType = attachment.mimeType || "application/octet-stream";
-    const filename = encodeURIComponent(attachment.name || "attachment");
-    const contentDisposition = `${input.disposition}; filename*=UTF-8''${filename}`;
-    const signedUrl = await getAttachmentDownloadUrl({
-      storageKey: attachment.storageKey,
-      contentType,
-      contentDisposition,
-    });
+    try {
+      const attachment = await db.taskAttachment.findUnique({
+        where: { id: input.attachmentId },
+        select: {
+          kind: true,
+          name: true,
+          mimeType: true,
+          storageKey: true,
+          uploadedByUserId: true,
+          task: {
+            select: {
+              id: true,
+              projectId: true,
+            },
+          },
+        },
+      });
 
-    if (signedUrl) {
+      if (
+        !attachment ||
+        attachment.task.id !== input.taskId ||
+        attachment.task.projectId !== input.projectId ||
+        attachment.kind !== ATTACHMENT_KIND_FILE ||
+        !attachment.storageKey ||
+        !hasExpectedStoragePrefix(
+          attachment.storageKey,
+          attachment.uploadedByUserId,
+          input.projectId,
+          "task",
+          input.taskId
+        )
+      ) {
+        return createError(404, "File attachment not found");
+      }
+
+      const contentType = attachment.mimeType || "application/octet-stream";
+      const filename = encodeURIComponent(attachment.name || "attachment");
+      const contentDisposition = `${input.disposition}; filename*=UTF-8''${filename}`;
+      const signedUrl = await getAttachmentDownloadUrl({
+        storageKey: attachment.storageKey,
+        contentType,
+        contentDisposition,
+      });
+
+      if (signedUrl) {
+        return {
+          ok: true,
+          data: {
+            mode: "redirect",
+            redirectUrl: signedUrl,
+          },
+        };
+      }
+
+      const buffer = await readAttachmentFile(attachment.storageKey);
+
       return {
         ok: true,
         data: {
-          mode: "redirect",
-          redirectUrl: signedUrl,
+          mode: "proxy",
+          content: new Uint8Array(buffer),
+          contentType,
+          contentDisposition,
         },
       };
+    } catch (error) {
+      logServerError("getTaskAttachmentDownload", error);
+      return createError(500, "Failed to read attachment");
     }
-
-    const buffer = await readAttachmentFile(attachment.storageKey);
-
-    return {
-      ok: true,
-      data: {
-        mode: "proxy",
-        content: new Uint8Array(buffer),
-        contentType,
-        contentDisposition,
-      },
-    };
-  } catch (error) {
-    logServerError("getTaskAttachmentDownload", error);
-    return createError(500, "Failed to read attachment");
-  }
+  });
 }
 
 export async function getContextAttachmentDownload(input: {
@@ -1421,84 +1466,87 @@ export async function getContextAttachmentDownload(input: {
     return createError(401, "unauthorized");
   }
 
-  const access = await requireProjectRole({
-    actorUserId,
-    projectId: input.projectId,
-    minimumRole: "viewer",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
-  }
-
-  try {
-    const attachment = await prisma.resourceAttachment.findUnique({
-      where: { id: input.attachmentId },
-      select: {
-        kind: true,
-        name: true,
-        mimeType: true,
-        storageKey: true,
-        uploadedByUserId: true,
-        resource: {
-          select: {
-            id: true,
-            projectId: true,
-            type: true,
-          },
-        },
-      },
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "viewer",
+      db,
     });
-
-    if (
-      !attachment ||
-      attachment.resource.id !== input.cardId ||
-      attachment.resource.projectId !== input.projectId ||
-      attachment.resource.type !== RESOURCE_TYPE_CONTEXT_CARD ||
-      attachment.kind !== ATTACHMENT_KIND_FILE ||
-      !attachment.storageKey ||
-      !hasExpectedStoragePrefix(
-        attachment.storageKey,
-        attachment.uploadedByUserId,
-        input.projectId,
-        "context-card",
-        input.cardId
-      )
-    ) {
-      return createError(404, "File attachment not found");
+    if (!access.ok) {
+      return createError(access.status, access.error);
     }
 
-    const contentType = attachment.mimeType || "application/octet-stream";
-    const filename = encodeURIComponent(attachment.name || "attachment");
-    const contentDisposition = `${input.disposition}; filename*=UTF-8''${filename}`;
-    const signedUrl = await getAttachmentDownloadUrl({
-      storageKey: attachment.storageKey,
-      contentType,
-      contentDisposition,
-    });
+    try {
+      const attachment = await db.resourceAttachment.findUnique({
+        where: { id: input.attachmentId },
+        select: {
+          kind: true,
+          name: true,
+          mimeType: true,
+          storageKey: true,
+          uploadedByUserId: true,
+          resource: {
+            select: {
+              id: true,
+              projectId: true,
+              type: true,
+            },
+          },
+        },
+      });
 
-    if (signedUrl) {
+      if (
+        !attachment ||
+        attachment.resource.id !== input.cardId ||
+        attachment.resource.projectId !== input.projectId ||
+        attachment.resource.type !== RESOURCE_TYPE_CONTEXT_CARD ||
+        attachment.kind !== ATTACHMENT_KIND_FILE ||
+        !attachment.storageKey ||
+        !hasExpectedStoragePrefix(
+          attachment.storageKey,
+          attachment.uploadedByUserId,
+          input.projectId,
+          "context-card",
+          input.cardId
+        )
+      ) {
+        return createError(404, "File attachment not found");
+      }
+
+      const contentType = attachment.mimeType || "application/octet-stream";
+      const filename = encodeURIComponent(attachment.name || "attachment");
+      const contentDisposition = `${input.disposition}; filename*=UTF-8''${filename}`;
+      const signedUrl = await getAttachmentDownloadUrl({
+        storageKey: attachment.storageKey,
+        contentType,
+        contentDisposition,
+      });
+
+      if (signedUrl) {
+        return {
+          ok: true,
+          data: {
+            mode: "redirect",
+            redirectUrl: signedUrl,
+          },
+        };
+      }
+
+      const buffer = await readAttachmentFile(attachment.storageKey);
+
       return {
         ok: true,
         data: {
-          mode: "redirect",
-          redirectUrl: signedUrl,
+          mode: "proxy",
+          content: new Uint8Array(buffer),
+          contentType,
+          contentDisposition,
         },
       };
+    } catch (error) {
+      logServerError("getContextAttachmentDownload", error);
+      return createError(500, "Failed to read attachment");
     }
-
-    const buffer = await readAttachmentFile(attachment.storageKey);
-
-    return {
-      ok: true,
-      data: {
-        mode: "proxy",
-        content: new Uint8Array(buffer),
-        contentType,
-        contentDisposition,
-      },
-    };
-  } catch (error) {
-    logServerError("getContextAttachmentDownload", error);
-    return createError(500, "Failed to read attachment");
-  }
+  });
 }

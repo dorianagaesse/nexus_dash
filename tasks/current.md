@@ -4,7 +4,7 @@
 TASK-085
 
 ## Status
-Ready (2026-03-05)
+In Progress (Phase 1 implemented on branch, 2026-03-05)
 
 ## Objective
 Enable PostgreSQL Row-Level Security on user/project-scoped tables with a safe staged rollout (staging first, then production), preserving current application behavior while adding DB-level tenant isolation.
@@ -40,6 +40,18 @@ Enable PostgreSQL Row-Level Security on user/project-scoped tables with a safe s
 - CI checks green.
 - Staging verification completed before production rollout.
 - Tracking files updated (`tasks/current.md`, `tasks/backlog.md`, `journal.md`, `adr/decisions.md` as applicable).
+
+## Implementation Progress
+- Added migration `prisma/migrations/20260305173000_task085_rls_phase1_enable_policies/migration.sql`:
+  - `ENABLE ROW LEVEL SECURITY` on TASK-085 v1 tables.
+  - Added explicit RLS policies for owner/contributor (`editor`) matrix.
+  - Added helper function `app.current_user_id()` for policy evaluation.
+- Added transaction-scoped actor propagation helper `lib/services/rls-context.ts` using:
+  - `SELECT set_config('app.user_id', <actor>, true)` inside transaction scope.
+- Wired project-scoped and user-scoped services to execute protected queries in actor-context transactions:
+  - `project-service`, `project-task-service`, `context-card-service`, `project-attachment-service`, `project-access-service`, `google-calendar-credential-service`.
+- Locked service behavior to match agreed permissions:
+  - contributor cannot delete tasks/context cards/attachments.
 
 ---
 

@@ -2,7 +2,6 @@ import {
   CONTEXT_CARD_COLORS,
   isContextCardColor,
 } from "@/lib/context-card-colors";
-import { prisma } from "@/lib/prisma";
 import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
 import {
   parseAttachmentLinksJson,
@@ -11,6 +10,7 @@ import {
 import { logServerError } from "@/lib/observability/logger";
 import { createContextAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
 import { requireProjectRole } from "@/lib/services/project-access-service";
+import { withActorRlsContext } from "@/lib/services/rls-context";
 
 const MIN_TITLE_LENGTH = 2;
 const MAX_CONTEXT_TITLE_LENGTH = 120;
@@ -85,15 +85,6 @@ export async function createContextCardForProject(
     return createError(401, "unauthorized");
   }
 
-  const access = await requireProjectRole({
-    actorUserId,
-    projectId: input.projectId,
-    minimumRole: "editor",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
-  }
-
   const title = normalizeText(input.title);
   const content = normalizeText(input.content);
   const color = resolveContextColor(normalizeText(input.color));
@@ -126,45 +117,58 @@ export async function createContextCardForProject(
 
   let createdCardId: string | null = null;
 
-  try {
-    const createdCard = await prisma.resource.create({
-      data: {
-        projectId: input.projectId,
-        type: RESOURCE_TYPE_CONTEXT_CARD,
-        name: title,
-        content,
-        color,
-      },
-      select: { id: true },
-    });
-    createdCardId = createdCard.id;
-
-    await createContextAttachmentsFromDraft({
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
       actorUserId,
       projectId: input.projectId,
-      cardId: createdCard.id,
-      links: parsedLinks.links,
-      files: input.attachmentFiles,
+      minimumRole: "editor",
+      db,
     });
-
-    return {
-      ok: true,
-      data: { id: createdCard.id },
-    };
-  } catch (error) {
-    if (createdCardId) {
-      await prisma.resource
-        .delete({
-          where: { id: createdCardId },
-        })
-        .catch((cleanupError) => {
-          logServerError("createContextCardForProject.cleanup", cleanupError);
-        });
+    if (!access.ok) {
+      return createError(access.status, access.error);
     }
 
-    logServerError("createContextCardForProject", error);
-    return createError(500, "context-create-failed");
-  }
+    try {
+      const createdCard = await db.resource.create({
+        data: {
+          projectId: input.projectId,
+          type: RESOURCE_TYPE_CONTEXT_CARD,
+          name: title,
+          content,
+          color,
+        },
+        select: { id: true },
+      });
+      createdCardId = createdCard.id;
+
+      await createContextAttachmentsFromDraft({
+        actorUserId,
+        projectId: input.projectId,
+        cardId: createdCard.id,
+        links: parsedLinks.links,
+        files: input.attachmentFiles,
+        db,
+      });
+
+      return {
+        ok: true,
+        data: { id: createdCard.id },
+      };
+    } catch (error) {
+      if (createdCardId) {
+        await db.resource
+          .delete({
+            where: { id: createdCardId },
+          })
+          .catch((cleanupError) => {
+            logServerError("createContextCardForProject.cleanup", cleanupError);
+          });
+      }
+
+      logServerError("createContextCardForProject", error);
+      return createError(500, "context-create-failed");
+    }
+  });
 }
 
 export async function updateContextCardForProject(
@@ -173,15 +177,6 @@ export async function updateContextCardForProject(
   const actorUserId = normalizeText(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
-  }
-
-  const access = await requireProjectRole({
-    actorUserId,
-    projectId: input.projectId,
-    minimumRole: "editor",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
   }
 
   const cardId = normalizeText(input.cardId);
@@ -209,37 +204,49 @@ export async function updateContextCardForProject(
     return createError(400, "context-color-invalid");
   }
 
-  try {
-    const existingCard = await prisma.resource.findUnique({
-      where: { id: cardId },
-      select: { id: true, projectId: true, type: true },
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "editor",
+      db,
     });
-
-    if (
-      !existingCard ||
-      existingCard.projectId !== input.projectId ||
-      existingCard.type !== RESOURCE_TYPE_CONTEXT_CARD
-    ) {
-      return createError(404, "context-card-not-found");
+    if (!access.ok) {
+      return createError(access.status, access.error);
     }
 
-    await prisma.resource.update({
-      where: { id: cardId },
-      data: {
-        name: title,
-        content,
-        color,
-      },
-    });
+    try {
+      const existingCard = await db.resource.findUnique({
+        where: { id: cardId },
+        select: { id: true, projectId: true, type: true },
+      });
 
-    return {
-      ok: true,
-      data: { ok: true },
-    };
-  } catch (error) {
-    logServerError("updateContextCardForProject", error);
-    return createError(500, "context-update-failed");
-  }
+      if (
+        !existingCard ||
+        existingCard.projectId !== input.projectId ||
+        existingCard.type !== RESOURCE_TYPE_CONTEXT_CARD
+      ) {
+        return createError(404, "context-card-not-found");
+      }
+
+      await db.resource.update({
+        where: { id: cardId },
+        data: {
+          name: title,
+          content,
+          color,
+        },
+      });
+
+      return {
+        ok: true,
+        data: { ok: true },
+      };
+    } catch (error) {
+      logServerError("updateContextCardForProject", error);
+      return createError(500, "context-update-failed");
+    }
+  });
 }
 
 export async function deleteContextCardForProject(
@@ -250,45 +257,48 @@ export async function deleteContextCardForProject(
     return createError(401, "unauthorized");
   }
 
-  const access = await requireProjectRole({
-    actorUserId,
-    projectId: input.projectId,
-    minimumRole: "editor",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
-  }
-
   const cardId = normalizeText(input.cardId);
 
   if (!cardId) {
     return createError(400, "context-card-missing");
   }
 
-  try {
-    const existingCard = await prisma.resource.findUnique({
-      where: { id: cardId },
-      select: { id: true, projectId: true, type: true },
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "owner",
+      db,
     });
-
-    if (
-      !existingCard ||
-      existingCard.projectId !== input.projectId ||
-      existingCard.type !== RESOURCE_TYPE_CONTEXT_CARD
-    ) {
-      return createError(404, "context-card-not-found");
+    if (!access.ok) {
+      return createError(access.status, access.error);
     }
 
-    await prisma.resource.delete({
-      where: { id: cardId },
-    });
+    try {
+      const existingCard = await db.resource.findUnique({
+        where: { id: cardId },
+        select: { id: true, projectId: true, type: true },
+      });
 
-    return {
-      ok: true,
-      data: { ok: true },
-    };
-  } catch (error) {
-    logServerError("deleteContextCardForProject", error);
-    return createError(500, "context-delete-failed");
-  }
+      if (
+        !existingCard ||
+        existingCard.projectId !== input.projectId ||
+        existingCard.type !== RESOURCE_TYPE_CONTEXT_CARD
+      ) {
+        return createError(404, "context-card-not-found");
+      }
+
+      await db.resource.delete({
+        where: { id: cardId },
+      });
+
+      return {
+        ok: true,
+        data: { ok: true },
+      };
+    } catch (error) {
+      logServerError("deleteContextCardForProject", error);
+      return createError(500, "context-delete-failed");
+    }
+  });
 }
