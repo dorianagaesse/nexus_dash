@@ -9,6 +9,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Enforce tenant isolation at the database layer by enabling Row-Level Security on user/project-scoped tables, defining explicit allow policies for authenticated principals, validating behavior in staging first, then promoting to production with rollback-safe migration/runbook coverage.
   Dependencies: TASK-046, TASK-067, TASK-076
+- ID: TASK-093
+  Title: Task lifecycle UX - manual archive action for done tasks
+  Status: Pending
+  Rationale: Done-task archiving is currently automatic-only; add an explicit user action (`Move to Archive`) in task options so users can archive completed tasks immediately without waiting for stale-task auto-archive.
+  Dependencies: TASK-046, TASK-076, TASK-079
 - ID: TASK-068
   Title: Authentication provider rollout - phase social providers (Google/GitHub) after baseline email auth
   Status: Pending
