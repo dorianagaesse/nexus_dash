@@ -1,24 +1,17 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const txMock = vi.hoisted(() => ({
-  task: {
-    update: vi.fn(),
-    findUnique: vi.fn(),
-  },
-  taskBlockedFollowUp: {
-    create: vi.fn(),
-  },
-}));
-
 const prismaMock = vi.hoisted(() => ({
   project: {
     findFirst: vi.fn(),
   },
   task: {
     findUnique: vi.fn(),
+    update: vi.fn(),
     delete: vi.fn(),
   },
-  $transaction: vi.fn(),
+  taskBlockedFollowUp: {
+    create: vi.fn(),
+  },
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -46,9 +39,6 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       ownerId: "test-user",
       memberships: [],
     });
-    prismaMock.$transaction.mockImplementation(async (callback: (tx: typeof txMock) => unknown) =>
-      callback(txMock)
-    );
     attachmentStorageMock.deleteAttachmentFile.mockResolvedValue(undefined);
   });
 
@@ -115,7 +105,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       status: "Blocked",
       position: 0,
     });
-    txMock.task.findUnique.mockResolvedValueOnce({
+    prismaMock.task.findUnique.mockResolvedValueOnce({
       id: "t1",
       title: "Updated task",
       label: "Critical",
@@ -157,8 +147,8 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       },
     });
 
-    expect(txMock.task.update).toHaveBeenCalledTimes(1);
-    const updatePayload = txMock.task.update.mock.calls[0][0];
+    expect(prismaMock.task.update).toHaveBeenCalledTimes(1);
+    const updatePayload = prismaMock.task.update.mock.calls[0][0];
     expect(updatePayload.where).toEqual({ id: "t1" });
     expect(updatePayload.data).toMatchObject({
       title: "Updated task",
@@ -167,8 +157,8 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       description: "<p>Hello</p>",
     });
 
-    expect(txMock.taskBlockedFollowUp.create).toHaveBeenCalledTimes(1);
-    expect(txMock.taskBlockedFollowUp.create).toHaveBeenCalledWith({
+    expect(prismaMock.taskBlockedFollowUp.create).toHaveBeenCalledTimes(1);
+    expect(prismaMock.taskBlockedFollowUp.create).toHaveBeenCalledWith({
       data: {
         taskId: "t1",
         content: "Waiting on IAM role",
@@ -183,7 +173,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       status: "In Progress",
       position: 2,
     });
-    txMock.task.findUnique.mockResolvedValueOnce({
+    prismaMock.task.findUnique.mockResolvedValueOnce({
       id: "t1",
       title: "Updated",
       label: null,
@@ -209,7 +199,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(txMock.taskBlockedFollowUp.create).not.toHaveBeenCalled();
+    expect(prismaMock.taskBlockedFollowUp.create).not.toHaveBeenCalled();
   });
 
   test("returns 500 when database operations fail", async () => {

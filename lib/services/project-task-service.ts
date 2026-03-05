@@ -322,14 +322,7 @@ export async function reorderProjectTasks(
           })
       );
 
-      const maybeTransactionClient = db as {
-        $transaction?: (operations: unknown[]) => Promise<unknown>;
-      };
-      if (typeof maybeTransactionClient.$transaction === "function") {
-        await maybeTransactionClient.$transaction(updateOperations);
-      } else {
-        await Promise.all(updateOperations);
-      }
+      await Promise.all(updateOperations);
 
       return {
         ok: true,
@@ -432,14 +425,7 @@ export async function updateTaskForProject(
         });
       };
 
-      const maybeTransactionClient = db as {
-        $transaction?: <T>(callback: (tx: typeof db) => Promise<T>) => Promise<T>;
-      };
-
-      const updatedTask =
-        typeof maybeTransactionClient.$transaction === "function"
-          ? await maybeTransactionClient.$transaction((tx) => updateWithClient(tx))
-          : await updateWithClient(db);
+      const updatedTask = await updateWithClient(db);
 
       if (!updatedTask) {
         return createError(404, "Task not found");
