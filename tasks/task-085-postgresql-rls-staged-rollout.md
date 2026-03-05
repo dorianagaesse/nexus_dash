@@ -56,7 +56,7 @@ Mapping note: `contributor` = DB enum `editor`.
 
 | Resource | Owner | Contributor (`editor`) | Notes |
 | --- | --- | --- | --- |
-| Project | read/update/delete | read | Locked: contributor cannot mutate project metadata. |
+| Project | create/read/update/delete | read | Locked: contributor cannot mutate project metadata. Project rows may only be created with `ownerId = app.current_user_id()`. |
 | ProjectMembership | read/create/update/delete | read | Membership/invite management owner-only. |
 | Task | read/create/update/delete | read/create/update | Contributor cannot delete task rows. |
 | Resource (context cards) | read/create/update/delete | read/create/update | Contributor cannot delete card rows. |
@@ -74,14 +74,14 @@ Mapping note: `contributor` = DB enum `editor`.
 - Rollout must be reversible without data loss.
 - Existing CI/CD and migration pipeline must remain functional.
 - Local development/test ergonomics should remain practical.
-- No pooler mode change in this task (keep current session pooler strategy).
+- No database connectivity/pooling topology change in this task (keep current pooled vs direct endpoint usage as-is).
 
 ## Actor Context Propagation Contract
 - App runtime must set actor identity in DB transaction context for all RLS-protected service operations:
   - `set_config('app.user_id', <actorUserId>, true)` where `true` is transaction-local.
 - All protected queries must run in the same transaction/client after setting context.
-- Runtime role must remain least-privilege (`app_runtime`, non-owner, no RLS bypass).
-- Migration/admin connections stay separate (`MIGRATION_DATABASE_URL` / direct admin path).
+- Runtime connections (`DATABASE_URL`, through the pooler) must remain least-privilege (non-owner, no RLS bypass).
+- Migration/admin connections use the direct admin path (`DIRECT_URL`), typically wired from a separate `MIGRATION_DATABASE_URL` secret in CI (for example GitHub Actions) for migration env vars.
 
 ## Proposed Rollout Plan
 1. Finalize policy SQL and actor-context helpers in-repo.
@@ -95,7 +95,7 @@ Mapping note: `contributor` = DB enum `editor`.
 
 ## SQL Policy Plan (Staging First)
 ### Phase A: Prerequisites
-- Confirm staging runtime uses least-privilege runtime role (`app_runtime`) in `DATABASE_URL`.
+- Confirm staging runtime uses a least-privilege runtime role in `DATABASE_URL` (non-owner, no RLS bypass).
 - Confirm GitHub deploy workflow uses dedicated `MIGRATION_DATABASE_URL` for migrations.
 
 ### Phase B: Migration Contents (RLS v1)
