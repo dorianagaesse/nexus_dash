@@ -53,6 +53,7 @@ jobs:
       VERCEL_SCOPE: ${{ secrets.VERCEL_ORG_ID }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
       GOOGLE_TOKEN_ENCRYPTION_KEY: ${{ secrets.GOOGLE_TOKEN_ENCRYPTION_KEY }}
       GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
       GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
@@ -88,6 +89,20 @@ jobs:
             exit 1
           fi
 
+      - name: Validate migration connection secret
+        run: |
+          if [ -z "$MIGRATION_DATABASE_URL" ]; then
+            echo "::error::Missing required GitHub secret: MIGRATION_DATABASE_URL"
+            echo "::error::Migrations must never fall back to runtime DATABASE_URL."
+            exit 1
+          fi
+
+          if [ -n "$DATABASE_URL" ] && [ "$MIGRATION_DATABASE_URL" = "$DATABASE_URL" ]; then
+            echo "::error::MIGRATION_DATABASE_URL must not be equal to DATABASE_URL."
+            echo "::error::Use a dedicated migration connection, separate from runtime app traffic."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -107,12 +122,7 @@ jobs:
 
       - name: Apply Prisma migrations
         run: |
-          if npx prisma migrate deploy; then
-            echo "Prisma migrations applied via configured DIRECT_URL."
-            exit 0
-          fi
-          echo "::warning::Prisma migrate via DIRECT_URL failed; retrying with DATABASE_URL fallback."
-          DIRECT_URL="$DATABASE_URL" npx prisma migrate deploy
+          DATABASE_URL="$MIGRATION_DATABASE_URL" DIRECT_URL="$MIGRATION_DATABASE_URL" npx prisma migrate deploy
 
       - name: Pull Vercel environment (production)
         run: npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=production --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
@@ -155,6 +165,7 @@ jobs:
       VERCEL_SCOPE: ${{ secrets.VERCEL_ORG_ID }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
       GOOGLE_TOKEN_ENCRYPTION_KEY: ${{ secrets.GOOGLE_TOKEN_ENCRYPTION_KEY }}
       GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
       GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
@@ -220,15 +231,25 @@ jobs:
         if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
         run: npx prisma generate
 
+      - name: Validate migration connection secret
+        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
+        run: |
+          if [ -z "$MIGRATION_DATABASE_URL" ]; then
+            echo "::error::Missing required GitHub secret: MIGRATION_DATABASE_URL"
+            echo "::error::Migrations must never fall back to runtime DATABASE_URL."
+            exit 1
+          fi
+
+          if [ -n "$DATABASE_URL" ] && [ "$MIGRATION_DATABASE_URL" = "$DATABASE_URL" ]; then
+            echo "::error::MIGRATION_DATABASE_URL must not be equal to DATABASE_URL."
+            echo "::error::Use a dedicated migration connection, separate from runtime app traffic."
+            exit 1
+          fi
+
       - name: Apply Prisma migrations
         if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
         run: |
-          if npx prisma migrate deploy; then
-            echo "Prisma migrations applied via configured DIRECT_URL."
-            exit 0
-          fi
-          echo "::warning::Prisma migrate via DIRECT_URL failed; retrying with DATABASE_URL fallback."
-          DIRECT_URL="$DATABASE_URL" npx prisma migrate deploy
+          DATABASE_URL="$MIGRATION_DATABASE_URL" DIRECT_URL="$MIGRATION_DATABASE_URL" npx prisma migrate deploy
 
       - name: Deploy preview
         if: inputs.action == 'deploy-preview'

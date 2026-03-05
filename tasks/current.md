@@ -1,43 +1,47 @@
-# Current Task: ISSUE-081 Username Discriminator Numeric-4 Contract
+# Current Task: TASK-085 PostgreSQL Hardening - RLS Staged Rollout
 
 ## Task ID
-ISSUE-081
+TASK-085
 
 ## Status
-In Review (2026-03-04)
+Ready (2026-03-05)
 
 ## Objective
-Enforce username discriminator format as exactly 4 numeric digits across generation, storage, and account identity surfaces.
+Enable PostgreSQL Row-Level Security on user/project-scoped tables with a safe staged rollout (staging first, then production), preserving current application behavior while adding DB-level tenant isolation.
 
 ## Why Now
-- Current discriminator behavior uses 6-character base36 values, which no longer matches the expected identity format.
-- A strict 4-digit numeric contract keeps tags predictable and easier to communicate.
+- ISSUE-081 is complete and merged.
+- TASK-085 is the top item in the current execution queue in `tasks/backlog.md`.
+- Service-layer authorization is already in place; DB-level isolation is the next hardening layer.
 
 ## Scope
-- Update discriminator generation policy from 6-char base36 to 4-digit numeric.
-- Sanitize legacy invalid discriminator values for account/profile display and username updates.
-- Align Prisma schema/migration with the new discriminator format constraint.
-- Update UI preview and regression tests (unit + e2e helpers) for the numeric-4 contract.
+- Define RLS policy strategy for user/project-scoped tables.
+- Implement SQL migration(s) for RLS enablement and policies.
+- Wire runtime DB session context required by policies (if needed).
+- Validate behavior in staging with rollback-safe steps.
+- Promote to production after staging verification.
+- Add/extend runbook documentation for rollout, verification, and rollback.
+- Add regression coverage for authorized vs unauthorized access paths where feasible.
 
 ## Out of Scope
-- Username syntax/length policy changes.
-- Auth/session architecture changes.
-- Broader profile UX redesign.
+- New collaboration/invitation product features.
+- Agent/API token model changes.
+- Broad auth UX changes.
 
 ## Acceptance Criteria
-- Newly generated discriminators are always 4 digits (`0000`-`9999`).
-- Account profile and identity summary do not expose legacy invalid discriminator formats.
-- Username update flow regenerates invalid/legacy discriminator values when needed.
-- Prisma schema + migration enforce `usernameDiscriminator` as `VARCHAR(4)` with numeric-only check.
+- RLS is enabled on target tables with explicit allow policies.
+- Authorized application flows continue to work in staging.
+- Unauthorized cross-user/project data access is denied at the DB layer.
+- Rollout and rollback procedures are documented and reproducible.
 - Validation baseline is green for this branch.
 
 ## Definition of Done
-- Branch + PR opened and linked to issue #81.
+- Branch + PR opened for TASK-085.
 - CI checks green.
-- Copilot review threads handled/resolved.
-- Tracking files updated (`tasks/current.md`, `journal.md`, `adr/decisions.md`).
+- Staging verification completed before production rollout.
+- Tracking files updated (`tasks/current.md`, `tasks/backlog.md`, `journal.md`, `adr/decisions.md` as applicable).
 
 ---
 
-Last Updated: 2026-03-04
+Last Updated: 2026-03-05
 Assigned To: User + Agent
