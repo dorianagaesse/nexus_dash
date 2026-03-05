@@ -97,6 +97,12 @@ jobs:
             exit 1
           fi
 
+          if [ -n "$DATABASE_URL" ] && [ "$MIGRATION_DATABASE_URL" = "$DATABASE_URL" ]; then
+            echo "::error::MIGRATION_DATABASE_URL must not be equal to DATABASE_URL."
+            echo "::error::Use a dedicated migration connection, separate from runtime app traffic."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -231,6 +237,12 @@ jobs:
           if [ -z "$MIGRATION_DATABASE_URL" ]; then
             echo "::error::Missing required GitHub secret: MIGRATION_DATABASE_URL"
             echo "::error::Migrations must never fall back to runtime DATABASE_URL."
+            exit 1
+          fi
+
+          if [ -n "$DATABASE_URL" ] && [ "$MIGRATION_DATABASE_URL" = "$DATABASE_URL" ]; then
+            echo "::error::MIGRATION_DATABASE_URL must not be equal to DATABASE_URL."
+            echo "::error::Use a dedicated migration connection, separate from runtime app traffic."
             exit 1
           fi
 
