@@ -4,7 +4,7 @@
 TASK-085
 
 ## Status
-Ready (2026-03-05)
+In Progress (Phase 1 implemented and preview-validated, 2026-03-06)
 
 ## Objective
 Enable PostgreSQL Row-Level Security on user/project-scoped tables with a safe staged rollout (staging first, then production), preserving current application behavior while adding DB-level tenant isolation.
@@ -41,7 +41,47 @@ Enable PostgreSQL Row-Level Security on user/project-scoped tables with a safe s
 - Staging verification completed before production rollout.
 - Tracking files updated (`tasks/current.md`, `tasks/backlog.md`, `journal.md`, `adr/decisions.md` as applicable).
 
+## Implementation Progress
+- Added migration `prisma/migrations/20260305173000_task085_rls_phase1_enable_policies/migration.sql`:
+  - `ENABLE ROW LEVEL SECURITY` on TASK-085 v1 tables.
+  - Added explicit RLS policies for owner/contributor (`editor`) matrix.
+  - Added helper function `app.current_user_id()` for policy evaluation.
+- Added transaction-scoped actor propagation helper `lib/services/rls-context.ts` using:
+  - `SELECT set_config('app.user_id', <actor>, true)` inside transaction scope.
+- Wired project-scoped and user-scoped services to execute protected queries in actor-context transactions:
+  - `project-service`, `project-task-service`, `context-card-service`, `project-attachment-service`, `project-access-service`, `google-calendar-credential-service`.
+- Locked service behavior to match agreed permissions:
+  - contributor cannot delete tasks/context cards/attachments.
+- Added recursion fix migration to avoid policy loop between `Project` and `ProjectMembership`:
+  - `prisma/migrations/20260306193000_task085_rls_project_membership_recursion_fix/migration.sql`
+- Preview deploy validation now passes on branch `feature/task-085-rls-phase1` after recursion fix.
+
+## Current Position (Explicit)
+- Phase 1 (`ENABLE RLS` + policies, no `FORCE`) is implemented and validated on preview/staging runtime.
+- Known blocker (white screen + `42P17` recursion) is fixed in branch with migration `20260306193000`.
+- Task is **not complete yet** because FORCE-RLS phase and production staged rollout are still pending.
+
+## Next Steps (Ordered Checklist)
+1. Merge PR for `feature/task-085-rls-phase1` once CI is green.
+2. Keep staging in soak window and monitor logs for permission regressions.
+3. Apply Phase 2 migration on staging to `FORCE ROW LEVEL SECURITY` on TASK-085 target tables.
+4. Re-run staging validation:
+   - owner happy path
+   - contributor (`editor`) create/update allowed
+   - contributor delete denied
+   - non-member access denied
+   - `GoogleCalendarCredential` remains user-scoped
+   - `/api/health/ready` healthy
+5. Promote to production with same staged sequence:
+   - Step A: RLS policies enabled (no force), validate.
+   - Step B: `FORCE ROW LEVEL SECURITY`, validate again.
+6. Close task tracking artifacts:
+   - mark TASK-085 done in `tasks/backlog.md`
+   - set `tasks/current.md` status to Completed
+   - append rollout evidence/results in `journal.md`
+   - update `adr/decisions.md` if final rollout decisions changed
+
 ---
 
-Last Updated: 2026-03-05
+Last Updated: 2026-03-06
 Assigned To: User + Agent

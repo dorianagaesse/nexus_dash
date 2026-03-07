@@ -16,6 +16,13 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-03-05 - Propagate app principal via transaction-scoped Postgres settings for RLS
+- Status: Accepted
+- Context: TASK-085 requires DB-level isolation on project/user scoped tables while runtime uses pooled connections, which makes session-level `SET` unsafe.
+- Decision: Added `withActorRlsContext()` service helper to run protected operations in a transaction, set `app.user_id` via `set_config(..., true)`, and evaluate RLS policies through `app.current_user_id()` in PostgreSQL.
+- Consequences: RLS policy evaluation is actor-aware and pooler-safe; service paths touching protected tables must run through actor-context transactions.
+- Links: `tasks/task-085-postgresql-rls-staged-rollout.md`, `prisma/migrations/20260305173000_task085_rls_phase1_enable_policies/migration.sql`, `lib/services/rls-context.ts`
+
 ## 2026-03-04 - Narrow username discriminator contract to 4-digit numeric format
 - Status: Accepted
 - Context: Username identity tags previously used 6-character base36 discriminators, but product direction now requires a shorter numeric-only suffix.

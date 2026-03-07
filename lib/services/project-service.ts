@@ -6,6 +6,8 @@ import {
   buildProjectPrincipalWhere,
   requireProjectRole,
 } from "@/lib/services/project-access-service";
+import { withActorRlsContext } from "@/lib/services/rls-context";
+import type { DbClient } from "@/lib/services/rls-context";
 
 const ARCHIVE_AFTER_DAYS = 7;
 const ARCHIVE_AFTER_MS = ARCHIVE_AFTER_DAYS * 24 * 60 * 60 * 1000;
@@ -65,14 +67,14 @@ function normalizeActorUserId(actorUserId: string | null | undefined): string {
   return actorUserId.trim();
 }
 
-async function ensureSyntheticTestUserExists(actorUserId: string) {
+async function ensureSyntheticTestUserExists(actorUserId: string, db: DbClient = prisma) {
   const allowSyntheticUser =
     process.env.NODE_ENV === "test" || process.env.CI === "true";
   if (!allowSyntheticUser || actorUserId !== "test-user") {
     return;
   }
 
-  await prisma.user.upsert({
+  await db.user.upsert({
     where: { id: actorUserId },
     update: {},
     create: { id: actorUserId },
@@ -87,18 +89,20 @@ export async function listProjectsWithCounts(
     return [];
   }
 
-  return prisma.project.findMany({
-    where: buildProjectPrincipalWhere(normalizedActorUserId),
-    orderBy: [{ updatedAt: "desc" }],
-    include: {
-      _count: {
-        select: {
-          tasks: true,
-          resources: true,
+  return withActorRlsContext(normalizedActorUserId, (db) =>
+    db.project.findMany({
+      where: buildProjectPrincipalWhere(normalizedActorUserId),
+      orderBy: [{ updatedAt: "desc" }],
+      include: {
+        _count: {
+          select: {
+            tasks: true,
+            resources: true,
+          },
         },
       },
-    },
-  }) as Promise<ProjectWithCountsRecord[]>;
+    })
+  ) as Promise<ProjectWithCountsRecord[]>;
 }
 
 export type ProjectWithCounts = Awaited<
@@ -111,39 +115,49 @@ export async function createProject(input: ProjectUpsertInput) {
     throw new Error("unauthorized");
   }
 
-  await ensureSyntheticTestUserExists(actorUserId);
+  return withActorRlsContext(actorUserId, async (db) => {
+    await ensureSyntheticTestUserExists(actorUserId, db);
 
-  return prisma.project.create({
-    data: {
-      ownerId: actorUserId,
-      name: input.name,
-      description: input.description,
-      memberships: {
-        create: {
-          userId: actorUserId,
-          role: "owner",
+    return db.project.create({
+      data: {
+        ownerId: actorUserId,
+        name: input.name,
+        description: input.description,
+        memberships: {
+          create: {
+            userId: actorUserId,
+            role: "owner",
+          },
         },
       },
-    },
+    });
   });
 }
 
 export async function updateProject(input: ProjectUpdateInput) {
-  const access = await requireProjectRole({
-    actorUserId: input.actorUserId,
-    projectId: input.projectId,
-    minimumRole: "owner",
-  });
-  if (!access.ok) {
-    throw new Error(access.error);
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) {
+    throw new Error("unauthorized");
   }
 
-  return prisma.project.update({
-    where: { id: input.projectId },
-    data: {
-      name: input.name,
-      description: input.description,
-    },
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "owner",
+      db,
+    });
+    if (!access.ok) {
+      throw new Error(access.error);
+    }
+
+    return db.project.update({
+      where: { id: input.projectId },
+      data: {
+        name: input.name,
+        description: input.description,
+      },
+    });
   });
 }
 
@@ -151,17 +165,25 @@ export async function deleteProject(input: {
   actorUserId: string;
   projectId: string;
 }) {
-  const access = await requireProjectRole({
-    actorUserId: input.actorUserId,
-    projectId: input.projectId,
-    minimumRole: "owner",
-  });
-  if (!access.ok) {
-    throw new Error(access.error);
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) {
+    throw new Error("unauthorized");
   }
 
-  return prisma.project.delete({
-    where: { id: input.projectId },
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "owner",
+      db,
+    });
+    if (!access.ok) {
+      throw new Error(access.error);
+    }
+
+    return db.project.delete({
+      where: { id: input.projectId },
+    });
   });
 }
 
@@ -180,16 +202,20 @@ function buildStaleDoneTaskFilter(projectId: string, actorUserId: string) {
   };
 }
 
-async function archiveStaleDoneTasks(projectId: string, actorUserId: string) {
+async function archiveStaleDoneTasks(
+  projectId: string,
+  actorUserId: string,
+  db: DbClient
+) {
   const staleDoneTaskFilter = buildStaleDoneTaskFilter(projectId, actorUserId);
 
-  const staleDoneTask = await prisma.task.findFirst({
+  const staleDoneTask = await db.task.findFirst({
     where: staleDoneTaskFilter,
     select: { id: true },
   });
 
   if (staleDoneTask) {
-    await prisma.task.updateMany({
+    await db.task.updateMany({
       where: staleDoneTaskFilter,
       data: {
         archivedAt: new Date(),
@@ -207,22 +233,24 @@ export async function getProjectSummaryById(
     return null;
   }
 
-  return prisma.project.findFirst({
-    where: {
-      id: projectId,
-      ...buildProjectPrincipalWhere(normalizedActorUserId),
-    },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      _count: {
-        select: {
-          tasks: true,
+  return withActorRlsContext(normalizedActorUserId, (db) =>
+    db.project.findFirst({
+      where: {
+        id: projectId,
+        ...buildProjectPrincipalWhere(normalizedActorUserId),
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        _count: {
+          select: {
+            tasks: true,
+          },
         },
       },
-    },
-  }) as Promise<ProjectSummaryRecord | null>;
+    })
+  ) as Promise<ProjectSummaryRecord | null>;
 }
 
 export async function listProjectKanbanTasks(
@@ -231,8 +259,17 @@ export async function listProjectKanbanTasks(
 ): Promise<ProjectKanbanTaskRecord[]> {
   const normalizedActorUserId = normalizeActorUserId(actorUserId);
   if (!normalizedActorUserId) {
-    return prisma.task.findMany({
-      where: { id: { in: [] } },
+    return [];
+  }
+
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    await archiveStaleDoneTasks(projectId, normalizedActorUserId, db);
+
+    return db.task.findMany({
+      where: {
+        projectId,
+        project: buildProjectPrincipalWhere(normalizedActorUserId),
+      },
       orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
       include: {
         attachments: {
@@ -243,24 +280,6 @@ export async function listProjectKanbanTasks(
         },
       },
     });
-  }
-
-  await archiveStaleDoneTasks(projectId, normalizedActorUserId);
-
-  return prisma.task.findMany({
-    where: {
-      projectId,
-      project: buildProjectPrincipalWhere(normalizedActorUserId),
-    },
-    orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
-    include: {
-      attachments: {
-        orderBy: [{ createdAt: "desc" }],
-      },
-      blockedFollowUps: {
-        orderBy: [{ createdAt: "desc" }],
-      },
-    },
   });
 }
 
@@ -270,30 +289,24 @@ export async function listProjectContextResources(
 ): Promise<ProjectContextResourceRecord[]> {
   const normalizedActorUserId = normalizeActorUserId(actorUserId);
   if (!normalizedActorUserId) {
-    return prisma.resource.findMany({
-      where: { id: { in: [] } },
+    return [];
+  }
+
+  return withActorRlsContext(normalizedActorUserId, (db) =>
+    db.resource.findMany({
+      where: {
+        projectId,
+        project: buildProjectPrincipalWhere(normalizedActorUserId),
+        type: RESOURCE_TYPE_CONTEXT_CARD,
+      },
       orderBy: [{ createdAt: "desc" }],
       include: {
         attachments: {
           orderBy: [{ createdAt: "desc" }],
         },
       },
-    });
-  }
-
-  return prisma.resource.findMany({
-    where: {
-      projectId,
-      project: buildProjectPrincipalWhere(normalizedActorUserId),
-      type: RESOURCE_TYPE_CONTEXT_CARD,
-    },
-    orderBy: [{ createdAt: "desc" }],
-    include: {
-      attachments: {
-        orderBy: [{ createdAt: "desc" }],
-      },
-    },
-  });
+    })
+  );
 }
 
 export async function getProjectDashboardById(projectId: string, actorUserId: string) {
@@ -302,33 +315,35 @@ export async function getProjectDashboardById(projectId: string, actorUserId: st
     return null;
   }
 
-  await archiveStaleDoneTasks(projectId, normalizedActorUserId);
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    await archiveStaleDoneTasks(projectId, normalizedActorUserId, db);
 
-  return prisma.project.findFirst({
-    where: {
-      id: projectId,
-      ...buildProjectPrincipalWhere(normalizedActorUserId),
-    },
-    include: {
-      tasks: {
-        orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
-        include: {
-          attachments: {
-            orderBy: [{ createdAt: "desc" }],
+    return db.project.findFirst({
+      where: {
+        id: projectId,
+        ...buildProjectPrincipalWhere(normalizedActorUserId),
+      },
+      include: {
+        tasks: {
+          orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
+          include: {
+            attachments: {
+              orderBy: [{ createdAt: "desc" }],
+            },
+            blockedFollowUps: {
+              orderBy: [{ createdAt: "desc" }],
+            },
           },
-          blockedFollowUps: {
-            orderBy: [{ createdAt: "desc" }],
+        },
+        resources: {
+          orderBy: [{ createdAt: "desc" }],
+          include: {
+            attachments: {
+              orderBy: [{ createdAt: "desc" }],
+            },
           },
         },
       },
-      resources: {
-        orderBy: [{ createdAt: "desc" }],
-        include: {
-          attachments: {
-            orderBy: [{ createdAt: "desc" }],
-          },
-        },
-      },
-    },
+    });
   });
 }

@@ -1,5 +1,4 @@
 import { deleteAttachmentFile } from "@/lib/attachment-storage";
-import { prisma } from "@/lib/prisma";
 import { sanitizeRichText } from "@/lib/rich-text";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import {
@@ -15,6 +14,7 @@ import {
 import { logServerError } from "@/lib/observability/logger";
 import { createTaskAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
 import { requireProjectRole } from "@/lib/services/project-access-service";
+import { withActorRlsContext } from "@/lib/services/rls-context";
 
 const MIN_TITLE_LENGTH = 2;
 
@@ -142,15 +142,6 @@ export async function createTaskForProject(
     return createError(401, "unauthorized");
   }
 
-  const access = await requireProjectRole({
-    actorUserId,
-    projectId: input.projectId,
-    minimumRole: "editor",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
-  }
-
   const title = normalizeText(input.title);
   if (title.length < MIN_TITLE_LENGTH) {
     return createError(400, "title-too-short");
@@ -173,66 +164,79 @@ export async function createTaskForProject(
 
   let createdTaskId: string | null = null;
 
-  try {
-    const maxPosition = await prisma.task.aggregate({
-      where: {
-        projectId: input.projectId,
-        status,
-        project: {
-          OR: [
-            { ownerId: actorUserId },
-            { memberships: { some: { userId: actorUserId } } },
-          ],
-        },
-      },
-      _max: { position: true },
-    });
-
-    const nextPosition = (maxPosition._max.position ?? -1) + 1;
-
-    const createdTask = await prisma.task.create({
-      data: {
-        projectId: input.projectId,
-        title,
-        description,
-        label: labels[0] ?? null,
-        labelsJson: serializedLabels,
-        status,
-        position: nextPosition,
-      },
-      select: { id: true },
-    });
-
-    createdTaskId = createdTask.id;
-
-    await createTaskAttachmentsFromDraft({
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
       actorUserId,
       projectId: input.projectId,
-      taskId: createdTask.id,
-      links: parsedLinks.links,
-      files: input.attachmentFiles,
+      minimumRole: "editor",
+      db,
     });
-
-    return {
-      ok: true,
-      data: {
-        id: createdTask.id,
-      },
-    };
-  } catch (error) {
-    if (createdTaskId) {
-      await prisma.task
-        .delete({
-          where: { id: createdTaskId },
-        })
-        .catch((cleanupError) => {
-          logServerError("createTaskForProject.cleanup", cleanupError);
-        });
+    if (!access.ok) {
+      return createError(access.status, access.error);
     }
 
-    logServerError("createTaskForProject", error);
-    return createError(500, "create-failed");
-  }
+    try {
+      const maxPosition = await db.task.aggregate({
+        where: {
+          projectId: input.projectId,
+          status,
+          project: {
+            OR: [
+              { ownerId: actorUserId },
+              { memberships: { some: { userId: actorUserId } } },
+            ],
+          },
+        },
+        _max: { position: true },
+      });
+
+      const nextPosition = (maxPosition._max.position ?? -1) + 1;
+
+      const createdTask = await db.task.create({
+        data: {
+          projectId: input.projectId,
+          title,
+          description,
+          label: labels[0] ?? null,
+          labelsJson: serializedLabels,
+          status,
+          position: nextPosition,
+        },
+        select: { id: true },
+      });
+
+      createdTaskId = createdTask.id;
+
+      await createTaskAttachmentsFromDraft({
+        actorUserId,
+        projectId: input.projectId,
+        taskId: createdTask.id,
+        links: parsedLinks.links,
+        files: input.attachmentFiles,
+        db,
+      });
+
+      return {
+        ok: true,
+        data: {
+          id: createdTask.id,
+        },
+      };
+    } catch (error) {
+      if (createdTaskId) {
+        await db.task
+          .delete({
+            where: { id: createdTaskId },
+          })
+          .catch((cleanupError) => {
+            logServerError("createTaskForProject.cleanup", cleanupError);
+          });
+      }
+
+      logServerError("createTaskForProject", error);
+      return createError(500, "create-failed");
+    }
+  });
 }
 
 export async function reorderProjectTasks(
@@ -243,15 +247,6 @@ export async function reorderProjectTasks(
   const normalizedActorUserId = normalizeText(actorUserId);
   if (!normalizedActorUserId) {
     return createError(401, "unauthorized");
-  }
-
-  const access = await requireProjectRole({
-    actorUserId: normalizedActorUserId,
-    projectId,
-    minimumRole: "editor",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
   }
 
   const normalizedColumns = TASK_STATUSES.map((status) => {
@@ -271,61 +266,73 @@ export async function reorderProjectTasks(
     };
   }
 
-  try {
-    const tasks = await prisma.task.findMany({
-      where: {
-        projectId,
-        id: { in: taskIds },
-        project: {
-          OR: [
-            { ownerId: normalizedActorUserId },
-            { memberships: { some: { userId: normalizedActorUserId } } },
-          ],
-        },
-      },
-      select: { id: true, status: true, completedAt: true },
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId: normalizedActorUserId,
+      projectId,
+      minimumRole: "editor",
+      db,
     });
-
-    if (tasks.length !== taskIds.length) {
-      return createError(400, "One or more tasks do not belong to this project");
+    if (!access.ok) {
+      return createError(access.status, access.error);
     }
 
-    const taskById = new Map(tasks.map((task) => [task.id, task]));
+    try {
+      const tasks = await db.task.findMany({
+        where: {
+          projectId,
+          id: { in: taskIds },
+          project: {
+            OR: [
+              { ownerId: normalizedActorUserId },
+              { memberships: { some: { userId: normalizedActorUserId } } },
+            ],
+          },
+        },
+        select: { id: true, status: true, completedAt: true },
+      });
 
-    const updateOperations = normalizedColumns.flatMap(
-      (column: { status: TaskStatus; taskIds: string[] }) =>
-        column.taskIds.map((taskId, index) => {
-          const existingTask = taskById.get(taskId);
-          const movedToDone =
-            column.status === "Done" && existingTask?.status !== "Done";
+      if (tasks.length !== taskIds.length) {
+        return createError(400, "One or more tasks do not belong to this project");
+      }
 
-          return prisma.task.update({
-            where: { id: taskId },
-            data: {
-              status: column.status,
-              position: index,
-              archivedAt: null,
-              completedAt:
-                column.status === "Done"
-                  ? movedToDone
-                    ? new Date()
-                    : existingTask?.completedAt ?? new Date()
-                  : null,
-            },
-          });
-        })
-    );
+      const taskById = new Map(tasks.map((task) => [task.id, task]));
 
-    await prisma.$transaction(updateOperations);
+      const updateOperations = normalizedColumns.flatMap(
+        (column: { status: TaskStatus; taskIds: string[] }) =>
+          column.taskIds.map((taskId, index) => {
+            const existingTask = taskById.get(taskId);
+            const movedToDone =
+              column.status === "Done" && existingTask?.status !== "Done";
 
-    return {
-      ok: true,
-      data: { ok: true },
-    };
-  } catch (error) {
-    logServerError("reorderProjectTasks", error);
-    return createError(500, "Failed to persist task order");
-  }
+            return db.task.update({
+              where: { id: taskId },
+              data: {
+                status: column.status,
+                position: index,
+                archivedAt: null,
+                completedAt:
+                  column.status === "Done"
+                    ? movedToDone
+                      ? new Date()
+                      : existingTask?.completedAt ?? new Date()
+                    : null,
+              },
+            });
+          })
+      );
+
+      await Promise.all(updateOperations);
+
+      return {
+        ok: true,
+        data: { ok: true },
+      };
+    } catch (error) {
+      logServerError("reorderProjectTasks", error);
+      return createError(500, "Failed to persist task order");
+    }
+  });
 }
 
 export async function updateTaskForProject(
@@ -337,15 +344,6 @@ export async function updateTaskForProject(
   const normalizedActorUserId = normalizeText(actorUserId);
   if (!normalizedActorUserId) {
     return createError(401, "unauthorized");
-  }
-
-  const access = await requireProjectRole({
-    actorUserId: normalizedActorUserId,
-    projectId,
-    minimumRole: "editor",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
   }
 
   const title = normalizeText(payload.title);
@@ -363,73 +361,87 @@ export async function updateTaskForProject(
     return createError(400, "Task title must be at least 2 characters");
   }
 
-  try {
-    const existingTask = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: { id: true, projectId: true, status: true, position: true },
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId: normalizedActorUserId,
+      projectId,
+      minimumRole: "editor",
+      db,
     });
-
-    if (!existingTask || existingTask.projectId !== projectId) {
-      return createError(404, "Task not found");
+    if (!access.ok) {
+      return createError(access.status, access.error);
     }
 
-    const updatedTask = await prisma.$transaction(async (tx) => {
-      await tx.task.update({
+    try {
+      const existingTask = await db.task.findUnique({
         where: { id: taskId },
-        data: {
-          title,
-          label: normalizedLabels[0] ?? null,
-          labelsJson: serializedLabels,
-          description,
-        },
+        select: { id: true, projectId: true, status: true, position: true },
       });
 
-      if (blockedFollowUpEntry.length > 0 && existingTask.status === "Blocked") {
-        await tx.taskBlockedFollowUp.create({
-          data: {
-            taskId,
-            content: blockedFollowUpEntry,
-          },
-        });
+      if (!existingTask || existingTask.projectId !== projectId) {
+        return createError(404, "Task not found");
       }
 
-      return tx.task.findUnique({
-        where: { id: taskId },
-        select: {
-          id: true,
-          title: true,
-          label: true,
-          labelsJson: true,
-          description: true,
-          blockedNote: true,
-          status: true,
-          position: true,
-          blockedFollowUps: {
-            orderBy: [{ createdAt: "desc" }],
-            select: {
-              id: true,
-              content: true,
-              createdAt: true,
+      const updateWithClient = async (tx: typeof db) => {
+        await tx.task.update({
+          where: { id: taskId },
+          data: {
+            title,
+            label: normalizedLabels[0] ?? null,
+            labelsJson: serializedLabels,
+            description,
+          },
+        });
+
+        if (blockedFollowUpEntry.length > 0 && existingTask.status === "Blocked") {
+          await tx.taskBlockedFollowUp.create({
+            data: {
+              taskId,
+              content: blockedFollowUpEntry,
+            },
+          });
+        }
+
+        return tx.task.findUnique({
+          where: { id: taskId },
+          select: {
+            id: true,
+            title: true,
+            label: true,
+            labelsJson: true,
+            description: true,
+            blockedNote: true,
+            status: true,
+            position: true,
+            blockedFollowUps: {
+              orderBy: [{ createdAt: "desc" }],
+              select: {
+                id: true,
+                content: true,
+                createdAt: true,
+              },
             },
           },
+        });
+      };
+
+      const updatedTask = await updateWithClient(db);
+
+      if (!updatedTask) {
+        return createError(404, "Task not found");
+      }
+
+      return {
+        ok: true,
+        data: {
+          task: updatedTask,
         },
-      });
-    });
-
-    if (!updatedTask) {
-      return createError(404, "Task not found");
+      };
+    } catch (error) {
+      logServerError("updateTaskForProject", error);
+      return createError(500, "Failed to update task");
     }
-
-    return {
-      ok: true,
-      data: {
-        task: updatedTask,
-      },
-    };
-  } catch (error) {
-    logServerError("updateTaskForProject", error);
-    return createError(500, "Failed to update task");
-  }
+  });
 }
 
 export async function deleteTaskForProject(
@@ -442,61 +454,64 @@ export async function deleteTaskForProject(
     return createError(401, "unauthorized");
   }
 
-  const access = await requireProjectRole({
-    actorUserId: normalizedActorUserId,
-    projectId,
-    minimumRole: "editor",
-  });
-  if (!access.ok) {
-    return createError(access.status, access.error);
-  }
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId: normalizedActorUserId,
+      projectId,
+      minimumRole: "owner",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
 
-  try {
-    const existingTask = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: {
-        id: true,
-        projectId: true,
-        attachments: {
-          where: {
-            kind: ATTACHMENT_KIND_FILE,
-            NOT: { storageKey: null },
+    try {
+      const existingTask = await db.task.findUnique({
+        where: { id: taskId },
+        select: {
+          id: true,
+          projectId: true,
+          attachments: {
+            where: {
+              kind: ATTACHMENT_KIND_FILE,
+              NOT: { storageKey: null },
+            },
+            select: { storageKey: true },
           },
-          select: { storageKey: true },
         },
-      },
-    });
+      });
 
-    if (!existingTask || existingTask.projectId !== projectId) {
-      return createError(404, "Task not found");
+      if (!existingTask || existingTask.projectId !== projectId) {
+        return createError(404, "Task not found");
+      }
+
+      const storageKeys = existingTask.attachments
+        .map((attachment) => attachment.storageKey)
+        .filter((storageKey): storageKey is string => Boolean(storageKey));
+
+      await db.task.delete({
+        where: { id: taskId },
+      });
+
+      await Promise.all(
+        storageKeys.map((storageKey) =>
+          deleteAttachmentFile(storageKey).catch((cleanupError) => {
+            logServerError("deleteTaskForProject.cleanup", cleanupError);
+          })
+        )
+      );
+
+      return {
+        ok: true,
+        data: { ok: true },
+      };
+    } catch (error) {
+      if (isPrismaNotFoundError(error)) {
+        return createError(404, "Task not found");
+      }
+
+      logServerError("deleteTaskForProject", error);
+      return createError(500, "Failed to delete task");
     }
-
-    const storageKeys = existingTask.attachments
-      .map((attachment) => attachment.storageKey)
-      .filter((storageKey): storageKey is string => Boolean(storageKey));
-
-    await prisma.task.delete({
-      where: { id: taskId },
-    });
-
-    await Promise.all(
-      storageKeys.map((storageKey) =>
-        deleteAttachmentFile(storageKey).catch((cleanupError) => {
-          logServerError("deleteTaskForProject.cleanup", cleanupError);
-        })
-      )
-    );
-
-    return {
-      ok: true,
-      data: { ok: true },
-    };
-  } catch (error) {
-    if (isPrismaNotFoundError(error)) {
-      return createError(404, "Task not found");
-    }
-
-    logServerError("deleteTaskForProject", error);
-    return createError(500, "Failed to delete task");
-  }
+  });
 }

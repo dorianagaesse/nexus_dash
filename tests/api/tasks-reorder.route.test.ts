@@ -8,7 +8,6 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
     update: vi.fn(),
   },
-  $transaction: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -102,7 +101,6 @@ describe("POST /api/projects/:projectId/tasks/reorder", () => {
     await expect(readJson(response)).resolves.toEqual({ ok: true });
     expect(prismaMock.task.findMany).not.toHaveBeenCalled();
     expect(prismaMock.task.update).not.toHaveBeenCalled();
-    expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
   test("returns 400 when tasks do not belong to the project", async () => {
@@ -136,7 +134,6 @@ describe("POST /api/projects/:projectId/tasks/reorder", () => {
       { id: "task-done", status: "Done", completedAt: existingDoneDate },
     ]);
     prismaMock.task.update.mockResolvedValue({});
-    prismaMock.$transaction.mockResolvedValue([]);
 
     const request = new Request("http://localhost/api/projects/p1/tasks/reorder", {
       method: "POST",
@@ -159,7 +156,6 @@ describe("POST /api/projects/:projectId/tasks/reorder", () => {
     await expect(readJson(response)).resolves.toEqual({ ok: true });
 
     expect(prismaMock.task.update).toHaveBeenCalledTimes(2);
-    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
 
     const firstUpdate = prismaMock.task.update.mock.calls[0][0];
     expect(firstUpdate.where).toEqual({ id: "task-moved" });
@@ -180,8 +176,7 @@ describe("POST /api/projects/:projectId/tasks/reorder", () => {
     prismaMock.task.findMany.mockResolvedValueOnce([
       { id: "task-1", status: "Backlog", completedAt: null },
     ]);
-    prismaMock.task.update.mockResolvedValue({});
-    prismaMock.$transaction.mockRejectedValueOnce(new Error("db-failure"));
+    prismaMock.task.update.mockRejectedValueOnce(new Error("db-failure"));
 
     const request = new Request("http://localhost/api/projects/p1/tasks/reorder", {
       method: "POST",
