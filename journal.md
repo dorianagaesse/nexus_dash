@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-03-09
+- Type: Execution
+- Summary: TASK-085 Phase 2 implemented with FORCE-RLS migration on the protected table set and branch hygiene update for local preview artifacts.
+- Evidence: Added `prisma/migrations/20260309113000_task085_rls_phase2_force/migration.sql`; updated `.gitignore` to ignore `/.tmp/`; committed on branch `feature/task-085-force-rls-preview` in commit `ba03299` (`feat(task-085): force row-level security in preview phase`).
+
+### 2026-03-09
+- Type: Validation
+- Summary: TASK-085 Phase 2 local validation baseline and preview validation matrix passed with FORCE-RLS enabled.
+- Evidence: Local checks passed: `npm run lint`; `npm test`; `npm run test:coverage`; `npm run build` with safe overrides for `DATABASE_URL`, `DIRECT_URL`, `RESEND_API_KEY`, and `GOOGLE_TOKEN_ENCRYPTION_KEY`. Preview deploy workflow run `22864249355` succeeded for `feature/task-085-force-rls-preview`, preview URL `https://nexus-dash-q3ao1evui-dorian-agaesses-projects.vercel.app`. Verified `/api/health/ready`, owner project create/access, contributor (`editor`) task create/update success, contributor delete denied (`403`), non-member denied via not-found boundary, and `GoogleCalendarCredential` remained user-scoped under actor-context queries.
+
 ### 2026-03-05
 - Type: Execution
 - Summary: TASK-085 phase 1 implemented end-to-end in code and migration layer.

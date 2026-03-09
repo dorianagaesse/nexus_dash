@@ -4,7 +4,7 @@
 TASK-085
 
 ## Status
-In Progress (Phase 1 implemented and preview-validated, 2026-03-06)
+In Progress (Phase 2 FORCE-RLS implemented and preview-validated, 2026-03-09)
 
 ## Objective
 Enable PostgreSQL Row-Level Security on user/project-scoped tables with a safe staged rollout (staging first, then production), preserving current application behavior while adding DB-level tenant isolation.
@@ -30,6 +30,7 @@ Enable PostgreSQL Row-Level Security on user/project-scoped tables with a safe s
 
 ## Acceptance Criteria
 - RLS is enabled on target tables with explicit allow policies.
+- `FORCE ROW LEVEL SECURITY` is applied to TASK-085 target tables after preview validation.
 - Authorized application flows continue to work in staging.
 - Unauthorized cross-user/project data access is denied at the DB layer.
 - Rollout and rollback procedures are documented and reproducible.
@@ -55,27 +56,44 @@ Enable PostgreSQL Row-Level Security on user/project-scoped tables with a safe s
 - Added recursion fix migration to avoid policy loop between `Project` and `ProjectMembership`:
   - `prisma/migrations/20260306193000_task085_rls_project_membership_recursion_fix/migration.sql`
 - Preview deploy validation now passes on branch `feature/task-085-rls-phase1` after recursion fix.
+- Added Phase 2 migration `prisma/migrations/20260309113000_task085_rls_phase2_force/migration.sql`:
+  - `FORCE ROW LEVEL SECURITY` on `Project`, `ProjectMembership`, `Task`, `Resource`, `TaskBlockedFollowUp`, `TaskAttachment`, `ResourceAttachment`, and `GoogleCalendarCredential`.
+- Local validation baseline passed on branch `feature/task-085-force-rls-preview`:
+  - `npm run lint`
+  - `npm test`
+  - `npm run test:coverage`
+  - `npm run build` with safe local env overrides for DB/mail/encryption contracts.
+- Preview deploy succeeded from branch `feature/task-085-force-rls-preview`:
+  - Workflow: `deploy-vercel.yml` manual preview deploy
+  - Preview URL: `https://nexus-dash-q3ao1evui-dorian-agaesses-projects.vercel.app`
+- Preview FORCE-RLS validation matrix passed:
+  - owner can sign up, create a project, and access the project workspace
+  - contributor (`editor`) can create and update tasks
+  - contributor (`editor`) delete remains denied with `403 forbidden`
+  - non-member project access resolves to not-found/denied behavior
+  - `GoogleCalendarCredential` remains user-scoped under actor-context queries
+  - `/api/health/ready` returns healthy with database check `ok`
 
 ## Current Position (Explicit)
-- Phase 1 (`ENABLE RLS` + policies, no `FORCE`) is implemented and validated on preview/staging runtime.
-- Known blocker (white screen + `42P17` recursion) is fixed in branch with migration `20260306193000`.
-- Task is **not complete yet** because FORCE-RLS phase and production staged rollout are still pending.
+- Phase 1 (`ENABLE RLS` + policies, no `FORCE`) is implemented and validated.
+- Phase 2 (`FORCE ROW LEVEL SECURITY`) is now implemented and validated on preview runtime.
+- Known blocker (white screen + `42P17` recursion) is fixed in migration `20260306193000`.
+- TASK-085 is **not complete yet** because production staged rollout, production validation, and final tracking closure are still pending.
 
 ## Next Steps (Ordered Checklist)
-1. Merge PR for `feature/task-085-rls-phase1` once CI is green.
-2. Keep staging in soak window and monitor logs for permission regressions.
-3. Apply Phase 2 migration on staging to `FORCE ROW LEVEL SECURITY` on TASK-085 target tables.
-4. Re-run staging validation:
+1. Open/update PR for `feature/task-085-force-rls-preview` and keep CI green.
+2. Promote the validated FORCE-RLS branch to the shared staging/production sequence when ready.
+3. Re-run validation after staged promotion:
    - owner happy path
    - contributor (`editor`) create/update allowed
    - contributor delete denied
    - non-member access denied
    - `GoogleCalendarCredential` remains user-scoped
    - `/api/health/ready` healthy
-5. Promote to production with same staged sequence:
-   - Step A: RLS policies enabled (no force), validate.
-   - Step B: `FORCE ROW LEVEL SECURITY`, validate again.
-6. Close task tracking artifacts:
+4. Promote to production with same staged sequence:
+   - Step A: confirm Phase 1 policy-only state is healthy in production.
+   - Step B: apply `FORCE ROW LEVEL SECURITY`, then validate again.
+5. Close task tracking artifacts:
    - mark TASK-085 done in `tasks/backlog.md`
    - set `tasks/current.md` status to Completed
    - append rollout evidence/results in `journal.md`
@@ -83,5 +101,5 @@ Enable PostgreSQL Row-Level Security on user/project-scoped tables with a safe s
 
 ---
 
-Last Updated: 2026-03-06
+Last Updated: 2026-03-09
 Assigned To: User + Agent
