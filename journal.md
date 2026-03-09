@@ -22,6 +22,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Summary: TASK-085 Phase 2 local validation baseline and preview validation matrix passed with FORCE-RLS enabled.
 - Evidence: Local checks passed: `npm run lint`; `npm test`; `npm run test:coverage`; `npm run build` with safe overrides for `DATABASE_URL`, `DIRECT_URL`, `RESEND_API_KEY`, and `GOOGLE_TOKEN_ENCRYPTION_KEY`. Preview deploy workflow run `22864249355` succeeded for `feature/task-085-force-rls-preview`, preview URL `https://nexus-dash-q3ao1evui-dorian-agaesses-projects.vercel.app`. Verified `/api/health/ready`, owner project create/access, contributor (`editor`) task create/update success, contributor delete denied (`403`), non-member denied via not-found boundary, and `GoogleCalendarCredential` remained user-scoped under actor-context queries.
 
+### 2026-03-09
+- Type: Governance
+- Summary: TASK-085 Phase 2 draft PR opened against `main` for review and later rollout coordination.
+- Evidence: PR `#90` (`feature/task-085-force-rls-preview` -> `main`), URL: `https://github.com/dorianagaesse/nexus_dash/pull/90`.
+
 ### 2026-03-05
 - Type: Execution
 - Summary: TASK-085 phase 1 implemented end-to-end in code and migration layer.
