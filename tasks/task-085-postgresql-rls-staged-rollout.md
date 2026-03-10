@@ -154,16 +154,21 @@ exists (
 ### Phase E: Staging `FORCE RLS`
 - Apply second migration to enforce `FORCE ROW LEVEL SECURITY` on target tables.
 - Re-run validation checklist and critical manual flows.
+- Keep a prepared rollback script that runs `ALTER TABLE <table_name> NO FORCE ROW LEVEL SECURITY;` for each TASK-085 protected table so Phase 2 can be backed out without disabling RLS entirely.
 
 ### Phase F: Production Promotion
 - Promote same two-step sequence after staging sign-off:
   - step 1: `ENABLE RLS` + policies
   - step 2: `FORCE RLS`
+- Define the Phase 2 rollback before production rollout:
+  - preferred rollback: `ALTER TABLE <table_name> NO FORCE ROW LEVEL SECURITY;` on each protected table, then re-validate Phase 1 policy-only behavior
+  - emergency-only fallback: disable RLS on affected tables only if Phase 1 cannot be restored quickly enough to recover service
 - Monitor logs and error rates for authz/permission regressions.
 
 ### Rollback Plan
-- Short-term rollback: disable RLS on affected tables in reverse dependency order if critical outage occurs.
-- Keep rollback SQL prepared and reviewed before production rollout.
+- Preferred short-term rollback for Phase 2: run `ALTER TABLE <table_name> NO FORCE ROW LEVEL SECURITY;` on affected tables in reverse dependency order so RLS stays enabled while owner-bypass enforcement is removed.
+- Emergency rollback if service remains impaired: disable RLS on affected tables in reverse dependency order as the larger behavioral backout.
+- Keep both rollback SQL variants prepared and reviewed before production rollout.
 - If rollback happens, document root cause and required policy corrections before retry.
 
 ## Acceptance Criteria
