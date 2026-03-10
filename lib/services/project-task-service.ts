@@ -444,6 +444,82 @@ export async function updateTaskForProject(
   });
 }
 
+export async function archiveTaskForProject(
+  projectId: string,
+  taskId: string,
+  actorUserId: string
+): Promise<ServiceResult<{ archivedAt: Date }>> {
+  const normalizedActorUserId = normalizeText(actorUserId);
+  if (!normalizedActorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId: normalizedActorUserId,
+      projectId,
+      minimumRole: "editor",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
+
+    try {
+      const existingTask = await db.task.findUnique({
+        where: { id: taskId },
+        select: {
+          id: true,
+          projectId: true,
+          status: true,
+          archivedAt: true,
+        },
+      });
+
+      if (!existingTask || existingTask.projectId !== projectId) {
+        return createError(404, "Task not found");
+      }
+
+      if (existingTask.status !== "Done") {
+        return createError(400, "Only done tasks can be archived");
+      }
+
+      if (existingTask.archivedAt) {
+        return {
+          ok: true,
+          data: {
+            archivedAt: existingTask.archivedAt,
+          },
+        };
+      }
+
+      const archivedTask = await db.task.update({
+        where: { id: taskId },
+        data: {
+          archivedAt: new Date(),
+        },
+        select: {
+          archivedAt: true,
+        },
+      });
+
+      return {
+        ok: true,
+        data: {
+          archivedAt: archivedTask.archivedAt ?? new Date(),
+        },
+      };
+    } catch (error) {
+      if (isPrismaNotFoundError(error)) {
+        return createError(404, "Task not found");
+      }
+
+      logServerError("archiveTaskForProject", error);
+      return createError(500, "Failed to archive task");
+    }
+  });
+}
+
 export async function deleteTaskForProject(
   projectId: string,
   taskId: string,

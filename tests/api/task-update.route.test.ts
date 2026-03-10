@@ -27,6 +27,7 @@ vi.mock("@/lib/attachment-storage", () => ({
 }));
 
 import { DELETE, PATCH } from "@/app/api/projects/[projectId]/tasks/[taskId]/route";
+import { POST as archiveTask } from "@/app/api/projects/[projectId]/tasks/[taskId]/archive/route";
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
@@ -321,5 +322,97 @@ describe("DELETE /api/projects/:projectId/tasks/:taskId", () => {
     await expect(readJson(response)).resolves.toEqual({
       error: "Task not found",
     });
+  });
+});
+
+describe("POST /api/projects/:projectId/tasks/:taskId/archive", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prismaMock.project.findFirst.mockResolvedValue({
+      ownerId: "test-user",
+      memberships: [],
+    });
+  });
+
+  test("archives a done task", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      status: "Done",
+      archivedAt: null,
+    });
+    prismaMock.task.update.mockResolvedValueOnce({
+      archivedAt: new Date("2026-03-11T09:30:00.000Z"),
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1/archive", {
+      method: "POST",
+    });
+
+    const response = await archiveTask(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({
+      ok: true,
+      archivedAt: "2026-03-11T09:30:00.000Z",
+    });
+    expect(prismaMock.task.update).toHaveBeenCalledWith({
+      where: { id: "t1" },
+      data: {
+        archivedAt: expect.any(Date),
+      },
+      select: {
+        archivedAt: true,
+      },
+    });
+  });
+
+  test("returns 400 when task is not done", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      status: "In Progress",
+      archivedAt: null,
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1/archive", {
+      method: "POST",
+    });
+
+    const response = await archiveTask(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "Only done tasks can be archived",
+    });
+    expect(prismaMock.task.update).not.toHaveBeenCalled();
+  });
+
+  test("returns existing archived timestamp when task is already archived", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      status: "Done",
+      archivedAt: new Date("2026-03-10T22:00:00.000Z"),
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1/archive", {
+      method: "POST",
+    });
+
+    const response = await archiveTask(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({
+      ok: true,
+      archivedAt: "2026-03-10T22:00:00.000Z",
+    });
+    expect(prismaMock.task.update).not.toHaveBeenCalled();
   });
 });
