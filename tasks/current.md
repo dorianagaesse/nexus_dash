@@ -81,7 +81,7 @@ Enable PostgreSQL Row-Level Security on user/project-scoped tables with a safe s
 - TASK-085 is **not complete yet** because production staged rollout, production validation, and final tracking closure are still pending.
 
 ## Next Steps (Ordered Checklist)
-1. Keep draft PR `#90` for `feature/task-085-force-rls-preview` green and ready for review/merge when rollout timing is approved.
+1. Keep PR `#90` for `feature/task-085-force-rls-preview` green and ready for review/merge when rollout timing is approved.
 2. Promote the validated FORCE-RLS branch to the shared staging/production sequence when ready.
 3. Re-run validation after staged promotion:
    - owner happy path
@@ -93,6 +93,7 @@ Enable PostgreSQL Row-Level Security on user/project-scoped tables with a safe s
 4. Promote to production with same staged sequence:
    - Step A: confirm Phase 1 policy-only state is healthy in production.
    - Step B: apply `FORCE ROW LEVEL SECURITY`, then validate again.
+   - Step C (rollback plan, defined before rollout): if Phase 2 must be backed out while keeping RLS enabled, run `ALTER TABLE <table_name> NO FORCE ROW LEVEL SECURITY;` on each TASK-085 protected table, then re-validate that Phase 1 policy-only behavior is restored.
 5. Close task tracking artifacts:
    - mark TASK-085 done in `tasks/backlog.md`
    - set `tasks/current.md` status to Completed
