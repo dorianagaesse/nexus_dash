@@ -503,10 +503,18 @@ export async function archiveTaskForProject(
         },
       });
 
+      if (!archivedTask.archivedAt) {
+        logServerError(
+          "archiveTaskForProject",
+          new Error("Task archivedAt is null after update")
+        );
+        return createError(500, "Failed to archive task");
+      }
+
       return {
         ok: true,
         data: {
-          archivedAt: archivedTask.archivedAt ?? new Date(),
+          archivedAt: archivedTask.archivedAt,
         },
       };
     } catch (error) {

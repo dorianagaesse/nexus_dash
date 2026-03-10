@@ -4,7 +4,7 @@
 TASK-093
 
 ## Status
-Ready to start
+In Progress (manual archive implemented and locally validated, 2026-03-11)
 
 ## Objective
 Add an explicit `Move to Archive` action for done tasks so users can archive them immediately instead of waiting for automatic stale-task archiving.

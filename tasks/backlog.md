@@ -6,7 +6,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 ### Execution Queue (Now / Next)
 - ID: TASK-093
   Title: Task lifecycle UX - manual archive action for done tasks
-  Status: Pending
+  Status: In Progress
   Rationale: Done-task archiving is currently automatic-only; add an explicit user action (`Move to Archive`) in task options so users can archive completed tasks immediately without waiting for stale-task auto-archive.
   Dependencies: TASK-046, TASK-076, TASK-079
 - ID: TASK-094
