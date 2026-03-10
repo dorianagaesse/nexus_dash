@@ -108,6 +108,15 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+model SystemGuard {
+  id               Int      @id
+  environment      String   @default("unknown")
+  allowStagingWipe Boolean  @default(false) @map("allow_staging_wipe")
+  updatedAt        DateTime @default(now()) @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  @@map("system_guard")
+}
+
 enum ProjectMembershipRole {
   owner
   editor
