@@ -4,16 +4,21 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-085
-  Title: PostgreSQL hardening - enable RLS policies with staged rollout (staging then production)
-  Status: Pending
-  Rationale: Enforce tenant isolation at the database layer by enabling Row-Level Security on user/project-scoped tables, defining explicit allow policies for authenticated principals, validating behavior in staging first, then promoting to production with rollback-safe migration/runbook coverage.
-  Dependencies: TASK-046, TASK-067, TASK-076
 - ID: TASK-093
   Title: Task lifecycle UX - manual archive action for done tasks
   Status: Pending
   Rationale: Done-task archiving is currently automatic-only; add an explicit user action (`Move to Archive`) in task options so users can archive completed tasks immediately without waiting for stale-task auto-archive.
   Dependencies: TASK-046, TASK-076, TASK-079
+- ID: TASK-094
+  Title: Text input UX - emoji picker/button across text fields
+  Status: Pending
+  Rationale: Add a lightweight emoji insertion control to supported text inputs so users can express status or tone without relying on OS-level shortcuts, while keeping typing flows quick and consistent.
+  Dependencies: TASK-078, TASK-079
+- ID: TASK-095
+  Title: Task dependency graph - optional linked-task dependencies with hover highlight
+  Status: Pending
+  Rationale: Add an optional task-dependency field so tasks can link to other tasks directly in-product, mirroring backlog dependency tracking and making execution order clearer; hovering a linked task should softly highlight connected tasks with a subtle green border treatment.
+  Dependencies: TASK-076, TASK-079
 - ID: TASK-068
   Title: Authentication provider rollout - phase social providers (Google/GitHub) after baseline email auth
   Status: Pending
@@ -110,6 +115,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-085
+  Title: PostgreSQL hardening - enable RLS policies with staged rollout (staging then production)
+  Status: Done (2026-03-11)
+  Rationale: Enabled PostgreSQL Row-Level Security on the protected project/user table set, validated the staged rollout in preview, promoted `FORCE ROW LEVEL SECURITY` to production, documented rollback handling, and confirmed production behavior remained healthy.
+  Dependencies: TASK-046, TASK-067, TASK-076
 - ID: TASK-086
   Title: Account page adjustment - email change verification flow, compact layout, and settings navigation
   Status: Done (2026-02-28)
