@@ -1274,6 +1274,7 @@ export function KanbanBoard({
           columns={columns}
           archivedDoneTasks={archivedDoneTasks}
           highlightedTaskIds={highlightedTaskIds}
+          hoveredTaskId={hoveredTaskId}
           onDragEnd={onDragEnd}
           onSelectTask={handleSelectTask}
           onEditTask={openTaskInEditMode}
