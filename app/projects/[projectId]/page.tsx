@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { CalendarDays, ChevronLeft, Columns3, PanelsTopLeft } from "lucide-react";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
@@ -94,27 +94,60 @@ export default async function ProjectDashboardPage({
   const error = readQueryValue(searchParams?.error);
 
   return (
-    <main className="container space-y-6 py-10">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">Project dashboard</Badge>
-            <Badge variant="outline">{project._count.tasks} tasks</Badge>
-          </div>
-          <h1 className="text-3xl font-semibold tracking-tight">{project.name}</h1>
-          <p className="max-w-3xl text-sm text-muted-foreground">
-            {project.description ??
-              "Track and move project tasks across workflow stages."}
-          </p>
-        </div>
+    <main className="container space-y-8 py-10">
+      <section className="relative overflow-hidden rounded-3xl border border-border/70 bg-card/70 px-6 py-6 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.65)] backdrop-blur-sm sm:px-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.18),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.12),transparent_36%)]" />
+        <div className="relative space-y-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary" className="rounded-full px-3 py-1">
+                  Project dashboard
+                </Badge>
+                <Badge variant="outline" className="rounded-full px-3 py-1">
+                  {project._count.tasks} tasks
+                </Badge>
+              </div>
+              <div className="space-y-2">
+                <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+                  {project.name}
+                </h1>
+                <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
+                  {project.description ??
+                    "Track work, keep context close to execution, and move project tasks across workflow stages without losing momentum."}
+                </p>
+              </div>
+            </div>
 
-        <Button asChild variant="ghost">
-          <Link href="/projects">
-            <ChevronLeft className="h-4 w-4" />
-            Back to projects
-          </Link>
-        </Button>
-      </div>
+            <Button asChild variant="outline" className="rounded-full px-4">
+              <Link href="/projects">
+                <ChevronLeft className="h-4 w-4" />
+                Back to projects
+              </Link>
+            </Button>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <DashboardSurfaceStat
+              icon={Columns3}
+              label="Execution board"
+              value={`${project._count.tasks} tracked task${
+                project._count.tasks === 1 ? "" : "s"
+              }`}
+            />
+            <DashboardSurfaceStat
+              icon={PanelsTopLeft}
+              label="Workspace surfaces"
+              value="Context, Kanban, and Calendar stay connected"
+            />
+            <DashboardSurfaceStat
+              icon={CalendarDays}
+              label="Flow model"
+              value="Capture context, execute clearly, keep time in view"
+            />
+          </div>
+        </div>
+      </section>
 
       {status && STATUS_MESSAGES[status] ? (
         <AutoDismissingAlert
@@ -149,5 +182,25 @@ export default async function ProjectDashboardPage({
         <ProjectCalendarPanelSection projectId={project.id} />
       </Suspense>
     </main>
+  );
+}
+
+function DashboardSurfaceStat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Columns3;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-background/55 px-4 py-3 backdrop-blur-sm">
+      <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" />
+        <span>{label}</span>
+      </div>
+      <p className="text-sm text-foreground/90">{value}</p>
+    </div>
   );
 }

@@ -299,43 +299,50 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
 
   return (
     <>
-      <Card className="border-0 bg-transparent shadow-none">
-        <CardHeader className={cn("space-y-2 px-0 pt-0", isExpanded ? "pb-3" : "pb-2")}>
+      <Card className="overflow-hidden rounded-2xl border border-border/70 bg-card/55 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.6)] backdrop-blur-sm">
+        <CardHeader
+          className={cn(
+            "space-y-3 border-b border-border/50 bg-background/30 px-5 pt-5",
+            isExpanded ? "pb-4" : "pb-3"
+          )}
+        >
           <button
             type="button"
             onClick={() => setIsExpanded((previous) => !previous)}
             aria-expanded={isExpanded}
-            className="flex min-w-0 items-center gap-2 rounded-md px-1 py-1 text-left transition hover:bg-muted/40"
+            className="flex min-w-0 items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-muted/40"
           >
             {isExpanded ? (
               <ChevronUp className="h-4 w-4 text-muted-foreground" />
             ) : (
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
             )}
-            <CardTitle className="text-lg font-semibold tracking-tight">
-              <span className="inline-flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                Calendar
-              </span>
-            </CardTitle>
+            <div className="min-w-0 space-y-1">
+              <CardTitle className="text-lg font-semibold tracking-tight">
+                <span className="inline-flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  Calendar
+                </span>
+              </CardTitle>
+              {isExpanded ? (
+                <p className="text-sm text-muted-foreground">
+                  Keep this week visible without leaving the project workspace.
+                </p>
+              ) : null}
+            </div>
           </button>
-          {isExpanded ? (
-            <p className="text-sm text-muted-foreground">
-              Current week events (Monday to Sunday).
-            </p>
-          ) : null}
         </CardHeader>
 
         {isExpanded ? (
-          <CardContent className="space-y-3 px-0">
+          <CardContent className="space-y-4 px-5 py-5">
             {isLoading ? (
-              <div className="rounded-md border border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
                 Loading calendar events...
               </div>
             ) : null}
 
             {!isLoading && isConnected === false ? (
-              <div className="space-y-3 rounded-md border border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
+              <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
                 <p>Google Calendar is not connected yet.</p>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button type="button" size="sm" asChild>
@@ -353,7 +360,7 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
 
             {!isLoading && isConnected === true ? (
               <>
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
                   <p className="text-xs text-muted-foreground">
                     {syncedAt
                       ? `Synced at ${new Date(syncedAt).toLocaleString()}`
@@ -394,7 +401,7 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
             ) : null}
 
             {!isLoading && error ? (
-              <div className="space-y-3 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <div className="space-y-3 rounded-xl border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 <p>{error}</p>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button

@@ -707,46 +707,51 @@ export function ProjectContextPanel({
   };
 
   return (
-    <Card className="border-0 bg-transparent shadow-none">
-      <CardHeader className={cn("space-y-2 px-0 pt-0", isExpanded ? "pb-3" : "pb-2")}>
-        <div className="flex items-center gap-2">
+    <Card className="overflow-hidden rounded-2xl border border-border/70 bg-card/55 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.6)] backdrop-blur-sm">
+      <CardHeader
+        className={cn(
+          "space-y-3 border-b border-border/50 bg-background/30 px-5 pt-5",
+          isExpanded ? "pb-4" : "pb-3"
+        )}
+      >
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => setIsExpanded((previous) => !previous)}
             aria-expanded={isExpanded}
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-left transition hover:bg-muted/40"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-muted/40"
           >
             {isExpanded ? (
               <ChevronUp className="h-4 w-4 text-muted-foreground" />
             ) : (
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
             )}
-            <CardTitle className="text-lg font-semibold tracking-tight">
-              <span className="inline-flex items-center gap-2">
-                <PanelsTopLeft className="h-4 w-4 text-muted-foreground" />
-                Project context
-              </span>
-            </CardTitle>
-            {!isExpanded ? (
-              <span className="ml-auto text-xs text-muted-foreground">
-                {cards.length} card{cards.length === 1 ? "" : "s"}
-              </span>
-            ) : null}
+            <div className="min-w-0 space-y-1">
+              <CardTitle className="text-lg font-semibold tracking-tight">
+                <span className="inline-flex items-center gap-2">
+                  <PanelsTopLeft className="h-4 w-4 text-muted-foreground" />
+                  Project context
+                </span>
+              </CardTitle>
+              {isExpanded ? (
+                <p className="text-sm text-muted-foreground">
+                  Keep notes, links, and supporting material close to the board.
+                </p>
+              ) : null}
+            </div>
+            <span className="ml-auto rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground">
+              {cards.length} card{cards.length === 1 ? "" : "s"}
+            </span>
           </button>
-          <Button type="button" size="sm" onClick={openCreateModal}>
+          <Button type="button" size="sm" className="rounded-full px-4" onClick={openCreateModal}>
             <PlusSquare className="h-4 w-4" />
             Add card
           </Button>
         </div>
-        {isExpanded ? (
-          <p className="text-sm text-muted-foreground">
-            Keep project notes in compact cards above the board.
-          </p>
-        ) : null}
       </CardHeader>
 
       {isExpanded ? (
-        <CardContent className="px-0">
+        <CardContent className="px-5 py-5">
           <ContextCardsGrid
             cards={cards}
             cardAttachmentsById={cardAttachmentsById}

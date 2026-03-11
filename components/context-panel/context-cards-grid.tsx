@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MoreHorizontal, Paperclip, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Paperclip, Pencil, PlusSquare, Trash2 } from "lucide-react";
 
 import type {
   ProjectContextAttachment,
@@ -31,14 +31,20 @@ export function ContextCardsGrid({
 }: ContextCardsGridProps) {
   if (cards.length === 0) {
     return (
-      <div className="rounded-md border border-dashed border-border/60 px-4 py-6 text-sm text-muted-foreground">
-        No context cards yet.
+      <div className="rounded-2xl border border-dashed border-border/60 bg-background/50 px-5 py-8 text-center">
+        <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl border border-border/60 bg-muted/40 text-muted-foreground">
+          <PlusSquare className="h-5 w-5" />
+        </div>
+        <p className="text-sm font-medium text-foreground">No context cards yet</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Add brief specs, meeting crumbs, useful links, or execution notes here.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {cards.map((card) => {
         const attachments = cardAttachmentsById[card.id] ?? card.attachments;
         const previewAttachments = attachments.slice(0, 2);
@@ -46,7 +52,7 @@ export function ContextCardsGrid({
         return (
           <article
             key={card.id}
-            className="cursor-pointer rounded-md border p-2.5 transition hover:ring-2 hover:ring-slate-900/15"
+            className="cursor-pointer rounded-xl border p-3 transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-18px_rgba(15,23,42,0.45)] hover:ring-2 hover:ring-slate-900/10"
             style={{ backgroundColor: card.color, borderColor: "rgb(15 23 42 / 0.15)" }}
             onClick={() => onOpenPreview(card.id)}
           >

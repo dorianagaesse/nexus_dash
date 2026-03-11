@@ -49,16 +49,16 @@ export async function ProjectContextPanelSection({
 
 export function ProjectContextPanelSkeleton() {
   return (
-    <Card>
-      <CardHeader>
+    <Card className="overflow-hidden rounded-2xl border border-border/70 bg-card/55 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.6)]">
+      <CardHeader className="border-b border-border/50 bg-background/30">
         <CardTitle className="flex items-center gap-2 text-base">
           <PanelsTopLeft className="h-4 w-4" />
           Project context
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="h-20 w-full animate-pulse rounded-md bg-muted" />
-        <div className="h-20 w-full animate-pulse rounded-md bg-muted" />
+      <CardContent className="space-y-3 py-5">
+        <div className="h-20 w-full animate-pulse rounded-xl bg-muted" />
+        <div className="h-20 w-full animate-pulse rounded-xl bg-muted" />
       </CardContent>
     </Card>
   );

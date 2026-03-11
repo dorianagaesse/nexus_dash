@@ -78,18 +78,18 @@ export async function KanbanBoardSection({
 
 export function KanbanBoardSkeleton() {
   return (
-    <Card>
-      <CardHeader>
+    <Card className="overflow-hidden rounded-2xl border border-border/70 bg-card/55 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.6)]">
+      <CardHeader className="border-b border-border/50 bg-background/30">
         <CardTitle className="flex items-center gap-2 text-base">
           <Columns3 className="h-4 w-4" />
           Kanban board
         </CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-3 md:grid-cols-4">
+      <CardContent className="grid gap-3 py-5 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <div
             key={index}
-            className="h-40 animate-pulse rounded-md border border-dashed border-muted-foreground/30 bg-muted/40"
+            className="h-40 animate-pulse rounded-xl border border-dashed border-muted-foreground/30 bg-muted/40"
           />
         ))}
       </CardContent>
