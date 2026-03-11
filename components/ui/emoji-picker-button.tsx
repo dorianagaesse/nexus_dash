@@ -2,9 +2,9 @@
 
 import { Clock3, Loader2, Search, SmilePlus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/button";
-import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import {
   buildNextRecentEmojis,
   type EmojiCatalog,
@@ -23,6 +23,21 @@ interface EmojiPickerButtonProps {
   presentation?: "default" | "field";
 }
 
+interface PanelLayout {
+  left: number;
+  top: number;
+  width: number;
+  maxHeight: number;
+}
+
+const VIEWPORT_MARGIN = 12;
+const PANEL_GAP = 8;
+const DESKTOP_PANEL_WIDTH = 320;
+const MOBILE_PANEL_WIDTH = 300;
+const MAX_PANEL_HEIGHT = 360;
+const MIN_PANEL_HEIGHT = 240;
+const MAX_RECENT_PREVIEW = 6;
+
 export function EmojiPickerButton({
   onSelectEmoji,
   disabled = false,
@@ -36,8 +51,10 @@ export function EmojiPickerButton({
   const [recentEmojis, setRecentEmojis] = useState<string[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [panelLayout, setPanelLayout] = useState<PanelLayout | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const menuRef = useDismissibleMenu<HTMLDivElement>(isOpen, () => setIsOpen(false));
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -82,6 +99,7 @@ export function EmojiPickerButton({
   useEffect(() => {
     if (!isOpen) {
       setSearchQuery("");
+      setPanelLayout(null);
       return;
     }
 
@@ -90,6 +108,96 @@ export function EmojiPickerButton({
     });
 
     return () => window.cancelAnimationFrame(nextFrame);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const updatePanelLayout = () => {
+      if (!buttonRef.current || typeof window === "undefined") {
+        return;
+      }
+
+      const triggerRect = buttonRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const preferredWidth =
+        viewportWidth < 640 ? MOBILE_PANEL_WIDTH : DESKTOP_PANEL_WIDTH;
+      const width = Math.min(preferredWidth, viewportWidth - VIEWPORT_MARGIN * 2);
+      const left = Math.min(
+        Math.max(triggerRect.right - width, VIEWPORT_MARGIN),
+        viewportWidth - width - VIEWPORT_MARGIN
+      );
+
+      const availableBelow =
+        viewportHeight - triggerRect.bottom - PANEL_GAP - VIEWPORT_MARGIN;
+      const availableAbove = triggerRect.top - PANEL_GAP - VIEWPORT_MARGIN;
+      const shouldOpenAbove =
+        availableBelow < MIN_PANEL_HEIGHT && availableAbove > availableBelow;
+      const maxHeight = Math.max(
+        Math.min(
+          shouldOpenAbove ? availableAbove : availableBelow,
+          MAX_PANEL_HEIGHT
+        ),
+        MIN_PANEL_HEIGHT
+      );
+      const top = shouldOpenAbove
+        ? Math.max(VIEWPORT_MARGIN, triggerRect.top - PANEL_GAP - maxHeight)
+        : Math.min(
+            viewportHeight - VIEWPORT_MARGIN - maxHeight,
+            triggerRect.bottom + PANEL_GAP
+          );
+
+      setPanelLayout({
+        left,
+        top,
+        width,
+        maxHeight,
+      });
+    };
+
+    updatePanelLayout();
+    window.addEventListener("resize", updatePanelLayout);
+    window.addEventListener("scroll", updatePanelLayout, true);
+
+    return () => {
+      window.removeEventListener("resize", updatePanelLayout);
+      window.removeEventListener("scroll", updatePanelLayout, true);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (
+        (panelRef.current && panelRef.current.contains(target)) ||
+        (buttonRef.current && buttonRef.current.contains(target))
+      ) {
+        return;
+      }
+
+      setIsOpen(false);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
   }, [isOpen]);
 
   useEffect(() => {
@@ -104,7 +212,10 @@ export function EmojiPickerButton({
   );
 
   const recentEntries = useMemo(
-    () => (catalog ? getRecentEmojiEntries(catalog, recentEmojis) : []),
+    () =>
+      catalog
+        ? getRecentEmojiEntries(catalog, recentEmojis).slice(0, MAX_RECENT_PREVIEW)
+        : [],
     [catalog, recentEmojis]
   );
 
@@ -135,116 +246,134 @@ export function EmojiPickerButton({
   const hasSearchQuery = searchQuery.trim().length > 0;
 
   return (
-    <div ref={menuRef} className={cn("relative", className)}>
-      <Button
-        type="button"
-        size={isFieldPresentation ? "icon" : "sm"}
-        variant={isOpen ? "secondary" : "outline"}
-        className={cn(
-          "text-muted-foreground",
-          isFieldPresentation
-            ? "h-7 w-7 rounded-full border-border/70 bg-background/90 shadow-sm backdrop-blur"
-            : "h-8 px-2.5 text-xs"
-        )}
-        onClick={() => setIsOpen((previous) => !previous)}
-        aria-label="Insert emoji"
-        aria-expanded={isOpen}
-        disabled={disabled}
-      >
-        <SmilePlus className="h-3.5 w-3.5" />
-        {isFieldPresentation ? <span className="sr-only">Emoji</span> : "Emoji"}
-      </Button>
+    <>
+      <div className={cn("relative", className)}>
+        <Button
+          ref={buttonRef}
+          type="button"
+          size={isFieldPresentation ? "icon" : "sm"}
+          variant={isOpen ? "secondary" : "outline"}
+          className={cn(
+            "text-muted-foreground",
+            isFieldPresentation
+              ? "h-7 w-7 rounded-full border-border/70 bg-background/90 shadow-sm backdrop-blur"
+              : "h-8 px-2.5 text-xs"
+          )}
+          onClick={() => setIsOpen((previous) => !previous)}
+          aria-label="Insert emoji"
+          aria-expanded={isOpen}
+          disabled={disabled}
+        >
+          <SmilePlus className="h-3.5 w-3.5" />
+          {isFieldPresentation ? <span className="sr-only">Emoji</span> : "Emoji"}
+        </Button>
+      </div>
 
-      {isOpen ? (
-        <div className="absolute right-0 top-full z-50 mt-2 w-[min(24rem,calc(100vw-1.5rem))] rounded-2xl border border-border/70 bg-background/95 p-3 shadow-2xl backdrop-blur">
-          <div className="space-y-3">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                ref={searchInputRef}
-                type="search"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search emoji or :shortcode:"
-                className="h-10 w-full rounded-full border border-border/70 bg-muted/30 pl-9 pr-3 text-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/40"
-              />
-            </div>
+      {isOpen && panelLayout && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              ref={panelRef}
+              className="fixed z-[120] overflow-hidden rounded-2xl border border-border/70 bg-background/96 shadow-2xl backdrop-blur"
+              style={{
+                left: panelLayout.left,
+                top: panelLayout.top,
+                width: panelLayout.width,
+                maxHeight: panelLayout.maxHeight,
+              }}
+            >
+              <div className="flex max-h-[inherit] flex-col gap-3 p-3">
+                <div className="relative shrink-0">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    ref={searchInputRef}
+                    type="search"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search emoji or :shortcode:"
+                    className="h-10 w-full rounded-full border border-border/70 bg-muted/30 pl-9 pr-3 text-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/40"
+                  />
+                </div>
 
-            {isLoadingCatalog ? (
-              <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 bg-muted/20 px-4 py-8 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading emojis...
-              </div>
-            ) : catalogError ? (
-              <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {catalogError}
-              </div>
-            ) : catalog ? (
-              <>
-                {!hasSearchQuery && recentEntries.length > 0 ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                      <Clock3 className="h-3.5 w-3.5" />
-                      Recent
-                    </div>
-                    <EmojiGrid entries={recentEntries} onSelectEmoji={handleSelectEmoji} />
+                {isLoadingCatalog ? (
+                  <div className="flex min-h-[180px] items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 bg-muted/20 px-4 py-8 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading emojis...
                   </div>
-                ) : null}
-
-                {!hasSearchQuery ? (
+                ) : catalogError ? (
+                  <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                    {catalogError}
+                  </div>
+                ) : catalog ? (
                   <>
-                    <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
-                      {catalog.groups.map((group) => (
-                        <button
-                          key={group.id}
-                          type="button"
-                          className={cn(
-                            "shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium transition",
-                            activeGroup?.id === group.id
-                              ? "border-foreground/20 bg-foreground text-background"
-                              : "border-border/70 bg-background text-muted-foreground hover:bg-accent"
-                          )}
-                          onClick={() => setActiveGroupId(group.id)}
-                        >
-                          {group.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {activeGroup ? (
-                      <div className="space-y-2">
-                        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                          {activeGroup.label}
-                        </p>
-                        <div className="max-h-72 overflow-y-auto pr-1">
-                          <EmojiGrid entries={activeGroup.entries} onSelectEmoji={handleSelectEmoji} />
+                    {!hasSearchQuery && recentEntries.length > 0 ? (
+                      <div className="shrink-0 space-y-2">
+                        <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                          <Clock3 className="h-3.5 w-3.5" />
+                          Recent
                         </div>
+                        <EmojiGrid entries={recentEntries} onSelectEmoji={handleSelectEmoji} />
                       </div>
                     ) : null}
-                  </>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                      <span>Results</span>
-                      <span>{searchResults.length}</span>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto pr-1">
-                      {searchResults.length > 0 ? (
-                        <EmojiGrid entries={searchResults} onSelectEmoji={handleSelectEmoji} />
-                      ) : (
-                        <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
-                          No emoji matched that search yet.
+
+                    {!hasSearchQuery ? (
+                      <>
+                        <div className="flex shrink-0 flex-wrap gap-1.5">
+                          {catalog.groups.map((group) => (
+                            <button
+                              key={group.id}
+                              type="button"
+                              className={cn(
+                                "rounded-full border px-2.5 py-1 text-[11px] font-medium transition",
+                                activeGroup?.id === group.id
+                                  ? "border-foreground/20 bg-foreground text-background"
+                                  : "border-border/70 bg-background text-muted-foreground hover:bg-accent"
+                              )}
+                              onClick={() => setActiveGroupId(group.id)}
+                            >
+                              {group.label}
+                            </button>
+                          ))}
                         </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-    </div>
+
+                        {activeGroup ? (
+                          <div className="min-h-0 flex-1 space-y-2 overflow-hidden">
+                            <p className="shrink-0 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                              {activeGroup.label}
+                            </p>
+                            <div className="min-h-0 overflow-y-auto pr-1">
+                              <EmojiGrid
+                                entries={activeGroup.entries}
+                                onSelectEmoji={handleSelectEmoji}
+                              />
+                            </div>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : (
+                      <div className="min-h-0 flex-1 space-y-2 overflow-hidden">
+                        <div className="flex shrink-0 items-center justify-between text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                          <span>Results</span>
+                          <span>{searchResults.length}</span>
+                        </div>
+                        <div className="min-h-0 overflow-y-auto pr-1">
+                          {searchResults.length > 0 ? (
+                            <EmojiGrid entries={searchResults} onSelectEmoji={handleSelectEmoji} />
+                          ) : (
+                            <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                              No emoji matched that search yet.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : null}
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
+    </>
   );
 }
 
@@ -255,7 +384,7 @@ interface EmojiGridProps {
 
 function EmojiGrid({ entries, onSelectEmoji }: EmojiGridProps) {
   return (
-    <div className="grid grid-cols-7 gap-1.5">
+    <div className="grid grid-cols-6 gap-1.5">
       {entries.map((entry) => (
         <button
           key={entry.hexcode}
