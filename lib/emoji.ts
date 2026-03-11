@@ -94,6 +94,30 @@ export function buildNextRecentEmojis(previous: string[], nextEmoji: string): st
   );
 }
 
+export function normalizeRecentEmojis(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const normalizedRecents: string[] = [];
+  const seenEmojis = new Set<string>();
+
+  for (const entry of value) {
+    if (typeof entry !== "string" || seenEmojis.has(entry)) {
+      continue;
+    }
+
+    seenEmojis.add(entry);
+    normalizedRecents.push(entry);
+
+    if (normalizedRecents.length >= MAX_RECENT_EMOJIS) {
+      break;
+    }
+  }
+
+  return normalizedRecents;
+}
+
 export function getEmojiGroupById(groupId: string): EmojiGroup | undefined {
   return EMOJI_GROUPS.find((group) => group.id === groupId);
 }

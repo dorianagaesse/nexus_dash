@@ -10,6 +10,7 @@ import {
   EMOJI_GROUPS,
   EMOJI_RECENTS_STORAGE_KEY,
   getEmojiGroupById,
+  normalizeRecentEmojis,
 } from "@/lib/emoji";
 import { cn } from "@/lib/utils";
 
@@ -41,9 +42,7 @@ export function EmojiPickerButton({
       }
 
       const parsedRecents = JSON.parse(storedRecents);
-      if (Array.isArray(parsedRecents)) {
-        setRecentEmojis(parsedRecents.filter((entry): entry is string => typeof entry === "string"));
-      }
+      setRecentEmojis(normalizeRecentEmojis(parsedRecents));
     } catch (error) {
       console.error("[EmojiPickerButton.loadRecents]", error);
     }
@@ -57,17 +56,19 @@ export function EmojiPickerButton({
   const handleSelectEmoji = (emoji: string) => {
     onSelectEmoji(emoji);
     setIsOpen(false);
+    setRecentEmojis((previous) => {
+      const nextRecents = buildNextRecentEmojis(previous, emoji);
 
-    const nextRecents = buildNextRecentEmojis(recentEmojis, emoji);
-    setRecentEmojis(nextRecents);
-
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem(EMOJI_RECENTS_STORAGE_KEY, JSON.stringify(nextRecents));
-      } catch (error) {
-        console.error("[EmojiPickerButton.persistRecents]", error);
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(EMOJI_RECENTS_STORAGE_KEY, JSON.stringify(nextRecents));
+        } catch (error) {
+          console.error("[EmojiPickerButton.persistRecents]", error);
+        }
       }
-    }
+
+      return nextRecents;
+    });
   };
 
   return (

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { buildNextRecentEmojis } from "@/lib/emoji";
+import { buildNextRecentEmojis, normalizeRecentEmojis } from "@/lib/emoji";
 import { insertTextIntoValue } from "@/lib/emoji-input";
 
 describe("emoji-input", () => {
@@ -47,5 +47,27 @@ describe("emoji recents", () => {
       "🥳",
       "🚀",
     ]);
+  });
+
+  test("normalizes stored recents by filtering, deduping, and capping", () => {
+    expect(
+      normalizeRecentEmojis([
+        "😀",
+        42,
+        "😀",
+        "🚀",
+        null,
+        "🎉",
+        "📝",
+        "✅",
+        "🔥",
+        "💡",
+        "📅",
+        "🤝",
+        "🌱",
+        "⭐",
+        "☕",
+      ])
+    ).toEqual(["😀", "🚀", "🎉", "📝", "✅", "🔥", "💡", "📅", "🤝", "🌱", "⭐", "☕"]);
   });
 });
