@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Archive,
+  ArrowRightLeft,
   ChevronRight,
   Link2,
   MoreHorizontal,
@@ -9,6 +10,7 @@ import {
   Pencil,
   Trash2,
   TriangleAlert,
+  Undo2,
   Upload,
   X,
 } from "lucide-react";
@@ -78,6 +80,7 @@ interface TaskDetailModalProps {
   onPreviewAttachmentChange: (attachment: TaskAttachment | null) => void;
   onMoveTask: (nextStatus: TaskStatus) => void;
   onArchiveTask: () => void | Promise<void>;
+  onUnarchiveTask: () => void | Promise<void>;
   onRequestDeleteTask: () => void;
 }
 
@@ -122,6 +125,7 @@ export function TaskDetailModal({
   onPreviewAttachmentChange,
   onMoveTask,
   onArchiveTask,
+  onUnarchiveTask,
   onRequestDeleteTask,
 }: TaskDetailModalProps) {
   if (!isOpen || !selectedTask) {
@@ -145,7 +149,16 @@ export function TaskDetailModal({
           >
             <CardHeader className="flex shrink-0 flex-row items-start justify-between space-y-0">
               <div className="space-y-2">
-                <Badge variant="outline">{selectedTask.status}</Badge>
+                <Badge
+                  variant="outline"
+                  className={
+                    isArchivedTask
+                      ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                      : undefined
+                  }
+                >
+                  {isArchivedTask ? "Archived" : selectedTask.status}
+                </Badge>
                 {!isEditMode ? (
                   <CardTitle
                     className="text-xl"
@@ -171,6 +184,7 @@ export function TaskDetailModal({
                     onStartEdit={() => onToggleEditMode(true)}
                     onMoveTask={onMoveTask}
                     onArchiveTask={onArchiveTask}
+                    onUnarchiveTask={onUnarchiveTask}
                     onRequestDeleteTask={onRequestDeleteTask}
                   />
                 ) : null}
@@ -246,6 +260,7 @@ interface TaskOptionsMenuProps {
   onStartEdit: () => void;
   onMoveTask: (nextStatus: TaskStatus) => void;
   onArchiveTask: () => void | Promise<void>;
+  onUnarchiveTask: () => void | Promise<void>;
   onRequestDeleteTask: () => void;
 }
 
@@ -256,6 +271,7 @@ function TaskOptionsMenu({
   onStartEdit,
   onMoveTask,
   onArchiveTask,
+  onUnarchiveTask,
   onRequestDeleteTask,
 }: TaskOptionsMenuProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -290,12 +306,18 @@ function TaskOptionsMenu({
           </Button>
           {!isArchived ? (
             <div className="group relative">
-              <div className="rounded-sm p-2 text-sm text-foreground hover:bg-muted">
-                <span className="inline-flex w-full items-center justify-between gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full justify-between"
+                disabled={isArchiving}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <ArrowRightLeft className="h-4 w-4" />
                   Move to
-                  <ChevronRight className="h-4 w-4" />
                 </span>
-              </div>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
               <div className="invisible pointer-events-none absolute right-full top-0 z-30 mr-1 w-36 rounded-md border border-border/70 bg-background p-1 opacity-0 shadow-md transition group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:opacity-100">
                 {TASK_STATUSES.map((nextStatus) => (
                   <Button
@@ -327,7 +349,22 @@ function TaskOptionsMenu({
               }}
             >
               <Archive className="h-4 w-4" />
-              {isArchiving ? "Archiving..." : "Move to Archive"}
+              {isArchiving ? "Archiving..." : "Archive"}
+            </Button>
+          ) : null}
+          {isArchived ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full justify-start"
+              disabled={isArchiving}
+              onClick={() => {
+                void onUnarchiveTask();
+                setIsMenuOpen(false);
+              }}
+            >
+              <Undo2 className="h-4 w-4" />
+              Unarchive
             </Button>
           ) : null}
           <Button

@@ -528,6 +528,78 @@ export async function archiveTaskForProject(
   });
 }
 
+export async function unarchiveTaskForProject(
+  projectId: string,
+  taskId: string,
+  actorUserId: string
+): Promise<ServiceResult<{ ok: true }>> {
+  const normalizedActorUserId = normalizeText(actorUserId);
+  if (!normalizedActorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId: normalizedActorUserId,
+      projectId,
+      minimumRole: "editor",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
+
+    try {
+      const existingTask = await db.task.findUnique({
+        where: { id: taskId },
+        select: {
+          id: true,
+          projectId: true,
+          status: true,
+          archivedAt: true,
+        },
+      });
+
+      if (!existingTask || existingTask.projectId !== projectId) {
+        return createError(404, "Task not found");
+      }
+
+      if (existingTask.status !== "Done") {
+        return createError(400, "Only done tasks can be unarchived");
+      }
+
+      if (!existingTask.archivedAt) {
+        return {
+          ok: true,
+          data: { ok: true },
+        };
+      }
+
+      await db.task.update({
+        where: { id: taskId },
+        data: {
+          archivedAt: null,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      return {
+        ok: true,
+        data: { ok: true },
+      };
+    } catch (error) {
+      if (isPrismaNotFoundError(error)) {
+        return createError(404, "Task not found");
+      }
+
+      logServerError("unarchiveTaskForProject", error);
+      return createError(500, "Failed to unarchive task");
+    }
+  });
+}
+
 export async function deleteTaskForProject(
   projectId: string,
   taskId: string,

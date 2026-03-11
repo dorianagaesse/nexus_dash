@@ -27,7 +27,10 @@ vi.mock("@/lib/attachment-storage", () => ({
 }));
 
 import { DELETE, PATCH } from "@/app/api/projects/[projectId]/tasks/[taskId]/route";
-import { POST as archiveTask } from "@/app/api/projects/[projectId]/tasks/[taskId]/archive/route";
+import {
+  DELETE as unarchiveTask,
+  POST as archiveTask,
+} from "@/app/api/projects/[projectId]/tasks/[taskId]/archive/route";
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
@@ -414,5 +417,71 @@ describe("POST /api/projects/:projectId/tasks/:taskId/archive", () => {
       archivedAt: "2026-03-10T22:00:00.000Z",
     });
     expect(prismaMock.task.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("DELETE /api/projects/:projectId/tasks/:taskId/archive", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prismaMock.project.findFirst.mockResolvedValue({
+      ownerId: "test-user",
+      memberships: [],
+    });
+  });
+
+  test("unarchives an archived done task", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      status: "Done",
+      archivedAt: new Date("2026-03-10T22:00:00.000Z"),
+    });
+    prismaMock.task.update.mockResolvedValueOnce({
+      id: "t1",
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1/archive", {
+      method: "DELETE",
+    });
+
+    const response = await unarchiveTask(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({
+      ok: true,
+    });
+    expect(prismaMock.task.update).toHaveBeenCalledWith({
+      where: { id: "t1" },
+      data: {
+        archivedAt: null,
+      },
+      select: {
+        id: true,
+      },
+    });
+  });
+
+  test("returns 400 when task is not done", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      status: "Blocked",
+      archivedAt: new Date("2026-03-10T22:00:00.000Z"),
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1/archive", {
+      method: "DELETE",
+    });
+
+    const response = await unarchiveTask(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "Only done tasks can be unarchived",
+    });
   });
 });

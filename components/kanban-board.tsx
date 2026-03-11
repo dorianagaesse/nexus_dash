@@ -668,6 +668,55 @@ export function KanbanBoard({
     }
   }, [closeTaskModal, isArchivingTask, projectId, pushToast, selectedTask]);
 
+  const handleUnarchiveTask = useCallback(async () => {
+    if (!selectedTask || !isSelectedTaskArchived || isArchivingTask) {
+      return;
+    }
+
+    setIsArchivingTask(true);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/tasks/${selectedTask.id}/archive`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "Could not unarchive task."));
+      }
+
+      const taskToRestore = selectedTask;
+
+      setArchivedDoneTasks((previousTasks) =>
+        previousTasks.filter((task) => task.id !== taskToRestore.id)
+      );
+      setColumns((previousColumns) => {
+        const nextColumns = cloneColumns(previousColumns);
+        const alreadyPresent = nextColumns.Done.some((task) => task.id === taskToRestore.id);
+        if (alreadyPresent) {
+          return previousColumns;
+        }
+
+        nextColumns.Done = [taskToRestore, ...nextColumns.Done];
+        return nextColumns;
+      });
+      pushToast({
+        variant: "success",
+        message: "Task moved back to Done.",
+      });
+    } catch (error) {
+      console.error("[KanbanBoard.handleUnarchiveTask]", error);
+      pushToast({
+        variant: "error",
+        message: error instanceof Error ? error.message : "Could not unarchive task.",
+      });
+    } finally {
+      setIsArchivingTask(false);
+    }
+  }, [isArchivingTask, isSelectedTaskArchived, projectId, pushToast, selectedTask]);
+
   const handleAddBlockedFollowUpEntry = useCallback(async () => {
     if (!newBlockedFollowUpEntry.trim()) {
       return;
@@ -1000,6 +1049,7 @@ export function KanbanBoard({
           handleMoveTaskToStatus(selectedTask, nextStatus);
         }}
         onArchiveTask={handleArchiveTask}
+        onUnarchiveTask={handleUnarchiveTask}
         onRequestDeleteTask={() => {
           if (!selectedTask) {
             return;
