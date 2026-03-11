@@ -9,8 +9,8 @@ import {
   buildNextRecentEmojis,
   type EmojiCatalog,
   findEmojiMatches,
+  getCategoryIconEntry,
   getEmojiAssetUrl,
-  getPopularEmojiEntries,
   getRecentEmojiEntries,
   EMOJI_RECENTS_STORAGE_KEY,
   loadEmojiCatalog,
@@ -39,7 +39,6 @@ const MOBILE_PANEL_WIDTH = 300;
 const MAX_PANEL_HEIGHT = 360;
 const MIN_PANEL_HEIGHT = 240;
 const MAX_RECENT_PREVIEW = 6;
-const MAX_POPULAR_PREVIEW = 12;
 
 export function EmojiPickerButton({
   onSelectEmoji,
@@ -221,11 +220,6 @@ export function EmojiPickerButton({
         : [],
     [catalog, recentEmojis]
   );
-  const popularEntries = useMemo(
-    () => (catalog ? getPopularEmojiEntries(catalog).slice(0, MAX_POPULAR_PREVIEW) : []),
-    [catalog]
-  );
-
   const searchResults = useMemo(
     () => (catalog ? findEmojiMatches(catalog.entries, searchQuery) : []),
     [catalog, searchQuery]
@@ -312,76 +306,83 @@ export function EmojiPickerButton({
                   </div>
                 ) : catalog ? (
                   <>
-                    {!hasSearchQuery && recentEntries.length > 0 ? (
-                      <div className="shrink-0 space-y-2">
-                        <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                          <Clock3 className="h-3.5 w-3.5" />
-                          Recent
-                        </div>
-                        <EmojiGrid entries={recentEntries} onSelectEmoji={handleSelectEmoji} />
-                      </div>
-                    ) : null}
+                    <div className="flex shrink-0 items-center gap-1 overflow-x-auto pb-1 pr-1">
+                      {catalog.groups.map((group) => {
+                        const iconEntry = getCategoryIconEntry(catalog, group.id);
 
-                    {!hasSearchQuery && popularEntries.length > 0 ? (
-                      <div className="shrink-0 space-y-2">
-                        <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                          Popular
-                        </div>
-                        <EmojiGrid entries={popularEntries} onSelectEmoji={handleSelectEmoji} />
-                      </div>
-                    ) : null}
+                        return (
+                          <button
+                            key={group.id}
+                            type="button"
+                            className={cn(
+                              "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition",
+                              activeGroup?.id === group.id
+                                ? "border-primary/40 bg-primary/12"
+                                : "border-transparent bg-transparent hover:border-border/70 hover:bg-accent"
+                            )}
+                            onClick={() => setActiveGroupId(group.id)}
+                            aria-label={group.label}
+                            title={group.label}
+                          >
+                            {iconEntry ? (
+                              <>
+                                {/* External twemoji assets keep category icons consistent across OS emoji fonts. */}
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={getEmojiAssetUrl(iconEntry)}
+                                  alt=""
+                                  aria-hidden="true"
+                                  className="h-5 w-5"
+                                  loading="lazy"
+                                  draggable={false}
+                                />
+                                <span className="sr-only">{group.label}</span>
+                              </>
+                            ) : (
+                              <span className="text-xs">{group.label}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
 
-                    {!hasSearchQuery ? (
-                      <>
-                        <div className="flex shrink-0 flex-wrap gap-1.5">
-                          {catalog.groups.map((group) => (
-                            <button
-                              key={group.id}
-                              type="button"
-                              className={cn(
-                                "rounded-full border px-2.5 py-1 text-[11px] font-medium transition",
-                                activeGroup?.id === group.id
-                                  ? "border-foreground/20 bg-foreground text-background"
-                                  : "border-border/70 bg-background text-muted-foreground hover:bg-accent"
-                              )}
-                              onClick={() => setActiveGroupId(group.id)}
-                            >
-                              {group.label}
-                            </button>
-                          ))}
+                    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                      {!hasSearchQuery && recentEntries.length > 0 ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                            <Clock3 className="h-3.5 w-3.5" />
+                            Recent
+                          </div>
+                          <EmojiGrid entries={recentEntries} onSelectEmoji={handleSelectEmoji} />
                         </div>
+                      ) : null}
 
-                        {activeGroup ? (
-                          <div className="min-h-0 flex-1 space-y-2 overflow-hidden">
-                            <p className="shrink-0 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                      {!hasSearchQuery ? (
+                        activeGroup ? (
+                          <div className="space-y-2">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                               {activeGroup.label}
                             </p>
-                            <div className="min-h-0 overflow-y-auto pr-1">
-                              <EmojiGrid
-                                entries={activeGroup.entries}
-                                onSelectEmoji={handleSelectEmoji}
-                              />
-                            </div>
+                            <EmojiGrid
+                              entries={activeGroup.entries}
+                              onSelectEmoji={handleSelectEmoji}
+                            />
                           </div>
-                        ) : null}
-                      </>
-                    ) : (
-                      <div className="min-h-0 flex-1 space-y-2 overflow-hidden">
-                        <div className="flex shrink-0 items-center justify-between text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                          <span>Results</span>
-                          <span>{searchResults.length}</span>
+                        ) : null
+                      ) : searchResults.length > 0 ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                            <span>Results</span>
+                            <span>{searchResults.length}</span>
+                          </div>
+                          <EmojiGrid entries={searchResults} onSelectEmoji={handleSelectEmoji} />
                         </div>
-                        <div className="min-h-0 overflow-y-auto pr-1">
-                          {searchResults.length > 0 ? (
-                            <EmojiGrid entries={searchResults} onSelectEmoji={handleSelectEmoji} />
-                          ) : (
-                            <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
-                              No emoji matched that search yet.
-                            </div>
-                          )}
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                          No emoji matched that search yet.
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </>
                 ) : null}
               </div>

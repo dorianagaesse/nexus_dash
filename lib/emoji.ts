@@ -20,6 +20,7 @@ export interface EmojiCatalog {
   entries: EmojiCatalogEntry[];
   groups: EmojiCatalogGroup[];
   entryByEmoji: Map<string, EmojiCatalogEntry>;
+  entryByShortcode: Map<string, EmojiCatalogEntry>;
 }
 
 interface EmojibaseEntry {
@@ -72,6 +73,17 @@ const POPULAR_SHORTCODES = [
   "bulb",
   "seedling",
 ] as const;
+const CATEGORY_ICON_SHORTCODES: Record<string, string> = {
+  "smileys-emotion": "grinning",
+  "people-body": "wave",
+  "animals-nature": "seedling",
+  "food-drink": "coffee",
+  "travel-places": "rocket",
+  activities: "trophy",
+  objects: "bulb",
+  symbols: "white_check_mark",
+  flags: "triangular_flag_on_post",
+};
 
 let emojiCatalogPromise: Promise<EmojiCatalog> | null = null;
 
@@ -129,6 +141,7 @@ export function buildEmojiCatalog(
   const groupsById = new Map<string, EmojiCatalogGroup>();
   const groupOrder = new Map<string, number>();
   const entryByEmoji = new Map<string, EmojiCatalogEntry>();
+  const entryByShortcode = new Map<string, EmojiCatalogEntry>();
 
   for (const group of messages.groups) {
     if (EXCLUDED_GROUP_KEYS.has(group.key)) {
@@ -172,6 +185,7 @@ export function buildEmojiCatalog(
 
     entries.push(normalizedEntry);
     entryByEmoji.set(normalizedEntry.emoji, normalizedEntry);
+    entryByShortcode.set(normalizedEntry.shortcode, normalizedEntry);
     groupsById.get(groupMessage.key)?.entries.push(normalizedEntry);
   }
 
@@ -189,6 +203,7 @@ export function buildEmojiCatalog(
     entries,
     groups,
     entryByEmoji,
+    entryByShortcode,
   };
 }
 
@@ -288,13 +303,21 @@ export function getRecentEmojiEntries(catalog: EmojiCatalog, recentEmojis: strin
 }
 
 export function getPopularEmojiEntries(catalog: EmojiCatalog) {
-  const entriesByShortcode = new Map(
-    catalog.entries.map((entry) => [entry.shortcode, entry] as const)
-  );
-
-  return POPULAR_SHORTCODES.map((shortcode) => entriesByShortcode.get(shortcode)).filter(
+  return POPULAR_SHORTCODES.map((shortcode) => catalog.entryByShortcode.get(shortcode)).filter(
     (entry): entry is EmojiCatalogEntry => Boolean(entry)
   );
+}
+
+export function getCategoryIconEntry(catalog: EmojiCatalog, groupId: string) {
+  const shortcode = CATEGORY_ICON_SHORTCODES[groupId];
+  if (shortcode) {
+    const iconEntry = catalog.entryByShortcode.get(shortcode);
+    if (iconEntry) {
+      return iconEntry;
+    }
+  }
+
+  return catalog.groups.find((group) => group.id === groupId)?.entries[0];
 }
 
 export function getEmojiAssetUrl(entry: Pick<EmojiCatalogEntry, "hexcode">) {
