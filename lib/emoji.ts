@@ -1,91 +1,190 @@
-export interface EmojiOption {
+export interface EmojiCatalogEntry {
   emoji: string;
+  hexcode: string;
   name: string;
+  shortcode: string;
+  hoverLabel: string;
+  groupId: string;
+  groupLabel: string;
+  order: number;
+  searchText: string;
 }
 
-export interface EmojiGroup {
+export interface EmojiCatalogGroup {
   id: string;
   label: string;
-  emojis: EmojiOption[];
+  entries: EmojiCatalogEntry[];
 }
+
+export interface EmojiCatalog {
+  entries: EmojiCatalogEntry[];
+  groups: EmojiCatalogGroup[];
+  entryByEmoji: Map<string, EmojiCatalogEntry>;
+}
+
+interface EmojibaseEntry {
+  emoji?: string;
+  hexcode: string;
+  label: string;
+  tags?: string[];
+  order?: number;
+  group?: number;
+}
+
+interface EmojibaseGroupMessage {
+  key: string;
+  message: string;
+  order: number;
+}
+
+interface EmojibaseMessages {
+  groups: EmojibaseGroupMessage[];
+}
+
+type EmojiShortcodeMap = Record<string, string | string[] | undefined>;
 
 export const EMOJI_RECENTS_STORAGE_KEY = "nexusdash:emoji-recents";
 export const MAX_RECENT_EMOJIS = 12;
+export const MAX_SEARCH_RESULTS = 120;
 
-export const EMOJI_GROUPS: EmojiGroup[] = [
-  {
-    id: "faces",
-    label: "Faces",
-    emojis: [
-      { emoji: "😀", name: "Grinning face" },
-      { emoji: "🙂", name: "Slightly smiling face" },
-      { emoji: "😊", name: "Smiling face" },
-      { emoji: "😂", name: "Face with tears of joy" },
-      { emoji: "🥲", name: "Smiling through tears" },
-      { emoji: "😉", name: "Winking face" },
-      { emoji: "🤔", name: "Thinking face" },
-      { emoji: "🫡", name: "Saluting face" },
-      { emoji: "😎", name: "Smiling face with sunglasses" },
-      { emoji: "🥳", name: "Partying face" },
-      { emoji: "🚀", name: "Rocket" },
-      { emoji: "✨", name: "Sparkles" },
-    ],
-  },
-  {
-    id: "signals",
-    label: "Signals",
-    emojis: [
-      { emoji: "👍", name: "Thumbs up" },
-      { emoji: "👀", name: "Eyes" },
-      { emoji: "👏", name: "Clapping hands" },
-      { emoji: "🙌", name: "Raising hands" },
-      { emoji: "✅", name: "Check mark" },
-      { emoji: "❗", name: "Exclamation mark" },
-      { emoji: "⚠️", name: "Warning" },
-      { emoji: "🧠", name: "Brain" },
-      { emoji: "💡", name: "Light bulb" },
-      { emoji: "🔥", name: "Fire" },
-      { emoji: "📌", name: "Pushpin" },
-      { emoji: "🛠️", name: "Hammer and wrench" },
-    ],
-  },
-  {
-    id: "work",
-    label: "Work",
-    emojis: [
-      { emoji: "📅", name: "Calendar" },
-      { emoji: "📝", name: "Memo" },
-      { emoji: "📎", name: "Paperclip" },
-      { emoji: "📣", name: "Megaphone" },
-      { emoji: "📦", name: "Package" },
-      { emoji: "📈", name: "Chart increasing" },
-      { emoji: "🎯", name: "Direct hit" },
-      { emoji: "🧪", name: "Test tube" },
-      { emoji: "🔍", name: "Magnifying glass" },
-      { emoji: "🔒", name: "Lock" },
-      { emoji: "🌱", name: "Seedling" },
-      { emoji: "🤝", name: "Handshake" },
-    ],
-  },
-  {
-    id: "nature",
-    label: "Nature",
-    emojis: [
-      { emoji: "🌿", name: "Herb" },
-      { emoji: "🍀", name: "Four leaf clover" },
-      { emoji: "🌊", name: "Water wave" },
-      { emoji: "☀️", name: "Sun" },
-      { emoji: "🌙", name: "Moon" },
-      { emoji: "⭐", name: "Star" },
-      { emoji: "🌈", name: "Rainbow" },
-      { emoji: "🪴", name: "Potted plant" },
-      { emoji: "🍵", name: "Teacup" },
-      { emoji: "☕", name: "Coffee" },
-      { emoji: "🍕", name: "Pizza" },
-      { emoji: "🎉", name: "Party popper" },
-    ],
-  },
-];
+const EXCLUDED_GROUP_KEYS = new Set(["component"]);
+
+let emojiCatalogPromise: Promise<EmojiCatalog> | null = null;
+
+function normalizeShortcodeValue(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^:+|:+$/g, "")
+    .replace(/[^\w+-]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function fallbackShortcodeFromLabel(label: string) {
+  return normalizeShortcodeValue(label.replace(/['"]/g, ""));
+}
+
+function normalizeShortcodes(value: string | string[] | undefined, label: string) {
+  const aliases = Array.isArray(value) ? value : value ? [value] : [];
+  const normalizedAliases = Array.from(
+    new Set(
+      aliases
+        .map((alias) => normalizeShortcodeValue(alias))
+        .filter((alias) => alias.length > 0)
+    )
+  );
+
+  if (normalizedAliases.length > 0) {
+    return normalizedAliases;
+  }
+
+  const fallbackAlias = fallbackShortcodeFromLabel(label);
+  return fallbackAlias ? [fallbackAlias] : [];
+}
+
+function normalizeLabel(label: string) {
+  return label
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function buildSearchText(label: string, aliases: string[], tags: string[] = []) {
+  return [label, ...aliases, ...tags]
+    .map((value) => value.toLowerCase())
+    .join(" ");
+}
+
+export function buildEmojiCatalog(
+  data: EmojibaseEntry[],
+  messages: EmojibaseMessages,
+  shortcodes: EmojiShortcodeMap
+): EmojiCatalog {
+  const groupsById = new Map<string, EmojiCatalogGroup>();
+  const groupOrder = new Map<string, number>();
+  const entryByEmoji = new Map<string, EmojiCatalogEntry>();
+
+  for (const group of messages.groups) {
+    if (EXCLUDED_GROUP_KEYS.has(group.key)) {
+      continue;
+    }
+
+    groupsById.set(group.key, {
+      id: group.key,
+      label: normalizeLabel(group.message),
+      entries: [],
+    });
+    groupOrder.set(group.key, group.order);
+  }
+
+  const entries: EmojiCatalogEntry[] = [];
+
+  for (const entry of data) {
+    if (!entry.emoji) {
+      continue;
+    }
+
+    const groupMessage = typeof entry.group === "number" ? messages.groups[entry.group] : undefined;
+    if (!groupMessage || EXCLUDED_GROUP_KEYS.has(groupMessage.key)) {
+      continue;
+    }
+
+    const aliases = normalizeShortcodes(shortcodes[entry.hexcode], entry.label);
+    const primaryShortcode = aliases[0] ?? fallbackShortcodeFromLabel(entry.label);
+
+    const normalizedEntry: EmojiCatalogEntry = {
+      emoji: entry.emoji,
+      hexcode: entry.hexcode,
+      name: entry.label,
+      shortcode: primaryShortcode,
+      hoverLabel: `:${primaryShortcode}:`,
+      groupId: groupMessage.key,
+      groupLabel: normalizeLabel(groupMessage.message),
+      order: entry.order ?? Number.MAX_SAFE_INTEGER,
+      searchText: buildSearchText(entry.label, aliases, entry.tags),
+    };
+
+    entries.push(normalizedEntry);
+    entryByEmoji.set(normalizedEntry.emoji, normalizedEntry);
+    groupsById.get(groupMessage.key)?.entries.push(normalizedEntry);
+  }
+
+  entries.sort((left, right) => left.order - right.order);
+
+  const groups = Array.from(groupsById.values())
+    .map((group) => ({
+      ...group,
+      entries: group.entries.sort((left, right) => left.order - right.order),
+    }))
+    .filter((group) => group.entries.length > 0)
+    .sort((left, right) => (groupOrder.get(left.id) ?? 0) - (groupOrder.get(right.id) ?? 0));
+
+  return {
+    entries,
+    groups,
+    entryByEmoji,
+  };
+}
+
+export async function loadEmojiCatalog() {
+  if (!emojiCatalogPromise) {
+    emojiCatalogPromise = Promise.all([
+      import("emojibase-data/en/data.json"),
+      import("emojibase-data/en/messages.json"),
+      import("emojibase-data/en/shortcodes/github.json"),
+    ]).then(([dataModule, messagesModule, shortcodesModule]) =>
+      buildEmojiCatalog(
+        (dataModule.default ?? dataModule) as EmojibaseEntry[],
+        (messagesModule.default ?? messagesModule) as EmojibaseMessages,
+        (shortcodesModule.default ?? shortcodesModule) as EmojiShortcodeMap
+      )
+    );
+  }
+
+  return emojiCatalogPromise;
+}
 
 export function buildNextRecentEmojis(previous: string[], nextEmoji: string): string[] {
   return [nextEmoji, ...previous.filter((emoji) => emoji !== nextEmoji)].slice(
@@ -118,6 +217,48 @@ export function normalizeRecentEmojis(value: unknown): string[] {
   return normalizedRecents;
 }
 
-export function getEmojiGroupById(groupId: string): EmojiGroup | undefined {
-  return EMOJI_GROUPS.find((group) => group.id === groupId);
+export function findEmojiMatches(
+  entries: EmojiCatalogEntry[],
+  query: string,
+  limit = MAX_SEARCH_RESULTS
+) {
+  const normalizedQuery = query.trim().toLowerCase().replace(/^:+|:+$/g, "");
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  return entries
+    .map((entry) => {
+      const shortcodeScore = entry.shortcode === normalizedQuery
+        ? 0
+        : entry.shortcode.startsWith(normalizedQuery)
+          ? 1
+          : entry.shortcode.includes(normalizedQuery)
+            ? 2
+            : Number.POSITIVE_INFINITY;
+      const labelScore = entry.name.toLowerCase() === normalizedQuery
+        ? 3
+        : entry.name.toLowerCase().startsWith(normalizedQuery)
+          ? 4
+          : entry.name.toLowerCase().includes(normalizedQuery)
+            ? 5
+            : Number.POSITIVE_INFINITY;
+      const searchScore = entry.searchText.includes(normalizedQuery) ? 6 : Number.POSITIVE_INFINITY;
+      const score = Math.min(shortcodeScore, labelScore, searchScore);
+
+      return {
+        entry,
+        score,
+      };
+    })
+    .filter((candidate) => Number.isFinite(candidate.score))
+    .sort((left, right) => left.score - right.score || left.entry.order - right.entry.order)
+    .slice(0, limit)
+    .map((candidate) => candidate.entry);
+}
+
+export function getRecentEmojiEntries(catalog: EmojiCatalog, recentEmojis: string[]) {
+  return recentEmojis
+    .map((emoji) => catalog.entryByEmoji.get(emoji))
+    .filter((entry): entry is EmojiCatalogEntry => Boolean(entry));
 }
