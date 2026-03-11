@@ -36,13 +36,15 @@ export function EmojiFieldShell({
   buttonPlacement = "center",
 }: EmojiFieldShellProps) {
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("relative w-full", className)}>
       {children}
       <EmojiPickerButton
         presentation="field"
         className={cn(
-          "absolute right-2 z-10",
-          buttonPlacement === "center" ? "top-1/2 -translate-y-1/2" : "top-2"
+          "absolute z-10",
+          buttonPlacement === "center"
+            ? "right-2 top-1/2 -translate-y-1/2"
+            : "right-2 top-2"
         )}
         onSelectEmoji={(emoji) => insertEmojiAtCursor(targetRef.current, emoji)}
         disabled={disabled}
@@ -72,7 +74,7 @@ export const EmojiInputField = React.forwardRef<HTMLInputElement, EmojiInputFiel
             inputRef.current = node;
             assignRef(forwardedRef, node);
           }}
-          className={cn(className, "pr-14")}
+          className={cn("block w-full", className, "pr-12")}
         />
       </EmojiFieldShell>
     );
@@ -104,7 +106,7 @@ export const EmojiTextareaField = React.forwardRef<
           textareaRef.current = node;
           assignRef(forwardedRef, node);
         }}
-        className={cn(className, "pr-14")}
+        className={cn("block w-full", className, "pr-12")}
       />
     </EmojiFieldShell>
   );
