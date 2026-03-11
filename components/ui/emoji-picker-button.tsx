@@ -1,6 +1,20 @@
 "use client";
 
-import { Clock3, Loader2, Search, SmilePlus } from "lucide-react";
+import {
+  Clock3,
+  Coffee,
+  Flag,
+  Hand,
+  Hash,
+  Leaf,
+  Lightbulb,
+  Loader2,
+  Search,
+  Smile,
+  SmilePlus,
+  Trophy,
+  Plane,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -9,7 +23,6 @@ import {
   buildNextRecentEmojis,
   type EmojiCatalog,
   findEmojiMatches,
-  getCategoryIconEntry,
   getEmojiAssetUrl,
   getRecentEmojiEntries,
   EMOJI_RECENTS_STORAGE_KEY,
@@ -39,6 +52,17 @@ const MOBILE_PANEL_WIDTH = 300;
 const MAX_PANEL_HEIGHT = 360;
 const MIN_PANEL_HEIGHT = 240;
 const MAX_RECENT_PREVIEW = 6;
+const CATEGORY_ICONS = {
+  "smileys-emotion": Smile,
+  "people-body": Hand,
+  "animals-nature": Leaf,
+  "food-drink": Coffee,
+  "travel-places": Plane,
+  activities: Trophy,
+  objects: Lightbulb,
+  symbols: Hash,
+  flags: Flag,
+} as const;
 
 export function EmojiPickerButton({
   onSelectEmoji,
@@ -306,16 +330,17 @@ export function EmojiPickerButton({
                   </div>
                 ) : catalog ? (
                   <>
-                    <div className="flex shrink-0 items-center gap-1 overflow-x-auto pb-1 pr-1">
+                    <div className="grid shrink-0 grid-cols-9 gap-1">
                       {catalog.groups.map((group) => {
-                        const iconEntry = getCategoryIconEntry(catalog, group.id);
+                        const CategoryIcon =
+                          CATEGORY_ICONS[group.id as keyof typeof CATEGORY_ICONS] ?? Smile;
 
                         return (
                           <button
                             key={group.id}
                             type="button"
                             className={cn(
-                              "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition",
+                              "flex h-8 w-8 items-center justify-center rounded-full border transition",
                               activeGroup?.id === group.id
                                 ? "border-primary/40 bg-primary/12"
                                 : "border-transparent bg-transparent hover:border-border/70 hover:bg-accent"
@@ -324,29 +349,23 @@ export function EmojiPickerButton({
                             aria-label={group.label}
                             title={group.label}
                           >
-                            {iconEntry ? (
-                              <>
-                                {/* External twemoji assets keep category icons consistent across OS emoji fonts. */}
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={getEmojiAssetUrl(iconEntry)}
-                                  alt=""
-                                  aria-hidden="true"
-                                  className="h-5 w-5"
-                                  loading="lazy"
-                                  draggable={false}
-                                />
-                                <span className="sr-only">{group.label}</span>
-                              </>
-                            ) : (
-                              <span className="text-xs">{group.label}</span>
-                            )}
+                            <CategoryIcon
+                              aria-hidden="true"
+                              className={cn(
+                                "h-4.5 w-4.5",
+                                activeGroup?.id === group.id
+                                  ? "text-foreground"
+                                  : "text-muted-foreground"
+                              )}
+                              strokeWidth={2}
+                            />
+                            <span className="sr-only">{group.label}</span>
                           </button>
                         );
                       })}
                     </div>
 
-                    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                    <div className="scrollbar-hidden min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1">
                       {!hasSearchQuery && recentEntries.length > 0 ? (
                         <div className="space-y-2">
                           <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
