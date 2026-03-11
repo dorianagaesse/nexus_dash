@@ -16,6 +16,30 @@ type ProjectKanbanTaskRecord = Prisma.TaskGetPayload<{
   include: {
     attachments: true;
     blockedFollowUps: true;
+    outgoingRelations: {
+      select: {
+        rightTask: {
+          select: {
+            id: true;
+            title: true;
+            status: true;
+            archivedAt: true;
+          };
+        };
+      };
+    };
+    incomingRelations: {
+      select: {
+        leftTask: {
+          select: {
+            id: true;
+            title: true;
+            status: true;
+            archivedAt: true;
+          };
+        };
+      };
+    };
   };
 }>;
 
@@ -278,6 +302,30 @@ export async function listProjectKanbanTasks(
         blockedFollowUps: {
           orderBy: [{ createdAt: "desc" }],
         },
+        outgoingRelations: {
+          select: {
+            rightTask: {
+              select: {
+                id: true,
+                title: true,
+                status: true,
+                archivedAt: true,
+              },
+            },
+          },
+        },
+        incomingRelations: {
+          select: {
+            leftTask: {
+              select: {
+                id: true,
+                title: true,
+                status: true,
+                archivedAt: true,
+              },
+            },
+          },
+        },
       },
     });
   });
@@ -332,6 +380,30 @@ export async function getProjectDashboardById(projectId: string, actorUserId: st
             },
             blockedFollowUps: {
               orderBy: [{ createdAt: "desc" }],
+            },
+            outgoingRelations: {
+              select: {
+                rightTask: {
+                  select: {
+                    id: true,
+                    title: true,
+                    status: true,
+                    archivedAt: true,
+                  },
+                },
+              },
+            },
+            incomingRelations: {
+              select: {
+                leftTask: {
+                  select: {
+                    id: true,
+                    title: true,
+                    status: true,
+                    archivedAt: true,
+                  },
+                },
+              },
             },
           },
         },

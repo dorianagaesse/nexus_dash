@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { Link2, Paperclip, PlusSquare, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import { RelatedTaskSelector, type RelatedTaskOption } from "@/components/kanban/related-task-field";
+import type { TaskRelatedSummary } from "@/components/kanban-board-types";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { useToast } from "@/components/toast-provider";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,7 @@ interface CreateTaskDialogProps {
   projectId: string;
   storageProvider: "local" | "r2";
   existingLabels: string[];
+  availableTasks: RelatedTaskOption[];
 }
 
 interface PendingAttachmentLink {
@@ -42,6 +45,7 @@ export function CreateTaskDialog({
   projectId,
   storageProvider,
   existingLabels,
+  availableTasks,
 }: CreateTaskDialogProps) {
   const isMountedRef = useRef(true);
   const router = useRouter();
@@ -50,6 +54,8 @@ export function CreateTaskDialog({
   const [description, setDescription] = useState("");
   const [labels, setLabels] = useState<string[]>([]);
   const [labelInput, setLabelInput] = useState("");
+  const [relatedTaskSearch, setRelatedTaskSearch] = useState("");
+  const [relatedTaskIds, setRelatedTaskIds] = useState<string[]>([]);
   const [linkUrl, setLinkUrl] = useState("");
   const [isLinkComposerOpen, setIsLinkComposerOpen] = useState(false);
   const [attachmentLinks, setAttachmentLinks] = useState<PendingAttachmentLink[]>([]);
@@ -80,6 +86,8 @@ export function CreateTaskDialog({
     setDescription("");
     setLabels([]);
     setLabelInput("");
+    setRelatedTaskSearch("");
+    setRelatedTaskIds([]);
     setLinkUrl("");
     setIsLinkComposerOpen(false);
     setAttachmentLinks([]);
@@ -112,6 +120,8 @@ export function CreateTaskDialog({
         return "Unsupported attachment file type. Use PDF, image, text, CSV, or JSON.";
       case "create-failed":
         return "Could not create task. Please retry.";
+      case "related-tasks-invalid":
+        return "Related tasks must stay active and belong to this project.";
       default:
         return "Could not create task. Please retry.";
     }
@@ -260,6 +270,24 @@ export function CreateTaskDialog({
   );
 
   const serializedLabels = JSON.stringify(labels);
+  const serializedRelatedTaskIds = JSON.stringify(relatedTaskIds);
+  const relatedTaskById = useMemo(
+    () => new Map(availableTasks.map((task) => [task.id, task])),
+    [availableTasks]
+  );
+  const selectedRelatedTasks = useMemo<TaskRelatedSummary[]>(
+    () =>
+      relatedTaskIds
+        .map((taskId) => relatedTaskById.get(taskId))
+        .filter((task): task is RelatedTaskOption => Boolean(task))
+        .map((task) => ({
+          id: task.id,
+          title: task.title,
+          status: task.status,
+          archivedAt: null,
+        })),
+    [relatedTaskById, relatedTaskIds]
+  );
 
   const labelSuggestions = useMemo(() => {
     const query = labelInput.trim().toLowerCase();
@@ -413,6 +441,32 @@ export function CreateTaskDialog({
                         placeholder="Optional implementation notes..."
                       />
                       <input type="hidden" name="description" value={description} />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <label className="text-sm font-medium">Related tasks</label>
+                      <RelatedTaskSelector
+                        selectedTasks={selectedRelatedTasks}
+                        availableTasks={availableTasks}
+                        searchValue={relatedTaskSearch}
+                        onSearchChange={setRelatedTaskSearch}
+                        onAddTask={(taskId) => {
+                          setRelatedTaskIds((previous) =>
+                            previous.includes(taskId) ? previous : [...previous, taskId]
+                          );
+                          setRelatedTaskSearch("");
+                        }}
+                        onRemoveTask={(taskId) => {
+                          setRelatedTaskIds((previous) =>
+                            previous.filter((entry) => entry !== taskId)
+                          );
+                        }}
+                      />
+                      <input
+                        type="hidden"
+                        name="relatedTaskIds"
+                        value={serializedRelatedTaskIds}
+                      />
                     </div>
 
                     <div className="space-y-2">

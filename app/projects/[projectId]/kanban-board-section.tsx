@@ -4,6 +4,7 @@ import { CreateTaskDialog } from "@/components/create-task-dialog";
 import { KanbanBoard, type KanbanTask } from "@/components/kanban-board";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listProjectKanbanTasks } from "@/lib/services/project-service";
+import { mapRelatedTaskSummary } from "@/lib/task-related";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import { isTaskStatus } from "@/lib/task-status";
@@ -39,6 +40,11 @@ export async function KanbanBoardSection({
         content: entry.content,
         createdAt: entry.createdAt.toISOString(),
       })),
+      archivedAt: task.archivedAt ? task.archivedAt.toISOString() : null,
+      relatedTasks: [
+        ...task.outgoingRelations.map((entry) => mapRelatedTaskSummary(entry.rightTask)),
+        ...task.incomingRelations.map((entry) => mapRelatedTaskSummary(entry.leftTask)),
+      ].sort((left, right) => left.title.localeCompare(right.title)),
       status: task.status,
       attachments: task.attachments.map((attachment) => ({
         id: attachment.id,
@@ -77,6 +83,11 @@ export async function KanbanBoardSection({
           projectId={projectId}
           storageProvider={storageProvider}
           existingLabels={Array.from(existingLabelSet)}
+          availableTasks={kanbanTasks.map((task) => ({
+            id: task.id,
+            title: task.title,
+            status: task.status,
+          }))}
         />
       }
     />

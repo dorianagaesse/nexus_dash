@@ -11,10 +11,12 @@ import {
 } from "react";
 import type { DropResult } from "@hello-pangea/dnd";
 
+import type { RelatedTaskOption } from "@/components/kanban/related-task-field";
 import {
   type KanbanTask,
   type PendingAttachmentUpload,
   type TaskAttachment,
+  type TaskRelatedSummary,
 } from "@/components/kanban-board-types";
 import { KanbanBoardHeader } from "@/components/kanban/kanban-board-header";
 import { KanbanColumnsGrid } from "@/components/kanban/kanban-columns-grid";
@@ -44,6 +46,7 @@ import {
   getTaskLabelsFromStorage,
   normalizeTaskLabel,
 } from "@/lib/task-label";
+import { createRelatedTaskMap } from "@/lib/task-related";
 import { isTaskStatus, TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 
 export type { KanbanTask } from "@/components/kanban-board-types";
@@ -79,6 +82,7 @@ export function KanbanBoard({
   const [isSaving, startTransition] = useTransition();
   const [persistError, setPersistError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
+  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
   const [pendingDeleteTask, setPendingDeleteTask] = useState<KanbanTask | null>(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
   const [isArchivingTask, setIsArchivingTask] = useState(false);
@@ -96,6 +100,7 @@ export function KanbanBoard({
   const [editLabels, setEditLabels] = useState<string[]>([]);
   const [editLabelInput, setEditLabelInput] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [relatedTaskSearch, setRelatedTaskSearch] = useState("");
   const [newBlockedFollowUpEntry, setNewBlockedFollowUpEntry] = useState("");
   const [isUpdatingTask, setIsUpdatingTask] = useState(false);
   const [taskModalError, setTaskModalError] = useState<string | null>(null);
@@ -141,6 +146,7 @@ export function KanbanBoard({
     setEditLabels(selectedTask.labels);
     setEditLabelInput("");
     setEditDescription(selectedTask.description ?? "");
+    setRelatedTaskSearch("");
     setNewBlockedFollowUpEntry("");
     setAttachmentError(null);
     setPendingAttachmentUploads([]);
@@ -205,6 +211,42 @@ export function KanbanBoard({
     return archivedDoneTasks.some((task) => task.id === selectedTask.id);
   }, [archivedDoneTasks, selectedTask]);
 
+  const allTasks = useMemo(
+    () => [...TASK_STATUSES.flatMap((status) => columns[status]), ...archivedDoneTasks],
+    [archivedDoneTasks, columns]
+  );
+
+  const taskById = useMemo(
+    () => new Map(allTasks.map((task) => [task.id, task])),
+    [allTasks]
+  );
+
+  const relatedTaskGraph = useMemo(() => createRelatedTaskMap(allTasks), [allTasks]);
+
+  const highlightedTaskIds = useMemo(() => {
+    if (!hoveredTaskId) {
+      return new Set<string>();
+    }
+
+    const connectedTaskIds = relatedTaskGraph.get(hoveredTaskId) ?? [];
+    return new Set([hoveredTaskId, ...connectedTaskIds]);
+  }, [hoveredTaskId, relatedTaskGraph]);
+
+  const availableRelatedTaskOptions = useMemo<RelatedTaskOption[]>(() => {
+    if (!selectedTask) {
+      return [];
+    }
+
+    return TASK_STATUSES.flatMap((status) => columns[status])
+      .filter((task) => task.id !== selectedTask.id)
+      .map((task) => ({
+        id: task.id,
+        title: task.title,
+        status: task.status,
+      }))
+      .sort((left, right) => left.title.localeCompare(right.title));
+  }, [columns, selectedTask]);
+
   const addEditLabel = useCallback(
     (value: string) => {
       const normalizedLabel = normalizeTaskLabel(value);
@@ -236,6 +278,160 @@ export function KanbanBoard({
     setEditLabels((previous) =>
       previous.filter((label) => label !== labelToRemove)
     );
+  }, []);
+
+  const addRelatedTask = useCallback(
+    (taskId: string) => {
+      const relatedTask = taskById.get(taskId);
+      if (!selectedTask || !relatedTask) {
+        return;
+      }
+
+      setSelectedTask((previousTask) => {
+        if (!previousTask || previousTask.id !== selectedTask.id) {
+          return previousTask;
+        }
+
+        if (previousTask.relatedTasks.some((entry) => entry.id === taskId)) {
+          return previousTask;
+        }
+
+        return {
+          ...previousTask,
+          relatedTasks: [
+            ...previousTask.relatedTasks,
+            {
+              id: relatedTask.id,
+              title: relatedTask.title,
+              status: relatedTask.status,
+              archivedAt: relatedTask.archivedAt,
+            },
+          ].sort((left, right) => left.title.localeCompare(right.title)),
+        };
+      });
+      setRelatedTaskSearch("");
+    },
+    [selectedTask, taskById]
+  );
+
+  const removeRelatedTask = useCallback(
+    (taskId: string) => {
+      setSelectedTask((previousTask) => {
+        if (!previousTask) {
+          return previousTask;
+        }
+
+        return {
+          ...previousTask,
+          relatedTasks: previousTask.relatedTasks.filter((entry) => entry.id !== taskId),
+        };
+      });
+    },
+    []
+  );
+
+  const syncRelatedTaskSummary = useCallback(
+    (
+      taskId: string,
+      nextSummary: {
+        title: string;
+        status: string;
+        archivedAt: string | null;
+      }
+    ) => {
+      const updateTaskReferences = (task: KanbanTask): KanbanTask => {
+        const hasReference = task.relatedTasks.some((entry) => entry.id === taskId);
+        if (!hasReference) {
+          return task;
+        }
+
+        return {
+          ...task,
+          relatedTasks: task.relatedTasks.map((entry) =>
+            entry.id === taskId
+              ? {
+                  ...entry,
+                  ...nextSummary,
+                }
+              : entry
+          ),
+        };
+      };
+
+      setColumns((previousColumns) => {
+        let hasChanges = false;
+        const nextColumns = createEmptyColumns<KanbanTask>();
+
+        TASK_STATUSES.forEach((status) => {
+          nextColumns[status] = previousColumns[status].map((task) => {
+            const nextTask = updateTaskReferences(task);
+            if (nextTask !== task) {
+              hasChanges = true;
+            }
+            return nextTask;
+          });
+        });
+
+        return hasChanges ? nextColumns : previousColumns;
+      });
+
+      setArchivedDoneTasks((previousTasks) => {
+        let hasChanges = false;
+        const nextTasks = previousTasks.map((task) => {
+          const nextTask = updateTaskReferences(task);
+          if (nextTask !== task) {
+            hasChanges = true;
+          }
+          return nextTask;
+        });
+
+        return hasChanges ? nextTasks : previousTasks;
+      });
+    },
+    []
+  );
+
+  const removeRelatedTaskReferences = useCallback((taskId: string) => {
+    const stripReference = (task: KanbanTask): KanbanTask => {
+      if (!task.relatedTasks.some((entry) => entry.id === taskId)) {
+        return task;
+      }
+
+      return {
+        ...task,
+        relatedTasks: task.relatedTasks.filter((entry) => entry.id !== taskId),
+      };
+    };
+
+    setColumns((previousColumns) => {
+      let hasChanges = false;
+      const nextColumns = createEmptyColumns<KanbanTask>();
+
+      TASK_STATUSES.forEach((status) => {
+        nextColumns[status] = previousColumns[status].map((task) => {
+          const nextTask = stripReference(task);
+          if (nextTask !== task) {
+            hasChanges = true;
+          }
+          return nextTask;
+        });
+      });
+
+      return hasChanges ? nextColumns : previousColumns;
+    });
+
+    setArchivedDoneTasks((previousTasks) => {
+      let hasChanges = false;
+      const nextTasks = previousTasks.map((task) => {
+        const nextTask = stripReference(task);
+        if (nextTask !== task) {
+          hasChanges = true;
+        }
+        return nextTask;
+      });
+
+      return hasChanges ? nextTasks : previousTasks;
+    });
   }, []);
 
   const persistColumns = useCallback(
@@ -304,13 +500,18 @@ export function KanbanBoard({
       });
 
       setColumns(nextColumns);
+      syncRelatedTaskSummary(movedTask.id, {
+        title: movedTask.title,
+        status: destinationStatus,
+        archivedAt: null,
+      });
       setPersistError(null);
 
       startTransition(() => {
         void persistColumns(nextColumns, previousColumns);
       });
     },
-    [columns, persistColumns]
+    [columns, persistColumns, syncRelatedTaskSummary]
   );
 
   const closeTaskModal = useCallback(() => {
@@ -319,6 +520,7 @@ export function KanbanBoard({
     setIsEditMode(false);
     setTaskModalError(null);
     setAttachmentError(null);
+    setRelatedTaskSearch("");
     setPreviewAttachment(null);
   }, []);
 
@@ -331,6 +533,19 @@ export function KanbanBoard({
     shouldOpenTaskInEditModeRef.current = true;
     setSelectedTask(task);
   }, []);
+
+  const openRelatedTask = useCallback(
+    (taskId: string) => {
+      const relatedTask = taskById.get(taskId);
+      if (!relatedTask) {
+        return;
+      }
+
+      shouldOpenTaskInEditModeRef.current = false;
+      setSelectedTask(relatedTask);
+    },
+    [taskById]
+  );
 
   const handleActivateTaskEditMode = useCallback(() => {
     setIsEditMode(true);
@@ -345,6 +560,7 @@ export function KanbanBoard({
 
       const normalizedTitle = editTitle.trim();
       const normalizedBlockedEntry = newBlockedFollowUpEntry.trim();
+      const relatedTaskIds = selectedTask.relatedTasks.map((task) => task.id);
 
       if (normalizedTitle.length < 2) {
         setTaskModalError("Task title must be at least 2 characters.");
@@ -366,6 +582,7 @@ export function KanbanBoard({
               labels: editLabels,
               description: editDescription,
               blockedFollowUpEntry: normalizedBlockedEntry,
+              relatedTaskIds,
             }),
           }
         );
@@ -374,7 +591,11 @@ export function KanbanBoard({
           const payload = (await response.json().catch(() => null)) as {
             error?: string;
           } | null;
-          throw new Error(payload?.error ?? "Failed to update task");
+          const message =
+            payload?.error === "related-tasks-invalid"
+              ? "Related tasks must stay active and belong to this project."
+              : (payload?.error ?? "Failed to update task");
+          throw new Error(message);
         }
 
         const payload = (await response.json()) as {
@@ -386,6 +607,9 @@ export function KanbanBoard({
             description: string | null;
             blockedNote: string | null;
             status: string;
+            position: number;
+            archivedAt: string | null;
+            relatedTasks: TaskRelatedSummary[];
             blockedFollowUps: {
               id: string;
               content: string;
@@ -411,6 +635,8 @@ export function KanbanBoard({
             createdAt: entry.createdAt,
           })),
           status: payload.task.status,
+          archivedAt: payload.task.archivedAt,
+          relatedTasks: payload.task.relatedTasks,
           attachments: selectedTask.attachments,
         };
 
@@ -462,6 +688,11 @@ export function KanbanBoard({
           }
           return updatedTask;
         });
+        syncRelatedTaskSummary(updatedTask.id, {
+          title: updatedTask.title,
+          status: updatedTask.status,
+          archivedAt: updatedTask.archivedAt,
+        });
         setTaskModalError(null);
         if (options?.exitEditMode !== false) {
           setIsEditMode(false);
@@ -470,7 +701,9 @@ export function KanbanBoard({
         return true;
       } catch (error) {
         console.error("[KanbanBoard.handleTaskUpdate]", error);
-        setTaskModalError("Could not save task changes.");
+        setTaskModalError(
+          error instanceof Error ? error.message : "Could not save task changes."
+        );
         return false;
       } finally {
         setIsUpdatingTask(false);
@@ -483,6 +716,7 @@ export function KanbanBoard({
       newBlockedFollowUpEntry,
       projectId,
       selectedTask,
+      syncRelatedTaskSummary,
     ]
   );
 
@@ -548,7 +782,13 @@ export function KanbanBoard({
         return {
           ...previousTask,
           status: nextStatus,
+          archivedAt: null,
         };
+      });
+      syncRelatedTaskSummary(task.id, {
+        title: task.title,
+        status: nextStatus,
+        archivedAt: null,
       });
       setPersistError(null);
 
@@ -561,7 +801,7 @@ export function KanbanBoard({
         message: `Task moved to ${nextStatus}.`,
       });
     },
-    [columns, persistColumns, pushToast]
+    [columns, persistColumns, pushToast, syncRelatedTaskSummary]
   );
 
   const confirmDeleteTask = useCallback(async () => {
@@ -601,6 +841,7 @@ export function KanbanBoard({
         }
         return null;
       });
+      removeRelatedTaskReferences(pendingDeleteTask.id);
 
       pushToast({
         variant: "success",
@@ -616,7 +857,7 @@ export function KanbanBoard({
       setPendingDeleteTask(null);
       setIsDeletingTask(false);
     }
-  }, [isDeletingTask, pendingDeleteTask, projectId, pushToast]);
+  }, [isDeletingTask, pendingDeleteTask, projectId, pushToast, removeRelatedTaskReferences]);
 
   const handleArchiveTask = useCallback(async () => {
     if (!selectedTask || isArchivingTask) {
@@ -637,7 +878,13 @@ export function KanbanBoard({
         throw new Error(await readApiError(response, "Could not archive task."));
       }
 
+      const payload = (await response.json()) as { archivedAt: string };
+
       const taskToArchive = selectedTask;
+      const archivedTask = {
+        ...taskToArchive,
+        archivedAt: payload.archivedAt,
+      };
 
       setColumns((previousColumns) => {
         const nextColumns = createEmptyColumns<KanbanTask>();
@@ -650,7 +897,12 @@ export function KanbanBoard({
       });
       setArchivedDoneTasks((previousTasks) => {
         const withoutTask = previousTasks.filter((task) => task.id !== taskToArchive.id);
-        return [taskToArchive, ...withoutTask];
+        return [archivedTask, ...withoutTask];
+      });
+      syncRelatedTaskSummary(taskToArchive.id, {
+        title: taskToArchive.title,
+        status: taskToArchive.status,
+        archivedAt: payload.archivedAt,
       });
       closeTaskModal();
       pushToast({
@@ -666,7 +918,7 @@ export function KanbanBoard({
     } finally {
       setIsArchivingTask(false);
     }
-  }, [closeTaskModal, isArchivingTask, projectId, pushToast, selectedTask]);
+  }, [closeTaskModal, isArchivingTask, projectId, pushToast, selectedTask, syncRelatedTaskSummary]);
 
   const handleUnarchiveTask = useCallback(async () => {
     if (!selectedTask || !isSelectedTaskArchived || isArchivingTask) {
@@ -687,7 +939,10 @@ export function KanbanBoard({
         throw new Error(await readApiError(response, "Could not unarchive task."));
       }
 
-      const taskToRestore = selectedTask;
+      const taskToRestore = {
+        ...selectedTask,
+        archivedAt: null,
+      };
 
       setArchivedDoneTasks((previousTasks) =>
         previousTasks.filter((task) => task.id !== taskToRestore.id)
@@ -702,6 +957,12 @@ export function KanbanBoard({
         nextColumns.Done = [taskToRestore, ...nextColumns.Done];
         return nextColumns;
       });
+      setSelectedTask(taskToRestore);
+      syncRelatedTaskSummary(taskToRestore.id, {
+        title: taskToRestore.title,
+        status: taskToRestore.status,
+        archivedAt: null,
+      });
       pushToast({
         variant: "success",
         message: "Task moved back to Done.",
@@ -715,7 +976,7 @@ export function KanbanBoard({
     } finally {
       setIsArchivingTask(false);
     }
-  }, [isArchivingTask, isSelectedTaskArchived, projectId, pushToast, selectedTask]);
+  }, [isArchivingTask, isSelectedTaskArchived, projectId, pushToast, selectedTask, syncRelatedTaskSummary]);
 
   const handleAddBlockedFollowUpEntry = useCallback(async () => {
     if (!newBlockedFollowUpEntry.trim()) {
@@ -995,9 +1256,11 @@ export function KanbanBoard({
         <KanbanColumnsGrid
           columns={columns}
           archivedDoneTasks={archivedDoneTasks}
+          highlightedTaskIds={highlightedTaskIds}
           onDragEnd={onDragEnd}
           onSelectTask={handleSelectTask}
           onEditTask={openTaskInEditMode}
+          onTaskHoverChange={setHoveredTaskId}
         />
       ) : null}
 
@@ -1010,6 +1273,7 @@ export function KanbanBoard({
         editLabelInput={editLabelInput}
         editLabelSuggestions={editLabelSuggestions}
         editDescription={editDescription}
+        relatedTaskSearch={relatedTaskSearch}
         newBlockedFollowUpEntry={newBlockedFollowUpEntry}
         isUpdatingTask={isUpdatingTask}
         taskModalError={taskModalError}
@@ -1031,6 +1295,11 @@ export function KanbanBoard({
         onAddEditLabel={addEditLabel}
         onRemoveEditLabel={removeEditLabel}
         onEditDescriptionChange={setEditDescription}
+        onRelatedTaskSearchChange={setRelatedTaskSearch}
+        onAddRelatedTask={addRelatedTask}
+        onRemoveRelatedTask={removeRelatedTask}
+        availableRelatedTaskOptions={availableRelatedTaskOptions}
+        onOpenRelatedTask={openRelatedTask}
         onNewBlockedFollowUpEntryChange={setNewBlockedFollowUpEntry}
         onAddBlockedFollowUpEntry={handleAddBlockedFollowUpEntry}
         onSaveTask={handleTaskUpdate}

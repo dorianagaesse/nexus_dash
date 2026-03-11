@@ -4,15 +4,10 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-094
-  Title: Text input UX - emoji picker/button across text fields
-  Status: In Progress
-  Rationale: Add a lightweight emoji insertion control to supported text inputs so users can express status or tone without relying on OS-level shortcuts, while keeping typing flows quick and consistent.
-  Dependencies: TASK-078, TASK-079
 - ID: TASK-095
-  Title: Task dependency graph - optional linked-task dependencies with hover highlight
-  Status: Pending
-  Rationale: Add an optional task-dependency field so tasks can link to other tasks directly in-product, mirroring backlog dependency tracking and making execution order clearer; hovering a linked task should softly highlight connected tasks with a subtle green border treatment.
+  Title: Related tasks - symmetric task linking with hover highlight
+  Status: In Progress
+  Rationale: Add an optional same-project related-task field so work items that belong together can stay connected bidirectionally in-product, remain visible for context when archived, and softly highlight together on hover in the Kanban board.
   Dependencies: TASK-076, TASK-079
 - ID: TASK-068
   Title: Authentication provider rollout - phase social providers (Google/GitHub) after baseline email auth
@@ -120,6 +115,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Done (2026-03-11)
   Rationale: Added explicit archive and unarchive actions for done tasks, aligned the task options UI, and updated the task detail state treatment so manual archiving fits the existing lifecycle cleanly.
   Dependencies: TASK-046, TASK-076, TASK-079
+- ID: TASK-094
+  Title: Text input UX - emoji picker/button across text fields
+  Status: Done (2026-03-11)
+  Rationale: Added a reusable emoji picker/button across supported text-entry surfaces, then iterated on the in-field placement, search, icon-only trigger, compact popover layout, emoji rendering consistency, and theme-aware visual polish until preview behavior and UX were clean.
+  Dependencies: TASK-078, TASK-079
 - ID: TASK-086
   Title: Account page adjustment - email change verification flow, compact layout, and settings navigation
   Status: Done (2026-02-28)

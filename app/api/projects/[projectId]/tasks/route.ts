@@ -50,6 +50,7 @@ export async function POST(
     title: readText(formData, "title"),
     description: readText(formData, "description"),
     labelsJsonRaw: readText(formData, "labels"),
+    relatedTaskIdsJsonRaw: readText(formData, "relatedTaskIds"),
     attachmentLinksJsonRaw: readText(formData, "attachmentLinks"),
     attachmentFiles: readAttachmentFiles(formData),
   });

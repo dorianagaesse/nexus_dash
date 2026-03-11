@@ -1,5 +1,11 @@
 import { deleteAttachmentFile } from "@/lib/attachment-storage";
 import { sanitizeRichText } from "@/lib/rich-text";
+import {
+  buildCanonicalTaskRelation,
+  mapRelatedTaskSummary,
+  normalizeRelatedTaskIds,
+  type RelatedTaskSummary,
+} from "@/lib/task-related";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import {
   normalizeTaskLabels,
@@ -14,7 +20,7 @@ import {
 import { logServerError } from "@/lib/observability/logger";
 import { createTaskAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
 import { requireProjectRole } from "@/lib/services/project-access-service";
-import { withActorRlsContext } from "@/lib/services/rls-context";
+import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 
 const MIN_TITLE_LENGTH = 2;
 
@@ -46,6 +52,7 @@ export interface UpdateTaskPayload {
   labels?: string[];
   description?: string;
   blockedFollowUpEntry?: string;
+  relatedTaskIds?: string[];
 }
 
 interface CreateTaskForProjectInput {
@@ -54,6 +61,7 @@ interface CreateTaskForProjectInput {
   title: string;
   description: string;
   labelsJsonRaw: string;
+  relatedTaskIdsJsonRaw: string;
   attachmentLinksJsonRaw: string;
   attachmentFiles: File[];
 }
@@ -67,6 +75,8 @@ interface UpdatedTaskPayload {
   blockedNote: string | null;
   status: string;
   position: number;
+  archivedAt: Date | null;
+  relatedTasks: RelatedTaskSummary[];
   blockedFollowUps: {
     id: string;
     content: string;
@@ -83,6 +93,113 @@ function normalizeText(value: unknown): string {
     return "";
   }
   return value.trim();
+}
+
+function parseRelatedTaskIdsJson(rawValue: string): string[] | null {
+  const trimmedValue = rawValue.trim();
+  if (!trimmedValue) {
+    return [];
+  }
+
+  try {
+    const parsedValue = JSON.parse(trimmedValue) as unknown;
+    if (!Array.isArray(parsedValue)) {
+      return null;
+    }
+
+    return normalizeRelatedTaskIds(parsedValue);
+  } catch {
+    return null;
+  }
+}
+
+const relatedTaskSummarySelect = {
+  id: true,
+  title: true,
+  status: true,
+  archivedAt: true,
+} as const;
+
+function mergeRelatedTaskSummaries(task: {
+  outgoingRelations: { rightTask: { id: string; title: string; status: string; archivedAt: Date | null } }[];
+  incomingRelations: { leftTask: { id: string; title: string; status: string; archivedAt: Date | null } }[];
+}): RelatedTaskSummary[] {
+  const relatedTasks = [
+    ...task.outgoingRelations.map((entry) => mapRelatedTaskSummary(entry.rightTask)),
+    ...task.incomingRelations.map((entry) => mapRelatedTaskSummary(entry.leftTask)),
+  ];
+
+  return relatedTasks.sort((left, right) => left.title.localeCompare(right.title));
+}
+
+async function validateRelatedTaskIds(input: {
+  db: DbClient;
+  projectId: string;
+  taskId?: string;
+  relatedTaskIds: string[];
+}): Promise<ServiceResult<{ relatedTaskIds: string[] }>> {
+  const filteredRelatedTaskIds = normalizeRelatedTaskIds(input.relatedTaskIds);
+
+  if (input.taskId && filteredRelatedTaskIds.includes(input.taskId)) {
+    return createError(400, "related-tasks-invalid");
+  }
+
+  if (filteredRelatedTaskIds.length === 0) {
+    return {
+      ok: true,
+      data: {
+        relatedTaskIds: [],
+      },
+    };
+  }
+
+  const relatedTasks = await input.db.task.findMany({
+    where: {
+      id: { in: filteredRelatedTaskIds },
+      projectId: input.projectId,
+      archivedAt: null,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (relatedTasks.length !== filteredRelatedTaskIds.length) {
+    return createError(400, "related-tasks-invalid");
+  }
+
+  return {
+    ok: true,
+    data: {
+      relatedTaskIds: filteredRelatedTaskIds,
+    },
+  };
+}
+
+async function replaceTaskRelations(input: {
+  db: DbClient;
+  projectId: string;
+  taskId: string;
+  relatedTaskIds: string[];
+}) {
+  await input.db.taskRelation.deleteMany({
+    where: {
+      projectId: input.projectId,
+      OR: [{ leftTaskId: input.taskId }, { rightTaskId: input.taskId }],
+    },
+  });
+
+  if (input.relatedTaskIds.length === 0) {
+    return;
+  }
+
+  await input.db.taskRelation.createMany({
+    data: input.relatedTaskIds.map((relatedTaskId) => ({
+      ...buildCanonicalTaskRelation(input.taskId, relatedTaskId),
+      projectId: input.projectId,
+    })),
+    skipDuplicates: true,
+  });
 }
 
 function isPrismaNotFoundError(error: unknown): boolean {
@@ -152,6 +269,11 @@ export async function createTaskForProject(
     return createError(400, parsedLinks.error);
   }
 
+  const parsedRelatedTaskIds = parseRelatedTaskIdsJson(input.relatedTaskIdsJsonRaw);
+  if (parsedRelatedTaskIds === null) {
+    return createError(400, "related-tasks-invalid");
+  }
+
   const attachmentFileError = validateAttachmentFiles(input.attachmentFiles);
   if (attachmentFileError) {
     return createError(400, attachmentFileError);
@@ -176,6 +298,15 @@ export async function createTaskForProject(
     }
 
     try {
+      const relatedTaskValidation = await validateRelatedTaskIds({
+        db,
+        projectId: input.projectId,
+        relatedTaskIds: parsedRelatedTaskIds,
+      });
+      if (!relatedTaskValidation.ok) {
+        return relatedTaskValidation;
+      }
+
       const maxPosition = await db.task.aggregate({
         where: {
           projectId: input.projectId,
@@ -206,6 +337,13 @@ export async function createTaskForProject(
       });
 
       createdTaskId = createdTask.id;
+
+      await replaceTaskRelations({
+        db,
+        projectId: input.projectId,
+        taskId: createdTask.id,
+        relatedTaskIds: relatedTaskValidation.data.relatedTaskIds,
+      });
 
       await createTaskAttachmentsFromDraft({
         actorUserId,
@@ -356,6 +494,7 @@ export async function updateTaskForProject(
   const serializedLabels = serializeTaskLabels(normalizedLabels);
   const description = sanitizeRichText(normalizeText(payload.description));
   const blockedFollowUpEntry = normalizeText(payload.blockedFollowUpEntry);
+  const relatedTaskIds = normalizeRelatedTaskIds(payload.relatedTaskIds ?? []);
 
   if (title.length < MIN_TITLE_LENGTH) {
     return createError(400, "Task title must be at least 2 characters");
@@ -382,6 +521,16 @@ export async function updateTaskForProject(
         return createError(404, "Task not found");
       }
 
+      const relatedTaskValidation = await validateRelatedTaskIds({
+        db,
+        projectId,
+        taskId,
+        relatedTaskIds,
+      });
+      if (!relatedTaskValidation.ok) {
+        return relatedTaskValidation;
+      }
+
       const updateWithClient = async (tx: typeof db) => {
         await tx.task.update({
           where: { id: taskId },
@@ -402,6 +551,13 @@ export async function updateTaskForProject(
           });
         }
 
+        await replaceTaskRelations({
+          db: tx,
+          projectId,
+          taskId,
+          relatedTaskIds: relatedTaskValidation.data.relatedTaskIds,
+        });
+
         return tx.task.findUnique({
           where: { id: taskId },
           select: {
@@ -413,6 +569,21 @@ export async function updateTaskForProject(
             blockedNote: true,
             status: true,
             position: true,
+            archivedAt: true,
+            outgoingRelations: {
+              select: {
+                rightTask: {
+                  select: relatedTaskSummarySelect,
+                },
+              },
+            },
+            incomingRelations: {
+              select: {
+                leftTask: {
+                  select: relatedTaskSummarySelect,
+                },
+              },
+            },
             blockedFollowUps: {
               orderBy: [{ createdAt: "desc" }],
               select: {
@@ -434,7 +605,19 @@ export async function updateTaskForProject(
       return {
         ok: true,
         data: {
-          task: updatedTask,
+          task: {
+            id: updatedTask.id,
+            title: updatedTask.title,
+            label: updatedTask.label,
+            labelsJson: updatedTask.labelsJson,
+            description: updatedTask.description,
+            blockedNote: updatedTask.blockedNote,
+            status: updatedTask.status,
+            position: updatedTask.position,
+            archivedAt: updatedTask.archivedAt,
+            relatedTasks: mergeRelatedTaskSummaries(updatedTask),
+            blockedFollowUps: updatedTask.blockedFollowUps,
+          },
         },
       };
     } catch (error) {

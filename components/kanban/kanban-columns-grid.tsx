@@ -21,17 +21,21 @@ import { cn } from "@/lib/utils";
 interface KanbanColumnsGridProps {
   columns: TaskColumns<KanbanTask>;
   archivedDoneTasks: KanbanTask[];
+  highlightedTaskIds: Set<string>;
   onDragEnd: (result: DropResult) => void;
   onSelectTask: (task: KanbanTask) => void;
   onEditTask: (task: KanbanTask) => void;
+  onTaskHoverChange: (taskId: string | null) => void;
 }
 
 export function KanbanColumnsGrid({
   columns,
   archivedDoneTasks,
+  highlightedTaskIds,
   onDragEnd,
   onSelectTask,
   onEditTask,
+  onTaskHoverChange,
 }: KanbanColumnsGridProps) {
   return (
     <DragDropContext onDragEnd={onDragEnd}>
@@ -42,8 +46,10 @@ export function KanbanColumnsGrid({
             status={status}
             tasks={columns[status]}
             archivedDoneTasks={status === "Done" ? archivedDoneTasks : []}
+            highlightedTaskIds={highlightedTaskIds}
             onSelectTask={onSelectTask}
             onEditTask={onEditTask}
+            onTaskHoverChange={onTaskHoverChange}
           />
         ))}
       </div>
@@ -55,16 +61,20 @@ interface KanbanColumnProps {
   status: TaskStatus;
   tasks: KanbanTask[];
   archivedDoneTasks: KanbanTask[];
+  highlightedTaskIds: Set<string>;
   onSelectTask: (task: KanbanTask) => void;
   onEditTask: (task: KanbanTask) => void;
+  onTaskHoverChange: (taskId: string | null) => void;
 }
 
 function KanbanColumn({
   status,
   tasks,
   archivedDoneTasks,
+  highlightedTaskIds,
   onSelectTask,
   onEditTask,
+  onTaskHoverChange,
 }: KanbanColumnProps) {
   return (
     <Card className="min-h-[300px]">
@@ -85,8 +95,14 @@ function KanbanColumn({
                 <button
                   key={task.id}
                   type="button"
-                  className="w-full rounded-md border border-border/60 bg-card px-2 py-2 text-left transition hover:bg-muted/40"
+                  className={cn(
+                    "w-full rounded-md border border-border/60 bg-card px-2 py-2 text-left transition hover:bg-muted/40",
+                    highlightedTaskIds.has(task.id) &&
+                      "border-emerald-500/60 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.15)]"
+                  )}
                   onClick={() => onSelectTask(task)}
+                  onMouseEnter={() => onTaskHoverChange(task.id)}
+                  onMouseLeave={() => onTaskHoverChange(null)}
                 >
                   <p className="text-xs font-medium text-foreground">{task.title}</p>
                   {task.description ? (
@@ -129,13 +145,17 @@ function KanbanColumn({
                       )}
                       className={cn(
                         "cursor-grab rounded-md border border-border/70 bg-card p-3 shadow-sm transition active:cursor-grabbing",
-                        draggableSnapshot.isDragging && "shadow-lg"
+                        draggableSnapshot.isDragging && "shadow-lg",
+                        highlightedTaskIds.has(task.id) &&
+                          "border-emerald-500/60 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.15)]"
                       )}
                       onClick={() => {
                         if (!draggableSnapshot.isDragging) {
                           onSelectTask(task);
                         }
                       }}
+                      onMouseEnter={() => onTaskHoverChange(task.id)}
+                      onMouseLeave={() => onTaskHoverChange(null)}
                       onDoubleClick={(event) => {
                         event.stopPropagation();
                         onEditTask(task);
