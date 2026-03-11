@@ -114,7 +114,10 @@ function KanbanColumn({
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground/90">
-                      <Archive className="h-3.5 w-3.5 shrink-0 text-emerald-400/80" />
+                      <Archive
+                        aria-hidden="true"
+                        className="h-3.5 w-3.5 shrink-0 text-emerald-400/80"
+                      />
                       <span className="truncate">{task.title}</span>
                     </p>
                     <div className="flex items-center gap-1.5">
