@@ -3,9 +3,8 @@
 import { useEffect, useRef } from "react";
 import { Bold, Italic, List, ListOrdered, Underline } from "lucide-react";
 
-import { EmojiPickerButton } from "@/components/ui/emoji-picker-button";
 import { Button } from "@/components/ui/button";
-import { insertEmojiAtCursor } from "@/lib/emoji-input";
+import { EmojiFieldShell } from "@/components/ui/emoji-field";
 import { cn } from "@/lib/utils";
 
 interface RichTextEditorProps {
@@ -93,27 +92,29 @@ export function RichTextEditor({
           <ListOrdered className="h-4 w-4" />
           Numbered list
         </Button>
-        <EmojiPickerButton
-          onSelectEmoji={(emoji) => insertEmojiAtCursor(editorRef.current, emoji)}
-        />
       </div>
 
-      <div
-        id={id}
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        data-placeholder={placeholder ?? "Write here..."}
-        className={cn(
-          "min-h-[140px] rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          "[&:empty:before]:pointer-events-none [&:empty:before]:text-muted-foreground [&:empty:before]:content-[attr(data-placeholder)]",
-          "[overflow-wrap:anywhere] [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
-        )}
-        onInput={(event) => {
-          onChange((event.currentTarget as HTMLDivElement).innerHTML);
-        }}
-      />
+      <EmojiFieldShell
+        targetRef={editorRef}
+        buttonPlacement="top"
+      >
+        <div
+          id={id}
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          data-placeholder={placeholder ?? "Write here..."}
+          className={cn(
+            "min-h-[140px] rounded-md border border-input bg-background px-3 py-2 pr-14 text-sm text-foreground",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "[&:empty:before]:pointer-events-none [&:empty:before]:text-muted-foreground [&:empty:before]:content-[attr(data-placeholder)]",
+            "[overflow-wrap:anywhere] [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
+          )}
+          onInput={(event) => {
+            onChange((event.currentTarget as HTMLDivElement).innerHTML);
+          }}
+        />
+      </EmojiFieldShell>
     </div>
   );
 }

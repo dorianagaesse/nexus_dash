@@ -18,12 +18,14 @@ interface EmojiPickerButtonProps {
   onSelectEmoji: (emoji: string) => void;
   disabled?: boolean;
   className?: string;
+  presentation?: "default" | "field";
 }
 
 export function EmojiPickerButton({
   onSelectEmoji,
   disabled = false,
   className,
+  presentation = "default",
 }: EmojiPickerButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [recentEmojis, setRecentEmojis] = useState<string[]>([]);
@@ -71,20 +73,27 @@ export function EmojiPickerButton({
     });
   };
 
+  const isFieldPresentation = presentation === "field";
+
   return (
     <div ref={menuRef} className={cn("relative", className)}>
       <Button
         type="button"
-        size="sm"
+        size={isFieldPresentation ? "icon" : "sm"}
         variant={isOpen ? "secondary" : "outline"}
-        className="h-8 px-2.5 text-xs text-muted-foreground"
+        className={cn(
+          "text-muted-foreground",
+          isFieldPresentation
+            ? "h-8 w-8 rounded-full border-border/70 bg-background/90 shadow-sm backdrop-blur"
+            : "h-8 px-2.5 text-xs"
+        )}
         onClick={() => setIsOpen((previous) => !previous)}
         aria-label="Insert emoji"
         aria-expanded={isOpen}
         disabled={disabled}
       >
         <SmilePlus className="h-4 w-4" />
-        Emoji
+        {isFieldPresentation ? <span className="sr-only">Emoji</span> : "Emoji"}
       </Button>
 
       {isOpen ? (

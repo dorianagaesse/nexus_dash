@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Archive,
@@ -29,8 +29,7 @@ import { RichTextEditor } from "@/components/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmojiPickerButton } from "@/components/ui/emoji-picker-button";
-import { insertEmojiAtCursor } from "@/lib/emoji-input";
+import { EmojiInputField } from "@/components/ui/emoji-field";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import {
   ATTACHMENT_KIND_FILE,
@@ -130,8 +129,6 @@ export function TaskDetailModal({
   onUnarchiveTask,
   onRequestDeleteTask,
 }: TaskDetailModalProps) {
-  const editTitleInputRef = useRef<HTMLInputElement | null>(null);
-
   if (!isOpen || !selectedTask) {
     return null;
   }
@@ -171,22 +168,12 @@ export function TaskDetailModal({
                     {selectedTask.title}
                   </CardTitle>
                 ) : (
-                  <div className="space-y-2">
-                    <div className="flex justify-end">
-                      <EmojiPickerButton
-                        onSelectEmoji={(emoji) =>
-                          insertEmojiAtCursor(editTitleInputRef.current, emoji)
-                        }
-                      />
-                    </div>
-                    <input
-                      aria-label="Task title"
-                      ref={editTitleInputRef}
-                      value={editTitle}
-                      onChange={(event) => onEditTitleChange(event.target.value)}
-                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                    />
-                  </div>
+                  <EmojiInputField
+                    aria-label="Task title"
+                    value={editTitle}
+                    onChange={(event) => onEditTitleChange(event.target.value)}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  />
                 )}
               </div>
               <div className="flex items-center gap-1">
@@ -586,20 +573,12 @@ function TaskEditContent({
   onSaveTask,
   onCancelEdit,
 }: TaskEditContentProps) {
-  const editLabelInputRef = useRef<HTMLInputElement | null>(null);
-  const blockedFollowUpInputRef = useRef<HTMLInputElement | null>(null);
-
   return (
     <>
       <div className="grid gap-2">
-        <div className="flex items-center justify-between gap-2">
-          <label htmlFor="task-edit-label-input" className="text-sm font-medium">
-            Labels
-          </label>
-          <EmojiPickerButton
-            onSelectEmoji={(emoji) => insertEmojiAtCursor(editLabelInputRef.current, emoji)}
-          />
-        </div>
+        <label htmlFor="task-edit-label-input" className="text-sm font-medium">
+          Labels
+        </label>
         <div className="rounded-md border border-input bg-background p-2">
           <div className="flex flex-wrap gap-2">
             {editLabels.map((label) => (
@@ -621,9 +600,8 @@ function TaskEditContent({
                 </button>
               </span>
             ))}
-            <input
+            <EmojiInputField
               id="task-edit-label-input"
-              ref={editLabelInputRef}
               value={editLabelInput}
               onChange={(event) => onEditLabelInputChange(event.target.value)}
               onKeyDown={(event) => {
@@ -633,6 +611,7 @@ function TaskEditContent({
                 }
               }}
               maxLength={60}
+              wrapperClassName="min-w-[160px] flex-1"
               className="h-8 min-w-[160px] flex-1 bg-transparent px-1 text-sm outline-none"
               placeholder={
                 editLabels.length >= MAX_TASK_LABELS
@@ -693,21 +672,12 @@ function TaskEditContent({
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-800/80 dark:text-amber-100/80">
-              New follow-up
-            </p>
-            <EmojiPickerButton
-              onSelectEmoji={(emoji) =>
-                insertEmojiAtCursor(blockedFollowUpInputRef.current, emoji)
-              }
-              disabled={isUpdatingTask}
-            />
-          </div>
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-800/80 dark:text-amber-100/80">
+            New follow-up
+          </p>
 
           <div className="flex items-center gap-2">
-            <input
-              ref={blockedFollowUpInputRef}
+            <EmojiInputField
               value={newBlockedFollowUpEntry}
               onChange={(event) => onNewBlockedFollowUpEntryChange(event.target.value)}
               onKeyDown={(event) => {
@@ -718,6 +688,7 @@ function TaskEditContent({
               }}
               maxLength={1200}
               placeholder="Add follow-up and press Enter"
+              wrapperClassName="flex-1"
               className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
               disabled={isUpdatingTask}
             />

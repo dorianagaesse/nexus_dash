@@ -1,12 +1,11 @@
-import { useRef, type FormEvent } from "react";
+import type { FormEvent } from "react";
 import { Link2, Paperclip, Trash2, Upload } from "lucide-react";
 
 import { ContextColorPicker } from "@/components/context-panel/context-color-picker";
 import { ContextModalFrame } from "@/components/context-panel/context-modal-frame";
 import type { PendingAttachmentLink } from "@/components/project-context-panel-types";
 import { Button } from "@/components/ui/button";
-import { EmojiPickerButton } from "@/components/ui/emoji-picker-button";
-import { insertEmojiAtCursor } from "@/lib/emoji-input";
+import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
 
 interface ContextCreateModalProps {
   isOpen: boolean;
@@ -49,9 +48,6 @@ export function ContextCreateModal({
   onCreateFilesSelected,
   onClearCreateFiles,
 }: ContextCreateModalProps) {
-  const titleInputRef = useRef<HTMLInputElement | null>(null);
-  const contentInputRef = useRef<HTMLTextAreaElement | null>(null);
-
   if (!isOpen) {
     return null;
   }
@@ -67,41 +63,29 @@ export function ContextCreateModal({
     <ContextModalFrame title="Add context card" onClose={onClose}>
       <form className="grid gap-4" onSubmit={(event) => void onSubmit(event)}>
         <div className="grid gap-2">
-          <div className="flex items-center justify-between gap-2">
-            <label htmlFor="context-create-title" className="text-sm font-medium">
-              Title
-            </label>
-            <EmojiPickerButton
-              onSelectEmoji={(emoji) => insertEmojiAtCursor(titleInputRef.current, emoji)}
-            />
-          </div>
-          <input
+          <label htmlFor="context-create-title" className="text-sm font-medium">
+            Title
+          </label>
+          <EmojiInputField
             id="context-create-title"
             name="title"
             required
             minLength={2}
             maxLength={120}
-            ref={titleInputRef}
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
             placeholder="Sprint notes"
           />
         </div>
 
         <div className="grid gap-2">
-          <div className="flex items-center justify-between gap-2">
-            <label htmlFor="context-create-content" className="text-sm font-medium">
-              Content
-            </label>
-            <EmojiPickerButton
-              onSelectEmoji={(emoji) => insertEmojiAtCursor(contentInputRef.current, emoji)}
-            />
-          </div>
-          <textarea
+          <label htmlFor="context-create-content" className="text-sm font-medium">
+            Content
+          </label>
+          <EmojiTextareaField
             id="context-create-content"
             name="content"
             rows={5}
             maxLength={4000}
-            ref={contentInputRef}
             className="rounded-md border border-input bg-background px-3 py-2 text-sm"
             placeholder="Anything useful for this project..."
           />
