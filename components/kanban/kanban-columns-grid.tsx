@@ -120,13 +120,11 @@ function KanbanColumn({
                       />
                       <span className="truncate">{task.title}</span>
                     </p>
-                    <div className="flex items-center gap-1.5">
-                      <TaskCardIndicators task={task} />
-                      <span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.18em] text-emerald-300/80">
-                        Archived
-                      </span>
-                    </div>
+                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.18em] text-emerald-300/80">
+                      Archived
+                    </span>
                   </div>
+                  <TaskCardIndicators task={task} className="mt-1" />
                   {task.description ? (
                     <p className="mt-1 text-xs text-muted-foreground/85">
                       {getDescriptionPreview(task.description, 90)}
@@ -189,7 +187,6 @@ function KanbanColumn({
                       <div className="mb-2 flex items-start justify-between gap-2">
                         <h3 className="text-sm font-medium leading-snug">{task.title}</h3>
                         <div className="flex items-center gap-1">
-                          <TaskCardIndicators task={task} />
                           {status === "Blocked" ? (
                             <span
                               className="rounded-sm p-1 text-amber-500"
@@ -208,6 +205,8 @@ function KanbanColumn({
                           </span>
                         </div>
                       </div>
+
+                      <TaskCardIndicators task={task} className="-mt-1 mb-2" />
 
                       {task.description ? (
                         <p className="break-words text-xs text-muted-foreground">
@@ -243,7 +242,13 @@ function KanbanColumn({
   );
 }
 
-function TaskCardIndicators({ task }: { task: KanbanTask }) {
+function TaskCardIndicators({
+  task,
+  className,
+}: {
+  task: KanbanTask;
+  className?: string;
+}) {
   const hasRelatedTasks = task.relatedTasks.length > 0;
   const hasAttachments = task.attachments.length > 0;
 
@@ -252,7 +257,7 @@ function TaskCardIndicators({ task }: { task: KanbanTask }) {
   }
 
   return (
-    <div className="flex items-center gap-1 text-muted-foreground">
+    <div className={cn("flex items-center gap-1 text-muted-foreground", className)}>
       {hasRelatedTasks ? (
         <span
           className="rounded-sm p-1"
