@@ -1,5 +1,8 @@
 import { ChevronDown, ChevronUp, Columns3 } from "lucide-react";
 
+import { PROJECT_SECTION_CHROME_CLASS } from "@/components/project-dashboard/project-section-chrome";
+import { cn } from "@/lib/utils";
+
 interface KanbanBoardHeaderProps {
   isExpanded: boolean;
   totalTaskCount: number;
@@ -16,7 +19,7 @@ export function KanbanBoardHeader({
   onToggleExpanded,
 }: KanbanBoardHeaderProps) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-border/70 bg-card/55 px-5 py-4 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.6)] backdrop-blur-sm">
+    <div className={cn("flex flex-wrap items-start justify-between gap-3 px-5 py-4", PROJECT_SECTION_CHROME_CLASS)}>
       <button
         type="button"
         onClick={onToggleExpanded}

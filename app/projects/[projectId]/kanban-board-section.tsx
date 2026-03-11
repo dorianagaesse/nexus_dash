@@ -1,6 +1,10 @@
 import { Columns3 } from "lucide-react";
 
 import { KanbanBoard, type KanbanTask } from "@/components/kanban-board";
+import {
+  PROJECT_SECTION_CARD_CLASS,
+  PROJECT_SECTION_HEADER_CLASS,
+} from "@/components/project-dashboard/project-section-chrome";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listProjectKanbanTasks } from "@/lib/services/project-service";
 import { mapRelatedTaskSummary } from "@/lib/task-related";
@@ -78,8 +82,8 @@ export async function KanbanBoardSection({
 
 export function KanbanBoardSkeleton() {
   return (
-    <Card className="overflow-hidden rounded-2xl border border-border/70 bg-card/55 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.6)]">
-      <CardHeader className="border-b border-border/50 bg-background/30">
+    <Card className={PROJECT_SECTION_CARD_CLASS}>
+      <CardHeader className={PROJECT_SECTION_HEADER_CLASS}>
         <CardTitle className="flex items-center gap-2 text-base">
           <Columns3 className="h-4 w-4" />
           Kanban board

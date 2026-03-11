@@ -1,5 +1,10 @@
 import { CalendarDays } from "lucide-react";
 
+import {
+  PROJECT_SECTION_CARD_CLASS,
+  PROJECT_SECTION_CONTENT_CLASS,
+  PROJECT_SECTION_HEADER_CLASS,
+} from "@/components/project-dashboard/project-section-chrome";
 import { ProjectCalendarPanel } from "@/components/project-calendar-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -15,14 +20,14 @@ export function ProjectCalendarPanelSection({
 
 export function ProjectCalendarPanelSkeleton() {
   return (
-    <Card className="overflow-hidden rounded-2xl border border-border/70 bg-card/55 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.6)]">
-      <CardHeader className="border-b border-border/50 bg-background/30">
+    <Card className={PROJECT_SECTION_CARD_CLASS}>
+      <CardHeader className={PROJECT_SECTION_HEADER_CLASS}>
         <CardTitle className="flex items-center gap-2 text-base">
           <CalendarDays className="h-4 w-4" />
           Calendar
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 py-5">
+      <CardContent className={`space-y-3 ${PROJECT_SECTION_CONTENT_CLASS}`}>
         <div className="h-10 w-44 animate-pulse rounded-xl bg-muted" />
         <div className="h-28 w-full animate-pulse rounded-xl bg-muted" />
       </CardContent>

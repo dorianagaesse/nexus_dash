@@ -13,6 +13,11 @@ import {
 import { CalendarEventModal } from "@/components/calendar-panel/calendar-event-modal";
 import { CalendarWeekGrid } from "@/components/calendar-panel/calendar-week-grid";
 import {
+  PROJECT_SECTION_CARD_CLASS,
+  PROJECT_SECTION_CONTENT_CLASS,
+  PROJECT_SECTION_HEADER_CLASS,
+} from "@/components/project-dashboard/project-section-chrome";
+import {
   buildDefaultTimedWindow,
   buildWeekDays,
   CALENDAR_RANGE,
@@ -299,10 +304,10 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
 
   return (
     <>
-      <Card className="overflow-hidden rounded-2xl border border-border/70 bg-card/55 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.6)] backdrop-blur-sm">
+      <Card className={PROJECT_SECTION_CARD_CLASS}>
         <CardHeader
           className={cn(
-            "space-y-3 border-b border-border/50 bg-background/30 px-5 pt-5",
+            `space-y-3 ${PROJECT_SECTION_HEADER_CLASS} px-5 pt-5`,
             isExpanded ? "pb-4" : "pb-3"
           )}
         >
@@ -331,10 +336,10 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
               ) : null}
             </div>
           </button>
-        </CardHeader>
+      </CardHeader>
 
-        {isExpanded ? (
-          <CardContent className="space-y-4 px-5 py-5">
+      {isExpanded ? (
+          <CardContent className={cn("space-y-4", PROJECT_SECTION_CONTENT_CLASS)}>
             {isLoading ? (
               <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
                 Loading calendar events...

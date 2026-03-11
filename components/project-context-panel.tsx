@@ -5,6 +5,11 @@ import { ChevronDown, ChevronUp, PanelsTopLeft, PlusSquare } from "lucide-react"
 import { useRouter } from "next/navigation";
 
 import { AttachmentPreviewModal } from "@/components/attachment-preview-modal";
+import {
+  PROJECT_SECTION_CARD_CLASS,
+  PROJECT_SECTION_CONTENT_CLASS,
+  PROJECT_SECTION_HEADER_CLASS,
+} from "@/components/project-dashboard/project-section-chrome";
 import { ContextCardsGrid } from "@/components/context-panel/context-cards-grid";
 import { ContextCreateModal } from "@/components/context-panel/context-create-modal";
 import { ContextEditModal } from "@/components/context-panel/context-edit-modal";
@@ -707,10 +712,10 @@ export function ProjectContextPanel({
   };
 
   return (
-    <Card className="overflow-hidden rounded-2xl border border-border/70 bg-card/55 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.6)] backdrop-blur-sm">
+    <Card className={PROJECT_SECTION_CARD_CLASS}>
       <CardHeader
         className={cn(
-          "space-y-3 border-b border-border/50 bg-background/30 px-5 pt-5",
+          `space-y-3 ${PROJECT_SECTION_HEADER_CLASS} px-5 pt-5`,
           isExpanded ? "pb-4" : "pb-3"
         )}
       >
@@ -751,7 +756,7 @@ export function ProjectContextPanel({
       </CardHeader>
 
       {isExpanded ? (
-        <CardContent className="px-5 py-5">
+        <CardContent className={PROJECT_SECTION_CONTENT_CLASS}>
           <ContextCardsGrid
             cards={cards}
             cardAttachmentsById={cardAttachmentsById}
