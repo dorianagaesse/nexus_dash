@@ -81,6 +81,7 @@ export function KanbanBoard({
   const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
   const [pendingDeleteTask, setPendingDeleteTask] = useState<KanbanTask | null>(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
+  const [isArchivingTask, setIsArchivingTask] = useState(false);
   const shouldOpenTaskInEditModeRef = useRef(false);
   const { pushToast } = useToast();
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
@@ -195,6 +196,14 @@ export function KanbanBoard({
       .filter((label) => !selected.has(label.toLowerCase()))
       .slice(0, 6);
   }, [allKnownLabels, editLabelInput, editLabels]);
+
+  const isSelectedTaskArchived = useMemo(() => {
+    if (!selectedTask) {
+      return false;
+    }
+
+    return archivedDoneTasks.some((task) => task.id === selectedTask.id);
+  }, [archivedDoneTasks, selectedTask]);
 
   const addEditLabel = useCallback(
     (value: string) => {
@@ -609,6 +618,105 @@ export function KanbanBoard({
     }
   }, [isDeletingTask, pendingDeleteTask, projectId, pushToast]);
 
+  const handleArchiveTask = useCallback(async () => {
+    if (!selectedTask || isArchivingTask) {
+      return;
+    }
+
+    setIsArchivingTask(true);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/tasks/${selectedTask.id}/archive`,
+        {
+          method: "POST",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "Could not archive task."));
+      }
+
+      const taskToArchive = selectedTask;
+
+      setColumns((previousColumns) => {
+        const nextColumns = createEmptyColumns<KanbanTask>();
+        TASK_STATUSES.forEach((status) => {
+          nextColumns[status] = previousColumns[status].filter(
+            (task) => task.id !== taskToArchive.id
+          );
+        });
+        return nextColumns;
+      });
+      setArchivedDoneTasks((previousTasks) => {
+        const withoutTask = previousTasks.filter((task) => task.id !== taskToArchive.id);
+        return [taskToArchive, ...withoutTask];
+      });
+      closeTaskModal();
+      pushToast({
+        variant: "success",
+        message: "Task moved to archive.",
+      });
+    } catch (error) {
+      console.error("[KanbanBoard.handleArchiveTask]", error);
+      pushToast({
+        variant: "error",
+        message: error instanceof Error ? error.message : "Could not archive task.",
+      });
+    } finally {
+      setIsArchivingTask(false);
+    }
+  }, [closeTaskModal, isArchivingTask, projectId, pushToast, selectedTask]);
+
+  const handleUnarchiveTask = useCallback(async () => {
+    if (!selectedTask || !isSelectedTaskArchived || isArchivingTask) {
+      return;
+    }
+
+    setIsArchivingTask(true);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/tasks/${selectedTask.id}/archive`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "Could not unarchive task."));
+      }
+
+      const taskToRestore = selectedTask;
+
+      setArchivedDoneTasks((previousTasks) =>
+        previousTasks.filter((task) => task.id !== taskToRestore.id)
+      );
+      setColumns((previousColumns) => {
+        const nextColumns = cloneColumns(previousColumns);
+        const alreadyPresent = nextColumns.Done.some((task) => task.id === taskToRestore.id);
+        if (alreadyPresent) {
+          return previousColumns;
+        }
+
+        nextColumns.Done = [taskToRestore, ...nextColumns.Done];
+        return nextColumns;
+      });
+      pushToast({
+        variant: "success",
+        message: "Task moved back to Done.",
+      });
+    } catch (error) {
+      console.error("[KanbanBoard.handleUnarchiveTask]", error);
+      pushToast({
+        variant: "error",
+        message: error instanceof Error ? error.message : "Could not unarchive task.",
+      });
+    } finally {
+      setIsArchivingTask(false);
+    }
+  }, [isArchivingTask, isSelectedTaskArchived, projectId, pushToast, selectedTask]);
+
   const handleAddBlockedFollowUpEntry = useCallback(async () => {
     if (!newBlockedFollowUpEntry.trim()) {
       return;
@@ -907,6 +1015,8 @@ export function KanbanBoard({
         taskModalError={taskModalError}
         attachmentError={attachmentError}
         isSubmittingAttachment={isSubmittingAttachment}
+        isArchivingTask={isArchivingTask}
+        isArchivedTask={isSelectedTaskArchived}
         hasPendingAttachmentUploads={hasPendingAttachmentUploads}
         pendingAttachmentUploads={pendingAttachmentUploads}
         isLinkComposerOpen={isLinkComposerOpen}
@@ -938,6 +1048,8 @@ export function KanbanBoard({
           }
           handleMoveTaskToStatus(selectedTask, nextStatus);
         }}
+        onArchiveTask={handleArchiveTask}
+        onUnarchiveTask={handleUnarchiveTask}
         onRequestDeleteTask={() => {
           if (!selectedTask) {
             return;
