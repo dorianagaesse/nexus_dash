@@ -1,42 +1,40 @@
-# Current Task: TASK-094 Text Input UX - Emoji Picker/Button Across Text Fields
+# Current Task: TASK-095 Related Tasks - Symmetric Task Linking and Hover Highlighting
 
 ## Task ID
-TASK-094
+TASK-095
 
 ## Status
-In Progress (emoji picker implemented and locally validated, 2026-03-11)
+In Progress
 
 ## Objective
-Add a lightweight emoji picker/button to supported user-authored text fields so emoji insertion feels native, fast, and consistent across the product.
+Add lightweight `Related tasks` links inside a project so tasks that belong together can be connected bidirectionally, surfaced in task create/edit/read-only flows, and softly highlighted together on hover in the Kanban board.
 
 ## Scope
-- Build a reusable emoji picker/button component with a modern, compact UI.
-- Support emoji insertion in the main user-authored text-entry surfaces:
-  - project create/edit
-  - task create/edit
-  - blocked follow-up entry
-  - context-card create/edit
-  - calendar event create/edit
-- Keep URL, email, password, and date/time fields unchanged.
-- Add focused validation coverage where it improves confidence without over-testing presentation details.
+- Add a symmetric same-project task-link model and migration.
+- Allow selecting active related tasks during task creation and task editing.
+- Preserve related-task information when a linked task is later archived.
+- Remove links automatically when a task is deleted.
+- Show related tasks in the task detail modal with archived styling.
+- Highlight connected visible tasks on hover with a subtle green border treatment.
 
 ## Out of Scope
-- Replacing the existing text editors with a third-party rich editor.
-- Adding full emoji search, skin-tone variants, or custom emoji uploads.
-- Changing existing form validation or persistence rules beyond emoji insertion support.
+- Cross-project links.
+- Blocking/dependency semantics or execution-order logic.
+- Graph visualizations beyond lightweight hover highlighting.
 
 ## Acceptance Criteria
-- Supported text fields expose a clear emoji affordance.
-- Selecting an emoji inserts it at the current cursor position without disrupting typing.
-- Rich-text task descriptions keep their existing formatting tools and accept emoji insertion cleanly.
-- The picker is usable on desktop and mobile-sized layouts.
-- Local validation remains green.
+- A task can link to one or more active tasks in the same project.
+- The relationship is visible from both linked tasks without duplicate rows.
+- Archived linked tasks remain visible as informational context.
+- Deleted tasks are removed from all related-task references automatically.
+- Hovering a task softly highlights connected visible tasks.
+- Local validation stays green.
 
 ## Plan
-1. Update task tracking and confirm the supported field list.
-2. Build one shared emoji picker/button plus shared insertion helpers.
-3. Integrate it across the supported text-entry surfaces with minimal UX friction.
-4. Open the PR, monitor automated review, and handle follow-up if anything comes back.
+1. Add the symmetric relation table, migration, and project-scope validation.
+2. Extend task create/update APIs and services to persist related-task links safely.
+3. Add reusable related-task UI in create/edit/read-only flows.
+4. Add Kanban hover highlighting and validate end to end.
 
 ---
 

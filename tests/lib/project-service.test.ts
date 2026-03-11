@@ -141,6 +141,30 @@ describe("project-service", () => {
         blockedFollowUps: {
           orderBy: [{ createdAt: "desc" }],
         },
+        outgoingRelations: {
+          select: {
+            rightTask: {
+              select: {
+                id: true,
+                title: true,
+                status: true,
+                archivedAt: true,
+              },
+            },
+          },
+        },
+        incomingRelations: {
+          select: {
+            leftTask: {
+              select: {
+                id: true,
+                title: true,
+                status: true,
+                archivedAt: true,
+              },
+            },
+          },
+        },
       },
     });
   });

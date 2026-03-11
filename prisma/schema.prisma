@@ -135,6 +135,7 @@ model Project {
   tasks       Task[]
   resources   Resource[]
   memberships ProjectMembership[]
+  taskRelations TaskRelation[]
 
   @@index([ownerId])
 }
@@ -169,10 +170,27 @@ model Task {
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   attachments TaskAttachment[]
   blockedFollowUps TaskBlockedFollowUp[]
+  outgoingRelations TaskRelation[] @relation("TaskRelationLeft")
+  incomingRelations TaskRelation[] @relation("TaskRelationRight")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([projectId])
+}
+
+model TaskRelation {
+  leftTaskId  String
+  rightTaskId String
+  projectId   String
+  createdAt   DateTime @default(now())
+
+  leftTask    Task    @relation("TaskRelationLeft", fields: [leftTaskId], references: [id], onDelete: Cascade)
+  rightTask   Task    @relation("TaskRelationRight", fields: [rightTaskId], references: [id], onDelete: Cascade)
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([leftTaskId, rightTaskId])
+  @@index([projectId])
+  @@index([rightTaskId])
 }
 
 model Resource {

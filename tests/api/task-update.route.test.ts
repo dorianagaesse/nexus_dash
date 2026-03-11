@@ -6,8 +6,13 @@ const prismaMock = vi.hoisted(() => ({
   },
   task: {
     findUnique: vi.fn(),
+    findMany: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+  },
+  taskRelation: {
+    deleteMany: vi.fn(),
+    createMany: vi.fn(),
   },
   taskBlockedFollowUp: {
     create: vi.fn(),
@@ -43,6 +48,9 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       ownerId: "test-user",
       memberships: [],
     });
+    prismaMock.task.findMany.mockResolvedValue([]);
+    prismaMock.taskRelation.deleteMany.mockResolvedValue({ count: 0 });
+    prismaMock.taskRelation.createMany.mockResolvedValue({ count: 0 });
     attachmentStorageMock.deleteAttachmentFile.mockResolvedValue(undefined);
   });
 
@@ -103,11 +111,15 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
   });
 
   test("updates task and appends blocked follow-up entry when blocked", async () => {
+    prismaMock.task.findMany.mockResolvedValueOnce([{ id: "t2" }]);
     prismaMock.task.findUnique.mockResolvedValueOnce({
       id: "t1",
       projectId: "p1",
       status: "Blocked",
       position: 0,
+      archivedAt: null,
+      outgoingRelations: [],
+      incomingRelations: [],
     });
     prismaMock.task.findUnique.mockResolvedValueOnce({
       id: "t1",
@@ -118,6 +130,18 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       blockedNote: null,
       status: "Blocked",
       position: 0,
+      archivedAt: null,
+      outgoingRelations: [
+        {
+          rightTask: {
+            id: "t2",
+            title: "Sibling task",
+            status: "Backlog",
+            archivedAt: null,
+          },
+        },
+      ],
+      incomingRelations: [],
       blockedFollowUps: [],
     });
 
@@ -129,6 +153,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         labels: ["Critical", " backend ", "critical"],
         description: "<p>Hello<script>alert(1)</script></p>",
         blockedFollowUpEntry: "  Waiting on IAM role  ",
+        relatedTaskIds: ["t2"],
       }),
     });
 
@@ -147,6 +172,15 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         blockedNote: null,
         status: "Blocked",
         position: 0,
+        archivedAt: null,
+        relatedTasks: [
+          {
+            id: "t2",
+            title: "Sibling task",
+            status: "Backlog",
+            archivedAt: null,
+          },
+        ],
         blockedFollowUps: [],
       },
     });
@@ -168,6 +202,22 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         content: "Waiting on IAM role",
       },
     });
+    expect(prismaMock.taskRelation.deleteMany).toHaveBeenCalledWith({
+      where: {
+        projectId: "p1",
+        OR: [{ leftTaskId: "t1" }, { rightTaskId: "t1" }],
+      },
+    });
+    expect(prismaMock.taskRelation.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          leftTaskId: "t1",
+          rightTaskId: "t2",
+          projectId: "p1",
+        },
+      ],
+      skipDuplicates: true,
+    });
   });
 
   test("skips blocked follow-up append when task is not blocked", async () => {
@@ -176,6 +226,9 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       projectId: "p1",
       status: "In Progress",
       position: 2,
+      archivedAt: null,
+      outgoingRelations: [],
+      incomingRelations: [],
     });
     prismaMock.task.findUnique.mockResolvedValueOnce({
       id: "t1",
@@ -186,6 +239,9 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       blockedNote: null,
       status: "In Progress",
       position: 2,
+      archivedAt: null,
+      outgoingRelations: [],
+      incomingRelations: [],
       blockedFollowUps: [],
     });
 
@@ -195,6 +251,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       body: JSON.stringify({
         title: "Updated",
         blockedFollowUpEntry: "Should not be persisted",
+        relatedTaskIds: [],
       }),
     });
 
@@ -204,6 +261,119 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
 
     expect(response.status).toBe(200);
     expect(prismaMock.taskBlockedFollowUp.create).not.toHaveBeenCalled();
+  });
+
+  test("returns 400 when related tasks are invalid", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      status: "In Progress",
+      position: 2,
+      archivedAt: null,
+      outgoingRelations: [
+        {
+          rightTaskId: "archived-task",
+        },
+      ],
+      incomingRelations: [],
+    });
+    prismaMock.task.findMany.mockResolvedValueOnce([]);
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Updated",
+        relatedTaskIds: ["other-project-task"],
+      }),
+    });
+
+    const response = await PATCH(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "related-tasks-invalid",
+    });
+    expect(prismaMock.taskRelation.deleteMany).not.toHaveBeenCalled();
+  });
+
+  test("allows keeping an already-related archived task during updates", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      status: "In Progress",
+      position: 2,
+      archivedAt: null,
+      outgoingRelations: [
+        {
+          rightTaskId: "archived-task",
+        },
+      ],
+      incomingRelations: [],
+    });
+    prismaMock.task.findMany.mockResolvedValueOnce([{ id: "archived-task" }]);
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      title: "Updated",
+      label: null,
+      labelsJson: null,
+      description: null,
+      blockedNote: null,
+      status: "In Progress",
+      position: 2,
+      archivedAt: null,
+      outgoingRelations: [
+        {
+          rightTask: {
+            id: "archived-task",
+            title: "Archived sibling",
+            status: "Done",
+            archivedAt: new Date("2026-03-10T22:00:00.000Z"),
+          },
+        },
+      ],
+      incomingRelations: [],
+      blockedFollowUps: [],
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Updated",
+        relatedTaskIds: ["archived-task"],
+      }),
+    });
+
+    const response = await PATCH(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({
+      task: {
+        id: "t1",
+        title: "Updated",
+        label: null,
+        labelsJson: null,
+        description: null,
+        blockedNote: null,
+        status: "In Progress",
+        position: 2,
+        archivedAt: null,
+        relatedTasks: [
+          {
+            id: "archived-task",
+            title: "Archived sibling",
+            status: "Done",
+            archivedAt: "2026-03-10T22:00:00.000Z",
+          },
+        ],
+        blockedFollowUps: [],
+      },
+    });
   });
 
   test("returns 500 when database operations fail", async () => {

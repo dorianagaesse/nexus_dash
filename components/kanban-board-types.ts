@@ -6,6 +6,13 @@ export interface TaskBlockedFollowUp {
   createdAt: string;
 }
 
+export interface TaskRelatedSummary {
+  id: string;
+  title: string;
+  status: string;
+  archivedAt: string | null;
+}
+
 export interface TaskAttachment {
   id: string;
   kind: string;
@@ -23,7 +30,9 @@ export interface KanbanTask {
   labels: string[];
   blockedFollowUps: TaskBlockedFollowUp[];
   status: TaskStatus;
+  archivedAt: string | null;
   attachments: TaskAttachment[];
+  relatedTasks: TaskRelatedSummary[];
 }
 
 export interface PendingAttachmentUpload {

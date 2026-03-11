@@ -46,6 +46,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
     formData.set("title", "  New Task  ");
     formData.set("description", "  Description  ");
     formData.set("labels", '["backend"]');
+    formData.set("relatedTaskIds", '["task-a","task-b"]');
     formData.set(
       "attachmentLinks",
       '[{"name":"Docs","url":"https://example.com"}]'
@@ -73,6 +74,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
     expect(call.title).toBe("New Task");
     expect(call.description).toBe("Description");
     expect(call.labelsJsonRaw).toBe('["backend"]');
+    expect(call.relatedTaskIdsJsonRaw).toBe('["task-a","task-b"]');
     expect(call.attachmentLinksJsonRaw).toBe(
       '[{"name":"Docs","url":"https://example.com"}]'
     );

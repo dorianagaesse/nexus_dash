@@ -24,6 +24,11 @@ import {
   formatFollowUpTimestamp,
   resolveAttachmentHref,
 } from "@/components/kanban-board-utils";
+import {
+  RelatedTaskPill,
+  RelatedTaskSelector,
+  type RelatedTaskOption,
+} from "@/components/kanban/related-task-field";
 import { AttachmentPreviewModal } from "@/components/attachment-preview-modal";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +54,7 @@ interface TaskDetailModalProps {
   editLabelInput: string;
   editLabelSuggestions: string[];
   editDescription: string;
+  relatedTaskSearch: string;
   newBlockedFollowUpEntry: string;
   isUpdatingTask: boolean;
   taskModalError: string | null;
@@ -70,6 +76,11 @@ interface TaskDetailModalProps {
   onAddEditLabel: (value: string) => void;
   onRemoveEditLabel: (label: string) => void;
   onEditDescriptionChange: (value: string) => void;
+  onRelatedTaskSearchChange: (value: string) => void;
+  onAddRelatedTask: (taskId: string) => void;
+  onRemoveRelatedTask: (taskId: string) => void;
+  availableRelatedTaskOptions: RelatedTaskOption[];
+  onOpenRelatedTask: (taskId: string) => void;
   onNewBlockedFollowUpEntryChange: (value: string) => void;
   onAddBlockedFollowUpEntry: () => void | Promise<void>;
   onSaveTask: () => void | Promise<void>;
@@ -94,6 +105,7 @@ export function TaskDetailModal({
   editLabelInput,
   editLabelSuggestions,
   editDescription,
+  relatedTaskSearch,
   newBlockedFollowUpEntry,
   isUpdatingTask,
   taskModalError,
@@ -115,6 +127,11 @@ export function TaskDetailModal({
   onAddEditLabel,
   onRemoveEditLabel,
   onEditDescriptionChange,
+  onRelatedTaskSearchChange,
+  onAddRelatedTask,
+  onRemoveRelatedTask,
+  availableRelatedTaskOptions,
+  onOpenRelatedTask,
   onNewBlockedFollowUpEntryChange,
   onAddBlockedFollowUpEntry,
   onSaveTask,
@@ -207,6 +224,7 @@ export function TaskDetailModal({
                   pendingAttachmentUploads={pendingAttachmentUploads}
                   onPreviewAttachment={onPreviewAttachmentChange}
                   onActivateEditMode={onActivateEditMode}
+                  onOpenRelatedTask={onOpenRelatedTask}
                 />
               ) : (
                 <TaskEditContent
@@ -215,6 +233,7 @@ export function TaskDetailModal({
                   editLabelInput={editLabelInput}
                   editLabelSuggestions={editLabelSuggestions}
                   editDescription={editDescription}
+                  relatedTaskSearch={relatedTaskSearch}
                   newBlockedFollowUpEntry={newBlockedFollowUpEntry}
                   isUpdatingTask={isUpdatingTask}
                   isSubmittingAttachment={isSubmittingAttachment}
@@ -229,6 +248,10 @@ export function TaskDetailModal({
                   onAddEditLabel={onAddEditLabel}
                   onRemoveEditLabel={onRemoveEditLabel}
                   onEditDescriptionChange={onEditDescriptionChange}
+                  onRelatedTaskSearchChange={onRelatedTaskSearchChange}
+                  onAddRelatedTask={onAddRelatedTask}
+                  onRemoveRelatedTask={onRemoveRelatedTask}
+                  availableRelatedTaskOptions={availableRelatedTaskOptions}
                   onNewBlockedFollowUpEntryChange={onNewBlockedFollowUpEntryChange}
                   onAddBlockedFollowUpEntry={onAddBlockedFollowUpEntry}
                   onPreviewAttachment={onPreviewAttachmentChange}
@@ -392,11 +415,13 @@ function TaskReadOnlyContent({
   pendingAttachmentUploads,
   onPreviewAttachment,
   onActivateEditMode,
+  onOpenRelatedTask,
 }: {
   selectedTask: KanbanTask;
   pendingAttachmentUploads: PendingAttachmentUpload[];
   onPreviewAttachment: (attachment: TaskAttachment | null) => void;
   onActivateEditMode: () => void;
+  onOpenRelatedTask: (taskId: string) => void;
 }) {
   return (
     <>
@@ -445,6 +470,22 @@ function TaskReadOnlyContent({
           )}
         </div>
       ) : null}
+      <div className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
+        <p className="text-sm font-medium">Related tasks</p>
+        {selectedTask.relatedTasks.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No related tasks yet.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {selectedTask.relatedTasks.map((task) => (
+              <RelatedTaskPill
+                key={task.id}
+                task={task}
+                onClick={() => onOpenRelatedTask(task.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
       <div className="max-h-[52vh] overflow-y-auto text-sm text-muted-foreground [overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:break-words [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_p]:mb-2">
         <div
           onDoubleClick={onActivateEditMode}
@@ -516,6 +557,7 @@ interface TaskEditContentProps {
   editLabelInput: string;
   editLabelSuggestions: string[];
   editDescription: string;
+  relatedTaskSearch: string;
   newBlockedFollowUpEntry: string;
   isUpdatingTask: boolean;
   isSubmittingAttachment: boolean;
@@ -530,6 +572,10 @@ interface TaskEditContentProps {
   onAddEditLabel: (value: string) => void;
   onRemoveEditLabel: (label: string) => void;
   onEditDescriptionChange: (value: string) => void;
+  onRelatedTaskSearchChange: (value: string) => void;
+  onAddRelatedTask: (taskId: string) => void;
+  onRemoveRelatedTask: (taskId: string) => void;
+  availableRelatedTaskOptions: RelatedTaskOption[];
   onNewBlockedFollowUpEntryChange: (value: string) => void;
   onAddBlockedFollowUpEntry: () => void | Promise<void>;
   onPreviewAttachment: (attachment: TaskAttachment | null) => void;
@@ -548,6 +594,7 @@ function TaskEditContent({
   editLabelInput,
   editLabelSuggestions,
   editDescription,
+  relatedTaskSearch,
   newBlockedFollowUpEntry,
   isUpdatingTask,
   isSubmittingAttachment,
@@ -562,6 +609,10 @@ function TaskEditContent({
   onAddEditLabel,
   onRemoveEditLabel,
   onEditDescriptionChange,
+  onRelatedTaskSearchChange,
+  onAddRelatedTask,
+  onRemoveRelatedTask,
+  availableRelatedTaskOptions,
   onNewBlockedFollowUpEntryChange,
   onAddBlockedFollowUpEntry,
   onPreviewAttachment,
@@ -645,6 +696,18 @@ function TaskEditContent({
           value={editDescription}
           onChange={onEditDescriptionChange}
           placeholder="Task details..."
+        />
+      </div>
+
+      <div className="grid gap-2">
+        <label className="text-sm font-medium">Related tasks</label>
+        <RelatedTaskSelector
+          selectedTasks={selectedTask.relatedTasks}
+          availableTasks={availableRelatedTaskOptions}
+          searchValue={relatedTaskSearch}
+          onSearchChange={onRelatedTaskSearchChange}
+          onAddTask={onAddRelatedTask}
+          onRemoveTask={onRemoveRelatedTask}
         />
       </div>
 
