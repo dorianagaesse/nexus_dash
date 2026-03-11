@@ -1,6 +1,5 @@
 import { Columns3 } from "lucide-react";
 
-import { CreateTaskDialog } from "@/components/create-task-dialog";
 import { KanbanBoard, type KanbanTask } from "@/components/kanban-board";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listProjectKanbanTasks } from "@/lib/services/project-service";
@@ -23,7 +22,6 @@ export async function KanbanBoardSection({
   const tasks = await listProjectKanbanTasks(projectId, actorUserId);
   const kanbanTasks: KanbanTask[] = [];
   const archivedDoneTasks: KanbanTask[] = [];
-  const existingLabelSet = new Set<string>();
 
   tasks.forEach((task) => {
     if (!isTaskStatus(task.status)) {
@@ -60,10 +58,6 @@ export async function KanbanBoardSection({
       })),
     };
 
-    normalizedTask.labels.forEach((label) => {
-      existingLabelSet.add(label);
-    });
-
     if (task.status === "Done" && task.archivedAt) {
       archivedDoneTasks.push(normalizedTask);
       return;
@@ -78,18 +72,6 @@ export async function KanbanBoardSection({
       storageProvider={storageProvider}
       initialTasks={kanbanTasks}
       archivedDoneTasks={archivedDoneTasks}
-      headerAction={
-        <CreateTaskDialog
-          projectId={projectId}
-          storageProvider={storageProvider}
-          existingLabels={Array.from(existingLabelSet)}
-          availableTasks={kanbanTasks.map((task) => ({
-            id: task.id,
-            title: task.title,
-            status: task.status,
-          }))}
-        />
-      }
     />
   );
 }

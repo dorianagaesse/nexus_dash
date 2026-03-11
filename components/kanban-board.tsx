@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
   useTransition,
-  type ReactNode,
 } from "react";
 import type { DropResult } from "@hello-pangea/dnd";
 
@@ -18,6 +17,7 @@ import {
   type TaskAttachment,
   type TaskRelatedSummary,
 } from "@/components/kanban-board-types";
+import { CreateTaskDialog } from "@/components/create-task-dialog";
 import { KanbanBoardHeader } from "@/components/kanban/kanban-board-header";
 import { KanbanColumnsGrid } from "@/components/kanban/kanban-columns-grid";
 import { TaskDetailModal } from "@/components/kanban/task-detail-modal";
@@ -56,7 +56,6 @@ interface KanbanBoardProps {
   storageProvider: "local" | "r2";
   initialTasks: KanbanTask[];
   archivedDoneTasks?: KanbanTask[];
-  headerAction?: ReactNode;
 }
 
 function createLocalUploadId(): string {
@@ -68,7 +67,6 @@ export function KanbanBoard({
   storageProvider,
   initialTasks,
   archivedDoneTasks: initialArchivedDoneTasks = [],
-  headerAction,
 }: KanbanBoardProps) {
   const initialColumns = useMemo(
     () => mapTasksToColumns(initialTasks),
@@ -246,6 +244,18 @@ export function KanbanBoard({
       }))
       .sort((left, right) => left.title.localeCompare(right.title));
   }, [columns, selectedTask]);
+
+  const createDialogAvailableTasks = useMemo<RelatedTaskOption[]>(
+    () =>
+      TASK_STATUSES.flatMap((status) => columns[status])
+        .map((task) => ({
+          id: task.id,
+          title: task.title,
+          status: task.status,
+        }))
+        .sort((left, right) => left.title.localeCompare(right.title)),
+    [columns]
+  );
 
   const addEditLabel = useCallback(
     (value: string) => {
@@ -1242,7 +1252,14 @@ export function KanbanBoard({
         isExpanded={isExpanded}
         totalTaskCount={totalTaskCount}
         isSaving={isSaving}
-        headerAction={headerAction}
+        headerAction={
+          <CreateTaskDialog
+            projectId={projectId}
+            storageProvider={storageProvider}
+            existingLabels={allKnownLabels}
+            availableTasks={createDialogAvailableTasks}
+          />
+        }
         onToggleExpanded={() => setIsExpanded((previous) => !previous)}
       />
 

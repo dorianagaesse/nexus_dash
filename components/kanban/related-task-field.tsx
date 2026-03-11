@@ -1,6 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  createPortal,
+} from "react-dom";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Archive, Link2, Search, X } from "lucide-react";
 
 import type { TaskRelatedSummary } from "@/components/kanban-board-types";
@@ -35,6 +43,12 @@ export function RelatedTaskSelector({
   helperText = "Link tasks that belong together in this project.",
 }: RelatedTaskSelectorProps) {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+  const searchFieldRef = useRef<HTMLDivElement | null>(null);
   const normalizedQuery = searchValue.trim().toLowerCase();
 
   const suggestions = useMemo(() => {
@@ -55,6 +69,45 @@ export function RelatedTaskSelector({
 
   const shouldShowSuggestions =
     !disabled && isSearchFocused && (suggestions.length > 0 || normalizedQuery.length > 0);
+
+  useEffect(() => {
+    if (!shouldShowSuggestions) {
+      setDropdownPosition(null);
+      return;
+    }
+
+    const updateDropdownPosition = () => {
+      const searchField = searchFieldRef.current;
+      if (!searchField) {
+        return;
+      }
+
+      const rect = searchField.getBoundingClientRect();
+      const estimatedDropdownHeight = 164;
+      const viewportPadding = 12;
+      const availableBelow = window.innerHeight - rect.bottom - viewportPadding;
+      const availableAbove = rect.top - viewportPadding;
+      const openAbove =
+        availableBelow < estimatedDropdownHeight && availableAbove > availableBelow;
+
+      setDropdownPosition({
+        top: openAbove
+          ? Math.max(viewportPadding, rect.top - estimatedDropdownHeight - 6)
+          : rect.bottom + 6,
+        left: rect.left,
+        width: rect.width,
+      });
+    };
+
+    updateDropdownPosition();
+    window.addEventListener("resize", updateDropdownPosition);
+    window.addEventListener("scroll", updateDropdownPosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updateDropdownPosition);
+      window.removeEventListener("scroll", updateDropdownPosition, true);
+    };
+  }, [shouldShowSuggestions, suggestions.length]);
 
   return (
     <div className="grid gap-2 rounded-md border border-border/60 bg-muted/10 p-2.5">
@@ -80,7 +133,7 @@ export function RelatedTaskSelector({
         <p className="text-xs text-muted-foreground">No related tasks yet.</p>
       )}
 
-      <div className="relative">
+      <div ref={searchFieldRef} className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           value={searchValue}
@@ -93,35 +146,47 @@ export function RelatedTaskSelector({
           className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
           disabled={disabled}
         />
-
-        {shouldShowSuggestions ? (
-          <div className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-20 rounded-md border border-border/70 bg-popover p-1 shadow-lg">
-            {suggestions.length > 0 ? (
-              <div className="scrollbar-hidden max-h-36 space-y-1 overflow-y-auto">
-                {suggestions.map((task) => (
-                  <button
-                    key={task.id}
-                    type="button"
-                    className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => onAddTask(task.id)}
-                    disabled={disabled}
-                  >
-                    <span className="min-w-0 flex-1 truncate">{task.title}</span>
-                    <span className="ml-3 text-[11px] text-muted-foreground">
-                      {task.status}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="px-3 py-2 text-xs text-muted-foreground">
-                No active tasks match that search.
-              </p>
-            )}
-          </div>
-        ) : null}
       </div>
+      {shouldShowSuggestions &&
+      dropdownPosition &&
+      typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="z-[120] rounded-md border border-border/70 bg-popover p-1 shadow-lg"
+              style={{
+                position: "fixed",
+                top: dropdownPosition.top,
+                left: dropdownPosition.left,
+                width: dropdownPosition.width,
+              }}
+            >
+              {suggestions.length > 0 ? (
+                <div className="scrollbar-hidden max-h-36 space-y-1 overflow-y-auto">
+                  {suggestions.map((task) => (
+                    <button
+                      key={task.id}
+                      type="button"
+                      className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => onAddTask(task.id)}
+                      disabled={disabled}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{task.title}</span>
+                      <span className="ml-3 text-[11px] text-muted-foreground">
+                        {task.status}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="px-3 py-2 text-xs text-muted-foreground">
+                  No active tasks match that search.
+                </p>
+              )}
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }
