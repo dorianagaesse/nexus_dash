@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Archive, Link2, Search, X } from "lucide-react";
 
 import type { TaskRelatedSummary } from "@/components/kanban-board-types";
@@ -34,6 +34,7 @@ export function RelatedTaskSelector({
   disabled = false,
   helperText = "Link tasks that belong together in this project.",
 }: RelatedTaskSelectorProps) {
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const normalizedQuery = searchValue.trim().toLowerCase();
 
   const suggestions = useMemo(() => {
@@ -52,15 +53,20 @@ export function RelatedTaskSelector({
       .slice(0, 8);
   }, [availableTasks, normalizedQuery, selectedTasks]);
 
+  const shouldShowSuggestions =
+    !disabled && isSearchFocused && (suggestions.length > 0 || normalizedQuery.length > 0);
+
   return (
-    <div className="grid gap-2 rounded-md border border-border/60 bg-muted/15 p-3">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Link2 className="h-3.5 w-3.5" />
-        <span>{helperText}</span>
-      </div>
+    <div className="grid gap-2 rounded-md border border-border/60 bg-muted/10 p-2.5">
+      {selectedTasks.length === 0 ? (
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <Link2 className="h-3.5 w-3.5" />
+          <span>{helperText}</span>
+        </div>
+      ) : null}
 
       {selectedTasks.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {selectedTasks.map((task) => (
             <RelatedTaskPill
               key={task.id}
@@ -79,30 +85,43 @@ export function RelatedTaskSelector({
         <input
           value={searchValue}
           onChange={(event) => onSearchChange(event.target.value)}
+          onFocus={() => setIsSearchFocused(true)}
+          onBlur={() => {
+            window.setTimeout(() => setIsSearchFocused(false), 120);
+          }}
           placeholder="Search active tasks"
-          className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
+          className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
           disabled={disabled}
         />
-      </div>
 
-      {suggestions.length > 0 ? (
-        <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-border/60 bg-background p-1">
-          {suggestions.map((task) => (
-            <button
-              key={task.id}
-              type="button"
-              className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted"
-              onClick={() => onAddTask(task.id)}
-              disabled={disabled}
-            >
-              <span className="min-w-0 flex-1 truncate">{task.title}</span>
-              <span className="ml-3 text-xs text-muted-foreground">{task.status}</span>
-            </button>
-          ))}
-        </div>
-      ) : normalizedQuery ? (
-        <p className="text-xs text-muted-foreground">No active tasks match that search.</p>
-      ) : null}
+        {shouldShowSuggestions ? (
+          <div className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-20 rounded-md border border-border/70 bg-popover p-1 shadow-lg">
+            {suggestions.length > 0 ? (
+              <div className="scrollbar-hidden max-h-36 space-y-1 overflow-y-auto">
+                {suggestions.map((task) => (
+                  <button
+                    key={task.id}
+                    type="button"
+                    className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => onAddTask(task.id)}
+                    disabled={disabled}
+                  >
+                    <span className="min-w-0 flex-1 truncate">{task.title}</span>
+                    <span className="ml-3 text-[11px] text-muted-foreground">
+                      {task.status}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="px-3 py-2 text-xs text-muted-foreground">
+                No active tasks match that search.
+              </p>
+            )}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -127,7 +146,7 @@ export function RelatedTaskPill({
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs",
         isArchived
           ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
           : "border-border/70 bg-background text-foreground",
