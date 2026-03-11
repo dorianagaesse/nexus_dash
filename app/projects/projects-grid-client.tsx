@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 
 export interface ProjectGridItem {
@@ -164,7 +165,7 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
                   <label htmlFor={`name-${project.id}`} className="text-sm font-medium">
                     Name
                   </label>
-                  <input
+                  <EmojiInputField
                     id={`name-${project.id}`}
                     name="name"
                     required
@@ -179,7 +180,7 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
                   <label htmlFor={`description-${project.id}`} className="text-sm font-medium">
                     Description
                   </label>
-                  <textarea
+                  <EmojiTextareaField
                     id={`description-${project.id}`}
                     name="description"
                     rows={3}

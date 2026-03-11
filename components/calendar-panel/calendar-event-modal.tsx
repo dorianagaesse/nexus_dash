@@ -4,6 +4,7 @@ import { Trash2, X } from "lucide-react";
 import { CalendarDateTimeField } from "@/components/calendar-date-time-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
 
 interface CalendarEventModalProps {
   isOpen: boolean;
@@ -107,7 +108,7 @@ export function CalendarEventModal({
               <label htmlFor="calendar-event-summary" className="text-sm font-medium">
                 Title
               </label>
-              <input
+              <EmojiInputField
                 id="calendar-event-summary"
                 value={eventSummary}
                 onChange={(event) => onEventSummaryChange(event.target.value)}
@@ -194,7 +195,7 @@ export function CalendarEventModal({
               <label htmlFor="calendar-event-location" className="text-sm font-medium">
                 Location (optional)
               </label>
-              <input
+              <EmojiInputField
                 id="calendar-event-location"
                 value={eventLocation}
                 onChange={(event) => onEventLocationChange(event.target.value)}
@@ -209,7 +210,7 @@ export function CalendarEventModal({
               <label htmlFor="calendar-event-description" className="text-sm font-medium">
                 Description (optional)
               </label>
-              <textarea
+              <EmojiTextareaField
                 id="calendar-event-description"
                 value={eventDescription}
                 onChange={(event) => onEventDescriptionChange(event.target.value)}

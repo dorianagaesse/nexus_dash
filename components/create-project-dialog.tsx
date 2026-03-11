@@ -5,6 +5,7 @@ import { PlusSquare, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
 
 interface CreateProjectDialogProps {
   action: (formData: FormData) => Promise<void>;
@@ -49,7 +50,7 @@ export function CreateProjectDialog({ action }: CreateProjectDialogProps) {
                   <label htmlFor="create-name" className="text-sm font-medium">
                     Name
                   </label>
-                  <input
+                  <EmojiInputField
                     id="create-name"
                     name="name"
                     required
@@ -64,7 +65,7 @@ export function CreateProjectDialog({ action }: CreateProjectDialogProps) {
                   <label htmlFor="create-description" className="text-sm font-medium">
                     Description
                   </label>
-                  <textarea
+                  <EmojiTextareaField
                     id="create-description"
                     name="description"
                     rows={3}

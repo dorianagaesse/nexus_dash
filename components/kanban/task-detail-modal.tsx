@@ -29,6 +29,7 @@ import { RichTextEditor } from "@/components/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmojiInputField } from "@/components/ui/emoji-field";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import {
   ATTACHMENT_KIND_FILE,
@@ -167,7 +168,7 @@ export function TaskDetailModal({
                     {selectedTask.title}
                   </CardTitle>
                 ) : (
-                  <input
+                  <EmojiInputField
                     aria-label="Task title"
                     value={editTitle}
                     onChange={(event) => onEditTitleChange(event.target.value)}
@@ -599,7 +600,7 @@ function TaskEditContent({
                 </button>
               </span>
             ))}
-            <input
+            <EmojiInputField
               id="task-edit-label-input"
               value={editLabelInput}
               onChange={(event) => onEditLabelInputChange(event.target.value)}
@@ -610,6 +611,7 @@ function TaskEditContent({
                 }
               }}
               maxLength={60}
+              wrapperClassName="min-w-[160px] flex-1"
               className="h-8 min-w-[160px] flex-1 bg-transparent px-1 text-sm outline-none"
               placeholder={
                 editLabels.length >= MAX_TASK_LABELS
@@ -670,8 +672,12 @@ function TaskEditContent({
             </div>
           )}
 
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-800/80 dark:text-amber-100/80">
+            New follow-up
+          </p>
+
           <div className="flex items-center gap-2">
-            <input
+            <EmojiInputField
               value={newBlockedFollowUpEntry}
               onChange={(event) => onNewBlockedFollowUpEntryChange(event.target.value)}
               onKeyDown={(event) => {
@@ -682,6 +688,7 @@ function TaskEditContent({
               }}
               maxLength={1200}
               placeholder="Add follow-up and press Enter"
+              wrapperClassName="flex-1"
               className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
               disabled={isUpdatingTask}
             />

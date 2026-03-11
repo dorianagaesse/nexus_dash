@@ -5,6 +5,7 @@ import { ContextColorPicker } from "@/components/context-panel/context-color-pic
 import { ContextModalFrame } from "@/components/context-panel/context-modal-frame";
 import type { PendingAttachmentLink } from "@/components/project-context-panel-types";
 import { Button } from "@/components/ui/button";
+import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
 
 interface ContextCreateModalProps {
   isOpen: boolean;
@@ -65,7 +66,7 @@ export function ContextCreateModal({
           <label htmlFor="context-create-title" className="text-sm font-medium">
             Title
           </label>
-          <input
+          <EmojiInputField
             id="context-create-title"
             name="title"
             required
@@ -80,7 +81,7 @@ export function ContextCreateModal({
           <label htmlFor="context-create-content" className="text-sm font-medium">
             Content
           </label>
-          <textarea
+          <EmojiTextareaField
             id="context-create-content"
             name="content"
             rows={5}

@@ -9,6 +9,7 @@ import type {
 } from "@/components/project-context-panel-types";
 import { resolveAttachmentHref } from "@/components/project-context-panel-utils";
 import { Button } from "@/components/ui/button";
+import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
 import {
   ATTACHMENT_KIND_FILE,
   ATTACHMENT_KIND_LINK,
@@ -71,7 +72,7 @@ export function ContextEditModal({
           <label htmlFor="context-edit-title" className="text-sm font-medium">
             Title
           </label>
-          <input
+          <EmojiInputField
             id="context-edit-title"
             name="title"
             required
@@ -86,7 +87,7 @@ export function ContextEditModal({
           <label htmlFor="context-edit-content" className="text-sm font-medium">
             Content
           </label>
-          <textarea
+          <EmojiTextareaField
             id="context-edit-content"
             name="content"
             rows={5}

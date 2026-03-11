@@ -1,43 +1,42 @@
-# Current Task: TASK-093 Task Lifecycle UX - Manual Archive Action for Done Tasks
+# Current Task: TASK-094 Text Input UX - Emoji Picker/Button Across Text Fields
 
 ## Task ID
-TASK-093
+TASK-094
 
 ## Status
-In Progress (manual archive implemented and locally validated, 2026-03-11)
+In Progress (emoji picker implemented and locally validated, 2026-03-11)
 
 ## Objective
-Add an explicit `Move to Archive` action for done tasks so users can archive them immediately instead of waiting for automatic stale-task archiving.
+Add a lightweight emoji picker/button to supported user-authored text fields so emoji insertion feels native, fast, and consistent across the product.
 
 ## Scope
-- Add a manual archive action in the task options UI for eligible done tasks.
-- Reuse the existing archive behavior and destination so manual and automatic archiving stay consistent.
-- Keep task permissions and project boundaries unchanged.
-- Update validation coverage for the new archive path where it adds real confidence.
+- Build a reusable emoji picker/button component with a modern, compact UI.
+- Support emoji insertion in the main user-authored text-entry surfaces:
+  - project create/edit
+  - task create/edit
+  - blocked follow-up entry
+  - context-card create/edit
+  - calendar event create/edit
+- Keep URL, email, password, and date/time fields unchanged.
+- Add focused validation coverage where it improves confidence without over-testing presentation details.
 
 ## Out of Scope
-- Changing the existing automatic archive timing or policy.
-- Redesigning the broader task lifecycle or status model.
-- Introducing task dependency or emoji-input features in this task.
+- Replacing the existing text editors with a third-party rich editor.
+- Adding full emoji search, skin-tone variants, or custom emoji uploads.
+- Changing existing form validation or persistence rules beyond emoji insertion support.
 
 ## Acceptance Criteria
-- A done task exposes a clear `Move to Archive` action.
-- Triggering the action archives the task immediately.
-- Non-done tasks do not expose the action.
-- Existing archive views reflect the change without inconsistent state.
-- Validation for the touched flows stays green.
+- Supported text fields expose a clear emoji affordance.
+- Selecting an emoji inserts it at the current cursor position without disrupting typing.
+- Rich-text task descriptions keep their existing formatting tools and accept emoji insertion cleanly.
+- The picker is usable on desktop and mobile-sized layouts.
+- Local validation remains green.
 
-## Notes
-- TASK-085 is complete and moved to the completed backlog section.
-- New feature ideas captured in the backlog for follow-up:
-  - TASK-094: emoji picker/button across text fields
-  - TASK-095: optional task dependencies with hover-linked highlighting
-
-## Next Steps
-1. Trace the current archive flow in UI, route, and service layers.
-2. Add the manual archive trigger to the done-task surface with the smallest safe UX change.
-3. Reuse existing archive mutation behavior rather than creating a parallel archive path.
-4. Validate happy path, permission boundaries, and archive visibility updates.
+## Plan
+1. Update task tracking and confirm the supported field list.
+2. Build one shared emoji picker/button plus shared insertion helpers.
+3. Integrate it across the supported text-entry surfaces with minimal UX friction.
+4. Open the PR, monitor automated review, and handle follow-up if anything comes back.
 
 ---
 
