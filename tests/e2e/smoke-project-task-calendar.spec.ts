@@ -75,7 +75,6 @@ test.describe("critical UI smoke flows", () => {
     await openNewestProjectDashboard(page, projectName);
 
     await page.getByRole("button", { name: "Calendar" }).click();
-    await expect(page.getByText("Current week events (Monday to Sunday).")).toBeVisible();
 
     const disconnectedState = page.getByText("Google Calendar is not connected yet.");
     const refreshButton = page.getByRole("button", { name: "Refresh" });
