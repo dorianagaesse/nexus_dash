@@ -137,8 +137,12 @@ async function validateRelatedTaskIds(input: {
   projectId: string;
   taskId?: string;
   relatedTaskIds: string[];
+  allowArchivedTaskIds?: string[];
 }): Promise<ServiceResult<{ relatedTaskIds: string[] }>> {
   const filteredRelatedTaskIds = normalizeRelatedTaskIds(input.relatedTaskIds);
+  const allowedArchivedTaskIds = new Set(
+    normalizeRelatedTaskIds(input.allowArchivedTaskIds ?? [])
+  );
 
   if (input.taskId && filteredRelatedTaskIds.includes(input.taskId)) {
     return createError(400, "related-tasks-invalid");
@@ -157,7 +161,7 @@ async function validateRelatedTaskIds(input: {
     where: {
       id: { in: filteredRelatedTaskIds },
       projectId: input.projectId,
-      archivedAt: null,
+      OR: [{ archivedAt: null }, { id: { in: Array.from(allowedArchivedTaskIds) } }],
     },
     select: {
       id: true,
@@ -514,7 +518,22 @@ export async function updateTaskForProject(
     try {
       const existingTask = await db.task.findUnique({
         where: { id: taskId },
-        select: { id: true, projectId: true, status: true, position: true },
+        select: {
+          id: true,
+          projectId: true,
+          status: true,
+          position: true,
+          outgoingRelations: {
+            select: {
+              rightTaskId: true,
+            },
+          },
+          incomingRelations: {
+            select: {
+              leftTaskId: true,
+            },
+          },
+        },
       });
 
       if (!existingTask || existingTask.projectId !== projectId) {
@@ -526,6 +545,10 @@ export async function updateTaskForProject(
         projectId,
         taskId,
         relatedTaskIds,
+        allowArchivedTaskIds: [
+          ...existingTask.outgoingRelations.map((entry) => entry.rightTaskId),
+          ...existingTask.incomingRelations.map((entry) => entry.leftTaskId),
+        ],
       });
       if (!relatedTaskValidation.ok) {
         return relatedTaskValidation;
