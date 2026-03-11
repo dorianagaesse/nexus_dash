@@ -54,6 +54,7 @@ interface TaskDetailModalProps {
   editLabelInput: string;
   editLabelSuggestions: string[];
   editDescription: string;
+  editRelatedTasks: KanbanTask["relatedTasks"];
   relatedTaskSearch: string;
   newBlockedFollowUpEntry: string;
   isUpdatingTask: boolean;
@@ -105,6 +106,7 @@ export function TaskDetailModal({
   editLabelInput,
   editLabelSuggestions,
   editDescription,
+  editRelatedTasks,
   relatedTaskSearch,
   newBlockedFollowUpEntry,
   isUpdatingTask,
@@ -217,11 +219,10 @@ export function TaskDetailModal({
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4 overflow-y-auto">
+            <CardContent className="space-y-4 overflow-x-hidden overflow-y-auto">
               {!isEditMode ? (
                 <TaskReadOnlyContent
                   selectedTask={selectedTask}
-                  pendingAttachmentUploads={pendingAttachmentUploads}
                   onPreviewAttachment={onPreviewAttachmentChange}
                   onActivateEditMode={onActivateEditMode}
                   onOpenRelatedTask={onOpenRelatedTask}
@@ -233,6 +234,7 @@ export function TaskDetailModal({
                   editLabelInput={editLabelInput}
                   editLabelSuggestions={editLabelSuggestions}
                   editDescription={editDescription}
+                  editRelatedTasks={editRelatedTasks}
                   relatedTaskSearch={relatedTaskSearch}
                   newBlockedFollowUpEntry={newBlockedFollowUpEntry}
                   isUpdatingTask={isUpdatingTask}
@@ -412,17 +414,18 @@ function TaskOptionsMenu({
 
 function TaskReadOnlyContent({
   selectedTask,
-  pendingAttachmentUploads,
   onPreviewAttachment,
   onActivateEditMode,
   onOpenRelatedTask,
 }: {
   selectedTask: KanbanTask;
-  pendingAttachmentUploads: PendingAttachmentUpload[];
   onPreviewAttachment: (attachment: TaskAttachment | null) => void;
   onActivateEditMode: () => void;
   onOpenRelatedTask: (taskId: string) => void;
 }) {
+  const hasAttachments = selectedTask.attachments.length > 0;
+  const hasRelatedTasks = selectedTask.relatedTasks.length > 0;
+
   return (
     <>
       {selectedTask.labels.length > 0 ? (
@@ -470,22 +473,6 @@ function TaskReadOnlyContent({
           )}
         </div>
       ) : null}
-      <div className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
-        <p className="text-sm font-medium">Related tasks</p>
-        {selectedTask.relatedTasks.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No related tasks yet.</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {selectedTask.relatedTasks.map((task) => (
-              <RelatedTaskPill
-                key={task.id}
-                task={task}
-                onClick={() => onOpenRelatedTask(task.id)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
       <div className="max-h-[52vh] overflow-y-auto text-sm text-muted-foreground [overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:break-words [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_p]:mb-2">
         <div
           onDoubleClick={onActivateEditMode}
@@ -494,11 +481,9 @@ function TaskReadOnlyContent({
           }}
         />
       </div>
-      <div className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
-        <p className="text-sm font-medium">Attachments</p>
-        {selectedTask.attachments.length === 0 && pendingAttachmentUploads.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No attachments yet.</p>
-        ) : (
+      {hasAttachments ? (
+        <div className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
+          <p className="text-sm font-medium">Attachments</p>
           <div className="space-y-2">
             {selectedTask.attachments.map((attachment) => {
               const href = resolveAttachmentHref(attachment);
@@ -545,8 +530,22 @@ function TaskReadOnlyContent({
               );
             })}
           </div>
-        )}
-      </div>
+        </div>
+      ) : null}
+      {hasRelatedTasks ? (
+        <div className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
+          <p className="text-sm font-medium">Related tasks</p>
+          <div className="flex flex-wrap gap-2">
+            {selectedTask.relatedTasks.map((task) => (
+              <RelatedTaskPill
+                key={task.id}
+                task={task}
+                onClick={() => onOpenRelatedTask(task.id)}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -557,6 +556,7 @@ interface TaskEditContentProps {
   editLabelInput: string;
   editLabelSuggestions: string[];
   editDescription: string;
+  editRelatedTasks: KanbanTask["relatedTasks"];
   relatedTaskSearch: string;
   newBlockedFollowUpEntry: string;
   isUpdatingTask: boolean;
@@ -594,6 +594,7 @@ function TaskEditContent({
   editLabelInput,
   editLabelSuggestions,
   editDescription,
+  editRelatedTasks,
   relatedTaskSearch,
   newBlockedFollowUpEntry,
   isUpdatingTask,
@@ -696,18 +697,6 @@ function TaskEditContent({
           value={editDescription}
           onChange={onEditDescriptionChange}
           placeholder="Task details..."
-        />
-      </div>
-
-      <div className="grid gap-2">
-        <label className="text-sm font-medium">Related tasks</label>
-        <RelatedTaskSelector
-          selectedTasks={selectedTask.relatedTasks}
-          availableTasks={availableRelatedTaskOptions}
-          searchValue={relatedTaskSearch}
-          onSearchChange={onRelatedTaskSearchChange}
-          onAddTask={onAddRelatedTask}
-          onRemoveTask={onRemoveRelatedTask}
         />
       </div>
 
@@ -904,6 +893,18 @@ function TaskEditContent({
             {attachmentError}
           </div>
         ) : null}
+      </div>
+
+      <div className="grid gap-2">
+        <label className="text-sm font-medium">Related tasks</label>
+        <RelatedTaskSelector
+          selectedTasks={editRelatedTasks}
+          availableTasks={availableRelatedTaskOptions}
+          searchValue={relatedTaskSearch}
+          onSearchChange={onRelatedTaskSearchChange}
+          onAddTask={onAddRelatedTask}
+          onRemoveTask={onRemoveRelatedTask}
+        />
       </div>
 
       {taskModalError ? (

@@ -4,7 +4,7 @@ import {
   Droppable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { GripVertical, TriangleAlert } from "lucide-react";
+import { Archive, GripVertical, Link2, Paperclip, TriangleAlert } from "lucide-react";
 
 import type { KanbanTask } from "@/components/kanban-board-types";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,7 @@ interface KanbanColumnsGridProps {
   columns: TaskColumns<KanbanTask>;
   archivedDoneTasks: KanbanTask[];
   highlightedTaskIds: Set<string>;
+  hoveredTaskId: string | null;
   onDragEnd: (result: DropResult) => void;
   onSelectTask: (task: KanbanTask) => void;
   onEditTask: (task: KanbanTask) => void;
@@ -32,6 +33,7 @@ export function KanbanColumnsGrid({
   columns,
   archivedDoneTasks,
   highlightedTaskIds,
+  hoveredTaskId,
   onDragEnd,
   onSelectTask,
   onEditTask,
@@ -47,6 +49,7 @@ export function KanbanColumnsGrid({
             tasks={columns[status]}
             archivedDoneTasks={status === "Done" ? archivedDoneTasks : []}
             highlightedTaskIds={highlightedTaskIds}
+            hoveredTaskId={hoveredTaskId}
             onSelectTask={onSelectTask}
             onEditTask={onEditTask}
             onTaskHoverChange={onTaskHoverChange}
@@ -62,6 +65,7 @@ interface KanbanColumnProps {
   tasks: KanbanTask[];
   archivedDoneTasks: KanbanTask[];
   highlightedTaskIds: Set<string>;
+  hoveredTaskId: string | null;
   onSelectTask: (task: KanbanTask) => void;
   onEditTask: (task: KanbanTask) => void;
   onTaskHoverChange: (taskId: string | null) => void;
@@ -72,6 +76,7 @@ function KanbanColumn({
   tasks,
   archivedDoneTasks,
   highlightedTaskIds,
+  hoveredTaskId,
   onSelectTask,
   onEditTask,
   onTaskHoverChange,
@@ -96,17 +101,32 @@ function KanbanColumn({
                   key={task.id}
                   type="button"
                   className={cn(
-                    "w-full rounded-md border border-border/60 bg-card px-2 py-2 text-left transition hover:bg-muted/40",
+                    "w-full rounded-md border border-dashed border-border/45 bg-muted/15 px-2.5 py-2.5 text-left transition hover:bg-muted/25",
+                    hoveredTaskId === task.id &&
+                      "border-border/80 bg-muted/30 shadow-sm",
                     highlightedTaskIds.has(task.id) &&
-                      "border-emerald-500/60 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.15)]"
+                      hoveredTaskId !== task.id &&
+                      "border-border/60 bg-muted/22"
                   )}
                   onClick={() => onSelectTask(task)}
                   onMouseEnter={() => onTaskHoverChange(task.id)}
                   onMouseLeave={() => onTaskHoverChange(null)}
                 >
-                  <p className="text-xs font-medium text-foreground">{task.title}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground/90">
+                      <Archive
+                        aria-hidden="true"
+                        className="h-3.5 w-3.5 shrink-0 text-emerald-400/80"
+                      />
+                      <span className="truncate">{task.title}</span>
+                    </p>
+                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.18em] text-emerald-300/80">
+                      Archived
+                    </span>
+                  </div>
+                  <TaskCardIndicators task={task} className="mt-1" />
                   {task.description ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1 text-xs text-muted-foreground/85">
                       {getDescriptionPreview(task.description, 90)}
                     </p>
                   ) : null}
@@ -146,8 +166,11 @@ function KanbanColumn({
                       className={cn(
                         "cursor-grab rounded-md border border-border/70 bg-card p-3 shadow-sm transition active:cursor-grabbing",
                         draggableSnapshot.isDragging && "shadow-lg",
+                        hoveredTaskId === task.id &&
+                          "border-border bg-muted/35 shadow-md",
                         highlightedTaskIds.has(task.id) &&
-                          "border-emerald-500/60 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.15)]"
+                          hoveredTaskId !== task.id &&
+                          "border-border/80 bg-muted/20 shadow-sm"
                       )}
                       onClick={() => {
                         if (!draggableSnapshot.isDragging) {
@@ -183,6 +206,8 @@ function KanbanColumn({
                         </div>
                       </div>
 
+                      <TaskCardIndicators task={task} className="-mt-1 mb-2" />
+
                       {task.description ? (
                         <p className="break-words text-xs text-muted-foreground">
                           {getDescriptionPreview(task.description)}
@@ -214,5 +239,43 @@ function KanbanColumn({
         </Droppable>
       </CardContent>
     </Card>
+  );
+}
+
+function TaskCardIndicators({
+  task,
+  className,
+}: {
+  task: KanbanTask;
+  className?: string;
+}) {
+  const hasRelatedTasks = task.relatedTasks.length > 0;
+  const hasAttachments = task.attachments.length > 0;
+
+  if (!hasRelatedTasks && !hasAttachments) {
+    return null;
+  }
+
+  return (
+    <div className={cn("flex items-center gap-1 text-muted-foreground", className)}>
+      {hasRelatedTasks ? (
+        <span
+          className="rounded-sm p-1"
+          aria-label="Task has related tasks"
+          title="Task has related tasks"
+        >
+          <Link2 className="h-3.5 w-3.5" />
+        </span>
+      ) : null}
+      {hasAttachments ? (
+        <span
+          className="rounded-sm p-1"
+          aria-label="Task has attachments"
+          title="Task has attachments"
+        >
+          <Paperclip className="h-3.5 w-3.5" />
+        </span>
+      ) : null}
+    </div>
   );
 }
