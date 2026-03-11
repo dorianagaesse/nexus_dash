@@ -3,7 +3,9 @@
 import { useEffect, useRef } from "react";
 import { Bold, Italic, List, ListOrdered, Underline } from "lucide-react";
 
+import { EmojiPickerButton } from "@/components/ui/emoji-picker-button";
 import { Button } from "@/components/ui/button";
+import { insertEmojiAtCursor } from "@/lib/emoji-input";
 import { cn } from "@/lib/utils";
 
 interface RichTextEditorProps {
@@ -91,6 +93,9 @@ export function RichTextEditor({
           <ListOrdered className="h-4 w-4" />
           Numbered list
         </Button>
+        <EmojiPickerButton
+          onSelectEmoji={(emoji) => insertEmojiAtCursor(editorRef.current, emoji)}
+        />
       </div>
 
       <div

@@ -1,9 +1,12 @@
+import { useRef } from "react";
 import { createPortal } from "react-dom";
 import { Trash2, X } from "lucide-react";
 
 import { CalendarDateTimeField } from "@/components/calendar-date-time-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmojiPickerButton } from "@/components/ui/emoji-picker-button";
+import { insertEmojiAtCursor } from "@/lib/emoji-input";
 
 interface CalendarEventModalProps {
   isOpen: boolean;
@@ -64,6 +67,10 @@ export function CalendarEventModal({
   onEventLocationChange,
   onEventDescriptionChange,
 }: CalendarEventModalProps) {
+  const summaryInputRef = useRef<HTMLInputElement | null>(null);
+  const locationInputRef = useRef<HTMLInputElement | null>(null);
+  const descriptionInputRef = useRef<HTMLTextAreaElement | null>(null);
+
   if (!isBrowserReady || !isOpen) {
     return null;
   }
@@ -104,11 +111,18 @@ export function CalendarEventModal({
             }}
           >
             <div className="grid gap-2">
-              <label htmlFor="calendar-event-summary" className="text-sm font-medium">
-                Title
-              </label>
+              <div className="flex items-center justify-between gap-2">
+                <label htmlFor="calendar-event-summary" className="text-sm font-medium">
+                  Title
+                </label>
+                <EmojiPickerButton
+                  onSelectEmoji={(emoji) => insertEmojiAtCursor(summaryInputRef.current, emoji)}
+                  disabled={isEventMutationPending}
+                />
+              </div>
               <input
                 id="calendar-event-summary"
+                ref={summaryInputRef}
                 value={eventSummary}
                 onChange={(event) => onEventSummaryChange(event.target.value)}
                 minLength={1}
@@ -191,11 +205,18 @@ export function CalendarEventModal({
             )}
 
             <div className="grid gap-2">
-              <label htmlFor="calendar-event-location" className="text-sm font-medium">
-                Location (optional)
-              </label>
+              <div className="flex items-center justify-between gap-2">
+                <label htmlFor="calendar-event-location" className="text-sm font-medium">
+                  Location (optional)
+                </label>
+                <EmojiPickerButton
+                  onSelectEmoji={(emoji) => insertEmojiAtCursor(locationInputRef.current, emoji)}
+                  disabled={isEventMutationPending}
+                />
+              </div>
               <input
                 id="calendar-event-location"
+                ref={locationInputRef}
                 value={eventLocation}
                 onChange={(event) => onEventLocationChange(event.target.value)}
                 maxLength={200}
@@ -206,11 +227,20 @@ export function CalendarEventModal({
             </div>
 
             <div className="grid gap-2">
-              <label htmlFor="calendar-event-description" className="text-sm font-medium">
-                Description (optional)
-              </label>
+              <div className="flex items-center justify-between gap-2">
+                <label htmlFor="calendar-event-description" className="text-sm font-medium">
+                  Description (optional)
+                </label>
+                <EmojiPickerButton
+                  onSelectEmoji={(emoji) =>
+                    insertEmojiAtCursor(descriptionInputRef.current, emoji)
+                  }
+                  disabled={isEventMutationPending}
+                />
+              </div>
               <textarea
                 id="calendar-event-description"
+                ref={descriptionInputRef}
                 value={eventDescription}
                 onChange={(event) => onEventDescriptionChange(event.target.value)}
                 maxLength={4000}

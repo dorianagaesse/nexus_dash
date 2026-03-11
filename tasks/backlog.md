@@ -4,14 +4,9 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-093
-  Title: Task lifecycle UX - manual archive action for done tasks
-  Status: In Progress
-  Rationale: Done-task archiving is currently automatic-only; add an explicit user action (`Move to Archive`) in task options so users can archive completed tasks immediately without waiting for stale-task auto-archive.
-  Dependencies: TASK-046, TASK-076, TASK-079
 - ID: TASK-094
   Title: Text input UX - emoji picker/button across text fields
-  Status: Pending
+  Status: In Progress
   Rationale: Add a lightweight emoji insertion control to supported text inputs so users can express status or tone without relying on OS-level shortcuts, while keeping typing flows quick and consistent.
   Dependencies: TASK-078, TASK-079
 - ID: TASK-095
@@ -120,6 +115,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Done (2026-03-11)
   Rationale: Enabled PostgreSQL Row-Level Security on the protected project/user table set, validated the staged rollout in preview, promoted `FORCE ROW LEVEL SECURITY` to production, documented rollback handling, and confirmed production behavior remained healthy.
   Dependencies: TASK-046, TASK-067, TASK-076
+- ID: TASK-093
+  Title: Task lifecycle UX - manual archive action for done tasks
+  Status: Done (2026-03-11)
+  Rationale: Added explicit archive and unarchive actions for done tasks, aligned the task options UI, and updated the task detail state treatment so manual archiving fits the existing lifecycle cleanly.
+  Dependencies: TASK-046, TASK-076, TASK-079
 - ID: TASK-086
   Title: Account page adjustment - email change verification flow, compact layout, and settings navigation
   Status: Done (2026-02-28)

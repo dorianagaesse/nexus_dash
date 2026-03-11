@@ -9,6 +9,8 @@ import { RichTextEditor } from "@/components/rich-text-editor";
 import { useToast } from "@/components/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmojiPickerButton } from "@/components/ui/emoji-picker-button";
+import { insertEmojiAtCursor } from "@/lib/emoji-input";
 import {
   MAX_TASK_LABELS,
   getTaskLabelColor,
@@ -56,6 +58,8 @@ export function CreateTaskDialog({
   const [fileInputKey, setFileInputKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const labelInputRef = useRef<HTMLInputElement | null>(null);
 
   const maxAttachmentFileSizeBytes =
     storageProvider === "r2"
@@ -325,24 +329,35 @@ export function CreateTaskDialog({
                 <CardContent>
                   <form className="grid gap-4" onSubmit={handleSubmit}>
                 <div className="grid gap-2">
-                  <label htmlFor="task-title" className="text-sm font-medium">
-                    Title
-                  </label>
+                  <div className="flex items-center justify-between gap-2">
+                    <label htmlFor="task-title" className="text-sm font-medium">
+                      Title
+                    </label>
+                    <EmojiPickerButton
+                      onSelectEmoji={(emoji) => insertEmojiAtCursor(titleInputRef.current, emoji)}
+                    />
+                  </div>
                   <input
                     id="task-title"
                     name="title"
                     required
                     minLength={2}
                     maxLength={120}
+                    ref={titleInputRef}
                     className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                     placeholder="Implement drag sorting"
                   />
                 </div>
 
                 <div className="grid gap-2">
-                  <label htmlFor="task-label-input" className="text-sm font-medium">
-                    Labels
-                  </label>
+                  <div className="flex items-center justify-between gap-2">
+                    <label htmlFor="task-label-input" className="text-sm font-medium">
+                      Labels
+                    </label>
+                    <EmojiPickerButton
+                      onSelectEmoji={(emoji) => insertEmojiAtCursor(labelInputRef.current, emoji)}
+                    />
+                  </div>
                   <div className="rounded-md border border-input bg-background p-2">
                     <div className="flex flex-wrap gap-2">
                       {labels.map((label) => (
@@ -364,6 +379,7 @@ export function CreateTaskDialog({
                       ))}
                       <input
                         id="task-label-input"
+                        ref={labelInputRef}
                         value={labelInput}
                         onChange={(event) => setLabelInput(event.target.value)}
                         onKeyDown={(event) => {

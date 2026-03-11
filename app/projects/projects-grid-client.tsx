@@ -4,6 +4,7 @@ import Link from "next/link";
 import { type RefObject, useMemo, useRef, useState } from "react";
 import { ArrowRight, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
+import { EmojiPickerButton } from "@/components/ui/emoji-picker-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { insertEmojiAtCursor } from "@/lib/emoji-input";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 
 export interface ProjectGridItem {
@@ -65,6 +67,8 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
   const [isOptionsMenuOpen, setIsOptionsMenuOpen] = useState(false);
 
   const deleteFormRef = useRef<HTMLFormElement | null>(null);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const descriptionInputRef = useRef<HTMLTextAreaElement | null>(null);
   const optionsMenuRef = useDismissibleMenu<HTMLDivElement>(isOptionsMenuOpen, () =>
     setIsOptionsMenuOpen(false)
   );
@@ -161,9 +165,14 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
             {isEditMode ? (
               <>
                 <div className="grid gap-2">
-                  <label htmlFor={`name-${project.id}`} className="text-sm font-medium">
-                    Name
-                  </label>
+                  <div className="flex items-center justify-between gap-2">
+                    <label htmlFor={`name-${project.id}`} className="text-sm font-medium">
+                      Name
+                    </label>
+                    <EmojiPickerButton
+                      onSelectEmoji={(emoji) => insertEmojiAtCursor(nameInputRef.current, emoji)}
+                    />
+                  </div>
                   <input
                     id={`name-${project.id}`}
                     name="name"
@@ -172,13 +181,21 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
                     maxLength={120}
                     value={nameDraft}
                     onChange={(event) => setNameDraft(event.target.value)}
+                    ref={nameInputRef}
                     className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                   />
                 </div>
                 <div className="grid gap-2">
-                  <label htmlFor={`description-${project.id}`} className="text-sm font-medium">
-                    Description
-                  </label>
+                  <div className="flex items-center justify-between gap-2">
+                    <label htmlFor={`description-${project.id}`} className="text-sm font-medium">
+                      Description
+                    </label>
+                    <EmojiPickerButton
+                      onSelectEmoji={(emoji) =>
+                        insertEmojiAtCursor(descriptionInputRef.current, emoji)
+                      }
+                    />
+                  </div>
                   <textarea
                     id={`description-${project.id}`}
                     name="description"
@@ -186,6 +203,7 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
                     maxLength={500}
                     value={descriptionDraft}
                     onChange={(event) => setDescriptionDraft(event.target.value)}
+                    ref={descriptionInputRef}
                     className="rounded-md border border-input bg-background px-3 py-2 text-sm"
                   />
                 </div>

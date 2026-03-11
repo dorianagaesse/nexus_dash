@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { PlusSquare, X } from "lucide-react";
 
+import { EmojiPickerButton } from "@/components/ui/emoji-picker-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { insertEmojiAtCursor } from "@/lib/emoji-input";
 
 interface CreateProjectDialogProps {
   action: (formData: FormData) => Promise<void>;
@@ -12,6 +14,8 @@ interface CreateProjectDialogProps {
 
 export function CreateProjectDialog({ action }: CreateProjectDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const descriptionInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   return (
     <>
@@ -46,9 +50,14 @@ export function CreateProjectDialog({ action }: CreateProjectDialogProps) {
                 onSubmit={() => setIsOpen(false)}
               >
                 <div className="grid gap-2">
-                  <label htmlFor="create-name" className="text-sm font-medium">
-                    Name
-                  </label>
+                  <div className="flex items-center justify-between gap-2">
+                    <label htmlFor="create-name" className="text-sm font-medium">
+                      Name
+                    </label>
+                    <EmojiPickerButton
+                      onSelectEmoji={(emoji) => insertEmojiAtCursor(nameInputRef.current, emoji)}
+                    />
+                  </div>
                   <input
                     id="create-name"
                     name="name"
@@ -56,20 +65,29 @@ export function CreateProjectDialog({ action }: CreateProjectDialogProps) {
                     minLength={2}
                     maxLength={120}
                     placeholder="NexusDash MVP"
+                    ref={nameInputRef}
                     className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                   />
                 </div>
 
                 <div className="grid gap-2">
-                  <label htmlFor="create-description" className="text-sm font-medium">
-                    Description
-                  </label>
+                  <div className="flex items-center justify-between gap-2">
+                    <label htmlFor="create-description" className="text-sm font-medium">
+                      Description
+                    </label>
+                    <EmojiPickerButton
+                      onSelectEmoji={(emoji) =>
+                        insertEmojiAtCursor(descriptionInputRef.current, emoji)
+                      }
+                    />
+                  </div>
                   <textarea
                     id="create-description"
                     name="description"
                     rows={3}
                     maxLength={500}
                     placeholder="Optional project context..."
+                    ref={descriptionInputRef}
                     className="rounded-md border border-input bg-background px-3 py-2 text-sm"
                   />
                 </div>
