@@ -9,6 +9,8 @@ import {
   buildNextRecentEmojis,
   type EmojiCatalog,
   findEmojiMatches,
+  getEmojiAssetUrl,
+  getPopularEmojiEntries,
   getRecentEmojiEntries,
   EMOJI_RECENTS_STORAGE_KEY,
   loadEmojiCatalog,
@@ -37,6 +39,7 @@ const MOBILE_PANEL_WIDTH = 300;
 const MAX_PANEL_HEIGHT = 360;
 const MIN_PANEL_HEIGHT = 240;
 const MAX_RECENT_PREVIEW = 6;
+const MAX_POPULAR_PREVIEW = 12;
 
 export function EmojiPickerButton({
   onSelectEmoji,
@@ -218,6 +221,10 @@ export function EmojiPickerButton({
         : [],
     [catalog, recentEmojis]
   );
+  const popularEntries = useMemo(
+    () => (catalog ? getPopularEmojiEntries(catalog).slice(0, MAX_POPULAR_PREVIEW) : []),
+    [catalog]
+  );
 
   const searchResults = useMemo(
     () => (catalog ? findEmojiMatches(catalog.entries, searchQuery) : []),
@@ -315,6 +322,15 @@ export function EmojiPickerButton({
                       </div>
                     ) : null}
 
+                    {!hasSearchQuery && popularEntries.length > 0 ? (
+                      <div className="shrink-0 space-y-2">
+                        <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                          Popular
+                        </div>
+                        <EmojiGrid entries={popularEntries} onSelectEmoji={handleSelectEmoji} />
+                      </div>
+                    ) : null}
+
                     {!hasSearchQuery ? (
                       <>
                         <div className="flex shrink-0 flex-wrap gap-1.5">
@@ -394,7 +410,16 @@ function EmojiGrid({ entries, onSelectEmoji }: EmojiGridProps) {
           aria-label={`Insert ${entry.hoverLabel} (${entry.name})`}
           title={entry.hoverLabel}
         >
-          <span aria-hidden="true">{entry.emoji}</span>
+          {/* External twemoji assets keep the picker consistent across OS emoji fonts. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={getEmojiAssetUrl(entry)}
+            alt=""
+            aria-hidden="true"
+            className="h-6 w-6"
+            loading="lazy"
+            draggable={false}
+          />
         </button>
       ))}
     </div>

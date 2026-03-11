@@ -46,8 +46,32 @@ type EmojiShortcodeMap = Record<string, string | string[] | undefined>;
 export const EMOJI_RECENTS_STORAGE_KEY = "nexusdash:emoji-recents";
 export const MAX_RECENT_EMOJIS = 12;
 export const MAX_SEARCH_RESULTS = 120;
+export const TWEMOJI_CDN_BASE_URL =
+  "https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg";
 
 const EXCLUDED_GROUP_KEYS = new Set(["component"]);
+const POPULAR_SHORTCODES = [
+  "grinning",
+  "slightly_smiling_face",
+  "smile",
+  "joy",
+  "wink",
+  "heart_eyes",
+  "thinking",
+  "wave",
+  "thumbsup",
+  "+1",
+  "clap",
+  "raised_hands",
+  "rocket",
+  "fire",
+  "sparkles",
+  "white_check_mark",
+  "memo",
+  "calendar",
+  "bulb",
+  "seedling",
+] as const;
 
 let emojiCatalogPromise: Promise<EmojiCatalog> | null = null;
 
@@ -261,4 +285,18 @@ export function getRecentEmojiEntries(catalog: EmojiCatalog, recentEmojis: strin
   return recentEmojis
     .map((emoji) => catalog.entryByEmoji.get(emoji))
     .filter((entry): entry is EmojiCatalogEntry => Boolean(entry));
+}
+
+export function getPopularEmojiEntries(catalog: EmojiCatalog) {
+  const entriesByShortcode = new Map(
+    catalog.entries.map((entry) => [entry.shortcode, entry] as const)
+  );
+
+  return POPULAR_SHORTCODES.map((shortcode) => entriesByShortcode.get(shortcode)).filter(
+    (entry): entry is EmojiCatalogEntry => Boolean(entry)
+  );
+}
+
+export function getEmojiAssetUrl(entry: Pick<EmojiCatalogEntry, "hexcode">) {
+  return `${TWEMOJI_CDN_BASE_URL}/${entry.hexcode.toLowerCase().replace(/_/g, "-")}.svg`;
 }

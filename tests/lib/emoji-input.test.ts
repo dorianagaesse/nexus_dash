@@ -4,6 +4,8 @@ import {
   buildEmojiCatalog,
   buildNextRecentEmojis,
   findEmojiMatches,
+  getEmojiAssetUrl,
+  getPopularEmojiEntries,
   normalizeRecentEmojis,
 } from "@/lib/emoji";
 import { insertTextIntoValue } from "@/lib/emoji-input";
@@ -207,5 +209,62 @@ describe("emoji catalog", () => {
     expect(findEmojiMatches(catalog.entries, "note").map((entry) => entry.emoji)).toEqual([
       "\u{1F4DD}",
     ]);
+  });
+
+  test("returns popular entries in a stable curated order", () => {
+    const catalog = buildEmojiCatalog(
+      [
+        {
+          emoji: "\u{1F600}",
+          hexcode: "1F600",
+          label: "grinning face",
+          order: 1,
+          group: 0,
+        },
+        {
+          emoji: "\u{1F44D}",
+          hexcode: "1F44D",
+          label: "thumbs up",
+          order: 2,
+          group: 1,
+        },
+        {
+          emoji: "\u2728",
+          hexcode: "2728",
+          label: "sparkles",
+          order: 3,
+          group: 7,
+        },
+      ],
+      {
+        groups: [
+          { key: "smileys-emotion", message: "smileys & emotion", order: 0 },
+          { key: "people-body", message: "people & body", order: 1 },
+          { key: "component", message: "components", order: 2 },
+          { key: "animals-nature", message: "animals & nature", order: 3 },
+          { key: "food-drink", message: "food & drink", order: 4 },
+          { key: "travel-places", message: "travel & places", order: 5 },
+          { key: "activities", message: "activities", order: 6 },
+          { key: "objects", message: "objects", order: 7 },
+        ],
+      },
+      {
+        "1F600": "grinning",
+        "1F44D": ["thumbsup", "+1"],
+        "2728": "sparkles",
+      }
+    );
+
+    expect(getPopularEmojiEntries(catalog).map((entry) => entry.shortcode)).toEqual([
+      "grinning",
+      "thumbsup",
+      "sparkles",
+    ]);
+  });
+
+  test("builds a twemoji asset url from hexcode", () => {
+    expect(getEmojiAssetUrl({ hexcode: "1F44D-1F3FB" })).toBe(
+      "https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/1f44d-1f3fb.svg"
+    );
   });
 });
