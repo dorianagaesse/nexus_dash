@@ -4,7 +4,7 @@ import {
   Droppable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { Archive, GripVertical, TriangleAlert } from "lucide-react";
+import { Archive, GripVertical, Link2, Paperclip, TriangleAlert } from "lucide-react";
 
 import type { KanbanTask } from "@/components/kanban-board-types";
 import { Badge } from "@/components/ui/badge";
@@ -117,9 +117,12 @@ function KanbanColumn({
                       <Archive className="h-3.5 w-3.5 shrink-0 text-emerald-400/80" />
                       <span className="truncate">{task.title}</span>
                     </p>
-                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.18em] text-emerald-300/80">
-                      Archived
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <TaskCardIndicators task={task} />
+                      <span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.18em] text-emerald-300/80">
+                        Archived
+                      </span>
+                    </div>
                   </div>
                   {task.description ? (
                     <p className="mt-1 text-xs text-muted-foreground/85">
@@ -183,6 +186,7 @@ function KanbanColumn({
                       <div className="mb-2 flex items-start justify-between gap-2">
                         <h3 className="text-sm font-medium leading-snug">{task.title}</h3>
                         <div className="flex items-center gap-1">
+                          <TaskCardIndicators task={task} />
                           {status === "Blocked" ? (
                             <span
                               className="rounded-sm p-1 text-amber-500"
@@ -233,5 +237,37 @@ function KanbanColumn({
         </Droppable>
       </CardContent>
     </Card>
+  );
+}
+
+function TaskCardIndicators({ task }: { task: KanbanTask }) {
+  const hasRelatedTasks = task.relatedTasks.length > 0;
+  const hasAttachments = task.attachments.length > 0;
+
+  if (!hasRelatedTasks && !hasAttachments) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-center gap-1 text-muted-foreground">
+      {hasRelatedTasks ? (
+        <span
+          className="rounded-sm p-1"
+          aria-label="Task has related tasks"
+          title="Task has related tasks"
+        >
+          <Link2 className="h-3.5 w-3.5" />
+        </span>
+      ) : null}
+      {hasAttachments ? (
+        <span
+          className="rounded-sm p-1"
+          aria-label="Task has attachments"
+          title="Task has attachments"
+        >
+          <Paperclip className="h-3.5 w-3.5" />
+        </span>
+      ) : null}
+    </div>
   );
 }

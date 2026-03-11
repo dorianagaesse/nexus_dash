@@ -85,6 +85,7 @@ export function KanbanBoard({
   const [isDeletingTask, setIsDeletingTask] = useState(false);
   const [isArchivingTask, setIsArchivingTask] = useState(false);
   const shouldOpenTaskInEditModeRef = useRef(false);
+  const previousSelectedTaskIdRef = useRef<string | null>(null);
   const { pushToast } = useToast();
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
@@ -98,6 +99,7 @@ export function KanbanBoard({
   const [editLabels, setEditLabels] = useState<string[]>([]);
   const [editLabelInput, setEditLabelInput] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editRelatedTasks, setEditRelatedTasks] = useState<TaskRelatedSummary[]>([]);
   const [relatedTaskSearch, setRelatedTaskSearch] = useState("");
   const [newBlockedFollowUpEntry, setNewBlockedFollowUpEntry] = useState("");
   const [isUpdatingTask, setIsUpdatingTask] = useState(false);
@@ -124,6 +126,23 @@ export function KanbanBoard({
   const attachmentFileSizeErrorMessage = `Attachment files must be ${maxAttachmentFileSizeLabel} or smaller.`;
   const hasPendingAttachmentUploads = pendingAttachmentUploads.length > 0;
 
+  const resetTaskEditDraft = useCallback((task: KanbanTask) => {
+    setTaskModalError(null);
+    setEditTitle(task.title);
+    setEditLabels(task.labels);
+    setEditLabelInput("");
+    setEditDescription(task.description ?? "");
+    setEditRelatedTasks(task.relatedTasks);
+    setRelatedTaskSearch("");
+    setNewBlockedFollowUpEntry("");
+    setAttachmentError(null);
+    setPendingAttachmentUploads([]);
+    setIsLinkComposerOpen(false);
+    setLinkUrl("");
+    setFileInputKey((previous) => previous + 1);
+    setPreviewAttachment(null);
+  }, []);
+
   useEffect(() => {
     setColumns(initialColumns);
   }, [initialColumns]);
@@ -134,25 +153,21 @@ export function KanbanBoard({
 
   useEffect(() => {
     if (!selectedTask) {
+      previousSelectedTaskIdRef.current = null;
+      return;
+    }
+
+    const hasTaskChanged = previousSelectedTaskIdRef.current !== selectedTask.id;
+    previousSelectedTaskIdRef.current = selectedTask.id;
+
+    if (!hasTaskChanged) {
       return;
     }
 
     setIsEditMode(shouldOpenTaskInEditModeRef.current);
     shouldOpenTaskInEditModeRef.current = false;
-    setTaskModalError(null);
-    setEditTitle(selectedTask.title);
-    setEditLabels(selectedTask.labels);
-    setEditLabelInput("");
-    setEditDescription(selectedTask.description ?? "");
-    setRelatedTaskSearch("");
-    setNewBlockedFollowUpEntry("");
-    setAttachmentError(null);
-    setPendingAttachmentUploads([]);
-    setIsLinkComposerOpen(false);
-    setLinkUrl("");
-    setFileInputKey((previous) => previous + 1);
-    setPreviewAttachment(null);
-  }, [selectedTask]);
+    resetTaskEditDraft(selectedTask);
+  }, [resetTaskEditDraft, selectedTask]);
 
   useEffect(() => {
     if (!previewAttachment || !selectedTask) {
@@ -297,48 +312,31 @@ export function KanbanBoard({
         return;
       }
 
-      setSelectedTask((previousTask) => {
-        if (!previousTask || previousTask.id !== selectedTask.id) {
-          return previousTask;
+      setEditRelatedTasks((previousTasks) => {
+        if (previousTasks.some((entry) => entry.id === taskId)) {
+          return previousTasks;
         }
 
-        if (previousTask.relatedTasks.some((entry) => entry.id === taskId)) {
-          return previousTask;
-        }
-
-        return {
-          ...previousTask,
-          relatedTasks: [
-            ...previousTask.relatedTasks,
-            {
-              id: relatedTask.id,
-              title: relatedTask.title,
-              status: relatedTask.status,
-              archivedAt: relatedTask.archivedAt,
-            },
-          ].sort((left, right) => left.title.localeCompare(right.title)),
-        };
+        return [
+          ...previousTasks,
+          {
+            id: relatedTask.id,
+            title: relatedTask.title,
+            status: relatedTask.status,
+            archivedAt: relatedTask.archivedAt,
+          },
+        ].sort((left, right) => left.title.localeCompare(right.title));
       });
       setRelatedTaskSearch("");
     },
     [selectedTask, taskById]
   );
 
-  const removeRelatedTask = useCallback(
-    (taskId: string) => {
-      setSelectedTask((previousTask) => {
-        if (!previousTask) {
-          return previousTask;
-        }
-
-        return {
-          ...previousTask,
-          relatedTasks: previousTask.relatedTasks.filter((entry) => entry.id !== taskId),
-        };
-      });
-    },
-    []
-  );
+  const removeRelatedTask = useCallback((taskId: string) => {
+    setEditRelatedTasks((previousTasks) =>
+      previousTasks.filter((entry) => entry.id !== taskId)
+    );
+  }, []);
 
   const syncRelatedTaskSummary = useCallback(
     (
@@ -530,6 +528,7 @@ export function KanbanBoard({
     setIsEditMode(false);
     setTaskModalError(null);
     setAttachmentError(null);
+    setEditRelatedTasks([]);
     setRelatedTaskSearch("");
     setPreviewAttachment(null);
   }, []);
@@ -558,9 +557,24 @@ export function KanbanBoard({
   );
 
   const handleActivateTaskEditMode = useCallback(() => {
+    if (selectedTask) {
+      resetTaskEditDraft(selectedTask);
+    }
     setIsEditMode(true);
     setTaskModalError(null);
-  }, []);
+  }, [resetTaskEditDraft, selectedTask]);
+
+  const handleToggleTaskEditMode = useCallback(
+    (nextValue: boolean) => {
+      if (!nextValue && selectedTask) {
+        resetTaskEditDraft(selectedTask);
+      }
+
+      setIsEditMode(nextValue);
+      setTaskModalError(null);
+    },
+    [resetTaskEditDraft, selectedTask]
+  );
 
   const persistTaskChanges = useCallback(
     async (options?: { exitEditMode?: boolean }) => {
@@ -570,7 +584,7 @@ export function KanbanBoard({
 
       const normalizedTitle = editTitle.trim();
       const normalizedBlockedEntry = newBlockedFollowUpEntry.trim();
-      const relatedTaskIds = selectedTask.relatedTasks.map((task) => task.id);
+      const relatedTaskIds = editRelatedTasks.map((task) => task.id);
 
       if (normalizedTitle.length < 2) {
         setTaskModalError("Task title must be at least 2 characters.");
@@ -722,6 +736,7 @@ export function KanbanBoard({
     [
       editDescription,
       editLabels,
+      editRelatedTasks,
       editTitle,
       newBlockedFollowUpEntry,
       projectId,
@@ -1291,6 +1306,7 @@ export function KanbanBoard({
         editLabelInput={editLabelInput}
         editLabelSuggestions={editLabelSuggestions}
         editDescription={editDescription}
+        editRelatedTasks={editRelatedTasks}
         relatedTaskSearch={relatedTaskSearch}
         newBlockedFollowUpEntry={newBlockedFollowUpEntry}
         isUpdatingTask={isUpdatingTask}
@@ -1307,7 +1323,7 @@ export function KanbanBoard({
         previewAttachment={previewAttachment}
         onClose={closeTaskModal}
         onActivateEditMode={handleActivateTaskEditMode}
-        onToggleEditMode={setIsEditMode}
+        onToggleEditMode={handleToggleTaskEditMode}
         onEditTitleChange={setEditTitle}
         onEditLabelInputChange={setEditLabelInput}
         onAddEditLabel={addEditLabel}

@@ -166,15 +166,12 @@ export function RelatedTaskSelector({
                     <button
                       key={task.id}
                       type="button"
-                      className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted"
+                      className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => onAddTask(task.id)}
                       disabled={disabled}
                     >
                       <span className="min-w-0 flex-1 truncate">{task.title}</span>
-                      <span className="ml-3 text-[11px] text-muted-foreground">
-                        {task.status}
-                      </span>
                     </button>
                   ))}
                 </div>
@@ -197,6 +194,7 @@ interface RelatedTaskPillProps {
   onRemove?: () => void;
   onClick?: () => void;
   highlight?: boolean;
+  showStatus?: boolean;
 }
 
 export function RelatedTaskPill({
@@ -205,6 +203,7 @@ export function RelatedTaskPill({
   onRemove,
   onClick,
   highlight = false,
+  showStatus = false,
 }: RelatedTaskPillProps) {
   const isArchived = Boolean(task.archivedAt);
 
@@ -230,9 +229,11 @@ export function RelatedTaskPill({
         {isArchived ? <Archive className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />}
         <span className="max-w-[180px] truncate">{task.title}</span>
       </button>
-      <span className="text-[11px] uppercase tracking-[0.18em] opacity-70">
-        {isArchived ? "Archived" : task.status}
-      </span>
+      {isArchived || showStatus ? (
+        <span className="text-[11px] uppercase tracking-[0.18em] opacity-70">
+          {isArchived ? "Archived" : task.status}
+        </span>
+      ) : null}
       {removable && onRemove ? (
         <Button
           type="button"
