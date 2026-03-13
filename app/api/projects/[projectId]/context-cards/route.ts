@@ -60,5 +60,8 @@ export async function POST(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({ cardId: result.data.id }, { status: 201 });
+  return NextResponse.json(
+    { cardId: result.data.id, card: result.data.card },
+    { status: 201 }
+  );
 }
