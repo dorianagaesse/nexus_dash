@@ -76,7 +76,7 @@ test.describe("critical UI smoke flows", () => {
 
     await page.getByRole("button", { name: "Calendar" }).click();
 
-    const disconnectedState = page.getByText("Google Calendar is not connected yet.");
+    const disconnectedState = page.getByText("Connect Google Calendar to show events here.");
     const refreshButton = page.getByRole("button", { name: "Refresh" });
     await expect(disconnectedState.or(refreshButton)).toBeVisible();
 
@@ -87,8 +87,8 @@ test.describe("critical UI smoke flows", () => {
 
     await refreshButton.click();
     const syncedState = page
-      .getByText(/^Synced at /)
-      .or(page.getByText("Calendar connected"))
+      .getByText(/^Synced /)
+      .or(page.getByText("Connected"))
       .or(page.getByText("No events in the current week."));
     await expect(syncedState.first()).toBeVisible();
   });
