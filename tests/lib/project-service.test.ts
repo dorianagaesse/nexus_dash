@@ -82,10 +82,8 @@ describe("project-service", () => {
       description: null,
       tasks: [
         {
-          status: "Backlog",
+          status: "In Progress",
           archivedAt: null,
-          label: "Inbox",
-          labelsJson: "[\"Inbox\", \"Frontend\"]",
           _count: {
             attachments: 2,
           },
@@ -124,10 +122,10 @@ describe("project-service", () => {
       },
       stats: {
         trackedTasks: 4,
-        activeTasks: 1,
+        openTasks: 1,
+        completedTasks: 1,
         contextCards: 1,
         attachmentCount: 6,
-        labelCount: 2,
         isCalendarConnected: true,
       },
     });
@@ -147,8 +145,6 @@ describe("project-service", () => {
           select: {
             status: true,
             archivedAt: true,
-            label: true,
-            labelsJson: true,
             _count: {
               select: {
                 attachments: true,

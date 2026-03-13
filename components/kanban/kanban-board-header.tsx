@@ -38,11 +38,6 @@ export function KanbanBoardHeader({
               Kanban board
             </span>
           </h2>
-          {isExpanded ? (
-            <p className="text-sm text-muted-foreground">
-              Move work through the lanes and keep execution state obvious at a glance.
-            </p>
-          ) : null}
         </div>
         <span className="ml-auto rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground">
           {totalTaskCount} task{totalTaskCount === 1 ? "" : "s"}
@@ -50,9 +45,9 @@ export function KanbanBoardHeader({
       </button>
 
       <div className="flex flex-wrap items-center justify-end gap-2">
-        {isExpanded ? (
+        {isExpanded && isSaving ? (
           <span className="text-xs text-muted-foreground">
-            {isSaving ? "Saving movement..." : "Drag cards to update status"}
+            Saving movement...
           </span>
         ) : null}
         {headerAction ? <div>{headerAction}</div> : null}

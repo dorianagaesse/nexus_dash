@@ -813,11 +813,6 @@ export function ProjectContextPanel({
                   Project context
                 </span>
               </CardTitle>
-              {isExpanded ? (
-                <p className="text-sm text-muted-foreground">
-                  Keep notes, links, and supporting material close to the board.
-                </p>
-              ) : null}
             </div>
             <span className="ml-auto rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground">
               {localCards.length} card{localCards.length === 1 ? "" : "s"}

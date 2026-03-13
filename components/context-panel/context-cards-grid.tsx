@@ -36,9 +36,6 @@ export function ContextCardsGrid({
           <PlusSquare className="h-5 w-5" />
         </div>
         <p className="text-sm font-medium text-foreground">No context cards yet</p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Add brief specs, meeting crumbs, useful links, or execution notes here.
-        </p>
       </div>
     );
   }

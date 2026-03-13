@@ -7,7 +7,6 @@ import {
   requireProjectRole,
 } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
-import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import type { DbClient } from "@/lib/services/rls-context";
 
 const ARCHIVE_AFTER_DAYS = 7;
@@ -59,8 +58,6 @@ type ProjectSummaryRecord = Prisma.ProjectGetPayload<{
       select: {
         status: true;
         archivedAt: true;
-        label: true;
-        labelsJson: true;
         _count: {
           select: {
             attachments: true;
@@ -90,10 +87,10 @@ type ProjectSummaryRecord = Prisma.ProjectGetPayload<{
 
 interface ProjectSummaryStats {
   trackedTasks: number;
-  activeTasks: number;
+  openTasks: number;
+  completedTasks: number;
   contextCards: number;
   attachmentCount: number;
-  labelCount: number;
   isCalendarConnected: boolean;
 }
 
@@ -311,8 +308,6 @@ export async function getProjectSummaryById(
             select: {
               status: true,
               archivedAt: true,
-              label: true,
-              labelsJson: true,
               _count: {
                 select: {
                   attachments: true,
@@ -351,8 +346,13 @@ export async function getProjectSummaryById(
       return null;
     }
 
-    const activeTasks = project.tasks.filter(
-      (task) => task.archivedAt === null && task.status !== "Done"
+    const openTasks = project.tasks.filter(
+      (task) =>
+        task.archivedAt === null &&
+        (task.status === "In Progress" || task.status === "Blocked")
+    ).length;
+    const completedTasks = project.tasks.filter(
+      (task) => task.status === "Done" || task.archivedAt !== null
     ).length;
     const contextCards = project.resources.length;
     const taskAttachmentCount = project.tasks.reduce(
@@ -363,26 +363,14 @@ export async function getProjectSummaryById(
       (total, resource) => total + resource._count.attachments,
       0
     );
-    const labels = new Set<string>();
-
-    project.tasks.forEach((task) => {
-      if (task.archivedAt !== null) {
-        return;
-      }
-
-      getTaskLabelsFromStorage(task.labelsJson, task.label).forEach((label) => {
-        labels.add(label);
-      });
-    });
-
     return {
       ...project,
       stats: {
         trackedTasks: project._count.tasks,
-        activeTasks,
+        openTasks,
+        completedTasks,
         contextCards,
         attachmentCount: taskAttachmentCount + contextAttachmentCount,
-        labelCount: labels.size,
         isCalendarConnected: calendarCredential?.revokedAt == null && Boolean(calendarCredential),
       },
     };

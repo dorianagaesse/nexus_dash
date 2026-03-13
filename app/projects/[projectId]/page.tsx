@@ -2,12 +2,11 @@ import Link from "next/link";
 import {
   CalendarCheck2,
   CalendarX2,
+  CheckCheck,
   ChevronLeft,
   FileStack,
-  Link2,
   PanelsTopLeft,
-  Tags,
-  Workflow,
+  TimerReset,
 } from "lucide-react";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
@@ -106,9 +105,9 @@ export default async function ProjectDashboardPage({
     <main className="container space-y-8 py-10">
       <section className="relative overflow-hidden rounded-3xl border border-border/70 bg-card/75 px-6 py-5 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.65)] backdrop-blur-sm sm:px-8 sm:py-6">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.18),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.12),transparent_36%)]" />
-        <div className="relative space-y-5">
+        <div className="relative space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary" className="rounded-full px-3 py-1">
                   Project dashboard
@@ -138,51 +137,45 @@ export default async function ProjectDashboardPage({
             </Button>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+          <div className="grid gap-3 lg:grid-cols-12">
             <DashboardStatCard
-              icon={Workflow}
-              label="Tracked tasks"
-              value={project.stats.trackedTasks}
-              helper="All tasks in this project"
+              icon={TimerReset}
+              label="Open"
+              value={project.stats.openTasks}
+              className="lg:col-span-3"
+              accentClassName="border-sky-400/30 bg-sky-500/8"
+              valueClassName="text-sky-700 dark:text-sky-100"
+            />
+            <DashboardStatCard
+              icon={CheckCheck}
+              label="Completed"
+              value={project.stats.completedTasks}
+              className="lg:col-span-3"
+              accentClassName="border-emerald-400/30 bg-emerald-500/8"
+              valueClassName="text-emerald-700 dark:text-emerald-100"
             />
             <DashboardStatCard
               icon={PanelsTopLeft}
-              label="Context cards"
+              label="Context"
               value={project.stats.contextCards}
-              helper="Cards pinned near execution"
-            />
-            <DashboardStatCard
-              icon={Link2}
-              label="Active tasks"
-              value={project.stats.activeTasks}
-              helper="Backlog, in progress, and blocked"
+              className="sm:col-span-1 lg:col-span-2"
             />
             <DashboardStatCard
               icon={FileStack}
               label="Attachments"
               value={project.stats.attachmentCount}
-              helper="Task files and context resources"
-            />
-            <DashboardStatCard
-              icon={Tags}
-              label="Labels"
-              value={project.stats.labelCount}
-              helper="Unique labels on live tasks"
+              className="sm:col-span-1 lg:col-span-2"
             />
             <DashboardStatCard
               icon={
                 project.stats.isCalendarConnected ? CalendarCheck2 : CalendarX2
               }
-              label="Google Calendar"
+              label="Calendar"
               value={project.stats.isCalendarConnected ? "Connected" : "Not connected"}
-              helper={
-                project.stats.isCalendarConnected
-                  ? "Calendar sync is ready"
-                  : "Connect to bring events in"
-              }
+              className="sm:col-span-2 lg:col-span-2"
               valueClassName={
                 project.stats.isCalendarConnected
-                  ? "text-emerald-300"
+                  ? "text-emerald-700 dark:text-emerald-300"
                   : "text-muted-foreground"
               }
             />
@@ -230,17 +223,21 @@ function DashboardStatCard({
   icon: Icon,
   label,
   value,
-  helper,
+  className,
+  accentClassName,
   valueClassName,
 }: {
-  icon: typeof Workflow;
+  icon: typeof TimerReset;
   label: string;
   value: number | string;
-  helper: string;
+  className?: string;
+  accentClassName?: string;
   valueClassName?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border/60 bg-background/55 px-4 py-3 backdrop-blur-sm">
+    <div
+      className={`rounded-2xl border border-border/60 bg-background/55 px-4 py-3 backdrop-blur-sm ${accentClassName ?? ""} ${className ?? ""}`}
+    >
       <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         <span>{label}</span>
@@ -248,7 +245,6 @@ function DashboardStatCard({
       <p className={`text-xl font-semibold tracking-tight text-foreground ${valueClassName ?? ""}`}>
         {value}
       </p>
-      <p className="mt-1 text-xs text-muted-foreground">{helper}</p>
     </div>
   );
 }

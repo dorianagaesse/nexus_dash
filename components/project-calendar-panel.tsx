@@ -329,11 +329,6 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
                   Calendar
                 </span>
               </CardTitle>
-              {isExpanded ? (
-                <p className="text-sm text-muted-foreground">
-                  Keep this week visible without leaving the project workspace.
-                </p>
-              ) : null}
             </div>
           </button>
       </CardHeader>
@@ -348,7 +343,7 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
 
             {!isLoading && isConnected === false ? (
               <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
-                <p>Google Calendar is not connected yet.</p>
+                <p>Connect Google Calendar to show events here.</p>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button type="button" size="sm" asChild>
                     <a href={connectUrl}>Connect Google Calendar</a>
@@ -367,9 +362,7 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
                   <p className="text-xs text-muted-foreground">
-                    {syncedAt
-                      ? `Synced at ${new Date(syncedAt).toLocaleString()}`
-                      : "Calendar connected"}
+                    {syncedAt ? `Synced ${new Date(syncedAt).toLocaleString()}` : "Connected"}
                   </p>
                   <div className="flex items-center gap-2">
                     <Button

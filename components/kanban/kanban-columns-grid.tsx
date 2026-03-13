@@ -179,14 +179,11 @@ function KanbanColumn({
                 snapshot.isDraggingOver && chrome.dragState
               )}
             >
-              {tasks.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-border/50 bg-background/70 px-4 py-8 text-center">
-                  <p className="text-sm font-medium text-foreground/90">{chrome.emptyCopy}</p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Drag a card here when work belongs in this lane.
-                  </p>
-                </div>
-              ) : null}
+                {tasks.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-border/50 bg-background/70 px-4 py-8 text-center">
+                    <p className="text-sm font-medium text-foreground/90">{chrome.emptyCopy}</p>
+                  </div>
+                ) : null}
 
               {tasks.map((task, index) => (
                 <Draggable key={task.id} draggableId={task.id} index={index}>
