@@ -1,5 +1,14 @@
 import Link from "next/link";
-import { CalendarDays, ChevronLeft, Columns3, PanelsTopLeft } from "lucide-react";
+import {
+  CalendarCheck2,
+  CalendarX2,
+  ChevronLeft,
+  FileStack,
+  Link2,
+  PanelsTopLeft,
+  Tags,
+  Workflow,
+} from "lucide-react";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
@@ -95,27 +104,29 @@ export default async function ProjectDashboardPage({
 
   return (
     <main className="container space-y-8 py-10">
-      <section className="relative overflow-hidden rounded-3xl border border-border/70 bg-card/70 px-6 py-6 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.65)] backdrop-blur-sm sm:px-8">
+      <section className="relative overflow-hidden rounded-3xl border border-border/70 bg-card/75 px-6 py-5 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.65)] backdrop-blur-sm sm:px-8 sm:py-6">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.18),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.12),transparent_36%)]" />
-        <div className="relative space-y-6">
+        <div className="relative space-y-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary" className="rounded-full px-3 py-1">
                   Project dashboard
                 </Badge>
                 <Badge variant="outline" className="rounded-full px-3 py-1">
-                  {project._count.tasks} tasks
+                  {project.stats.trackedTasks} task
+                  {project.stats.trackedTasks === 1 ? "" : "s"}
                 </Badge>
               </div>
-              <div className="space-y-2">
-                <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+              <div className="space-y-1.5">
+                <h1 className="text-4xl font-semibold tracking-tight sm:text-[2.85rem]">
                   {project.name}
                 </h1>
-                <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
-                  {project.description ??
-                    "Track work, keep context close to execution, and move project tasks across workflow stages without losing momentum."}
-                </p>
+                {project.description ? (
+                  <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
+                    {project.description}
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -127,23 +138,53 @@ export default async function ProjectDashboardPage({
             </Button>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <DashboardSurfaceStat
-              icon={Columns3}
-              label="Execution board"
-              value={`${project._count.tasks} tracked task${
-                project._count.tasks === 1 ? "" : "s"
-              }`}
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+            <DashboardStatCard
+              icon={Workflow}
+              label="Tracked tasks"
+              value={project.stats.trackedTasks}
+              helper="All tasks in this project"
             />
-            <DashboardSurfaceStat
+            <DashboardStatCard
               icon={PanelsTopLeft}
-              label="Workspace surfaces"
-              value="Context, Kanban, and Calendar stay connected"
+              label="Context cards"
+              value={project.stats.contextCards}
+              helper="Cards pinned near execution"
             />
-            <DashboardSurfaceStat
-              icon={CalendarDays}
-              label="Flow model"
-              value="Capture context, execute clearly, keep time in view"
+            <DashboardStatCard
+              icon={Link2}
+              label="Active tasks"
+              value={project.stats.activeTasks}
+              helper="Backlog, in progress, and blocked"
+            />
+            <DashboardStatCard
+              icon={FileStack}
+              label="Attachments"
+              value={project.stats.attachmentCount}
+              helper="Task files and context resources"
+            />
+            <DashboardStatCard
+              icon={Tags}
+              label="Labels"
+              value={project.stats.labelCount}
+              helper="Unique labels on live tasks"
+            />
+            <DashboardStatCard
+              icon={
+                project.stats.isCalendarConnected ? CalendarCheck2 : CalendarX2
+              }
+              label="Google Calendar"
+              value={project.stats.isCalendarConnected ? "Connected" : "Not connected"}
+              helper={
+                project.stats.isCalendarConnected
+                  ? "Calendar sync is ready"
+                  : "Connect to bring events in"
+              }
+              valueClassName={
+                project.stats.isCalendarConnected
+                  ? "text-emerald-300"
+                  : "text-muted-foreground"
+              }
             />
           </div>
         </div>
@@ -185,22 +226,29 @@ export default async function ProjectDashboardPage({
   );
 }
 
-function DashboardSurfaceStat({
+function DashboardStatCard({
   icon: Icon,
   label,
   value,
+  helper,
+  valueClassName,
 }: {
-  icon: typeof Columns3;
+  icon: typeof Workflow;
   label: string;
-  value: string;
+  value: number | string;
+  helper: string;
+  valueClassName?: string;
 }) {
   return (
     <div className="rounded-2xl border border-border/60 bg-background/55 px-4 py-3 backdrop-blur-sm">
-      <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+      <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         <span>{label}</span>
       </div>
-      <p className="text-sm text-foreground/90">{value}</p>
+      <p className={`text-xl font-semibold tracking-tight text-foreground ${valueClassName ?? ""}`}>
+        {value}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">{helper}</p>
     </div>
   );
 }

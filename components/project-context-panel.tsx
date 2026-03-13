@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type FormEvent,
+} from "react";
 import { ChevronDown, ChevronUp, PanelsTopLeft, PlusSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -58,6 +65,7 @@ export function ProjectContextPanel({
   const isMountedRef = useRef(true);
   const router = useRouter();
   const { pushToast } = useToast();
+  const [, startRefreshTransition] = useTransition();
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
     sectionKey: "context",
@@ -89,6 +97,7 @@ export function ProjectContextPanel({
     useState<ProjectContextAttachment | null>(null);
   const [previewCardId, setPreviewCardId] = useState<string | null>(null);
   const [pendingDeleteCardId, setPendingDeleteCardId] = useState<string | null>(null);
+  const [localCards, setLocalCards] = useState<ProjectContextCard[]>(cards);
   const [cardAttachmentsById, setCardAttachmentsById] = useState<
     Record<string, ProjectContextAttachment[]>
   >({});
@@ -111,8 +120,8 @@ export function ProjectContextPanel({
   }, []);
 
   const editingCard = useMemo(
-    () => cards.find((card) => card.id === editingCardId) ?? null,
-    [cards, editingCardId]
+    () => localCards.find((card) => card.id === editingCardId) ?? null,
+    [localCards, editingCardId]
   );
 
   const editingCardAttachments = useMemo(() => {
@@ -124,8 +133,8 @@ export function ProjectContextPanel({
   }, [cardAttachmentsById, editingCard]);
 
   const previewCard = useMemo(
-    () => cards.find((card) => card.id === previewCardId) ?? null,
-    [cards, previewCardId]
+    () => localCards.find((card) => card.id === previewCardId) ?? null,
+    [localCards, previewCardId]
   );
 
   const previewCardAttachments = useMemo(() => {
@@ -137,8 +146,8 @@ export function ProjectContextPanel({
   }, [cardAttachmentsById, previewCard]);
 
   const pendingDeleteCard = useMemo(
-    () => cards.find((card) => card.id === pendingDeleteCardId) ?? null,
-    [cards, pendingDeleteCardId]
+    () => localCards.find((card) => card.id === pendingDeleteCardId) ?? null,
+    [localCards, pendingDeleteCardId]
   );
 
   useEffect(() => {
@@ -155,6 +164,7 @@ export function ProjectContextPanel({
   }, [editingCard]);
 
   useEffect(() => {
+    setLocalCards(cards);
     setCardAttachmentsById(
       Object.fromEntries(cards.map((card) => [card.id, card.attachments]))
     );
@@ -180,11 +190,32 @@ export function ProjectContextPanel({
       return;
     }
 
-    const stillExists = cards.some((card) => card.id === previewCardId);
+    const stillExists = localCards.some((card) => card.id === previewCardId);
     if (!stillExists) {
       setPreviewCardId(null);
     }
-  }, [cards, previewCardId]);
+  }, [localCards, previewCardId]);
+
+  const refreshProjectData = () => {
+    startRefreshTransition(() => {
+      router.refresh();
+    });
+  };
+
+  const withDownloadUrls = (
+    card: Omit<ProjectContextCard, "attachments"> & {
+      attachments: Omit<ProjectContextAttachment, "downloadUrl">[];
+    }
+  ): ProjectContextCard => ({
+    ...card,
+    attachments: card.attachments.map((attachment) => ({
+      ...attachment,
+      downloadUrl:
+        attachment.kind === ATTACHMENT_KIND_FILE
+          ? `/api/projects/${projectId}/context-cards/${card.id}/attachments/${attachment.id}/download`
+          : null,
+    })),
+  });
 
   const resetCreateAttachmentDraft = () => {
     setCreateLinkUrl("");
@@ -325,7 +356,17 @@ export function ProjectContextPanel({
         });
 
         const payload = (await response.json().catch(() => null)) as
-          | { error?: string; cardId?: string }
+          | {
+              error?: string;
+              cardId?: string;
+              card?: {
+                id: string;
+                title: string;
+                content: string;
+                color: string;
+                attachments: Omit<ProjectContextAttachment, "downloadUrl">[];
+              };
+            }
           | null;
 
         if (!response.ok) {
@@ -348,12 +389,24 @@ export function ProjectContextPanel({
         }
         const createdCardId =
           payload && typeof payload.cardId === "string" ? payload.cardId : null;
+        const createdCard =
+          payload?.card && typeof payload.card.id === "string"
+            ? withDownloadUrls(payload.card)
+            : null;
+
+        if (createdCard) {
+          setLocalCards((previous) => [createdCard, ...previous]);
+          setCardAttachmentsById((previous) => ({
+            ...previous,
+            [createdCard.id]: createdCard.attachments,
+          }));
+        }
 
         pushToast({
           variant: "success",
           message: "Context card created.",
         });
-        window.setTimeout(() => router.refresh(), 0);
+        refreshProjectData();
 
         const canRunBackgroundUploads =
           storageProvider === "r2" &&
@@ -391,7 +444,7 @@ export function ProjectContextPanel({
             });
 
             if (progress.completed > progress.failed) {
-              window.setTimeout(() => router.refresh(), 0);
+              refreshProjectData();
             }
           });
         }
@@ -421,6 +474,9 @@ export function ProjectContextPanel({
 
     const formData = new FormData(event.currentTarget);
     const editingCardIdSnapshot = editingCard.id;
+    const nextTitle = formData.get("title")?.toString().trim() ?? editingCard.title;
+    const nextContent = formData.get("content")?.toString().trim() ?? editingCard.content;
+    const nextColor = formData.get("color")?.toString().trim() ?? editingCard.color;
     closeEditModal();
     setIsUpdatingCard(false);
 
@@ -461,7 +517,19 @@ export function ProjectContextPanel({
           variant: "success",
           message: "Context card saved.",
         });
-        window.setTimeout(() => router.refresh(), 0);
+        setLocalCards((previous) =>
+          previous.map((card) =>
+            card.id === editingCardIdSnapshot
+              ? {
+                  ...card,
+                  title: nextTitle,
+                  content: nextContent,
+                  color: nextColor,
+                }
+              : card
+          )
+        );
+        refreshProjectData();
       } catch (error) {
         console.error("[ProjectContextPanel.handleUpdateCardSubmit]", error);
         const message = "Could not update context card. Please retry.";
@@ -523,11 +591,18 @@ export function ProjectContextPanel({
         setPreviewCardId(null);
       }
 
+      setLocalCards((previous) => previous.filter((card) => card.id !== cardId));
+      setCardAttachmentsById((previous) => {
+        const next = { ...previous };
+        delete next[cardId];
+        return next;
+      });
+
       pushToast({
         variant: "success",
         message: "Context card deleted.",
       });
-      window.setTimeout(() => router.refresh(), 0);
+      refreshProjectData();
     } catch (error) {
       console.error("[ProjectContextPanel.handleDeleteCard]", error);
       const message = "Could not delete context card. Please retry.";
@@ -745,7 +820,7 @@ export function ProjectContextPanel({
               ) : null}
             </div>
             <span className="ml-auto rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground">
-              {cards.length} card{cards.length === 1 ? "" : "s"}
+              {localCards.length} card{localCards.length === 1 ? "" : "s"}
             </span>
           </button>
           <Button type="button" size="sm" className="rounded-full px-4" onClick={openCreateModal}>
@@ -756,12 +831,12 @@ export function ProjectContextPanel({
       </CardHeader>
 
       {isExpanded ? (
-        <CardContent className={PROJECT_SECTION_CONTENT_CLASS}>
-          <ContextCardsGrid
-            cards={cards}
-            cardAttachmentsById={cardAttachmentsById}
-            deletingCardId={deletingCardId}
-            onOpenPreview={setPreviewCardId}
+          <CardContent className={PROJECT_SECTION_CONTENT_CLASS}>
+            <ContextCardsGrid
+              cards={localCards}
+              cardAttachmentsById={cardAttachmentsById}
+              deletingCardId={deletingCardId}
+              onOpenPreview={setPreviewCardId}
             onEditCard={openEditModal}
             onDeleteCard={requestDeleteCard}
             onPreviewAttachment={(attachment) => setPreviewAttachment(attachment)}

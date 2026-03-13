@@ -7,6 +7,7 @@ import {
   requireProjectRole,
 } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
+import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import type { DbClient } from "@/lib/services/rls-context";
 
 const ARCHIVE_AFTER_DAYS = 7;
@@ -54,6 +55,31 @@ type ProjectSummaryRecord = Prisma.ProjectGetPayload<{
     id: true;
     name: true;
     description: true;
+    tasks: {
+      select: {
+        status: true;
+        archivedAt: true;
+        label: true;
+        labelsJson: true;
+        _count: {
+          select: {
+            attachments: true;
+          };
+        };
+      };
+    };
+    resources: {
+      where: {
+        type: typeof RESOURCE_TYPE_CONTEXT_CARD;
+      };
+      select: {
+        _count: {
+          select: {
+            attachments: true;
+          };
+        };
+      };
+    };
     _count: {
       select: {
         tasks: true;
@@ -61,6 +87,19 @@ type ProjectSummaryRecord = Prisma.ProjectGetPayload<{
     };
   };
 }>;
+
+interface ProjectSummaryStats {
+  trackedTasks: number;
+  activeTasks: number;
+  contextCards: number;
+  attachmentCount: number;
+  labelCount: number;
+  isCalendarConnected: boolean;
+}
+
+type ProjectSummaryWithStatsRecord = ProjectSummaryRecord & {
+  stats: ProjectSummaryStats;
+};
 
 type ProjectWithCountsRecord = Prisma.ProjectGetPayload<{
   include: {
@@ -251,30 +290,103 @@ async function archiveStaleDoneTasks(
 export async function getProjectSummaryById(
   projectId: string,
   actorUserId: string
-): Promise<ProjectSummaryRecord | null> {
+): Promise<ProjectSummaryWithStatsRecord | null> {
   const normalizedActorUserId = normalizeActorUserId(actorUserId);
   if (!normalizedActorUserId) {
     return null;
   }
 
-  return withActorRlsContext(normalizedActorUserId, (db) =>
-    db.project.findFirst({
-      where: {
-        id: projectId,
-        ...buildProjectPrincipalWhere(normalizedActorUserId),
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        _count: {
-          select: {
-            tasks: true,
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    const [project, calendarCredential] = await Promise.all([
+      db.project.findFirst({
+        where: {
+          id: projectId,
+          ...buildProjectPrincipalWhere(normalizedActorUserId),
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          tasks: {
+            select: {
+              status: true,
+              archivedAt: true,
+              label: true,
+              labelsJson: true,
+              _count: {
+                select: {
+                  attachments: true,
+                },
+              },
+            },
+          },
+          resources: {
+            where: {
+              type: RESOURCE_TYPE_CONTEXT_CARD,
+            },
+            select: {
+              _count: {
+                select: {
+                  attachments: true,
+                },
+              },
+            },
+          },
+          _count: {
+            select: {
+              tasks: true,
+            },
           },
         },
+      }),
+      db.googleCalendarCredential.findUnique({
+        where: { userId: normalizedActorUserId },
+        select: {
+          revokedAt: true,
+        },
+      }),
+    ]);
+
+    if (!project) {
+      return null;
+    }
+
+    const activeTasks = project.tasks.filter(
+      (task) => task.archivedAt === null && task.status !== "Done"
+    ).length;
+    const contextCards = project.resources.length;
+    const taskAttachmentCount = project.tasks.reduce(
+      (total, task) => total + task._count.attachments,
+      0
+    );
+    const contextAttachmentCount = project.resources.reduce(
+      (total, resource) => total + resource._count.attachments,
+      0
+    );
+    const labels = new Set<string>();
+
+    project.tasks.forEach((task) => {
+      if (task.archivedAt !== null) {
+        return;
+      }
+
+      getTaskLabelsFromStorage(task.labelsJson, task.label).forEach((label) => {
+        labels.add(label);
+      });
+    });
+
+    return {
+      ...project,
+      stats: {
+        trackedTasks: project._count.tasks,
+        activeTasks,
+        contextCards,
+        attachmentCount: taskAttachmentCount + contextAttachmentCount,
+        labelCount: labels.size,
+        isCalendarConnected: calendarCredential?.revokedAt == null && Boolean(calendarCredential),
       },
-    })
-  ) as Promise<ProjectSummaryRecord | null>;
+    };
+  }) as Promise<ProjectSummaryWithStatsRecord | null>;
 }
 
 export async function listProjectKanbanTasks(

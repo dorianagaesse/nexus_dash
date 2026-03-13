@@ -54,6 +54,23 @@ interface DeleteContextCardInput {
   cardId: string;
 }
 
+interface ContextCardAttachmentRecord {
+  id: string;
+  kind: string;
+  name: string;
+  url: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+}
+
+interface ContextCardRecord {
+  id: string;
+  name: string;
+  content: string;
+  color: string | null;
+  attachments: ContextCardAttachmentRecord[];
+}
+
 function createError(status: number, error: string): ServiceErrorResult {
   return { ok: false, status, error };
 }
@@ -77,9 +94,24 @@ function resolveContextColor(value: string): string | null {
   return value;
 }
 
+function mapContextCardRecord(card: ContextCardRecord) {
+  return {
+    id: card.id,
+    title: card.name,
+    content: card.content,
+    color: card.color ?? CONTEXT_CARD_COLORS[0],
+    attachments: card.attachments,
+  };
+}
+
 export async function createContextCardForProject(
   input: CreateContextCardInput
-): Promise<ServiceResult<{ id: string }>> {
+): Promise<
+  ServiceResult<{
+    id: string;
+    card: ReturnType<typeof mapContextCardRecord>;
+  }>
+> {
   const actorUserId = normalizeText(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
@@ -150,9 +182,37 @@ export async function createContextCardForProject(
         db,
       });
 
+      const createdCardWithAttachments = await db.resource.findUnique({
+        where: { id: createdCard.id },
+        select: {
+          id: true,
+          name: true,
+          content: true,
+          color: true,
+          attachments: {
+            orderBy: [{ createdAt: "desc" }],
+            select: {
+              id: true,
+              kind: true,
+              name: true,
+              url: true,
+              mimeType: true,
+              sizeBytes: true,
+            },
+          },
+        },
+      });
+
+      if (!createdCardWithAttachments) {
+        return createError(500, "context-create-failed");
+      }
+
       return {
         ok: true,
-        data: { id: createdCard.id },
+        data: {
+          id: createdCard.id,
+          card: mapContextCardRecord(createdCardWithAttachments),
+        },
       };
     } catch (error) {
       if (createdCardId) {
