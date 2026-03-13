@@ -16,6 +16,9 @@ const prismaMock = vi.hoisted(() => ({
   resource: {
     findMany: vi.fn(),
   },
+  googleCalendarCredential: {
+    findUnique: vi.fn(),
+  },
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -77,9 +80,37 @@ describe("project-service", () => {
       id: "project-1",
       name: "Project 1",
       description: null,
+      tasks: [
+        {
+          status: "In Progress",
+          archivedAt: null,
+          _count: {
+            attachments: 2,
+          },
+        },
+        {
+          status: "Done",
+          archivedAt: null,
+          label: null,
+          labelsJson: null,
+          _count: {
+            attachments: 1,
+          },
+        },
+      ],
+      resources: [
+        {
+          _count: {
+            attachments: 3,
+          },
+        },
+      ],
       _count: {
         tasks: 4,
       },
+    });
+    prismaMock.googleCalendarCredential.findUnique.mockResolvedValueOnce({
+      revokedAt: null,
     });
 
     const result = await getProjectSummaryById("project-1", actorUserId);
@@ -88,6 +119,14 @@ describe("project-service", () => {
       id: "project-1",
       _count: {
         tasks: 4,
+      },
+      stats: {
+        trackedTasks: 4,
+        openTasks: 1,
+        completedTasks: 1,
+        contextCards: 1,
+        attachmentCount: 6,
+        isCalendarConnected: true,
       },
     });
     expect(prismaMock.project.findFirst).toHaveBeenCalledWith({
@@ -102,11 +141,40 @@ describe("project-service", () => {
         id: true,
         name: true,
         description: true,
+        tasks: {
+          select: {
+            status: true,
+            archivedAt: true,
+            _count: {
+              select: {
+                attachments: true,
+              },
+            },
+          },
+        },
+        resources: {
+          where: {
+            type: RESOURCE_TYPE_CONTEXT_CARD,
+          },
+          select: {
+            _count: {
+              select: {
+                attachments: true,
+              },
+            },
+          },
+        },
         _count: {
           select: {
             tasks: true,
           },
         },
+      },
+    });
+    expect(prismaMock.googleCalendarCredential.findUnique).toHaveBeenCalledWith({
+      where: { userId: actorUserId },
+      select: {
+        revokedAt: true,
       },
     });
   });
