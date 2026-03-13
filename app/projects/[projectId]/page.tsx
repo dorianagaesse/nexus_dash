@@ -8,7 +8,7 @@ import {
   PanelsTopLeft,
   TimerReset,
 } from "lucide-react";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { notFound } from "next/navigation";
 
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
@@ -16,6 +16,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { getStorageRuntimeConfig } from "@/lib/env.server";
+import {
+  countUpcomingEventsThisWeek,
+  formatUpcomingEventsLabel,
+} from "@/lib/project-dashboard";
+import { listCalendarEvents } from "@/lib/services/calendar-service";
 import { getProjectSummaryById } from "@/lib/services/project-service";
 import { MAX_ATTACHMENT_FILE_SIZE_LABEL } from "@/lib/task-attachment";
 
@@ -100,6 +105,19 @@ export default async function ProjectDashboardPage({
   const storageProvider = getStorageRuntimeConfig().provider;
   const status = readQueryValue(searchParams?.status);
   const error = readQueryValue(searchParams?.error);
+  const calendarEventsThisWeek = project.stats.isCalendarConnected
+    ? await listCalendarEvents({
+        actorUserId,
+        rangeRaw: "current-week",
+        daysRaw: null,
+      }).then((result) => {
+        if (!result.ok || !result.body.connected) {
+          return null;
+        }
+
+        return countUpcomingEventsThisWeek(result.body.events);
+      })
+    : null;
 
   return (
     <main className="container space-y-8 py-10">
@@ -169,12 +187,23 @@ export default async function ProjectDashboardPage({
                 project.stats.isCalendarConnected ? CalendarCheck2 : CalendarX2
               }
               label="Calendar"
-              value={project.stats.isCalendarConnected ? "Connected" : "Not connected"}
+              value={
+                project.stats.isCalendarConnected
+                  ? formatUpcomingEventsLabel(calendarEventsThisWeek)
+                  : "Not connected"
+              }
               className="sm:col-span-2 lg:col-span-2"
               valueClassName={
                 project.stats.isCalendarConnected
-                  ? "text-emerald-700 dark:text-emerald-300"
+                  ? "text-foreground"
                   : "text-muted-foreground"
+              }
+              labelTrailing={
+                project.stats.isCalendarConnected ? (
+                  <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+                    Connected
+                  </span>
+                ) : null
               }
             />
           </div>
@@ -224,6 +253,7 @@ function DashboardStatCard({
   className,
   accentClassName,
   valueClassName,
+  labelTrailing,
 }: {
   icon: typeof TimerReset;
   label: string;
@@ -231,14 +261,18 @@ function DashboardStatCard({
   className?: string;
   accentClassName?: string;
   valueClassName?: string;
+  labelTrailing?: ReactNode;
 }) {
   return (
     <div
       className={`rounded-2xl border border-border/60 bg-background/55 px-4 py-3 backdrop-blur-sm ${accentClassName ?? ""} ${className ?? ""}`}
     >
-      <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-        <Icon className="h-3.5 w-3.5" />
-        <span>{label}</span>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <Icon className="h-3.5 w-3.5" />
+          <span>{label}</span>
+        </div>
+        {labelTrailing}
       </div>
       <p className={`text-xl font-semibold tracking-tight text-foreground ${valueClassName ?? ""}`}>
         {value}

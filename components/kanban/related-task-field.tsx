@@ -202,7 +202,7 @@ export function RelatedTaskPill({
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs",
         isArchived
-          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+          ? "border-border/70 bg-background text-foreground/85"
           : "border-border/70 bg-background text-foreground",
         highlight && "border-border bg-muted/55 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
       )}
@@ -216,10 +216,19 @@ export function RelatedTaskPill({
         onClick={onClick}
         disabled={!onClick}
       >
-        {isArchived ? <Archive className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />}
+        {isArchived ? (
+          <Archive className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+        ) : (
+          <Link2 className="h-3.5 w-3.5" />
+        )}
         <span className="max-w-[180px] truncate">{task.title}</span>
       </button>
-      <span className="text-[11px] uppercase tracking-[0.18em] opacity-70">
+      <span
+        className={cn(
+          "text-[11px] uppercase tracking-[0.18em] opacity-70",
+          isArchived && "text-emerald-700/80 dark:text-emerald-300/80"
+        )}
+      >
         {isArchived ? "Archived" : task.status}
       </span>
       {removable && onRemove ? (
