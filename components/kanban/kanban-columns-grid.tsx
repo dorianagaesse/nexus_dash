@@ -151,7 +151,7 @@ function KanbanColumn({
                   className={cn(
                     "w-full rounded-md border border-border/60 bg-card px-2 py-2 text-left transition hover:bg-muted/40",
                     highlightedTaskIds.has(task.id) &&
-                      "border-emerald-500/60 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.15)]"
+                      "border-border/80 bg-muted/35 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
                   )}
                   onClick={() => onSelectTask(task)}
                   onMouseEnter={() => onTaskHoverChange(task.id)}
@@ -200,7 +200,7 @@ function KanbanColumn({
                         "cursor-grab rounded-xl border border-border/70 bg-card/95 p-3 shadow-sm transition duration-150 active:cursor-grabbing",
                         draggableSnapshot.isDragging && "shadow-lg",
                         highlightedTaskIds.has(task.id) &&
-                          "border-emerald-500/60 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.15)]"
+                          "border-border/80 bg-muted/35 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
                       )}
                       onClick={() => {
                         if (!draggableSnapshot.isDragging) {

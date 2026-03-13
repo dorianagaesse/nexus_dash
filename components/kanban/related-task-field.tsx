@@ -29,7 +29,6 @@ interface RelatedTaskSelectorProps {
   onAddTask: (taskId: string) => void;
   onRemoveTask: (taskId: string) => void;
   disabled?: boolean;
-  helperText?: string;
 }
 
 export function RelatedTaskSelector({
@@ -40,7 +39,6 @@ export function RelatedTaskSelector({
   onAddTask,
   onRemoveTask,
   disabled = false,
-  helperText = "Link tasks that belong together in this project.",
 }: RelatedTaskSelectorProps) {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState<{
@@ -111,13 +109,6 @@ export function RelatedTaskSelector({
 
   return (
     <div className="grid gap-2 rounded-md border border-border/60 bg-muted/10 p-2.5">
-      {selectedTasks.length === 0 ? (
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-          <Link2 className="h-3.5 w-3.5" />
-          <span>{helperText}</span>
-        </div>
-      ) : null}
-
       {selectedTasks.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {selectedTasks.map((task) => (
@@ -129,9 +120,7 @@ export function RelatedTaskSelector({
             />
           ))}
         </div>
-      ) : (
-        <p className="text-xs text-muted-foreground">No related tasks yet.</p>
-      )}
+      ) : null}
 
       <div ref={searchFieldRef} className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -215,7 +204,7 @@ export function RelatedTaskPill({
         isArchived
           ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
           : "border-border/70 bg-background text-foreground",
-        highlight && "border-emerald-500/70 bg-emerald-500/10"
+        highlight && "border-border bg-muted/55 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
       )}
     >
       <button

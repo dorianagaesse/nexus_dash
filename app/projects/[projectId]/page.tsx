@@ -143,7 +143,6 @@ export default async function ProjectDashboardPage({
               label="Open"
               value={project.stats.openTasks}
               className="lg:col-span-3"
-              accentClassName="border-sky-400/30 bg-sky-500/8"
               valueClassName="text-sky-700 dark:text-sky-100"
             />
             <DashboardStatCard
@@ -151,7 +150,6 @@ export default async function ProjectDashboardPage({
               label="Completed"
               value={project.stats.completedTasks}
               className="lg:col-span-3"
-              accentClassName="border-emerald-400/30 bg-emerald-500/8"
               valueClassName="text-emerald-700 dark:text-emerald-100"
             />
             <DashboardStatCard
