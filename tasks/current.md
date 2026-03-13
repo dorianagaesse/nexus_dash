@@ -1,42 +1,67 @@
-# Current Task: TASK-095 Related Tasks - Symmetric Task Linking and Hover Highlighting
+# Current Task: TASK-096 Project Dashboard UI Polish - Hierarchy, Section Rhythm, and Kanban Lane Clarity
 
 ## Task ID
-TASK-095
+TASK-096
 
 ## Status
 In Progress
 
 ## Objective
-Add lightweight `Related tasks` links inside a project so tasks that belong together can be connected bidirectionally, surfaced in task create/edit/read-only flows, and softly highlighted together on hover in the Kanban board.
+Raise the project workspace from a solid internal-tool baseline to a more intentional product surface by improving page-level hierarchy, strengthening section framing, and making the Kanban board easier to scan without refactoring the app or disrupting mature flows.
+
+## Product Target
+- Move the perceived UI quality from roughly `6.5/10` toward `8/10`.
+- Preserve the existing product spirit: calm, practical, dark-first, and trustworthy.
+- Avoid decorative redesign work that would add novelty without improving clarity.
+
+## Design Diagnosis
+- The current page is usable but visually too sparse.
+- The project header does not create enough primary focus or workspace identity.
+- `Project context`, `Kanban board`, and `Calendar` read as separate blocks, but not as part of one cohesive workspace.
+- Kanban lanes are too visually similar, so status scanning is weaker than it should be.
+- Empty and low-density states make the workspace feel unfinished even when nothing is broken.
 
 ## Scope
-- Add a symmetric same-project task-link model and migration.
-- Allow selecting active related tasks during task creation and task editing.
-- Preserve related-task information when a linked task is later archived.
-- Remove links automatically when a task is deleted.
-- Show related tasks in the task detail modal with archived styling.
-- Highlight connected visible tasks on hover with a subtle green border treatment.
+- Improve the project page hero/header composition.
+- Strengthen section chrome for Context, Kanban, and Calendar without changing their behavior contracts.
+- Improve empty-state presentation where it materially affects perceived polish.
+- Make Kanban lane scanning clearer through restrained visual differentiation.
+- Keep existing create/edit/archive/attachment/related-task flows intact.
 
 ## Out of Scope
-- Cross-project links.
-- Blocking/dependency semantics or execution-order logic.
-- Graph visualizations beyond lightweight hover highlighting.
+- App-wide theming redesign.
+- Typography system replacement.
+- Modal redesign across the whole app.
+- New workflow concepts, new data model work, or backend refactors.
+- Mobile-first redesign pass.
+
+## Design Guardrails
+- Keep the interface calm and professional.
+- Prefer subtle gradients, spacing, and framing over loud color.
+- Use color to support status comprehension, not to decorate.
+- Preserve the app's existing interaction language and avoid surprise UX changes.
+- Reuse existing components and styling patterns wherever possible.
 
 ## Acceptance Criteria
-- A task can link to one or more active tasks in the same project.
-- The relationship is visible from both linked tasks without duplicate rows.
-- Archived linked tasks remain visible as informational context.
-- Deleted tasks are removed from all related-task references automatically.
-- Hovering a task softly highlights connected visible tasks.
-- Local validation stays green.
+- The project page header feels like a deliberate workspace entry point, not just a title row.
+- The three main sections feel visually related and consistently framed.
+- Empty/low-density states feel intentional rather than unfinished.
+- Kanban lane identity is clearer at a glance while staying restrained.
+- Existing task/context/calendar workflows continue to work unchanged.
+- Local validation and PR automation remain green.
 
-## Plan
-1. Add the symmetric relation table, migration, and project-scope validation.
-2. Extend task create/update APIs and services to persist related-task links safely.
-3. Add reusable related-task UI in create/edit/read-only flows.
-4. Add Kanban hover highlighting and validate end to end.
+## Implementation Plan
+1. Refresh the top-of-page workspace shell and project hero.
+2. Unify section framing for Context, Kanban, and Calendar.
+3. Improve Context and Calendar low-density states where they currently flatten the page.
+4. Refine Kanban lane presentation with restrained per-status differentiation.
+5. Validate locally, open PR, handle automated review feedback, confirm CI, and publish preview.
+
+## Notes
+- This task intentionally starts from `main`, not from the unmerged TASK-095 polish branch.
+- If TASK-095 is later merged independently, we may need a light rebase/reconciliation pass before final merge.
 
 ---
 
 Last Updated: 2026-03-11
-Assigned To: User + Agent
+Assigned To: Agent

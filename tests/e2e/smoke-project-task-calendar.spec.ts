@@ -61,8 +61,10 @@ test.describe("critical UI smoke flows", () => {
     await page.getByRole("button", { name: "Task options" }).click();
     await page.getByRole("button", { name: /^Edit$/ }).click();
     await page.getByRole("button", { name: "Delete attachment" }).first().click();
-    await expect(page.getByText("No attachments yet.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Delete attachment" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByRole("button", { name: "Task options" })).toBeVisible();
+    await expect(page.getByText("example.com")).toHaveCount(0);
     await page.getByRole("button", { name: "Close task" }).click();
 
     await expect(page.locator("article").filter({ hasText: editedTaskTitle }).first()).toBeVisible();
@@ -75,9 +77,8 @@ test.describe("critical UI smoke flows", () => {
     await openNewestProjectDashboard(page, projectName);
 
     await page.getByRole("button", { name: "Calendar" }).click();
-    await expect(page.getByText("Current week events (Monday to Sunday).")).toBeVisible();
 
-    const disconnectedState = page.getByText("Google Calendar is not connected yet.");
+    const disconnectedState = page.getByText("Connect Google Calendar to show events here.");
     const refreshButton = page.getByRole("button", { name: "Refresh" });
     await expect(disconnectedState.or(refreshButton)).toBeVisible();
 
@@ -88,8 +89,8 @@ test.describe("critical UI smoke flows", () => {
 
     await refreshButton.click();
     const syncedState = page
-      .getByText(/^Synced at /)
-      .or(page.getByText("Calendar connected"))
+      .getByText(/^Synced /)
+      .or(page.getByText("Connected"))
       .or(page.getByText("No events in the current week."));
     await expect(syncedState.first()).toBeVisible();
   });

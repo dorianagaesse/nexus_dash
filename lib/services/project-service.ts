@@ -54,6 +54,29 @@ type ProjectSummaryRecord = Prisma.ProjectGetPayload<{
     id: true;
     name: true;
     description: true;
+    tasks: {
+      select: {
+        status: true;
+        archivedAt: true;
+        _count: {
+          select: {
+            attachments: true;
+          };
+        };
+      };
+    };
+    resources: {
+      where: {
+        type: typeof RESOURCE_TYPE_CONTEXT_CARD;
+      };
+      select: {
+        _count: {
+          select: {
+            attachments: true;
+          };
+        };
+      };
+    };
     _count: {
       select: {
         tasks: true;
@@ -61,6 +84,19 @@ type ProjectSummaryRecord = Prisma.ProjectGetPayload<{
     };
   };
 }>;
+
+interface ProjectSummaryStats {
+  trackedTasks: number;
+  openTasks: number;
+  completedTasks: number;
+  contextCards: number;
+  attachmentCount: number;
+  isCalendarConnected: boolean;
+}
+
+type ProjectSummaryWithStatsRecord = ProjectSummaryRecord & {
+  stats: ProjectSummaryStats;
+};
 
 type ProjectWithCountsRecord = Prisma.ProjectGetPayload<{
   include: {
@@ -251,30 +287,94 @@ async function archiveStaleDoneTasks(
 export async function getProjectSummaryById(
   projectId: string,
   actorUserId: string
-): Promise<ProjectSummaryRecord | null> {
+): Promise<ProjectSummaryWithStatsRecord | null> {
   const normalizedActorUserId = normalizeActorUserId(actorUserId);
   if (!normalizedActorUserId) {
     return null;
   }
 
-  return withActorRlsContext(normalizedActorUserId, (db) =>
-    db.project.findFirst({
-      where: {
-        id: projectId,
-        ...buildProjectPrincipalWhere(normalizedActorUserId),
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        _count: {
-          select: {
-            tasks: true,
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    const [project, calendarCredential] = await Promise.all([
+      db.project.findFirst({
+        where: {
+          id: projectId,
+          ...buildProjectPrincipalWhere(normalizedActorUserId),
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          tasks: {
+            select: {
+              status: true,
+              archivedAt: true,
+              _count: {
+                select: {
+                  attachments: true,
+                },
+              },
+            },
+          },
+          resources: {
+            where: {
+              type: RESOURCE_TYPE_CONTEXT_CARD,
+            },
+            select: {
+              _count: {
+                select: {
+                  attachments: true,
+                },
+              },
+            },
+          },
+          _count: {
+            select: {
+              tasks: true,
+            },
           },
         },
+      }),
+      db.googleCalendarCredential.findUnique({
+        where: { userId: normalizedActorUserId },
+        select: {
+          revokedAt: true,
+        },
+      }),
+    ]);
+
+    if (!project) {
+      return null;
+    }
+
+    const openTasks = project.tasks.filter(
+      (task) =>
+        task.archivedAt === null &&
+        (task.status === "In Progress" || task.status === "Blocked")
+    ).length;
+    const completedTasks = project.tasks.filter(
+      (task) => task.status === "Done" || task.archivedAt !== null
+    ).length;
+    const contextCards = project.resources.length;
+    const taskAttachmentCount = project.tasks.reduce(
+      (total, task) => total + task._count.attachments,
+      0
+    );
+    const contextAttachmentCount = project.resources.reduce(
+      (total, resource) => total + resource._count.attachments,
+      0
+    );
+    return {
+      ...project,
+      stats: {
+        trackedTasks: project._count.tasks,
+        openTasks,
+        completedTasks,
+        contextCards,
+        attachmentCount: taskAttachmentCount + contextAttachmentCount,
+        isCalendarConnected: calendarCredential?.revokedAt == null && Boolean(calendarCredential),
       },
-    })
-  ) as Promise<ProjectSummaryRecord | null>;
+    };
+  }) as Promise<ProjectSummaryWithStatsRecord | null>;
 }
 
 export async function listProjectKanbanTasks(

@@ -1,6 +1,14 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
-import { Suspense } from "react";
+import {
+  CalendarCheck2,
+  CalendarX2,
+  CheckCheck,
+  ChevronLeft,
+  FileStack,
+  PanelsTopLeft,
+  TimerReset,
+} from "lucide-react";
+import { Suspense, type ReactNode } from "react";
 import { notFound } from "next/navigation";
 
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
@@ -8,6 +16,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { getStorageRuntimeConfig } from "@/lib/env.server";
+import {
+  countUpcomingEventsThisWeek,
+  formatUpcomingEventsLabel,
+} from "@/lib/project-dashboard";
+import { listCalendarEvents } from "@/lib/services/calendar-service";
 import { getProjectSummaryById } from "@/lib/services/project-service";
 import { MAX_ATTACHMENT_FILE_SIZE_LABEL } from "@/lib/task-attachment";
 
@@ -92,29 +105,110 @@ export default async function ProjectDashboardPage({
   const storageProvider = getStorageRuntimeConfig().provider;
   const status = readQueryValue(searchParams?.status);
   const error = readQueryValue(searchParams?.error);
+  const calendarEventsThisWeek = project.stats.isCalendarConnected
+    ? await listCalendarEvents({
+        actorUserId,
+        rangeRaw: "current-week",
+        daysRaw: null,
+      }).then((result) => {
+        if (!result.ok || !result.body.connected) {
+          return null;
+        }
+
+        return countUpcomingEventsThisWeek(result.body.events);
+      })
+    : null;
 
   return (
-    <main className="container space-y-6 py-10">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">Project dashboard</Badge>
-            <Badge variant="outline">{project._count.tasks} tasks</Badge>
-          </div>
-          <h1 className="text-3xl font-semibold tracking-tight">{project.name}</h1>
-          <p className="max-w-3xl text-sm text-muted-foreground">
-            {project.description ??
-              "Track and move project tasks across workflow stages."}
-          </p>
-        </div>
+    <main className="container space-y-8 py-10">
+      <section className="relative overflow-hidden rounded-3xl border border-border/70 bg-card/75 px-6 py-5 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.65)] backdrop-blur-sm sm:px-8 sm:py-6">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.18),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.12),transparent_36%)]" />
+        <div className="relative space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary" className="rounded-full px-3 py-1">
+                  Project dashboard
+                </Badge>
+                <Badge variant="outline" className="rounded-full px-3 py-1">
+                  {project.stats.trackedTasks} task
+                  {project.stats.trackedTasks === 1 ? "" : "s"}
+                </Badge>
+              </div>
+              <div className="space-y-1.5">
+                <h1 className="text-4xl font-semibold tracking-tight sm:text-[2.85rem]">
+                  {project.name}
+                </h1>
+                {project.description ? (
+                  <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
+                    {project.description}
+                  </p>
+                ) : null}
+              </div>
+            </div>
 
-        <Button asChild variant="ghost">
-          <Link href="/projects">
-            <ChevronLeft className="h-4 w-4" />
-            Back to projects
-          </Link>
-        </Button>
-      </div>
+            <Button asChild variant="outline" className="rounded-full px-4">
+              <Link href="/projects">
+                <ChevronLeft className="h-4 w-4" />
+                Back to projects
+              </Link>
+            </Button>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-12">
+            <DashboardStatCard
+              icon={TimerReset}
+              label="Open"
+              value={project.stats.openTasks}
+              className="lg:col-span-3"
+              valueClassName="text-sky-700 dark:text-sky-100"
+            />
+            <DashboardStatCard
+              icon={CheckCheck}
+              label="Completed"
+              value={project.stats.completedTasks}
+              className="lg:col-span-3"
+              valueClassName="text-emerald-700 dark:text-emerald-100"
+            />
+            <DashboardStatCard
+              icon={PanelsTopLeft}
+              label="Context"
+              value={project.stats.contextCards}
+              className="sm:col-span-1 lg:col-span-2"
+            />
+            <DashboardStatCard
+              icon={FileStack}
+              label="Attachments"
+              value={project.stats.attachmentCount}
+              className="sm:col-span-1 lg:col-span-2"
+            />
+            <DashboardStatCard
+              icon={
+                project.stats.isCalendarConnected ? CalendarCheck2 : CalendarX2
+              }
+              label="Calendar"
+              value={
+                project.stats.isCalendarConnected
+                  ? formatUpcomingEventsLabel(calendarEventsThisWeek)
+                  : "Not connected"
+              }
+              className="sm:col-span-2 lg:col-span-2"
+              valueClassName={
+                project.stats.isCalendarConnected
+                  ? "text-foreground"
+                  : "text-muted-foreground"
+              }
+              labelTrailing={
+                project.stats.isCalendarConnected ? (
+                  <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+                    Connected
+                  </span>
+                ) : null
+              }
+            />
+          </div>
+        </div>
+      </section>
 
       {status && STATUS_MESSAGES[status] ? (
         <AutoDismissingAlert
@@ -149,5 +243,40 @@ export default async function ProjectDashboardPage({
         <ProjectCalendarPanelSection projectId={project.id} />
       </Suspense>
     </main>
+  );
+}
+
+function DashboardStatCard({
+  icon: Icon,
+  label,
+  value,
+  className,
+  accentClassName,
+  valueClassName,
+  labelTrailing,
+}: {
+  icon: typeof TimerReset;
+  label: string;
+  value: number | string;
+  className?: string;
+  accentClassName?: string;
+  valueClassName?: string;
+  labelTrailing?: ReactNode;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border border-border/60 bg-background/55 px-4 py-3 backdrop-blur-sm ${accentClassName ?? ""} ${className ?? ""}`}
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <Icon className="h-3.5 w-3.5" />
+          <span>{label}</span>
+        </div>
+        {labelTrailing}
+      </div>
+      <p className={`text-xl font-semibold tracking-tight text-foreground ${valueClassName ?? ""}`}>
+        {value}
+      </p>
+    </div>
   );
 }
