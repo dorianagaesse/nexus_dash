@@ -200,7 +200,7 @@ export default async function ProjectDashboardPage({
               }
               labelTrailing={
                 project.stats.isCalendarConnected ? (
-                  <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+                  <span className="shrink-0 whitespace-nowrap rounded-full border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300">
                     Connected
                   </span>
                 ) : null
