@@ -56,6 +56,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-012, TASK-024
 
 ### Deferred (Intentional)
+- ID: TASK-098
+  Title: Meeting notes manager - structured project meeting log with participants, topics, decisions, and follow-ups
+  Status: Pending
+  Rationale: Add a dedicated project-scoped meeting-notes surface so discussions are not buried in generic context cards; each entry should capture meeting date/time, participants, topics discussed, key decisions, and follow-up actions, with future-friendly room for chronological browsing, search/filtering, and task linkage when implementation begins.
+  Dependencies: TASK-076, TASK-079
 - ID: TASK-087
   Title: Product metadata surface - repository link and running version visibility
   Status: Pending
