@@ -327,7 +327,12 @@ export function CreateTaskDialog({
 
   return (
     <div className="space-y-2">
-      <Button type="button" onClick={openDialog}>
+      <Button
+        type="button"
+        size="sm"
+        className="rounded-full px-4"
+        onClick={openDialog}
+      >
         <PlusSquare className="h-4 w-4" />
         New task
       </Button>

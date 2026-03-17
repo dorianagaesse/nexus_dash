@@ -4,7 +4,7 @@ import {
   Droppable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { GripVertical, TriangleAlert } from "lucide-react";
+import { Archive, GripVertical, Link2, Paperclip, TriangleAlert } from "lucide-react";
 
 import type { KanbanTask } from "@/components/kanban-board-types";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,54 @@ import {
 import { getTaskLabelColor } from "@/lib/task-label";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 import { cn } from "@/lib/utils";
+
+const COLUMN_CHROME: Record<
+  TaskStatus,
+  {
+    accent: string;
+    badge: string;
+    column: string;
+    dragState: string;
+    emptyCopy: string;
+  }
+> = {
+  Backlog: {
+    accent: "bg-slate-400/80 dark:bg-slate-300/70",
+    badge:
+      "border-slate-300/70 bg-slate-100/80 text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-200",
+    column:
+      "border-slate-200/70 bg-gradient-to-b from-slate-100/30 via-card to-card dark:border-slate-800/80 dark:from-slate-900/35",
+    dragState: "bg-slate-100/50 dark:bg-slate-900/35",
+    emptyCopy: "No tasks queued yet",
+  },
+  "In Progress": {
+    accent: "bg-sky-500/80 dark:bg-sky-400/80",
+    badge:
+      "border-sky-200/80 bg-sky-100/80 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/55 dark:text-sky-200",
+    column:
+      "border-sky-200/70 bg-gradient-to-b from-sky-100/35 via-card to-card dark:border-sky-950/80 dark:from-sky-950/30",
+    dragState: "bg-sky-100/45 dark:bg-sky-950/30",
+    emptyCopy: "No active work in flight",
+  },
+  Blocked: {
+    accent: "bg-amber-500/85 dark:bg-amber-400/85",
+    badge:
+      "border-amber-200/80 bg-amber-100/80 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/55 dark:text-amber-200",
+    column:
+      "border-amber-200/70 bg-gradient-to-b from-amber-100/35 via-card to-card dark:border-amber-950/80 dark:from-amber-950/30",
+    dragState: "bg-amber-100/45 dark:bg-amber-950/30",
+    emptyCopy: "Nothing blocked right now",
+  },
+  Done: {
+    accent: "bg-emerald-500/80 dark:bg-emerald-400/80",
+    badge:
+      "border-emerald-200/80 bg-emerald-100/80 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/55 dark:text-emerald-200",
+    column:
+      "border-emerald-200/70 bg-gradient-to-b from-emerald-100/35 via-card to-card dark:border-emerald-950/80 dark:from-emerald-950/28",
+    dragState: "bg-emerald-100/45 dark:bg-emerald-950/28",
+    emptyCopy: "Nothing finished yet",
+  },
+};
 
 interface KanbanColumnsGridProps {
   columns: TaskColumns<KanbanTask>;
@@ -76,17 +124,22 @@ function KanbanColumn({
   onEditTask,
   onTaskHoverChange,
 }: KanbanColumnProps) {
+  const chrome = COLUMN_CHROME[status];
+
   return (
-    <Card className="min-h-[300px]">
+    <Card className={cn("min-h-[320px] overflow-hidden border shadow-[0_18px_48px_-42px_rgba(15,23,42,0.7)]", chrome.column)}>
+      <div className={cn("h-1.5 w-full", chrome.accent)} />
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-base">
           <span>{status}</span>
-          <Badge variant="outline">{tasks.length}</Badge>
+          <Badge variant="outline" className={chrome.badge}>
+            {tasks.length}
+          </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
         {status === "Done" && archivedDoneTasks.length > 0 ? (
-          <details className="mb-3 rounded-md border border-border/60 bg-muted/20">
+          <details className="mb-3 rounded-xl border border-border/60 bg-background/55">
             <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground">
               Archive ({archivedDoneTasks.length})
             </summary>
@@ -98,13 +151,25 @@ function KanbanColumn({
                   className={cn(
                     "w-full rounded-md border border-border/60 bg-card px-2 py-2 text-left transition hover:bg-muted/40",
                     highlightedTaskIds.has(task.id) &&
-                      "border-emerald-500/60 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.15)]"
+                      "border-border/80 bg-muted/35 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
                   )}
                   onClick={() => onSelectTask(task)}
                   onMouseEnter={() => onTaskHoverChange(task.id)}
                   onMouseLeave={() => onTaskHoverChange(null)}
                 >
-                  <p className="text-xs font-medium text-foreground">{task.title}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground/90">
+                      <Archive
+                        aria-hidden="true"
+                        className="h-3.5 w-3.5 shrink-0 text-emerald-400/80"
+                      />
+                      <span className="truncate">{task.title}</span>
+                    </p>
+                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.18em] text-emerald-300/80">
+                      Archived
+                    </span>
+                  </div>
+                  <TaskCardIndicators task={task} className="mt-1" />
                   {task.description ? (
                     <p className="mt-1 text-xs text-muted-foreground">
                       {getDescriptionPreview(task.description, 90)}
@@ -123,14 +188,14 @@ function KanbanColumn({
               {...provided.droppableProps}
               className={cn(
                 "min-h-[180px] space-y-3 rounded-md p-2",
-                snapshot.isDraggingOver && "bg-muted/40"
+                snapshot.isDraggingOver && chrome.dragState
               )}
             >
-              {tasks.length === 0 ? (
-                <div className="rounded-md border border-border/50 bg-background/70 px-3 py-6 text-center text-sm text-muted-foreground">
-                  Drop tasks here
-                </div>
-              ) : null}
+                {tasks.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-border/50 bg-background/70 px-4 py-8 text-center">
+                    <p className="text-sm font-medium text-foreground/90">{chrome.emptyCopy}</p>
+                  </div>
+                ) : null}
 
               {tasks.map((task, index) => (
                 <Draggable key={task.id} draggableId={task.id} index={index}>
@@ -144,10 +209,10 @@ function KanbanColumn({
                         draggableSnapshot.isDragging
                       )}
                       className={cn(
-                        "cursor-grab rounded-md border border-border/70 bg-card p-3 shadow-sm transition active:cursor-grabbing",
+                        "cursor-grab rounded-xl border border-border/70 bg-card/95 p-3 shadow-sm transition duration-150 active:cursor-grabbing",
                         draggableSnapshot.isDragging && "shadow-lg",
                         highlightedTaskIds.has(task.id) &&
-                          "border-emerald-500/60 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.15)]"
+                          "border-border/80 bg-muted/35 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
                       )}
                       onClick={() => {
                         if (!draggableSnapshot.isDragging) {
@@ -183,6 +248,8 @@ function KanbanColumn({
                         </div>
                       </div>
 
+                      <TaskCardIndicators task={task} className="-mt-1 mb-2" />
+
                       {task.description ? (
                         <p className="break-words text-xs text-muted-foreground">
                           {getDescriptionPreview(task.description)}
@@ -214,5 +281,43 @@ function KanbanColumn({
         </Droppable>
       </CardContent>
     </Card>
+  );
+}
+
+function TaskCardIndicators({
+  task,
+  className,
+}: {
+  task: KanbanTask;
+  className?: string;
+}) {
+  const hasRelatedTasks = task.relatedTasks.length > 0;
+  const hasAttachments = task.attachments.length > 0;
+
+  if (!hasRelatedTasks && !hasAttachments) {
+    return null;
+  }
+
+  return (
+    <div className={cn("flex items-center gap-1 text-muted-foreground", className)}>
+      {hasRelatedTasks ? (
+        <span
+          className="rounded-sm p-1"
+          aria-label="Task has related tasks"
+          title="Task has related tasks"
+        >
+          <Link2 className="h-3.5 w-3.5" />
+        </span>
+      ) : null}
+      {hasAttachments ? (
+        <span
+          className="rounded-sm p-1"
+          aria-label="Task has attachments"
+          title="Task has attachments"
+        >
+          <Paperclip className="h-3.5 w-3.5" />
+        </span>
+      ) : null}
+    </div>
   );
 }

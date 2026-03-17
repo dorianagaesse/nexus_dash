@@ -1,5 +1,10 @@
 import { PanelsTopLeft } from "lucide-react";
 
+import {
+  PROJECT_SECTION_CARD_CLASS,
+  PROJECT_SECTION_CONTENT_CLASS,
+  PROJECT_SECTION_HEADER_CLASS,
+} from "@/components/project-dashboard/project-section-chrome";
 import { ProjectContextPanel } from "@/components/project-context-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getContextCardColorFromSeed } from "@/lib/context-card-colors";
@@ -49,16 +54,16 @@ export async function ProjectContextPanelSection({
 
 export function ProjectContextPanelSkeleton() {
   return (
-    <Card>
-      <CardHeader>
+    <Card className={PROJECT_SECTION_CARD_CLASS}>
+      <CardHeader className={PROJECT_SECTION_HEADER_CLASS}>
         <CardTitle className="flex items-center gap-2 text-base">
           <PanelsTopLeft className="h-4 w-4" />
           Project context
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="h-20 w-full animate-pulse rounded-md bg-muted" />
-        <div className="h-20 w-full animate-pulse rounded-md bg-muted" />
+      <CardContent className={`space-y-3 ${PROJECT_SECTION_CONTENT_CLASS}`}>
+        <div className="h-20 w-full animate-pulse rounded-xl bg-muted" />
+        <div className="h-20 w-full animate-pulse rounded-xl bg-muted" />
       </CardContent>
     </Card>
   );

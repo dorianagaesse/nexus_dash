@@ -5,6 +5,7 @@ const prismaMock = vi.hoisted(() => ({
     findFirst: vi.fn(),
     updateMany: vi.fn(),
     findMany: vi.fn(),
+    count: vi.fn(),
   },
   project: {
     create: vi.fn(),
@@ -15,6 +16,16 @@ const prismaMock = vi.hoisted(() => ({
   },
   resource: {
     findMany: vi.fn(),
+    count: vi.fn(),
+  },
+  taskAttachment: {
+    count: vi.fn(),
+  },
+  resourceAttachment: {
+    count: vi.fn(),
+  },
+  googleCalendarCredential: {
+    findUnique: vi.fn(),
   },
 }));
 
@@ -77,17 +88,29 @@ describe("project-service", () => {
       id: "project-1",
       name: "Project 1",
       description: null,
-      _count: {
-        tasks: 4,
-      },
+    });
+    prismaMock.task.count
+      .mockResolvedValueOnce(4)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(1);
+    prismaMock.resource.count.mockResolvedValueOnce(1);
+    prismaMock.taskAttachment.count.mockResolvedValueOnce(3);
+    prismaMock.resourceAttachment.count.mockResolvedValueOnce(3);
+    prismaMock.googleCalendarCredential.findUnique.mockResolvedValueOnce({
+      revokedAt: null,
     });
 
     const result = await getProjectSummaryById("project-1", actorUserId);
 
     expect(result).toMatchObject({
       id: "project-1",
-      _count: {
-        tasks: 4,
+      stats: {
+        trackedTasks: 4,
+        openTasks: 1,
+        completedTasks: 1,
+        contextCards: 1,
+        attachmentCount: 6,
+        isCalendarConnected: true,
       },
     });
     expect(prismaMock.project.findFirst).toHaveBeenCalledWith({
@@ -102,11 +125,89 @@ describe("project-service", () => {
         id: true,
         name: true,
         description: true,
-        _count: {
-          select: {
-            tasks: true,
+      },
+    });
+    expect(prismaMock.task.count).toHaveBeenNthCalledWith(1, {
+      where: {
+        projectId: "project-1",
+        project: {
+          OR: [
+            { ownerId: actorUserId },
+            { memberships: { some: { userId: actorUserId } } },
+          ],
+        },
+      },
+    });
+    expect(prismaMock.task.count).toHaveBeenNthCalledWith(2, {
+      where: {
+        projectId: "project-1",
+        project: {
+          OR: [
+            { ownerId: actorUserId },
+            { memberships: { some: { userId: actorUserId } } },
+          ],
+        },
+        archivedAt: null,
+        status: {
+          in: ["In Progress", "Blocked"],
+        },
+      },
+    });
+    expect(prismaMock.task.count).toHaveBeenNthCalledWith(3, {
+      where: {
+        projectId: "project-1",
+        project: {
+          OR: [
+            { ownerId: actorUserId },
+            { memberships: { some: { userId: actorUserId } } },
+          ],
+        },
+        OR: [{ status: "Done" }, { archivedAt: { not: null } }],
+      },
+    });
+    expect(prismaMock.resource.count).toHaveBeenCalledWith({
+      where: {
+        projectId: "project-1",
+        project: {
+          OR: [
+            { ownerId: actorUserId },
+            { memberships: { some: { userId: actorUserId } } },
+          ],
+        },
+        type: RESOURCE_TYPE_CONTEXT_CARD,
+      },
+    });
+    expect(prismaMock.taskAttachment.count).toHaveBeenCalledWith({
+      where: {
+        task: {
+          projectId: "project-1",
+          project: {
+            OR: [
+              { ownerId: actorUserId },
+              { memberships: { some: { userId: actorUserId } } },
+            ],
           },
         },
+      },
+    });
+    expect(prismaMock.resourceAttachment.count).toHaveBeenCalledWith({
+      where: {
+        resource: {
+          projectId: "project-1",
+          project: {
+            OR: [
+              { ownerId: actorUserId },
+              { memberships: { some: { userId: actorUserId } } },
+            ],
+          },
+          type: RESOURCE_TYPE_CONTEXT_CARD,
+        },
+      },
+    });
+    expect(prismaMock.googleCalendarCredential.findUnique).toHaveBeenCalledWith({
+      where: { userId: actorUserId },
+      select: {
+        revokedAt: true,
       },
     });
   });
