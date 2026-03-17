@@ -109,11 +109,29 @@ export function normalizeHomeAuthForm(value: string | null): HomeAuthForm {
 }
 
 export function normalizeReturnToPath(value: string | null): string {
-  if (!value || !value.startsWith("/")) {
+  if (!value) {
     return "/projects";
   }
 
-  return value;
+  const trimmed = value.trim();
+  if (
+    !trimmed.startsWith("/") ||
+    trimmed.startsWith("//") ||
+    /[\\\u0000-\u001F]/.test(trimmed)
+  ) {
+    return "/projects";
+  }
+
+  try {
+    const parsed = new URL(trimmed, "https://nexusdash.local");
+    if (parsed.origin !== "https://nexusdash.local") {
+      return "/projects";
+    }
+
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return "/projects";
+  }
 }
 
 export function getEnabledSocialAuthProviders(): SocialAuthProviderDescriptor[] {

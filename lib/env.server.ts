@@ -446,10 +446,10 @@ export function validateServerRuntimeConfig(
     throw new Error("TRUSTED_ORIGINS must contain at least one valid absolute URL.");
   }
 
+  const hasTrustedAppOrigin = trustedOriginsAreValid || Boolean(nextAuthUrl);
   const hasGoogleRedirectResolution =
     Boolean(googleRedirectUri) ||
-    trustedOriginsAreValid ||
-    Boolean(nextAuthUrl);
+    hasTrustedAppOrigin;
 
   if (googleClientId && !hasGoogleRedirectResolution) {
     throw new Error(
@@ -457,13 +457,13 @@ export function validateServerRuntimeConfig(
     );
   }
 
-  if (authGoogleClientId && !hasGoogleRedirectResolution && !authGoogleRedirectUri) {
+  if (authGoogleClientId && !hasTrustedAppOrigin && !authGoogleRedirectUri) {
     throw new Error(
       "Google sign-in requires AUTH_GOOGLE_REDIRECT_URI or a trusted app origin (TRUSTED_ORIGINS/NEXTAUTH_URL)."
     );
   }
 
-  if (githubClientId && !hasGoogleRedirectResolution && !githubRedirectUri) {
+  if (githubClientId && !hasTrustedAppOrigin && !githubRedirectUri) {
     throw new Error(
       "GitHub sign-in requires GITHUB_REDIRECT_URI or a trusted app origin (TRUSTED_ORIGINS/NEXTAUTH_URL)."
     );

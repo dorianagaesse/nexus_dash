@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import type { ResponseCookie } from "next/dist/compiled/@edge-runtime/cookies";
 
 import { isProductionEnvironment } from "@/lib/env.server";
 import {
@@ -7,9 +6,18 @@ import {
   SESSION_MAX_AGE_SECONDS,
 } from "@/lib/services/session-service";
 
+type PrimarySessionCookieOptions = {
+  httpOnly: true;
+  secure: boolean;
+  sameSite: "lax";
+  path: "/";
+  expires: Date;
+  maxAge: number;
+};
+
 export function getPrimarySessionCookieOptions(
   expiresAt: Date
-): Pick<ResponseCookie, "httpOnly" | "secure" | "sameSite" | "path" | "expires" | "maxAge"> {
+): PrimarySessionCookieOptions {
   return {
     httpOnly: true,
     secure: isProductionEnvironment(),

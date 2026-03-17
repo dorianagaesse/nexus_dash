@@ -406,6 +406,23 @@ describe("env.server", () => {
     );
   });
 
+  test("does not treat calendar redirect config as sufficient for social sign-in redirects", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("GOOGLE_CLIENT_ID", "calendar-client-id");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "calendar-client-secret");
+    vi.stubEnv("GOOGLE_REDIRECT_URI", "https://app.example.com/api/auth/callback/google");
+    vi.stubEnv("AUTH_GOOGLE_CLIENT_ID", "social-client-id");
+    vi.stubEnv("AUTH_GOOGLE_CLIENT_SECRET", "social-client-secret");
+    vi.stubEnv("AUTH_GOOGLE_REDIRECT_URI", "");
+    vi.stubEnv("TRUSTED_ORIGINS", "");
+    vi.stubEnv("NEXTAUTH_URL", "");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "Google sign-in requires AUTH_GOOGLE_REDIRECT_URI or a trusted app origin (TRUSTED_ORIGINS/NEXTAUTH_URL)."
+    );
+  });
+
   test("fails runtime validation when production google oauth is enabled without token encryption key", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("DATABASE_URL", "postgresql://localhost:5432/postgres");

@@ -82,6 +82,18 @@ function isUsernameDiscriminatorConstraint(error: unknown): boolean {
   );
 }
 
+function isEmailConstraint(error: unknown): boolean {
+  return readUniqueConstraintTargets(error).includes("email");
+}
+
+function isProviderAccountConstraint(error: unknown): boolean {
+  const targets = readUniqueConstraintTargets(error);
+  return (
+    targets.includes("providerAccountId") ||
+    (targets.includes("provider") && targets.includes("providerAccountId"))
+  );
+}
+
 function normalizeUsernameCandidate(rawValue: string | null): string {
   const normalized = normalizeUsername(rawValue ?? "")
     .replace(/[^a-z0-9._]+/g, ".")
@@ -185,14 +197,44 @@ async function linkProviderToExistingUser(input: {
   existingName: string | null;
   existingImage: string | null;
 }): Promise<{ userId: string; emailVerified: boolean }> {
-  await input.tx.account.create({
-    data: {
-      userId: input.userId,
-      type: "oauth",
-      provider: input.profile.provider,
-      providerAccountId: input.profile.providerAccountId,
-    },
-  });
+  try {
+    await input.tx.account.create({
+      data: {
+        userId: input.userId,
+        type: "oauth",
+        provider: input.profile.provider,
+        providerAccountId: input.profile.providerAccountId,
+      },
+    });
+  } catch (error) {
+    if (isUniqueConstraintViolation(error) && isProviderAccountConstraint(error)) {
+      const existingAccount = await input.tx.account.findUnique({
+        where: {
+          provider_providerAccountId: {
+            provider: input.profile.provider,
+            providerAccountId: input.profile.providerAccountId,
+          },
+        },
+        select: {
+          userId: true,
+          user: {
+            select: {
+              emailVerified: true,
+            },
+          },
+        },
+      });
+
+      if (existingAccount) {
+        return {
+          userId: existingAccount.userId,
+          emailVerified: Boolean(existingAccount.user.emailVerified),
+        };
+      }
+    }
+
+    throw error;
+  }
 
   const shouldUpdateProfile =
     (!input.existingName && input.profile.name) ||
@@ -233,6 +275,55 @@ async function linkProviderToExistingUser(input: {
 
 function providerFailure(error: SocialAuthFailureCode): SocialAuthFailure {
   return { ok: false, error };
+}
+
+async function resolveExistingUserByEmailForProvider(input: {
+  tx: Prisma.TransactionClient;
+  email: string;
+  profile: SocialAuthUserProfile;
+}): Promise<{
+  userId: string;
+  emailVerified: boolean;
+  isNewUser: boolean;
+}> {
+  const existingUser = await input.tx.user.findUnique({
+    where: { email: input.email },
+    select: {
+      id: true,
+      emailVerified: true,
+      name: true,
+      image: true,
+    },
+  });
+
+  if (existingUser) {
+    const linked = await linkProviderToExistingUser({
+      tx: input.tx,
+      userId: existingUser.id,
+      profile: {
+        ...input.profile,
+        email: input.email,
+      },
+      existingEmailVerified: Boolean(existingUser.emailVerified),
+      existingName: existingUser.name,
+      existingImage: existingUser.image,
+    });
+
+    return {
+      ...linked,
+      isNewUser: false,
+    };
+  }
+
+  const created = await createUserFromSocialProfile(input.tx, {
+    ...input.profile,
+    email: input.email,
+  });
+
+  return {
+    ...created,
+    isNewUser: true,
+  };
 }
 
 export async function authenticateWithSocialProvider(input: {
@@ -376,35 +467,12 @@ export async function authenticateWithSocialProvider(input: {
     });
   }
 
-  const existingUser = await prisma.user.findUnique({
-    where: { email },
-    select: {
-      id: true,
-      emailVerified: true,
-      name: true,
-      image: true,
-    },
-  });
-
   try {
     const result = await prisma.$transaction(async (tx) => {
-      if (existingUser) {
-        return linkProviderToExistingUser({
-          tx,
-          userId: existingUser.id,
-          profile: {
-            ...profile,
-            email,
-          },
-          existingEmailVerified: Boolean(existingUser.emailVerified),
-          existingName: existingUser.name,
-          existingImage: existingUser.image,
-        });
-      }
-
-      return createUserFromSocialProfile(tx, {
-        ...profile,
+      return resolveExistingUserByEmailForProvider({
+        tx,
         email,
+        profile,
       });
     });
 
@@ -412,13 +480,27 @@ export async function authenticateWithSocialProvider(input: {
       userId: result.userId,
       emailVerified: Boolean(result.emailVerified),
       provider: input.provider,
-      isNewUser: !existingUser,
+      isNewUser: result.isNewUser,
     });
   } catch (error) {
-    if (
-      isUniqueConstraintViolation(error) &&
-      readUniqueConstraintTargets(error).includes("providerAccountId")
-    ) {
+    if (isUniqueConstraintViolation(error) && isEmailConstraint(error)) {
+      const retriedResult = await prisma.$transaction(async (tx) =>
+        resolveExistingUserByEmailForProvider({
+          tx,
+          email,
+          profile,
+        })
+      );
+
+      return issueSession({
+        userId: retriedResult.userId,
+        emailVerified: Boolean(retriedResult.emailVerified),
+        provider: input.provider,
+        isNewUser: retriedResult.isNewUser,
+      });
+    }
+
+    if (isUniqueConstraintViolation(error) && isProviderAccountConstraint(error)) {
       return providerFailure("social-auth-failed");
     }
 

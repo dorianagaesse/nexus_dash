@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const prismaMock = vi.hoisted(() => {
   const tx = {
     user: {
+      findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
     },
     account: {
       create: vi.fn(),
+      findUnique: vi.fn(),
     },
   };
 
@@ -93,7 +95,7 @@ describe("social-auth-service", () => {
       usernameCandidate: "Jane-Doe",
     });
     prismaMock.prisma.account.findUnique.mockResolvedValue(null);
-    prismaMock.prisma.user.findUnique.mockResolvedValue(null);
+    prismaMock.tx.user.findUnique.mockResolvedValue(null);
     prismaMock.tx.user.create.mockResolvedValueOnce({
       id: "user-1",
       emailVerified: new Date("2026-03-20T00:00:00.000Z"),
@@ -150,7 +152,7 @@ describe("social-auth-service", () => {
       usernameCandidate: "octocat",
     });
     prismaMock.prisma.account.findUnique.mockResolvedValue(null);
-    prismaMock.prisma.user.findUnique.mockResolvedValueOnce({
+    prismaMock.tx.user.findUnique.mockResolvedValueOnce({
       id: "user-2",
       emailVerified: null,
       name: null,
@@ -250,6 +252,64 @@ describe("social-auth-service", () => {
     expect(result).toEqual({
       ok: false,
       error: "social-email-unavailable",
+    });
+  });
+
+  test("retries by linking after concurrent email creation wins the race", async () => {
+    const emailConstraintError = {
+      code: "P2002",
+      meta: { target: ["email"] },
+    };
+
+    socialAuthMock.fetchSocialUserProfile.mockResolvedValueOnce({
+      provider: "google",
+      providerAccountId: "google-race",
+      email: "race@example.com",
+      emailVerified: true,
+      name: "Race Winner",
+      image: null,
+      usernameCandidate: "race",
+    });
+    prismaMock.prisma.account.findUnique.mockResolvedValue(null);
+    prismaMock.tx.user.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "user-race",
+        emailVerified: new Date("2026-03-20T00:00:00.000Z"),
+        name: null,
+        image: null,
+      });
+    prismaMock.tx.user.create.mockRejectedValueOnce(emailConstraintError);
+    prismaMock.tx.account.create.mockResolvedValueOnce({});
+    prismaMock.tx.user.update.mockResolvedValueOnce({
+      id: "user-race",
+      emailVerified: new Date("2026-03-20T00:00:00.000Z"),
+    });
+
+    const result = await authenticateWithSocialProvider({
+      provider: "google",
+      code: "oauth-code",
+      redirectUri: "https://app.example.com/api/auth/callback/google",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        userId: "user-race",
+        emailVerified: true,
+        sessionToken: "session-token",
+        expiresAt: new Date("2026-03-20T00:00:00.000Z"),
+        isNewUser: false,
+        provider: "google",
+      },
+    });
+    expect(prismaMock.tx.account.create).toHaveBeenCalledWith({
+      data: {
+        userId: "user-race",
+        type: "oauth",
+        provider: "google",
+        providerAccountId: "google-race",
+      },
     });
   });
 });
