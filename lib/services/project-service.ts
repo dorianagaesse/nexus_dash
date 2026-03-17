@@ -54,34 +54,6 @@ type ProjectSummaryRecord = Prisma.ProjectGetPayload<{
     id: true;
     name: true;
     description: true;
-    tasks: {
-      select: {
-        status: true;
-        archivedAt: true;
-        _count: {
-          select: {
-            attachments: true;
-          };
-        };
-      };
-    };
-    resources: {
-      where: {
-        type: typeof RESOURCE_TYPE_CONTEXT_CARD;
-      };
-      select: {
-        _count: {
-          select: {
-            attachments: true;
-          };
-        };
-      };
-    };
-    _count: {
-      select: {
-        tasks: true;
-      };
-    };
   };
 }>;
 
@@ -294,43 +266,73 @@ export async function getProjectSummaryById(
   }
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
-    const [project, calendarCredential] = await Promise.all([
+    const principalWhere = buildProjectPrincipalWhere(normalizedActorUserId);
+
+    const [
+      project,
+      trackedTasks,
+      openTasks,
+      completedTasks,
+      contextCards,
+      taskAttachmentCount,
+      contextAttachmentCount,
+      calendarCredential,
+    ] = await Promise.all([
       db.project.findFirst({
         where: {
           id: projectId,
-          ...buildProjectPrincipalWhere(normalizedActorUserId),
+          ...principalWhere,
         },
         select: {
           id: true,
           name: true,
           description: true,
-          tasks: {
-            select: {
-              status: true,
-              archivedAt: true,
-              _count: {
-                select: {
-                  attachments: true,
-                },
-              },
-            },
+        },
+      }),
+      db.task.count({
+        where: {
+          projectId,
+          project: principalWhere,
+        },
+      }),
+      db.task.count({
+        where: {
+          projectId,
+          project: principalWhere,
+          archivedAt: null,
+          status: {
+            in: ["In Progress", "Blocked"],
           },
-          resources: {
-            where: {
-              type: RESOURCE_TYPE_CONTEXT_CARD,
-            },
-            select: {
-              _count: {
-                select: {
-                  attachments: true,
-                },
-              },
-            },
+        },
+      }),
+      db.task.count({
+        where: {
+          projectId,
+          project: principalWhere,
+          OR: [{ status: "Done" }, { archivedAt: { not: null } }],
+        },
+      }),
+      db.resource.count({
+        where: {
+          projectId,
+          project: principalWhere,
+          type: RESOURCE_TYPE_CONTEXT_CARD,
+        },
+      }),
+      db.taskAttachment.count({
+        where: {
+          task: {
+            projectId,
+            project: principalWhere,
           },
-          _count: {
-            select: {
-              tasks: true,
-            },
+        },
+      }),
+      db.resourceAttachment.count({
+        where: {
+          resource: {
+            projectId,
+            project: principalWhere,
+            type: RESOURCE_TYPE_CONTEXT_CARD,
           },
         },
       }),
@@ -346,27 +348,10 @@ export async function getProjectSummaryById(
       return null;
     }
 
-    const openTasks = project.tasks.filter(
-      (task) =>
-        task.archivedAt === null &&
-        (task.status === "In Progress" || task.status === "Blocked")
-    ).length;
-    const completedTasks = project.tasks.filter(
-      (task) => task.status === "Done" || task.archivedAt !== null
-    ).length;
-    const contextCards = project.resources.length;
-    const taskAttachmentCount = project.tasks.reduce(
-      (total, task) => total + task._count.attachments,
-      0
-    );
-    const contextAttachmentCount = project.resources.reduce(
-      (total, resource) => total + resource._count.attachments,
-      0
-    );
     return {
       ...project,
       stats: {
-        trackedTasks: project._count.tasks,
+        trackedTasks,
         openTasks,
         completedTasks,
         contextCards,

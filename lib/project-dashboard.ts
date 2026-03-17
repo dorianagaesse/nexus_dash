@@ -2,8 +2,20 @@ import type { CalendarEventResponseItem } from "@/lib/services/calendar-service"
 
 function parseEventStart(value: string): number | null {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const parsed = Date.parse(`${value}T00:00:00`);
-    return Number.isNaN(parsed) ? null : parsed;
+    const [yearRaw, monthRaw, dayRaw] = value.split("-");
+    const year = Number.parseInt(yearRaw ?? "", 10);
+    const month = Number.parseInt(monthRaw ?? "", 10);
+    const day = Number.parseInt(dayRaw ?? "", 10);
+
+    if (
+      !Number.isFinite(year) ||
+      !Number.isFinite(month) ||
+      !Number.isFinite(day)
+    ) {
+      return null;
+    }
+
+    return Date.UTC(year, month - 1, day);
   }
 
   const parsed = Date.parse(value);

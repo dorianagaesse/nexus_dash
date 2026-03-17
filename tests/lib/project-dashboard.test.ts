@@ -51,6 +51,27 @@ describe("project-dashboard helpers", () => {
     expect(result).toBe(2);
   });
 
+  test("treats date-only events as UTC midnight for stable weekly counts", () => {
+    const result = countUpcomingEventsThisWeek(
+      [
+        {
+          id: "all-day",
+          summary: "All day",
+          start: "2026-03-13",
+          end: "2026-03-14",
+          isAllDay: true,
+          location: null,
+          description: null,
+          htmlLink: null,
+          status: "confirmed",
+        },
+      ],
+      new Date("2026-03-12T23:30:00.000Z")
+    );
+
+    expect(result).toBe(1);
+  });
+
   test("formats upcoming event labels for the dashboard", () => {
     expect(formatUpcomingEventsLabel(null)).toBe("This week unavailable");
     expect(formatUpcomingEventsLabel(0)).toBe("No events to come");
