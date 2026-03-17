@@ -1,10 +1,11 @@
 "use server";
 
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
-import { isLiveProductionDeployment, isProductionEnvironment } from "@/lib/env.server";
+import { setPrimarySessionCookie } from "@/lib/auth/session-cookie";
+import { isLiveProductionDeployment } from "@/lib/env.server";
 import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
 import { logServerError, logServerWarning } from "@/lib/observability/logger";
 import {
@@ -15,10 +16,6 @@ import {
   isEmailVerifiedForUser,
   issueEmailVerificationForUser,
 } from "@/lib/services/email-verification-service";
-import {
-  PRIMARY_SESSION_COOKIE_NAME,
-  SESSION_MAX_AGE_SECONDS,
-} from "@/lib/services/session-service";
 
 const HOME_PATH = "/";
 const PROJECTS_PATH = "/projects";
@@ -36,19 +33,6 @@ function readText(formData: FormData, key: string): string {
 
 function redirectWithError(form: HomeAuthForm, error: string): never {
   redirect(`${HOME_PATH}?form=${form}&error=${error}`);
-}
-
-function setSessionCookie(sessionToken: string, expiresAt: Date): void {
-  const secure = isProductionEnvironment();
-
-  cookies().set(PRIMARY_SESSION_COOKIE_NAME, sessionToken, {
-    httpOnly: true,
-    secure,
-    sameSite: "lax",
-    path: "/",
-    expires: expiresAt,
-    maxAge: SESSION_MAX_AGE_SECONDS,
-  });
 }
 
 async function resolvePostAuthRedirectPath(actorUserId: string): Promise<string> {
@@ -85,7 +69,7 @@ export async function signInAction(formData: FormData): Promise<void> {
     redirectWithError("signin", result.error);
   }
 
-  setSessionCookie(result.data.sessionToken, result.data.expiresAt);
+  setPrimarySessionCookie(result.data.sessionToken, result.data.expiresAt);
   if (!result.data.emailVerified && isLiveProductionDeployment()) {
     redirect(`${VERIFY_EMAIL_PATH}?status=verification-required`);
   }
@@ -122,7 +106,7 @@ export async function signUpAction(formData: FormData): Promise<void> {
     redirectWithError("signup", result.error);
   }
 
-  setSessionCookie(result.data.sessionToken, result.data.expiresAt);
+  setPrimarySessionCookie(result.data.sessionToken, result.data.expiresAt);
   if (!isLiveProductionDeployment()) {
     redirect(PROJECTS_PATH);
   }

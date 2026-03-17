@@ -11,7 +11,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-076, TASK-079
 - ID: TASK-068
   Title: Authentication provider rollout - phase social providers (Google/GitHub) after baseline email auth
-  Status: Pending
+  Status: In Progress
   Rationale: Keep initial auth delivery focused and stable, then add additional social providers in a controlled phase with consistent consent/callback/session behavior.
   Dependencies: TASK-047
 - ID: TASK-058

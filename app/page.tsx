@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { ArrowRight, LockKeyhole, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,9 +20,11 @@ import {
   MIN_USERNAME_LENGTH,
 } from "@/lib/services/credential-auth-service";
 import { isEmailVerifiedForUser } from "@/lib/services/email-verification-service";
+import { getEnabledSocialAuthProviders } from "@/lib/social-auth";
 
 import { signInAction, signUpAction } from "./home-auth-actions";
 import { AuthSubmitButton } from "./auth-submit-button";
+import { HomeSocialProviderButton } from "./home-social-provider-button";
 import {
   HomeSignupEmailFeedback,
   HomeSignupPasswordFeedback,
@@ -63,6 +66,14 @@ const ERROR_MESSAGES: Record<string, string> = {
   "invalid-credentials": "Incorrect email or password.",
   "email-in-use": "An account with this email already exists.",
   "auth-unavailable": "Authentication is temporarily unavailable. Please retry.",
+  "social-provider-disabled":
+    "That sign-in provider is not configured yet in this environment.",
+  "social-auth-cancelled": "Sign-in was cancelled before completion.",
+  "social-email-unavailable":
+    "Your provider did not return a usable email address. Try another provider or email sign-in.",
+  "social-email-unverified":
+    "Your provider email is not verified. Verify it with the provider first, then retry.",
+  "social-auth-failed": "Social sign-in failed. Please retry.",
 };
 
 const STATUS_MESSAGES: Record<string, string> = {
@@ -128,34 +139,42 @@ export default async function Home({
   const statusCode = readQueryValue(searchParams?.status);
   const statusMessage =
     statusCode && STATUS_MESSAGES[statusCode] ? STATUS_MESSAGES[statusCode] : null;
+  const socialProviders = getEnabledSocialAuthProviders();
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,#1f293710,transparent_45%),radial-gradient(circle_at_85%_15%,#0ea5e910,transparent_28%),linear-gradient(to_bottom,hsl(var(--background)),hsl(var(--background)),hsl(var(--muted)/0.3))] text-foreground">
+    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.14),transparent_38%),radial-gradient(circle_at_78%_18%,rgba(14,165,233,0.12),transparent_26%),linear-gradient(to_bottom,hsl(var(--background)),hsl(var(--background)),hsl(var(--muted)/0.26))] text-foreground">
       <div className="pointer-events-none absolute inset-0 opacity-40">
         <div className="absolute left-[-20%] top-[-12rem] h-[28rem] w-[28rem] rounded-full bg-slate-500/10 blur-3xl" />
         <div className="absolute right-[-10%] top-[8rem] h-[20rem] w-[20rem] rounded-full bg-sky-400/10 blur-3xl" />
       </div>
 
-      <main className="container relative z-10 grid min-h-screen items-center gap-8 py-10 lg:grid-cols-[1.2fr_minmax(360px,460px)] lg:gap-14 lg:py-16">
-        <section className="space-y-8">
-          <div className="flex flex-wrap items-center gap-3">
-            <Badge variant="secondary">NexusDash workspace</Badge>
-            <Badge variant="outline">Next.js 14 + Server Actions</Badge>
-            <Badge variant="outline">Prisma + Supabase PostgreSQL</Badge>
+      <main className="container relative z-10 grid min-h-screen items-center gap-10 py-10 lg:grid-cols-[1.15fr_minmax(390px,470px)] lg:gap-16 lg:py-16">
+        <section className="space-y-8 lg:space-y-10">
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <Badge variant="secondary" className="rounded-full px-3 py-1">
+              NexusDash workspace
+            </Badge>
+            <Badge variant="outline" className="rounded-full px-3 py-1">
+              Secure multi-user delivery
+            </Badge>
           </div>
-          <div className="space-y-4 md:space-y-5">
-            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight md:text-5xl">
-              Run projects from one focused command center.
+          <div className="space-y-5">
+            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight md:text-5xl lg:text-[3.4rem]">
+              Sign in fast, keep delivery context tight, and move work without losing the thread.
             </h1>
-            <p className="max-w-2xl text-base text-muted-foreground md:text-lg">
-              Capture context, move work across Kanban, and stay aligned with calendar
-              events, all behind a protected multi-user workspace.
+            <p className="max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
+              Credentials stay available, but Google and GitHub entry can sit beside them
+              cleanly once configured. The goal is one calm auth surface, not three
+              disconnected flows.
             </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
             {highlights.map((item, index) => (
-              <Card key={item.title} className="border-border/70 bg-card/70 backdrop-blur">
+              <Card
+                key={item.title}
+                className="border-border/70 bg-card/70 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.7)] backdrop-blur"
+              >
                 <CardHeader className="space-y-3">
                   <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                     0{index + 1}
@@ -166,6 +185,26 @@ export default async function Home({
               </Card>
             ))}
           </div>
+
+          <Card className="border-border/70 bg-card/60 backdrop-blur">
+            <CardContent className="grid gap-4 p-5 md:grid-cols-[1fr_auto] md:items-center">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Sparkles className="h-4 w-4 text-sky-500" />
+                  Modern auth entry
+                </div>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  Social sign-in is layered into the same session model as email/password,
+                  so we keep one authorization boundary, one account system, and one path
+                  into projects.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-4 py-2 text-sm text-muted-foreground">
+                <LockKeyhole className="h-4 w-4" />
+                Session-backed
+              </div>
+            </CardContent>
+          </Card>
         </section>
 
         <Card className="border-border/70 bg-card/95 shadow-2xl shadow-black/20">
@@ -202,8 +241,8 @@ export default async function Home({
               </CardTitle>
               <CardDescription>
                 {isSignIn
-                  ? "Use your email and password to continue to your dashboard."
-                  : "Create your account and start building in minutes."}
+                  ? "Choose the fastest way back into your workspace."
+                  : "Start with social sign-in or create an email-based account."}
               </CardDescription>
             </div>
           </CardHeader>
@@ -220,6 +259,26 @@ export default async function Home({
             {statusMessage ? (
               <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-200">
                 {statusMessage}
+              </div>
+            ) : null}
+
+            {socialProviders.length > 0 ? (
+              <div className="grid gap-2">
+                {socialProviders.map(({ provider }) => (
+                  <HomeSocialProviderButton
+                    key={provider}
+                    provider={provider}
+                    form={activeForm}
+                  />
+                ))}
+                <div className="relative my-1">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border/70" />
+                  </div>
+                  <div className="relative flex justify-center text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                    <span className="bg-card px-3">Or continue with email</span>
+                  </div>
+                </div>
               </div>
             ) : null}
 
@@ -255,10 +314,13 @@ export default async function Home({
                     maxLength={128}
                     className={inputClassName}
                   />
-                  <div className="text-right">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">
+                      Session-backed sign-in
+                    </span>
                     <Link
                       href="/forgot-password"
-                      className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                      className="font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                     >
                       Forgot password?
                     </Link>
@@ -294,10 +356,6 @@ export default async function Home({
                     />
                     <HomeSignupUsernameSuffix usernameInputId="signup-username" />
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Use {MIN_USERNAME_LENGTH}-{MAX_USERNAME_LENGTH} letters, numbers,
-                    dots, or underscores. Uppercase input is normalized to lowercase.
-                  </p>
                 </div>
                 <div className="grid gap-2">
                   <label htmlFor="signup-email" className="text-sm font-medium">
@@ -331,10 +389,6 @@ export default async function Home({
                     maxLength={128}
                     className={inputClassName}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Use at least {MIN_PASSWORD_LENGTH} characters with uppercase,
-                    lowercase, number, and symbol.
-                  </p>
                 </div>
                 <div className="grid gap-2">
                   <label
@@ -360,21 +414,26 @@ export default async function Home({
                   confirmPasswordInputId="signup-confirm-password"
                   minPasswordLength={MIN_PASSWORD_LENGTH}
                 />
-                <Button type="submit" variant="secondary" className="w-full">
-                  Create workspace account
-                </Button>
+                <AuthSubmitButton
+                  className="w-full"
+                  defaultLabel="Create workspace account"
+                  pendingLabel="Creating account..."
+                />
               </form>
             )}
 
-            <p className="text-sm text-muted-foreground">
-              {isSignIn ? "New to NexusDash?" : "Already have an account?"}{" "}
-              <HomeAuthModeToggleLink
-                targetForm={isSignIn ? "signup" : "signin"}
-                className="font-medium text-foreground underline-offset-4 hover:underline"
-              >
-                {isSignIn ? "Create an account" : "Sign in"}
-              </HomeAuthModeToggleLink>
-            </p>
+            <div className="flex items-center justify-between gap-4 border-t border-border/70 pt-2 text-sm text-muted-foreground">
+              <p>
+                {isSignIn ? "New to NexusDash?" : "Already have an account?"}{" "}
+                <HomeAuthModeToggleLink
+                  targetForm={isSignIn ? "signup" : "signin"}
+                  className="font-medium text-foreground underline-offset-4 hover:underline"
+                >
+                  {isSignIn ? "Create an account" : "Sign in"}
+                </HomeAuthModeToggleLink>
+              </p>
+              <ArrowRight className="hidden h-4 w-4 shrink-0 md:block" />
+            </div>
           </CardContent>
         </Card>
       </main>
