@@ -43,7 +43,7 @@ describe("GET /api/auth/oauth/[provider]", () => {
     socialAuthMock.normalizeHomeAuthForm.mockReturnValue("signin");
     socialAuthMock.normalizeReturnToPath.mockReturnValue("/projects");
     socialAuthMock.resolveSocialOAuthRedirectUri.mockReturnValue(
-      "http://localhost/api/auth/callback/google"
+      "http://localhost/api/auth/oauth/google/callback"
     );
     socialAuthMock.buildSocialOAuthAuthorizationUrl.mockReturnValue(
       "https://accounts.example.com/oauth"

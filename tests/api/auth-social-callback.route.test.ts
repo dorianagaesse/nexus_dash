@@ -54,7 +54,7 @@ describe("GET /api/auth/callback/[provider]", () => {
       (value: string | null) => (value && value.startsWith("/") ? value : "/projects")
     );
     socialAuthRouteMock.resolveSocialOAuthRedirectUri.mockReturnValue(
-      "http://localhost/api/auth/callback/google"
+      "http://localhost/api/auth/oauth/google/callback"
     );
   });
 

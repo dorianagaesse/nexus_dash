@@ -162,7 +162,7 @@ function normalizeOrigin(value: string): string | null {
 }
 
 function getCallbackPath(provider: SocialAuthProvider): string {
-  return `/api/auth/callback/${provider}`;
+  return `/api/auth/oauth/${provider}/callback`;
 }
 
 export function resolveSocialOAuthRedirectUri(
