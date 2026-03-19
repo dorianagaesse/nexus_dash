@@ -4,9 +4,14 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-096
+  Title: Project dashboard UI polish - hierarchy, section rhythm, and Kanban lane clarity
+  Status: In Progress
+  Rationale: Lift the project workspace from a solid internal-tool baseline to a more intentional product feel by strengthening the top-of-page hierarchy, giving Context/Kanban/Calendar sections cleaner structure, and making Kanban lane scanning clearer without undoing the interaction patterns that already work well.
+  Dependencies: TASK-078, TASK-079, TASK-093, TASK-094, TASK-095
 - ID: TASK-095
   Title: Related tasks - symmetric task linking with hover highlight
-  Status: In Progress
+  Status: Pending
   Rationale: Add an optional same-project related-task field so work items that belong together can stay connected bidirectionally in-product, remain visible for context when archived, and softly highlight together on hover in the Kanban board.
   Dependencies: TASK-076, TASK-079
 - ID: TASK-068
@@ -56,6 +61,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-012, TASK-024
 
 ### Deferred (Intentional)
+- ID: TASK-098
+  Title: Meeting notes manager - structured project meeting log with participants, topics, decisions, and follow-ups
+  Status: Pending
+  Rationale: Add a dedicated project-scoped meeting-notes surface so discussions are not buried in generic context cards; each entry should capture meeting date/time, participants, topics discussed, key decisions, and follow-up actions, with future-friendly room for chronological browsing, search/filtering, and task linkage when implementation begins.
+  Dependencies: TASK-076, TASK-079
 - ID: TASK-087
   Title: Product metadata surface - repository link and running version visibility
   Status: Pending

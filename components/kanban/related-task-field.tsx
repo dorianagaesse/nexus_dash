@@ -29,7 +29,6 @@ interface RelatedTaskSelectorProps {
   onAddTask: (taskId: string) => void;
   onRemoveTask: (taskId: string) => void;
   disabled?: boolean;
-  helperText?: string;
 }
 
 export function RelatedTaskSelector({
@@ -40,7 +39,6 @@ export function RelatedTaskSelector({
   onAddTask,
   onRemoveTask,
   disabled = false,
-  helperText = "Link tasks that belong together in this project.",
 }: RelatedTaskSelectorProps) {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState<{
@@ -111,13 +109,6 @@ export function RelatedTaskSelector({
 
   return (
     <div className="grid gap-2 rounded-md border border-border/60 bg-muted/10 p-2.5">
-      {selectedTasks.length === 0 ? (
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-          <Link2 className="h-3.5 w-3.5" />
-          <span>{helperText}</span>
-        </div>
-      ) : null}
-
       {selectedTasks.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {selectedTasks.map((task) => (
@@ -129,9 +120,7 @@ export function RelatedTaskSelector({
             />
           ))}
         </div>
-      ) : (
-        <p className="text-xs text-muted-foreground">No related tasks yet.</p>
-      )}
+      ) : null}
 
       <div ref={searchFieldRef} className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -166,15 +155,12 @@ export function RelatedTaskSelector({
                     <button
                       key={task.id}
                       type="button"
-                      className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted"
+                      className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => onAddTask(task.id)}
                       disabled={disabled}
                     >
                       <span className="min-w-0 flex-1 truncate">{task.title}</span>
-                      <span className="ml-3 text-[11px] text-muted-foreground">
-                        {task.status}
-                      </span>
                     </button>
                   ))}
                 </div>
@@ -197,6 +183,7 @@ interface RelatedTaskPillProps {
   onRemove?: () => void;
   onClick?: () => void;
   highlight?: boolean;
+  showStatus?: boolean;
 }
 
 export function RelatedTaskPill({
@@ -205,6 +192,7 @@ export function RelatedTaskPill({
   onRemove,
   onClick,
   highlight = false,
+  showStatus = false,
 }: RelatedTaskPillProps) {
   const isArchived = Boolean(task.archivedAt);
 
@@ -213,9 +201,9 @@ export function RelatedTaskPill({
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs",
         isArchived
-          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+          ? "border-border/70 bg-background text-foreground/85"
           : "border-border/70 bg-background text-foreground",
-        highlight && "border-emerald-500/70 bg-emerald-500/10"
+        highlight && "border-border bg-muted/55 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
       )}
     >
       <button
@@ -227,12 +215,23 @@ export function RelatedTaskPill({
         onClick={onClick}
         disabled={!onClick}
       >
-        {isArchived ? <Archive className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />}
+        {isArchived ? (
+          <Archive className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+        ) : (
+          <Link2 className="h-3.5 w-3.5" />
+        )}
         <span className="max-w-[180px] truncate">{task.title}</span>
       </button>
-      <span className="text-[11px] uppercase tracking-[0.18em] opacity-70">
-        {isArchived ? "Archived" : task.status}
-      </span>
+      {isArchived || showStatus ? (
+        <span
+          className={cn(
+            "text-[11px] uppercase tracking-[0.18em] opacity-70",
+            isArchived && "text-emerald-700/80 dark:text-emerald-300/80"
+          )}
+        >
+          {isArchived ? "Archived" : task.status}
+        </span>
+      ) : null}
       {removable && onRemove ? (
         <Button
           type="button"

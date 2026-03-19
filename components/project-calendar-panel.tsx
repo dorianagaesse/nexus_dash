@@ -13,6 +13,11 @@ import {
 import { CalendarEventModal } from "@/components/calendar-panel/calendar-event-modal";
 import { CalendarWeekGrid } from "@/components/calendar-panel/calendar-week-grid";
 import {
+  PROJECT_SECTION_CARD_CLASS,
+  PROJECT_SECTION_CONTENT_CLASS,
+  PROJECT_SECTION_HEADER_CLASS,
+} from "@/components/project-dashboard/project-section-chrome";
+import {
   buildDefaultTimedWindow,
   buildWeekDays,
   CALENDAR_RANGE,
@@ -299,44 +304,46 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
 
   return (
     <>
-      <Card className="border-0 bg-transparent shadow-none">
-        <CardHeader className={cn("space-y-2 px-0 pt-0", isExpanded ? "pb-3" : "pb-2")}>
+      <Card className={PROJECT_SECTION_CARD_CLASS}>
+        <CardHeader
+          className={cn(
+            `space-y-3 ${PROJECT_SECTION_HEADER_CLASS} px-5 pt-5`,
+            isExpanded ? "pb-4" : "pb-3"
+          )}
+        >
           <button
             type="button"
             onClick={() => setIsExpanded((previous) => !previous)}
             aria-expanded={isExpanded}
-            className="flex min-w-0 items-center gap-2 rounded-md px-1 py-1 text-left transition hover:bg-muted/40"
+            className="flex min-w-0 items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-muted/40"
           >
             {isExpanded ? (
               <ChevronUp className="h-4 w-4 text-muted-foreground" />
             ) : (
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
             )}
-            <CardTitle className="text-lg font-semibold tracking-tight">
-              <span className="inline-flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                Calendar
-              </span>
-            </CardTitle>
+            <div className="min-w-0 space-y-1">
+              <CardTitle className="text-lg font-semibold tracking-tight">
+                <span className="inline-flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  Calendar
+                </span>
+              </CardTitle>
+            </div>
           </button>
-          {isExpanded ? (
-            <p className="text-sm text-muted-foreground">
-              Current week events (Monday to Sunday).
-            </p>
-          ) : null}
-        </CardHeader>
+      </CardHeader>
 
-        {isExpanded ? (
-          <CardContent className="space-y-3 px-0">
+      {isExpanded ? (
+          <CardContent className={cn("space-y-4", PROJECT_SECTION_CONTENT_CLASS)}>
             {isLoading ? (
-              <div className="rounded-md border border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
                 Loading calendar events...
               </div>
             ) : null}
 
             {!isLoading && isConnected === false ? (
-              <div className="space-y-3 rounded-md border border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
-                <p>Google Calendar is not connected yet.</p>
+              <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
+                <p>Connect Google Calendar to show events here.</p>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button type="button" size="sm" asChild>
                     <a href={connectUrl}>Connect Google Calendar</a>
@@ -353,11 +360,9 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
 
             {!isLoading && isConnected === true ? (
               <>
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
                   <p className="text-xs text-muted-foreground">
-                    {syncedAt
-                      ? `Synced at ${new Date(syncedAt).toLocaleString()}`
-                      : "Calendar connected"}
+                    {syncedAt ? `Synced ${new Date(syncedAt).toLocaleString()}` : "Connected"}
                   </p>
                   <div className="flex items-center gap-2">
                     <Button
@@ -394,7 +399,7 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
             ) : null}
 
             {!isLoading && error ? (
-              <div className="space-y-3 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <div className="space-y-3 rounded-xl border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 <p>{error}</p>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
