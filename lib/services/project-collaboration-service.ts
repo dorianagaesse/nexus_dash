@@ -109,6 +109,15 @@ function requireCollaboratorRole(
   return role;
 }
 
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    !!error &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error as { code?: string }).code === "P2002"
+  );
+}
+
 function buildUsernameTag(
   username: string | null | undefined,
   usernameDiscriminator: string | null | undefined
@@ -911,7 +920,7 @@ export async function respondToProjectInvitation(input: {
     }
 
     if (invitation.acceptedAt) {
-      return createError(409, "invitation-already-accepted");
+      return createSuccess(200, { projectId: invitation.projectId });
     }
 
     if (invitation.revokedAt) {
@@ -933,14 +942,39 @@ export async function respondToProjectInvitation(input: {
     }
 
     if (input.decision === "decline") {
-      await db.projectInvitation.update({
-        where: { id: invitation.id },
+      const declinedAt = new Date();
+      const declinedInvitation = await db.projectInvitation.updateMany({
+        where: {
+          id: invitation.id,
+          acceptedAt: null,
+          revokedAt: null,
+        },
         data: {
-          revokedAt: new Date(),
+          revokedAt: declinedAt,
         },
       });
 
-      return createSuccess(200, { projectId: invitation.projectId });
+      if (declinedInvitation.count === 1) {
+        return createSuccess(200, { projectId: invitation.projectId });
+      }
+
+      const latestInvitation = await db.projectInvitation.findUnique({
+        where: { id: invitation.id },
+        select: {
+          acceptedAt: true,
+          revokedAt: true,
+        },
+      });
+
+      if (latestInvitation?.acceptedAt) {
+        return createError(409, "invitation-already-accepted");
+      }
+
+      if (latestInvitation?.revokedAt) {
+        return createSuccess(200, { projectId: invitation.projectId });
+      }
+
+      return createError(404, "invitation-not-found");
     }
 
     const existingMembership = await db.projectMembership.findUnique({
@@ -956,21 +990,58 @@ export async function respondToProjectInvitation(input: {
     });
 
     if (!existingMembership) {
-      await db.projectMembership.create({
-        data: {
-          projectId: invitation.projectId,
-          userId: actorUserId,
-          role: requireCollaboratorRole(invitation.role),
-        },
-      });
+      try {
+        await db.projectMembership.create({
+          data: {
+            projectId: invitation.projectId,
+            userId: actorUserId,
+            role: requireCollaboratorRole(invitation.role),
+          },
+        });
+      } catch (error) {
+        if (!isUniqueConstraintError(error)) {
+          throw error;
+        }
+      }
     }
 
-    await db.projectInvitation.update({
-      where: { id: invitation.id },
+    const acceptedAt = new Date();
+    const acceptedInvitation = await db.projectInvitation.updateMany({
+      where: {
+        id: invitation.id,
+        acceptedAt: null,
+        revokedAt: null,
+      },
       data: {
-        acceptedAt: new Date(),
+        acceptedAt,
       },
     });
+
+    if (acceptedInvitation.count === 0) {
+      const latestInvitation = await db.projectInvitation.findUnique({
+        where: { id: invitation.id },
+        select: {
+          projectId: true,
+          acceptedAt: true,
+          revokedAt: true,
+          expiresAt: true,
+        },
+      });
+
+      if (latestInvitation?.acceptedAt) {
+        return createSuccess(200, { projectId: latestInvitation.projectId });
+      }
+
+      if (latestInvitation?.revokedAt) {
+        return createError(409, "invitation-revoked");
+      }
+
+      if (latestInvitation && latestInvitation.expiresAt.getTime() <= Date.now()) {
+        return createError(409, "invitation-expired");
+      }
+
+      return createError(404, "invitation-not-found");
+    }
 
     return createSuccess(200, { projectId: invitation.projectId });
   });
