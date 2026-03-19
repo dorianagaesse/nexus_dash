@@ -10,6 +10,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
+import { ProjectDashboardOwnerActions } from "@/components/project-dashboard/project-dashboard-owner-actions";
 import { CalendarSummaryStatCard } from "@/components/project-dashboard/calendar-summary-stat-card";
 import { DashboardStatCard } from "@/components/project-dashboard/dashboard-stat-card";
 import { Badge } from "@/components/ui/badge";
@@ -100,6 +101,9 @@ export default async function ProjectDashboardPage({
   const storageProvider = getStorageRuntimeConfig().provider;
   const status = readQueryValue(searchParams?.status);
   const error = readQueryValue(searchParams?.error);
+  const actorRole =
+    project.ownerId === actorUserId ? "owner" : (project.memberships[0]?.role ?? "viewer");
+  const canEditProjectContent = actorRole === "owner" || actorRole === "editor";
 
   return (
     <main className="container space-y-8 py-10">
@@ -111,6 +115,12 @@ export default async function ProjectDashboardPage({
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary" className="rounded-full px-3 py-1">
                   Project dashboard
+                </Badge>
+                <Badge
+                  variant={actorRole === "owner" ? "secondary" : "outline"}
+                  className="rounded-full px-3 py-1 capitalize"
+                >
+                  {actorRole}
                 </Badge>
                 <Badge variant="outline" className="rounded-full px-3 py-1">
                   {project.stats.trackedTasks} task
@@ -129,12 +139,21 @@ export default async function ProjectDashboardPage({
               </div>
             </div>
 
-            <Button asChild variant="outline" className="rounded-full px-4">
-              <Link href="/projects">
-                <ChevronLeft className="h-4 w-4" />
-                Back to projects
-              </Link>
-            </Button>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {actorRole === "owner" ? (
+                <ProjectDashboardOwnerActions
+                  projectId={project.id}
+                  projectName={project.name}
+                  projectDescription={project.description}
+                />
+              ) : null}
+              <Button asChild variant="outline" className="rounded-full px-4">
+                <Link href="/projects">
+                  <ChevronLeft className="h-4 w-4" />
+                  Back to projects
+                </Link>
+              </Button>
+            </div>
           </div>
 
           <div className="grid gap-3 lg:grid-cols-12">
@@ -189,6 +208,7 @@ export default async function ProjectDashboardPage({
         <ProjectContextPanelSection
           projectId={project.id}
           actorUserId={actorUserId}
+          canEdit={canEditProjectContent}
           storageProvider={storageProvider}
         />
       </Suspense>
@@ -197,12 +217,16 @@ export default async function ProjectDashboardPage({
         <KanbanBoardSection
           projectId={project.id}
           actorUserId={actorUserId}
+          canEdit={canEditProjectContent}
           storageProvider={storageProvider}
         />
       </Suspense>
 
       <Suspense fallback={<ProjectCalendarPanelSkeleton />}>
-        <ProjectCalendarPanelSection projectId={project.id} />
+        <ProjectCalendarPanelSection
+          projectId={project.id}
+          canEdit={canEditProjectContent}
+        />
       </Suspense>
     </main>
   );

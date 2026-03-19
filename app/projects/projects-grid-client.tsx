@@ -19,6 +19,7 @@ import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 
 export interface ProjectGridItem {
   id: string;
+  role: "owner" | "editor" | "viewer";
   name: string;
   description: string | null;
   updatedAtLabel: string;
@@ -121,8 +122,11 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
                 {project.resourceCount} resource
                 {project.resourceCount === 1 ? "" : "s"}
               </Badge>
+              <Badge variant={project.role === "owner" ? "secondary" : "outline"}>
+                {project.role}
+              </Badge>
             </div>
-            {!isEditMode ? (
+            {!isEditMode && project.role === "owner" ? (
               <ProjectOptionsMenu
                 isOpen={isOptionsMenuOpen}
                 menuRef={optionsMenuRef}
@@ -137,6 +141,9 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
           </div>
           <CardTitle
             onDoubleClick={(event) => {
+              if (project.role !== "owner") {
+                return;
+              }
               event.stopPropagation();
               handleStartEdit();
             }}
@@ -159,7 +166,7 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
             onSubmit={() => setIsEditMode(false)}
           >
             <input type="hidden" name="projectId" value={project.id} />
-            {isEditMode ? (
+            {isEditMode && project.role === "owner" ? (
               <>
                 <div className="grid gap-2">
                   <label htmlFor={`name-${project.id}`} className="text-sm font-medium">
@@ -197,6 +204,9 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
                 <p
                   className="min-h-16 whitespace-pre-wrap rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground"
                   onDoubleClick={(event) => {
+                    if (project.role !== "owner") {
+                      return;
+                    }
                     event.stopPropagation();
                     handleStartEdit();
                   }}
@@ -206,7 +216,7 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
               </div>
             )}
 
-            {isEditMode ? (
+            {isEditMode && project.role === "owner" ? (
               <div className="flex flex-wrap items-center gap-2">
                 {canSave ? (
                   <Button type="submit" variant="secondary">

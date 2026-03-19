@@ -21,6 +21,7 @@ describe("account-menu", () => {
         isAuthenticated: false,
         displayName: null,
         usernameTag: null,
+        pendingInvitationCount: 0,
       })
     );
 
@@ -33,10 +34,24 @@ describe("account-menu", () => {
         isAuthenticated: true,
         displayName: "test.user",
         usernameTag: "test.user#1234",
+        pendingInvitationCount: 0,
       })
     );
 
     expect(result).toContain("aria-label=\"Account menu\"");
     expect(result).toContain("aria-expanded=\"false\"");
+  });
+
+  test("renders invitation indicator when pending invitations exist", () => {
+    const result = renderToStaticMarkup(
+      React.createElement(AccountMenu, {
+        isAuthenticated: true,
+        displayName: "test.user",
+        usernameTag: "test.user#1234",
+        pendingInvitationCount: 3,
+      })
+    );
+
+    expect(result).toContain("bg-red-500");
   });
 });

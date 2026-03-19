@@ -125,6 +125,14 @@ describe("project-service", () => {
         id: true,
         name: true,
         description: true,
+        ownerId: true,
+        memberships: {
+          where: { userId: actorUserId },
+          select: {
+            role: true,
+          },
+          take: 1,
+        },
       },
     });
     expect(prismaMock.task.count).toHaveBeenNthCalledWith(1, {

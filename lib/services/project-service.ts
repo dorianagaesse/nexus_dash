@@ -54,6 +54,12 @@ type ProjectSummaryRecord = Prisma.ProjectGetPayload<{
     id: true;
     name: true;
     description: true;
+    ownerId: true;
+    memberships: {
+      select: {
+        role: true;
+      };
+    };
   };
 }>;
 
@@ -72,6 +78,12 @@ type ProjectSummaryWithStatsRecord = ProjectSummaryRecord & {
 
 type ProjectWithCountsRecord = Prisma.ProjectGetPayload<{
   include: {
+    memberships: {
+      select: {
+        role: true;
+        userId: true;
+      };
+    };
     _count: {
       select: {
         tasks: true;
@@ -126,6 +138,14 @@ export async function listProjectsWithCounts(
       where: buildProjectPrincipalWhere(normalizedActorUserId),
       orderBy: [{ updatedAt: "desc" }],
       include: {
+        memberships: {
+          where: { userId: normalizedActorUserId },
+          select: {
+            role: true,
+            userId: true,
+          },
+          take: 1,
+        },
         _count: {
           select: {
             tasks: true,
@@ -287,6 +307,14 @@ export async function getProjectSummaryById(
           id: true,
           name: true,
           description: true,
+          ownerId: true,
+          memberships: {
+            where: { userId: normalizedActorUserId },
+            select: {
+              role: true,
+            },
+            take: 1,
+          },
         },
       }),
       db.task.count({

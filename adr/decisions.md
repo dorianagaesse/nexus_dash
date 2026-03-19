@@ -16,6 +16,20 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-03-20 - Ship project sharing v1 as verified existing-user invites with owner-managed collaboration controls
+- Status: Accepted
+- Context: TASK-058 needed a practical first release of collaboration that fits the current authenticated app and RLS architecture without overcommitting to email/link-based invitation complexity yet.
+- Decision: Implement project sharing v1 around owner-managed invites for existing verified users only, with `editor`/`viewer` invite roles, single-owner projects, recipient-side invitation visibility in the authenticated app, and service-enforced invite acceptance/membership mutation flows.
+- Consequences: Collaboration is now usable without introducing tokenized public invites; a later follow-up can add arbitrary email/link invitations and ownership transfer without redefining the core permission model.
+- Links: `tasks/current.md`, `lib/services/project-collaboration-service.ts`, `prisma/migrations/20260320110000_task058_project_invitations/migration.sql`
+
+## 2026-03-20 - Gate project calendar mutations by project role while keeping Google Calendar credentials user-scoped
+- Status: Accepted
+- Context: TASK-058 makes project roles user-visible across the workspace, but the existing Google Calendar integration remains tied to each individual user's credentials rather than a shared project calendar.
+- Decision: Keep calendar ownership user-scoped for now, but require project membership and at least `editor` role for create/update/delete operations triggered from a project surface, with `viewer` limited to read-only access.
+- Consequences: Project permissions stay coherent across the workspace while shared calendar ownership remains explicitly deferred; a future calendar-sharing task can evolve storage/credential semantics without reopening TASK-058 role expectations.
+- Links: `tasks/current.md`, `lib/services/calendar-service.ts`, `app/api/calendar/events/route.ts`, `app/api/calendar/events/[eventId]/route.ts`
+
 ## 2026-03-05 - Propagate app principal via transaction-scoped Postgres settings for RLS
 - Status: Accepted
 - Context: TASK-085 requires DB-level isolation on project/user scoped tables while runtime uses pooled connections, which makes session-level `SET` unsafe.

@@ -10,6 +10,9 @@ import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
 import { logServerError } from "@/lib/observability/logger";
 import { logServerWarning } from "@/lib/observability/logger";
 import {
+  respondToProjectInvitation,
+} from "@/lib/services/project-collaboration-service";
+import {
   updateAccountEmail,
   updateAccountPassword,
   updateAccountUsername,
@@ -177,4 +180,53 @@ export async function updateAccountEmailAction(formData: FormData): Promise<void
       ? "verification-email-sent"
       : "verification-email-queued";
   redirectVerifyWithStatus(status);
+}
+
+export async function acceptProjectInvitationAction(formData: FormData): Promise<void> {
+  const actorUserId = await requireVerifiedSessionUserIdFromServer();
+  const invitationId = readText(formData, "invitationId");
+
+  let result: Awaited<ReturnType<typeof respondToProjectInvitation>>;
+  try {
+    result = await respondToProjectInvitation({
+      actorUserId,
+      invitationId,
+      decision: "accept",
+    });
+  } catch (error) {
+    logServerError("acceptProjectInvitationAction", error);
+    redirectWithError("invitation-accept-failed");
+  }
+
+  if (!result.ok) {
+    redirectWithError(result.error);
+  }
+
+  revalidateAccountPaths();
+  revalidatePath(`/projects/${result.data.projectId}`);
+  redirect(`${ACCOUNT_PATH}?status=invitation-accepted`);
+}
+
+export async function declineProjectInvitationAction(formData: FormData): Promise<void> {
+  const actorUserId = await requireVerifiedSessionUserIdFromServer();
+  const invitationId = readText(formData, "invitationId");
+
+  let result: Awaited<ReturnType<typeof respondToProjectInvitation>>;
+  try {
+    result = await respondToProjectInvitation({
+      actorUserId,
+      invitationId,
+      decision: "decline",
+    });
+  } catch (error) {
+    logServerError("declineProjectInvitationAction", error);
+    redirectWithError("invitation-decline-failed");
+  }
+
+  if (!result.ok) {
+    redirectWithError(result.error);
+  }
+
+  revalidateAccountPaths();
+  redirect(`${ACCOUNT_PATH}?status=invitation-declined`);
 }

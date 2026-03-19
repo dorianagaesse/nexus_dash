@@ -6,13 +6,23 @@ const googleCalendarAccessMock = vi.hoisted(() => ({
   hasCalendarWriteScope: vi.fn(),
 }));
 
+const projectAccessServiceMock = vi.hoisted(() => ({
+  requireProjectRole: vi.fn(),
+}));
+
 vi.mock("@/lib/google-calendar-access", () => ({
   getAuthorizedGoogleCalendarContext:
     googleCalendarAccessMock.getAuthorizedGoogleCalendarContext,
   hasCalendarWriteScope: googleCalendarAccessMock.hasCalendarWriteScope,
 }));
 
+vi.mock("@/lib/services/project-access-service", () => ({
+  requireProjectRole: projectAccessServiceMock.requireProjectRole,
+}));
+
 import { GET, POST } from "@/app/api/calendar/events/route";
+
+const PROJECT_ID = "project-1";
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
@@ -22,6 +32,10 @@ describe("calendar events routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     googleCalendarAccessMock.hasCalendarWriteScope.mockReturnValue(true);
+    projectAccessServiceMock.requireProjectRole.mockResolvedValue({
+      ok: true,
+      role: "owner",
+    });
   });
 
   afterEach(() => {
@@ -35,7 +49,7 @@ describe("calendar events routes", () => {
     });
 
     const response = await GET(
-      new NextRequest("http://localhost/api/calendar/events")
+      new NextRequest(`http://localhost/api/calendar/events?projectId=${PROJECT_ID}`)
     );
 
     expect(response.status).toBe(401);
@@ -67,7 +81,9 @@ describe("calendar events routes", () => {
     );
 
     const response = await GET(
-      new NextRequest("http://localhost/api/calendar/events?range=current-week")
+      new NextRequest(
+        `http://localhost/api/calendar/events?range=current-week&projectId=${PROJECT_ID}`
+      )
     );
 
     expect(response.status).toBe(403);
@@ -93,7 +109,7 @@ describe("calendar events routes", () => {
     );
 
     const response = await GET(
-      new NextRequest("http://localhost/api/calendar/events")
+      new NextRequest(`http://localhost/api/calendar/events?projectId=${PROJECT_ID}`)
     );
 
     expect(response.status).toBe(401);
@@ -119,7 +135,7 @@ describe("calendar events routes", () => {
     );
 
     const response = await GET(
-      new NextRequest("http://localhost/api/calendar/events")
+      new NextRequest(`http://localhost/api/calendar/events?projectId=${PROJECT_ID}`)
     );
 
     expect(response.status).toBe(502);
@@ -141,7 +157,7 @@ describe("calendar events routes", () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("network-failure"));
 
     const response = await GET(
-      new NextRequest("http://localhost/api/calendar/events")
+      new NextRequest(`http://localhost/api/calendar/events?projectId=${PROJECT_ID}`)
     );
 
     expect(response.status).toBe(500);
@@ -184,7 +200,7 @@ describe("calendar events routes", () => {
     );
 
     const response = await GET(
-      new NextRequest("http://localhost/api/calendar/events?days=3")
+      new NextRequest(`http://localhost/api/calendar/events?days=3&projectId=${PROJECT_ID}`)
     );
     const payload = await readJson(response);
 
@@ -225,6 +241,7 @@ describe("calendar events routes", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          projectId: PROJECT_ID,
           summary: "Kickoff",
           start: "2026-02-14T08:00:00.000Z",
           end: "2026-02-14T09:00:00.000Z",
@@ -248,6 +265,10 @@ describe("calendar events routes", () => {
     const response = await POST(
       new NextRequest("http://localhost/api/calendar/events", {
         method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          projectId: PROJECT_ID,
+        }),
       })
     );
 
@@ -270,6 +291,7 @@ describe("calendar events routes", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          projectId: PROJECT_ID,
           summary: "   ",
           start: "2026-02-14T08:00:00.000Z",
           end: "2026-02-14T09:00:00.000Z",
@@ -305,6 +327,7 @@ describe("calendar events routes", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          projectId: PROJECT_ID,
           summary: "Kickoff",
           start: "2026-02-14T08:00:00.000Z",
           end: "2026-02-14T09:00:00.000Z",
@@ -344,6 +367,7 @@ describe("calendar events routes", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          projectId: PROJECT_ID,
           summary: "Kickoff",
           start: "2026-02-14T08:00:00.000Z",
           end: "2026-02-14T09:00:00.000Z",
@@ -376,6 +400,7 @@ describe("calendar events routes", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          projectId: PROJECT_ID,
           summary: "Kickoff",
           start: "2026-02-14T08:00:00.000Z",
           end: "2026-02-14T09:00:00.000Z",
@@ -406,6 +431,7 @@ describe("calendar events routes", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          projectId: PROJECT_ID,
           summary: "Kickoff",
           start: "2026-02-14T08:00:00.000Z",
           end: "2026-02-14T09:00:00.000Z",
@@ -448,6 +474,7 @@ describe("calendar events routes", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          projectId: PROJECT_ID,
           summary: "Day off",
           start: "2026-02-20",
           end: "2026-02-20",

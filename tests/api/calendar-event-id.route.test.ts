@@ -6,16 +6,26 @@ const googleCalendarAccessMock = vi.hoisted(() => ({
   hasCalendarWriteScope: vi.fn(),
 }));
 
+const projectAccessServiceMock = vi.hoisted(() => ({
+  requireProjectRole: vi.fn(),
+}));
+
 vi.mock("@/lib/google-calendar-access", () => ({
   getAuthorizedGoogleCalendarContext:
     googleCalendarAccessMock.getAuthorizedGoogleCalendarContext,
   hasCalendarWriteScope: googleCalendarAccessMock.hasCalendarWriteScope,
 }));
 
+vi.mock("@/lib/services/project-access-service", () => ({
+  requireProjectRole: projectAccessServiceMock.requireProjectRole,
+}));
+
 import {
   DELETE,
   PATCH,
 } from "@/app/api/calendar/events/[eventId]/route";
+
+const PROJECT_ID = "project-1";
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
@@ -25,6 +35,10 @@ describe("calendar event by id routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     googleCalendarAccessMock.hasCalendarWriteScope.mockReturnValue(true);
+    projectAccessServiceMock.requireProjectRole.mockResolvedValue({
+      ok: true,
+      role: "owner",
+    });
   });
 
   afterEach(() => {
@@ -51,6 +65,8 @@ describe("calendar event by id routes", () => {
     const response = await PATCH(
       new NextRequest("http://localhost/api/calendar/events/evt-1", {
         method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ projectId: PROJECT_ID }),
       }),
       { params: { eventId: "evt-1" } }
     );
@@ -73,6 +89,14 @@ describe("calendar event by id routes", () => {
     const response = await PATCH(
       new NextRequest("http://localhost/api/calendar/events/evt-1", {
         method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          projectId: PROJECT_ID,
+          summary: "Updated title",
+          start: "2026-02-14T10:00:00.000Z",
+          end: "2026-02-14T11:00:00.000Z",
+          isAllDay: false,
+        }),
       }),
       { params: { eventId: "evt-1" } }
     );
@@ -108,6 +132,7 @@ describe("calendar event by id routes", () => {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          projectId: PROJECT_ID,
           summary: "Updated title",
           start: "2026-02-14T10:00:00.000Z",
           end: "2026-02-14T11:00:00.000Z",
@@ -141,6 +166,7 @@ describe("calendar event by id routes", () => {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          projectId: PROJECT_ID,
           summary: "Updated title",
           start: "2026-02-14T10:00:00.000Z",
           end: "2026-02-14T11:00:00.000Z",
@@ -174,6 +200,7 @@ describe("calendar event by id routes", () => {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          projectId: PROJECT_ID,
           summary: "Updated title",
           start: "2026-02-14T10:00:00.000Z",
           end: "2026-02-14T11:00:00.000Z",
@@ -216,6 +243,7 @@ describe("calendar event by id routes", () => {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          projectId: PROJECT_ID,
           summary: "Updated title",
           start: "2026-02-14T10:00:00.000Z",
           end: "2026-02-14T11:00:00.000Z",
@@ -259,6 +287,7 @@ describe("calendar event by id routes", () => {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          projectId: PROJECT_ID,
           summary: "Updated title",
           start: "2026-02-14T10:00:00.000Z",
           end: "2026-02-14T11:00:00.000Z",
@@ -290,6 +319,7 @@ describe("calendar event by id routes", () => {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          projectId: PROJECT_ID,
           summary: "Updated title",
           start: "2026-02-14T10:00:00.000Z",
           end: "2026-02-14T11:00:00.000Z",
@@ -317,8 +347,9 @@ describe("calendar event by id routes", () => {
     googleCalendarAccessMock.hasCalendarWriteScope.mockReturnValueOnce(false);
 
     const response = await DELETE(
-      new NextRequest("http://localhost/api/calendar/events/evt-1", {
+      new NextRequest(`http://localhost/api/calendar/events/evt-1?projectId=${PROJECT_ID}`, {
         method: "DELETE",
+        headers: { "content-type": "application/json" },
       }),
       { params: { eventId: "evt-1" } }
     );
@@ -336,8 +367,9 @@ describe("calendar event by id routes", () => {
     });
 
     const response = await DELETE(
-      new NextRequest("http://localhost/api/calendar/events/evt-1", {
+      new NextRequest(`http://localhost/api/calendar/events/evt-1?projectId=${PROJECT_ID}`, {
         method: "DELETE",
+        headers: { "content-type": "application/json" },
       }),
       { params: { eventId: "evt-1" } }
     );
@@ -367,7 +399,7 @@ describe("calendar event by id routes", () => {
     );
 
     const response = await DELETE(
-      new NextRequest("http://localhost/api/calendar/events/evt-1", {
+      new NextRequest(`http://localhost/api/calendar/events/evt-1?projectId=${PROJECT_ID}`, {
         method: "DELETE",
       }),
       { params: { eventId: "evt-1" } }
@@ -393,7 +425,7 @@ describe("calendar event by id routes", () => {
     );
 
     const response = await DELETE(
-      new NextRequest("http://localhost/api/calendar/events/evt-1", {
+      new NextRequest(`http://localhost/api/calendar/events/evt-1?projectId=${PROJECT_ID}`, {
         method: "DELETE",
       }),
       { params: { eventId: "evt-1" } }
@@ -419,7 +451,7 @@ describe("calendar event by id routes", () => {
     );
 
     const response = await DELETE(
-      new NextRequest("http://localhost/api/calendar/events/evt-1", {
+      new NextRequest(`http://localhost/api/calendar/events/evt-1?projectId=${PROJECT_ID}`, {
         method: "DELETE",
       }),
       { params: { eventId: "evt-1" } }
@@ -447,7 +479,7 @@ describe("calendar event by id routes", () => {
     );
 
     const response = await DELETE(
-      new NextRequest("http://localhost/api/calendar/events/evt-1", {
+      new NextRequest(`http://localhost/api/calendar/events/evt-1?projectId=${PROJECT_ID}`, {
         method: "DELETE",
       }),
       { params: { eventId: "evt-1" } }
@@ -471,7 +503,7 @@ describe("calendar event by id routes", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(null, { status: 204 }));
 
     const response = await DELETE(
-      new NextRequest("http://localhost/api/calendar/events/evt-1", {
+      new NextRequest(`http://localhost/api/calendar/events/evt-1?projectId=${PROJECT_ID}`, {
         method: "DELETE",
       }),
       { params: { eventId: "evt-1" } }
@@ -493,7 +525,7 @@ describe("calendar event by id routes", () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("network-failure"));
 
     const response = await DELETE(
-      new NextRequest("http://localhost/api/calendar/events/evt-1", {
+      new NextRequest(`http://localhost/api/calendar/events/evt-1?projectId=${PROJECT_ID}`, {
         method: "DELETE",
       }),
       { params: { eventId: "evt-1" } }

@@ -15,12 +15,14 @@ import { isTaskStatus } from "@/lib/task-status";
 interface KanbanBoardSectionProps {
   projectId: string;
   actorUserId: string;
+  canEdit: boolean;
   storageProvider: "local" | "r2";
 }
 
 export async function KanbanBoardSection({
   projectId,
   actorUserId,
+  canEdit,
   storageProvider,
 }: KanbanBoardSectionProps) {
   const tasks = await listProjectKanbanTasks(projectId, actorUserId);
@@ -72,6 +74,7 @@ export async function KanbanBoardSection({
 
   return (
     <KanbanBoard
+      canEdit={canEdit}
       projectId={projectId}
       storageProvider={storageProvider}
       initialTasks={kanbanTasks}

@@ -11,6 +11,7 @@ import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import { ATTACHMENT_KIND_LINK, isAttachmentPreviewable } from "@/lib/task-attachment";
 
 interface ContextCardsGridProps {
+  canEdit: boolean;
   cards: ProjectContextCard[];
   cardAttachmentsById: Record<string, ProjectContextAttachment[]>;
   deletingCardId: string | null;
@@ -21,6 +22,7 @@ interface ContextCardsGridProps {
 }
 
 export function ContextCardsGrid({
+  canEdit,
   cards,
   cardAttachmentsById,
   deletingCardId,
@@ -57,22 +59,32 @@ export function ContextCardsGrid({
               <h3
                 className="text-sm font-semibold text-slate-900"
                 onDoubleClick={(event) => {
+                  if (!canEdit) {
+                    return;
+                  }
+
                   event.stopPropagation();
                   onEditCard(card.id);
                 }}
               >
                 {card.title}
               </h3>
-              <ContextCardOptionsMenu
-                cardId={card.id}
-                deletingCardId={deletingCardId}
-                onEditCard={onEditCard}
-                onDeleteCard={onDeleteCard}
-              />
+              {canEdit ? (
+                <ContextCardOptionsMenu
+                  cardId={card.id}
+                  deletingCardId={deletingCardId}
+                  onEditCard={onEditCard}
+                  onDeleteCard={onDeleteCard}
+                />
+              ) : null}
             </div>
             <p
               className="whitespace-pre-wrap break-words text-xs text-slate-800"
               onDoubleClick={(event) => {
+                if (!canEdit) {
+                  return;
+                }
+
                 event.stopPropagation();
                 onEditCard(card.id);
               }}

@@ -17,6 +17,10 @@ export async function ProjectsGrid() {
   const actorUserId = await getSessionUserIdFromServer();
   const projects = actorUserId ? await listProjectsWithCounts(actorUserId) : [];
   const projectCards = projects.map((project) => ({
+    role:
+      project.ownerId === actorUserId
+        ? "owner"
+        : (project.memberships[0]?.role ?? "viewer"),
     id: project.id,
     name: project.name,
     description: project.description,

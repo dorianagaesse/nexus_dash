@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 
 interface CalendarWeekGridProps {
+  canEdit: boolean;
   weekDays: Date[];
   eventsByDay: Map<string, DayEventBucket>;
   eventsCount: number;
@@ -26,6 +27,7 @@ interface CalendarWeekGridProps {
 }
 
 export function CalendarWeekGrid({
+  canEdit,
   weekDays,
   eventsByDay,
   eventsCount,
@@ -89,17 +91,19 @@ export function CalendarWeekGrid({
                         <p className="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground">
                           {event.summary}
                         </p>
-                        <button
-                          type="button"
-                          onClick={(mouseEvent) => {
-                            mouseEvent.stopPropagation();
-                            onOpenEditEventModal(event);
-                          }}
-                          className="rounded p-0.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                          aria-label="Edit calendar event"
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </button>
+                        {canEdit ? (
+                          <button
+                            type="button"
+                            onClick={(mouseEvent) => {
+                              mouseEvent.stopPropagation();
+                              onOpenEditEventModal(event);
+                            }}
+                            className="rounded p-0.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                            aria-label="Edit calendar event"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        ) : null}
                       </article>
                     );
                   })
@@ -190,17 +194,19 @@ export function CalendarWeekGrid({
                     <span className="shrink-0 text-[10px] text-muted-foreground">
                       {formatEventStartTimeLabel(event)}
                     </span>
-                    <button
-                      type="button"
-                      onClick={(mouseEvent) => {
-                        mouseEvent.stopPropagation();
-                        onOpenEditEventModal(event);
-                      }}
-                      className="shrink-0 rounded p-0.5 text-muted-foreground transition hover:bg-sky-500/20 hover:text-foreground"
-                      aria-label="Edit calendar event"
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </button>
+                    {canEdit ? (
+                      <button
+                        type="button"
+                        onClick={(mouseEvent) => {
+                          mouseEvent.stopPropagation();
+                          onOpenEditEventModal(event);
+                        }}
+                        className="shrink-0 rounded p-0.5 text-muted-foreground transition hover:bg-sky-500/20 hover:text-foreground"
+                        aria-label="Edit calendar event"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                    ) : null}
                   </div>
                 ) : (
                   <div className="flex min-w-0 items-start gap-1">
@@ -212,17 +218,19 @@ export function CalendarWeekGrid({
                         {formatEventTimeLabel(event)}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(mouseEvent) => {
-                        mouseEvent.stopPropagation();
-                        onOpenEditEventModal(event);
-                      }}
-                      className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground transition hover:bg-sky-500/20 hover:text-foreground"
-                      aria-label="Edit calendar event"
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </button>
+                    {canEdit ? (
+                      <button
+                        type="button"
+                        onClick={(mouseEvent) => {
+                          mouseEvent.stopPropagation();
+                          onOpenEditEventModal(event);
+                        }}
+                        className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground transition hover:bg-sky-500/20 hover:text-foreground"
+                        aria-label="Edit calendar event"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                    ) : null}
                   </div>
                 );
 

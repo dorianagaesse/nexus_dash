@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ATTACHMENT_KIND_LINK, isAttachmentPreviewable } from "@/lib/task-attachment";
 
 interface ContextPreviewModalProps {
+  canEdit: boolean;
   isOpen: boolean;
   card: ProjectContextCard | null;
   attachments: ProjectContextAttachment[];
@@ -22,6 +23,7 @@ interface ContextPreviewModalProps {
 }
 
 export function ContextPreviewModal({
+  canEdit,
   isOpen,
   card,
   attachments,
@@ -50,7 +52,13 @@ export function ContextPreviewModal({
         <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
           <CardTitle
             className="text-xl text-slate-900"
-            onDoubleClick={() => onEdit(card.id)}
+            onDoubleClick={() => {
+              if (!canEdit) {
+                return;
+              }
+
+              onEdit(card.id);
+            }}
           >
             {card.title}
           </CardTitle>
@@ -68,7 +76,13 @@ export function ContextPreviewModal({
         <CardContent className="space-y-4">
           <p
             className="whitespace-pre-wrap break-words text-sm text-slate-800"
-            onDoubleClick={() => onEdit(card.id)}
+            onDoubleClick={() => {
+              if (!canEdit) {
+                return;
+              }
+
+              onEdit(card.id);
+            }}
           >
             {card.content || "No content."}
           </p>
@@ -120,9 +134,11 @@ export function ContextPreviewModal({
             )}
           </div>
 
-          <p className="text-xs text-slate-700">
-            Tip: double-click title or content to edit this card.
-          </p>
+          {canEdit ? (
+            <p className="text-xs text-slate-700">
+              Tip: double-click title or content to edit this card.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
     </div>,

@@ -1,3 +1,4 @@
+import { PendingProjectInvitationsBanner } from "@/components/pending-project-invitations-banner";
 import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
 
 export default async function ProjectsLayout({
@@ -5,7 +6,14 @@ export default async function ProjectsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireVerifiedSessionUserIdFromServer();
+  const actorUserId = await requireVerifiedSessionUserIdFromServer();
 
-  return children;
+  return (
+    <>
+      <div className="container pt-6">
+        <PendingProjectInvitationsBanner actorUserId={actorUserId} />
+      </div>
+      {children}
+    </>
+  );
 }
