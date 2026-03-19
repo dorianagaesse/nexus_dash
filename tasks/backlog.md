@@ -4,21 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-096
-  Title: Project dashboard UI polish - hierarchy, section rhythm, and Kanban lane clarity
-  Status: In Progress
-  Rationale: Lift the project workspace from a solid internal-tool baseline to a more intentional product feel by strengthening the top-of-page hierarchy, giving Context/Kanban/Calendar sections cleaner structure, and making Kanban lane scanning clearer without undoing the interaction patterns that already work well.
-  Dependencies: TASK-078, TASK-079, TASK-093, TASK-094, TASK-095
-- ID: TASK-095
-  Title: Related tasks - symmetric task linking with hover highlight
-  Status: Pending
-  Rationale: Add an optional same-project related-task field so work items that belong together can stay connected bidirectionally in-product, remain visible for context when archived, and softly highlight together on hover in the Kanban board.
-  Dependencies: TASK-076, TASK-079
-- ID: TASK-068
-  Title: Authentication provider rollout - phase social providers (Google/GitHub) after baseline email auth
-  Status: In Progress
-  Rationale: Keep initial auth delivery focused and stable, then add additional social providers in a controlled phase with consistent consent/callback/session behavior.
-  Dependencies: TASK-047
 - ID: TASK-058
   Title: Authorization implementation - project sharing, membership roles, and invitations
   Status: Pending
@@ -66,11 +51,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Add a dedicated project-scoped meeting-notes surface so discussions are not buried in generic context cards; each entry should capture meeting date/time, participants, topics discussed, key decisions, and follow-up actions, with future-friendly room for chronological browsing, search/filtering, and task linkage when implementation begins.
   Dependencies: TASK-076, TASK-079
-- ID: TASK-087
-  Title: Product metadata surface - repository link and running version visibility
+- ID: TASK-099
+  Title: Task comments - project-scoped discussion thread on tasks
   Status: Pending
-  Rationale: Improve transparency and operability by exposing the public GitHub repository and the currently running app version (for example `v1.2.13`) in-app, with implementation preceded by a short decision pass on version source strategy (tag-based vs commit-based) and placement UX.
-  Dependencies: TASK-041, TASK-042
+  Rationale: Let users comment directly on tasks so execution context, quick discussion, clarifications, and follow-up decisions stay attached to the work item instead of being lost in external chat or generic context cards.
+  Dependencies: TASK-076, TASK-079
 - ID: TASK-088
   Title: Milestone architecture and security audit - post-auth/account hardening review
   Status: Pending
@@ -115,6 +100,26 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-096
+  Title: Project dashboard UI polish - hierarchy, section rhythm, and Kanban lane clarity
+  Status: Done (2026-03-17)
+  Rationale: Refreshed the project workspace hierarchy and section chrome, tightened dashboard stats and calendar status treatment, improved Kanban lane scanning, fixed context-modal stacking above dashboard chrome, and merged the task into `main` through the integration path that superseded PR #96.
+  Dependencies: TASK-078, TASK-079, TASK-093, TASK-094, TASK-095
+- ID: TASK-095
+  Title: Related tasks - symmetric task linking with hover highlight
+  Status: Done (2026-03-19)
+  Rationale: Added project-scoped symmetric related-task links across task create/edit flows, validated relationship constraints in the service/API layer, kept related links visible from task detail state, and highlighted connected tasks during Kanban hover interactions.
+  Dependencies: TASK-076, TASK-079
+- ID: TASK-087
+  Title: Product metadata surface - repository link and running version visibility
+  Status: Done (2026-03-19)
+  Rationale: Added an in-app metadata pill that exposes the repository link plus the running version/revision summary, with environment-aware normalization for repository URL and version labeling.
+  Dependencies: TASK-041, TASK-042
+- ID: TASK-068
+  Title: Authentication provider rollout - phase social providers (Google/GitHub) after baseline email auth
+  Status: Done (2026-03-19)
+  Rationale: Delivered Google and GitHub social sign-in/sign-up flows on top of the existing session model, including provider init/callback routes, account linking/user creation rules, home-page auth refresh, and automated coverage for provider routing and account resolution.
+  Dependencies: TASK-047
 - ID: TASK-085
   Title: PostgreSQL hardening - enable RLS policies with staged rollout (staging then production)
   Status: Done (2026-03-11)

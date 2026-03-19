@@ -12,13 +12,24 @@ Before coding, align on these files:
 
 If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `tasks/backlog.md`, then update `tasks/current.md` before implementation.
 
-## 2. Execution Contract
+## 2. Implementation Quality
+
+- Write clean, maintainable code that follows established best practices and repository patterns.
+- Prefer reusable components/modules and focused abstractions over duplication.
+- Keep responsibilities well-separated and favor SOLID-oriented design when shaping services, components, and utilities.
+
+## 3. Execution Contract
 
 - One task per branch and one task per PR.
+- Start each task on a dedicated branch before implementation work begins.
 - Branch name must match CI rule: `feature/*`, `fix/*`, `refactor/*`, `docs/*`, or `chore/*`.
 - Keep PRs single-purpose; do not mix unrelated backlog tasks.
+- Push the active branch remotely after meaningful implementation/validation progress and before handoff.
+- If the current task does not already have an open PR, create one once the branch is reviewable; continue updating the same PR for that task.
+- After the PR is first opened, monitor automated review/check feedback, including Copilot review when it is triggered automatically.
+- Triage Copilot review comments: apply relevant changes, respond on threads, resolve conversations you addressed, and leave clear rationale when a suggestion is intentionally not applied.
 
-## 3. Architecture Boundaries (Non-Negotiable)
+## 4. Architecture Boundaries (Non-Negotiable)
 
 - Persistence access (`@/lib/prisma`) stays in `lib/services/**` only.
 - API routes and server actions are transport adapters:
@@ -27,7 +38,7 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
   - map response/redirect
 - Authorization checks must be enforced in services for project-scoped operations.
 
-## 4. Documentation Update Rules
+## 5. Documentation Update Rules
 
 Update docs in the same PR when behavior/architecture changes:
 
@@ -37,7 +48,7 @@ Update docs in the same PR when behavior/architecture changes:
 - `adr/decisions.md`: architecture-impacting decisions
 - Add/extend a task ADR in `adr/` only when a decision needs deeper rationale
 
-## 5. Validation Baseline
+## 6. Validation Baseline
 
 Run before handoff (unless task is docs-only):
 
@@ -50,7 +61,7 @@ npm run build
 
 Use `npm run test:e2e` when UI flows, auth flows, calendar flows, or upload flows are touched.
 
-## 6. Environment and Secrets Discipline
+## 7. Environment and Secrets Discipline
 
 - Server env access must go through `lib/env.server.ts`.
 - Never commit secrets.
@@ -59,7 +70,7 @@ Use `npm run test:e2e` when UI flows, auth flows, calendar flows, or upload flow
   - `docs/runbooks/vercel-env-contract-and-secrets.md`
   - `docs/runbooks/database-connection-hardening.md`
 
-## 7. Completion Criteria
+## 8. Completion Criteria
 
 A task is complete only when:
 
