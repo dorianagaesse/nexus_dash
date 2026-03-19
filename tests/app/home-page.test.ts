@@ -13,6 +13,10 @@ const envMock = vi.hoisted(() => ({
   isLiveProductionDeployment: vi.fn(),
 }));
 
+const socialAuthMock = vi.hoisted(() => ({
+  getEnabledSocialAuthProviders: vi.fn(),
+}));
+
 const redirectMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/session-user", () => ({
@@ -31,6 +35,17 @@ vi.mock("@/lib/env.server", async () => {
   return {
     ...actual,
     isLiveProductionDeployment: envMock.isLiveProductionDeployment,
+  };
+});
+
+vi.mock("@/lib/social-auth", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/social-auth")>(
+    "@/lib/social-auth"
+  );
+
+  return {
+    ...actual,
+    getEnabledSocialAuthProviders: socialAuthMock.getEnabledSocialAuthProviders,
   };
 });
 
@@ -67,6 +82,7 @@ describe("home page auth entry", () => {
     vi.clearAllMocks();
     envMock.isLiveProductionDeployment.mockReturnValue(true);
     emailVerificationMock.isEmailVerifiedForUser.mockResolvedValue(true);
+    socialAuthMock.getEnabledSocialAuthProviders.mockReturnValue([]);
   });
 
   test("redirects signed-in users to projects", async () => {
@@ -115,6 +131,22 @@ describe("home page auth entry", () => {
     expect(serialized).toContain("signin-password");
     expect(serialized).not.toContain("signup-email");
     expect(serialized).not.toContain("signup-password");
+  });
+
+  test("renders social sign-in buttons when providers are enabled", async () => {
+    sessionUserMock.getSessionUserIdFromServer.mockResolvedValueOnce(null);
+    socialAuthMock.getEnabledSocialAuthProviders.mockReturnValueOnce([
+      { provider: "google", label: "Google" },
+      { provider: "github", label: "GitHub" },
+    ]);
+
+    const element = await Home({});
+    const serialized = serializeReactTree(element);
+
+    expect(serialized).toContain('"type":"[Function HomeSocialProviderButton]"');
+    expect(serialized).toContain('"provider":"google"');
+    expect(serialized).toContain('"provider":"github"');
+    expect(serialized).toContain("Or continue with email");
   });
 
   test("prefills sign-in email from query string", async () => {

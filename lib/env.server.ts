@@ -416,10 +416,28 @@ export function validateServerRuntimeConfig(
     ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
     "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be configured together."
   );
+  assertOptionalEnvironmentGroup(
+    ["AUTH_GOOGLE_CLIENT_ID", "AUTH_GOOGLE_CLIENT_SECRET"],
+    "AUTH_GOOGLE_CLIENT_ID and AUTH_GOOGLE_CLIENT_SECRET must be configured together."
+  );
+  assertOptionalEnvironmentGroup(
+    ["AUTH_GITHUB_CLIENT_ID", "AUTH_GITHUB_CLIENT_SECRET"],
+    "AUTH_GITHUB_CLIENT_ID and AUTH_GITHUB_CLIENT_SECRET must be configured together."
+  );
   const googleClientId = getOptionalServerEnv("GOOGLE_CLIENT_ID");
   const googleRedirectUri = getOptionalServerEnv("GOOGLE_REDIRECT_URI");
+  const authGoogleClientId = getOptionalServerEnv("AUTH_GOOGLE_CLIENT_ID");
+  const authGoogleRedirectUri = getOptionalServerEnv("AUTH_GOOGLE_REDIRECT_URI");
+  const githubClientId = getOptionalServerEnv("AUTH_GITHUB_CLIENT_ID");
+  const githubRedirectUri = getOptionalServerEnv("AUTH_GITHUB_REDIRECT_URI");
   if (googleRedirectUri) {
     assertValidUrl("GOOGLE_REDIRECT_URI", googleRedirectUri);
+  }
+  if (authGoogleRedirectUri) {
+    assertValidUrl("AUTH_GOOGLE_REDIRECT_URI", authGoogleRedirectUri);
+  }
+  if (githubRedirectUri) {
+    assertValidUrl("AUTH_GITHUB_REDIRECT_URI", githubRedirectUri);
   }
 
   const trustedOrigins = getOptionalServerEnv("TRUSTED_ORIGINS");
@@ -428,14 +446,26 @@ export function validateServerRuntimeConfig(
     throw new Error("TRUSTED_ORIGINS must contain at least one valid absolute URL.");
   }
 
+  const hasTrustedAppOrigin = trustedOriginsAreValid || Boolean(nextAuthUrl);
   const hasGoogleRedirectResolution =
     Boolean(googleRedirectUri) ||
-    trustedOriginsAreValid ||
-    Boolean(nextAuthUrl);
+    hasTrustedAppOrigin;
 
   if (googleClientId && !hasGoogleRedirectResolution) {
     throw new Error(
       "Google OAuth requires GOOGLE_REDIRECT_URI or a trusted app origin (TRUSTED_ORIGINS/NEXTAUTH_URL)."
+    );
+  }
+
+  if (authGoogleClientId && !hasTrustedAppOrigin && !authGoogleRedirectUri) {
+    throw new Error(
+      "Google sign-in requires AUTH_GOOGLE_REDIRECT_URI or a trusted app origin (TRUSTED_ORIGINS/NEXTAUTH_URL)."
+    );
+  }
+
+  if (githubClientId && !hasTrustedAppOrigin && !githubRedirectUri) {
+    throw new Error(
+      "GitHub sign-in requires AUTH_GITHUB_REDIRECT_URI or a trusted app origin (TRUSTED_ORIGINS/NEXTAUTH_URL)."
     );
   }
 

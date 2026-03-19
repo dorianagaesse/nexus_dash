@@ -61,6 +61,12 @@ jobs:
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      AUTH_GOOGLE_CLIENT_ID: ${{ secrets.AUTH_GOOGLE_CLIENT_ID }}
+      AUTH_GOOGLE_CLIENT_SECRET: ${{ secrets.AUTH_GOOGLE_CLIENT_SECRET }}
+      AUTH_GOOGLE_REDIRECT_URI: ${{ secrets.AUTH_GOOGLE_REDIRECT_URI }}
+      AUTH_GITHUB_CLIENT_ID: ${{ secrets.AUTH_GITHUB_CLIENT_ID }}
+      AUTH_GITHUB_CLIENT_SECRET: ${{ secrets.AUTH_GITHUB_CLIENT_SECRET }}
+      AUTH_GITHUB_REDIRECT_URI: ${{ secrets.AUTH_GITHUB_REDIRECT_URI }}
 
     steps:
       - name: Validate required Vercel secrets
@@ -173,6 +179,12 @@ jobs:
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      AUTH_GOOGLE_CLIENT_ID: ${{ secrets.AUTH_GOOGLE_CLIENT_ID }}
+      AUTH_GOOGLE_CLIENT_SECRET: ${{ secrets.AUTH_GOOGLE_CLIENT_SECRET }}
+      AUTH_GOOGLE_REDIRECT_URI: ${{ secrets.AUTH_GOOGLE_REDIRECT_URI }}
+      AUTH_GITHUB_CLIENT_ID: ${{ secrets.AUTH_GITHUB_CLIENT_ID }}
+      AUTH_GITHUB_CLIENT_SECRET: ${{ secrets.AUTH_GITHUB_CLIENT_SECRET }}
+      AUTH_GITHUB_REDIRECT_URI: ${{ secrets.AUTH_GITHUB_REDIRECT_URI }}
 
     steps:
       - name: Validate required Vercel secrets

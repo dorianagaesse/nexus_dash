@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { NextRequest } from "next/server";
 
+const socialAuthCallbackRouteMock = vi.hoisted(() => ({
+  GET: vi.fn(),
+}));
+
 const credentialServiceMock = vi.hoisted(() => ({
   upsertGoogleCalendarCredentialTokens: vi.fn(),
 }));
@@ -19,6 +23,10 @@ vi.mock("@/lib/services/google-calendar-credential-service", () => ({
     credentialServiceMock.upsertGoogleCalendarCredentialTokens,
 }));
 
+vi.mock("@/app/api/auth/callback/[provider]/route", () => ({
+  GET: socialAuthCallbackRouteMock.GET,
+}));
+
 vi.mock("@/lib/google-calendar", () => ({
   GOOGLE_OAUTH_ACTOR_COOKIE: googleCalendarMock.GOOGLE_OAUTH_ACTOR_COOKIE,
   GOOGLE_OAUTH_STATE_COOKIE: googleCalendarMock.GOOGLE_OAUTH_STATE_COOKIE,
@@ -27,6 +35,10 @@ vi.mock("@/lib/google-calendar", () => ({
     googleCalendarMock.exchangeAuthorizationCodeForTokens,
   resolveGoogleOAuthRedirectUri: googleCalendarMock.resolveGoogleOAuthRedirectUri,
   normalizeReturnToPath: googleCalendarMock.normalizeReturnToPath,
+}));
+
+vi.mock("@/lib/social-auth", () => ({
+  SOCIAL_OAUTH_PROVIDER_COOKIE: "nexusdash_social_oauth_provider",
 }));
 
 import { GET } from "@/app/api/auth/callback/google/route";
@@ -48,12 +60,39 @@ function readSetCookieHeaders(response: Response): string {
 describe("GET /api/auth/callback/google", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    socialAuthCallbackRouteMock.GET.mockResolvedValue(
+      new Response(null, {
+        status: 307,
+        headers: {
+          location: "http://localhost/projects",
+        },
+      })
+    );
     googleCalendarMock.normalizeReturnToPath.mockImplementation((value: string | null) =>
       value && value.startsWith("/") ? value : "/projects"
     );
     googleCalendarMock.resolveGoogleOAuthRedirectUri.mockReturnValue(
       "http://localhost/api/auth/callback/google"
     );
+  });
+
+  test("delegates to social auth callback when social google oauth cookies are present", async () => {
+    const response = await GET(
+      createRequest(
+        "http://localhost/api/auth/callback/google?state=expected&code=oauth-code",
+        {
+          nexusdash_social_oauth_provider: "google",
+          nexusdash_social_oauth_state: "expected",
+        }
+      )
+    );
+
+    expect(socialAuthCallbackRouteMock.GET).toHaveBeenCalledWith(expect.any(NextRequest), {
+      params: { provider: "google" },
+    });
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://localhost/projects");
+    expect(googleCalendarMock.exchangeAuthorizationCodeForTokens).not.toHaveBeenCalled();
   });
 
   test("redirects with cancelled error when provider returns oauth error", async () => {

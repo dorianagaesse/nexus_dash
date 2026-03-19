@@ -27,6 +27,12 @@ const ENV_KEYS_TO_RESET = [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
   "GOOGLE_REDIRECT_URI",
+  "AUTH_GOOGLE_CLIENT_ID",
+  "AUTH_GOOGLE_CLIENT_SECRET",
+  "AUTH_GOOGLE_REDIRECT_URI",
+  "AUTH_GITHUB_CLIENT_ID",
+  "AUTH_GITHUB_CLIENT_SECRET",
+  "AUTH_GITHUB_REDIRECT_URI",
   "RESEND_API_KEY",
   "RESEND_FROM_EMAIL",
   "STORAGE_PROVIDER",
@@ -286,6 +292,28 @@ describe("env.server", () => {
     );
   });
 
+  test("fails runtime validation when auth google provider is partially configured", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("AUTH_GOOGLE_CLIENT_ID", "client-id");
+    vi.stubEnv("AUTH_GOOGLE_CLIENT_SECRET", "");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "AUTH_GOOGLE_CLIENT_ID and AUTH_GOOGLE_CLIENT_SECRET must be configured together."
+    );
+  });
+
+  test("fails runtime validation when github provider is partially configured", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_ID", "client-id");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_SECRET", "");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "AUTH_GITHUB_CLIENT_ID and AUTH_GITHUB_CLIENT_SECRET must be configured together."
+    );
+  });
+
   test("fails runtime validation when google oauth is enabled without redirect resolution config", () => {
     vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
     vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
@@ -323,6 +351,75 @@ describe("env.server", () => {
 
     expect(() => validateServerRuntimeConfig()).toThrow(
       "GOOGLE_REDIRECT_URI must be a valid absolute URL."
+    );
+  });
+
+  test("fails runtime validation when auth google redirect uri is invalid", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("AUTH_GOOGLE_CLIENT_ID", "client-id");
+    vi.stubEnv("AUTH_GOOGLE_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("AUTH_GOOGLE_REDIRECT_URI", "/relative-callback");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "AUTH_GOOGLE_REDIRECT_URI must be a valid absolute URL."
+    );
+  });
+
+  test("fails runtime validation when github redirect uri is invalid", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_ID", "client-id");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("AUTH_GITHUB_REDIRECT_URI", "/relative-callback");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "AUTH_GITHUB_REDIRECT_URI must be a valid absolute URL."
+    );
+  });
+
+  test("fails runtime validation when auth google sign-in has no redirect resolution path", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("AUTH_GOOGLE_CLIENT_ID", "client-id");
+    vi.stubEnv("AUTH_GOOGLE_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("AUTH_GOOGLE_REDIRECT_URI", "");
+    vi.stubEnv("TRUSTED_ORIGINS", "");
+    vi.stubEnv("NEXTAUTH_URL", "");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "Google sign-in requires AUTH_GOOGLE_REDIRECT_URI or a trusted app origin (TRUSTED_ORIGINS/NEXTAUTH_URL)."
+    );
+  });
+
+  test("fails runtime validation when github sign-in has no redirect resolution path", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_ID", "client-id");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("AUTH_GITHUB_REDIRECT_URI", "");
+    vi.stubEnv("TRUSTED_ORIGINS", "");
+    vi.stubEnv("NEXTAUTH_URL", "");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "GitHub sign-in requires AUTH_GITHUB_REDIRECT_URI or a trusted app origin (TRUSTED_ORIGINS/NEXTAUTH_URL)."
+    );
+  });
+
+  test("does not treat calendar redirect config as sufficient for social sign-in redirects", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("GOOGLE_CLIENT_ID", "calendar-client-id");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "calendar-client-secret");
+    vi.stubEnv("GOOGLE_REDIRECT_URI", "https://app.example.com/api/auth/callback/google");
+    vi.stubEnv("AUTH_GOOGLE_CLIENT_ID", "social-client-id");
+    vi.stubEnv("AUTH_GOOGLE_CLIENT_SECRET", "social-client-secret");
+    vi.stubEnv("AUTH_GOOGLE_REDIRECT_URI", "");
+    vi.stubEnv("TRUSTED_ORIGINS", "");
+    vi.stubEnv("NEXTAUTH_URL", "");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "Google sign-in requires AUTH_GOOGLE_REDIRECT_URI or a trusted app origin (TRUSTED_ORIGINS/NEXTAUTH_URL)."
     );
   });
 

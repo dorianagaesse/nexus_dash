@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { GET as handleSocialOAuthCallback } from "@/app/api/auth/callback/[provider]/route";
 import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
 import {
   GOOGLE_OAUTH_ACTOR_COOKIE,
@@ -13,6 +14,7 @@ import { isProductionEnvironment } from "@/lib/env.server";
 import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
 import { logServerError } from "@/lib/observability/logger";
 import { upsertGoogleCalendarCredentialTokens } from "@/lib/services/google-calendar-credential-service";
+import { SOCIAL_OAUTH_PROVIDER_COOKIE } from "@/lib/social-auth";
 
 function buildRedirectUrl(
   request: NextRequest,
@@ -65,6 +67,15 @@ function buildRedirectResponse(
 }
 
 export async function GET(request: NextRequest) {
+  const socialOAuthProvider =
+    request.cookies.get(SOCIAL_OAUTH_PROVIDER_COOKIE)?.value ?? null;
+
+  if (socialOAuthProvider === "google") {
+    return handleSocialOAuthCallback(request, {
+      params: { provider: "google" },
+    });
+  }
+
   const actorUserId = await getSessionUserIdFromRequest(request);
   const expectedState = request.cookies.get(GOOGLE_OAUTH_STATE_COOKIE)?.value ?? null;
   const expectedActorUserId =
