@@ -26,7 +26,7 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
 - Keep PRs single-purpose; do not mix unrelated backlog tasks.
 - Push the active branch remotely after meaningful implementation/validation progress and before handoff.
 - If the current task does not already have an open PR, create one once the branch is reviewable; continue updating the same PR for that task.
-- After the PR is first opened, monitor automated review/check feedback, including Copilot review when it is triggered automatically.
+- After the PR is first opened, monitor automated review/check feedback until Copilot has finished generating its initial review outcome, even when that outcome contains no inline comments.
 - Triage Copilot review comments: apply relevant changes, respond on threads, resolve conversations you addressed, and leave clear rationale when a suggestion is intentionally not applied.
 
 ## 4. Architecture Boundaries (Non-Negotiable)

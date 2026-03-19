@@ -44,6 +44,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: The current experience is optimized for desktop and degrades on smaller screens; adapt core views (home, projects grid, project workspace, modals, and key controls) for mobile readability, touch ergonomics, and overflow-safe navigation.
   Dependencies: TASK-012, TASK-024
+- ID: TASK-100
+  Title: Mobile UI/UX refinement - touch ergonomics, compact layouts, and small-screen polish
+  Status: Pending
+  Rationale: After the baseline responsive pass, refine the mobile experience so it feels intentionally designed rather than merely supported by tightening spacing, improving touch targets, reducing modal friction, and smoothing small-screen navigation patterns across high-traffic flows.
+  Dependencies: TASK-091, TASK-079, TASK-096
 
 ### Deferred (Intentional)
 - ID: TASK-098
