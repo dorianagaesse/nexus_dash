@@ -12,6 +12,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-03-19
+- Type: Governance
+- Summary: Refreshed repository execution guidance and task tracking after verifying completed work in git history, including closure of TASK-096 and rotation of the active task to TASK-058.
+- Evidence: Updated `agent.md`, `tasks/backlog.md`, and `tasks/current.md` after confirming `TASK-096` was integrated through commit `b20d4af` / PR `#97`.
+
+### 2026-03-19
+- Type: Governance
+- Summary: Added a dedicated mobile UI/UX refinement follow-up task and clarified that PR monitoring continues until Copilot produces its initial review outcome, even when no inline comments are generated.
+- Evidence: Updated `tasks/backlog.md` with `TASK-100` and tightened the PR monitoring rule in `agent.md` while PR `#100` remained active.
+
+### 2026-03-19
+- Type: Governance
+- Summary: Clarified the repository review workflow so a Copilot overview review with no comments is explicitly treated as a clean state with no follow-up work required.
+- Evidence: Updated `agent.md` on branch `docs/agent-task-tracking-refresh` while PR `#100` was open.
+
 ### 2026-03-09
 - Type: Execution
 - Summary: TASK-085 Phase 2 implemented with FORCE-RLS migration on the protected table set and branch hygiene update for local preview artifacts.
