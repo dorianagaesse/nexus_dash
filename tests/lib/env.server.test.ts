@@ -30,9 +30,9 @@ const ENV_KEYS_TO_RESET = [
   "AUTH_GOOGLE_CLIENT_ID",
   "AUTH_GOOGLE_CLIENT_SECRET",
   "AUTH_GOOGLE_REDIRECT_URI",
-  "GITHUB_CLIENT_ID",
-  "GITHUB_CLIENT_SECRET",
-  "GITHUB_REDIRECT_URI",
+  "AUTH_GITHUB_CLIENT_ID",
+  "AUTH_GITHUB_CLIENT_SECRET",
+  "AUTH_GITHUB_REDIRECT_URI",
   "RESEND_API_KEY",
   "RESEND_FROM_EMAIL",
   "STORAGE_PROVIDER",
@@ -306,11 +306,11 @@ describe("env.server", () => {
   test("fails runtime validation when github provider is partially configured", () => {
     vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
     vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
-    vi.stubEnv("GITHUB_CLIENT_ID", "client-id");
-    vi.stubEnv("GITHUB_CLIENT_SECRET", "");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_ID", "client-id");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_SECRET", "");
 
     expect(() => validateServerRuntimeConfig()).toThrow(
-      "GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be configured together."
+      "AUTH_GITHUB_CLIENT_ID and AUTH_GITHUB_CLIENT_SECRET must be configured together."
     );
   });
 
@@ -369,12 +369,12 @@ describe("env.server", () => {
   test("fails runtime validation when github redirect uri is invalid", () => {
     vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
     vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
-    vi.stubEnv("GITHUB_CLIENT_ID", "client-id");
-    vi.stubEnv("GITHUB_CLIENT_SECRET", "client-secret");
-    vi.stubEnv("GITHUB_REDIRECT_URI", "/relative-callback");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_ID", "client-id");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("AUTH_GITHUB_REDIRECT_URI", "/relative-callback");
 
     expect(() => validateServerRuntimeConfig()).toThrow(
-      "GITHUB_REDIRECT_URI must be a valid absolute URL."
+      "AUTH_GITHUB_REDIRECT_URI must be a valid absolute URL."
     );
   });
 
@@ -395,14 +395,14 @@ describe("env.server", () => {
   test("fails runtime validation when github sign-in has no redirect resolution path", () => {
     vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
     vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
-    vi.stubEnv("GITHUB_CLIENT_ID", "client-id");
-    vi.stubEnv("GITHUB_CLIENT_SECRET", "client-secret");
-    vi.stubEnv("GITHUB_REDIRECT_URI", "");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_ID", "client-id");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("AUTH_GITHUB_REDIRECT_URI", "");
     vi.stubEnv("TRUSTED_ORIGINS", "");
     vi.stubEnv("NEXTAUTH_URL", "");
 
     expect(() => validateServerRuntimeConfig()).toThrow(
-      "GitHub sign-in requires GITHUB_REDIRECT_URI or a trusted app origin (TRUSTED_ORIGINS/NEXTAUTH_URL)."
+      "GitHub sign-in requires AUTH_GITHUB_REDIRECT_URI or a trusted app origin (TRUSTED_ORIGINS/NEXTAUTH_URL)."
     );
   });
 

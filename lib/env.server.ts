@@ -421,15 +421,15 @@ export function validateServerRuntimeConfig(
     "AUTH_GOOGLE_CLIENT_ID and AUTH_GOOGLE_CLIENT_SECRET must be configured together."
   );
   assertOptionalEnvironmentGroup(
-    ["GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"],
-    "GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be configured together."
+    ["AUTH_GITHUB_CLIENT_ID", "AUTH_GITHUB_CLIENT_SECRET"],
+    "AUTH_GITHUB_CLIENT_ID and AUTH_GITHUB_CLIENT_SECRET must be configured together."
   );
   const googleClientId = getOptionalServerEnv("GOOGLE_CLIENT_ID");
   const googleRedirectUri = getOptionalServerEnv("GOOGLE_REDIRECT_URI");
   const authGoogleClientId = getOptionalServerEnv("AUTH_GOOGLE_CLIENT_ID");
   const authGoogleRedirectUri = getOptionalServerEnv("AUTH_GOOGLE_REDIRECT_URI");
-  const githubClientId = getOptionalServerEnv("GITHUB_CLIENT_ID");
-  const githubRedirectUri = getOptionalServerEnv("GITHUB_REDIRECT_URI");
+  const githubClientId = getOptionalServerEnv("AUTH_GITHUB_CLIENT_ID");
+  const githubRedirectUri = getOptionalServerEnv("AUTH_GITHUB_REDIRECT_URI");
   if (googleRedirectUri) {
     assertValidUrl("GOOGLE_REDIRECT_URI", googleRedirectUri);
   }
@@ -437,7 +437,7 @@ export function validateServerRuntimeConfig(
     assertValidUrl("AUTH_GOOGLE_REDIRECT_URI", authGoogleRedirectUri);
   }
   if (githubRedirectUri) {
-    assertValidUrl("GITHUB_REDIRECT_URI", githubRedirectUri);
+    assertValidUrl("AUTH_GITHUB_REDIRECT_URI", githubRedirectUri);
   }
 
   const trustedOrigins = getOptionalServerEnv("TRUSTED_ORIGINS");
@@ -465,7 +465,7 @@ export function validateServerRuntimeConfig(
 
   if (githubClientId && !hasTrustedAppOrigin && !githubRedirectUri) {
     throw new Error(
-      "GitHub sign-in requires GITHUB_REDIRECT_URI or a trusted app origin (TRUSTED_ORIGINS/NEXTAUTH_URL)."
+      "GitHub sign-in requires AUTH_GITHUB_REDIRECT_URI or a trusted app origin (TRUSTED_ORIGINS/NEXTAUTH_URL)."
     );
   }
 

@@ -87,7 +87,10 @@ function readProviderConfig(
     };
   }
 
-  const pair = readOptionalEnvPair("GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET");
+  const pair = readOptionalEnvPair(
+    "AUTH_GITHUB_CLIENT_ID",
+    "AUTH_GITHUB_CLIENT_SECRET"
+  );
   if (!pair) {
     return null;
   }
@@ -96,7 +99,7 @@ function readProviderConfig(
     provider,
     clientId: pair.clientId,
     clientSecret: pair.clientSecret,
-    explicitRedirectUri: getOptionalServerEnv("GITHUB_REDIRECT_URI"),
+    explicitRedirectUri: getOptionalServerEnv("AUTH_GITHUB_REDIRECT_URI"),
   };
 }
 
