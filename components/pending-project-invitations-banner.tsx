@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
+import { logServerError } from "@/lib/observability/logger";
 import { listPendingProjectInvitationsForUser } from "@/lib/services/project-collaboration-service";
 
 interface PendingProjectInvitationsBannerProps {
@@ -10,7 +11,17 @@ interface PendingProjectInvitationsBannerProps {
 export async function PendingProjectInvitationsBanner({
   actorUserId,
 }: PendingProjectInvitationsBannerProps) {
-  const result = await listPendingProjectInvitationsForUser(actorUserId);
+  let result;
+  try {
+    result = await listPendingProjectInvitationsForUser(actorUserId);
+  } catch (error) {
+    logServerError(
+      "PendingProjectInvitationsBanner.listPendingProjectInvitationsForUser",
+      error
+    );
+    return null;
+  }
+
   if (!result.ok || result.data.invitations.length === 0) {
     return null;
   }

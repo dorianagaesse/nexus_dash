@@ -20,6 +20,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import {
+  countPendingProjectInvitationsForUser,
   listPendingProjectInvitationsForUser,
   respondToProjectInvitation,
 } from "@/lib/services/project-collaboration-service";
@@ -151,6 +152,15 @@ describe("project-collaboration-service", () => {
         ],
       },
     });
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  test("counts pending invitations through the shared metadata function", async () => {
+    prismaMock.$queryRaw.mockResolvedValueOnce([{ count: 3 }]);
+
+    const result = await countPendingProjectInvitationsForUser("user-1");
+
+    expect(result).toBe(3);
     expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
   });
 });

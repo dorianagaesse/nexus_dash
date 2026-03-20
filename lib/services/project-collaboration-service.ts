@@ -201,6 +201,40 @@ interface PendingInvitationMetadataRow {
   expiresAt: Date;
 }
 
+interface PendingInvitationCountRow {
+  count: number;
+}
+
+async function listPendingInvitationMetadataRows(
+  db: DbClient
+): Promise<PendingInvitationMetadataRow[]> {
+  return db.$queryRaw<PendingInvitationMetadataRow[]>(Prisma.sql`
+    SELECT
+      invitation_id AS "invitationId",
+      project_id AS "projectId",
+      project_name AS "projectName",
+      invited_user_id AS "invitedUserId",
+      invited_by_user_id AS "invitedByUserId",
+      invited_by_email AS "invitedByEmail",
+      invited_by_name AS "invitedByName",
+      invited_by_username AS "invitedByUsername",
+      invited_by_username_discriminator AS "invitedByUsernameDiscriminator",
+      invitation_role AS "invitationRole",
+      created_at AS "createdAt",
+      expires_at AS "expiresAt"
+    FROM app.list_pending_project_invitations_for_current_user()
+  `);
+}
+
+async function countPendingInvitationMetadataRows(db: DbClient): Promise<number> {
+  const rows = await db.$queryRaw<PendingInvitationCountRow[]>(Prisma.sql`
+    SELECT COUNT(*)::int AS "count"
+    FROM app.list_pending_project_invitations_for_current_user()
+  `);
+
+  return rows[0]?.count ?? 0;
+}
+
 async function revokeExpiredInvitationsForUser(input: {
   db: DbClient;
   projectId: string;
@@ -817,22 +851,7 @@ export async function listPendingProjectInvitationsForUser(
           usernameDiscriminator: true,
         },
       }),
-      db.$queryRaw<PendingInvitationMetadataRow[]>(Prisma.sql`
-        SELECT
-          invitation_id AS "invitationId",
-          project_id AS "projectId",
-          project_name AS "projectName",
-          invited_user_id AS "invitedUserId",
-          invited_by_user_id AS "invitedByUserId",
-          invited_by_email AS "invitedByEmail",
-          invited_by_name AS "invitedByName",
-          invited_by_username AS "invitedByUsername",
-          invited_by_username_discriminator AS "invitedByUsernameDiscriminator",
-          invitation_role AS "invitationRole",
-          created_at AS "createdAt",
-          expires_at AS "expiresAt"
-        FROM app.list_pending_project_invitations_for_current_user()
-      `),
+      listPendingInvitationMetadataRows(db),
     ]);
 
     if (!actor) {
@@ -883,14 +902,10 @@ export async function countPendingProjectInvitationsForUser(
 
   const now = new Date();
 
-  return withActorRlsContext(normalizedActorUserId, (db) =>
-    db.projectInvitation.count({
-      where: {
-        invitedUserId: normalizedActorUserId,
-        ...buildPendingInvitationWhere(now),
-      },
-    })
-  );
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    const count = await countPendingInvitationMetadataRows(db);
+    return count > 0 ? count : 0;
+  });
 }
 
 export async function respondToProjectInvitation(input: {
