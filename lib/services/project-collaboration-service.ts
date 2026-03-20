@@ -186,6 +186,21 @@ function buildPendingInvitationWhere(now: Date) {
   } satisfies Prisma.ProjectInvitationWhereInput;
 }
 
+interface PendingInvitationMetadataRow {
+  invitationId: string;
+  projectId: string;
+  projectName: string;
+  invitedUserId: string;
+  invitedByUserId: string;
+  invitedByEmail: string | null;
+  invitedByName: string | null;
+  invitedByUsername: string | null;
+  invitedByUsernameDiscriminator: string | null;
+  invitationRole: ProjectMembershipRole;
+  createdAt: Date;
+  expiresAt: Date;
+}
+
 async function revokeExpiredInvitationsForUser(input: {
   db: DbClient;
   projectId: string;
@@ -791,63 +806,66 @@ export async function listPendingProjectInvitationsForUser(
   const now = new Date();
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
-    const invitations = await db.projectInvitation.findMany({
-      where: {
-        invitedUserId: normalizedActorUserId,
-        ...buildPendingInvitationWhere(now),
-      },
-      orderBy: [{ createdAt: "desc" }],
-      select: {
-        id: true,
-        role: true,
-        createdAt: true,
-        expiresAt: true,
-        project: {
-          select: {
-            id: true,
-            name: true,
-          },
+    const [actor, invitations] = await Promise.all([
+      db.user.findUnique({
+        where: { id: normalizedActorUserId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          username: true,
+          usernameDiscriminator: true,
         },
-        invitedUser: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            username: true,
-            usernameDiscriminator: true,
-          },
-        },
-        invitedByUser: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            username: true,
-            usernameDiscriminator: true,
-          },
-        },
-      },
+      }),
+      db.$queryRaw<PendingInvitationMetadataRow[]>(Prisma.sql`
+        SELECT
+          invitation_id AS "invitationId",
+          project_id AS "projectId",
+          project_name AS "projectName",
+          invited_user_id AS "invitedUserId",
+          invited_by_user_id AS "invitedByUserId",
+          invited_by_email AS "invitedByEmail",
+          invited_by_name AS "invitedByName",
+          invited_by_username AS "invitedByUsername",
+          invited_by_username_discriminator AS "invitedByUsernameDiscriminator",
+          invitation_role AS "invitationRole",
+          created_at AS "createdAt",
+          expires_at AS "expiresAt"
+        FROM app.list_pending_project_invitations_for_current_user()
+      `),
+    ]);
+
+    if (!actor) {
+      return createError(401, "unauthorized");
+    }
+
+    const actorIdentity = buildIdentitySummary(actor);
+
+    const activeInvitations = invitations.filter((invitation) => {
+      return invitation.expiresAt.getTime() > now.getTime();
     });
 
     return createSuccess(200, {
-      invitations: invitations.map((invitation) => ({
-        invitationId: invitation.id,
-        projectId: invitation.project.id,
-        projectName: invitation.project.name,
-        invitedUserId: invitation.invitedUser.id,
-        invitedUserDisplayName: buildDisplayName(invitation.invitedUser),
-        invitedUserUsernameTag: buildUsernameTag(
-          invitation.invitedUser.username,
-          invitation.invitedUser.usernameDiscriminator
-        ),
-        invitedUserEmail: invitation.invitedUser.email,
-        invitedByDisplayName: buildDisplayName(invitation.invitedByUser),
+      invitations: activeInvitations.map((invitation) => ({
+        invitationId: invitation.invitationId,
+        projectId: invitation.projectId,
+        projectName: invitation.projectName,
+        invitedUserId: actorIdentity.id,
+        invitedUserDisplayName: actorIdentity.displayName,
+        invitedUserUsernameTag: actorIdentity.usernameTag,
+        invitedUserEmail: actorIdentity.email,
+        invitedByDisplayName: buildDisplayName({
+          name: invitation.invitedByName,
+          username: invitation.invitedByUsername,
+          usernameDiscriminator: invitation.invitedByUsernameDiscriminator,
+          email: invitation.invitedByEmail,
+        }),
         invitedByUsernameTag: buildUsernameTag(
-          invitation.invitedByUser.username,
-          invitation.invitedByUser.usernameDiscriminator
+          invitation.invitedByUsername,
+          invitation.invitedByUsernameDiscriminator
         ),
-        invitedByEmail: invitation.invitedByUser.email,
-        role: requireCollaboratorRole(invitation.role),
+        invitedByEmail: invitation.invitedByEmail,
+        role: requireCollaboratorRole(invitation.invitationRole),
         createdAt: invitation.createdAt.toISOString(),
         expiresAt: invitation.expiresAt.toISOString(),
       })),

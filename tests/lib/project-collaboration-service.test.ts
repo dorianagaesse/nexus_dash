@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
+  $queryRaw: vi.fn(),
   user: {
     findUnique: vi.fn(),
   },
@@ -18,7 +19,10 @@ vi.mock("@/lib/prisma", () => ({
   prisma: prismaMock,
 }));
 
-import { respondToProjectInvitation } from "@/lib/services/project-collaboration-service";
+import {
+  listPendingProjectInvitationsForUser,
+  respondToProjectInvitation,
+} from "@/lib/services/project-collaboration-service";
 
 describe("project-collaboration-service", () => {
   beforeEach(() => {
@@ -95,5 +99,58 @@ describe("project-collaboration-service", () => {
     });
     expect(prismaMock.projectMembership.create).toHaveBeenCalledTimes(1);
     expect(prismaMock.projectInvitation.updateMany).toHaveBeenCalledTimes(1);
+  });
+
+  test("lists pending invitations without relying on direct project row reads", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: "user-1",
+      email: "invitee@example.com",
+      name: "Invitee",
+      username: "invitee",
+      usernameDiscriminator: "1234",
+    });
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      {
+        invitationId: "invite-1",
+        projectId: "project-1",
+        projectName: "Shared Project",
+        invitedUserId: "user-1",
+        invitedByUserId: "user-2",
+        invitedByEmail: "owner@example.com",
+        invitedByName: "Owner",
+        invitedByUsername: "owner",
+        invitedByUsernameDiscriminator: "4321",
+        invitationRole: "editor",
+        createdAt: new Date("2026-03-20T10:00:00.000Z"),
+        expiresAt: new Date("2026-03-21T10:00:00.000Z"),
+      },
+    ]);
+
+    const result = await listPendingProjectInvitationsForUser("user-1");
+
+    expect(result).toEqual({
+      ok: true,
+      status: 200,
+      data: {
+        invitations: [
+          {
+            invitationId: "invite-1",
+            projectId: "project-1",
+            projectName: "Shared Project",
+            invitedUserId: "user-1",
+            invitedUserDisplayName: "invitee#1234",
+            invitedUserUsernameTag: "invitee#1234",
+            invitedUserEmail: "invitee@example.com",
+            invitedByDisplayName: "owner#4321",
+            invitedByUsernameTag: "owner#4321",
+            invitedByEmail: "owner@example.com",
+            role: "editor",
+            createdAt: "2026-03-20T10:00:00.000Z",
+            expiresAt: "2026-03-21T10:00:00.000Z",
+          },
+        ],
+      },
+    });
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
   });
 });
