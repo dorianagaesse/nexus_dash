@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
+import { logServerError } from "@/lib/observability/logger";
 import {
   MAX_PASSWORD_LENGTH,
   MIN_PASSWORD_LENGTH,
@@ -14,7 +15,10 @@ import {
   MIN_USERNAME_LENGTH,
 } from "@/lib/services/account-security-policy";
 import { getAccountProfile } from "@/lib/services/account-profile-service";
-import { listPendingProjectInvitationsForUser } from "@/lib/services/project-collaboration-service";
+import {
+  listPendingProjectInvitationsForUser,
+  type ProjectInvitationSummary,
+} from "@/lib/services/project-collaboration-service";
 
 import {
   acceptProjectInvitationAction,
@@ -82,9 +86,13 @@ export default async function AccountProfilePage({
   if (!profileResult.ok) {
     notFound();
   }
-  const invitationsResult = await listPendingProjectInvitationsForUser(actorUserId);
-  const pendingInvitations =
-    invitationsResult.ok ? invitationsResult.data.invitations : [];
+  let pendingInvitations: ProjectInvitationSummary[] = [];
+  try {
+    const invitationsResult = await listPendingProjectInvitationsForUser(actorUserId);
+    pendingInvitations = invitationsResult.ok ? invitationsResult.data.invitations : [];
+  } catch (error) {
+    logServerError("AccountProfilePage.listPendingProjectInvitationsForUser", error);
+  }
 
   const status = readQueryValue(searchParams?.status);
   const error = readQueryValue(searchParams?.error);
