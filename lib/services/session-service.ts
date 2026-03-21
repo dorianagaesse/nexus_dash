@@ -2,15 +2,17 @@ import crypto from "node:crypto";
 
 import { prisma } from "@/lib/prisma";
 
-export const SESSION_COOKIE_NAMES = [
+export const PRIMARY_SESSION_COOKIE_NAME = "nexusdash.session-token";
+export const LEGACY_SESSION_COOKIE_NAMES = [
   "__Secure-authjs.session-token",
   "authjs.session-token",
   "__Secure-next-auth.session-token",
   "next-auth.session-token",
-  "nexusdash.session-token",
 ] as const;
-
-export const PRIMARY_SESSION_COOKIE_NAME = "nexusdash.session-token";
+export const SESSION_COOKIE_NAMES = [
+  PRIMARY_SESSION_COOKIE_NAME,
+  ...LEGACY_SESSION_COOKIE_NAMES,
+] as const;
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 
 type CookieReader = (name: string) => string | null;
@@ -25,21 +27,35 @@ function normalizeSessionToken(value: string | null): string | null {
 }
 
 export function readSessionTokenFromCookieReader(readCookie: CookieReader): string | null {
+  return readSessionTokensFromCookieReader(readCookie)[0] ?? null;
+}
+
+export function readSessionTokensFromCookieReader(readCookie: CookieReader): string[] {
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+
   for (const cookieName of SESSION_COOKIE_NAMES) {
     const cookieValue = normalizeSessionToken(readCookie(cookieName));
-    if (cookieValue) {
-      return cookieValue;
+    if (cookieValue && !seen.has(cookieValue)) {
+      seen.add(cookieValue);
+      tokens.push(cookieValue);
     }
   }
 
-  return null;
+  return tokens;
 }
 
 export function readSessionTokenFromCookieHeader(
   cookieHeaderValue: string | null
 ): string | null {
+  return readSessionTokensFromCookieHeader(cookieHeaderValue)[0] ?? null;
+}
+
+export function readSessionTokensFromCookieHeader(
+  cookieHeaderValue: string | null
+): string[] {
   if (!cookieHeaderValue) {
-    return null;
+    return [];
   }
 
   const parts = cookieHeaderValue.split(";").map((entry) => entry.trim());
@@ -56,7 +72,7 @@ export function readSessionTokenFromCookieHeader(
     cookieMap.set(name, decodeURIComponent(value));
   }
 
-  return readSessionTokenFromCookieReader((name) => cookieMap.get(name) ?? null);
+  return readSessionTokensFromCookieReader((name) => cookieMap.get(name) ?? null);
 }
 
 export async function resolveSessionUserIdByToken(

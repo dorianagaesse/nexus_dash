@@ -41,7 +41,7 @@ describe("project-collaboration-service", () => {
       invitedUserId: "user-1",
       acceptedAt: new Date("2026-03-20T01:00:00.000Z"),
       revokedAt: null,
-      expiresAt: new Date("2026-03-21T00:00:00.000Z"),
+      expiresAt: new Date("2099-03-21T00:00:00.000Z"),
     });
 
     const result = await respondToProjectInvitation({
@@ -73,13 +73,13 @@ describe("project-collaboration-service", () => {
         invitedUserId: "user-1",
         acceptedAt: null,
         revokedAt: null,
-        expiresAt: new Date("2026-03-21T00:00:00.000Z"),
+        expiresAt: new Date("2099-03-21T00:00:00.000Z"),
       })
       .mockResolvedValueOnce({
         projectId: "project-1",
         acceptedAt: new Date("2026-03-20T02:00:00.000Z"),
         revokedAt: null,
-        expiresAt: new Date("2026-03-21T00:00:00.000Z"),
+        expiresAt: new Date("2099-03-21T00:00:00.000Z"),
       });
     prismaMock.projectMembership.findUnique.mockResolvedValueOnce(null);
     prismaMock.projectMembership.create.mockRejectedValueOnce({ code: "P2002" });
@@ -123,7 +123,7 @@ describe("project-collaboration-service", () => {
         invitedByUsernameDiscriminator: "4321",
         invitationRole: "editor",
         createdAt: new Date("2026-03-20T10:00:00.000Z"),
-        expiresAt: new Date("2026-03-21T10:00:00.000Z"),
+        expiresAt: new Date("2099-03-21T10:00:00.000Z"),
       },
     ]);
 
@@ -147,7 +147,7 @@ describe("project-collaboration-service", () => {
             invitedByEmail: "owner@example.com",
             role: "editor",
             createdAt: "2026-03-20T10:00:00.000Z",
-            expiresAt: "2026-03-21T10:00:00.000Z",
+            expiresAt: "2099-03-21T10:00:00.000Z",
           },
         ],
       },

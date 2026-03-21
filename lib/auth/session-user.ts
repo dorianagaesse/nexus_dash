@@ -3,8 +3,8 @@ import type { NextRequest } from "next/server";
 import * as React from "react";
 
 import {
-  readSessionTokenFromCookieHeader,
-  readSessionTokenFromCookieReader,
+  readSessionTokensFromCookieHeader,
+  readSessionTokensFromCookieReader,
   resolveSessionUserIdByToken,
 } from "@/lib/services/session-service";
 
@@ -13,6 +13,19 @@ interface CookieEnabledRequest {
     get(name: string): { value: string } | undefined;
   };
   headers: Headers;
+}
+
+async function resolveSessionUserIdFromTokens(
+  sessionTokens: string[]
+): Promise<string | null> {
+  for (const sessionToken of sessionTokens) {
+    const userId = await resolveSessionUserIdByToken(sessionToken);
+    if (userId) {
+      return userId;
+    }
+  }
+
+  return null;
 }
 
 function shouldUseSyntheticTestUser(): boolean {
@@ -27,24 +40,34 @@ export async function getSessionUserIdFromRequest(
   request: NextRequest | Request
 ): Promise<string | null> {
   const cookieRequest = request as CookieEnabledRequest;
-  const sessionTokenFromCookies = cookieRequest.cookies?.get
-    ? readSessionTokenFromCookieReader((name) => {
+  const sessionTokensFromCookies = cookieRequest.cookies?.get
+    ? readSessionTokensFromCookieReader((name) => {
         return cookieRequest.cookies?.get(name)?.value ?? null;
       })
-    : null;
+    : [];
 
-  const sessionToken =
-    sessionTokenFromCookies ??
-    readSessionTokenFromCookieHeader(request.headers.get("cookie"));
+  const sessionTokens = [
+    ...sessionTokensFromCookies,
+    ...readSessionTokensFromCookieHeader(request.headers.get("cookie")),
+  ].filter((token, index, array) => array.indexOf(token) === index);
 
-  if (!sessionToken) {
+  if (sessionTokens.length === 0) {
     if (shouldUseSyntheticTestUser()) {
       return "test-user";
     }
     return null;
   }
 
-  return resolveSessionUserIdByToken(sessionToken);
+  const userId = await resolveSessionUserIdFromTokens(sessionTokens);
+  if (userId) {
+    return userId;
+  }
+
+  if (shouldUseSyntheticTestUser()) {
+    return "test-user";
+  }
+
+  return null;
 }
 
 export async function getSessionUserIdFromServer(): Promise<string | null> {
@@ -61,17 +84,26 @@ const reactCache =
 const getCachedSessionUserIdFromServer = reactCache(
   async (): Promise<string | null> => {
     const cookieStore = cookies();
-    const sessionToken = readSessionTokenFromCookieReader((name) => {
+    const sessionTokens = readSessionTokensFromCookieReader((name) => {
       return cookieStore.get(name)?.value ?? null;
     });
 
-    if (!sessionToken) {
+    if (sessionTokens.length === 0) {
       if (shouldUseSyntheticTestUser()) {
         return "test-user";
       }
       return null;
     }
 
-    return resolveSessionUserIdByToken(sessionToken);
+    const userId = await resolveSessionUserIdFromTokens(sessionTokens);
+    if (userId) {
+      return userId;
+    }
+
+    if (shouldUseSyntheticTestUser()) {
+      return "test-user";
+    }
+
+    return null;
   }
 );

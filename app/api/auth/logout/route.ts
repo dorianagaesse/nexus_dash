@@ -5,19 +5,21 @@ import { logServerError } from "@/lib/observability/logger";
 import {
   SESSION_COOKIE_NAMES,
   deleteSessionByToken,
-  readSessionTokenFromCookieReader,
+  readSessionTokensFromCookieReader,
 } from "@/lib/services/session-service";
 
 export async function POST(request: NextRequest) {
-  const sessionToken = readSessionTokenFromCookieReader(
+  const sessionTokens = readSessionTokensFromCookieReader(
     (name) => request.cookies.get(name)?.value ?? null
   );
 
-  if (sessionToken) {
-    try {
-      await deleteSessionByToken(sessionToken);
-    } catch (error) {
-      logServerError("POST /api/auth/logout.deleteSessionFailed", error);
+  if (sessionTokens.length > 0) {
+    for (const sessionToken of sessionTokens) {
+      try {
+        await deleteSessionByToken(sessionToken);
+      } catch (error) {
+        logServerError("POST /api/auth/logout.deleteSessionFailed", error);
+      }
     }
   }
 
