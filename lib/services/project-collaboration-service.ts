@@ -201,10 +201,6 @@ interface PendingInvitationMetadataRow {
   expiresAt: Date;
 }
 
-interface PendingInvitationCountRow {
-  count: number;
-}
-
 async function listPendingInvitationMetadataRows(
   db: DbClient
 ): Promise<PendingInvitationMetadataRow[]> {
@@ -224,15 +220,6 @@ async function listPendingInvitationMetadataRows(
       expires_at AS "expiresAt"
     FROM app.list_pending_project_invitations_for_current_user()
   `);
-}
-
-async function countPendingInvitationMetadataRows(db: DbClient): Promise<number> {
-  const rows = await db.$queryRaw<PendingInvitationCountRow[]>(Prisma.sql`
-    SELECT COUNT(*)::int AS "count"
-    FROM app.list_pending_project_invitations_for_current_user()
-  `);
-
-  return rows[0]?.count ?? 0;
 }
 
 async function revokeExpiredInvitationsForUser(input: {
@@ -900,11 +887,9 @@ export async function countPendingProjectInvitationsForUser(
     return 0;
   }
 
-  const now = new Date();
-
   return withActorRlsContext(normalizedActorUserId, async (db) => {
-    const count = await countPendingInvitationMetadataRows(db);
-    return count > 0 ? count : 0;
+    const invitations = await listPendingInvitationMetadataRows(db);
+    return invitations.length;
   });
 }
 

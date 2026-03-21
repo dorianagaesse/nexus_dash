@@ -156,7 +156,11 @@ describe("project-collaboration-service", () => {
   });
 
   test("counts pending invitations through the shared metadata function", async () => {
-    prismaMock.$queryRaw.mockResolvedValueOnce([{ count: 3 }]);
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      { invitationId: "invite-1" },
+      { invitationId: "invite-2" },
+      { invitationId: "invite-3" },
+    ]);
 
     const result = await countPendingProjectInvitationsForUser("user-1");
 
