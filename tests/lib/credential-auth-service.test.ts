@@ -20,6 +20,10 @@ const cryptoMock = vi.hoisted(() => ({
   randomInt: vi.fn(),
 }));
 
+const envMock = vi.hoisted(() => ({
+  isPreviewDeployment: vi.fn(() => false),
+}));
+
 vi.mock("node:crypto", () => ({
   randomInt: cryptoMock.randomInt,
 }));
@@ -37,6 +41,10 @@ vi.mock("@/lib/services/password-service", () => ({
   verifyPassword: passwordServiceMock.verifyPassword,
 }));
 
+vi.mock("@/lib/env.server", () => ({
+  isPreviewDeployment: envMock.isPreviewDeployment,
+}));
+
 import {
   MIN_PASSWORD_LENGTH,
   MAX_USERNAME_LENGTH,
@@ -51,6 +59,7 @@ const VALID_SIGN_UP_PASSWORD = "Password123!";
 describe("credential-auth-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    envMock.isPreviewDeployment.mockReturnValue(false);
     sessionServiceMock.createSessionForUser.mockResolvedValue({
       sessionToken: "session-token",
       expiresAt: new Date("2026-03-01T00:00:00.000Z"),
@@ -252,6 +261,7 @@ describe("credential-auth-service", () => {
     expect(prismaMock.user.create).toHaveBeenCalledWith({
       data: {
         email: "user@example.com",
+        emailVerified: null,
         name: "test.user",
         username: "test.user",
         usernameDiscriminator: "0001",
@@ -272,6 +282,46 @@ describe("credential-auth-service", () => {
       data: {
         userId: "user-1",
         emailVerified: false,
+        sessionToken: "session-token",
+        expiresAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    });
+  });
+
+  test("signUp auto-verifies preview-created email accounts", async () => {
+    envMock.isPreviewDeployment.mockReturnValueOnce(true);
+    passwordServiceMock.hashPassword.mockResolvedValueOnce("hash-1");
+    prismaMock.user.create.mockResolvedValueOnce({
+      id: "user-1",
+      emailVerified: new Date("2026-03-21T00:00:00.000Z"),
+    });
+
+    const result = await signUpWithEmailPassword({
+      usernameRaw: "preview.user",
+      emailRaw: "preview@example.com",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
+    });
+
+    expect(prismaMock.user.create).toHaveBeenCalledWith({
+      data: {
+        email: "preview@example.com",
+        emailVerified: expect.any(Date),
+        name: "preview.user",
+        username: "preview.user",
+        usernameDiscriminator: "0001",
+        passwordHash: "hash-1",
+      },
+      select: {
+        id: true,
+        emailVerified: true,
+      },
+    });
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        userId: "user-1",
+        emailVerified: true,
         sessionToken: "session-token",
         expiresAt: new Date("2026-03-01T00:00:00.000Z"),
       },

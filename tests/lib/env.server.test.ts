@@ -9,6 +9,7 @@ import {
   getSupabaseClientRuntimeConfig,
   getVercelEnvironment,
   isLiveProductionDeployment,
+  isPreviewDeployment,
   isProductionEnvironment,
   validateServerRuntimeConfig,
 } from "@/lib/env.server";
@@ -102,17 +103,21 @@ describe("env.server", () => {
     vi.stubEnv("VERCEL_ENV", "preview");
     expect(getVercelEnvironment()).toBe("preview");
     expect(isLiveProductionDeployment()).toBe(false);
+    expect(isPreviewDeployment()).toBe(true);
 
     vi.stubEnv("VERCEL_ENV", "production");
     expect(getVercelEnvironment()).toBe("production");
     expect(isLiveProductionDeployment()).toBe(true);
+    expect(isPreviewDeployment()).toBe(false);
 
     vi.stubEnv("VERCEL_ENV", "");
     expect(getVercelEnvironment()).toBeNull();
     expect(isLiveProductionDeployment()).toBe(true);
+    expect(isPreviewDeployment()).toBe(false);
 
     vi.stubEnv("NODE_ENV", "development");
     expect(isLiveProductionDeployment()).toBe(false);
+    expect(isPreviewDeployment()).toBe(false);
   });
 
   test("builds database config and falls back direct url to database url", () => {

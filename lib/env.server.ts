@@ -64,6 +64,10 @@ export function isLiveProductionDeployment(): boolean {
   return vercelEnv === "production";
 }
 
+export function isPreviewDeployment(): boolean {
+  return isProductionEnvironment() && getVercelEnvironment() === "preview";
+}
+
 export interface DatabaseRuntimeConfig {
   databaseUrl: string;
   directUrl: string;
