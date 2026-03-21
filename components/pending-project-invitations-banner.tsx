@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_noStore as noStore } from "next/cache";
 
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { logServerError } from "@/lib/observability/logger";
@@ -11,6 +12,7 @@ interface PendingProjectInvitationsBannerProps {
 export async function PendingProjectInvitationsBanner({
   actorUserId,
 }: PendingProjectInvitationsBannerProps) {
+  noStore();
   let result;
   try {
     result = await listPendingProjectInvitationsForUser(actorUserId);

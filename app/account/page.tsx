@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_noStore as noStore } from "next/cache";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Settings } from "lucide-react";
 
@@ -29,6 +30,8 @@ import {
 } from "./actions";
 
 type SearchParams = Record<string, string | string[] | undefined>;
+
+export const dynamic = "force-dynamic";
 
 const STATUS_MESSAGES: Record<string, string> = {
   "username-updated": "Username updated.",
@@ -80,6 +83,7 @@ export default async function AccountProfilePage({
 }: {
   searchParams?: SearchParams;
 }) {
+  noStore();
   const actorUserId = await requireSessionUserIdFromServer();
 
   const profileResult = await getAccountProfile(actorUserId);

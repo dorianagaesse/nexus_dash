@@ -1,3 +1,5 @@
+import { unstable_noStore as noStore } from "next/cache";
+
 import { AccountMenu } from "@/components/account-menu";
 import { AppMetadataPill } from "@/components/app-metadata-pill";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -7,6 +9,7 @@ import { getAccountIdentitySummary } from "@/lib/services/account-identity-servi
 import { countPendingProjectInvitationsForUser } from "@/lib/services/project-collaboration-service";
 
 export async function TopRightControls() {
+  noStore();
   const actorUserId = await getSessionUserIdFromServer();
   let accountIdentity = null;
   let pendingInvitationCount = 0;
