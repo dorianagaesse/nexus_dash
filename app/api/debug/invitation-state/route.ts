@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
 import { getOptionalServerEnv, getVercelEnvironment, isLiveProductionDeployment } from "@/lib/env.server";
+import { logServerError } from "@/lib/observability/logger";
 import { getAccountIdentitySummary } from "@/lib/services/account-identity-service";
 import { getAccountProfile } from "@/lib/services/account-profile-service";
 import {
@@ -28,6 +29,20 @@ function maskDatabaseHost(): string | null {
   }
 }
 
+function serializeError(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+    };
+  }
+
+  return {
+    name: "UnknownError",
+    message: String(error),
+  };
+}
+
 export async function GET(request: NextRequest) {
   if (isLiveProductionDeployment()) {
     return NextResponse.json({ error: "not-found" }, { status: 404 });
@@ -52,13 +67,42 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const [accountIdentity, accountProfile, pendingInvitationCount, pendingInvitationsResult] =
-    await Promise.all([
-      getAccountIdentitySummary(actorUserId),
-      getAccountProfile(actorUserId),
-      countPendingProjectInvitationsForUser(actorUserId),
-      listPendingProjectInvitationsForUser(actorUserId),
-    ]);
+  const [
+    accountIdentityResult,
+    accountProfileResult,
+    pendingInvitationCountResult,
+    pendingInvitationsResult,
+  ] = await Promise.allSettled([
+    getAccountIdentitySummary(actorUserId),
+    getAccountProfile(actorUserId),
+    countPendingProjectInvitationsForUser(actorUserId),
+    listPendingProjectInvitationsForUser(actorUserId),
+  ]);
+
+  const diagnostics = {
+    accountIdentity:
+      accountIdentityResult.status === "fulfilled"
+        ? { ok: true, value: accountIdentityResult.value }
+        : { ok: false, error: serializeError(accountIdentityResult.reason) },
+    accountProfile:
+      accountProfileResult.status === "fulfilled"
+        ? { ok: true, value: accountProfileResult.value }
+        : { ok: false, error: serializeError(accountProfileResult.reason) },
+    pendingInvitationCount:
+      pendingInvitationCountResult.status === "fulfilled"
+        ? { ok: true, value: pendingInvitationCountResult.value }
+        : { ok: false, error: serializeError(pendingInvitationCountResult.reason) },
+    pendingInvitations:
+      pendingInvitationsResult.status === "fulfilled"
+        ? { ok: true, value: pendingInvitationsResult.value }
+        : { ok: false, error: serializeError(pendingInvitationsResult.reason) },
+  };
+
+  for (const [scope, result] of Object.entries(diagnostics)) {
+    if (!result.ok) {
+      logServerError(`GET /api/debug/invitation-state.${scope}`, result.error);
+    }
+  }
 
   return NextResponse.json({
     environment: {
@@ -69,10 +113,10 @@ export async function GET(request: NextRequest) {
     presentCookieNames,
     actor: {
       userId: actorUserId,
-      identity: accountIdentity,
-      profile: accountProfile,
+      identity: diagnostics.accountIdentity,
+      profile: diagnostics.accountProfile,
     },
-    pendingInvitationCount,
-    pendingInvitationsResult,
+    pendingInvitationCount: diagnostics.pendingInvitationCount,
+    pendingInvitationsResult: diagnostics.pendingInvitations,
   });
 }
