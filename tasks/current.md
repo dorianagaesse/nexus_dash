@@ -4,10 +4,15 @@
 TASK-058
 
 ## Status
-In Progress
+Done in `main` / production (v1 shipped)
 
 ## Objective
 Implement collaborative project access on top of the existing authenticated multi-user foundation by introducing membership management, invitation flows, and role-based permission enforcement across the product.
+
+## Current Position
+- TASK-058 v1 is shipped.
+- The next collaboration extension is tracked separately as `TASK-103` in `tasks/backlog.md`.
+- This file remains useful as the v1 delivery record plus the handoff note for the v2 follow-up.
 
 ## Why This Task Matters
 - The data and service boundaries already support authenticated multi-user ownership, but project collaboration is still effectively single-owner from a UX and workflow perspective.
@@ -80,12 +85,26 @@ Implement collaborative project access on top of the existing authenticated mult
 5. Extend regression coverage for permission checks, invite lifecycle behavior, and isolation boundaries.
 6. Run validation and prepare the branch/PR workflow for review.
 
-## Known Follow-Up Questions For Merge/Deploy
-- Confirm whether membership visibility should include pending invites for non-owners or remain owner-only in v1.
-- Define the future task boundary for shared project calendar ownership/sharing semantics so it does not get conflated with TASK-058.
-- Define the final v2 contract for arbitrary email invites, copyable invitation links, delivery behavior, and recipient UX once existing-user sharing is stable.
+## Locked Follow-Up Direction For TASK-103
+- Extend sharing from existing verified users to email-bound invites for non-existing users.
+- Keep invite acceptance bound to the intended verified account/email; copied links are a delivery mechanism for that email-bound invite, not open claimable access.
+- Allow sign-up before acceptance, with the following recipient flow:
+  - the invited person opens the copied invite link or reaches the app through a manually forwarded invite,
+  - if they do not have an account yet, they can sign up with the invited email,
+  - after sign-up they complete the normal email-verification flow,
+  - once verified, the app resumes the pending invite-acceptance flow for that same email/account,
+  - if the account already exists, the same verified-email requirement still applies before acceptance.
+- Keep normal email verification requirements; the invite link itself does not replace account verification.
+- Allow only one active pending invite per `project + normalized email`; creating a new invite should replace the previous active pending invite.
+- Keep existing member role management in the project settings surface; this is already part of shipped v1 behavior and should not be split into a separate task.
+- Use a unified sharing surface that supports both existing-user search and email invite entry.
+- When a user later creates an account with the invited email, the pending invite should appear automatically in their in-app invitations list even if they never opened the invite link.
+- Keep the wrong-account mismatch flow from v1 when an invite link is opened under a different signed-in account.
+- Keep the current 14-day expiry unless a later product decision changes it.
+- For v2 delivery, provide a copyable invite link and let the owner deliver it outside the app; app-managed invite email sending is intentionally deferred to a separate follow-up task.
+- Shared project calendar ownership/sharing remains outside this follow-up and must stay separate from invite-v2 work.
 
 ---
 
-Last Updated: 2026-03-20
+Last Updated: 2026-03-23
 Assigned To: User + Agent
