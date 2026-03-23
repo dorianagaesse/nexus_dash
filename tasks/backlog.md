@@ -4,11 +4,11 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-058
-  Title: Authorization implementation - project sharing, membership roles, and invitations
+- ID: TASK-103
+  Title: Project sharing v2 - email-bound invites for non-existing users and copyable invite-link delivery
   Status: Pending
-  Rationale: Support collaborative usage by introducing project-level membership (owner/editor/viewer), secure sharing/invite flows, and permission checks across UI and APIs.
-  Dependencies: TASK-046, TASK-047, TASK-076
+  Rationale: Extend the shipped sharing baseline so owners can invite collaborators by email even before they have an account, while keeping invite acceptance bound to the intended verified email/account and preserving revoke/expiry/replay protections. Copyable invite links should act as a delivery mechanism for those email-bound invites rather than introducing open claimable access by default; sign-up-before-accept should resume into the invite flow, pending invites should appear automatically once the matching account exists, and only one active pending invite should exist per project/email pair.
+  Dependencies: TASK-058, TASK-083, TASK-102
 - ID: TASK-059
   Title: Agent access implementation - scoped API tokens, rotation, and audit trail
   Status: Pending
@@ -71,11 +71,6 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Reduce maintenance pressure in the current project-collaboration service by separating owner invite management, membership mutation, and recipient invitation-response concerns into smaller modules with clearer ownership, narrower tests, and easier future extension for v2 invite flows.
   Dependencies: TASK-058
-- ID: TASK-103
-  Title: Project sharing v2 - email-bound invites for non-existing users and copyable invite-link delivery
-  Status: Pending
-  Rationale: Extend the shipped sharing baseline so owners can invite collaborators by email even before they have an account, while keeping invite acceptance bound to the intended verified email/account and preserving revoke/expiry/replay protections. Copyable invite links should act as a delivery mechanism for those email-bound invites rather than introducing open claimable access by default; sign-up-before-accept should resume into the invite flow, pending invites should appear automatically once the matching account exists, and only one active pending invite should exist per project/email pair.
-  Dependencies: TASK-058, TASK-083, TASK-102
 - ID: TASK-104
   Title: Invite email delivery - app-managed sending for project collaboration invites
   Status: Pending
@@ -125,6 +120,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-058
+  Title: Authorization implementation - project sharing, membership roles, and invitations
+  Status: Done (2026-03-23)
+  Rationale: Delivered project sharing v1 with owner-managed invites for existing verified users, member role management, recipient invitation visibility, role-aware project surfaces, and production validation through the merged rollout path.
+  Dependencies: TASK-046, TASK-047, TASK-076
 - ID: TASK-096
   Title: Project dashboard UI polish - hierarchy, section rhythm, and Kanban lane clarity
   Status: Done (2026-03-17)
