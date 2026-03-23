@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_noStore as noStore } from "next/cache";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Settings } from "lucide-react";
 
@@ -7,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
+import { logServerError } from "@/lib/observability/logger";
 import {
   MAX_PASSWORD_LENGTH,
   MIN_PASSWORD_LENGTH,
@@ -14,8 +16,14 @@ import {
   MIN_USERNAME_LENGTH,
 } from "@/lib/services/account-security-policy";
 import { getAccountProfile } from "@/lib/services/account-profile-service";
+import {
+  listPendingProjectInvitationsForUser,
+  type ProjectInvitationSummary,
+} from "@/lib/services/project-collaboration-service";
 
 import {
+  acceptProjectInvitationAction,
+  declineProjectInvitationAction,
   updateAccountEmailAction,
   updateAccountPasswordAction,
   updateAccountUsernameAction,
@@ -23,12 +31,16 @@ import {
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
+export const dynamic = "force-dynamic";
+
 const STATUS_MESSAGES: Record<string, string> = {
   "username-updated": "Username updated.",
   "username-updated-regenerated":
     "Username updated. Discriminator changed to keep your tag unique.",
   "email-unchanged": "Email unchanged.",
   "password-updated": "Password updated. Other active sessions were revoked.",
+  "invitation-accepted": "Project invitation accepted.",
+  "invitation-declined": "Project invitation declined.",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -48,6 +60,12 @@ const ERROR_MESSAGES: Record<string, string> = {
   "username-update-failed": "Could not update username. Please retry.",
   "email-update-failed": "Could not update email. Please retry.",
   "password-update-failed": "Could not update password. Please retry.",
+  "invitation-not-found": "Invitation not found.",
+  "invitation-revoked": "This invitation is no longer available.",
+  "invitation-expired": "This invitation has expired.",
+  "invitation-already-accepted": "This invitation was already accepted.",
+  "invitation-accept-failed": "Could not accept the invitation. Please retry.",
+  "invitation-decline-failed": "Could not decline the invitation. Please retry.",
 };
 
 function readQueryValue(value: string | string[] | undefined): string | null {
@@ -65,11 +83,19 @@ export default async function AccountProfilePage({
 }: {
   searchParams?: SearchParams;
 }) {
+  noStore();
   const actorUserId = await requireSessionUserIdFromServer();
 
   const profileResult = await getAccountProfile(actorUserId);
   if (!profileResult.ok) {
     notFound();
+  }
+  let pendingInvitations: ProjectInvitationSummary[] = [];
+  try {
+    const invitationsResult = await listPendingProjectInvitationsForUser(actorUserId);
+    pendingInvitations = invitationsResult.ok ? invitationsResult.data.invitations : [];
+  } catch (error) {
+    logServerError("AccountProfilePage.listPendingProjectInvitationsForUser", error);
   }
 
   const status = readQueryValue(searchParams?.status);
@@ -102,7 +128,7 @@ export default async function AccountProfilePage({
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight">Account</h1>
           <p className="text-sm text-muted-foreground">
-            Manage your identity, email, and password.
+            Manage your identity, email, password, and invitations.
           </p>
         </div>
 
@@ -118,6 +144,68 @@ export default async function AccountProfilePage({
             {ERROR_MESSAGES[error]}
           </div>
         ) : null}
+
+        <Card id="project-invitations">
+          <CardHeader>
+            <CardTitle className="text-xl">Invitations</CardTitle>
+            <CardDescription>
+              Review pending project invitations sent to your account.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {pendingInvitations.length === 0 ? (
+              <div className="rounded-md border border-dashed border-border/60 bg-muted/20 px-4 py-5 text-sm text-muted-foreground">
+                No pending invitations.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingInvitations.map((invitation) => {
+                  const invitationCopy =
+                    invitation.role === "viewer"
+                      ? `${invitation.invitedByDisplayName} invited you to view project ${invitation.projectName}.`
+                      : `${invitation.invitedByDisplayName} invited you to collaborate on project ${invitation.projectName}.`;
+
+                  return (
+                    <div
+                      key={invitation.invitationId}
+                      className="rounded-xl border border-border/70 bg-card/70 px-4 py-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium">{invitationCopy}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Role: {invitation.role} · Expires{" "}
+                            {new Date(invitation.expiresAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <form action={acceptProjectInvitationAction}>
+                            <input
+                              type="hidden"
+                              name="invitationId"
+                              value={invitation.invitationId}
+                            />
+                            <Button type="submit">Accept</Button>
+                          </form>
+                          <form action={declineProjectInvitationAction}>
+                            <input
+                              type="hidden"
+                              name="invitationId"
+                              value={invitation.invitationId}
+                            />
+                            <Button type="submit" variant="outline">
+                              Decline
+                            </Button>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

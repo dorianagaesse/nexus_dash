@@ -52,12 +52,14 @@ import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expan
 import { cn } from "@/lib/utils";
 
 interface ProjectContextPanelProps {
+  canEdit: boolean;
   projectId: string;
   storageProvider: "local" | "r2";
   cards: ProjectContextCard[];
 }
 
 export function ProjectContextPanel({
+  canEdit,
   projectId,
   storageProvider,
   cards,
@@ -232,6 +234,10 @@ export function ProjectContextPanel({
   };
 
   const openCreateModal = () => {
+    if (!canEdit) {
+      return;
+    }
+
     resetCreateAttachmentDraft();
     setCreateColor(getRandomContextColor());
     setCreateError(null);
@@ -247,6 +253,10 @@ export function ProjectContextPanel({
   };
 
   const openEditModal = (cardId: string) => {
+    if (!canEdit) {
+      return;
+    }
+
     setPreviewCardId(null);
     setEditingCardId(cardId);
   };
@@ -546,6 +556,10 @@ export function ProjectContextPanel({
   };
 
   const requestDeleteCard = (cardId: string) => {
+    if (!canEdit) {
+      return;
+    }
+
     setPendingDeleteCardId(cardId);
   };
 
@@ -818,16 +832,24 @@ export function ProjectContextPanel({
               {localCards.length} card{localCards.length === 1 ? "" : "s"}
             </span>
           </button>
-          <Button type="button" size="sm" className="rounded-full px-4" onClick={openCreateModal}>
-            <PlusSquare className="h-4 w-4" />
-            Add card
-          </Button>
+          {canEdit ? (
+            <Button
+              type="button"
+              size="sm"
+              className="rounded-full px-4"
+              onClick={openCreateModal}
+            >
+              <PlusSquare className="h-4 w-4" />
+              Add card
+            </Button>
+          ) : null}
         </div>
       </CardHeader>
 
       {isExpanded ? (
           <CardContent className={PROJECT_SECTION_CONTENT_CLASS}>
             <ContextCardsGrid
+              canEdit={canEdit}
               cards={localCards}
               cardAttachmentsById={cardAttachmentsById}
               deletingCardId={deletingCardId}
@@ -890,6 +912,7 @@ export function ProjectContextPanel({
       />
 
       <ContextPreviewModal
+        canEdit={canEdit}
         isOpen={Boolean(previewCard)}
         card={previewCard}
         attachments={previewCardAttachments}

@@ -46,6 +46,7 @@ import { MAX_TASK_LABELS, getTaskLabelColor } from "@/lib/task-label";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 
 interface TaskDetailModalProps {
+  canEdit: boolean;
   isOpen: boolean;
   selectedTask: KanbanTask | null;
   isEditMode: boolean;
@@ -98,6 +99,7 @@ interface TaskDetailModalProps {
 }
 
 export function TaskDetailModal({
+  canEdit,
   isOpen,
   selectedTask,
   isEditMode,
@@ -152,6 +154,8 @@ export function TaskDetailModal({
     return null;
   }
 
+  const isEditing = canEdit && isEditMode;
+
   return (
     <>
       {createPortal(
@@ -179,10 +183,16 @@ export function TaskDetailModal({
                 >
                   {isArchivedTask ? "Archived" : selectedTask.status}
                 </Badge>
-                {!isEditMode ? (
+                {!isEditing ? (
                   <CardTitle
                     className="text-xl"
-                    onDoubleClick={onActivateEditMode}
+                    onDoubleClick={() => {
+                      if (!canEdit) {
+                        return;
+                      }
+
+                      onActivateEditMode();
+                    }}
                   >
                     {selectedTask.title}
                   </CardTitle>
@@ -196,7 +206,7 @@ export function TaskDetailModal({
                 )}
               </div>
               <div className="flex items-center gap-1">
-                {!isEditMode ? (
+                {!isEditing && canEdit ? (
                   <TaskOptionsMenu
                     currentStatus={selectedTask.status}
                     isArchived={isArchivedTask}
@@ -220,8 +230,9 @@ export function TaskDetailModal({
               </div>
             </CardHeader>
             <CardContent className="space-y-4 overflow-x-hidden overflow-y-auto">
-              {!isEditMode ? (
+              {!isEditing ? (
                 <TaskReadOnlyContent
+                  canEdit={canEdit}
                   selectedTask={selectedTask}
                   onPreviewAttachment={onPreviewAttachmentChange}
                   onActivateEditMode={onActivateEditMode}
@@ -413,11 +424,13 @@ function TaskOptionsMenu({
 }
 
 function TaskReadOnlyContent({
+  canEdit,
   selectedTask,
   onPreviewAttachment,
   onActivateEditMode,
   onOpenRelatedTask,
 }: {
+  canEdit: boolean;
   selectedTask: KanbanTask;
   onPreviewAttachment: (attachment: TaskAttachment | null) => void;
   onActivateEditMode: () => void;
@@ -446,7 +459,13 @@ function TaskReadOnlyContent({
       {selectedTask.status === "Blocked" ? (
         <div
           className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200"
-          onDoubleClick={onActivateEditMode}
+          onDoubleClick={() => {
+            if (!canEdit) {
+              return;
+            }
+
+            onActivateEditMode();
+          }}
         >
           <div className="mb-1 flex items-center gap-2 font-medium">
             <TriangleAlert className="h-4 w-4" />
@@ -475,7 +494,13 @@ function TaskReadOnlyContent({
       ) : null}
       <div className="max-h-[52vh] overflow-y-auto text-sm text-muted-foreground [overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:break-words [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_p]:mb-2">
         <div
-          onDoubleClick={onActivateEditMode}
+          onDoubleClick={() => {
+            if (!canEdit) {
+              return;
+            }
+
+            onActivateEditMode();
+          }}
           dangerouslySetInnerHTML={{
             __html: selectedTask.description ?? "<p>No description provided.</p>",
           }}

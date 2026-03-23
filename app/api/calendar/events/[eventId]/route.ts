@@ -20,8 +20,15 @@ export async function PATCH(
     return NextResponse.json({ error: "missing-event-id" }, { status: 400 });
   }
 
-  const rawBody = (await request.json().catch(() => null)) as unknown;
-  const result = await updateCalendarEvent(eventId, rawBody, actorUserId);
+  const rawBody = (await request.json().catch(() => null)) as {
+    projectId?: unknown;
+  } | null;
+  const result = await updateCalendarEvent(
+    eventId,
+    rawBody,
+    actorUserId,
+    typeof rawBody?.projectId === "string" ? rawBody.projectId : ""
+  );
 
   return NextResponse.json(result.body, { status: result.status });
 }
@@ -40,6 +47,10 @@ export async function DELETE(
     return NextResponse.json({ error: "missing-event-id" }, { status: 400 });
   }
 
-  const result = await deleteCalendarEvent(eventId, actorUserId);
+  const result = await deleteCalendarEvent(
+    eventId,
+    actorUserId,
+    request.nextUrl.searchParams.get("projectId") ?? ""
+  );
   return NextResponse.json(result.body, { status: result.status });
 }

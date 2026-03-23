@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { CircleUserRound, LogOut, Settings } from "lucide-react";
+import { CircleUserRound, LogOut, MailPlus, Settings } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
@@ -11,12 +11,14 @@ interface AccountMenuProps {
   isAuthenticated: boolean;
   displayName: string | null;
   usernameTag: string | null;
+  pendingInvitationCount: number;
 }
 
 export function AccountMenu({
   isAuthenticated,
   displayName,
   usernameTag,
+  pendingInvitationCount,
 }: AccountMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useDismissibleMenu<HTMLDivElement>(isOpen, () => setIsOpen(false));
@@ -37,6 +39,12 @@ export function AccountMenu({
         onClick={() => setIsOpen((previous) => !previous)}
       >
         <CircleUserRound className="h-5 w-5" />
+        {pendingInvitationCount > 0 ? (
+          <span
+            aria-hidden="true"
+            className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background"
+          />
+        ) : null}
       </Button>
       {isOpen ? (
         <div className="absolute right-0 z-30 mt-1 w-56 rounded-md border border-border/70 bg-background p-1 shadow-md">
@@ -60,6 +68,17 @@ export function AccountMenu({
             <Link href="/account/settings" onClick={() => setIsOpen(false)}>
               <Settings className="h-4 w-4" />
               Settings
+            </Link>
+          </Button>
+          <Button type="button" variant="ghost" className="w-full justify-start" asChild>
+            <Link href="/account#project-invitations" onClick={() => setIsOpen(false)}>
+              <MailPlus className="h-4 w-4" />
+              Invitations
+              {pendingInvitationCount > 0 ? (
+                <span className="ml-auto rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-medium text-white">
+                  {pendingInvitationCount}
+                </span>
+              ) : null}
             </Link>
           </Button>
           <form action="/api/auth/logout" method="post">

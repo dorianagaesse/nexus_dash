@@ -14,6 +14,10 @@ const emailVerificationServiceMock = vi.hoisted(() => ({
   issueEmailVerificationForUser: vi.fn(),
 }));
 
+const projectCollaborationServiceMock = vi.hoisted(() => ({
+  respondToProjectInvitation: vi.fn(),
+}));
+
 const headersMock = vi.hoisted(() => vi.fn());
 const redirectMock = vi.hoisted(() => vi.fn());
 const revalidatePathMock = vi.hoisted(() => vi.fn());
@@ -60,11 +64,20 @@ vi.mock("@/lib/services/email-verification-service", () => ({
   issueEmailVerificationForUser: emailVerificationServiceMock.issueEmailVerificationForUser,
 }));
 
+vi.mock("@/lib/services/project-collaboration-service", () => ({
+  respondToProjectInvitation:
+    projectCollaborationServiceMock.respondToProjectInvitation,
+}));
+
 vi.mock("@/lib/services/session-service", () => ({
   readSessionTokenFromCookieReader: vi.fn(),
 }));
 
-import { updateAccountEmailAction } from "@/app/account/actions";
+import {
+  acceptProjectInvitationAction,
+  declineProjectInvitationAction,
+  updateAccountEmailAction,
+} from "@/app/account/actions";
 
 describe("account actions", () => {
   beforeEach(() => {
@@ -84,6 +97,13 @@ describe("account actions", () => {
       data: {
         expiresAt: new Date("2026-03-01T00:00:00.000Z"),
         delivery: "sent",
+      },
+    });
+    projectCollaborationServiceMock.respondToProjectInvitation.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: {
+        projectId: "project-1",
       },
     });
     headersMock.mockReturnValue(new Headers());
@@ -156,5 +176,42 @@ describe("account actions", () => {
       "NEXT_REDIRECT:/verify-email?error=resend-limit-reached"
     );
     expect(logServerWarningMock).toHaveBeenCalled();
+  });
+
+  test("accepts invitation and redirects with success status", async () => {
+    const formData = new FormData();
+    formData.set("invitationId", "invite-1");
+
+    await expect(acceptProjectInvitationAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/account?status=invitation-accepted"
+    );
+
+    expect(projectCollaborationServiceMock.respondToProjectInvitation).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+      invitationId: "invite-1",
+      decision: "accept",
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/account");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/account/settings");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/projects");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/projects/project-1");
+  });
+
+  test("declines invitation and redirects with success status", async () => {
+    const formData = new FormData();
+    formData.set("invitationId", "invite-2");
+
+    await expect(declineProjectInvitationAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/account?status=invitation-declined"
+    );
+
+    expect(projectCollaborationServiceMock.respondToProjectInvitation).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+      invitationId: "invite-2",
+      decision: "decline",
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/account");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/account/settings");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/projects");
   });
 });

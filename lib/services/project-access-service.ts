@@ -3,7 +3,7 @@ import { ProjectMembershipRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/services/rls-context";
 
-type ProjectRoleRequirement = ProjectMembershipRole;
+export type ProjectRoleRequirement = ProjectMembershipRole;
 
 interface ProjectAccessError {
   ok: false;
@@ -32,7 +32,7 @@ function normalizeActorUserId(actorUserId: string | null | undefined): string {
   return actorUserId.trim();
 }
 
-function hasRequiredRole(
+export function hasRequiredRole(
   actualRole: ProjectMembershipRole,
   requiredRole: ProjectRoleRequirement
 ): boolean {
@@ -54,10 +54,9 @@ export function buildProjectPrincipalWhere(actorUserId: string) {
   };
 }
 
-export async function requireProjectRole(input: {
+export async function getProjectAccess(input: {
   actorUserId: string;
   projectId: string;
-  minimumRole: ProjectRoleRequirement;
   db?: DbClient;
 }): Promise<ProjectAccessResult> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
@@ -91,9 +90,23 @@ export async function requireProjectRole(input: {
       ? "owner"
       : (project.memberships[0]?.role ?? "viewer");
 
-  if (!hasRequiredRole(actorRole, input.minimumRole)) {
+  return { ok: true, role: actorRole };
+}
+
+export async function requireProjectRole(input: {
+  actorUserId: string;
+  projectId: string;
+  minimumRole: ProjectRoleRequirement;
+  db?: DbClient;
+}): Promise<ProjectAccessResult> {
+  const access = await getProjectAccess(input);
+  if (!access.ok) {
+    return access;
+  }
+
+  if (!hasRequiredRole(access.role, input.minimumRole)) {
     return { ok: false, status: 403, error: "forbidden" };
   }
 
-  return { ok: true, role: actorRole };
+  return access;
 }

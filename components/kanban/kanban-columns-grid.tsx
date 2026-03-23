@@ -67,6 +67,7 @@ const COLUMN_CHROME: Record<
 };
 
 interface KanbanColumnsGridProps {
+  canEdit: boolean;
   columns: TaskColumns<KanbanTask>;
   archivedDoneTasks: KanbanTask[];
   highlightedTaskIds: Set<string>;
@@ -77,6 +78,7 @@ interface KanbanColumnsGridProps {
 }
 
 export function KanbanColumnsGrid({
+  canEdit,
   columns,
   archivedDoneTasks,
   highlightedTaskIds,
@@ -90,6 +92,7 @@ export function KanbanColumnsGrid({
       <div className="grid gap-4 xl:grid-cols-4">
         {TASK_STATUSES.map((status) => (
           <KanbanColumn
+            canEdit={canEdit}
             key={status}
             status={status}
             tasks={columns[status]}
@@ -106,6 +109,7 @@ export function KanbanColumnsGrid({
 }
 
 interface KanbanColumnProps {
+  canEdit: boolean;
   status: TaskStatus;
   tasks: KanbanTask[];
   archivedDoneTasks: KanbanTask[];
@@ -116,6 +120,7 @@ interface KanbanColumnProps {
 }
 
 function KanbanColumn({
+  canEdit,
   status,
   tasks,
   archivedDoneTasks,
@@ -181,7 +186,7 @@ function KanbanColumn({
           </details>
         ) : null}
 
-        <Droppable droppableId={status}>
+        <Droppable droppableId={status} isDropDisabled={!canEdit}>
           {(provided, snapshot) => (
             <div
               ref={provided.innerRef}
@@ -198,18 +203,24 @@ function KanbanColumn({
                 ) : null}
 
               {tasks.map((task, index) => (
-                <Draggable key={task.id} draggableId={task.id} index={index}>
+                <Draggable
+                  key={task.id}
+                  draggableId={task.id}
+                  index={index}
+                  isDragDisabled={!canEdit}
+                >
                   {(draggableProvided, draggableSnapshot) => (
                     <article
                       ref={draggableProvided.innerRef}
                       {...draggableProvided.draggableProps}
-                      {...draggableProvided.dragHandleProps}
+                      {...(canEdit ? draggableProvided.dragHandleProps : {})}
                       style={buildDragStyle(
                         draggableProvided.draggableProps.style,
                         draggableSnapshot.isDragging
                       )}
                       className={cn(
-                        "cursor-grab rounded-xl border border-border/70 bg-card/95 p-3 shadow-sm transition duration-150 active:cursor-grabbing",
+                        "rounded-xl border border-border/70 bg-card/95 p-3 shadow-sm transition duration-150",
+                        canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
                         draggableSnapshot.isDragging && "shadow-lg",
                         highlightedTaskIds.has(task.id) &&
                           "border-border/80 bg-muted/35 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
@@ -222,6 +233,9 @@ function KanbanColumn({
                       onMouseEnter={() => onTaskHoverChange(task.id)}
                       onMouseLeave={() => onTaskHoverChange(null)}
                       onDoubleClick={(event) => {
+                        if (!canEdit) {
+                          return;
+                        }
                         event.stopPropagation();
                         onEditTask(task);
                       }}
@@ -238,13 +252,15 @@ function KanbanColumn({
                               <TriangleAlert className="h-4 w-4" />
                             </span>
                           ) : null}
-                          <span
-                            className="rounded-sm p-1 text-muted-foreground"
-                            aria-label="Drag task"
-                            title="Drag task"
-                          >
-                            <GripVertical className="h-4 w-4" />
-                          </span>
+                          {canEdit ? (
+                            <span
+                              className="rounded-sm p-1 text-muted-foreground"
+                              aria-label="Drag task"
+                              title="Drag task"
+                            >
+                              <GripVertical className="h-4 w-4" />
+                            </span>
+                          ) : null}
                         </div>
                       </div>
 

@@ -12,6 +12,35 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-03-23
+- Type: Governance
+- Summary: TASK-058 post-implementation cleanup removed preview-only debug scaffolding, split the owner settings surface into smaller modules, and recorded follow-up work for task ownership/provenance plus later collaboration-service modularization.
+- Evidence: Removed `app/api/debug/invitation-state/route.ts`; split `components/project-dashboard/project-dashboard-owner-actions.tsx` into dedicated general/sharing/shared modules; updated `tasks/backlog.md` with `TASK-101` and `TASK-102`; validated with `npm run lint`, `npm test`, safe-override `npm run build`, and preview deploy `https://nexus-dash-phbquqj8t-dorian-agaesses-projects.vercel.app`.
+
+### 2026-03-20
+- Type: Governance
+- Summary: Merged `origin/main` after PR `#100` landed, resolved task-tracking doc conflicts, and addressed Copilot feedback on invitation idempotency and invitation-row update integrity.
+- Evidence: Updated `lib/services/project-collaboration-service.ts` to make invitation accept/decline race-safe; tightened invitation update policies in `prisma/migrations/20260320110000_task058_project_invitations/migration.sql`; added regression coverage in `tests/lib/project-collaboration-service.test.ts`; revalidated with `npm run lint`, `npm test`, `npm run test:coverage`, and safe-override `npm run build`.
+
+### 2026-03-20
+- Type: Execution
+- Summary: TASK-058 collaboration v1 was implemented end-to-end across schema, services, API routes, account/project UI, and role-aware project surfaces.
+- Evidence: Added `ProjectInvitation` schema + migration in `prisma/schema.prisma` and `prisma/migrations/20260320110000_task058_project_invitations/migration.sql`; added collaboration service/API flow in `lib/services/project-collaboration-service.ts` and `app/api/projects/[projectId]/sharing/**`; added owner-facing sharing/settings UI in `components/project-dashboard/project-dashboard-owner-actions.tsx`; added recipient invitation visibility/actions in `app/account/page.tsx`, `app/account/actions.ts`, `components/account-menu.tsx`, and `components/pending-project-invitations-banner.tsx`; enforced role-aware edit gating in project dashboard panels and calendar access.
+
+### 2026-03-20
+- Type: Validation
+- Summary: TASK-058 local unit validation passed after integrating sharing routes, invitation actions, and calendar role gating.
+- Evidence: `npm test` (pass, 57 files / 402 tests); added targeted coverage in `tests/api/project-sharing.route.test.ts`, `tests/api/project-sharing-search.route.test.ts`, `tests/app/account-actions.test.ts`, and `tests/components/account-menu.test.ts`.
+
+### 2026-03-20
+- Type: Validation
+- Summary: TASK-058 validation baseline passed for lint, unit tests, coverage, and production build after using safe env overrides to avoid the local `.env` database hardening mismatch.
+- Evidence: `npm run lint`; `npm test`; `npm run test:coverage`; `$env:DATABASE_URL='postgresql://user:pass@127.0.0.1:5432/postgres?sslmode=require'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres?sslmode=require'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; npm run build`.
+
+### 2026-03-20
+- Type: Blocker
+- Summary: TASK-058 Playwright e2e validation could not complete in this environment because the local PostgreSQL service required by the test fixtures is unreachable.
+- Evidence: `$env:DATABASE_URL='postgresql://user:pass@127.0.0.1:5432/postgres?sslmode=require'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres?sslmode=require'; ...; npm run test:e2e` built successfully, then all 5 Playwright specs failed with `PrismaClientInitializationError: Can't reach database server at 127.0.0.1:5432` from `tests/e2e/helpers/auth-helpers.ts` and `tests/e2e/password-recovery.spec.ts`.
 ### 2026-03-19
 - Type: Governance
 - Summary: Refreshed repository execution guidance and task tracking after verifying completed work in git history, including closure of TASK-096 and rotation of the active task to TASK-058.

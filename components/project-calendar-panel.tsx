@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   ChevronDown,
@@ -35,11 +35,15 @@ import { cn } from "@/lib/utils";
 
 interface ProjectCalendarPanelProps {
   projectId: string;
+  canEdit: boolean;
 }
 
 type EventModalMode = "create" | "edit";
 
-export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
+export function ProjectCalendarPanel({
+  projectId,
+  canEdit,
+}: ProjectCalendarPanelProps) {
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
     sectionKey: "calendar",
@@ -92,12 +96,20 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
   };
 
   const openCreateEventModal = () => {
+    if (!canEdit) {
+      return;
+    }
+
     setEventModalMode("create");
     resetEventForm();
     setIsEventModalOpen(true);
   };
 
   const openEditEventModal = (event: CalendarEventItem) => {
+    if (!canEdit) {
+      return;
+    }
+
     const parsed = parseEventForForm(event);
     setEventModalMode("edit");
     setEditingEventId(event.id);
@@ -134,16 +146,19 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
     setIsBrowserReady(true);
   }, []);
 
-  const loadEvents = async (signal?: AbortSignal) => {
+  const loadEvents = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/calendar/events?range=${CALENDAR_RANGE}`, {
-        method: "GET",
-        cache: "no-store",
-        signal,
-      });
+      const response = await fetch(
+        `/api/calendar/events?range=${CALENDAR_RANGE}&projectId=${encodeURIComponent(projectId)}`,
+        {
+          method: "GET",
+          cache: "no-store",
+          signal,
+        }
+      );
 
       const payload = (await response.json().catch(() => null)) as
         | CalendarEventsResponse
@@ -179,9 +194,13 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [projectId]);
 
   const submitEventForm = async () => {
+    if (!canEdit) {
+      return;
+    }
+
     const trimmedSummary = eventSummary.trim();
     if (!trimmedSummary) {
       setEventFormError("Event title is required.");
@@ -216,6 +235,7 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          projectId,
           summary: trimmedSummary,
           isAllDay: eventAllDay,
           start: startValue,
@@ -247,6 +267,10 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
   };
 
   const handleDeleteEvent = async () => {
+    if (!canEdit) {
+      return;
+    }
+
     if (eventModalMode !== "edit" || !editingEventId) {
       setEventFormError("No calendar event selected for deletion.");
       return;
@@ -261,9 +285,12 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
     setEventFormError(null);
 
     try {
-      const response = await fetch(`/api/calendar/events/${editingEventId}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `/api/calendar/events/${editingEventId}?projectId=${encodeURIComponent(projectId)}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       const payload = (await response.json().catch(() => null)) as
         | { error?: string }
@@ -297,7 +324,7 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
     return () => {
       controller.abort();
     };
-  }, [isExpanded]);
+  }, [isExpanded, loadEvents]);
 
   const weekDays = useMemo(() => buildWeekDays(rangeStart), [rangeStart]);
   const eventsByDay = useMemo(() => groupEventsByDay(events, weekDays), [events, weekDays]);
@@ -365,16 +392,18 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
                     {syncedAt ? `Synced ${new Date(syncedAt).toLocaleString()}` : "Connected"}
                   </p>
                   <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={openCreateEventModal}
-                      disabled={isLoading}
-                    >
-                      <PlusSquare className="h-4 w-4" />
-                      New event
-                    </Button>
+                    {canEdit ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={openCreateEventModal}
+                        disabled={isLoading}
+                      >
+                        <PlusSquare className="h-4 w-4" />
+                        New event
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       variant="ghost"
@@ -389,6 +418,7 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
                 </div>
 
                 <CalendarWeekGrid
+                  canEdit={canEdit}
                   weekDays={weekDays}
                   eventsByDay={eventsByDay}
                   eventsCount={events.length}

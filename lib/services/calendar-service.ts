@@ -3,6 +3,8 @@ import {
   hasCalendarWriteScope,
 } from "@/lib/google-calendar-access";
 import { logServerError } from "@/lib/observability/logger";
+import { requireProjectRole } from "@/lib/services/project-access-service";
+import { withActorRlsContext } from "@/lib/services/rls-context";
 
 interface ServiceErrorResult {
   ok: false;
@@ -331,8 +333,35 @@ async function resolveWritableCalendarContext(actorUserId: string) {
   return createSuccess(200, { context: auth.context });
 }
 
+async function ensureCalendarProjectAccess(input: {
+  actorUserId: string;
+  projectId: string;
+  minimumRole: "viewer" | "editor";
+}) {
+  const projectId = input.projectId.trim();
+  if (!projectId) {
+    return createError(400, { error: "project-id-required" });
+  }
+
+  return withActorRlsContext(input.actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId: input.actorUserId,
+      projectId,
+      minimumRole: input.minimumRole,
+      db,
+    });
+
+    if (!access.ok) {
+      return createError(access.status, { error: access.error });
+    }
+
+    return createSuccess(200, { role: access.role, projectId });
+  });
+}
+
 export async function listCalendarEvents(input: {
   actorUserId: string;
+  projectId: string;
   rangeRaw: string | null;
   daysRaw: string | null;
   now?: Date;
@@ -351,6 +380,15 @@ export async function listCalendarEvents(input: {
   const queryWindow = buildQueryWindow(input);
 
   try {
+    const projectAccess = await ensureCalendarProjectAccess({
+      actorUserId: input.actorUserId,
+      projectId: input.projectId,
+      minimumRole: "viewer",
+    });
+    if (!projectAccess.ok) {
+      return projectAccess;
+    }
+
     const auth = await getAuthorizedGoogleCalendarContext(input.actorUserId);
     if (!auth.ok) {
       return createError(auth.failure.status, {
@@ -427,13 +465,23 @@ export async function listCalendarEvents(input: {
 
 export async function createCalendarEvent(
   rawBody: unknown,
-  actorUserId: string
+  actorUserId: string,
+  projectId: string
 ): Promise<
   ServiceResult<{
     event: CalendarEventResponseItem;
   }>
 > {
   try {
+    const projectAccess = await ensureCalendarProjectAccess({
+      actorUserId,
+      projectId,
+      minimumRole: "editor",
+    });
+    if (!projectAccess.ok) {
+      return projectAccess;
+    }
+
     const auth = await resolveWritableCalendarContext(actorUserId);
     if (!auth.ok) {
       return auth;
@@ -496,13 +544,23 @@ export async function createCalendarEvent(
 export async function updateCalendarEvent(
   eventId: string,
   rawBody: unknown,
-  actorUserId: string
+  actorUserId: string,
+  projectId: string
 ): Promise<
   ServiceResult<{
     event: CalendarEventResponseItem;
   }>
 > {
   try {
+    const projectAccess = await ensureCalendarProjectAccess({
+      actorUserId,
+      projectId,
+      minimumRole: "editor",
+    });
+    if (!projectAccess.ok) {
+      return projectAccess;
+    }
+
     const auth = await resolveWritableCalendarContext(actorUserId);
     if (!auth.ok) {
       return auth;
@@ -568,9 +626,19 @@ export async function updateCalendarEvent(
 
 export async function deleteCalendarEvent(
   eventId: string,
-  actorUserId: string
+  actorUserId: string,
+  projectId: string
 ): Promise<ServiceResult<{ ok: true }>> {
   try {
+    const projectAccess = await ensureCalendarProjectAccess({
+      actorUserId,
+      projectId,
+      minimumRole: "editor",
+    });
+    if (!projectAccess.ok) {
+      return projectAccess;
+    }
+
     const auth = await resolveWritableCalendarContext(actorUserId);
     if (!auth.ok) {
       return auth;

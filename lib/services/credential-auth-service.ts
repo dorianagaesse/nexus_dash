@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { isPreviewDeployment } from "@/lib/env.server";
 import { createSessionForUser } from "@/lib/services/session-service";
 import { hashPassword, verifyPassword } from "@/lib/services/password-service";
 import {
@@ -149,6 +150,7 @@ export async function signUpWithEmailPassword(input: {
       const createdUser = await prisma.user.create({
         data: {
           email,
+          emailVerified: isPreviewDeployment() ? new Date() : null,
           name: username,
           username,
           usernameDiscriminator: generateUsernameDiscriminator(),

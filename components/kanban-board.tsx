@@ -52,6 +52,7 @@ import { isTaskStatus, TASK_STATUSES, type TaskStatus } from "@/lib/task-status"
 export type { KanbanTask } from "@/components/kanban-board-types";
 
 interface KanbanBoardProps {
+  canEdit: boolean;
   projectId: string;
   storageProvider: "local" | "r2";
   initialTasks: KanbanTask[];
@@ -63,6 +64,7 @@ function createLocalUploadId(): string {
 }
 
 export function KanbanBoard({
+  canEdit,
   projectId,
   storageProvider,
   initialTasks,
@@ -472,6 +474,10 @@ export function KanbanBoard({
 
   const onDragEnd = useCallback(
     (result: DropResult) => {
+      if (!canEdit) {
+        return;
+      }
+
       const { source, destination } = result;
 
       if (!destination) {
@@ -519,7 +525,7 @@ export function KanbanBoard({
         void persistColumns(nextColumns, previousColumns);
       });
     },
-    [columns, persistColumns, syncRelatedTaskSummary]
+    [canEdit, columns, persistColumns, syncRelatedTaskSummary]
   );
 
   const closeTaskModal = useCallback(() => {
@@ -539,9 +545,13 @@ export function KanbanBoard({
   }, []);
 
   const openTaskInEditMode = useCallback((task: KanbanTask) => {
+    if (!canEdit) {
+      return;
+    }
+
     shouldOpenTaskInEditModeRef.current = true;
     setSelectedTask(task);
-  }, []);
+  }, [canEdit]);
 
   const openRelatedTask = useCallback(
     (taskId: string) => {
@@ -557,15 +567,23 @@ export function KanbanBoard({
   );
 
   const handleActivateTaskEditMode = useCallback(() => {
+    if (!canEdit) {
+      return;
+    }
+
     if (selectedTask) {
       resetTaskEditDraft(selectedTask);
     }
     setIsEditMode(true);
     setTaskModalError(null);
-  }, [resetTaskEditDraft, selectedTask]);
+  }, [canEdit, resetTaskEditDraft, selectedTask]);
 
   const handleToggleTaskEditMode = useCallback(
     (nextValue: boolean) => {
+      if (!canEdit) {
+        return;
+      }
+
       if (!nextValue && selectedTask) {
         resetTaskEditDraft(selectedTask);
       }
@@ -573,12 +591,16 @@ export function KanbanBoard({
       setIsEditMode(nextValue);
       setTaskModalError(null);
     },
-    [resetTaskEditDraft, selectedTask]
+    [canEdit, resetTaskEditDraft, selectedTask]
   );
 
   const persistTaskChanges = useCallback(
     async (options?: { exitEditMode?: boolean }) => {
       if (!selectedTask) {
+        return false;
+      }
+
+      if (!canEdit) {
         return false;
       }
 
@@ -734,6 +756,7 @@ export function KanbanBoard({
       }
     },
     [
+      canEdit,
       editDescription,
       editLabels,
       editRelatedTasks,
@@ -776,6 +799,10 @@ export function KanbanBoard({
 
   const handleMoveTaskToStatus = useCallback(
     (task: KanbanTask, nextStatus: TaskStatus) => {
+      if (!canEdit) {
+        return;
+      }
+
       if (task.status === nextStatus) {
         return;
       }
@@ -826,10 +853,14 @@ export function KanbanBoard({
         message: `Task moved to ${nextStatus}.`,
       });
     },
-    [columns, persistColumns, pushToast, syncRelatedTaskSummary]
+    [canEdit, columns, persistColumns, pushToast, syncRelatedTaskSummary]
   );
 
   const confirmDeleteTask = useCallback(async () => {
+    if (!canEdit) {
+      return;
+    }
+
     if (!pendingDeleteTask || isDeletingTask) {
       return;
     }
@@ -882,9 +913,13 @@ export function KanbanBoard({
       setPendingDeleteTask(null);
       setIsDeletingTask(false);
     }
-  }, [isDeletingTask, pendingDeleteTask, projectId, pushToast, removeRelatedTaskReferences]);
+  }, [canEdit, isDeletingTask, pendingDeleteTask, projectId, pushToast, removeRelatedTaskReferences]);
 
   const handleArchiveTask = useCallback(async () => {
+    if (!canEdit) {
+      return;
+    }
+
     if (!selectedTask || isArchivingTask) {
       return;
     }
@@ -943,9 +978,13 @@ export function KanbanBoard({
     } finally {
       setIsArchivingTask(false);
     }
-  }, [closeTaskModal, isArchivingTask, projectId, pushToast, selectedTask, syncRelatedTaskSummary]);
+  }, [canEdit, closeTaskModal, isArchivingTask, projectId, pushToast, selectedTask, syncRelatedTaskSummary]);
 
   const handleUnarchiveTask = useCallback(async () => {
+    if (!canEdit) {
+      return;
+    }
+
     if (!selectedTask || !isSelectedTaskArchived || isArchivingTask) {
       return;
     }
@@ -1001,14 +1040,18 @@ export function KanbanBoard({
     } finally {
       setIsArchivingTask(false);
     }
-  }, [isArchivingTask, isSelectedTaskArchived, projectId, pushToast, selectedTask, syncRelatedTaskSummary]);
+  }, [canEdit, isArchivingTask, isSelectedTaskArchived, projectId, pushToast, selectedTask, syncRelatedTaskSummary]);
 
   const handleAddBlockedFollowUpEntry = useCallback(async () => {
+    if (!canEdit) {
+      return;
+    }
+
     if (!newBlockedFollowUpEntry.trim()) {
       return;
     }
     await persistTaskChanges({ exitEditMode: false });
-  }, [newBlockedFollowUpEntry, persistTaskChanges]);
+  }, [canEdit, newBlockedFollowUpEntry, persistTaskChanges]);
 
   const applyTaskMutation = useCallback(
     (taskId: string, mutateTask: (task: KanbanTask) => KanbanTask) => {
@@ -1055,6 +1098,10 @@ export function KanbanBoard({
   );
 
   const handleAddLinkAttachment = useCallback(async () => {
+    if (!canEdit) {
+      return;
+    }
+
     if (!selectedTask || !linkUrl.trim()) {
       return;
     }
@@ -1105,10 +1152,14 @@ export function KanbanBoard({
     } finally {
       setIsSubmittingAttachment(false);
     }
-  }, [applyTaskMutation, linkUrl, projectId, pushToast, selectedTask]);
+  }, [applyTaskMutation, canEdit, linkUrl, projectId, pushToast, selectedTask]);
 
   const handleAddFileAttachment = useCallback(
     async (selectedFile: File | null) => {
+      if (!canEdit) {
+        return;
+      }
+
       if (!selectedTask || !selectedFile) {
         return;
       }
@@ -1197,6 +1248,7 @@ export function KanbanBoard({
     [
       applyTaskMutation,
       attachmentFileSizeErrorMessage,
+      canEdit,
       maxAttachmentFileSizeBytes,
       projectId,
       selectedTask,
@@ -1207,6 +1259,10 @@ export function KanbanBoard({
 
   const handleDeleteAttachment = useCallback(
     async (attachmentId: string) => {
+      if (!canEdit) {
+        return;
+      }
+
       if (!selectedTask) {
         return;
       }
@@ -1251,7 +1307,7 @@ export function KanbanBoard({
         setIsSubmittingAttachment(false);
       }
     },
-    [applyTaskMutation, projectId, pushToast, selectedTask]
+    [applyTaskMutation, canEdit, projectId, pushToast, selectedTask]
   );
 
   const totalTaskCount = useMemo(
@@ -1267,14 +1323,14 @@ export function KanbanBoard({
         isExpanded={isExpanded}
         totalTaskCount={totalTaskCount}
         isSaving={isSaving}
-        headerAction={
+        headerAction={canEdit ? (
           <CreateTaskDialog
             projectId={projectId}
             storageProvider={storageProvider}
             existingLabels={allKnownLabels}
             availableTasks={createDialogAvailableTasks}
           />
-        }
+        ) : null}
         onToggleExpanded={() => setIsExpanded((previous) => !previous)}
       />
 
@@ -1286,6 +1342,7 @@ export function KanbanBoard({
 
       {isExpanded ? (
         <KanbanColumnsGrid
+          canEdit={canEdit}
           columns={columns}
           archivedDoneTasks={archivedDoneTasks}
           highlightedTaskIds={highlightedTaskIds}
@@ -1297,6 +1354,7 @@ export function KanbanBoard({
       ) : null}
 
       <TaskDetailModal
+        canEdit={canEdit}
         isOpen={isClient && Boolean(selectedTask)}
         selectedTask={selectedTask}
         isEditMode={isEditMode}
@@ -1353,6 +1411,9 @@ export function KanbanBoard({
         onArchiveTask={handleArchiveTask}
         onUnarchiveTask={handleUnarchiveTask}
         onRequestDeleteTask={() => {
+          if (!canEdit) {
+            return;
+          }
           if (!selectedTask) {
             return;
           }

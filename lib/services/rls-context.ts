@@ -6,12 +6,16 @@ export type DbClient = Prisma.TransactionClient | typeof prisma;
 const RLS_CONTEXT_TRANSACTION_TIMEOUT_MS = 30_000;
 const RLS_CONTEXT_TRANSACTION_MAX_WAIT_MS = 5_000;
 
-function normalizeActorUserId(actorUserId: string): string {
+function normalizeActorUserId(actorUserId: string | null | undefined): string {
+  if (typeof actorUserId !== "string") {
+    return "";
+  }
+
   return actorUserId.trim();
 }
 
 export async function withActorRlsContext<T>(
-  actorUserId: string,
+  actorUserId: string | null | undefined,
   operation: (db: Prisma.TransactionClient) => Promise<T>
 ): Promise<T> {
   const normalizedActorUserId = normalizeActorUserId(actorUserId);

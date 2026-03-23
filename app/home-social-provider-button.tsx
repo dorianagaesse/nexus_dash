@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import { Button } from "@/components/ui/button";
 import {
   getSocialAuthProviderLabel,
@@ -63,6 +61,7 @@ export function HomeSocialProviderButton({
   form,
 }: HomeSocialProviderButtonProps) {
   const label = getSocialAuthProviderLabel(provider);
+  const href = `/api/auth/oauth/${provider}?form=${form}&returnTo=/projects`;
 
   return (
     <Button
@@ -72,10 +71,10 @@ export function HomeSocialProviderButton({
         "h-11 w-full justify-center rounded-xl border-border/70 bg-background/80 font-medium"
       )}
     >
-      <Link href={`/api/auth/oauth/${provider}?form=${form}&returnTo=/projects`}>
+      <a href={href}>
         <ProviderIcon provider={provider} />
         Continue with {label}
-      </Link>
+      </a>
     </Button>
   );
 }

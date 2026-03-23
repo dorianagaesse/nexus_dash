@@ -10,6 +10,10 @@ const prismaMock = vi.hoisted(() => ({
   project: {
     create: vi.fn(),
     findFirst: vi.fn(),
+    findMany: vi.fn(),
+  },
+  projectMembership: {
+    findMany: vi.fn(),
   },
   user: {
     upsert: vi.fn(),
@@ -37,6 +41,7 @@ import {
   createProject,
   getProjectDashboardById,
   getProjectSummaryById,
+  listProjectsWithCounts,
   listProjectContextResources,
   listProjectKanbanTasks,
 } from "@/lib/services/project-service";
@@ -125,6 +130,14 @@ describe("project-service", () => {
         id: true,
         name: true,
         description: true,
+        ownerId: true,
+        memberships: {
+          where: { userId: actorUserId },
+          select: {
+            role: true,
+          },
+          take: 1,
+        },
       },
     });
     expect(prismaMock.task.count).toHaveBeenNthCalledWith(1, {
@@ -325,5 +338,116 @@ describe("project-service", () => {
         },
       },
     });
+  });
+
+  test("lists projects with owner and collaborator roles without nested membership reads", async () => {
+    prismaMock.project.findMany.mockResolvedValueOnce([
+      {
+        id: "project-owner",
+        name: "Owned project",
+        description: null,
+        ownerId: actorUserId,
+        updatedAt: new Date("2026-03-20T10:00:00.000Z"),
+        memberships: [],
+        _count: {
+          tasks: 2,
+          resources: 1,
+        },
+      },
+      {
+        id: "project-editor",
+        name: "Shared project",
+        description: "Shared",
+        ownerId: "user-2",
+        updatedAt: new Date("2026-03-20T09:00:00.000Z"),
+        memberships: [],
+        _count: {
+          tasks: 4,
+          resources: 3,
+        },
+      },
+    ]);
+    prismaMock.projectMembership.findMany.mockResolvedValueOnce([
+      {
+        projectId: "project-editor",
+        role: "editor",
+      },
+    ]);
+
+    const result = await listProjectsWithCounts(actorUserId);
+
+    expect(result).toEqual([
+      {
+        id: "project-owner",
+        name: "Owned project",
+        description: null,
+        ownerId: actorUserId,
+        updatedAt: new Date("2026-03-20T10:00:00.000Z"),
+        memberships: [],
+        _count: {
+          tasks: 2,
+          resources: 1,
+        },
+      },
+      {
+        id: "project-editor",
+        name: "Shared project",
+        description: "Shared",
+        ownerId: "user-2",
+        updatedAt: new Date("2026-03-20T09:00:00.000Z"),
+        memberships: [{ role: "editor" }],
+        _count: {
+          tasks: 4,
+          resources: 3,
+        },
+      },
+    ]);
+
+    expect(prismaMock.project.findMany).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { ownerId: actorUserId },
+          { memberships: { some: { userId: actorUserId } } },
+        ],
+      },
+      orderBy: [{ updatedAt: "desc" }],
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        ownerId: true,
+        updatedAt: true,
+        _count: {
+          select: {
+            tasks: true,
+            resources: true,
+          },
+        },
+      },
+    });
+    expect(prismaMock.projectMembership.findMany).toHaveBeenCalledWith({
+      where: {
+        userId: actorUserId,
+        projectId: {
+          in: ["project-editor"],
+        },
+      },
+      select: {
+        projectId: true,
+        role: true,
+      },
+    });
+  });
+
+  test("rejects createProject when the runtime name is missing", async () => {
+    await expect(
+      createProject({
+        actorUserId,
+        name: undefined as unknown as string,
+        description: undefined as unknown as string | null,
+      })
+    ).rejects.toThrow("project-name-required");
+
+    expect(prismaMock.project.create).not.toHaveBeenCalled();
   });
 });

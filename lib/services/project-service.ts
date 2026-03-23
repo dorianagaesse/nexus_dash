@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, ProjectMembershipRole } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
@@ -54,6 +54,12 @@ type ProjectSummaryRecord = Prisma.ProjectGetPayload<{
     id: true;
     name: true;
     description: true;
+    ownerId: true;
+    memberships: {
+      select: {
+        role: true;
+      };
+    };
   };
 }>;
 
@@ -70,16 +76,20 @@ type ProjectSummaryWithStatsRecord = ProjectSummaryRecord & {
   stats: ProjectSummaryStats;
 };
 
-type ProjectWithCountsRecord = Prisma.ProjectGetPayload<{
-  include: {
-    _count: {
-      select: {
-        tasks: true;
-        resources: true;
-      };
-    };
+interface ProjectWithCountsRecord {
+  id: string;
+  name: string;
+  description: string | null;
+  ownerId: string;
+  updatedAt: Date;
+  memberships: Array<{
+    role: ProjectMembershipRole;
+  }>;
+  _count: {
+    tasks: number;
+    resources: number;
   };
-}>;
+}
 
 interface ProjectUpsertInput {
   actorUserId: string;
@@ -97,6 +107,25 @@ function normalizeActorUserId(actorUserId: string | null | undefined): string {
   }
 
   return actorUserId.trim();
+}
+
+function normalizeProjectName(name: string | null | undefined): string {
+  if (typeof name !== "string") {
+    return "";
+  }
+
+  return name.trim();
+}
+
+function normalizeProjectDescription(
+  description: string | null | undefined
+): string | null {
+  if (typeof description !== "string") {
+    return null;
+  }
+
+  const normalizedDescription = description.trim();
+  return normalizedDescription.length > 0 ? normalizedDescription : null;
 }
 
 async function ensureSyntheticTestUserExists(actorUserId: string, db: DbClient = prisma) {
@@ -121,11 +150,16 @@ export async function listProjectsWithCounts(
     return [];
   }
 
-  return withActorRlsContext(normalizedActorUserId, (db) =>
-    db.project.findMany({
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    const projects = await db.project.findMany({
       where: buildProjectPrincipalWhere(normalizedActorUserId),
       orderBy: [{ updatedAt: "desc" }],
-      include: {
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        ownerId: true,
+        updatedAt: true,
         _count: {
           select: {
             tasks: true,
@@ -133,8 +167,47 @@ export async function listProjectsWithCounts(
           },
         },
       },
-    })
-  ) as Promise<ProjectWithCountsRecord[]>;
+    });
+
+    const collaboratorProjectIds = projects
+      .filter((project) => project.ownerId !== normalizedActorUserId)
+      .map((project) => project.id);
+
+    const memberships =
+      collaboratorProjectIds.length > 0
+        ? await db.projectMembership.findMany({
+            where: {
+              userId: normalizedActorUserId,
+              projectId: {
+                in: collaboratorProjectIds,
+              },
+            },
+            select: {
+              projectId: true,
+              role: true,
+            },
+          })
+        : [];
+
+    const roleByProjectId = new Map(
+      memberships.map((membership) => [membership.projectId, membership.role])
+    );
+
+    return projects.map((project) => {
+      if (project.ownerId === normalizedActorUserId) {
+        return {
+          ...project,
+          memberships: [],
+        };
+      }
+
+      const collaboratorRole = roleByProjectId.get(project.id);
+      return {
+        ...project,
+        memberships: collaboratorRole ? [{ role: collaboratorRole }] : [],
+      };
+    });
+  }) as Promise<ProjectWithCountsRecord[]>;
 }
 
 export type ProjectWithCounts = Awaited<
@@ -143,8 +216,13 @@ export type ProjectWithCounts = Awaited<
 
 export async function createProject(input: ProjectUpsertInput) {
   const actorUserId = normalizeActorUserId(input.actorUserId);
+  const name = normalizeProjectName(input.name);
+  const description = normalizeProjectDescription(input.description);
   if (!actorUserId) {
     throw new Error("unauthorized");
+  }
+  if (!name) {
+    throw new Error("project-name-required");
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
@@ -153,8 +231,8 @@ export async function createProject(input: ProjectUpsertInput) {
     return db.project.create({
       data: {
         ownerId: actorUserId,
-        name: input.name,
-        description: input.description,
+        name,
+        description,
         memberships: {
           create: {
             userId: actorUserId,
@@ -168,8 +246,13 @@ export async function createProject(input: ProjectUpsertInput) {
 
 export async function updateProject(input: ProjectUpdateInput) {
   const actorUserId = normalizeActorUserId(input.actorUserId);
+  const name = normalizeProjectName(input.name);
+  const description = normalizeProjectDescription(input.description);
   if (!actorUserId) {
     throw new Error("unauthorized");
+  }
+  if (!name) {
+    throw new Error("project-name-required");
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
@@ -186,8 +269,8 @@ export async function updateProject(input: ProjectUpdateInput) {
     return db.project.update({
       where: { id: input.projectId },
       data: {
-        name: input.name,
-        description: input.description,
+        name,
+        description,
       },
     });
   });
@@ -287,6 +370,14 @@ export async function getProjectSummaryById(
           id: true,
           name: true,
           description: true,
+          ownerId: true,
+          memberships: {
+            where: { userId: normalizedActorUserId },
+            select: {
+              role: true,
+            },
+            take: 1,
+          },
         },
       }),
       db.task.count({
