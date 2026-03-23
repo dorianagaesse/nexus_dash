@@ -16,6 +16,13 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-03-24 - Bind collaboration invites to verified email identity and use copyable links as delivery only
+- Status: Accepted
+- Context: TASK-103 extends project sharing beyond existing verified users, but the v1 verified-account authorization model should remain intact and invite links must not become anonymous claim tokens.
+- Decision: Store invitations against normalized recipient email, require acceptance by an authenticated verified account whose verified email matches that invited email, and treat invite links purely as a resumable delivery mechanism that routes the recipient through sign-in, sign-up, verification, or wrong-account correction before acceptance.
+- Consequences: Owners can invite collaborators before an account exists and recipients can resume safely after account creation or verification, while invite acceptance stays identity-bound rather than link-bound; invitation RLS/listing must resolve by verified email and auth flows must preserve `returnTo` state.
+- Links: `tasks/current.md`, `lib/services/project-collaboration-service.ts`, `lib/navigation/return-to.ts`, `app/invite/project/[invitationId]/page.tsx`, `prisma/migrations/20260324110000_task103_email_bound_project_invites/migration.sql`
+
 ## 2026-03-21 - Auto-verify email/password signups on preview deployments only
 - Status: Accepted
 - Context: TASK-058 collaboration testing on preview requires invite search to work for email/password accounts, but preview intentionally avoids a full email verification workflow to keep manual validation lightweight.

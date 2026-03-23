@@ -12,6 +12,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-03-24
+- Type: Execution
+- Summary: TASK-103 project sharing v2 was implemented end-to-end with email-bound invitations, copyable invite-link delivery, and recipient resume flows across sign-in, sign-up, verification, and wrong-account states.
+- Evidence: Reworked invitation persistence in `prisma/schema.prisma` and `prisma/migrations/20260324110000_task103_email_bound_project_invites/migration.sql`; rewrote invite lifecycle handling in `lib/services/project-collaboration-service.ts`; added invite landing/actions in `app/invite/project/[invitationId]/page.tsx` and `app/invite/project/[invitationId]/actions.ts`; updated owner sharing UI in `components/project-dashboard/project-dashboard-owner-actions.tsx` and `components/project-dashboard/project-dashboard-owner-sharing-panel.tsx`; threaded auth/verification return paths through `app/page.tsx`, `app/home-auth-actions.ts`, `app/verify-email/**`, and `app/api/auth/verify-email/route.ts`.
+
+### 2026-03-24
+- Type: Validation
+- Summary: TASK-103 local validation baseline passed for lint, unit tests, coverage, and production build after using safe env overrides for deploy-sensitive configuration.
+- Evidence: `npm run lint`; `npm test`; `npm run test:coverage`; `$env:DATABASE_URL='postgresql://user:pass@127.0.0.1:5432/postgres?sslmode=require'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres?sslmode=require'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; npm run build`.
+
+### 2026-03-24
+- Type: Blocker
+- Summary: TASK-103 Playwright e2e validation could not complete in this environment because the local PostgreSQL service required by the test fixtures is unreachable.
+- Evidence: `$env:DATABASE_URL='postgresql://user:pass@127.0.0.1:5432/postgres?sslmode=require'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres?sslmode=require'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; npm run test:e2e` built successfully, then all 5 Playwright specs failed with `PrismaClientInitializationError: Can't reach database server at 127.0.0.1:5432` from `tests/e2e/helpers/auth-helpers.ts` and `tests/e2e/password-recovery.spec.ts`.
+
 ### 2026-03-23
 - Type: Governance
 - Summary: TASK-058 post-implementation cleanup removed preview-only debug scaffolding, split the owner settings surface into smaller modules, and recorded follow-up work for task ownership/provenance plus later collaboration-service modularization.
