@@ -14,6 +14,13 @@ ALTER COLUMN "invitedEmail" SET NOT NULL;
 ALTER TABLE "ProjectInvitation"
 ADD COLUMN "replacedAt" TIMESTAMP(3);
 
+DROP POLICY IF EXISTS project_membership_insert_policy ON "ProjectMembership";
+DROP POLICY IF EXISTS project_invitation_select_policy ON "ProjectInvitation";
+DROP POLICY IF EXISTS project_invitation_insert_policy ON "ProjectInvitation";
+DROP POLICY IF EXISTS project_invitation_owner_update_policy ON "ProjectInvitation";
+DROP POLICY IF EXISTS project_invitation_invitee_update_policy ON "ProjectInvitation";
+DROP POLICY IF EXISTS project_invitation_delete_policy ON "ProjectInvitation";
+
 DROP INDEX IF EXISTS "ProjectInvitation_active_project_user_key";
 DROP INDEX IF EXISTS "ProjectInvitation_invitedUserId_idx";
 
@@ -142,8 +149,6 @@ AS $$
     );
 $$;
 
-DROP POLICY IF EXISTS project_membership_insert_policy ON "ProjectMembership";
-
 CREATE POLICY project_membership_insert_policy ON "ProjectMembership"
 FOR INSERT
 WITH CHECK (
@@ -163,12 +168,6 @@ WITH CHECK (
     )
   )
 );
-
-DROP POLICY IF EXISTS project_invitation_select_policy ON "ProjectInvitation";
-DROP POLICY IF EXISTS project_invitation_insert_policy ON "ProjectInvitation";
-DROP POLICY IF EXISTS project_invitation_owner_update_policy ON "ProjectInvitation";
-DROP POLICY IF EXISTS project_invitation_invitee_update_policy ON "ProjectInvitation";
-DROP POLICY IF EXISTS project_invitation_delete_policy ON "ProjectInvitation";
 
 CREATE POLICY project_invitation_select_policy ON "ProjectInvitation"
 FOR SELECT
