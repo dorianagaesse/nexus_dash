@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
+import { normalizeReturnToPath } from "@/lib/navigation/return-to";
 import { EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS } from "@/lib/services/email-verification-service";
 import { getEmailVerificationStatus } from "@/lib/services/email-verification-service";
 
@@ -61,17 +62,18 @@ export default async function VerifyEmailPage({
   searchParams?: SearchParams;
 }) {
   const actorUserId = await getSessionUserIdFromServer();
+  const returnToPath = normalizeReturnToPath(readQueryValue(searchParams?.returnTo), "/projects");
   if (!actorUserId) {
-    redirect("/?form=signin");
+    redirect(`/?form=signin&returnTo=${encodeURIComponent(returnToPath)}`);
   }
 
   const verificationStatus = await getEmailVerificationStatus(actorUserId);
   if (!verificationStatus.ok) {
-    redirect("/?form=signin");
+    redirect(`/?form=signin&returnTo=${encodeURIComponent(returnToPath)}`);
   }
 
   if (verificationStatus.data.isVerified) {
-    redirect("/projects");
+    redirect(returnToPath);
   }
 
   const statusCode = readQueryValue(searchParams?.status);
@@ -122,9 +124,11 @@ export default async function VerifyEmailPage({
           </CardHeader>
           <CardContent className="flex flex-wrap items-center gap-3">
             <form action={continueAfterVerificationAction}>
+              <input type="hidden" name="returnTo" value={returnToPath} />
               <Button type="submit">I verified, continue</Button>
             </form>
             <form action={resendVerificationEmailAction}>
+              <input type="hidden" name="returnTo" value={returnToPath} />
               <Button type="submit" variant="secondary">
                 Resend verification email
               </Button>

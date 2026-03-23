@@ -38,6 +38,7 @@ const STATUS_MESSAGES: Record<string, string> = {
   "context-updated": "Context card updated successfully.",
   "context-deleted": "Context card deleted successfully.",
   "calendar-connected": "Google Calendar connected successfully.",
+  "invitation-accepted": "Project invitation accepted.",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {

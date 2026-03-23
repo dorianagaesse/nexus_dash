@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
 import { isLiveProductionDeployment } from "@/lib/env.server";
+import { normalizeReturnToPath } from "@/lib/navigation/return-to";
 import {
   MAX_USERNAME_LENGTH,
   MIN_PASSWORD_LENGTH,
@@ -111,6 +112,10 @@ function resolvePrefilledEmail(value: string | null): string | undefined {
   return normalized;
 }
 
+function resolveReturnToPath(value: string | null): string {
+  return normalizeReturnToPath(value, "/projects");
+}
+
 const inputClassName =
   "h-11 rounded-md border border-input bg-background px-3 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
@@ -120,13 +125,18 @@ export default async function Home({
   searchParams?: SearchParams;
 }) {
   const actorUserId = await getSessionUserIdFromServer();
+  const returnToPath = resolveReturnToPath(readQueryValue(searchParams?.returnTo));
   if (actorUserId) {
     if (!isLiveProductionDeployment()) {
-      redirect("/projects");
+      redirect(returnToPath);
     }
 
     const emailVerified = await isEmailVerifiedForUser(actorUserId);
-    redirect(emailVerified ? "/projects" : "/verify-email");
+    redirect(
+      emailVerified
+        ? returnToPath
+        : `/verify-email?returnTo=${encodeURIComponent(returnToPath)}`
+    );
   }
 
   const formValue = readQueryValue(searchParams?.form);
@@ -212,6 +222,7 @@ export default async function Home({
             <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted p-1">
               <HomeAuthModeToggleLink
                 targetForm="signin"
+                returnTo={returnToPath}
                 ariaCurrent={isSignIn ? "page" : undefined}
                 className={cn(
                   "rounded-md px-3 py-2 text-center text-sm font-medium transition",
@@ -224,6 +235,7 @@ export default async function Home({
               </HomeAuthModeToggleLink>
               <HomeAuthModeToggleLink
                 targetForm="signup"
+                returnTo={returnToPath}
                 ariaCurrent={!isSignIn ? "page" : undefined}
                 className={cn(
                   "rounded-md px-3 py-2 text-center text-sm font-medium transition",
@@ -269,6 +281,7 @@ export default async function Home({
                     key={provider}
                     provider={provider}
                     form={activeForm}
+                    returnTo={returnToPath}
                   />
                 ))}
                 <div className="relative my-1">
@@ -284,6 +297,7 @@ export default async function Home({
 
             {isSignIn ? (
               <form key="signin-form" action={signInAction} className="grid gap-4">
+                <input type="hidden" name="returnTo" value={returnToPath} />
                 <div className="grid gap-2">
                   <label htmlFor="signin-email" className="text-sm font-medium">
                     Email
@@ -334,6 +348,7 @@ export default async function Home({
               </form>
             ) : (
               <form key="signup-form" action={signUpAction} className="grid gap-4">
+                <input type="hidden" name="returnTo" value={returnToPath} />
                 <div className="grid gap-2">
                   <label htmlFor="signup-username" className="text-sm font-medium">
                     Username
@@ -427,6 +442,7 @@ export default async function Home({
                 {isSignIn ? "New to NexusDash?" : "Already have an account?"}{" "}
                 <HomeAuthModeToggleLink
                   targetForm={isSignIn ? "signup" : "signin"}
+                  returnTo={returnToPath}
                   className="font-medium text-foreground underline-offset-4 hover:underline"
                 >
                   {isSignIn ? "Create an account" : "Sign in"}

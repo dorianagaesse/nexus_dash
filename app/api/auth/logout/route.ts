@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { isProductionEnvironment } from "@/lib/env.server";
+import { normalizeReturnToPath } from "@/lib/navigation/return-to";
 import { logServerError } from "@/lib/observability/logger";
 import {
   SESSION_COOKIE_NAMES,
@@ -24,7 +25,11 @@ export async function POST(request: NextRequest) {
   }
 
   const secure = isProductionEnvironment();
-  const response = NextResponse.redirect(new URL("/", request.url));
+  const returnToPath = normalizeReturnToPath(
+    request.nextUrl.searchParams.get("returnTo"),
+    "/"
+  );
+  const response = NextResponse.redirect(new URL(returnToPath, request.url));
 
   for (const cookieName of SESSION_COOKIE_NAMES) {
     response.cookies.set(cookieName, "", {

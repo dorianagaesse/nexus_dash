@@ -1,4 +1,7 @@
 import { getOptionalServerEnv, getRequiredServerEnv } from "@/lib/env.server";
+import { normalizeReturnToPath } from "@/lib/navigation/return-to";
+
+export { normalizeReturnToPath } from "@/lib/navigation/return-to";
 
 const GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
@@ -188,14 +191,3 @@ export function createExpiryDate(expiresInSeconds: number): Date {
   return new Date(Date.now() + Math.max(0, expiresInSeconds - 30) * 1000);
 }
 
-export function normalizeReturnToPath(value: string | null): string {
-  if (!value) {
-    return "/projects";
-  }
-
-  if (value.startsWith("/")) {
-    return value;
-  }
-
-  return "/projects";
-}

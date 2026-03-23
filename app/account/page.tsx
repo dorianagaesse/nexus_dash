@@ -63,6 +63,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   "invitation-not-found": "Invitation not found.",
   "invitation-revoked": "This invitation is no longer available.",
   "invitation-expired": "This invitation has expired.",
+  "invitation-replaced": "This invitation was replaced by a newer link.",
+  "invitation-email-mismatch":
+    "This invitation belongs to a different verified email address.",
   "invitation-already-accepted": "This invitation was already accepted.",
   "invitation-accept-failed": "Could not accept the invitation. Please retry.",
   "invitation-decline-failed": "Could not decline the invitation. Please retry.",

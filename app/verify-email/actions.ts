@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
 import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
+import { appendQueryToPath, normalizeReturnToPath } from "@/lib/navigation/return-to";
 import { logServerError, logServerWarning } from "@/lib/observability/logger";
 import {
   getEmailVerificationStatus,
@@ -23,6 +24,15 @@ function redirectWithStatus(status: string): never {
   redirect(`${VERIFY_EMAIL_PATH}?status=${status}`);
 }
 
+function resolveReturnToPath(formData?: FormData): string {
+  if (!formData) {
+    return normalizeReturnToPath(null, PROJECTS_PATH);
+  }
+
+  const value = formData.get("returnTo");
+  return normalizeReturnToPath(typeof value === "string" ? value : null, PROJECTS_PATH);
+}
+
 function mapIssueError(error: string): string {
   switch (error) {
     case "resend-cooldown":
@@ -38,10 +48,11 @@ function mapIssueError(error: string): string {
   }
 }
 
-export async function resendVerificationEmailAction(): Promise<void> {
+export async function resendVerificationEmailAction(formData?: FormData): Promise<void> {
+  const returnToPath = resolveReturnToPath(formData);
   const actorUserId = await getSessionUserIdFromServer();
   if (!actorUserId) {
-    redirect(HOME_PATH);
+    redirect(`${HOME_PATH}&returnTo=${encodeURIComponent(returnToPath)}`);
   }
 
   let result: Awaited<ReturnType<typeof issueEmailVerificationForUser>>;
@@ -50,15 +61,21 @@ export async function resendVerificationEmailAction(): Promise<void> {
     result = await issueEmailVerificationForUser({
       actorUserId,
       requestOrigin,
+      returnToPath,
     });
   } catch (error) {
     logServerError("resendVerificationEmailAction", error);
-    redirectWithError("verification-email-send-failed");
+    redirect(
+      appendQueryToPath(VERIFY_EMAIL_PATH, {
+        error: "verification-email-send-failed",
+        returnTo: returnToPath,
+      })
+    );
   }
 
   if (!result.ok) {
     if (result.error === "already-verified") {
-      redirect(PROJECTS_PATH);
+      redirect(returnToPath);
     }
 
     logServerWarning(
@@ -70,17 +87,28 @@ export async function resendVerificationEmailAction(): Promise<void> {
         status: result.status,
       }
     );
-    redirectWithError(mapIssueError(result.error));
+    redirect(
+      appendQueryToPath(VERIFY_EMAIL_PATH, {
+        error: mapIssueError(result.error),
+        returnTo: returnToPath,
+      })
+    );
   }
 
   const status = result.data.delivery === "sent" ? "resend-sent" : "resend-queued";
-  redirectWithStatus(status);
+  redirect(
+    appendQueryToPath(VERIFY_EMAIL_PATH, {
+      status,
+      returnTo: returnToPath,
+    })
+  );
 }
 
-export async function continueAfterVerificationAction(): Promise<void> {
+export async function continueAfterVerificationAction(formData?: FormData): Promise<void> {
+  const returnToPath = resolveReturnToPath(formData);
   const actorUserId = await getSessionUserIdFromServer();
   if (!actorUserId) {
-    redirect(HOME_PATH);
+    redirect(`${HOME_PATH}&returnTo=${encodeURIComponent(returnToPath)}`);
   }
 
   let status: Awaited<ReturnType<typeof getEmailVerificationStatus>>;
@@ -92,12 +120,17 @@ export async function continueAfterVerificationAction(): Promise<void> {
   }
 
   if (!status.ok) {
-    redirect(HOME_PATH);
+    redirect(`${HOME_PATH}&returnTo=${encodeURIComponent(returnToPath)}`);
   }
 
   if (status.data.isVerified) {
-    redirect(PROJECTS_PATH);
+    redirect(returnToPath);
   }
 
-  redirectWithError("verification-pending");
+  redirect(
+    appendQueryToPath(VERIFY_EMAIL_PATH, {
+      error: "verification-pending",
+      returnTo: returnToPath,
+    })
+  );
 }

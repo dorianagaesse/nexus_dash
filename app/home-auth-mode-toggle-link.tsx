@@ -8,6 +8,7 @@ type HomeAuthForm = "signin" | "signup";
 
 type HomeAuthModeToggleLinkProps = {
   targetForm: HomeAuthForm;
+  returnTo?: string | null;
   className?: string;
   ariaCurrent?: "page";
   children: ReactNode;
@@ -43,7 +44,8 @@ function readCurrentEmailCandidate(): string | null {
 
 export function buildHomeAuthHref(
   targetForm: HomeAuthForm,
-  emailCandidate?: string | null
+  emailCandidate?: string | null,
+  returnTo?: string | null
 ): string {
   const params = new URLSearchParams({ form: targetForm });
   const normalizedEmail = normalizeEmailCandidate(emailCandidate);
@@ -52,17 +54,22 @@ export function buildHomeAuthHref(
     params.set("email", normalizedEmail);
   }
 
+  if (returnTo) {
+    params.set("returnTo", returnTo);
+  }
+
   return `/?${params.toString()}`;
 }
 
 export function HomeAuthModeToggleLink({
   targetForm,
+  returnTo,
   className,
   ariaCurrent,
   children,
 }: HomeAuthModeToggleLinkProps) {
   const router = useRouter();
-  const baseHref = buildHomeAuthHref(targetForm);
+  const baseHref = buildHomeAuthHref(targetForm, null, returnTo);
 
   const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
     if (
@@ -76,7 +83,11 @@ export function HomeAuthModeToggleLink({
       return;
     }
 
-    const nextHref = buildHomeAuthHref(targetForm, readCurrentEmailCandidate());
+    const nextHref = buildHomeAuthHref(
+      targetForm,
+      readCurrentEmailCandidate(),
+      returnTo
+    );
     if (nextHref === baseHref) {
       return;
     }

@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 
+import { normalizeReturnToPath } from "@/lib/navigation/return-to";
 import { prisma } from "@/lib/prisma";
 import { normalizeEmail, validateEmail } from "@/lib/services/account-security-policy";
 import { sendTransactionalEmail } from "@/lib/services/transactional-email-service";
@@ -32,6 +33,7 @@ type ServiceResult<T extends Record<string, unknown>> =
 interface IssueVerificationInput {
   actorUserId: string;
   requestOrigin: string;
+  returnToPath?: string | null;
 }
 
 function createSuccess<T extends Record<string, unknown>>(
@@ -86,10 +88,18 @@ function resolveAppOrigin(requestOrigin: string): string {
   }
 }
 
-function buildVerificationUrl(requestOrigin: string, rawToken: string): string {
+function buildVerificationUrl(
+  requestOrigin: string,
+  rawToken: string,
+  returnToPath?: string | null
+): string {
   const appOrigin = resolveAppOrigin(requestOrigin);
   const url = new URL(EMAIL_VERIFICATION_CALLBACK_PATH, appOrigin);
   url.searchParams.set("token", rawToken);
+  const normalizedReturnToPath = normalizeReturnToPath(returnToPath, "");
+  if (normalizedReturnToPath) {
+    url.searchParams.set("returnTo", normalizedReturnToPath);
+  }
   return url.toString();
 }
 
@@ -208,7 +218,11 @@ export async function issueEmailVerificationForUser(
   const rawToken = createVerificationToken();
   const tokenHash = hashVerificationToken(rawToken);
   const expiresAt = new Date(now + EMAIL_VERIFICATION_TOKEN_TTL_SECONDS * 1000);
-  const verificationUrl = buildVerificationUrl(input.requestOrigin, rawToken);
+  const verificationUrl = buildVerificationUrl(
+    input.requestOrigin,
+    rawToken,
+    input.returnToPath
+  );
   const message = buildVerificationEmail({ verificationUrl });
   const tokenCreationResult = await prisma.$transaction(async (tx) => {
     const [recentTokenCount, latestToken] = await Promise.all([
