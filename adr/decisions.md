@@ -16,6 +16,13 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-03-21 - Auto-verify email/password signups on preview deployments only
+- Status: Accepted
+- Context: TASK-058 collaboration testing on preview requires invite search to work for email/password accounts, but preview intentionally avoids a full email verification workflow to keep manual validation lightweight.
+- Decision: Automatically mark email/password signups as verified when `VERCEL_ENV=preview`, while preserving normal verification requirements for production and other non-preview environments.
+- Consequences: Preview collaboration testing is faster and less brittle, but preview account semantics differ intentionally from production; future testing/debugging should assume preview-created credential accounts are already verified.
+- Links: `lib/env.server.ts`, `lib/services/credential-auth-service.ts`, `tests/lib/credential-auth-service.test.ts`
+
 ## 2026-03-20 - Ship project sharing v1 as verified existing-user invites with owner-managed collaboration controls
 - Status: Accepted
 - Context: TASK-058 needed a practical first release of collaboration that fits the current authenticated app and RLS architecture without overcommitting to email/link-based invitation complexity yet.

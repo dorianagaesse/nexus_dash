@@ -12,6 +12,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-03-23
+- Type: Governance
+- Summary: TASK-058 post-implementation cleanup removed preview-only debug scaffolding, split the owner settings surface into smaller modules, and recorded follow-up work for task ownership/provenance plus later collaboration-service modularization.
+- Evidence: Removed `app/api/debug/invitation-state/route.ts`; split `components/project-dashboard/project-dashboard-owner-actions.tsx` into dedicated general/sharing/shared modules; updated `tasks/backlog.md` with `TASK-101` and `TASK-102`; validated with `npm run lint`, `npm test`, safe-override `npm run build`, and preview deploy `https://nexus-dash-phbquqj8t-dorian-agaesses-projects.vercel.app`.
+
 ### 2026-03-20
 - Type: Governance
 - Summary: Merged `origin/main` after PR `#100` landed, resolved task-tracking doc conflicts, and addressed Copilot feedback on invitation idempotency and invitation-row update integrity.
