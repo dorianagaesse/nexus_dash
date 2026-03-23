@@ -229,28 +229,25 @@ describe("project-collaboration-service", () => {
   });
 
   test("returns a sign-in-required recipient view for active email-bound invitations", async () => {
-    prismaMock.projectInvitation.findUnique.mockResolvedValueOnce({
-      id: "invite-1",
-      projectId: "project-1",
-      invitedEmail: "invitee@example.com",
-      role: "viewer",
-      createdAt: new Date("2026-03-20T10:00:00.000Z"),
-      expiresAt: new Date("2099-03-21T10:00:00.000Z"),
-      acceptedAt: null,
-      revokedAt: null,
-      replacedAt: null,
-      project: {
-        id: "project-1",
-        name: "Shared Project",
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      {
+        invitationId: "invite-1",
+        projectId: "project-1",
+        projectName: "Shared Project",
+        invitedEmail: "invitee@example.com",
+        invitationRole: "viewer",
+        createdAt: new Date("2026-03-20T10:00:00.000Z"),
+        expiresAt: new Date("2099-03-21T10:00:00.000Z"),
+        acceptedAt: null,
+        revokedAt: null,
+        replacedAt: null,
+        invitedByUserId: "owner-1",
+        invitedByEmail: "owner@example.com",
+        invitedByName: "Owner",
+        invitedByUsername: "owner",
+        invitedByUsernameDiscriminator: "4321",
       },
-      invitedByUser: {
-        id: "owner-1",
-        email: "owner@example.com",
-        name: "Owner",
-        username: "owner",
-        usernameDiscriminator: "4321",
-      },
-    });
+    ]);
     prismaMock.user.findMany.mockResolvedValueOnce([]);
 
     const result = await getProjectInvitationRecipientView({
@@ -282,28 +279,25 @@ describe("project-collaboration-service", () => {
   });
 
   test("returns a wrong-account recipient view when the signed-in email does not match", async () => {
-    prismaMock.projectInvitation.findUnique.mockResolvedValueOnce({
-      id: "invite-2",
-      projectId: "project-2",
-      invitedEmail: "invitee@example.com",
-      role: "editor",
-      createdAt: new Date("2026-03-20T10:00:00.000Z"),
-      expiresAt: new Date("2099-03-21T10:00:00.000Z"),
-      acceptedAt: null,
-      revokedAt: null,
-      replacedAt: null,
-      project: {
-        id: "project-2",
-        name: "Shared Project",
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      {
+        invitationId: "invite-2",
+        projectId: "project-2",
+        projectName: "Shared Project",
+        invitedEmail: "invitee@example.com",
+        invitationRole: "editor",
+        createdAt: new Date("2026-03-20T10:00:00.000Z"),
+        expiresAt: new Date("2099-03-21T10:00:00.000Z"),
+        acceptedAt: null,
+        revokedAt: null,
+        replacedAt: null,
+        invitedByUserId: "owner-1",
+        invitedByEmail: "owner@example.com",
+        invitedByName: "Owner",
+        invitedByUsername: "owner",
+        invitedByUsernameDiscriminator: "4321",
       },
-      invitedByUser: {
-        id: "owner-1",
-        email: "owner@example.com",
-        name: "Owner",
-        username: "owner",
-        usernameDiscriminator: "4321",
-      },
-    });
+    ]);
     prismaMock.user.findMany.mockResolvedValueOnce([]);
     prismaMock.user.findUnique.mockResolvedValueOnce({
       id: "user-2",

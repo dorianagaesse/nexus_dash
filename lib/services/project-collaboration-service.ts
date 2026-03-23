@@ -113,6 +113,24 @@ interface InvitationMatchedUser {
   usernameDiscriminator: string | null;
 }
 
+interface InvitationRecipientLookupRow {
+  invitationId: string;
+  projectId: string;
+  projectName: string;
+  invitedEmail: string;
+  invitationRole: ProjectMembershipRole;
+  createdAt: Date;
+  expiresAt: Date;
+  acceptedAt: Date | null;
+  revokedAt: Date | null;
+  replacedAt: Date | null;
+  invitedByUserId: string;
+  invitedByEmail: string | null;
+  invitedByName: string | null;
+  invitedByUsername: string | null;
+  invitedByUsernameDiscriminator: string | null;
+}
+
 interface ProjectInvitationRecord {
   id: string;
   projectId: string;
@@ -444,35 +462,53 @@ function buildProjectInvitationSummary(input: {
 async function findInvitationById(
   invitationId: string
 ): Promise<ProjectInvitationRecord | null> {
-  return prisma.projectInvitation.findUnique({
-    where: { id: invitationId },
-    select: {
-      id: true,
-      projectId: true,
-      invitedEmail: true,
-      role: true,
-      createdAt: true,
-      expiresAt: true,
-      acceptedAt: true,
-      revokedAt: true,
-      replacedAt: true,
-      project: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      invitedByUser: {
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          username: true,
-          usernameDiscriminator: true,
-        },
-      },
+  const rows = await prisma.$queryRaw<InvitationRecipientLookupRow[]>(Prisma.sql`
+    SELECT
+      invitation_id AS "invitationId",
+      project_id AS "projectId",
+      project_name AS "projectName",
+      invited_email AS "invitedEmail",
+      invitation_role AS "invitationRole",
+      created_at AS "createdAt",
+      expires_at AS "expiresAt",
+      accepted_at AS "acceptedAt",
+      revoked_at AS "revokedAt",
+      replaced_at AS "replacedAt",
+      invited_by_user_id AS "invitedByUserId",
+      invited_by_email AS "invitedByEmail",
+      invited_by_name AS "invitedByName",
+      invited_by_username AS "invitedByUsername",
+      invited_by_username_discriminator AS "invitedByUsernameDiscriminator"
+    FROM app.get_project_invitation_for_landing(${invitationId})
+  `);
+
+  const row = rows[0];
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.invitationId,
+    projectId: row.projectId,
+    invitedEmail: row.invitedEmail,
+    role: row.invitationRole,
+    createdAt: row.createdAt,
+    expiresAt: row.expiresAt,
+    acceptedAt: row.acceptedAt,
+    revokedAt: row.revokedAt,
+    replacedAt: row.replacedAt,
+    project: {
+      id: row.projectId,
+      name: row.projectName,
     },
-  });
+    invitedByUser: {
+      id: row.invitedByUserId,
+      email: row.invitedByEmail,
+      name: row.invitedByName,
+      username: row.invitedByUsername,
+      usernameDiscriminator: row.invitedByUsernameDiscriminator,
+    },
+  };
 }
 
 export async function searchInvitableUsersForProject(input: {

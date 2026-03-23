@@ -279,6 +279,52 @@ AS $$
   ORDER BY pi."createdAt" DESC;
 $$;
 
+CREATE OR REPLACE FUNCTION app.get_project_invitation_for_landing(target_invitation_id TEXT)
+RETURNS TABLE (
+  invitation_id TEXT,
+  project_id TEXT,
+  project_name TEXT,
+  invited_email TEXT,
+  invitation_role "ProjectMembershipRole",
+  created_at TIMESTAMP(3),
+  expires_at TIMESTAMP(3),
+  accepted_at TIMESTAMP(3),
+  revoked_at TIMESTAMP(3),
+  replaced_at TIMESTAMP(3),
+  invited_by_user_id TEXT,
+  invited_by_email TEXT,
+  invited_by_name TEXT,
+  invited_by_username TEXT,
+  invited_by_username_discriminator TEXT
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT
+    pi.id,
+    pi."projectId",
+    p.name,
+    pi."invitedEmail",
+    pi."role",
+    pi."createdAt",
+    pi."expiresAt",
+    pi."acceptedAt",
+    pi."revokedAt",
+    pi."replacedAt",
+    invited_by.id,
+    invited_by.email,
+    invited_by.name,
+    invited_by.username,
+    invited_by."usernameDiscriminator"
+  FROM "ProjectInvitation" pi
+  INNER JOIN "Project" p ON p.id = pi."projectId"
+  INNER JOIN "User" invited_by ON invited_by.id = pi."invitedByUserId"
+  WHERE pi.id = target_invitation_id
+  LIMIT 1;
+$$;
+
 GRANT EXECUTE ON FUNCTION app.current_user_verified_email() TO PUBLIC;
 GRANT EXECUTE ON FUNCTION app.can_owner_revoke_project_invitation(
   TEXT,
@@ -303,3 +349,4 @@ GRANT EXECUTE ON FUNCTION app.can_invitee_respond_to_project_invitation(
   TIMESTAMP(3)
 ) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION app.list_pending_project_invitations_for_current_user() TO PUBLIC;
+GRANT EXECUTE ON FUNCTION app.get_project_invitation_for_landing(TEXT) TO PUBLIC;
