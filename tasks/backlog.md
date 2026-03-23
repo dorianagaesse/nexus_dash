@@ -76,6 +76,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Extend the shipped sharing baseline so owners can invite collaborators by email even before they have an account, while keeping invite acceptance bound to the intended verified email/account and preserving revoke/expiry/replay protections. Copyable invite links should act as a delivery mechanism for those email-bound invites rather than introducing open claimable access by default; sign-up-before-accept should resume into the invite flow, pending invites should appear automatically once the matching account exists, and only one active pending invite should exist per project/email pair.
   Dependencies: TASK-058, TASK-083, TASK-102
+- ID: TASK-104
+  Title: Invite email delivery - app-managed sending for project collaboration invites
+  Status: Pending
+  Rationale: After copy-link invite delivery is in place, add first-party email sending for collaboration invites so owners can trigger invite delivery directly from the app, with explicit sender identity, provider configuration, and deliverability/error-handling decisions rather than coupling those concerns into TASK-103 by default.
+  Dependencies: TASK-103, TASK-083
 - ID: TASK-088
   Title: Milestone architecture and security audit - post-auth/account hardening review
   Status: Pending
