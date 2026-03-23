@@ -19,16 +19,17 @@ export interface ProjectInvitationSummary {
   invitationId: string;
   projectId: string;
   projectName: string;
-  invitedUserId: string;
-  invitedUserDisplayName: string;
+  invitedEmail: string;
+  invitedUserId: string | null;
+  invitedUserDisplayName: string | null;
   invitedUserUsernameTag: string | null;
-  invitedUserEmail: string | null;
   invitedByDisplayName: string;
   invitedByUsernameTag: string | null;
   invitedByEmail: string | null;
   role: ProjectCollaboratorRole;
   createdAt: string;
   expiresAt: string;
+  inviteLinkPath: string;
 }
 
 export interface ProjectSharingSummary {
@@ -61,14 +62,14 @@ export function mapProjectMutationError(errorCode: string): string {
 
 export function mapSharingError(errorCode: string): string {
   switch (errorCode) {
-    case "invitee-not-found":
-      return "Select an existing verified NexusDash user.";
+    case "invalid-email":
+      return "Enter a valid email address.";
     case "already-a-member":
-      return "That user is already a collaborator on this project.";
-    case "invitation-already-pending":
-      return "That user already has a pending invitation.";
+      return "That email already belongs to a collaborator on this project.";
     case "cannot-invite-self":
       return "You already own this project.";
+    case "invitation-conflict":
+      return "A newer invitation was created at the same time. Refresh and retry if needed.";
     case "member-not-found":
       return "Collaborator not found.";
     case "cannot-change-owner-role":

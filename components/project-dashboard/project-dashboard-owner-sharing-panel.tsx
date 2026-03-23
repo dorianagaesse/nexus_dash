@@ -18,6 +18,7 @@ import {
 
 interface ProjectDashboardOwnerSharingPanelProps {
   inviteQuery: string;
+  inviteEmailCandidate: string | null;
   inviteRole: ProjectCollaboratorRole;
   inviteResults: CollaboratorIdentitySummary[];
   isSearchingUsers: boolean;
@@ -30,14 +31,17 @@ interface ProjectDashboardOwnerSharingPanelProps {
   isMutatingInvitationId: string | null;
   onInviteQueryChange: (value: string) => void;
   onInviteRoleChange: (role: ProjectCollaboratorRole) => void;
+  onInviteByEmail: (email: string) => void;
   onInvite: (user: CollaboratorIdentitySummary) => void;
   onRoleChange: (member: ProjectMemberSummary, nextRole: ProjectCollaboratorRole) => void;
   onRemoveMember: (member: ProjectMemberSummary) => void;
+  onCopyInvitationLink: (invitation: ProjectInvitationSummary) => void;
   onRevokeInvitation: (invitation: ProjectInvitationSummary) => void;
 }
 
 export function ProjectDashboardOwnerSharingPanel({
   inviteQuery,
+  inviteEmailCandidate,
   inviteRole,
   inviteResults,
   isSearchingUsers,
@@ -50,9 +54,11 @@ export function ProjectDashboardOwnerSharingPanel({
   isMutatingInvitationId,
   onInviteQueryChange,
   onInviteRoleChange,
+  onInviteByEmail,
   onInvite,
   onRoleChange,
   onRemoveMember,
+  onCopyInvitationLink,
   onRevokeInvitation,
 }: ProjectDashboardOwnerSharingPanelProps) {
   return (
@@ -64,14 +70,15 @@ export function ProjectDashboardOwnerSharingPanel({
             <h3 className="text-base font-semibold">Invite collaborator</h3>
           </div>
           <p className="text-sm text-muted-foreground">
-            Search existing verified NexusDash users and invite them to collaborate.
+            Search existing verified users or enter an email address to create an invite
+            link.
           </p>
         </div>
 
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
           <div className="grid gap-2">
             <label htmlFor="project-sharing-search" className="text-sm font-medium">
-              Search user
+              Search user or enter email
             </label>
             <div className="flex items-center gap-2 rounded-md border border-input bg-background px-3">
               <Search className="h-4 w-4 text-muted-foreground" />
@@ -106,6 +113,25 @@ export function ProjectDashboardOwnerSharingPanel({
         <p className="text-xs text-muted-foreground">{ROLE_COPY[inviteRole]}</p>
 
         <div className="space-y-2">
+          {inviteEmailCandidate ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">{inviteEmailCandidate}</p>
+                <p className="text-xs text-muted-foreground">
+                  Create an email-bound invitation link for this address.
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => onInviteByEmail(inviteEmailCandidate)}
+                disabled={isInvitingUserId === inviteEmailCandidate}
+              >
+                {isInvitingUserId === inviteEmailCandidate ? "Creating..." : "Invite by email"}
+              </Button>
+            </div>
+          ) : null}
+
           {isSearchingUsers ? (
             <p className="text-sm text-muted-foreground">Searching users...</p>
           ) : null}
@@ -232,36 +258,50 @@ export function ProjectDashboardOwnerSharingPanel({
               >
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-medium">{invitation.invitedUserDisplayName}</p>
+                    <p className="text-sm font-medium">
+                      {invitation.invitedUserDisplayName ?? invitation.invitedEmail}
+                    </p>
                     <Badge variant="outline" className="capitalize">
                       {invitation.role}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {formatIdentity({
-                      id: invitation.invitedUserId,
-                      displayName: invitation.invitedUserDisplayName,
-                      usernameTag: invitation.invitedUserUsernameTag,
-                      email: invitation.invitedUserEmail,
-                    })}
+                    {invitation.invitedUserDisplayName
+                      ? formatIdentity({
+                          id: invitation.invitedUserId ?? invitation.invitedEmail,
+                          displayName: invitation.invitedUserDisplayName,
+                          usernameTag: invitation.invitedUserUsernameTag,
+                          email: invitation.invitedEmail,
+                        })
+                      : invitation.invitedEmail}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {buildRoleSummary(invitation.role)}. Expires{" "}
                     {new Date(invitation.expiresAt).toLocaleDateString()}.
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => onRevokeInvitation(invitation)}
-                  disabled={isMutatingInvitationId === invitation.invitationId}
-                >
-                  {isMutatingInvitationId === invitation.invitationId
-                    ? "Revoking..."
-                    : "Revoke"}
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onCopyInvitationLink(invitation)}
+                  >
+                    Copy link
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => onRevokeInvitation(invitation)}
+                    disabled={isMutatingInvitationId === invitation.invitationId}
+                  >
+                    {isMutatingInvitationId === invitation.invitationId
+                      ? "Revoking..."
+                      : "Revoke"}
+                  </Button>
+                </div>
               </div>
             ))}
           </div>

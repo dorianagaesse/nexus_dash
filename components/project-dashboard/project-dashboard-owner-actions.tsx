@@ -23,6 +23,15 @@ import {
   type ProjectSharingSummary,
 } from "@/components/project-dashboard/project-dashboard-owner-actions.shared";
 
+function normalizeInviteEmailCandidate(value: string): string | null {
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) {
+    return null;
+  }
+
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : null;
+}
+
 interface ProjectDashboardOwnerActionsProps {
   projectId: string;
   projectName: string;
@@ -55,6 +64,10 @@ export function ProjectDashboardOwnerActions({
   const [isMutatingMemberId, setIsMutatingMemberId] = useState<string | null>(null);
   const [isMutatingInvitationId, setIsMutatingInvitationId] = useState<string | null>(null);
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
+  const inviteEmailCandidate = useMemo(
+    () => normalizeInviteEmailCandidate(inviteQuery),
+    [inviteQuery]
+  );
 
   useEffect(() => {
     setNameDraft(projectName);
@@ -262,12 +275,16 @@ export function ProjectDashboardOwnerActions({
     setProjectError(null);
   };
 
-  const handleInvite = async (user: CollaboratorIdentitySummary) => {
+  const handleInviteEmail = async (
+    invitedEmail: string,
+    label: string,
+    pendingId = invitedEmail
+  ) => {
     if (isInvitingUserId) {
       return;
     }
 
-    setIsInvitingUserId(user.id);
+    setIsInvitingUserId(pendingId);
 
     try {
       const response = await fetch(`/api/projects/${projectId}/sharing`, {
@@ -276,7 +293,7 @@ export function ProjectDashboardOwnerActions({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          invitedUserId: user.id,
+          invitedEmail,
           role: inviteRole,
         }),
       });
@@ -290,7 +307,7 @@ export function ProjectDashboardOwnerActions({
 
       pushToast({
         variant: "success",
-        message: `${user.displayName} invited as ${inviteRole}.`,
+        message: `${label} invited as ${inviteRole}.`,
       });
       setInviteQuery("");
       setInviteResults([]);
@@ -307,6 +324,18 @@ export function ProjectDashboardOwnerActions({
     } finally {
       setIsInvitingUserId(null);
     }
+  };
+
+  const handleInvite = async (user: CollaboratorIdentitySummary) => {
+    if (!user.email) {
+      pushToast({
+        variant: "error",
+        message: "That account is missing an email address.",
+      });
+      return;
+    }
+
+    await handleInviteEmail(user.email, user.displayName, user.id);
   };
 
   const handleRoleChange = async (
@@ -427,7 +456,9 @@ export function ProjectDashboardOwnerActions({
       return;
     }
 
-    if (!window.confirm(`Revoke the invitation for ${invitation.invitedUserDisplayName}?`)) {
+    const invitationLabel =
+      invitation.invitedUserDisplayName ?? invitation.invitedEmail;
+    if (!window.confirm(`Revoke the invitation for ${invitationLabel}?`)) {
       return;
     }
 
@@ -460,7 +491,7 @@ export function ProjectDashboardOwnerActions({
       );
       pushToast({
         variant: "success",
-        message: `Invitation revoked for ${invitation.invitedUserDisplayName}.`,
+        message: `Invitation revoked for ${invitationLabel}.`,
       });
     } catch (error) {
       pushToast({
@@ -473,6 +504,23 @@ export function ProjectDashboardOwnerActions({
       await loadSharingSummary();
     } finally {
       setIsMutatingInvitationId(null);
+    }
+  };
+
+  const handleCopyInvitationLink = async (invitation: ProjectInvitationSummary) => {
+    try {
+      await navigator.clipboard.writeText(
+        new URL(invitation.inviteLinkPath, window.location.origin).toString()
+      );
+      pushToast({
+        variant: "success",
+        message: `Invite link copied for ${invitation.invitedEmail}.`,
+      });
+    } catch {
+      pushToast({
+        variant: "error",
+        message: "Could not copy invite link. Please retry.",
+      });
     }
   };
 
@@ -573,6 +621,7 @@ export function ProjectDashboardOwnerActions({
                   ) : (
                     <ProjectDashboardOwnerSharingPanel
                       inviteQuery={inviteQuery}
+                      inviteEmailCandidate={inviteEmailCandidate}
                       inviteRole={inviteRole}
                       inviteResults={inviteResults}
                       isSearchingUsers={isSearchingUsers}
@@ -585,11 +634,15 @@ export function ProjectDashboardOwnerActions({
                       isMutatingInvitationId={isMutatingInvitationId}
                       onInviteQueryChange={setInviteQuery}
                       onInviteRoleChange={setInviteRole}
+                      onInviteByEmail={(email) => void handleInviteEmail(email, email, email)}
                       onInvite={(user) => void handleInvite(user)}
                       onRoleChange={(member, nextRole) =>
                         void handleRoleChange(member, nextRole)
                       }
                       onRemoveMember={(member) => void handleRemoveMember(member)}
+                      onCopyInvitationLink={(invitation) =>
+                        void handleCopyInvitationLink(invitation)
+                      }
                       onRevokeInvitation={(invitation) =>
                         void handleRevokeInvitation(invitation)
                       }
