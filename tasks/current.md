@@ -48,6 +48,11 @@ Implement collaborative project access on top of the existing authenticated mult
 - Public sharing links or anonymous guest access.
 - Invite resend, ownership transfer, and major redesign work unrelated to collaboration management.
 - Arbitrary email-based invites and copyable invitation links for non-users; these are follow-up work after the existing-user v1 sharing baseline ships.
+- V2 follow-up target:
+  - support invitations for non-existing users through email-based invites and copyable invitation links,
+  - allow sign-up before acceptance, with acceptance bound to the intended verified account/email,
+  - preserve explicit revoke, expiry, and replay-protection rules,
+  - keep the final delivery model and exact UX contract to be locked in the dedicated follow-up task.
 - Shared project calendar ownership/sharing semantics beyond the existing user-scoped Google Calendar integration.
 
 ## Acceptance Criteria
@@ -78,7 +83,7 @@ Implement collaborative project access on top of the existing authenticated mult
 ## Known Follow-Up Questions For Merge/Deploy
 - Confirm whether membership visibility should include pending invites for non-owners or remain owner-only in v1.
 - Define the future task boundary for shared project calendar ownership/sharing semantics so it does not get conflated with TASK-058.
-- Define the follow-up scope for arbitrary email invites, copyable invitation links, and modern invite-by-link flows once existing-user sharing is stable.
+- Define the final v2 contract for arbitrary email invites, copyable invitation links, delivery behavior, and recipient UX once existing-user sharing is stable.
 
 ---
 
