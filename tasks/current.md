@@ -1,108 +1,80 @@
-# Current Task: TASK-058 Authorization Implementation - Project Sharing, Membership Roles, and Invitations
+# Current Task: TASK-103 Project Sharing V2 - Email-Bound Invites for Non-Existing Users and Copyable Invite-Link Delivery
 
 ## Task ID
-TASK-058
+TASK-103
 
 ## Status
-Done in `main` / production (v1 shipped)
+Planned
 
 ## Objective
-Implement collaborative project access on top of the existing authenticated multi-user foundation by introducing membership management, invitation flows, and role-based permission enforcement across the product.
-
-## Current Position
-- TASK-058 v1 is shipped.
-- The next collaboration extension is tracked separately as `TASK-103` in `tasks/backlog.md`.
-- This file remains useful as the v1 delivery record plus the handoff note for the v2 follow-up.
+Extend the shipped project-sharing v1 baseline so project owners can invite collaborators by email even before they have a NexusDash account, while keeping invite acceptance bound to the intended verified email/account and using copyable invite links as the v2 delivery mechanism.
 
 ## Why This Task Matters
-- The data and service boundaries already support authenticated multi-user ownership, but project collaboration is still effectively single-owner from a UX and workflow perspective.
-- Sharing is a prerequisite for real team usage and is also the contract that later auth hardening, invite security, and agent access work build upon.
-- The ADR and boundary work already reserved room for owner/editor/viewer roles; this task turns that model into usable product behavior.
+- V1 sharing works for existing verified users, but real collaboration often starts with "invite this person by email" rather than "find this existing account first".
+- The app now has enough collaboration foundation to support a safer v2 without reopening the entire permission model.
+- This task unlocks broader team onboarding while preserving the strong service-layer authorization and verified-identity model established in v1.
 
 ## Assumptions Locked For This Implementation
 - Authorization must continue to be enforced in `lib/services/**`, not delegated to UI-only checks or route-only guards.
-- Role model remains `owner`, `editor`, and `viewer`, aligned with ADR TASK-020 and the staged boundary work already shipped.
-- In v1, collaboration invites target existing NexusDash users only. Search/select existing verified users first; broader email/link-based invitation for arbitrary recipients is deferred to a follow-up phase.
-- Invitation acceptance must require an authenticated, verified account that matches the invited user.
-- Collaboration management remains owner-only in v1: owners manage invites, member roles, and member removal.
-- `owner` remains the project creator/current owner in v1 and is not assignable through invites; invite roles are limited to `editor` and `viewer`, with `editor` as the default selection.
-- Owners cannot remove themselves from a project; owner-level destructive control remains project deletion, while collaborator removal only applies to non-owners.
-- Invite recipients must have clear in-app visibility of pending invitations in v1:
-  - a lightweight awareness banner when pending invites exist,
-  - a red-dot indicator on the account entry point that means "at least one pending invitation exists",
-  - an account-level invitations entry/list as the canonical place to review and act on them.
-- Calendar integration remains user-scoped for this task. TASK-058 does not introduce shared project calendar ownership, shared Google credentials, or cross-user event sharing semantics.
-- Existing single-user project flows must continue to work unchanged for owners.
+- The v1 role model remains unchanged: single `owner`, inviteable roles `editor` and `viewer`, with `editor` as the default selection.
+- Existing member role management in project settings is already part of shipped v1 and is not a separate follow-up task.
+- V2 invites are bound to one exact normalized email address; copied links are only a delivery mechanism for that email-bound invite, not open claimable access.
+- Invitation acceptance must still require a normal authenticated, verified account whose verified email matches the invited email.
+- If the recipient does not have an account yet, they can sign up with the invited email, complete the normal verification flow, and then resume invite acceptance.
+- Only one active pending invite may exist per `project + normalized email`; creating a new invite replaces the prior active pending invite for that same pair.
+- The owner sharing surface should support both existing-user search and email invite entry in one unified place.
+- Pending invites for a matching email should appear automatically in the in-app invitation surface once that account exists, even if the user never opened the invite link earlier.
+- The wrong-account mismatch flow from v1 remains the expected behavior when an invite link is opened while signed in with a different account.
+- Invite expiry remains 14 days unless a later product decision changes it.
+- V2 delivery is copy-link only; app-managed invite email sending is deferred to `TASK-104`.
+- Shared project calendar ownership/sharing semantics remain outside this task.
 
 ## Scope
-- Add project membership and invitation persistence/logic needed for owner/editor/viewer collaboration.
-- Implement owner-facing invite, revoke, and membership-management flows, with existing-user selection/search for v1 invites.
-- Enforce role-based permissions across project reads/writes and collaboration management actions.
-- Support invitation acceptance into an authenticated account flow.
-- Surface pending invitations clearly in the UI for both project owners (project-level management) and invite recipients (personal pending-invitation visibility).
-- For invite recipients in v1, use lightweight global awareness plus a durable personal inbox:
-  - notification/banner messaging when a pending invite is present,
-  - red-dot indicator on the account entry point that reflects whether any pending invites exist,
-  - an invitations entry on the account page that lists pending invites or an explicit empty state.
-- Make project UI affordances role-aware so read-only users do not see mutation controls they cannot use.
-- Add automated coverage for permission boundaries, invite acceptance, and cross-project isolation regressions.
+- Extend invitation persistence and service logic to support email-bound invites for recipients who may not yet have an account.
+- Allow owners to create/recreate invites by email from the existing sharing surface.
+- Generate a copyable invite link for each pending invite.
+- Preserve safe invite lifecycle behavior across revoke, expiry, replacement, and replay cases.
+- Support the recipient flow for:
+  - signed-out users,
+  - users who need to sign up first,
+  - users who need to verify first,
+  - users signed into the wrong account,
+  - users who already have the correct verified account.
+- Ensure matching pending invites appear automatically in the recipient invitation inbox once the corresponding account exists.
+- Keep project UI/service role enforcement coherent with the shipped v1 permission model.
+- Add automated coverage for email-bound invite lifecycle behavior, signup/verify/resume flow, replacement semantics, and cross-project isolation.
 
 ## Out of Scope
-- Non-human agent/API-token access tracked separately in TASK-059.
-- Broader auth hardening/test sweep tracked separately in TASK-048.
-- Public sharing links or anonymous guest access.
-- Invite resend, ownership transfer, and major redesign work unrelated to collaboration management.
-- Arbitrary email-based invites and copyable invitation links for non-users; these are follow-up work after the existing-user v1 sharing baseline ships.
-- V2 follow-up target:
-  - support invitations for non-existing users through email-based invites and copyable invitation links,
-  - allow sign-up before acceptance, with acceptance bound to the intended verified account/email,
-  - preserve explicit revoke, expiry, and replay-protection rules,
-  - keep the final delivery model and exact UX contract to be locked in the dedicated follow-up task.
-- Shared project calendar ownership/sharing semantics beyond the existing user-scoped Google Calendar integration.
+- App-managed invite email sending tracked separately in `TASK-104`.
+- Public or anonymous claimable invite links.
+- Ownership transfer, invite resend UX, or major collaboration-admin redesign work unrelated to email-bound invite support.
+- Shared project calendar ownership/sharing semantics.
+- Broader auth/security sweeps already tracked elsewhere.
 
 ## Acceptance Criteria
-- Project owners can invite existing verified users to a project with an explicit non-owner target role (`editor` or `viewer`), defaulting to `editor`.
-- Accepted invites create the correct membership without duplicating users or crossing project boundaries.
-- Owners can review and manage memberships/invitations, with destructive actions appropriately guarded.
-- Editors/viewers receive only the access their role permits across UI and services.
-- Invitation acceptance requires the intended authenticated, verified user and safely rejects replay, expired, revoked, or mismatched-account attempts.
-- Invite recipients can see that they have pending invitations somewhere in the authenticated UI, not only through a direct project-management view.
-- The authenticated recipient experience includes:
-  - visible awareness of pending invites from the main app shell,
-  - a red-dot account indicator that is shown when pending invitation count is greater than zero and hidden when it reaches zero,
-  - an account-level invitations entry/list with either an explicit "no pending invitations" state or actionable invitation rows,
-  - invitation copy that clearly communicates inviter, target project, and target role.
-- Project header/settings provide the owner-facing entry point for project metadata and sharing management, with sharing accessible as a clear first-class action.
-- The existing Google Calendar integration remains user-scoped after the change; TASK-058 does not convert it into a shared project calendar.
-- Cross-project access isolation and invite misuse edge cases are covered by automated tests.
+- Project owners can invite an email address even when no NexusDash account exists yet.
+- Existing-user search remains supported, and the owner can also enter an email from the same sharing surface.
+- Each invite is bound to the intended normalized email and can only be accepted by a verified account with that same email.
+- If the invited person signs up first, the app resumes invite acceptance after normal email verification.
+- Only one active pending invite exists per `project + normalized email`; creating a replacement invite invalidates the previous pending one.
+- Owners can copy an invite link from the app and deliver it outside the app.
+- Opening an invite link while signed out, unverified, or signed into the wrong account follows a clear gated flow rather than failing opaquely.
+- Matching pending invites appear automatically in the account invitation inbox once the matching account exists.
+- Replay, revoked, expired, replaced, and wrong-account cases are handled safely and covered by tests.
 - Local lint/tests/build remain green.
 
 ## Implementation Plan
-1. Confirm the current membership/invitation schema and service-layer gaps against ADR TASK-020.
-2. Implement invitation + membership services for existing verified users, with service-layer role enforcement and invite lifecycle handling.
-3. Add the required project-sharing UI flows for owners plus recipient-side invitation visibility and accept/decline handling.
-4. Make project surfaces role-aware so viewer access is read-only across tasks, context, and calendar mutations while calendar ownership remains user-scoped.
-5. Extend regression coverage for permission checks, invite lifecycle behavior, and isolation boundaries.
-6. Run validation and prepare the branch/PR workflow for review.
+1. Confirm the v1 invitation schema/service shape and identify the minimal changes needed for email-bound invites.
+2. Extend invitation persistence and service-layer lifecycle handling for normalized email targets plus replacement semantics.
+3. Update the sharing UI so owners can invite by email and copy the resulting invite link from the same surface.
+4. Implement the recipient-side signed-out, sign-up, verify, and wrong-account resume flows.
+5. Ensure the invitation inbox/red-dot/banner behavior works automatically once a matching account exists.
+6. Add regression coverage and run the usual validation/build checks.
 
-## Locked Follow-Up Direction For TASK-103
-- Extend sharing from existing verified users to email-bound invites for non-existing users.
-- Keep invite acceptance bound to the intended verified account/email; copied links are a delivery mechanism for that email-bound invite, not open claimable access.
-- Allow sign-up before acceptance, with the following recipient flow:
-  - the invited person opens the copied invite link or reaches the app through a manually forwarded invite,
-  - if they do not have an account yet, they can sign up with the invited email,
-  - after sign-up they complete the normal email-verification flow,
-  - once verified, the app resumes the pending invite-acceptance flow for that same email/account,
-  - if the account already exists, the same verified-email requirement still applies before acceptance.
-- Keep normal email verification requirements; the invite link itself does not replace account verification.
-- Allow only one active pending invite per `project + normalized email`; creating a new invite should replace the previous active pending invite.
-- Keep existing member role management in the project settings surface; this is already part of shipped v1 behavior and should not be split into a separate task.
-- Use a unified sharing surface that supports both existing-user search and email invite entry.
-- When a user later creates an account with the invited email, the pending invite should appear automatically in their in-app invitations list even if they never opened the invite link.
-- Keep the wrong-account mismatch flow from v1 when an invite link is opened under a different signed-in account.
-- Keep the current 14-day expiry unless a later product decision changes it.
-- For v2 delivery, provide a copyable invite link and let the owner deliver it outside the app; app-managed invite email sending is intentionally deferred to a separate follow-up task.
-- Shared project calendar ownership/sharing remains outside this follow-up and must stay separate from invite-v2 work.
+## Known Deferred Follow-Ups
+- `TASK-104`: app-managed invite email sending
+- Shared calendar ownership/sharing semantics
+- Later collaboration-admin refinements such as resend/edit flows if needed
 
 ---
 
