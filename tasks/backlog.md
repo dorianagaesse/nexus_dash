@@ -66,6 +66,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Add task-level ownership metadata so collaborators can see who created a task, who is currently responsible for it, and who last touched it, with room for future filtering, accountability, and notification workflows without relying on external chat context.
   Dependencies: TASK-058, TASK-076, TASK-079
+- ID: TASK-102
+  Title: Collaboration service modularization - split invite, membership, and recipient flows into smaller service units
+  Status: Pending
+  Rationale: Reduce maintenance pressure in the current project-collaboration service by separating owner invite management, membership mutation, and recipient invitation-response concerns into smaller modules with clearer ownership, narrower tests, and easier future extension for v2 invite flows.
+  Dependencies: TASK-058
 - ID: TASK-088
   Title: Milestone architecture and security audit - post-auth/account hardening review
   Status: Pending
