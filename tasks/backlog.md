@@ -59,8 +59,13 @@ Use this file to capture tasks discovered during development. Each entry should 
 - ID: TASK-099
   Title: Task comments - project-scoped discussion thread on tasks
   Status: Pending
-  Rationale: Let users comment directly on tasks so execution context, quick discussion, clarifications, and follow-up decisions stay attached to the work item instead of being lost in external chat or generic context cards.
+  Rationale: Let users comment directly on tasks so execution context, quick discussion, clarifications, and follow-up decisions stay attached to the work item instead of being lost in external chat or generic context cards; implementation should stay future-friendly for chronology, author attribution, and mention/notification follow-ups.
   Dependencies: TASK-076, TASK-079
+- ID: TASK-101
+  Title: Task ownership and provenance - created-by visibility, assignee model, and task activity attribution
+  Status: Pending
+  Rationale: Add task-level ownership metadata so collaborators can see who created a task, who is currently responsible for it, and who last touched it, with room for future filtering, accountability, and notification workflows without relying on external chat context.
+  Dependencies: TASK-058, TASK-076, TASK-079
 - ID: TASK-088
   Title: Milestone architecture and security audit - post-auth/account hardening review
   Status: Pending
