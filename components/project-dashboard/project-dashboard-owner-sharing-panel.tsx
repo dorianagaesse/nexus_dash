@@ -61,6 +61,10 @@ export function ProjectDashboardOwnerSharingPanel({
   onCopyInvitationLink,
   onRevokeInvitation,
 }: ProjectDashboardOwnerSharingPanelProps) {
+  const emailInviteHint = inviteEmailCandidate
+    ? "Press Enter or click below to create and copy an invite link immediately."
+    : null;
+
   return (
     <div className="space-y-6">
       <section className="space-y-4 rounded-2xl border border-border/60 bg-background/60 p-5">
@@ -70,15 +74,15 @@ export function ProjectDashboardOwnerSharingPanel({
             <h3 className="text-base font-semibold">Invite collaborator</h3>
           </div>
           <p className="text-sm text-muted-foreground">
-            Search existing verified users or enter an email address to create an invite
-            link.
+            Type an email to create and copy an invite link instantly, or search
+            existing verified users.
           </p>
         </div>
 
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
           <div className="grid gap-2">
             <label htmlFor="project-sharing-search" className="text-sm font-medium">
-              Search user or enter email
+              Collaborator email or user search
             </label>
             <div className="flex items-center gap-2 rounded-md border border-input bg-background px-3">
               <Search className="h-4 w-4 text-muted-foreground" />
@@ -86,10 +90,21 @@ export function ProjectDashboardOwnerSharingPanel({
                 id="project-sharing-search"
                 value={inviteQuery}
                 onChange={(event) => onInviteQueryChange(event.target.value)}
-                placeholder="Search by email, name, or username"
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" || !inviteEmailCandidate) {
+                    return;
+                  }
+
+                  event.preventDefault();
+                  onInviteByEmail(inviteEmailCandidate);
+                }}
+                placeholder="Type an email, or search by name / username"
                 className="h-10 w-full bg-transparent text-sm outline-none"
               />
             </div>
+            {emailInviteHint ? (
+              <p className="text-xs text-muted-foreground">{emailInviteHint}</p>
+            ) : null}
           </div>
 
           <div className="grid gap-2">
@@ -118,7 +133,7 @@ export function ProjectDashboardOwnerSharingPanel({
               <div className="space-y-1">
                 <p className="text-sm font-medium">{inviteEmailCandidate}</p>
                 <p className="text-xs text-muted-foreground">
-                  Create an email-bound invitation link for this address.
+                  Create an email-bound invitation and copy its link in one step.
                 </p>
               </div>
               <Button
@@ -127,7 +142,9 @@ export function ProjectDashboardOwnerSharingPanel({
                 onClick={() => onInviteByEmail(inviteEmailCandidate)}
                 disabled={isInvitingUserId === inviteEmailCandidate}
               >
-                {isInvitingUserId === inviteEmailCandidate ? "Creating..." : "Invite by email"}
+                {isInvitingUserId === inviteEmailCandidate
+                  ? "Creating..."
+                  : "Create and copy link"}
               </Button>
             </div>
           ) : null}

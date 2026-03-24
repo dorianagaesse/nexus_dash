@@ -32,6 +32,10 @@ function normalizeInviteEmailCandidate(value: string): string | null {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : null;
 }
 
+function buildAbsoluteInvitationLink(inviteLinkPath: string, origin: string): string {
+  return new URL(inviteLinkPath, origin).toString();
+}
+
 interface ProjectDashboardOwnerActionsProps {
   projectId: string;
   projectName: string;
@@ -171,7 +175,13 @@ export function ProjectDashboardOwnerActions({
 
           const users = payload.users ?? [];
           setInviteResults(users);
-          setSearchMessage(users.length === 0 ? "No matching verified users found." : null);
+          setSearchMessage(
+            users.length === 0
+              ? inviteEmailCandidate
+                ? "No verified account found yet. Create and copy a link below."
+                : "No matching verified users found."
+              : null
+          );
         } catch (error) {
           setInviteResults([]);
           setSearchMessage(
@@ -184,7 +194,7 @@ export function ProjectDashboardOwnerActions({
     }, 250);
 
     return () => window.clearTimeout(timeoutId);
-  }, [activeTab, inviteQuery, isOpen, projectId]);
+  }, [activeTab, inviteEmailCandidate, inviteQuery, isOpen, projectId]);
 
   const handleSaveProject = async () => {
     if (isSavingProject) {
@@ -278,7 +288,10 @@ export function ProjectDashboardOwnerActions({
   const handleInviteEmail = async (
     invitedEmail: string,
     label: string,
-    pendingId = invitedEmail
+    pendingId = invitedEmail,
+    options?: {
+      shouldCopyLink?: boolean;
+    }
   ) => {
     if (isInvitingUserId) {
       return;
@@ -298,17 +311,41 @@ export function ProjectDashboardOwnerActions({
         }),
       });
       const payload = (await response.json().catch(() => null)) as
-        | { error?: string }
+        | {
+            error?: string;
+            invitation?: ProjectInvitationSummary;
+          }
         | null;
 
       if (!response.ok) {
         throw new Error(mapSharingError(payload?.error ?? "invite-failed"));
       }
 
-      pushToast({
-        variant: "success",
-        message: `${label} invited as ${inviteRole}.`,
-      });
+      const invitation = payload?.invitation ?? null;
+      const shouldCopyLink = options?.shouldCopyLink ?? false;
+
+      if (shouldCopyLink && invitation) {
+        try {
+          await navigator.clipboard.writeText(
+            buildAbsoluteInvitationLink(invitation.inviteLinkPath, window.location.origin)
+          );
+          pushToast({
+            variant: "success",
+            message: `Invite link copied for ${invitedEmail}.`,
+          });
+        } catch {
+          pushToast({
+            variant: "info",
+            message: `Invitation created for ${invitedEmail}. Use Copy link below if needed.`,
+          });
+        }
+      } else {
+        pushToast({
+          variant: "success",
+          message: `${label} invited as ${inviteRole}.`,
+        });
+      }
+
       setInviteQuery("");
       setInviteResults([]);
       setSearchMessage(null);
@@ -510,7 +547,7 @@ export function ProjectDashboardOwnerActions({
   const handleCopyInvitationLink = async (invitation: ProjectInvitationSummary) => {
     try {
       await navigator.clipboard.writeText(
-        new URL(invitation.inviteLinkPath, window.location.origin).toString()
+        buildAbsoluteInvitationLink(invitation.inviteLinkPath, window.location.origin)
       );
       pushToast({
         variant: "success",
@@ -634,7 +671,11 @@ export function ProjectDashboardOwnerActions({
                       isMutatingInvitationId={isMutatingInvitationId}
                       onInviteQueryChange={setInviteQuery}
                       onInviteRoleChange={setInviteRole}
-                      onInviteByEmail={(email) => void handleInviteEmail(email, email, email)}
+                      onInviteByEmail={(email) =>
+                        void handleInviteEmail(email, email, email, {
+                          shouldCopyLink: true,
+                        })
+                      }
                       onInvite={(user) => void handleInvite(user)}
                       onRoleChange={(member, nextRole) =>
                         void handleRoleChange(member, nextRole)
