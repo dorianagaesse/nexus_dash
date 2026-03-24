@@ -13,6 +13,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-03-24
+- Type: Execution
+- Summary: Streamlined the TASK-103 owner email-invite UX so typed email invites create and copy the invite link in one step instead of requiring a second action in the pending list.
+- Evidence: Updated `components/project-dashboard/project-dashboard-owner-actions.tsx` to copy the newly created invite link from the API response immediately; updated `components/project-dashboard/project-dashboard-owner-sharing-panel.tsx` CTA copy and Enter-key behavior; added render coverage in `tests/components/project-dashboard-owner-sharing-panel.test.tsx`; revalidated with `npm run lint`, `npm test`, `npm run test:coverage`, and safe-override `npm run build`.
+
+### 2026-03-24
 - Type: Governance
 - Summary: TASK-103 PR review/deploy follow-through completed: Copilot comments were addressed and resolved, PR checks are green, and a branch preview deployment was created successfully.
 - Evidence: PR `#104` (`feature/task-103-email-bound-project-invites` -> `main`); addressed Copilot threads by adding RLS-safe invite landing lookup in commit `41122b0`; resolved both review threads; green checks on latest head (`check-name`, `Quality Core`, `E2E Smoke`, `Container Image`); preview deploy workflow run `23466059292` succeeded with preview URL `https://nexus-dash-8mvbmjmgm-dorian-agaesses-projects.vercel.app`.
