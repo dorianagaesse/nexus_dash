@@ -74,7 +74,7 @@ Extend the shipped project-sharing v1 baseline so project owners can invite coll
 ## Implementation Summary
 - `ProjectInvitation` persistence now binds invites to normalized `invitedEmail` values instead of existing-account `invitedUserId`, with replacement tracking via `replacedAt`.
 - Invitation RLS helpers now resolve pending invites through the actor's verified email, so matching invites appear automatically once the invited person has a verified account.
-- The owner sharing surface now supports both user search and direct email entry in one flow, with direct-email invites creating and copying the invite link immediately while the pending list remains available for re-copy/revoke.
+- The owner sharing surface now supports both user search and direct email entry in one flow, collapses exact verified-user email matches into a single result, and keeps newly created direct-email invite links inline for owner-managed copy/share while the pending list remains available for re-copy/revoke.
 - Added public invite landing flow at `/invite/project/[invitationId]` covering sign-in-required, sign-up-first, verify-first, wrong-account, revoked, expired, replaced, accepted, and accept-ready states.
 - Added return-path helpers so auth, logout, and email-verification flows preserve invite resume state and route the recipient back into invitation acceptance after the required gate clears.
 
@@ -92,5 +92,5 @@ Extend the shipped project-sharing v1 baseline so project owners can invite coll
 
 ---
 
-Last Updated: 2026-03-24
+Last Updated: 2026-03-25
 Assigned To: User + Agent
