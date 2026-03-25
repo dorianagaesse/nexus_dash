@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, UserPlus } from "lucide-react";
+import { Copy, Search, UserPlus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import {
   formatIdentity,
   ROLE_COPY,
   type CollaboratorIdentitySummary,
+  type GeneratedProjectInvitationLink,
   type ProjectCollaboratorRole,
   type ProjectInvitationSummary,
   type ProjectMemberSummary,
@@ -21,6 +22,7 @@ interface ProjectDashboardOwnerSharingPanelProps {
   inviteEmailCandidate: string | null;
   inviteRole: ProjectCollaboratorRole;
   inviteResults: CollaboratorIdentitySummary[];
+  generatedInvitationLink: GeneratedProjectInvitationLink | null;
   isSearchingUsers: boolean;
   isInvitingUserId: string | null;
   isLoadingSharing: boolean;
@@ -44,6 +46,7 @@ export function ProjectDashboardOwnerSharingPanel({
   inviteEmailCandidate,
   inviteRole,
   inviteResults,
+  generatedInvitationLink,
   isSearchingUsers,
   isInvitingUserId,
   isLoadingSharing,
@@ -61,9 +64,18 @@ export function ProjectDashboardOwnerSharingPanel({
   onCopyInvitationLink,
   onRevokeInvitation,
 }: ProjectDashboardOwnerSharingPanelProps) {
-  const emailInviteHint = inviteEmailCandidate
-    ? "Press Enter or click below to create and copy an invite link immediately."
-    : null;
+  const hasExactEmailMatch = Boolean(
+    inviteEmailCandidate &&
+      inviteResults.some(
+        (user) => user.email?.trim().toLowerCase() === inviteEmailCandidate
+      )
+  );
+  const isShowingGeneratedInvitationLink =
+    generatedInvitationLink?.invitation.invitedEmail === inviteEmailCandidate;
+  const emailInviteHint =
+    inviteEmailCandidate && !hasExactEmailMatch && !isShowingGeneratedInvitationLink
+      ? "Press Enter or click below to create an email-bound invite link."
+      : null;
 
   return (
     <div className="space-y-6">
@@ -74,15 +86,14 @@ export function ProjectDashboardOwnerSharingPanel({
             <h3 className="text-base font-semibold">Invite collaborator</h3>
           </div>
           <p className="text-sm text-muted-foreground">
-            Type an email to create and copy an invite link instantly, or search
-            existing verified users.
+            Type an email to create an invite link, or search existing verified users.
           </p>
         </div>
 
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
           <div className="grid gap-2">
             <label htmlFor="project-sharing-search" className="text-sm font-medium">
-              Collaborator email or user search
+              Collaborator email or verified user
             </label>
             <div className="flex items-center gap-2 rounded-md border border-input bg-background px-3">
               <Search className="h-4 w-4 text-muted-foreground" />
@@ -91,14 +102,19 @@ export function ProjectDashboardOwnerSharingPanel({
                 value={inviteQuery}
                 onChange={(event) => onInviteQueryChange(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key !== "Enter" || !inviteEmailCandidate) {
+                  if (
+                    event.key !== "Enter" ||
+                    !inviteEmailCandidate ||
+                    hasExactEmailMatch ||
+                    isShowingGeneratedInvitationLink
+                  ) {
                     return;
                   }
 
                   event.preventDefault();
                   onInviteByEmail(inviteEmailCandidate);
                 }}
-                placeholder="Type an email, or search by name / username"
+                placeholder="Type an email, or search by name or username"
                 className="h-10 w-full bg-transparent text-sm outline-none"
               />
             </div>
@@ -128,12 +144,47 @@ export function ProjectDashboardOwnerSharingPanel({
         <p className="text-xs text-muted-foreground">{ROLE_COPY[inviteRole]}</p>
 
         <div className="space-y-2">
-          {inviteEmailCandidate ? (
+          {isShowingGeneratedInvitationLink && generatedInvitationLink ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3">
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-medium">Invite link ready</p>
+                  <Badge variant="secondary" className="capitalize">
+                    {generatedInvitationLink.invitation.role}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  This link is bound to {generatedInvitationLink.invitation.invitedEmail}.
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={generatedInvitationLink.url}
+                    aria-label={`Invite link for ${generatedInvitationLink.invitation.invitedEmail}`}
+                    className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm text-muted-foreground outline-none"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label={`Copy invite link for ${generatedInvitationLink.invitation.invitedEmail}`}
+                    onClick={() =>
+                      onCopyInvitationLink(generatedInvitationLink.invitation)
+                    }
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {inviteEmailCandidate && !hasExactEmailMatch && !isShowingGeneratedInvitationLink ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3">
               <div className="space-y-1">
                 <p className="text-sm font-medium">{inviteEmailCandidate}</p>
                 <p className="text-xs text-muted-foreground">
-                  Create an email-bound invitation and copy its link in one step.
+                  Create an email-bound invitation link and share it when you are ready.
                 </p>
               </div>
               <Button
@@ -142,9 +193,7 @@ export function ProjectDashboardOwnerSharingPanel({
                 onClick={() => onInviteByEmail(inviteEmailCandidate)}
                 disabled={isInvitingUserId === inviteEmailCandidate}
               >
-                {isInvitingUserId === inviteEmailCandidate
-                  ? "Creating..."
-                  : "Create and copy link"}
+                {isInvitingUserId === inviteEmailCandidate ? "Creating..." : "Create link"}
               </Button>
             </div>
           ) : null}

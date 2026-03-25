@@ -38,6 +38,11 @@ export interface ProjectSharingSummary {
   pendingInvitations: ProjectInvitationSummary[];
 }
 
+export interface GeneratedProjectInvitationLink {
+  invitation: ProjectInvitationSummary;
+  url: string;
+}
+
 export const ROLE_COPY: Record<ProjectCollaboratorRole, string> = {
   editor: "Can collaborate and edit project content.",
   viewer: "Can view project content without editing.",

@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProjectDashboardOwnerGeneralPanel } from "@/components/project-dashboard/project-dashboard-owner-general-panel";
 import { ProjectDashboardOwnerSharingPanel } from "@/components/project-dashboard/project-dashboard-owner-sharing-panel";
 import {
+  type GeneratedProjectInvitationLink,
   mapProjectMutationError,
   mapSharingError,
   type CollaboratorIdentitySummary,
@@ -68,6 +69,8 @@ export function ProjectDashboardOwnerActions({
   const [isMutatingMemberId, setIsMutatingMemberId] = useState<string | null>(null);
   const [isMutatingInvitationId, setIsMutatingInvitationId] = useState<string | null>(null);
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
+  const [generatedInvitationLink, setGeneratedInvitationLink] =
+    useState<GeneratedProjectInvitationLink | null>(null);
   const inviteEmailCandidate = useMemo(
     () => normalizeInviteEmailCandidate(inviteQuery),
     [inviteQuery]
@@ -93,6 +96,7 @@ export function ProjectDashboardOwnerActions({
       return;
     }
 
+    setGeneratedInvitationLink(null);
     setIsOpen(false);
   };
 
@@ -178,7 +182,7 @@ export function ProjectDashboardOwnerActions({
           setSearchMessage(
             users.length === 0
               ? inviteEmailCandidate
-                ? "No verified account found yet. Create and copy a link below."
+                ? "No verified account found yet. Create a link below."
                 : "No matching verified users found."
               : null
           );
@@ -285,13 +289,24 @@ export function ProjectDashboardOwnerActions({
     setProjectError(null);
   };
 
+  const handleInviteQueryChange = (value: string) => {
+    const nextInviteEmailCandidate = normalizeInviteEmailCandidate(value);
+
+    setInviteQuery(value);
+
+    if (
+      generatedInvitationLink &&
+      nextInviteEmailCandidate !== generatedInvitationLink.invitation.invitedEmail
+    ) {
+      setGeneratedInvitationLink(null);
+    }
+  };
+
   const handleInviteEmail = async (
     invitedEmail: string,
     label: string,
     pendingId = invitedEmail,
-    options?: {
-      shouldCopyLink?: boolean;
-    }
+    source: "email" | "user" = "email"
   ) => {
     if (isInvitingUserId) {
       return;
@@ -322,33 +337,28 @@ export function ProjectDashboardOwnerActions({
       }
 
       const invitation = payload?.invitation ?? null;
-      const shouldCopyLink = options?.shouldCopyLink ?? false;
 
-      if (shouldCopyLink && invitation) {
-        try {
-          await navigator.clipboard.writeText(
-            buildAbsoluteInvitationLink(invitation.inviteLinkPath, window.location.origin)
-          );
-          pushToast({
-            variant: "success",
-            message: `Invite link copied for ${invitedEmail}.`,
-          });
-        } catch {
-          pushToast({
-            variant: "info",
-            message: `Invitation created for ${invitedEmail}. Use Copy link below if needed.`,
-          });
-        }
+      if (source === "email" && invitation) {
+        setGeneratedInvitationLink({
+          invitation,
+          url: buildAbsoluteInvitationLink(invitation.inviteLinkPath, window.location.origin),
+        });
+        setSearchMessage(null);
+        pushToast({
+          variant: "success",
+          message: `Invite link ready for ${invitedEmail}.`,
+        });
       } else {
+        setGeneratedInvitationLink(null);
+        setInviteQuery("");
+        setInviteResults([]);
+        setSearchMessage(null);
         pushToast({
           variant: "success",
           message: `${label} invited as ${inviteRole}.`,
         });
       }
 
-      setInviteQuery("");
-      setInviteResults([]);
-      setSearchMessage(null);
       await loadSharingSummary();
     } catch (error) {
       pushToast({
@@ -372,7 +382,7 @@ export function ProjectDashboardOwnerActions({
       return;
     }
 
-    await handleInviteEmail(user.email, user.displayName, user.id);
+    await handleInviteEmail(user.email, user.displayName, user.id, "user");
   };
 
   const handleRoleChange = async (
@@ -526,6 +536,11 @@ export function ProjectDashboardOwnerActions({
             }
           : previous
       );
+      if (
+        generatedInvitationLink?.invitation.invitationId === invitation.invitationId
+      ) {
+        setGeneratedInvitationLink(null);
+      }
       pushToast({
         variant: "success",
         message: `Invitation revoked for ${invitationLabel}.`,
@@ -661,6 +676,7 @@ export function ProjectDashboardOwnerActions({
                       inviteEmailCandidate={inviteEmailCandidate}
                       inviteRole={inviteRole}
                       inviteResults={inviteResults}
+                      generatedInvitationLink={generatedInvitationLink}
                       isSearchingUsers={isSearchingUsers}
                       isInvitingUserId={isInvitingUserId}
                       isLoadingSharing={isLoadingSharing}
@@ -669,13 +685,9 @@ export function ProjectDashboardOwnerActions({
                       searchMessage={searchMessage}
                       isMutatingMemberId={isMutatingMemberId}
                       isMutatingInvitationId={isMutatingInvitationId}
-                      onInviteQueryChange={setInviteQuery}
+                      onInviteQueryChange={handleInviteQueryChange}
                       onInviteRoleChange={setInviteRole}
-                      onInviteByEmail={(email) =>
-                        void handleInviteEmail(email, email, email, {
-                          shouldCopyLink: true,
-                        })
-                      }
+                      onInviteByEmail={(email) => void handleInviteEmail(email, email)}
                       onInvite={(user) => void handleInvite(user)}
                       onRoleChange={(member, nextRole) =>
                         void handleRoleChange(member, nextRole)

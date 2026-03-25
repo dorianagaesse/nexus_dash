@@ -7,13 +7,32 @@ import { ProjectDashboardOwnerSharingPanel } from "@/components/project-dashboar
 (globalThis as { React?: typeof React }).React = React;
 
 describe("project-dashboard-owner-sharing-panel", () => {
-  test("renders a one-step create-and-copy CTA for direct email invites", () => {
+  test("renders an inline generated-link state for direct email invites", () => {
     const result = renderToStaticMarkup(
       React.createElement(ProjectDashboardOwnerSharingPanel, {
         inviteQuery: "person@example.com",
         inviteEmailCandidate: "person@example.com",
         inviteRole: "editor",
         inviteResults: [],
+        generatedInvitationLink: {
+          invitation: {
+            invitationId: "invite-1",
+            projectId: "project-1",
+            projectName: "Project One",
+            invitedEmail: "person@example.com",
+            invitedUserId: null,
+            invitedUserDisplayName: null,
+            invitedUserUsernameTag: null,
+            invitedByDisplayName: "Owner",
+            invitedByUsernameTag: "owner#1234",
+            invitedByEmail: "owner@example.com",
+            role: "editor",
+            createdAt: "2026-03-25T10:00:00.000Z",
+            expiresAt: "2026-04-08T10:00:00.000Z",
+            inviteLinkPath: "/invite/project/invite-1",
+          },
+          url: "https://nexusdash.test/invite/project/invite-1",
+        },
         isSearchingUsers: false,
         isInvitingUserId: null,
         isLoadingSharing: false,
@@ -37,12 +56,53 @@ describe("project-dashboard-owner-sharing-panel", () => {
       })
     );
 
-    expect(result).toContain("Create and copy link");
-    expect(result).toContain(
-      "Press Enter or click below to create and copy an invite link immediately."
+    expect(result).toContain("Invite link ready");
+    expect(result).toContain("This link is bound to person@example.com.");
+    expect(result).toContain("https://nexusdash.test/invite/project/invite-1");
+  });
+
+  test("hides the raw email create-link row when a verified user matches exactly", () => {
+    const result = renderToStaticMarkup(
+      React.createElement(ProjectDashboardOwnerSharingPanel, {
+        inviteQuery: "person@example.com",
+        inviteEmailCandidate: "person@example.com",
+        inviteRole: "editor",
+        inviteResults: [
+          {
+            id: "user-1",
+            displayName: "Person Example",
+            usernameTag: "person#1234",
+            email: "person@example.com",
+          },
+        ],
+        generatedInvitationLink: null,
+        isSearchingUsers: false,
+        isInvitingUserId: null,
+        isLoadingSharing: false,
+        sharingError: null,
+        sharingSummary: {
+          projectId: "project-1",
+          members: [],
+          pendingInvitations: [],
+        },
+        searchMessage: null,
+        isMutatingMemberId: null,
+        isMutatingInvitationId: null,
+        onInviteQueryChange: () => {},
+        onInviteRoleChange: () => {},
+        onInviteByEmail: () => {},
+        onInvite: () => {},
+        onRoleChange: () => {},
+        onRemoveMember: () => {},
+        onCopyInvitationLink: () => {},
+        onRevokeInvitation: () => {},
+      })
     );
-    expect(result).toContain(
-      "Create an email-bound invitation and copy its link in one step."
+
+    expect(result).toContain("Person Example");
+    expect(result).not.toContain("Create link");
+    expect(result).not.toContain(
+      "Press Enter or click below to create an email-bound invite link."
     );
   });
 });
