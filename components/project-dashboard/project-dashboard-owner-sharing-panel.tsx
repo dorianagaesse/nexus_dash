@@ -1,6 +1,7 @@
 "use client";
 
-import { Copy, Search, UserPlus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, Copy, Search, UserPlus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,7 @@ interface ProjectDashboardOwnerSharingPanelProps {
   onInvite: (user: CollaboratorIdentitySummary) => void;
   onRoleChange: (member: ProjectMemberSummary, nextRole: ProjectCollaboratorRole) => void;
   onRemoveMember: (member: ProjectMemberSummary) => void;
-  onCopyInvitationLink: (invitation: ProjectInvitationSummary) => void;
+  onCopyInvitationLink: (invitation: ProjectInvitationSummary) => Promise<boolean> | boolean;
   onRevokeInvitation: (invitation: ProjectInvitationSummary) => void;
 }
 
@@ -70,12 +71,42 @@ export function ProjectDashboardOwnerSharingPanel({
         (user) => user.email?.trim().toLowerCase() === inviteEmailCandidate
       )
   );
+  const [copiedInvitationId, setCopiedInvitationId] = useState<string | null>(null);
   const isShowingGeneratedInvitationLink =
     generatedInvitationLink?.invitation.invitedEmail === inviteEmailCandidate;
+  const isGeneratedInvitationCopied =
+    copiedInvitationId === generatedInvitationLink?.invitation.invitationId;
   const emailInviteHint =
     inviteEmailCandidate && !hasExactEmailMatch && !isShowingGeneratedInvitationLink
       ? "Press Enter or click below to create an email-bound invite link."
       : null;
+
+  useEffect(() => {
+    if (!copiedInvitationId) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setCopiedInvitationId(null);
+    }, 1600);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [copiedInvitationId]);
+
+  useEffect(() => {
+    setCopiedInvitationId(null);
+  }, [generatedInvitationLink?.invitation.invitationId]);
+
+  const handleCopyGeneratedInvitationLink = async () => {
+    if (!generatedInvitationLink) {
+      return;
+    }
+
+    const didCopy = await onCopyInvitationLink(generatedInvitationLink.invitation);
+    if (didCopy) {
+      setCopiedInvitationId(generatedInvitationLink.invitation.invitationId);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -146,7 +177,7 @@ export function ProjectDashboardOwnerSharingPanel({
         <div className="space-y-2">
           {isShowingGeneratedInvitationLink && generatedInvitationLink ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3">
-              <div className="min-w-0 flex-1 space-y-2">
+              <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm font-medium">Invite link ready</p>
                   <Badge variant="secondary" className="capitalize">
@@ -156,23 +187,26 @@ export function ProjectDashboardOwnerSharingPanel({
                 <p className="text-xs text-muted-foreground">
                   This link is bound to {generatedInvitationLink.invitation.invitedEmail}.
                 </p>
-                <div className="flex items-center gap-2">
+                <div className="flex max-w-full items-center gap-2 md:max-w-[28rem]">
                   <input
                     readOnly
                     value={generatedInvitationLink.url}
                     aria-label={`Invite link for ${generatedInvitationLink.invitation.invitedEmail}`}
-                    className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm text-muted-foreground outline-none"
+                    className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2.5 text-xs text-muted-foreground outline-none sm:text-sm"
                   />
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
                     aria-label={`Copy invite link for ${generatedInvitationLink.invitation.invitedEmail}`}
-                    onClick={() =>
-                      onCopyInvitationLink(generatedInvitationLink.invitation)
-                    }
+                    className="h-9 w-9 shrink-0"
+                    onClick={() => void handleCopyGeneratedInvitationLink()}
                   >
-                    <Copy className="h-4 w-4" />
+                    {isGeneratedInvitationCopied ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
                   </Button>
                 </div>
               </div>

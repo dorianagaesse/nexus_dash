@@ -568,11 +568,13 @@ export function ProjectDashboardOwnerActions({
         variant: "success",
         message: `Invite link copied for ${invitation.invitedEmail}.`,
       });
+      return true;
     } catch {
       pushToast({
         variant: "error",
         message: "Could not copy invite link. Please retry.",
       });
+      return false;
     }
   };
 
@@ -693,9 +695,7 @@ export function ProjectDashboardOwnerActions({
                         void handleRoleChange(member, nextRole)
                       }
                       onRemoveMember={(member) => void handleRemoveMember(member)}
-                      onCopyInvitationLink={(invitation) =>
-                        void handleCopyInvitationLink(invitation)
-                      }
+                      onCopyInvitationLink={handleCopyInvitationLink}
                       onRevokeInvitation={(invitation) =>
                         void handleRevokeInvitation(invitation)
                       }

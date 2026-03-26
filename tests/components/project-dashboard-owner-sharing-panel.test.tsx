@@ -59,6 +59,7 @@ describe("project-dashboard-owner-sharing-panel", () => {
     expect(result).toContain("Invite link ready");
     expect(result).toContain("This link is bound to person@example.com.");
     expect(result).toContain("https://nexusdash.test/invite/project/invite-1");
+    expect(result).toContain('aria-label="Copy invite link for person@example.com"');
   });
 
   test("hides the raw email create-link row when a verified user matches exactly", () => {
