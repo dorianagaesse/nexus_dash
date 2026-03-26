@@ -7,9 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 import {
-  buildRoleSummary,
   formatIdentity,
-  ROLE_COPY,
   type CollaboratorIdentitySummary,
   type GeneratedProjectInvitationLink,
   type ProjectCollaboratorRole,
@@ -40,6 +38,10 @@ interface ProjectDashboardOwnerSharingPanelProps {
   onRemoveMember: (member: ProjectMemberSummary) => void;
   onCopyInvitationLink: (invitation: ProjectInvitationSummary) => Promise<boolean> | boolean;
   onRevokeInvitation: (invitation: ProjectInvitationSummary) => void;
+}
+
+function getSecondaryIdentity(primaryLabel: string, identityLabel: string): string | null {
+  return identityLabel === primaryLabel ? null : identityLabel;
 }
 
 export function ProjectDashboardOwnerSharingPanel({
@@ -76,10 +78,6 @@ export function ProjectDashboardOwnerSharingPanel({
     generatedInvitationLink?.invitation.invitedEmail === inviteEmailCandidate;
   const isGeneratedInvitationCopied =
     copiedInvitationId === generatedInvitationLink?.invitation.invitationId;
-  const emailInviteHint =
-    inviteEmailCandidate && !hasExactEmailMatch && !isShowingGeneratedInvitationLink
-      ? "Press Enter or click below to create an email-bound invite link."
-      : null;
 
   useEffect(() => {
     if (!copiedInvitationId) {
@@ -117,7 +115,7 @@ export function ProjectDashboardOwnerSharingPanel({
             <h3 className="text-base font-semibold">Invite collaborator</h3>
           </div>
           <p className="text-sm text-muted-foreground">
-            Type an email to create an invite link, or search existing verified users.
+            Search existing users or create a link for any email.
           </p>
         </div>
 
@@ -149,9 +147,6 @@ export function ProjectDashboardOwnerSharingPanel({
                 className="h-10 w-full bg-transparent text-sm outline-none"
               />
             </div>
-            {emailInviteHint ? (
-              <p className="text-xs text-muted-foreground">{emailInviteHint}</p>
-            ) : null}
           </div>
 
           <div className="grid gap-2">
@@ -172,8 +167,6 @@ export function ProjectDashboardOwnerSharingPanel({
           </div>
         </div>
 
-        <p className="text-xs text-muted-foreground">{ROLE_COPY[inviteRole]}</p>
-
         <div className="space-y-2">
           {isShowingGeneratedInvitationLink && generatedInvitationLink ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3">
@@ -185,7 +178,7 @@ export function ProjectDashboardOwnerSharingPanel({
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  This link is bound to {generatedInvitationLink.invitation.invitedEmail}.
+                  Bound to {generatedInvitationLink.invitation.invitedEmail}.
                 </p>
                 <div className="flex max-w-full items-center gap-2 md:max-w-[28rem]">
                   <input
@@ -218,7 +211,7 @@ export function ProjectDashboardOwnerSharingPanel({
               <div className="space-y-1">
                 <p className="text-sm font-medium">{inviteEmailCandidate}</p>
                 <p className="text-xs text-muted-foreground">
-                  Create an email-bound invitation link and share it when you are ready.
+                  Create a link and share it when you are ready.
                 </p>
               </div>
               <Button
@@ -245,7 +238,11 @@ export function ProjectDashboardOwnerSharingPanel({
                 >
                   <div className="space-y-1">
                     <p className="text-sm font-medium">{user.displayName}</p>
-                    <p className="text-xs text-muted-foreground">{formatIdentity(user)}</p>
+                    {getSecondaryIdentity(user.displayName, formatIdentity(user)) ? (
+                      <p className="text-xs text-muted-foreground">
+                        {getSecondaryIdentity(user.displayName, formatIdentity(user))}
+                      </p>
+                    ) : null}
                   </div>
                   <Button
                     type="button"
@@ -269,9 +266,7 @@ export function ProjectDashboardOwnerSharingPanel({
       <section className="space-y-4 rounded-2xl border border-border/60 bg-background/60 p-5">
         <div className="space-y-1">
           <h3 className="text-base font-semibold">Collaborators</h3>
-          <p className="text-sm text-muted-foreground">
-            Owners manage who can edit or view the project in v1.
-          </p>
+          <p className="text-sm text-muted-foreground">Owner-managed access.</p>
         </div>
 
         {isLoadingSharing ? (
@@ -301,12 +296,14 @@ export function ProjectDashboardOwnerSharingPanel({
                       {member.role}
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">{formatIdentity(member)}</p>
+                  {getSecondaryIdentity(member.displayName, formatIdentity(member)) ? (
+                    <p className="text-xs text-muted-foreground">
+                      {getSecondaryIdentity(member.displayName, formatIdentity(member))}
+                    </p>
+                  ) : null}
                 </div>
 
-                {member.isOwner ? (
-                  <p className="text-xs text-muted-foreground">Project owner</p>
-                ) : (
+                {member.isOwner ? null : (
                   <div className="flex flex-wrap items-center gap-2">
                     <select
                       value={member.role}
@@ -340,9 +337,7 @@ export function ProjectDashboardOwnerSharingPanel({
       <section className="space-y-4 rounded-2xl border border-border/60 bg-background/60 p-5">
         <div className="space-y-1">
           <h3 className="text-base font-semibold">Pending invitations</h3>
-          <p className="text-sm text-muted-foreground">
-            Invitations stay visible here until they are accepted, declined, or revoked.
-          </p>
+          <p className="text-sm text-muted-foreground">Active invite links.</p>
         </div>
 
         {sharingSummary && sharingSummary.pendingInvitations.length === 0 ? (
@@ -357,27 +352,38 @@ export function ProjectDashboardOwnerSharingPanel({
                 className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3"
               >
                 <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-medium">
-                      {invitation.invitedUserDisplayName ?? invitation.invitedEmail}
-                    </p>
-                    <Badge variant="outline" className="capitalize">
-                      {invitation.role}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {invitation.invitedUserDisplayName
+                  {(() => {
+                    const invitationLabel =
+                      invitation.invitedUserDisplayName ?? invitation.invitedEmail;
+                    const invitationIdentity = invitation.invitedUserDisplayName
                       ? formatIdentity({
                           id: invitation.invitedUserId ?? invitation.invitedEmail,
                           displayName: invitation.invitedUserDisplayName,
                           usernameTag: invitation.invitedUserUsernameTag,
                           email: invitation.invitedEmail,
                         })
-                      : invitation.invitedEmail}
-                  </p>
+                      : invitation.invitedEmail;
+                    const secondaryIdentity = getSecondaryIdentity(
+                      invitationLabel,
+                      invitationIdentity
+                    );
+
+                    return (
+                      <>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-medium">{invitationLabel}</p>
+                          <Badge variant="outline" className="capitalize">
+                            {invitation.role}
+                          </Badge>
+                        </div>
+                        {secondaryIdentity ? (
+                          <p className="text-xs text-muted-foreground">{secondaryIdentity}</p>
+                        ) : null}
+                      </>
+                    );
+                  })()}
                   <p className="text-xs text-muted-foreground">
-                    {buildRoleSummary(invitation.role)}. Expires{" "}
-                    {new Date(invitation.expiresAt).toLocaleDateString()}.
+                    Expires {new Date(invitation.expiresAt).toLocaleDateString()}.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">

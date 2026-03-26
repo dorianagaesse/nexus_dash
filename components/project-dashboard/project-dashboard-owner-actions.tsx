@@ -628,7 +628,7 @@ export function ProjectDashboardOwnerActions({
                     <div className="space-y-1">
                       <CardTitle className="text-xl">{projectName}</CardTitle>
                       <p className="text-sm text-muted-foreground">
-                        Manage project metadata, collaborators, and pending invitations.
+                        Sharing, members, and project details.
                       </p>
                     </div>
                   </div>

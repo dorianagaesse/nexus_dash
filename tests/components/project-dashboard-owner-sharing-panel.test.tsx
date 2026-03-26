@@ -51,13 +51,13 @@ describe("project-dashboard-owner-sharing-panel", () => {
         onInvite: () => {},
         onRoleChange: () => {},
         onRemoveMember: () => {},
-        onCopyInvitationLink: () => {},
+        onCopyInvitationLink: () => true,
         onRevokeInvitation: () => {},
       })
     );
 
     expect(result).toContain("Invite link ready");
-    expect(result).toContain("This link is bound to person@example.com.");
+    expect(result).toContain("Bound to person@example.com.");
     expect(result).toContain("https://nexusdash.test/invite/project/invite-1");
     expect(result).toContain('aria-label="Copy invite link for person@example.com"');
   });
@@ -95,15 +95,59 @@ describe("project-dashboard-owner-sharing-panel", () => {
         onInvite: () => {},
         onRoleChange: () => {},
         onRemoveMember: () => {},
-        onCopyInvitationLink: () => {},
+        onCopyInvitationLink: () => true,
         onRevokeInvitation: () => {},
       })
     );
 
     expect(result).toContain("Person Example");
     expect(result).not.toContain("Create link");
-    expect(result).not.toContain(
-      "Press Enter or click below to create an email-bound invite link."
+    expect(result).not.toContain("Press Enter or click below");
+  });
+
+  test("avoids repeating owner identity copy when the label already matches", () => {
+    const result = renderToStaticMarkup(
+      React.createElement(ProjectDashboardOwnerSharingPanel, {
+        inviteQuery: "",
+        inviteEmailCandidate: null,
+        inviteRole: "editor",
+        inviteResults: [],
+        generatedInvitationLink: null,
+        isSearchingUsers: false,
+        isInvitingUserId: null,
+        isLoadingSharing: false,
+        sharingError: null,
+        sharingSummary: {
+          projectId: "project-1",
+          members: [
+            {
+              id: "user-1",
+              membershipId: "membership-1",
+              displayName: "dorianagaesse#3762",
+              usernameTag: "dorianagaesse#3762",
+              email: "dorian@example.com",
+              role: "owner",
+              joinedAt: "2026-03-25T10:00:00.000Z",
+              isOwner: true,
+            },
+          ],
+          pendingInvitations: [],
+        },
+        searchMessage: null,
+        isMutatingMemberId: null,
+        isMutatingInvitationId: null,
+        onInviteQueryChange: () => {},
+        onInviteRoleChange: () => {},
+        onInviteByEmail: () => {},
+        onInvite: () => {},
+        onRoleChange: () => {},
+        onRemoveMember: () => {},
+        onCopyInvitationLink: () => true,
+        onRevokeInvitation: () => {},
+      })
     );
+
+    expect(result.match(/dorianagaesse#3762/g)?.length).toBe(1);
+    expect(result).not.toContain("Project owner");
   });
 });

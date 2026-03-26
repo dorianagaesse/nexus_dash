@@ -34,10 +34,8 @@ export function ProjectDashboardOwnerGeneralPanel({
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
       <section className="space-y-4 rounded-2xl border border-border/60 bg-background/60 p-5">
         <div className="space-y-1">
-          <h3 className="text-base font-semibold">General metadata</h3>
-          <p className="text-sm text-muted-foreground">
-            Update the project name and description used across the workspace.
-          </p>
+          <h3 className="text-base font-semibold">Project details</h3>
+          <p className="text-sm text-muted-foreground">Name and description.</p>
         </div>
 
         <div className="grid gap-2">
@@ -96,9 +94,7 @@ export function ProjectDashboardOwnerGeneralPanel({
       <section className="space-y-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-5">
         <div className="space-y-1">
           <h3 className="text-base font-semibold">Danger zone</h3>
-          <p className="text-sm text-muted-foreground">
-            Deleting a project removes its tasks, context cards, and invitations.
-          </p>
+          <p className="text-sm text-muted-foreground">Deletes tasks, context, and invites.</p>
         </div>
         <Button type="button" variant="destructive" onClick={onOpenDeleteDialog}>
           <Trash2 className="h-4 w-4" />
