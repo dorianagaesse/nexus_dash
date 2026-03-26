@@ -107,312 +107,311 @@ export function ProjectDashboardOwnerSharingPanel({
   };
 
   return (
-    <div className="space-y-6">
-      <section className="space-y-4 rounded-2xl border border-border/60 bg-background/60 p-5">
+    <section className="space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <UserPlus className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-base font-semibold">Invite collaborator</h3>
+            <h3 className="text-base font-semibold">Share access</h3>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Search existing users or create a link for any email.
-          </p>
+          <p className="text-sm text-muted-foreground">Invite people and manage access.</p>
         </div>
+      </div>
 
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
-          <div className="grid gap-2">
-            <label htmlFor="project-sharing-search" className="text-sm font-medium">
-              Collaborator email or verified user
-            </label>
-            <div className="flex items-center gap-2 rounded-md border border-input bg-background px-3">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <input
-                id="project-sharing-search"
-                value={inviteQuery}
-                onChange={(event) => onInviteQueryChange(event.target.value)}
-                onKeyDown={(event) => {
-                  if (
-                    event.key !== "Enter" ||
-                    !inviteEmailCandidate ||
-                    hasExactEmailMatch ||
-                    isShowingGeneratedInvitationLink
-                  ) {
-                    return;
-                  }
-
-                  event.preventDefault();
-                  onInviteByEmail(inviteEmailCandidate);
-                }}
-                placeholder="Type an email, or search by name or username"
-                className="h-10 w-full bg-transparent text-sm outline-none"
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-2">
-            <label htmlFor="project-sharing-role" className="text-sm font-medium">
-              Invite role
-            </label>
-            <select
-              id="project-sharing-role"
-              value={inviteRole}
-              onChange={(event) =>
-                onInviteRoleChange(event.target.value as ProjectCollaboratorRole)
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
+        <div className="flex items-center gap-2 rounded-md border border-input bg-background px-3">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <input
+            id="project-sharing-search"
+            aria-label="Collaborator search or email"
+            value={inviteQuery}
+            onChange={(event) => onInviteQueryChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (
+                event.key !== "Enter" ||
+                !inviteEmailCandidate ||
+                hasExactEmailMatch ||
+                isShowingGeneratedInvitationLink
+              ) {
+                return;
               }
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="editor">Editor (default)</option>
-              <option value="viewer">Viewer</option>
-            </select>
-          </div>
+
+              event.preventDefault();
+              onInviteByEmail(inviteEmailCandidate);
+            }}
+            placeholder="Search name, username, or email"
+            className="h-10 w-full bg-transparent text-sm outline-none"
+          />
         </div>
 
-        <div className="space-y-2">
-          {isShowingGeneratedInvitationLink && generatedInvitationLink ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3">
-              <div className="min-w-0 flex-1 space-y-1.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-medium">Invite link ready</p>
-                  <Badge variant="secondary" className="capitalize">
-                    {generatedInvitationLink.invitation.role}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Bound to {generatedInvitationLink.invitation.invitedEmail}.
-                </p>
-                <div className="flex max-w-full items-center gap-2 md:max-w-[28rem]">
-                  <input
-                    readOnly
-                    value={generatedInvitationLink.url}
-                    aria-label={`Invite link for ${generatedInvitationLink.invitation.invitedEmail}`}
-                    className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2.5 text-xs text-muted-foreground outline-none sm:text-sm"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    aria-label={`Copy invite link for ${generatedInvitationLink.invitation.invitedEmail}`}
-                    className="h-9 w-9 shrink-0"
-                    onClick={() => void handleCopyGeneratedInvitationLink()}
-                  >
-                    {isGeneratedInvitationCopied ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
+        <select
+          id="project-sharing-role"
+          aria-label="Invite role"
+          value={inviteRole}
+          onChange={(event) =>
+            onInviteRoleChange(event.target.value as ProjectCollaboratorRole)
+          }
+          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+        >
+          <option value="editor">Editor (default)</option>
+          <option value="viewer">Viewer</option>
+        </select>
+      </div>
+
+      <div className="space-y-2">
+        {isShowingGeneratedInvitationLink && generatedInvitationLink ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3">
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium">Invite link ready</p>
+                <Badge variant="secondary" className="capitalize">
+                  {generatedInvitationLink.invitation.role}
+                </Badge>
               </div>
-            </div>
-          ) : null}
-
-          {inviteEmailCandidate && !hasExactEmailMatch && !isShowingGeneratedInvitationLink ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">{inviteEmailCandidate}</p>
-                <p className="text-xs text-muted-foreground">
-                  Create a link and share it when you are ready.
-                </p>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => onInviteByEmail(inviteEmailCandidate)}
-                disabled={isInvitingUserId === inviteEmailCandidate}
-              >
-                {isInvitingUserId === inviteEmailCandidate ? "Creating..." : "Create link"}
-              </Button>
-            </div>
-          ) : null}
-
-          {isSearchingUsers ? (
-            <p className="text-sm text-muted-foreground">Searching users...</p>
-          ) : null}
-
-          {!isSearchingUsers && inviteResults.length > 0 ? (
-            <div className="space-y-2">
-              {inviteResults.map((user) => (
-                <div
-                  key={user.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3"
+              <p className="text-xs text-muted-foreground">
+                Bound to {generatedInvitationLink.invitation.invitedEmail}.
+              </p>
+              <div className="flex max-w-full items-center gap-2 md:max-w-[28rem]">
+                <input
+                  readOnly
+                  value={generatedInvitationLink.url}
+                  aria-label={`Invite link for ${generatedInvitationLink.invitation.invitedEmail}`}
+                  className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2.5 text-xs text-muted-foreground outline-none sm:text-sm"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label={`Copy invite link for ${generatedInvitationLink.invitation.invitedEmail}`}
+                  className="h-9 w-9 shrink-0"
+                  onClick={() => void handleCopyGeneratedInvitationLink()}
                 >
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">{user.displayName}</p>
-                    {getSecondaryIdentity(user.displayName, formatIdentity(user)) ? (
-                      <p className="text-xs text-muted-foreground">
-                        {getSecondaryIdentity(user.displayName, formatIdentity(user))}
-                      </p>
-                    ) : null}
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => onInvite(user)}
-                    disabled={isInvitingUserId === user.id}
-                  >
-                    {isInvitingUserId === user.id ? "Inviting..." : "Invite"}
-                  </Button>
-                </div>
-              ))}
+                  {isGeneratedInvitationCopied ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </div>
-          ) : null}
-
-          {!isSearchingUsers && searchMessage ? (
-            <p className="text-sm text-muted-foreground">{searchMessage}</p>
-          ) : null}
-        </div>
-      </section>
-
-      <section className="space-y-4 rounded-2xl border border-border/60 bg-background/60 p-5">
-        <div className="space-y-1">
-          <h3 className="text-base font-semibold">Collaborators</h3>
-          <p className="text-sm text-muted-foreground">Owner-managed access.</p>
-        </div>
-
-        {isLoadingSharing ? (
-          <p className="text-sm text-muted-foreground">Loading collaborators...</p>
-        ) : null}
-
-        {!isLoadingSharing && sharingError ? (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {sharingError}
           </div>
         ) : null}
 
-        {!isLoadingSharing && sharingSummary ? (
-          <div className="space-y-3">
-            {sharingSummary.members.map((member) => (
+        {inviteEmailCandidate && !hasExactEmailMatch && !isShowingGeneratedInvitationLink ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">{inviteEmailCandidate}</p>
+              <p className="text-xs text-muted-foreground">
+                Create a link and share it when you are ready.
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => onInviteByEmail(inviteEmailCandidate)}
+              disabled={isInvitingUserId === inviteEmailCandidate}
+            >
+              {isInvitingUserId === inviteEmailCandidate ? "Creating..." : "Create link"}
+            </Button>
+          </div>
+        ) : null}
+
+        {isSearchingUsers ? (
+          <p className="text-sm text-muted-foreground">Searching users...</p>
+        ) : null}
+
+        {!isSearchingUsers && inviteResults.length > 0 ? (
+          <div className="space-y-2">
+            {inviteResults.map((user) => (
               <div
-                key={member.membershipId}
+                key={user.id}
                 className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3"
               >
                 <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-medium">{member.displayName}</p>
-                    <Badge
-                      variant={member.isOwner ? "secondary" : "outline"}
-                      className="capitalize"
-                    >
-                      {member.role}
-                    </Badge>
-                  </div>
-                  {getSecondaryIdentity(member.displayName, formatIdentity(member)) ? (
+                  <p className="text-sm font-medium">{user.displayName}</p>
+                  {getSecondaryIdentity(user.displayName, formatIdentity(user)) ? (
                     <p className="text-xs text-muted-foreground">
-                      {getSecondaryIdentity(member.displayName, formatIdentity(member))}
+                      {getSecondaryIdentity(user.displayName, formatIdentity(user))}
                     </p>
                   ) : null}
                 </div>
-
-                {member.isOwner ? null : (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <select
-                      value={member.role}
-                      onChange={(event) =>
-                        onRoleChange(member, event.target.value as ProjectCollaboratorRole)
-                      }
-                      disabled={isMutatingMemberId === member.membershipId}
-                      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                    >
-                      <option value="editor">Editor</option>
-                      <option value="viewer">Viewer</option>
-                    </select>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => onRemoveMember(member)}
-                      disabled={isMutatingMemberId === member.membershipId}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => onInvite(user)}
+                  disabled={isInvitingUserId === user.id}
+                >
+                  {isInvitingUserId === user.id ? "Inviting..." : "Invite"}
+                </Button>
               </div>
             ))}
           </div>
         ) : null}
-      </section>
 
-      <section className="space-y-4 rounded-2xl border border-border/60 bg-background/60 p-5">
-        <div className="space-y-1">
-          <h3 className="text-base font-semibold">Pending invitations</h3>
-          <p className="text-sm text-muted-foreground">Active invite links.</p>
-        </div>
-
-        {sharingSummary && sharingSummary.pendingInvitations.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No pending invitations.</p>
+        {!isSearchingUsers && searchMessage ? (
+          <p className="text-sm text-muted-foreground">{searchMessage}</p>
         ) : null}
+      </div>
 
-        {sharingSummary && sharingSummary.pendingInvitations.length > 0 ? (
-          <div className="space-y-3">
-            {sharingSummary.pendingInvitations.map((invitation) => (
-              <div
-                key={invitation.invitationId}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3"
-              >
-                <div className="space-y-1">
-                  {(() => {
-                    const invitationLabel =
-                      invitation.invitedUserDisplayName ?? invitation.invitedEmail;
-                    const invitationIdentity = invitation.invitedUserDisplayName
-                      ? formatIdentity({
-                          id: invitation.invitedUserId ?? invitation.invitedEmail,
-                          displayName: invitation.invitedUserDisplayName,
-                          usernameTag: invitation.invitedUserUsernameTag,
-                          email: invitation.invitedEmail,
-                        })
-                      : invitation.invitedEmail;
-                    const secondaryIdentity = getSecondaryIdentity(
-                      invitationLabel,
-                      invitationIdentity
-                    );
+      <div className="border-t border-border/60 pt-5">
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold">Access</h4>
+            {sharingSummary ? (
+              <p className="text-xs text-muted-foreground">
+                {sharingSummary.members.length + sharingSummary.pendingInvitations.length} total
+              </p>
+            ) : null}
+          </div>
 
-                    return (
-                      <>
+          {isLoadingSharing ? (
+            <p className="text-sm text-muted-foreground">Loading access...</p>
+          ) : null}
+
+          {!isLoadingSharing && sharingError ? (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {sharingError}
+            </div>
+          ) : null}
+
+          {!isLoadingSharing && sharingSummary ? (
+            <>
+              {sharingSummary.members.length === 1 &&
+              sharingSummary.pendingInvitations.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Only you have access right now.
+                </p>
+              ) : null}
+
+              {sharingSummary.members.length > 0 ||
+              sharingSummary.pendingInvitations.length > 0 ? (
+                <div className="space-y-2">
+                  {sharingSummary.members.map((member) => (
+                    <div
+                      key={member.membershipId}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3"
+                    >
+                      <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-medium">{invitationLabel}</p>
-                          <Badge variant="outline" className="capitalize">
-                            {invitation.role}
+                          <p className="text-sm font-medium">{member.displayName}</p>
+                          <Badge
+                            variant={member.isOwner ? "secondary" : "outline"}
+                            className="capitalize"
+                          >
+                            {member.role}
                           </Badge>
                         </div>
-                        {secondaryIdentity ? (
-                          <p className="text-xs text-muted-foreground">{secondaryIdentity}</p>
+                        {getSecondaryIdentity(member.displayName, formatIdentity(member)) ? (
+                          <p className="text-xs text-muted-foreground">
+                            {getSecondaryIdentity(member.displayName, formatIdentity(member))}
+                          </p>
                         ) : null}
-                      </>
-                    );
-                  })()}
-                  <p className="text-xs text-muted-foreground">
-                    Expires {new Date(invitation.expiresAt).toLocaleDateString()}.
-                  </p>
+                      </div>
+
+                      {member.isOwner ? null : (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <select
+                            value={member.role}
+                            onChange={(event) =>
+                              onRoleChange(
+                                member,
+                                event.target.value as ProjectCollaboratorRole
+                              )
+                            }
+                            disabled={isMutatingMemberId === member.membershipId}
+                            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                          >
+                            <option value="editor">Editor</option>
+                            <option value="viewer">Viewer</option>
+                          </select>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => onRemoveMember(member)}
+                            disabled={isMutatingMemberId === member.membershipId}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {sharingSummary.pendingInvitations.map((invitation) => (
+                    <div
+                      key={invitation.invitationId}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3"
+                    >
+                      <div className="space-y-1">
+                        {(() => {
+                          const invitationLabel =
+                            invitation.invitedUserDisplayName ?? invitation.invitedEmail;
+                          const invitationIdentity = invitation.invitedUserDisplayName
+                            ? formatIdentity({
+                                id: invitation.invitedUserId ?? invitation.invitedEmail,
+                                displayName: invitation.invitedUserDisplayName,
+                                usernameTag: invitation.invitedUserUsernameTag,
+                                email: invitation.invitedEmail,
+                              })
+                            : invitation.invitedEmail;
+                          const secondaryIdentity = getSecondaryIdentity(
+                            invitationLabel,
+                            invitationIdentity
+                          );
+
+                          return (
+                            <>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-medium">{invitationLabel}</p>
+                                <Badge variant="outline" className="capitalize">
+                                  {invitation.role}
+                                </Badge>
+                                <Badge variant="secondary">Pending</Badge>
+                              </div>
+                              {secondaryIdentity ? (
+                                <p className="text-xs text-muted-foreground">
+                                  {secondaryIdentity}
+                                </p>
+                              ) : null}
+                            </>
+                          );
+                        })()}
+                        <p className="text-xs text-muted-foreground">
+                          Expires {new Date(invitation.expiresAt).toLocaleDateString()}.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onCopyInvitationLink(invitation)}
+                        >
+                          Copy link
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => onRevokeInvitation(invitation)}
+                          disabled={isMutatingInvitationId === invitation.invitationId}
+                        >
+                          {isMutatingInvitationId === invitation.invitationId
+                            ? "Revoking..."
+                            : "Revoke"}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onCopyInvitationLink(invitation)}
-                  >
-                    Copy link
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => onRevokeInvitation(invitation)}
-                    disabled={isMutatingInvitationId === invitation.invitationId}
-                  >
-                    {isMutatingInvitationId === invitation.invitationId
-                      ? "Revoking..."
-                      : "Revoke"}
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </section>
-    </div>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      </div>
+    </section>
   );
 }

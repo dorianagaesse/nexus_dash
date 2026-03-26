@@ -56,6 +56,7 @@ describe("project-dashboard-owner-sharing-panel", () => {
       })
     );
 
+    expect(result).toContain("Share access");
     expect(result).toContain("Invite link ready");
     expect(result).toContain("Bound to person@example.com.");
     expect(result).toContain("https://nexusdash.test/invite/project/invite-1");
@@ -101,6 +102,7 @@ describe("project-dashboard-owner-sharing-panel", () => {
     );
 
     expect(result).toContain("Person Example");
+    expect(result).toContain("Access");
     expect(result).not.toContain("Create link");
     expect(result).not.toContain("Press Enter or click below");
   });
@@ -149,5 +151,6 @@ describe("project-dashboard-owner-sharing-panel", () => {
 
     expect(result.match(/dorianagaesse#3762/g)?.length).toBe(1);
     expect(result).not.toContain("Project owner");
+    expect(result).toContain("Only you have access right now.");
   });
 });
