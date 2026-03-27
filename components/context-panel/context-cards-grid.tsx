@@ -56,11 +56,11 @@ export function ContextCardsGrid({
         return (
           <article
             key={card.id}
-            className="flex aspect-[1.618/1] min-h-[148px] max-h-[176px] cursor-pointer flex-col overflow-hidden rounded-2xl border p-3 transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-18px_rgba(15,23,42,0.45)] hover:ring-2 hover:ring-slate-900/10"
+            className="flex h-[152px] cursor-pointer flex-col overflow-hidden rounded-xl border p-3 transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-18px_rgba(15,23,42,0.45)] hover:ring-2 hover:ring-slate-900/10"
             style={{ backgroundColor: card.color, borderColor: "rgb(15 23 42 / 0.15)" }}
             onClick={() => onOpenPreview(card.id)}
           >
-            <div className="mb-2 flex items-start justify-between gap-2">
+            <div className="mb-1.5 flex items-start justify-between gap-2">
               <h3
                 className="max-h-10 overflow-hidden text-sm font-semibold leading-5 text-slate-900"
                 onDoubleClick={(event) => {
@@ -99,7 +99,7 @@ export function ContextCardsGrid({
                 dangerouslySetInnerHTML={{ __html: contentHtml }}
               />
               <div
-                className="pointer-events-none absolute inset-x-0 bottom-0 h-10"
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-8"
                 style={{
                   background: `linear-gradient(to top, ${card.color}, transparent)`,
                 }}
@@ -107,7 +107,7 @@ export function ContextCardsGrid({
             </div>
 
             {attachments.length > 0 ? (
-              <div className="mt-2 space-y-1 border-t border-slate-900/10 pt-2">
+              <div className="mt-2 space-y-1">
                 {previewAttachments.map((attachment) => {
                   const href = resolveAttachmentHref(attachment);
                   const canPreview =
