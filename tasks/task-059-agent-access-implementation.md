@@ -1,7 +1,5 @@
 # Current Task: TASK-059 Agent Access Implementation - Scoped API Tokens, Rotation, and Audit Trail
 
-Dedicated task brief: [`tasks/task-059-agent-access-implementation.md`](./task-059-agent-access-implementation.md)
-
 ## Task ID
 TASK-059
 
