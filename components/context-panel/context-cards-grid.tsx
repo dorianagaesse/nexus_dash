@@ -5,7 +5,11 @@ import type {
   ProjectContextAttachment,
   ProjectContextCard,
 } from "@/components/project-context-panel-types";
-import { resolveAttachmentHref } from "@/components/project-context-panel-utils";
+import {
+  CONTEXT_CARD_PREVIEW_RICH_TEXT_CLASS,
+  getContextCardContentHtml,
+  resolveAttachmentHref,
+} from "@/components/project-context-panel-utils";
 import { Button } from "@/components/ui/button";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import { ATTACHMENT_KIND_LINK, isAttachmentPreviewable } from "@/lib/task-attachment";
@@ -47,17 +51,18 @@ export function ContextCardsGrid({
       {cards.map((card) => {
         const attachments = cardAttachmentsById[card.id] ?? card.attachments;
         const previewAttachments = attachments.slice(0, 2);
+        const contentHtml = getContextCardContentHtml(card.content);
 
         return (
           <article
             key={card.id}
-            className="cursor-pointer rounded-xl border p-3 transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-18px_rgba(15,23,42,0.45)] hover:ring-2 hover:ring-slate-900/10"
+            className="flex h-[152px] cursor-pointer flex-col overflow-hidden rounded-xl border p-3 transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-18px_rgba(15,23,42,0.45)] hover:ring-2 hover:ring-slate-900/10"
             style={{ backgroundColor: card.color, borderColor: "rgb(15 23 42 / 0.15)" }}
             onClick={() => onOpenPreview(card.id)}
           >
             <div className="mb-1.5 flex items-start justify-between gap-2">
               <h3
-                className="text-sm font-semibold text-slate-900"
+                className="max-h-10 overflow-hidden text-sm font-semibold leading-5 text-slate-900"
                 onDoubleClick={(event) => {
                   if (!canEdit) {
                     return;
@@ -78,8 +83,8 @@ export function ContextCardsGrid({
                 />
               ) : null}
             </div>
-            <p
-              className="whitespace-pre-wrap break-words text-xs text-slate-800"
+            <div
+              className="relative min-h-0 flex-1 overflow-hidden"
               onDoubleClick={(event) => {
                 if (!canEdit) {
                   return;
@@ -89,8 +94,17 @@ export function ContextCardsGrid({
                 onEditCard(card.id);
               }}
             >
-              {card.content || "No content."}
-            </p>
+              <div
+                className={`pr-1 text-xs text-slate-800 ${CONTEXT_CARD_PREVIEW_RICH_TEXT_CLASS}`}
+                dangerouslySetInnerHTML={{ __html: contentHtml }}
+              />
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-8"
+                style={{
+                  background: `linear-gradient(to top, ${card.color}, transparent)`,
+                }}
+              />
+            </div>
 
             {attachments.length > 0 ? (
               <div className="mt-2 space-y-1">

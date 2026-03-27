@@ -35,7 +35,7 @@ describe("context cards mutation routes", () => {
 
     const formData = new FormData();
     formData.set("title", "  Sprint notes  ");
-    formData.set("content", "  Context body  ");
+    formData.set("content", "  <p>Context body</p>  ");
     formData.set("color", "  #abc  ");
     formData.set("attachmentLinks", '[{"name":"","url":"https://example.com"}]');
     formData.append(
@@ -58,7 +58,7 @@ describe("context cards mutation routes", () => {
       actorUserId: "test-user",
       projectId: "p1",
       title: "Sprint notes",
-      content: "Context body",
+      content: "<p>Context body</p>",
       color: "#abc",
       attachmentLinksJsonRaw: '[{"name":"","url":"https://example.com"}]',
       attachmentFiles: expect.any(Array),
@@ -73,7 +73,7 @@ describe("context cards mutation routes", () => {
 
     const formData = new FormData();
     formData.set("title", "  Updated title  ");
-    formData.set("content", "  Updated content  ");
+    formData.set("content", "  <p>Updated content</p>  ");
     formData.set("color", "  #def  ");
 
     const request = new Request(
@@ -95,7 +95,7 @@ describe("context cards mutation routes", () => {
       projectId: "p1",
       cardId: "c1",
       title: "Updated title",
-      content: "Updated content",
+      content: "<p>Updated content</p>",
       color: "#def",
     });
   });

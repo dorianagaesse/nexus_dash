@@ -4,14 +4,16 @@ import { Link2, Paperclip, Trash2, Upload } from "lucide-react";
 import { ContextColorPicker } from "@/components/context-panel/context-color-picker";
 import { ContextModalFrame } from "@/components/context-panel/context-modal-frame";
 import type { PendingAttachmentLink } from "@/components/project-context-panel-types";
+import { RichTextEditor } from "@/components/rich-text-editor";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
-import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
+import { EmojiInputField } from "@/components/ui/emoji-field";
 
 interface ContextCreateModalProps {
   isOpen: boolean;
   isCreatingCard: boolean;
   createColor: string;
+  createContent: string;
   createLinkUrl: string;
   isCreateLinkComposerOpen: boolean;
   createAttachmentLinks: PendingAttachmentLink[];
@@ -21,6 +23,7 @@ interface ContextCreateModalProps {
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
   onCreateColorChange: (color: string) => void;
+  onCreateContentChange: (value: string) => void;
   onCreateLinkUrlChange: (value: string) => void;
   onToggleCreateLinkComposer: () => void;
   onStageCreateLink: () => void;
@@ -33,6 +36,7 @@ export function ContextCreateModal({
   isOpen,
   isCreatingCard,
   createColor,
+  createContent,
   createLinkUrl,
   isCreateLinkComposerOpen,
   createAttachmentLinks,
@@ -42,6 +46,7 @@ export function ContextCreateModal({
   onClose,
   onSubmit,
   onCreateColorChange,
+  onCreateContentChange,
   onCreateLinkUrlChange,
   onToggleCreateLinkComposer,
   onStageCreateLink,
@@ -79,17 +84,17 @@ export function ContextCreateModal({
         </div>
 
         <div className="grid gap-2">
-          <label htmlFor="context-create-content" className="text-sm font-medium">
+          <div id="context-create-content-label" className="text-sm font-medium">
             Content
-          </label>
-          <EmojiTextareaField
+          </div>
+          <RichTextEditor
             id="context-create-content"
-            name="content"
-            rows={5}
-            maxLength={4000}
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={createContent}
+            onChange={onCreateContentChange}
             placeholder="Anything useful for this project..."
+            ariaLabelledBy="context-create-content-label"
           />
+          <input type="hidden" name="content" value={createContent} />
         </div>
 
         <ContextColorPicker selectedColor={createColor} onSelect={onCreateColorChange} />
