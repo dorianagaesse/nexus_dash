@@ -4,11 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-113
-  Title: Rich content readability polish - code formatting, compact token fields, focus-only emoji affordance, and improved Kanban previews
-  Status: Pending
-  Rationale: Richer task/context content only pays off if it remains easy to write and scan; extend formatting support for code-like content, render long token-style values as compact copyable UI instead of giant line-wrapping blobs, hide emoji controls until field focus to reduce chrome, and make Kanban previews summarize formatted text more faithfully.
-  Dependencies: TASK-094, TASK-096, TASK-111
 - ID: TASK-059
   Title: Agent access implementation - scoped API tokens, rotation, and audit trail
   Status: Pending
@@ -155,6 +150,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-113
+  Title: Rich content readability polish - code formatting, compact token fields, focus-only emoji affordance, and improved Kanban previews
+  Status: Done (2026-03-27)
+  Rationale: Added lightweight rich-text code/token blocks with compact copyable rendering, moved emoji field chrome to focus-only visibility, improved Kanban rich-text preview summarization, addressed Copilot follow-up feedback with renderer safeguards/tests, and validated the task locally plus through PR #111 checks.
+  Dependencies: TASK-094, TASK-096, TASK-111
 - ID: TASK-111
   Title: Context card presentation refinement - adaptive card sizing and rich-content support
   Status: Done (2026-03-27)

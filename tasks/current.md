@@ -6,7 +6,7 @@ Dedicated task brief: [`tasks/task-113-rich-content-readability-polish.md`](./ta
 TASK-113
 
 ## Status
-In progress
+Done (2026-03-27)
 
 ## Objective
 Make rich task/context content easier to write and scan by distinguishing prose from command-like content, compacting long token values into copyable blocks, reducing persistent emoji chrome, and improving formatted Kanban previews.

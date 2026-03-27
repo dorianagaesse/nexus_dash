@@ -17,6 +17,11 @@ const RICH_TEXT_CODE_BLOCK_CLASS =
   "overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-slate-950 px-3 py-2 font-mono text-[12px] leading-5 text-slate-50";
 const RICH_TEXT_TOKEN_VALUE_CLASS =
   "block overflow-hidden text-ellipsis whitespace-nowrap rounded-lg bg-slate-950 px-3 py-2 font-mono text-[12px] leading-5 text-slate-50";
+const TOKEN_BLOCK_MARKERS = ['data-rich-block="token"', "data-rich-block='token'"];
+
+function supportsClipboardApi(): boolean {
+  return typeof navigator !== "undefined" && typeof navigator.clipboard?.writeText === "function";
+}
 
 function buildCopyButton(
   documentRef: Document,
@@ -33,11 +38,19 @@ function buildCopyButton(
   return button;
 }
 
-function buildEnhancedRichTextHtml(input: string): string {
+export function buildEnhancedRichTextHtml(input: string): string {
   if (!input || typeof document === "undefined") {
     return input;
   }
 
+  const hasCodeBlocks = input.includes("<pre");
+  const hasTokenBlocks = TOKEN_BLOCK_MARKERS.some((marker) => input.includes(marker));
+
+  if (!hasCodeBlocks && !hasTokenBlocks) {
+    return input;
+  }
+
+  const canCopy = supportsClipboardApi();
   const template = document.createElement("template");
   template.innerHTML = input;
 
@@ -59,9 +72,11 @@ function buildEnhancedRichTextHtml(input: string): string {
     label.textContent = "Code";
 
     header.append(label);
-    header.append(
-      buildCopyButton(document, "Copy", codeText, "Copy code or command block")
-    );
+    if (canCopy) {
+      header.append(
+        buildCopyButton(document, "Copy", codeText, "Copy code or command block")
+      );
+    }
 
     const pre = document.createElement("pre");
     pre.className = RICH_TEXT_CODE_BLOCK_CLASS;
@@ -97,9 +112,11 @@ function buildEnhancedRichTextHtml(input: string): string {
     label.textContent = normalizedLabel;
 
     header.append(label);
-    header.append(
-      buildCopyButton(document, "Copy", normalizedValue, `Copy ${normalizedLabel}`)
-    );
+    if (canCopy) {
+      header.append(
+        buildCopyButton(document, "Copy", normalizedValue, `Copy ${normalizedLabel}`)
+      );
+    }
 
     const value = document.createElement("code");
     value.className = RICH_TEXT_TOKEN_VALUE_CLASS;
@@ -154,7 +171,12 @@ export function RichTextContent({
       event.stopPropagation();
 
       const copyText = copyButton.dataset.richCopyText ?? "";
-      if (copyText && typeof navigator !== "undefined" && navigator.clipboard) {
+      if (!copyText || !supportsClipboardApi()) {
+        copyButton.textContent = "Unavailable";
+        return;
+      }
+
+      if (copyText) {
         try {
           await navigator.clipboard.writeText(copyText);
           copyButton.textContent = "Copied";
