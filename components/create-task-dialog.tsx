@@ -9,6 +9,7 @@ import { RelatedTaskSelector, type RelatedTaskOption } from "@/components/kanban
 import type { TaskRelatedSummary } from "@/components/kanban-board-types";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { useToast } from "@/components/toast-provider";
+import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmojiInputField } from "@/components/ui/emoji-field";
@@ -481,7 +482,7 @@ export function CreateTaskDialog({
                           variant={isLinkComposerOpen ? "secondary" : "ghost"}
                           size="icon"
                           onClick={() => setIsLinkComposerOpen((previous) => !previous)}
-                          aria-label="Add attachment link"
+                          aria-label="Open attachment link input"
                         >
                           <Link2 className="h-4 w-4" />
                         </Button>
@@ -521,24 +522,12 @@ export function CreateTaskDialog({
                       </div>
 
                   {isLinkComposerOpen ? (
-                    <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background p-2">
-                      <input
-                        value={linkUrl}
-                        onChange={(event) => setLinkUrl(event.target.value)}
-                        placeholder="https://..."
-                        className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-xs"
-                      />
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="secondary"
-                        onClick={handleAddLink}
-                        disabled={!linkUrl.trim()}
-                        aria-label="Confirm attachment link"
-                      >
-                        <Link2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <AttachmentLinkComposer
+                      value={linkUrl}
+                      onValueChange={setLinkUrl}
+                      onSubmit={handleAddLink}
+                      isSubmitDisabled={!linkUrl.trim()}
+                    />
                   ) : null}
 
                   {attachmentLinks.length > 0 ? (

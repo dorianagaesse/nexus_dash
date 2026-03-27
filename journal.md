@@ -13,6 +13,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-03-27
+- Type: Validation
+- Summary: TASK-112 local validation baseline passed for the attachment-link interaction polish after updating the smoke flow to exercise Enter-to-add with the new add affordance.
+- Evidence: `npm run lint`; `npm test`; `npm run test:coverage`; `$env:DIRECT_URL='postgresql://localhost:5432/nexusdash_validation'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='codex-temporary-google-token-key'; $env:VERCEL_ENV='preview'; npm run build`; `$env:DIRECT_URL='postgresql://localhost:5432/nexusdash_validation'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='codex-temporary-google-token-key'; $env:VERCEL_ENV='preview'; npm run test:e2e`.
+
+### 2026-03-27
+- Type: Execution
+- Summary: TASK-112 was implemented across task and context-card attachment flows by replacing the confirm-link icon with an add-oriented action and restoring Enter-to-add behavior in each link composer.
+- Evidence: Updated `components/create-task-dialog.tsx`, `components/kanban/task-detail-modal.tsx`, `components/context-panel/context-create-modal.tsx`, and `components/context-panel/context-edit-modal.tsx`; aligned smoke coverage in `tests/e2e/smoke-project-task-calendar.spec.ts`; rotated `tasks/current.md` to TASK-112.
+
+### 2026-03-27
 - Type: Planning
 - Summary: Closed TASK-103 in backlog tracking, added deferred follow-up ideas provided by the user, and drafted the first implementation brief for TASK-059 around project-scoped agent credentials, short-lived bearer tokens, scope enforcement, and audit-trail concerns.
 - Evidence: Updated `tasks/backlog.md` and replaced `tasks/current.md`; refreshed `project.md` and `README.md` so the merged collaboration/email-auth state and next-priority task view match the repository's actual state.

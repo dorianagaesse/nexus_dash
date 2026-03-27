@@ -4,6 +4,7 @@ import { Link2, Paperclip, Trash2, Upload } from "lucide-react";
 import { ContextColorPicker } from "@/components/context-panel/context-color-picker";
 import { ContextModalFrame } from "@/components/context-panel/context-modal-frame";
 import type { PendingAttachmentLink } from "@/components/project-context-panel-types";
+import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
 
@@ -102,7 +103,7 @@ export function ContextCreateModal({
               variant={isCreateLinkComposerOpen ? "secondary" : "ghost"}
               size="icon"
               onClick={onToggleCreateLinkComposer}
-              aria-label="Add attachment link"
+              aria-label="Open attachment link input"
             >
               <Link2 className="h-4 w-4" />
             </Button>
@@ -130,24 +131,12 @@ export function ContextCreateModal({
           </div>
 
           {isCreateLinkComposerOpen ? (
-            <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background p-2">
-              <input
-                value={createLinkUrl}
-                onChange={(event) => onCreateLinkUrlChange(event.target.value)}
-                placeholder="https://..."
-                className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-xs"
-              />
-              <Button
-                type="button"
-                size="icon"
-                variant="secondary"
-                onClick={onStageCreateLink}
-                disabled={!createLinkUrl.trim()}
-                aria-label="Confirm attachment link"
-              >
-                <Link2 className="h-4 w-4" />
-              </Button>
-            </div>
+            <AttachmentLinkComposer
+              value={createLinkUrl}
+              onValueChange={onCreateLinkUrlChange}
+              onSubmit={onStageCreateLink}
+              isSubmitDisabled={!createLinkUrl.trim()}
+            />
           ) : null}
 
           {createAttachmentLinks.length > 0 ? (

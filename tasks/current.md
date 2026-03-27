@@ -1,35 +1,34 @@
-# Current Task: TASK-111 Context Card Presentation Refinement - Adaptive Card Sizing and Rich-Content Support
+# Current Task: TASK-112 Attachment Link Entry Polish - Add-Icon Affordance and Enter-to-Add Across Task/Context Flows
 
-Dedicated task brief: [`tasks/task-111-context-card-presentation-refinement.md`](./task-111-context-card-presentation-refinement.md)
+Dedicated task brief: [`tasks/task-112-attachment-link-entry-polish.md`](./task-112-attachment-link-entry-polish.md)
 
 ## Task ID
-TASK-111
+TASK-112
 
 ## Status
-Planned
+In progress
 
 ## Objective
-Make project context cards feel like intentional information blocks rather than plain-text tiles by improving their layout behavior and adding rich-content authoring/rendering support.
+Make link attachments faster and clearer to add by using an explicit add affordance and supporting Enter-to-add consistently across task and context-card flows.
 
 ## Why Now
-- `TASK-111` is now the first actionable UI/content refinement item in the queue.
-- The current task-description stack already supports sanitized rich text, so context cards are the clearest place to extend that model next.
-- Refining context-card layout and content handling should also set up cleaner follow-on work for `TASK-113`.
+- `TASK-112` is the smallest user-facing refinement in the new authoring queue and a good first implementation slice.
+- The current flows already stage link attachments consistently, so the change can stay focused on interaction polish rather than storage or API behavior.
+- Shipping this now also restores Enter-to-add ergonomics explicitly across task and context-card flows.
 
 ## Scope Snapshot
-- Replace plain-text context-card content entry with richer authoring aligned with the existing task-description model where appropriate.
-- Sanitize and persist context-card content safely so formatting survives create/edit flows.
-- Render rich content correctly in context cards and the context preview modal.
-- Refine card sizing and preview density so short cards stay compact and longer cards remain readable without making the panel visually noisy.
+- Replace the link-confirm affordance with a clearer add icon treatment while keeping the attachment UI compact.
+- Support Enter-to-add when the link input is focused in task create/edit and context-card create/edit flows.
+- Preserve existing validation and attachment persistence behavior.
 
 ## Acceptance Snapshot
-- Context-card content supports rich-text formatting rather than plain text only.
-- Saved formatting is sanitized and displayed consistently across create, edit, grid preview, and preview modal flows.
-- Card sizing/layout better accommodates mixed content lengths without a one-size-fits-all feel.
-- Existing context-card create/edit/delete and attachment flows continue to work unchanged.
+- Link entry uses an add-oriented confirm affordance rather than a second link icon.
+- Pressing Enter in the link input adds the staged link when the value is valid/non-empty.
+- Task and context-card create/edit flows behave consistently.
+- Existing attachment create/edit/remove behavior remains intact.
 
 ## Notes
-- Full task brief, touch points, and validation expectations live in [`tasks/task-111-context-card-presentation-refinement.md`](./task-111-context-card-presentation-refinement.md).
+- Full task brief, touch points, and validation expectations live in [`tasks/task-112-attachment-link-entry-polish.md`](./task-112-attachment-link-entry-polish.md).
 
 ---
 

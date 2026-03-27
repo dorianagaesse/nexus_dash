@@ -8,6 +8,7 @@ import type {
   ProjectContextCard,
 } from "@/components/project-context-panel-types";
 import { resolveAttachmentHref } from "@/components/project-context-panel-utils";
+import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
 import {
@@ -171,7 +172,7 @@ export function ContextEditModal({
               size="icon"
               onClick={onToggleEditLinkComposer}
               disabled={isSubmittingAttachment}
-              aria-label="Add attachment link"
+              aria-label="Open attachment link input"
             >
               <Link2 className="h-4 w-4" />
             </Button>
@@ -194,24 +195,12 @@ export function ContextEditModal({
           </div>
 
           {isEditLinkComposerOpen ? (
-            <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background p-2">
-              <input
-                value={editLinkUrl}
-                onChange={(event) => onEditLinkUrlChange(event.target.value)}
-                placeholder="https://..."
-                className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-xs"
-              />
-              <Button
-                type="button"
-                size="icon"
-                variant="secondary"
-                onClick={() => void onAddLinkAttachment()}
-                disabled={isSubmittingAttachment || !editLinkUrl.trim()}
-                aria-label="Confirm attachment link"
-              >
-                <Link2 className="h-4 w-4" />
-              </Button>
-            </div>
+            <AttachmentLinkComposer
+              value={editLinkUrl}
+              onValueChange={onEditLinkUrlChange}
+              onSubmit={onAddLinkAttachment}
+              isSubmitDisabled={isSubmittingAttachment || !editLinkUrl.trim()}
+            />
           ) : null}
 
           {attachmentError ? (
