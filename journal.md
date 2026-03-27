@@ -12,6 +12,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-03-27
+- Type: Planning
+- Summary: Closed TASK-103 in backlog tracking, added deferred follow-up ideas provided by the user, and drafted the first implementation brief for TASK-059 around project-scoped agent credentials, short-lived bearer tokens, scope enforcement, and audit-trail concerns.
+- Evidence: Updated `tasks/backlog.md` and replaced `tasks/current.md`; refreshed `project.md` and `README.md` so the merged collaboration/email-auth state and next-priority task view match the repository's actual state.
+
 ### 2026-03-25
 - Type: Execution
 - Summary: Refined the TASK-103 owner email-invite composer so exact verified-user email matches no longer duplicate the raw email row, and newly created direct-email invites now stay inline as copy-on-demand links instead of auto-copying the clipboard.

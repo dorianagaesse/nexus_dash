@@ -1,6 +1,6 @@
 # NexusDash Project Blueprint (Current State)
 
-Last verified: 2026-02-26
+Last verified: 2026-03-27
 
 ## 1. Vision
 
@@ -9,8 +9,10 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
 ## 2. Current Product Scope (Implemented)
 
 - Email/password sign-up and sign-in from `/`.
+- Email verification and password recovery lifecycle for credentials accounts.
 - DB-backed session authentication with protected app routes (`/projects/**`, `/account/**`).
 - Multi-project workspace with project CRUD.
+- Project sharing v2 with owner-managed invites, role-based membership, email-bound invitation flows, and resumable invite acceptance.
 - Project dashboard with three core panels:
   - Context cards (create/edit/delete + attachments)
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`) with reorder and task detail modal
@@ -65,18 +67,18 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 ## 6. Known Gaps (Intentionally Pending)
 
-- Project sharing/invitation flows are not implemented yet (membership model exists, UX flows pending).
 - Agent/API scoped token model is not implemented yet.
-- Email verification and password recovery are not implemented yet.
+- App-managed invite email delivery is not implemented yet.
+- Broader security hardening and verification phases remain pending.
 
 ## 7. Active Priorities
 
 From `tasks/current.md` + `tasks/backlog.md`:
 
-1. TASK-081: username onboarding + discriminator + signup password confirmation
-2. TASK-082: account profile page + identity UX updates
-3. TASK-083: email verification lifecycle
-4. TASK-084: password recovery lifecycle
+1. TASK-059: agent access implementation - scoped API tokens, rotation, and audit trail
+2. TASK-048: authentication hardening + auth regression coverage
+3. TASK-061: dependency security baseline
+4. TASK-049/TASK-050/TASK-051: OWASP-focused security assessment, remediation, and verification
 
 ## 8. Source-of-Truth Docs
 
