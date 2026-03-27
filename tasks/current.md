@@ -1,37 +1,39 @@
-# Current Task: TASK-111 Context Card Presentation Refinement - Fixed-Size Cards and Rich-Content Support
+# Current Task: TASK-113 Rich Content Readability Polish - Code Formatting, Compact Token Fields, Focus-Only Emoji Controls, and Better Kanban Previews
 
-Dedicated task brief: [`tasks/task-111-context-card-presentation-refinement.md`](./task-111-context-card-presentation-refinement.md)
+Dedicated task brief: [`tasks/task-113-rich-content-readability-polish.md`](./task-113-rich-content-readability-polish.md)
 
 ## Task ID
-TASK-111
+TASK-113
 
 ## Status
 In progress
 
 ## Objective
-Make project context cards easier to scan by keeping them at a fixed visual size while upgrading context-card content to the same sanitized rich-text model used by task descriptions.
+Make rich task/context content easier to write and scan by distinguishing prose from command-like content, compacting long token values into copyable blocks, reducing persistent emoji chrome, and improving formatted Kanban previews.
 
 ## Why Now
-- Context cards are currently the noisiest dashboard surface when a note gets long, so fixed-size cards are the quickest way to recover overview readability.
-- The task-description stack already has rich-text authoring and sanitization patterns we can reuse safely here.
-- Shipping this before `TASK-113` gives later content-polish work a stronger context-card foundation.
+- `TASK-111` established rich-text support for context cards, so the shared task/context content model is finally ready for lightweight readability upgrades.
+- Rich content is now more expressive, but code-like snippets and token-style values still scan poorly and can waste vertical space.
+- Emoji controls and current Kanban flattening add noise that undercuts the richer authoring experience.
 
 ## Scope Snapshot
-- Replace plain-text context-card content entry with rich-text authoring aligned to the existing task-description experience.
-- Sanitize and persist rich content safely for create/edit flows.
-- Render rich content consistently in fixed-size context cards and in the preview modal without letting long notes take over the grid.
-- Preserve existing context-card attachments, color treatment, and edit/delete flows.
+- Extend the shared rich-text authoring flow so users can add clearly distinct command/code-like content with practical copy support.
+- Introduce a simple user-authored token/value block UI that keeps long values compact, highlighted, and directly copyable.
+- Show emoji affordances only while the corresponding text field or editor is focused.
+- Improve Kanban preview summarization so formatted rich text reads more naturally at scan time.
+- Preserve existing task/context CRUD, sanitization, attachments, and dashboard interaction flows.
 
 ## Acceptance Snapshot
-- Context-card content supports sanitized rich text instead of plain text only.
-- Grid cards keep a fixed visual footprint and show a clipped but readable preview for longer notes.
-- Preview modal renders the saved rich content correctly.
-- Existing context-card create/edit/delete and attachment behavior remains intact.
+- Users can author content that visually distinguishes prose from command/code-like content.
+- Long token/value content renders as a compact, copyable, highlighted block instead of a giant wrapped blob.
+- Emoji controls appear only while the relevant input/editor is focused.
+- Kanban previews summarize rich content more faithfully than the current plain flattening behavior.
+- The implementation stays lightweight and understandable inside the current editor/rendering stack.
 
 ## Notes
-- Full task brief, touch points, and validation expectations live in [`tasks/task-111-context-card-presentation-refinement.md`](./task-111-context-card-presentation-refinement.md).
+- Full task brief, touch points, and validation expectations live in [`tasks/task-113-rich-content-readability-polish.md`](./task-113-rich-content-readability-polish.md).
 
 ---
 
 Last Updated: 2026-03-27
-Assigned To: User + Agent
+Assigned To: Agent

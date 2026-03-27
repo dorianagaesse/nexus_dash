@@ -35,19 +35,28 @@ export function EmojiFieldShell({
   className,
   buttonPlacement = "center",
 }: EmojiFieldShellProps) {
+  const [isPickerOpen, setIsPickerOpen] = React.useState(false);
+
   return (
-    <div className={cn("relative w-full", className)}>
+    <div
+      className={cn(
+        "group/emoji relative w-full",
+        className
+      )}
+      data-picker-open={isPickerOpen ? "true" : "false"}
+    >
       {children}
       <EmojiPickerButton
         presentation="field"
         className={cn(
-          "absolute z-10",
+          "pointer-events-none absolute z-10 opacity-0 transition-opacity group-focus-within/emoji:pointer-events-auto group-focus-within/emoji:opacity-100 group-data-[picker-open=true]/emoji:pointer-events-auto group-data-[picker-open=true]/emoji:opacity-100",
           buttonPlacement === "center"
             ? "right-2 top-1/2 -translate-y-1/2"
             : "right-2 top-2"
         )}
         onSelectEmoji={(emoji) => insertEmojiAtCursor(targetRef.current, emoji)}
         disabled={disabled}
+        onOpenChange={setIsPickerOpen}
       />
     </div>
   );

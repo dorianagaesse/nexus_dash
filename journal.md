@@ -14,6 +14,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-03-27
 - Type: Validation
+- Summary: TASK-113 local validation baseline passed, including browser smoke coverage against the real runtime database with minimal safe env overrides for the local production-build contract.
+- Evidence: `npm run lint`; `npm test`; `npm run test:coverage`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; `npx playwright test` against a production `next start` server using the real `.env` `DATABASE_URL` plus the same minimal overrides.
+
+### 2026-03-27
+- Type: Execution
+- Summary: TASK-113 implemented rich-content readability upgrades across task/context authoring, rendering, and Kanban previews.
+- Evidence: Extended `lib/rich-text.ts` with lightweight code/token block support plus richer preview summarization, added shared copyable rich-content rendering in `components/rich-text-content.tsx`, updated `components/rich-text-editor.tsx` for code/token authoring, hid emoji field controls until focus in `components/ui/emoji-field.tsx`, and wired the richer renderer/preview flow through task detail plus context card surfaces.
+
+### 2026-03-27
+- Type: Validation
 - Summary: TASK-112 local validation baseline passed for the attachment-link interaction polish after updating the smoke flow to exercise Enter-to-add with the new add affordance.
 - Evidence: `npm run lint`; `npm test`; `npm run test:coverage`; `$env:DIRECT_URL='postgresql://localhost:5432/nexusdash_validation'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='codex-temporary-google-token-key'; $env:VERCEL_ENV='preview'; npm run build`; `$env:DIRECT_URL='postgresql://localhost:5432/nexusdash_validation'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='codex-temporary-google-token-key'; $env:VERCEL_ENV='preview'; npm run test:e2e`.
 

@@ -30,6 +30,7 @@ import {
   type RelatedTaskOption,
 } from "@/components/kanban/related-task-field";
 import { AttachmentPreviewModal } from "@/components/attachment-preview-modal";
+import { RichTextContent } from "@/components/rich-text-content";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
@@ -493,20 +494,18 @@ function TaskReadOnlyContent({
           )}
         </div>
       ) : null}
-      <div className="max-h-[52vh] overflow-y-auto text-sm text-muted-foreground [overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:break-words [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 [&_p]:mb-2">
-        <div
-          onDoubleClick={() => {
-            if (!canEdit) {
-              return;
-            }
+      <RichTextContent
+        html={selectedTask.description}
+        emptyContentHtml="<p>No description provided.</p>"
+        className="max-h-[52vh] overflow-y-auto text-sm text-muted-foreground"
+        onDoubleClick={() => {
+          if (!canEdit) {
+            return;
+          }
 
-            onActivateEditMode();
-          }}
-          dangerouslySetInnerHTML={{
-            __html: selectedTask.description ?? "<p>No description provided.</p>",
-          }}
-        />
-      </div>
+          onActivateEditMode();
+        }}
+      />
       {hasAttachments ? (
         <div className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
           <p className="text-sm font-medium">Attachments</p>

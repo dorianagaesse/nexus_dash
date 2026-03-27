@@ -1,19 +1,34 @@
 import type { DraggableProvidedDraggableProps } from "@hello-pangea/dnd";
 
-import { richTextToPlainText } from "@/lib/rich-text";
+import { richTextToPreviewText } from "@/lib/rich-text";
 import { ATTACHMENT_KIND_FILE, ATTACHMENT_KIND_LINK } from "@/lib/task-attachment";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 
 export type TaskColumns<T> = Record<TaskStatus, T[]>;
 
-export function getDescriptionPreview(description: string, maxLength = 140): string {
-  const plainText = richTextToPlainText(description);
-
-  if (plainText.length <= maxLength) {
-    return plainText;
+function truncatePreviewText(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
   }
 
-  return `${plainText.slice(0, maxLength - 3)}...`;
+  const softLimit = value.slice(0, maxLength - 3).trimEnd();
+  const lastWordBoundary = softLimit.lastIndexOf(" ");
+
+  if (lastWordBoundary >= Math.floor(maxLength * 0.6)) {
+    return `${softLimit.slice(0, lastWordBoundary)}...`;
+  }
+
+  return `${softLimit}...`;
+}
+
+export function getDescriptionPreview(description: string, maxLength = 140): string {
+  const previewText = richTextToPreviewText(description);
+
+  if (previewText.length <= maxLength) {
+    return previewText;
+  }
+
+  return truncatePreviewText(previewText, maxLength);
 }
 
 export function resolveAttachmentHref(attachment: {

@@ -5,9 +5,9 @@ import type {
   ProjectContextAttachment,
   ProjectContextCard,
 } from "@/components/project-context-panel-types";
+import { RichTextContent } from "@/components/rich-text-content";
 import {
   CONTEXT_CARD_PREVIEW_RICH_TEXT_CLASS,
-  getContextCardContentHtml,
   resolveAttachmentHref,
 } from "@/components/project-context-panel-utils";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,6 @@ export function ContextCardsGrid({
       {cards.map((card) => {
         const attachments = cardAttachmentsById[card.id] ?? card.attachments;
         const previewAttachments = attachments.slice(0, 2);
-        const contentHtml = getContextCardContentHtml(card.content);
 
         return (
           <article
@@ -94,9 +93,10 @@ export function ContextCardsGrid({
                 onEditCard(card.id);
               }}
             >
-              <div
+              <RichTextContent
+                html={card.content}
+                emptyContentHtml="<p>No content.</p>"
                 className={`pr-1 text-xs text-slate-800 ${CONTEXT_CARD_PREVIEW_RICH_TEXT_CLASS}`}
-                dangerouslySetInnerHTML={{ __html: contentHtml }}
               />
               <div
                 className="pointer-events-none absolute inset-x-0 bottom-0 h-8"

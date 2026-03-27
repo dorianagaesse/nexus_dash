@@ -2,7 +2,11 @@ import { describe, expect, test } from "vitest";
 
 import {
   coerceRichTextHtml,
+  createRichTextCodeBlock,
+  createRichTextTokenBlock,
+  formatCompactRichTextTokenValue,
   richTextToPlainText,
+  richTextToPreviewText,
   sanitizeRichText,
 } from "@/lib/rich-text";
 
@@ -36,6 +40,13 @@ describe("rich-text", () => {
     );
   });
 
+  test("keeps lightweight code and token blocks through sanitization", () => {
+    const input =
+      '<pre data-rich-block="code"><code>npm run lint</code></pre><div data-rich-block="token"><p>Access token</p><code>abc123</code></div>';
+
+    expect(sanitizeRichText(input)).toBe(input);
+  });
+
   test("treats unsupported angle-bracket text as plain text", () => {
     expect(coerceRichTextHtml("Token <abc123> should stay visible")).toBe(
       "<p>Token &lt;abc123&gt; should stay visible</p>"
@@ -44,6 +55,29 @@ describe("rich-text", () => {
 
   test("converts rich html to plain text", () => {
     const input = "<h1>Hello</h1><p>there   team</p>";
-    expect(richTextToPlainText(input)).toBe("Hellothere team");
+    expect(richTextToPlainText(input)).toBe("Hello there team");
+  });
+
+  test("summarizes structured rich text for previews", () => {
+    const input = [
+      "<h1>Release</h1>",
+      "<p>Ship the polish pass.</p>",
+      createRichTextCodeBlock("npm run lint"),
+      createRichTextTokenBlock(
+        "Access token",
+        "1234567890abcdefghijklmnopqrstuvwxyz"
+      ),
+    ].join("");
+
+    expect(richTextToPreviewText(input)).toBe(
+      "Release • Ship the polish pass. • Code: npm run lint • Access token: 1234567890abcdef...qrstuvwxyz"
+    );
+  });
+
+  test("formats compact token values without losing the tail", () => {
+    expect(formatCompactRichTextTokenValue("short-token")).toBe("short-token");
+    expect(formatCompactRichTextTokenValue("1234567890abcdefghijklmnopqrstuvwxyz")).toBe(
+      "1234567890abcdef...qrstuvwxyz"
+    );
   });
 });
