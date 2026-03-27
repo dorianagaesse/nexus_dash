@@ -4,6 +4,16 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-111
+  Title: Context card presentation refinement - adaptive card sizing and rich-content support
+  Status: Pending
+  Rationale: Context cards currently behave like plain-text tiles with one-size-fits-all layout pressure; refine card sizing behavior and upgrade context-card authoring/rendering so richer project notes fit naturally without wasting vertical space or forcing users into awkwardly dense previews.
+  Dependencies: TASK-004, TASK-094, TASK-096
+- ID: TASK-112
+  Title: Attachment link entry polish - add-icon affordance and Enter-to-add across task/context flows
+  Status: Pending
+  Rationale: Link attachment entry should feel as lightweight as label entry, so replace the current confirm-link icon treatment with a clearer add affordance and support Enter-to-add consistently in task and context-card create/edit flows.
+  Dependencies: TASK-026, TASK-027, TASK-033
 - ID: TASK-059
   Title: Agent access implementation - scoped API tokens, rotation, and audit trail
   Status: Pending
@@ -111,16 +121,6 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Run a broader refinement pass across the entire app so pages, panels, forms, and feedback patterns feel cohesive, intentional, and production-grade instead of evolving as isolated local improvements.
   Dependencies: TASK-096, TASK-100
-- ID: TASK-111
-  Title: Context card presentation refinement - adaptive card sizing and rich-content support
-  Status: Pending
-  Rationale: Context cards currently behave like plain-text tiles with one-size-fits-all layout pressure; refine card sizing behavior and upgrade context-card authoring/rendering so richer project notes fit naturally without wasting vertical space or forcing users into awkwardly dense previews.
-  Dependencies: TASK-004, TASK-094, TASK-096
-- ID: TASK-112
-  Title: Attachment link entry polish - add-icon affordance and Enter-to-add across task/context flows
-  Status: Pending
-  Rationale: Link attachment entry should feel as lightweight as label entry, so replace the current confirm-link icon treatment with a clearer add affordance and support Enter-to-add consistently in task and context-card create/edit flows.
-  Dependencies: TASK-026, TASK-027, TASK-033
 - ID: TASK-113
   Title: Rich content readability polish - code formatting, compact token fields, focus-only emoji affordance, and improved Kanban previews
   Status: Pending
