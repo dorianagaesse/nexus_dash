@@ -4,7 +4,7 @@
 TASK-103
 
 ## Status
-Planned
+Implemented
 
 ## Objective
 Extend the shipped project-sharing v1 baseline so project owners can invite collaborators by email even before they have a NexusDash account, while keeping invite acceptance bound to the intended verified email/account and using copyable invite links as the v2 delivery mechanism.
@@ -71,6 +71,20 @@ Extend the shipped project-sharing v1 baseline so project owners can invite coll
 5. Ensure the invitation inbox/red-dot/banner behavior works automatically once a matching account exists.
 6. Add regression coverage and run the usual validation/build checks.
 
+## Implementation Summary
+- `ProjectInvitation` persistence now binds invites to normalized `invitedEmail` values instead of existing-account `invitedUserId`, with replacement tracking via `replacedAt`.
+- Invitation RLS helpers now resolve pending invites through the actor's verified email, so matching invites appear automatically once the invited person has a verified account.
+- The owner sharing surface now supports both user search and direct email entry in one flow, collapses exact verified-user email matches into a single result, and keeps newly created direct-email invite links inline for owner-managed copy/share while the pending list remains available for re-copy/revoke.
+- Added public invite landing flow at `/invite/project/[invitationId]` covering sign-in-required, sign-up-first, verify-first, wrong-account, revoked, expired, replaced, accepted, and accept-ready states.
+- Added return-path helpers so auth, logout, and email-verification flows preserve invite resume state and route the recipient back into invitation acceptance after the required gate clears.
+
+## Validation
+- `npm run lint` ✅
+- `npm test` ✅
+- `npm run test:coverage` ✅
+- Safe-override `npm run build` ✅
+- Safe-override `npm run test:e2e` ❌ environment blocker: Playwright fixtures cannot connect to local PostgreSQL at `127.0.0.1:5432`
+
 ## Known Deferred Follow-Ups
 - `TASK-104`: app-managed invite email sending
 - Shared calendar ownership/sharing semantics
@@ -78,5 +92,5 @@ Extend the shipped project-sharing v1 baseline so project owners can invite coll
 
 ---
 
-Last Updated: 2026-03-23
+Last Updated: 2026-03-25
 Assigned To: User + Agent

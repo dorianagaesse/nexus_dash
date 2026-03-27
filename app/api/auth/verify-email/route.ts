@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
+import { appendQueryToPath, normalizeReturnToPath } from "@/lib/navigation/return-to";
 import { logServerError } from "@/lib/observability/logger";
 import { consumeEmailVerificationToken } from "@/lib/services/email-verification-service";
 
@@ -26,6 +27,10 @@ function mapVerificationError(error: string): string {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const token = request.nextUrl.searchParams.get("token") ?? "";
+  const returnToPath = normalizeReturnToPath(
+    request.nextUrl.searchParams.get("returnTo"),
+    PROJECTS_PATH
+  );
   const actorUserId = await getSessionUserIdFromRequest(request);
 
   if (!token.trim()) {
@@ -46,18 +51,32 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     if (actorUserId && actorUserId !== result.data.userId) {
       return NextResponse.redirect(
-        buildRedirectUrl(request, `${VERIFY_EMAIL_PATH}?error=verification-link-account-mismatch`)
+        buildRedirectUrl(
+          request,
+          appendQueryToPath(VERIFY_EMAIL_PATH, {
+            error: "verification-link-account-mismatch",
+            returnTo: returnToPath,
+          })
+        )
       );
     }
 
     if (actorUserId) {
       return NextResponse.redirect(
-        buildRedirectUrl(request, `${PROJECTS_PATH}?status=email-verified`)
+        buildRedirectUrl(
+          request,
+          appendQueryToPath(returnToPath, {
+            status: "email-verified",
+          })
+        )
       );
     }
 
     return NextResponse.redirect(
-      buildRedirectUrl(request, `${HOME_SIGNIN_PATH}&status=email-verified`)
+      buildRedirectUrl(
+        request,
+        `${HOME_SIGNIN_PATH}&status=email-verified&returnTo=${encodeURIComponent(returnToPath)}`
+      )
     );
   } catch (error) {
     logServerError("GET /api/auth/verify-email", error);

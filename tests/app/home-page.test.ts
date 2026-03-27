@@ -104,7 +104,7 @@ describe("home page auth entry", () => {
     });
 
     await expect(Home({})).rejects.toThrow("NEXT_REDIRECT");
-    expect(redirectMock).toHaveBeenCalledWith("/verify-email");
+    expect(redirectMock).toHaveBeenCalledWith("/verify-email?returnTo=%2Fprojects");
   });
 
   test("redirects signed-in users to projects outside live production", async () => {

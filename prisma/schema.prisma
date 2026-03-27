@@ -25,7 +25,6 @@ model User {
   sessions                   Session[]
   ownedProjects              Project[]                 @relation("ProjectOwner")
   projectMemberships         ProjectMembership[]
-  projectInvitationsReceived ProjectInvitation[]       @relation("ProjectInvitationInvitee")
   projectInvitationsSent     ProjectInvitation[]       @relation("ProjectInvitationInviter")
   taskAttachments            TaskAttachment[]          @relation("TaskAttachmentUploader")
   resourceAttachments        ResourceAttachment[]      @relation("ResourceAttachmentUploader")
@@ -161,21 +160,21 @@ model ProjectMembership {
 model ProjectInvitation {
   id              String                @id @default(cuid())
   projectId       String
-  invitedUserId   String
+  invitedEmail    String
   invitedByUserId String
   role            ProjectMembershipRole
   expiresAt       DateTime
   acceptedAt      DateTime?
   revokedAt       DateTime?
+  replacedAt      DateTime?
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 
   project       Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  invitedUser   User    @relation("ProjectInvitationInvitee", fields: [invitedUserId], references: [id], onDelete: Cascade)
   invitedByUser User    @relation("ProjectInvitationInviter", fields: [invitedByUserId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
-  @@index([invitedUserId])
+  @@index([invitedEmail])
   @@index([invitedByUserId])
 }
 

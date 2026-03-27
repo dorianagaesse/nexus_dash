@@ -81,6 +81,7 @@ describe("verify-email actions", () => {
     expect(emailVerificationMock.issueEmailVerificationForUser).toHaveBeenCalledWith({
       actorUserId: "user-1",
       requestOrigin: "https://nexus-dash.app",
+      returnToPath: "/projects",
     });
   });
 

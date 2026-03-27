@@ -8,7 +8,7 @@ import {
 } from "@/lib/services/project-collaboration-service";
 
 interface InviteRequestBody {
-  invitedUserId?: unknown;
+  invitedEmail?: unknown;
   role?: unknown;
 }
 
@@ -57,8 +57,8 @@ export async function POST(
   const result = await inviteUserToProject({
     actorUserId: authenticatedUser.userId,
     projectId: params.projectId,
-    invitedUserId:
-      typeof payload.invitedUserId === "string" ? payload.invitedUserId : "",
+    invitedEmail:
+      typeof payload.invitedEmail === "string" ? payload.invitedEmail : "",
     role: typeof payload.role === "string" ? payload.role : "",
   });
 

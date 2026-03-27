@@ -1,15 +1,22 @@
 import { Prisma, ProjectMembershipRole } from "@prisma/client";
 
+import { normalizeReturnToPath } from "@/lib/navigation/return-to";
+import { prisma } from "@/lib/prisma";
+import {
+  normalizeEmail,
+  validateEmail,
+  validateUsernameDiscriminator,
+} from "@/lib/services/account-security-policy";
 import {
   getProjectAccess,
   hasRequiredRole,
   requireProjectRole,
 } from "@/lib/services/project-access-service";
-import { validateUsernameDiscriminator } from "@/lib/services/account-security-policy";
 import { withActorRlsContext, type DbClient } from "@/lib/services/rls-context";
 
 const PROJECT_INVITATION_TTL_DAYS = 14;
 const INVITABLE_USER_SEARCH_LIMIT = 8;
+const PROJECT_INVITATION_PATH_PREFIX = "/invite/project";
 
 export type ProjectCollaboratorRole = Exclude<ProjectMembershipRole, "owner">;
 
@@ -45,22 +52,106 @@ export interface ProjectInvitationSummary {
   invitationId: string;
   projectId: string;
   projectName: string;
-  invitedUserId: string;
-  invitedUserDisplayName: string;
+  invitedEmail: string;
+  invitedUserId: string | null;
+  invitedUserDisplayName: string | null;
   invitedUserUsernameTag: string | null;
-  invitedUserEmail: string | null;
   invitedByDisplayName: string;
   invitedByUsernameTag: string | null;
   invitedByEmail: string | null;
   role: ProjectCollaboratorRole;
   createdAt: string;
   expiresAt: string;
+  inviteLinkPath: string;
 }
 
 export interface ProjectSharingSummary {
   projectId: string;
   members: ProjectMemberSummary[];
   pendingInvitations: ProjectInvitationSummary[];
+}
+
+export type ProjectInvitationRecipientState =
+  | "not-found"
+  | "revoked"
+  | "expired"
+  | "replaced"
+  | "accepted"
+  | "sign-in-required"
+  | "wrong-account"
+  | "verification-required"
+  | "accept-ready";
+
+export interface ProjectInvitationRecipientView {
+  state: ProjectInvitationRecipientState;
+  invitation: ProjectInvitationSummary | null;
+  actor: CollaboratorIdentitySummary | null;
+  actorEmailVerified: boolean;
+  actorEmailMatchesInvitation: boolean;
+}
+
+interface PendingInvitationMetadataRow {
+  invitationId: string;
+  projectId: string;
+  projectName: string;
+  invitedEmail: string;
+  invitedByUserId: string;
+  invitedByEmail: string | null;
+  invitedByName: string | null;
+  invitedByUsername: string | null;
+  invitedByUsernameDiscriminator: string | null;
+  invitationRole: ProjectMembershipRole;
+  createdAt: Date;
+  expiresAt: Date;
+}
+
+interface InvitationMatchedUser {
+  id: string;
+  email: string | null;
+  name: string | null;
+  username: string | null;
+  usernameDiscriminator: string | null;
+}
+
+interface InvitationRecipientLookupRow {
+  invitationId: string;
+  projectId: string;
+  projectName: string;
+  invitedEmail: string;
+  invitationRole: ProjectMembershipRole;
+  createdAt: Date;
+  expiresAt: Date;
+  acceptedAt: Date | null;
+  revokedAt: Date | null;
+  replacedAt: Date | null;
+  invitedByUserId: string;
+  invitedByEmail: string | null;
+  invitedByName: string | null;
+  invitedByUsername: string | null;
+  invitedByUsernameDiscriminator: string | null;
+}
+
+interface ProjectInvitationRecord {
+  id: string;
+  projectId: string;
+  invitedEmail: string;
+  role: ProjectMembershipRole;
+  createdAt: Date;
+  expiresAt: Date;
+  acceptedAt: Date | null;
+  revokedAt: Date | null;
+  replacedAt: Date | null;
+  project: {
+    id: string;
+    name: string;
+  };
+  invitedByUser: {
+    id: string;
+    email: string | null;
+    name: string | null;
+    username: string | null;
+    usernameDiscriminator: string | null;
+  };
 }
 
 function createError(status: number, error: string): ServiceError {
@@ -93,6 +184,14 @@ function normalizeSearchQuery(query: string | null | undefined): string {
   }
 
   return query.trim();
+}
+
+function normalizeInvitationEmail(email: string | null | undefined): string {
+  if (typeof email !== "string") {
+    return "";
+  }
+
+  return normalizeEmail(email);
 }
 
 function isCollaboratorRole(role: string): role is ProjectCollaboratorRole {
@@ -176,29 +275,54 @@ function buildInvitationExpiry(): Date {
   );
 }
 
+function buildProjectInvitationPath(invitationId: string): string {
+  const normalizedInvitationId = normalizeInvitationId(invitationId);
+  return `${PROJECT_INVITATION_PATH_PREFIX}/${encodeURIComponent(normalizedInvitationId)}`;
+}
+
+export function buildProjectInvitationReturnToPath(
+  invitationId: string
+): string {
+  return normalizeReturnToPath(buildProjectInvitationPath(invitationId));
+}
+
 function buildPendingInvitationWhere(now: Date) {
   return {
     acceptedAt: null,
     revokedAt: null,
+    replacedAt: null,
     expiresAt: {
       gt: now,
     },
   } satisfies Prisma.ProjectInvitationWhereInput;
 }
 
-interface PendingInvitationMetadataRow {
-  invitationId: string;
-  projectId: string;
-  projectName: string;
-  invitedUserId: string;
-  invitedByUserId: string;
-  invitedByEmail: string | null;
-  invitedByName: string | null;
-  invitedByUsername: string | null;
-  invitedByUsernameDiscriminator: string | null;
-  invitationRole: ProjectMembershipRole;
-  createdAt: Date;
-  expiresAt: Date;
+function buildInvitationTerminalState(
+  invitation: Pick<
+    ProjectInvitationRecord,
+    "acceptedAt" | "revokedAt" | "replacedAt" | "expiresAt"
+  >
+): Exclude<
+  ProjectInvitationRecipientState,
+  "sign-in-required" | "wrong-account" | "verification-required" | "accept-ready"
+> | null {
+  if (invitation.acceptedAt) {
+    return "accepted";
+  }
+
+  if (invitation.replacedAt) {
+    return "replaced";
+  }
+
+  if (invitation.revokedAt) {
+    return "revoked";
+  }
+
+  if (invitation.expiresAt.getTime() <= Date.now()) {
+    return "expired";
+  }
+
+  return null;
 }
 
 async function listPendingInvitationMetadataRows(
@@ -209,7 +333,7 @@ async function listPendingInvitationMetadataRows(
       invitation_id AS "invitationId",
       project_id AS "projectId",
       project_name AS "projectName",
-      invited_user_id AS "invitedUserId",
+      invited_email AS "invitedEmail",
       invited_by_user_id AS "invitedByUserId",
       invited_by_email AS "invitedByEmail",
       invited_by_name AS "invitedByName",
@@ -222,18 +346,19 @@ async function listPendingInvitationMetadataRows(
   `);
 }
 
-async function revokeExpiredInvitationsForUser(input: {
+async function revokeExpiredInvitationsForEmail(input: {
   db: DbClient;
   projectId: string;
-  invitedUserId: string;
+  invitedEmail: string;
   now: Date;
 }) {
   await input.db.projectInvitation.updateMany({
     where: {
       projectId: input.projectId,
-      invitedUserId: input.invitedUserId,
+      invitedEmail: input.invitedEmail,
       acceptedAt: null,
       revokedAt: null,
+      replacedAt: null,
       expiresAt: {
         lte: input.now,
       },
@@ -242,6 +367,148 @@ async function revokeExpiredInvitationsForUser(input: {
       revokedAt: input.now,
     },
   });
+}
+
+async function getVerifiedUsersByEmail(
+  db: DbClient,
+  emails: string[]
+): Promise<Map<string, InvitationMatchedUser>> {
+  const normalizedEmails = Array.from(
+    new Set(
+      emails
+        .map((email) => normalizeInvitationEmail(email))
+        .filter((email) => validateEmail(email))
+    )
+  );
+
+  if (normalizedEmails.length === 0) {
+    return new Map<string, InvitationMatchedUser>();
+  }
+
+  const users = await db.user.findMany({
+    where: {
+      emailVerified: {
+        not: null,
+      },
+      email: {
+        in: normalizedEmails,
+      },
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      username: true,
+      usernameDiscriminator: true,
+    },
+  });
+
+  return new Map(
+    users
+      .filter((user) => user.email)
+      .map((user) => [normalizeInvitationEmail(user.email), user])
+  );
+}
+
+function buildProjectInvitationSummary(input: {
+  invitation: ProjectInvitationRecord | PendingInvitationMetadataRow;
+  invitedBy: {
+    email: string | null;
+    name: string | null;
+    username: string | null;
+    usernameDiscriminator: string | null;
+  };
+  matchedInvitee: InvitationMatchedUser | null;
+}) {
+  const invitationId =
+    "id" in input.invitation ? input.invitation.id : input.invitation.invitationId;
+  const projectName =
+    "project" in input.invitation
+      ? input.invitation.project.name
+      : input.invitation.projectName;
+  const invitationRole =
+    "role" in input.invitation
+      ? input.invitation.role
+      : input.invitation.invitationRole;
+
+  return {
+    invitationId,
+    projectId: input.invitation.projectId,
+    projectName,
+    invitedEmail: input.invitation.invitedEmail,
+    invitedUserId: input.matchedInvitee?.id ?? null,
+    invitedUserDisplayName: input.matchedInvitee
+      ? buildDisplayName(input.matchedInvitee)
+      : null,
+    invitedUserUsernameTag: input.matchedInvitee
+      ? buildUsernameTag(
+          input.matchedInvitee.username,
+          input.matchedInvitee.usernameDiscriminator
+        )
+      : null,
+    invitedByDisplayName: buildDisplayName(input.invitedBy),
+    invitedByUsernameTag: buildUsernameTag(
+      input.invitedBy.username,
+      input.invitedBy.usernameDiscriminator
+    ),
+    invitedByEmail: input.invitedBy.email,
+    role: requireCollaboratorRole(invitationRole),
+    createdAt: input.invitation.createdAt.toISOString(),
+    expiresAt: input.invitation.expiresAt.toISOString(),
+    inviteLinkPath: buildProjectInvitationPath(invitationId),
+  } satisfies ProjectInvitationSummary;
+}
+
+async function findInvitationById(
+  invitationId: string
+): Promise<ProjectInvitationRecord | null> {
+  const rows = await prisma.$queryRaw<InvitationRecipientLookupRow[]>(Prisma.sql`
+    SELECT
+      invitation_id AS "invitationId",
+      project_id AS "projectId",
+      project_name AS "projectName",
+      invited_email AS "invitedEmail",
+      invitation_role AS "invitationRole",
+      created_at AS "createdAt",
+      expires_at AS "expiresAt",
+      accepted_at AS "acceptedAt",
+      revoked_at AS "revokedAt",
+      replaced_at AS "replacedAt",
+      invited_by_user_id AS "invitedByUserId",
+      invited_by_email AS "invitedByEmail",
+      invited_by_name AS "invitedByName",
+      invited_by_username AS "invitedByUsername",
+      invited_by_username_discriminator AS "invitedByUsernameDiscriminator"
+    FROM app.get_project_invitation_for_landing(${invitationId})
+  `);
+
+  const row = rows[0];
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.invitationId,
+    projectId: row.projectId,
+    invitedEmail: row.invitedEmail,
+    role: row.invitationRole,
+    createdAt: row.createdAt,
+    expiresAt: row.expiresAt,
+    acceptedAt: row.acceptedAt,
+    revokedAt: row.revokedAt,
+    replacedAt: row.replacedAt,
+    project: {
+      id: row.projectId,
+      name: row.projectName,
+    },
+    invitedByUser: {
+      id: row.invitedByUserId,
+      email: row.invitedByEmail,
+      name: row.invitedByName,
+      username: row.invitedByUsername,
+      usernameDiscriminator: row.invitedByUsernameDiscriminator,
+    },
+  };
 }
 
 export async function searchInvitableUsersForProject(input: {
@@ -279,8 +546,20 @@ export async function searchInvitableUsersForProject(input: {
         where: { id: input.projectId },
         select: {
           ownerId: true,
+          owner: {
+            select: {
+              email: true,
+            },
+          },
           memberships: {
-            select: { userId: true },
+            select: {
+              userId: true,
+              user: {
+                select: {
+                  email: true,
+                },
+              },
+            },
           },
         },
       }),
@@ -290,7 +569,7 @@ export async function searchInvitableUsersForProject(input: {
           ...buildPendingInvitationWhere(now),
         },
         select: {
-          invitedUserId: true,
+          invitedEmail: true,
         },
       }),
     ]);
@@ -303,8 +582,22 @@ export async function searchInvitableUsersForProject(input: {
       actorUserId,
       project.ownerId,
       ...project.memberships.map((membership) => membership.userId),
-      ...pendingInvitations.map((invitation) => invitation.invitedUserId),
     ]);
+    const excludedEmails = new Set<string>();
+
+    if (project.owner.email) {
+      excludedEmails.add(normalizeInvitationEmail(project.owner.email));
+    }
+
+    for (const membership of project.memberships) {
+      if (membership.user.email) {
+        excludedEmails.add(normalizeInvitationEmail(membership.user.email));
+      }
+    }
+
+    for (const invitation of pendingInvitations) {
+      excludedEmails.add(invitation.invitedEmail);
+    }
 
     const users = await db.user.findMany({
       where: {
@@ -314,6 +607,13 @@ export async function searchInvitableUsersForProject(input: {
         id: {
           notIn: Array.from(excludedUserIds),
         },
+        ...(excludedEmails.size > 0
+          ? {
+              email: {
+                notIn: Array.from(excludedEmails),
+              },
+            }
+          : {}),
         OR: [
           {
             email: {
@@ -355,27 +655,23 @@ export async function searchInvitableUsersForProject(input: {
 export async function inviteUserToProject(input: {
   actorUserId: string;
   projectId: string;
-  invitedUserId: string;
+  invitedEmail: string;
   role: string;
 }): Promise<ServiceResult<{ invitation: ProjectInvitationSummary }>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
-  const invitedUserId = normalizeActorUserId(input.invitedUserId);
+  const invitedEmail = normalizeInvitationEmail(input.invitedEmail);
   if (!actorUserId) {
     return createError(401, "unauthorized");
   }
 
-  if (!invitedUserId) {
-    return createError(400, "invitee-required");
+  if (!validateEmail(invitedEmail)) {
+    return createError(400, "invalid-email");
   }
 
   if (!isCollaboratorRole(input.role)) {
     return createError(400, "invalid-role");
   }
   const invitedRole = input.role;
-
-  if (invitedUserId === actorUserId) {
-    return createError(400, "cannot-invite-self");
-  }
 
   const now = new Date();
 
@@ -390,99 +686,108 @@ export async function inviteUserToProject(input: {
       return createError(access.status, access.error);
     }
 
-    await revokeExpiredInvitationsForUser({
+    await revokeExpiredInvitationsForEmail({
       db,
       projectId: input.projectId,
-      invitedUserId,
+      invitedEmail,
       now,
     });
 
-    const [project, invitedUser, existingMembership, existingInvitation] =
-      await Promise.all([
-        db.project.findUnique({
-          where: { id: input.projectId },
-          select: {
-            id: true,
-            name: true,
-          },
-        }),
-        db.user.findUnique({
-          where: { id: invitedUserId },
-          select: {
-            id: true,
-            email: true,
-            emailVerified: true,
-            name: true,
-            username: true,
-            usernameDiscriminator: true,
-          },
-        }),
-        db.projectMembership.findUnique({
-          where: {
-            projectId_userId: {
-              projectId: input.projectId,
-              userId: invitedUserId,
+    const [project, actor, matchedInvitee, existingMembership] = await Promise.all([
+      db.project.findUnique({
+        where: { id: input.projectId },
+        select: {
+          id: true,
+          name: true,
+          owner: {
+            select: {
+              email: true,
             },
           },
-          select: {
-            id: true,
+        },
+      }),
+      db.user.findUnique({
+        where: { id: actorUserId },
+        select: {
+          email: true,
+        },
+      }),
+      db.user.findUnique({
+        where: { email: invitedEmail },
+        select: {
+          id: true,
+          email: true,
+          emailVerified: true,
+          name: true,
+          username: true,
+          usernameDiscriminator: true,
+        },
+      }),
+      db.projectMembership.findFirst({
+        where: {
+          projectId: input.projectId,
+          user: {
+            email: invitedEmail,
           },
-        }),
-        db.projectInvitation.findFirst({
-          where: {
-            projectId: input.projectId,
-            invitedUserId,
-            ...buildPendingInvitationWhere(now),
-          },
-          select: {
-            id: true,
-          },
-        }),
-      ]);
+        },
+        select: {
+          id: true,
+        },
+      }),
+    ]);
 
     if (!project) {
       return createError(404, "project-not-found");
     }
 
-    if (!invitedUser || !invitedUser.emailVerified) {
-      return createError(404, "invitee-not-found");
+    if (normalizeInvitationEmail(actor?.email) === invitedEmail) {
+      return createError(400, "cannot-invite-self");
+    }
+
+    if (normalizeInvitationEmail(project.owner.email) === invitedEmail) {
+      return createError(400, "cannot-invite-self");
     }
 
     if (existingMembership) {
       return createError(409, "already-a-member");
     }
 
-    if (existingInvitation) {
-      return createError(409, "invitation-already-pending");
-    }
+    await db.projectInvitation.updateMany({
+      where: {
+        projectId: input.projectId,
+        invitedEmail,
+        acceptedAt: null,
+        revokedAt: null,
+        replacedAt: null,
+      },
+      data: {
+        replacedAt: now,
+      },
+    });
 
     try {
       const invitation = await db.projectInvitation.create({
         data: {
           projectId: input.projectId,
-          invitedUserId,
+          invitedEmail,
           invitedByUserId: actorUserId,
           role: invitedRole,
           expiresAt: buildInvitationExpiry(),
         },
         select: {
           id: true,
+          projectId: true,
+          invitedEmail: true,
           role: true,
           createdAt: true,
           expiresAt: true,
+          acceptedAt: true,
+          revokedAt: true,
+          replacedAt: true,
           project: {
             select: {
               id: true,
               name: true,
-            },
-          },
-          invitedUser: {
-            select: {
-              id: true,
-              email: true,
-              name: true,
-              username: true,
-              usernameDiscriminator: true,
             },
           },
           invitedByUser: {
@@ -498,36 +803,15 @@ export async function inviteUserToProject(input: {
       });
 
       return createSuccess(201, {
-        invitation: {
-          invitationId: invitation.id,
-          projectId: invitation.project.id,
-          projectName: invitation.project.name,
-          invitedUserId: invitation.invitedUser.id,
-          invitedUserDisplayName: buildDisplayName(invitation.invitedUser),
-          invitedUserUsernameTag: buildUsernameTag(
-            invitation.invitedUser.username,
-            invitation.invitedUser.usernameDiscriminator
-          ),
-          invitedUserEmail: invitation.invitedUser.email,
-          invitedByDisplayName: buildDisplayName(invitation.invitedByUser),
-          invitedByUsernameTag: buildUsernameTag(
-            invitation.invitedByUser.username,
-            invitation.invitedByUser.usernameDiscriminator
-          ),
-          invitedByEmail: invitation.invitedByUser.email,
-          role: requireCollaboratorRole(invitation.role),
-          createdAt: invitation.createdAt.toISOString(),
-          expiresAt: invitation.expiresAt.toISOString(),
-        },
+        invitation: buildProjectInvitationSummary({
+          invitation,
+          invitedBy: invitation.invitedByUser,
+          matchedInvitee: matchedInvitee?.emailVerified ? matchedInvitee : null,
+        }),
       });
     } catch (error) {
-      if (
-        error &&
-        typeof error === "object" &&
-        "code" in error &&
-        (error as { code?: string }).code === "P2002"
-      ) {
-        return createError(409, "invitation-already-pending");
+      if (isUniqueConstraintError(error)) {
+        return createError(409, "invitation-conflict");
       }
 
       throw error;
@@ -585,18 +869,14 @@ export async function getProjectSharingSummary(input: {
           orderBy: [{ createdAt: "desc" }],
           select: {
             id: true,
+            projectId: true,
+            invitedEmail: true,
             role: true,
             createdAt: true,
             expiresAt: true,
-            invitedUser: {
-              select: {
-                id: true,
-                email: true,
-                name: true,
-                username: true,
-                usernameDiscriminator: true,
-              },
-            },
+            acceptedAt: true,
+            revokedAt: true,
+            replacedAt: true,
             invitedByUser: {
               select: {
                 id: true,
@@ -615,6 +895,11 @@ export async function getProjectSharingSummary(input: {
       return createError(404, "project-not-found");
     }
 
+    const matchedInvitees = await getVerifiedUsersByEmail(
+      db,
+      project.invitations.map((invitation) => invitation.invitedEmail)
+    );
+
     return createSuccess(200, {
       projectId: project.id,
       members: project.memberships.map((membership) => {
@@ -628,27 +913,20 @@ export async function getProjectSharingSummary(input: {
           ...identity,
         };
       }),
-      pendingInvitations: project.invitations.map((invitation) => ({
-        invitationId: invitation.id,
-        projectId: project.id,
-        projectName: project.name,
-        invitedUserId: invitation.invitedUser.id,
-        invitedUserDisplayName: buildDisplayName(invitation.invitedUser),
-        invitedUserUsernameTag: buildUsernameTag(
-          invitation.invitedUser.username,
-          invitation.invitedUser.usernameDiscriminator
-        ),
-        invitedUserEmail: invitation.invitedUser.email,
-        invitedByDisplayName: buildDisplayName(invitation.invitedByUser),
-        invitedByUsernameTag: buildUsernameTag(
-          invitation.invitedByUser.username,
-          invitation.invitedByUser.usernameDiscriminator
-        ),
-        invitedByEmail: invitation.invitedByUser.email,
-        role: requireCollaboratorRole(invitation.role),
-        createdAt: invitation.createdAt.toISOString(),
-        expiresAt: invitation.expiresAt.toISOString(),
-      })),
+      pendingInvitations: project.invitations.map((invitation) =>
+        buildProjectInvitationSummary({
+          invitation: {
+            ...invitation,
+            project: {
+              id: project.id,
+              name: project.name,
+            },
+          },
+          invitedBy: invitation.invitedByUser,
+          matchedInvitee:
+            matchedInvitees.get(normalizeInvitationEmail(invitation.invitedEmail)) ?? null,
+        })
+      ),
     });
   });
 }
@@ -685,6 +963,7 @@ export async function revokeProjectInvitation(input: {
         projectId: input.projectId,
         acceptedAt: null,
         revokedAt: null,
+        replacedAt: null,
       },
       data: {
         revokedAt: new Date(),
@@ -853,27 +1132,19 @@ export async function listPendingProjectInvitationsForUser(
 
     return createSuccess(200, {
       invitations: activeInvitations.map((invitation) => ({
-        invitationId: invitation.invitationId,
-        projectId: invitation.projectId,
-        projectName: invitation.projectName,
+        ...buildProjectInvitationSummary({
+          invitation,
+          invitedBy: {
+            email: invitation.invitedByEmail,
+            name: invitation.invitedByName,
+            username: invitation.invitedByUsername,
+            usernameDiscriminator: invitation.invitedByUsernameDiscriminator,
+          },
+          matchedInvitee: actor,
+        }),
         invitedUserId: actorIdentity.id,
         invitedUserDisplayName: actorIdentity.displayName,
         invitedUserUsernameTag: actorIdentity.usernameTag,
-        invitedUserEmail: actorIdentity.email,
-        invitedByDisplayName: buildDisplayName({
-          name: invitation.invitedByName,
-          username: invitation.invitedByUsername,
-          usernameDiscriminator: invitation.invitedByUsernameDiscriminator,
-          email: invitation.invitedByEmail,
-        }),
-        invitedByUsernameTag: buildUsernameTag(
-          invitation.invitedByUsername,
-          invitation.invitedByUsernameDiscriminator
-        ),
-        invitedByEmail: invitation.invitedByEmail,
-        role: requireCollaboratorRole(invitation.invitationRole),
-        createdAt: invitation.createdAt.toISOString(),
-        expiresAt: invitation.expiresAt.toISOString(),
       })),
     });
   });
@@ -912,6 +1183,7 @@ export async function respondToProjectInvitation(input: {
     const actor = await db.user.findUnique({
       where: { id: actorUserId },
       select: {
+        email: true,
         emailVerified: true,
       },
     });
@@ -920,20 +1192,26 @@ export async function respondToProjectInvitation(input: {
       return createError(403, "email-unverified");
     }
 
+    const actorEmail = normalizeInvitationEmail(actor.email);
+    if (!validateEmail(actorEmail)) {
+      return createError(403, "invitation-email-mismatch");
+    }
+
     const invitation = await db.projectInvitation.findUnique({
       where: { id: invitationId },
       select: {
         id: true,
         projectId: true,
+        invitedEmail: true,
         role: true,
-        invitedUserId: true,
         acceptedAt: true,
         revokedAt: true,
+        replacedAt: true,
         expiresAt: true,
       },
     });
 
-    if (!invitation || invitation.invitedUserId !== actorUserId) {
+    if (!invitation) {
       return createError(404, "invitation-not-found");
     }
 
@@ -941,22 +1219,20 @@ export async function respondToProjectInvitation(input: {
       return createSuccess(200, { projectId: invitation.projectId });
     }
 
+    if (invitation.replacedAt) {
+      return createError(409, "invitation-replaced");
+    }
+
     if (invitation.revokedAt) {
       return createError(409, "invitation-revoked");
     }
 
     if (invitation.expiresAt.getTime() <= Date.now()) {
-      await db.projectInvitation.updateMany({
-        where: {
-          id: invitation.id,
-          revokedAt: null,
-          acceptedAt: null,
-        },
-        data: {
-          revokedAt: new Date(),
-        },
-      });
       return createError(409, "invitation-expired");
+    }
+
+    if (invitation.invitedEmail !== actorEmail) {
+      return createError(403, "invitation-email-mismatch");
     }
 
     if (input.decision === "decline") {
@@ -966,6 +1242,10 @@ export async function respondToProjectInvitation(input: {
           id: invitation.id,
           acceptedAt: null,
           revokedAt: null,
+          replacedAt: null,
+          expiresAt: {
+            gt: declinedAt,
+          },
         },
         data: {
           revokedAt: declinedAt,
@@ -981,6 +1261,8 @@ export async function respondToProjectInvitation(input: {
         select: {
           acceptedAt: true,
           revokedAt: true,
+          replacedAt: true,
+          expiresAt: true,
         },
       });
 
@@ -988,8 +1270,16 @@ export async function respondToProjectInvitation(input: {
         return createError(409, "invitation-already-accepted");
       }
 
+      if (latestInvitation?.replacedAt) {
+        return createError(409, "invitation-replaced");
+      }
+
       if (latestInvitation?.revokedAt) {
         return createSuccess(200, { projectId: invitation.projectId });
+      }
+
+      if (latestInvitation && latestInvitation.expiresAt.getTime() <= Date.now()) {
+        return createError(409, "invitation-expired");
       }
 
       return createError(404, "invitation-not-found");
@@ -1007,6 +1297,8 @@ export async function respondToProjectInvitation(input: {
       },
     });
 
+    let createdMembership = false;
+
     if (!existingMembership) {
       try {
         await db.projectMembership.create({
@@ -1016,6 +1308,7 @@ export async function respondToProjectInvitation(input: {
             role: requireCollaboratorRole(invitation.role),
           },
         });
+        createdMembership = true;
       } catch (error) {
         if (!isUniqueConstraintError(error)) {
           throw error;
@@ -1029,6 +1322,10 @@ export async function respondToProjectInvitation(input: {
         id: invitation.id,
         acceptedAt: null,
         revokedAt: null,
+        replacedAt: null,
+        expiresAt: {
+          gt: acceptedAt,
+        },
       },
       data: {
         acceptedAt,
@@ -1042,12 +1339,32 @@ export async function respondToProjectInvitation(input: {
           projectId: true,
           acceptedAt: true,
           revokedAt: true,
+          replacedAt: true,
           expiresAt: true,
         },
       });
 
       if (latestInvitation?.acceptedAt) {
         return createSuccess(200, { projectId: latestInvitation.projectId });
+      }
+
+      if (
+        createdMembership &&
+        (latestInvitation?.replacedAt ||
+          latestInvitation?.revokedAt ||
+          (latestInvitation && latestInvitation.expiresAt.getTime() <= Date.now()) ||
+          !latestInvitation)
+      ) {
+        await db.projectMembership.deleteMany({
+          where: {
+            projectId: invitation.projectId,
+            userId: actorUserId,
+          },
+        });
+      }
+
+      if (latestInvitation?.replacedAt) {
+        return createError(409, "invitation-replaced");
       }
 
       if (latestInvitation?.revokedAt) {
@@ -1063,6 +1380,117 @@ export async function respondToProjectInvitation(input: {
 
     return createSuccess(200, { projectId: invitation.projectId });
   });
+}
+
+export async function getProjectInvitationRecipientView(input: {
+  invitationId: string;
+  actorUserId?: string | null;
+}): Promise<ProjectInvitationRecipientView> {
+  const invitationId = normalizeInvitationId(input.invitationId);
+  if (!invitationId) {
+    return {
+      state: "not-found",
+      invitation: null,
+      actor: null,
+      actorEmailVerified: false,
+      actorEmailMatchesInvitation: false,
+    };
+  }
+
+  const invitation = await findInvitationById(invitationId);
+  if (!invitation) {
+    return {
+      state: "not-found",
+      invitation: null,
+      actor: null,
+      actorEmailVerified: false,
+      actorEmailMatchesInvitation: false,
+    };
+  }
+
+  const matchedInvitees = await getVerifiedUsersByEmail(prisma, [invitation.invitedEmail]);
+  const invitationSummary = buildProjectInvitationSummary({
+    invitation,
+    invitedBy: invitation.invitedByUser,
+    matchedInvitee:
+      matchedInvitees.get(normalizeInvitationEmail(invitation.invitedEmail)) ?? null,
+  });
+
+  const terminalState = buildInvitationTerminalState(invitation);
+  if (terminalState) {
+    return {
+      state: terminalState,
+      invitation: invitationSummary,
+      actor: null,
+      actorEmailVerified: false,
+      actorEmailMatchesInvitation: false,
+    };
+  }
+
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) {
+    return {
+      state: "sign-in-required",
+      invitation: invitationSummary,
+      actor: null,
+      actorEmailVerified: false,
+      actorEmailMatchesInvitation: false,
+    };
+  }
+
+  const actor = await prisma.user.findUnique({
+    where: { id: actorUserId },
+    select: {
+      id: true,
+      email: true,
+      emailVerified: true,
+      name: true,
+      username: true,
+      usernameDiscriminator: true,
+    },
+  });
+
+  if (!actor) {
+    return {
+      state: "sign-in-required",
+      invitation: invitationSummary,
+      actor: null,
+      actorEmailVerified: false,
+      actorEmailMatchesInvitation: false,
+    };
+  }
+
+  const actorSummary = buildIdentitySummary(actor);
+  const actorEmailMatchesInvitation =
+    normalizeInvitationEmail(actor.email) === invitation.invitedEmail;
+
+  if (!actorEmailMatchesInvitation) {
+    return {
+      state: "wrong-account",
+      invitation: invitationSummary,
+      actor: actorSummary,
+      actorEmailVerified: Boolean(actor.emailVerified),
+      actorEmailMatchesInvitation,
+    };
+  }
+
+  if (!actor.emailVerified) {
+    return {
+      state: "verification-required",
+      invitation: invitationSummary,
+      actor: actorSummary,
+      actorEmailVerified: false,
+      actorEmailMatchesInvitation,
+    };
+  }
+
+  return {
+    state: "accept-ready",
+    invitation: invitationSummary,
+    actor: actorSummary,
+    actorEmailVerified: true,
+    actorEmailMatchesInvitation,
+  };
 }
 
 export async function getProjectRoleForActor(input: {

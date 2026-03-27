@@ -88,7 +88,7 @@ describe("GET /api/auth/verify-email", () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(
-      "http://localhost/?form=signin&status=email-verified"
+      "http://localhost/?form=signin&status=email-verified&returnTo=%2Fprojects"
     );
   });
 });

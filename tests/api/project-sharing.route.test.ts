@@ -115,7 +115,7 @@ describe("project sharing route", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          invitedUserId: "user-2",
+          invitedEmail: "user2@example.com",
           role: "viewer",
         }),
       }),
@@ -131,7 +131,7 @@ describe("project sharing route", () => {
     expect(collaborationServiceMock.inviteUserToProject).toHaveBeenCalledWith({
       actorUserId: "user-1",
       projectId: "project-1",
-      invitedUserId: "user-2",
+      invitedEmail: "user2@example.com",
       role: "viewer",
     });
   });

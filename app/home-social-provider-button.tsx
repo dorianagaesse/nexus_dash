@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 interface HomeSocialProviderButtonProps {
   provider: SocialAuthProvider;
   form: HomeAuthForm;
+  returnTo?: string | null;
 }
 
 function GoogleIcon() {
@@ -59,9 +60,12 @@ function ProviderIcon({ provider }: { provider: SocialAuthProvider }) {
 export function HomeSocialProviderButton({
   provider,
   form,
+  returnTo,
 }: HomeSocialProviderButtonProps) {
   const label = getSocialAuthProviderLabel(provider);
-  const href = `/api/auth/oauth/${provider}?form=${form}&returnTo=/projects`;
+  const href = `/api/auth/oauth/${provider}?form=${form}&returnTo=${encodeURIComponent(
+    returnTo ?? "/projects"
+  )}`;
 
   return (
     <Button
