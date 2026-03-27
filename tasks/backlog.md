@@ -9,11 +9,6 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Context cards currently behave like plain-text tiles with one-size-fits-all layout pressure; refine card sizing behavior and upgrade context-card authoring/rendering so richer project notes fit naturally without wasting vertical space or forcing users into awkwardly dense previews.
   Dependencies: TASK-004, TASK-094, TASK-096
-- ID: TASK-112
-  Title: Attachment link entry polish - add-icon affordance and Enter-to-add across task/context flows
-  Status: Done (2026-03-27)
-  Rationale: Delivered a lighter attachment-link composer across task/context create-edit flows with add-oriented affordances, Enter-to-add support, resolved Copilot review follow-up, green validation, and preview deployment before merge via PR #109.
-  Dependencies: TASK-026, TASK-027, TASK-033
 - ID: TASK-059
   Title: Agent access implementation - scoped API tokens, rotation, and audit trail
   Status: Pending

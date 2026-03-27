@@ -84,14 +84,15 @@ export function ContextCreateModal({
         </div>
 
         <div className="grid gap-2">
-          <label htmlFor="context-create-content" className="text-sm font-medium">
+          <div id="context-create-content-label" className="text-sm font-medium">
             Content
-          </label>
+          </div>
           <RichTextEditor
             id="context-create-content"
             value={createContent}
             onChange={onCreateContentChange}
             placeholder="Anything useful for this project..."
+            ariaLabelledBy="context-create-content-label"
           />
           <input type="hidden" name="content" value={createContent} />
         </div>

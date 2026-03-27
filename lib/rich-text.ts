@@ -25,7 +25,8 @@ const RICH_TEXT_OPTIONS: sanitizeHtml.IOptions = {
   enforceHtmlBoundary: true,
 };
 
-const HTML_TAG_PATTERN = /<\/?[a-z][\s\S]*>/i;
+const SUPPORTED_HTML_TAG_PATTERN =
+  /<\/?(p|h1|h2|br|strong|b|em|i|u|s|ul|ol|li|blockquote|a)(\s[^>]*)?>/i;
 
 function escapeHtml(value: string): string {
   return value
@@ -83,11 +84,11 @@ export function coerceRichTextHtml(input: string): string | null {
     return null;
   }
 
-  if (!HTML_TAG_PATTERN.test(trimmed)) {
+  if (!SUPPORTED_HTML_TAG_PATTERN.test(trimmed)) {
     return plainTextToRichText(trimmed);
   }
 
-  return sanitizeRichText(trimmed);
+  return sanitizeRichText(trimmed) ?? plainTextToRichText(trimmed);
 }
 
 export function richTextToPlainText(input: string): string {

@@ -90,13 +90,14 @@ export function ContextEditModal({
         </div>
 
         <div className="grid gap-2">
-          <label htmlFor="context-edit-content" className="text-sm font-medium">
+          <div id="context-edit-content-label" className="text-sm font-medium">
             Content
-          </label>
+          </div>
           <RichTextEditor
             id="context-edit-content"
             value={editContent}
             onChange={onEditContentChange}
+            ariaLabelledBy="context-edit-content-label"
           />
           <input type="hidden" name="content" value={editContent} />
         </div>

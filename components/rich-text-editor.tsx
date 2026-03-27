@@ -13,6 +13,8 @@ interface RichTextEditorProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  ariaLabel?: string;
+  ariaLabelledBy?: string;
 }
 
 function exec(command: string, value?: string) {
@@ -25,6 +27,8 @@ export function RichTextEditor({
   onChange,
   placeholder,
   className,
+  ariaLabel,
+  ariaLabelledBy,
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
 
@@ -103,6 +107,10 @@ export function RichTextEditor({
           ref={editorRef}
           contentEditable
           suppressContentEditableWarning
+          role="textbox"
+          aria-multiline="true"
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
           data-placeholder={placeholder ?? "Write here..."}
           className={cn(
             "min-h-[140px] rounded-md border border-input bg-background px-3 py-2 pr-14 text-sm text-foreground",

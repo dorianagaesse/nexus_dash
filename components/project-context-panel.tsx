@@ -161,20 +161,6 @@ export function ProjectContextPanel({
   );
 
   useEffect(() => {
-    if (!editingCard) {
-      return;
-    }
-    setEditingColor(editingCard.color);
-    setEditContent(normalizeContextCardContentHtml(editingCard.content));
-    setEditError(null);
-    setAttachmentError(null);
-    setIsEditLinkComposerOpen(false);
-    setEditLinkUrl("");
-    setEditFileInputKey((previous) => previous + 1);
-    setPreviewAttachment(null);
-  }, [editingCard]);
-
-  useEffect(() => {
     setLocalCards(
       cards.map((card) => ({
         ...card,
@@ -273,7 +259,20 @@ export function ProjectContextPanel({
       return;
     }
 
+    const cardToEdit = localCards.find((card) => card.id === cardId);
+    if (!cardToEdit) {
+      return;
+    }
+
     setPreviewCardId(null);
+    setEditingColor(cardToEdit.color);
+    setEditContent(normalizeContextCardContentHtml(cardToEdit.content));
+    setEditError(null);
+    setAttachmentError(null);
+    setIsEditLinkComposerOpen(false);
+    setEditLinkUrl("");
+    setEditFileInputKey((previous) => previous + 1);
+    setPreviewAttachment(null);
     setEditingCardId(cardId);
   };
 

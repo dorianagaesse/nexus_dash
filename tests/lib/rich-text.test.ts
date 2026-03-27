@@ -36,6 +36,12 @@ describe("rich-text", () => {
     );
   });
 
+  test("treats unsupported angle-bracket text as plain text", () => {
+    expect(coerceRichTextHtml("Token <abc123> should stay visible")).toBe(
+      "<p>Token &lt;abc123&gt; should stay visible</p>"
+    );
+  });
+
   test("converts rich html to plain text", () => {
     const input = "<h1>Hello</h1><p>there   team</p>";
     expect(richTextToPlainText(input)).toBe("Hellothere team");
