@@ -56,7 +56,7 @@ export function ContextCardsGrid({
         return (
           <article
             key={card.id}
-            className="flex aspect-[1.618/1] min-h-[176px] max-h-[208px] cursor-pointer flex-col overflow-hidden rounded-2xl border p-3 transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-18px_rgba(15,23,42,0.45)] hover:ring-2 hover:ring-slate-900/10"
+            className="flex aspect-[1.618/1] min-h-[148px] max-h-[176px] cursor-pointer flex-col overflow-hidden rounded-2xl border p-3 transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-18px_rgba(15,23,42,0.45)] hover:ring-2 hover:ring-slate-900/10"
             style={{ backgroundColor: card.color, borderColor: "rgb(15 23 42 / 0.15)" }}
             onClick={() => onOpenPreview(card.id)}
           >
