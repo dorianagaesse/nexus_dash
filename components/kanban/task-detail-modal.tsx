@@ -8,7 +8,6 @@ import {
   MoreHorizontal,
   Paperclip,
   Pencil,
-  Plus,
   Trash2,
   TriangleAlert,
   Undo2,
@@ -33,6 +32,7 @@ import {
 import { AttachmentPreviewModal } from "@/components/attachment-preview-modal";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
+import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmojiInputField } from "@/components/ui/emoji-field";
@@ -894,32 +894,14 @@ function TaskEditContent({
         </div>
 
         {isLinkComposerOpen ? (
-          <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background p-2">
-            <input
-              value={linkUrl}
-              onChange={(event) => onLinkUrlChange(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") {
-                  return;
-                }
-
-                event.preventDefault();
-                void onAddLinkAttachment();
-              }}
-              placeholder="https://..."
-              className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-xs"
-            />
-            <Button
-              type="button"
-              size="icon"
-              variant="secondary"
-              onClick={() => void onAddLinkAttachment()}
-              disabled={isSubmittingAttachment || hasPendingAttachmentUploads || !linkUrl.trim()}
-              aria-label="Add attachment link"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
+          <AttachmentLinkComposer
+            value={linkUrl}
+            onValueChange={onLinkUrlChange}
+            onSubmit={onAddLinkAttachment}
+            isSubmitDisabled={
+              isSubmittingAttachment || hasPendingAttachmentUploads || !linkUrl.trim()
+            }
+          />
         ) : null}
 
         {attachmentError ? (

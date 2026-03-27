@@ -57,6 +57,20 @@ test.describe("critical UI smoke flows", () => {
     await page.getByLabel("Task title").fill(editedTaskTitle);
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByRole("button", { name: "Task options" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Task options" }).click();
+    await page.getByRole("button", { name: /^Edit$/ }).click();
+    const deleteAttachmentRequest = page.waitForResponse(
+      (response) =>
+        response.request().method() === "DELETE" &&
+        /\/attachments\//.test(response.url()) &&
+        response.ok()
+    );
+    await page.getByRole("button", { name: "Delete attachment" }).first().click();
+    await deleteAttachmentRequest;
+    await expect(page.getByText("example.com")).toHaveCount(0);
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByRole("button", { name: "Task options" })).toBeVisible();
     await page.getByRole("button", { name: "Close task" }).click();
 
     await expect(page.locator("article").filter({ hasText: editedTaskTitle }).first()).toBeVisible();

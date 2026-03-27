@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { Link2, Paperclip, Plus, PlusSquare, Trash2, Upload, X } from "lucide-react";
+import { Link2, Paperclip, PlusSquare, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { RelatedTaskSelector, type RelatedTaskOption } from "@/components/kanban/related-task-field";
 import type { TaskRelatedSummary } from "@/components/kanban-board-types";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { useToast } from "@/components/toast-provider";
+import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmojiInputField } from "@/components/ui/emoji-field";
@@ -521,32 +522,12 @@ export function CreateTaskDialog({
                       </div>
 
                   {isLinkComposerOpen ? (
-                    <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background p-2">
-                      <input
-                        value={linkUrl}
-                        onChange={(event) => setLinkUrl(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key !== "Enter") {
-                            return;
-                          }
-
-                          event.preventDefault();
-                          handleAddLink();
-                        }}
-                        placeholder="https://..."
-                        className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-xs"
-                      />
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="secondary"
-                        onClick={handleAddLink}
-                        disabled={!linkUrl.trim()}
-                        aria-label="Add attachment link"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <AttachmentLinkComposer
+                      value={linkUrl}
+                      onValueChange={setLinkUrl}
+                      onSubmit={handleAddLink}
+                      isSubmitDisabled={!linkUrl.trim()}
+                    />
                   ) : null}
 
                   {attachmentLinks.length > 0 ? (
