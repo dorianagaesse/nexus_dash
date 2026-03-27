@@ -1,5 +1,5 @@
 export type ProjectCollaboratorRole = "editor" | "viewer";
-export type ProjectDashboardSettingsTab = "general" | "sharing";
+export type ProjectDashboardSettingsTab = "general" | "sharing" | "access";
 
 export interface CollaboratorIdentitySummary {
   id: string;

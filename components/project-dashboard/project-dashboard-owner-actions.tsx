@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Settings2, Share2, X } from "lucide-react";
+import { Settings2, Shield, Share2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { useToast } from "@/components/toast-provider";
@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProjectDashboardOwnerAccessPanel } from "@/components/project-dashboard/project-dashboard-owner-access-panel";
 import { ProjectDashboardOwnerGeneralPanel } from "@/components/project-dashboard/project-dashboard-owner-general-panel";
 import { ProjectDashboardOwnerSharingPanel } from "@/components/project-dashboard/project-dashboard-owner-sharing-panel";
 import {
@@ -137,7 +138,7 @@ export function ProjectDashboardOwnerActions({
   }, [projectId]);
 
   useEffect(() => {
-    if (!isOpen || activeTab !== "sharing") {
+    if (!isOpen || (activeTab !== "sharing" && activeTab !== "access")) {
       return;
     }
 
@@ -628,7 +629,7 @@ export function ProjectDashboardOwnerActions({
                     <div className="space-y-1">
                       <CardTitle className="text-xl">{projectName}</CardTitle>
                       <p className="text-sm text-muted-foreground">
-                        Sharing, members, and project details.
+                        Project details, invitations, and access.
                       </p>
                     </div>
                   </div>
@@ -657,6 +658,15 @@ export function ProjectDashboardOwnerActions({
                       <Share2 className="h-4 w-4" />
                       Sharing
                     </Button>
+                    <Button
+                      type="button"
+                      variant={activeTab === "access" ? "secondary" : "outline"}
+                      className="rounded-full px-4"
+                      onClick={() => setActiveTab("access")}
+                    >
+                      <Shield className="h-4 w-4" />
+                      Access
+                    </Button>
                   </div>
 
                   {activeTab === "general" ? (
@@ -672,7 +682,7 @@ export function ProjectDashboardOwnerActions({
                       onResetProject={handleResetProject}
                       onOpenDeleteDialog={() => setIsDeleteDialogOpen(true)}
                     />
-                  ) : (
+                  ) : activeTab === "sharing" ? (
                     <ProjectDashboardOwnerSharingPanel
                       inviteQuery={inviteQuery}
                       inviteEmailCandidate={inviteEmailCandidate}
@@ -681,16 +691,22 @@ export function ProjectDashboardOwnerActions({
                       generatedInvitationLink={generatedInvitationLink}
                       isSearchingUsers={isSearchingUsers}
                       isInvitingUserId={isInvitingUserId}
-                      isLoadingSharing={isLoadingSharing}
-                      sharingError={sharingError}
-                      sharingSummary={sharingSummary}
                       searchMessage={searchMessage}
-                      isMutatingMemberId={isMutatingMemberId}
-                      isMutatingInvitationId={isMutatingInvitationId}
                       onInviteQueryChange={handleInviteQueryChange}
                       onInviteRoleChange={setInviteRole}
                       onInviteByEmail={(email) => void handleInviteEmail(email, email)}
                       onInvite={(user) => void handleInvite(user)}
+                      onCopyInvitationLink={handleCopyInvitationLink}
+                    />
+                  ) : (
+                    <ProjectDashboardOwnerAccessPanel
+                      inviteEmailCandidate={inviteEmailCandidate}
+                      generatedInvitationLink={generatedInvitationLink}
+                      isLoadingSharing={isLoadingSharing}
+                      sharingError={sharingError}
+                      sharingSummary={sharingSummary}
+                      isMutatingMemberId={isMutatingMemberId}
+                      isMutatingInvitationId={isMutatingInvitationId}
                       onRoleChange={(member, nextRole) =>
                         void handleRoleChange(member, nextRole)
                       }
