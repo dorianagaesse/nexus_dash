@@ -40,7 +40,24 @@ describe("project-dashboard-owner-sharing-panel", () => {
         sharingSummary: {
           projectId: "project-1",
           members: [],
-          pendingInvitations: [],
+          pendingInvitations: [
+            {
+              invitationId: "invite-1",
+              projectId: "project-1",
+              projectName: "Project One",
+              invitedEmail: "person@example.com",
+              invitedUserId: null,
+              invitedUserDisplayName: null,
+              invitedUserUsernameTag: null,
+              invitedByDisplayName: "Owner",
+              invitedByUsernameTag: "owner#1234",
+              invitedByEmail: "owner@example.com",
+              role: "editor",
+              createdAt: "2026-03-25T10:00:00.000Z",
+              expiresAt: "2026-04-08T10:00:00.000Z",
+              inviteLinkPath: "/invite/project/invite-1",
+            },
+          ],
         },
         searchMessage: null,
         isMutatingMemberId: null,
@@ -61,6 +78,8 @@ describe("project-dashboard-owner-sharing-panel", () => {
     expect(result).toContain("Bound to person@example.com.");
     expect(result).toContain("https://nexusdash.test/invite/project/invite-1");
     expect(result).toContain('aria-label="Copy invite link for person@example.com"');
+    expect(result).toContain("Link shown above");
+    expect(result).not.toContain(">Copy link<");
   });
 
   test("hides the raw email create-link row when a verified user matches exactly", () => {

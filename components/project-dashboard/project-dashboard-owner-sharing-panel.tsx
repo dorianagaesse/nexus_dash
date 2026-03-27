@@ -340,71 +340,81 @@ export function ProjectDashboardOwnerSharingPanel({
                   ))}
 
                   {sharingSummary.pendingInvitations.map((invitation) => (
-                    <div
-                      key={invitation.invitationId}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3"
-                    >
-                      <div className="space-y-1">
-                        {(() => {
-                          const invitationLabel =
-                            invitation.invitedUserDisplayName ?? invitation.invitedEmail;
-                          const invitationIdentity = invitation.invitedUserDisplayName
-                            ? formatIdentity({
-                                id: invitation.invitedUserId ?? invitation.invitedEmail,
-                                displayName: invitation.invitedUserDisplayName,
-                                usernameTag: invitation.invitedUserUsernameTag,
-                                email: invitation.invitedEmail,
-                              })
-                            : invitation.invitedEmail;
-                          const secondaryIdentity = getSecondaryIdentity(
-                            invitationLabel,
-                            invitationIdentity
-                          );
+                    (() => {
+                      const invitationLabel =
+                        invitation.invitedUserDisplayName ?? invitation.invitedEmail;
+                      const invitationIdentity = invitation.invitedUserDisplayName
+                        ? formatIdentity({
+                            id: invitation.invitedUserId ?? invitation.invitedEmail,
+                            displayName: invitation.invitedUserDisplayName,
+                            usernameTag: invitation.invitedUserUsernameTag,
+                            email: invitation.invitedEmail,
+                          })
+                        : invitation.invitedEmail;
+                      const secondaryIdentity = getSecondaryIdentity(
+                        invitationLabel,
+                        invitationIdentity
+                      );
+                      const isGeneratedInvitationActive =
+                        generatedInvitationLink?.invitation.invitationId ===
+                          invitation.invitationId && isShowingGeneratedInvitationLink;
 
-                          return (
-                            <>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-sm font-medium">{invitationLabel}</p>
-                                <Badge variant="outline" className="capitalize">
-                                  {invitation.role}
-                                </Badge>
-                                <Badge variant="secondary">Pending</Badge>
-                              </div>
-                              {secondaryIdentity ? (
-                                <p className="text-xs text-muted-foreground">
-                                  {secondaryIdentity}
-                                </p>
-                              ) : null}
-                            </>
-                          );
-                        })()}
-                        <p className="text-xs text-muted-foreground">
-                          Expires {new Date(invitation.expiresAt).toLocaleDateString()}.
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onCopyInvitationLink(invitation)}
+                      return (
+                        <div
+                          key={invitation.invitationId}
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3"
                         >
-                          Copy link
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() => onRevokeInvitation(invitation)}
-                          disabled={isMutatingInvitationId === invitation.invitationId}
-                        >
-                          {isMutatingInvitationId === invitation.invitationId
-                            ? "Revoking..."
-                            : "Revoke"}
-                        </Button>
-                      </div>
-                    </div>
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-medium">{invitationLabel}</p>
+                              <Badge variant="outline" className="capitalize">
+                                {invitation.role}
+                              </Badge>
+                              <Badge
+                                variant="secondary"
+                                className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200"
+                              >
+                                Pending
+                              </Badge>
+                            </div>
+                            {secondaryIdentity ? (
+                              <p className="text-xs text-muted-foreground">
+                                {secondaryIdentity}
+                              </p>
+                            ) : null}
+                            <p className="text-xs text-muted-foreground">
+                              Expires {new Date(invitation.expiresAt).toLocaleDateString()}.
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {isGeneratedInvitationActive ? (
+                              <p className="text-xs text-muted-foreground">Link shown above</p>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onCopyInvitationLink(invitation)}
+                              >
+                                Copy link
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => onRevokeInvitation(invitation)}
+                              disabled={isMutatingInvitationId === invitation.invitationId}
+                            >
+                              {isMutatingInvitationId === invitation.invitationId
+                                ? "Revoking..."
+                                : "Revoke"}
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })()
                   ))}
                 </div>
               ) : null}
