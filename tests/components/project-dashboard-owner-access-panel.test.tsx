@@ -10,8 +10,6 @@ describe("project-dashboard-owner-access-panel", () => {
   test("avoids repeating owner identity copy when the label already matches", () => {
     const result = renderToStaticMarkup(
       React.createElement(ProjectDashboardOwnerAccessPanel, {
-        inviteEmailCandidate: null,
-        generatedInvitationLink: null,
         isLoadingSharing: false,
         sharingError: null,
         sharingSummary: {
@@ -41,32 +39,12 @@ describe("project-dashboard-owner-access-panel", () => {
 
     expect(result.match(/dorianagaesse#3762/g)?.length).toBe(1);
     expect(result).not.toContain("Project owner");
-    expect(result).toContain("Only you have access right now.");
+    expect(result).toContain("Only you are on this project right now.");
   });
 
-  test("keeps the active generated invite visible in access without a duplicate copy action", () => {
+  test("renders the inline copy control for pending email invitations", () => {
     const result = renderToStaticMarkup(
       React.createElement(ProjectDashboardOwnerAccessPanel, {
-        inviteEmailCandidate: "person@example.com",
-        generatedInvitationLink: {
-          invitation: {
-            invitationId: "invite-1",
-            projectId: "project-1",
-            projectName: "Project One",
-            invitedEmail: "person@example.com",
-            invitedUserId: null,
-            invitedUserDisplayName: null,
-            invitedUserUsernameTag: null,
-            invitedByDisplayName: "Owner",
-            invitedByUsernameTag: "owner#1234",
-            invitedByEmail: "owner@example.com",
-            role: "editor",
-            createdAt: "2026-03-25T10:00:00.000Z",
-            expiresAt: "2026-04-08T10:00:00.000Z",
-            inviteLinkPath: "/invite/project/invite-1",
-          },
-          url: "https://nexusdash.test/invite/project/invite-1",
-        },
         isLoadingSharing: false,
         sharingError: null,
         sharingSummary: {
@@ -100,9 +78,10 @@ describe("project-dashboard-owner-access-panel", () => {
       })
     );
 
-    expect(result).toContain("Access");
+    expect(result).toContain("Contributors");
     expect(result).toContain("Pending");
-    expect(result).toContain("Link open in Sharing");
-    expect(result).not.toContain(">Copy link<");
+    expect(result).toContain('aria-label="Invite link for person@example.com"');
+    expect(result).toContain('aria-label="Copy invite link for person@example.com"');
+    expect(result).toContain("/invite/project/invite-1");
   });
 });

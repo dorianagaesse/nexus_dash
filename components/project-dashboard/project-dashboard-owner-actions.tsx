@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Settings2, Shield, Share2, X } from "lucide-react";
+import { Settings2, Share2, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { useToast } from "@/components/toast-provider";
@@ -629,7 +629,7 @@ export function ProjectDashboardOwnerActions({
                     <div className="space-y-1">
                       <CardTitle className="text-xl">{projectName}</CardTitle>
                       <p className="text-sm text-muted-foreground">
-                        Project details, invitations, and access.
+                        Project details, invitations, and contributors.
                       </p>
                     </div>
                   </div>
@@ -664,8 +664,8 @@ export function ProjectDashboardOwnerActions({
                       className="rounded-full px-4"
                       onClick={() => setActiveTab("access")}
                     >
-                      <Shield className="h-4 w-4" />
-                      Access
+                      <Users className="h-4 w-4" />
+                      Contributors
                     </Button>
                   </div>
 
@@ -700,8 +700,6 @@ export function ProjectDashboardOwnerActions({
                     />
                   ) : (
                     <ProjectDashboardOwnerAccessPanel
-                      inviteEmailCandidate={inviteEmailCandidate}
-                      generatedInvitationLink={generatedInvitationLink}
                       isLoadingSharing={isLoadingSharing}
                       sharingError={sharingError}
                       sharingSummary={sharingSummary}

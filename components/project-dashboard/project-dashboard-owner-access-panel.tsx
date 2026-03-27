@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { Check, Copy } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 import {
   formatIdentity,
-  type GeneratedProjectInvitationLink,
   type ProjectCollaboratorRole,
   type ProjectInvitationSummary,
   type ProjectMemberSummary,
@@ -13,8 +15,6 @@ import {
 } from "@/components/project-dashboard/project-dashboard-owner-actions.shared";
 
 interface ProjectDashboardOwnerAccessPanelProps {
-  inviteEmailCandidate: string | null;
-  generatedInvitationLink: GeneratedProjectInvitationLink | null;
   isLoadingSharing: boolean;
   sharingError: string | null;
   sharingSummary: ProjectSharingSummary | null;
@@ -31,8 +31,6 @@ function getSecondaryIdentity(primaryLabel: string, identityLabel: string): stri
 }
 
 export function ProjectDashboardOwnerAccessPanel({
-  inviteEmailCandidate,
-  generatedInvitationLink,
   isLoadingSharing,
   sharingError,
   sharingSummary,
@@ -43,14 +41,40 @@ export function ProjectDashboardOwnerAccessPanel({
   onCopyInvitationLink,
   onRevokeInvitation,
 }: ProjectDashboardOwnerAccessPanelProps) {
-  const isShowingGeneratedInvitationLink =
-    generatedInvitationLink?.invitation.invitedEmail === inviteEmailCandidate;
+  const [copiedInvitationId, setCopiedInvitationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!copiedInvitationId) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setCopiedInvitationId(null);
+    }, 1600);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [copiedInvitationId]);
+
+  const buildInvitationLink = (invitation: ProjectInvitationSummary) => {
+    if (typeof window === "undefined") {
+      return invitation.inviteLinkPath;
+    }
+
+    return new URL(invitation.inviteLinkPath, window.location.origin).toString();
+  };
+
+  const handleCopyInvitation = async (invitation: ProjectInvitationSummary) => {
+    const didCopy = await onCopyInvitationLink(invitation);
+    if (didCopy) {
+      setCopiedInvitationId(invitation.invitationId);
+    }
+  };
 
   return (
     <section className="space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <h3 className="text-base font-semibold">Access</h3>
+          <h3 className="text-base font-semibold">Contributors</h3>
           <p className="text-sm text-muted-foreground">Manage collaborators and pending invites.</p>
         </div>
         {sharingSummary ? (
@@ -61,7 +85,7 @@ export function ProjectDashboardOwnerAccessPanel({
       </div>
 
       {isLoadingSharing ? (
-        <p className="text-sm text-muted-foreground">Loading access...</p>
+        <p className="text-sm text-muted-foreground">Loading contributors...</p>
       ) : null}
 
       {!isLoadingSharing && sharingError ? (
@@ -74,7 +98,7 @@ export function ProjectDashboardOwnerAccessPanel({
         <>
           {sharingSummary.members.length === 1 &&
           sharingSummary.pendingInvitations.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Only you have access right now.</p>
+            <p className="text-sm text-muted-foreground">Only you are on this project right now.</p>
           ) : null}
 
           {sharingSummary.members.length > 0 || sharingSummary.pendingInvitations.length > 0 ? (
@@ -147,9 +171,8 @@ export function ProjectDashboardOwnerAccessPanel({
                   invitationLabel,
                   invitationIdentity
                 );
-                const isGeneratedInvitationActive =
-                  generatedInvitationLink?.invitation.invitationId === invitation.invitationId &&
-                  isShowingGeneratedInvitationLink;
+                const isEmailOnlyInvitation = !invitation.invitedUserDisplayName;
+                const isCopied = copiedInvitationId === invitation.invitationId;
 
                 return (
                   <div
@@ -177,14 +200,35 @@ export function ProjectDashboardOwnerAccessPanel({
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      {isGeneratedInvitationActive ? (
-                        <p className="text-xs text-muted-foreground">Link open in Sharing</p>
+                      {isEmailOnlyInvitation ? (
+                        <div className="flex max-w-full items-center gap-2 md:max-w-[28rem]">
+                          <input
+                            readOnly
+                            value={buildInvitationLink(invitation)}
+                            aria-label={`Invite link for ${invitation.invitedEmail}`}
+                            className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2.5 text-xs text-muted-foreground outline-none sm:text-sm"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            aria-label={`Copy invite link for ${invitation.invitedEmail}`}
+                            className="h-9 w-9 shrink-0"
+                            onClick={() => void handleCopyInvitation(invitation)}
+                          >
+                            {isCopied ? (
+                              <Check className="h-4 w-4" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
                       ) : (
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => onCopyInvitationLink(invitation)}
+                          onClick={() => void handleCopyInvitation(invitation)}
                         >
                           Copy link
                         </Button>
