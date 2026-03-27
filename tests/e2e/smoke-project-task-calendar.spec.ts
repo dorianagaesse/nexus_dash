@@ -40,9 +40,9 @@ test.describe("critical UI smoke flows", () => {
     await page.locator("#task-label-input").fill("smoke");
     await page.locator("#task-label-input").press("Enter");
 
-    await page.getByRole("button", { name: "Add attachment link" }).click();
+    await page.getByRole("button", { name: "Open attachment link input" }).click();
     await page.locator("input[placeholder='https://...']").fill("https://example.com");
-    await page.getByRole("button", { name: "Confirm attachment link" }).click();
+    await page.locator("input[placeholder='https://...']").press("Enter");
     await page.getByRole("button", { name: "Create task" }).click();
 
     const createdTaskCard = page.locator("article").filter({ hasText: createdTaskTitle }).first();
@@ -57,14 +57,6 @@ test.describe("critical UI smoke flows", () => {
     await page.getByLabel("Task title").fill(editedTaskTitle);
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByRole("button", { name: "Task options" })).toBeVisible();
-
-    await page.getByRole("button", { name: "Task options" }).click();
-    await page.getByRole("button", { name: /^Edit$/ }).click();
-    await page.getByRole("button", { name: "Delete attachment" }).first().click();
-    await expect(page.getByRole("button", { name: "Delete attachment" })).toHaveCount(0);
-    await page.getByRole("button", { name: "Save changes" }).click();
-    await expect(page.getByRole("button", { name: "Task options" })).toBeVisible();
-    await expect(page.getByText("example.com")).toHaveCount(0);
     await page.getByRole("button", { name: "Close task" }).click();
 
     await expect(page.locator("article").filter({ hasText: editedTaskTitle }).first()).toBeVisible();

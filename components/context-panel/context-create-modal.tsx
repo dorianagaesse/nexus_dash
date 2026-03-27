@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { Link2, Paperclip, Trash2, Upload } from "lucide-react";
+import { Link2, Paperclip, Plus, Trash2, Upload } from "lucide-react";
 
 import { ContextColorPicker } from "@/components/context-panel/context-color-picker";
 import { ContextModalFrame } from "@/components/context-panel/context-modal-frame";
@@ -102,7 +102,7 @@ export function ContextCreateModal({
               variant={isCreateLinkComposerOpen ? "secondary" : "ghost"}
               size="icon"
               onClick={onToggleCreateLinkComposer}
-              aria-label="Add attachment link"
+              aria-label="Open attachment link input"
             >
               <Link2 className="h-4 w-4" />
             </Button>
@@ -134,6 +134,14 @@ export function ContextCreateModal({
               <input
                 value={createLinkUrl}
                 onChange={(event) => onCreateLinkUrlChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") {
+                    return;
+                  }
+
+                  event.preventDefault();
+                  onStageCreateLink();
+                }}
                 placeholder="https://..."
                 className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-xs"
               />
@@ -143,9 +151,9 @@ export function ContextCreateModal({
                 variant="secondary"
                 onClick={onStageCreateLink}
                 disabled={!createLinkUrl.trim()}
-                aria-label="Confirm attachment link"
+                aria-label="Add attachment link"
               >
-                <Link2 className="h-4 w-4" />
+                <Plus className="h-4 w-4" />
               </Button>
             </div>
           ) : null}

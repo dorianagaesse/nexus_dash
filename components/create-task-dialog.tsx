@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { Link2, Paperclip, PlusSquare, Trash2, Upload, X } from "lucide-react";
+import { Link2, Paperclip, Plus, PlusSquare, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { RelatedTaskSelector, type RelatedTaskOption } from "@/components/kanban/related-task-field";
@@ -481,7 +481,7 @@ export function CreateTaskDialog({
                           variant={isLinkComposerOpen ? "secondary" : "ghost"}
                           size="icon"
                           onClick={() => setIsLinkComposerOpen((previous) => !previous)}
-                          aria-label="Add attachment link"
+                          aria-label="Open attachment link input"
                         >
                           <Link2 className="h-4 w-4" />
                         </Button>
@@ -525,6 +525,14 @@ export function CreateTaskDialog({
                       <input
                         value={linkUrl}
                         onChange={(event) => setLinkUrl(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter") {
+                            return;
+                          }
+
+                          event.preventDefault();
+                          handleAddLink();
+                        }}
                         placeholder="https://..."
                         className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-xs"
                       />
@@ -534,9 +542,9 @@ export function CreateTaskDialog({
                         variant="secondary"
                         onClick={handleAddLink}
                         disabled={!linkUrl.trim()}
-                        aria-label="Confirm attachment link"
+                        aria-label="Add attachment link"
                       >
-                        <Link2 className="h-4 w-4" />
+                        <Plus className="h-4 w-4" />
                       </Button>
                     </div>
                   ) : null}
