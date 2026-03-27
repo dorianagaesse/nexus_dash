@@ -8,9 +8,10 @@ import type {
   ProjectContextCard,
 } from "@/components/project-context-panel-types";
 import { resolveAttachmentHref } from "@/components/project-context-panel-utils";
+import { RichTextEditor } from "@/components/rich-text-editor";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
-import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
+import { EmojiInputField } from "@/components/ui/emoji-field";
 import {
   ATTACHMENT_KIND_FILE,
   ATTACHMENT_KIND_LINK,
@@ -21,6 +22,7 @@ import {
 interface ContextEditModalProps {
   editingCard: ProjectContextCard | null;
   editingColor: string;
+  editContent: string;
   editingCardAttachments: ProjectContextAttachment[];
   isUpdatingCard: boolean;
   isSubmittingAttachment: boolean;
@@ -32,6 +34,7 @@ interface ContextEditModalProps {
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
   onEditingColorChange: (color: string) => void;
+  onEditContentChange: (value: string) => void;
   onPreviewAttachment: (attachment: ProjectContextAttachment) => void;
   onDeleteAttachment: (attachmentId: string) => void | Promise<void>;
   onToggleEditLinkComposer: () => void;
@@ -43,6 +46,7 @@ interface ContextEditModalProps {
 export function ContextEditModal({
   editingCard,
   editingColor,
+  editContent,
   editingCardAttachments,
   isUpdatingCard,
   isSubmittingAttachment,
@@ -54,6 +58,7 @@ export function ContextEditModal({
   onClose,
   onSubmit,
   onEditingColorChange,
+  onEditContentChange,
   onPreviewAttachment,
   onDeleteAttachment,
   onToggleEditLinkComposer,
@@ -88,14 +93,12 @@ export function ContextEditModal({
           <label htmlFor="context-edit-content" className="text-sm font-medium">
             Content
           </label>
-          <EmojiTextareaField
+          <RichTextEditor
             id="context-edit-content"
-            name="content"
-            rows={5}
-            maxLength={4000}
-            defaultValue={editingCard.content}
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={editContent}
+            onChange={onEditContentChange}
           />
+          <input type="hidden" name="content" value={editContent} />
         </div>
 
         <ContextColorPicker selectedColor={editingColor} onSelect={onEditingColorChange} />

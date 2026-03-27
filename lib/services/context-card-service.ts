@@ -8,6 +8,7 @@ import {
   validateAttachmentFiles,
 } from "@/lib/services/attachment-input-service";
 import { logServerError } from "@/lib/observability/logger";
+import { coerceRichTextHtml, richTextToPlainText } from "@/lib/rich-text";
 import { createContextAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
 import { requireProjectRole } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
@@ -118,7 +119,7 @@ export async function createContextCardForProject(
   }
 
   const title = normalizeText(input.title);
-  const content = normalizeText(input.content);
+  const content = coerceRichTextHtml(normalizeText(input.content)) ?? "";
   const color = resolveContextColor(normalizeText(input.color));
 
   if (title.length < MIN_TITLE_LENGTH) {
@@ -129,7 +130,7 @@ export async function createContextCardForProject(
     return createError(400, "context-title-too-long");
   }
 
-  if (content.length > MAX_CONTEXT_CONTENT_LENGTH) {
+  if (richTextToPlainText(content).length > MAX_CONTEXT_CONTENT_LENGTH) {
     return createError(400, "context-content-too-long");
   }
 
@@ -241,7 +242,7 @@ export async function updateContextCardForProject(
 
   const cardId = normalizeText(input.cardId);
   const title = normalizeText(input.title);
-  const content = normalizeText(input.content);
+  const content = coerceRichTextHtml(normalizeText(input.content)) ?? "";
   const color = resolveContextColor(normalizeText(input.color));
 
   if (!cardId) {
@@ -256,7 +257,7 @@ export async function updateContextCardForProject(
     return createError(400, "context-title-too-long");
   }
 
-  if (content.length > MAX_CONTEXT_CONTENT_LENGTH) {
+  if (richTextToPlainText(content).length > MAX_CONTEXT_CONTENT_LENGTH) {
     return createError(400, "context-content-too-long");
   }
 

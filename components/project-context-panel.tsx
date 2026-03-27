@@ -31,6 +31,7 @@ import type {
 import {
   createLocalId,
   getRandomContextColor,
+  normalizeContextCardContentHtml,
   readApiError,
 } from "@/components/project-context-panel-utils";
 import {
@@ -76,6 +77,7 @@ export function ProjectContextPanel({
   });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createColor, setCreateColor] = useState<string>(getRandomContextColor());
+  const [createContent, setCreateContent] = useState("");
   const [createLinkUrl, setCreateLinkUrl] = useState("");
   const [isCreateLinkComposerOpen, setIsCreateLinkComposerOpen] = useState(false);
   const [createAttachmentLinks, setCreateAttachmentLinks] = useState<
@@ -85,6 +87,7 @@ export function ProjectContextPanel({
   const [createFileInputKey, setCreateFileInputKey] = useState(0);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [editingColor, setEditingColor] = useState<string>(CONTEXT_CARD_COLORS[0]);
+  const [editContent, setEditContent] = useState("");
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
@@ -99,7 +102,12 @@ export function ProjectContextPanel({
     useState<ProjectContextAttachment | null>(null);
   const [previewCardId, setPreviewCardId] = useState<string | null>(null);
   const [pendingDeleteCardId, setPendingDeleteCardId] = useState<string | null>(null);
-  const [localCards, setLocalCards] = useState<ProjectContextCard[]>(cards);
+  const [localCards, setLocalCards] = useState<ProjectContextCard[]>(() =>
+    cards.map((card) => ({
+      ...card,
+      content: normalizeContextCardContentHtml(card.content),
+    }))
+  );
   const [cardAttachmentsById, setCardAttachmentsById] = useState<
     Record<string, ProjectContextAttachment[]>
   >({});
@@ -157,6 +165,7 @@ export function ProjectContextPanel({
       return;
     }
     setEditingColor(editingCard.color);
+    setEditContent(normalizeContextCardContentHtml(editingCard.content));
     setEditError(null);
     setAttachmentError(null);
     setIsEditLinkComposerOpen(false);
@@ -166,7 +175,12 @@ export function ProjectContextPanel({
   }, [editingCard]);
 
   useEffect(() => {
-    setLocalCards(cards);
+    setLocalCards(
+      cards.map((card) => ({
+        ...card,
+        content: normalizeContextCardContentHtml(card.content),
+      }))
+    );
     setCardAttachmentsById(
       Object.fromEntries(cards.map((card) => [card.id, card.attachments]))
     );
@@ -220,6 +234,7 @@ export function ProjectContextPanel({
   });
 
   const resetCreateAttachmentDraft = () => {
+    setCreateContent("");
     setCreateLinkUrl("");
     setIsCreateLinkComposerOpen(false);
     setCreateAttachmentLinks([]);
@@ -247,6 +262,7 @@ export function ProjectContextPanel({
 
   const closeEditModal = () => {
     setEditingCardId(null);
+    setEditContent("");
     setEditError(null);
     setAttachmentError(null);
     setPreviewAttachment(null);
@@ -405,7 +421,13 @@ export function ProjectContextPanel({
             : null;
 
         if (createdCard) {
-          setLocalCards((previous) => [createdCard, ...previous]);
+          setLocalCards((previous) => [
+            {
+              ...createdCard,
+              content: normalizeContextCardContentHtml(createdCard.content),
+            },
+            ...previous,
+          ]);
           setCardAttachmentsById((previous) => ({
             ...previous,
             [createdCard.id]: createdCard.attachments,
@@ -533,7 +555,7 @@ export function ProjectContextPanel({
               ? {
                   ...card,
                   title: nextTitle,
-                  content: nextContent,
+                  content: normalizeContextCardContentHtml(nextContent),
                   color: nextColor,
                 }
               : card
@@ -865,6 +887,7 @@ export function ProjectContextPanel({
         isOpen={isCreateOpen}
         isCreatingCard={isCreatingCard}
         createColor={createColor}
+        createContent={createContent}
         createLinkUrl={createLinkUrl}
         isCreateLinkComposerOpen={isCreateLinkComposerOpen}
         createAttachmentLinks={createAttachmentLinks}
@@ -874,6 +897,7 @@ export function ProjectContextPanel({
         onClose={closeCreateModal}
         onSubmit={handleCreateCardSubmit}
         onCreateColorChange={setCreateColor}
+        onCreateContentChange={setCreateContent}
         onCreateLinkUrlChange={setCreateLinkUrl}
         onToggleCreateLinkComposer={() =>
           setIsCreateLinkComposerOpen((previous) => !previous)
@@ -890,6 +914,7 @@ export function ProjectContextPanel({
       <ContextEditModal
         editingCard={editingCard}
         editingColor={editingColor}
+        editContent={editContent}
         editingCardAttachments={editingCardAttachments}
         isUpdatingCard={isUpdatingCard}
         isSubmittingAttachment={isSubmittingAttachment}
@@ -901,6 +926,7 @@ export function ProjectContextPanel({
         onClose={closeEditModal}
         onSubmit={handleUpdateCardSubmit}
         onEditingColorChange={setEditingColor}
+        onEditContentChange={setEditContent}
         onPreviewAttachment={(attachment) => setPreviewAttachment(attachment)}
         onDeleteAttachment={handleDeleteAttachment}
         onToggleEditLinkComposer={() =>

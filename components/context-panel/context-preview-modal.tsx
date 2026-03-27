@@ -7,7 +7,11 @@ import type {
   ProjectContextAttachment,
   ProjectContextCard,
 } from "@/components/project-context-panel-types";
-import { resolveAttachmentHref } from "@/components/project-context-panel-utils";
+import {
+  CONTEXT_CARD_PREVIEW_RICH_TEXT_CLASS,
+  getContextCardContentHtml,
+  resolveAttachmentHref,
+} from "@/components/project-context-panel-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ATTACHMENT_KIND_LINK, isAttachmentPreviewable } from "@/lib/task-attachment";
@@ -34,6 +38,8 @@ export function ContextPreviewModal({
   if (!isOpen || !card || typeof document === "undefined") {
     return null;
   }
+
+  const contentHtml = getContextCardContentHtml(card.content);
 
   return createPortal(
     <div
@@ -74,8 +80,8 @@ export function ContextPreviewModal({
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p
-            className="whitespace-pre-wrap break-words text-sm text-slate-800"
+          <div
+            className={`max-h-[45vh] overflow-y-auto pr-1 text-sm text-slate-800 ${CONTEXT_CARD_PREVIEW_RICH_TEXT_CLASS}`}
             onDoubleClick={() => {
               if (!canEdit) {
                 return;
@@ -83,9 +89,8 @@ export function ContextPreviewModal({
 
               onEdit(card.id);
             }}
-          >
-            {card.content || "No content."}
-          </p>
+            dangerouslySetInnerHTML={{ __html: contentHtml }}
+          />
 
           <div className="space-y-2 rounded-md border border-slate-900/15 bg-white/45 p-3">
             <p className="text-sm font-medium text-slate-900">Attachments</p>

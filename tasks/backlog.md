@@ -11,8 +11,8 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-004, TASK-094, TASK-096
 - ID: TASK-112
   Title: Attachment link entry polish - add-icon affordance and Enter-to-add across task/context flows
-  Status: Pending
-  Rationale: Link attachment entry should feel as lightweight as label entry, so replace the current confirm-link icon treatment with a clearer add affordance and support Enter-to-add consistently in task and context-card create/edit flows.
+  Status: Done (2026-03-27)
+  Rationale: Delivered a lighter attachment-link composer across task/context create-edit flows with add-oriented affordances, Enter-to-add support, resolved Copilot review follow-up, green validation, and preview deployment before merge via PR #109.
   Dependencies: TASK-026, TASK-027, TASK-033
 - ID: TASK-059
   Title: Agent access implementation - scoped API tokens, rotation, and audit trail
@@ -165,6 +165,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-112
+  Title: Attachment link entry polish - add-icon affordance and Enter-to-add across task/context flows
+  Status: Done (2026-03-27)
+  Rationale: Delivered a lighter attachment-link composer across task/context create-edit flows with add-oriented affordances, Enter-to-add support, resolved Copilot review follow-up, green validation, and preview deployment before merge via PR #109.
+  Dependencies: TASK-026, TASK-027, TASK-033
 - ID: TASK-103
   Title: Project sharing v2 - email-bound invites for non-existing users and copyable invite-link delivery
   Status: Done (2026-03-24)

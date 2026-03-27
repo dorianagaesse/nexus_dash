@@ -76,6 +76,28 @@ test.describe("critical UI smoke flows", () => {
     await expect(page.locator("article").filter({ hasText: editedTaskTitle }).first()).toBeVisible();
   });
 
+  test("context card rich preview flow", async ({ page }) => {
+    const projectName = uniqueProjectName("smoke-context");
+    const contextCardTitle = uniqueProjectName("context-card");
+
+    await createProjectFromProjectsPage(page, projectName);
+    await openNewestProjectDashboard(page, projectName);
+
+    await page.getByRole("button", { name: "Add card" }).click();
+    await page.locator("#context-create-title").fill(contextCardTitle);
+    await page.locator("#context-create-content").fill("Rich preview line one\nLine two");
+    await page.getByRole("button", { name: "Create card" }).click();
+
+    const createdCard = page.locator("article").filter({ hasText: contextCardTitle }).first();
+    await expect(createdCard).toBeVisible();
+
+    await createdCard.click();
+    await expect(page.getByRole("button", { name: "Close context preview" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: contextCardTitle }).last()).toBeVisible();
+    await expect(page.getByText("Rich preview line one").last()).toBeVisible();
+    await page.getByRole("button", { name: "Close context preview" }).click();
+  });
+
   test("calendar panel interaction flow", async ({ page }) => {
     const projectName = uniqueProjectName("smoke-calendar");
 
