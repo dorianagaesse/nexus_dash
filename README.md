@@ -15,9 +15,11 @@ in one authenticated application.
 Implemented today:
 
 - Credentials auth from `/` (sign-up + sign-in)
+- Email verification and password recovery for credentials accounts
 - DB-backed session cookies
 - Protected routes: `/projects/**`, `/account/**`
 - Project CRUD
+- Project sharing with owner-managed membership/invitation flows, including email-bound invite links
 - Project dashboard with:
   - Context cards (CRUD + attachments)
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`)

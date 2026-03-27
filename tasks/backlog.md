@@ -4,11 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-103
-  Title: Project sharing v2 - email-bound invites for non-existing users and copyable invite-link delivery
-  Status: Pending
-  Rationale: Extend the shipped sharing baseline so owners can invite collaborators by email even before they have an account, while keeping invite acceptance bound to the intended verified email/account and preserving revoke/expiry/replay protections. Copyable invite links should act as a delivery mechanism for those email-bound invites rather than introducing open claimable access by default; sign-up-before-accept should resume into the invite flow, pending invites should appear automatically once the matching account exists, and only one active pending invite should exist per project/email pair.
-  Dependencies: TASK-058, TASK-083, TASK-102
 - ID: TASK-059
   Title: Agent access implementation - scoped API tokens, rotation, and audit trail
   Status: Pending
@@ -51,6 +46,21 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-091, TASK-079, TASK-096
 
 ### Deferred (Intentional)
+- ID: TASK-105
+  Title: Convex migration assessment - fit, tradeoffs, and migration risk review
+  Status: Pending
+  Rationale: Reassess the current PostgreSQL/Prisma baseline against Convex so we have an explicit, written pros/cons view before any future platform pivot, including real constraints around relational data, RLS-style isolation, existing migrations, auth boundaries, and operational complexity rather than evaluating the option abstractly.
+  Dependencies: TASK-056, TASK-057, TASK-085
+- ID: TASK-106
+  Title: Project roadmap feature - milestone/timeline visibility for better execution sight
+  Status: Pending
+  Rationale: Add a roadmap-oriented project view so teams can see planned direction, upcoming milestones, and sequencing at a higher level than the current Kanban board, improving long-range visibility without losing the existing execution detail.
+  Dependencies: TASK-076, TASK-079, TASK-096
+- ID: TASK-107
+  Title: Task epic links - parent epic relationship and grouped execution context
+  Status: Pending
+  Rationale: Let tasks link to a higher-level epic so day-to-day work can roll up into larger initiatives, improving planning, grouping, and future roadmap/reporting surfaces beyond the current symmetric related-task model.
+  Dependencies: TASK-079, TASK-095
 - ID: TASK-098
   Title: Meeting notes manager - structured project meeting log with participants, topics, decisions, and follow-ups
   Status: Pending
@@ -76,6 +86,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: After copy-link invite delivery is in place, add first-party email sending for collaboration invites so owners can trigger invite delivery directly from the app, with explicit sender identity, provider configuration, and deliverability/error-handling decisions rather than coupling those concerns into TASK-103 by default.
   Dependencies: TASK-103, TASK-083
+- ID: TASK-109
+  Title: Todo list feature - lightweight checklist capture alongside project execution
+  Status: Pending
+  Rationale: Add a lighter-weight todo list surface for quick checklist-style capture that does not require the full structure of Kanban tasks, giving teams a place for small actionable items, personal punch lists, or short operational checklists that may later connect to richer task flows.
+  Dependencies: TASK-076, TASK-079
 - ID: TASK-088
   Title: Milestone architecture and security audit - post-auth/account hardening review
   Status: Pending
@@ -91,6 +106,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Enable bilingual product usage (French and English) with consistent UI copy, locale routing/state strategy, and fallback behavior; defer implementation until we confirm i18n architecture and translation workflow.
   Dependencies: TASK-047, TASK-060
+- ID: TASK-108
+  Title: Whole-app UI/UX refinement - global interaction, visual, and information-design polish
+  Status: Pending
+  Rationale: Run a broader refinement pass across the entire app so pages, panels, forms, and feedback patterns feel cohesive, intentional, and production-grade instead of evolving as isolated local improvements.
+  Dependencies: TASK-096, TASK-100
 - ID: TASK-063
   Title: Background jobs phase 1 - maintenance workload extraction (deferred)
   Status: Pending
@@ -120,6 +140,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-103
+  Title: Project sharing v2 - email-bound invites for non-existing users and copyable invite-link delivery
+  Status: Done (2026-03-24)
+  Rationale: Extended collaboration invites so owners can invite verified-email recipients before they have an account, kept acceptance bound to the intended verified identity, shipped copyable invite-link delivery plus resumable sign-in/sign-up/verify flows, and enforced safe replacement/revoke/expiry/replay behavior with matching pending invites appearing automatically once the invited account exists.
+  Dependencies: TASK-058, TASK-083, TASK-102
 - ID: TASK-058
   Title: Authorization implementation - project sharing, membership roles, and invitations
   Status: Done (2026-03-23)
