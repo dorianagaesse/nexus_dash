@@ -4,6 +4,16 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-111
+  Title: Context card presentation refinement - adaptive card sizing and rich-content support
+  Status: Pending
+  Rationale: Context cards currently behave like plain-text tiles with one-size-fits-all layout pressure; refine card sizing behavior and upgrade context-card authoring/rendering so richer project notes fit naturally without wasting vertical space or forcing users into awkwardly dense previews.
+  Dependencies: TASK-004, TASK-094, TASK-096
+- ID: TASK-112
+  Title: Attachment link entry polish - add-icon affordance and Enter-to-add across task/context flows
+  Status: Pending
+  Rationale: Link attachment entry should feel as lightweight as label entry, so replace the current confirm-link icon treatment with a clearer add affordance and support Enter-to-add consistently in task and context-card create/edit flows.
+  Dependencies: TASK-026, TASK-027, TASK-033
 - ID: TASK-059
   Title: Agent access implementation - scoped API tokens, rotation, and audit trail
   Status: Pending
@@ -111,6 +121,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Run a broader refinement pass across the entire app so pages, panels, forms, and feedback patterns feel cohesive, intentional, and production-grade instead of evolving as isolated local improvements.
   Dependencies: TASK-096, TASK-100
+- ID: TASK-113
+  Title: Rich content readability polish - code formatting, compact token fields, focus-only emoji affordance, and improved Kanban previews
+  Status: Pending
+  Rationale: Richer task/context content only pays off if it remains easy to write and scan; extend formatting support for code-like content, render long token-style values as compact copyable UI instead of giant line-wrapping blobs, hide emoji controls until field focus to reduce chrome, and make Kanban previews summarize formatted text more faithfully.
+  Dependencies: TASK-094, TASK-096, TASK-111
 - ID: TASK-063
   Title: Background jobs phase 1 - maintenance workload extraction (deferred)
   Status: Pending
@@ -123,6 +138,16 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-039, TASK-040, TASK-046
 
 ### Epic Tracking (Non-Executable)
+- ID: TASK-110
+  Title: Modular dashboard personalization - user-configurable project workspace composition and arrangement
+  Status: Pending (Epic - likely split into dashboard-layout foundation, module registry/adapters, arrangement UX, and mobile-specific follow-ups)
+  Rationale: Let each user personalize their project dashboard by choosing which modules they want to see and arranging them as they wish, so the workspace can evolve beyond the fixed context/Kanban/calendar layout toward a more flexible surface that can host roadmap, meeting notes, todo lists, and future feature panels. The solution must work intentionally on mobile as well as desktop, which likely requires separate design/interaction treatment for ordering, density, collapse behavior, and module visibility.
+  Dependencies: TASK-062, TASK-096, TASK-091, TASK-100
+- ID: TASK-114
+  Title: Task/context authoring refinement - richer content entry, compact metadata display, and scan-time preview polish
+  Status: Pending (Epic - likely split into context-card layout/content, attachment-link input polish, and rich-content readability/rendering follow-ups)
+  Rationale: Evolve the current task/context authoring experience from basic form capture into a cleaner content workspace where richer formatting, compact token handling, lighter attachment entry, and better preview behavior improve both writing and scanning without crowding the dashboard UI.
+  Dependencies: TASK-111, TASK-112, TASK-113
 - ID: TASK-022
   Title: Production deployment baseline (runtime, CI/CD, secrets, observability)
   Status: Pending (Epic - split into TASK-039/TASK-040/TASK-041/TASK-042/TASK-043)
