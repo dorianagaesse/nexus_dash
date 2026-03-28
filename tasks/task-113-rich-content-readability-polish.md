@@ -54,6 +54,9 @@ Make rich task/context content easier to write and scan by clearly distinguishin
 - Token actions (`see/hide`, `copy`) must remain visible on the right side of the token block, inline with the value area rather than stacked underneath.
 - Pressing `Enter` while focused inside a token block must always escape the block instead of creating additional token lines.
 - Task and context modals can grow moderately in width if that improves usable editing space, but should remain comfortable on desktop and safe within the viewport.
+- Pressing `Enter` inside a code block must exit the block in a single keypress; `Shift+Enter` must remain the multiline shortcut inside code blocks.
+- Pressing either `Enter` or `Shift+Enter` inside a token block must exit the block in a single keypress.
+- The editor should keep a writable paragraph after a trailing code/token block so users can click below the block and continue writing without hunting for the end of the overflowed value.
 
 ## Likely Touch Points
 - `components/rich-text-editor.tsx`

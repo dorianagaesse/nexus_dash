@@ -347,3 +347,8 @@ Low-value entries to avoid going forward:
 - Type: Execution
 - Summary: TASK-113 follow-up refined overflow containment, inline token actions, and modal sizing.
 - Evidence: Updated `tasks/task-113-rich-content-readability-polish.md` with the follow-up spec; tightened `components/rich-text-editor.tsx`, `components/rich-text-content.tsx`, and `lib/rich-text.ts` so token values remain single-line and scroll internally; widened task/context modal shells in `components/create-task-dialog.tsx`, `components/kanban/task-detail-modal.tsx`, `components/context-panel/context-modal-frame.tsx`, and `components/context-panel/context-preview-modal.tsx`.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 editor continuation flow refined so structured blocks exit cleanly and keep an editable line below.
+- Evidence: Updated `tasks/task-113-rich-content-readability-polish.md` with single-key exit expectations; changed `components/rich-text-editor.tsx` to keep/reuse a trailing paragraph after terminal code/token blocks and move caret below blocks on exit; added regression coverage in `tests/components/rich-text-editor.test.ts`.

@@ -244,6 +244,12 @@ function moveCaretToEnd(node: Node) {
   selection.addRange(range);
 }
 
+function createEmptyParagraph(documentRef: Document): HTMLParagraphElement {
+  const paragraph = documentRef.createElement("p");
+  paragraph.append(documentRef.createElement("br"));
+  return paragraph;
+}
+
 function createFragmentFromHtml(html: string) {
   const template = document.createElement("template");
   template.innerHTML = html;
@@ -358,11 +364,27 @@ function findTransformTarget(editor: HTMLDivElement, range: Range): HTMLElement 
   return editor;
 }
 
-function insertParagraphAfter(target: HTMLElement) {
-  const paragraph = document.createElement("p");
-  paragraph.append(document.createElement("br"));
+function isEmptyEditorParagraph(element: Element | null): element is HTMLParagraphElement {
+  return (
+    element instanceof HTMLParagraphElement &&
+    normalizeBlockText(extractNodeText(element)) === ""
+  );
+}
+
+function ensureParagraphAfter(target: HTMLElement) {
+  const nextElement = target.nextElementSibling;
+  if (isEmptyEditorParagraph(nextElement)) {
+    return nextElement;
+  }
+
+  const paragraph = createEmptyParagraph(target.ownerDocument);
   target.after(paragraph);
-  moveCaretToStart(paragraph);
+  return paragraph;
+}
+
+function moveCaretBelowBlock(target: HTMLElement) {
+  const paragraph = ensureParagraphAfter(target);
+  moveCaretToEnd(paragraph);
 }
 
 export function buildEditorRichTextHtml(input: string): string {
@@ -460,6 +482,11 @@ export function buildEditorRichTextHtml(input: string): string {
       tokenElement.replaceWith(shell);
       shell.append(tokenElement, actions);
     });
+
+  const trailingElement = template.content.lastElementChild as HTMLElement | null;
+  if (trailingElement?.matches(EDITOR_RICH_SHELL_SELECTOR)) {
+    template.content.append(createEmptyParagraph(document));
+  }
 
   return template.innerHTML;
 }
@@ -680,7 +707,7 @@ export function RichTextEditor({
       if (event.shiftKey) {
         insertTextAtRange(range, "\n");
       } else {
-        insertParagraphAfter(resolveStructuredBlockTarget(codeBlock));
+        moveCaretBelowBlock(resolveStructuredBlockTarget(codeBlock));
       }
 
       emitCurrentValue();
@@ -690,7 +717,7 @@ export function RichTextEditor({
     const tokenBlock = findContainingStructuredBlock(editor, range, RICH_TEXT_TOKEN_BLOCK);
     if (tokenBlock) {
       event.preventDefault();
-      insertParagraphAfter(resolveStructuredBlockTarget(tokenBlock));
+      moveCaretBelowBlock(resolveStructuredBlockTarget(tokenBlock));
       emitCurrentValue();
     }
   };
