@@ -40,14 +40,14 @@ const EDITOR_ACTIONS_SELECTOR = "[data-editor-actions='true']";
 const EDITOR_ACTION_BUTTON_SELECTOR = "button[data-editor-action]";
 const EDITOR_RICH_SHELL_SELECTOR = `${EDITOR_RICH_SHELL_TAG}[data-editor-shell]`;
 const EDITOR_BLOCK_SHELL_CLASS =
-  "my-2 w-full max-w-full overflow-hidden rounded-xl border border-border/60 bg-muted/55 p-2.5 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)]";
+  "relative my-2 w-full max-w-full overflow-hidden rounded-xl border border-border/70 bg-muted/35 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)]";
 const EDITOR_CODE_PRE_CLASS =
-  "max-w-full overflow-x-auto whitespace-pre rounded-lg border border-border/60 bg-background/85 px-3 py-2.5 text-[12px] leading-6 text-foreground [scrollbar-width:thin]";
+  "m-0 max-w-full overflow-x-auto whitespace-pre px-3 py-3 pr-12 text-[12px] leading-6 text-foreground [scrollbar-width:thin]";
 const EDITOR_TOKEN_SHELL_CLASS =
-  "my-2 flex w-full max-w-full items-center gap-2 overflow-hidden rounded-xl border border-border/60 bg-muted/55 p-2.5 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)]";
+  "my-2 grid w-full max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-xl border border-border/70 bg-muted/35 px-3 py-2.5 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)]";
 const EDITOR_TOKEN_VALUE_CLASS =
-  "block min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded-lg border border-border/60 bg-background/85 px-3 py-2.5 text-[12px] leading-6 text-foreground [scrollbar-width:thin]";
-const EDITOR_ACTIONS_CLASS = "flex shrink-0 items-center justify-end gap-2";
+  "block w-full min-w-0 max-w-full overflow-x-auto whitespace-nowrap py-1 text-[12px] leading-6 text-foreground [scrollbar-width:thin]";
+const EDITOR_ACTIONS_CLASS = "flex shrink-0 items-center gap-1.5";
 const EDITOR_ICON_BUTTON_CLASS =
   "inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-background/90 text-muted-foreground transition hover:border-foreground/20 hover:text-foreground";
 const COPY_ICON_SVG =
@@ -392,7 +392,7 @@ export function buildEditorRichTextHtml(input: string): string {
       shell.className = EDITOR_BLOCK_SHELL_CLASS;
 
       const actions = document.createElement("div");
-      actions.className = `mb-2 flex items-center justify-end ${EDITOR_ACTIONS_CLASS}`;
+      actions.className = `absolute right-2 top-2 z-10 ${EDITOR_ACTIONS_CLASS}`;
       actions.dataset.editorActions = "true";
       actions.setAttribute("contenteditable", "false");
 
@@ -425,7 +425,7 @@ export function buildEditorRichTextHtml(input: string): string {
       shell.dataset.editorShell = RICH_TEXT_TOKEN_BLOCK;
       shell.className = EDITOR_TOKEN_SHELL_CLASS;
 
-      tokenElement.className = "min-w-0 flex-1 overflow-hidden";
+      tokenElement.className = "min-w-0 max-w-full overflow-hidden";
 
       const valueElement = tokenElement.querySelector("code");
       if (!valueElement) {
@@ -804,10 +804,10 @@ export function RichTextEditor({
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             "[&:empty:before]:pointer-events-none [&:empty:before]:text-muted-foreground [&:empty:before]:content-[attr(data-placeholder)]",
             "[overflow-wrap:anywhere] [&_blockquote]:border-l-2 [&_blockquote]:border-border/70 [&_blockquote]:pl-3",
-            "[&_nd-rich-shell]:block [&_nd-rich-shell]:max-w-full",
+            "[&_nd-rich-shell]:block [&_nd-rich-shell]:w-full [&_nd-rich-shell]:max-w-full [&_nd-rich-shell]:min-w-0",
             "[&_pre[data-rich-block='code']]:my-0 [&_pre[data-rich-block='code']_code]:block [&_pre[data-rich-block='code']_code]:min-w-full",
             "[&_pre[data-rich-block='code']_code]:[font-family:Consolas,Monaco,'Liberation_Mono',Menlo,monospace]",
-            "[&_div[data-rich-block='token']]:min-w-0 [&_div[data-rich-block='token']_code]:[font-family:Consolas,Monaco,'Liberation_Mono',Menlo,monospace]",
+            "[&_div[data-rich-block='token']]:w-full [&_div[data-rich-block='token']]:min-w-0 [&_div[data-rich-block='token']]:max-w-full [&_div[data-rich-block='token']_code]:w-full [&_div[data-rich-block='token']_code]:max-w-full [&_div[data-rich-block='token']_code]:[font-family:Consolas,Monaco,'Liberation_Mono',Menlo,monospace]",
             "[&_div[data-rich-block='token']_code]:selection:bg-foreground/20 [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold",
             "[&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
           )}

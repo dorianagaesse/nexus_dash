@@ -332,3 +332,13 @@ Low-value entries to avoid going forward:
 - Type: Execution
 - Summary: ISSUE-070 targeted remediation implemented as low-risk performance patch set (no broad architecture rewrite).
 - Evidence: Added bounded concurrency (`default=3`) and success callback support in `lib/direct-upload-client.ts`; extended uploader tests in `tests/lib/direct-upload-client.test.ts`; removed duplicate create-flow refreshes in `components/create-task-dialog.tsx` and `components/project-context-panel.tsx`.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 rich-text block layout refined to a simpler single-surface design with contained overflow.
+- Evidence: Updated `components/rich-text-editor.tsx` and `components/rich-text-content.tsx` so code blocks keep copy in the top-right corner, token actions stay inline at the end of the block, and token overflow scrolls inside the value field without widening the modal.
+
+### 2026-03-28
+- Type: Validation
+- Summary: TASK-113 follow-up layout refinement validated locally before preview deployment.
+- Evidence: `npm run lint`, `npx vitest run tests/components/rich-text-content.test.ts tests/lib/rich-text.test.ts`, `npm test`, and `npm run build` (with temporary local `DIRECT_URL` and `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides) all passed.

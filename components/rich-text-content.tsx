@@ -8,17 +8,17 @@ import { cn } from "@/lib/utils";
 const MONOSPACE_FONT_FAMILY =
   "Consolas, 'Liberation Mono', Menlo, Monaco, monospace";
 const RICH_TEXT_SHELL_CLASS =
-  "my-2 w-full max-w-full overflow-hidden rounded-xl border border-border/60 bg-muted/55 p-2.5 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)]";
-const RICH_TEXT_SHELL_ACTIONS_CLASS = "mb-2 flex items-center justify-end gap-2";
+  "relative my-2 w-full max-w-full overflow-hidden rounded-xl border border-border/70 bg-muted/35 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)]";
+const RICH_TEXT_SHELL_ACTIONS_CLASS = "absolute right-2 top-2 z-10 flex items-center gap-1.5";
 const RICH_TEXT_ICON_BUTTON_CLASS =
   "inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-background/90 text-muted-foreground transition hover:border-foreground/20 hover:text-foreground";
 const RICH_TEXT_CODE_BLOCK_CLASS =
-  "max-w-full overflow-x-auto whitespace-pre rounded-lg border border-border/60 bg-background/85 px-3 py-2.5 text-[12px] leading-6 text-foreground [scrollbar-width:thin]";
+  "m-0 max-w-full overflow-x-auto whitespace-pre px-3 py-3 pr-12 text-[12px] leading-6 text-foreground [scrollbar-width:thin]";
 const RICH_TEXT_TOKEN_SHELL_CLASS =
-  "my-2 flex w-full max-w-full items-center gap-2 overflow-hidden rounded-xl border border-border/60 bg-muted/55 p-2.5 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.55)]";
+  "my-2 grid w-full max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-xl border border-border/70 bg-muted/35 px-3 py-2.5 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)]";
 const RICH_TEXT_TOKEN_VALUE_CLASS =
-  "block min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded-lg border border-border/60 bg-background/85 px-3 py-2.5 text-[12px] leading-6 text-foreground [scrollbar-width:thin]";
-const RICH_TEXT_TOKEN_ACTIONS_CLASS = "flex shrink-0 items-center gap-2";
+  "block w-full min-w-0 max-w-full overflow-x-auto whitespace-nowrap py-1 text-[12px] leading-6 text-foreground [scrollbar-width:thin]";
+const RICH_TEXT_TOKEN_ACTIONS_CLASS = "flex shrink-0 items-center gap-1.5";
 const TOKEN_BLOCK_MARKERS = ['data-rich-block="token"', "data-rich-block='token'"];
 const HIDDEN_TOKEN_VALUE_MASK = "********";
 const COPY_ICON_SVG =
