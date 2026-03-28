@@ -61,27 +61,25 @@ describe("rich-text-content", () => {
     expect(buildEnhancedRichTextHtml("<p>Hello team</p>")).toBe("<p>Hello team</p>");
   });
 
-  test("enhances code and token blocks into copyable rich surfaces", () => {
+  test("enhances code and token blocks into copyable confidential surfaces", () => {
     setClipboard({
       writeText: vi.fn().mockResolvedValue(undefined),
     });
 
     const input = [
       createRichTextCodeBlock("npm run lint"),
-      createRichTextTokenBlock(
-        "Access token",
-        "1234567890abcdefghijklmnopqrstuvwxyz"
-      ),
+      createRichTextTokenBlock("1234567890abcdefghijklmnopqrstuvwxyz", "Access token"),
     ].join("");
 
     const output = buildEnhancedRichTextHtml(input);
 
-    expect(output).toContain("Copy code or command block");
+    expect(output).toContain("Copy code block");
     expect(output).toContain("Copy Access token");
-    expect(output).toContain("1234567890abcdef...qrstuvwxyz");
+    expect(output).toContain("Reveal token value");
+    expect(output).toContain("Hidden value");
   });
 
-  test("copies structured content through the clipboard API", async () => {
+  test("copies structured code content through the clipboard API", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     setClipboard({ writeText });
 
@@ -94,7 +92,7 @@ describe("rich-text-content", () => {
     );
 
     const copyButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Copy code or command block"]'
+      'button[aria-label="Copy code block"]'
     );
     expect(copyButton).not.toBeNull();
 
@@ -103,7 +101,45 @@ describe("rich-text-content", () => {
     });
 
     expect(writeText).toHaveBeenCalledWith("npm run lint");
-    expect(copyButton?.textContent).toBe("Copied");
+    expect(copyButton?.textContent).toContain("Copied");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("reveals and hides token values on demand", async () => {
+    setClipboard({
+      writeText: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const { container, root } = createTestRenderer();
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: createRichTextTokenBlock("abcdef", "API key"),
+      })
+    );
+
+    const toggleButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Reveal token value"]'
+    );
+    const tokenValue = container.querySelector<HTMLElement>("code[data-rich-token-value]");
+
+    expect(toggleButton).not.toBeNull();
+    expect(tokenValue?.textContent).toBe("Hidden value");
+
+    await act(async () => {
+      toggleButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(tokenValue?.textContent).toBe("abcdef");
+
+    await act(async () => {
+      toggleButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(tokenValue?.textContent).toBe("Hidden value");
 
     await act(async () => {
       root.unmount();
@@ -117,7 +153,7 @@ describe("rich-text-content", () => {
     await renderWithRoot(
       root,
       React.createElement(RichTextContent, {
-        html: createRichTextTokenBlock("API key", "abcdef"),
+        html: createRichTextTokenBlock("abcdef", "API key"),
       })
     );
 

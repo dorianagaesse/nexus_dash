@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-03-28
+- Type: Validation
+- Summary: TASK-113 follow-up rich-content UX pass validated locally after replacing prompt-based code/token insertion with selection-aware formatting and confidential token rendering.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 follow-up aligned code/token behavior with the intended editor and read-surface UX.
+- Evidence: Updated `components/rich-text-editor.tsx` so `Code` and `Token` transform the current line or current selection without browser prompts, refreshed `components/rich-text-content.tsx` with Consolas-styled code surfaces plus hidden-by-default token blocks with reveal/copy actions, and redacted token values from preview summaries in `lib/rich-text.ts` with supporting test updates.
+
 ### 2026-03-27
 - Type: Validation
 - Summary: TASK-113 follow-up validation passed after addressing Copilot review feedback and adding renderer-focused component coverage.

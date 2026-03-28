@@ -4,7 +4,6 @@ import {
   coerceRichTextHtml,
   createRichTextCodeBlock,
   createRichTextTokenBlock,
-  formatCompactRichTextTokenValue,
   richTextToPlainText,
   richTextToPreviewText,
   sanitizeRichText,
@@ -58,26 +57,22 @@ describe("rich-text", () => {
     expect(richTextToPlainText(input)).toBe("Hello there team");
   });
 
-  test("summarizes structured rich text for previews", () => {
+  test("summarizes structured rich text for previews without leaking token values", () => {
     const input = [
       "<h1>Release</h1>",
       "<p>Ship the polish pass.</p>",
       createRichTextCodeBlock("npm run lint"),
-      createRichTextTokenBlock(
-        "Access token",
-        "1234567890abcdefghijklmnopqrstuvwxyz"
-      ),
+      createRichTextTokenBlock("1234567890abcdefghijklmnopqrstuvwxyz", "Access token"),
     ].join("");
 
     expect(richTextToPreviewText(input)).toBe(
-      "Release • Ship the polish pass. • Code: npm run lint • Access token: 1234567890abcdef...qrstuvwxyz"
+      "Release • Ship the polish pass. • Code: npm run lint • Access token: hidden value"
     );
   });
 
-  test("formats compact token values without losing the tail", () => {
-    expect(formatCompactRichTextTokenValue("short-token")).toBe("short-token");
-    expect(formatCompactRichTextTokenValue("1234567890abcdefghijklmnopqrstuvwxyz")).toBe(
-      "1234567890abcdef...qrstuvwxyz"
+  test("creates token blocks with a default label when none is provided", () => {
+    expect(createRichTextTokenBlock("abc123")).toBe(
+      '<div data-rich-block="token"><p>Token</p><code>abc123</code></div>'
     );
   });
 });

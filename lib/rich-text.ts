@@ -2,6 +2,7 @@ import sanitizeHtml from "sanitize-html";
 
 export const RICH_TEXT_CODE_BLOCK = "code";
 export const RICH_TEXT_TOKEN_BLOCK = "token";
+export const DEFAULT_RICH_TEXT_TOKEN_LABEL = "Token";
 
 const RICH_TEXT_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: [
@@ -145,16 +146,6 @@ function convertRichTextHtmlToText(
   );
 }
 
-export function formatCompactRichTextTokenValue(value: string): string {
-  const normalizedValue = normalizeInlineText(value);
-
-  if (normalizedValue.length <= 28) {
-    return normalizedValue;
-  }
-
-  return `${normalizedValue.slice(0, 16)}...${normalizedValue.slice(-10)}`;
-}
-
 export function createRichTextCodeBlock(value: string): string | null {
   const normalizedValue = value.replace(/\r\n/g, "\n").trim();
 
@@ -165,7 +156,10 @@ export function createRichTextCodeBlock(value: string): string | null {
   return `<pre data-rich-block="${RICH_TEXT_CODE_BLOCK}"><code>${escapeHtml(normalizedValue)}</code></pre>`;
 }
 
-export function createRichTextTokenBlock(label: string, value: string): string | null {
+export function createRichTextTokenBlock(
+  value: string,
+  label = DEFAULT_RICH_TEXT_TOKEN_LABEL
+): string | null {
   const normalizedLabel = label.trim();
   const normalizedValue = value.replace(/\r\n/g, "\n").trim();
 
@@ -227,8 +221,7 @@ export function richTextToPreviewText(input: string): string {
 
   return convertRichTextHtmlToText(normalizedHtml, {
     code: (value) => `Code: ${value}`,
-    token: ({ label, value }) =>
-      value ? `${label}: ${formatCompactRichTextTokenValue(value)}` : label,
+    token: ({ label, value }) => (value ? `${label}: hidden value` : label),
   })
     .split(/\n+/)
     .map((segment) => normalizeInlineText(segment))
