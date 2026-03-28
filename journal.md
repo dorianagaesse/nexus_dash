@@ -14,6 +14,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-03-28
 - Type: Validation
+- Summary: TASK-113 rich-text editor line-scoping and caret-flow fixes validated after tightening current-line code transforms and post-block cursor placement.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; added regression coverage in `tests/components/rich-text-editor.test.ts`.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 follow-up corrected code wrapping and block-exit ergonomics so structured blocks stay contained and line-local in the editor.
+- Evidence: Updated `components/rich-text-editor.tsx` to wrap long code lines, scope no-selection `Code` transforms to the current visual line, and place the caret in the writable paragraph below code/token blocks; updated `components/rich-text-content.tsx` to wrap code content in read mode; added component-level regression coverage in `tests/components/rich-text-editor.test.ts`.
+
+### 2026-03-28
+- Type: Validation
 - Summary: TASK-113 second UX correction pass validated after tightening structured-block toggling, editor overflow handling, and confidential token rendering behavior.
 - Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides.
 

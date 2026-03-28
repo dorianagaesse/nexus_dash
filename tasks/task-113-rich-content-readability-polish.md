@@ -58,6 +58,9 @@ Make rich task/context content easier to write and scan by clearly distinguishin
 - Pressing either `Enter` or `Shift+Enter` inside a token block must exit the block in a single keypress.
 - The editor should keep a writable paragraph after a trailing code/token block so users can click below the block and continue writing without hunting for the end of the overflowed value.
 - Editor-only shell controls must not leak into persisted content state; toolbar buttons for token/code blocks should remain stable after regular typing and line creation below those blocks.
+- Applying `Code` with no active text selection must only transform the current visual line, even when multiple lines live inside the same paragraph node.
+- Long code content should wrap within the block instead of widening the editor/modal surface.
+- Caret placement after creating or exiting a token/code block must land in the paragraph below the block, not snap back into the structured block or to a prior block above it.
 
 ## Likely Touch Points
 - `components/rich-text-editor.tsx`

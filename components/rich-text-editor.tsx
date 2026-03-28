@@ -1,6 +1,6 @@
 "use client";
 
-import { type KeyboardEvent, type MouseEvent, useEffect, useRef } from "react";
+import React, { type KeyboardEvent, type MouseEvent, useEffect, useRef } from "react";
 import {
   Bold,
   Italic,
@@ -42,7 +42,7 @@ const EDITOR_RICH_SHELL_SELECTOR = `${EDITOR_RICH_SHELL_TAG}[data-editor-shell]`
 const EDITOR_BLOCK_SHELL_CLASS =
   "relative my-2 block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-border/70 bg-muted/35 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)]";
 const EDITOR_CODE_PRE_CLASS =
-  "m-0 block w-full min-w-0 max-w-full overflow-x-auto whitespace-pre px-3 py-3 pr-12 text-[12px] leading-6 text-foreground [scrollbar-width:thin]";
+  "m-0 block w-full min-w-0 max-w-full overflow-x-hidden whitespace-pre-wrap px-3 py-3 pr-12 text-[12px] leading-6 text-foreground [overflow-wrap:anywhere]";
 const EDITOR_TOKEN_SHELL_CLASS =
   "my-2 grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-xl border border-border/70 bg-muted/35 px-3 py-2.5 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)]";
 const EDITOR_TOKEN_VALUE_CLASS =
@@ -280,6 +280,11 @@ function replaceElementWithHtml(
   }
 
   if (caretMode === "inside-end") {
+    if (isEmptyEditorParagraph(lastNode as Element | null)) {
+      moveCaretToStart(lastNode);
+      return;
+    }
+
     moveCaretToEnd(lastNode);
     return;
   }
@@ -389,7 +394,7 @@ function ensureParagraphAfter(target: HTMLElement) {
 
 function moveCaretBelowBlock(target: HTMLElement) {
   const paragraph = ensureParagraphAfter(target);
-  moveCaretToEnd(paragraph);
+  moveCaretToStart(paragraph);
 }
 
 function findCurrentParagraph(editor: HTMLDivElement, range: Range): HTMLParagraphElement | null {
@@ -410,6 +415,56 @@ function insertParagraphAfterParagraph(paragraph: HTMLParagraphElement) {
   const nextParagraph = createEmptyParagraph(paragraph.ownerDocument);
   paragraph.after(nextParagraph);
   moveCaretToStart(nextParagraph);
+}
+
+function getElementTextContentWithBreaks(element: HTMLElement): string {
+  return Array.from(element.childNodes)
+    .map((childNode) => extractNodeText(childNode))
+    .join("")
+    .replace(/\u00a0/g, " ");
+}
+
+function getTextOffsetWithinElement(element: HTMLElement, range: Range): number {
+  const measurementRange = document.createRange();
+  measurementRange.selectNodeContents(element);
+  measurementRange.setEnd(range.startContainer, range.startOffset);
+
+  return extractNodeText(measurementRange.cloneContents()).replace(/\u00a0/g, " ").length;
+}
+
+function splitTextAroundCurrentLine(text: string, offset: number) {
+  const normalizedText = text.replace(/\r\n/g, "\n");
+  const lines = normalizedText.split("\n");
+  let consumed = 0;
+  let lineIndex = 0;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const lineLength = lines[index]?.length ?? 0;
+    if (offset <= consumed + lineLength) {
+      lineIndex = index;
+      break;
+    }
+
+    consumed += lineLength + 1;
+    lineIndex = index;
+  }
+
+  return {
+    before: lines.slice(0, lineIndex).join("\n"),
+    current: lines[lineIndex] ?? "",
+    after: lines.slice(lineIndex + 1).join("\n"),
+  };
+}
+
+function trimTrailingEmptyParagraphHtml(html: string): string {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+
+  if (isEmptyEditorParagraph(template.content.lastElementChild)) {
+    template.content.lastElementChild?.remove();
+  }
+
+  return template.innerHTML;
 }
 
 export function buildEditorRichTextHtml(input: string): string {
@@ -620,20 +675,69 @@ function applyStructuredBlock(
     return false;
   }
 
-  const blockHtml = createBlock(targetText);
-  if (!blockHtml) {
+  const targetContentText = getElementTextContentWithBreaks(target);
+  if (!targetContentText.trim()) {
     return false;
   }
 
-  const enhancedBlockHtml = buildEditorRichTextHtml(blockHtml);
+  if (!targetContentText.includes("\n")) {
+    const blockHtml = createBlock(targetText);
+    if (!blockHtml) {
+      return false;
+    }
 
-  if (target === editor) {
-    editor.innerHTML = enhancedBlockHtml;
-    moveCaretAfter(editor.lastChild);
+    const enhancedBlockHtml = buildEditorRichTextHtml(blockHtml);
+
+    if (target === editor) {
+      editor.innerHTML = enhancedBlockHtml;
+
+      if (isEmptyEditorParagraph(editor.lastElementChild)) {
+        moveCaretToStart(editor.lastElementChild);
+      } else if (editor.lastChild) {
+        moveCaretToEnd(editor.lastChild);
+      }
+
+      return true;
+    }
+
+    replaceElementWithHtml(target, enhancedBlockHtml, "inside-end");
     return true;
   }
 
-  replaceElementWithHtml(target, enhancedBlockHtml);
+  const lineSplit = splitTextAroundCurrentLine(
+    targetContentText,
+    getTextOffsetWithinElement(target, range)
+  );
+  const currentLineText = lineSplit.current.trim();
+  if (!currentLineText) {
+    return false;
+  }
+
+  const currentLineBlockHtml = createBlock(currentLineText);
+  if (!currentLineBlockHtml) {
+    return false;
+  }
+
+  const beforeHtml = lineSplit.before ? createParagraphHtmlFromText(lineSplit.before) : "";
+  const afterHtml = lineSplit.after ? createParagraphHtmlFromText(lineSplit.after) : "";
+  const enhancedCurrentLineHtml = afterHtml
+    ? trimTrailingEmptyParagraphHtml(buildEditorRichTextHtml(currentLineBlockHtml))
+    : buildEditorRichTextHtml(currentLineBlockHtml);
+  const nextHtml = [beforeHtml, enhancedCurrentLineHtml, afterHtml].filter(Boolean).join("");
+
+  if (target === editor) {
+    editor.innerHTML = nextHtml;
+
+    if (isEmptyEditorParagraph(editor.lastElementChild)) {
+      moveCaretToStart(editor.lastElementChild);
+    } else if (editor.lastChild) {
+      moveCaretToEnd(editor.lastChild);
+    }
+
+    return true;
+  }
+
+  replaceElementWithHtml(target, nextHtml, "inside-end");
   return true;
 }
 
@@ -917,7 +1021,7 @@ export function RichTextEditor({
             "[&:empty:before]:pointer-events-none [&:empty:before]:text-muted-foreground [&:empty:before]:content-[attr(data-placeholder)]",
             "[overflow-wrap:anywhere] [&_blockquote]:border-l-2 [&_blockquote]:border-border/70 [&_blockquote]:pl-3",
             "[&_nd-rich-shell]:w-full [&_nd-rich-shell]:max-w-full [&_nd-rich-shell]:min-w-0",
-            "[&_pre[data-rich-block='code']]:my-0 [&_pre[data-rich-block='code']_code]:block [&_pre[data-rich-block='code']_code]:min-w-full",
+            "[&_pre[data-rich-block='code']]:my-0 [&_pre[data-rich-block='code']_code]:block [&_pre[data-rich-block='code']_code]:whitespace-pre-wrap [&_pre[data-rich-block='code']_code]:[overflow-wrap:anywhere]",
             "[&_pre[data-rich-block='code']_code]:[font-family:Consolas,Monaco,'Liberation_Mono',Menlo,monospace]",
             "[&_div[data-rich-block='token']]:w-full [&_div[data-rich-block='token']]:min-w-0 [&_div[data-rich-block='token']]:max-w-full [&_div[data-rich-block='token']_code]:w-full [&_div[data-rich-block='token']_code]:max-w-full [&_div[data-rich-block='token']_code]:[font-family:Consolas,Monaco,'Liberation_Mono',Menlo,monospace]",
             "[&_div[data-rich-block='token']_code]:selection:bg-foreground/20 [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold",

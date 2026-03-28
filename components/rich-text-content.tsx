@@ -13,7 +13,7 @@ const RICH_TEXT_SHELL_ACTIONS_CLASS = "absolute right-2 top-2 z-10 flex items-ce
 const RICH_TEXT_ICON_BUTTON_CLASS =
   "inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-background/90 text-muted-foreground transition hover:border-foreground/20 hover:text-foreground";
 const RICH_TEXT_CODE_BLOCK_CLASS =
-  "m-0 block w-full min-w-0 max-w-full overflow-x-auto whitespace-pre px-3 py-3 pr-12 text-[12px] leading-6 text-foreground [scrollbar-width:thin]";
+  "m-0 block w-full min-w-0 max-w-full overflow-x-hidden whitespace-pre-wrap px-3 py-3 pr-12 text-[12px] leading-6 text-foreground [overflow-wrap:anywhere]";
 const RICH_TEXT_TOKEN_SHELL_CLASS =
   "my-2 grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-xl border border-border/70 bg-muted/35 px-3 py-2.5 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)]";
 const RICH_TEXT_TOKEN_VALUE_CLASS =
