@@ -352,3 +352,8 @@ Low-value entries to avoid going forward:
 - Type: Execution
 - Summary: TASK-113 editor continuation flow refined so structured blocks exit cleanly and keep an editable line below.
 - Evidence: Updated `tasks/task-113-rich-content-readability-polish.md` with single-key exit expectations; changed `components/rich-text-editor.tsx` to keep/reuse a trailing paragraph after terminal code/token blocks and move caret below blocks on exit; added regression coverage in `tests/components/rich-text-editor.test.ts`.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 editor state sync hardened so block controls do not disappear after continuing below structured blocks.
+- Evidence: Updated `components/rich-text-editor.tsx` to serialize editor-only shells back to canonical rich HTML before state updates and to intercept `Enter` on the empty paragraph directly below a block; extended `tests/components/rich-text-editor.test.ts` with serialization coverage.

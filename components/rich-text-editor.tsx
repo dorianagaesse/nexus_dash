@@ -287,6 +287,11 @@ function replaceElementWithHtml(
   moveCaretAfter(lastNode);
 }
 
+function replaceElementWithFragment(element: Element, html: string) {
+  const { fragment } = createFragmentFromHtml(html);
+  element.replaceWith(fragment);
+}
+
 function insertTextAtRange(range: Range, text: string) {
   range.deleteContents();
   const textNode = document.createTextNode(text);
@@ -385,6 +390,26 @@ function ensureParagraphAfter(target: HTMLElement) {
 function moveCaretBelowBlock(target: HTMLElement) {
   const paragraph = ensureParagraphAfter(target);
   moveCaretToEnd(paragraph);
+}
+
+function findCurrentParagraph(editor: HTMLDivElement, range: Range): HTMLParagraphElement | null {
+  const baseElement =
+    range.startContainer instanceof HTMLElement
+      ? range.startContainer
+      : range.startContainer.parentElement;
+
+  const paragraph = baseElement?.closest("p") as HTMLParagraphElement | null;
+  if (!paragraph || !editor.contains(paragraph)) {
+    return null;
+  }
+
+  return paragraph;
+}
+
+function insertParagraphAfterParagraph(paragraph: HTMLParagraphElement) {
+  const nextParagraph = createEmptyParagraph(paragraph.ownerDocument);
+  paragraph.after(nextParagraph);
+  moveCaretToStart(nextParagraph);
 }
 
 export function buildEditorRichTextHtml(input: string): string {
@@ -487,6 +512,54 @@ export function buildEditorRichTextHtml(input: string): string {
   if (trailingElement?.matches(EDITOR_RICH_SHELL_SELECTOR)) {
     template.content.append(createEmptyParagraph(document));
   }
+
+  return template.innerHTML;
+}
+
+export function serializeEditorRichTextHtml(input: string): string {
+  if (!input || typeof document === "undefined" || !input.includes(`<${EDITOR_RICH_SHELL_TAG}`)) {
+    return input;
+  }
+
+  const template = document.createElement("template");
+  template.innerHTML = input;
+
+  template.content
+    .querySelectorAll<HTMLElement>(EDITOR_RICH_SHELL_SELECTOR)
+    .forEach((shellElement) => {
+      if (shellElement.dataset.editorShell === RICH_TEXT_CODE_BLOCK) {
+        const codeText =
+          shellElement
+            .querySelector(`pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code`)
+            ?.textContent?.replace(/\u00a0/g, " ")
+            .trim() ?? "";
+        const codeHtml = createRichTextCodeBlock(codeText);
+
+        if (!codeHtml) {
+          shellElement.remove();
+          return;
+        }
+
+        replaceElementWithFragment(shellElement, codeHtml);
+        return;
+      }
+
+      if (shellElement.dataset.editorShell === RICH_TEXT_TOKEN_BLOCK) {
+        const tokenText =
+          shellElement
+            .querySelector(`div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"] code`)
+            ?.textContent?.replace(/\u00a0/g, " ")
+            .trim() ?? "";
+        const tokenHtml = createRichTextTokenBlock(tokenText);
+
+        if (!tokenHtml) {
+          shellElement.remove();
+          return;
+        }
+
+        replaceElementWithFragment(shellElement, tokenHtml);
+      }
+    });
 
   return template.innerHTML;
 }
@@ -601,7 +674,7 @@ export function RichTextEditor({
       return;
     }
 
-    onChange(editorRef.current.innerHTML);
+    onChange(serializeEditorRichTextHtml(editorRef.current.innerHTML));
   };
 
   const runFormattingCommand = (command: string, commandValue?: string) => {
@@ -697,6 +770,18 @@ export function RichTextEditor({
     const range = getSelectionRange(editor);
 
     if (!editor || !range || event.key !== "Enter") {
+      return;
+    }
+
+    const currentParagraph = findCurrentParagraph(editor, range);
+    if (
+      currentParagraph &&
+      isEmptyEditorParagraph(currentParagraph) &&
+      currentParagraph.previousElementSibling?.matches(EDITOR_RICH_SHELL_SELECTOR)
+    ) {
+      event.preventDefault();
+      insertParagraphAfterParagraph(currentParagraph);
+      emitCurrentValue();
       return;
     }
 
@@ -842,7 +927,9 @@ export function RichTextEditor({
           onClick={handleEditorClick}
           onKeyDown={handleEditorKeyDown}
           onInput={(event) => {
-            onChange((event.currentTarget as HTMLDivElement).innerHTML);
+            onChange(
+              serializeEditorRichTextHtml((event.currentTarget as HTMLDivElement).innerHTML)
+            );
           }}
         />
       </EmojiFieldShell>

@@ -57,6 +57,7 @@ Make rich task/context content easier to write and scan by clearly distinguishin
 - Pressing `Enter` inside a code block must exit the block in a single keypress; `Shift+Enter` must remain the multiline shortcut inside code blocks.
 - Pressing either `Enter` or `Shift+Enter` inside a token block must exit the block in a single keypress.
 - The editor should keep a writable paragraph after a trailing code/token block so users can click below the block and continue writing without hunting for the end of the overflowed value.
+- Editor-only shell controls must not leak into persisted content state; toolbar buttons for token/code blocks should remain stable after regular typing and line creation below those blocks.
 
 ## Likely Touch Points
 - `components/rich-text-editor.tsx`

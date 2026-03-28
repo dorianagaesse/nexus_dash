@@ -2,7 +2,10 @@
 
 import { describe, expect, test } from "vitest";
 
-import { buildEditorRichTextHtml } from "@/components/rich-text-editor";
+import {
+  buildEditorRichTextHtml,
+  serializeEditorRichTextHtml,
+} from "@/components/rich-text-editor";
 import {
   createRichTextCodeBlock,
   createRichTextTokenBlock,
@@ -27,5 +30,23 @@ describe("rich-text-editor", () => {
     const template = getTemplate(html);
 
     expect(template.content.lastElementChild?.tagName).toBe("P");
+  });
+
+  test("serializes editor shells back to canonical structured rich text", () => {
+    const enhancedHtml = buildEditorRichTextHtml(
+      [
+        createRichTextCodeBlock("npm run lint"),
+        createRichTextTokenBlock("secret-token"),
+      ].join("") ?? ""
+    );
+
+    const serializedHtml = serializeEditorRichTextHtml(enhancedHtml);
+
+    expect(serializedHtml).not.toContain("nd-rich-shell");
+    expect(serializedHtml).not.toContain("data-editor-actions");
+    expect(serializedHtml).toContain('<pre data-rich-block="code"><code>npm run lint</code></pre>');
+    expect(serializedHtml).toContain(
+      '<div data-rich-block="token"><code>secret-token</code></div>'
+    );
   });
 });
