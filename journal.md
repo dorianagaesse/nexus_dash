@@ -342,3 +342,8 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-113 follow-up layout refinement validated locally before preview deployment.
 - Evidence: `npm run lint`, `npx vitest run tests/components/rich-text-content.test.ts tests/lib/rich-text.test.ts`, `npm test`, and `npm run build` (with temporary local `DIRECT_URL` and `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides) all passed.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 follow-up refined overflow containment, inline token actions, and modal sizing.
+- Evidence: Updated `tasks/task-113-rich-content-readability-polish.md` with the follow-up spec; tightened `components/rich-text-editor.tsx`, `components/rich-text-content.tsx`, and `lib/rich-text.ts` so token values remain single-line and scroll internally; widened task/context modal shells in `components/create-task-dialog.tsx`, `components/kanban/task-detail-modal.tsx`, `components/context-panel/context-modal-frame.tsx`, and `components/context-panel/context-preview-modal.tsx`.

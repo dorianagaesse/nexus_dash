@@ -40,11 +40,11 @@ const EDITOR_ACTIONS_SELECTOR = "[data-editor-actions='true']";
 const EDITOR_ACTION_BUTTON_SELECTOR = "button[data-editor-action]";
 const EDITOR_RICH_SHELL_SELECTOR = `${EDITOR_RICH_SHELL_TAG}[data-editor-shell]`;
 const EDITOR_BLOCK_SHELL_CLASS =
-  "relative my-2 w-full max-w-full overflow-hidden rounded-xl border border-border/70 bg-muted/35 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)]";
+  "relative my-2 block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-border/70 bg-muted/35 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)]";
 const EDITOR_CODE_PRE_CLASS =
-  "m-0 max-w-full overflow-x-auto whitespace-pre px-3 py-3 pr-12 text-[12px] leading-6 text-foreground [scrollbar-width:thin]";
+  "m-0 block w-full min-w-0 max-w-full overflow-x-auto whitespace-pre px-3 py-3 pr-12 text-[12px] leading-6 text-foreground [scrollbar-width:thin]";
 const EDITOR_TOKEN_SHELL_CLASS =
-  "my-2 grid w-full max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-xl border border-border/70 bg-muted/35 px-3 py-2.5 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)]";
+  "my-2 grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-xl border border-border/70 bg-muted/35 px-3 py-2.5 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)]";
 const EDITOR_TOKEN_VALUE_CLASS =
   "block w-full min-w-0 max-w-full overflow-x-auto whitespace-nowrap py-1 text-[12px] leading-6 text-foreground [scrollbar-width:thin]";
 const EDITOR_ACTIONS_CLASS = "flex shrink-0 items-center gap-1.5";
@@ -425,7 +425,7 @@ export function buildEditorRichTextHtml(input: string): string {
       shell.dataset.editorShell = RICH_TEXT_TOKEN_BLOCK;
       shell.className = EDITOR_TOKEN_SHELL_CLASS;
 
-      tokenElement.className = "min-w-0 max-w-full overflow-hidden";
+      tokenElement.className = "block min-w-0 max-w-full overflow-hidden";
 
       const valueElement = tokenElement.querySelector("code");
       if (!valueElement) {
@@ -804,7 +804,7 @@ export function RichTextEditor({
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             "[&:empty:before]:pointer-events-none [&:empty:before]:text-muted-foreground [&:empty:before]:content-[attr(data-placeholder)]",
             "[overflow-wrap:anywhere] [&_blockquote]:border-l-2 [&_blockquote]:border-border/70 [&_blockquote]:pl-3",
-            "[&_nd-rich-shell]:block [&_nd-rich-shell]:w-full [&_nd-rich-shell]:max-w-full [&_nd-rich-shell]:min-w-0",
+            "[&_nd-rich-shell]:w-full [&_nd-rich-shell]:max-w-full [&_nd-rich-shell]:min-w-0",
             "[&_pre[data-rich-block='code']]:my-0 [&_pre[data-rich-block='code']_code]:block [&_pre[data-rich-block='code']_code]:min-w-full",
             "[&_pre[data-rich-block='code']_code]:[font-family:Consolas,Monaco,'Liberation_Mono',Menlo,monospace]",
             "[&_div[data-rich-block='token']]:w-full [&_div[data-rich-block='token']]:min-w-0 [&_div[data-rich-block='token']]:max-w-full [&_div[data-rich-block='token']_code]:w-full [&_div[data-rich-block='token']_code]:max-w-full [&_div[data-rich-block='token']_code]:[font-family:Consolas,Monaco,'Liberation_Mono',Menlo,monospace]",

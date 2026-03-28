@@ -75,4 +75,10 @@ describe("rich-text", () => {
       '<div data-rich-block="token"><code>abc123</code></div>'
     );
   });
+
+  test("normalizes token blocks to a single line", () => {
+    expect(createRichTextTokenBlock("line one\nline two\n\nline three")).toBe(
+      '<div data-rich-block="token"><code>line one line two line three</code></div>'
+    );
+  });
 });

@@ -49,7 +49,7 @@ export function ContextPreviewModal({
       }}
     >
       <Card
-        className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto"
+        className="max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-x-hidden overflow-y-auto"
         style={{ backgroundColor: card.color, borderColor: "rgb(15 23 42 / 0.2)" }}
         onMouseDown={(event) => event.stopPropagation()}
       >

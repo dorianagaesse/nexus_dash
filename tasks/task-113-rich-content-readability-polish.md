@@ -46,6 +46,15 @@ Make rich task/context content easier to write and scan by clearly distinguishin
 - Kanban previews summarize rich content more faithfully than the current plain flattening treatment.
 - The implementation remains intentionally lightweight and understandable in the current codebase.
 
+## Follow-Up Refinement Note (2026-03-28)
+- Code blocks must stay width-bounded inside task/context modals.
+- Any horizontal overflow for code blocks should scroll inside the code block itself, never at modal level.
+- Token blocks must be strictly single-line visually and structurally.
+- Token values may scroll horizontally inside their own value area, but must not introduce modal-level horizontal scroll.
+- Token actions (`see/hide`, `copy`) must remain visible on the right side of the token block, inline with the value area rather than stacked underneath.
+- Pressing `Enter` while focused inside a token block must always escape the block instead of creating additional token lines.
+- Task and context modals can grow moderately in width if that improves usable editing space, but should remain comfortable on desktop and safe within the viewport.
+
 ## Likely Touch Points
 - `components/rich-text-editor.tsx`
 - `components/ui/emoji-field.tsx`

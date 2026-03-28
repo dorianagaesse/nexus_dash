@@ -161,7 +161,13 @@ export function createRichTextTokenBlock(
   label?: string
 ): string | null {
   const normalizedLabel = label?.trim() ?? "";
-  const normalizedValue = value.replace(/\r\n/g, "\n").trim();
+  const normalizedValue = value
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(" ")
+    .trim();
 
   if (!normalizedValue) {
     return null;

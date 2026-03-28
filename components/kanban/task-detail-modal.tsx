@@ -170,7 +170,7 @@ export function TaskDetailModal({
           }}
         >
           <Card
-            className="flex max-h-[calc(100vh-2rem)] w-full max-w-xl flex-col overflow-hidden"
+            className="flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <CardHeader className="flex shrink-0 flex-row items-start justify-between space-y-0">
