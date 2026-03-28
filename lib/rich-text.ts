@@ -158,13 +158,17 @@ export function createRichTextCodeBlock(value: string): string | null {
 
 export function createRichTextTokenBlock(
   value: string,
-  label = DEFAULT_RICH_TEXT_TOKEN_LABEL
+  label?: string
 ): string | null {
-  const normalizedLabel = label.trim();
+  const normalizedLabel = label?.trim() ?? "";
   const normalizedValue = value.replace(/\r\n/g, "\n").trim();
 
-  if (!normalizedLabel || !normalizedValue) {
+  if (!normalizedValue) {
     return null;
+  }
+
+  if (!normalizedLabel) {
+    return `<div data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"><code>${escapeHtml(normalizedValue)}</code></div>`;
   }
 
   return `<div data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"><p>${escapeHtml(normalizedLabel)}</p><code>${escapeHtml(normalizedValue)}</code></div>`;

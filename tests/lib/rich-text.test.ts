@@ -72,7 +72,7 @@ describe("rich-text", () => {
 
   test("creates token blocks with a default label when none is provided", () => {
     expect(createRichTextTokenBlock("abc123")).toBe(
-      '<div data-rich-block="token"><p>Token</p><code>abc123</code></div>'
+      '<div data-rich-block="token"><code>abc123</code></div>'
     );
   });
 });

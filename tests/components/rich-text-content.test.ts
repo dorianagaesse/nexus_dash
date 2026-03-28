@@ -74,9 +74,9 @@ describe("rich-text-content", () => {
     const output = buildEnhancedRichTextHtml(input);
 
     expect(output).toContain("Copy code block");
-    expect(output).toContain("Copy Access token");
+    expect(output).toContain("Copy token value");
     expect(output).toContain("Reveal token value");
-    expect(output).toContain("Hidden value");
+    expect(output).toContain("********");
   });
 
   test("copies structured code content through the clipboard API", async () => {
@@ -101,7 +101,7 @@ describe("rich-text-content", () => {
     });
 
     expect(writeText).toHaveBeenCalledWith("npm run lint");
-    expect(copyButton?.textContent).toContain("Copied");
+    expect(copyButton?.getAttribute("title")).toBe("Copied");
 
     await act(async () => {
       root.unmount();
@@ -127,7 +127,7 @@ describe("rich-text-content", () => {
     const tokenValue = container.querySelector<HTMLElement>("code[data-rich-token-value]");
 
     expect(toggleButton).not.toBeNull();
-    expect(tokenValue?.textContent).toBe("Hidden value");
+    expect(tokenValue?.textContent).toBe("********");
 
     await act(async () => {
       toggleButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -139,7 +139,7 @@ describe("rich-text-content", () => {
       toggleButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(tokenValue?.textContent).toBe("Hidden value");
+    expect(tokenValue?.textContent).toBe("********");
 
     await act(async () => {
       root.unmount();

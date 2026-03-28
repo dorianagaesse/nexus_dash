@@ -14,6 +14,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-03-28
 - Type: Validation
+- Summary: TASK-113 second UX correction pass validated after tightening structured-block toggling, editor overflow handling, and confidential token rendering behavior.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 second UX correction pass aligned code/token editing with the intended block-toggle interaction model inside the rich-text editor.
+- Evidence: Reworked `components/rich-text-editor.tsx` so code/token blocks render with editor-only chrome, copy/reveal actions, toggle-on/off behavior, and Enter/Shift+Enter block flow; refreshed `components/rich-text-content.tsx` to use the same neutral block styling with icon-only controls; updated `lib/rich-text.ts` so new token blocks store value-only markup by default; refreshed renderer and rich-text tests accordingly.
+
+### 2026-03-28
+- Type: Validation
 - Summary: TASK-113 follow-up rich-content UX pass validated locally after replacing prompt-based code/token insertion with selection-aware formatting and confidential token rendering.
 - Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides.
 
