@@ -14,6 +14,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-03-28
 - Type: Validation
+- Summary: TASK-113 rich-text control-layer hardening validated after preserving browser undo/selection state for semantically unchanged editor content.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; expanded `tests/components/rich-text-editor.test.ts` with caret-anchor assertions and undo shortcut coverage.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 follow-up fixed the long-running block-exit regression by stopping unnecessary controlled-editor DOM rewrites and adding native undo/redo shortcut handling.
+- Evidence: Updated `components/rich-text-editor.tsx` to keep hidden caret anchors in editor-only trailing paragraphs, compare incoming prop updates semantically before resetting `innerHTML`, and support `Ctrl+Z` / `Ctrl+Shift+Z` / `Ctrl+Y`; refreshed `tests/components/rich-text-editor.test.ts` with caret-anchor and shortcut coverage.
+
+### 2026-03-28
+- Type: Validation
 - Summary: TASK-113 caret-anchor hardening validated after replacing editor-only empty trailing paragraphs with stable hidden cursor anchors below structured blocks.
 - Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; editor regressions remained green in `tests/components/rich-text-editor.test.ts`.
 

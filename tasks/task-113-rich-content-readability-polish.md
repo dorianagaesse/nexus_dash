@@ -64,6 +64,8 @@ Make rich task/context content easier to write and scan by clearly distinguishin
 - Navigation-only `Enter` behavior around structured blocks must not trigger a controlled editor resync that can relocate the caret back into the block surface.
 - Token overflow can remain horizontally scrollable, but the scrollbar chrome should stay visually discreet rather than introducing a bright native track inside the token block.
 - Editor-only blank lines that exist to keep writing below structured blocks must use a stable caret anchor, so pressing `Enter` at the bottom of the editor does not collapse the selection back to the beginning of an earlier code/token block in real browsers.
+- The editor must avoid resetting `innerHTML` when the incoming prop value is semantically identical to the current structured content, otherwise browser selection and undo history become unreliable.
+- Standard undo/redo shortcuts should work inside the rich-text editor (`Ctrl+Z`, `Ctrl+Shift+Z`, and `Ctrl+Y` where supported).
 
 ## Likely Touch Points
 - `components/rich-text-editor.tsx`

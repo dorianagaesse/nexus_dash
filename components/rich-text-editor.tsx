@@ -474,7 +474,7 @@ export function buildEditorRichTextHtml(input: string): string {
   }
 
   if (input.includes(`<${EDITOR_RICH_SHELL_TAG}`)) {
-    return input.replace(/\u200b/g, "");
+    return input;
   }
 
   const hasCodeBlocks = input.includes(`<pre data-rich-block="${RICH_TEXT_CODE_BLOCK}"`);
@@ -569,7 +569,7 @@ export function buildEditorRichTextHtml(input: string): string {
     template.content.append(createEmptyParagraph(document));
   }
 
-  return template.innerHTML.replace(/\u200b/g, "");
+  return template.innerHTML;
 }
 
 export function serializeEditorRichTextHtml(input: string): string {
@@ -758,6 +758,10 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const resetTimeoutRef = useRef<number | null>(null);
+  const latestValueRef = useRef(value);
+  const emitFrameRef = useRef<number | null>(null);
+
+  latestValueRef.current = value;
 
   useEffect(() => {
     if (!editorRef.current) {
@@ -765,7 +769,7 @@ export function RichTextEditor({
     }
 
     const nextHtml = buildEditorRichTextHtml(value);
-    if (editorRef.current.innerHTML !== nextHtml) {
+    if (serializeEditorRichTextHtml(editorRef.current.innerHTML) !== value) {
       editorRef.current.innerHTML = nextHtml;
     }
   }, [value]);
@@ -775,16 +779,40 @@ export function RichTextEditor({
       if (resetTimeoutRef.current !== null) {
         window.clearTimeout(resetTimeoutRef.current);
       }
+
+      if (emitFrameRef.current !== null) {
+        window.cancelAnimationFrame(emitFrameRef.current);
+      }
     },
     []
   );
+
+  const emitValue = (nextValue: string) => {
+    if (nextValue === latestValueRef.current) {
+      return;
+    }
+
+    latestValueRef.current = nextValue;
+    onChange(nextValue);
+  };
 
   const emitCurrentValue = () => {
     if (!editorRef.current) {
       return;
     }
 
-    onChange(serializeEditorRichTextHtml(editorRef.current.innerHTML));
+    emitValue(serializeEditorRichTextHtml(editorRef.current.innerHTML));
+  };
+
+  const scheduleEmitCurrentValue = () => {
+    if (emitFrameRef.current !== null) {
+      window.cancelAnimationFrame(emitFrameRef.current);
+    }
+
+    emitFrameRef.current = window.requestAnimationFrame(() => {
+      emitFrameRef.current = null;
+      emitCurrentValue();
+    });
   };
 
   const runFormattingCommand = (command: string, commandValue?: string) => {
@@ -878,6 +906,21 @@ export function RichTextEditor({
   const handleEditorKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const editor = editorRef.current;
     const range = getSelectionRange(editor);
+    const isUndoModifier = event.ctrlKey || event.metaKey;
+
+    if (isUndoModifier && event.key.toLowerCase() === "z") {
+      event.preventDefault();
+      exec(event.shiftKey ? "redo" : "undo");
+      scheduleEmitCurrentValue();
+      return;
+    }
+
+    if (isUndoModifier && event.key.toLowerCase() === "y") {
+      event.preventDefault();
+      exec("redo");
+      scheduleEmitCurrentValue();
+      return;
+    }
 
     if (!editor || !range || event.key !== "Enter") {
       return;
@@ -1034,7 +1077,7 @@ export function RichTextEditor({
           onClick={handleEditorClick}
           onKeyDown={handleEditorKeyDown}
           onInput={(event) => {
-            onChange(
+            emitValue(
               serializeEditorRichTextHtml((event.currentTarget as HTMLDivElement).innerHTML)
             );
           }}

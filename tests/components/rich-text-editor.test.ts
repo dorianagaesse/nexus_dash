@@ -74,7 +74,7 @@ async function expectEnterFromTrailingParagraphToStayBelowBlock(
   expect(editor).not.toBeNull();
   expect(trailingParagraph?.tagName).toBe("P");
 
-  selectTextPosition(trailingParagraph as Node, 0);
+  selectTextPosition((trailingParagraph?.firstChild as Node) ?? (trailingParagraph as Node), 0);
 
   await act(async () => {
     editor?.dispatchEvent(
@@ -120,6 +120,7 @@ describe("rich-text-editor", () => {
     const template = getTemplate(html);
 
     expect(template.content.lastElementChild?.tagName).toBe("P");
+    expect(template.content.lastElementChild?.textContent).toBe("\u200B");
   });
 
   test("keeps a trailing paragraph after a terminal token block", () => {
@@ -127,6 +128,7 @@ describe("rich-text-editor", () => {
     const template = getTemplate(html);
 
     expect(template.content.lastElementChild?.tagName).toBe("P");
+    expect(template.content.lastElementChild?.textContent).toBe("\u200B");
   });
 
   test("serializes editor shells back to canonical structured rich text", () => {
@@ -201,5 +203,53 @@ describe("rich-text-editor", () => {
       initialValue,
       'button[aria-label="Copy code block"]'
     );
+  });
+
+  test("uses native undo shortcuts inside the editor", async () => {
+    const execCommandSpy = vi.fn(() => true);
+    Object.defineProperty(document, "execCommand", {
+      configurable: true,
+      value: execCommandSpy,
+    });
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>hello</p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    expect(editor).not.toBeNull();
+
+    await act(async () => {
+      editor?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          key: "z",
+          ctrlKey: true,
+        })
+      );
+    });
+
+    expect(execCommandSpy).toHaveBeenCalledWith("undo", false, undefined);
+
+    await act(async () => {
+      editor?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          key: "z",
+          ctrlKey: true,
+          shiftKey: true,
+        })
+      );
+    });
+
+    expect(execCommandSpy).toHaveBeenCalledWith("redo", false, undefined);
+
+    await act(async () => {
+      root.unmount();
+    });
   });
 });
