@@ -54,6 +54,51 @@ function selectTextPosition(node: Node, offset: number) {
   selection?.addRange(range);
 }
 
+async function expectEnterFromTrailingParagraphToStayBelowBlock(
+  initialValue: string,
+  expectedPersistentValue: string,
+  expectedActionSelector?: string
+) {
+  const { container, root } = createTestRenderer();
+
+  await renderWithRoot(
+    root,
+    React.createElement(EditorHarness, {
+      initialValue,
+    })
+  );
+
+  const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+  const trailingParagraph = editor?.lastElementChild as HTMLParagraphElement | null;
+
+  expect(editor).not.toBeNull();
+  expect(trailingParagraph?.tagName).toBe("P");
+
+  selectTextPosition(trailingParagraph as Node, 0);
+
+  await act(async () => {
+    editor?.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, key: "Enter" })
+    );
+  });
+
+  const paragraphs = editor?.querySelectorAll("p") ?? [];
+  const selection = window.getSelection();
+  const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+  expect(paragraphs).toHaveLength(2);
+  expect(selection?.anchorNode && paragraphs[1]?.contains(selection.anchorNode)).toBe(true);
+  expect(persistedValue).toBe(expectedPersistentValue);
+
+  if (expectedActionSelector) {
+    expect(container.querySelector(expectedActionSelector)).not.toBeNull();
+  }
+
+  await act(async () => {
+    root.unmount();
+  });
+}
+
 function EditorHarness({ initialValue }: { initialValue: string }) {
   const [value, setValue] = useState(initialValue);
 
@@ -139,38 +184,22 @@ describe("rich-text-editor", () => {
   });
 
   test("keeps the caret in the paragraph below a token block when Enter is pressed", async () => {
-    const { container, root } = createTestRenderer();
+    const initialValue = createRichTextTokenBlock("secret-token") ?? "";
 
-    await renderWithRoot(
-      root,
-      React.createElement(EditorHarness, {
-        initialValue: createRichTextTokenBlock("secret-token") ?? "",
-      })
+    await expectEnterFromTrailingParagraphToStayBelowBlock(
+      initialValue,
+      initialValue,
+      'button[aria-label="Reveal token value"]'
     );
+  });
 
-    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
-    const trailingParagraph = editor?.lastElementChild as HTMLParagraphElement | null;
+  test("keeps the caret in the paragraph below a code block when Enter is pressed", async () => {
+    const initialValue = createRichTextCodeBlock("npm run lint") ?? "";
 
-    expect(editor).not.toBeNull();
-    expect(trailingParagraph?.tagName).toBe("P");
-
-    selectTextPosition(trailingParagraph as Node, 0);
-
-    await act(async () => {
-      editor?.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true, key: "Enter" })
-      );
-    });
-
-    const paragraphs = editor?.querySelectorAll("p") ?? [];
-    const selection = window.getSelection();
-
-    expect(paragraphs).toHaveLength(2);
-    expect(container.querySelector('button[aria-label="Reveal token value"]')).not.toBeNull();
-    expect(selection?.anchorNode && paragraphs[1]?.contains(selection.anchorNode)).toBe(true);
-
-    await act(async () => {
-      root.unmount();
-    });
+    await expectEnterFromTrailingParagraphToStayBelowBlock(
+      initialValue,
+      initialValue,
+      'button[aria-label="Copy code block"]'
+    );
   });
 });

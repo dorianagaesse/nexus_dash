@@ -46,7 +46,7 @@ const EDITOR_CODE_PRE_CLASS =
 const EDITOR_TOKEN_SHELL_CLASS =
   "my-2 grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-xl border border-border/70 bg-muted/35 px-3 py-2.5 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)]";
 const EDITOR_TOKEN_VALUE_CLASS =
-  "block w-full min-w-0 max-w-full overflow-x-auto whitespace-nowrap py-1 text-[12px] leading-6 text-foreground [scrollbar-width:thin]";
+  "block w-full min-w-0 max-w-full overflow-x-auto whitespace-nowrap py-1 text-[12px] leading-6 text-foreground [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
 const EDITOR_ACTIONS_CLASS = "flex shrink-0 items-center gap-1.5";
 const EDITOR_ICON_BUTTON_CLASS =
   "inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-background/90 text-muted-foreground transition hover:border-foreground/20 hover:text-foreground";
@@ -885,7 +885,6 @@ export function RichTextEditor({
     ) {
       event.preventDefault();
       insertParagraphAfterParagraph(currentParagraph);
-      emitCurrentValue();
       return;
     }
 
@@ -895,11 +894,10 @@ export function RichTextEditor({
 
       if (event.shiftKey) {
         insertTextAtRange(range, "\n");
+        emitCurrentValue();
       } else {
         moveCaretBelowBlock(resolveStructuredBlockTarget(codeBlock));
       }
-
-      emitCurrentValue();
       return;
     }
 
@@ -907,7 +905,6 @@ export function RichTextEditor({
     if (tokenBlock) {
       event.preventDefault();
       moveCaretBelowBlock(resolveStructuredBlockTarget(tokenBlock));
-      emitCurrentValue();
     }
   };
 

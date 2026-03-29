@@ -61,6 +61,8 @@ Make rich task/context content easier to write and scan by clearly distinguishin
 - Applying `Code` with no active text selection must only transform the current visual line, even when multiple lines live inside the same paragraph node.
 - Long code content should wrap within the block instead of widening the editor/modal surface.
 - Caret placement after creating or exiting a token/code block must land in the paragraph below the block, not snap back into the structured block or to a prior block above it.
+- Navigation-only `Enter` behavior around structured blocks must not trigger a controlled editor resync that can relocate the caret back into the block surface.
+- Token overflow can remain horizontally scrollable, but the scrollbar chrome should stay visually discreet rather than introducing a bright native track inside the token block.
 
 ## Likely Touch Points
 - `components/rich-text-editor.tsx`

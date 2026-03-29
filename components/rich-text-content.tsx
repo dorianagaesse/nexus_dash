@@ -17,7 +17,7 @@ const RICH_TEXT_CODE_BLOCK_CLASS =
 const RICH_TEXT_TOKEN_SHELL_CLASS =
   "my-2 grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-xl border border-border/70 bg-muted/35 px-3 py-2.5 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)]";
 const RICH_TEXT_TOKEN_VALUE_CLASS =
-  "block w-full min-w-0 max-w-full overflow-x-auto whitespace-nowrap py-1 text-[12px] leading-6 text-foreground [scrollbar-width:thin]";
+  "block w-full min-w-0 max-w-full overflow-x-auto whitespace-nowrap py-1 text-[12px] leading-6 text-foreground [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
 const RICH_TEXT_TOKEN_ACTIONS_CLASS = "flex shrink-0 items-center gap-1.5";
 const TOKEN_BLOCK_MARKERS = ['data-rich-block="token"', "data-rich-block='token'"];
 const HIDDEN_TOKEN_VALUE_MASK = "********";

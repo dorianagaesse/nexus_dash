@@ -14,6 +14,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-03-28
 - Type: Validation
+- Summary: TASK-113 block-navigation fix validated after removing navigation-only rich-text resyncs and softening token overflow chrome.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; expanded `tests/components/rich-text-editor.test.ts` to cover Enter-from-below behavior for both token and code blocks.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 follow-up fixed the remaining structured-block caret regression by separating caret navigation from content persistence inside the controlled editor.
+- Evidence: Updated `components/rich-text-editor.tsx` so Enter exits from token/code and blank trailing paragraphs no longer call `onChange` unless content actually changes; refreshed token overflow styling in `components/rich-text-editor.tsx` and `components/rich-text-content.tsx`; expanded regression coverage in `tests/components/rich-text-editor.test.ts`.
+
+### 2026-03-28
+- Type: Validation
 - Summary: TASK-113 rich-text editor line-scoping and caret-flow fixes validated after tightening current-line code transforms and post-block cursor placement.
 - Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; added regression coverage in `tests/components/rich-text-editor.test.ts`.
 
