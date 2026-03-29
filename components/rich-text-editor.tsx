@@ -412,10 +412,39 @@ function findCurrentParagraph(editor: HTMLDivElement, range: Range): HTMLParagra
   return paragraph;
 }
 
-function insertParagraphAfterParagraph(paragraph: HTMLParagraphElement) {
-  const nextParagraph = createEmptyParagraph(paragraph.ownerDocument);
-  paragraph.after(nextParagraph);
-  moveCaretToStart(nextParagraph);
+function moveCaretToEndOfStructuredBlock(target: HTMLElement) {
+  const codeElement =
+    target.querySelector(
+      `pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code, div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"] code`
+    ) ?? target.querySelector("code");
+
+  if (codeElement) {
+    moveCaretToEnd(codeElement);
+    return;
+  }
+
+  moveCaretToEnd(target);
+}
+
+function getStructuredShells(editor: HTMLDivElement): HTMLElement[] {
+  return Array.from(editor.querySelectorAll<HTMLElement>(EDITOR_RICH_SHELL_SELECTOR));
+}
+
+function getStructuredShellIndex(editor: HTMLDivElement, shell: HTMLElement): number {
+  return getStructuredShells(editor).findIndex((candidate) => candidate === shell);
+}
+
+function moveCaretToStructuredBlockByIndex(editor: HTMLDivElement | null, shellIndex: number) {
+  if (!editor || shellIndex < 0) {
+    return;
+  }
+
+  const target = getStructuredShells(editor)[shellIndex];
+  if (!target) {
+    return;
+  }
+
+  moveCaretToEndOfStructuredBlock(target);
 }
 
 function getElementTextContentWithBreaks(element: HTMLElement): string {
@@ -758,8 +787,9 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const resetTimeoutRef = useRef<number | null>(null);
+  const pendingStructuredBlockNavigationRef = useRef<number | null>(null);
+  const pendingStructuredBlockNavigationTimerRef = useRef<number | null>(null);
   const latestValueRef = useRef(value);
-  const emitFrameRef = useRef<number | null>(null);
 
   latestValueRef.current = value;
 
@@ -780,8 +810,8 @@ export function RichTextEditor({
         window.clearTimeout(resetTimeoutRef.current);
       }
 
-      if (emitFrameRef.current !== null) {
-        window.cancelAnimationFrame(emitFrameRef.current);
+      if (pendingStructuredBlockNavigationTimerRef.current !== null) {
+        window.clearTimeout(pendingStructuredBlockNavigationTimerRef.current);
       }
     },
     []
@@ -804,15 +834,28 @@ export function RichTextEditor({
     emitValue(serializeEditorRichTextHtml(editorRef.current.innerHTML));
   };
 
-  const scheduleEmitCurrentValue = () => {
-    if (emitFrameRef.current !== null) {
-      window.cancelAnimationFrame(emitFrameRef.current);
-    }
+  const clearPendingStructuredBlockNavigation = () => {
+    pendingStructuredBlockNavigationRef.current = null;
 
-    emitFrameRef.current = window.requestAnimationFrame(() => {
-      emitFrameRef.current = null;
-      emitCurrentValue();
-    });
+    if (pendingStructuredBlockNavigationTimerRef.current !== null) {
+      window.clearTimeout(pendingStructuredBlockNavigationTimerRef.current);
+      pendingStructuredBlockNavigationTimerRef.current = null;
+    }
+  };
+
+  const scheduleStructuredBlockNavigation = (shellIndex: number) => {
+    clearPendingStructuredBlockNavigation();
+    pendingStructuredBlockNavigationRef.current = shellIndex;
+    pendingStructuredBlockNavigationTimerRef.current = window.setTimeout(() => {
+      const pendingShellIndex = pendingStructuredBlockNavigationRef.current;
+      clearPendingStructuredBlockNavigation();
+
+      if (pendingShellIndex === null) {
+        return;
+      }
+
+      moveCaretToStructuredBlockByIndex(editorRef.current, pendingShellIndex);
+    }, 0);
   };
 
   const runFormattingCommand = (command: string, commandValue?: string) => {
@@ -906,21 +949,6 @@ export function RichTextEditor({
   const handleEditorKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const editor = editorRef.current;
     const range = getSelectionRange(editor);
-    const isUndoModifier = event.ctrlKey || event.metaKey;
-
-    if (isUndoModifier && event.key.toLowerCase() === "z") {
-      event.preventDefault();
-      exec(event.shiftKey ? "redo" : "undo");
-      scheduleEmitCurrentValue();
-      return;
-    }
-
-    if (isUndoModifier && event.key.toLowerCase() === "y") {
-      event.preventDefault();
-      exec("redo");
-      scheduleEmitCurrentValue();
-      return;
-    }
 
     if (!editor || !range || event.key !== "Enter") {
       return;
@@ -933,7 +961,12 @@ export function RichTextEditor({
       currentParagraph.previousElementSibling?.matches(EDITOR_RICH_SHELL_SELECTOR)
     ) {
       event.preventDefault();
-      insertParagraphAfterParagraph(currentParagraph);
+      const shellIndex = getStructuredShellIndex(
+        editor,
+        currentParagraph.previousElementSibling as HTMLElement
+      );
+
+      scheduleStructuredBlockNavigation(shellIndex);
       return;
     }
 
@@ -1077,9 +1110,19 @@ export function RichTextEditor({
           onClick={handleEditorClick}
           onKeyDown={handleEditorKeyDown}
           onInput={(event) => {
-            emitValue(
-              serializeEditorRichTextHtml((event.currentTarget as HTMLDivElement).innerHTML)
-            );
+            const currentEditor = event.currentTarget as HTMLDivElement;
+            const pendingShellIndex = pendingStructuredBlockNavigationRef.current;
+
+            if (pendingShellIndex !== null) {
+              currentEditor.innerHTML = buildEditorRichTextHtml(latestValueRef.current);
+              clearPendingStructuredBlockNavigation();
+              window.setTimeout(() => {
+                moveCaretToStructuredBlockByIndex(editorRef.current, pendingShellIndex);
+              }, 0);
+              return;
+            }
+
+            emitValue(serializeEditorRichTextHtml(currentEditor.innerHTML));
           }}
         />
       </EmojiFieldShell>

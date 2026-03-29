@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-03-29
+- Type: Validation
+- Summary: TASK-113 token-block Enter-navigation fix validated after removing the custom undo shortcut experiment and guarding against transient browser DOM edits during caret-only navigation.
+- Evidence: `npm run lint`; `npx vitest run tests/components/rich-text-editor.test.ts tests/components/rich-text-content.test.ts tests/lib/rich-text.test.ts`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides.
+
+### 2026-03-29
+- Type: Execution
+- Summary: TASK-113 follow-up removed the unstable custom undo/redo shortcut layer and hardened trailing token-block Enter navigation so Chrome-only transient mutations cannot strip token actions.
+- Evidence: Updated `components/rich-text-editor.tsx` to treat Enter-from-below as deferred caret navigation back into the trailing structured block, ignore/reset transient DOM mutations during that navigation, and remove custom `Ctrl+Z` / redo handling; updated `tests/components/rich-text-editor.test.ts` to assert caret movement into block ends with controls preserved.
+
 ### 2026-03-28
 - Type: Validation
 - Summary: TASK-113 rich-text control-layer hardening validated after preserving browser undo/selection state for semantically unchanged editor content.

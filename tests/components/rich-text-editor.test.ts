@@ -22,6 +22,8 @@ import {
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+const EDITOR_RICH_SHELL_SELECTOR = "nd-rich-shell[data-editor-shell]";
+
 function getTemplate(html: string) {
   const template = document.createElement("template");
   template.innerHTML = html;
@@ -54,10 +56,24 @@ function selectTextPosition(node: Node, offset: number) {
   selection?.addRange(range);
 }
 
-async function expectEnterFromTrailingParagraphToStayBelowBlock(
+function selectionIsAtEndOfCodeElement(codeElement: HTMLElement | null) {
+  const selection = window.getSelection();
+
+  if (!selection?.anchorNode || !codeElement?.contains(selection.anchorNode)) {
+    return false;
+  }
+
+  if (selection.anchorNode.nodeType === Node.TEXT_NODE) {
+    return selection.anchorOffset === (selection.anchorNode.textContent?.length ?? 0);
+  }
+
+  return selection.anchorNode === codeElement && selection.anchorOffset === codeElement.childNodes.length;
+}
+
+async function expectEnterFromTrailingParagraphToMoveIntoBlockEnd(
   initialValue: string,
   expectedPersistentValue: string,
-  expectedActionSelector?: string
+  expectedActionSelector: string
 ) {
   const { container, root } = createTestRenderer();
 
@@ -82,17 +98,20 @@ async function expectEnterFromTrailingParagraphToStayBelowBlock(
     );
   });
 
-  const paragraphs = editor?.querySelectorAll("p") ?? [];
+  await act(async () => {
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+  });
+
   const selection = window.getSelection();
   const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+  const codeElement = editor?.querySelector(
+    `${EDITOR_RICH_SHELL_SELECTOR} code`
+  ) as HTMLElement | null;
 
-  expect(paragraphs).toHaveLength(2);
-  expect(selection?.anchorNode && paragraphs[1]?.contains(selection.anchorNode)).toBe(true);
+  expect(selection).not.toBeNull();
+  expect(selectionIsAtEndOfCodeElement(codeElement)).toBe(true);
   expect(persistedValue).toBe(expectedPersistentValue);
-
-  if (expectedActionSelector) {
-    expect(container.querySelector(expectedActionSelector)).not.toBeNull();
-  }
+  expect(container.querySelector(expectedActionSelector)).not.toBeNull();
 
   await act(async () => {
     root.unmount();
@@ -185,71 +204,23 @@ describe("rich-text-editor", () => {
     });
   });
 
-  test("keeps the caret in the paragraph below a token block when Enter is pressed", async () => {
+  test("moves the caret to the end of a token block when Enter is pressed below it", async () => {
     const initialValue = createRichTextTokenBlock("secret-token") ?? "";
 
-    await expectEnterFromTrailingParagraphToStayBelowBlock(
+    await expectEnterFromTrailingParagraphToMoveIntoBlockEnd(
       initialValue,
       initialValue,
       'button[aria-label="Reveal token value"]'
     );
   });
 
-  test("keeps the caret in the paragraph below a code block when Enter is pressed", async () => {
+  test("moves the caret to the end of a code block when Enter is pressed below it", async () => {
     const initialValue = createRichTextCodeBlock("npm run lint") ?? "";
 
-    await expectEnterFromTrailingParagraphToStayBelowBlock(
+    await expectEnterFromTrailingParagraphToMoveIntoBlockEnd(
       initialValue,
       initialValue,
       'button[aria-label="Copy code block"]'
     );
-  });
-
-  test("uses native undo shortcuts inside the editor", async () => {
-    const execCommandSpy = vi.fn(() => true);
-    Object.defineProperty(document, "execCommand", {
-      configurable: true,
-      value: execCommandSpy,
-    });
-    const { container, root } = createTestRenderer();
-
-    await renderWithRoot(
-      root,
-      React.createElement(EditorHarness, {
-        initialValue: "<p>hello</p>",
-      })
-    );
-
-    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
-    expect(editor).not.toBeNull();
-
-    await act(async () => {
-      editor?.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          bubbles: true,
-          key: "z",
-          ctrlKey: true,
-        })
-      );
-    });
-
-    expect(execCommandSpy).toHaveBeenCalledWith("undo", false, undefined);
-
-    await act(async () => {
-      editor?.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          bubbles: true,
-          key: "z",
-          ctrlKey: true,
-          shiftKey: true,
-        })
-      );
-    });
-
-    expect(execCommandSpy).toHaveBeenCalledWith("redo", false, undefined);
-
-    await act(async () => {
-      root.unmount();
-    });
   });
 });
