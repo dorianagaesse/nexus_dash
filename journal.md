@@ -14,6 +14,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-03-28
 - Type: Validation
+- Summary: TASK-113 caret-anchor hardening validated after replacing editor-only empty trailing paragraphs with stable hidden cursor anchors below structured blocks.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; editor regressions remained green in `tests/components/rich-text-editor.test.ts`.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 follow-up replaced fragile empty `<p><br></p>` editor-only trailing lines with hidden caret anchors to stop real-browser Enter flows from jumping back to the start of earlier code/token blocks.
+- Evidence: Updated `components/rich-text-editor.tsx` so editor-only trailing paragraphs use a zero-width caret anchor that is stripped during serialization/build normalization; kept token overflow styling discreet in both `components/rich-text-editor.tsx` and `components/rich-text-content.tsx`.
+
+### 2026-03-28
+- Type: Validation
 - Summary: TASK-113 block-navigation fix validated after removing navigation-only rich-text resyncs and softening token overflow chrome.
 - Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; expanded `tests/components/rich-text-editor.test.ts` to cover Enter-from-below behavior for both token and code blocks.
 

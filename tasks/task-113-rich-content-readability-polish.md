@@ -63,6 +63,7 @@ Make rich task/context content easier to write and scan by clearly distinguishin
 - Caret placement after creating or exiting a token/code block must land in the paragraph below the block, not snap back into the structured block or to a prior block above it.
 - Navigation-only `Enter` behavior around structured blocks must not trigger a controlled editor resync that can relocate the caret back into the block surface.
 - Token overflow can remain horizontally scrollable, but the scrollbar chrome should stay visually discreet rather than introducing a bright native track inside the token block.
+- Editor-only blank lines that exist to keep writing below structured blocks must use a stable caret anchor, so pressing `Enter` at the bottom of the editor does not collapse the selection back to the beginning of an earlier code/token block in real browsers.
 
 ## Likely Touch Points
 - `components/rich-text-editor.tsx`

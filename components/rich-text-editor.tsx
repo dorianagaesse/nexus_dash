@@ -36,6 +36,7 @@ const MONOSPACE_FONT_FAMILY =
 const STRUCTURED_BLOCK_SELECTOR = "[data-rich-block], p, div, h1, h2, blockquote, li, pre";
 const BLOCK_BREAK_TAGS = new Set(["P", "DIV", "H1", "H2", "BLOCKQUOTE", "LI", "PRE"]);
 const EDITOR_RICH_SHELL_TAG = "nd-rich-shell";
+const EDITOR_CARET_ANCHOR = "\u200B";
 const EDITOR_ACTIONS_SELECTOR = "[data-editor-actions='true']";
 const EDITOR_ACTION_BUTTON_SELECTOR = "button[data-editor-action]";
 const EDITOR_RICH_SHELL_SELECTOR = `${EDITOR_RICH_SHELL_TAG}[data-editor-shell]`;
@@ -81,7 +82,7 @@ function escapeHtml(value: string): string {
 }
 
 function normalizeBlockText(value: string): string {
-  return value.replace(/\u00a0/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  return value.replace(/\u00a0/g, " ").replace(/\u200b/g, "").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 function setMonospaceFont(element: HTMLElement) {
@@ -246,7 +247,7 @@ function moveCaretToEnd(node: Node) {
 
 function createEmptyParagraph(documentRef: Document): HTMLParagraphElement {
   const paragraph = documentRef.createElement("p");
-  paragraph.append(documentRef.createElement("br"));
+  paragraph.append(documentRef.createTextNode(EDITOR_CARET_ANCHOR));
   return paragraph;
 }
 
@@ -473,7 +474,7 @@ export function buildEditorRichTextHtml(input: string): string {
   }
 
   if (input.includes(`<${EDITOR_RICH_SHELL_TAG}`)) {
-    return input;
+    return input.replace(/\u200b/g, "");
   }
 
   const hasCodeBlocks = input.includes(`<pre data-rich-block="${RICH_TEXT_CODE_BLOCK}"`);
@@ -568,16 +569,21 @@ export function buildEditorRichTextHtml(input: string): string {
     template.content.append(createEmptyParagraph(document));
   }
 
-  return template.innerHTML;
+  return template.innerHTML.replace(/\u200b/g, "");
 }
 
 export function serializeEditorRichTextHtml(input: string): string {
-  if (!input || typeof document === "undefined" || !input.includes(`<${EDITOR_RICH_SHELL_TAG}`)) {
+  if (!input || typeof document === "undefined") {
     return input;
   }
 
+  const cleanedInput = input.replace(/\u200b/g, "");
+  if (!cleanedInput.includes(`<${EDITOR_RICH_SHELL_TAG}`)) {
+    return cleanedInput;
+  }
+
   const template = document.createElement("template");
-  template.innerHTML = input;
+  template.innerHTML = cleanedInput;
 
   template.content
     .querySelectorAll<HTMLElement>(EDITOR_RICH_SHELL_SELECTOR)
@@ -616,7 +622,7 @@ export function serializeEditorRichTextHtml(input: string): string {
       }
     });
 
-  return template.innerHTML;
+  return template.innerHTML.replace(/\u200b/g, "");
 }
 
 function applyStructuredBlock(
