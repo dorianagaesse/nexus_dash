@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-03-30
+- Type: Validation
+- Summary: TASK-113 token re-entry hardening validated after extending the structured-block navigation guard across the browser's delayed input phase.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; added token-specific recovery coverage in `tests/components/rich-text-editor.test.ts`.
+
+### 2026-03-30
+- Type: Execution
+- Summary: TASK-113 follow-up fixed the token-only trailing-block regression by extending the caret-navigation guard across the browser's delayed input phase instead of only the initial keydown.
+- Evidence: Updated `components/rich-text-editor.tsx` to keep a short-lived structured-block navigation lock, prevent `beforeinput` while that lock is active, and restore canonical token shells if a transient input mutation still fires; added token-specific regression coverage in `tests/components/rich-text-editor.test.ts`.
+
 ### 2026-03-29
 - Type: Validation
 - Summary: TASK-113 token-block Enter-navigation fix validated after removing the custom undo shortcut experiment and guarding against transient browser DOM edits during caret-only navigation.

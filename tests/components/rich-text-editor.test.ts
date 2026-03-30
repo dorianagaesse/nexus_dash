@@ -223,4 +223,65 @@ describe("rich-text-editor", () => {
       'button[aria-label="Copy code block"]'
     );
   });
+
+  test("restores token controls when a transient input mutation happens during trailing token navigation", async () => {
+    const initialValue = createRichTextTokenBlock("secret-token") ?? "";
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const trailingParagraph = editor?.lastElementChild as HTMLParagraphElement | null;
+
+    expect(editor).not.toBeNull();
+    expect(trailingParagraph?.tagName).toBe("P");
+
+    selectTextPosition((trailingParagraph?.firstChild as Node) ?? (trailingParagraph as Node), 0);
+
+    await act(async () => {
+      editor?.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Enter" })
+      );
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    const tokenValue = editor?.querySelector(
+      'code[data-editor-token-field="true"]'
+    ) as HTMLElement | null;
+    const tokenActions = editor?.querySelector('[data-editor-actions="true"]');
+
+    if (tokenValue) {
+      tokenValue.textContent = "secret-token*";
+    }
+
+    tokenActions?.remove();
+
+    const inputEvent = new InputEvent("input", {
+      bubbles: true,
+    });
+
+    await act(async () => {
+      editor?.dispatchEvent(inputEvent);
+    });
+
+    const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+    expect(persistedValue).toBe(initialValue);
+    expect(container.querySelector('button[aria-label="Reveal token value"]')).not.toBeNull();
+    expect(
+      editor?.querySelector('code[data-editor-token-field="true"]')?.textContent
+    ).toBe("secret-token");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });

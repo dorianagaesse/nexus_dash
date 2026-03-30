@@ -67,6 +67,7 @@ Make rich task/context content easier to write and scan by clearly distinguishin
 - The editor must avoid resetting `innerHTML` when the incoming prop value is semantically identical to the current structured content, otherwise browser selection becomes unreliable.
 - The temporary undo/redo shortcut experiment is dropped for now; native rich-text history should not be customized further until the structured-block caret flow is fully stable.
 - Pressing `Enter` on the empty editor-only line directly below a trailing token/code block should navigate back into that block at the end of its value, without mutating block content or stripping editor-only controls.
+- Trailing token-block navigation must remain guarded through the browser's delayed `beforeinput` / `input` phase, because Chromium can still attempt a paragraph insertion after the caret has been moved back into a masked token field.
 
 ## Likely Touch Points
 - `components/rich-text-editor.tsx`

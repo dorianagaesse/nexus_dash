@@ -1,6 +1,12 @@
 "use client";
 
-import React, { type KeyboardEvent, type MouseEvent, useEffect, useRef } from "react";
+import React, {
+  type FormEvent,
+  type KeyboardEvent,
+  type MouseEvent,
+  useEffect,
+  useRef,
+} from "react";
 import {
   Bold,
   Italic,
@@ -788,7 +794,8 @@ export function RichTextEditor({
   const editorRef = useRef<HTMLDivElement>(null);
   const resetTimeoutRef = useRef<number | null>(null);
   const pendingStructuredBlockNavigationRef = useRef<number | null>(null);
-  const pendingStructuredBlockNavigationTimerRef = useRef<number | null>(null);
+  const pendingStructuredBlockNavigationMoveTimerRef = useRef<number | null>(null);
+  const pendingStructuredBlockNavigationGuardTimerRef = useRef<number | null>(null);
   const latestValueRef = useRef(value);
 
   latestValueRef.current = value;
@@ -810,8 +817,12 @@ export function RichTextEditor({
         window.clearTimeout(resetTimeoutRef.current);
       }
 
-      if (pendingStructuredBlockNavigationTimerRef.current !== null) {
-        window.clearTimeout(pendingStructuredBlockNavigationTimerRef.current);
+      if (pendingStructuredBlockNavigationMoveTimerRef.current !== null) {
+        window.clearTimeout(pendingStructuredBlockNavigationMoveTimerRef.current);
+      }
+
+      if (pendingStructuredBlockNavigationGuardTimerRef.current !== null) {
+        window.clearTimeout(pendingStructuredBlockNavigationGuardTimerRef.current);
       }
     },
     []
@@ -837,25 +848,31 @@ export function RichTextEditor({
   const clearPendingStructuredBlockNavigation = () => {
     pendingStructuredBlockNavigationRef.current = null;
 
-    if (pendingStructuredBlockNavigationTimerRef.current !== null) {
-      window.clearTimeout(pendingStructuredBlockNavigationTimerRef.current);
-      pendingStructuredBlockNavigationTimerRef.current = null;
+    if (pendingStructuredBlockNavigationMoveTimerRef.current !== null) {
+      window.clearTimeout(pendingStructuredBlockNavigationMoveTimerRef.current);
+      pendingStructuredBlockNavigationMoveTimerRef.current = null;
+    }
+
+    if (pendingStructuredBlockNavigationGuardTimerRef.current !== null) {
+      window.clearTimeout(pendingStructuredBlockNavigationGuardTimerRef.current);
+      pendingStructuredBlockNavigationGuardTimerRef.current = null;
     }
   };
 
   const scheduleStructuredBlockNavigation = (shellIndex: number) => {
     clearPendingStructuredBlockNavigation();
     pendingStructuredBlockNavigationRef.current = shellIndex;
-    pendingStructuredBlockNavigationTimerRef.current = window.setTimeout(() => {
-      const pendingShellIndex = pendingStructuredBlockNavigationRef.current;
-      clearPendingStructuredBlockNavigation();
-
-      if (pendingShellIndex === null) {
-        return;
-      }
-
-      moveCaretToStructuredBlockByIndex(editorRef.current, pendingShellIndex);
+    pendingStructuredBlockNavigationMoveTimerRef.current = window.setTimeout(() => {
+      pendingStructuredBlockNavigationMoveTimerRef.current = null;
+      moveCaretToStructuredBlockByIndex(
+        editorRef.current,
+        pendingStructuredBlockNavigationRef.current ?? -1
+      );
     }, 0);
+    pendingStructuredBlockNavigationGuardTimerRef.current = window.setTimeout(() => {
+      pendingStructuredBlockNavigationGuardTimerRef.current = null;
+      pendingStructuredBlockNavigationRef.current = null;
+    }, 180);
   };
 
   const runFormattingCommand = (command: string, commandValue?: string) => {
@@ -990,6 +1007,14 @@ export function RichTextEditor({
     }
   };
 
+  const handleEditorBeforeInput = (event: FormEvent<HTMLDivElement>) => {
+    if (pendingStructuredBlockNavigationRef.current === null) {
+      return;
+    }
+
+    event.preventDefault();
+  };
+
   return (
     <div className={cn("space-y-2", className)}>
       <div className="flex flex-wrap gap-2">
@@ -1109,6 +1134,7 @@ export function RichTextEditor({
           onMouseDown={handleEditorMouseDown}
           onClick={handleEditorClick}
           onKeyDown={handleEditorKeyDown}
+          onBeforeInput={handleEditorBeforeInput}
           onInput={(event) => {
             const currentEditor = event.currentTarget as HTMLDivElement;
             const pendingShellIndex = pendingStructuredBlockNavigationRef.current;
