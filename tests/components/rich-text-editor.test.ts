@@ -161,6 +161,9 @@ describe("rich-text-editor", () => {
 
     expect(template.content.lastElementChild?.tagName).toBe("P");
     expect(template.content.lastElementChild?.textContent).toBe("\u200B");
+    expect(
+      template.content.querySelector(EDITOR_RICH_SHELL_SELECTOR)?.getAttribute("contenteditable")
+    ).toBe("false");
   });
 
   test("serializes editor shells back to canonical structured rich text", () => {
@@ -225,6 +228,44 @@ describe("rich-text-editor", () => {
       initialValue,
       'button[aria-label="Reveal token value"]'
     );
+  });
+
+  test("toggles an active token input back to plain text when Token is clicked again", async () => {
+    const initialValue = createRichTextTokenBlock("secret-token") ?? "";
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const tokenInput = container.querySelector(
+      'input[data-editor-token-input="true"]'
+    ) as HTMLInputElement | null;
+    const tokenButton = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Token")
+    );
+
+    expect(tokenInput).not.toBeNull();
+    expect(tokenButton).not.toBeNull();
+
+    await act(async () => {
+      tokenInput?.focus();
+      tokenInput?.setSelectionRange(tokenInput.value.length, tokenInput.value.length);
+      tokenButton?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      tokenButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const serializedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+    expect(serializedValue).toContain("<p>secret-token</p>");
+    expect(serializedValue).not.toContain('data-rich-block="token"');
+
+    await act(async () => {
+      root.unmount();
+    });
   });
 
   test("moves the caret to the end of a code block when Enter is pressed below it", async () => {

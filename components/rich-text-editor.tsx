@@ -378,6 +378,20 @@ function findContainingStructuredBlock(
   return null;
 }
 
+function findActiveStructuredBlock(
+  editor: HTMLDivElement,
+  blockType?: string
+): HTMLElement | null {
+  const activeElement = document.activeElement;
+  if (!(activeElement instanceof HTMLElement) || !editor.contains(activeElement)) {
+    return null;
+  }
+
+  return activeElement.closest(
+    blockType ? `[data-rich-block="${blockType}"]` : "[data-rich-block]"
+  ) as HTMLElement | null;
+}
+
 function findTransformTarget(editor: HTMLDivElement, range: Range): HTMLElement {
   const baseElement =
     range.startContainer instanceof HTMLElement
@@ -584,8 +598,10 @@ export function buildEditorRichTextHtml(input: string): string {
       const shell = document.createElement(EDITOR_RICH_SHELL_TAG);
       shell.dataset.editorShell = RICH_TEXT_TOKEN_BLOCK;
       shell.className = EDITOR_TOKEN_SHELL_CLASS;
+      shell.setAttribute("contenteditable", "false");
 
       tokenElement.className = "block min-w-0 max-w-full overflow-hidden";
+      tokenElement.setAttribute("contenteditable", "false");
 
       const tokenValue =
         tokenElement.querySelector("code")?.textContent?.replace(/\u00a0/g, " ").trim() ?? "";
@@ -718,13 +734,15 @@ function applyStructuredBlock(
   }
 
   const range = getSelectionRange(editor);
-  if (!range) {
-    return false;
+  const activeStructuredBlock = findActiveStructuredBlock(editor);
+  const containingStructuredBlock = range
+    ? findContainingStructuredBlock(editor, range)
+    : activeStructuredBlock;
+
+  if (range) {
+    editor.focus();
   }
 
-  editor.focus();
-
-  const containingStructuredBlock = findContainingStructuredBlock(editor, range);
   if (containingStructuredBlock) {
     const replacementTarget = resolveStructuredBlockTarget(containingStructuredBlock);
     if (containingStructuredBlock.dataset.richBlock === blockType) {
@@ -745,6 +763,10 @@ function applyStructuredBlock(
 
     replaceElementWithHtml(replacementTarget, buildEditorRichTextHtml(blockHtml));
     return true;
+  }
+
+  if (!range) {
+    return false;
   }
 
   const selectedText = range.collapsed ? "" : getRangeText(range);

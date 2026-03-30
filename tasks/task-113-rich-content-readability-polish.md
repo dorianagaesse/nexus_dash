@@ -69,6 +69,7 @@ Make rich task/context content easier to write and scan by clearly distinguishin
 - Pressing `Enter` on the empty editor-only line directly below a trailing token/code block should navigate back into that block at the end of its value, without mutating block content or stripping editor-only controls.
 - Trailing token-block navigation must remain guarded through the browser's delayed `beforeinput` / `input` phase, because Chromium can still attempt a paragraph insertion after the caret has been moved back into a masked token field.
 - Editor-only token blocks should not rely on masked `contentEditable` text. They are structurally closer to a single-line form control with inline actions, and should therefore use an actual input surface in edit mode to avoid Chromium rewriting the row and dropping action controls.
+- The editor-only token shell itself must also be non-editable. Otherwise Chromium can still inject structure around the input-backed token control when focus re-enters from the trailing paragraph, which recreates the disappearing-controls bug in a different form.
 
 ## Likely Touch Points
 - `components/rich-text-editor.tsx`

@@ -14,6 +14,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-03-31
 - Type: Validation
+- Summary: TASK-113 token widget hardening validated after making the editor-only token shell non-editable and preserving toolbar toggle behavior for a focused token input.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; expanded `tests/components/rich-text-editor.test.ts` with atomic-token-shell and focused-toggle coverage.
+
+### 2026-03-31
+- Type: Execution
+- Summary: TASK-113 follow-up fixed the remaining token re-entry regression by marking the editor-only token shell as non-editable while letting the input remain the sole editable surface inside it.
+- Evidence: Updated `components/rich-text-editor.tsx` to set token shells `contenteditable=false`, resolve active structured blocks from the focused token input for toolbar toggle behavior, and keep token re-entry routed to the input caret instead of an editable wrapper.
+
+### 2026-03-31
+- Type: Validation
 - Summary: TASK-113 token editor rebuild validated after replacing the masked contentEditable token surface with a real single-line input in edit mode.
 - Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; refreshed `tests/components/rich-text-editor.test.ts` token-caret and recovery coverage against the input-based shell.
 
