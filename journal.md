@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-03-31
+- Type: Validation
+- Summary: TASK-113 token editor rebuild validated after replacing the masked contentEditable token surface with a real single-line input in edit mode.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; refreshed `tests/components/rich-text-editor.test.ts` token-caret and recovery coverage against the input-based shell.
+
+### 2026-03-31
+- Type: Execution
+- Summary: TASK-113 token-block follow-up replaced the editor-only masked token row with an input-backed shell after screenshots confirmed Chromium was still rewriting the contentEditable token row and dropping its action buttons.
+- Evidence: Updated `components/rich-text-editor.tsx` so token blocks render as single-line input controls with reveal/copy actions, serialize through the live input value, and re-enter at the input caret instead of a masked code node; refreshed `tests/components/rich-text-editor.test.ts`.
+
 ### 2026-03-30
 - Type: Validation
 - Summary: TASK-113 token re-entry hardening validated after extending the structured-block navigation guard across the browser's delayed input phase.

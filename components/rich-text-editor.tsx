@@ -52,8 +52,8 @@ const EDITOR_CODE_PRE_CLASS =
   "m-0 block w-full min-w-0 max-w-full overflow-x-hidden whitespace-pre-wrap px-3 py-3 pr-12 text-[12px] leading-6 text-foreground [overflow-wrap:anywhere]";
 const EDITOR_TOKEN_SHELL_CLASS =
   "my-2 grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-xl border border-border/70 bg-muted/35 px-3 py-2.5 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)]";
-const EDITOR_TOKEN_VALUE_CLASS =
-  "block w-full min-w-0 max-w-full overflow-x-auto whitespace-nowrap py-1 text-[12px] leading-6 text-foreground [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
+const EDITOR_TOKEN_INPUT_CLASS =
+  "block w-full min-w-0 max-w-full overflow-x-auto whitespace-nowrap border-0 bg-transparent px-0 py-1 text-[12px] leading-6 text-foreground outline-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
 const EDITOR_ACTIONS_CLASS = "flex shrink-0 items-center gap-1.5";
 const EDITOR_ICON_BUTTON_CLASS =
   "inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-background/90 text-muted-foreground transition hover:border-foreground/20 hover:text-foreground";
@@ -135,7 +135,12 @@ function setEditorTokenVisibility(
 ) {
   valueElement.dataset.editorTokenVisible = revealed ? "true" : "false";
   valueElement.setAttribute("aria-label", revealed ? "Visible token value" : "Hidden token value");
-  valueElement.style.setProperty("-webkit-text-security", revealed ? "none" : "disc");
+
+  if (valueElement instanceof HTMLInputElement) {
+    valueElement.type = revealed ? "text" : "password";
+  } else {
+    valueElement.style.setProperty("-webkit-text-security", revealed ? "none" : "disc");
+  }
 
   toggleButton.setAttribute(
     "aria-label",
@@ -172,7 +177,13 @@ function extractNodeText(node: Node): string {
   }
 
   if (node.dataset.richBlock === RICH_TEXT_TOKEN_BLOCK) {
-    return node.querySelector("code")?.textContent ?? "";
+    const inputValue =
+      node.querySelector<HTMLInputElement>('input[data-editor-token-input="true"]')?.value ??
+      node.querySelector<HTMLInputElement>('input[data-editor-token-input="true"]')?.getAttribute(
+        "value"
+      );
+
+    return inputValue ?? node.querySelector("code")?.textContent ?? "";
   }
 
   if (node.dataset.richBlock === RICH_TEXT_CODE_BLOCK || node.tagName === "PRE") {
@@ -419,6 +430,17 @@ function findCurrentParagraph(editor: HTMLDivElement, range: Range): HTMLParagra
 }
 
 function moveCaretToEndOfStructuredBlock(target: HTMLElement) {
+  const tokenInput = target.querySelector<HTMLInputElement>(
+    'input[data-editor-token-input="true"]'
+  );
+
+  if (tokenInput) {
+    tokenInput.focus();
+    const caretOffset = tokenInput.value.length;
+    tokenInput.setSelectionRange(caretOffset, caretOffset);
+    return;
+  }
+
   const codeElement =
     target.querySelector(
       `pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code, div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"] code`
@@ -565,14 +587,26 @@ export function buildEditorRichTextHtml(input: string): string {
 
       tokenElement.className = "block min-w-0 max-w-full overflow-hidden";
 
-      const valueElement = tokenElement.querySelector("code");
-      if (!valueElement) {
+      const tokenValue =
+        tokenElement.querySelector("code")?.textContent?.replace(/\u00a0/g, " ").trim() ?? "";
+      const inputElement = document.createElement("input");
+      inputElement.type = "password";
+      inputElement.className = EDITOR_TOKEN_INPUT_CLASS;
+      inputElement.dataset.editorTokenInput = "true";
+      inputElement.value = tokenValue;
+      inputElement.setAttribute("value", tokenValue);
+      inputElement.setAttribute("autocomplete", "off");
+      inputElement.setAttribute("autocapitalize", "off");
+      inputElement.setAttribute("autocorrect", "off");
+      inputElement.setAttribute("spellcheck", "false");
+      inputElement.setAttribute("aria-label", "Hidden token value");
+      setMonospaceFont(inputElement);
+
+      if (!tokenValue) {
         return;
       }
 
-      valueElement.className = EDITOR_TOKEN_VALUE_CLASS;
-      valueElement.dataset.editorTokenField = "true";
-      setMonospaceFont(valueElement);
+      tokenElement.replaceChildren(inputElement);
 
       const actions = document.createElement("div");
       actions.className = EDITOR_ACTIONS_CLASS;
@@ -585,7 +619,7 @@ export function buildEditorRichTextHtml(input: string): string {
         "Reveal token value",
         EYE_ICON_SVG
       );
-      setEditorTokenVisibility(toggleButton, valueElement, false);
+      setEditorTokenVisibility(toggleButton, inputElement, false);
 
       const copyButton = buildEditorIconButton(
         document,
@@ -643,9 +677,23 @@ export function serializeEditorRichTextHtml(input: string): string {
       if (shellElement.dataset.editorShell === RICH_TEXT_TOKEN_BLOCK) {
         const tokenText =
           shellElement
+            .querySelector<HTMLInputElement>(
+              `div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"] input[data-editor-token-input="true"]`
+            )
+            ?.value?.replace(/\u00a0/g, " ")
+            .trim() ??
+          shellElement
+            .querySelector<HTMLInputElement>(
+              `div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"] input[data-editor-token-input="true"]`
+            )
+            ?.getAttribute("value")
+            ?.replace(/\u00a0/g, " ")
+            .trim() ??
+          shellElement
             .querySelector(`div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"] code`)
             ?.textContent?.replace(/\u00a0/g, " ")
-            .trim() ?? "";
+            .trim() ??
+          "";
         const tokenHtml = createRichTextTokenBlock(tokenText);
 
         if (!tokenHtml) {
@@ -920,7 +968,7 @@ export function RichTextEditor({
 
     if (actionButton.dataset.editorAction === "toggle-token-visibility") {
       const valueElement = editorShell.querySelector(
-        "code[data-editor-token-field='true']"
+        'input[data-editor-token-input="true"]'
       ) as HTMLElement | null;
 
       if (!valueElement) {
@@ -937,11 +985,17 @@ export function RichTextEditor({
         ? (editorShell.querySelector(
             `pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code`
           ) as HTMLElement | null)
-        : (editorShell.querySelector(
+        : ((editorShell.querySelector(
+            `div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"] input[data-editor-token-input="true"]`
+          ) as HTMLInputElement | null) ??
+          (editorShell.querySelector(
             `div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"] code`
-          ) as HTMLElement | null);
+          ) as HTMLElement | null));
 
-    const copyText = copyTarget?.textContent?.replace(/\u00a0/g, " ").trim() ?? "";
+    const copyText =
+      copyTarget instanceof HTMLInputElement
+        ? copyTarget.value.replace(/\u00a0/g, " ").trim()
+        : copyTarget?.textContent?.replace(/\u00a0/g, " ").trim() ?? "";
     if (!copyText || !supportsClipboardApi()) {
       setEditorCopyButtonState(actionButton, "unavailable");
       return;
@@ -965,6 +1019,21 @@ export function RichTextEditor({
 
   const handleEditorKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const editor = editorRef.current;
+    const target = event.target as HTMLElement | null;
+
+    if (
+      target instanceof HTMLInputElement &&
+      target.dataset.editorTokenInput === "true" &&
+      event.key === "Enter"
+    ) {
+      event.preventDefault();
+      const tokenShell = target.closest(EDITOR_RICH_SHELL_SELECTOR) as HTMLElement | null;
+      if (tokenShell) {
+        moveCaretBelowBlock(tokenShell);
+      }
+      return;
+    }
+
     const range = getSelectionRange(editor);
 
     if (!editor || !range || event.key !== "Enter") {
@@ -1013,6 +1082,30 @@ export function RichTextEditor({
     }
 
     event.preventDefault();
+  };
+
+  const handleEditorInput = (event: FormEvent<HTMLDivElement>) => {
+    const currentEditor = event.currentTarget as HTMLDivElement;
+    const target = event.target as HTMLElement | null;
+    const pendingShellIndex = pendingStructuredBlockNavigationRef.current;
+
+    if (
+      target instanceof HTMLInputElement &&
+      target.dataset.editorTokenInput === "true"
+    ) {
+      target.setAttribute("value", target.value);
+    }
+
+    if (pendingShellIndex !== null) {
+      currentEditor.innerHTML = buildEditorRichTextHtml(latestValueRef.current);
+      clearPendingStructuredBlockNavigation();
+      window.setTimeout(() => {
+        moveCaretToStructuredBlockByIndex(editorRef.current, pendingShellIndex);
+      }, 0);
+      return;
+    }
+
+    emitValue(serializeEditorRichTextHtml(currentEditor.innerHTML));
   };
 
   return (
@@ -1135,21 +1228,7 @@ export function RichTextEditor({
           onClick={handleEditorClick}
           onKeyDown={handleEditorKeyDown}
           onBeforeInput={handleEditorBeforeInput}
-          onInput={(event) => {
-            const currentEditor = event.currentTarget as HTMLDivElement;
-            const pendingShellIndex = pendingStructuredBlockNavigationRef.current;
-
-            if (pendingShellIndex !== null) {
-              currentEditor.innerHTML = buildEditorRichTextHtml(latestValueRef.current);
-              clearPendingStructuredBlockNavigation();
-              window.setTimeout(() => {
-                moveCaretToStructuredBlockByIndex(editorRef.current, pendingShellIndex);
-              }, 0);
-              return;
-            }
-
-            emitValue(serializeEditorRichTextHtml(currentEditor.innerHTML));
-          }}
+          onInput={handleEditorInput}
         />
       </EmojiFieldShell>
     </div>

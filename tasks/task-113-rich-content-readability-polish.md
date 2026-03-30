@@ -68,6 +68,7 @@ Make rich task/context content easier to write and scan by clearly distinguishin
 - The temporary undo/redo shortcut experiment is dropped for now; native rich-text history should not be customized further until the structured-block caret flow is fully stable.
 - Pressing `Enter` on the empty editor-only line directly below a trailing token/code block should navigate back into that block at the end of its value, without mutating block content or stripping editor-only controls.
 - Trailing token-block navigation must remain guarded through the browser's delayed `beforeinput` / `input` phase, because Chromium can still attempt a paragraph insertion after the caret has been moved back into a masked token field.
+- Editor-only token blocks should not rely on masked `contentEditable` text. They are structurally closer to a single-line form control with inline actions, and should therefore use an actual input surface in edit mode to avoid Chromium rewriting the row and dropping action controls.
 
 ## Likely Touch Points
 - `components/rich-text-editor.tsx`

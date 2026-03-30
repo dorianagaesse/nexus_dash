@@ -56,10 +56,18 @@ function selectTextPosition(node: Node, offset: number) {
   selection?.addRange(range);
 }
 
-function selectionIsAtEndOfCodeElement(codeElement: HTMLElement | null) {
+function selectionIsAtEndOfStructuredField(fieldElement: HTMLElement | null) {
+  if (fieldElement instanceof HTMLInputElement) {
+    return (
+      document.activeElement === fieldElement &&
+      fieldElement.selectionStart === fieldElement.value.length &&
+      fieldElement.selectionEnd === fieldElement.value.length
+    );
+  }
+
   const selection = window.getSelection();
 
-  if (!selection?.anchorNode || !codeElement?.contains(selection.anchorNode)) {
+  if (!selection?.anchorNode || !fieldElement?.contains(selection.anchorNode)) {
     return false;
   }
 
@@ -67,7 +75,10 @@ function selectionIsAtEndOfCodeElement(codeElement: HTMLElement | null) {
     return selection.anchorOffset === (selection.anchorNode.textContent?.length ?? 0);
   }
 
-  return selection.anchorNode === codeElement && selection.anchorOffset === codeElement.childNodes.length;
+  return (
+    selection.anchorNode === fieldElement &&
+    selection.anchorOffset === fieldElement.childNodes.length
+  );
 }
 
 async function expectEnterFromTrailingParagraphToMoveIntoBlockEnd(
@@ -104,12 +115,14 @@ async function expectEnterFromTrailingParagraphToMoveIntoBlockEnd(
 
   const selection = window.getSelection();
   const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
-  const codeElement = editor?.querySelector(
-    `${EDITOR_RICH_SHELL_SELECTOR} code`
-  ) as HTMLElement | null;
+  const fieldElement =
+    (editor?.querySelector(
+      `${EDITOR_RICH_SHELL_SELECTOR} input[data-editor-token-input="true"]`
+    ) as HTMLElement | null) ??
+    (editor?.querySelector(`${EDITOR_RICH_SHELL_SELECTOR} code`) as HTMLElement | null);
 
   expect(selection).not.toBeNull();
-  expect(selectionIsAtEndOfCodeElement(codeElement)).toBe(true);
+  expect(selectionIsAtEndOfStructuredField(fieldElement)).toBe(true);
   expect(persistedValue).toBe(expectedPersistentValue);
   expect(container.querySelector(expectedActionSelector)).not.toBeNull();
 
@@ -254,12 +267,13 @@ describe("rich-text-editor", () => {
     });
 
     const tokenValue = editor?.querySelector(
-      'code[data-editor-token-field="true"]'
-    ) as HTMLElement | null;
+      'input[data-editor-token-input="true"]'
+    ) as HTMLInputElement | null;
     const tokenActions = editor?.querySelector('[data-editor-actions="true"]');
 
     if (tokenValue) {
-      tokenValue.textContent = "secret-token*";
+      tokenValue.value = "secret-token*";
+      tokenValue.setAttribute("value", "secret-token*");
     }
 
     tokenActions?.remove();
@@ -277,7 +291,8 @@ describe("rich-text-editor", () => {
     expect(persistedValue).toBe(initialValue);
     expect(container.querySelector('button[aria-label="Reveal token value"]')).not.toBeNull();
     expect(
-      editor?.querySelector('code[data-editor-token-field="true"]')?.textContent
+      (editor?.querySelector('input[data-editor-token-input="true"]') as HTMLInputElement | null)
+        ?.value
     ).toBe("secret-token");
 
     await act(async () => {
