@@ -70,6 +70,10 @@ function exec(command: string, value?: string) {
   document.execCommand(command, false, value);
 }
 
+function isEnterKey(event: Pick<KeyboardEvent, "key" | "code">): boolean {
+  return event.key === "Enter" || event.code === "NumpadEnter";
+}
+
 function supportsClipboardApi(): boolean {
   return typeof navigator !== "undefined" && typeof navigator.clipboard?.writeText === "function";
 }
@@ -424,8 +428,10 @@ function ensureParagraphAfter(target: HTMLElement) {
   return paragraph;
 }
 
-function moveCaretBelowBlock(target: HTMLElement) {
+function moveCaretBelowBlock(target: HTMLElement, editor?: HTMLDivElement | null) {
   const paragraph = ensureParagraphAfter(target);
+
+  editor?.focus();
   moveCaretToStart(paragraph);
 }
 
@@ -1046,19 +1052,19 @@ export function RichTextEditor({
     if (
       target instanceof HTMLInputElement &&
       target.dataset.editorTokenInput === "true" &&
-      event.key === "Enter"
+      isEnterKey(event)
     ) {
       event.preventDefault();
       const tokenShell = target.closest(EDITOR_RICH_SHELL_SELECTOR) as HTMLElement | null;
       if (tokenShell) {
-        moveCaretBelowBlock(tokenShell);
+        moveCaretBelowBlock(tokenShell, editor);
       }
       return;
     }
 
     const range = getSelectionRange(editor);
 
-    if (!editor || !range || event.key !== "Enter") {
+    if (!editor || !range || !isEnterKey(event)) {
       return;
     }
 
@@ -1086,7 +1092,7 @@ export function RichTextEditor({
         insertTextAtRange(range, "\n");
         emitCurrentValue();
       } else {
-        moveCaretBelowBlock(resolveStructuredBlockTarget(codeBlock));
+        moveCaretBelowBlock(resolveStructuredBlockTarget(codeBlock), editor);
       }
       return;
     }
@@ -1094,7 +1100,7 @@ export function RichTextEditor({
     const tokenBlock = findContainingStructuredBlock(editor, range, RICH_TEXT_TOKEN_BLOCK);
     if (tokenBlock) {
       event.preventDefault();
-      moveCaretBelowBlock(resolveStructuredBlockTarget(tokenBlock));
+      moveCaretBelowBlock(resolveStructuredBlockTarget(tokenBlock), editor);
     }
   };
 

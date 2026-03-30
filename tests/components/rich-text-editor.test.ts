@@ -81,6 +81,20 @@ function selectionIsAtEndOfStructuredField(fieldElement: HTMLElement | null) {
   );
 }
 
+function selectionIsAtStartOfElement(element: HTMLElement | null) {
+  const selection = window.getSelection();
+
+  if (!selection?.anchorNode || !element?.contains(selection.anchorNode)) {
+    return false;
+  }
+
+  if (selection.anchorNode.nodeType === Node.TEXT_NODE) {
+    return selection.anchorOffset === 0;
+  }
+
+  return selection.anchorNode === element && selection.anchorOffset === 0;
+}
+
 async function expectEnterFromTrailingParagraphToMoveIntoBlockEnd(
   initialValue: string,
   expectedPersistentValue: string,
@@ -220,6 +234,42 @@ describe("rich-text-editor", () => {
     });
   });
 
+  test("wraps only the current visual line in a token block when there is no selection", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, { initialValue: "<p>token1<br />token2</p>" })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const firstLineTextNode = editor?.querySelector("p")?.firstChild;
+    const tokenButton = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Token")
+    );
+
+    expect(editor).not.toBeNull();
+    expect(firstLineTextNode).not.toBeNull();
+    expect(tokenButton).not.toBeNull();
+
+    selectTextPosition(firstLineTextNode as Node, "token1".length);
+
+    await act(async () => {
+      tokenButton?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      tokenButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const serializedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+    expect(serializedValue).toContain('<div data-rich-block="token"><code>token1</code></div>');
+    expect(serializedValue).toContain("<p>token2</p>");
+    expect(serializedValue).not.toContain('<code>token1 token2</code>');
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("moves the caret to the end of a token block when Enter is pressed below it", async () => {
     const initialValue = createRichTextTokenBlock("secret-token") ?? "";
 
@@ -262,6 +312,80 @@ describe("rich-text-editor", () => {
 
     expect(serializedValue).toContain("<p>secret-token</p>");
     expect(serializedValue).not.toContain('data-rich-block="token"');
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("moves the caret below a token block when Enter is pressed inside the token input", async () => {
+    const initialValue = createRichTextTokenBlock("secret-token") ?? "";
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const tokenInput = container.querySelector(
+      'input[data-editor-token-input="true"]'
+    ) as HTMLInputElement | null;
+
+    expect(editor).not.toBeNull();
+    expect(tokenInput).not.toBeNull();
+
+    await act(async () => {
+      tokenInput?.focus();
+      tokenInput?.setSelectionRange(tokenInput.value.length, tokenInput.value.length);
+      tokenInput?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    });
+
+    const trailingParagraph = editor?.lastElementChild as HTMLParagraphElement | null;
+
+    expect(document.activeElement).toBe(editor);
+    expect(trailingParagraph?.tagName).toBe("P");
+    expect(selectionIsAtStartOfElement(trailingParagraph)).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("moves the caret below a token block when Shift+Enter is pressed inside the token input", async () => {
+    const initialValue = createRichTextTokenBlock("secret-token") ?? "";
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const tokenInput = container.querySelector(
+      'input[data-editor-token-input="true"]'
+    ) as HTMLInputElement | null;
+
+    expect(editor).not.toBeNull();
+    expect(tokenInput).not.toBeNull();
+
+    await act(async () => {
+      tokenInput?.focus();
+      tokenInput?.setSelectionRange(tokenInput.value.length, tokenInput.value.length);
+      tokenInput?.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Enter", shiftKey: true })
+      );
+    });
+
+    const trailingParagraph = editor?.lastElementChild as HTMLParagraphElement | null;
+
+    expect(document.activeElement).toBe(editor);
+    expect(trailingParagraph?.tagName).toBe("P");
+    expect(selectionIsAtStartOfElement(trailingParagraph)).toBe(true);
 
     await act(async () => {
       root.unmount();
