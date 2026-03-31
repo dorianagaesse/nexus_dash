@@ -323,6 +323,12 @@ function replaceElementWithFragment(element: Element, html: string) {
   element.replaceWith(fragment);
 }
 
+function replaceNodeWithHtml(node: ChildNode, html: string) {
+  const { fragment, lastNode } = createFragmentFromHtml(html);
+  node.replaceWith(fragment);
+  moveCaretAfter(lastNode);
+}
+
 function insertTextAtRange(range: Range, text: string) {
   range.deleteContents();
   const textNode = document.createTextNode(text);
@@ -412,6 +418,28 @@ function findTransformTarget(editor: HTMLDivElement, range: Range): HTMLElement 
   }
 
   return editor;
+}
+
+function findDirectEditorTextNode(editor: HTMLDivElement, range: Range): Text | null {
+  if (range.startContainer.nodeType === Node.TEXT_NODE && range.startContainer.parentNode === editor) {
+    return range.startContainer as Text;
+  }
+
+  if (range.startContainer !== editor) {
+    return null;
+  }
+
+  const previousNode = editor.childNodes[range.startOffset - 1] ?? null;
+  if (previousNode?.nodeType === Node.TEXT_NODE) {
+    return previousNode as Text;
+  }
+
+  const nextNode = editor.childNodes[range.startOffset] ?? null;
+  if (nextNode?.nodeType === Node.TEXT_NODE) {
+    return nextNode as Text;
+  }
+
+  return null;
 }
 
 function isEmptyEditorParagraph(element: Element | null): element is HTMLParagraphElement {
@@ -824,6 +852,22 @@ function applyStructuredBlock(
     }
 
     insertHtmlAtRange(range, buildEditorRichTextHtml(blockHtml));
+    return true;
+  }
+
+  const directEditorTextNode = findDirectEditorTextNode(editor, range);
+  if (directEditorTextNode) {
+    const targetText = normalizeBlockText(directEditorTextNode.textContent ?? "");
+    if (!targetText) {
+      return false;
+    }
+
+    const blockHtml = createBlock(targetText);
+    if (!blockHtml) {
+      return false;
+    }
+
+    replaceNodeWithHtml(directEditorTextNode, buildEditorRichTextHtml(blockHtml));
     return true;
   }
 

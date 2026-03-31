@@ -319,6 +319,53 @@ describe("rich-text-editor", () => {
     });
   });
 
+  test("wraps only the first visual line when the editor starts with a bare root text node", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, { initialValue: "" })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const codeButton = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Code")
+    );
+
+    expect(editor).not.toBeNull();
+    expect(codeButton).not.toBeNull();
+
+    await act(async () => {
+      if (editor) {
+        editor.innerHTML = "text1<div>text2</div><div>text3</div>";
+      }
+    });
+
+    const firstLineTextNode = Array.from(editor?.childNodes ?? []).find(
+      (node) => node.nodeType === Node.TEXT_NODE
+    );
+
+    expect(firstLineTextNode).not.toBeNull();
+
+    selectTextPosition(firstLineTextNode as Node, "text1".length);
+
+    await act(async () => {
+      codeButton?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      codeButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const serializedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+    expect(serializedValue).toContain('<pre data-rich-block="code"><code>text1</code></pre>');
+    expect(serializedValue).toContain("<div>text2</div>");
+    expect(serializedValue).toContain("<div>text3</div>");
+    expect(serializedValue).not.toContain('<code>text1text2</code>');
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("keeps Enter below a trailing token block in the paragraph below", async () => {
     const initialValue = createRichTextTokenBlock("secret-token") ?? "";
 
