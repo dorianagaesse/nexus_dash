@@ -10,6 +10,15 @@ Before coding, align on these files:
 2. `project.md` (current architecture/product snapshot)
 3. `README.md` (runtime/env/test contract)
 
+If the task touches auth, deploys, runtime validation, or external services,
+make the task brief explicit before deep implementation:
+
+- capture local prerequisites (for example PostgreSQL reachability)
+- capture required runtime secrets/env assumptions
+- capture deploy/review workflow assumptions when preview or production behavior
+  is part of acceptance
+- link the relevant runbook when preview validation is expected
+
 If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `tasks/backlog.md`, then update `tasks/current.md` before implementation.
 
 ## 2. Implementation Quality

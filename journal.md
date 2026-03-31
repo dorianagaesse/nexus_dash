@@ -13,6 +13,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-03-31
+- Type: Validation
+- Summary: TASK-059 preview validation passed end to end on the branch-scoped preview after fixing both the missing runtime signing secret path and the token-exchange owner lookup, and the disposable validation data was cleaned up afterward.
+- Evidence: `npx vercel curl / --deployment https://nexus-dash-dorianagaesse-3732-dorian-agaesses-projects.vercel.app -- --include`; `npx vercel curl /api/health/live --deployment https://nexus-dash-dorianagaesse-3732-dorian-agaesses-projects.vercel.app -- --include`; preview deploy workflow run `23811221988`; live assertions captured in `docs/runbooks/task-059-agent-access-preview-validation.md`; preview validation covered owner credential create/list/rotate/revoke, token exchange, project read, task create/read/update with delete denial, context create/read/update with delete denial, and audit visibility; corrected the context-card test payload to use a valid color from `lib/context-card-colors.ts` (`#DFF3F9`); removed disposable preview users matching `task059-preview-*@nexusdash.local` after sign-off.
+
+### 2026-03-31
+- Type: Governance
+- Summary: The repo's task execution contract now requires auth/deploy/integration work to spell out local prerequisites, runtime secrets, and deploy/review assumptions directly in the active task brief before deep implementation.
+- Evidence: Updated `agent.md`, `tasks/task-059-agent-access-implementation.md`, `tasks/current.md`, and `docs/runbooks/task-059-agent-access-preview-validation.md`.
+
+### 2026-03-31
 - Type: Governance
 - Summary: TASK-059 PR review and deploy follow-through completed on the latest feature-branch head: Copilot's three review comments were assessed, addressed, replied to, and resolved; the refreshed PR checks are green; and a branch-scoped preview deployment was created successfully from the final task branch ref.
 - Evidence: PR `#112` (`feature/task-059-agent-access` -> `main`); addressed Copilot feedback in commits `fcbd615` and `1939839`; replied to and resolved review threads `PRRT_kwDORPDIrs5394bk`, `PRRT_kwDORPDIrs5394ch`, and `PRRT_kwDORPDIrs5394c7`; green latest-head checks on run `23801288613` (`check-name`, `Quality Core`, `E2E Smoke`, `Container Image`); preview deploy workflow run `23801489971` dispatched with `--ref feature/task-059-agent-access -f action=deploy-preview -f git_ref=feature/task-059-agent-access` and produced preview URL `https://nexus-dash-7cs7imdfe-dorian-agaesses-projects.vercel.app`.

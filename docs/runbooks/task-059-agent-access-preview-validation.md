@@ -16,6 +16,8 @@ are recorded, and rotation/revocation take effect immediately for new exchanges.
 - Use a disposable project owned by a disposable verified user, or a dedicated
   non-production owner account.
 - Keep validation data isolated and delete it after the run.
+- If preview boot previously failed with `500`, confirm
+  `AGENT_TOKEN_SIGNING_SECRET` reached the preview runtime before continuing.
 
 ## Required Assertions
 
@@ -79,6 +81,8 @@ are recorded, and rotation/revocation take effect immediately for new exchanges.
   quickly if any assertion fails.
 - Use credential labels prefixed with `preview-validation-` so audit and cleanup
   are easy to trace.
+- Use a valid context-card color from `lib/context-card-colors.ts` for scripted
+  context-card creation. `#DFF3F9` is a known-good sample.
 - When scripted requests run against protected preview, prefer:
 
 ```bash
@@ -87,6 +91,13 @@ npx vercel curl /api/health/live --deployment <preview-url>
 
 - For JSON routes, send request bodies with `curl --data-binary @file.json` to
   avoid shell escaping mistakes.
+
+## Cleanup Notes
+
+- Delete disposable preview users whose emails match
+  `task059-preview-*@nexusdash.local`; the schema's cascades remove their
+  sessions, project-owned records, and agent credentials created for validation.
+- Remove any locally pulled preview env files and JSON artifacts after sign-off.
 
 ## Sign-Off Rule
 

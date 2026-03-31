@@ -6,7 +6,7 @@ Dedicated task brief: [`tasks/task-059-agent-access-implementation.md`](./task-0
 TASK-059
 
 ## Status
-In review
+Validated on preview
 
 ## Objective
 Enable secure non-human access through owner-managed, project-scoped API credentials that exchange into short-lived bearer tokens, enforce explicit scopes in the service layer, and leave an auditable trail for issuance, use, rotation, and revocation.
@@ -33,7 +33,8 @@ Enable secure non-human access through owner-managed, project-scoped API credent
 ## Notes
 - The dedicated task brief remains the detailed implementation contract and should stay in sync with the code on this branch.
 - Tracking docs, validation evidence, PR state, Copilot review handling, and preview deployment evidence must be updated in the same branch before handoff.
-- Review/deploy status: PR `#112` is open against `main`; Copilot completed its initial review with 3 comments, all of which were addressed and resolved; latest head checks are green; preview deploy run `23801489971` was dispatched from `feature/task-059-agent-access` with `git_ref=feature/task-059-agent-access`.
+- Review/deploy status: PR `#112` is open against `main`; Copilot completed its initial review with 3 comments, all of which were addressed and resolved; latest head checks are green on run `23811220762`; preview deploy run `23811221988` was dispatched from `feature/task-059-agent-access` and produced the healthy alias `https://nexus-dash-dorianagaesse-3732-dorian-agaesses-projects.vercel.app`.
+- Live validation status: preview boot is healthy, agent token exchange is healthy, scoped task/context operations were validated end to end on preview, and disposable validation users were cleaned up after the run. Sign-off procedure lives in `docs/runbooks/task-059-agent-access-preview-validation.md`.
 
 ---
 
