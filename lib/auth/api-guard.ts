@@ -190,19 +190,48 @@ export async function requireApiPrincipal(
       };
     }
 
-    const requestUsageResult = await recordAgentRequestUsage({
-      credentialId: verifiedToken.data.credentialId,
-      ownerUserId: verifiedToken.data.ownerUserId,
-      projectId: verifiedToken.data.projectId,
-      tokenId: verifiedToken.data.tokenId,
-      requestId,
-      ipAddress: readClientIpAddress(request),
-      userAgent: request.headers.get("user-agent"),
-      httpMethod: request.method,
-      path: new URL(request.url).pathname,
-    });
+    let requestUsageResult;
+    try {
+      requestUsageResult = await recordAgentRequestUsage({
+        credentialId: verifiedToken.data.credentialId,
+        ownerUserId: verifiedToken.data.ownerUserId,
+        projectId: verifiedToken.data.projectId,
+        tokenId: verifiedToken.data.tokenId,
+        requestId,
+        ipAddress: readClientIpAddress(request),
+        userAgent: request.headers.get("user-agent"),
+        httpMethod: request.method,
+        path: new URL(request.url).pathname,
+      });
+    } catch (error) {
+      logServerError("requireApiPrincipal.recordAgentRequestUsage", error, {
+        requestId,
+        credentialId: verifiedToken.data.credentialId,
+        projectId: verifiedToken.data.projectId,
+      });
+      return {
+        ok: false,
+        response: NextResponse.json(
+          { error: "agent-usage-not-recorded" },
+          { status: 500 }
+        ),
+      };
+    }
 
     if (!requestUsageResult.ok) {
+      if (requestUsageResult.status >= 500) {
+        logServerError(
+          "requireApiPrincipal.recordAgentRequestUsage",
+          requestUsageResult.error,
+          {
+            requestId,
+            credentialId: verifiedToken.data.credentialId,
+            projectId: verifiedToken.data.projectId,
+            status: requestUsageResult.status,
+          }
+        );
+      }
+
       return {
         ok: false,
         response: NextResponse.json(

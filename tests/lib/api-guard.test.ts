@@ -23,6 +23,10 @@ const projectAgentAccessServiceMock = vi.hoisted(() => ({
   recordAgentRequestUsage: vi.fn(),
 }));
 
+const loggerMock = vi.hoisted(() => ({
+  logServerError: vi.fn(),
+}));
+
 vi.mock("@/lib/auth/session-user", () => ({
   getSessionUserIdFromRequest: sessionUserMock.getSessionUserIdFromRequest,
 }));
@@ -37,6 +41,10 @@ vi.mock("@/lib/auth/agent-token-service", () => ({
 
 vi.mock("@/lib/services/project-agent-access-service", () => ({
   recordAgentRequestUsage: projectAgentAccessServiceMock.recordAgentRequestUsage,
+}));
+
+vi.mock("@/lib/observability/logger", () => ({
+  logServerError: loggerMock.logServerError,
 }));
 
 vi.mock("@/lib/env.server", async () => {
@@ -281,6 +289,58 @@ describe("api-guard", () => {
     await expect(result.response.json()).resolves.toEqual({
       error: "audit-write-failed",
     });
+    expect(loggerMock.logServerError).toHaveBeenCalledWith(
+      "requireApiPrincipal.recordAgentRequestUsage",
+      "audit-write-failed",
+      expect.objectContaining({
+        credentialId: "credential-1",
+        projectId: "project-1",
+        status: 500,
+      })
+    );
+  });
+
+  test("logs and returns a stable 500 when agent usage persistence throws", async () => {
+    agentTokenServiceMock.verifyAgentAccessToken.mockReturnValueOnce({
+      ok: true,
+      data: {
+        credentialId: "credential-1",
+        projectId: "project-1",
+        ownerUserId: "owner-1",
+        scopes: ["task:read"],
+        tokenId: "token-1",
+        issuedAt: new Date("2026-03-31T09:00:00.000Z"),
+        expiresAt: new Date("2026-03-31T09:10:00.000Z"),
+      },
+    });
+    const dbError = new Error("db-down");
+    projectAgentAccessServiceMock.recordAgentRequestUsage.mockRejectedValueOnce(dbError);
+
+    const request = new NextRequest("http://localhost/api/projects/project-1/tasks", {
+      headers: {
+        authorization: "Bearer signed-agent-token",
+      },
+    });
+
+    const result = await requireApiPrincipal(request);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+
+    expect(result.response.status).toBe(500);
+    await expect(result.response.json()).resolves.toEqual({
+      error: "agent-usage-not-recorded",
+    });
+    expect(loggerMock.logServerError).toHaveBeenCalledWith(
+      "requireApiPrincipal.recordAgentRequestUsage",
+      dbError,
+      expect.objectContaining({
+        credentialId: "credential-1",
+        projectId: "project-1",
+      })
+    );
   });
 
   test("returns a human principal when no bearer token is present", async () => {

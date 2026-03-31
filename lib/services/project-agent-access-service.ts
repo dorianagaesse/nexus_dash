@@ -164,11 +164,17 @@ function resolveExpiresAt(expiresInDays: number | null | undefined): Date | null
 }
 
 function isUniqueConstraintViolation(error: unknown): boolean {
+  return readPrismaErrorCode(error) === "P2002";
+}
+
+function readPrismaErrorCode(error: unknown): string | null {
   if (!error || typeof error !== "object") {
-    return false;
+    return null;
   }
 
-  return "code" in error && (error as { code?: string }).code === "P2002";
+  return "code" in error && typeof (error as { code?: unknown }).code === "string"
+    ? (error as { code: string }).code
+    : null;
 }
 
 function readUniqueConstraintTargets(error: unknown): string[] {
@@ -932,31 +938,40 @@ export async function recordAgentRequestUsage(input: {
   }
 
   const requestTimestamp = new Date();
-  await prisma.$transaction([
-    prisma.apiCredential.update({
-      where: { id: credentialId },
-      data: {
-        lastUsedAt: requestTimestamp,
-      },
-    }),
-    prisma.authAuditEvent.create({
-      data: {
-        projectId: input.projectId,
-        credentialId,
-        actorUserId: ownerUserId,
-        actorKind: "agent",
-        action: "request_used",
-        requestId: normalizeTrimmedString(input.requestId ?? null),
-        ipAddress: normalizeBoundedString(input.ipAddress ?? null, MAX_IP_ADDRESS_LENGTH),
-        userAgent: normalizeBoundedString(input.userAgent ?? null, MAX_USER_AGENT_LENGTH),
-        metadata: buildAuditMetadata({
-          tokenId: input.tokenId,
-          httpMethod: input.httpMethod ?? null,
-          path: input.path ?? null,
-        }),
-      },
-    }),
-  ]);
+  try {
+    await prisma.$transaction([
+      prisma.apiCredential.update({
+        where: { id: credentialId },
+        data: {
+          lastUsedAt: requestTimestamp,
+        },
+      }),
+      prisma.authAuditEvent.create({
+        data: {
+          projectId: input.projectId,
+          credentialId,
+          actorUserId: ownerUserId,
+          actorKind: "agent",
+          action: "request_used",
+          requestId: normalizeTrimmedString(input.requestId ?? null),
+          ipAddress: normalizeBoundedString(input.ipAddress ?? null, MAX_IP_ADDRESS_LENGTH),
+          userAgent: normalizeBoundedString(input.userAgent ?? null, MAX_USER_AGENT_LENGTH),
+          metadata: buildAuditMetadata({
+            tokenId: input.tokenId,
+            httpMethod: input.httpMethod ?? null,
+            path: input.path ?? null,
+          }),
+        },
+      }),
+    ]);
+  } catch (error) {
+    const prismaErrorCode = readPrismaErrorCode(error);
+    if (prismaErrorCode === "P2025" || prismaErrorCode === "P2003") {
+      return createError(401, "unauthorized");
+    }
+
+    return createError(500, "agent-usage-not-recorded");
+  }
 
   return createSuccess(200, { ok: true as const });
 }
