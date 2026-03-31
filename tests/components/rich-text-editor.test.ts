@@ -56,6 +56,15 @@ function selectTextPosition(node: Node, offset: number) {
   selection?.addRange(range);
 }
 
+function selectNodeStart(node: Node) {
+  const selection = window.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(node);
+  range.collapse(true);
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+}
+
 function selectionIsAtEndOfStructuredField(fieldElement: HTMLElement | null) {
   if (fieldElement instanceof HTMLInputElement) {
     return (
@@ -95,7 +104,57 @@ function selectionIsAtStartOfElement(element: HTMLElement | null) {
   return selection.anchorNode === element && selection.anchorOffset === 0;
 }
 
-async function expectEnterFromTrailingParagraphToMoveIntoBlockEnd(
+function dispatchKeyDown(
+  target: EventTarget | null | undefined,
+  options: KeyboardEventInit
+) {
+  const event = new KeyboardEvent("keydown", {
+    bubbles: true,
+    cancelable: true,
+    ...options,
+  });
+
+  return {
+    event,
+    notCancelled: target?.dispatchEvent(event) ?? false,
+  };
+}
+
+async function expectEnterBelowBlockToStayBelow(
+  initialValue: string,
+  expectedActionSelector: string
+) {
+  const { container, root } = createTestRenderer();
+
+  await renderWithRoot(
+    root,
+    React.createElement(EditorHarness, {
+      initialValue,
+    })
+  );
+
+  const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+  const trailingParagraph = editor?.lastElementChild as HTMLParagraphElement | null;
+
+  expect(editor).not.toBeNull();
+  expect(trailingParagraph?.tagName).toBe("P");
+
+  selectNodeStart(trailingParagraph as Node);
+
+  const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+  const { notCancelled } = dispatchKeyDown(editor, { key: "Enter" });
+
+  expect(notCancelled).toBe(true);
+  expect(selectionIsAtStartOfElement(trailingParagraph)).toBe(true);
+  expect(persistedValue).toBe(initialValue);
+  expect(container.querySelector(expectedActionSelector)).not.toBeNull();
+
+  await act(async () => {
+    root.unmount();
+  });
+}
+
+async function expectBackspaceBelowBlockToMoveIntoBlockEnd(
   initialValue: string,
   expectedPersistentValue: string,
   expectedActionSelector: string
@@ -115,19 +174,9 @@ async function expectEnterFromTrailingParagraphToMoveIntoBlockEnd(
   expect(editor).not.toBeNull();
   expect(trailingParagraph?.tagName).toBe("P");
 
-  selectTextPosition((trailingParagraph?.firstChild as Node) ?? (trailingParagraph as Node), 0);
+  selectNodeStart(trailingParagraph as Node);
 
-  await act(async () => {
-    editor?.dispatchEvent(
-      new KeyboardEvent("keydown", { bubbles: true, key: "Enter" })
-    );
-  });
-
-  await act(async () => {
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
-  });
-
-  const selection = window.getSelection();
+  const { notCancelled } = dispatchKeyDown(editor, { key: "Backspace" });
   const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
   const fieldElement =
     (editor?.querySelector(
@@ -135,7 +184,7 @@ async function expectEnterFromTrailingParagraphToMoveIntoBlockEnd(
     ) as HTMLElement | null) ??
     (editor?.querySelector(`${EDITOR_RICH_SHELL_SELECTOR} code`) as HTMLElement | null);
 
-  expect(selection).not.toBeNull();
+  expect(notCancelled).toBe(false);
   expect(selectionIsAtEndOfStructuredField(fieldElement)).toBe(true);
   expect(persistedValue).toBe(expectedPersistentValue);
   expect(container.querySelector(expectedActionSelector)).not.toBeNull();
@@ -270,14 +319,10 @@ describe("rich-text-editor", () => {
     });
   });
 
-  test("moves the caret to the end of a token block when Enter is pressed below it", async () => {
+  test("keeps Enter below a trailing token block in the paragraph below", async () => {
     const initialValue = createRichTextTokenBlock("secret-token") ?? "";
 
-    await expectEnterFromTrailingParagraphToMoveIntoBlockEnd(
-      initialValue,
-      initialValue,
-      'button[aria-label="Reveal token value"]'
-    );
+    await expectEnterBelowBlockToStayBelow(initialValue, 'button[aria-label="Reveal token value"]');
   });
 
   test("toggles an active token input back to plain text when Token is clicked again", async () => {
@@ -392,17 +437,46 @@ describe("rich-text-editor", () => {
     });
   });
 
-  test("moves the caret to the end of a code block when Enter is pressed below it", async () => {
+  test("keeps Enter below a trailing code block in the paragraph below", async () => {
     const initialValue = createRichTextCodeBlock("npm run lint") ?? "";
 
-    await expectEnterFromTrailingParagraphToMoveIntoBlockEnd(
+    await expectEnterBelowBlockToStayBelow(initialValue, 'button[aria-label="Copy code block"]');
+  });
+
+  test("moves Backspace below a first-line token block to the end of the token value", async () => {
+    const initialValue = createRichTextTokenBlock("secret-token") ?? "";
+
+    await expectBackspaceBelowBlockToMoveIntoBlockEnd(
+      initialValue,
+      initialValue,
+      'button[aria-label="Reveal token value"]'
+    );
+  });
+
+  test("moves Backspace below a first-line code block to the end of the code content", async () => {
+    const initialValue = createRichTextCodeBlock("npm run lint") ?? "";
+
+    await expectBackspaceBelowBlockToMoveIntoBlockEnd(
       initialValue,
       initialValue,
       'button[aria-label="Copy code block"]'
     );
   });
 
-  test("restores token controls when a transient input mutation happens during trailing token navigation", async () => {
+  test("moves Backspace below a trailing token block back into that token without deleting it", async () => {
+    const initialValue = [
+      createRichTextCodeBlock("npm run lint"),
+      createRichTextTokenBlock("secret-token"),
+    ].join("");
+
+    await expectBackspaceBelowBlockToMoveIntoBlockEnd(
+      initialValue,
+      initialValue,
+      'button[aria-label="Reveal token value"]'
+    );
+  });
+
+  test("removes an empty first-line token block on Backspace", async () => {
     const initialValue = createRichTextTokenBlock("secret-token") ?? "";
     const { container, root } = createTestRenderer();
 
@@ -414,51 +488,72 @@ describe("rich-text-editor", () => {
     );
 
     const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
-    const trailingParagraph = editor?.lastElementChild as HTMLParagraphElement | null;
-
-    expect(editor).not.toBeNull();
-    expect(trailingParagraph?.tagName).toBe("P");
-
-    selectTextPosition((trailingParagraph?.firstChild as Node) ?? (trailingParagraph as Node), 0);
-
-    await act(async () => {
-      editor?.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true, key: "Enter" })
-      );
-    });
-
-    await act(async () => {
-      await new Promise((resolve) => window.setTimeout(resolve, 0));
-    });
-
-    const tokenValue = editor?.querySelector(
+    const tokenInput = container.querySelector(
       'input[data-editor-token-input="true"]'
     ) as HTMLInputElement | null;
-    const tokenActions = editor?.querySelector('[data-editor-actions="true"]');
 
-    if (tokenValue) {
-      tokenValue.value = "secret-token*";
-      tokenValue.setAttribute("value", "secret-token*");
+    expect(editor).not.toBeNull();
+    expect(tokenInput).not.toBeNull();
+
+    if (tokenInput) {
+      tokenInput.value = "";
+      tokenInput.setAttribute("value", "");
     }
 
-    tokenActions?.remove();
-
-    const inputEvent = new InputEvent("input", {
-      bubbles: true,
-    });
+    let notCancelled = false;
 
     await act(async () => {
-      editor?.dispatchEvent(inputEvent);
+      ({ notCancelled } = dispatchKeyDown(tokenInput, { key: "Backspace" }));
     });
 
     const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+    expect(notCancelled).toBe(false);
+    expect(persistedValue).toBe("");
+    expect(container.querySelector('input[data-editor-token-input="true"]')).toBeNull();
+    expect(editor?.innerHTML).toBe("");
+    expect(selectionIsAtStartOfElement(editor)).toBe(true);
 
-    expect(persistedValue).toBe(initialValue);
-    expect(container.querySelector('button[aria-label="Reveal token value"]')).not.toBeNull();
-    expect(
-      (editor?.querySelector('input[data-editor-token-input="true"]') as HTMLInputElement | null)
-        ?.value
-    ).toBe("secret-token");
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("removes an empty first-line code block on Backspace", async () => {
+    const initialValue = createRichTextCodeBlock("npm run lint") ?? "";
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const codeElement = container.querySelector(
+      `${EDITOR_RICH_SHELL_SELECTOR} pre[data-rich-block="code"] code`
+    ) as HTMLElement | null;
+
+    expect(editor).not.toBeNull();
+    expect(codeElement).not.toBeNull();
+
+    if (codeElement) {
+      codeElement.textContent = "";
+      selectNodeStart(codeElement);
+    }
+
+    let notCancelled = false;
+
+    await act(async () => {
+      ({ notCancelled } = dispatchKeyDown(editor, { key: "Backspace" }));
+    });
+
+    const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+    expect(notCancelled).toBe(false);
+    expect(persistedValue).toBe("");
+    expect(container.querySelector(`${EDITOR_RICH_SHELL_SELECTOR} pre[data-rich-block="code"]`)).toBeNull();
+    expect(editor?.innerHTML).toBe("");
+    expect(selectionIsAtStartOfElement(editor)).toBe(true);
 
     await act(async () => {
       root.unmount();

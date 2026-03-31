@@ -74,6 +74,10 @@ function isEnterKey(event: Pick<KeyboardEvent, "key" | "code">): boolean {
   return event.key === "Enter" || event.code === "NumpadEnter";
 }
 
+function isBackspaceKey(event: Pick<KeyboardEvent, "key" | "code">): boolean {
+  return event.key === "Backspace";
+}
+
 function supportsClipboardApi(): boolean {
   return typeof navigator !== "undefined" && typeof navigator.clipboard?.writeText === "function";
 }
@@ -435,6 +439,64 @@ function moveCaretBelowBlock(target: HTMLElement, editor?: HTMLDivElement | null
   moveCaretToStart(paragraph);
 }
 
+function findAdjacentEditorParagraph(
+  target: Element,
+  direction: "previous" | "next"
+): HTMLParagraphElement | null {
+  let sibling =
+    direction === "previous" ? target.previousElementSibling : target.nextElementSibling;
+
+  while (sibling) {
+    if (sibling instanceof HTMLParagraphElement) {
+      return sibling;
+    }
+
+    sibling =
+      direction === "previous" ? sibling.previousElementSibling : sibling.nextElementSibling;
+  }
+
+  return null;
+}
+
+function removeStructuredBlock(target: HTMLElement, editor: HTMLDivElement) {
+  const nextParagraph = findAdjacentEditorParagraph(target, "next");
+  const previousParagraph = findAdjacentEditorParagraph(target, "previous");
+
+  target.remove();
+
+  const remainingElements = Array.from(editor.children);
+  if (
+    remainingElements.length === 0 ||
+    remainingElements.every((child) => isEmptyEditorParagraph(child))
+  ) {
+    editor.innerHTML = "";
+    editor.focus();
+    moveCaretToStart(editor);
+    return;
+  }
+
+  const fallbackParagraph =
+    nextParagraph ?? previousParagraph ?? createEmptyParagraph(editor.ownerDocument);
+
+  if (!fallbackParagraph.isConnected) {
+    editor.append(fallbackParagraph);
+  }
+
+  editor.focus();
+
+  if (nextParagraph) {
+    moveCaretToStart(nextParagraph);
+    return;
+  }
+
+  if (previousParagraph) {
+    moveCaretToEnd(previousParagraph);
+    return;
+  }
+
+  moveCaretToStart(fallbackParagraph);
+}
+
 function findCurrentParagraph(editor: HTMLDivElement, range: Range): HTMLParagraphElement | null {
   const baseElement =
     range.startContainer instanceof HTMLElement
@@ -472,27 +534,6 @@ function moveCaretToEndOfStructuredBlock(target: HTMLElement) {
   }
 
   moveCaretToEnd(target);
-}
-
-function getStructuredShells(editor: HTMLDivElement): HTMLElement[] {
-  return Array.from(editor.querySelectorAll<HTMLElement>(EDITOR_RICH_SHELL_SELECTOR));
-}
-
-function getStructuredShellIndex(editor: HTMLDivElement, shell: HTMLElement): number {
-  return getStructuredShells(editor).findIndex((candidate) => candidate === shell);
-}
-
-function moveCaretToStructuredBlockByIndex(editor: HTMLDivElement | null, shellIndex: number) {
-  if (!editor || shellIndex < 0) {
-    return;
-  }
-
-  const target = getStructuredShells(editor)[shellIndex];
-  if (!target) {
-    return;
-  }
-
-  moveCaretToEndOfStructuredBlock(target);
 }
 
 function getElementTextContentWithBreaks(element: HTMLElement): string {
@@ -869,9 +910,6 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const resetTimeoutRef = useRef<number | null>(null);
-  const pendingStructuredBlockNavigationRef = useRef<number | null>(null);
-  const pendingStructuredBlockNavigationMoveTimerRef = useRef<number | null>(null);
-  const pendingStructuredBlockNavigationGuardTimerRef = useRef<number | null>(null);
   const latestValueRef = useRef(value);
 
   latestValueRef.current = value;
@@ -892,14 +930,6 @@ export function RichTextEditor({
       if (resetTimeoutRef.current !== null) {
         window.clearTimeout(resetTimeoutRef.current);
       }
-
-      if (pendingStructuredBlockNavigationMoveTimerRef.current !== null) {
-        window.clearTimeout(pendingStructuredBlockNavigationMoveTimerRef.current);
-      }
-
-      if (pendingStructuredBlockNavigationGuardTimerRef.current !== null) {
-        window.clearTimeout(pendingStructuredBlockNavigationGuardTimerRef.current);
-      }
     },
     []
   );
@@ -919,36 +949,6 @@ export function RichTextEditor({
     }
 
     emitValue(serializeEditorRichTextHtml(editorRef.current.innerHTML));
-  };
-
-  const clearPendingStructuredBlockNavigation = () => {
-    pendingStructuredBlockNavigationRef.current = null;
-
-    if (pendingStructuredBlockNavigationMoveTimerRef.current !== null) {
-      window.clearTimeout(pendingStructuredBlockNavigationMoveTimerRef.current);
-      pendingStructuredBlockNavigationMoveTimerRef.current = null;
-    }
-
-    if (pendingStructuredBlockNavigationGuardTimerRef.current !== null) {
-      window.clearTimeout(pendingStructuredBlockNavigationGuardTimerRef.current);
-      pendingStructuredBlockNavigationGuardTimerRef.current = null;
-    }
-  };
-
-  const scheduleStructuredBlockNavigation = (shellIndex: number) => {
-    clearPendingStructuredBlockNavigation();
-    pendingStructuredBlockNavigationRef.current = shellIndex;
-    pendingStructuredBlockNavigationMoveTimerRef.current = window.setTimeout(() => {
-      pendingStructuredBlockNavigationMoveTimerRef.current = null;
-      moveCaretToStructuredBlockByIndex(
-        editorRef.current,
-        pendingStructuredBlockNavigationRef.current ?? -1
-      );
-    }, 0);
-    pendingStructuredBlockNavigationGuardTimerRef.current = window.setTimeout(() => {
-      pendingStructuredBlockNavigationGuardTimerRef.current = null;
-      pendingStructuredBlockNavigationRef.current = null;
-    }, 180);
   };
 
   const runFormattingCommand = (command: string, commandValue?: string) => {
@@ -1049,88 +1049,101 @@ export function RichTextEditor({
     const editor = editorRef.current;
     const target = event.target as HTMLElement | null;
 
-    if (
-      target instanceof HTMLInputElement &&
-      target.dataset.editorTokenInput === "true" &&
-      isEnterKey(event)
-    ) {
-      event.preventDefault();
+    if (!editor) {
+      return;
+    }
+
+    if (target instanceof HTMLInputElement && target.dataset.editorTokenInput === "true") {
       const tokenShell = target.closest(EDITOR_RICH_SHELL_SELECTOR) as HTMLElement | null;
-      if (tokenShell) {
-        moveCaretBelowBlock(tokenShell, editor);
+      if (!tokenShell) {
+        return;
       }
+
+      if (isEnterKey(event)) {
+        event.preventDefault();
+        moveCaretBelowBlock(tokenShell, editor);
+        return;
+      }
+
+      if (isBackspaceKey(event) && target.value.length === 0) {
+        event.preventDefault();
+        removeStructuredBlock(tokenShell, editor);
+        emitCurrentValue();
+      }
+
       return;
     }
 
     const range = getSelectionRange(editor);
-
-    if (!editor || !range || !isEnterKey(event)) {
+    if (!range) {
       return;
     }
 
     const currentParagraph = findCurrentParagraph(editor, range);
     if (
+      isBackspaceKey(event) &&
       currentParagraph &&
       isEmptyEditorParagraph(currentParagraph) &&
       currentParagraph.previousElementSibling?.matches(EDITOR_RICH_SHELL_SELECTOR)
     ) {
       event.preventDefault();
-      const shellIndex = getStructuredShellIndex(
-        editor,
-        currentParagraph.previousElementSibling as HTMLElement
-      );
-
-      scheduleStructuredBlockNavigation(shellIndex);
+      moveCaretToEndOfStructuredBlock(currentParagraph.previousElementSibling as HTMLElement);
       return;
     }
 
     const codeBlock = findContainingStructuredBlock(editor, range, RICH_TEXT_CODE_BLOCK);
     if (codeBlock) {
+      const codeShell = resolveStructuredBlockTarget(codeBlock);
+
+      if (isBackspaceKey(event) && normalizeBlockText(extractNodeText(codeShell)) === "") {
+        event.preventDefault();
+        removeStructuredBlock(codeShell, editor);
+        emitCurrentValue();
+        return;
+      }
+
+      if (!isEnterKey(event)) {
+        return;
+      }
+
       event.preventDefault();
 
       if (event.shiftKey) {
         insertTextAtRange(range, "\n");
         emitCurrentValue();
       } else {
-        moveCaretBelowBlock(resolveStructuredBlockTarget(codeBlock), editor);
+        moveCaretBelowBlock(codeShell, editor);
       }
       return;
     }
 
     const tokenBlock = findContainingStructuredBlock(editor, range, RICH_TEXT_TOKEN_BLOCK);
     if (tokenBlock) {
-      event.preventDefault();
-      moveCaretBelowBlock(resolveStructuredBlockTarget(tokenBlock), editor);
-    }
-  };
+      const tokenShell = resolveStructuredBlockTarget(tokenBlock);
 
-  const handleEditorBeforeInput = (event: FormEvent<HTMLDivElement>) => {
-    if (pendingStructuredBlockNavigationRef.current === null) {
-      return;
-    }
+      if (isBackspaceKey(event) && normalizeBlockText(extractNodeText(tokenShell)) === "") {
+        event.preventDefault();
+        removeStructuredBlock(tokenShell, editor);
+        emitCurrentValue();
+        return;
+      }
 
-    event.preventDefault();
+      if (isEnterKey(event)) {
+        event.preventDefault();
+        moveCaretBelowBlock(tokenShell, editor);
+      }
+    }
   };
 
   const handleEditorInput = (event: FormEvent<HTMLDivElement>) => {
     const currentEditor = event.currentTarget as HTMLDivElement;
     const target = event.target as HTMLElement | null;
-    const pendingShellIndex = pendingStructuredBlockNavigationRef.current;
 
     if (
       target instanceof HTMLInputElement &&
       target.dataset.editorTokenInput === "true"
     ) {
       target.setAttribute("value", target.value);
-    }
-
-    if (pendingShellIndex !== null) {
-      currentEditor.innerHTML = buildEditorRichTextHtml(latestValueRef.current);
-      clearPendingStructuredBlockNavigation();
-      window.setTimeout(() => {
-        moveCaretToStructuredBlockByIndex(editorRef.current, pendingShellIndex);
-      }, 0);
-      return;
     }
 
     emitValue(serializeEditorRichTextHtml(currentEditor.innerHTML));
@@ -1255,7 +1268,6 @@ export function RichTextEditor({
           onMouseDown={handleEditorMouseDown}
           onClick={handleEditorClick}
           onKeyDown={handleEditorKeyDown}
-          onBeforeInput={handleEditorBeforeInput}
           onInput={handleEditorInput}
         />
       </EmojiFieldShell>
