@@ -841,13 +841,9 @@ export async function exchangeAgentApiKeyForAccessToken(input: {
       secretHash: true,
       publicId: true,
       projectId: true,
+      createdByUserId: true,
       expiresAt: true,
       revokedAt: true,
-      project: {
-        select: {
-          ownerId: true,
-        },
-      },
       scopeGrants: {
         orderBy: [{ scope: "asc" }],
         select: {
@@ -879,7 +875,7 @@ export async function exchangeAgentApiKeyForAccessToken(input: {
   const issuedToken = issueAgentAccessToken({
     credentialId: credential.id,
     projectId: credential.projectId,
-    ownerUserId: credential.project.ownerId,
+    ownerUserId: credential.createdByUserId,
     scopes,
   });
 
@@ -894,7 +890,7 @@ export async function exchangeAgentApiKeyForAccessToken(input: {
       data: {
         projectId: credential.projectId,
         credentialId: credential.id,
-        actorUserId: credential.project.ownerId,
+        actorUserId: credential.createdByUserId,
         actorKind: "agent",
         action: "token_exchanged",
         requestId: normalizeTrimmedString(input.requestId ?? null),
