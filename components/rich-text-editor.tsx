@@ -43,6 +43,7 @@ const STRUCTURED_BLOCK_SELECTOR = "[data-rich-block], p, div, h1, h2, blockquote
 const BLOCK_BREAK_TAGS = new Set(["P", "DIV", "H1", "H2", "BLOCKQUOTE", "LI", "PRE"]);
 const EDITOR_RICH_SHELL_TAG = "nd-rich-shell";
 const EDITOR_CARET_ANCHOR = "\u200B";
+const MAX_EDITOR_HISTORY = 100;
 const EDITOR_ACTIONS_SELECTOR = "[data-editor-actions='true']";
 const EDITOR_ACTION_BUTTON_SELECTOR = "button[data-editor-action]";
 const EDITOR_RICH_SHELL_SELECTOR = `${EDITOR_RICH_SHELL_TAG}[data-editor-shell]`;
@@ -66,6 +67,26 @@ const EYE_ICON_SVG =
 const EYE_OFF_ICON_SVG =
   '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M10.58 10.58A3 3 0 0 0 12 15a3 3 0 0 0 2.42-4.42"></path><path d="M16.68 16.67A9.63 9.63 0 0 1 12 18c-4.3 0-8.02-3.33-9.94-7.65a1 1 0 0 1 0-.7 14.9 14.9 0 0 1 5.07-6.08"></path><path d="M14.12 5.11A9.53 9.53 0 0 1 12 5c4.3 0 8.02 3.33 9.94 7.65a1 1 0 0 1 0 .7 14.7 14.7 0 0 1-4.03 5.08"></path><path d="M2 2l20 20"></path></svg>';
 
+type EditorSelectionSnapshot =
+  | {
+      type: "range";
+      startPath: number[];
+      startOffset: number;
+      endPath: number[];
+      endOffset: number;
+    }
+  | {
+      type: "input";
+      path: number[];
+      selectionStart: number;
+      selectionEnd: number;
+    };
+
+type EditorHistorySnapshot = {
+  value: string;
+  selection: EditorSelectionSnapshot | null;
+};
+
 function exec(command: string, value?: string) {
   document.execCommand(command, false, value);
 }
@@ -76,6 +97,28 @@ function isEnterKey(event: Pick<KeyboardEvent, "key" | "code">): boolean {
 
 function isBackspaceKey(event: Pick<KeyboardEvent, "key" | "code">): boolean {
   return event.key === "Backspace";
+}
+
+function isUndoShortcut(
+  event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey">
+): boolean {
+  return (
+    !event.altKey &&
+    !event.shiftKey &&
+    (event.ctrlKey || event.metaKey) &&
+    event.key.toLowerCase() === "z"
+  );
+}
+
+function isRedoShortcut(
+  event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey">
+): boolean {
+  if (event.altKey || !(event.ctrlKey || event.metaKey)) {
+    return false;
+  }
+
+  const normalizedKey = event.key.toLowerCase();
+  return (event.shiftKey && normalizedKey === "z") || (!event.metaKey && !event.shiftKey && normalizedKey === "y");
 }
 
 function supportsClipboardApi(): boolean {
@@ -268,6 +311,159 @@ function moveCaretToEnd(node: Node) {
   range.collapse(false);
   selection.removeAllRanges();
   selection.addRange(range);
+}
+
+function getNodePath(root: Node, target: Node): number[] | null {
+  const path: number[] = [];
+  let currentNode: Node | null = target;
+
+  while (currentNode && currentNode !== root) {
+    const parentNode: Node | null = currentNode.parentNode;
+    if (!parentNode) {
+      return null;
+    }
+
+    let childIndex = -1;
+    for (let index = 0; index < parentNode.childNodes.length; index += 1) {
+      if (parentNode.childNodes[index] === currentNode) {
+        childIndex = index;
+        break;
+      }
+    }
+
+    if (childIndex < 0) {
+      return null;
+    }
+
+    path.unshift(childIndex);
+    currentNode = parentNode;
+  }
+
+  return currentNode === root ? path : null;
+}
+
+function resolveNodePath(root: Node, path: number[]): Node | null {
+  let currentNode: Node | null = root;
+
+  for (const childIndex of path) {
+    currentNode = currentNode.childNodes[childIndex] ?? null;
+    if (!currentNode) {
+      return null;
+    }
+  }
+
+  return currentNode;
+}
+
+function clampOffsetForNode(node: Node, offset: number): number {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return Math.min(offset, node.textContent?.length ?? 0);
+  }
+
+  return Math.min(offset, node.childNodes.length);
+}
+
+function captureEditorSelection(editor: HTMLDivElement): EditorSelectionSnapshot | null {
+  const activeElement = document.activeElement;
+  if (activeElement instanceof HTMLInputElement && editor.contains(activeElement)) {
+    const path = getNodePath(editor, activeElement);
+    if (!path) {
+      return null;
+    }
+
+    const caretOffset = activeElement.value.length;
+    return {
+      type: "input",
+      path,
+      selectionStart: activeElement.selectionStart ?? caretOffset,
+      selectionEnd: activeElement.selectionEnd ?? caretOffset,
+    };
+  }
+
+  const range = getSelectionRange(editor);
+  if (!range) {
+    return null;
+  }
+
+  const startPath = getNodePath(editor, range.startContainer);
+  const endPath = getNodePath(editor, range.endContainer);
+  if (!startPath || !endPath) {
+    return null;
+  }
+
+  return {
+    type: "range",
+    startPath,
+    startOffset: range.startOffset,
+    endPath,
+    endOffset: range.endOffset,
+  };
+}
+
+function restoreEditorSelection(
+  editor: HTMLDivElement,
+  selectionSnapshot: EditorSelectionSnapshot | null
+) {
+  if (selectionSnapshot?.type === "input") {
+    const inputNode = resolveNodePath(editor, selectionSnapshot.path);
+    if (inputNode instanceof HTMLInputElement) {
+      inputNode.focus();
+      const selectionStart = Math.min(selectionSnapshot.selectionStart, inputNode.value.length);
+      const selectionEnd = Math.min(selectionSnapshot.selectionEnd, inputNode.value.length);
+      inputNode.setSelectionRange(selectionStart, selectionEnd);
+      return;
+    }
+  }
+
+  if (selectionSnapshot?.type === "range") {
+    const startNode = resolveNodePath(editor, selectionSnapshot.startPath);
+    const endNode = resolveNodePath(editor, selectionSnapshot.endPath);
+    const selection = window.getSelection();
+
+    if (startNode && endNode && selection) {
+      const range = document.createRange();
+      range.setStart(startNode, clampOffsetForNode(startNode, selectionSnapshot.startOffset));
+      range.setEnd(endNode, clampOffsetForNode(endNode, selectionSnapshot.endOffset));
+
+      editor.focus();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return;
+    }
+  }
+
+  editor.focus();
+
+  if (editor.lastElementChild && isEmptyEditorParagraph(editor.lastElementChild)) {
+    moveCaretToStart(editor.lastElementChild);
+    return;
+  }
+
+  if (editor.lastChild) {
+    moveCaretToEnd(editor.lastChild);
+    return;
+  }
+
+  moveCaretToStart(editor);
+}
+
+function createEditorHistorySnapshot(editor: HTMLDivElement): EditorHistorySnapshot {
+  return {
+    value: serializeEditorRichTextHtml(editor.innerHTML),
+    selection: captureEditorSelection(editor),
+  };
+}
+
+function pushHistorySnapshot(stack: EditorHistorySnapshot[], snapshot: EditorHistorySnapshot) {
+  const lastSnapshot = stack.at(-1);
+  if (lastSnapshot?.value === snapshot.value) {
+    return;
+  }
+
+  stack.push(snapshot);
+  if (stack.length > MAX_EDITOR_HISTORY) {
+    stack.shift();
+  }
 }
 
 function createEmptyParagraph(documentRef: Document): HTMLParagraphElement {
@@ -955,17 +1151,31 @@ export function RichTextEditor({
   const editorRef = useRef<HTMLDivElement>(null);
   const resetTimeoutRef = useRef<number | null>(null);
   const latestValueRef = useRef(value);
-
-  latestValueRef.current = value;
+  const historyRef = useRef<{
+    undo: EditorHistorySnapshot[];
+    redo: EditorHistorySnapshot[];
+  }>({
+    undo: [],
+    redo: [],
+  });
+  const pendingInputSnapshotRef = useRef<EditorHistorySnapshot | null>(null);
 
   useEffect(() => {
     if (!editorRef.current) {
       return;
     }
 
+    const hasExternalValueChange = value !== latestValueRef.current;
     const nextHtml = buildEditorRichTextHtml(value);
     if (serializeEditorRichTextHtml(editorRef.current.innerHTML) !== value) {
       editorRef.current.innerHTML = nextHtml;
+    }
+
+    if (hasExternalValueChange) {
+      latestValueRef.current = value;
+      historyRef.current.undo = [];
+      historyRef.current.redo = [];
+      pendingInputSnapshotRef.current = null;
     }
   }, [value]);
 
@@ -995,21 +1205,76 @@ export function RichTextEditor({
     emitValue(serializeEditorRichTextHtml(editorRef.current.innerHTML));
   };
 
+  const recordHistoryFromSnapshot = (beforeSnapshot: EditorHistorySnapshot | null) => {
+    const editor = editorRef.current;
+    if (!editor || !beforeSnapshot) {
+      return false;
+    }
+
+    const nextValue = serializeEditorRichTextHtml(editor.innerHTML);
+    if (nextValue === beforeSnapshot.value) {
+      return false;
+    }
+
+    pushHistorySnapshot(historyRef.current.undo, beforeSnapshot);
+    historyRef.current.redo = [];
+    return true;
+  };
+
+  const restoreHistorySnapshot = (direction: "undo" | "redo") => {
+    const editor = editorRef.current;
+    if (!editor) {
+      return false;
+    }
+
+    const sourceStack = direction === "undo" ? historyRef.current.undo : historyRef.current.redo;
+    const targetSnapshot = sourceStack.pop();
+    if (!targetSnapshot) {
+      return false;
+    }
+
+    pushHistorySnapshot(
+      direction === "undo" ? historyRef.current.redo : historyRef.current.undo,
+      createEditorHistorySnapshot(editor)
+    );
+
+    pendingInputSnapshotRef.current = null;
+    editor.innerHTML = buildEditorRichTextHtml(targetSnapshot.value);
+    restoreEditorSelection(editor, targetSnapshot.selection);
+    emitValue(targetSnapshot.value);
+    return true;
+  };
+
   const runFormattingCommand = (command: string, commandValue?: string) => {
+    const beforeSnapshot = editorRef.current
+      ? createEditorHistorySnapshot(editorRef.current)
+      : null;
+
     exec(command, commandValue);
+    recordHistoryFromSnapshot(beforeSnapshot);
     emitCurrentValue();
   };
 
   const handleInsertCodeBlock = () => {
+    const beforeSnapshot = editorRef.current
+      ? createEditorHistorySnapshot(editorRef.current)
+      : null;
+
     if (applyStructuredBlock(editorRef.current, RICH_TEXT_CODE_BLOCK, createRichTextCodeBlock)) {
+      recordHistoryFromSnapshot(beforeSnapshot);
       emitCurrentValue();
     }
   };
 
   const handleInsertTokenBlock = () => {
+    const beforeSnapshot = editorRef.current
+      ? createEditorHistorySnapshot(editorRef.current)
+      : null;
+
     if (
       applyStructuredBlock(editorRef.current, RICH_TEXT_TOKEN_BLOCK, createRichTextTokenBlock)
     ) {
+      recordHistoryFromSnapshot(beforeSnapshot);
       emitCurrentValue();
     }
   };
@@ -1097,6 +1362,18 @@ export function RichTextEditor({
       return;
     }
 
+    if (isUndoShortcut(event)) {
+      event.preventDefault();
+      restoreHistorySnapshot("undo");
+      return;
+    }
+
+    if (isRedoShortcut(event)) {
+      event.preventDefault();
+      restoreHistorySnapshot("redo");
+      return;
+    }
+
     if (target instanceof HTMLInputElement && target.dataset.editorTokenInput === "true") {
       const tokenShell = target.closest(EDITOR_RICH_SHELL_SELECTOR) as HTMLElement | null;
       if (!tokenShell) {
@@ -1111,7 +1388,9 @@ export function RichTextEditor({
 
       if (isBackspaceKey(event) && target.value.length === 0) {
         event.preventDefault();
+        const beforeSnapshot = createEditorHistorySnapshot(editor);
         removeStructuredBlock(tokenShell, editor);
+        recordHistoryFromSnapshot(beforeSnapshot);
         emitCurrentValue();
       }
 
@@ -1141,7 +1420,9 @@ export function RichTextEditor({
 
       if (isBackspaceKey(event) && normalizeBlockText(extractNodeText(codeShell)) === "") {
         event.preventDefault();
+        const beforeSnapshot = createEditorHistorySnapshot(editor);
         removeStructuredBlock(codeShell, editor);
+        recordHistoryFromSnapshot(beforeSnapshot);
         emitCurrentValue();
         return;
       }
@@ -1153,7 +1434,9 @@ export function RichTextEditor({
       event.preventDefault();
 
       if (event.shiftKey) {
+        const beforeSnapshot = createEditorHistorySnapshot(editor);
         insertTextAtRange(range, "\n");
+        recordHistoryFromSnapshot(beforeSnapshot);
         emitCurrentValue();
       } else {
         moveCaretBelowBlock(codeShell, editor);
@@ -1167,7 +1450,9 @@ export function RichTextEditor({
 
       if (isBackspaceKey(event) && normalizeBlockText(extractNodeText(tokenShell)) === "") {
         event.preventDefault();
+        const beforeSnapshot = createEditorHistorySnapshot(editor);
         removeStructuredBlock(tokenShell, editor);
+        recordHistoryFromSnapshot(beforeSnapshot);
         emitCurrentValue();
         return;
       }
@@ -1177,6 +1462,14 @@ export function RichTextEditor({
         moveCaretBelowBlock(tokenShell, editor);
       }
     }
+  };
+
+  const handleEditorBeforeInput = () => {
+    if (!editorRef.current) {
+      return;
+    }
+
+    pendingInputSnapshotRef.current = createEditorHistorySnapshot(editorRef.current);
   };
 
   const handleEditorInput = (event: FormEvent<HTMLDivElement>) => {
@@ -1190,7 +1483,21 @@ export function RichTextEditor({
       target.setAttribute("value", target.value);
     }
 
-    emitValue(serializeEditorRichTextHtml(currentEditor.innerHTML));
+    const nextValue = serializeEditorRichTextHtml(currentEditor.innerHTML);
+    if (nextValue === latestValueRef.current) {
+      pendingInputSnapshotRef.current = null;
+      return;
+    }
+
+    const beforeSnapshot =
+      pendingInputSnapshotRef.current ?? {
+        value: latestValueRef.current,
+        selection: null,
+      };
+
+    pendingInputSnapshotRef.current = null;
+    recordHistoryFromSnapshot(beforeSnapshot);
+    emitValue(nextValue);
   };
 
   return (
@@ -1312,6 +1619,7 @@ export function RichTextEditor({
           onMouseDown={handleEditorMouseDown}
           onClick={handleEditorClick}
           onKeyDown={handleEditorKeyDown}
+          onBeforeInput={handleEditorBeforeInput}
           onInput={handleEditorInput}
         />
       </EmojiFieldShell>

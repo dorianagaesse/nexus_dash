@@ -120,6 +120,18 @@ function dispatchKeyDown(
   };
 }
 
+function dispatchBeforeInput(target: EventTarget | null | undefined) {
+  const event = new Event("beforeinput", {
+    bubbles: true,
+    cancelable: true,
+  });
+
+  return {
+    event,
+    notCancelled: target?.dispatchEvent(event) ?? false,
+  };
+}
+
 async function expectEnterBelowBlockToStayBelow(
   initialValue: string,
   expectedActionSelector: string
@@ -360,6 +372,101 @@ describe("rich-text-editor", () => {
     expect(serializedValue).toContain("<div>text2</div>");
     expect(serializedValue).toContain("<div>text3</div>");
     expect(serializedValue).not.toContain('<code>text1text2</code>');
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("undoes a code block transform with Ctrl+Z", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, { initialValue: "<p>text1</p><p>text2</p>" })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const firstLineTextNode = editor?.querySelector("p")?.firstChild;
+    const codeButton = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Code")
+    );
+
+    expect(editor).not.toBeNull();
+    expect(firstLineTextNode).not.toBeNull();
+    expect(codeButton).not.toBeNull();
+
+    selectTextPosition(firstLineTextNode as Node, "text1".length);
+
+    await act(async () => {
+      codeButton?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      codeButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(container.querySelector("output[data-testid='value']")?.textContent).toContain(
+      '<pre data-rich-block="code"><code>text1</code></pre>'
+    );
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "z", ctrlKey: true });
+    });
+
+    const serializedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+    expect(serializedValue).toBe("<p>text1</p><p>text2</p>");
+    expect(
+      container.querySelector(`${EDITOR_RICH_SHELL_SELECTOR} pre[data-rich-block="code"]`)
+    ).toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("undoes token input edits with Ctrl+Z", async () => {
+    const initialValue = createRichTextTokenBlock("secret-token") ?? "";
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const tokenInput = container.querySelector(
+      'input[data-editor-token-input="true"]'
+    ) as HTMLInputElement | null;
+
+    expect(tokenInput).not.toBeNull();
+
+    await act(async () => {
+      tokenInput?.focus();
+      tokenInput?.setSelectionRange(tokenInput.value.length, tokenInput.value.length);
+      dispatchBeforeInput(tokenInput);
+
+      if (tokenInput) {
+        tokenInput.value = "secret-token-updated";
+        tokenInput.setAttribute("value", tokenInput.value);
+        tokenInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    });
+
+    expect(container.querySelector("output[data-testid='value']")?.textContent).toContain(
+      '<div data-rich-block="token"><code>secret-token-updated</code></div>'
+    );
+
+    await act(async () => {
+      dispatchKeyDown(tokenInput, { key: "z", ctrlKey: true });
+    });
+
+    const serializedValue = container.querySelector("output[data-testid='value']")?.textContent;
+    const restoredTokenInput = container.querySelector(
+      'input[data-editor-token-input="true"]'
+    ) as HTMLInputElement | null;
+
+    expect(serializedValue).toContain('<div data-rich-block="token"><code>secret-token</code></div>');
+    expect(restoredTokenInput?.value).toBe("secret-token");
 
     await act(async () => {
       root.unmount();
