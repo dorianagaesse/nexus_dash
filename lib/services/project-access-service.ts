@@ -1,5 +1,6 @@
 import { ProjectMembershipRole } from "@prisma/client";
 
+import { hasAgentScopes, type AgentScope } from "@/lib/agent-access";
 import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/services/rls-context";
 
@@ -17,6 +18,18 @@ interface ProjectAccessSuccess {
 }
 
 type ProjectAccessResult = ProjectAccessError | ProjectAccessSuccess;
+
+interface AgentProjectScopeAccessSuccess {
+  ok: true;
+}
+
+type AgentProjectScopeAccessResult = ProjectAccessError | AgentProjectScopeAccessSuccess;
+
+export interface AgentProjectAccessContext {
+  credentialId: string;
+  projectId: string;
+  scopes: AgentScope[];
+}
 
 const PROJECT_ROLE_PRIORITY: Record<ProjectMembershipRole, number> = {
   viewer: 1,
@@ -109,4 +122,24 @@ export async function requireProjectRole(input: {
   }
 
   return access;
+}
+
+export function requireAgentProjectScopes(input: {
+  agentAccess?: AgentProjectAccessContext | null;
+  projectId: string;
+  requiredScopes: AgentScope[];
+}): AgentProjectScopeAccessResult {
+  if (!input.agentAccess) {
+    return { ok: true };
+  }
+
+  if (input.agentAccess.projectId !== input.projectId) {
+    return { ok: false, status: 404, error: "project-not-found" };
+  }
+
+  if (!hasAgentScopes(input.agentAccess.scopes, input.requiredScopes)) {
+    return { ok: false, status: 403, error: "forbidden" };
+  }
+
+  return { ok: true };
 }

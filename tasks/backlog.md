@@ -4,16 +4,16 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-059
+  Title: Agent access implementation - scoped API tokens, rotation, and audit trail
+  Status: In progress
+  Rationale: Implement owner-managed, project-scoped agent credentials with short-lived bearer-token exchange, explicit service-level scope enforcement, and request/audit visibility so automation can operate safely without borrowing browser sessions.
+  Dependencies: TASK-046, TASK-076
 - ID: TASK-111
   Title: Context card presentation refinement - adaptive card sizing and rich-content support
   Status: Pending
   Rationale: Context cards currently behave like plain-text tiles with one-size-fits-all layout pressure; refine card sizing behavior and upgrade context-card authoring/rendering so richer project notes fit naturally without wasting vertical space or forcing users into awkwardly dense previews.
   Dependencies: TASK-004, TASK-094, TASK-096
-- ID: TASK-059
-  Title: Agent access implementation - scoped API tokens, rotation, and audit trail
-  Status: Pending
-  Rationale: Enable secure non-human access via revocable JWT-style scoped tokens/service principals so agents can operate on authorized projects without sharing user sessions.
-  Dependencies: TASK-046, TASK-076
 - ID: TASK-048
   Title: Authentication implementation phase 4 - auth tests and hardening
   Status: Pending

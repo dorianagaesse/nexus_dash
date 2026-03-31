@@ -20,6 +20,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public
       DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public
+      AGENT_TOKEN_SIGNING_SECRET: ci-placeholder-agent-token-signing-secret-0123456789
       RESEND_API_KEY: ci-placeholder-resend-key
 
     steps:
@@ -74,6 +75,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public
       DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public
+      AGENT_TOKEN_SIGNING_SECRET: ci-placeholder-agent-token-signing-secret-0123456789
       NODE_ENV: test
       RESEND_API_KEY: ci-placeholder-resend-key
 

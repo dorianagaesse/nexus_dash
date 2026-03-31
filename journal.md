@@ -12,6 +12,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-03-31
+- Type: Blocker
+- Summary: TASK-059 Playwright end-to-end validation is still blocked in this environment because the local PostgreSQL service required by the test fixtures is unreachable at the configured loopback address.
+- Evidence: `$env:DATABASE_URL='postgresql://user:pass@127.0.0.1:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run test:e2e` rebuilt successfully, then all 6 Playwright specs failed with `PrismaClientInitializationError: Can't reach database server at 127.0.0.1:5432` from `tests/e2e/password-recovery.spec.ts` and `tests/e2e/helpers/auth-helpers.ts`.
+
+### 2026-03-31
+- Type: Validation
+- Summary: TASK-059 local validation baseline passed for lint, unit tests, coverage, and production build after adding the agent-token signing configuration and using safe env overrides for deploy-sensitive settings.
+- Evidence: `npm run lint`; `npm test`; `npm run test:coverage`; `$env:DATABASE_URL='postgresql://user:pass@localhost:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run build`.
+
+### 2026-03-31
+- Type: Execution
+- Summary: TASK-059 agent access v1 was implemented end-to-end with owner-managed project credentials, short-lived bearer-token exchange, scoped API authorization, audit logging, owner UI controls, workflow/env wiring, and task-aligned regression coverage.
+- Evidence: Added agent auth persistence in `prisma/schema.prisma` and `prisma/migrations/20260331153000_task059_agent_access_v1/migration.sql`; added token exchange and project agent-access routes in `app/api/auth/agent/token/route.ts` and `app/api/projects/[projectId]/agent-access/**`; extended bearer-aware guards and scoped service enforcement in `lib/auth/api-guard.ts`, `lib/auth/agent-token-service.ts`, `lib/services/project-agent-access-service.ts`, `lib/services/project-access-service.ts`, `lib/services/project-task-service.ts`, `lib/services/context-card-service.ts`, and `lib/services/project-service.ts`; shipped owner controls in `components/project-dashboard/project-dashboard-owner-actions.tsx` and `components/project-dashboard/project-dashboard-owner-agent-access-panel.tsx`; updated workflow/env/docs coverage in `.github/workflows/quality-gates.yml`, `.github/workflows/deploy-vercel.yml`, `.env.example`, `README.md`, `project.md`, `adr/decisions.md`, `tasks/backlog.md`, and `tasks/current.md`; added regressions in `tests/api/agent-token.route.test.ts`, `tests/api/project-agent-access.route.test.ts`, `tests/api/agent-project-routes.test.ts`, `tests/lib/agent-token-service.test.ts`, `tests/lib/project-access-service.test.ts`, and `tests/components/project-dashboard-owner-agent-access-panel.test.tsx`.
+
 ### 2026-03-27
 - Type: Validation
 - Summary: TASK-112 local validation baseline passed for the attachment-link interaction polish after updating the smoke flow to exercise Enter-to-add with the new add affordance.

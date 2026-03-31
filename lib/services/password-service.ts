@@ -85,9 +85,9 @@ function parseHash(value: string): {
   };
 }
 
-export async function hashPassword(password: string): Promise<string> {
+async function hashValue(value: string): Promise<string> {
   const salt = crypto.randomBytes(SCRYPT_SALT_BYTES);
-  const derived = await deriveScryptKey(password, salt, SCRYPT_KEY_LENGTH, {
+  const derived = await deriveScryptKey(value, salt, SCRYPT_KEY_LENGTH, {
     N: SCRYPT_COST,
     r: SCRYPT_BLOCK_SIZE,
     p: SCRYPT_PARALLELIZATION,
@@ -104,16 +104,13 @@ export async function hashPassword(password: string): Promise<string> {
   ].join("$");
 }
 
-export async function verifyPassword(
-  password: string,
-  passwordHash: string
-): Promise<boolean> {
-  const parsed = parseHash(passwordHash);
+async function verifyValue(value: string, valueHash: string): Promise<boolean> {
+  const parsed = parseHash(valueHash);
   if (!parsed || parsed.version !== PASSWORD_HASH_VERSION) {
     return false;
   }
 
-  const derived = await deriveScryptKey(password, parsed.salt, parsed.digest.length, {
+  const derived = await deriveScryptKey(value, parsed.salt, parsed.digest.length, {
     N: parsed.cost,
     r: parsed.blockSize,
     p: parsed.parallelization,
@@ -125,4 +122,23 @@ export async function verifyPassword(
   }
 
   return crypto.timingSafeEqual(derived, parsed.digest);
+}
+
+export async function hashPassword(password: string): Promise<string> {
+  return hashValue(password);
+}
+
+export async function verifyPassword(
+  password: string,
+  passwordHash: string
+): Promise<boolean> {
+  return verifyValue(password, passwordHash);
+}
+
+export async function hashSecret(secret: string): Promise<string> {
+  return hashValue(secret);
+}
+
+export async function verifySecret(secret: string, secretHash: string): Promise<boolean> {
+  return verifyValue(secret, secretHash);
 }

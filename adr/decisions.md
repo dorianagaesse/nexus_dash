@@ -16,6 +16,13 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-03-31 - Ship agent access v1 as project-scoped API credentials exchanged into short-lived bearer tokens
+- Status: Accepted
+- Context: TASK-059 needs safe non-human access without reusing browser sessions, while preserving the current human session model, RLS visibility boundary, and project-scoped authorization guarantees.
+- Decision: Store owner-managed API credentials per project with explicit scope grants, show the raw key only once, hash secrets at rest, exchange raw keys at a dedicated auth endpoint for short-lived signed bearer tokens, and enforce agent scope/project checks explicitly in project/task/context services and routes while resolving DB visibility through the credential owner's RLS subject.
+- Consequences: Agent automation now has a safe first-class path with rotation, revocation, and auditability, but v1 intentionally excludes calendar delegation and binary attachment parity until ownership semantics for those assets are designed explicitly.
+- Links: `tasks/task-059-agent-access-implementation.md`, `lib/auth/api-guard.ts`, `lib/auth/agent-token-service.ts`, `lib/services/project-agent-access-service.ts`, `prisma/migrations/20260331153000_task059_agent_access_v1/migration.sql`
+
 ## 2026-03-24 - Bind collaboration invites to verified email identity and use copyable links as delivery only
 - Status: Accepted
 - Context: TASK-103 extends project sharing beyond existing verified users, but the v1 verified-account authorization model should remain intact and invite links must not become anonymous claim tokens.

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
+import {
+  getAgentProjectAccessContext,
+  requireApiPrincipal,
+} from "@/lib/auth/api-guard";
 import {
   archiveTaskForProject,
   unarchiveTaskForProject,
@@ -10,17 +13,23 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { projectId: string; taskId: string } }
 ) {
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
-  if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+  const principalResult = await requireApiPrincipal(request);
+  if (!principalResult.ok) {
+    return principalResult.response;
   }
+  const agentAccess = getAgentProjectAccessContext(principalResult.principal);
 
   const { projectId, taskId } = params;
   if (!projectId || !taskId) {
     return NextResponse.json({ error: "Missing route parameters" }, { status: 400 });
   }
 
-  const result = await archiveTaskForProject(projectId, taskId, authenticatedUser.userId);
+  const result = await archiveTaskForProject(
+    projectId,
+    taskId,
+    principalResult.principal.actorUserId,
+    agentAccess
+  );
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
@@ -35,17 +44,23 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { projectId: string; taskId: string } }
 ) {
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
-  if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+  const principalResult = await requireApiPrincipal(request);
+  if (!principalResult.ok) {
+    return principalResult.response;
   }
+  const agentAccess = getAgentProjectAccessContext(principalResult.principal);
 
   const { projectId, taskId } = params;
   if (!projectId || !taskId) {
     return NextResponse.json({ error: "Missing route parameters" }, { status: 400 });
   }
 
-  const result = await unarchiveTaskForProject(projectId, taskId, authenticatedUser.userId);
+  const result = await unarchiveTaskForProject(
+    projectId,
+    taskId,
+    principalResult.principal.actorUserId,
+    agentAccess
+  );
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }

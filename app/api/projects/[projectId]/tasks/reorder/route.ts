@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
+import {
+  getAgentProjectAccessContext,
+  requireApiPrincipal,
+} from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import {
   isValidReorderPayload,
@@ -11,11 +14,12 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
-  if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+  const principalResult = await requireApiPrincipal(request);
+  if (!principalResult.ok) {
+    return principalResult.response;
   }
-  const actorUserId = authenticatedUser.userId;
+  const actorUserId = principalResult.principal.actorUserId;
+  const agentAccess = getAgentProjectAccessContext(principalResult.principal);
   const projectId = params.projectId;
 
   if (!projectId) {
@@ -39,7 +43,12 @@ export async function POST(
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const result = await reorderProjectTasks(projectId, body, actorUserId);
+  const result = await reorderProjectTasks(
+    projectId,
+    body,
+    actorUserId,
+    agentAccess
+  );
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }

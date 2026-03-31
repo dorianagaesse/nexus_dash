@@ -19,7 +19,11 @@ import {
 } from "@/lib/services/attachment-input-service";
 import { logServerError } from "@/lib/observability/logger";
 import { createTaskAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
-import { requireProjectRole } from "@/lib/services/project-access-service";
+import {
+  requireAgentProjectScopes,
+  requireProjectRole,
+  type AgentProjectAccessContext,
+} from "@/lib/services/project-access-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 
 const MIN_TITLE_LENGTH = 2;
@@ -64,6 +68,7 @@ interface CreateTaskForProjectInput {
   relatedTaskIdsJsonRaw: string;
   attachmentLinksJsonRaw: string;
   attachmentFiles: File[];
+  agentAccess?: AgentProjectAccessContext;
 }
 
 interface UpdatedTaskPayload {
@@ -287,6 +292,14 @@ export async function createTaskForProject(
   const serializedLabels = serializeTaskLabels(labels);
   const description = sanitizeRichText(normalizeText(input.description));
   const status = TASK_STATUSES[0];
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["task:write"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
+  }
 
   let createdTaskId: string | null = null;
 
@@ -384,7 +397,8 @@ export async function createTaskForProject(
 export async function reorderProjectTasks(
   projectId: string,
   payload: ReorderPayload,
-  actorUserId: string
+  actorUserId: string,
+  agentAccess?: AgentProjectAccessContext
 ): Promise<ServiceResult<{ ok: true }>> {
   const normalizedActorUserId = normalizeText(actorUserId);
   if (!normalizedActorUserId) {
@@ -400,6 +414,14 @@ export async function reorderProjectTasks(
   });
 
   const taskIds = normalizedColumns.flatMap((column) => column.taskIds);
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess,
+    projectId,
+    requiredScopes: ["task:write"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
+  }
 
   if (taskIds.length === 0) {
     return {
@@ -481,7 +503,8 @@ export async function updateTaskForProject(
   projectId: string,
   taskId: string,
   payload: UpdateTaskPayload,
-  actorUserId: string
+  actorUserId: string,
+  agentAccess?: AgentProjectAccessContext
 ): Promise<ServiceResult<{ task: UpdatedTaskPayload }>> {
   const normalizedActorUserId = normalizeText(actorUserId);
   if (!normalizedActorUserId) {
@@ -499,6 +522,14 @@ export async function updateTaskForProject(
   const description = sanitizeRichText(normalizeText(payload.description));
   const blockedFollowUpEntry = normalizeText(payload.blockedFollowUpEntry);
   const relatedTaskIds = normalizeRelatedTaskIds(payload.relatedTaskIds ?? []);
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess,
+    projectId,
+    requiredScopes: ["task:write"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
+  }
 
   if (title.length < MIN_TITLE_LENGTH) {
     return createError(400, "Task title must be at least 2 characters");
@@ -653,11 +684,21 @@ export async function updateTaskForProject(
 export async function archiveTaskForProject(
   projectId: string,
   taskId: string,
-  actorUserId: string
+  actorUserId: string,
+  agentAccess?: AgentProjectAccessContext
 ): Promise<ServiceResult<{ archivedAt: Date }>> {
   const normalizedActorUserId = normalizeText(actorUserId);
   if (!normalizedActorUserId) {
     return createError(401, "unauthorized");
+  }
+
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess,
+    projectId,
+    requiredScopes: ["task:write"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
   }
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
@@ -737,11 +778,21 @@ export async function archiveTaskForProject(
 export async function unarchiveTaskForProject(
   projectId: string,
   taskId: string,
-  actorUserId: string
+  actorUserId: string,
+  agentAccess?: AgentProjectAccessContext
 ): Promise<ServiceResult<{ ok: true }>> {
   const normalizedActorUserId = normalizeText(actorUserId);
   if (!normalizedActorUserId) {
     return createError(401, "unauthorized");
+  }
+
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess,
+    projectId,
+    requiredScopes: ["task:write"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
   }
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
@@ -809,11 +860,21 @@ export async function unarchiveTaskForProject(
 export async function deleteTaskForProject(
   projectId: string,
   taskId: string,
-  actorUserId: string
+  actorUserId: string,
+  agentAccess?: AgentProjectAccessContext
 ): Promise<ServiceResult<{ ok: true }>> {
   const normalizedActorUserId = normalizeText(actorUserId);
   if (!normalizedActorUserId) {
     return createError(401, "unauthorized");
+  }
+
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess,
+    projectId,
+    requiredScopes: ["task:delete"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
   }
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {

@@ -1,37 +1,40 @@
-# Current Task: TASK-111 Context Card Presentation Refinement - Fixed-Size Cards and Rich-Content Support
+# Current Task: TASK-059 Agent Access Implementation - Scoped API Tokens, Rotation, and Audit Trail
 
-Dedicated task brief: [`tasks/task-111-context-card-presentation-refinement.md`](./task-111-context-card-presentation-refinement.md)
+Dedicated task brief: [`tasks/task-059-agent-access-implementation.md`](./task-059-agent-access-implementation.md)
 
 ## Task ID
-TASK-111
+TASK-059
 
 ## Status
 In progress
 
 ## Objective
-Make project context cards easier to scan by keeping them at a fixed visual size while upgrading context-card content to the same sanitized rich-text model used by task descriptions.
+Enable secure non-human access through owner-managed, project-scoped API credentials that exchange into short-lived bearer tokens, enforce explicit scopes in the service layer, and leave an auditable trail for issuance, use, rotation, and revocation.
 
 ## Why Now
-- Context cards are currently the noisiest dashboard surface when a note gets long, so fixed-size cards are the quickest way to recover overview readability.
-- The task-description stack already has rich-text authoring and sanitization patterns we can reuse safely here.
-- Shipping this before `TASK-113` gives later content-polish work a stronger context-card foundation.
+- Agent access is the next major auth boundary after the human session, sharing, and RLS foundation landed.
+- The project already has the right primitives in place: verified human sessions, project-role authorization, request IDs, and service-layer ownership of persistence.
+- Deferring this further would keep automation use cases blocked while leaving the auth roadmap half-finished.
 
 ## Scope Snapshot
-- Replace plain-text context-card content entry with rich-text authoring aligned to the existing task-description experience.
-- Sanitize and persist rich content safely for create/edit flows.
-- Render rich content consistently in fixed-size context cards and in the preview modal without letting long notes take over the grid.
-- Preserve existing context-card attachments, color treatment, and edit/delete flows.
+- Add Prisma persistence for API credentials, scope grants, and auth audit events.
+- Add owner-only create, rotate, revoke, and list flows in the project settings surface.
+- Add API-key exchange into short-lived signed bearer tokens.
+- Support bearer-token access on the project, task, and context APIs in scope for v1.
+- Record lifecycle and usage audit events with request metadata.
 
 ## Acceptance Snapshot
-- Context-card content supports sanitized rich text instead of plain text only.
-- Grid cards keep a fixed visual footprint and show a clipped but readable preview for longer notes.
-- Preview modal renders the saved rich content correctly.
-- Existing context-card create/edit/delete and attachment behavior remains intact.
+- Project owners can create labeled, project-scoped agent credentials with explicit scopes.
+- Raw API keys are shown once only and are never stored in plaintext.
+- Revoked, expired, or rotated-out credentials cannot exchange for new bearer tokens.
+- Supported project/task/context routes enforce project and scope boundaries correctly for agent callers.
+- Calendar routes and binary attachment parity remain out of scope for agent v1.
 
 ## Notes
-- Full task brief, touch points, and validation expectations live in [`tasks/task-111-context-card-presentation-refinement.md`](./task-111-context-card-presentation-refinement.md).
+- The dedicated task brief remains the detailed implementation contract and should stay in sync with the code on this branch.
+- Tracking docs, validation evidence, PR state, Copilot review handling, and preview deployment evidence must be updated in the same branch before handoff.
 
 ---
 
-Last Updated: 2026-03-27
+Last Updated: 2026-03-31
 Assigned To: User + Agent

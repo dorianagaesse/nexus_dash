@@ -1,6 +1,6 @@
 # NexusDash Project Blueprint (Current State)
 
-Last verified: 2026-03-27
+Last verified: 2026-03-31
 
 ## 1. Vision
 
@@ -17,6 +17,11 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
   - Context cards (create/edit/delete + attachments)
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`) with reorder and task detail modal
   - Google Calendar panel (read/create/update/delete events when connected)
+- Project-scoped agent access:
+  - owner-managed API credentials in project settings
+  - one-time raw API key reveal with rotate/revoke lifecycle
+  - short-lived bearer token exchange for supported project/task/context APIs
+  - audit trail for credential lifecycle and request use
 - Attachment system for tasks and context cards:
   - Link + file attachments
   - Local storage provider and Cloudflare R2 provider
@@ -33,7 +38,8 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
 - UI: Tailwind CSS + Shadcn UI + Lucide + `@hello-pangea/dnd`
 - Data: Prisma 5 + PostgreSQL
 - Auth model (current):
-  - Credentials onboarding + DB sessions
+  - Credentials onboarding + DB sessions for humans
+  - Project-scoped agent API credentials exchanged into short-lived signed bearer tokens
   - Google OAuth used for Calendar integration (user-scoped credentials)
 - Storage: `StorageProvider` abstraction (`local` or `r2`)
 - Testing: Vitest + Playwright
@@ -45,6 +51,7 @@ Current schema includes:
 
 - Auth/session: `User`, `Account`, `Session`, `VerificationToken`
 - Authorization boundaries: `Project.ownerId`, `ProjectMembership` (`owner|editor|viewer`)
+- Agent auth: `ApiCredential`, `ApiCredentialScopeGrant`, `AuthAuditEvent`
 - Domain: `Project`, `Task`, `Resource` (context cards), `TaskBlockedFollowUp`
 - Attachments: `TaskAttachment`, `ResourceAttachment` with `uploadedByUserId`
 - Calendar: `GoogleCalendarCredential` (one row per user)
@@ -67,7 +74,7 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 ## 6. Known Gaps (Intentionally Pending)
 
-- Agent/API scoped token model is not implemented yet.
+- Agent v1 intentionally excludes calendar access and binary attachment upload/download parity.
 - App-managed invite email delivery is not implemented yet.
 - Broader security hardening and verification phases remain pending.
 

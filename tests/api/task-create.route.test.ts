@@ -1,7 +1,17 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+const apiGuardMock = vi.hoisted(() => ({
+  getAgentProjectAccessContext: vi.fn(),
+  requireApiPrincipal: vi.fn(),
+}));
+
 const projectTaskServiceMock = vi.hoisted(() => ({
   createTaskForProject: vi.fn(),
+}));
+
+vi.mock("@/lib/auth/api-guard", () => ({
+  getAgentProjectAccessContext: apiGuardMock.getAgentProjectAccessContext,
+  requireApiPrincipal: apiGuardMock.requireApiPrincipal,
 }));
 
 vi.mock("@/lib/services/project-task-service", () => ({
@@ -17,6 +27,15 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
 describe("POST /api/projects/:projectId/tasks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    apiGuardMock.requireApiPrincipal.mockResolvedValue({
+      ok: true,
+      principal: {
+        kind: "human",
+        actorUserId: "test-user",
+        requestId: "request-1",
+      },
+    });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValue(undefined);
   });
 
   test("returns 400 when project id is missing", async () => {
@@ -78,6 +97,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
     expect(call.attachmentLinksJsonRaw).toBe(
       '[{"name":"Docs","url":"https://example.com"}]'
     );
+    expect(call.agentAccess).toBeUndefined();
     expect(Array.isArray(call.attachmentFiles)).toBe(true);
     expect(call.attachmentFiles).toHaveLength(1);
   });
@@ -105,5 +125,48 @@ describe("POST /api/projects/:projectId/tasks", () => {
     await expect(readJson(response)).resolves.toEqual({
       error: "title-too-short",
     });
+  });
+
+  test("rejects file attachments for agent callers", async () => {
+    apiGuardMock.requireApiPrincipal.mockResolvedValueOnce({
+      ok: true,
+      principal: {
+        kind: "agent",
+        actorUserId: "owner-1",
+        ownerUserId: "owner-1",
+        credentialId: "credential-1",
+        projectId: "p1",
+        scopes: ["task:write"],
+        tokenId: "token-1",
+        requestId: "request-1",
+      },
+    });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValueOnce({
+      credentialId: "credential-1",
+      projectId: "p1",
+      scopes: ["task:write"],
+    });
+
+    const formData = new FormData();
+    formData.set("title", "Agent Task");
+    formData.append(
+      "attachmentFiles",
+      new File(["hello"], "note.txt", { type: "text/plain" })
+    );
+
+    const request = new Request("http://localhost/api/projects/p1/tasks", {
+      method: "POST",
+      body: formData,
+    });
+
+    const response = await POST(request as never, {
+      params: { projectId: "p1" },
+    });
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "agent-file-attachments-not-supported",
+    });
+    expect(projectTaskServiceMock.createTaskForProject).not.toHaveBeenCalled();
   });
 });

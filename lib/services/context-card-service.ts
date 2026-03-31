@@ -10,7 +10,11 @@ import {
 import { logServerError } from "@/lib/observability/logger";
 import { coerceRichTextHtml, richTextToPlainText } from "@/lib/rich-text";
 import { createContextAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
-import { requireProjectRole } from "@/lib/services/project-access-service";
+import {
+  requireAgentProjectScopes,
+  requireProjectRole,
+  type AgentProjectAccessContext,
+} from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
 
 const MIN_TITLE_LENGTH = 2;
@@ -38,6 +42,7 @@ interface CreateContextCardInput {
   color: string;
   attachmentLinksJsonRaw: string;
   attachmentFiles: File[];
+  agentAccess?: AgentProjectAccessContext;
 }
 
 interface UpdateContextCardInput {
@@ -47,12 +52,14 @@ interface UpdateContextCardInput {
   title: string;
   content: string;
   color: string;
+  agentAccess?: AgentProjectAccessContext;
 }
 
 interface DeleteContextCardInput {
   actorUserId: string;
   projectId: string;
   cardId: string;
+  agentAccess?: AgentProjectAccessContext;
 }
 
 interface ContextCardAttachmentRecord {
@@ -146,6 +153,15 @@ export async function createContextCardForProject(
   const attachmentFileError = validateAttachmentFiles(input.attachmentFiles);
   if (attachmentFileError) {
     return createError(400, attachmentFileError);
+  }
+
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["context:write"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
   }
 
   let createdCardId: string | null = null;
@@ -265,6 +281,15 @@ export async function updateContextCardForProject(
     return createError(400, "context-color-invalid");
   }
 
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["context:write"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
+  }
+
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
@@ -322,6 +347,15 @@ export async function deleteContextCardForProject(
 
   if (!cardId) {
     return createError(400, "context-card-missing");
+  }
+
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["context:delete"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
   }
 
   return withActorRlsContext(actorUserId, async (db) => {

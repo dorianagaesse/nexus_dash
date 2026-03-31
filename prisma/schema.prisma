@@ -31,6 +31,9 @@ model User {
   googleCalendarCredential   GoogleCalendarCredential?
   emailVerificationTokens    EmailVerificationToken[]
   passwordResetTokens        PasswordResetToken[]
+  createdApiCredentials      ApiCredential[]           @relation("ApiCredentialCreatedBy")
+  revokedApiCredentials      ApiCredential[]           @relation("ApiCredentialRevokedBy")
+  authAuditEvents            AuthAuditEvent[]          @relation("AuthAuditEventActorUser")
 
   @@unique([username, usernameDiscriminator])
   @@index([username])
@@ -138,6 +141,8 @@ model Project {
   memberships   ProjectMembership[]
   invitations   ProjectInvitation[]
   taskRelations TaskRelation[]
+  apiCredentials ApiCredential[]
+  authAuditEvents AuthAuditEvent[]
 
   @@index([ownerId])
 }
@@ -293,4 +298,87 @@ model GoogleCalendarCredential {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([providerAccountId])
+}
+
+enum ApiCredentialScope {
+  project_read
+  task_read
+  task_write
+  task_delete
+  context_read
+  context_write
+  context_delete
+}
+
+enum AuthAuditActorKind {
+  human
+  agent
+}
+
+enum AuthAuditAction {
+  credential_created
+  credential_rotated
+  credential_revoked
+  token_exchanged
+  request_used
+}
+
+model ApiCredential {
+  id              String   @id @default(cuid())
+  projectId       String
+  createdByUserId String
+  revokedByUserId String?
+  label           String   @db.VarChar(80)
+  publicId        String   @unique @db.VarChar(64)
+  secretHash      String
+  expiresAt       DateTime?
+  lastUsedAt      DateTime?
+  lastExchangedAt DateTime?
+  lastRotatedAt   DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project       Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdByUser User                      @relation("ApiCredentialCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  revokedByUser User?                     @relation("ApiCredentialRevokedBy", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+  scopeGrants   ApiCredentialScopeGrant[]
+  auditEvents   AuthAuditEvent[]
+
+  @@index([projectId])
+  @@index([createdByUserId])
+  @@index([revokedByUserId])
+}
+
+model ApiCredentialScopeGrant {
+  credentialId String
+  scope        ApiCredentialScope
+  createdAt    DateTime           @default(now())
+
+  credential ApiCredential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  @@id([credentialId, scope])
+  @@index([scope])
+}
+
+model AuthAuditEvent {
+  id           String            @id @default(cuid())
+  projectId    String
+  credentialId String?
+  actorUserId  String?
+  actorKind    AuthAuditActorKind
+  action       AuthAuditAction
+  requestId    String?           @db.VarChar(128)
+  ipAddress    String?           @db.VarChar(64)
+  userAgent    String?           @db.VarChar(512)
+  metadata     Json?
+  createdAt    DateTime          @default(now())
+
+  project    Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  credential ApiCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+  actorUser  User?         @relation("AuthAuditEventActorUser", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([credentialId, createdAt])
+  @@index([actorUserId, createdAt])
 }

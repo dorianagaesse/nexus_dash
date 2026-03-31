@@ -16,6 +16,14 @@ environments for NexusDash.
 - `GOOGLE_REDIRECT_URI`
 - `GOOGLE_TOKEN_ENCRYPTION_KEY`
 
+## Required Variables (Agent access path)
+
+- `AGENT_TOKEN_SIGNING_SECRET`
+
+Optional but bounded:
+
+- `AGENT_ACCESS_TOKEN_TTL_SECONDS` (`300-900`, default `600`)
+
 If Google OAuth is enabled:
 
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` must
@@ -29,6 +37,7 @@ Set as sensitive in Vercel (Preview + Production):
 
 - `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_TOKEN_ENCRYPTION_KEY`
+- `AGENT_TOKEN_SIGNING_SECRET`
 - `NEXTAUTH_SECRET`
 - `DATABASE_URL`
 - `DIRECT_URL`
@@ -57,9 +66,16 @@ Important:
 
 - Preview builds run with production-like checks (`NODE_ENV=production` during
   build), so missing production-only guards can break preview deploys.
+- Preview deploy workflow falls back to a placeholder `AGENT_TOKEN_SIGNING_SECRET`
+  only when the preview environment intentionally omits the real secret. Use a
+  real stable secret in shared preview environments when agent access behavior
+  needs to be validated end to end.
 - Keep `GOOGLE_TOKEN_ENCRYPTION_KEY` stable per environment. Rotating it
   requires token re-authorization because existing encrypted tokens may become
   unreadable.
+- Keep `AGENT_TOKEN_SIGNING_SECRET` stable per environment. Rotating it
+  invalidates all outstanding short-lived bearer tokens immediately and should
+  be coordinated with any active agent clients.
 - `GOOGLE_CALENDAR_ID` must be unset or `primary` only.
 
 ## Verification Commands

@@ -61,6 +61,7 @@ jobs:
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      AGENT_TOKEN_SIGNING_SECRET: ${{ secrets.AGENT_TOKEN_SIGNING_SECRET }}
       AUTH_GOOGLE_CLIENT_ID: ${{ secrets.AUTH_GOOGLE_CLIENT_ID }}
       AUTH_GOOGLE_CLIENT_SECRET: ${{ secrets.AUTH_GOOGLE_CLIENT_SECRET }}
       AUTH_GOOGLE_REDIRECT_URI: ${{ secrets.AUTH_GOOGLE_REDIRECT_URI }}
@@ -85,7 +86,7 @@ jobs:
       - name: Validate required production secrets
         run: |
           missing=0
-          for key in RESEND_API_KEY; do
+          for key in RESEND_API_KEY AGENT_TOKEN_SIGNING_SECRET; do
             if [ -z "${!key}" ]; then
               echo "::error::Missing required production secret: $key"
               missing=1
@@ -179,6 +180,7 @@ jobs:
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      AGENT_TOKEN_SIGNING_SECRET: ${{ secrets.AGENT_TOKEN_SIGNING_SECRET }}
       AUTH_GOOGLE_CLIENT_ID: ${{ secrets.AUTH_GOOGLE_CLIENT_ID }}
       AUTH_GOOGLE_CLIENT_SECRET: ${{ secrets.AUTH_GOOGLE_CLIENT_SECRET }}
       AUTH_GOOGLE_REDIRECT_URI: ${{ secrets.AUTH_GOOGLE_REDIRECT_URI }}
@@ -208,11 +210,19 @@ jobs:
             echo "RESEND_API_KEY=ci-placeholder-resend-key" >> "$GITHUB_ENV"
           fi
 
+      - name: Ensure agent signing secret fallback for preview deploys
+        if: inputs.action == 'deploy-preview'
+        run: |
+          if [ -z "$AGENT_TOKEN_SIGNING_SECRET" ]; then
+            echo "::warning::AGENT_TOKEN_SIGNING_SECRET is empty for preview deploy. Using ci-placeholder-agent-token-signing-secret-0123456789."
+            echo "AGENT_TOKEN_SIGNING_SECRET=ci-placeholder-agent-token-signing-secret-0123456789" >> "$GITHUB_ENV"
+          fi
+
       - name: Validate required production secrets
         if: inputs.action != 'deploy-preview'
         run: |
           missing=0
-          for key in RESEND_API_KEY; do
+          for key in RESEND_API_KEY AGENT_TOKEN_SIGNING_SECRET; do
             if [ -z "${!key}" ]; then
               echo "::error::Missing required production secret: $key"
               missing=1

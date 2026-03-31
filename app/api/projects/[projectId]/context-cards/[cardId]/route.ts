@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
+import {
+  getAgentProjectAccessContext,
+  requireApiPrincipal,
+} from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import {
   deleteContextCardForProject,
@@ -19,11 +22,12 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { projectId: string; cardId: string } }
 ) {
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
-  if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+  const principalResult = await requireApiPrincipal(request);
+  if (!principalResult.ok) {
+    return principalResult.response;
   }
-  const actorUserId = authenticatedUser.userId;
+  const actorUserId = principalResult.principal.actorUserId;
+  const agentAccess = getAgentProjectAccessContext(principalResult.principal);
   const { projectId, cardId } = params;
   if (!projectId || !cardId) {
     return NextResponse.json({ error: "Missing route parameters" }, { status: 400 });
@@ -48,6 +52,7 @@ export async function PATCH(
     title: readText(formData, "title"),
     content: readText(formData, "content"),
     color: readText(formData, "color"),
+    agentAccess,
   });
 
   if (!result.ok) {
@@ -61,11 +66,12 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { projectId: string; cardId: string } }
 ) {
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
-  if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+  const principalResult = await requireApiPrincipal(request);
+  if (!principalResult.ok) {
+    return principalResult.response;
   }
-  const actorUserId = authenticatedUser.userId;
+  const actorUserId = principalResult.principal.actorUserId;
+  const agentAccess = getAgentProjectAccessContext(principalResult.principal);
   const { projectId, cardId } = params;
   if (!projectId || !cardId) {
     return NextResponse.json({ error: "Missing route parameters" }, { status: 400 });
@@ -75,6 +81,7 @@ export async function DELETE(
     actorUserId,
     projectId,
     cardId,
+    agentAccess,
   });
 
   if (!result.ok) {
