@@ -23,6 +23,8 @@ import {
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const EDITOR_RICH_SHELL_SELECTOR = "nd-rich-shell[data-editor-shell]";
+const EDITOR_BLOCK_ROW_SELECTOR = "[data-editor-block-row='true']";
+const EDITOR_BLOCK_AFTER_ANCHOR_SELECTOR = "[data-editor-block-anchor='after']";
 
 function getTemplate(html: string) {
   const template = document.createElement("template");
@@ -113,6 +115,42 @@ function selectionIsAtStartOfElement(element: HTMLElement | null) {
   return selection.anchorNode === element && selection.anchorOffset === 0;
 }
 
+function selectionIsAfterStructuredBlock(rowElement: HTMLElement | null) {
+  const afterAnchor = rowElement?.querySelector(
+    EDITOR_BLOCK_AFTER_ANCHOR_SELECTOR
+  ) as HTMLElement | null;
+  const selection = window.getSelection();
+
+  if (!afterAnchor || !selection?.anchorNode || !afterAnchor.contains(selection.anchorNode)) {
+    return false;
+  }
+
+  if (selection.anchorNode.nodeType === Node.TEXT_NODE) {
+    return selection.anchorOffset === (selection.anchorNode.textContent?.length ?? 0);
+  }
+
+  return (
+    selection.anchorNode === afterAnchor &&
+    selection.anchorOffset === afterAnchor.childNodes.length
+  );
+}
+
+function selectAfterStructuredBlock(rowElement: HTMLElement | null) {
+  const afterAnchor = rowElement?.querySelector(
+    EDITOR_BLOCK_AFTER_ANCHOR_SELECTOR
+  ) as HTMLElement | null;
+
+  expect(afterAnchor).not.toBeNull();
+
+  const textNode = afterAnchor?.firstChild;
+  if (textNode) {
+    selectTextPosition(textNode, textNode.textContent?.length ?? 0);
+    return;
+  }
+
+  selectNodeOffset(afterAnchor as Node, afterAnchor?.childNodes.length ?? 0);
+}
+
 function dispatchKeyDown(
   target: EventTarget | null | undefined,
   options: KeyboardEventInit
@@ -175,7 +213,7 @@ async function expectEnterBelowBlockToStayBelow(
   });
 }
 
-async function expectBackspaceBelowBlockToMoveIntoBlockEnd(
+async function expectBackspaceBelowBlockToMoveAfterBlock(
   initialValue: string,
   expectedPersistentValue: string,
   expectedActionSelector: string
@@ -199,14 +237,12 @@ async function expectBackspaceBelowBlockToMoveIntoBlockEnd(
 
   const { notCancelled } = dispatchKeyDown(editor, { key: "Backspace" });
   const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
-  const fieldElement =
-    (editor?.querySelector(
-      `${EDITOR_RICH_SHELL_SELECTOR} input[data-editor-token-input="true"]`
-    ) as HTMLElement | null) ??
-    (editor?.querySelector(`${EDITOR_RICH_SHELL_SELECTOR} code`) as HTMLElement | null);
+  const blockRow = container
+    .querySelector(expectedActionSelector)
+    ?.closest(EDITOR_BLOCK_ROW_SELECTOR) as HTMLElement | null;
 
   expect(notCancelled).toBe(false);
-  expect(selectionIsAtEndOfStructuredField(fieldElement)).toBe(true);
+  expect(selectionIsAfterStructuredBlock(blockRow)).toBe(true);
   expect(persistedValue).toBe(expectedPersistentValue);
   expect(container.querySelector(expectedActionSelector)).not.toBeNull();
 
@@ -215,7 +251,7 @@ async function expectBackspaceBelowBlockToMoveIntoBlockEnd(
   });
 }
 
-async function expectBackspaceFromEditorRootBelowBlockToMoveIntoBlockEnd(
+async function expectBackspaceFromEditorRootBelowBlockToMoveAfterBlock(
   initialValue: string,
   expectedPersistentValue: string,
   expectedActionSelector: string
@@ -237,16 +273,56 @@ async function expectBackspaceFromEditorRootBelowBlockToMoveIntoBlockEnd(
 
   const { notCancelled } = dispatchKeyDown(editor, { key: "Backspace" });
   const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
-  const fieldElement =
-    (editor?.querySelector(
-      `${EDITOR_RICH_SHELL_SELECTOR} input[data-editor-token-input="true"]`
-    ) as HTMLElement | null) ??
-    (editor?.querySelector(`${EDITOR_RICH_SHELL_SELECTOR} code`) as HTMLElement | null);
+  const blockRow = container
+    .querySelector(expectedActionSelector)
+    ?.closest(EDITOR_BLOCK_ROW_SELECTOR) as HTMLElement | null;
 
   expect(notCancelled).toBe(false);
-  expect(selectionIsAtEndOfStructuredField(fieldElement)).toBe(true);
+  expect(selectionIsAfterStructuredBlock(blockRow)).toBe(true);
   expect(persistedValue).toBe(expectedPersistentValue);
   expect(container.querySelector(expectedActionSelector)).not.toBeNull();
+
+  await act(async () => {
+    root.unmount();
+  });
+}
+
+async function expectBackspaceAfterBlockToRemoveStructuredBlock(
+  initialValue: string,
+  expectedActionSelector: string
+) {
+  const { container, root } = createTestRenderer();
+
+  await renderWithRoot(
+    root,
+    React.createElement(EditorHarness, {
+      initialValue,
+    })
+  );
+
+  const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+  const blockRow = container
+    .querySelector(expectedActionSelector)
+    ?.closest(EDITOR_BLOCK_ROW_SELECTOR) as HTMLElement | null;
+
+  expect(editor).not.toBeNull();
+  expect(blockRow).not.toBeNull();
+
+  selectAfterStructuredBlock(blockRow);
+
+  let notCancelled = false;
+
+  await act(async () => {
+    ({ notCancelled } = dispatchKeyDown(editor, { key: "Backspace" }));
+  });
+
+  const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+  expect(notCancelled).toBe(false);
+  expect(persistedValue).toBe("");
+  expect(container.querySelector(expectedActionSelector)).toBeNull();
+  expect(editor?.innerHTML).toBe("");
+  expect(selectionIsAtStartOfElement(editor)).toBe(true);
 
   await act(async () => {
     root.unmount();
@@ -638,62 +714,212 @@ describe("rich-text-editor", () => {
     });
   });
 
+  test("moves into the end of a token value when Left Arrow is pressed from the after-block caret", async () => {
+    const initialValue = createRichTextTokenBlock("secret-token") ?? "";
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const tokenRow = container.querySelector(EDITOR_BLOCK_ROW_SELECTOR) as HTMLElement | null;
+    const tokenInput = container.querySelector(
+      'input[data-editor-token-input="true"]'
+    ) as HTMLInputElement | null;
+
+    expect(editor).not.toBeNull();
+    expect(tokenRow).not.toBeNull();
+    expect(tokenInput).not.toBeNull();
+
+    selectAfterStructuredBlock(tokenRow);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "ArrowLeft" });
+    });
+
+    expect(selectionIsAtEndOfStructuredField(tokenInput)).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("moves End inside a token value to the end of the token content", async () => {
+    const initialValue = createRichTextTokenBlock("secret-token") ?? "";
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const tokenInput = container.querySelector(
+      'input[data-editor-token-input="true"]'
+    ) as HTMLInputElement | null;
+
+    expect(tokenInput).not.toBeNull();
+
+    await act(async () => {
+      tokenInput?.focus();
+      tokenInput?.setSelectionRange(0, 0);
+      dispatchKeyDown(tokenInput, { key: "End" });
+    });
+
+    expect(selectionIsAtEndOfStructuredField(tokenInput)).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("keeps Enter below a trailing code block in the paragraph below", async () => {
     const initialValue = createRichTextCodeBlock("npm run lint") ?? "";
 
     await expectEnterBelowBlockToStayBelow(initialValue, 'button[aria-label="Copy code block"]');
   });
 
-  test("moves Backspace below a first-line token block to the end of the token value", async () => {
+  test("moves into the end of a code block when Left Arrow is pressed from the after-block caret", async () => {
+    const initialValue = createRichTextCodeBlock("npm run lint") ?? "";
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const codeRow = container.querySelector(EDITOR_BLOCK_ROW_SELECTOR) as HTMLElement | null;
+    const codeElement = container.querySelector(
+      `${EDITOR_RICH_SHELL_SELECTOR} pre[data-rich-block="code"] code`
+    ) as HTMLElement | null;
+
+    expect(editor).not.toBeNull();
+    expect(codeRow).not.toBeNull();
+    expect(codeElement).not.toBeNull();
+
+    selectAfterStructuredBlock(codeRow);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "ArrowLeft" });
+    });
+
+    expect(selectionIsAtEndOfStructuredField(codeElement)).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("moves End inside a code block to the end of the whole code content", async () => {
+    const initialValue = createRichTextCodeBlock("npm run lint\nnpm test") ?? "";
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const codeElement = container.querySelector(
+      `${EDITOR_RICH_SHELL_SELECTOR} pre[data-rich-block="code"] code`
+    ) as HTMLElement | null;
+    const firstTextNode = codeElement?.firstChild;
+
+    expect(editor).not.toBeNull();
+    expect(codeElement).not.toBeNull();
+    expect(firstTextNode).not.toBeNull();
+
+    selectTextPosition(firstTextNode as Node, 0);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "End" });
+    });
+
+    expect(selectionIsAtEndOfStructuredField(codeElement)).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("moves Backspace below a first-line token block to the after-block caret", async () => {
     const initialValue = createRichTextTokenBlock("secret-token") ?? "";
 
-    await expectBackspaceBelowBlockToMoveIntoBlockEnd(
+    await expectBackspaceBelowBlockToMoveAfterBlock(
       initialValue,
       initialValue,
       'button[aria-label="Reveal token value"]'
     );
   });
 
-  test("moves Backspace from the editor root below a first-line token block into the token value", async () => {
+  test("moves Backspace from the editor root below a first-line token block to the after-block caret", async () => {
     const initialValue = createRichTextTokenBlock("secret-token") ?? "";
 
-    await expectBackspaceFromEditorRootBelowBlockToMoveIntoBlockEnd(
+    await expectBackspaceFromEditorRootBelowBlockToMoveAfterBlock(
       initialValue,
       initialValue,
       'button[aria-label="Reveal token value"]'
     );
   });
 
-  test("moves Backspace below a first-line code block to the end of the code content", async () => {
+  test("moves Backspace below a first-line code block to the after-block caret", async () => {
     const initialValue = createRichTextCodeBlock("npm run lint") ?? "";
 
-    await expectBackspaceBelowBlockToMoveIntoBlockEnd(
+    await expectBackspaceBelowBlockToMoveAfterBlock(
       initialValue,
       initialValue,
       'button[aria-label="Copy code block"]'
     );
   });
 
-  test("moves Backspace from the editor root below a first-line code block into the code content", async () => {
+  test("moves Backspace from the editor root below a first-line code block to the after-block caret", async () => {
     const initialValue = createRichTextCodeBlock("npm run lint") ?? "";
 
-    await expectBackspaceFromEditorRootBelowBlockToMoveIntoBlockEnd(
+    await expectBackspaceFromEditorRootBelowBlockToMoveAfterBlock(
       initialValue,
       initialValue,
       'button[aria-label="Copy code block"]'
     );
   });
 
-  test("moves Backspace below a trailing token block back into that token without deleting it", async () => {
+  test("moves Backspace below a trailing token block to the after-block caret", async () => {
     const initialValue = [
       createRichTextCodeBlock("npm run lint"),
       createRichTextTokenBlock("secret-token"),
     ].join("");
 
-    await expectBackspaceBelowBlockToMoveIntoBlockEnd(
+    await expectBackspaceBelowBlockToMoveAfterBlock(
       initialValue,
       initialValue,
       'button[aria-label="Reveal token value"]'
+    );
+  });
+
+  test("removes a first-line token block when Backspace is pressed from the after-block caret", async () => {
+    const initialValue = createRichTextTokenBlock("secret-token") ?? "";
+
+    await expectBackspaceAfterBlockToRemoveStructuredBlock(
+      initialValue,
+      'button[aria-label="Reveal token value"]'
+    );
+  });
+
+  test("removes a first-line code block when Backspace is pressed from the after-block caret", async () => {
+    const initialValue = createRichTextCodeBlock("npm run lint") ?? "";
+
+    await expectBackspaceAfterBlockToRemoveStructuredBlock(
+      initialValue,
+      'button[aria-label="Copy code block"]'
     );
   });
 
