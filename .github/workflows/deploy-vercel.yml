@@ -279,7 +279,7 @@ jobs:
         run: |
           npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=preview --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
           npx vercel@${VERCEL_CLI_VERSION} build --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
-          deployment_url=$(npx vercel@${VERCEL_CLI_VERSION} deploy --prebuilt --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN")
+          deployment_url=$(npx vercel@${VERCEL_CLI_VERSION} deploy --prebuilt --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN" -e "RESEND_API_KEY=$RESEND_API_KEY" -e "AGENT_TOKEN_SIGNING_SECRET=$AGENT_TOKEN_SIGNING_SECRET")
           echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
           echo "$deployment_url" > preview-deployment.txt
 

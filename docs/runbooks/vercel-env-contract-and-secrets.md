@@ -66,10 +66,20 @@ Important:
 
 - Preview builds run with production-like checks (`NODE_ENV=production` during
   build), so missing production-only guards can break preview deploys.
-- Preview deploy workflow falls back to a placeholder `AGENT_TOKEN_SIGNING_SECRET`
-  only when the preview environment intentionally omits the real secret. Use a
-  real stable secret in shared preview environments when agent access behavior
-  needs to be validated end to end.
+- GitHub-managed preview deploys and Vercel-managed preview deployments do not
+  get runtime secrets from the same place:
+  - `deploy-vercel.yml` can inject preview fallback values into the specific
+    deployment it creates.
+  - Vercel Git-based preview deployments still require the secret to exist in
+    the Vercel Preview environment itself.
+- `AGENT_TOKEN_SIGNING_SECRET` must reach the preview runtime either through
+  the Vercel Preview environment or explicit `vercel deploy -e ...` injection.
+  Without it, server startup validation will fail and the preview can return
+  `500` on `/`.
+- Preview deploy workflow falls back to a placeholder
+  `AGENT_TOKEN_SIGNING_SECRET` only when the preview environment intentionally
+  omits the real secret. Use a real stable secret in shared preview
+  environments when agent access behavior needs to be validated end to end.
 - Keep `GOOGLE_TOKEN_ENCRYPTION_KEY` stable per environment. Rotating it
   requires token re-authorization because existing encrypted tokens may become
   unreadable.
@@ -103,3 +113,6 @@ Before merging deploy-affecting changes:
 2. Confirm sensitive vars are marked sensitive where supported.
 3. Run manual preview deploy (`deploy-vercel.yml`, `action=deploy-preview`).
 4. Validate critical auth/integration path(s) on preview URL.
+5. If any preview path bypasses deployment-time `-e` injection, confirm
+   `AGENT_TOKEN_SIGNING_SECRET` exists in Vercel Preview before relying on that
+   preview URL.

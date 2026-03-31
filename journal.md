@@ -18,6 +18,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Evidence: PR `#112` (`feature/task-059-agent-access` -> `main`); addressed Copilot feedback in commits `fcbd615` and `1939839`; replied to and resolved review threads `PRRT_kwDORPDIrs5394bk`, `PRRT_kwDORPDIrs5394ch`, and `PRRT_kwDORPDIrs5394c7`; green latest-head checks on run `23801288613` (`check-name`, `Quality Core`, `E2E Smoke`, `Container Image`); preview deploy workflow run `23801489971` dispatched with `--ref feature/task-059-agent-access -f action=deploy-preview -f git_ref=feature/task-059-agent-access` and produced preview URL `https://nexus-dash-7cs7imdfe-dorian-agaesses-projects.vercel.app`.
 
 ### 2026-03-31
+- Type: Governance
+- Summary: TASK-059 preview-runtime follow-up fixed the missing agent signing secret path that caused Vercel preview aliases to return `500` on `/`.
+- Evidence: Confirmed Vercel Preview was missing `AGENT_TOKEN_SIGNING_SECRET` via `npx vercel env ls preview`; updated `.github/workflows/deploy-vercel.yml` so manual preview deploys pass `RESEND_API_KEY` and `AGENT_TOKEN_SIGNING_SECRET` as deployment runtime env values; clarified the requirement in `docs/runbooks/vercel-env-contract-and-secrets.md` and `README.md`.
+
+### 2026-03-31
 - Type: Blocker
 - Summary: TASK-059 Playwright end-to-end validation is still blocked in this environment because the local PostgreSQL service required by the test fixtures is unreachable at the configured loopback address.
 - Evidence: `$env:DATABASE_URL='postgresql://user:pass@127.0.0.1:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run test:e2e` rebuilt successfully, then all 6 Playwright specs failed with `PrismaClientInitializationError: Can't reach database server at 127.0.0.1:5432` from `tests/e2e/password-recovery.spec.ts` and `tests/e2e/helpers/auth-helpers.ts`.
