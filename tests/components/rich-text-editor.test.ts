@@ -748,6 +748,41 @@ describe("rich-text-editor", () => {
     });
   });
 
+  test("moves to the after-block caret when Right Arrow is pressed at the end of a token value", async () => {
+    const initialValue = createRichTextTokenBlock("secret-token") ?? "";
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const tokenRow = container.querySelector(EDITOR_BLOCK_ROW_SELECTOR) as HTMLElement | null;
+    const tokenInput = container.querySelector(
+      'input[data-editor-token-input="true"]'
+    ) as HTMLInputElement | null;
+
+    expect(editor).not.toBeNull();
+    expect(tokenRow).not.toBeNull();
+    expect(tokenInput).not.toBeNull();
+
+    await act(async () => {
+      tokenInput?.focus();
+      tokenInput?.setSelectionRange(tokenInput.value.length, tokenInput.value.length);
+      dispatchKeyDown(tokenInput, { key: "ArrowRight" });
+    });
+
+    expect(document.activeElement).toBe(editor);
+    expect(selectionIsAfterStructuredBlock(tokenRow)).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("moves End inside a token value to the end of the token content", async () => {
     const initialValue = createRichTextTokenBlock("secret-token") ?? "";
     const { container, root } = createTestRenderer();
@@ -812,6 +847,42 @@ describe("rich-text-editor", () => {
     });
 
     expect(selectionIsAtEndOfStructuredField(codeElement)).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("moves to the after-block caret when Right Arrow is pressed at the end of a code block", async () => {
+    const initialValue = createRichTextCodeBlock("npm run lint") ?? "";
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const codeRow = container.querySelector(EDITOR_BLOCK_ROW_SELECTOR) as HTMLElement | null;
+    const codeElement = container.querySelector(
+      `${EDITOR_RICH_SHELL_SELECTOR} pre[data-rich-block="code"] code`
+    ) as HTMLElement | null;
+
+    expect(editor).not.toBeNull();
+    expect(codeRow).not.toBeNull();
+    expect(codeElement).not.toBeNull();
+
+    if (codeElement) {
+      selectTextPosition(codeElement.firstChild as Node, codeElement.textContent?.length ?? 0);
+    }
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "ArrowRight" });
+    });
+
+    expect(selectionIsAfterStructuredBlock(codeRow)).toBe(true);
 
     await act(async () => {
       root.unmount();

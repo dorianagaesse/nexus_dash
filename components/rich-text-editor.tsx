@@ -107,6 +107,10 @@ function isArrowLeftKey(event: Pick<KeyboardEvent, "key" | "code">): boolean {
   return event.key === "ArrowLeft";
 }
 
+function isArrowRightKey(event: Pick<KeyboardEvent, "key" | "code">): boolean {
+  return event.key === "ArrowRight";
+}
+
 function isEndKey(event: Pick<KeyboardEvent, "key" | "code">): boolean {
   return event.key === "End";
 }
@@ -870,6 +874,15 @@ function getTextOffsetWithinElement(element: HTMLElement, range: Range): number 
   return extractNodeText(measurementRange.cloneContents()).replace(/\u00a0/g, " ").length;
 }
 
+function isRangeAtEndOfElement(element: HTMLElement, range: Range): boolean {
+  if (!range.collapsed || !element.contains(range.startContainer)) {
+    return false;
+  }
+
+  const contentLength = extractNodeText(element).replace(/\u00a0/g, " ").length;
+  return getTextOffsetWithinElement(element, range) === contentLength;
+}
+
 function splitTextAroundCurrentLine(text: string, offset: number) {
   const normalizedText = text.replace(/\r\n/g, "\n");
   const lines = normalizedText.split("\n");
@@ -1541,6 +1554,16 @@ export function RichTextEditor({
       }
       const tokenTarget = resolveStructuredBlockTarget(tokenShell);
 
+      if (
+        isArrowRightKey(event) &&
+        target.selectionStart === target.value.length &&
+        target.selectionEnd === target.value.length
+      ) {
+        event.preventDefault();
+        moveCaretToAfterStructuredBlock(tokenTarget, editor);
+        return;
+      }
+
       if (isEndKey(event)) {
         event.preventDefault();
         const caretOffset = target.value.length;
@@ -1611,6 +1634,16 @@ export function RichTextEditor({
     const codeBlock = findContainingStructuredBlock(editor, range, RICH_TEXT_CODE_BLOCK);
     if (codeBlock) {
       const codeShell = resolveStructuredBlockTarget(codeBlock);
+      const codeElement =
+        codeShell.querySelector(
+          `pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code`
+        ) as HTMLElement | null;
+
+      if (isArrowRightKey(event) && codeElement && isRangeAtEndOfElement(codeElement, range)) {
+        event.preventDefault();
+        moveCaretToAfterStructuredBlock(codeShell, editor);
+        return;
+      }
 
       if (isEndKey(event)) {
         event.preventDefault();
