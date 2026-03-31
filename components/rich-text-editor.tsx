@@ -735,6 +735,27 @@ function findCurrentParagraph(editor: HTMLDivElement, range: Range): HTMLParagra
   return paragraph;
 }
 
+function findRootSelectionParagraph(
+  editor: HTMLDivElement,
+  range: Range
+): HTMLParagraphElement | null {
+  if (!range.collapsed || range.startContainer !== editor) {
+    return null;
+  }
+
+  const previousNode = editor.childNodes[range.startOffset - 1] ?? null;
+  if (isEmptyEditorParagraph(previousNode as Element | null)) {
+    return previousNode as HTMLParagraphElement;
+  }
+
+  const nextNode = editor.childNodes[range.startOffset] ?? null;
+  if (isEmptyEditorParagraph(nextNode as Element | null)) {
+    return nextNode as HTMLParagraphElement;
+  }
+
+  return null;
+}
+
 function moveCaretToEndOfStructuredBlock(target: HTMLElement) {
   const tokenInput = target.querySelector<HTMLInputElement>(
     'input[data-editor-token-input="true"]'
@@ -1402,7 +1423,8 @@ export function RichTextEditor({
       return;
     }
 
-    const currentParagraph = findCurrentParagraph(editor, range);
+    const currentParagraph =
+      findCurrentParagraph(editor, range) ?? findRootSelectionParagraph(editor, range);
     if (
       isBackspaceKey(event) &&
       currentParagraph &&
