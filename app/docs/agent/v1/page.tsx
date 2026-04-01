@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 
 import { AgentOnboardingGuide } from "@/components/agent-onboarding/agent-onboarding-guide";
 import { Badge } from "@/components/ui/badge";
+import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
 
 export const metadata: Metadata = {
   title: "NexusDash Agent API v1",
@@ -12,6 +14,8 @@ export const metadata: Metadata = {
 };
 
 export default function AgentApiDocsPage() {
+  const requestOrigin = resolveRequestOriginFromHeaders(headers());
+
   return (
     <main className="container py-16">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -27,7 +31,7 @@ export default function AgentApiDocsPage() {
           </p>
         </div>
 
-        <AgentOnboardingGuide />
+        <AgentOnboardingGuide initialAppOrigin={requestOrigin} />
       </div>
     </main>
   );

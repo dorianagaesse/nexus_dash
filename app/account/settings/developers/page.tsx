@@ -1,10 +1,14 @@
+import { headers } from "next/headers";
+
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { AgentOnboardingGuide } from "@/components/agent-onboarding/agent-onboarding-guide";
 import { AccountSettingsShell } from "@/components/account/account-settings-shell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
 
 export default async function AccountDeveloperSettingsPage() {
   await requireSessionUserIdFromServer();
+  const requestOrigin = resolveRequestOriginFromHeaders(headers());
 
   return (
     <AccountSettingsShell
@@ -27,7 +31,7 @@ export default async function AccountDeveloperSettingsPage() {
         </CardContent>
       </Card>
 
-      <AgentOnboardingGuide />
+      <AgentOnboardingGuide initialAppOrigin={requestOrigin} />
     </AccountSettingsShell>
   );
 }

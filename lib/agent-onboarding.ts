@@ -279,6 +279,32 @@ function buildSecurityScopesDescription(scopes: readonly AgentScope[]): string {
   return `Required scopes: ${scopes.join(", ")}.`;
 }
 
+function getAgentEndpointDefinition(
+  method: AgentHttpMethod,
+  path: string
+): AgentApiEndpointDefinition {
+  const endpoint = AGENT_API_ENDPOINTS.find(
+    (candidate) => candidate.method === method && candidate.path === path
+  );
+  if (!endpoint) {
+    throw new Error(`Missing agent endpoint definition for ${method} ${path}`);
+  }
+
+  return endpoint;
+}
+
+function buildOperationMetadata(method: AgentHttpMethod, path: string) {
+  const endpoint = getAgentEndpointDefinition(method, path);
+
+  return {
+    tags: [endpoint.tag],
+    summary: endpoint.title,
+    description: `${buildEndpointDescription(endpoint)}\n\n${buildSecurityScopesDescription(
+      endpoint.requiredScopes
+    )}`,
+  } as const;
+}
+
 function buildCommonErrorResponses() {
   return {
     400: {
@@ -378,6 +404,20 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           scheme: "bearer",
           bearerFormat: "JWT",
           description: "Short-lived bearer token returned by POST /api/auth/agent/token.",
+        },
+        ApiKeyAuthorization: {
+          type: "apiKey",
+          in: "header",
+          name: "Authorization",
+          description:
+            "Project API key used for token exchange. Send as `Authorization: ApiKey <api_key>`.",
+        },
+        AgentApiKeyHeader: {
+          type: "apiKey",
+          in: "header",
+          name: "x-agent-api-key",
+          description:
+            "Alternate project API key header for token exchange when the Authorization header is unavailable.",
         },
       },
       schemas: {
@@ -836,14 +876,36 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             type: "string",
           },
         },
+        AgentTokenAuthorizationHeader: {
+          name: "Authorization",
+          in: "header",
+          required: false,
+          schema: {
+            type: "string",
+          },
+          description:
+            "Project API key header for token exchange. Example: `Authorization: ApiKey nda_public.secret`.",
+        },
+        AgentTokenApiKeyHeader: {
+          name: "x-agent-api-key",
+          in: "header",
+          required: false,
+          schema: {
+            type: "string",
+          },
+          description: "Alternate project API key header for token exchange.",
+        },
       },
     },
     paths: {
       "/api/auth/agent/token": {
         post: {
-          tags: ["Auth"],
-          summary: AGENT_API_ENDPOINTS[0]?.title,
-          description: `${buildEndpointDescription(AGENT_API_ENDPOINTS[0]!)}\n\n${buildSecurityScopesDescription(AGENT_API_ENDPOINTS[0]!.requiredScopes)}`,
+          ...buildOperationMetadata("POST", "/api/auth/agent/token"),
+          security: [{ ApiKeyAuthorization: [] }, { AgentApiKeyHeader: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/AgentTokenAuthorizationHeader" },
+            { $ref: "#/components/parameters/AgentTokenApiKeyHeader" },
+          ],
           requestBody: {
             required: false,
             content: {
@@ -872,10 +934,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
       },
       "/api/projects/{projectId}": {
         get: {
-          tags: ["Projects"],
+          ...buildOperationMetadata("GET", "/api/projects/{projectId}"),
           security: [{ BearerAuth: [] }],
-          summary: "Read project summary",
-          description: `${buildEndpointDescription(AGENT_API_ENDPOINTS[1]!)}\n\n${buildSecurityScopesDescription(AGENT_API_ENDPOINTS[1]!.requiredScopes)}`,
           parameters: [{ $ref: "#/components/parameters/ProjectId" }],
           responses: {
             200: {
@@ -894,10 +954,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
       },
       "/api/projects/{projectId}/tasks": {
         get: {
-          tags: ["Tasks"],
+          ...buildOperationMetadata("GET", "/api/projects/{projectId}/tasks"),
           security: [{ BearerAuth: [] }],
-          summary: "List tasks",
-          description: `${buildEndpointDescription(AGENT_API_ENDPOINTS[2]!)}\n\n${buildSecurityScopesDescription(AGENT_API_ENDPOINTS[2]!.requiredScopes)}`,
           parameters: [{ $ref: "#/components/parameters/ProjectId" }],
           responses: {
             200: {
@@ -914,10 +972,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           },
         },
         post: {
-          tags: ["Tasks"],
+          ...buildOperationMetadata("POST", "/api/projects/{projectId}/tasks"),
           security: [{ BearerAuth: [] }],
-          summary: "Create task",
-          description: `${buildEndpointDescription(AGENT_API_ENDPOINTS[3]!)}\n\n${buildSecurityScopesDescription(AGENT_API_ENDPOINTS[3]!.requiredScopes)}`,
           parameters: [{ $ref: "#/components/parameters/ProjectId" }],
           requestBody: {
             required: true,
@@ -946,10 +1002,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
       },
       "/api/projects/{projectId}/tasks/{taskId}": {
         patch: {
-          tags: ["Tasks"],
+          ...buildOperationMetadata("PATCH", "/api/projects/{projectId}/tasks/{taskId}"),
           security: [{ BearerAuth: [] }],
-          summary: "Update task",
-          description: `${buildEndpointDescription(AGENT_API_ENDPOINTS[4]!)}\n\n${buildSecurityScopesDescription(AGENT_API_ENDPOINTS[4]!.requiredScopes)}`,
           parameters: [
             { $ref: "#/components/parameters/ProjectId" },
             { $ref: "#/components/parameters/TaskId" },
@@ -979,10 +1033,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           },
         },
         delete: {
-          tags: ["Tasks"],
+          ...buildOperationMetadata("DELETE", "/api/projects/{projectId}/tasks/{taskId}"),
           security: [{ BearerAuth: [] }],
-          summary: "Delete task",
-          description: `${buildEndpointDescription(AGENT_API_ENDPOINTS[8]!)}\n\n${buildSecurityScopesDescription(AGENT_API_ENDPOINTS[8]!.requiredScopes)}`,
           parameters: [
             { $ref: "#/components/parameters/ProjectId" },
             { $ref: "#/components/parameters/TaskId" },
@@ -1004,10 +1056,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
       },
       "/api/projects/{projectId}/tasks/reorder": {
         post: {
-          tags: ["Tasks"],
+          ...buildOperationMetadata("POST", "/api/projects/{projectId}/tasks/reorder"),
           security: [{ BearerAuth: [] }],
-          summary: "Reorder tasks",
-          description: `${buildEndpointDescription(AGENT_API_ENDPOINTS[5]!)}\n\n${buildSecurityScopesDescription(AGENT_API_ENDPOINTS[5]!.requiredScopes)}`,
           parameters: [{ $ref: "#/components/parameters/ProjectId" }],
           requestBody: {
             required: true,
@@ -1036,10 +1086,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
       },
       "/api/projects/{projectId}/tasks/{taskId}/archive": {
         post: {
-          tags: ["Tasks"],
+          ...buildOperationMetadata("POST", "/api/projects/{projectId}/tasks/{taskId}/archive"),
           security: [{ BearerAuth: [] }],
-          summary: "Archive task",
-          description: `${buildEndpointDescription(AGENT_API_ENDPOINTS[6]!)}\n\n${buildSecurityScopesDescription(AGENT_API_ENDPOINTS[6]!.requiredScopes)}`,
           parameters: [
             { $ref: "#/components/parameters/ProjectId" },
             { $ref: "#/components/parameters/TaskId" },
@@ -1059,10 +1107,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           },
         },
         delete: {
-          tags: ["Tasks"],
+          ...buildOperationMetadata("DELETE", "/api/projects/{projectId}/tasks/{taskId}/archive"),
           security: [{ BearerAuth: [] }],
-          summary: "Unarchive task",
-          description: `${buildEndpointDescription(AGENT_API_ENDPOINTS[7]!)}\n\n${buildSecurityScopesDescription(AGENT_API_ENDPOINTS[7]!.requiredScopes)}`,
           parameters: [
             { $ref: "#/components/parameters/ProjectId" },
             { $ref: "#/components/parameters/TaskId" },
@@ -1084,10 +1130,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
       },
       "/api/projects/{projectId}/context-cards": {
         get: {
-          tags: ["Context"],
+          ...buildOperationMetadata("GET", "/api/projects/{projectId}/context-cards"),
           security: [{ BearerAuth: [] }],
-          summary: "List context cards",
-          description: `${buildEndpointDescription(AGENT_API_ENDPOINTS[9]!)}\n\n${buildSecurityScopesDescription(AGENT_API_ENDPOINTS[9]!.requiredScopes)}`,
           parameters: [{ $ref: "#/components/parameters/ProjectId" }],
           responses: {
             200: {
@@ -1104,10 +1148,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           },
         },
         post: {
-          tags: ["Context"],
+          ...buildOperationMetadata("POST", "/api/projects/{projectId}/context-cards"),
           security: [{ BearerAuth: [] }],
-          summary: "Create context card",
-          description: `${buildEndpointDescription(AGENT_API_ENDPOINTS[10]!)}\n\n${buildSecurityScopesDescription(AGENT_API_ENDPOINTS[10]!.requiredScopes)}`,
           parameters: [{ $ref: "#/components/parameters/ProjectId" }],
           requestBody: {
             required: true,
@@ -1136,10 +1178,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
       },
       "/api/projects/{projectId}/context-cards/{cardId}": {
         patch: {
-          tags: ["Context"],
+          ...buildOperationMetadata("PATCH", "/api/projects/{projectId}/context-cards/{cardId}"),
           security: [{ BearerAuth: [] }],
-          summary: "Update context card",
-          description: `${buildEndpointDescription(AGENT_API_ENDPOINTS[11]!)}\n\n${buildSecurityScopesDescription(AGENT_API_ENDPOINTS[11]!.requiredScopes)}`,
           parameters: [
             { $ref: "#/components/parameters/ProjectId" },
             { $ref: "#/components/parameters/CardId" },
@@ -1169,10 +1209,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           },
         },
         delete: {
-          tags: ["Context"],
+          ...buildOperationMetadata("DELETE", "/api/projects/{projectId}/context-cards/{cardId}"),
           security: [{ BearerAuth: [] }],
-          summary: "Delete context card",
-          description: `${buildEndpointDescription(AGENT_API_ENDPOINTS[12]!)}\n\n${buildSecurityScopesDescription(AGENT_API_ENDPOINTS[12]!.requiredScopes)}`,
           parameters: [
             { $ref: "#/components/parameters/ProjectId" },
             { $ref: "#/components/parameters/CardId" },
