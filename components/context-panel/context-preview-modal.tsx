@@ -7,9 +7,9 @@ import type {
   ProjectContextAttachment,
   ProjectContextCard,
 } from "@/components/project-context-panel-types";
+import { RichTextContent } from "@/components/rich-text-content";
 import {
   CONTEXT_CARD_PREVIEW_RICH_TEXT_CLASS,
-  getContextCardContentHtml,
   resolveAttachmentHref,
 } from "@/components/project-context-panel-utils";
 import { Button } from "@/components/ui/button";
@@ -39,8 +39,6 @@ export function ContextPreviewModal({
     return null;
   }
 
-  const contentHtml = getContextCardContentHtml(card.content);
-
   return createPortal(
     <div
       className="fixed inset-0 z-[95] flex min-h-dvh w-screen items-center justify-center bg-black/70 p-4"
@@ -51,7 +49,7 @@ export function ContextPreviewModal({
       }}
     >
       <Card
-        className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto"
+        className="max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-x-hidden overflow-y-auto"
         style={{ backgroundColor: card.color, borderColor: "rgb(15 23 42 / 0.2)" }}
         onMouseDown={(event) => event.stopPropagation()}
       >
@@ -80,7 +78,9 @@ export function ContextPreviewModal({
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div
+          <RichTextContent
+            html={card.content}
+            emptyContentHtml="<p>No content.</p>"
             className={`max-h-[45vh] overflow-y-auto pr-1 text-sm text-slate-800 ${CONTEXT_CARD_PREVIEW_RICH_TEXT_CLASS}`}
             onDoubleClick={() => {
               if (!canEdit) {
@@ -89,7 +89,6 @@ export function ContextPreviewModal({
 
               onEdit(card.id);
             }}
-            dangerouslySetInnerHTML={{ __html: contentHtml }}
           />
 
           <div className="space-y-2 rounded-md border border-slate-900/15 bg-white/45 p-3">

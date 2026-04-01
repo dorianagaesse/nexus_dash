@@ -36,6 +36,7 @@ interface EmojiPickerButtonProps {
   disabled?: boolean;
   className?: string;
   presentation?: "default" | "field";
+  onOpenChange?: (isOpen: boolean) => void;
 }
 
 interface PanelLayout {
@@ -69,6 +70,7 @@ export function EmojiPickerButton({
   disabled = false,
   className,
   presentation = "default",
+  onOpenChange,
 }: EmojiPickerButtonProps) {
   const [catalog, setCatalog] = useState<EmojiCatalog | null>(null);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
@@ -99,6 +101,10 @@ export function EmojiPickerButton({
       console.error("[EmojiPickerButton.loadRecents]", error);
     }
   }, []);
+
+  useEffect(() => {
+    onOpenChange?.(isOpen);
+  }, [isOpen, onOpenChange]);
 
   useEffect(() => {
     if (!isOpen) {

@@ -12,6 +12,126 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-03-31
+- Type: Validation
+- Summary: TASK-113 token widget hardening validated after making the editor-only token shell non-editable and preserving toolbar toggle behavior for a focused token input.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; expanded `tests/components/rich-text-editor.test.ts` with atomic-token-shell and focused-toggle coverage.
+
+### 2026-03-31
+- Type: Execution
+- Summary: TASK-113 follow-up fixed the remaining token re-entry regression by marking the editor-only token shell as non-editable while letting the input remain the sole editable surface inside it.
+- Evidence: Updated `components/rich-text-editor.tsx` to set token shells `contenteditable=false`, resolve active structured blocks from the focused token input for toolbar toggle behavior, and keep token re-entry routed to the input caret instead of an editable wrapper.
+
+### 2026-03-31
+- Type: Validation
+- Summary: TASK-113 token editor rebuild validated after replacing the masked contentEditable token surface with a real single-line input in edit mode.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; refreshed `tests/components/rich-text-editor.test.ts` token-caret and recovery coverage against the input-based shell.
+
+### 2026-03-31
+- Type: Execution
+- Summary: TASK-113 token-block follow-up replaced the editor-only masked token row with an input-backed shell after screenshots confirmed Chromium was still rewriting the contentEditable token row and dropping its action buttons.
+- Evidence: Updated `components/rich-text-editor.tsx` so token blocks render as single-line input controls with reveal/copy actions, serialize through the live input value, and re-enter at the input caret instead of a masked code node; refreshed `tests/components/rich-text-editor.test.ts`.
+
+### 2026-03-30
+- Type: Validation
+- Summary: TASK-113 token re-entry hardening validated after extending the structured-block navigation guard across the browser's delayed input phase.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; added token-specific recovery coverage in `tests/components/rich-text-editor.test.ts`.
+
+### 2026-03-30
+- Type: Execution
+- Summary: TASK-113 follow-up fixed the token-only trailing-block regression by extending the caret-navigation guard across the browser's delayed input phase instead of only the initial keydown.
+- Evidence: Updated `components/rich-text-editor.tsx` to keep a short-lived structured-block navigation lock, prevent `beforeinput` while that lock is active, and restore canonical token shells if a transient input mutation still fires; added token-specific regression coverage in `tests/components/rich-text-editor.test.ts`.
+
+### 2026-03-29
+- Type: Validation
+- Summary: TASK-113 token-block Enter-navigation fix validated after removing the custom undo shortcut experiment and guarding against transient browser DOM edits during caret-only navigation.
+- Evidence: `npm run lint`; `npx vitest run tests/components/rich-text-editor.test.ts tests/components/rich-text-content.test.ts tests/lib/rich-text.test.ts`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides.
+
+### 2026-03-29
+- Type: Execution
+- Summary: TASK-113 follow-up removed the unstable custom undo/redo shortcut layer and hardened trailing token-block Enter navigation so Chrome-only transient mutations cannot strip token actions.
+- Evidence: Updated `components/rich-text-editor.tsx` to treat Enter-from-below as deferred caret navigation back into the trailing structured block, ignore/reset transient DOM mutations during that navigation, and remove custom `Ctrl+Z` / redo handling; updated `tests/components/rich-text-editor.test.ts` to assert caret movement into block ends with controls preserved.
+
+### 2026-03-28
+- Type: Validation
+- Summary: TASK-113 rich-text control-layer hardening validated after preserving browser undo/selection state for semantically unchanged editor content.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; expanded `tests/components/rich-text-editor.test.ts` with caret-anchor assertions and undo shortcut coverage.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 follow-up fixed the long-running block-exit regression by stopping unnecessary controlled-editor DOM rewrites and adding native undo/redo shortcut handling.
+- Evidence: Updated `components/rich-text-editor.tsx` to keep hidden caret anchors in editor-only trailing paragraphs, compare incoming prop updates semantically before resetting `innerHTML`, and support `Ctrl+Z` / `Ctrl+Shift+Z` / `Ctrl+Y`; refreshed `tests/components/rich-text-editor.test.ts` with caret-anchor and shortcut coverage.
+
+### 2026-03-28
+- Type: Validation
+- Summary: TASK-113 caret-anchor hardening validated after replacing editor-only empty trailing paragraphs with stable hidden cursor anchors below structured blocks.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; editor regressions remained green in `tests/components/rich-text-editor.test.ts`.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 follow-up replaced fragile empty `<p><br></p>` editor-only trailing lines with hidden caret anchors to stop real-browser Enter flows from jumping back to the start of earlier code/token blocks.
+- Evidence: Updated `components/rich-text-editor.tsx` so editor-only trailing paragraphs use a zero-width caret anchor that is stripped during serialization/build normalization; kept token overflow styling discreet in both `components/rich-text-editor.tsx` and `components/rich-text-content.tsx`.
+
+### 2026-03-28
+- Type: Validation
+- Summary: TASK-113 block-navigation fix validated after removing navigation-only rich-text resyncs and softening token overflow chrome.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; expanded `tests/components/rich-text-editor.test.ts` to cover Enter-from-below behavior for both token and code blocks.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 follow-up fixed the remaining structured-block caret regression by separating caret navigation from content persistence inside the controlled editor.
+- Evidence: Updated `components/rich-text-editor.tsx` so Enter exits from token/code and blank trailing paragraphs no longer call `onChange` unless content actually changes; refreshed token overflow styling in `components/rich-text-editor.tsx` and `components/rich-text-content.tsx`; expanded regression coverage in `tests/components/rich-text-editor.test.ts`.
+
+### 2026-03-28
+- Type: Validation
+- Summary: TASK-113 rich-text editor line-scoping and caret-flow fixes validated after tightening current-line code transforms and post-block cursor placement.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; added regression coverage in `tests/components/rich-text-editor.test.ts`.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 follow-up corrected code wrapping and block-exit ergonomics so structured blocks stay contained and line-local in the editor.
+- Evidence: Updated `components/rich-text-editor.tsx` to wrap long code lines, scope no-selection `Code` transforms to the current visual line, and place the caret in the writable paragraph below code/token blocks; updated `components/rich-text-content.tsx` to wrap code content in read mode; added component-level regression coverage in `tests/components/rich-text-editor.test.ts`.
+
+### 2026-03-28
+- Type: Validation
+- Summary: TASK-113 second UX correction pass validated after tightening structured-block toggling, editor overflow handling, and confidential token rendering behavior.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 second UX correction pass aligned code/token editing with the intended block-toggle interaction model inside the rich-text editor.
+- Evidence: Reworked `components/rich-text-editor.tsx` so code/token blocks render with editor-only chrome, copy/reveal actions, toggle-on/off behavior, and Enter/Shift+Enter block flow; refreshed `components/rich-text-content.tsx` to use the same neutral block styling with icon-only controls; updated `lib/rich-text.ts` so new token blocks store value-only markup by default; refreshed renderer and rich-text tests accordingly.
+
+### 2026-03-28
+- Type: Validation
+- Summary: TASK-113 follow-up rich-content UX pass validated locally after replacing prompt-based code/token insertion with selection-aware formatting and confidential token rendering.
+- Evidence: `npm run lint`; `npm test`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 follow-up aligned code/token behavior with the intended editor and read-surface UX.
+- Evidence: Updated `components/rich-text-editor.tsx` so `Code` and `Token` transform the current line or current selection without browser prompts, refreshed `components/rich-text-content.tsx` with Consolas-styled code surfaces plus hidden-by-default token blocks with reveal/copy actions, and redacted token values from preview summaries in `lib/rich-text.ts` with supporting test updates.
+
+### 2026-03-27
+- Type: Validation
+- Summary: TASK-113 follow-up validation passed after addressing Copilot review feedback and adding renderer-focused component coverage.
+- Evidence: Re-ran `npm run lint`; `npm test`; `npm run test:coverage`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; `npx playwright test` against a production `next start` server using the real `.env` `DATABASE_URL` plus the same minimal overrides.
+
+### 2026-03-27
+- Type: Execution
+- Summary: TASK-113 follow-up changes addressed Copilot feedback around renderer overhead, clipboard fallbacks, and missing tests.
+- Evidence: Updated `components/rich-text-content.tsx` to short-circuit plain content and omit copy controls when clipboard support is unavailable; added renderer coverage in `tests/components/rich-text-content.test.ts`; added `jsdom` dev support in `package.json` / `package-lock.json` so the new component tests run inside Vitest.
+
+### 2026-03-27
+- Type: Validation
+- Summary: TASK-113 local validation baseline passed, including browser smoke coverage against the real runtime database with minimal safe env overrides for the local production-build contract.
+- Evidence: `npm run lint`; `npm test`; `npm run test:coverage`; `npm run build` with temporary `DIRECT_URL` + `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides; `npx playwright test` against a production `next start` server using the real `.env` `DATABASE_URL` plus the same minimal overrides.
+
+### 2026-03-27
+- Type: Execution
+- Summary: TASK-113 implemented rich-content readability upgrades across task/context authoring, rendering, and Kanban previews.
+- Evidence: Extended `lib/rich-text.ts` with lightweight code/token block support plus richer preview summarization, added shared copyable rich-content rendering in `components/rich-text-content.tsx`, updated `components/rich-text-editor.tsx` for code/token authoring, hid emoji field controls until focus in `components/ui/emoji-field.tsx`, and wired the richer renderer/preview flow through task detail plus context card surfaces.
+
 ### 2026-03-27
 - Type: Validation
 - Summary: TASK-112 local validation baseline passed for the attachment-link interaction polish after updating the smoke flow to exercise Enter-to-add with the new add affordance.
@@ -292,3 +412,28 @@ Low-value entries to avoid going forward:
 - Type: Execution
 - Summary: ISSUE-070 targeted remediation implemented as low-risk performance patch set (no broad architecture rewrite).
 - Evidence: Added bounded concurrency (`default=3`) and success callback support in `lib/direct-upload-client.ts`; extended uploader tests in `tests/lib/direct-upload-client.test.ts`; removed duplicate create-flow refreshes in `components/create-task-dialog.tsx` and `components/project-context-panel.tsx`.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 rich-text block layout refined to a simpler single-surface design with contained overflow.
+- Evidence: Updated `components/rich-text-editor.tsx` and `components/rich-text-content.tsx` so code blocks keep copy in the top-right corner, token actions stay inline at the end of the block, and token overflow scrolls inside the value field without widening the modal.
+
+### 2026-03-28
+- Type: Validation
+- Summary: TASK-113 follow-up layout refinement validated locally before preview deployment.
+- Evidence: `npm run lint`, `npx vitest run tests/components/rich-text-content.test.ts tests/lib/rich-text.test.ts`, `npm test`, and `npm run build` (with temporary local `DIRECT_URL` and `GOOGLE_TOKEN_ENCRYPTION_KEY` overrides) all passed.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 follow-up refined overflow containment, inline token actions, and modal sizing.
+- Evidence: Updated `tasks/task-113-rich-content-readability-polish.md` with the follow-up spec; tightened `components/rich-text-editor.tsx`, `components/rich-text-content.tsx`, and `lib/rich-text.ts` so token values remain single-line and scroll internally; widened task/context modal shells in `components/create-task-dialog.tsx`, `components/kanban/task-detail-modal.tsx`, `components/context-panel/context-modal-frame.tsx`, and `components/context-panel/context-preview-modal.tsx`.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 editor continuation flow refined so structured blocks exit cleanly and keep an editable line below.
+- Evidence: Updated `tasks/task-113-rich-content-readability-polish.md` with single-key exit expectations; changed `components/rich-text-editor.tsx` to keep/reuse a trailing paragraph after terminal code/token blocks and move caret below blocks on exit; added regression coverage in `tests/components/rich-text-editor.test.ts`.
+
+### 2026-03-28
+- Type: Execution
+- Summary: TASK-113 editor state sync hardened so block controls do not disappear after continuing below structured blocks.
+- Evidence: Updated `components/rich-text-editor.tsx` to serialize editor-only shells back to canonical rich HTML before state updates and to intercept `Enter` on the empty paragraph directly below a block; extended `tests/components/rich-text-editor.test.ts` with serialization coverage.
