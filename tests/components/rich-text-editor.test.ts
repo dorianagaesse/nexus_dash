@@ -783,6 +783,41 @@ describe("rich-text-editor", () => {
     });
   });
 
+  test("moves below a token block when ArrowDown is pressed inside the token input", async () => {
+    const initialValue = createRichTextTokenBlock("secret-token") ?? "";
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const tokenInput = container.querySelector(
+      'input[data-editor-token-input="true"]'
+    ) as HTMLInputElement | null;
+    const trailingParagraph = editor?.lastElementChild as HTMLParagraphElement | null;
+
+    expect(editor).not.toBeNull();
+    expect(tokenInput).not.toBeNull();
+    expect(trailingParagraph?.tagName).toBe("P");
+
+    await act(async () => {
+      tokenInput?.focus();
+      tokenInput?.setSelectionRange(3, 3);
+      dispatchKeyDown(tokenInput, { key: "ArrowDown" });
+    });
+
+    expect(document.activeElement).toBe(editor);
+    expect(selectionIsAtStartOfElement(trailingParagraph)).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("moves End inside a token value to the end of the token content", async () => {
     const initialValue = createRichTextTokenBlock("secret-token") ?? "";
     const { container, root } = createTestRenderer();
@@ -883,6 +918,42 @@ describe("rich-text-editor", () => {
     });
 
     expect(selectionIsAfterStructuredBlock(codeRow)).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("moves below a code block when ArrowDown is pressed on its last line", async () => {
+    const initialValue = createRichTextCodeBlock("npm run lint\nnpm test") ?? "";
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const codeElement = container.querySelector(
+      `${EDITOR_RICH_SHELL_SELECTOR} pre[data-rich-block="code"] code`
+    ) as HTMLElement | null;
+    const trailingParagraph = editor?.lastElementChild as HTMLParagraphElement | null;
+
+    expect(editor).not.toBeNull();
+    expect(codeElement).not.toBeNull();
+    expect(trailingParagraph?.tagName).toBe("P");
+
+    if (codeElement) {
+      selectTextPosition(codeElement.firstChild as Node, codeElement.textContent?.length ?? 0);
+    }
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "ArrowDown" });
+    });
+
+    expect(selectionIsAtStartOfElement(trailingParagraph)).toBe(true);
 
     await act(async () => {
       root.unmount();

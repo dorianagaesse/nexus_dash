@@ -111,6 +111,10 @@ function isArrowRightKey(event: Pick<KeyboardEvent, "key" | "code">): boolean {
   return event.key === "ArrowRight";
 }
 
+function isArrowDownKey(event: Pick<KeyboardEvent, "key" | "code">): boolean {
+  return event.key === "ArrowDown";
+}
+
 function isEndKey(event: Pick<KeyboardEvent, "key" | "code">): boolean {
   return event.key === "End";
 }
@@ -883,6 +887,19 @@ function isRangeAtEndOfElement(element: HTMLElement, range: Range): boolean {
   return getTextOffsetWithinElement(element, range) === contentLength;
 }
 
+function isRangeOnLastLineOfElement(element: HTMLElement, range: Range): boolean {
+  if (!range.collapsed || !element.contains(range.startContainer)) {
+    return false;
+  }
+
+  const lineSplit = splitTextAroundCurrentLine(
+    getElementTextContentWithBreaks(element),
+    getTextOffsetWithinElement(element, range)
+  );
+
+  return lineSplit.after.length === 0;
+}
+
 function splitTextAroundCurrentLine(text: string, offset: number) {
   const normalizedText = text.replace(/\r\n/g, "\n");
   const lines = normalizedText.split("\n");
@@ -1564,6 +1581,12 @@ export function RichTextEditor({
         return;
       }
 
+      if (isArrowDownKey(event)) {
+        event.preventDefault();
+        moveCaretBelowBlock(tokenTarget, editor);
+        return;
+      }
+
       if (isEndKey(event)) {
         event.preventDefault();
         const caretOffset = target.value.length;
@@ -1642,6 +1665,12 @@ export function RichTextEditor({
       if (isArrowRightKey(event) && codeElement && isRangeAtEndOfElement(codeElement, range)) {
         event.preventDefault();
         moveCaretToAfterStructuredBlock(codeShell, editor);
+        return;
+      }
+
+      if (isArrowDownKey(event) && codeElement && isRangeOnLastLineOfElement(codeElement, range)) {
+        event.preventDefault();
+        moveCaretBelowBlock(codeShell, editor);
         return;
       }
 
