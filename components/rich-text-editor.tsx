@@ -115,6 +115,10 @@ function isArrowDownKey(event: Pick<KeyboardEvent, "key" | "code">): boolean {
   return event.key === "ArrowDown";
 }
 
+function isArrowUpKey(event: Pick<KeyboardEvent, "key" | "code">): boolean {
+  return event.key === "ArrowUp";
+}
+
 function isEndKey(event: Pick<KeyboardEvent, "key" | "code">): boolean {
   return event.key === "End";
 }
@@ -1643,6 +1647,12 @@ export function RichTextEditor({
     const hasStructuredBlockBeforeParagraph =
       previousElement?.matches(EDITOR_RICH_SHELL_SELECTOR) === true ||
       previousElement?.matches(EDITOR_BLOCK_ROW_SELECTOR) === true;
+    if (isArrowUpKey(event) && currentParagraph && hasStructuredBlockBeforeParagraph) {
+      event.preventDefault();
+      moveCaretToEndOfStructuredBlock(previousElement as HTMLElement);
+      return;
+    }
+
     if (
       isBackspaceKey(event) &&
       currentParagraph &&
