@@ -78,6 +78,12 @@ are recorded, and rotation/revocation take effect immediately for new exchanges.
 ## Recommended Execution Notes
 
 - Prefer explicit request IDs on scripted calls so Vercel logs can be filtered
+- For a one-off local/manual validation helper, keep the script in
+  `/tmp/agent-access-smoke.ps1` or `/tmp/agent-access-smoke.sh`; `/tmp/` is
+  already gitignored in this repo.
+- If the smoke helper becomes part of the team's recurring validation flow,
+  promote it out of `/tmp/` into a versioned shared location such as
+  `scripts/manual/` and document its inputs in this runbook.
   quickly if any assertion fails.
 - Use credential labels prefixed with `preview-validation-` so audit and cleanup
   are easy to trace.
