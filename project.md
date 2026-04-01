@@ -1,6 +1,6 @@
 # NexusDash Project Blueprint (Current State)
 
-Last verified: 2026-03-31
+Last verified: 2026-04-01
 
 ## 1. Vision
 
@@ -22,6 +22,7 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
   - one-time raw API key reveal with rotate/revoke lifecycle
   - short-lived bearer token exchange for supported project/task/context APIs
   - audit trail for credential lifecycle and request use
+  - hosted agent onboarding at `/docs/agent/v1` with account-level developer entry and OpenAPI JSON contract
 - Attachment system for tasks and context cards:
   - Link + file attachments
   - Local storage provider and Cloudflare R2 provider
@@ -74,7 +75,7 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 ## 6. Known Gaps (Intentionally Pending)
 
-- Agent v1 intentionally excludes calendar access and binary attachment upload/download parity.
+- Agent v1 intentionally excludes calendar access, binary attachment upload/download parity, and MCP-based tool transport.
 - App-managed invite email delivery is not implemented yet.
 - Broader security hardening and verification phases remain pending.
 
@@ -82,7 +83,7 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 From `tasks/current.md` + `tasks/backlog.md`:
 
-1. TASK-059: agent access implementation - scoped API tokens, rotation, and audit trail
+1. TASK-115: agent onboarding v1 - hosted docs, OpenAPI surface, and in-app setup UX
 2. TASK-048: authentication hardening + auth regression coverage
 3. TASK-061: dependency security baseline
 4. TASK-049/TASK-050/TASK-051: OWASP-focused security assessment, remediation, and verification

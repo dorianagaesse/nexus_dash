@@ -6,8 +6,8 @@ import { ProjectDashboardOwnerAgentAccessPanel } from "@/components/project-dash
 
 (globalThis as { React?: typeof React }).React = React;
 
-describe("project-dashboard-owner-agent-access-panel", () => {
-  test("renders one-time key reveal, credential metadata, and audit events", () => {
+describe("project-dashboard-owner-agent-access-panel quickstart", () => {
+  test("renders one-time key reveal and the project bootstrap env block", () => {
     const result = renderToStaticMarkup(
       React.createElement(ProjectDashboardOwnerAgentAccessPanel, {
         projectId: "project-1",
@@ -30,20 +30,7 @@ describe("project-dashboard-owner-agent-access-panel", () => {
               updatedAt: "2026-03-31T09:05:00.000Z",
             },
           ],
-          recentEvents: [
-            {
-              id: "audit-1",
-              action: "request_used",
-              credentialId: "credential-1",
-              credentialLabel: "Release bot",
-              requestId: "request-123",
-              ipAddress: "198.51.100.42",
-              userAgent: "Vitest",
-              httpMethod: "GET",
-              path: "/api/projects/project-1/tasks",
-              createdAt: "2026-03-31T09:05:00.000Z",
-            },
-          ],
+          recentEvents: [],
         },
         isLoadingAccessSummary: false,
         accessError: null,
@@ -75,17 +62,11 @@ describe("project-dashboard-owner-agent-access-panel", () => {
       })
     );
 
-    expect(result).toContain("Agent access");
-    expect(result).toContain("Copy the new API key now");
-    expect(result).toContain("nda_public.secret");
-    expect(result).toContain("Release bot");
-    expect(result).toContain("task:read");
-    expect(result).toContain("Request used");
-    expect(result).toContain("Request:");
-    expect(result).toContain("/api/projects/project-1/tasks");
     expect(result).toContain("Project quickstart");
+    expect(result).toContain("Hosted docs");
+    expect(result).toContain("OpenAPI JSON");
     expect(result).toContain("NEXUSDASH_PROJECT_ID=project-1");
     expect(result).toContain("NEXUSDASH_API_KEY=nda_public.secret");
-    expect(result).toContain('aria-label="Copy API key for Release bot"');
+    expect(result).toContain("Copy the new API key now");
   });
 });

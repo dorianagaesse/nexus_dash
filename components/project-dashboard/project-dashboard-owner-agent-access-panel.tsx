@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Bot,
+  BookOpenText,
   Check,
   Copy,
   KeyRound,
@@ -16,6 +17,11 @@ import {
   MAX_AGENT_CREDENTIAL_LABEL_LENGTH,
   type AgentScope,
 } from "@/lib/agent-access";
+import {
+  AGENT_BASE_URL_PLACEHOLDER,
+  buildAgentDocumentationUrls,
+  buildAgentProjectEnvBlock,
+} from "@/lib/agent-onboarding";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +39,7 @@ interface CreateProjectAgentCredentialInput {
 }
 
 interface ProjectDashboardOwnerAgentAccessPanelProps {
+  projectId: string;
   accessSummary: ProjectAgentAccessSummary | null;
   isLoadingAccessSummary: boolean;
   accessError: string | null;
@@ -82,6 +89,7 @@ function buildUsageHint(accessTokenTtlSeconds: number): string {
 }
 
 export function ProjectDashboardOwnerAgentAccessPanel({
+  projectId,
   accessSummary,
   isLoadingAccessSummary,
   accessError,
@@ -98,6 +106,16 @@ export function ProjectDashboardOwnerAgentAccessPanel({
   const [selectedScopes, setSelectedScopes] = useState<AgentScope[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
   const [hasCopiedSecret, setHasCopiedSecret] = useState(false);
+  const [hasCopiedQuickstart, setHasCopiedQuickstart] = useState(false);
+  const [runtimeAppOrigin, setRuntimeAppOrigin] = useState(AGENT_BASE_URL_PLACEHOLDER);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    setRuntimeAppOrigin(window.location.origin);
+  }, []);
 
   useEffect(() => {
     if (!latestIssuedSecret) {
@@ -114,21 +132,36 @@ export function ProjectDashboardOwnerAgentAccessPanel({
   }, [latestIssuedSecret]);
 
   useEffect(() => {
-    if (!hasCopiedSecret) {
+    if (!hasCopiedSecret && !hasCopiedQuickstart) {
       return;
     }
 
     const timeoutId = window.setTimeout(() => {
       setHasCopiedSecret(false);
+      setHasCopiedQuickstart(false);
     }, 1600);
 
     return () => window.clearTimeout(timeoutId);
-  }, [hasCopiedSecret]);
+  }, [hasCopiedQuickstart, hasCopiedSecret]);
 
   const credentialCountLabel = useMemo(() => {
     const count = accessSummary?.credentials.length ?? 0;
     return `${count} credential${count === 1 ? "" : "s"}`;
   }, [accessSummary?.credentials.length]);
+
+  const docsLinks = useMemo(
+    () => buildAgentDocumentationUrls(runtimeAppOrigin),
+    [runtimeAppOrigin]
+  );
+  const quickstartEnvBlock = useMemo(
+    () =>
+      buildAgentProjectEnvBlock({
+        appOrigin: runtimeAppOrigin,
+        projectId,
+        apiKey: latestIssuedSecret?.apiKey ?? null,
+      }),
+    [latestIssuedSecret?.apiKey, projectId, runtimeAppOrigin]
+  );
 
   const handleToggleScope = (scope: AgentScope) => {
     setSelectedScopes((currentScopes) =>
@@ -175,6 +208,15 @@ export function ProjectDashboardOwnerAgentAccessPanel({
       setHasCopiedSecret(true);
     } catch {
       setHasCopiedSecret(false);
+    }
+  };
+
+  const handleCopyQuickstart = async () => {
+    try {
+      await navigator.clipboard.writeText(quickstartEnvBlock);
+      setHasCopiedQuickstart(true);
+    } catch {
+      setHasCopiedQuickstart(false);
     }
   };
 
@@ -456,57 +498,105 @@ export function ProjectDashboardOwnerAgentAccessPanel({
         </section>
       </div>
 
-      <section className="space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
-        <div className="space-y-1">
-          <h3 className="text-base font-semibold">Recent audit trail</h3>
-          <p className="text-sm text-muted-foreground">
-            Creation, rotation, revocation, token exchange, and request usage are recorded here.
-          </p>
-        </div>
-
-        {!isLoadingAccessSummary &&
-        accessSummary &&
-        accessSummary.recentEvents.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No audit events yet.</p>
-        ) : null}
-
-        {accessSummary?.recentEvents.length ? (
-          <div className="space-y-3">
-            {accessSummary.recentEvents.map((event) => (
-              <div
-                key={event.id}
-                className="space-y-2 rounded-xl border border-border/60 bg-card p-3"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-medium">{formatAgentAuditAction(event.action)}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatTimestamp(event.createdAt)}
-                  </p>
-                </div>
-
-                <div className="space-y-1 text-xs text-muted-foreground">
-                  <p>
-                    Credential:{" "}
-                    <span className="font-medium text-foreground">
-                      {event.credentialLabel ?? "Unknown credential"}
-                    </span>
-                  </p>
-                  {event.httpMethod && event.path ? (
-                    <p>
-                      Request:{" "}
-                      <code>
-                        {event.httpMethod} {event.path}
-                      </code>
-                    </p>
-                  ) : null}
-                  {event.ipAddress ? <p>IP: {event.ipAddress}</p> : null}
-                  {event.requestId ? <p>Request id: {event.requestId}</p> : null}
-                </div>
-              </div>
-            ))}
+      <div className="space-y-6">
+        <section className="space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <BookOpenText className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-base font-semibold">Project quickstart</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Use this bootstrap block in the external agent runtime. If you lose the raw API key,
+              rotate the credential here and replace the env value.
+            </p>
           </div>
-        ) : null}
-      </section>
+
+          <div className="rounded-xl border border-border/60 bg-card/70 px-4 py-3 text-sm">
+            Project id: <code>{projectId}</code>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" size="sm">
+              <a href={docsLinks.docsUrl}>Hosted docs</a>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <a href={docsLinks.openApiUrl}>OpenAPI JSON</a>
+            </Button>
+            <Button type="button" variant="secondary" size="sm" onClick={() => void handleCopyQuickstart()}>
+              {hasCopiedQuickstart ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {hasCopiedQuickstart ? "Copied env" : "Copy env block"}
+            </Button>
+          </div>
+
+          <pre className="overflow-x-auto rounded-xl border border-border/70 bg-slate-950 px-4 py-3 text-xs leading-6 text-slate-50">
+            <code>{quickstartEnvBlock}</code>
+          </pre>
+
+          <div className="space-y-1 text-xs text-muted-foreground">
+            <p>
+              Exchange <code>NEXUSDASH_API_KEY</code> at <code>/api/auth/agent/token</code>,
+              then send the returned bearer token to the scoped project routes.
+            </p>
+            <p>
+              This project ships agent-ready support for project read, task routes, and
+              context-card routes documented by the hosted guide.
+            </p>
+          </div>
+        </section>
+
+        <section className="space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
+          <div className="space-y-1">
+            <h3 className="text-base font-semibold">Recent audit trail</h3>
+            <p className="text-sm text-muted-foreground">
+              Creation, rotation, revocation, token exchange, and request usage are recorded
+              here.
+            </p>
+          </div>
+
+          {!isLoadingAccessSummary &&
+          accessSummary &&
+          accessSummary.recentEvents.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No audit events yet.</p>
+          ) : null}
+
+          {accessSummary?.recentEvents.length ? (
+            <div className="space-y-3">
+              {accessSummary.recentEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="space-y-2 rounded-xl border border-border/60 bg-card p-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-medium">{formatAgentAuditAction(event.action)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatTimestamp(event.createdAt)}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    <p>
+                      Credential:{" "}
+                      <span className="font-medium text-foreground">
+                        {event.credentialLabel ?? "Unknown credential"}
+                      </span>
+                    </p>
+                    {event.httpMethod && event.path ? (
+                      <p>
+                        Request:{" "}
+                        <code>
+                          {event.httpMethod} {event.path}
+                        </code>
+                      </p>
+                    ) : null}
+                    {event.ipAddress ? <p>IP: {event.ipAddress}</p> : null}
+                    {event.requestId ? <p>Request id: {event.requestId}</p> : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      </div>
     </div>
   );
 }
