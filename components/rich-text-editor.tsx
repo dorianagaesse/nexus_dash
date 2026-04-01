@@ -741,6 +741,20 @@ function moveCaretAboveBlock(target: HTMLElement, editor?: HTMLDivElement | null
   return created;
 }
 
+function moveCaretToParagraphAboveStructuredBlock(
+  target: HTMLElement,
+  editor?: HTMLDivElement | null
+) {
+  const paragraph = findAdjacentEditorParagraph(target, "previous");
+  if (!paragraph) {
+    return false;
+  }
+
+  editor?.focus();
+  moveCaretToStart(paragraph);
+  return true;
+}
+
 function moveCaretToAfterStructuredBlock(target: HTMLElement, editor?: HTMLDivElement | null) {
   const afterAnchor = findStructuredBlockAfterAnchor(resolveStructuredBlockTarget(target));
   if (!afterAnchor) {
@@ -891,6 +905,30 @@ function moveCaretToEndOfStructuredBlock(target: HTMLElement) {
   }
 
   moveCaretToEnd(target);
+}
+
+function moveCaretToStartOfStructuredBlock(target: HTMLElement) {
+  const tokenInput = target.querySelector<HTMLInputElement>(
+    'input[data-editor-token-input="true"]'
+  );
+
+  if (tokenInput) {
+    tokenInput.focus();
+    tokenInput.setSelectionRange(0, 0);
+    return;
+  }
+
+  const codeElement =
+    target.querySelector(
+      `pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code, div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"] code`
+    ) ?? target.querySelector("code");
+
+  if (codeElement) {
+    moveCaretToStart(codeElement);
+    return;
+  }
+
+  moveCaretToStart(target);
 }
 
 function getElementTextContentWithBreaks(element: HTMLElement): string {
@@ -1625,6 +1663,16 @@ export function RichTextEditor({
         return;
       }
 
+      if (
+        isArrowUpKey(event) &&
+        target.selectionStart === 0 &&
+        target.selectionEnd === 0 &&
+        moveCaretToParagraphAboveStructuredBlock(tokenTarget, editor)
+      ) {
+        event.preventDefault();
+        return;
+      }
+
       if (isEndKey(event)) {
         event.preventDefault();
         const caretOffset = target.value.length;
@@ -1687,12 +1735,22 @@ export function RichTextEditor({
     const currentParagraph =
       findCurrentParagraph(editor, range) ?? findRootSelectionParagraph(editor, range);
     const previousElement = currentParagraph?.previousElementSibling as HTMLElement | null;
+    const nextElement = currentParagraph?.nextElementSibling as HTMLElement | null;
     const hasStructuredBlockBeforeParagraph =
       previousElement?.matches(EDITOR_RICH_SHELL_SELECTOR) === true ||
       previousElement?.matches(EDITOR_BLOCK_ROW_SELECTOR) === true;
+    const hasStructuredBlockAfterParagraph =
+      nextElement?.matches(EDITOR_RICH_SHELL_SELECTOR) === true ||
+      nextElement?.matches(EDITOR_BLOCK_ROW_SELECTOR) === true;
     if (isArrowUpKey(event) && currentParagraph && hasStructuredBlockBeforeParagraph) {
       event.preventDefault();
       moveCaretToEndOfStructuredBlock(previousElement as HTMLElement);
+      return;
+    }
+
+    if (isArrowDownKey(event) && currentParagraph && hasStructuredBlockAfterParagraph) {
+      event.preventDefault();
+      moveCaretToStartOfStructuredBlock(nextElement as HTMLElement);
       return;
     }
 
@@ -1725,6 +1783,13 @@ export function RichTextEditor({
         event.preventDefault();
         moveCaretBelowBlock(codeShell, editor);
         return;
+      }
+
+      if (isArrowUpKey(event) && codeElement && isRangeAtStartOfElement(codeElement, range)) {
+        if (moveCaretToParagraphAboveStructuredBlock(codeShell, editor)) {
+          event.preventDefault();
+          return;
+        }
       }
 
       if (isEndKey(event)) {

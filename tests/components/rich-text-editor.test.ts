@@ -101,6 +101,18 @@ function selectionIsAtEndOfStructuredField(fieldElement: HTMLElement | null) {
   );
 }
 
+function selectionIsAtStartOfStructuredField(fieldElement: HTMLElement | null) {
+  if (fieldElement instanceof HTMLInputElement) {
+    return (
+      document.activeElement === fieldElement &&
+      fieldElement.selectionStart === 0 &&
+      fieldElement.selectionEnd === 0
+    );
+  }
+
+  return selectionIsAtStartOfElement(fieldElement);
+}
+
 function selectionIsAtStartOfElement(element: HTMLElement | null) {
   const selection = window.getSelection();
 
@@ -818,6 +830,40 @@ describe("rich-text-editor", () => {
     });
   });
 
+  test("moves into a token block when ArrowDown is pressed from the paragraph above", async () => {
+    const initialValue = `<p>above</p>${createRichTextTokenBlock("secret-token") ?? ""}`;
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const tokenInput = container.querySelector(
+      'input[data-editor-token-input="true"]'
+    ) as HTMLInputElement | null;
+    const aboveParagraph = editor?.firstElementChild as HTMLParagraphElement | null;
+
+    expect(editor).not.toBeNull();
+    expect(tokenInput).not.toBeNull();
+    expect(aboveParagraph?.tagName).toBe("P");
+
+    selectNodeStart(aboveParagraph as Node);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "ArrowDown" });
+    });
+
+    expect(selectionIsAtStartOfStructuredField(tokenInput)).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("creates a line above a token block when Enter is pressed at the start of the token value", async () => {
     const initialValue = createRichTextTokenBlock("secret-token") ?? "";
     const { container, root } = createTestRenderer();
@@ -849,6 +895,40 @@ describe("rich-text-editor", () => {
     expect(firstParagraph?.tagName).toBe("P");
     expect(selectionIsAtStartOfElement(firstParagraph)).toBe(true);
     expect(persistedValue).toBe(`<p></p>${initialValue}`);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("moves to the paragraph above a token block when ArrowUp is pressed at the start", async () => {
+    const initialValue = `<p>above</p>${createRichTextTokenBlock("secret-token") ?? ""}`;
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const tokenInput = container.querySelector(
+      'input[data-editor-token-input="true"]'
+    ) as HTMLInputElement | null;
+    const aboveParagraph = editor?.firstElementChild as HTMLParagraphElement | null;
+
+    expect(editor).not.toBeNull();
+    expect(tokenInput).not.toBeNull();
+    expect(aboveParagraph?.tagName).toBe("P");
+
+    await act(async () => {
+      tokenInput?.focus();
+      tokenInput?.setSelectionRange(0, 0);
+      dispatchKeyDown(tokenInput, { key: "ArrowUp" });
+    });
+
+    expect(selectionIsAtStartOfElement(aboveParagraph)).toBe(true);
 
     await act(async () => {
       root.unmount();
@@ -1031,6 +1111,40 @@ describe("rich-text-editor", () => {
     });
   });
 
+  test("moves into a code block when ArrowDown is pressed from the paragraph above", async () => {
+    const initialValue = `<p>above</p>${createRichTextCodeBlock("npm run lint") ?? ""}`;
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const codeElement = container.querySelector(
+      `${EDITOR_RICH_SHELL_SELECTOR} pre[data-rich-block="code"] code`
+    ) as HTMLElement | null;
+    const aboveParagraph = editor?.firstElementChild as HTMLParagraphElement | null;
+
+    expect(editor).not.toBeNull();
+    expect(codeElement).not.toBeNull();
+    expect(aboveParagraph?.tagName).toBe("P");
+
+    selectNodeStart(aboveParagraph as Node);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "ArrowDown" });
+    });
+
+    expect(selectionIsAtStartOfStructuredField(codeElement)).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("creates a line above a code block when Enter is pressed at the start of the code content", async () => {
     const initialValue = createRichTextCodeBlock("npm run lint") ?? "";
     const { container, root } = createTestRenderer();
@@ -1064,6 +1178,42 @@ describe("rich-text-editor", () => {
     expect(firstParagraph?.tagName).toBe("P");
     expect(selectionIsAtStartOfElement(firstParagraph)).toBe(true);
     expect(persistedValue).toBe(`<p></p>${initialValue}`);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("moves to the paragraph above a code block when ArrowUp is pressed at the start", async () => {
+    const initialValue = `<p>above</p>${createRichTextCodeBlock("npm run lint") ?? ""}`;
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const codeElement = container.querySelector(
+      `${EDITOR_RICH_SHELL_SELECTOR} pre[data-rich-block="code"] code`
+    ) as HTMLElement | null;
+    const aboveParagraph = editor?.firstElementChild as HTMLParagraphElement | null;
+
+    expect(editor).not.toBeNull();
+    expect(codeElement).not.toBeNull();
+    expect(aboveParagraph?.tagName).toBe("P");
+
+    if (codeElement?.firstChild) {
+      selectTextPosition(codeElement.firstChild, 0);
+    }
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "ArrowUp" });
+    });
+
+    expect(selectionIsAtStartOfElement(aboveParagraph)).toBe(true);
 
     await act(async () => {
       root.unmount();
