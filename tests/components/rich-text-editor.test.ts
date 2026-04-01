@@ -818,6 +818,43 @@ describe("rich-text-editor", () => {
     });
   });
 
+  test("creates a line above a token block when Enter is pressed at the start of the token value", async () => {
+    const initialValue = createRichTextTokenBlock("secret-token") ?? "";
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const tokenInput = container.querySelector(
+      'input[data-editor-token-input="true"]'
+    ) as HTMLInputElement | null;
+
+    expect(editor).not.toBeNull();
+    expect(tokenInput).not.toBeNull();
+
+    await act(async () => {
+      tokenInput?.focus();
+      tokenInput?.setSelectionRange(0, 0);
+      dispatchKeyDown(tokenInput, { key: "Enter" });
+    });
+
+    const firstParagraph = editor?.firstElementChild as HTMLParagraphElement | null;
+    const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+    expect(firstParagraph?.tagName).toBe("P");
+    expect(selectionIsAtStartOfElement(firstParagraph)).toBe(true);
+    expect(persistedValue).toBe(`<p></p>${initialValue}`);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("moves into a token block when ArrowUp is pressed from the paragraph below", async () => {
     const initialValue = createRichTextTokenBlock("secret-token") ?? "";
     const { container, root } = createTestRenderer();
@@ -988,6 +1025,45 @@ describe("rich-text-editor", () => {
     });
 
     expect(selectionIsAtStartOfElement(trailingParagraph)).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("creates a line above a code block when Enter is pressed at the start of the code content", async () => {
+    const initialValue = createRichTextCodeBlock("npm run lint") ?? "";
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const codeElement = container.querySelector(
+      `${EDITOR_RICH_SHELL_SELECTOR} pre[data-rich-block="code"] code`
+    ) as HTMLElement | null;
+
+    expect(editor).not.toBeNull();
+    expect(codeElement).not.toBeNull();
+
+    if (codeElement?.firstChild) {
+      selectTextPosition(codeElement.firstChild, 0);
+    }
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "Enter" });
+    });
+
+    const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+    const firstParagraph = editor?.firstElementChild as HTMLParagraphElement | null;
+
+    expect(firstParagraph?.tagName).toBe("P");
+    expect(selectionIsAtStartOfElement(firstParagraph)).toBe(true);
+    expect(persistedValue).toBe(`<p></p>${initialValue}`);
 
     await act(async () => {
       root.unmount();

@@ -715,6 +715,32 @@ function moveCaretBelowBlock(target: HTMLElement, editor?: HTMLDivElement | null
   moveCaretToStart(paragraph);
 }
 
+function ensureParagraphBefore(target: HTMLElement) {
+  const previousElement = target.previousElementSibling;
+  if (isEmptyEditorParagraph(previousElement)) {
+    return {
+      paragraph: previousElement,
+      created: false,
+    };
+  }
+
+  const paragraph = createEmptyParagraph(target.ownerDocument);
+  target.before(paragraph);
+  return {
+    paragraph,
+    created: true,
+  };
+}
+
+function moveCaretAboveBlock(target: HTMLElement, editor?: HTMLDivElement | null) {
+  const { paragraph, created } = ensureParagraphBefore(target);
+
+  editor?.focus();
+  moveCaretToStart(paragraph);
+
+  return created;
+}
+
 function moveCaretToAfterStructuredBlock(target: HTMLElement, editor?: HTMLDivElement | null) {
   const afterAnchor = findStructuredBlockAfterAnchor(resolveStructuredBlockTarget(target));
   if (!afterAnchor) {
@@ -889,6 +915,14 @@ function isRangeAtEndOfElement(element: HTMLElement, range: Range): boolean {
 
   const contentLength = extractNodeText(element).replace(/\u00a0/g, " ").length;
   return getTextOffsetWithinElement(element, range) === contentLength;
+}
+
+function isRangeAtStartOfElement(element: HTMLElement, range: Range): boolean {
+  if (!range.collapsed || !element.contains(range.startContainer)) {
+    return false;
+  }
+
+  return getTextOffsetWithinElement(element, range) === 0;
 }
 
 function isRangeOnLastLineOfElement(element: HTMLElement, range: Range): boolean {
@@ -1186,7 +1220,7 @@ export function serializeEditorRichTextHtml(input: string): string {
       }
     });
 
-  return template.innerHTML.replace(/\u200b/g, "");
+  return trimTrailingEmptyParagraphHtml(template.innerHTML.replace(/\u200b/g, ""));
 }
 
 function applyStructuredBlock(
@@ -1600,7 +1634,16 @@ export function RichTextEditor({
 
       if (isEnterKey(event)) {
         event.preventDefault();
-        moveCaretBelowBlock(tokenTarget, editor);
+        if (target.selectionStart === 0 && target.selectionEnd === 0) {
+          const beforeSnapshot = createEditorHistorySnapshot(editor);
+          const created = moveCaretAboveBlock(tokenTarget, editor);
+          if (created) {
+            recordHistoryFromSnapshot(beforeSnapshot);
+            emitCurrentValue();
+          }
+        } else {
+          moveCaretBelowBlock(tokenTarget, editor);
+        }
         return;
       }
 
@@ -1705,7 +1748,14 @@ export function RichTextEditor({
 
       event.preventDefault();
 
-      if (event.shiftKey) {
+      if (codeElement && isRangeAtStartOfElement(codeElement, range)) {
+        const beforeSnapshot = createEditorHistorySnapshot(editor);
+        const created = moveCaretAboveBlock(codeShell, editor);
+        if (created) {
+          recordHistoryFromSnapshot(beforeSnapshot);
+          emitCurrentValue();
+        }
+      } else if (event.shiftKey) {
         const beforeSnapshot = createEditorHistorySnapshot(editor);
         insertTextAtRange(range, "\n");
         recordHistoryFromSnapshot(beforeSnapshot);
