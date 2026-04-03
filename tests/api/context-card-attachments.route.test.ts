@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+const apiGuardMock = vi.hoisted(() => ({
+  getAgentProjectAccessContext: vi.fn(),
+  requireApiPrincipal: vi.fn(),
+  requireAuthenticatedApiUser: vi.fn(),
+}));
+
 const attachmentServiceMock = vi.hoisted(() => ({
   createContextAttachmentFromForm: vi.fn(),
   createContextAttachmentUploadTarget: vi.fn(),
@@ -22,6 +28,12 @@ vi.mock("@/lib/services/project-attachment-service", () => ({
   getContextAttachmentDownload: attachmentServiceMock.getContextAttachmentDownload,
 }));
 
+vi.mock("@/lib/auth/api-guard", () => ({
+  getAgentProjectAccessContext: apiGuardMock.getAgentProjectAccessContext,
+  requireApiPrincipal: apiGuardMock.requireApiPrincipal,
+  requireAuthenticatedApiUser: apiGuardMock.requireAuthenticatedApiUser,
+}));
+
 import { POST as postAttachment } from "@/app/api/projects/[projectId]/context-cards/[cardId]/attachments/route";
 import { POST as postAttachmentUploadUrl } from "@/app/api/projects/[projectId]/context-cards/[cardId]/attachments/upload-url/route";
 import { POST as postAttachmentDirectFinalize } from "@/app/api/projects/[projectId]/context-cards/[cardId]/attachments/direct/route";
@@ -36,6 +48,19 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
 describe("context card attachment routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    apiGuardMock.requireApiPrincipal.mockResolvedValue({
+      ok: true,
+      principal: {
+        kind: "human",
+        actorUserId: "test-user",
+        requestId: "request-1",
+      },
+    });
+    apiGuardMock.requireAuthenticatedApiUser.mockResolvedValue({
+      ok: true,
+      userId: "test-user",
+    });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValue(undefined);
   });
 
   test("POST returns 400 when route params are missing", async () => {
@@ -210,6 +235,7 @@ describe("context card attachment routes", () => {
       name: "spec.pdf",
       mimeType: "application/pdf",
       sizeBytes: 123,
+      agentAccess: undefined,
     });
   });
 
@@ -274,6 +300,7 @@ describe("context card attachment routes", () => {
       projectId: "p1",
       cardId: "c1",
       storageKey: "context-card/c1/key-spec.pdf",
+      agentAccess: undefined,
     });
   });
 
@@ -306,6 +333,7 @@ describe("context card attachment routes", () => {
       projectId: "p1",
       cardId: "c1",
       attachmentId: "a1",
+      agentAccess: undefined,
     });
   });
 
@@ -370,6 +398,7 @@ describe("context card attachment routes", () => {
       cardId: "c1",
       attachmentId: "a1",
       disposition: "inline",
+      agentAccess: undefined,
     });
 
     const body = new Uint8Array(await response.arrayBuffer());
@@ -427,6 +456,76 @@ describe("context card attachment routes", () => {
       cardId: "c1",
       attachmentId: "a1",
       disposition: "attachment",
+      agentAccess: undefined,
+    });
+  });
+
+  test("passes agent project access to context direct upload routes", async () => {
+    apiGuardMock.requireApiPrincipal.mockResolvedValueOnce({
+      ok: true,
+      principal: {
+        kind: "agent",
+        actorUserId: "owner-1",
+        ownerUserId: "owner-1",
+        credentialId: "credential-1",
+        projectId: "p1",
+        scopes: ["context:write"],
+        tokenId: "token-1",
+        requestId: "request-1",
+      },
+    });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValueOnce({
+      credentialId: "credential-1",
+      projectId: "p1",
+      scopes: ["context:write"],
+    });
+    attachmentServiceMock.createContextAttachmentUploadTarget.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        upload: {
+          storageKey: "context-card/c1/key-image.png",
+          uploadUrl: "https://example.r2/upload",
+          method: "PUT",
+          headers: { "Content-Type": "image/png" },
+          expiresInSeconds: 300,
+          maxFileSizeBytes: 26214400,
+          maxFileSizeLabel: "25MB",
+        },
+      },
+    });
+
+    const request = new Request(
+      "http://localhost/api/projects/p1/context-cards/c1/attachments/upload-url",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "image.png",
+          mimeType: "image/png",
+          sizeBytes: 2048,
+        }),
+      }
+    );
+
+    const response = await postAttachmentUploadUrl(request as never, {
+      params: { projectId: "p1", cardId: "c1" },
+    });
+
+    expect(response.status).toBe(200);
+    expect(
+      attachmentServiceMock.createContextAttachmentUploadTarget
+    ).toHaveBeenCalledWith({
+      actorUserId: "owner-1",
+      projectId: "p1",
+      cardId: "c1",
+      name: "image.png",
+      mimeType: "image/png",
+      sizeBytes: 2048,
+      agentAccess: {
+        credentialId: "credential-1",
+        projectId: "p1",
+        scopes: ["context:write"],
+      },
     });
   });
 });

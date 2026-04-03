@@ -49,7 +49,13 @@ describe("GET /api/docs/agent/v1/openapi.json", () => {
     expect(servers?.[0]?.url).toBe("https://preview.nexusdash.test");
     expect(paths).toHaveProperty("/api/auth/agent/token");
     expect(paths).toHaveProperty("/api/projects/{projectId}/tasks");
+    expect(paths).toHaveProperty(
+      "/api/projects/{projectId}/tasks/{taskId}/attachments/upload-url"
+    );
     expect(paths).toHaveProperty("/api/projects/{projectId}/context-cards/{cardId}");
+    expect(paths).toHaveProperty(
+      "/api/projects/{projectId}/context-cards/{cardId}/attachments/direct"
+    );
     expect(components?.securitySchemes).toHaveProperty("BearerAuth");
     expect(components?.securitySchemes).toHaveProperty("ApiKeyAuthorization");
     expect(components?.securitySchemes).toHaveProperty("AgentApiKeyHeader");

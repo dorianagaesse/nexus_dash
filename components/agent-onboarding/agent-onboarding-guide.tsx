@@ -14,11 +14,18 @@ import { AGENT_SCOPE_DEFINITIONS } from "@/lib/agent-access";
 import {
   AGENT_API_ENDPOINTS,
   AGENT_BASE_URL_PLACEHOLDER,
+  AGENT_LIMITATIONS,
   buildAgentDocumentationUrls,
   buildAgentProjectEnvBlock,
+  buildAgentAttachmentUploadExample,
+  buildAgentContextUpdateExample,
   buildAgentTokenExchangeExample,
   buildAgentProjectReadExample,
+  buildAgentSmokeTestExample,
+  buildAgentTaskArchiveExample,
   buildAgentTaskCreateExample,
+  buildAgentTaskReorderExample,
+  buildAgentTaskUpdateExample,
   buildAgentContextCreateExample,
 } from "@/lib/agent-onboarding";
 import { Badge } from "@/components/ui/badge";
@@ -108,7 +115,8 @@ export function AgentOnboardingGuide({
             </div>
             <CardDescription>
               This v1 guide covers the supported agent routes only: project read, task routes,
-              and context-card routes already validated in production-like preview flows.
+              context-card routes, and the documented attachment upload flow already validated in
+              preview-like environments.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -163,7 +171,8 @@ export function AgentOnboardingGuide({
               <p>1. Owner creates a project-scoped credential.</p>
               <p>2. Agent receives the one-time raw API key out of band.</p>
               <p>3. Agent exchanges that key for a short-lived bearer token.</p>
-              <p>4. Agent calls only the routes allowed by the credential scopes.</p>
+              <p>4. Agent sends bearer auth on the scoped project routes.</p>
+              <p>5. Binary files use the direct-upload attachment routes instead of inline HTML.</p>
             </div>
             <CodeBlock value={tokenExchangeExample} />
           </CardContent>
@@ -223,6 +232,11 @@ export function AgentOnboardingGuide({
                     <Badge variant="outline" className="rounded-full">
                       {endpoint.tag}
                     </Badge>
+                    {endpoint.requestContentType ? (
+                      <Badge variant="outline" className="rounded-full">
+                        {endpoint.requestContentType}
+                      </Badge>
+                    ) : null}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     <code>{endpoint.path}</code>
@@ -270,14 +284,72 @@ export function AgentOnboardingGuide({
 
         <Card className="border-border/60 bg-background/70">
           <CardHeader>
-            <CardTitle className="text-xl">Write examples</CardTitle>
+            <CardTitle className="text-xl">Create examples</CardTitle>
             <CardDescription>
-              Task and context-card creation use <code>multipart/form-data</code> in v1.
+              Use <code>application/json</code> for agent-first write flows unless you are
+              intentionally using a browser-oriented multipart form.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <CodeBlock value={buildAgentTaskCreateExample()} />
             <CodeBlock value={buildAgentContextCreateExample()} />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card className="border-border/60 bg-background/70">
+          <CardHeader>
+            <CardTitle className="text-xl">Update and lifecycle examples</CardTitle>
+            <CardDescription>
+              Task status changes happen through reorder, not task patch.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <CodeBlock value={buildAgentTaskUpdateExample()} />
+            <CodeBlock value={buildAgentTaskReorderExample()} />
+            <CodeBlock value={buildAgentTaskArchiveExample()} />
+            <CodeBlock value={buildAgentContextUpdateExample()} />
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/60 bg-background/70">
+          <CardHeader>
+            <CardTitle className="text-xl">Binary upload example</CardTitle>
+            <CardDescription>
+              Images and other binary files use the signed direct-upload flow.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CodeBlock value={buildAgentAttachmentUploadExample()} />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <Card className="border-border/60 bg-background/70">
+          <CardHeader>
+            <CardTitle className="text-xl">Agent limitations</CardTitle>
+            <CardDescription>
+              These sharp edges are intentional v1 boundaries, not hidden behavior.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            {AGENT_LIMITATIONS.map((item) => (
+              <p key={item}>{item}</p>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/60 bg-background/70">
+          <CardHeader>
+            <CardTitle className="text-xl">Copy-paste smoke test</CardTitle>
+            <CardDescription>
+              Use this as a first validation pass in a fresh external agent runtime.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CodeBlock value={buildAgentSmokeTestExample()} />
           </CardContent>
         </Card>
       </div>

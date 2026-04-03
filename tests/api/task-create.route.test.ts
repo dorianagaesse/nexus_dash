@@ -102,6 +102,46 @@ describe("POST /api/projects/:projectId/tasks", () => {
     expect(call.attachmentFiles).toHaveLength(1);
   });
 
+  test("creates task from json payload for agent-first callers", async () => {
+    projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
+      ok: true,
+      data: { id: "task-json" },
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        title: "  Draft API smoke test  ",
+        description: "  <p>Validate the agent route.</p>  ",
+        labels: ["agent", "qa"],
+        relatedTaskIds: ["task-a"],
+        attachmentLinks: [{ name: "Spec", url: "https://example.com/spec" }],
+      }),
+    });
+
+    const response = await POST(request as never, {
+      params: { projectId: "p1" },
+    });
+
+    expect(response.status).toBe(201);
+    await expect(readJson(response)).resolves.toEqual({ taskId: "task-json" });
+    expect(projectTaskServiceMock.createTaskForProject).toHaveBeenCalledWith({
+      actorUserId: "test-user",
+      projectId: "p1",
+      title: "Draft API smoke test",
+      description: "<p>Validate the agent route.</p>",
+      labelsJsonRaw: '["agent","qa"]',
+      relatedTaskIdsJsonRaw: '["task-a"]',
+      attachmentLinksJsonRaw:
+        '[{"name":"Spec","url":"https://example.com/spec"}]',
+      attachmentFiles: [],
+      agentAccess: undefined,
+    });
+  });
+
   test("returns mapped error from service", async () => {
     projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
       ok: false,
@@ -166,6 +206,26 @@ describe("POST /api/projects/:projectId/tasks", () => {
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({
       error: "agent-file-attachments-not-supported",
+    });
+    expect(projectTaskServiceMock.createTaskForProject).not.toHaveBeenCalled();
+  });
+
+  test("returns 400 for invalid json payloads", async () => {
+    const request = new Request("http://localhost/api/projects/p1/tasks", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: "{",
+    });
+
+    const response = await POST(request as never, {
+      params: { projectId: "p1" },
+    });
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "Invalid JSON payload",
     });
     expect(projectTaskServiceMock.createTaskForProject).not.toHaveBeenCalled();
   });

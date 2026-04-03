@@ -157,6 +157,77 @@ describe("agent project routes", () => {
     expect(projectServiceMock.getProjectSummaryById).not.toHaveBeenCalled();
   });
 
+  test("GET /api/projects/:projectId/tasks returns attachment metadata for agent callers", async () => {
+    projectServiceMock.listProjectKanbanTasks.mockResolvedValueOnce([
+      {
+        id: "task-1",
+        title: "Draft API quickstart",
+        description: "<p>Write the onboarding flow.</p>",
+        blockedNote: null,
+        completedAt: null,
+        archivedAt: null,
+        status: "Todo",
+        position: 1,
+        label: null,
+        labelsJson: '["docs"]',
+        createdAt: "2026-04-03T09:00:00.000Z",
+        updatedAt: "2026-04-03T10:00:00.000Z",
+        attachments: [
+          {
+            id: "att-1",
+            kind: "file",
+            name: "diagram.png",
+            url: null,
+            mimeType: "image/png",
+            sizeBytes: 2048,
+          },
+        ],
+        outgoingRelations: [],
+        incomingRelations: [],
+        blockedFollowUps: [],
+      },
+    ]);
+
+    const response = await getTasks(
+      new Request("http://localhost/api/projects/project-1/tasks") as never,
+      { params: { projectId: "project-1" } }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({
+      tasks: [
+        {
+          id: "task-1",
+          title: "Draft API quickstart",
+          description: "<p>Write the onboarding flow.</p>",
+          blockedNote: null,
+          completedAt: null,
+          archivedAt: null,
+          status: "Todo",
+          position: 1,
+          label: null,
+          labelsJson: '["docs"]',
+          createdAt: "2026-04-03T09:00:00.000Z",
+          updatedAt: "2026-04-03T10:00:00.000Z",
+          attachments: [
+            {
+              id: "att-1",
+              kind: "file",
+              name: "diagram.png",
+              url: null,
+              mimeType: "image/png",
+              sizeBytes: 2048,
+              downloadUrl:
+                "/api/projects/project-1/tasks/task-1/attachments/att-1/download",
+            },
+          ],
+          relatedTasks: [],
+          blockedFollowUps: [],
+        },
+      ],
+    });
+  });
+
   test("GET /api/projects/:projectId/tasks returns forbidden when agent lacks task read", async () => {
     projectAccessServiceMock.requireAgentProjectScopes.mockReturnValueOnce({
       ok: false,
@@ -193,6 +264,16 @@ describe("agent project routes", () => {
         content: "<p>Rich text</p>",
         color: "#abc",
         createdAt: "2026-03-31T09:00:00.000Z",
+        attachments: [
+          {
+            id: "context-att-1",
+            kind: "file",
+            name: "brief.png",
+            url: null,
+            mimeType: "image/png",
+            sizeBytes: 512,
+          },
+        ],
       },
     ]);
 
@@ -210,6 +291,18 @@ describe("agent project routes", () => {
           content: "<p>Rich text</p>",
           color: "#abc",
           createdAt: "2026-03-31T09:00:00.000Z",
+          attachments: [
+            {
+              id: "context-att-1",
+              kind: "file",
+              name: "brief.png",
+              url: null,
+              mimeType: "image/png",
+              sizeBytes: 512,
+              downloadUrl:
+                "/api/projects/project-1/context-cards/card-1/attachments/context-att-1/download",
+            },
+          ],
         },
       ],
     });

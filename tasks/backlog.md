@@ -7,7 +7,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 - ID: TASK-115
   Title: Agent onboarding v1 - hosted docs, OpenAPI surface, and in-app setup UX
   Status: In progress
-  Rationale: Agent access is now implemented, but external agents and humans still need a first-class way to discover the supported API surface, auth flow, scopes, and project-specific setup details without cloning the repository. Ship a hosted onboarding experience that pairs machine-readable API contracts with copy-friendly account/project guidance.
+  Rationale: Agent access is now implemented, but external agents and humans still need a first-class way to discover the supported API surface, auth flow, scopes, project-specific setup details, and newly validated attachment/upload workflow without cloning the repository. Ship a hosted onboarding experience that pairs machine-readable API contracts with copy-friendly account/project guidance and removes avoidable trial-and-error around payload formats and file handling.
   Dependencies: TASK-059, TASK-082
 - ID: TASK-059
   Title: Agent access implementation - scoped API tokens, rotation, and audit trail

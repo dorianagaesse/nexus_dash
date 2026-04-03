@@ -20,7 +20,7 @@ setup details to external agents.
   brief or search routes is not a sustainable product experience.
 - The product now needs an explicit "agent onboarding" layer that teaches the
   current supported surface without stretching into unsupported areas like
-  calendar execution, binary attachment parity, or MCP.
+  calendar execution or MCP.
 
 ## Current Baseline Confirmed In Repo
 - Project owners can already create, rotate, revoke, and inspect project-scoped
@@ -53,6 +53,9 @@ setup details to external agents.
   scopes, supported operations, and where to find the machine-readable contract.
 - Extend the project owner agent-access panel with project-specific quickstart
   details and copy-friendly environment/bootstrap guidance.
+- Close the highest-friction v1 gaps surfaced by external-agent validation:
+  JSON-first non-file writes, documented task lifecycle semantics, and
+  project-scoped binary attachment upload/download guidance.
 - Add regression coverage for the new docs/onboarding rendering and any API docs
   route(s) introduced by the task.
 
@@ -60,7 +63,6 @@ setup details to external agents.
 - MCP server implementation or MCP registry publishing.
 - Broad public developer platform positioning or general-public API guarantees.
 - Agent support for Google Calendar APIs.
-- Agent support for binary attachment upload/download parity.
 - Reworking the underlying agent token, credential, or scope model.
 - Generating SDKs in this first pass.
 
@@ -115,10 +117,20 @@ setup details to external agents.
 - `POST /api/projects/{projectId}/tasks/{taskId}/archive`
 - `DELETE /api/projects/{projectId}/tasks/{taskId}/archive`
 - `DELETE /api/projects/{projectId}/tasks/{taskId}`
+- `POST /api/projects/{projectId}/tasks/{taskId}/attachments/upload-url`
+- `POST /api/projects/{projectId}/tasks/{taskId}/attachments/direct`
+- `POST /api/projects/{projectId}/tasks/{taskId}/attachments/direct/cleanup`
+- `DELETE /api/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}`
+- `GET /api/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}/download`
 - `GET /api/projects/{projectId}/context-cards`
 - `POST /api/projects/{projectId}/context-cards`
 - `PATCH /api/projects/{projectId}/context-cards/{cardId}`
 - `DELETE /api/projects/{projectId}/context-cards/{cardId}`
+- `POST /api/projects/{projectId}/context-cards/{cardId}/attachments/upload-url`
+- `POST /api/projects/{projectId}/context-cards/{cardId}/attachments/direct`
+- `POST /api/projects/{projectId}/context-cards/{cardId}/attachments/direct/cleanup`
+- `DELETE /api/projects/{projectId}/context-cards/{cardId}/attachments/{attachmentId}`
+- `GET /api/projects/{projectId}/context-cards/{cardId}/attachments/{attachmentId}/download`
 
 Notes:
 - Document auth headers, common error responses, and scope requirements.

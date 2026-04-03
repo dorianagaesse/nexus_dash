@@ -35,8 +35,9 @@ agents.
 - Extend project-level agent access UI with copy-friendly project-specific
   bootstrap details.
 - Keep docs and onboarding aligned with the already-supported
-  project/task/context agent surface and explicitly document what remains
-  unsupported.
+  project/task/context agent surface, including the attachment upload/download
+  workflow and JSON-first write contract validated by external-agent testing,
+  while explicitly documenting what remains unsupported.
 
 ## Acceptance Snapshot
 - A signed-in user can find agent integration guidance from account settings
@@ -54,11 +55,12 @@ agents.
 - This task is intentionally layered on top of TASK-059 and should preserve its
   auth, scope, and runtime boundaries rather than redesigning them.
 - Scope discipline matters: document only the stable agent-ready v1 API surface
-  (token exchange, project read, task operations, context-card operations).
+  (token exchange, project read, task operations, context-card operations, and
+  attachment upload/download routes that are explicitly supported for agents).
 - MCP is intentionally out of scope for this task; ship a strong hosted
   docs/OpenAPI/onboarding baseline first.
 
 ---
 
-Last Updated: 2026-04-01
+Last Updated: 2026-04-03
 Assigned To: Agent

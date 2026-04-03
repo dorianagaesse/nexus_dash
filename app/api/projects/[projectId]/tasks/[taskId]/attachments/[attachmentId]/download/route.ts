@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
+import {
+  getAgentProjectAccessContext,
+  requireApiPrincipal,
+} from "@/lib/auth/api-guard";
 import { getTaskAttachmentDownload } from "@/lib/services/project-attachment-service";
 
 export async function GET(
@@ -11,11 +14,12 @@ export async function GET(
     params: { projectId: string; taskId: string; attachmentId: string };
   }
 ) {
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
-  if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+  const principalResult = await requireApiPrincipal(request);
+  if (!principalResult.ok) {
+    return principalResult.response;
   }
-  const actorUserId = authenticatedUser.userId;
+  const actorUserId = principalResult.principal.actorUserId;
+  const agentAccess = getAgentProjectAccessContext(principalResult.principal);
   const { projectId, taskId, attachmentId } = params;
 
   if (!projectId || !taskId || !attachmentId) {
@@ -33,6 +37,7 @@ export async function GET(
     taskId,
     attachmentId,
     disposition,
+    agentAccess,
   });
 
   if (!result.ok) {

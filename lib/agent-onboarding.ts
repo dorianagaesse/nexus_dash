@@ -9,6 +9,7 @@ export const AGENT_BASE_URL_PLACEHOLDER = "https://your-nexusdash-url";
 export const AGENT_PROJECT_ID_PLACEHOLDER = "project_123";
 export const AGENT_API_KEY_PLACEHOLDER = "nda_public.secret";
 export const AGENT_BEARER_TOKEN_ENV_NAME = "NEXUSDASH_AGENT_BEARER_TOKEN";
+export const AGENT_ATTACHMENT_MAX_FILE_SIZE_LABEL = "25MB";
 
 type AgentApiTag = "Auth" | "Projects" | "Tasks" | "Context";
 type AgentHttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
@@ -36,7 +37,8 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     requiredScopes: [],
     requestContentType: "application/json",
     notes: [
-      "Also accepts Authorization: ApiKey <key> or x-agent-api-key headers.",
+      "Canonical pattern: send the API key in Authorization: ApiKey <key>.",
+      "JSON body and x-agent-api-key remain supported as compatibility alternatives.",
       "Returned bearer tokens are short-lived and project-scoped.",
     ],
   },
@@ -63,10 +65,11 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     title: "Create task",
     description: "Create a new task inside the project.",
     requiredScopes: ["task:write"],
-    requestContentType: "multipart/form-data",
+    requestContentType: "application/json",
     notes: [
-      "Provide labels, relatedTaskIds, and attachmentLinks as JSON-encoded strings.",
-      "Agent callers cannot upload file attachments in v1.",
+      "Canonical agent format is application/json; multipart/form-data remains supported for browser-oriented flows.",
+      "Use attachmentLinks as an array of { name, url } objects.",
+      "Use the direct-upload attachment routes for binary files and images.",
     ],
   },
   {
@@ -83,9 +86,10 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     method: "POST",
     path: "/api/projects/{projectId}/tasks/reorder",
     title: "Reorder tasks",
-    description: "Persist task ordering across board columns.",
+    description: "Persist task ordering across board columns and status lanes.",
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
+    notes: ["Use this route to move a task between Todo, In Progress, and Done."],
   },
   {
     tag: "Tasks",
@@ -118,6 +122,54 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     ],
   },
   {
+    tag: "Tasks",
+    method: "POST",
+    path: "/api/projects/{projectId}/tasks/{taskId}/attachments/upload-url",
+    title: "Create task attachment upload target",
+    description: "Create a signed upload target for a task file attachment.",
+    requiredScopes: ["task:write"],
+    requestContentType: "application/json",
+    notes: [
+      `Binary uploads are limited to ${AGENT_ATTACHMENT_MAX_FILE_SIZE_LABEL} per file.`,
+      "After uploading bytes to storage, finalize the upload on the direct route.",
+    ],
+  },
+  {
+    tag: "Tasks",
+    method: "POST",
+    path: "/api/projects/{projectId}/tasks/{taskId}/attachments/direct",
+    title: "Finalize task attachment upload",
+    description: "Attach a previously uploaded file to the task.",
+    requiredScopes: ["task:write"],
+    requestContentType: "application/json",
+  },
+  {
+    tag: "Tasks",
+    method: "POST",
+    path: "/api/projects/{projectId}/tasks/{taskId}/attachments/direct/cleanup",
+    title: "Cleanup unfinished task upload",
+    description: "Delete an uploaded file when the direct-upload flow is abandoned before finalize.",
+    requiredScopes: ["task:write"],
+    requestContentType: "application/json",
+  },
+  {
+    tag: "Tasks",
+    method: "DELETE",
+    path: "/api/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}",
+    title: "Delete task attachment",
+    description: "Remove an existing task attachment.",
+    requiredScopes: ["task:write"],
+  },
+  {
+    tag: "Tasks",
+    method: "GET",
+    path: "/api/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}/download",
+    title: "Download task attachment",
+    description: "Download a file attachment or follow a temporary signed redirect.",
+    requiredScopes: ["task:read"],
+    notes: ["Use the downloadUrl returned in task attachment metadata."],
+  },
+  {
     tag: "Context",
     method: "GET",
     path: "/api/projects/{projectId}/context-cards",
@@ -132,9 +184,11 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     title: "Create context card",
     description: "Create a context card with rich content and links.",
     requiredScopes: ["context:write"],
-    requestContentType: "multipart/form-data",
+    requestContentType: "application/json",
     notes: [
-      "Agent callers cannot upload file attachments in v1.",
+      "Canonical agent format is application/json; multipart/form-data remains supported for browser-oriented flows.",
+      "Use attachmentLinks as an array of { name, url } objects.",
+      "Use the direct-upload attachment routes for binary files and images.",
       `Color must be one of: ${CONTEXT_CARD_COLORS.join(", ")}.`,
     ],
   },
@@ -145,7 +199,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     title: "Update context card",
     description: "Update an existing context card.",
     requiredScopes: ["context:write"],
-    requestContentType: "multipart/form-data",
+    requestContentType: "application/json",
     notes: [`Color must be one of: ${CONTEXT_CARD_COLORS.join(", ")}.`],
   },
   {
@@ -160,7 +214,65 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       "Owner-level project role is still required at runtime.",
     ],
   },
+  {
+    tag: "Context",
+    method: "POST",
+    path: "/api/projects/{projectId}/context-cards/{cardId}/attachments/upload-url",
+    title: "Create context attachment upload target",
+    description: "Create a signed upload target for a context-card file attachment.",
+    requiredScopes: ["context:write"],
+    requestContentType: "application/json",
+    notes: [
+      `Binary uploads are limited to ${AGENT_ATTACHMENT_MAX_FILE_SIZE_LABEL} per file.`,
+      "After uploading bytes to storage, finalize the upload on the direct route.",
+    ],
+  },
+  {
+    tag: "Context",
+    method: "POST",
+    path: "/api/projects/{projectId}/context-cards/{cardId}/attachments/direct",
+    title: "Finalize context attachment upload",
+    description: "Attach a previously uploaded file to the context card.",
+    requiredScopes: ["context:write"],
+    requestContentType: "application/json",
+  },
+  {
+    tag: "Context",
+    method: "POST",
+    path: "/api/projects/{projectId}/context-cards/{cardId}/attachments/direct/cleanup",
+    title: "Cleanup unfinished context upload",
+    description:
+      "Delete an uploaded file when the context direct-upload flow is abandoned before finalize.",
+    requiredScopes: ["context:write"],
+    requestContentType: "application/json",
+  },
+  {
+    tag: "Context",
+    method: "DELETE",
+    path: "/api/projects/{projectId}/context-cards/{cardId}/attachments/{attachmentId}",
+    title: "Delete context attachment",
+    description: "Remove an existing context-card attachment.",
+    requiredScopes: ["context:write"],
+  },
+  {
+    tag: "Context",
+    method: "GET",
+    path: "/api/projects/{projectId}/context-cards/{cardId}/attachments/{attachmentId}/download",
+    title: "Download context attachment",
+    description: "Download a file attachment or follow a temporary signed redirect.",
+    requiredScopes: ["context:read"],
+    notes: ["Use the downloadUrl returned in context-card attachment metadata."],
+  },
 ] as const;
+
+export const AGENT_LIMITATIONS: readonly string[] = [
+  "Use application/json for agent write requests unless you are intentionally following a browser-oriented multipart flow.",
+  "Binary files and images use the direct-upload attachment routes; non-file writes should not rely on multipart/form-data.",
+  "attachmentLinks must be arrays of { name, url } objects. Plain string URL arrays are not the canonical v1 format.",
+  "Task status changes happen through POST /api/projects/{projectId}/tasks/reorder, not PATCH /api/projects/{projectId}/tasks/{taskId}.",
+  "Rich HTML is sanitized. Inline <img> content should not be treated as a supported image-delivery path; use attachments instead.",
+  "Preview deployments may still be protected by Vercel. If a preview returns Vercel's auth wall, make the preview reachable or use an approved bypass before testing the agent flow.",
+];
 
 function normalizeOrigin(value: string | null | undefined): string {
   if (!value) {
@@ -218,6 +330,7 @@ export function buildAgentProjectEnvBlock(input: {
 export function buildAgentTokenExchangeExample(appOrigin?: string | null): string {
   const baseUrl = normalizeOrigin(appOrigin);
   return [
+    "# Canonical token exchange: send the API key in the Authorization header",
     'curl -X POST "$NEXUSDASH_BASE_URL/api/auth/agent/token" \\',
     '  -H "Authorization: ApiKey $NEXUSDASH_API_KEY"',
     "",
@@ -246,10 +359,8 @@ export function buildAgentTaskCreateExample(): string {
   return [
     'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
-    '  -F "title=Draft release notes" \\',
-    '  -F "description=<p>Summarize this week\\u0027s changes.</p>" \\',
-    '  -F "labels=[\\"release\\",\\"docs\\"]" \\',
-    '  -F "attachmentLinks=[\\"https://example.com/spec\\"]"',
+    '  -H "Content-Type: application/json" \\',
+    "  -d '{\"title\":\"Draft release notes\",\"description\":\"<p>Summarize this week''s changes.</p>\",\"labels\":[\"release\",\"docs\"],\"attachmentLinks\":[{\"name\":\"Spec\",\"url\":\"https://example.com/spec\"}]}'",
   ].join("\n");
 }
 
@@ -257,9 +368,101 @@ export function buildAgentContextCreateExample(): string {
   return [
     'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/context-cards" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
-    '  -F "title=Operating assumptions" \\',
-    '  -F "content=<p>Preview deploys happen from the feature branch.</p>" \\',
-    `  -F "color=${CONTEXT_CARD_COLORS[0]}"`,
+    '  -H "Content-Type: application/json" \\',
+    `  -d '{"title":"Operating assumptions","content":"<p>Preview deploys happen from the feature branch.</p>","color":"${CONTEXT_CARD_COLORS[0]}"}'`,
+  ].join("\n");
+}
+
+export function buildAgentTaskUpdateExample(): string {
+  return [
+    'curl -X PATCH "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    '  -d \'{"title":"Draft release notes","description":"<p>Add release highlights.</p>","labels":["release","ready"],"relatedTaskIds":["task_456"]}\'',
+  ].join("\n");
+}
+
+export function buildAgentTaskReorderExample(): string {
+  return [
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/reorder" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    '  -d \'{"columns":[{"status":"Todo","taskIds":[]},{"status":"In Progress","taskIds":["$TASK_ID"]},{"status":"Done","taskIds":[]}]}\'' ,
+  ].join("\n");
+}
+
+export function buildAgentTaskArchiveExample(): string {
+  return [
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/archive" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
+  ].join("\n");
+}
+
+export function buildAgentContextUpdateExample(): string {
+  return [
+    'curl -X PATCH "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/context-cards/$CARD_ID" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    `  -d '{"title":"Operating assumptions","content":"<p>Release previews deploy from the feature branch.</p>","color":"${CONTEXT_CARD_COLORS[1]}"}'`,
+  ].join("\n");
+}
+
+export function buildAgentAttachmentUploadExample(): string {
+  return [
+    "# 1. Request a signed upload target",
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/attachments/upload-url" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    '  -d \'{"name":"architecture.png","mimeType":"image/png","sizeBytes":204800}\'',
+    "",
+    "# 2. Upload the raw bytes to the returned uploadUrl using the returned headers",
+    'curl -X PUT "$UPLOAD_URL" \\',
+    '  -H "Content-Type: image/png" \\',
+    '  --data-binary "@./architecture.png"',
+    "",
+    "# 3. Finalize the upload inside NexusDash",
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/attachments/direct" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    '  -d \'{"storageKey":"<upload.storageKey>","name":"architecture.png","mimeType":"image/png","sizeBytes":204800}\'',
+  ].join("\n");
+}
+
+export function buildAgentSmokeTestExample(): string {
+  return [
+    "# Exchange the API key",
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/auth/agent/token" \\',
+    '  -H "Authorization: ApiKey $NEXUSDASH_API_KEY"',
+    "",
+    "# Read the project",
+    'curl "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
+    "",
+    "# Create a task",
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    '  -d \'{"title":"External smoke task","description":"<p>Created by smoke test.</p>"}\'',
+    "",
+    "# Update the task",
+    'curl -X PATCH "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    '  -d \'{"title":"External smoke task","description":"<p>Updated by smoke test.</p>","labels":["smoke"]}\'',
+    "",
+    "# Move it to In Progress",
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/reorder" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    '  -d \'{"columns":[{"status":"Todo","taskIds":[]},{"status":"In Progress","taskIds":["$TASK_ID"]},{"status":"Done","taskIds":[]}]}\'' ,
+    "",
+    "# Archive after moving it to Done with reorder",
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/archive" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
+    "",
+    "# Delete the task when finished",
+    'curl -X DELETE "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
   ].join("\n");
 }
 
@@ -390,11 +593,13 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
       },
       {
         name: "Tasks",
-        description: "Create, read, update, reorder, archive, and delete project tasks.",
+        description:
+          "Create, read, update, reorder, archive, delete, and attach files to project tasks.",
       },
       {
         name: "Context",
-        description: "Create, read, update, and delete project context cards.",
+        description:
+          "Create, read, update, delete, and attach files to project context cards.",
       },
     ],
     components: {
@@ -521,6 +726,40 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
           },
         },
+        AttachmentLinkInput: {
+          type: "object",
+          required: ["url"],
+          properties: {
+            name: {
+              type: "string",
+            },
+            url: {
+              type: "string",
+              format: "uri",
+            },
+          },
+        },
+        AttachmentRecord: {
+          type: "object",
+          required: [
+            "id",
+            "kind",
+            "name",
+            "url",
+            "mimeType",
+            "sizeBytes",
+            "downloadUrl",
+          ],
+          properties: {
+            id: { type: "string" },
+            kind: { type: "string", enum: ["file", "link"] },
+            name: { type: "string" },
+            url: { type: ["string", "null"], format: "uri" },
+            mimeType: { type: ["string", "null"] },
+            sizeBytes: { type: ["integer", "null"] },
+            downloadUrl: { type: ["string", "null"] },
+          },
+        },
         RelatedTaskSummary: {
           type: "object",
           required: ["id", "title", "status", "archivedAt"],
@@ -564,6 +803,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             "labelsJson",
             "createdAt",
             "updatedAt",
+            "attachments",
             "relatedTasks",
             "blockedFollowUps",
           ],
@@ -583,6 +823,12 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             labelsJson: { type: ["string", "null"] },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
+            attachments: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/AttachmentRecord",
+              },
+            },
             relatedTasks: {
               type: "array",
               items: {
@@ -616,19 +862,22 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             title: { type: "string" },
             description: { type: "string" },
             labels: {
-              type: "string",
-              description: "JSON-encoded string array.",
-              example: '["release","docs"]',
+              type: "array",
+              items: {
+                type: "string",
+              },
             },
             relatedTaskIds: {
-              type: "string",
-              description: "JSON-encoded string array.",
-              example: '["task_456"]',
+              type: "array",
+              items: {
+                type: "string",
+              },
             },
             attachmentLinks: {
-              type: "string",
-              description: "JSON-encoded string array of URLs.",
-              example: '["https://example.com/spec"]',
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/AttachmentLinkInput",
+              },
             },
           },
         },
@@ -756,7 +1005,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
         ContextCardListItem: {
           type: "object",
-          required: ["id", "title", "content", "color", "createdAt"],
+          required: ["id", "title", "content", "color", "createdAt", "attachments"],
           properties: {
             id: { type: "string" },
             title: { type: "string" },
@@ -766,6 +1015,12 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               enum: CONTEXT_CARD_COLORS,
             },
             createdAt: { type: "string", format: "date-time" },
+            attachments: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/AttachmentRecord",
+              },
+            },
           },
         },
         ContextAttachment: {
@@ -794,7 +1049,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             attachments: {
               type: "array",
               items: {
-                $ref: "#/components/schemas/ContextAttachment",
+                $ref: "#/components/schemas/AttachmentRecord",
               },
             },
           },
@@ -822,9 +1077,10 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               enum: CONTEXT_CARD_COLORS,
             },
             attachmentLinks: {
-              type: "string",
-              description: "JSON-encoded string array of URLs.",
-              example: '["https://example.com/context"]',
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/AttachmentLinkInput",
+              },
             },
           },
         },
@@ -850,6 +1106,71 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
           },
         },
+        AttachmentUploadTargetRequest: {
+          type: "object",
+          required: ["name", "mimeType", "sizeBytes"],
+          properties: {
+            name: { type: "string" },
+            mimeType: { type: "string" },
+            sizeBytes: { type: "integer" },
+          },
+        },
+        AttachmentUploadTargetResponse: {
+          type: "object",
+          required: ["upload"],
+          properties: {
+            upload: {
+              type: "object",
+              required: [
+                "storageKey",
+                "uploadUrl",
+                "method",
+                "headers",
+                "expiresInSeconds",
+                "maxFileSizeBytes",
+                "maxFileSizeLabel",
+              ],
+              properties: {
+                storageKey: { type: "string" },
+                uploadUrl: { type: "string" },
+                method: { type: "string", enum: ["PUT"] },
+                headers: {
+                  type: "object",
+                  additionalProperties: { type: "string" },
+                },
+                expiresInSeconds: { type: "integer" },
+                maxFileSizeBytes: { type: "integer" },
+                maxFileSizeLabel: { type: "string" },
+              },
+            },
+          },
+        },
+        AttachmentDirectFinalizeRequest: {
+          type: "object",
+          required: ["storageKey", "name", "mimeType", "sizeBytes"],
+          properties: {
+            storageKey: { type: "string" },
+            name: { type: "string" },
+            mimeType: { type: "string" },
+            sizeBytes: { type: "integer" },
+          },
+        },
+        AttachmentDirectFinalizeResponse: {
+          type: "object",
+          required: ["attachment"],
+          properties: {
+            attachment: {
+              $ref: "#/components/schemas/AttachmentRecord",
+            },
+          },
+        },
+        AttachmentDirectCleanupRequest: {
+          type: "object",
+          required: ["storageKey"],
+          properties: {
+            storageKey: { type: "string" },
+          },
+        },
       },
       parameters: {
         ProjectId: {
@@ -870,6 +1191,14 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
         CardId: {
           name: "cardId",
+          in: "path",
+          required: true,
+          schema: {
+            type: "string",
+          },
+        },
+        AttachmentId: {
+          name: "attachmentId",
           in: "path",
           required: true,
           schema: {
@@ -978,7 +1307,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           requestBody: {
             required: true,
             content: {
-              "multipart/form-data": {
+              "application/json": {
                 schema: {
                   $ref: "#/components/schemas/TaskCreateRequest",
                 },
@@ -1128,6 +1457,172 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           },
         },
       },
+      "/api/projects/{projectId}/tasks/{taskId}/attachments/upload-url": {
+        post: {
+          ...buildOperationMetadata(
+            "POST",
+            "/api/projects/{projectId}/tasks/{taskId}/attachments/upload-url"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/TaskId" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AttachmentUploadTargetRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Signed upload target returned",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/AttachmentUploadTargetResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/tasks/{taskId}/attachments/direct": {
+        post: {
+          ...buildOperationMetadata(
+            "POST",
+            "/api/projects/{projectId}/tasks/{taskId}/attachments/direct"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/TaskId" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AttachmentDirectFinalizeRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Attachment attached to task",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/AttachmentDirectFinalizeResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/tasks/{taskId}/attachments/direct/cleanup": {
+        post: {
+          ...buildOperationMetadata(
+            "POST",
+            "/api/projects/{projectId}/tasks/{taskId}/attachments/direct/cleanup"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/TaskId" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AttachmentDirectCleanupRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Uploaded object cleaned up",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/OkResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}": {
+        delete: {
+          ...buildOperationMetadata(
+            "DELETE",
+            "/api/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/TaskId" },
+            { $ref: "#/components/parameters/AttachmentId" },
+          ],
+          responses: {
+            200: {
+              description: "Task attachment deleted",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/OkResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}/download": {
+        get: {
+          ...buildOperationMetadata(
+            "GET",
+            "/api/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}/download"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/TaskId" },
+            { $ref: "#/components/parameters/AttachmentId" },
+          ],
+          responses: {
+            200: {
+              description: "Attachment bytes returned inline or as a proxied response",
+              content: {
+                "application/octet-stream": {
+                  schema: {
+                    type: "string",
+                    format: "binary",
+                  },
+                },
+              },
+            },
+            307: {
+              description: "Temporary redirect to a signed storage URL",
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
       "/api/projects/{projectId}/context-cards": {
         get: {
           ...buildOperationMetadata("GET", "/api/projects/{projectId}/context-cards"),
@@ -1154,7 +1649,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           requestBody: {
             required: true,
             content: {
-              "multipart/form-data": {
+              "application/json": {
                 schema: {
                   $ref: "#/components/schemas/ContextCardCreateRequest",
                 },
@@ -1187,7 +1682,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           requestBody: {
             required: true,
             content: {
-              "multipart/form-data": {
+              "application/json": {
                 schema: {
                   $ref: "#/components/schemas/ContextCardUpdateRequest",
                 },
@@ -1225,6 +1720,172 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                   },
                 },
               },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/context-cards/{cardId}/attachments/upload-url": {
+        post: {
+          ...buildOperationMetadata(
+            "POST",
+            "/api/projects/{projectId}/context-cards/{cardId}/attachments/upload-url"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/CardId" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AttachmentUploadTargetRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Signed upload target returned",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/AttachmentUploadTargetResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/context-cards/{cardId}/attachments/direct": {
+        post: {
+          ...buildOperationMetadata(
+            "POST",
+            "/api/projects/{projectId}/context-cards/{cardId}/attachments/direct"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/CardId" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AttachmentDirectFinalizeRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Attachment attached to context card",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/AttachmentDirectFinalizeResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/context-cards/{cardId}/attachments/direct/cleanup": {
+        post: {
+          ...buildOperationMetadata(
+            "POST",
+            "/api/projects/{projectId}/context-cards/{cardId}/attachments/direct/cleanup"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/CardId" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AttachmentDirectCleanupRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Uploaded object cleaned up",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/OkResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/context-cards/{cardId}/attachments/{attachmentId}": {
+        delete: {
+          ...buildOperationMetadata(
+            "DELETE",
+            "/api/projects/{projectId}/context-cards/{cardId}/attachments/{attachmentId}"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/CardId" },
+            { $ref: "#/components/parameters/AttachmentId" },
+          ],
+          responses: {
+            200: {
+              description: "Context attachment deleted",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/OkResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/context-cards/{cardId}/attachments/{attachmentId}/download": {
+        get: {
+          ...buildOperationMetadata(
+            "GET",
+            "/api/projects/{projectId}/context-cards/{cardId}/attachments/{attachmentId}/download"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/CardId" },
+            { $ref: "#/components/parameters/AttachmentId" },
+          ],
+          responses: {
+            200: {
+              description: "Attachment bytes returned inline or as a proxied response",
+              content: {
+                "application/octet-stream": {
+                  schema: {
+                    type: "string",
+                    format: "binary",
+                  },
+                },
+              },
+            },
+            307: {
+              description: "Temporary redirect to a signed storage URL",
             },
             ...commonErrorResponses,
           },

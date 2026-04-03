@@ -538,8 +538,8 @@ export function ProjectDashboardOwnerAgentAccessPanel({
               then send the returned bearer token to the scoped project routes.
             </p>
             <p>
-              This project ships agent-ready support for project read, task routes, and
-              context-card routes documented by the hosted guide.
+              This project ships agent-ready support for project read, task routes,
+              context-card routes, and documented attachment upload/download flows.
             </p>
           </div>
         </section>
