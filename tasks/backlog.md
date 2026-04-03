@@ -91,6 +91,26 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Add a lighter-weight todo list surface for quick checklist-style capture that does not require the full structure of Kanban tasks, giving teams a place for small actionable items, personal punch lists, or short operational checklists that may later connect to richer task flows.
   Dependencies: TASK-076, TASK-079
+- ID: TASK-116
+  Title: CI maintenance - refresh GitHub Actions versions and workflow hygiene
+  Status: Pending
+  Rationale: Clear current CI deprecation warnings and keep workflow dependencies healthy by updating GitHub Action versions, validating compatibility, and tightening workflow hygiene before warnings turn into breakage or erode trust in release gates.
+  Dependencies: TASK-038, TASK-041, TASK-042
+- ID: TASK-117
+  Title: Deadline feature - due dates, urgency visibility, and reminder-ready planning hooks
+  Status: Pending
+  Rationale: Add explicit deadline tracking so projects and work items can surface due dates, urgency, and upcoming commitments more clearly across dashboard views, planning flows, and future reminder/reporting surfaces.
+  Dependencies: TASK-076, TASK-079, TASK-096
+- ID: TASK-118
+  Title: Real-time collaboration updates - live project refresh for multi-user work
+  Status: Pending
+  Rationale: Reduce stale state and manual-refresh friction during shared project work by propagating task, context-card, and related project mutations live across active collaborators, with explicit decisions around subscriptions, optimistic UI, and conflict handling.
+  Dependencies: TASK-058, TASK-076, TASK-103
+- ID: TASK-119
+  Title: Project collaboration presence UX - member avatars on project pages
+  Status: Pending
+  Rationale: Improve shared-project awareness by showing collaborator avatars and identity affordances directly on project pages so users can quickly understand who has access and who is participating, with sensible fallback behavior for accounts without uploaded photos.
+  Dependencies: TASK-058, TASK-082, TASK-089
 - ID: TASK-088
   Title: Milestone architecture and security audit - post-auth/account hardening review
   Status: Pending
