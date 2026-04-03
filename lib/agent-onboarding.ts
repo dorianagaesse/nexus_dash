@@ -1,6 +1,6 @@
 import { AGENT_SCOPE_DEFINITIONS, type AgentScope } from "@/lib/agent-access";
 import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
-import { TASK_STATUSES } from "@/lib/task-status";
+import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 
 export const AGENT_API_VERSION = "v1";
 export const AGENT_DOCS_PATH = `/docs/agent/${AGENT_API_VERSION}`;
@@ -14,6 +14,13 @@ export const AGENT_ATTACHMENT_MAX_FILE_SIZE_LABEL = "25MB";
 type AgentApiTag = "Auth" | "Projects" | "Tasks" | "Context";
 type AgentHttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
 type AgentRequestContentType = "application/json" | "multipart/form-data";
+
+const [
+  AGENT_TASK_STATUS_BACKLOG,
+  AGENT_TASK_STATUS_IN_PROGRESS,
+  AGENT_TASK_STATUS_BLOCKED,
+  AGENT_TASK_STATUS_DONE,
+] = TASK_STATUSES;
 
 export interface AgentApiEndpointDefinition {
   tag: AgentApiTag;
@@ -89,7 +96,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     description: "Persist task ordering across board columns and status lanes.",
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
-    notes: ["Use this route to move a task between Todo, In Progress, and Done."],
+    notes: [`Use this route to move a task between ${TASK_STATUSES.join(", ")}.`],
   },
   {
     tag: "Tasks",
@@ -98,7 +105,10 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     title: "Archive task",
     description: "Archive a completed task.",
     requiredScopes: ["task:write"],
-    notes: ["Only tasks in the Done column can be archived."],
+    notes: [
+      `Move the task to ${AGENT_TASK_STATUS_DONE} with reorder first.`,
+      `Only tasks in the ${AGENT_TASK_STATUS_DONE} column can be archived.`,
+    ],
   },
   {
     tag: "Tasks",
@@ -382,17 +392,54 @@ export function buildAgentTaskUpdateExample(): string {
   ].join("\n");
 }
 
+function buildTaskReorderPayload(
+  columns: ReadonlyArray<{
+    status: TaskStatus;
+    taskIds: readonly string[];
+  }>
+): string {
+  return JSON.stringify({
+    columns: columns.map((column) => ({
+      status: column.status,
+      taskIds: [...column.taskIds],
+    })),
+  });
+}
+
 export function buildAgentTaskReorderExample(): string {
+  const payload = buildTaskReorderPayload([
+    { status: AGENT_TASK_STATUS_BACKLOG, taskIds: [] },
+    { status: AGENT_TASK_STATUS_IN_PROGRESS, taskIds: ["$TASK_ID"] },
+    { status: AGENT_TASK_STATUS_BLOCKED, taskIds: [] },
+    { status: AGENT_TASK_STATUS_DONE, taskIds: [] },
+  ]);
+
   return [
+    `# Valid statuses: ${TASK_STATUSES.join(", ")}`,
     'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/reorder" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
-    '  -d \'{"columns":[{"status":"Todo","taskIds":[]},{"status":"In Progress","taskIds":["$TASK_ID"]},{"status":"Done","taskIds":[]}]}\'' ,
+    `  -d '${payload}'`,
   ].join("\n");
 }
 
 export function buildAgentTaskArchiveExample(): string {
+  const payload = buildTaskReorderPayload([
+    { status: AGENT_TASK_STATUS_BACKLOG, taskIds: [] },
+    { status: AGENT_TASK_STATUS_IN_PROGRESS, taskIds: [] },
+    { status: AGENT_TASK_STATUS_BLOCKED, taskIds: [] },
+    { status: AGENT_TASK_STATUS_DONE, taskIds: ["$TASK_ID"] },
+  ]);
+
   return [
+    `# Archive only after the task is in ${AGENT_TASK_STATUS_DONE}`,
+    `# First move the task into ${AGENT_TASK_STATUS_DONE}`,
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/reorder" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    `  -d '${payload}'`,
+    "",
+    "# Then archive it",
     'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/archive" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
   ].join("\n");
@@ -428,7 +475,35 @@ export function buildAgentAttachmentUploadExample(): string {
   ].join("\n");
 }
 
+export function buildAgentContextAttachmentUploadExample(): string {
+  return [
+    "# 1. Request a signed upload target",
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/context-cards/$CARD_ID/attachments/upload-url" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    '  -d \'{"name":"reference-diagram.png","mimeType":"image/png","sizeBytes":204800}\'',
+    "",
+    "# 2. Upload the raw bytes to the returned uploadUrl using the returned headers",
+    'curl -X PUT "$UPLOAD_URL" \\',
+    '  -H "Content-Type: image/png" \\',
+    '  --data-binary "@./reference-diagram.png"',
+    "",
+    "# 3. Finalize the upload inside NexusDash",
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/context-cards/$CARD_ID/attachments/direct" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    '  -d \'{"storageKey":"<upload.storageKey>","name":"reference-diagram.png","mimeType":"image/png","sizeBytes":204800}\'',
+  ].join("\n");
+}
+
 export function buildAgentSmokeTestExample(): string {
+  const moveToDonePayload = buildTaskReorderPayload([
+    { status: AGENT_TASK_STATUS_BACKLOG, taskIds: [] },
+    { status: AGENT_TASK_STATUS_IN_PROGRESS, taskIds: [] },
+    { status: AGENT_TASK_STATUS_BLOCKED, taskIds: [] },
+    { status: AGENT_TASK_STATUS_DONE, taskIds: ["$TASK_ID"] },
+  ]);
+
   return [
     "# Exchange the API key",
     'curl -X POST "$NEXUSDASH_BASE_URL/api/auth/agent/token" \\',
@@ -450,15 +525,41 @@ export function buildAgentSmokeTestExample(): string {
     '  -H "Content-Type: application/json" \\',
     '  -d \'{"title":"External smoke task","description":"<p>Updated by smoke test.</p>","labels":["smoke"]}\'',
     "",
-    "# Move it to In Progress",
+    "# Request a signed upload target for a binary attachment",
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/attachments/upload-url" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    '  -d \'{"name":"smoke-image.png","mimeType":"image/png","sizeBytes":204800}\'',
+    "",
+    "# Upload the file bytes to the returned uploadUrl",
+    'curl -X PUT "$UPLOAD_URL" \\',
+    '  -H "Content-Type: image/png" \\',
+    '  --data-binary "@./smoke-image.png"',
+    "",
+    "# Finalize the uploaded attachment",
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/attachments/direct" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    '  -d \'{"storageKey":"<upload.storageKey>","name":"smoke-image.png","mimeType":"image/png","sizeBytes":204800}\'',
+    "",
+    `# Move the task to ${AGENT_TASK_STATUS_DONE} before archiving it`,
     'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/reorder" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
-    '  -d \'{"columns":[{"status":"Todo","taskIds":[]},{"status":"In Progress","taskIds":["$TASK_ID"]},{"status":"Done","taskIds":[]}]}\'' ,
+    `  -d '${moveToDonePayload}'`,
     "",
-    "# Archive after moving it to Done with reorder",
+    "# Archive the completed task",
     'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/archive" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
+    "",
+    "# Read tasks again and capture the attachment downloadUrl for the uploaded file",
+    'curl "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
+    "",
+    "# Verify the uploaded file downloads successfully",
+    'curl -L "$NEXUSDASH_BASE_URL$DOWNLOAD_URL" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  --output "./downloaded-smoke-image.png"',
     "",
     "# Delete the task when finished",
     'curl -X DELETE "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID" \\',

@@ -18,6 +18,7 @@ import {
   buildAgentDocumentationUrls,
   buildAgentProjectEnvBlock,
   buildAgentAttachmentUploadExample,
+  buildAgentContextAttachmentUploadExample,
   buildAgentContextUpdateExample,
   buildAgentTokenExchangeExample,
   buildAgentProjectReadExample,
@@ -315,13 +316,25 @@ export function AgentOnboardingGuide({
 
         <Card className="border-border/60 bg-background/70">
           <CardHeader>
-            <CardTitle className="text-xl">Binary upload example</CardTitle>
+            <CardTitle className="text-xl">Binary upload examples</CardTitle>
             <CardDescription>
-              Images and other binary files use the signed direct-upload flow.
+              Tasks and context cards both use the signed direct-upload flow for images and
+              other binary files.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <CodeBlock value={buildAgentAttachmentUploadExample()} />
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                Task attachment
+              </p>
+              <CodeBlock value={buildAgentAttachmentUploadExample()} />
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                Context-card attachment
+              </p>
+              <CodeBlock value={buildAgentContextAttachmentUploadExample()} />
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -23,5 +23,7 @@ describe("agent-onboarding-guide", () => {
     expect(result).toContain("application/json");
     expect(result).toContain("Agent limitations");
     expect(result).toContain("/attachments/upload-url");
+    expect(result).toContain("/context-cards/$CARD_ID/attachments/upload-url");
+    expect(result).toContain("Move the task to Done before archiving it");
   });
 });
