@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
+import {
+  getAgentProjectAccessContext,
+  requireApiPrincipal,
+} from "@/lib/auth/api-guard";
 import { deleteTaskAttachmentForProject } from "@/lib/services/project-attachment-service";
 
 export async function DELETE(
@@ -11,11 +14,12 @@ export async function DELETE(
     params: { projectId: string; taskId: string; attachmentId: string };
   }
 ) {
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
-  if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+  const principalResult = await requireApiPrincipal(request);
+  if (!principalResult.ok) {
+    return principalResult.response;
   }
-  const actorUserId = authenticatedUser.userId;
+  const actorUserId = principalResult.principal.actorUserId;
+  const agentAccess = getAgentProjectAccessContext(principalResult.principal);
   const { projectId, taskId, attachmentId } = params;
 
   if (!projectId || !taskId || !attachmentId) {
@@ -27,6 +31,7 @@ export async function DELETE(
     projectId,
     taskId,
     attachmentId,
+    agentAccess,
   });
 
   if (!result.ok) {

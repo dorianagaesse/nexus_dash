@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-01
+- Type: Validation
+- Summary: TASK-115 local validation passed for lint, unit tests, coverage, and production build after adding the hosted agent docs surface, OpenAPI JSON route, account-level developer onboarding, and project-level quickstart UX.
+- Evidence: `npm run lint`; `npm test`; `npm run test:coverage`; `npx vitest run tests/api/agent-openapi.route.test.ts tests/components/agent-onboarding-guide.test.ts`; `$env:DATABASE_URL='postgresql://user:pass@localhost:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run build`.
+
+### 2026-04-01
+- Type: Execution
+- Summary: TASK-115 delivered agent onboarding v1 with a hosted docs page, machine-readable OpenAPI contract, account-level developer entry, and project-level bootstrap guidance layered directly onto the existing agent credential model.
+- Evidence: Added onboarding contract helpers in `lib/agent-onboarding.ts`; added docs surfaces in `app/docs/agent/v1/page.tsx`, `app/api/docs/agent/v1/openapi.json/route.ts`, and `components/agent-onboarding/agent-onboarding-guide.tsx`; added account developer entry in `components/account/account-settings-shell.tsx`, `app/account/settings/page.tsx`, and `app/account/settings/developers/page.tsx`; extended project onboarding in `components/project-dashboard/project-dashboard-owner-agent-access-panel.tsx` and `components/project-dashboard/project-dashboard-owner-actions.tsx`; added regression coverage in `tests/api/agent-openapi.route.test.ts` and `tests/components/agent-onboarding-guide.test.ts`; updated task docs in `project.md` and `tasks/task-115-agent-onboarding-v1.md`.
+
 ### 2026-03-31
 - Type: Validation
 - Summary: TASK-059 preview validation passed end to end on the branch-scoped preview after fixing both the missing runtime signing secret path and the token-exchange owner lookup, and the disposable validation data was cleaned up afterward.

@@ -114,7 +114,7 @@ Environment access/validation is centralized in `lib/env.server.ts` and executed
 
 - `DIRECT_URL`
 - `RESEND_API_KEY` (email verification delivery)
-- `AGENT_TOKEN_SIGNING_SECRET` (agent bearer-token signing, minimum 32 chars)
+- `AGENT_TOKEN_SIGNING_SECRET` (agent bearer-token signing, minimum 32 chars; see `docs/runbooks/vercel-env-contract-and-secrets.md` for generation and rotation guidance)
 
 ### Optional grouped vars (must be complete if any value is set)
 

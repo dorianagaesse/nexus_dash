@@ -9,7 +9,10 @@ import {
 } from "@/lib/services/attachment-input-service";
 import { logServerError } from "@/lib/observability/logger";
 import { coerceRichTextHtml, richTextToPlainText } from "@/lib/rich-text";
-import { createContextAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
+import {
+  createContextAttachmentsFromDraft,
+  mapContextAttachmentResponse,
+} from "@/lib/services/project-attachment-service";
 import {
   requireAgentProjectScopes,
   requireProjectRole,
@@ -102,13 +105,15 @@ function resolveContextColor(value: string): string | null {
   return value;
 }
 
-function mapContextCardRecord(card: ContextCardRecord) {
+function mapContextCardRecord(projectId: string, card: ContextCardRecord) {
   return {
     id: card.id,
     title: card.name,
     content: card.content,
     color: card.color ?? CONTEXT_CARD_COLORS[0],
-    attachments: card.attachments,
+    attachments: card.attachments.map((attachment) =>
+      mapContextAttachmentResponse(projectId, card.id, attachment)
+    ),
   };
 }
 
@@ -228,7 +233,7 @@ export async function createContextCardForProject(
         ok: true,
         data: {
           id: createdCard.id,
-          card: mapContextCardRecord(createdCardWithAttachments),
+          card: mapContextCardRecord(input.projectId, createdCardWithAttachments),
         },
       };
     } catch (error) {

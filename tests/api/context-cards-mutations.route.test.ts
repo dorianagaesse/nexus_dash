@@ -85,6 +85,47 @@ describe("context cards mutation routes", () => {
     });
   });
 
+  test("POST creates context card from json payload", async () => {
+    contextCardServiceMock.createContextCardForProject.mockResolvedValueOnce({
+      ok: true,
+      data: { id: "card-json", card: { id: "card-json" } },
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/context-cards", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        title: "  Agent notes  ",
+        content: "  <p>Created from JSON.</p>  ",
+        color: "  #abc  ",
+        attachmentLinks: [{ name: "Spec", url: "https://example.com/spec" }],
+      }),
+    });
+
+    const response = await POST(request as never, {
+      params: { projectId: "p1" },
+    });
+
+    expect(response.status).toBe(201);
+    await expect(readJson(response)).resolves.toEqual({
+      cardId: "card-json",
+      card: { id: "card-json" },
+    });
+    expect(contextCardServiceMock.createContextCardForProject).toHaveBeenCalledWith({
+      actorUserId: "test-user",
+      projectId: "p1",
+      title: "Agent notes",
+      content: "<p>Created from JSON.</p>",
+      color: "#abc",
+      attachmentLinksJsonRaw:
+        '[{"name":"Spec","url":"https://example.com/spec"}]',
+      attachmentFiles: [],
+      agentAccess: undefined,
+    });
+  });
+
   test("PATCH updates context card via service", async () => {
     contextCardServiceMock.updateContextCardForProject.mockResolvedValueOnce({
       ok: true,
@@ -116,6 +157,41 @@ describe("context cards mutation routes", () => {
       cardId: "c1",
       title: "Updated title",
       content: "<p>Updated content</p>",
+      color: "#def",
+      agentAccess: undefined,
+    });
+  });
+
+  test("PATCH accepts json payloads", async () => {
+    contextCardServiceMock.updateContextCardForProject.mockResolvedValueOnce({
+      ok: true,
+      data: { ok: true },
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/context-cards/c1", {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        title: "  Updated from JSON  ",
+        content: "  <p>JSON body</p>  ",
+        color: "  #def  ",
+      }),
+    });
+
+    const response = await PATCH(request as never, {
+      params: { projectId: "p1", cardId: "c1" },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({ ok: true });
+    expect(contextCardServiceMock.updateContextCardForProject).toHaveBeenCalledWith({
+      actorUserId: "test-user",
+      projectId: "p1",
+      cardId: "c1",
+      title: "Updated from JSON",
+      content: "<p>JSON body</p>",
       color: "#def",
       agentAccess: undefined,
     });
@@ -187,6 +263,26 @@ describe("context cards mutation routes", () => {
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({
       error: "agent-file-attachments-not-supported",
+    });
+    expect(contextCardServiceMock.createContextCardForProject).not.toHaveBeenCalled();
+  });
+
+  test("returns 400 for invalid json payloads", async () => {
+    const request = new Request("http://localhost/api/projects/p1/context-cards", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: "{",
+    });
+
+    const response = await POST(request as never, {
+      params: { projectId: "p1" },
+    });
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "Invalid JSON payload",
     });
     expect(contextCardServiceMock.createContextCardForProject).not.toHaveBeenCalled();
   });

@@ -952,6 +952,7 @@ export function ProjectDashboardOwnerActions({
                     />
                   ) : (
                     <ProjectDashboardOwnerAgentAccessPanel
+                      projectId={projectId}
                       accessSummary={agentAccessSummary}
                       isLoadingAccessSummary={isLoadingAgentAccess}
                       accessError={agentAccessError}

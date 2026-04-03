@@ -1,42 +1,66 @@
-# Current Task: TASK-059 Agent Access Implementation - Scoped API Tokens, Rotation, and Audit Trail
+# Current Task: TASK-115 Agent Onboarding v1 - Hosted Docs, OpenAPI Surface, and In-App Setup UX
 
-Dedicated task brief: [`tasks/task-059-agent-access-implementation.md`](./task-059-agent-access-implementation.md)
+Dedicated task brief: [`tasks/task-115-agent-onboarding-v1.md`](./task-115-agent-onboarding-v1.md)
 
 ## Task ID
-TASK-059
+TASK-115
 
 ## Status
-Validated on preview
+In progress
 
 ## Objective
-Enable secure non-human access through owner-managed, project-scoped API credentials that exchange into short-lived bearer tokens, enforce explicit scopes in the service layer, and leave an auditable trail for issuance, use, rotation, and revocation.
+Make NexusDash's agent-facing surface discoverable without repository access by
+shipping hosted agent docs, a machine-readable OpenAPI contract for the
+supported agent API, and in-app onboarding UX that helps humans provision
+project-scoped credentials and hand the right setup information to external
+agents.
 
 ## Why Now
-- Agent access is the next major auth boundary after the human session, sharing, and RLS foundation landed.
-- The project already has the right primitives in place: verified human sessions, project-role authorization, request IDs, and service-layer ownership of persistence.
-- Deferring this further would keep automation use cases blocked while leaving the auth roadmap half-finished.
+- TASK-059 established the core security model for project-scoped agent access,
+  but the product still lacks a usable entry point for real external agent
+  adoption.
+- Users should not need to clone the repository just to understand how an agent
+  can authenticate and operate safely inside NexusDash.
+- Locking a narrow, versioned onboarding surface now will keep the private agent
+  boundary explicit before any future MCP/public-platform work expands the
+  integration story.
 
 ## Scope Snapshot
-- Add Prisma persistence for API credentials, scope grants, and auth audit events.
-- Add owner-only create, rotate, revoke, and list flows in the project settings surface.
-- Add API-key exchange into short-lived signed bearer tokens.
-- Support bearer-token access on the project, task, and context APIs in scope for v1.
-- Record lifecycle and usage audit events with request metadata.
+- Add a hosted human-readable agent onboarding surface that explains auth flow,
+  scopes, supported routes, errors, and common workflows.
+- Add a machine-readable OpenAPI description for the stable agent-facing API v1
+  only.
+- Add account-level developer onboarding entry points so users can find the docs
+  and integration contract from within the product.
+- Extend project-level agent access UI with copy-friendly project-specific
+  bootstrap details.
+- Keep docs and onboarding aligned with the already-supported
+  project/task/context agent surface, including the attachment upload/download
+  workflow and JSON-first write contract validated by external-agent testing,
+  while explicitly documenting what remains unsupported.
 
 ## Acceptance Snapshot
-- Project owners can create labeled, project-scoped agent credentials with explicit scopes.
-- Raw API keys are shown once only and are never stored in plaintext.
-- Revoked, expired, or rotated-out credentials cannot exchange for new bearer tokens.
-- Supported project/task/context routes enforce project and scope boundaries correctly for agent callers.
-- Calendar routes and binary attachment parity remain out of scope for agent v1.
+- A signed-in user can find agent integration guidance from account settings
+  without leaving the app or opening the repo.
+- A project owner can retrieve project-specific onboarding details alongside
+  agent credential management.
+- NexusDash exposes a versioned OpenAPI contract for the currently supported
+  agent API v1 surface.
+- Hosted docs clearly explain the exchange flow, bearer-token usage, scopes,
+  supported operations, and unsupported areas.
+- The onboarding UX stays aligned with current product styling and does not
+  over-promise unsupported agent capabilities.
 
 ## Notes
-- The dedicated task brief remains the detailed implementation contract and should stay in sync with the code on this branch.
-- Tracking docs, validation evidence, PR state, Copilot review handling, and preview deployment evidence must be updated in the same branch before handoff.
-- Review/deploy status: PR `#112` is open against `main`; Copilot completed its initial review with 3 comments, all of which were addressed and resolved; latest head checks are green on run `23811220762`; preview deploy run `23811221988` was dispatched from `feature/task-059-agent-access` and produced the healthy alias `https://nexus-dash-dorianagaesse-3732-dorian-agaesses-projects.vercel.app`.
-- Live validation status: preview boot is healthy, agent token exchange is healthy, scoped task/context operations were validated end to end on preview, and disposable validation users were cleaned up after the run. Sign-off procedure lives in `docs/runbooks/task-059-agent-access-preview-validation.md`.
+- This task is intentionally layered on top of TASK-059 and should preserve its
+  auth, scope, and runtime boundaries rather than redesigning them.
+- Scope discipline matters: document only the stable agent-ready v1 API surface
+  (token exchange, project read, task operations, context-card operations, and
+  attachment upload/download routes that are explicitly supported for agents).
+- MCP is intentionally out of scope for this task; ship a strong hosted
+  docs/OpenAPI/onboarding baseline first.
 
 ---
 
-Last Updated: 2026-03-31
-Assigned To: User + Agent
+Last Updated: 2026-04-03
+Assigned To: Agent
