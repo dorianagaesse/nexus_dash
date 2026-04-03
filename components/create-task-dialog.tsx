@@ -348,7 +348,7 @@ export function CreateTaskDialog({
               }}
             >
               <Card
-                className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto"
+                className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-x-hidden overflow-y-auto"
                 onMouseDown={(event) => event.stopPropagation()}
               >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0">

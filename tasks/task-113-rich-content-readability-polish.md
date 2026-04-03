@@ -46,6 +46,31 @@ Make rich task/context content easier to write and scan by clearly distinguishin
 - Kanban previews summarize rich content more faithfully than the current plain flattening treatment.
 - The implementation remains intentionally lightweight and understandable in the current codebase.
 
+## Follow-Up Refinement Note (2026-03-28)
+- Code blocks must stay width-bounded inside task/context modals.
+- Any horizontal overflow for code blocks should scroll inside the code block itself, never at modal level.
+- Token blocks must be strictly single-line visually and structurally.
+- Token values may scroll horizontally inside their own value area, but must not introduce modal-level horizontal scroll.
+- Token actions (`see/hide`, `copy`) must remain visible on the right side of the token block, inline with the value area rather than stacked underneath.
+- Pressing `Enter` while focused inside a token block must always escape the block instead of creating additional token lines.
+- Task and context modals can grow moderately in width if that improves usable editing space, but should remain comfortable on desktop and safe within the viewport.
+- Pressing `Enter` inside a code block must exit the block in a single keypress; `Shift+Enter` must remain the multiline shortcut inside code blocks.
+- Pressing either `Enter` or `Shift+Enter` inside a token block must exit the block in a single keypress.
+- The editor should keep a writable paragraph after a trailing code/token block so users can click below the block and continue writing without hunting for the end of the overflowed value.
+- Editor-only shell controls must not leak into persisted content state; toolbar buttons for token/code blocks should remain stable after regular typing and line creation below those blocks.
+- Applying `Code` with no active text selection must only transform the current visual line, even when multiple lines live inside the same paragraph node.
+- Long code content should wrap within the block instead of widening the editor/modal surface.
+- Caret placement after creating or exiting a token/code block must land in the paragraph below the block, not snap back into the structured block or to a prior block above it.
+- Navigation-only `Enter` behavior around structured blocks must not trigger a controlled editor resync that can relocate the caret back into the block surface.
+- Token overflow can remain horizontally scrollable, but the scrollbar chrome should stay visually discreet rather than introducing a bright native track inside the token block.
+- Editor-only blank lines that exist to keep writing below structured blocks must use a stable caret anchor, so pressing `Enter` at the bottom of the editor does not collapse the selection back to the beginning of an earlier code/token block in real browsers.
+- The editor must avoid resetting `innerHTML` when the incoming prop value is semantically identical to the current structured content, otherwise browser selection becomes unreliable.
+- The temporary undo/redo shortcut experiment is dropped for now; native rich-text history should not be customized further until the structured-block caret flow is fully stable.
+- Pressing `Enter` on the empty editor-only line directly below a trailing token/code block should navigate back into that block at the end of its value, without mutating block content or stripping editor-only controls.
+- Trailing token-block navigation must remain guarded through the browser's delayed `beforeinput` / `input` phase, because Chromium can still attempt a paragraph insertion after the caret has been moved back into a masked token field.
+- Editor-only token blocks should not rely on masked `contentEditable` text. They are structurally closer to a single-line form control with inline actions, and should therefore use an actual input surface in edit mode to avoid Chromium rewriting the row and dropping action controls.
+- The editor-only token shell itself must also be non-editable. Otherwise Chromium can still inject structure around the input-backed token control when focus re-enters from the trailing paragraph, which recreates the disappearing-controls bug in a different form.
+
 ## Likely Touch Points
 - `components/rich-text-editor.tsx`
 - `components/ui/emoji-field.tsx`

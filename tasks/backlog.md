@@ -4,21 +4,11 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-115
-  Title: Agent onboarding v1 - hosted docs, OpenAPI surface, and in-app setup UX
-  Status: In progress
-  Rationale: Agent access is now implemented, but external agents and humans still need a first-class way to discover the supported API surface, auth flow, scopes, project-specific setup details, and newly validated attachment/upload workflow without cloning the repository. Ship a hosted onboarding experience that pairs machine-readable API contracts with copy-friendly account/project guidance and removes avoidable trial-and-error around payload formats and file handling.
-  Dependencies: TASK-059, TASK-082
 - ID: TASK-059
   Title: Agent access implementation - scoped API tokens, rotation, and audit trail
   Status: In progress
   Rationale: Implement owner-managed, project-scoped agent credentials with short-lived bearer-token exchange, explicit service-level scope enforcement, and request/audit visibility so automation can operate safely without borrowing browser sessions.
   Dependencies: TASK-046, TASK-076
-- ID: TASK-111
-  Title: Context card presentation refinement - adaptive card sizing and rich-content support
-  Status: Pending
-  Rationale: Context cards currently behave like plain-text tiles with one-size-fits-all layout pressure; refine card sizing behavior and upgrade context-card authoring/rendering so richer project notes fit naturally without wasting vertical space or forcing users into awkwardly dense previews.
-  Dependencies: TASK-004, TASK-094, TASK-096
 - ID: TASK-048
   Title: Authentication implementation phase 4 - auth tests and hardening
   Status: Pending
@@ -121,11 +111,6 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Run a broader refinement pass across the entire app so pages, panels, forms, and feedback patterns feel cohesive, intentional, and production-grade instead of evolving as isolated local improvements.
   Dependencies: TASK-096, TASK-100
-- ID: TASK-113
-  Title: Rich content readability polish - code formatting, compact token fields, focus-only emoji affordance, and improved Kanban previews
-  Status: Pending
-  Rationale: Richer task/context content only pays off if it remains easy to write and scan; extend formatting support for code-like content, render long token-style values as compact copyable UI instead of giant line-wrapping blobs, hide emoji controls until field focus to reduce chrome, and make Kanban previews summarize formatted text more faithfully.
-  Dependencies: TASK-094, TASK-096, TASK-111
 - ID: TASK-063
   Title: Background jobs phase 1 - maintenance workload extraction (deferred)
   Status: Pending
@@ -165,6 +150,21 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-115
+  Title: Agent onboarding v1 - hosted docs, OpenAPI surface, and in-app setup UX
+  Status: Done (2026-04-04)
+  Rationale: Delivered a hosted agent onboarding experience with rendered docs, a versioned OpenAPI contract, account-level developer entry points, project-level bootstrap guidance, and external-agent-driven refinements around JSON-first writes, binary upload documentation, lifecycle examples, and copy-paste-safe status guidance.
+  Dependencies: TASK-059, TASK-082
+- ID: TASK-113
+  Title: Rich content readability polish - code formatting, compact token fields, focus-only emoji affordance, and improved Kanban previews
+  Status: Done (2026-03-27)
+  Rationale: Added lightweight rich-text code/token blocks with compact copyable rendering, moved emoji field chrome to focus-only visibility, improved Kanban rich-text preview summarization, addressed Copilot follow-up feedback with renderer safeguards/tests, and validated the task locally plus through PR #111 checks.
+  Dependencies: TASK-094, TASK-096, TASK-111
+- ID: TASK-111
+  Title: Context card presentation refinement - adaptive card sizing and rich-content support
+  Status: Done (2026-03-27)
+  Rationale: Upgraded context cards to the shared sanitized rich-text model, improved mixed-length card sizing and preview density, preserved attachment workflows, and aligned create/edit/preview rendering so richer project notes fit the dashboard more naturally.
+  Dependencies: TASK-004, TASK-094, TASK-096
 - ID: TASK-112
   Title: Attachment link entry polish - add-icon affordance and Enter-to-add across task/context flows
   Status: Done (2026-03-27)
