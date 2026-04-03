@@ -6,8 +6,8 @@ Use this file to capture tasks discovered during development. Each entry should 
 ### Execution Queue (Now / Next)
 - ID: TASK-059
   Title: Agent access implementation - scoped API tokens, rotation, and audit trail
-  Status: Pending
-  Rationale: Enable secure non-human access via revocable JWT-style scoped tokens/service principals so agents can operate on authorized projects without sharing user sessions.
+  Status: In progress
+  Rationale: Implement owner-managed, project-scoped agent credentials with short-lived bearer-token exchange, explicit service-level scope enforcement, and request/audit visibility so automation can operate safely without borrowing browser sessions.
   Dependencies: TASK-046, TASK-076
 - ID: TASK-048
   Title: Authentication implementation phase 4 - auth tests and hardening
@@ -150,6 +150,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-115
+  Title: Agent onboarding v1 - hosted docs, OpenAPI surface, and in-app setup UX
+  Status: Done (2026-04-04)
+  Rationale: Delivered a hosted agent onboarding experience with rendered docs, a versioned OpenAPI contract, account-level developer entry points, project-level bootstrap guidance, and external-agent-driven refinements around JSON-first writes, binary upload documentation, lifecycle examples, and copy-paste-safe status guidance.
+  Dependencies: TASK-059, TASK-082
 - ID: TASK-113
   Title: Rich content readability polish - code formatting, compact token fields, focus-only emoji affordance, and improved Kanban previews
   Status: Done (2026-03-27)

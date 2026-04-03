@@ -2,22 +2,28 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Settings2, Share2, Users, X } from "lucide-react";
+import { Bot, Settings2, Share2, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import type { AgentScope } from "@/lib/agent-access";
 import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProjectDashboardOwnerAgentAccessPanel } from "@/components/project-dashboard/project-dashboard-owner-agent-access-panel";
 import { ProjectDashboardOwnerAccessPanel } from "@/components/project-dashboard/project-dashboard-owner-access-panel";
 import { ProjectDashboardOwnerGeneralPanel } from "@/components/project-dashboard/project-dashboard-owner-general-panel";
 import { ProjectDashboardOwnerSharingPanel } from "@/components/project-dashboard/project-dashboard-owner-sharing-panel";
 import {
   type GeneratedProjectInvitationLink,
+  mapAgentAccessError,
   mapProjectMutationError,
   mapSharingError,
   type CollaboratorIdentitySummary,
+  type ProjectAgentAccessSummary,
+  type ProjectAgentCredentialIssuedSecret,
+  type ProjectAgentCredentialSummary,
   type ProjectCollaboratorRole,
   type ProjectDashboardSettingsTab,
   type ProjectInvitationSummary,
@@ -44,6 +50,10 @@ interface ProjectDashboardOwnerActionsProps {
   projectDescription: string | null;
 }
 
+interface LatestAgentCredentialSecret extends ProjectAgentCredentialIssuedSecret {
+  mode: "created" | "rotated";
+}
+
 export function ProjectDashboardOwnerActions({
   projectId,
   projectName,
@@ -62,6 +72,15 @@ export function ProjectDashboardOwnerActions({
   const [sharingSummary, setSharingSummary] = useState<ProjectSharingSummary | null>(null);
   const [isLoadingSharing, setIsLoadingSharing] = useState(false);
   const [sharingError, setSharingError] = useState<string | null>(null);
+  const [agentAccessSummary, setAgentAccessSummary] =
+    useState<ProjectAgentAccessSummary | null>(null);
+  const [isLoadingAgentAccess, setIsLoadingAgentAccess] = useState(false);
+  const [agentAccessError, setAgentAccessError] = useState<string | null>(null);
+  const [isCreatingAgentCredential, setIsCreatingAgentCredential] = useState(false);
+  const [mutatingAgentCredentialId, setMutatingAgentCredentialId] =
+    useState<string | null>(null);
+  const [latestAgentCredentialSecret, setLatestAgentCredentialSecret] =
+    useState<LatestAgentCredentialSecret | null>(null);
   const [inviteQuery, setInviteQuery] = useState("");
   const [inviteRole, setInviteRole] = useState<ProjectCollaboratorRole>("editor");
   const [inviteResults, setInviteResults] = useState<CollaboratorIdentitySummary[]>([]);
@@ -93,17 +112,24 @@ export function ProjectDashboardOwnerActions({
   );
 
   const closeModal = () => {
-    if (isSavingProject || isDeletingProject) {
+    if (
+      isSavingProject ||
+      isDeletingProject ||
+      isCreatingAgentCredential ||
+      mutatingAgentCredentialId
+    ) {
       return;
     }
 
     setGeneratedInvitationLink(null);
+    setLatestAgentCredentialSecret(null);
     setIsOpen(false);
   };
 
   const openModal = (nextTab: ProjectDashboardSettingsTab) => {
     setProjectError(null);
     setSharingError(null);
+    setAgentAccessError(null);
     setSearchMessage(null);
     setActiveTab(nextTab);
     setIsOpen(true);
@@ -137,6 +163,34 @@ export function ProjectDashboardOwnerActions({
     }
   }, [projectId]);
 
+  const loadAgentAccessSummary = useCallback(async () => {
+    setIsLoadingAgentAccess(true);
+    setAgentAccessError(null);
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/agent-access`, {
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | (ProjectAgentAccessSummary & { error?: string })
+        | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(mapAgentAccessError(payload?.error ?? "agent-access-load-failed"));
+      }
+
+      setAgentAccessSummary(payload);
+    } catch (error) {
+      setAgentAccessError(
+        error instanceof Error
+          ? error.message
+          : "Could not load agent access. Please retry."
+      );
+    } finally {
+      setIsLoadingAgentAccess(false);
+    }
+  }, [projectId]);
+
   useEffect(() => {
     if (!isOpen || (activeTab !== "sharing" && activeTab !== "access")) {
       return;
@@ -144,6 +198,14 @@ export function ProjectDashboardOwnerActions({
 
     void loadSharingSummary();
   }, [activeTab, isOpen, loadSharingSummary]);
+
+  useEffect(() => {
+    if (!isOpen || activeTab !== "agents") {
+      return;
+    }
+
+    void loadAgentAccessSummary();
+  }, [activeTab, isOpen, loadAgentAccessSummary]);
 
   useEffect(() => {
     if (!isOpen || activeTab !== "sharing") {
@@ -560,6 +622,171 @@ export function ProjectDashboardOwnerActions({
     }
   };
 
+  const handleCreateAgentCredential = async (input: {
+    label: string;
+    scopes: AgentScope[];
+    expiresInDays: number | null;
+  }) => {
+    if (isCreatingAgentCredential) {
+      return;
+    }
+
+    setIsCreatingAgentCredential(true);
+    setAgentAccessError(null);
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/agent-access`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(input),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | (ProjectAgentCredentialIssuedSecret & { error?: string })
+        | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(mapAgentAccessError(payload?.error ?? "credential-create-failed"));
+      }
+
+      setLatestAgentCredentialSecret({
+        ...payload,
+        mode: "created",
+      });
+      pushToast({
+        variant: "success",
+        message: `Credential ${payload.credential.label} created.`,
+      });
+      await loadAgentAccessSummary();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Could not create the credential. Please retry.";
+      setAgentAccessError(message);
+      pushToast({
+        variant: "error",
+        message,
+      });
+    } finally {
+      setIsCreatingAgentCredential(false);
+    }
+  };
+
+  const handleRotateAgentCredential = async (
+    credential: ProjectAgentCredentialSummary
+  ) => {
+    if (mutatingAgentCredentialId) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `Rotate ${credential.label}? The current raw API key will stop working for future token exchanges.`
+      )
+    ) {
+      return;
+    }
+
+    setMutatingAgentCredentialId(credential.id);
+    setAgentAccessError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/agent-access/${credential.id}/rotate`,
+        {
+          method: "POST",
+        }
+      );
+      const payload = (await response.json().catch(() => null)) as
+        | (ProjectAgentCredentialIssuedSecret & { error?: string })
+        | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(mapAgentAccessError(payload?.error ?? "credential-rotate-failed"));
+      }
+
+      setLatestAgentCredentialSecret({
+        ...payload,
+        mode: "rotated",
+      });
+      pushToast({
+        variant: "success",
+        message: `Credential ${payload.credential.label} rotated.`,
+      });
+      await loadAgentAccessSummary();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Could not rotate the credential. Please retry.";
+      setAgentAccessError(message);
+      pushToast({
+        variant: "error",
+        message,
+      });
+    } finally {
+      setMutatingAgentCredentialId(null);
+    }
+  };
+
+  const handleRevokeAgentCredential = async (
+    credential: ProjectAgentCredentialSummary
+  ) => {
+    if (mutatingAgentCredentialId) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `Revoke ${credential.label}? Existing bearer tokens will expire naturally, and future exchanges will be denied.`
+      )
+    ) {
+      return;
+    }
+
+    setMutatingAgentCredentialId(credential.id);
+    setAgentAccessError(null);
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/agent-access/${credential.id}`, {
+        method: "DELETE",
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            credential?: ProjectAgentCredentialSummary;
+            error?: string;
+          }
+        | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(mapAgentAccessError(payload?.error ?? "credential-revoke-failed"));
+      }
+
+      setLatestAgentCredentialSecret((currentSecret) =>
+        currentSecret?.credential.id === credential.id ? null : currentSecret
+      );
+      pushToast({
+        variant: "success",
+        message: `Credential ${credential.label} revoked.`,
+      });
+      await loadAgentAccessSummary();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Could not revoke the credential. Please retry.";
+      setAgentAccessError(message);
+      pushToast({
+        variant: "error",
+        message,
+      });
+    } finally {
+      setMutatingAgentCredentialId(null);
+    }
+  };
+
   const handleCopyInvitationLink = async (invitation: ProjectInvitationSummary) => {
     try {
       await navigator.clipboard.writeText(
@@ -629,7 +856,7 @@ export function ProjectDashboardOwnerActions({
                     <div className="space-y-1">
                       <CardTitle className="text-xl">{projectName}</CardTitle>
                       <p className="text-sm text-muted-foreground">
-                        Project details, invitations, and contributors.
+                        Project details, invitations, contributors, and agent access.
                       </p>
                     </div>
                   </div>
@@ -667,6 +894,15 @@ export function ProjectDashboardOwnerActions({
                       <Users className="h-4 w-4" />
                       Contributors
                     </Button>
+                    <Button
+                      type="button"
+                      variant={activeTab === "agents" ? "secondary" : "outline"}
+                      className="rounded-full px-4"
+                      onClick={() => setActiveTab("agents")}
+                    >
+                      <Bot className="h-4 w-4" />
+                      Agent access
+                    </Button>
                   </div>
 
                   {activeTab === "general" ? (
@@ -698,7 +934,7 @@ export function ProjectDashboardOwnerActions({
                       onInvite={(user) => void handleInvite(user)}
                       onCopyInvitationLink={handleCopyInvitationLink}
                     />
-                  ) : (
+                  ) : activeTab === "access" ? (
                     <ProjectDashboardOwnerAccessPanel
                       isLoadingSharing={isLoadingSharing}
                       sharingError={sharingError}
@@ -713,6 +949,24 @@ export function ProjectDashboardOwnerActions({
                       onRevokeInvitation={(invitation) =>
                         void handleRevokeInvitation(invitation)
                       }
+                    />
+                  ) : (
+                    <ProjectDashboardOwnerAgentAccessPanel
+                      projectId={projectId}
+                      accessSummary={agentAccessSummary}
+                      isLoadingAccessSummary={isLoadingAgentAccess}
+                      accessError={agentAccessError}
+                      isCreatingCredential={isCreatingAgentCredential}
+                      mutatingCredentialId={mutatingAgentCredentialId}
+                      latestIssuedSecret={latestAgentCredentialSecret}
+                      onCreateCredential={(input) => void handleCreateAgentCredential(input)}
+                      onRotateCredential={(credential) =>
+                        void handleRotateAgentCredential(credential)
+                      }
+                      onRevokeCredential={(credential) =>
+                        void handleRevokeAgentCredential(credential)
+                      }
+                      onDismissLatestSecret={() => setLatestAgentCredentialSecret(null)}
                     />
                   )}
                 </CardContent>

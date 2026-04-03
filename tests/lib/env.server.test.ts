@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
+  getAgentAccessTokenTtlSeconds,
+  getAgentTokenRuntimeConfig,
   getDatabaseRuntimeConfig,
   getOptionalServerEnv,
   getRequiredServerEnv,
@@ -34,6 +36,8 @@ const ENV_KEYS_TO_RESET = [
   "AUTH_GITHUB_CLIENT_ID",
   "AUTH_GITHUB_CLIENT_SECRET",
   "AUTH_GITHUB_REDIRECT_URI",
+  "AGENT_TOKEN_SIGNING_SECRET",
+  "AGENT_ACCESS_TOKEN_TTL_SECONDS",
   "RESEND_API_KEY",
   "RESEND_FROM_EMAIL",
   "STORAGE_PROVIDER",
@@ -49,6 +53,10 @@ describe("env.server", () => {
     for (const key of ENV_KEYS_TO_RESET) {
       vi.stubEnv(key, "");
     }
+    vi.stubEnv(
+      "AGENT_TOKEN_SIGNING_SECRET",
+      "0123456789abcdef0123456789abcdef"
+    );
     vi.stubEnv("RESEND_API_KEY", "re_test_key");
   });
 
@@ -243,6 +251,24 @@ describe("env.server", () => {
         signedUrlTtlSeconds: 900,
       },
     });
+  });
+
+  test("reads agent token runtime config with bounded ttl", () => {
+    vi.stubEnv("AGENT_ACCESS_TOKEN_TTL_SECONDS", "900");
+
+    expect(getAgentTokenRuntimeConfig()).toEqual({
+      signingSecret: "0123456789abcdef0123456789abcdef",
+      ttlSeconds: 900,
+    });
+    expect(getAgentAccessTokenTtlSeconds()).toBe(900);
+  });
+
+  test("fails when agent signing secret is too short", () => {
+    vi.stubEnv("AGENT_TOKEN_SIGNING_SECRET", "short-secret");
+
+    expect(() => getAgentTokenRuntimeConfig()).toThrow(
+      "AGENT_TOKEN_SIGNING_SECRET must be at least 32 characters long."
+    );
   });
 
   test("fails when storage provider is invalid", () => {
@@ -463,6 +489,27 @@ describe("env.server", () => {
 
     expect(() => validateServerRuntimeConfig()).toThrow(
       "RESEND_API_KEY is required in production for email verification delivery."
+    );
+  });
+
+  test("fails runtime validation when production agent signing secret is missing", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DATABASE_URL", "postgresql://localhost:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://localhost:5433/postgres");
+    vi.stubEnv("AGENT_TOKEN_SIGNING_SECRET", "");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "AGENT_TOKEN_SIGNING_SECRET is required in production for agent access token signing."
+    );
+  });
+
+  test("fails runtime validation when agent token ttl falls outside the allowed range", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("AGENT_ACCESS_TOKEN_TTL_SECONDS", "120");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "AGENT_ACCESS_TOKEN_TTL_SECONDS must be between 300 and 900."
     );
   });
 

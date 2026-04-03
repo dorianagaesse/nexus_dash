@@ -20,6 +20,7 @@ Implemented today:
 - Protected routes: `/projects/**`, `/account/**`
 - Project CRUD
 - Project sharing with owner-managed membership/invitation flows, including email-bound invite links
+- Project-scoped agent access with owner-managed API credentials, short-lived bearer-token exchange, and audit trail
 - Project dashboard with:
   - Context cards (CRUD + attachments)
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`)
@@ -80,6 +81,9 @@ Open `http://localhost:3000`.
 - After verified authentication, users are redirected to `/projects`.
 - Session persistence is database-backed (`Session` table) with HttpOnly cookie handling.
 - Logout endpoint: `POST /api/auth/logout`.
+- Agent access is project-scoped and owner-managed from the project settings surface.
+- Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
+- Agent v1 is limited to project/task/context APIs and does not include calendar or binary attachment parity.
 
 ## Database and Migrations
 
@@ -110,6 +114,7 @@ Environment access/validation is centralized in `lib/env.server.ts` and executed
 
 - `DIRECT_URL`
 - `RESEND_API_KEY` (email verification delivery)
+- `AGENT_TOKEN_SIGNING_SECRET` (agent bearer-token signing, minimum 32 chars; see `docs/runbooks/vercel-env-contract-and-secrets.md` for generation and rotation guidance)
 
 ### Optional grouped vars (must be complete if any value is set)
 
@@ -133,6 +138,7 @@ Environment access/validation is centralized in `lib/env.server.ts` and executed
 ### Additional rules
 
 - In production, when Google OAuth is enabled, `GOOGLE_TOKEN_ENCRYPTION_KEY` is required.
+- `AGENT_ACCESS_TOKEN_TTL_SECONDS` is optional, defaults to `600`, and must stay between `300` and `900`.
 - `GOOGLE_CALENDAR_ID` must be unset or `primary`.
 - `RESEND_FROM_EMAIL` defaults to `NexusDash <noreply@nexus-dash.app>` when unset.
 - `TRUSTED_ORIGINS` (optional) can restrict verification-link origins in production.
@@ -246,6 +252,8 @@ Required GitHub secrets:
 - `VERCEL_ORG_ID`
 - `VERCEL_PROJECT_ID`
 - `MIGRATION_DATABASE_URL` (admin-capable migration connection; must not be the runtime `DATABASE_URL`)
+- `AGENT_TOKEN_SIGNING_SECRET` (required for production deploys; preview workflow falls back to a placeholder when intentionally unset)
+- Preview deployments still need `AGENT_TOKEN_SIGNING_SECRET` at runtime. GitHub Actions fallback values do not automatically populate Vercel's shared preview runtime unless the deployment explicitly passes them through.
 
 ## Observability
 

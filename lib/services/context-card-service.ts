@@ -9,8 +9,15 @@ import {
 } from "@/lib/services/attachment-input-service";
 import { logServerError } from "@/lib/observability/logger";
 import { coerceRichTextHtml, richTextToPlainText } from "@/lib/rich-text";
-import { createContextAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
-import { requireProjectRole } from "@/lib/services/project-access-service";
+import {
+  createContextAttachmentsFromDraft,
+  mapContextAttachmentResponse,
+} from "@/lib/services/project-attachment-service";
+import {
+  requireAgentProjectScopes,
+  requireProjectRole,
+  type AgentProjectAccessContext,
+} from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
 
 const MIN_TITLE_LENGTH = 2;
@@ -38,6 +45,7 @@ interface CreateContextCardInput {
   color: string;
   attachmentLinksJsonRaw: string;
   attachmentFiles: File[];
+  agentAccess?: AgentProjectAccessContext;
 }
 
 interface UpdateContextCardInput {
@@ -47,12 +55,14 @@ interface UpdateContextCardInput {
   title: string;
   content: string;
   color: string;
+  agentAccess?: AgentProjectAccessContext;
 }
 
 interface DeleteContextCardInput {
   actorUserId: string;
   projectId: string;
   cardId: string;
+  agentAccess?: AgentProjectAccessContext;
 }
 
 interface ContextCardAttachmentRecord {
@@ -95,13 +105,15 @@ function resolveContextColor(value: string): string | null {
   return value;
 }
 
-function mapContextCardRecord(card: ContextCardRecord) {
+function mapContextCardRecord(projectId: string, card: ContextCardRecord) {
   return {
     id: card.id,
     title: card.name,
     content: card.content,
     color: card.color ?? CONTEXT_CARD_COLORS[0],
-    attachments: card.attachments,
+    attachments: card.attachments.map((attachment) =>
+      mapContextAttachmentResponse(projectId, card.id, attachment)
+    ),
   };
 }
 
@@ -146,6 +158,15 @@ export async function createContextCardForProject(
   const attachmentFileError = validateAttachmentFiles(input.attachmentFiles);
   if (attachmentFileError) {
     return createError(400, attachmentFileError);
+  }
+
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["context:write"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
   }
 
   let createdCardId: string | null = null;
@@ -212,7 +233,7 @@ export async function createContextCardForProject(
         ok: true,
         data: {
           id: createdCard.id,
-          card: mapContextCardRecord(createdCardWithAttachments),
+          card: mapContextCardRecord(input.projectId, createdCardWithAttachments),
         },
       };
     } catch (error) {
@@ -263,6 +284,15 @@ export async function updateContextCardForProject(
 
   if (!color) {
     return createError(400, "context-color-invalid");
+  }
+
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["context:write"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
@@ -322,6 +352,15 @@ export async function deleteContextCardForProject(
 
   if (!cardId) {
     return createError(400, "context-card-missing");
+  }
+
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["context:delete"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
   }
 
   return withActorRlsContext(actorUserId, async (db) => {

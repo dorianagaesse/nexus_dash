@@ -8,6 +8,7 @@ import {
 } from "@/lib/attachment-storage";
 import { prisma } from "@/lib/prisma";
 import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
+import type { AgentScope } from "@/lib/agent-access";
 import {
   ATTACHMENT_KIND_FILE,
   ATTACHMENT_KIND_LINK,
@@ -21,7 +22,11 @@ import {
 } from "@/lib/task-attachment";
 import { logServerError } from "@/lib/observability/logger";
 import { isAttachmentStorageUnavailableError } from "@/lib/storage/errors";
-import { requireProjectRole } from "@/lib/services/project-access-service";
+import {
+  requireAgentProjectScopes,
+  requireProjectRole,
+  type AgentProjectAccessContext,
+} from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
 import type { DbClient } from "@/lib/services/rls-context";
 
@@ -166,7 +171,25 @@ function getAttachmentUploadErrorMessage(error: unknown): string {
   return "Failed to upload attachment";
 }
 
-function withTaskDownloadUrl(
+function requireAttachmentAgentScopes(input: {
+  agentAccess?: AgentProjectAccessContext;
+  projectId: string;
+  requiredScopes: AgentScope[];
+}): ServiceErrorResult | null {
+  const scopeAccess = requireAgentProjectScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: input.requiredScopes,
+  });
+
+  if (scopeAccess.ok) {
+    return null;
+  }
+
+  return createError(scopeAccess.status, scopeAccess.error);
+}
+
+export function mapTaskAttachmentResponse(
   projectId: string,
   taskId: string,
   attachment: {
@@ -187,7 +210,7 @@ function withTaskDownloadUrl(
   };
 }
 
-function withContextDownloadUrl(
+export function mapContextAttachmentResponse(
   projectId: string,
   cardId: string,
   attachment: {
@@ -402,7 +425,7 @@ export async function createTaskAttachmentFromForm(input: {
 
         return {
           ok: true,
-          data: withTaskDownloadUrl(input.projectId, input.taskId, attachment),
+          data: mapTaskAttachmentResponse(input.projectId, input.taskId, attachment),
         };
       } catch (error) {
         logServerError("createTaskAttachmentFromForm.link", error);
@@ -474,7 +497,7 @@ export async function createTaskAttachmentFromForm(input: {
 
       return {
         ok: true,
-        data: withTaskDownloadUrl(input.projectId, input.taskId, attachment),
+        data: mapTaskAttachmentResponse(input.projectId, input.taskId, attachment),
       };
     } catch (error) {
       if (storageKey) {
@@ -560,7 +583,11 @@ export async function createContextAttachmentFromForm(input: {
 
         return {
           ok: true,
-          data: withContextDownloadUrl(input.projectId, input.cardId, attachment),
+          data: mapContextAttachmentResponse(
+            input.projectId,
+            input.cardId,
+            attachment
+          ),
         };
       } catch (error) {
         logServerError("createContextAttachmentFromForm.link", error);
@@ -632,7 +659,7 @@ export async function createContextAttachmentFromForm(input: {
 
       return {
         ok: true,
-        data: withContextDownloadUrl(input.projectId, input.cardId, attachment),
+        data: mapContextAttachmentResponse(input.projectId, input.cardId, attachment),
       };
     } catch (error) {
       if (storageKey) {
@@ -654,10 +681,20 @@ export async function createTaskAttachmentUploadTarget(input: {
   name: string;
   mimeType: string;
   sizeBytes: number;
+  agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<{ upload: AttachmentDirectUploadTargetPayload }>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
+  }
+
+  const agentScopeError = requireAttachmentAgentScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["task:write"],
+  });
+  if (agentScopeError) {
+    return agentScopeError;
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
@@ -733,10 +770,20 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
   name: string;
   mimeType: string;
   sizeBytes: number;
+  agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<AttachmentResponsePayload>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
+  }
+
+  const agentScopeError = requireAttachmentAgentScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["task:write"],
+  });
+  if (agentScopeError) {
+    return agentScopeError;
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
@@ -842,7 +889,7 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
 
       return {
         ok: true,
-        data: withTaskDownloadUrl(input.projectId, input.taskId, attachment),
+        data: mapTaskAttachmentResponse(input.projectId, input.taskId, attachment),
       };
     } catch (error) {
       await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
@@ -861,10 +908,20 @@ export async function createContextAttachmentUploadTarget(input: {
   name: string;
   mimeType: string;
   sizeBytes: number;
+  agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<{ upload: AttachmentDirectUploadTargetPayload }>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
+  }
+
+  const agentScopeError = requireAttachmentAgentScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["context:write"],
+  });
+  if (agentScopeError) {
+    return agentScopeError;
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
@@ -944,10 +1001,20 @@ export async function finalizeContextAttachmentDirectUpload(input: {
   name: string;
   mimeType: string;
   sizeBytes: number;
+  agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<AttachmentResponsePayload>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
+  }
+
+  const agentScopeError = requireAttachmentAgentScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["context:write"],
+  });
+  if (agentScopeError) {
+    return agentScopeError;
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
@@ -1057,7 +1124,7 @@ export async function finalizeContextAttachmentDirectUpload(input: {
 
       return {
         ok: true,
-        data: withContextDownloadUrl(input.projectId, input.cardId, attachment),
+        data: mapContextAttachmentResponse(input.projectId, input.cardId, attachment),
       };
     } catch (error) {
       await deleteAttachmentFile(normalizedStorageKey).catch((cleanupError) => {
@@ -1074,10 +1141,20 @@ export async function cleanupTaskDirectUploadObject(input: {
   projectId: string;
   taskId: string;
   storageKey: string;
+  agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<{ ok: true }>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
+  }
+
+  const agentScopeError = requireAttachmentAgentScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["task:write"],
+  });
+  if (agentScopeError) {
+    return agentScopeError;
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
@@ -1134,10 +1211,20 @@ export async function cleanupContextDirectUploadObject(input: {
   projectId: string;
   cardId: string;
   storageKey: string;
+  agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<{ ok: true }>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
+  }
+
+  const agentScopeError = requireAttachmentAgentScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["context:write"],
+  });
+  if (agentScopeError) {
+    return agentScopeError;
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
@@ -1198,10 +1285,20 @@ export async function deleteTaskAttachmentForProject(input: {
   projectId: string;
   taskId: string;
   attachmentId: string;
+  agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<{ ok: true }>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
+  }
+
+  const agentScopeError = requireAttachmentAgentScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["task:write"],
+  });
+  if (agentScopeError) {
+    return agentScopeError;
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
@@ -1280,10 +1377,20 @@ export async function deleteContextAttachmentForProject(input: {
   projectId: string;
   cardId: string;
   attachmentId: string;
+  agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<{ ok: true }>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
+  }
+
+  const agentScopeError = requireAttachmentAgentScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["context:write"],
+  });
+  if (agentScopeError) {
+    return agentScopeError;
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
@@ -1365,10 +1472,20 @@ export async function getTaskAttachmentDownload(input: {
   taskId: string;
   attachmentId: string;
   disposition: "inline" | "attachment";
+  agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<AttachmentDownloadPayload>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
+  }
+
+  const agentScopeError = requireAttachmentAgentScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["task:read"],
+  });
+  if (agentScopeError) {
+    return agentScopeError;
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
@@ -1460,10 +1577,20 @@ export async function getContextAttachmentDownload(input: {
   cardId: string;
   attachmentId: string;
   disposition: "inline" | "attachment";
+  agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<AttachmentDownloadPayload>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
+  }
+
+  const agentScopeError = requireAttachmentAgentScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["context:read"],
+  });
+  if (agentScopeError) {
+    return agentScopeError;
   }
 
   return withActorRlsContext(actorUserId, async (db) => {

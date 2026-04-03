@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
+import {
+  getAgentProjectAccessContext,
+  requireApiPrincipal,
+} from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import {
   deleteTaskForProject,
@@ -12,11 +15,12 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { projectId: string; taskId: string } }
 ) {
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
-  if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+  const principalResult = await requireApiPrincipal(request);
+  if (!principalResult.ok) {
+    return principalResult.response;
   }
-  const actorUserId = authenticatedUser.userId;
+  const actorUserId = principalResult.principal.actorUserId;
+  const agentAccess = getAgentProjectAccessContext(principalResult.principal);
   const { projectId, taskId } = params;
 
   if (!projectId || !taskId) {
@@ -36,7 +40,13 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
-  const result = await updateTaskForProject(projectId, taskId, payload, actorUserId);
+  const result = await updateTaskForProject(
+    projectId,
+    taskId,
+    payload,
+    actorUserId,
+    agentAccess
+  );
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
@@ -48,18 +58,24 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { projectId: string; taskId: string } }
 ) {
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
-  if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+  const principalResult = await requireApiPrincipal(request);
+  if (!principalResult.ok) {
+    return principalResult.response;
   }
-  const actorUserId = authenticatedUser.userId;
+  const actorUserId = principalResult.principal.actorUserId;
+  const agentAccess = getAgentProjectAccessContext(principalResult.principal);
   const { projectId, taskId } = params;
 
   if (!projectId || !taskId) {
     return NextResponse.json({ error: "Missing route parameters" }, { status: 400 });
   }
 
-  const result = await deleteTaskForProject(projectId, taskId, actorUserId);
+  const result = await deleteTaskForProject(
+    projectId,
+    taskId,
+    actorUserId,
+    agentAccess
+  );
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }

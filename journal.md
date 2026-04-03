@@ -12,6 +12,61 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-04
+- Type: Validation
+- Summary: TASK-059 merge-refresh validation passed locally after folding the latest `origin/main` into the agent-access branch and refreshing the generated Prisma client in this checkout.
+- Evidence: `npx prisma generate`; `npm run lint`; `npm test`; `$env:DATABASE_URL='postgresql://user:pass@localhost:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run build`.
+
+### 2026-04-04
+- Type: Governance
+- Summary: TASK-059 was rebased in practice through a merge-refresh with the latest `main` after TASK-115 had already been folded into the branch, resolving task-tracking conflicts and restoring a clean branch state for mergeability assessment.
+- Evidence: Merged `origin/main` into `feature/task-059-agent-access`; resolved conflicts in `tasks/backlog.md`, `tasks/current.md`, and `journal.md`; retained TASK-059 as the active branch task while recording TASK-115 as completed and included in the rollout envelope.
+
+### 2026-04-01
+- Type: Validation
+- Summary: TASK-115 local validation passed for lint, unit tests, coverage, and production build after adding the hosted agent docs surface, OpenAPI JSON route, account-level developer onboarding, and project-level quickstart UX.
+- Evidence: `npm run lint`; `npm test`; `npm run test:coverage`; `npx vitest run tests/api/agent-openapi.route.test.ts tests/components/agent-onboarding-guide.test.ts`; `$env:DATABASE_URL='postgresql://user:pass@localhost:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run build`.
+
+### 2026-04-01
+- Type: Execution
+- Summary: TASK-115 delivered agent onboarding v1 with a hosted docs page, machine-readable OpenAPI contract, account-level developer entry, and project-level bootstrap guidance layered directly onto the existing agent credential model.
+- Evidence: Added onboarding contract helpers in `lib/agent-onboarding.ts`; added docs surfaces in `app/docs/agent/v1/page.tsx`, `app/api/docs/agent/v1/openapi.json/route.ts`, and `components/agent-onboarding/agent-onboarding-guide.tsx`; added account developer entry in `components/account/account-settings-shell.tsx`, `app/account/settings/page.tsx`, and `app/account/settings/developers/page.tsx`; extended project onboarding in `components/project-dashboard/project-dashboard-owner-agent-access-panel.tsx` and `components/project-dashboard/project-dashboard-owner-actions.tsx`; added regression coverage in `tests/api/agent-openapi.route.test.ts` and `tests/components/agent-onboarding-guide.test.ts`; updated task docs in `project.md` and `tasks/task-115-agent-onboarding-v1.md`.
+
+### 2026-03-31
+- Type: Validation
+- Summary: TASK-059 preview validation passed end to end on the branch-scoped preview after fixing both the missing runtime signing secret path and the token-exchange owner lookup, and the disposable validation data was cleaned up afterward.
+- Evidence: `npx vercel curl / --deployment https://nexus-dash-dorianagaesse-3732-dorian-agaesses-projects.vercel.app -- --include`; `npx vercel curl /api/health/live --deployment https://nexus-dash-dorianagaesse-3732-dorian-agaesses-projects.vercel.app -- --include`; preview deploy workflow run `23811221988`; live assertions captured in `docs/runbooks/task-059-agent-access-preview-validation.md`; preview validation covered owner credential create/list/rotate/revoke, token exchange, project read, task create/read/update with delete denial, context create/read/update with delete denial, and audit visibility; corrected the context-card test payload to use a valid color from `lib/context-card-colors.ts` (`#DFF3F9`); removed disposable preview users matching `task059-preview-*@nexusdash.local` after sign-off.
+
+### 2026-03-31
+- Type: Governance
+- Summary: The repo's task execution contract now requires auth/deploy/integration work to spell out local prerequisites, runtime secrets, and deploy/review assumptions directly in the active task brief before deep implementation.
+- Evidence: Updated `agent.md`, `tasks/task-059-agent-access-implementation.md`, `tasks/current.md`, and `docs/runbooks/task-059-agent-access-preview-validation.md`.
+
+### 2026-03-31
+- Type: Governance
+- Summary: TASK-059 PR review and deploy follow-through completed on the latest feature-branch head: Copilot's three review comments were assessed, addressed, replied to, and resolved; the refreshed PR checks are green; and a branch-scoped preview deployment was created successfully from the final task branch ref.
+- Evidence: PR `#112` (`feature/task-059-agent-access` -> `main`); addressed Copilot feedback in commits `fcbd615` and `1939839`; replied to and resolved review threads `PRRT_kwDORPDIrs5394bk`, `PRRT_kwDORPDIrs5394ch`, and `PRRT_kwDORPDIrs5394c7`; green latest-head checks on run `23801288613` (`check-name`, `Quality Core`, `E2E Smoke`, `Container Image`); preview deploy workflow run `23801489971` dispatched with `--ref feature/task-059-agent-access -f action=deploy-preview -f git_ref=feature/task-059-agent-access` and produced preview URL `https://nexus-dash-7cs7imdfe-dorian-agaesses-projects.vercel.app`.
+
+### 2026-03-31
+- Type: Governance
+- Summary: TASK-059 preview-runtime follow-up fixed the missing agent signing secret path that caused Vercel preview aliases to return `500` on `/`.
+- Evidence: Confirmed Vercel Preview was missing `AGENT_TOKEN_SIGNING_SECRET` via `npx vercel env ls preview`; updated `.github/workflows/deploy-vercel.yml` so manual preview deploys pass `RESEND_API_KEY` and `AGENT_TOKEN_SIGNING_SECRET` as deployment runtime env values; clarified the requirement in `docs/runbooks/vercel-env-contract-and-secrets.md` and `README.md`.
+
+### 2026-03-31
+- Type: Blocker
+- Summary: TASK-059 Playwright end-to-end validation is still blocked in this environment because the local PostgreSQL service required by the test fixtures is unreachable at the configured loopback address.
+- Evidence: `$env:DATABASE_URL='postgresql://user:pass@127.0.0.1:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run test:e2e` rebuilt successfully, then all 6 Playwright specs failed with `PrismaClientInitializationError: Can't reach database server at 127.0.0.1:5432` from `tests/e2e/password-recovery.spec.ts` and `tests/e2e/helpers/auth-helpers.ts`.
+
+### 2026-03-31
+- Type: Validation
+- Summary: TASK-059 local validation baseline passed for lint, unit tests, coverage, and production build after adding the agent-token signing configuration and using safe env overrides for deploy-sensitive settings.
+- Evidence: `npm run lint`; `npm test`; `npm run test:coverage`; `$env:DATABASE_URL='postgresql://user:pass@localhost:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run build`.
+
+### 2026-03-31
+- Type: Execution
+- Summary: TASK-059 agent access v1 was implemented end-to-end with owner-managed project credentials, short-lived bearer-token exchange, scoped API authorization, audit logging, owner UI controls, workflow/env wiring, and task-aligned regression coverage.
+- Evidence: Added agent auth persistence in `prisma/schema.prisma` and `prisma/migrations/20260331153000_task059_agent_access_v1/migration.sql`; added token exchange and project agent-access routes in `app/api/auth/agent/token/route.ts` and `app/api/projects/[projectId]/agent-access/**`; extended bearer-aware guards and scoped service enforcement in `lib/auth/api-guard.ts`, `lib/auth/agent-token-service.ts`, `lib/services/project-agent-access-service.ts`, `lib/services/project-access-service.ts`, `lib/services/project-task-service.ts`, `lib/services/context-card-service.ts`, and `lib/services/project-service.ts`; shipped owner controls in `components/project-dashboard/project-dashboard-owner-actions.tsx` and `components/project-dashboard/project-dashboard-owner-agent-access-panel.tsx`; updated workflow/env/docs coverage in `.github/workflows/quality-gates.yml`, `.github/workflows/deploy-vercel.yml`, `.env.example`, `README.md`, `project.md`, `adr/decisions.md`, `tasks/backlog.md`, and `tasks/current.md`; added regressions in `tests/api/agent-token.route.test.ts`, `tests/api/project-agent-access.route.test.ts`, `tests/api/agent-project-routes.test.ts`, `tests/lib/agent-token-service.test.ts`, `tests/lib/project-access-service.test.ts`, and `tests/components/project-dashboard-owner-agent-access-panel.test.tsx`.
+
 ### 2026-03-31
 - Type: Validation
 - Summary: TASK-113 token widget hardening validated after making the editor-only token shell non-editable and preserving toolbar toggle behavior for a focused token input.

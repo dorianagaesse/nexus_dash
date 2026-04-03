@@ -4,7 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
 import {
   buildProjectPrincipalWhere,
+  requireAgentProjectScopes,
   requireProjectRole,
+  type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
 import type { DbClient } from "@/lib/services/rls-context";
@@ -341,10 +343,20 @@ async function archiveStaleDoneTasks(
 
 export async function getProjectSummaryById(
   projectId: string,
-  actorUserId: string
+  actorUserId: string,
+  agentAccess?: AgentProjectAccessContext
 ): Promise<ProjectSummaryWithStatsRecord | null> {
   const normalizedActorUserId = normalizeActorUserId(actorUserId);
   if (!normalizedActorUserId) {
+    return null;
+  }
+
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess,
+    projectId,
+    requiredScopes: ["project:read"],
+  });
+  if (!agentScopeAccess.ok) {
     return null;
   }
 
@@ -455,10 +467,20 @@ export async function getProjectSummaryById(
 
 export async function listProjectKanbanTasks(
   projectId: string,
-  actorUserId: string
+  actorUserId: string,
+  agentAccess?: AgentProjectAccessContext
 ): Promise<ProjectKanbanTaskRecord[]> {
   const normalizedActorUserId = normalizeActorUserId(actorUserId);
   if (!normalizedActorUserId) {
+    return [];
+  }
+
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess,
+    projectId,
+    requiredScopes: ["task:read"],
+  });
+  if (!agentScopeAccess.ok) {
     return [];
   }
 
@@ -509,10 +531,20 @@ export async function listProjectKanbanTasks(
 
 export async function listProjectContextResources(
   projectId: string,
-  actorUserId: string
+  actorUserId: string,
+  agentAccess?: AgentProjectAccessContext
 ): Promise<ProjectContextResourceRecord[]> {
   const normalizedActorUserId = normalizeActorUserId(actorUserId);
   if (!normalizedActorUserId) {
+    return [];
+  }
+
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess,
+    projectId,
+    requiredScopes: ["context:read"],
+  });
+  if (!agentScopeAccess.ok) {
     return [];
   }
 

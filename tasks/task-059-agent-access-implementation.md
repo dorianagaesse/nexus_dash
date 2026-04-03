@@ -4,7 +4,7 @@
 TASK-059
 
 ## Status
-Planned (first implementation brief)
+Implemented and preview validated
 
 ## Objective
 Enable secure non-human access through owner-managed, project-scoped API credentials that exchange into short-lived bearer tokens, enforce explicit scopes in the service layer, and leave an auditable trail for issuance, use, rotation, and revocation.
@@ -143,13 +143,35 @@ Notes:
 - If a broader public API follows later, build versioning and external documentation on top of the scoped-token model rather than stretching the first implementation prematurely.
 
 ## Validation Plan
+- Local prerequisite: PostgreSQL must be reachable for both `DATABASE_URL` and
+  `DIRECT_URL` before running migration-backed validation, and `npm run test:e2e`
+  should be treated as blocked until that database is available locally.
+- Runtime prerequisite: production-like startup validation requires
+  `AGENT_TOKEN_SIGNING_SECRET`; if preview also exercises email or Google auth
+  guards, `RESEND_API_KEY` and `GOOGLE_TOKEN_ENCRYPTION_KEY` must also be set.
+- Deploy prerequisite: manual preview deploys for this task must run from
+  `feature/task-059-agent-access`, and the workflow dispatch must set both the
+  GitHub workflow ref and `git_ref` to that branch.
+- Preview assumption: GitHub Actions fallback env values do not automatically
+  populate Vercel's shared Preview runtime; if preview validation is expected,
+  confirm runtime injection or the Vercel Preview environment directly.
+- Review prerequisite: after the PR is opened, wait for Copilot's initial review
+  outcome and re-check the preview after any auth/deploy-affecting follow-up.
 - `npm run lint`
 - `npm test`
 - `npm run test:coverage`
 - `npm run build`
 - `npm run test:e2e` if the supported API/UI management surface expands enough to justify it and local PostgreSQL is available
 
+## Preview Validation Procedure
+
+- Use `docs/runbooks/task-059-agent-access-preview-validation.md` as the
+  sign-off procedure for preview.
+- Validate `/` and `/api/health/live` before touching owner/agent routes.
+- Keep disposable preview test data isolated under `task059-preview-*` so it
+  can be cleaned safely after the run.
+
 ---
 
-Last Updated: 2026-03-27
+Last Updated: 2026-03-31
 Assigned To: User + Agent

@@ -157,6 +157,16 @@ export interface StorageRuntimeConfig {
   r2: R2StorageRuntimeConfig | null;
 }
 
+export interface AgentTokenRuntimeConfig {
+  signingSecret: string;
+  ttlSeconds: number;
+}
+
+const DEFAULT_AGENT_ACCESS_TOKEN_TTL_SECONDS = 600;
+const MIN_AGENT_ACCESS_TOKEN_TTL_SECONDS = 300;
+const MAX_AGENT_ACCESS_TOKEN_TTL_SECONDS = 900;
+const MIN_AGENT_TOKEN_SIGNING_SECRET_LENGTH = 32;
+
 function parsePositiveInteger(input: string | null): number | null {
   if (!input) {
     return null;
@@ -197,6 +207,37 @@ export function getStorageRuntimeConfig(): StorageRuntimeConfig {
       signedUrlTtlSeconds,
     },
   };
+}
+
+export function getAgentTokenRuntimeConfig(): AgentTokenRuntimeConfig {
+  const signingSecret = getRequiredServerEnv("AGENT_TOKEN_SIGNING_SECRET");
+  if (signingSecret.length < MIN_AGENT_TOKEN_SIGNING_SECRET_LENGTH) {
+    throw new Error(
+      `AGENT_TOKEN_SIGNING_SECRET must be at least ${MIN_AGENT_TOKEN_SIGNING_SECRET_LENGTH} characters long.`
+    );
+  }
+
+  return {
+    signingSecret,
+    ttlSeconds: getAgentAccessTokenTtlSeconds(),
+  };
+}
+
+export function getAgentAccessTokenTtlSeconds(): number {
+  const ttlSeconds =
+    parsePositiveInteger(getOptionalServerEnv("AGENT_ACCESS_TOKEN_TTL_SECONDS")) ??
+    DEFAULT_AGENT_ACCESS_TOKEN_TTL_SECONDS;
+
+  if (
+    ttlSeconds < MIN_AGENT_ACCESS_TOKEN_TTL_SECONDS ||
+    ttlSeconds > MAX_AGENT_ACCESS_TOKEN_TTL_SECONDS
+  ) {
+    throw new Error(
+      `AGENT_ACCESS_TOKEN_TTL_SECONDS must be between ${MIN_AGENT_ACCESS_TOKEN_TTL_SECONDS} and ${MAX_AGENT_ACCESS_TOKEN_TTL_SECONDS}.`
+    );
+  }
+
+  return ttlSeconds;
 }
 
 function assertOptionalEnvironmentGroup(
@@ -497,6 +538,36 @@ export function validateServerRuntimeConfig(
     throw new Error(
       "RESEND_API_KEY is required in production for email verification delivery."
     );
+  }
+
+  const agentTokenSigningSecret = getOptionalServerEnv("AGENT_TOKEN_SIGNING_SECRET");
+  if (runtimeEnvironment === "production" && !agentTokenSigningSecret) {
+    throw new Error(
+      "AGENT_TOKEN_SIGNING_SECRET is required in production for agent access token signing."
+    );
+  }
+
+  if (
+    agentTokenSigningSecret &&
+    agentTokenSigningSecret.length < MIN_AGENT_TOKEN_SIGNING_SECRET_LENGTH
+  ) {
+    throw new Error(
+      `AGENT_TOKEN_SIGNING_SECRET must be at least ${MIN_AGENT_TOKEN_SIGNING_SECRET_LENGTH} characters long.`
+    );
+  }
+
+  const agentTokenTtlRaw = getOptionalServerEnv("AGENT_ACCESS_TOKEN_TTL_SECONDS");
+  if (agentTokenTtlRaw) {
+    const agentTokenTtlSeconds = parsePositiveInteger(agentTokenTtlRaw);
+    if (
+      !agentTokenTtlSeconds ||
+      agentTokenTtlSeconds < MIN_AGENT_ACCESS_TOKEN_TTL_SECONDS ||
+      agentTokenTtlSeconds > MAX_AGENT_ACCESS_TOKEN_TTL_SECONDS
+    ) {
+      throw new Error(
+        `AGENT_ACCESS_TOKEN_TTL_SECONDS must be between ${MIN_AGENT_ACCESS_TOKEN_TTL_SECONDS} and ${MAX_AGENT_ACCESS_TOKEN_TTL_SECONDS}.`
+      );
+    }
   }
 
   assertOptionalEnvironmentGroup(

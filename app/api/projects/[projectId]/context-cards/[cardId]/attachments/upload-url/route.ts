@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
+import {
+  getAgentProjectAccessContext,
+  requireApiPrincipal,
+} from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { createContextAttachmentUploadTarget } from "@/lib/services/project-attachment-service";
 
@@ -14,11 +17,12 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { projectId: string; cardId: string } }
 ) {
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
-  if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+  const principalResult = await requireApiPrincipal(request);
+  if (!principalResult.ok) {
+    return principalResult.response;
   }
-  const actorUserId = authenticatedUser.userId;
+  const actorUserId = principalResult.principal.actorUserId;
+  const agentAccess = getAgentProjectAccessContext(principalResult.principal);
   const { projectId, cardId } = params;
 
   if (!projectId || !cardId) {
@@ -45,6 +49,7 @@ export async function POST(
     mimeType: typeof payload.mimeType === "string" ? payload.mimeType : "",
     sizeBytes:
       typeof payload.sizeBytes === "number" ? payload.sizeBytes : Number.NaN,
+    agentAccess,
   });
 
   if (!result.ok) {
