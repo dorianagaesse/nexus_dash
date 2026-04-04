@@ -33,7 +33,7 @@ jobs:
 
       - name: Audit production dependencies
         run: |
-          npm audit --omit=dev --json > npm-audit-prod.json
+          npm audit --omit=dev --audit-level=high --json > npm-audit-prod.json || true
           node -e "const fs = require('fs'); const audit = JSON.parse(fs.readFileSync('npm-audit-prod.json', 'utf8')); const meta = audit.metadata?.vulnerabilities ?? {}; const highOrCritical = (meta.high ?? 0) + (meta.critical ?? 0); if (highOrCritical > 0) { console.error(`High/Critical production vulnerabilities detected: ${highOrCritical}`); process.exit(1); }"
 
       - name: Audit full dependency tree

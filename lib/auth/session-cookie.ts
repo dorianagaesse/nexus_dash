@@ -28,15 +28,13 @@ export function getPrimarySessionCookieOptions(
   };
 }
 
-export function setPrimarySessionCookie(
+export async function setPrimarySessionCookie(
   sessionToken: string,
   expiresAt: Date
 ): Promise<void> {
-  return (async () => {
-    (await cookies()).set(
+  (await cookies()).set(
     PRIMARY_SESSION_COOKIE_NAME,
     sessionToken,
     getPrimarySessionCookieOptions(expiresAt)
-    );
-  })();
+  );
 }
