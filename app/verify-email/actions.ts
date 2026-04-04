@@ -57,7 +57,7 @@ export async function resendVerificationEmailAction(formData?: FormData): Promis
 
   let result: Awaited<ReturnType<typeof issueEmailVerificationForUser>>;
   try {
-    const requestOrigin = resolveRequestOriginFromHeaders(headers());
+    const requestOrigin = resolveRequestOriginFromHeaders(await headers());
     result = await issueEmailVerificationForUser({
       actorUserId,
       requestOrigin,

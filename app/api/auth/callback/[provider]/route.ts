@@ -58,10 +58,8 @@ function buildSuccessRedirect(
   return clearOAuthCookies(NextResponse.redirect(new URL(returnTo, request.url)));
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { provider: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ provider: string }> }) {
+  const params = await props.params;
   const provider = params.provider;
   const expectedState = request.cookies.get(SOCIAL_OAUTH_STATE_COOKIE)?.value ?? null;
   const expectedProvider =

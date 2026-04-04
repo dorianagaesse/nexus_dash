@@ -9,8 +9,9 @@ import { revokeProjectAgentCredential } from "@/lib/services/project-agent-acces
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { projectId: string; credentialId: string } }
+  props: { params: Promise<{ projectId: string; credentialId: string }> }
 ) {
+  const params = await props.params;
   const authenticatedUser = await requireAuthenticatedApiUser(request);
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;

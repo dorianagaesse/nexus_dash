@@ -98,7 +98,7 @@ export async function updateAccountPasswordAction(formData: FormData): Promise<v
   const currentPassword = readText(formData, "currentPassword");
   const newPassword = readText(formData, "newPassword");
   const confirmNewPassword = readText(formData, "confirmNewPassword");
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const currentSessionToken = readSessionTokenFromCookieReader((name) => {
     return cookieStore.get(name)?.value ?? null;
   });
@@ -151,7 +151,7 @@ export async function updateAccountEmailAction(formData: FormData): Promise<void
 
   let issueResult: Awaited<ReturnType<typeof issueEmailVerificationForUser>>;
   try {
-    const requestOrigin = resolveRequestOriginFromHeaders(headers());
+    const requestOrigin = resolveRequestOriginFromHeaders(await headers());
     issueResult = await issueEmailVerificationForUser({
       actorUserId,
       requestOrigin,

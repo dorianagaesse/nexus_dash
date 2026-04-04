@@ -52,11 +52,12 @@ function mapTokenErrorToPageError(error: string): string {
 export default async function ResetPasswordPage({
   searchParams,
 }: {
-  searchParams?: SearchParams;
+  searchParams?: Promise<SearchParams>;
 }) {
-  const retryToken = cookies().get(PASSWORD_RESET_RETRY_COOKIE_NAME)?.value ?? "";
-  const token = readQueryValue(searchParams?.token) ?? retryToken;
-  const explicitErrorCode = readQueryValue(searchParams?.error);
+  const resolvedSearchParams = await searchParams;
+  const retryToken = (await cookies()).get(PASSWORD_RESET_RETRY_COOKIE_NAME)?.value ?? "";
+  const token = readQueryValue(resolvedSearchParams?.token) ?? retryToken;
+  const explicitErrorCode = readQueryValue(resolvedSearchParams?.error);
   const tokenValidationResult = token
     ? await validatePasswordResetToken(token)
     : { ok: false as const, status: 400, error: "invalid-token" };

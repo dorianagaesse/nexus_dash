@@ -5,12 +5,11 @@ import { revokeProjectInvitation } from "@/lib/services/project-collaboration-se
 
 export async function DELETE(
   request: NextRequest,
-  {
-    params,
-  }: {
-    params: { projectId: string; invitationId: string };
+  props: {
+    params: Promise<{ projectId: string; invitationId: string }>;
   }
 ) {
+  const params = await props.params;
   const authenticatedUser = await requireAuthenticatedApiUser(request);
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;

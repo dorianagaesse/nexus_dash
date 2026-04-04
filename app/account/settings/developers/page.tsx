@@ -8,7 +8,7 @@ import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
 
 export default async function AccountDeveloperSettingsPage() {
   await requireSessionUserIdFromServer();
-  const requestOrigin = resolveRequestOriginFromHeaders(headers());
+  const requestOrigin = resolveRequestOriginFromHeaders(await headers());
 
   return (
     <AccountSettingsShell

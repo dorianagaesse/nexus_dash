@@ -26,10 +26,8 @@ function buildHomeRedirect(request: NextRequest, form: string, error: string): U
   return target;
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { provider: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ provider: string }> }) {
+  const params = await props.params;
   const form = normalizeHomeAuthForm(request.nextUrl.searchParams.get("form"));
   const provider = params.provider;
   const returnTo = normalizeReturnToPath(

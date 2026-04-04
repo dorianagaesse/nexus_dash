@@ -84,10 +84,11 @@ function readQueryValue(value: string | string[] | undefined): string | null {
 export default async function AccountProfilePage({
   searchParams,
 }: {
-  searchParams?: SearchParams;
+  searchParams?: Promise<SearchParams>;
 }) {
   noStore();
   const actorUserId = await requireSessionUserIdFromServer();
+  const resolvedSearchParams = await searchParams;
 
   const profileResult = await getAccountProfile(actorUserId);
   if (!profileResult.ok) {
@@ -101,8 +102,8 @@ export default async function AccountProfilePage({
     logServerError("AccountProfilePage.listPendingProjectInvitationsForUser", error);
   }
 
-  const status = readQueryValue(searchParams?.status);
-  const error = readQueryValue(searchParams?.error);
+  const status = readQueryValue(resolvedSearchParams?.status);
+  const error = readQueryValue(resolvedSearchParams?.error);
 
   return (
     <main className="container py-12">

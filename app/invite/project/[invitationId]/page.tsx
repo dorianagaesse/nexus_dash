@@ -46,16 +46,18 @@ export default async function ProjectInvitationPage({
   params,
   searchParams,
 }: {
-  params: { invitationId: string };
-  searchParams?: SearchParams;
+  params: Promise<{ invitationId: string }>;
+  searchParams?: Promise<SearchParams>;
 }) {
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
   const actorUserId = await getSessionUserIdFromServer();
-  const invitationPath = buildProjectInvitationReturnToPath(params.invitationId);
+  const invitationPath = buildProjectInvitationReturnToPath(resolvedParams.invitationId);
   const view = await getProjectInvitationRecipientView({
-    invitationId: params.invitationId,
+    invitationId: resolvedParams.invitationId,
     actorUserId,
   });
-  const errorCode = readQueryValue(searchParams?.error);
+  const errorCode = readQueryValue(resolvedSearchParams?.error);
   const errorMessage =
     errorCode && ERROR_MESSAGES[errorCode] ? ERROR_MESSAGES[errorCode] : null;
 

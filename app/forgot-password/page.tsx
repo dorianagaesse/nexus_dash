@@ -26,12 +26,13 @@ function readQueryValue(value: string | string[] | undefined): string | null {
   return value;
 }
 
-export default function ForgotPasswordPage({
+export default async function ForgotPasswordPage({
   searchParams,
 }: {
-  searchParams?: SearchParams;
+  searchParams?: Promise<SearchParams>;
 }) {
-  const statusCode = readQueryValue(searchParams?.status);
+  const resolvedSearchParams = await searchParams;
+  const statusCode = readQueryValue(resolvedSearchParams?.status);
   const statusMessage =
     statusCode && STATUS_MESSAGES[statusCode] ? STATUS_MESSAGES[statusCode] : null;
 

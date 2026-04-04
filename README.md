@@ -232,6 +232,7 @@ npm run test:e2e
 - `E2E Smoke (Playwright)`
 - `Container Image (build + metadata artifact)`
 - `Check Branch Name` (PR branch naming contract)
+- `Dependency Security` (scheduled + manual `npm audit` baseline with artifacts)
 
 ### CD workflow
 
@@ -254,6 +255,13 @@ Required GitHub secrets:
 - `MIGRATION_DATABASE_URL` (admin-capable migration connection; must not be the runtime `DATABASE_URL`)
 - `AGENT_TOKEN_SIGNING_SECRET` (required for production deploys; preview workflow falls back to a placeholder when intentionally unset)
 - Preview deployments still need `AGENT_TOKEN_SIGNING_SECRET` at runtime. GitHub Actions fallback values do not automatically populate Vercel's shared preview runtime unless the deployment explicitly passes them through.
+
+### Dependency Security Cadence
+
+- `npm run security:audit`: fail on production dependency `high`/`critical` findings
+- `npm run security:audit:full`: emit the full npm advisory JSON locally
+- `.github/workflows/dependency-security.yml`: scheduled every Monday at 07:00 UTC and runnable on demand
+- `.github/dependabot.yml`: weekly npm + GitHub Actions dependency update cadence
 
 ## Observability
 

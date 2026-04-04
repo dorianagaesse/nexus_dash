@@ -52,12 +52,12 @@ function shouldPersistTokenForRetry(error: string): boolean {
   );
 }
 
-function persistResetTokenForRetry(token: string): void {
+async function persistResetTokenForRetry(token: string): Promise<void> {
   if (!token) {
     return;
   }
 
-  cookies().set(PASSWORD_RESET_RETRY_COOKIE_NAME, token, {
+  (await cookies()).set(PASSWORD_RESET_RETRY_COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: isProductionEnvironment(),
@@ -66,8 +66,8 @@ function persistResetTokenForRetry(token: string): void {
   });
 }
 
-function clearResetTokenRetryCookie(): void {
-  cookies().set(PASSWORD_RESET_RETRY_COOKIE_NAME, "", {
+async function clearResetTokenRetryCookie(): Promise<void> {
+  (await cookies()).set(PASSWORD_RESET_RETRY_COOKIE_NAME, "", {
     httpOnly: true,
     sameSite: "lax",
     secure: isProductionEnvironment(),
@@ -85,7 +85,7 @@ function redirectWithError(error: string): never {
 export async function resetPasswordAction(formData: FormData): Promise<void> {
   const token =
     readText(formData, "token") ||
-    cookies().get(PASSWORD_RESET_RETRY_COOKIE_NAME)?.value ||
+    (await cookies()).get(PASSWORD_RESET_RETRY_COOKIE_NAME)?.value ||
     "";
   const password = readText(formData, "password");
   const confirmPassword = readText(formData, "confirmPassword");
@@ -100,7 +100,7 @@ export async function resetPasswordAction(formData: FormData): Promise<void> {
   } catch (error) {
     logServerError("resetPasswordAction", error);
     if (token) {
-      persistResetTokenForRetry(token);
+      await persistResetTokenForRetry(token);
     }
     redirectWithError("reset-failed");
   }
@@ -108,9 +108,9 @@ export async function resetPasswordAction(formData: FormData): Promise<void> {
   if (!result.ok) {
     const mappedError = mapResetError(result.error);
     if (token && shouldPersistTokenForRetry(mappedError)) {
-      persistResetTokenForRetry(token);
+      await persistResetTokenForRetry(token);
     } else {
-      clearResetTokenRetryCookie();
+      await clearResetTokenRetryCookie();
     }
     logServerWarning(
       "resetPasswordAction.resetPasswordWithToken",
@@ -123,6 +123,6 @@ export async function resetPasswordAction(formData: FormData): Promise<void> {
     redirectWithError(mappedError);
   }
 
-  clearResetTokenRetryCookie();
+  await clearResetTokenRetryCookie();
   redirect(`${SIGN_IN_PATH}&status=password-reset-success`);
 }

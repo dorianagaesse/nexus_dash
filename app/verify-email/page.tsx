@@ -59,10 +59,14 @@ function readQueryValue(value: string | string[] | undefined): string | null {
 export default async function VerifyEmailPage({
   searchParams,
 }: {
-  searchParams?: SearchParams;
+  searchParams?: Promise<SearchParams>;
 }) {
+  const resolvedSearchParams = await searchParams;
   const actorUserId = await getSessionUserIdFromServer();
-  const returnToPath = normalizeReturnToPath(readQueryValue(searchParams?.returnTo), "/projects");
+  const returnToPath = normalizeReturnToPath(
+    readQueryValue(resolvedSearchParams?.returnTo),
+    "/projects"
+  );
   if (!actorUserId) {
     redirect(`/?form=signin&returnTo=${encodeURIComponent(returnToPath)}`);
   }
@@ -76,8 +80,8 @@ export default async function VerifyEmailPage({
     redirect(returnToPath);
   }
 
-  const statusCode = readQueryValue(searchParams?.status);
-  const errorCode = readQueryValue(searchParams?.error);
+  const statusCode = readQueryValue(resolvedSearchParams?.status);
+  const errorCode = readQueryValue(resolvedSearchParams?.error);
   const statusMessage =
     statusCode && STATUS_MESSAGES[statusCode] ? STATUS_MESSAGES[statusCode] : null;
   const errorMessage =

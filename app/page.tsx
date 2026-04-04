@@ -119,13 +119,14 @@ function resolveReturnToPath(value: string | null): string {
 const inputClassName =
   "h-11 rounded-md border border-input bg-background px-3 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
-export default async function Home({
-  searchParams,
-}: {
-  searchParams?: SearchParams;
-}) {
+export default async function Home(
+  props: {
+    searchParams?: Promise<SearchParams>;
+  }
+) {
+  const resolvedSearchParams = await props.searchParams;
   const actorUserId = await getSessionUserIdFromServer();
-  const returnToPath = resolveReturnToPath(readQueryValue(searchParams?.returnTo));
+  const returnToPath = resolveReturnToPath(readQueryValue(resolvedSearchParams?.returnTo));
   if (actorUserId) {
     if (!isLiveProductionDeployment()) {
       redirect(returnToPath);
@@ -139,14 +140,14 @@ export default async function Home({
     );
   }
 
-  const formValue = readQueryValue(searchParams?.form);
+  const formValue = readQueryValue(resolvedSearchParams?.form);
   const activeForm = resolveActiveForm(formValue);
-  const prefilledEmail = resolvePrefilledEmail(readQueryValue(searchParams?.email));
+  const prefilledEmail = resolvePrefilledEmail(readQueryValue(resolvedSearchParams?.email));
   const isSignIn = activeForm === "signin";
-  const errorCode = readQueryValue(searchParams?.error);
+  const errorCode = readQueryValue(resolvedSearchParams?.error);
   const errorMessage =
     errorCode && ERROR_MESSAGES[errorCode] ? ERROR_MESSAGES[errorCode] : null;
-  const statusCode = readQueryValue(searchParams?.status);
+  const statusCode = readQueryValue(resolvedSearchParams?.status);
   const statusMessage =
     statusCode && STATUS_MESSAGES[statusCode] ? STATUS_MESSAGES[statusCode] : null;
   const socialProviders = getEnabledSocialAuthProviders();

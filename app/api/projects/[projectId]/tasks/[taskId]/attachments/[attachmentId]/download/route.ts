@@ -8,12 +8,11 @@ import { getTaskAttachmentDownload } from "@/lib/services/project-attachment-ser
 
 export async function GET(
   request: NextRequest,
-  {
-    params,
-  }: {
-    params: { projectId: string; taskId: string; attachmentId: string };
+  props: {
+    params: Promise<{ projectId: string; taskId: string; attachmentId: string }>;
   }
 ) {
+  const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
   if (!principalResult.ok) {
     return principalResult.response;

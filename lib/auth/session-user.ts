@@ -70,7 +70,7 @@ export async function getSessionUserIdFromRequest(
 }
 
 export async function getSessionUserIdFromServer(): Promise<string | null> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const sessionTokens = readSessionTokensFromCookieReader((name) => {
     return cookieStore.get(name)?.value ?? null;
   });

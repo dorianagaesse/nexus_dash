@@ -13,6 +13,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-04-04
+- Type: Blocker
+- Summary: TASK-061 local Playwright reruns remained environment-blocked after the dependency upgrade because Prisma could not reach the expected PostgreSQL fixture service on loopback.
+- Evidence: `npx playwright install chromium`; `$env:DATABASE_URL='postgresql://user:pass@127.0.0.1:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run test:e2e` rebuilt successfully, then failed because Prisma could not reach `127.0.0.1:5432`.
+
+### 2026-04-04
+- Type: Validation
+- Summary: TASK-061 dependency-security remediation validated cleanly with zero remaining npm audit findings plus green lint, unit, coverage, and production-build checks after the required framework/toolchain upgrades.
+- Evidence: `npm audit --json`; `npm run security:audit`; `npm run lint`; `npm test`; `npm run test:coverage`; `$env:DATABASE_URL='postgresql://user:pass@localhost:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run build`.
+
+### 2026-04-04
+- Type: Execution
+- Summary: TASK-061 remediated the repo's actionable dependency vulnerabilities by upgrading patched direct dependencies, pinning high-risk transitives with overrides, adding scheduled dependency-security automation, and carrying the required Next.js 15 compatibility migration through affected routes/pages/tests.
+- Evidence: Updated `package.json`, `package-lock.json`, `.github/dependabot.yml`, `.github/workflows/dependency-security.yml`, `README.md`, `vitest.config.mts`, and the Next.js async-request compatibility changes under `app/**`, `app/api/**`, `lib/auth/**`, and `tests/**`.
+
+### 2026-04-04
 - Type: Validation
 - Summary: TASK-048 local validation passed after auth hardening and regression expansion, including focused auth suites, full lint/test/coverage, and a production build with safe preview env overrides.
 - Evidence: `npx vitest run tests/api/auth-verify-email.route.test.ts tests/lib/email-verification-service.test.ts tests/lib/api-guard.test.ts`; `npx vitest run tests/app/home-auth-actions.test.ts tests/app/verify-email-actions.test.ts tests/api/auth-logout.route.test.ts`; `npm run lint`; `npm test`; `npm run test:coverage`; `$env:DATABASE_URL='postgresql://user:pass@localhost:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run build`.

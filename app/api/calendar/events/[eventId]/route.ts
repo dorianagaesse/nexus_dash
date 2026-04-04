@@ -6,10 +6,8 @@ import {
   updateCalendarEvent,
 } from "@/lib/services/calendar-service";
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { eventId: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ eventId: string }> }) {
+  const params = await props.params;
   const authenticatedUser = await requireAuthenticatedApiUser(request);
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;
@@ -33,10 +31,8 @@ export async function PATCH(
   return NextResponse.json(result.body, { status: result.status });
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { eventId: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ eventId: string }> }) {
+  const params = await props.params;
   const authenticatedUser = await requireAuthenticatedApiUser(request);
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;

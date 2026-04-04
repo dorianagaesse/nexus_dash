@@ -1,53 +1,85 @@
-# Current Task: Close-Out Complete - Awaiting Next Selection
+# Current Task: TASK-061 Dependency Security Baseline - Vulnerability Remediation and Scan Cadence Definition
 
-Most recently completed task brief: [`tasks/task-048-auth-tests-and-hardening.md`](./task-048-auth-tests-and-hardening.md)
+Dedicated task brief: [`tasks/task-061-dependency-security-baseline.md`](./task-061-dependency-security-baseline.md)
 
 ## Task ID
-TASK-048
+TASK-061
 
 ## Status
-Completed and user validated on 2026-04-04
+Implementation complete locally; PR/review follow-through in progress
 
 ## Objective
-Strengthen the completed authentication and authorization baseline by closing
-coverage gaps, hardening edge-case behavior, and validating that the delivered
-session, verification, invitation, and agent-access flows hold up under
-regression and misuse-oriented scenarios.
+Reduce current dependency-driven security exposure by remediating actionable
+high-severity vulnerabilities, tightening transitive dependency hygiene where
+safe, and establishing a recurring automated scan cadence so the repo does not
+silently drift back into a risky state.
 
-## Outcome
-- TASK-048 is complete and has been validated through local automation, PR
-  checks, preview deployment, and final manual validation.
-- TASK-059 is also complete and should now be treated as a finished dependency
-  for downstream work.
-- The repo is ready for the next selected task rather than an additional
-  TASK-048 implementation pass.
+## Why Now
+- The app now has a meaningful auth, sharing, storage, and agent-access
+  surface, which raises the cost of carrying known dependency vulnerabilities.
+- Security-sensitive tasks are queued next, so the dependency baseline should
+  be tightened before broader OWASP-focused assessment and remediation work.
+- The current CI stack validates quality and deployability well, but it does
+  not yet provide a clear recurring dependency-security monitoring cadence.
 
 ## Scope Snapshot
-- Audit the current auth/authz surface for missing regression coverage and
-  fragile edge-case behavior.
-- Add or expand automated tests across session, verification, invite, and
-  agent-related protected flows where coverage is incomplete.
-- Implement targeted hardening changes discovered during the audit.
-- Run the relevant validation suite and capture any notable residual risk or
-  follow-up decisions.
+- Inventory the current dependency vulnerability surface with emphasis on
+  production-impacting critical/high findings.
+- Apply safe direct upgrades, lockfile refreshes, and targeted overrides where
+  they materially reduce risk, including framework upgrades when the security
+  remediation path requires them and validation stays controlled.
+- Define and implement a recurring automated scan cadence for dependency
+  security visibility.
+- Document residual risks, deferred items, and follow-up decisions explicitly.
 
 ## Acceptance Snapshot
-- The highest-risk auth/authz flows have explicit regression coverage.
-- Sensitive auth edge cases fail safely and consistently.
-- Existing human and agent auth behavior remains aligned with the accepted ADR.
-- Any remaining policy-sensitive gaps are surfaced clearly for review rather
-  than left implicit.
+- Known actionable critical/high dependency findings are remediated or clearly
+  justified as deferred with explicit follow-up tracking.
+- The repo gains an automated dependency-security scan cadence beyond ad hoc
+  manual audit runs.
+- Validation remains green after dependency changes.
+- Tracking docs and task notes capture what was fixed, what remains, and why.
 
 ## Notes
-- Local validation on 2026-04-04 passed with `npm run lint`, `npm test`,
-  `npm run test:coverage`, focused auth `vitest` suites, and a production
-  `npm run build` using the standard safe preview overrides for deploy-sensitive
-  env values.
-- PR checks and preview deployment also passed on 2026-04-04.
-- Next likely candidate remains `TASK-061`, unless priorities change while the
-  user is away.
+- This task is security-critical and should prefer conservative, explainable
+  changes over large speculative framework migrations.
+- Any unresolved vulnerability that requires a major-version jump or broader
+  architecture migration must be surfaced clearly rather than buried.
+- The final handoff should include an actionable report, not just a changelog.
+
+## Implemented In This Pass
+- Remediated the previously reported actionable dependency vulnerabilities by
+  upgrading direct dependencies including Next.js, the AWS SDK S3 packages,
+  Vitest, Playwright, and `sanitize-html`.
+- Added targeted `overrides` in `package.json` so vulnerable transitive
+  packages (`ajv`, `flatted`, `brace-expansion`, `minimatch`, `picomatch`)
+  resolve to patched versions consistently through the lockfile.
+- Replaced the floating `lucide-react` version with a pinned semver range so
+  dependency resolution stays reproducible instead of silently drifting.
+- Added recurring dependency-security automation with `.github/dependabot.yml`
+  and `.github/workflows/dependency-security.yml`.
+- Documented the new dependency-security cadence in `README.md`.
+- Completed the required Next.js 15 async request API migration and related
+  test/config updates so the security-driven framework upgrade remains green.
+
+## Validation Snapshot
+- `npm audit --json` now reports `0` vulnerabilities.
+- `npm run security:audit`, `npm run lint`, `npm test`,
+  `npm run test:coverage`, and `npm run build` all passed on 2026-04-04.
+- `npm run test:e2e` was attempted after installing Chromium, but local
+  Playwright execution is still blocked in this environment because Prisma
+  cannot reach PostgreSQL at `127.0.0.1:5432`.
+
+## Residual Notes
+- No actionable npm audit vulnerabilities remained at the end of this pass.
+- Full local Playwright reruns still depend on a reachable PostgreSQL fixture
+  database, which is an environment prerequisite rather than a dependency
+  remediation bug.
+- Next.js 15 now emits the expected deprecation notice around `next lint`;
+  workflow/tooling cleanup remains better tracked as CI hygiene follow-up work
+  rather than bundled into this security task.
 
 ---
 
 Last Updated: 2026-04-04
-Assigned To: User + Agent
+Assigned To: Agent

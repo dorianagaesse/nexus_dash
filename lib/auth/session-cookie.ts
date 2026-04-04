@@ -31,10 +31,12 @@ export function getPrimarySessionCookieOptions(
 export function setPrimarySessionCookie(
   sessionToken: string,
   expiresAt: Date
-): void {
-  cookies().set(
+): Promise<void> {
+  return (async () => {
+    (await cookies()).set(
     PRIMARY_SESSION_COOKIE_NAME,
     sessionToken,
     getPrimarySessionCookieOptions(expiresAt)
-  );
+    );
+  })();
 }

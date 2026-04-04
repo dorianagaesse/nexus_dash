@@ -45,17 +45,18 @@ function readQueryValue(value: string | string[] | undefined): string | null {
 export default async function AccountSettingsPage({
   searchParams,
 }: {
-  searchParams?: SearchParams;
+  searchParams?: Promise<SearchParams>;
 }) {
   const actorUserId = await requireSessionUserIdFromServer();
+  const resolvedSearchParams = await searchParams;
 
   const settingsResult = await getGoogleCalendarTargetSettings(actorUserId);
   if (!settingsResult.ok) {
     notFound();
   }
 
-  const status = readQueryValue(searchParams?.status);
-  const error = readQueryValue(searchParams?.error);
+  const status = readQueryValue(resolvedSearchParams?.status);
+  const error = readQueryValue(resolvedSearchParams?.error);
   const currentCalendarId = settingsResult.data.calendarId;
   const hasCalendarConnection = settingsResult.data.hasCalendarConnection;
 

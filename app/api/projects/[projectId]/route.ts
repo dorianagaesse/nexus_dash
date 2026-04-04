@@ -18,10 +18,8 @@ interface UpdateProjectRequestBody {
 
 const MIN_PROJECT_NAME_LENGTH = 2;
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { projectId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ projectId: string }> }) {
+  const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
   if (!principalResult.ok) {
     return principalResult.response;
@@ -64,10 +62,8 @@ export async function GET(
   });
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { projectId: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ projectId: string }> }) {
+  const params = await props.params;
   const authenticatedUser = await requireAuthenticatedApiUser(request);
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;
@@ -119,10 +115,8 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { projectId: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ projectId: string }> }) {
+  const params = await props.params;
   const authenticatedUser = await requireAuthenticatedApiUser(request);
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;
