@@ -36,10 +36,10 @@ interface IssueVerificationInput {
   returnToPath?: string | null;
 }
 
-interface ValidatedEmailVerificationToken {
+type ValidatedEmailVerificationToken = {
   userId: string;
   tokenHash: string;
-}
+};
 
 function createSuccess<T extends Record<string, unknown>>(
   status: number,
