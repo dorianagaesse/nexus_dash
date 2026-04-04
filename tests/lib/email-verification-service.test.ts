@@ -33,6 +33,7 @@ import {
   EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS,
   getEmailVerificationStatus,
   issueEmailVerificationForUser,
+  validateEmailVerificationToken,
 } from "@/lib/services/email-verification-service";
 
 describe("email-verification-service", () => {
@@ -271,6 +272,31 @@ describe("email-verification-service", () => {
         emailVerified: expect.any(Date),
       },
     });
+  });
+
+  test("validates a token without consuming it", async () => {
+    prismaMock.emailVerificationToken.findUnique.mockResolvedValueOnce({
+      id: "evt_1",
+      userId: "user-1",
+      email: "user@example.com",
+      expiresAt: new Date("2026-02-27T10:30:00.000Z"),
+      consumedAt: null,
+      user: {
+        email: "user@example.com",
+      },
+    });
+
+    const result = await validateEmailVerificationToken("raw-token");
+
+    expect(result).toEqual({
+      ok: true,
+      status: 200,
+      data: {
+        userId: "user-1",
+      },
+    });
+    expect(prismaMock.emailVerificationToken.updateMany).not.toHaveBeenCalled();
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 
   test("rejects expired token", async () => {

@@ -153,6 +153,36 @@ describe("api-guard", () => {
     });
   });
 
+  test("returns stable 500 when live-production verification lookup throws", async () => {
+    envMock.getRuntimeEnvironment.mockReturnValue("production");
+    envMock.isLiveProductionDeployment.mockReturnValue(true);
+    sessionUserMock.getSessionUserIdFromRequest.mockResolvedValueOnce("user-1");
+    const verificationError = new Error("db-down");
+    emailVerificationMock.isEmailVerifiedForUser.mockRejectedValueOnce(
+      verificationError
+    );
+    const request = new NextRequest("http://localhost/api/projects/p1/tasks");
+
+    const result = await requireAuthenticatedApiUser(request);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+
+    expect(result.response.status).toBe(500);
+    await expect(result.response.json()).resolves.toEqual({
+      error: "auth-check-failed",
+    });
+    expect(loggerMock.logServerError).toHaveBeenCalledWith(
+      "requireAuthenticatedApiUser.emailVerificationCheck",
+      verificationError,
+      {
+        actorUserId: "user-1",
+      }
+    );
+  });
+
   test("rejects bearer tokens on human-only routes", async () => {
     const request = new NextRequest("http://localhost/api/calendar/events", {
       headers: {

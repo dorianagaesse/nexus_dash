@@ -1,42 +1,61 @@
-# Current Task: TASK-059 Agent Access Implementation - Scoped API Tokens, Rotation, and Audit Trail
+# Current Task: TASK-048 Authentication Implementation Phase 4 - Auth Tests and Hardening
 
-Dedicated task brief: [`tasks/task-059-agent-access-implementation.md`](./task-059-agent-access-implementation.md)
+Dedicated task brief: [`tasks/task-048-auth-tests-and-hardening.md`](./task-048-auth-tests-and-hardening.md)
 
 ## Task ID
-TASK-059
+TASK-048
 
 ## Status
-Validated on preview
+Implemented and locally validated
 
 ## Objective
-Enable secure non-human access through owner-managed, project-scoped API credentials that exchange into short-lived bearer tokens, enforce explicit scopes in the service layer, and leave an auditable trail for issuance, use, rotation, and revocation.
+Strengthen the completed authentication and authorization baseline by closing
+coverage gaps, hardening edge-case behavior, and validating that the delivered
+session, verification, invitation, and agent-access flows hold up under
+regression and misuse-oriented scenarios.
 
 ## Why Now
-- Agent access is the next major auth boundary after the human session, sharing, and RLS foundation landed.
-- The project already has the right primitives in place: verified human sessions, project-role authorization, request IDs, and service-layer ownership of persistence.
-- Deferring this further would keep automation use cases blocked while leaving the auth roadmap half-finished.
+- The major auth building blocks are now in place: browser sessions, account
+  onboarding, email verification, password recovery, project sharing, and
+  project-scoped agent access.
+- TASK-048 is the natural closing pass before broader security remediation work
+  because it validates the auth surface as a system rather than as isolated
+  feature slices.
+- Deferring this pass would leave TASK-049/TASK-050 starting from assumptions
+  instead of a tested, hardened baseline.
 
 ## Scope Snapshot
-- Add Prisma persistence for API credentials, scope grants, and auth audit events.
-- Add owner-only create, rotate, revoke, and list flows in the project settings surface.
-- Add API-key exchange into short-lived signed bearer tokens.
-- Support bearer-token access on the project, task, and context APIs in scope for v1.
-- Record lifecycle and usage audit events with request metadata.
+- Audit the current auth/authz surface for missing regression coverage and
+  fragile edge-case behavior.
+- Add or expand automated tests across session, verification, invite, and
+  agent-related protected flows where coverage is incomplete.
+- Implement targeted hardening changes discovered during the audit.
+- Run the relevant validation suite and capture any notable residual risk or
+  follow-up decisions.
 
 ## Acceptance Snapshot
-- Project owners can create labeled, project-scoped agent credentials with explicit scopes.
-- Raw API keys are shown once only and are never stored in plaintext.
-- Revoked, expired, or rotated-out credentials cannot exchange for new bearer tokens.
-- Supported project/task/context routes enforce project and scope boundaries correctly for agent callers.
-- Calendar routes remain out of scope for agent v1.
+- The highest-risk auth/authz flows have explicit regression coverage.
+- Sensitive auth edge cases fail safely and consistently.
+- Existing human and agent auth behavior remains aligned with the accepted ADR.
+- Any remaining policy-sensitive gaps are surfaced clearly for review rather
+  than left implicit.
 
 ## Notes
-- The dedicated task brief remains the detailed implementation contract and should stay in sync with the code on this branch.
-- Tracking docs, validation evidence, PR state, Copilot review handling, and preview deployment evidence must be updated in the same branch before handoff.
-- TASK-115 agent onboarding has been completed and merged into this branch; its hosted docs/OpenAPI/onboarding UX now ship as part of the TASK-059 rollout envelope while remaining separately traceable in backlog and journal entries.
-- Latest local merge-refresh validation on 2026-04-04 passed after `npx prisma generate`, `npm run lint`, `npm test`, and a production `npm run build` with the standard safe preview overrides for deploy-sensitive env values.
-- Review/deploy status before the latest merge refresh: PR `#112` is open against `main`; Copilot completed its initial review with 3 comments, all of which were addressed and resolved; latest head checks were green on run `23811220762`; preview deploy run `23811221988` was dispatched from `feature/task-059-agent-access` and produced the healthy alias `https://nexus-dash-dorianagaesse-3732-dorian-agaesses-projects.vercel.app`.
-- Live validation status before the latest merge refresh: preview boot was healthy, agent token exchange was healthy, scoped task/context operations were validated end to end on preview, and disposable validation users were cleaned up after the run. Sign-off procedure lives in `docs/runbooks/task-059-agent-access-preview-validation.md`.
+- This task is intentionally a hardening and validation pass, not a new auth
+  feature rollout.
+- If the audit exposes a meaningful policy choice, pause for user review before
+  locking in behavior.
+- Validation evidence and any newly discovered follow-up risks should be
+  recorded before handoff.
+- Current implementation focus:
+  - verification-link hardening so signed-in account mismatch is checked before
+    a verification token is consumed
+  - broader regression coverage around auth redirect normalization and
+    production-only verification enforcement failure handling
+- Local validation on 2026-04-04 passed with `npm run lint`, `npm test`,
+  `npm run test:coverage`, focused auth `vitest` suites, and a production
+  `npm run build` using the standard safe preview overrides for deploy-sensitive
+  env values.
 
 ---
 

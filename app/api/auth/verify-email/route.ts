@@ -4,7 +4,10 @@ import { NextResponse } from "next/server";
 import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
 import { appendQueryToPath, normalizeReturnToPath } from "@/lib/navigation/return-to";
 import { logServerError } from "@/lib/observability/logger";
-import { consumeEmailVerificationToken } from "@/lib/services/email-verification-service";
+import {
+  consumeEmailVerificationToken,
+  validateEmailVerificationToken,
+} from "@/lib/services/email-verification-service";
 
 const VERIFY_EMAIL_PATH = "/verify-email";
 const HOME_SIGNIN_PATH = "/?form=signin";
@@ -40,24 +43,33 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const result = await consumeEmailVerificationToken(token);
+    if (actorUserId) {
+      const validationResult = await validateEmailVerificationToken(token);
+      if (!validationResult.ok) {
+        const mappedError = mapVerificationError(validationResult.error);
+        return NextResponse.redirect(
+          buildRedirectUrl(request, `${VERIFY_EMAIL_PATH}?error=${mappedError}`)
+        );
+      }
 
+      if (actorUserId !== validationResult.data.userId) {
+        return NextResponse.redirect(
+          buildRedirectUrl(
+            request,
+            appendQueryToPath(VERIFY_EMAIL_PATH, {
+              error: "verification-link-account-mismatch",
+              returnTo: returnToPath,
+            })
+          )
+        );
+      }
+    }
+
+    const result = await consumeEmailVerificationToken(token);
     if (!result.ok) {
       const mappedError = mapVerificationError(result.error);
       return NextResponse.redirect(
         buildRedirectUrl(request, `${VERIFY_EMAIL_PATH}?error=${mappedError}`)
-      );
-    }
-
-    if (actorUserId && actorUserId !== result.data.userId) {
-      return NextResponse.redirect(
-        buildRedirectUrl(
-          request,
-          appendQueryToPath(VERIFY_EMAIL_PATH, {
-            error: "verification-link-account-mismatch",
-            returnTo: returnToPath,
-          })
-        )
       );
     }
 
