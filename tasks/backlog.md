@@ -4,16 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-059
-  Title: Agent access implementation - scoped API tokens, rotation, and audit trail
-  Status: In progress
-  Rationale: Implement owner-managed, project-scoped agent credentials with short-lived bearer-token exchange, explicit service-level scope enforcement, and request/audit visibility so automation can operate safely without borrowing browser sessions.
-  Dependencies: TASK-046, TASK-076
-- ID: TASK-048
-  Title: Authentication implementation phase 4 - auth tests and hardening
-  Status: Pending
-  Rationale: Validate auth behavior and edge cases with automated tests before security remediation pass.
-  Dependencies: TASK-046, TASK-047, TASK-058, TASK-059
 - ID: TASK-061
   Title: Dependency security baseline - vulnerability remediation and scan cadence definition
   Status: Pending
@@ -170,6 +160,16 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-048
+  Title: Authentication implementation phase 4 - auth tests and hardening
+  Status: Done (2026-04-04)
+  Rationale: Closed the auth hardening pass with signed-in verification-link mismatch protection, broader auth redirect normalization coverage, production-only verification enforcement failure handling, green CI/preview validation, and final manual validation.
+  Dependencies: TASK-046, TASK-047, TASK-058, TASK-059
+- ID: TASK-059
+  Title: Agent access implementation - scoped API tokens, rotation, and audit trail
+  Status: Done (2026-04-04)
+  Rationale: Delivered owner-managed, project-scoped agent credentials with exchange, scoped bearer-token enforcement, audit visibility, onboarding/docs support, and merged preview-validated rollout coverage.
+  Dependencies: TASK-046, TASK-076
 - ID: TASK-115
   Title: Agent onboarding v1 - hosted docs, OpenAPI surface, and in-app setup UX
   Status: Done (2026-04-04)

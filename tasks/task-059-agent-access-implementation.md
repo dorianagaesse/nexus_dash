@@ -4,7 +4,7 @@
 TASK-059
 
 ## Status
-Implemented and preview validated
+Completed and preview validated on 2026-04-04
 
 ## Objective
 Enable secure non-human access through owner-managed, project-scoped API credentials that exchange into short-lived bearer tokens, enforce explicit scopes in the service layer, and leave an auditable trail for issuance, use, rotation, and revocation.
@@ -173,5 +173,5 @@ Notes:
 
 ---
 
-Last Updated: 2026-03-31
+Last Updated: 2026-04-04
 Assigned To: User + Agent

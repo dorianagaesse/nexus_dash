@@ -1,12 +1,12 @@
-# Current Task: TASK-048 Authentication Implementation Phase 4 - Auth Tests and Hardening
+# Current Task: Close-Out Complete - Awaiting Next Selection
 
-Dedicated task brief: [`tasks/task-048-auth-tests-and-hardening.md`](./task-048-auth-tests-and-hardening.md)
+Most recently completed task brief: [`tasks/task-048-auth-tests-and-hardening.md`](./task-048-auth-tests-and-hardening.md)
 
 ## Task ID
 TASK-048
 
 ## Status
-Implemented and locally validated
+Completed and user validated on 2026-04-04
 
 ## Objective
 Strengthen the completed authentication and authorization baseline by closing
@@ -14,15 +14,13 @@ coverage gaps, hardening edge-case behavior, and validating that the delivered
 session, verification, invitation, and agent-access flows hold up under
 regression and misuse-oriented scenarios.
 
-## Why Now
-- The major auth building blocks are now in place: browser sessions, account
-  onboarding, email verification, password recovery, project sharing, and
-  project-scoped agent access.
-- TASK-048 is the natural closing pass before broader security remediation work
-  because it validates the auth surface as a system rather than as isolated
-  feature slices.
-- Deferring this pass would leave TASK-049/TASK-050 starting from assumptions
-  instead of a tested, hardened baseline.
+## Outcome
+- TASK-048 is complete and has been validated through local automation, PR
+  checks, preview deployment, and final manual validation.
+- TASK-059 is also complete and should now be treated as a finished dependency
+  for downstream work.
+- The repo is ready for the next selected task rather than an additional
+  TASK-048 implementation pass.
 
 ## Scope Snapshot
 - Audit the current auth/authz surface for missing regression coverage and
@@ -41,21 +39,13 @@ regression and misuse-oriented scenarios.
   than left implicit.
 
 ## Notes
-- This task is intentionally a hardening and validation pass, not a new auth
-  feature rollout.
-- If the audit exposes a meaningful policy choice, pause for user review before
-  locking in behavior.
-- Validation evidence and any newly discovered follow-up risks should be
-  recorded before handoff.
-- Current implementation focus:
-  - verification-link hardening so signed-in account mismatch is checked before
-    a verification token is consumed
-  - broader regression coverage around auth redirect normalization and
-    production-only verification enforcement failure handling
 - Local validation on 2026-04-04 passed with `npm run lint`, `npm test`,
   `npm run test:coverage`, focused auth `vitest` suites, and a production
   `npm run build` using the standard safe preview overrides for deploy-sensitive
   env values.
+- PR checks and preview deployment also passed on 2026-04-04.
+- Next likely candidate remains `TASK-061`, unless priorities change while the
+  user is away.
 
 ---
 
