@@ -36,6 +36,11 @@ interface IssueVerificationInput {
   returnToPath?: string | null;
 }
 
+interface ValidatedEmailVerificationToken {
+  userId: string;
+  tokenHash: string;
+}
+
 function createSuccess<T extends Record<string, unknown>>(
   status: number,
   data: T
@@ -300,21 +305,22 @@ export async function issueEmailVerificationForUser(
 }
 
 export async function consumeEmailVerificationToken(
-  rawTokenInput: string
+  rawTokenInput: string,
+  validatedToken?: ValidatedEmailVerificationToken
 ): Promise<ServiceResult<{ userId: string }>> {
-  const validationResult = await validateEmailVerificationToken(rawTokenInput);
+  const validationResult = validatedToken
+    ? createSuccess(200, validatedToken)
+    : await validateEmailVerificationToken(rawTokenInput);
   if (!validationResult.ok) {
     return validationResult;
   }
 
-  const rawToken = normalizeToken(rawTokenInput);
-  const tokenHash = hashVerificationToken(rawToken);
   const now = new Date();
 
   return prisma.$transaction(async (tx) => {
     const consumeResult = await tx.emailVerificationToken.updateMany({
       where: {
-        tokenHash,
+        tokenHash: validationResult.data.tokenHash,
         consumedAt: null,
         expiresAt: {
           gt: now,
@@ -344,7 +350,7 @@ export async function consumeEmailVerificationToken(
 
 export async function validateEmailVerificationToken(
   rawTokenInput: string
-): Promise<ServiceResult<{ userId: string }>> {
+): Promise<ServiceResult<ValidatedEmailVerificationToken>> {
   const rawToken = normalizeToken(rawTokenInput);
   if (!rawToken) {
     return createError(400, "invalid-token");
@@ -355,7 +361,6 @@ export async function validateEmailVerificationToken(
   const token = await prisma.emailVerificationToken.findUnique({
     where: { tokenHash },
     select: {
-      id: true,
       userId: true,
       email: true,
       expiresAt: true,
@@ -383,5 +388,6 @@ export async function validateEmailVerificationToken(
 
   return createSuccess(200, {
     userId: token.userId,
+    tokenHash,
   });
 }

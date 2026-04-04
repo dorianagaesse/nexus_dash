@@ -63,17 +63,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           )
         );
       }
-    }
 
-    const result = await consumeEmailVerificationToken(token);
-    if (!result.ok) {
-      const mappedError = mapVerificationError(result.error);
-      return NextResponse.redirect(
-        buildRedirectUrl(request, `${VERIFY_EMAIL_PATH}?error=${mappedError}`)
-      );
-    }
+      const result = await consumeEmailVerificationToken(token, validationResult.data);
+      if (!result.ok) {
+        const mappedError = mapVerificationError(result.error);
+        return NextResponse.redirect(
+          buildRedirectUrl(request, `${VERIFY_EMAIL_PATH}?error=${mappedError}`)
+        );
+      }
 
-    if (actorUserId) {
       return NextResponse.redirect(
         buildRedirectUrl(
           request,
@@ -81,6 +79,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             status: "email-verified",
           })
         )
+      );
+    }
+
+    const result = await consumeEmailVerificationToken(token);
+    if (!result.ok) {
+      const mappedError = mapVerificationError(result.error);
+      return NextResponse.redirect(
+        buildRedirectUrl(request, `${VERIFY_EMAIL_PATH}?error=${mappedError}`)
       );
     }
 

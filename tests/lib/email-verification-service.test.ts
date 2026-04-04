@@ -293,6 +293,7 @@ describe("email-verification-service", () => {
       status: 200,
       data: {
         userId: "user-1",
+        tokenHash: expect.any(String),
       },
     });
     expect(prismaMock.emailVerificationToken.updateMany).not.toHaveBeenCalled();
