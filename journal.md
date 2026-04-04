@@ -14,6 +14,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-04-04
 - Type: Validation
+- Summary: TASK-048 local validation passed after auth hardening and regression expansion, including focused auth suites, full lint/test/coverage, and a production build with safe preview env overrides.
+- Evidence: `npx vitest run tests/api/auth-verify-email.route.test.ts tests/lib/email-verification-service.test.ts tests/lib/api-guard.test.ts`; `npx vitest run tests/app/home-auth-actions.test.ts tests/app/verify-email-actions.test.ts tests/api/auth-logout.route.test.ts`; `npm run lint`; `npm test`; `npm run test:coverage`; `$env:DATABASE_URL='postgresql://user:pass@localhost:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run build`.
+
+### 2026-04-04
+- Type: Execution
+- Summary: TASK-048 hardened the auth surface by preventing signed-in verification-link account mismatches from consuming tokens, then expanded regression coverage around auth redirect normalization and production-only verification enforcement failure handling.
+- Evidence: Updated `app/api/auth/verify-email/route.ts` and `lib/services/email-verification-service.ts`; expanded auth regressions in `tests/api/auth-verify-email.route.test.ts`, `tests/lib/email-verification-service.test.ts`, `tests/lib/api-guard.test.ts`, `tests/app/home-auth-actions.test.ts`, `tests/app/verify-email-actions.test.ts`, and `tests/api/auth-logout.route.test.ts`; updated task tracking in `tasks/current.md` and `tasks/task-048-auth-tests-and-hardening.md`.
+
+### 2026-04-04
+- Type: Validation
 - Summary: TASK-059 merge-refresh validation passed locally after folding the latest `origin/main` into the agent-access branch and refreshing the generated Prisma client in this checkout.
 - Evidence: `npx prisma generate`; `npm run lint`; `npm test`; `$env:DATABASE_URL='postgresql://user:pass@localhost:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run build`.
 

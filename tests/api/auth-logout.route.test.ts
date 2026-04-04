@@ -98,6 +98,21 @@ describe("auth logout route", () => {
     expect(response.headers.get("location")).toBe("http://localhost/");
   });
 
+  test("normalizes external returnTo values back to home", async () => {
+    sessionServiceMock.readSessionTokensFromCookieReader.mockReturnValueOnce([]);
+
+    const request = new NextRequest(
+      "http://localhost/api/auth/logout?returnTo=https://evil.example/phish",
+      {
+        method: "POST",
+      }
+    );
+
+    const response = await POST(request);
+
+    expect(response.headers.get("location")).toBe("http://localhost/");
+  });
+
   test("deletes every discovered session token before redirecting", async () => {
     sessionServiceMock.readSessionTokensFromCookieReader.mockReturnValueOnce([
       "current-session",

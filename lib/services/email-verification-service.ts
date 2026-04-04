@@ -36,6 +36,11 @@ interface IssueVerificationInput {
   returnToPath?: string | null;
 }
 
+type ValidatedEmailVerificationToken = {
+  userId: string;
+  tokenHash: string;
+};
+
 function createSuccess<T extends Record<string, unknown>>(
   status: number,
   data: T
@@ -300,50 +305,26 @@ export async function issueEmailVerificationForUser(
 }
 
 export async function consumeEmailVerificationToken(
-  rawTokenInput: string
+  rawTokenInput: string,
+  validatedToken?: ValidatedEmailVerificationToken
 ): Promise<ServiceResult<{ userId: string }>> {
-  const rawToken = normalizeToken(rawTokenInput);
-  if (!rawToken) {
-    return createError(400, "invalid-token");
+  const validationResult = validatedToken
+    ? createSuccess(200, validatedToken)
+    : await validateEmailVerificationToken(rawTokenInput);
+  if (!validationResult.ok) {
+    return validationResult;
   }
 
-  const tokenHash = hashVerificationToken(rawToken);
   const now = new Date();
 
   return prisma.$transaction(async (tx) => {
-    const token = await tx.emailVerificationToken.findUnique({
-      where: { tokenHash },
-      select: {
-        id: true,
-        userId: true,
-        email: true,
-        expiresAt: true,
-        consumedAt: true,
-        user: {
-          select: {
-            email: true,
-          },
-        },
-      },
-    });
-
-    if (!token) {
-      return createError(400, "invalid-token");
-    }
-
-    if (token.consumedAt || token.expiresAt.getTime() <= now.getTime()) {
-      return createError(400, "token-expired");
-    }
-
-    const userEmail = normalizeEmail(token.user.email ?? "");
-    if (!validateEmail(userEmail) || userEmail !== token.email) {
-      return createError(400, "token-expired");
-    }
-
     const consumeResult = await tx.emailVerificationToken.updateMany({
       where: {
-        id: token.id,
+        tokenHash: validationResult.data.tokenHash,
         consumedAt: null,
+        expiresAt: {
+          gt: now,
+        },
       },
       data: {
         consumedAt: now,
@@ -355,14 +336,58 @@ export async function consumeEmailVerificationToken(
     }
 
     await tx.user.update({
-      where: { id: token.userId },
+      where: { id: validationResult.data.userId },
       data: {
         emailVerified: now,
       },
     });
 
     return createSuccess(200, {
-      userId: token.userId,
+      userId: validationResult.data.userId,
     });
+  });
+}
+
+export async function validateEmailVerificationToken(
+  rawTokenInput: string
+): Promise<ServiceResult<ValidatedEmailVerificationToken>> {
+  const rawToken = normalizeToken(rawTokenInput);
+  if (!rawToken) {
+    return createError(400, "invalid-token");
+  }
+
+  const tokenHash = hashVerificationToken(rawToken);
+  const now = new Date();
+  const token = await prisma.emailVerificationToken.findUnique({
+    where: { tokenHash },
+    select: {
+      userId: true,
+      email: true,
+      expiresAt: true,
+      consumedAt: true,
+      user: {
+        select: {
+          email: true,
+        },
+      },
+    },
+  });
+
+  if (!token) {
+    return createError(400, "invalid-token");
+  }
+
+  if (token.consumedAt || token.expiresAt.getTime() <= now.getTime()) {
+    return createError(400, "token-expired");
+  }
+
+  const userEmail = normalizeEmail(token.user.email ?? "");
+  if (!validateEmail(userEmail) || userEmail !== token.email) {
+    return createError(400, "token-expired");
+  }
+
+  return createSuccess(200, {
+    userId: token.userId,
+    tokenHash,
   });
 }

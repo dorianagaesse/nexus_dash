@@ -184,6 +184,46 @@ describe("home auth actions", () => {
     );
   });
 
+  test("signInAction honors a normalized internal returnTo path on success", async () => {
+    credentialAuthMock.signInWithEmailPassword.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        userId: "user-1",
+        emailVerified: true,
+        sessionToken: "session-token",
+        expiresAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    });
+
+    const formData = new FormData();
+    formData.set("email", "user@example.com");
+    formData.set("password", "password123");
+    formData.set("returnTo", "/invite/project/invite-1");
+
+    await expect(signInAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/invite/project/invite-1"
+    );
+  });
+
+  test("signInAction rejects external returnTo values", async () => {
+    credentialAuthMock.signInWithEmailPassword.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        userId: "user-1",
+        emailVerified: true,
+        sessionToken: "session-token",
+        expiresAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    });
+
+    const formData = new FormData();
+    formData.set("email", "user@example.com");
+    formData.set("password", "password123");
+    formData.set("returnTo", "https://evil.example/phish");
+
+    await expect(signInAction(formData)).rejects.toThrow("NEXT_REDIRECT:/projects");
+  });
+
   test("signInAction redirects unverified sign-in success to verify-email", async () => {
     credentialAuthMock.signInWithEmailPassword.mockResolvedValueOnce({
       ok: true,
@@ -279,6 +319,35 @@ describe("home auth actions", () => {
       actorUserId: "user-1",
       requestOrigin: "https://nexus-dash.app",
       returnToPath: "/projects",
+    });
+  });
+
+  test("signUpAction passes a normalized internal returnTo into verification flow", async () => {
+    credentialAuthMock.signUpWithEmailPassword.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        userId: "user-1",
+        emailVerified: false,
+        sessionToken: "session-token",
+        expiresAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    });
+
+    const formData = new FormData();
+    formData.set("username", "test.user");
+    formData.set("email", "user@example.com");
+    formData.set("password", "password123");
+    formData.set("confirmPassword", "password123");
+    formData.set("returnTo", "/invite/project/invite-1");
+
+    await expect(signUpAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/verify-email?status=verification-email-sent&returnTo=%2Finvite%2Fproject%2Finvite-1"
+    );
+
+    expect(emailVerificationMock.issueEmailVerificationForUser).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+      requestOrigin: "https://nexus-dash.app",
+      returnToPath: "/invite/project/invite-1",
     });
   });
 

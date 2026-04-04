@@ -85,6 +85,18 @@ describe("verify-email actions", () => {
     });
   });
 
+  test("resendVerificationEmailAction redirects signed-out users to a normalized sign-in return path", async () => {
+    sessionUserMock.getSessionUserIdFromServer.mockResolvedValueOnce(null);
+    const formData = new FormData();
+    formData.set("returnTo", "https://evil.example/phish");
+
+    await expect(resendVerificationEmailAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/?form=signin&returnTo=%2Fprojects"
+    );
+
+    expect(emailVerificationMock.issueEmailVerificationForUser).not.toHaveBeenCalled();
+  });
+
   test("resendVerificationEmailAction redirects verified users to projects", async () => {
     emailVerificationMock.issueEmailVerificationForUser.mockResolvedValueOnce({
       ok: false,
