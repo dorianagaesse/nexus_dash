@@ -4,11 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-061
-  Title: Dependency security baseline - vulnerability remediation and scan cadence definition
-  Status: Pending
-  Rationale: Resolve known high-severity dependency vulnerabilities and define the recurring automated security-scan cadence/policy before production rollout.
-  Dependencies: TASK-038
 - ID: TASK-049
   Title: Security baseline phase 1 - OWASP-focused assessment and threat model
   Status: Pending
@@ -160,6 +155,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-061
+  Title: Dependency security baseline - vulnerability remediation and scan cadence definition
+  Status: Done (2026-04-04)
+  Rationale: Remediated the repo's actionable npm dependency vulnerabilities, added scheduled dependency-security automation plus weekly Dependabot coverage, carried the required Next.js 15 compatibility migration, resolved Copilot review feedback, and restored a fully green PR by tightening a flaky project-creation Playwright assertion exposed during follow-up CI.
+  Dependencies: TASK-038
 - ID: TASK-048
   Title: Authentication implementation phase 4 - auth tests and hardening
   Status: Done (2026-04-04)

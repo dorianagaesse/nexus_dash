@@ -4,7 +4,7 @@
 TASK-061
 
 ## Status
-Implementation complete locally; PR/review follow-through in progress
+Completed on 2026-04-04
 
 ## Objective
 Resolve known high-severity dependency vulnerabilities where safe and practical,
@@ -154,6 +154,20 @@ rather than only during manual review.
 - The existing GitHub Actions/runtime maintenance warning track remains a
   separate CI hygiene follow-up rather than an unresolved dependency
   vulnerability.
+
+## PR / Review Outcome
+- PR: `#116` (`fix/task-061-dependency-security` -> `main`)
+- Copilot review completed on 2026-04-04 and generated 2 comments.
+- Both Copilot comments were addressed in follow-up commit `dd5ba2a`, replied
+  to in-thread, and resolved.
+- A subsequent CI rerun exposed a flaky Playwright dependency on a transient
+  success toast in the project-creation helper; that was stabilized in
+  `dede8c9` by asserting on the durable created-project state instead.
+- Final PR checks all passed on the latest head:
+  - `check-name`
+  - `Quality Core (lint, test, coverage, build)`
+  - `E2E Smoke (Playwright)`
+  - `Container Image (build + metadata artifact)`
 
 ---
 

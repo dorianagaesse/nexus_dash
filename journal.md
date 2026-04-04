@@ -13,6 +13,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-04-04
+- Type: Governance
+- Summary: TASK-061 PR follow-through completed with Copilot review addressed and resolved, plus a final CI-only Playwright helper stabilization after the follow-up commit exposed a transient project-creation toast dependency.
+- Evidence: PR `#116` (`fix/task-061-dependency-security` -> `main`); addressed Copilot feedback in commit `dd5ba2a`; replied to and resolved review threads `PRRT_kwDORPDIrs542mdj` and `PRRT_kwDORPDIrs542mdn`; stabilized `tests/e2e/helpers/project-helpers.ts` in commit `dede8c9`; final green checks on workflow run `23983234193` (`Quality Core`, `E2E Smoke`, `Container Image`) plus branch-name run `23983234190`.
+
+### 2026-04-04
 - Type: Blocker
 - Summary: TASK-061 local Playwright reruns remained environment-blocked after the dependency upgrade because Prisma could not reach the expected PostgreSQL fixture service on loopback.
 - Evidence: `npx playwright install chromium`; `$env:DATABASE_URL='postgresql://user:pass@127.0.0.1:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run test:e2e` rebuilt successfully, then failed because Prisma could not reach `127.0.0.1:5432`.
