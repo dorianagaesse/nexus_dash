@@ -56,7 +56,7 @@ execute against a clear remediation target instead of a vague "security pass."
 
 ## Assessment Result
 - The full assessment report now lives in
-  `tasks/task-049-security-assessment-and-threat-model.md`.
+  `./task-049-security-assessment-and-threat-model.md`.
 - Primary `TASK-050` remediation candidates identified:
   1. perimeter abuse controls and failed-auth telemetry for public auth/token
      exchange paths
