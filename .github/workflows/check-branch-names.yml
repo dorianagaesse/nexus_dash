@@ -12,8 +12,9 @@ jobs:
           HUMAN_PATTERN="^(feature|fix|refactor|docs|chore)\/.*"
           DEPENDABOT_PATTERN="^dependabot\/.*"
           BRANCH_NAME="${{ github.head_ref }}"
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
 
-          if [[ "${{ github.actor }}" == "app/dependabot" || "${{ github.actor }}" == "dependabot[bot]" ]]; then
+          if [[ "$PR_AUTHOR" == "dependabot[bot]" || "$PR_AUTHOR" == "dependabot-preview[bot]" ]]; then
             if [[ $BRANCH_NAME =~ $DEPENDABOT_PATTERN ]]; then
               exit 0
             fi
