@@ -26,7 +26,7 @@
     "clsx": "^2.1.1",
     "emojibase-data": "^17.0.0",
     "lucide-react": "^0.563.0",
-    "next": "^15.5.14",
+    "next": "^16.2.2",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "sanitize-html": "^2.17.2",
