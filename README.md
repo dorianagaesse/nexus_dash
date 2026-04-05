@@ -234,6 +234,11 @@ npm run test:e2e
 - `Check Branch Name` (PR branch naming contract)
 - `Dependency Security` (scheduled + manual `npm audit` baseline with artifacts)
 
+Branch-name note:
+- human-authored PR branches must use `feature/*`, `fix/*`, `refactor/*`,
+  `docs/*`, or `chore/*`
+- Dependabot PR branches may use `dependabot/*`
+
 ### CD workflow
 
 Workflow: `.github/workflows/deploy-vercel.yml`
