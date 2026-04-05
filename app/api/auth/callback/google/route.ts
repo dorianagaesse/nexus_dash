@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
 
   if (socialOAuthProvider === "google") {
     return handleSocialOAuthCallback(request, {
-      params: { provider: "google" },
+      params: Promise.resolve({ provider: "google" }),
     });
   }
 

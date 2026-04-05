@@ -6,8 +6,9 @@ import { createTaskAttachmentFromForm } from "@/lib/services/project-attachment-
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { projectId: string; taskId: string } }
+  props: { params: Promise<{ projectId: string; taskId: string }> }
 ) {
+  const params = await props.params;
   const authenticatedUser = await requireAuthenticatedApiUser(request);
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;

@@ -8,12 +8,11 @@ import { deleteContextAttachmentForProject } from "@/lib/services/project-attach
 
 export async function DELETE(
   request: NextRequest,
-  {
-    params,
-  }: {
-    params: { projectId: string; cardId: string; attachmentId: string };
+  props: {
+    params: Promise<{ projectId: string; cardId: string; attachmentId: string }>;
   }
 ) {
+  const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
   if (!principalResult.ok) {
     return principalResult.response;

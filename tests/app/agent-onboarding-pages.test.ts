@@ -30,10 +30,11 @@ describe("agent onboarding pages", () => {
     requireSessionUserIdFromServerMock.mockResolvedValue("user-1");
   });
 
-  test("renders hosted docs with concrete SSR URLs", () => {
+  test("renders hosted docs with concrete SSR URLs", async () => {
     resolveRequestOriginFromHeadersMock.mockReturnValue("https://docs-preview.nexusdash.test");
 
-    const result = renderToStaticMarkup(React.createElement(AgentApiDocsPage));
+    const page = await AgentApiDocsPage();
+    const result = renderToStaticMarkup(page);
 
     expect(resolveRequestOriginFromHeadersMock).toHaveBeenCalledWith(expect.any(Headers));
     expect(result).toContain("NEXUSDASH_BASE_URL=https://docs-preview.nexusdash.test");

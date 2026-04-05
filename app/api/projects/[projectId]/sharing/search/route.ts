@@ -3,10 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import { searchInvitableUsersForProject } from "@/lib/services/project-collaboration-service";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { projectId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ projectId: string }> }) {
+  const params = await props.params;
   const authenticatedUser = await requireAuthenticatedApiUser(request);
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;

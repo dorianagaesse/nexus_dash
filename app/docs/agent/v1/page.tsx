@@ -13,8 +13,8 @@ export const metadata: Metadata = {
   },
 };
 
-export default function AgentApiDocsPage() {
-  const requestOrigin = resolveRequestOriginFromHeaders(headers());
+export default async function AgentApiDocsPage() {
+  const requestOrigin = resolveRequestOriginFromHeaders(await headers());
 
   return (
     <main className="container py-16">

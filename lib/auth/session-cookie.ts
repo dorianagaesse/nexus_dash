@@ -28,11 +28,11 @@ export function getPrimarySessionCookieOptions(
   };
 }
 
-export function setPrimarySessionCookie(
+export async function setPrimarySessionCookie(
   sessionToken: string,
   expiresAt: Date
-): void {
-  cookies().set(
+): Promise<void> {
+  (await cookies()).set(
     PRIMARY_SESSION_COOKIE_NAME,
     sessionToken,
     getPrimarySessionCookieOptions(expiresAt)

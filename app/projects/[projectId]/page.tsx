@@ -88,20 +88,22 @@ export default async function ProjectDashboardPage({
   params,
   searchParams,
 }: {
-  params: { projectId: string };
-  searchParams?: SearchParams;
+  params: Promise<{ projectId: string }>;
+  searchParams?: Promise<SearchParams>;
 }) {
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
   const actorUserId = await requireSessionUserIdFromServer();
 
-  const project = await getProjectSummaryById(params.projectId, actorUserId);
+  const project = await getProjectSummaryById(resolvedParams.projectId, actorUserId);
 
   if (!project) {
     notFound();
   }
 
   const storageProvider = getStorageRuntimeConfig().provider;
-  const status = readQueryValue(searchParams?.status);
-  const error = readQueryValue(searchParams?.error);
+  const status = readQueryValue(resolvedSearchParams?.status);
+  const error = readQueryValue(resolvedSearchParams?.error);
   const actorRole =
     project.ownerId === actorUserId ? "owner" : (project.memberships[0]?.role ?? "viewer");
   const canEditProjectContent = actorRole === "owner" || actorRole === "editor";

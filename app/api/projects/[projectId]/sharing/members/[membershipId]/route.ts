@@ -13,12 +13,11 @@ interface UpdateMemberRoleRequestBody {
 
 export async function PATCH(
   request: NextRequest,
-  {
-    params,
-  }: {
-    params: { projectId: string; membershipId: string };
+  props: {
+    params: Promise<{ projectId: string; membershipId: string }>;
   }
 ) {
+  const params = await props.params;
   const authenticatedUser = await requireAuthenticatedApiUser(request);
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;
@@ -52,12 +51,11 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  {
-    params,
-  }: {
-    params: { projectId: string; membershipId: string };
+  props: {
+    params: Promise<{ projectId: string; membershipId: string }>;
   }
 ) {
+  const params = await props.params;
   const authenticatedUser = await requireAuthenticatedApiUser(request);
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;

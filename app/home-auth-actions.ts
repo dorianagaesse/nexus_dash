@@ -104,7 +104,7 @@ export async function signInAction(formData: FormData): Promise<void> {
     });
   }
 
-  setPrimarySessionCookie(result.data.sessionToken, result.data.expiresAt);
+  await setPrimarySessionCookie(result.data.sessionToken, result.data.expiresAt);
   if (!result.data.emailVerified && isLiveProductionDeployment()) {
     redirect(
       appendQueryToPath(VERIFY_EMAIL_PATH, {
@@ -153,14 +153,14 @@ export async function signUpAction(formData: FormData): Promise<void> {
     });
   }
 
-  setPrimarySessionCookie(result.data.sessionToken, result.data.expiresAt);
+  await setPrimarySessionCookie(result.data.sessionToken, result.data.expiresAt);
   if (!isLiveProductionDeployment()) {
     redirect(returnToPath);
   }
 
   let issueResult: Awaited<ReturnType<typeof issueEmailVerificationForUser>>;
   try {
-    const requestOrigin = resolveRequestOriginFromHeaders(headers());
+    const requestOrigin = resolveRequestOriginFromHeaders(await headers());
     issueResult = await issueEmailVerificationForUser({
       actorUserId: result.data.userId,
       requestOrigin,

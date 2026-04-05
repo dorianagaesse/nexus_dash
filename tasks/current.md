@@ -1,51 +1,45 @@
 # Current Task: Close-Out Complete - Awaiting Next Selection
 
-Most recently completed task brief: [`tasks/task-048-auth-tests-and-hardening.md`](./task-048-auth-tests-and-hardening.md)
+Most recently completed task brief: [`tasks/task-061-dependency-security-baseline.md`](./task-061-dependency-security-baseline.md)
 
 ## Task ID
-TASK-048
+TASK-061
 
 ## Status
-Completed and user validated on 2026-04-04
+Completed on 2026-04-04
 
 ## Objective
-Strengthen the completed authentication and authorization baseline by closing
-coverage gaps, hardening edge-case behavior, and validating that the delivered
-session, verification, invitation, and agent-access flows hold up under
-regression and misuse-oriented scenarios.
+Reduce dependency-driven security exposure, codify recurring dependency scan
+cadence, and leave the repo on a clean baseline before broader OWASP-focused
+security assessment work.
 
 ## Outcome
-- TASK-048 is complete and has been validated through local automation, PR
-  checks, preview deployment, and final manual validation.
-- TASK-059 is also complete and should now be treated as a finished dependency
-  for downstream work.
-- The repo is ready for the next selected task rather than an additional
-  TASK-048 implementation pass.
+- `npm audit` now reports `0` vulnerabilities for the repo baseline after the
+  direct upgrades, lockfile refresh, and targeted transitive overrides landed.
+- The repo now has recurring dependency-security monitoring through
+  `.github/dependabot.yml`, `.github/workflows/dependency-security.yml`, and
+  the new `security:audit*` package scripts.
+- The required Next.js 15 compatibility migration was carried through the app,
+  route handlers, tests, and Vitest config without leaving the branch in a
+  partially upgraded state.
+- PR `#116` is open with Copilot review completed, both Copilot threads
+  addressed/resolved, and refreshed checks green.
 
-## Scope Snapshot
-- Audit the current auth/authz surface for missing regression coverage and
-  fragile edge-case behavior.
-- Add or expand automated tests across session, verification, invite, and
-  agent-related protected flows where coverage is incomplete.
-- Implement targeted hardening changes discovered during the audit.
-- Run the relevant validation suite and capture any notable residual risk or
-  follow-up decisions.
+## Final Validation Snapshot
+- Local: `npm audit --json`, `npm run security:audit`, `npm run lint`,
+  `npm test`, `npm run test:coverage`, and `npm run build`
+- PR `#116`: `check-name`, `Quality Core (lint, test, coverage, build)`,
+  `E2E Smoke (Playwright)`, and `Container Image (build + metadata artifact)`
+  all passed on the final head after the small Playwright helper stabilization.
 
-## Acceptance Snapshot
-- The highest-risk auth/authz flows have explicit regression coverage.
-- Sensitive auth edge cases fail safely and consistently.
-- Existing human and agent auth behavior remains aligned with the accepted ADR.
-- Any remaining policy-sensitive gaps are surfaced clearly for review rather
-  than left implicit.
-
-## Notes
-- Local validation on 2026-04-04 passed with `npm run lint`, `npm test`,
-  `npm run test:coverage`, focused auth `vitest` suites, and a production
-  `npm run build` using the standard safe preview overrides for deploy-sensitive
-  env values.
-- PR checks and preview deployment also passed on 2026-04-04.
-- Next likely candidate remains `TASK-061`, unless priorities change while the
-  user is away.
+## Residual Notes
+- No actionable npm audit vulnerabilities remained at the end of this task.
+- Full local Playwright reruns in this workstation still depend on a reachable
+  PostgreSQL fixture database, which remains an environment prerequisite rather
+  than an unresolved application bug.
+- Next.js 15 now emits the expected deprecation notice around `next lint`;
+  workflow/tooling cleanup remains better tracked as CI hygiene follow-up work
+  rather than bundled into this security task.
 
 ---
 

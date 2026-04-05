@@ -26,7 +26,7 @@ export async function requestPasswordResetAction(formData: FormData): Promise<vo
   const email = readText(formData, "email");
 
   try {
-    const requestOrigin = resolveRequestOriginFromHeaders(headers());
+    const requestOrigin = resolveRequestOriginFromHeaders(await headers());
     const result = await requestPasswordResetForEmail({
       emailRaw: email,
       requestOrigin,

@@ -6,8 +6,9 @@ import { createContextAttachmentFromForm } from "@/lib/services/project-attachme
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { projectId: string; cardId: string } }
+  props: { params: Promise<{ projectId: string; cardId: string }> }
 ) {
+  const params = await props.params;
   const authenticatedUser = await requireAuthenticatedApiUser(request);
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;

@@ -16,8 +16,9 @@ interface FinalizeDirectUploadRequestBody {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { projectId: string; taskId: string } }
+  props: { params: Promise<{ projectId: string; taskId: string }> }
 ) {
+  const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
   if (!principalResult.ok) {
     return principalResult.response;

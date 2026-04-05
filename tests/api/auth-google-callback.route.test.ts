@@ -88,8 +88,11 @@ describe("GET /api/auth/callback/google", () => {
     );
 
     expect(socialAuthCallbackRouteMock.GET).toHaveBeenCalledWith(expect.any(NextRequest), {
-      params: { provider: "google" },
+      params: expect.any(Promise),
     });
+    await expect(
+      socialAuthCallbackRouteMock.GET.mock.calls[0]?.[1]?.params
+    ).resolves.toEqual({ provider: "google" });
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("http://localhost/projects");
     expect(googleCalendarMock.exchangeAuthorizationCodeForTokens).not.toHaveBeenCalled();

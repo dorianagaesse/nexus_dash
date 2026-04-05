@@ -38,13 +38,14 @@ function readQueryValue(value: string | string[] | undefined): string | null {
   return value;
 }
 
-export default function ProjectsPage({
+export default async function ProjectsPage({
   searchParams,
 }: {
-  searchParams?: SearchParams;
+  searchParams?: Promise<SearchParams>;
 }) {
-  const status = readQueryValue(searchParams?.status);
-  const error = readQueryValue(searchParams?.error);
+  const resolvedSearchParams = await searchParams;
+  const status = readQueryValue(resolvedSearchParams?.status);
+  const error = readQueryValue(resolvedSearchParams?.error);
 
   return (
     <main className="container py-16">
