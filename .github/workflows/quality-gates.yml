@@ -128,7 +128,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build container image
         run: docker buildx build --load --tag nexusdash:${{ github.sha }} .
