@@ -29,6 +29,9 @@ then addressing the first real upgrade failures that Dependabot surfaced.
 - Repair the highest-value failing upgrades in sequence:
   - `PR #120` React 19 compatibility
   - `PR #121` Next 16 compatibility
+- Triage any remaining blocked major updates after those replacements land and
+  either repair them or record a deliberate defer so Dependabot does not keep
+  reopening the same known-bad branch.
 - Use repo-owned replacement branches/PRs because the original Dependabot
   branches are not maintainer-writable.
 - Record the change in the development journal.
@@ -41,6 +44,8 @@ then addressing the first real upgrade failures that Dependabot surfaced.
 - Repo docs clearly explain the exception so the policy remains understandable.
 - The first failing Dependabot upgrade PRs have an explicit, validated path
   forward instead of remaining unexplained CI failures.
+- Known-blocked majors can be intentionally deferred with repository-owned
+  configuration instead of staying open as recurring red PR noise.
 - The work stays isolated as workflow/dependency maintenance rather than
   product-scope feature changes.
 
@@ -62,6 +67,12 @@ then addressing the first real upgrade failures that Dependabot surfaced.
   - local `npm test` is environment-blocked on Node `20.17.0` by the existing
     `jsdom@29.0.1` worker startup issue, so CI will be the authoritative full
     suite signal for the replacement branch
+- Current ESLint 10 triage status:
+  - a direct bump to `eslint@^10.2.0` reproduces a real `npm run lint`
+    failure in `eslint-plugin-react` on the current Next 16 baseline
+  - the repo should keep the validated ESLint 9 baseline on `main` and ignore
+    only the blocked `eslint` semver-major line until the upstream lint stack
+    becomes compatible
 
 ---
 

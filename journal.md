@@ -13,6 +13,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-04-06
+- Type: Governance
+- Summary: TASK-116 closed the last open Dependabot maintenance queue by treating PR `#123` (ESLint 10) as a deliberate defer and codifying that decision so the next scheduled Dependabot run does not reopen the same blocked major update.
+- Evidence: Commented `@dependabot ignore this major version` on PR `#123`; updated `.github/dependabot.yml` to ignore only `eslint` semver-major updates; recorded the compatibility rationale in `tasks/current.md` and `tasks/task-116-ci-maintenance-and-workflow-hygiene.md`.
+
+### 2026-04-06
 - Type: Validation
 - Summary: TASK-116 Next 16 compatibility follow-through for failing Dependabot PR `#121` reached a locally buildable state after upgrading Next.js, migrating linting to the ESLint CLI, and renaming `middleware.ts` to `proxy.ts` to clear the framework deprecation warning.
 - Evidence: `npm install next@^16.2.2`; `npm run lint`; `npx vitest run tests/middleware.test.ts`; `$env:DATABASE_URL='postgresql://user:pass@localhost:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run build`; `npm test`.
