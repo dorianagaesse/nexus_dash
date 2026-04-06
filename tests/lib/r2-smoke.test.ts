@@ -232,7 +232,6 @@ describeSmoke("R2 storage smoke", () => {
 
 if (!shouldRun) {
   // Keep reason visible in logs when the smoke is skipped.
-  // eslint-disable-next-line no-console
   console.log(
     `[r2-smoke] skipped (R2_SMOKE=${process.env.R2_SMOKE ?? "unset"}, STORAGE_PROVIDER=${storageProvider ?? "unset"}, missing=${missingVars.join(",") || "none"})`
   );
