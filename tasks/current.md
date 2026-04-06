@@ -27,11 +27,11 @@ first real upgrade failures that automation surfaced.
 - Landed: update `agent.md` and `README.md` so the documented policy matches
   the workflow behavior.
 - Landed: repo-owned replacement PR `#127` now supersedes Dependabot `#120`
-  for the React 19 compatibility upgrade.
-- Current focus: repair Dependabot `#121` on branch
-  `chore/task-116-next-16-compat` by upgrading Next.js 16, migrating linting
-  off `next lint`, and adopting the `proxy.ts` convention to clear the Next 16
-  middleware deprecation warning.
+  for the React 19 compatibility upgrade and is merged on `main`.
+- Current focus: finish repo-owned replacement PR `#128`, which supersedes
+  Dependabot `#121` by carrying the Next 16 upgrade, the flat-config ESLint
+  migration, the `proxy.ts` convention update, and the Docker Node 20 runtime
+  alignment.
 - Record outcomes, validation, and any superseding replacement PRs in
   `journal.md`.
 
@@ -49,8 +49,13 @@ first real upgrade failures that automation surfaced.
   repo guidance.
 - Dependency-fix evidence should include the actual compatibility diagnosis and
   the relevant local validation commands for each repaired upgrade branch.
+- Current React-19 branch evidence:
+  - replacement PR `#127` is green and merged on current `main`
+  - React 19, React DOM 19, and the React-19-compatible DnD line are part of
+    the baseline this branch now builds on
 - Current Next 16 branch evidence:
-  - `npm run lint` passes using the ESLint CLI
+  - `npm run lint` passes on the flat-config ESLint 9 +
+    `eslint-config-next@16.2.2` stack
   - `npx vitest run tests/middleware.test.ts` passes after the `middleware.ts`
     to `proxy.ts` rename
   - `npm run build` passes on Next `16.2.2`
@@ -63,7 +68,7 @@ first real upgrade failures that automation surfaced.
   reopening of `TASK-061`.
 - The immediate execution order is deliberate:
   1. React 19 / `PR #120` -> replacement PR `#127`
-  2. Next 16 / `PR #121`
+  2. Next 16 / `PR #121` -> replacement PR `#128`
 - The original Dependabot branches are not maintainer-writable, so repaired
   upgrades need to ship as repo-owned replacement PRs that explicitly
   supersede the bot PRs.

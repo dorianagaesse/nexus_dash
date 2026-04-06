@@ -49,8 +49,13 @@ then addressing the first real upgrade failures that Dependabot surfaced.
   Dependabot PR actors correctly.
 - For dependency-fix branches, run the minimal relevant validation suite needed
   to prove the upgraded stack is safe to merge.
+- Current React 19 validation status:
+  - replacement PR `#127` is green and merged on current `main`
+  - the React 19 runtime/types plus DnD compatibility upgrade are part of the
+    current branch baseline
 - Current Next 16 validation status:
-  - `npm run lint` passes after migrating to the ESLint CLI
+  - `npm run lint` passes after the flat-config ESLint migration required by
+    `eslint-config-next@16.2.2`
   - `npx vitest run tests/middleware.test.ts` passes after the `proxy.ts`
     migration
   - `npm run build` passes on Next `16.2.2`

@@ -259,7 +259,7 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
 
 interface ProjectOptionsMenuProps {
   isOpen: boolean;
-  menuRef: RefObject<HTMLDivElement>;
+  menuRef: RefObject<HTMLDivElement | null>;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
