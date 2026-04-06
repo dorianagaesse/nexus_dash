@@ -17,6 +17,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Summary: TASK-116 updated the branch-name gate so Dependabot maintenance PRs can pass CI without weakening the stricter naming contract used for human task branches.
 - Evidence: Updated `.github/workflows/check-branch-names.yml`, `agent.md`, `README.md`, `tasks/current.md`, and `tasks/task-116-ci-maintenance-and-workflow-hygiene.md`.
 
+### 2026-04-06
+- Type: Validation
+- Summary: TASK-116 React 19 compatibility follow-through for failing Dependabot PR `#120` reached a locally buildable state after upgrading the React runtime/types plus `@hello-pangea/dnd`, with the only remaining local red signal coming from the existing `jsdom@29.0.1` worker startup issue on Node `20.17.0`.
+- Evidence: `npm install react@^19.2.4 react-dom@^19.2.4 @types/react@^19 @types/react-dom@^19 @hello-pangea/dnd@^18.0.1`; `npm run lint`; `$env:DATABASE_URL='postgresql://user:pass@localhost:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run build`; `npm test`.
+
+### 2026-04-06
+- Type: Execution
+- Summary: TASK-116 started the repo-owned replacement for Dependabot PR `#120` by upgrading the app to a coherent React 19 stack, moving `@hello-pangea/dnd` onto its React-19-compatible line, and fixing the first surfaced React-19 typing mismatch in the projects grid options menu.
+- Evidence: Updated `package.json`, `package-lock.json`, `app/projects/projects-grid-client.tsx`, `tasks/current.md`, and `tasks/task-116-ci-maintenance-and-workflow-hygiene.md` on branch `chore/task-116-react-19-compat`.
+
 ### 2026-04-05
 - Type: Governance
 - Summary: TASK-049 was refreshed after `TASK-061` / PR `#116` was confirmed merged into `main`; the branch base was corrected and the security assessment remained valid without a full rerun.
