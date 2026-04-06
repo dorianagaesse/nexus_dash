@@ -12,6 +12,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-05
+- Type: Execution
+- Summary: TASK-116 updated the branch-name gate so Dependabot maintenance PRs can pass CI without weakening the stricter naming contract used for human task branches.
+- Evidence: Updated `.github/workflows/check-branch-names.yml`, `agent.md`, `README.md`, `tasks/current.md`, and `tasks/task-116-ci-maintenance-and-workflow-hygiene.md`.
+
+### 2026-04-05
+- Type: Governance
+- Summary: TASK-049 was refreshed after `TASK-061` / PR `#116` was confirmed merged into `main`; the branch base was corrected and the security assessment remained valid without a full rerun.
+- Evidence: Fast-forwarded local `main` to merged `origin/main`; refreshed `fix/task-049-security-assessment` onto that baseline; rechecked the report against the merged dependency/workflow updates in `package.json`, `.github/dependabot.yml`, `.github/workflows/dependency-security.yml`, `lib/services/session-service.ts`, and `lib/auth/api-guard.ts`.
+
+### 2026-04-05
+- Type: Execution
+- Summary: TASK-049 completed an OWASP-focused security assessment and threat model against the implemented NexusDash surface, confirming strong core tenant/auth controls while ranking the main remaining remediation targets for TASK-050.
+- Evidence: Added `tasks/task-049-security-assessment-and-threat-model.md`; updated `tasks/current.md`; primary remediation candidates identified were perimeter abuse controls for public auth/token exchange, hashed session tokens at rest, and immediate-effect agent bearer-token revocation semantics.
+
 ### 2026-04-04
 - Type: Governance
 - Summary: TASK-061 PR follow-through completed with Copilot review addressed and resolved, plus a final CI-only Playwright helper stabilization after the follow-up commit exposed a transient project-creation toast dependency.
