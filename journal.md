@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-06
+- Type: Validation
+- Summary: TASK-116 Next 16 compatibility follow-through for failing Dependabot PR `#121` reached a locally buildable state after upgrading Next.js, migrating linting to the ESLint CLI, and renaming `middleware.ts` to `proxy.ts` to clear the framework deprecation warning.
+- Evidence: `npm install next@^16.2.2`; `npm run lint`; `npx vitest run tests/middleware.test.ts`; `$env:DATABASE_URL='postgresql://user:pass@localhost:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run build`; `npm test`.
+
+### 2026-04-06
+- Type: Execution
+- Summary: TASK-116 started the repo-owned replacement for Dependabot PR `#121` by upgrading Next.js to `16.2.2`, replacing the removed `next lint` command with the ESLint CLI, and migrating the API request-id hook from `middleware.ts` to the Next 16 `proxy.ts` convention.
+- Evidence: Updated `package.json`, `package-lock.json`, `proxy.ts`, `tests/middleware.test.ts`, `tsconfig.json`, `tasks/current.md`, and `tasks/task-116-ci-maintenance-and-workflow-hygiene.md` on branch `chore/task-116-next-16-compat`.
+
 ### 2026-04-05
 - Type: Execution
 - Summary: TASK-116 updated the branch-name gate so Dependabot maintenance PRs can pass CI without weakening the stricter naming contract used for human task branches.
