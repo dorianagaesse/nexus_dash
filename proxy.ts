@@ -20,7 +20,7 @@ function resolveRequestId(request: NextRequest): string {
   return crypto.randomUUID();
 }
 
-export function middleware(request: NextRequest): NextResponse {
+export function proxy(request: NextRequest): NextResponse {
   const requestId = resolveRequestId(request);
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-request-id", requestId);

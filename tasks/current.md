@@ -26,11 +26,12 @@ first real upgrade failures that automation surfaced.
   can use `dependabot/*` without weakening the human branch contract.
 - Landed: update `agent.md` and `README.md` so the documented policy matches
   the workflow behavior.
-- Current focus: repair the first two failing dependency PRs surfaced after the
-  policy fix:
-  - `PR #120` React 19 upgrade compatibility
-    - replacement branch in progress: `chore/task-116-react-19-compat`
-  - `PR #121` Next 16 upgrade compatibility
+- Landed: repo-owned replacement PR `#127` now supersedes Dependabot `#120`
+  for the React 19 compatibility upgrade and is merged on `main`.
+- Current focus: finish repo-owned replacement PR `#128`, which supersedes
+  Dependabot `#121` by carrying the Next 16 upgrade, the flat-config ESLint
+  migration, the `proxy.ts` convention update, and the Docker Node 20 runtime
+  alignment.
 - Record outcomes, validation, and any superseding replacement PRs in
   `journal.md`.
 
@@ -40,9 +41,8 @@ first real upgrade failures that automation surfaced.
 - Human contributors still cannot bypass the normal branch prefixes.
 - The repo guidance is explicit about the exception.
 - `PR #120` and `PR #121` each have a credible path forward:
-  - either repaired and replaced with green repo-owned PRs
-  - or clearly documented as coordinated follow-up work if the upgrade proves
-    too broad for a narrow fix
+  - `#120` is superseded by replacement PR `#127`
+  - `#121` is repaired on a repo-owned replacement branch/PR
 
 ## Validation / Evidence Expectations
 - Workflow-policy evidence should point to the merged branch-name logic and
@@ -50,21 +50,27 @@ first real upgrade failures that automation surfaced.
 - Dependency-fix evidence should include the actual compatibility diagnosis and
   the relevant local validation commands for each repaired upgrade branch.
 - Current React-19 branch evidence:
-  - `npm run lint` passes
-  - `npm run build` passes after aligning a nullable menu ref type in
-    `app/projects/projects-grid-client.tsx`
-  - local `npm test` is currently blocked by a `jsdom@29.0.1` fork-worker
-    startup issue on this workstation's Node `20.17.0`, which appears
-    environment-specific rather than caused by the React diff itself
+  - replacement PR `#127` is green and merged on current `main`
+  - React 19, React DOM 19, and the React-19-compatible DnD line are part of
+    the baseline this branch now builds on
+- Current Next 16 branch evidence:
+  - `npm run lint` passes on the flat-config ESLint 9 +
+    `eslint-config-next@16.2.2` stack
+  - `npx vitest run tests/middleware.test.ts` passes after the `middleware.ts`
+    to `proxy.ts` rename
+  - `npm run build` passes on Next `16.2.2`
+  - local `npm test` still hits the existing `jsdom@29.0.1` worker-startup
+    issue on this workstation's Node `20.17.0`, which appears environment-
+    specific rather than caused by the Next 16 diff itself
 
 ## Notes
 - This remains a workflow/dependency-maintenance task under `TASK-116`, not a
   reopening of `TASK-061`.
 - The immediate execution order is deliberate:
-  1. React 19 / `PR #120`
-  2. Next 16 / `PR #121`
+  1. React 19 / `PR #120` -> replacement PR `#127`
+  2. Next 16 / `PR #121` -> replacement PR `#128`
 - The original Dependabot branches are not maintainer-writable, so repaired
-  upgrades may need to ship as repo-owned replacement PRs that explicitly
+  upgrades need to ship as repo-owned replacement PRs that explicitly
   supersede the bot PRs.
 
 ---

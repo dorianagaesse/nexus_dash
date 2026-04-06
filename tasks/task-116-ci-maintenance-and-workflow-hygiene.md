@@ -29,8 +29,8 @@ then addressing the first real upgrade failures that Dependabot surfaced.
 - Repair the highest-value failing upgrades in sequence:
   - `PR #120` React 19 compatibility
   - `PR #121` Next 16 compatibility
-- Use repo-owned replacement branches/PRs if the original Dependabot branches
-  are not maintainer-writable.
+- Use repo-owned replacement branches/PRs because the original Dependabot
+  branches are not maintainer-writable.
 - Record the change in the development journal.
 
 ## Acceptance Criteria
@@ -50,8 +50,15 @@ then addressing the first real upgrade failures that Dependabot surfaced.
 - For dependency-fix branches, run the minimal relevant validation suite needed
   to prove the upgraded stack is safe to merge.
 - Current React 19 validation status:
-  - `npm run lint` passes
-  - `npm run build` passes after a React-19-driven ref typing adjustment
+  - replacement PR `#127` is green and merged on current `main`
+  - the React 19 runtime/types plus DnD compatibility upgrade are part of the
+    current branch baseline
+- Current Next 16 validation status:
+  - `npm run lint` passes after the flat-config ESLint migration required by
+    `eslint-config-next@16.2.2`
+  - `npx vitest run tests/middleware.test.ts` passes after the `proxy.ts`
+    migration
+  - `npm run build` passes on Next `16.2.2`
   - local `npm test` is environment-blocked on Node `20.17.0` by the existing
     `jsdom@29.0.1` worker startup issue, so CI will be the authoritative full
     suite signal for the replacement branch

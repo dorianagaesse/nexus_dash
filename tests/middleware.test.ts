@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { describe, expect, test } from "vitest";
 
-import { middleware } from "@/middleware";
+import { proxy } from "@/proxy";
 
 function createApiRequest(requestId?: string): NextRequest {
   return new NextRequest("http://localhost/api/health/live", {
@@ -13,7 +13,7 @@ describe("api middleware request id", () => {
   test("preserves a valid incoming request id", () => {
     const request = createApiRequest("req_123.valid-id");
 
-    const response = middleware(request);
+    const response = proxy(request);
 
     expect(response.headers.get("x-request-id")).toBe("req_123.valid-id");
   });
@@ -21,7 +21,7 @@ describe("api middleware request id", () => {
   test("replaces invalid incoming request id with generated uuid", () => {
     const request = createApiRequest("bad id with spaces");
 
-    const response = middleware(request);
+    const response = proxy(request);
     const requestId = response.headers.get("x-request-id");
 
     expect(requestId).toMatch(
@@ -33,7 +33,7 @@ describe("api middleware request id", () => {
   test("replaces oversized incoming request id with generated uuid", () => {
     const request = createApiRequest("a".repeat(129));
 
-    const response = middleware(request);
+    const response = proxy(request);
     const requestId = response.headers.get("x-request-id");
 
     expect(requestId).toMatch(
