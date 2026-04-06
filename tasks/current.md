@@ -71,8 +71,7 @@ first real upgrade failures that automation surfaced.
     specific rather than caused by the Next 16 diff itself
 - Current ESLint 10 defer evidence:
   - `npm install -D eslint@^10.2.0` reproduces a real `npm run lint` failure
-    inside `eslint-plugin-react` (`contextOrFilename.getFilename is not a
-    function`) on the current Next 16 lint stack
+    inside `eslint-plugin-react` (`contextOrFilename.getFilename is not a function`) on the current Next 16 lint stack
   - `.github/dependabot.yml` ignores only the `eslint` semver-major line, so
     future patch/minor lint fixes still surface normally
 
