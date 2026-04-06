@@ -1,47 +1,49 @@
-# Current Task: Close-Out Complete - Awaiting Next Selection
-
-Most recently completed task brief: [`tasks/task-061-dependency-security-baseline.md`](./task-061-dependency-security-baseline.md)
+# Current Task: TASK-116 CI Maintenance - Dependabot Branch Check Hygiene
 
 ## Task ID
-TASK-061
+TASK-116
 
 ## Status
-Completed on 2026-04-04
+Implementation in progress
 
 ## Objective
-Reduce dependency-driven security exposure, codify recurring dependency scan
-cadence, and leave the repo on a clean baseline before broader OWASP-focused
-security assessment work.
+Allow valid Dependabot maintenance branches to pass the branch-name gate
+without weakening the stricter naming contract used for human task branches.
 
-## Outcome
-- `npm audit` now reports `0` vulnerabilities for the repo baseline after the
-  direct upgrades, lockfile refresh, and targeted transitive overrides landed.
-- The repo now has recurring dependency-security monitoring through
-  `.github/dependabot.yml`, `.github/workflows/dependency-security.yml`, and
-  the new `security:audit*` package scripts.
-- The required Next.js 15 compatibility migration was carried through the app,
-  route handlers, tests, and Vitest config without leaving the branch in a
-  partially upgraded state.
-- PR `#116` is open with Copilot review completed, both Copilot threads
-  addressed/resolved, and refreshed checks green.
+## Why This Task Matters
+- `TASK-061` enabled recurring Dependabot updates for npm and GitHub Actions.
+- The current `Check Branch Name` workflow rejects `dependabot/*` branch names,
+  which creates false CI failures on valid automated maintenance PRs.
+- This is workflow hygiene, not product behavior, but it affects trust in the
+  release gates and the usefulness of the new dependency automation.
 
-## Final Validation Snapshot
-- Local: `npm audit --json`, `npm run security:audit`, `npm run lint`,
-  `npm test`, `npm run test:coverage`, and `npm run build`
-- PR `#116`: `check-name`, `Quality Core (lint, test, coverage, build)`,
-  `E2E Smoke (Playwright)`, and `Container Image (build + metadata artifact)`
-  all passed on the final head after the small Playwright helper stabilization.
+## Scope Snapshot
+- Update `.github/workflows/check-branch-names.yml` so:
+  - human-authored PRs still require `feature/*`, `fix/*`, `refactor/*`,
+    `docs/*`, or `chore/*`
+  - Dependabot-authored PRs may use `dependabot/*`
+- Update `agent.md` and `README.md` so the documented policy matches the
+  workflow behavior.
+- Record the change in `journal.md`.
 
-## Residual Notes
-- No actionable npm audit vulnerabilities remained at the end of this task.
-- Full local Playwright reruns in this workstation still depend on a reachable
-  PostgreSQL fixture database, which remains an environment prerequisite rather
-  than an unresolved application bug.
-- Next.js 15 now emits the expected deprecation notice around `next lint`;
-  workflow/tooling cleanup remains better tracked as CI hygiene follow-up work
-  rather than bundled into this security task.
+## Acceptance Snapshot
+- Valid Dependabot PRs no longer fail branch naming just because their branches
+  start with `dependabot/`.
+- Human contributors still cannot bypass the normal branch prefixes.
+- The repo guidance is explicit about the exception.
+
+## Validation / Evidence Expectations
+- This is a workflow/documentation change, so codebase test suites are not
+  required unless the scope expands unexpectedly.
+- Evidence should point to the updated workflow logic and repo guidance.
+
+## Notes
+- This is a focused CI-policy correction under `TASK-116`, not a reopening of
+  `TASK-061`.
+- The `TASK-049` assessment remains valid and merged; this task only removes
+  CI friction introduced by the new automation baseline.
 
 ---
 
-Last Updated: 2026-04-04
+Last Updated: 2026-04-05
 Assigned To: User + Agent
