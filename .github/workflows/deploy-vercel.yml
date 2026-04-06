@@ -145,7 +145,7 @@ jobs:
           echo "$deployment_url" > staged-production-deployment.txt
 
       - name: Upload staged deployment artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: auto-staged-production-deployment
           path: staged-production-deployment.txt
@@ -321,7 +321,7 @@ jobs:
 
       - name: Upload preview deployment artifact
         if: inputs.action == 'deploy-preview'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: preview-deployment
           path: preview-deployment.txt
@@ -329,7 +329,7 @@ jobs:
 
       - name: Upload staged production deployment artifact
         if: inputs.action == 'deploy-production-staged'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: manual-staged-production-deployment
           path: staged-production-deployment.txt
