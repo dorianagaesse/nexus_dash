@@ -32,6 +32,7 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
 - One task per branch and one task per PR.
 - Start each task on a dedicated branch before implementation work begins.
 - Branch name must match CI rule: `feature/*`, `fix/*`, `refactor/*`, `docs/*`, or `chore/*`.
+- Dependabot-authored PRs are the one exception and may use `dependabot/*`.
 - Keep PRs single-purpose; do not mix unrelated backlog tasks.
 - Push the active branch remotely after meaningful implementation/validation progress and before handoff.
 - If the current task does not already have an open PR, create one once the branch is reviewable; continue updating the same PR for that task.
