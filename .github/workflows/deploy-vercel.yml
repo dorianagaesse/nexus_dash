@@ -111,7 +111,7 @@ jobs:
           fi
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
@@ -234,7 +234,7 @@ jobs:
 
       - name: Checkout
         if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.git_ref }}
 
