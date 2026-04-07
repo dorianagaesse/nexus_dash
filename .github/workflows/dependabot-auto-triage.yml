@@ -21,13 +21,11 @@ jobs:
       contents: read
       issues: write
       pull-requests: write
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
 
     steps:
-      - name: Check out base repository context
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.pull_request.base.ref }}
-
       - name: Classify Dependabot lane
         id: classify
         shell: bash
@@ -52,8 +50,6 @@ jobs:
 
       - name: Label safe auto-merge candidate
         if: steps.classify.outputs.safe == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           gh pr edit "${{ github.event.pull_request.number }}" \
             --add-label "dependabot:auto-merge" \
@@ -61,8 +57,6 @@ jobs:
 
       - name: Label manual-review dependency PR
         if: steps.classify.outputs.safe != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           gh pr edit "${{ github.event.pull_request.number }}" \
             --add-label "dependabot:manual-review" \
@@ -70,8 +64,6 @@ jobs:
 
       - name: Approve safe Dependabot lane
         if: steps.classify.outputs.safe == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           gh pr review "${{ github.event.pull_request.number }}" \
@@ -90,11 +82,12 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
 
     steps:
       - name: Merge safe Dependabot PR
-        env:
-          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           PR_NUMBER="${{ github.event.workflow_run.pull_requests[0].number }}"
