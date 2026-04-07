@@ -1,4 +1,4 @@
-# Current Task: TASK-116 CI Maintenance - Dependabot Upgrade Follow-Through
+# Current Task: TASK-116 Dependabot and CI Automation - Safe Merge + Bounded Repair Agent
 
 ## Task ID
 TASK-116
@@ -7,9 +7,12 @@ TASK-116
 Implementation in progress
 
 ## Objective
-Keep the dependency automation introduced by `TASK-061` trustworthy end to end:
-first by fixing the branch-name gate for Dependabot PRs, then by handling the
-first real upgrade failures that automation surfaced.
+Turn Dependabot into a low-friction maintenance lane instead of a delivery
+distraction by:
+- keeping safe update classes small and auto-mergeable only after full CI
+- keeping risky majors/manual-review lanes explicit
+- adding a bounded scheduled repair agent that can attempt straightforward
+  fixes on repo-owned superseding branches and hand results back for review
 
 ## Why This Task Matters
 - `TASK-061` enabled recurring Dependabot updates for npm and GitHub Actions.
@@ -39,9 +42,9 @@ first real upgrade failures that automation surfaced.
   before the upstream lint stack catches up.
 - Current focus: reduce Dependabot overhead by grouping safe update lanes and
   auto-merging them only after the normal required PR checks pass.
-- Next automation slice: add a bounded scheduled agent for red/manual-review
-  Dependabot PRs that can attempt straightforward fixes on repo-owned
-  superseding branches, then leave the final decision to human review.
+- Current focus: add the bounded scheduled repair agent for red/manual-review
+  Dependabot PRs so straightforward failures can get a repo-owned repair path
+  without mutating bot branches or auto-merging guesswork.
 - Record outcomes, validation, and any superseding replacement PRs in
   `journal.md`.
 
@@ -58,7 +61,7 @@ first real upgrade failures that automation surfaced.
 - Safe grouped Dependabot lanes can merge without manual babysitting once CI is
   green, while majors and excluded high-churn packages still surface for
   explicit review.
-- Red/manual-review Dependabot PRs should have a future bounded-repair path:
+- Red/manual-review Dependabot PRs have a bounded-repair path:
   diagnose the failure, attempt a straightforward fix on a repo-owned
   superseding branch, comment the original PR, and open a replacement PR for
   human review rather than mutating the bot branch.
@@ -92,6 +95,9 @@ first real upgrade failures that automation surfaced.
   - `.github/workflows/dependabot-auto-triage.yml` labels safe lanes with
     `dependabot:auto-merge`, auto-approves them, and merges them after the
     required checks report success
+  - `.github/workflows/dependabot-repair-agent.yml` runs on a weekly schedule
+    plus manual dispatch, scans failing/manual-review Dependabot PRs, and
+    attempts only bounded repairs on repo-owned superseding branches
   - excluded majors and high-churn packages remain explicitly manual-review
     work instead of hidden auto-fix attempts
   - GitHub Actions rollup grouping is limited to patch/minor updates so major

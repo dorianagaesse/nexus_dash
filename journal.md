@@ -13,6 +13,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-04-07
+- Type: Execution
+- Summary: TASK-116 moved from deferred hygiene into the active execution queue and gained a bounded scheduled Dependabot repair agent that works only on failing/manual-review PRs through repo-owned superseding branches.
+- Evidence: Added `.github/workflows/dependabot-repair-agent.yml` and `scripts/dependabot_repair_agent.py`; updated `tasks/backlog.md`, `tasks/current.md`, `tasks/task-116-ci-maintenance-and-workflow-hygiene.md`, and `README.md`.
+
+### 2026-04-07
 - Type: Governance
 - Summary: TASK-116 narrowed the Dependabot operating model to grouped safe lanes with auto-approval/auto-merge after green CI, while explicitly keeping majors and high-churn packages in manual review.
 - Evidence: Updated `.github/dependabot.yml` with grouped safe npm/GitHub Actions lanes; added `.github/workflows/dependabot-auto-triage.yml`; updated `README.md`, `tasks/current.md`, and `tasks/task-116-ci-maintenance-and-workflow-hygiene.md`.

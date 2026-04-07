@@ -269,6 +269,9 @@ Required GitHub secrets:
 - `.github/dependabot.yml`: weekly npm + GitHub Actions dependency update cadence
 - `.github/workflows/dependabot-auto-triage.yml`: labels and auto-approves safe
   Dependabot lanes, then auto-merges them after the required PR checks pass
+- `.github/workflows/dependabot-repair-agent.yml`: scheduled/manual bounded
+  repair pass for failing manual-review Dependabot PRs; it may open repo-owned
+  superseding PRs for straightforward fixes but never merges them automatically
 
 Dependabot automation policy:
 - grouped GitHub Actions updates are considered safe auto-merge candidates
@@ -279,6 +282,13 @@ Dependabot automation policy:
     `class-variance-authority`, `lucide-react`, `@radix-ui/react-slot`,
     `tailwindcss-animate`, `sanitize-html`, `emojibase-data`)
 - majors and excluded high-churn dependencies stay in manual review
+- a bounded repair agent may triage failing/manual-review Dependabot PRs after
+  the weekly update wave:
+  - it can auto-repair only straightforward cases on repo-owned superseding
+    branches (for example lockfile drift)
+  - it comments original Dependabot PRs with the diagnosis
+  - it leaves non-trivial failures for human review rather than guessing
+  - it never auto-merges its own repair PRs
 
 ## Observability
 
