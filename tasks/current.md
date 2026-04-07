@@ -37,6 +37,8 @@ first real upgrade failures that automation surfaced.
 - Current focus: codify that defer in `.github/dependabot.yml` so the next
   scheduled Dependabot run does not reopen the same blocked major upgrade
   before the upstream lint stack catches up.
+- Current focus: reduce Dependabot overhead by grouping safe update lanes and
+  auto-merging them only after the normal required PR checks pass.
 - Record outcomes, validation, and any superseding replacement PRs in
   `journal.md`.
 
@@ -50,6 +52,9 @@ first real upgrade failures that automation surfaced.
   - `#121` is repaired on a repo-owned replacement branch/PR
   - `#123` is explicitly deferred with a recorded compatibility reason and an
     ignore rule that prevents repeated red reopenings
+- Safe grouped Dependabot lanes can merge without manual babysitting once CI is
+  green, while majors and excluded high-churn packages still surface for
+  explicit review.
 
 ## Validation / Evidence Expectations
 - Workflow-policy evidence should point to the merged branch-name logic and
@@ -74,6 +79,14 @@ first real upgrade failures that automation surfaced.
     inside `eslint-plugin-react` (`contextOrFilename.getFilename is not a function`) on the current Next 16 lint stack
   - `.github/dependabot.yml` ignores only the `eslint` semver-major line, so
     future patch/minor lint fixes still surface normally
+- Current automation-policy evidence:
+  - `.github/dependabot.yml` groups safe GitHub Actions updates plus curated
+    npm patch/minor lanes so the PR queue stays smaller by default
+  - `.github/workflows/dependabot-auto-triage.yml` labels safe lanes with
+    `dependabot:auto-merge`, auto-approves them, and merges them after the
+    required checks report success
+  - excluded majors and high-churn packages remain explicitly manual-review
+    work instead of hidden auto-fix attempts
 
 ## Notes
 - This remains a workflow/dependency-maintenance task under `TASK-116`, not a
@@ -87,8 +100,11 @@ first real upgrade failures that automation surfaced.
 - I have not found a repo-local Dependabot setting that makes bot branches
   maintainer-writable; handling blocked majors through repo-owned replacement
   PRs or explicit ignore rules remains the practical path today.
+- For delivery focus, the better default is narrow auto-merge plus explicit
+  manual-review lanes, not an always-on agent trying to rewrite arbitrary red
+  dependency PRs every Monday.
 
 ---
 
-Last Updated: 2026-04-06
+Last Updated: 2026-04-07
 Assigned To: User + Agent

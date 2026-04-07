@@ -8,6 +8,41 @@ updates:
       time: "06:00"
       timezone: "UTC"
     open-pull-requests-limit: 5
+    groups:
+      safe-dev-dependencies:
+        applies-to: "version-updates"
+        dependency-type: "development"
+        exclude-patterns:
+          - "eslint"
+          - "eslint-*"
+          - "@eslint/*"
+          - "eslint-config-next"
+          - "@next/eslint-plugin-next"
+          - "next"
+          - "prisma"
+          - "@prisma/*"
+          - "tailwindcss"
+          - "typescript"
+          - "vitest"
+          - "@vitest/*"
+          - "@playwright/test"
+        update-types:
+          - "minor"
+          - "patch"
+      safe-production-utilities:
+        applies-to: "version-updates"
+        patterns:
+          - "tailwind-merge"
+          - "clsx"
+          - "class-variance-authority"
+          - "lucide-react"
+          - "@radix-ui/react-slot"
+          - "tailwindcss-animate"
+          - "sanitize-html"
+          - "emojibase-data"
+        update-types:
+          - "minor"
+          - "patch"
     ignore:
       - dependency-name: "eslint"
         update-types:
@@ -24,6 +59,10 @@ updates:
       time: "06:30"
       timezone: "UTC"
     open-pull-requests-limit: 3
+    groups:
+      github-actions-rollup:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
       - "security"

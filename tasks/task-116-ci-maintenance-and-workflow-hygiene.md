@@ -32,6 +32,8 @@ then addressing the first real upgrade failures that Dependabot surfaced.
 - Triage any remaining blocked major updates after those replacements land and
   either repair them or record a deliberate defer so Dependabot does not keep
   reopening the same known-bad branch.
+- Reduce routine Dependabot overhead by grouping safe update lanes and
+  auto-merging them after the repository's normal quality gates pass.
 - Use repo-owned replacement branches/PRs because the original Dependabot
   branches are not maintainer-writable.
 - Record the change in the development journal.
@@ -46,6 +48,9 @@ then addressing the first real upgrade failures that Dependabot surfaced.
   forward instead of remaining unexplained CI failures.
 - Known-blocked majors can be intentionally deferred with repository-owned
   configuration instead of staying open as recurring red PR noise.
+- Safe grouped update lanes can be approved and merged automatically without
+  weakening the existing quality gates or expanding automation to risky major
+  migrations.
 - The work stays isolated as workflow/dependency maintenance rather than
   product-scope feature changes.
 
@@ -73,8 +78,14 @@ then addressing the first real upgrade failures that Dependabot surfaced.
   - the repo should keep the validated ESLint 9 baseline on `main` and ignore
     only the blocked `eslint` semver-major line until the upstream lint stack
     becomes compatible
+- Current automation-policy validation target:
+  - safe grouped Dependabot PRs receive an explicit auto-merge label/approval
+    from workflow automation
+  - those PRs still merge only after `check-name`, `Quality Core`,
+    `E2E Smoke`, and `Container Image` are all green
+  - excluded majors and high-churn packages remain visible manual-review PRs
 
 ---
 
-Last Updated: 2026-04-06
+Last Updated: 2026-04-07
 Assigned To: User + Agent
