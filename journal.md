@@ -14,6 +14,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-04-07
 - Type: Validation
+- Summary: TASK-116 needed a fourth live follow-up after the safe-lane merge job was counting its own skipped bookkeeping checks as incomplete status signals on PR `#137`.
+- Evidence: Patched `.github/workflows/dependabot-auto-triage.yml` so the merge gate evaluates only the repository's required checks instead of every entry in `statusCheckRollup`.
+
+### 2026-04-07
+- Type: Validation
 - Summary: TASK-116 needed a third live follow-up after the safe-lane merge job still exited early on PR `#137` because GitHub's status rollup lag briefly reported pending checks right after `Quality Gates` completed.
 - Evidence: Patched `.github/workflows/dependabot-auto-triage.yml` so only `Quality Gates` completion triggers the merge lane and the merge job now retries the PR rollup for a short consistency window before giving up.
 

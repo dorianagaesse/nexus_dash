@@ -24,6 +24,7 @@ jobs:
     env:
       GH_REPO: ${{ github.repository }}
       GH_TOKEN: ${{ github.token }}
+      REQUIRED_CHECK_NAMES_JSON: '["check-name","Quality Core (lint, test, coverage, build)","E2E Smoke (Playwright)","Container Image (build + metadata artifact)"]'
 
     steps:
       - name: Classify Dependabot lane
@@ -140,7 +141,21 @@ jobs:
               exit 1
             fi
 
-            if ! INCOMPLETE_COUNT="$(echo "$PR_JSON" | jq '[.statusCheckRollup[] | select(.status != "COMPLETED" or .conclusion != "SUCCESS")] | length')"; then
+            if ! INCOMPLETE_COUNT="$(echo "$PR_JSON" | jq --argjson required "$REQUIRED_CHECK_NAMES_JSON" '
+              [
+                $required[] as $required_name
+                | (
+                    [.statusCheckRollup[] | select(.name == $required_name)]
+                    | if length == 0 then
+                        true
+                      else
+                        any(.status != "COMPLETED" or .conclusion != "SUCCESS")
+                      end
+                  )
+                | select(. == true)
+              ]
+              | length
+            ')"; then
               echo "Failed to parse status checks for PR #$PR_NUMBER (attempt $attempt/6)."
               if [[ "$attempt" -lt 6 ]]; then
                 sleep 10
