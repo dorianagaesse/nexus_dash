@@ -4,7 +4,7 @@
 TASK-116
 
 ## Status
-Implementation in progress
+Implementation complete, awaiting validation
 
 ## Objective
 Turn Dependabot into a low-friction maintenance lane instead of a delivery
@@ -33,18 +33,16 @@ distraction by:
   for the React 19 compatibility upgrade and is merged on `main`.
 - Landed: repo-owned replacement PR `#128` now supersedes Dependabot `#121`
   for the Next 16 compatibility upgrade and is merged on `main`.
-- Current focus: close the last stale red Dependabot branch by treating
-  `PR #123` (ESLint 10) as a deliberate defer, because the current Next 16
-  lint stack is green on ESLint 9 but still incompatible with the ESLint 10
-  major line.
-- Current focus: codify that defer in `.github/dependabot.yml` so the next
-  scheduled Dependabot run does not reopen the same blocked major upgrade
-  before the upstream lint stack catches up.
-- Current focus: reduce Dependabot overhead by grouping safe update lanes and
-  auto-merging them only after the normal required PR checks pass.
-- Current focus: add the bounded scheduled repair agent for red/manual-review
+- Landed: treat `PR #123` (ESLint 10) as a deliberate defer and codify that
+  decision in `.github/dependabot.yml` so the blocked major does not keep
+  reopening.
+- Landed: group safe Dependabot update lanes and auto-merge them only after
+  the normal required PR checks pass.
+- Landed: add the bounded scheduled/manual repair agent for red/manual-review
   Dependabot PRs so straightforward failures can get a repo-owned repair path
   without mutating bot branches or auto-merging guesswork.
+- Validation state: the repair-agent workflow is now on `main` and has already
+  completed one successful manual dispatch against the live repo.
 - Record outcomes, validation, and any superseding replacement PRs in
   `journal.md`.
 
@@ -55,7 +53,7 @@ distraction by:
 - The repo guidance is explicit about the exception.
 - `PR #120`, `PR #121`, and `PR #123` each have a credible path forward:
   - `#120` is superseded by replacement PR `#127`
-  - `#121` is repaired on a repo-owned replacement branch/PR
+  - `#121` is superseded by replacement PR `#128`
   - `#123` is explicitly deferred with a recorded compatibility reason and an
     ignore rule that prevents repeated red reopenings
 - Safe grouped Dependabot lanes can merge without manual babysitting once CI is
@@ -98,6 +96,8 @@ distraction by:
   - `.github/workflows/dependabot-repair-agent.yml` runs on a weekly schedule
     plus manual dispatch, scans failing/manual-review Dependabot PRs, and
     attempts only bounded repairs on repo-owned superseding branches
+  - the first live manual dispatch of the repair-agent workflow succeeded on
+    `main`, proving the scheduled/manual plumbing is wired correctly
   - excluded majors and high-churn packages remain explicitly manual-review
     work instead of hidden auto-fix attempts
   - GitHub Actions rollup grouping is limited to patch/minor updates so major
@@ -106,9 +106,12 @@ distraction by:
 ## Notes
 - This remains a workflow/dependency-maintenance task under `TASK-116`, not a
   reopening of `TASK-061`.
-- The immediate execution order is deliberate:
+- The implemented execution order was deliberate:
   1. React 19 / `PR #120` -> replacement PR `#127`
   2. Next 16 / `PR #121` -> replacement PR `#128`
+  3. ESLint 10 / `PR #123` -> explicit defer + ignore rule
+  4. safe-lane auto-triage/auto-merge
+  5. bounded red-PR repair agent
 - The original Dependabot branches are not maintainer-writable, so repaired
   upgrades need to ship as repo-owned replacement PRs that explicitly
   supersede the bot PRs.

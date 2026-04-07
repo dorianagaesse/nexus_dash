@@ -4,7 +4,7 @@
 TASK-116
 
 ## Status
-In progress
+Implementation complete, awaiting validation
 
 ## Objective
 Keep dependency automation trustworthy without letting it pull focus from
@@ -14,31 +14,31 @@ for failing/manual-review Dependabot PRs.
 ## Why This Task Matters
 - `TASK-061` intentionally enabled recurring Dependabot updates for npm and
   GitHub Actions.
-- The repository's branch-name gate currently blocks Dependabot branch names,
-  which creates noisy false failures on valid automated maintenance PRs.
-- Once that policy issue is fixed, the repo still needs an ownership path for
-  failing upgrade PRs so useful automation does not stagnate into a queue of
-  ignored red branches.
+- The repository needed three follow-through pieces to make that automation
+  useful in practice: a branch-name exception for bot PRs, a safe auto-merge
+  lane for low-risk updates, and a bounded repair path for failing/manual-
+  review PRs.
+- Without that full loop, dependency automation turns into noisy red branches
+  instead of a trustworthy maintenance lane.
 
 ## Scope
-- Update the branch-name workflow so Dependabot PR branches are allowed in a
-  controlled way.
+- Land the branch-name workflow exception so Dependabot PR branches are allowed
+  in a controlled way.
 - Keep the stricter human branch contract intact for normal task branches.
 - Align repository guidance (`agent.md`, `README.md`) with the actual workflow
   behavior.
-- Triage the first failing npm upgrade PRs opened after the policy fix.
-- Repair the highest-value failing upgrades in sequence:
-  - `PR #120` React 19 compatibility
-  - `PR #121` Next 16 compatibility
-- Triage any remaining blocked major updates after those replacements land and
-  either repair them or record a deliberate defer so Dependabot does not keep
-  reopening the same known-bad branch.
+- Repair the first two high-value failing upgrade PRs through repo-owned
+  superseding branches:
+  - `PR #120` React 19 compatibility -> replacement PR `#127`
+  - `PR #121` Next 16 compatibility -> replacement PR `#128`
+- Triage the remaining blocked major update and record an explicit defer so
+  Dependabot does not keep reopening the same known-bad branch:
+  - `PR #123` ESLint 10 -> ignore major until upstream compatibility catches up
 - Reduce routine Dependabot overhead by grouping safe update lanes and
   auto-merging them after the repository's normal quality gates pass.
-- Define and implement the next automation tier for the remaining
-  red/manual-review Dependabot PRs: a bounded scheduled agent that can attempt
-  straightforward repairs on repo-owned superseding branches and hand them back
-  for review.
+- Implement the next automation tier for the remaining red/manual-review
+  Dependabot PRs: a bounded scheduled agent that can attempt straightforward
+  repairs on repo-owned superseding branches and hand them back for review.
 - Use repo-owned replacement branches/PRs because the original Dependabot
   branches are not maintainer-writable.
 - Record the change in the development journal.
