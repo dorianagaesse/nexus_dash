@@ -63,6 +63,9 @@ updates:
       github-actions-rollup:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
     labels:
       - "dependencies"
       - "security"

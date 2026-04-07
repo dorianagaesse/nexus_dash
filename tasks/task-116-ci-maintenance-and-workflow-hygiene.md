@@ -34,6 +34,9 @@ then addressing the first real upgrade failures that Dependabot surfaced.
   reopening the same known-bad branch.
 - Reduce routine Dependabot overhead by grouping safe update lanes and
   auto-merging them after the repository's normal quality gates pass.
+- Define the next automation tier for the remaining red/manual-review
+  Dependabot PRs: a bounded scheduled agent that can attempt straightforward
+  repairs on repo-owned superseding branches and hand them back for review.
 - Use repo-owned replacement branches/PRs because the original Dependabot
   branches are not maintainer-writable.
 - Record the change in the development journal.
@@ -51,6 +54,10 @@ then addressing the first real upgrade failures that Dependabot surfaced.
 - Safe grouped update lanes can be approved and merged automatically without
   weakening the existing quality gates or expanding automation to risky major
   migrations.
+- The future red-PR repair agent is explicitly bounded:
+  it works only on manual-review Dependabot PRs, opens repo-owned superseding
+  branches/PRs, comments the original PRs, and leaves merge decisions to
+  humans.
 - The work stays isolated as workflow/dependency maintenance rather than
   product-scope feature changes.
 
@@ -81,9 +88,15 @@ then addressing the first real upgrade failures that Dependabot surfaced.
 - Current automation-policy validation target:
   - safe grouped Dependabot PRs receive an explicit auto-merge label/approval
     from workflow automation
-  - those PRs still merge only after `check-name`, `Quality Core`,
-    `E2E Smoke`, and `Container Image` are all green
+  - those PRs still merge only after `check-name`,
+    `Quality Core (lint, test, coverage, build)`,
+    `E2E Smoke (Playwright)`, and
+    `Container Image (build + metadata artifact)` are all green
   - excluded majors and high-churn packages remain visible manual-review PRs
+  - grouped GitHub Actions updates stay patch/minor only so major action bumps
+    remain outside the auto-merge lane
+  - the future red-PR repair agent is documented as a follow-up workflow, not
+    silently bundled into the safe auto-merge policy
 
 ---
 

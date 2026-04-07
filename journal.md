@@ -17,6 +17,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Summary: TASK-116 narrowed the Dependabot operating model to grouped safe lanes with auto-approval/auto-merge after green CI, while explicitly keeping majors and high-churn packages in manual review.
 - Evidence: Updated `.github/dependabot.yml` with grouped safe npm/GitHub Actions lanes; added `.github/workflows/dependabot-auto-triage.yml`; updated `README.md`, `tasks/current.md`, and `tasks/task-116-ci-maintenance-and-workflow-hygiene.md`.
 
+### 2026-04-07
+- Type: Planning
+- Summary: TASK-116 now explicitly tracks a second automation tier for failing/manual-review Dependabot PRs: a bounded scheduled repair agent that works only through repo-owned superseding branches and final human review.
+- Evidence: Expanded `tasks/current.md` and `tasks/task-116-ci-maintenance-and-workflow-hygiene.md` to distinguish the safe auto-merge lane from the future red-PR repair-agent lane.
+
 ### 2026-04-06
 - Type: Governance
 - Summary: TASK-116 closed the last open Dependabot maintenance queue by treating PR `#123` (ESLint 10) as a deliberate defer and codifying that decision so the next scheduled Dependabot run does not reopen the same blocked major update.

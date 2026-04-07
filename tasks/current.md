@@ -39,6 +39,9 @@ first real upgrade failures that automation surfaced.
   before the upstream lint stack catches up.
 - Current focus: reduce Dependabot overhead by grouping safe update lanes and
   auto-merging them only after the normal required PR checks pass.
+- Next automation slice: add a bounded scheduled agent for red/manual-review
+  Dependabot PRs that can attempt straightforward fixes on repo-owned
+  superseding branches, then leave the final decision to human review.
 - Record outcomes, validation, and any superseding replacement PRs in
   `journal.md`.
 
@@ -55,6 +58,10 @@ first real upgrade failures that automation surfaced.
 - Safe grouped Dependabot lanes can merge without manual babysitting once CI is
   green, while majors and excluded high-churn packages still surface for
   explicit review.
+- Red/manual-review Dependabot PRs should have a future bounded-repair path:
+  diagnose the failure, attempt a straightforward fix on a repo-owned
+  superseding branch, comment the original PR, and open a replacement PR for
+  human review rather than mutating the bot branch.
 
 ## Validation / Evidence Expectations
 - Workflow-policy evidence should point to the merged branch-name logic and
@@ -87,6 +94,8 @@ first real upgrade failures that automation surfaced.
     required checks report success
   - excluded majors and high-churn packages remain explicitly manual-review
     work instead of hidden auto-fix attempts
+  - GitHub Actions rollup grouping is limited to patch/minor updates so major
+    action bumps do not silently enter the safe auto-merge lane
 
 ## Notes
 - This remains a workflow/dependency-maintenance task under `TASK-116`, not a
@@ -103,6 +112,10 @@ first real upgrade failures that automation surfaced.
 - For delivery focus, the better default is narrow auto-merge plus explicit
   manual-review lanes, not an always-on agent trying to rewrite arbitrary red
   dependency PRs every Monday.
+- The bounded red-PR repair agent belongs in the manual-review lane only:
+  it should scan failing Dependabot PRs, attempt straightforward fixes on a
+  repo-owned superseding branch, comment both the original and replacement PRs,
+  and stop before merge so we can review the outcome together.
 
 ---
 
