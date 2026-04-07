@@ -1,0 +1,45 @@
+name: Dependabot Repair Agent
+
+on:
+  schedule:
+    - cron: "45 7 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: dependabot-repair-agent
+  cancel-in-progress: false
+
+jobs:
+  repair-manual-review-prs:
+    name: Repair manual-review Dependabot PRs
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Run bounded Dependabot repair agent
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DEPENDABOT_REPAIR_MAX_PRS: "2"
+        run: python scripts/dependabot_repair_agent.py

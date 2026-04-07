@@ -1,4 +1,4 @@
-# TASK-116 CI Maintenance - Dependency Automation Follow-Through
+# TASK-116 Dependabot and CI Automation - Safe Merge + Bounded Repair Agent
 
 ## Task ID
 TASK-116
@@ -7,8 +7,9 @@ TASK-116
 In progress
 
 ## Objective
-Keep dependency automation trustworthy by removing avoidable CI friction and
-then addressing the first real upgrade failures that Dependabot surfaced.
+Keep dependency automation trustworthy without letting it pull focus from
+delivery by narrowing safe auto-merge lanes and adding a bounded repair path
+for failing/manual-review Dependabot PRs.
 
 ## Why This Task Matters
 - `TASK-061` intentionally enabled recurring Dependabot updates for npm and
@@ -32,6 +33,12 @@ then addressing the first real upgrade failures that Dependabot surfaced.
 - Triage any remaining blocked major updates after those replacements land and
   either repair them or record a deliberate defer so Dependabot does not keep
   reopening the same known-bad branch.
+- Reduce routine Dependabot overhead by grouping safe update lanes and
+  auto-merging them after the repository's normal quality gates pass.
+- Define and implement the next automation tier for the remaining
+  red/manual-review Dependabot PRs: a bounded scheduled agent that can attempt
+  straightforward repairs on repo-owned superseding branches and hand them back
+  for review.
 - Use repo-owned replacement branches/PRs because the original Dependabot
   branches are not maintainer-writable.
 - Record the change in the development journal.
@@ -46,6 +53,13 @@ then addressing the first real upgrade failures that Dependabot surfaced.
   forward instead of remaining unexplained CI failures.
 - Known-blocked majors can be intentionally deferred with repository-owned
   configuration instead of staying open as recurring red PR noise.
+- Safe grouped update lanes can be approved and merged automatically without
+  weakening the existing quality gates or expanding automation to risky major
+  migrations.
+- The red-PR repair agent is explicitly bounded:
+  it works only on manual-review Dependabot PRs, opens repo-owned superseding
+  branches/PRs, comments the original PRs, and leaves merge decisions to
+  humans.
 - The work stays isolated as workflow/dependency maintenance rather than
   product-scope feature changes.
 
@@ -73,8 +87,20 @@ then addressing the first real upgrade failures that Dependabot surfaced.
   - the repo should keep the validated ESLint 9 baseline on `main` and ignore
     only the blocked `eslint` semver-major line until the upstream lint stack
     becomes compatible
+- Current automation-policy validation target:
+  - safe grouped Dependabot PRs receive an explicit auto-merge label/approval
+    from workflow automation
+  - those PRs still merge only after `check-name`,
+    `Quality Core (lint, test, coverage, build)`,
+    `E2E Smoke (Playwright)`, and
+    `Container Image (build + metadata artifact)` are all green
+  - excluded majors and high-churn packages remain visible manual-review PRs
+  - grouped GitHub Actions updates stay patch/minor only so major action bumps
+    remain outside the auto-merge lane
+  - the red-PR repair agent is implemented as a separate scheduled/manual
+    workflow, not silently bundled into the safe auto-merge policy
 
 ---
 
-Last Updated: 2026-04-06
+Last Updated: 2026-04-07
 Assigned To: User + Agent
