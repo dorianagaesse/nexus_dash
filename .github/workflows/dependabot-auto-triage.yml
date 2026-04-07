@@ -110,7 +110,7 @@ jobs:
             exit 0
           fi
 
-          if [[ "$PR_AUTHOR" != "dependabot[bot]" ]]; then
+          if [[ "$PR_AUTHOR" != "dependabot[bot]" && "$PR_AUTHOR" != "app/dependabot" ]]; then
             echo "PR #$PR_NUMBER is not authored by Dependabot."
             exit 0
           fi
