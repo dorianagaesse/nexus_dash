@@ -9,6 +9,9 @@ on:
       - "Check Branch Name"
     types: [completed]
 
+env:
+  REQUIRED_CHECK_NAMES_JSON: '["check-name","Quality Core (lint, test, coverage, build)","E2E Smoke (Playwright)","Container Image (build + metadata artifact)"]'
+
 jobs:
   triage-safe-pr:
     name: Triage safe Dependabot lanes
@@ -24,7 +27,6 @@ jobs:
     env:
       GH_REPO: ${{ github.repository }}
       GH_TOKEN: ${{ github.token }}
-      REQUIRED_CHECK_NAMES_JSON: '["check-name","Quality Core (lint, test, coverage, build)","E2E Smoke (Playwright)","Container Image (build + metadata artifact)"]'
 
     steps:
       - name: Classify Dependabot lane
