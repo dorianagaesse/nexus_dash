@@ -14,6 +14,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-04-07
 - Type: Validation
+- Summary: TASK-116 needed a second live follow-up after the safe-lane merge job rejected PR `#137` because the GitHub CLI surfaced the PR author as `app/dependabot` rather than `dependabot[bot]`.
+- Evidence: Patched `.github/workflows/dependabot-auto-triage.yml` so the merge guard accepts both Dependabot author identifiers.
+
+### 2026-04-07
+- Type: Validation
 - Summary: TASK-116 needed a post-merge workflow follow-up after live Dependabot PRs showed the new auto-triage job was failing because `gh pr edit` was running without a checked-out repository context.
 - Evidence: Patched `.github/workflows/dependabot-auto-triage.yml` to check out the base repository before labeling and approving Dependabot PRs.
 
