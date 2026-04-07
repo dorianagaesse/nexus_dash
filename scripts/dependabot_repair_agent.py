@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REPO = os.environ.get("GITHUB_REPOSITORY", "").strip()
 MAX_PRS = int(os.environ.get("DEPENDABOT_REPAIR_MAX_PRS", "2"))
 MARKER_PREFIX = "<!-- dependabot-repair-agent:"
+NPM_EXECUTABLE = "npm.cmd" if os.name == "nt" else "npm"
 
 
 def run(
@@ -173,7 +174,7 @@ def repair_lockfile(pr: dict[str, Any], diagnosis: dict[str, str], marker: str) 
     git("checkout", "-B", branch_name, "FETCH_HEAD")
 
     try:
-        run(["npm", "install"])
+        run([NPM_EXECUTABLE, "install"])
     except subprocess.CalledProcessError as exc:
         git("checkout", "main")
         excerpt = (exc.stderr or exc.stdout or "npm install failed without captured output").strip()[:3500]
