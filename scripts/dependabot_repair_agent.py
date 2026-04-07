@@ -17,6 +17,7 @@ REPO = os.environ.get("GITHUB_REPOSITORY", "").strip()
 MAX_PRS = int(os.environ.get("DEPENDABOT_REPAIR_MAX_PRS", "2"))
 MARKER_PREFIX = "<!-- dependabot-repair-agent:"
 NPM_EXECUTABLE = "npm.cmd" if os.name == "nt" else "npm"
+FORCE_REPAIR = os.environ.get("DEPENDABOT_REPAIR_FORCE", "").strip() == "1"
 
 
 def run(
@@ -31,6 +32,8 @@ def run(
         cwd=str(cwd or ROOT),
         check=check,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         capture_output=capture_output,
     )
 
@@ -296,7 +299,7 @@ def process_pr(pr: dict[str, Any]) -> None:
     pr_number = pr["number"]
     marker = f"{MARKER_PREFIX}pr-{pr_number}:{pr['headRefOid']} -->"
     add_manual_review_label(pr_number)
-    if has_marker(pr_number, marker):
+    if not FORCE_REPAIR and has_marker(pr_number, marker):
         print(f"Skipping PR #{pr_number}; marker already present for current head.")
         return
 
