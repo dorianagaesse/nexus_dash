@@ -13,6 +13,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-04-07
+- Type: Validation
+- Summary: TASK-116 needed a post-merge workflow follow-up after live Dependabot PRs showed the new auto-triage job was failing because `gh pr edit` was running without a checked-out repository context.
+- Evidence: Patched `.github/workflows/dependabot-auto-triage.yml` to check out the base repository before labeling and approving Dependabot PRs.
+
+### 2026-04-07
 - Type: Execution
 - Summary: TASK-116 moved from deferred hygiene into the active execution queue and gained a bounded scheduled Dependabot repair agent that works only on failing/manual-review PRs through repo-owned superseding branches.
 - Evidence: Added `.github/workflows/dependabot-repair-agent.yml` and `scripts/dependabot_repair_agent.py`; updated `tasks/backlog.md`, `tasks/current.md`, `tasks/task-116-ci-maintenance-and-workflow-hygiene.md`, and `README.md`.

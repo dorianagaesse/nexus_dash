@@ -23,6 +23,11 @@ jobs:
       pull-requests: write
 
     steps:
+      - name: Check out base repository context
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+
       - name: Classify Dependabot lane
         id: classify
         shell: bash
