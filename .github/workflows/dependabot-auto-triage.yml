@@ -6,6 +6,7 @@ on:
   workflow_run:
     workflows:
       - "Quality Gates"
+      - "Check Branch Name"
     types: [completed]
 
 jobs:
@@ -116,11 +117,46 @@ jobs:
             exit 0
           fi
 
+          HAS_AUTO_LABEL=""
+          INCOMPLETE_COUNT=""
+          MERGE_STATE=""
+
           for attempt in {1..6}; do
-            PR_JSON="$(gh pr view "$PR_NUMBER" --json labels,mergeStateStatus,statusCheckRollup)"
-            HAS_AUTO_LABEL="$(echo "$PR_JSON" | jq -r '[.labels[].name] | index("dependabot:auto-merge") != null')"
-            INCOMPLETE_COUNT="$(echo "$PR_JSON" | jq '[.statusCheckRollup[] | select(.status != "COMPLETED" or .conclusion != "SUCCESS")] | length')"
-            MERGE_STATE="$(echo "$PR_JSON" | jq -r '.mergeStateStatus')"
+            if ! PR_JSON="$(gh pr view "$PR_NUMBER" --json labels,mergeStateStatus,statusCheckRollup)"; then
+              echo "Failed to fetch PR #$PR_NUMBER status (attempt $attempt/6)."
+              if [[ "$attempt" -lt 6 ]]; then
+                sleep 10
+                continue
+              fi
+              exit 1
+            fi
+
+            if ! HAS_AUTO_LABEL="$(echo "$PR_JSON" | jq -r '[.labels[].name] | index("dependabot:auto-merge") != null')"; then
+              echo "Failed to parse auto-merge label for PR #$PR_NUMBER (attempt $attempt/6)."
+              if [[ "$attempt" -lt 6 ]]; then
+                sleep 10
+                continue
+              fi
+              exit 1
+            fi
+
+            if ! INCOMPLETE_COUNT="$(echo "$PR_JSON" | jq '[.statusCheckRollup[] | select(.status != "COMPLETED" or .conclusion != "SUCCESS")] | length')"; then
+              echo "Failed to parse status checks for PR #$PR_NUMBER (attempt $attempt/6)."
+              if [[ "$attempt" -lt 6 ]]; then
+                sleep 10
+                continue
+              fi
+              exit 1
+            fi
+
+            if ! MERGE_STATE="$(echo "$PR_JSON" | jq -r '.mergeStateStatus')"; then
+              echo "Failed to parse merge state for PR #$PR_NUMBER (attempt $attempt/6)."
+              if [[ "$attempt" -lt 6 ]]; then
+                sleep 10
+                continue
+              fi
+              exit 1
+            fi
 
             if [[ "$HAS_AUTO_LABEL" == "true" && "$INCOMPLETE_COUNT" == "0" && ( "$MERGE_STATE" == "CLEAN" || "$MERGE_STATE" == "HAS_HOOKS" ) ]]; then
               break
