@@ -145,6 +145,7 @@ jobs:
 
       - name: Run Copilot repair agent
         if: steps.preflight.outputs.ready == 'true'
+        continue-on-error: true
         env:
           COPILOT_ALLOW_ALL: "true"
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_ACTIONS_TOKEN }}
