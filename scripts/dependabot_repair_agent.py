@@ -168,6 +168,10 @@ def working_tree_has_changes() -> bool:
     return bool(run(["git", "status", "--short"], capture_output=True).stdout.strip())
 
 
+def current_head_commit() -> str:
+    return git("rev-parse", "HEAD").strip()
+
+
 def scan_targets(
     limit: int,
     specific_pr: int | None = None,
@@ -443,7 +447,11 @@ def cmd_finalize(args: argparse.Namespace) -> int:
         comment_manual_review(args.pr_number, marker, summary)
         return 0
 
-    if not working_tree_has_changes():
+    branch_head_commit = current_head_commit()
+    has_uncommitted_changes = working_tree_has_changes()
+    has_new_commit = branch_head_commit != args.head_sha
+
+    if not has_uncommitted_changes and not has_new_commit:
         comment_manual_review(
             args.pr_number,
             marker,
@@ -451,7 +459,9 @@ def cmd_finalize(args: argparse.Namespace) -> int:
         )
         return 0
 
-    commit_changes(f"chore(task-116): supersede Dependabot PR #{args.pr_number}")
+    if has_uncommitted_changes:
+        commit_changes(f"chore(task-116): supersede Dependabot PR #{args.pr_number}")
+
     git("push", "-u", "origin", replacement_branch)
     replacement_pr_number, replacement_pr_url = create_superseding_pr(
         original_pr=original_pr,
