@@ -2,18 +2,81 @@ name: Dependabot Repair Agent
 
 on:
   schedule:
-    - cron: "45 7 * * 1"
+    - cron: "15 9 * * 1"
   workflow_dispatch:
+    inputs:
+      max_prs:
+        description: "Maximum number of red Dependabot PRs to process"
+        required: false
+        default: "2"
+      pr_number:
+        description: "Optional specific Dependabot PR number to target"
+        required: false
+        default: ""
 
 concurrency:
   group: dependabot-repair-agent
   cancel-in-progress: false
 
 jobs:
+<<<<<<< HEAD
   repair-manual-review-prs:
     name: Repair manual-review Dependabot PRs
+=======
+  scan-red-prs:
+    name: Scan red Dependabot PRs
+>>>>>>> a488cf0 (chore(task-116): schedule copilot dependabot repair lane)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      count: ${{ steps.collect.outputs.count }}
+      targets: ${{ steps.collect.outputs.targets }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Collect repair targets
+        id: collect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          MAX_PRS: ${{ github.event.inputs.max_prs || '2' }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
+        run: |
+          if [[ -n "$PR_NUMBER" ]]; then
+            python scripts/dependabot_repair_agent.py scan \
+              --limit "$MAX_PRS" \
+              --pr-number "$PR_NUMBER" \
+              --output "$RUNNER_TEMP/targets.json"
+          else
+            python scripts/dependabot_repair_agent.py scan \
+              --limit "$MAX_PRS" \
+              --output "$RUNNER_TEMP/targets.json"
+          fi
+
+          echo "count=$(jq 'length' "$RUNNER_TEMP/targets.json")" >> "$GITHUB_OUTPUT"
+          echo "targets=$(jq -c . "$RUNNER_TEMP/targets.json")" >> "$GITHUB_OUTPUT"
+
+  repair-red-prs:
+    name: Repair red Dependabot PRs
+    needs: scan-red-prs
+    if: needs.scan-red-prs.outputs.count != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJson(needs.scan-red-prs.outputs.targets) }}
     permissions:
       actions: read
       contents: write
@@ -29,17 +92,92 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20
-          cache: npm
+          node-version: 22
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
 
       - name: Configure git identity
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Run bounded Dependabot repair agent
+      - name: Preflight Copilot authentication
+        id: preflight
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_ACTIONS_TOKEN }}
+        run: |
+          if [[ -z "$COPILOT_GITHUB_TOKEN" ]]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Dependabot repair lane skipped"
+              echo ""
+              echo "Missing repository secret \`COPILOT_ACTIONS_TOKEN\`."
+              echo "Create a fine-grained PAT with Copilot Requests permission to activate the scheduled Copilot repair lane."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Dependabot update on repo-owned branch
+        if: steps.preflight.outputs.ready == 'true'
+        env:
+          HEAD_REF: ${{ matrix.target.head_ref }}
+          REPAIR_BRANCH: ${{ matrix.target.replacement_branch }}
+        run: |
+          git fetch origin "$HEAD_REF"
+          git checkout -B "$REPAIR_BRANCH" FETCH_HEAD
+
+      - name: Prepare Copilot repair context
+        if: steps.preflight.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+<<<<<<< HEAD
           DEPENDABOT_REPAIR_MAX_PRS: "2"
         run: python scripts/dependabot_repair_agent.py
+=======
+          PR_NUMBER: ${{ matrix.target.number }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/dependabot-repair"
+          python scripts/dependabot_repair_agent.py prepare \
+            --pr-number "$PR_NUMBER" \
+            --prompt-path "$RUNNER_TEMP/dependabot-repair/prompt.md" \
+            --result-path "$RUNNER_TEMP/dependabot-repair/result.json" \
+            --log-path "$RUNNER_TEMP/dependabot-repair/failure.log"
+
+      - name: Run Copilot repair agent
+        if: steps.preflight.outputs.ready == 'true'
+        env:
+          COPILOT_ALLOW_ALL: "true"
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_ACTIONS_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          PROMPT="$(cat "$RUNNER_TEMP/dependabot-repair/prompt.md")"
+          copilot \
+            --agent dependabot-repair \
+            --prompt "$PROMPT" \
+            --silent
+
+      - name: Finalize superseding PR workflow
+        if: steps.preflight.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ matrix.target.number }}
+          HEAD_SHA: ${{ matrix.target.head_sha }}
+          REPAIR_BRANCH: ${{ matrix.target.replacement_branch }}
+        run: |
+          python scripts/dependabot_repair_agent.py finalize \
+            --pr-number "$PR_NUMBER" \
+            --head-sha "$HEAD_SHA" \
+            --replacement-branch "$REPAIR_BRANCH" \
+            --result-path "$RUNNER_TEMP/dependabot-repair/result.json"
+>>>>>>> a488cf0 (chore(task-116): schedule copilot dependabot repair lane)

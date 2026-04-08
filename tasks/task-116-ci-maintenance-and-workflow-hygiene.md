@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # TASK-116 Dependabot and CI Automation - Safe Merge + Bounded Repair Agent
+=======
+# TASK-116 Dependabot and CI Automation - Safe Merge + Weekly Copilot Repair Lane
+>>>>>>> a488cf0 (chore(task-116): schedule copilot dependabot repair lane)
 
 ## Task ID
 TASK-116
@@ -8,8 +12,13 @@ Implementation complete, awaiting validation
 
 ## Objective
 Keep dependency automation trustworthy without letting it pull focus from
+<<<<<<< HEAD
 delivery by narrowing safe auto-merge lanes and adding a bounded repair path
 for failing/manual-review Dependabot PRs.
+=======
+delivery by narrowing safe auto-merge lanes and moving failing/manual-review
+Dependabot PRs into a weekly scheduled GitHub Copilot repair lane.
+>>>>>>> a488cf0 (chore(task-116): schedule copilot dependabot repair lane)
 
 ## Why This Task Matters
 - `TASK-061` intentionally enabled recurring Dependabot updates for npm and
@@ -37,8 +46,14 @@ for failing/manual-review Dependabot PRs.
 - Reduce routine Dependabot overhead by grouping safe update lanes and
   auto-merging them after the repository's normal quality gates pass.
 - Implement the next automation tier for the remaining red/manual-review
+<<<<<<< HEAD
   Dependabot PRs: a bounded scheduled agent that can attempt straightforward
   repairs on repo-owned superseding branches and hand them back for review.
+=======
+  Dependabot PRs as a weekly scheduled GitHub Copilot CLI custom-agent pass
+  that can attempt repairs on repo-owned superseding branches and hand them
+  back for review.
+>>>>>>> a488cf0 (chore(task-116): schedule copilot dependabot repair lane)
 - Use repo-owned replacement branches/PRs because the original Dependabot
   branches are not maintainer-writable.
 - Record the change in the development journal.
@@ -56,10 +71,17 @@ for failing/manual-review Dependabot PRs.
 - Safe grouped update lanes can be approved and merged automatically without
   weakening the existing quality gates or expanding automation to risky major
   migrations.
-- The red-PR repair agent is explicitly bounded:
+- The red-PR repair lane is explicitly bounded:
   it works only on manual-review Dependabot PRs, opens repo-owned superseding
+<<<<<<< HEAD
   branches/PRs, comments the original PRs, and leaves merge decisions to
   humans.
+=======
+  branches/PRs, comments and closes the original Dependabot PRs once
+  superseded, and leaves merge decisions to humans.
+- The repair lane is schedule-driven:
+  it runs weekly and stays operationally separate from feature-adjacent CI.
+>>>>>>> a488cf0 (chore(task-116): schedule copilot dependabot repair lane)
 - The work stays isolated as workflow/dependency maintenance rather than
   product-scope feature changes.
 
@@ -97,10 +119,23 @@ for failing/manual-review Dependabot PRs.
   - excluded majors and high-churn packages remain visible manual-review PRs
   - grouped GitHub Actions updates stay patch/minor only so major action bumps
     remain outside the auto-merge lane
+<<<<<<< HEAD
   - the red-PR repair agent is implemented as a separate scheduled/manual
     workflow, not silently bundled into the safe auto-merge policy
 
 ---
 
 Last Updated: 2026-04-07
+=======
+  - the red-PR repair lane is implemented as a separate weekly workflow using
+    GitHub Copilot CLI with a repository custom agent profile
+  - the workflow scans only open red/manual-review Dependabot PRs and creates
+    repo-owned superseding PRs when Copilot produces a repair
+  - the workflow closes original Dependabot PRs once a superseding PR exists
+  - superseding PRs are not auto-merged
+
+---
+
+Last Updated: 2026-04-09
+>>>>>>> a488cf0 (chore(task-116): schedule copilot dependabot repair lane)
 Assigned To: User + Agent
