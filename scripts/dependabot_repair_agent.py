@@ -215,6 +215,8 @@ def scan_targets(limit: int, specific_pr: int | None = None) -> list[dict[str, A
                 "list",
                 "--state",
                 "open",
+                "--search",
+                "head:dependabot/",
                 "--json",
                 "number,title,headRefName,headRefOid,labels,statusCheckRollup,url,author,isDraft,state",
             ]
