@@ -4,7 +4,7 @@
 TASK-116
 
 ## Status
-Implementation in progress, awaiting review and validation
+Implementation in progress, live validation follow-up in progress
 
 ## Objective
 Turn Dependabot into a low-friction maintenance lane instead of a delivery
@@ -68,14 +68,20 @@ distraction by:
   the `COPILOT_ACTIONS_TOKEN` secret, the repository custom agent profile, and
   the fact that model selection intentionally falls back to Auto in the weekly
   workflow.
+- Live workflow validation must prove more than a green Actions run:
+  the weekly lane must either produce a repo-owned superseding PR or emit a
+  machine-readable defer path from Copilot rather than failing before agent
+  execution.
 
 ## Notes
 - This remains a workflow/dependency-maintenance task under `TASK-116`, not a
   reopening of `TASK-061`.
 - The current `main` baseline is coherent, but it does not yet match this
   clarified weekly Copilot repair model.
-- PR `#145` is the active rollout vehicle for aligning the workflow and docs to
-  the final weekly model.
+- A live main-branch smoke test on Dependabot PR `#133` showed the workflow
+  safety fallback works, but the actual Copilot repair lane did not execute:
+  the prompt file was missing by the Copilot step, so this task needs one
+  workflow follow-up before it can be considered validated.
 
 ---
 

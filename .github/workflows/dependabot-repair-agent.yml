@@ -87,6 +87,8 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
+    env:
+      REPAIR_CONTEXT_DIR: ${{ github.workspace }}/.tmp/dependabot-repair/${{ matrix.target.number }}
 
     steps:
       - name: Checkout repository
@@ -146,12 +148,20 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ matrix.target.number }}
         run: |
-          mkdir -p "$RUNNER_TEMP/dependabot-repair"
+          rm -rf "$REPAIR_CONTEXT_DIR"
+          mkdir -p "$REPAIR_CONTEXT_DIR"
           python scripts/dependabot_repair_agent.py prepare \
             --pr-number "$PR_NUMBER" \
-            --prompt-path "$RUNNER_TEMP/dependabot-repair/prompt.md" \
-            --result-path "$RUNNER_TEMP/dependabot-repair/result.json" \
-            --log-path "$RUNNER_TEMP/dependabot-repair/failure.log"
+            --prompt-path "$REPAIR_CONTEXT_DIR/prompt.md" \
+            --result-path "$REPAIR_CONTEXT_DIR/result.json" \
+            --log-path "$REPAIR_CONTEXT_DIR/failure.log"
+
+      - name: Verify repair context files
+        if: steps.preflight.outputs.ready == 'true'
+        run: |
+          test -f "$REPAIR_CONTEXT_DIR/prompt.md"
+          test -f "$REPAIR_CONTEXT_DIR/failure.log"
+          ls -la "$REPAIR_CONTEXT_DIR"
 
       - name: Run Copilot repair agent
         if: steps.preflight.outputs.ready == 'true'
@@ -162,11 +172,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          PROMPT="$(cat "$RUNNER_TEMP/dependabot-repair/prompt.md")"
+          PROMPT="$(cat "$REPAIR_CONTEXT_DIR/prompt.md")"
           copilot \
             --agent dependabot-repair \
             --prompt "$PROMPT" \
-            --silent
+            --silent 2>&1 | tee "$REPAIR_CONTEXT_DIR/copilot-output.log"
+
+      - name: Inspect Copilot repair outputs
+        if: steps.preflight.outputs.ready == 'true'
+        run: |
+          ls -la "$REPAIR_CONTEXT_DIR"
+          if [[ -f "$REPAIR_CONTEXT_DIR/result.json" ]]; then
+            cat "$REPAIR_CONTEXT_DIR/result.json"
+          else
+            echo "No result.json produced by Copilot."
+          fi
 
       - name: Finalize superseding PR workflow
         if: steps.preflight.outputs.ready == 'true'
@@ -181,4 +201,4 @@ jobs:
             --pr-number "$PR_NUMBER" \
             --head-sha "$HEAD_SHA" \
             --replacement-branch "$REPAIR_BRANCH" \
-            --result-path "$RUNNER_TEMP/dependabot-repair/result.json"
+            --result-path "$REPAIR_CONTEXT_DIR/result.json"

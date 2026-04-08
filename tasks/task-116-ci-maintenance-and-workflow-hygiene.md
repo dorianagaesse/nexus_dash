@@ -4,7 +4,7 @@
 TASK-116
 
 ## Status
-Implementation in progress, awaiting review and validation
+Implementation in progress, live validation follow-up in progress
 
 ## Objective
 Keep dependency automation trustworthy without letting it pull focus from
@@ -106,6 +106,9 @@ Dependabot PRs into a weekly scheduled GitHub Copilot repair lane.
     repo-owned superseding PRs when Copilot produces a repair
   - the workflow closes original Dependabot PRs once a superseding PR exists
   - superseding PRs are not auto-merged
+  - a live smoke test on Dependabot PR `#133` must prove the Copilot lane
+    actually reaches agent execution and does not stop early on missing repair
+    context files
 
 ---
 
