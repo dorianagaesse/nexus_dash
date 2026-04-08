@@ -19,13 +19,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-<<<<<<< HEAD
-  repair-manual-review-prs:
-    name: Repair manual-review Dependabot PRs
-=======
   scan-red-prs:
     name: Scan red Dependabot PRs
->>>>>>> a488cf0 (chore(task-116): schedule copilot dependabot repair lane)
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -139,10 +134,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-<<<<<<< HEAD
-          DEPENDABOT_REPAIR_MAX_PRS: "2"
-        run: python scripts/dependabot_repair_agent.py
-=======
           PR_NUMBER: ${{ matrix.target.number }}
         run: |
           mkdir -p "$RUNNER_TEMP/dependabot-repair"
@@ -180,4 +171,3 @@ jobs:
             --head-sha "$HEAD_SHA" \
             --replacement-branch "$REPAIR_BRANCH" \
             --result-path "$RUNNER_TEMP/dependabot-repair/result.json"
->>>>>>> a488cf0 (chore(task-116): schedule copilot dependabot repair lane)

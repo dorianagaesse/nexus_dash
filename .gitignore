@@ -54,3 +54,6 @@ next-env.d.ts
 /tmp/
 /.tmp/
 /tmp_query.sql
+
+# Python cache for workflow helper scripts
+/scripts/__pycache__/

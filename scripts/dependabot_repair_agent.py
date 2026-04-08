@@ -16,10 +16,6 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 REPO = os.environ.get("GITHUB_REPOSITORY", "").strip()
 MARKER_PREFIX = "<!-- dependabot-repair-agent:"
-<<<<<<< HEAD
-NPM_EXECUTABLE = "npm.cmd" if os.name == "nt" else "npm"
-FORCE_REPAIR = os.environ.get("DEPENDABOT_REPAIR_FORCE", "").strip() == "1"
-=======
 DEPENDABOT_LOGINS = {"app/dependabot", "dependabot[bot]"}
 REQUIRED_CHECK_NAMES = {
     "check-name",
@@ -27,7 +23,6 @@ REQUIRED_CHECK_NAMES = {
     "E2E Smoke (Playwright)",
     "Container Image (build + metadata artifact)",
 }
->>>>>>> a488cf0 (chore(task-116): schedule copilot dependabot repair lane)
 
 
 def run(
@@ -60,38 +55,6 @@ def git(*args: str, check: bool = True) -> str:
     return run(["git", *args], check=check).stdout
 
 
-<<<<<<< HEAD
-def failing_dependabot_prs() -> list[dict[str, Any]]:
-    prs = gh_json(
-        [
-            "pr",
-            "list",
-            "--state",
-            "open",
-            "--search",
-            "author:app/dependabot",
-            "--json",
-            "number,title,headRefName,headRefOid,labels,statusCheckRollup,url",
-        ]
-    )
-
-    failing: list[dict[str, Any]] = []
-    for pr in prs:
-        labels = {label["name"] for label in pr.get("labels", [])}
-        if "dependabot:auto-merge" in labels:
-            continue
-
-        checks = pr.get("statusCheckRollup") or []
-        has_failure = any(
-            check_run.get("status") == "COMPLETED"
-            and check_run.get("conclusion") not in {"SUCCESS", "NEUTRAL", "SKIPPED", None, ""}
-            for check_run in checks
-        )
-        if has_failure:
-            failing.append(pr)
-
-    return failing[:MAX_PRS]
-=======
 def is_dependabot_pr(pr: dict[str, Any]) -> bool:
     author = pr.get("author") or {}
     return (
@@ -130,7 +93,6 @@ def pr_has_failure(pr: dict[str, Any]) -> bool:
         and check_run.get("conclusion") not in {"SUCCESS", "NEUTRAL", "SKIPPED", None, ""}
         for check_run in latest_checks.values()
     )
->>>>>>> a488cf0 (chore(task-116): schedule copilot dependabot repair lane)
 
 
 def get_comments(pr_number: int) -> list[dict[str, Any]]:
@@ -480,23 +442,9 @@ def main() -> int:
         print("GITHUB_REPOSITORY is required.", file=sys.stderr)
         return 2
 
-<<<<<<< HEAD
-    prs = failing_dependabot_prs()
-    if not prs:
-        print("No failing/manual-review Dependabot PRs matched the repair lane.")
-        return 0
-
-    git("checkout", "main")
-    for pr in prs:
-        print(f"Processing Dependabot PR #{pr['number']}: {pr['title']}")
-        process_pr(pr)
-
-    return 0
-=======
     parser = build_parser()
     args = parser.parse_args()
     return args.func(args)
->>>>>>> a488cf0 (chore(task-116): schedule copilot dependabot repair lane)
 
 
 if __name__ == "__main__":
