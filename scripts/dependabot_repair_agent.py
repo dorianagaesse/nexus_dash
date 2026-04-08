@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REPO = os.environ.get("GITHUB_REPOSITORY", "").strip()
 MARKER_PREFIX = "<!-- dependabot-repair-agent:"
 DEPENDABOT_LOGINS = {"app/dependabot", "dependabot[bot]"}
+MAX_SCAN_LIMIT = 5
 REQUIRED_CHECK_NAMES = {
     "check-name",
     "Quality Core (lint, test, coverage, build)",
@@ -228,6 +229,15 @@ def write_output(path: Path | None, payload: Any) -> None:
         print(content)
 
 
+def validated_limit(limit: int) -> int:
+    if 1 <= limit <= MAX_SCAN_LIMIT:
+        return limit
+
+    raise ValueError(
+        f"--limit must be between 1 and {MAX_SCAN_LIMIT} so the repair lane stays bounded."
+    )
+
+
 def prompt_text(pr: dict[str, Any], result_path: Path, log_path: Path) -> str:
     return "\n".join(
         [
@@ -267,7 +277,13 @@ def prompt_text(pr: dict[str, Any], result_path: Path, log_path: Path) -> str:
 
 
 def cmd_scan(args: argparse.Namespace) -> int:
-    targets = scan_targets(args.limit, args.pr_number)
+    try:
+        limit = validated_limit(args.limit)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    targets = scan_targets(limit, args.pr_number)
     write_output(Path(args.output) if args.output else None, targets)
     return 0
 
@@ -380,6 +396,35 @@ def cmd_finalize(args: argparse.Namespace) -> int:
     validation = [str(item).strip() for item in result.get("validation") or [] if str(item).strip()]
     marker = f"{MARKER_PREFIX}pr-{args.pr_number}:{args.head_sha} -->"
     replacement_branch = args.replacement_branch
+    expected_branch = replacement_branch_name(args.pr_number, args.head_sha)
+
+    if replacement_branch != expected_branch:
+        print(
+            (
+                f"Replacement branch mismatch for PR #{args.pr_number}: "
+                f"expected `{expected_branch}`, got `{replacement_branch}`."
+            ),
+            file=sys.stderr,
+        )
+        return 2
+
+    if original_pr.get("state") != "OPEN":
+        print(
+            f"PR #{args.pr_number} is no longer open; skipping finalize.",
+            file=sys.stderr,
+        )
+        return 0
+
+    current_head_sha = original_pr.get("headRefOid") or ""
+    if current_head_sha != args.head_sha:
+        print(
+            (
+                f"PR #{args.pr_number} moved from `{args.head_sha}` to "
+                f"`{current_head_sha}` after scan; skipping finalize."
+            ),
+            file=sys.stderr,
+        )
+        return 0
 
     existing = existing_replacement_pr(replacement_branch)
     if existing:

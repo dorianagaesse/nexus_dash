@@ -74,7 +74,7 @@ distraction by:
   reopening of `TASK-061`.
 - The current `main` baseline is coherent, but it does not yet match this
   clarified weekly Copilot repair model.
-- PR `#144` is the active rollout vehicle for aligning the workflow and docs to
+- PR `#145` is the active rollout vehicle for aligning the workflow and docs to
   the final weekly model.
 
 ---
