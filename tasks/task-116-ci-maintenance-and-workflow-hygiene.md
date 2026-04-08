@@ -1,4 +1,4 @@
-# TASK-116 Dependabot and CI Automation - Safe Merge + Event-Driven Bounded Repair Agent
+# TASK-116 Dependabot and CI Automation - Safe Merge + Weekly Copilot Repair Lane
 
 ## Task ID
 TASK-116
@@ -8,9 +8,8 @@ Implementation in progress, awaiting review and validation
 
 ## Objective
 Keep dependency automation trustworthy without letting it pull focus from
-delivery by narrowing safe auto-merge lanes and adding a bounded event-driven
-repair path for failing/manual-review Dependabot PRs, with weekly/manual
-backstop coverage.
+delivery by narrowing safe auto-merge lanes and moving failing/manual-review
+Dependabot PRs into a weekly scheduled GitHub Copilot repair lane.
 
 ## Why This Task Matters
 - `TASK-061` intentionally enabled recurring Dependabot updates for npm and
@@ -38,9 +37,9 @@ backstop coverage.
 - Reduce routine Dependabot overhead by grouping safe update lanes and
   auto-merging them after the repository's normal quality gates pass.
 - Implement the next automation tier for the remaining red/manual-review
-  Dependabot PRs: a bounded repair agent that reacts to Dependabot PR check
-  completion events, can attempt straightforward repairs on repo-owned
-  superseding branches, and hands them back for review.
+  Dependabot PRs as a weekly scheduled GitHub Copilot CLI custom-agent pass
+  that can attempt repairs on repo-owned superseding branches and hand them
+  back for review.
 - Use repo-owned replacement branches/PRs because the original Dependabot
   branches are not maintainer-writable.
 - Record the change in the development journal.
@@ -58,13 +57,12 @@ backstop coverage.
 - Safe grouped update lanes can be approved and merged automatically without
   weakening the existing quality gates or expanding automation to risky major
   migrations.
-- The red-PR repair agent is explicitly bounded:
+- The red-PR repair lane is explicitly bounded:
   it works only on manual-review Dependabot PRs, opens repo-owned superseding
-  branches/PRs, comments the original PRs, and leaves merge decisions to
-  humans.
-- The repair lane is event-driven first:
-  it should react to CI completion on Dependabot-created `dependabot/*` PRs,
-  while a weekly/manual run remains available only as a backstop.
+  branches/PRs, comments and closes the original Dependabot PRs once
+  superseded, and leaves merge decisions to humans.
+- The repair lane is schedule-driven:
+  it runs weekly and stays operationally separate from feature-adjacent CI.
 - The work stays isolated as workflow/dependency maintenance rather than
   product-scope feature changes.
 
@@ -102,11 +100,14 @@ backstop coverage.
   - excluded majors and high-churn packages remain visible manual-review PRs
   - grouped GitHub Actions updates stay patch/minor only so major action bumps
     remain outside the auto-merge lane
-  - the red-PR repair agent is implemented as a separate non-blocking workflow
-    that reacts to completed CI on Dependabot-created PRs, while still keeping
-    weekly/manual dispatch for backstop operation
+  - the red-PR repair lane is implemented as a separate weekly workflow using
+    GitHub Copilot CLI with a repository custom agent profile
+  - the workflow scans only open red/manual-review Dependabot PRs and creates
+    repo-owned superseding PRs when Copilot produces a repair
+  - the workflow closes original Dependabot PRs once a superseding PR exists
+  - superseding PRs are not auto-merged
 
 ---
 
-Last Updated: 2026-04-08
+Last Updated: 2026-04-09
 Assigned To: User + Agent
