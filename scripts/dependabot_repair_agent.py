@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(os.environ.get("GITHUB_WORKSPACE") or Path(__file__).resolve().parents[1]).resolve()
 REPO = os.environ.get("GITHUB_REPOSITORY", "").strip()
 MARKER_PREFIX = "<!-- dependabot-repair-agent:"
 DEPENDABOT_LOGINS = {"app/dependabot", "dependabot[bot]"}
