@@ -109,6 +109,9 @@ Dependabot PRs into a weekly scheduled GitHub Copilot repair lane.
   - a live smoke test on Dependabot PR `#133` must prove the Copilot lane
     actually reaches agent execution and does not stop early on missing repair
     context files
+  - manual workflow dispatch should allow a targeted force-rerun on a marked
+    Dependabot PR head so live debugging does not require reopening or mutating
+    the original PR first
 
 ---
 

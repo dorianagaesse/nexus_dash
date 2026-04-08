@@ -72,6 +72,9 @@ distraction by:
   the weekly lane must either produce a repo-owned superseding PR or emit a
   machine-readable defer path from Copilot rather than failing before agent
   execution.
+- Manual workflow dispatch should support a force-rerun path for a specific
+  Dependabot PR so we can re-validate an already-marked PR head without
+  weakening the default dedupe behavior.
 
 ## Notes
 - This remains a workflow/dependency-maintenance task under `TASK-116`, not a

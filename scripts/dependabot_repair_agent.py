@@ -168,7 +168,12 @@ def working_tree_has_changes() -> bool:
     return bool(run(["git", "status", "--short"], capture_output=True).stdout.strip())
 
 
-def scan_targets(limit: int, specific_pr: int | None = None) -> list[dict[str, Any]]:
+def scan_targets(
+    limit: int,
+    specific_pr: int | None = None,
+    *,
+    force: bool = False,
+) -> list[dict[str, Any]]:
     if specific_pr is not None:
         prs = [fetch_pr(specific_pr)]
     else:
@@ -202,7 +207,10 @@ def scan_targets(limit: int, specific_pr: int | None = None) -> list[dict[str, A
 
         marker = f"{MARKER_PREFIX}pr-{pr['number']}:{pr['headRefOid']} -->"
         branch_name = replacement_branch_name(pr["number"], pr["headRefOid"])
-        if has_marker(pr["number"], marker) or existing_replacement_pr(branch_name):
+        if existing_replacement_pr(branch_name):
+            continue
+
+        if not force and has_marker(pr["number"], marker):
             continue
 
         targets.append(
@@ -283,7 +291,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
-    targets = scan_targets(limit, args.pr_number)
+    targets = scan_targets(limit, args.pr_number, force=args.force)
     write_output(Path(args.output) if args.output else None, targets)
     return 0
 
@@ -462,6 +470,7 @@ def build_parser() -> argparse.ArgumentParser:
     scan = subparsers.add_parser("scan", help="List open red/manual-review Dependabot PRs.")
     scan.add_argument("--limit", type=int, default=2)
     scan.add_argument("--pr-number", type=int)
+    scan.add_argument("--force", action="store_true")
     scan.add_argument("--output")
     scan.set_defaults(func=cmd_scan)
 
