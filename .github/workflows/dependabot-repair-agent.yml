@@ -1,17 +1,30 @@
 name: Dependabot Repair Agent
 
 on:
+  workflow_run:
+    workflows:
+      - Quality Gates
+      - E2E Smoke
+      - Container Image
+    types:
+      - completed
   schedule:
     - cron: "45 7 * * 1"
   workflow_dispatch:
 
 concurrency:
-  group: dependabot-repair-agent
+  group: ${{ github.event_name == 'workflow_run' && format('dependabot-repair-agent-run-{0}', github.event.workflow_run.id) || format('dependabot-repair-agent-run-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:
   repair-manual-review-prs:
     name: Repair manual-review Dependabot PRs
+    if: >
+      github.event_name != 'workflow_run' ||
+      (
+        github.event.workflow_run.event == 'pull_request' &&
+        startsWith(github.event.workflow_run.head_branch, 'dependabot/')
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -42,4 +55,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           DEPENDABOT_REPAIR_MAX_PRS: "2"
+          DEPENDABOT_REPAIR_PR_NUMBER: ""
+          DEPENDABOT_REPAIR_HEAD_BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || '' }}
+          DEPENDABOT_REPAIR_HEAD_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
+          DEPENDABOT_REPAIR_TRIGGER: ${{ github.event_name }}
         run: python scripts/dependabot_repair_agent.py

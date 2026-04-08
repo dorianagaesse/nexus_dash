@@ -1,15 +1,16 @@
-# TASK-116 Dependabot and CI Automation - Safe Merge + Bounded Repair Agent
+# TASK-116 Dependabot and CI Automation - Safe Merge + Event-Driven Bounded Repair Agent
 
 ## Task ID
 TASK-116
 
 ## Status
-Implementation complete, awaiting validation
+Implementation in progress, awaiting review and validation
 
 ## Objective
 Keep dependency automation trustworthy without letting it pull focus from
-delivery by narrowing safe auto-merge lanes and adding a bounded repair path
-for failing/manual-review Dependabot PRs.
+delivery by narrowing safe auto-merge lanes and adding a bounded event-driven
+repair path for failing/manual-review Dependabot PRs, with weekly/manual
+backstop coverage.
 
 ## Why This Task Matters
 - `TASK-061` intentionally enabled recurring Dependabot updates for npm and
@@ -37,8 +38,9 @@ for failing/manual-review Dependabot PRs.
 - Reduce routine Dependabot overhead by grouping safe update lanes and
   auto-merging them after the repository's normal quality gates pass.
 - Implement the next automation tier for the remaining red/manual-review
-  Dependabot PRs: a bounded scheduled agent that can attempt straightforward
-  repairs on repo-owned superseding branches and hand them back for review.
+  Dependabot PRs: a bounded repair agent that reacts to Dependabot PR check
+  completion events, can attempt straightforward repairs on repo-owned
+  superseding branches, and hands them back for review.
 - Use repo-owned replacement branches/PRs because the original Dependabot
   branches are not maintainer-writable.
 - Record the change in the development journal.
@@ -60,6 +62,9 @@ for failing/manual-review Dependabot PRs.
   it works only on manual-review Dependabot PRs, opens repo-owned superseding
   branches/PRs, comments the original PRs, and leaves merge decisions to
   humans.
+- The repair lane is event-driven first:
+  it should react to CI completion on Dependabot-created `dependabot/*` PRs,
+  while a weekly/manual run remains available only as a backstop.
 - The work stays isolated as workflow/dependency maintenance rather than
   product-scope feature changes.
 
@@ -97,10 +102,11 @@ for failing/manual-review Dependabot PRs.
   - excluded majors and high-churn packages remain visible manual-review PRs
   - grouped GitHub Actions updates stay patch/minor only so major action bumps
     remain outside the auto-merge lane
-  - the red-PR repair agent is implemented as a separate scheduled/manual
-    workflow, not silently bundled into the safe auto-merge policy
+  - the red-PR repair agent is implemented as a separate non-blocking workflow
+    that reacts to completed CI on Dependabot-created PRs, while still keeping
+    weekly/manual dispatch for backstop operation
 
 ---
 
-Last Updated: 2026-04-07
+Last Updated: 2026-04-08
 Assigned To: User + Agent

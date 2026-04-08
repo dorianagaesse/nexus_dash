@@ -1,18 +1,19 @@
-# Current Task: TASK-116 Dependabot and CI Automation - Safe Merge + Bounded Repair Agent
+# Current Task: TASK-116 Dependabot and CI Automation - Safe Merge + Event-Driven Bounded Repair Agent
 
 ## Task ID
 TASK-116
 
 ## Status
-Implementation complete, awaiting validation
+Implementation in progress, awaiting review and validation
 
 ## Objective
 Turn Dependabot into a low-friction maintenance lane instead of a delivery
 distraction by:
 - keeping safe update classes small and auto-mergeable only after full CI
 - keeping risky majors/manual-review lanes explicit
-- adding a bounded scheduled repair agent that can attempt straightforward
-  fixes on repo-owned superseding branches and hand results back for review
+- adding a bounded event-driven repair agent for Dependabot-created manual-
+  review PRs, with a weekly backstop, so straightforward fixes can open
+  repo-owned superseding branches and hand results back for review
 
 ## Why This Task Matters
 - `TASK-061` enabled recurring Dependabot updates for npm and GitHub Actions.
@@ -38,11 +39,15 @@ distraction by:
   reopening.
 - Landed: group safe Dependabot update lanes and auto-merge them only after
   the normal required PR checks pass.
-- Landed: add the bounded scheduled/manual repair agent for red/manual-review
-  Dependabot PRs so straightforward failures can get a repo-owned repair path
-  without mutating bot branches or auto-merging guesswork.
-- Validation state: the repair-agent workflow is now on `main` and has already
-  completed one successful manual dispatch against the live repo.
+- Landed: add the bounded repair agent for red/manual-review Dependabot PRs so
+  straightforward failures can get a repo-owned repair path without mutating
+  bot branches or auto-merging guesswork.
+- This follow-up slice updates that repair lane so it runs primarily from
+  Dependabot PR check completions, with the weekly/manual path kept only as a
+  backstop.
+- Validation state target: the repair-agent workflow should react only to
+  Dependabot-created `dependabot/*` PRs after relevant CI completes, while the
+  scheduled/manual mode remains available for backfill and explicit reruns.
 - Record outcomes, validation, and any superseding replacement PRs in
   `journal.md`.
 
@@ -93,11 +98,15 @@ distraction by:
   - `.github/workflows/dependabot-auto-triage.yml` labels safe lanes with
     `dependabot:auto-merge`, auto-approves them, and merges them after the
     required checks report success
-  - `.github/workflows/dependabot-repair-agent.yml` runs on a weekly schedule
-    plus manual dispatch, scans failing/manual-review Dependabot PRs, and
-    attempts only bounded repairs on repo-owned superseding branches
-  - the first live manual dispatch of the repair-agent workflow succeeded on
-    `main`, proving the scheduled/manual plumbing is wired correctly
+  - `.github/workflows/dependabot-repair-agent.yml` now runs primarily from
+    completed CI workflows on Dependabot PRs, with weekly schedule plus manual
+    dispatch kept as a backstop
+  - `scripts/dependabot_repair_agent.py` can target the exact Dependabot PR
+    that triggered the workflow, no-op on green/safe PRs, and still fall back
+    to bounded batch scanning for scheduled/manual runs
+  - the original manual dispatch success on `main` still proves the backstop
+    lane is wired, while this follow-up should prove the event-driven lane is
+    scoped correctly
   - excluded majors and high-churn packages remain explicitly manual-review
     work instead of hidden auto-fix attempts
   - GitHub Actions rollup grouping is limited to patch/minor updates so major
@@ -122,11 +131,11 @@ distraction by:
   manual-review lanes, not an always-on agent trying to rewrite arbitrary red
   dependency PRs every Monday.
 - The bounded red-PR repair agent belongs in the manual-review lane only:
-  it should scan failing Dependabot PRs, attempt straightforward fixes on a
+  it should react to failing Dependabot PRs, attempt straightforward fixes on a
   repo-owned superseding branch, comment both the original and replacement PRs,
   and stop before merge so we can review the outcome together.
 
 ---
 
-Last Updated: 2026-04-07
+Last Updated: 2026-04-08
 Assigned To: User + Agent

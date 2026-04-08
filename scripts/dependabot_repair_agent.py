@@ -18,6 +18,10 @@ MAX_PRS = int(os.environ.get("DEPENDABOT_REPAIR_MAX_PRS", "2"))
 MARKER_PREFIX = "<!-- dependabot-repair-agent:"
 NPM_EXECUTABLE = "npm.cmd" if os.name == "nt" else "npm"
 FORCE_REPAIR = os.environ.get("DEPENDABOT_REPAIR_FORCE", "").strip() == "1"
+TARGET_PR_NUMBER = os.environ.get("DEPENDABOT_REPAIR_PR_NUMBER", "").strip()
+TARGET_HEAD_BRANCH = os.environ.get("DEPENDABOT_REPAIR_HEAD_BRANCH", "").strip()
+TARGET_HEAD_SHA = os.environ.get("DEPENDABOT_REPAIR_HEAD_SHA", "").strip()
+DEPENDABOT_LOGINS = {"app/dependabot", "dependabot[bot]"}
 
 
 def run(
@@ -50,6 +54,25 @@ def git(*args: str, check: bool = True) -> str:
     return run(["git", *args], check=check).stdout
 
 
+def is_dependabot_pr(pr: dict[str, Any]) -> bool:
+    author = pr.get("author") or {}
+    return (
+        pr.get("headRefName", "").startswith("dependabot/")
+        and author.get("login") in DEPENDABOT_LOGINS
+        and not pr.get("isDraft", False)
+        and pr.get("state", "OPEN") == "OPEN"
+    )
+
+
+def pr_has_failure(pr: dict[str, Any]) -> bool:
+    checks = pr.get("statusCheckRollup") or []
+    return any(
+        check_run.get("status") == "COMPLETED"
+        and check_run.get("conclusion") not in {"SUCCESS", "NEUTRAL", "SKIPPED", None, ""}
+        for check_run in checks
+    )
+
+
 def failing_dependabot_prs() -> list[dict[str, Any]]:
     prs = gh_json(
         [
@@ -57,29 +80,79 @@ def failing_dependabot_prs() -> list[dict[str, Any]]:
             "list",
             "--state",
             "open",
-            "--search",
-            "author:app/dependabot",
             "--json",
-            "number,title,headRefName,headRefOid,labels,statusCheckRollup,url",
+            "number,title,headRefName,headRefOid,labels,statusCheckRollup,url,author,isDraft,state",
         ]
     )
 
     failing: list[dict[str, Any]] = []
     for pr in prs:
+        if not is_dependabot_pr(pr):
+            continue
+
         labels = {label["name"] for label in pr.get("labels", [])}
         if "dependabot:auto-merge" in labels:
             continue
 
-        checks = pr.get("statusCheckRollup") or []
-        has_failure = any(
-            check_run.get("status") == "COMPLETED"
-            and check_run.get("conclusion") not in {"SUCCESS", "NEUTRAL", "SKIPPED", None, ""}
-            for check_run in checks
-        )
-        if has_failure:
+        if pr_has_failure(pr):
             failing.append(pr)
 
     return failing[:MAX_PRS]
+
+
+def targeted_dependabot_pr() -> dict[str, Any] | None:
+    if not TARGET_PR_NUMBER and not TARGET_HEAD_BRANCH:
+        return None
+
+    if TARGET_PR_NUMBER:
+        pr = gh_json(
+            [
+                "pr",
+                "view",
+                TARGET_PR_NUMBER,
+                "--json",
+                "number,title,headRefName,headRefOid,labels,statusCheckRollup,url,author,isDraft,state",
+            ]
+        )
+    else:
+        prs = gh_json(
+            [
+                "pr",
+                "list",
+                "--state",
+                "open",
+                "--head",
+                TARGET_HEAD_BRANCH,
+                "--json",
+                "number,title,headRefName,headRefOid,labels,statusCheckRollup,url,author,isDraft,state",
+            ]
+        )
+        if not prs:
+            print(f"Skipping branch {TARGET_HEAD_BRANCH}; no open PR currently matches that head branch.")
+            return None
+        pr = prs[0]
+
+    if not is_dependabot_pr(pr):
+        pr_reference = f"PR #{TARGET_PR_NUMBER}" if TARGET_PR_NUMBER else f"branch {TARGET_HEAD_BRANCH}"
+        print(f"Skipping {pr_reference}; it is not an open Dependabot PR on a dependabot/* branch.")
+        return None
+
+    if TARGET_HEAD_SHA and pr.get("headRefOid") != TARGET_HEAD_SHA:
+        print(
+            f"Skipping PR #{pr['number']}; workflow_run head {TARGET_HEAD_SHA} no longer matches current PR head {pr.get('headRefOid')}."
+        )
+        return None
+
+    labels = {label["name"] for label in pr.get("labels", [])}
+    if "dependabot:auto-merge" in labels:
+        print(f"Skipping PR #{TARGET_PR_NUMBER}; it is already in the safe auto-merge lane.")
+        return None
+
+    if not pr_has_failure(pr):
+        print(f"Skipping PR #{TARGET_PR_NUMBER}; no failing required checks are visible on the current head.")
+        return None
+
+    return pr
 
 
 def get_comments(pr_number: int) -> list[dict[str, Any]]:
@@ -316,7 +389,8 @@ def main() -> int:
         print("GITHUB_REPOSITORY is required.", file=sys.stderr)
         return 2
 
-    prs = failing_dependabot_prs()
+    prs = [targeted_dependabot_pr()] if TARGET_PR_NUMBER or TARGET_HEAD_BRANCH else failing_dependabot_prs()
+    prs = [pr for pr in prs if pr is not None]
     if not prs:
         print("No failing/manual-review Dependabot PRs matched the repair lane.")
         return 0

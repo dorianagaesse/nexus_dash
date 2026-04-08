@@ -12,6 +12,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-08
+- Type: Execution
+- Summary: TASK-116 moved the bounded Dependabot repair lane from weekly-primary to event-driven-primary so failing/manual-review bot PRs can be triaged as their CI workflows complete, while keeping the scheduled/manual run as a backstop.
+- Evidence: Updated `.github/workflows/dependabot-repair-agent.yml` to trigger on completed `Quality Gates`, `E2E Smoke`, and `Container Image` runs for `dependabot/*` pull requests; updated `scripts/dependabot_repair_agent.py` to target the exact triggering PR, no-op on green/safe bot PRs, and retain bounded batch scanning only for scheduled/manual runs.
+
 ### 2026-04-07
 - Type: Validation
 - Summary: TASK-116 needed a fourth live follow-up after the safe-lane merge job was counting its own skipped bookkeeping checks as incomplete status signals on PR `#137`.
