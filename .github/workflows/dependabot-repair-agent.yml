@@ -99,7 +99,11 @@ jobs:
       issues: write
       pull-requests: write
     env:
-      REPAIR_CONTEXT_DIR: ${{ github.workspace }}/.tmp/dependabot-repair/${{ matrix.target.number }}
+      REPAIR_CONTEXT_DIR: ${{ runner.temp }}/dependabot-repair/${{ matrix.target.number }}
+      REPAIR_ORCHESTRATOR_PATH: ${{ runner.temp }}/dependabot-repair/${{ matrix.target.number }}/dependabot_repair_agent.py
+      REPAIR_AGENT_SPEC_PATH: ${{ runner.temp }}/dependabot-repair/${{ matrix.target.number }}/dependabot-repair.agent.md
+      REPAIR_AGENT_TARGET_PATH: .github/agents/dependabot-repair.agent.md
+      REPAIR_AGENT_BACKUP_PATH: ${{ runner.temp }}/dependabot-repair/${{ matrix.target.number }}/dependabot-repair.agent.backup.md
 
     steps:
       - name: Checkout repository
@@ -125,6 +129,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Materialize TASK-116 repair tooling
+        run: |
+          rm -rf "$REPAIR_CONTEXT_DIR"
+          mkdir -p "$REPAIR_CONTEXT_DIR"
+          cp scripts/dependabot_repair_agent.py "$REPAIR_ORCHESTRATOR_PATH"
+          cp .github/agents/dependabot-repair.agent.md "$REPAIR_AGENT_SPEC_PATH"
+
       - name: Preflight Copilot authentication
         id: preflight
         env:
@@ -143,15 +154,6 @@ jobs:
 
           echo "ready=true" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout Dependabot update on repo-owned branch
-        if: steps.preflight.outputs.ready == 'true'
-        env:
-          HEAD_REF: ${{ matrix.target.head_ref }}
-          REPAIR_BRANCH: ${{ matrix.target.replacement_branch }}
-        run: |
-          git fetch origin "$HEAD_REF"
-          git checkout -B "$REPAIR_BRANCH" FETCH_HEAD
-
       - name: Prepare Copilot repair context
         if: steps.preflight.outputs.ready == 'true'
         env:
@@ -159,9 +161,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ matrix.target.number }}
         run: |
-          rm -rf "$REPAIR_CONTEXT_DIR"
-          mkdir -p "$REPAIR_CONTEXT_DIR"
-          python scripts/dependabot_repair_agent.py prepare \
+          python "$REPAIR_ORCHESTRATOR_PATH" prepare \
             --pr-number "$PR_NUMBER" \
             --prompt-path "$REPAIR_CONTEXT_DIR/prompt.md" \
             --result-path "$REPAIR_CONTEXT_DIR/result.json" \
@@ -173,6 +173,24 @@ jobs:
           test -f "$REPAIR_CONTEXT_DIR/prompt.md"
           test -f "$REPAIR_CONTEXT_DIR/failure.log"
           ls -la "$REPAIR_CONTEXT_DIR"
+
+      - name: Checkout Dependabot update on repo-owned branch
+        if: steps.preflight.outputs.ready == 'true'
+        env:
+          HEAD_REF: ${{ matrix.target.head_ref }}
+          REPAIR_BRANCH: ${{ matrix.target.replacement_branch }}
+        run: |
+          git fetch origin "$HEAD_REF"
+          git checkout -B "$REPAIR_BRANCH" FETCH_HEAD
+
+      - name: Inject TASK-116 repair agent spec
+        if: steps.preflight.outputs.ready == 'true'
+        run: |
+          mkdir -p "$(dirname "$REPAIR_AGENT_TARGET_PATH")"
+          if [[ -f "$REPAIR_AGENT_TARGET_PATH" ]]; then
+            cp "$REPAIR_AGENT_TARGET_PATH" "$REPAIR_AGENT_BACKUP_PATH"
+          fi
+          cp "$REPAIR_AGENT_SPEC_PATH" "$REPAIR_AGENT_TARGET_PATH"
 
       - name: Run Copilot repair agent
         if: steps.preflight.outputs.ready == 'true'
@@ -188,6 +206,16 @@ jobs:
             --agent dependabot-repair \
             --prompt "$PROMPT" \
             --silent 2>&1 | tee "$REPAIR_CONTEXT_DIR/copilot-output.log"
+
+      - name: Restore repair agent spec
+        if: steps.preflight.outputs.ready == 'true'
+        run: |
+          if [[ -f "$REPAIR_AGENT_BACKUP_PATH" ]]; then
+            cp "$REPAIR_AGENT_BACKUP_PATH" "$REPAIR_AGENT_TARGET_PATH"
+          else
+            rm -f "$REPAIR_AGENT_TARGET_PATH"
+            rmdir .github/agents 2>/dev/null || true
+          fi
 
       - name: Inspect Copilot repair outputs
         if: steps.preflight.outputs.ready == 'true'
@@ -208,7 +236,7 @@ jobs:
           HEAD_SHA: ${{ matrix.target.head_sha }}
           REPAIR_BRANCH: ${{ matrix.target.replacement_branch }}
         run: |
-          python scripts/dependabot_repair_agent.py finalize \
+          python "$REPAIR_ORCHESTRATOR_PATH" finalize \
             --pr-number "$PR_NUMBER" \
             --head-sha "$HEAD_SHA" \
             --replacement-branch "$REPAIR_BRANCH" \
