@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Bounded repair automation for failing Dependabot PRs."""
+"""Scheduled Dependabot repair support for TASK-116."""
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -14,10 +15,15 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = os.environ.get("GITHUB_REPOSITORY", "").strip()
-MAX_PRS = int(os.environ.get("DEPENDABOT_REPAIR_MAX_PRS", "2"))
 MARKER_PREFIX = "<!-- dependabot-repair-agent:"
-NPM_EXECUTABLE = "npm.cmd" if os.name == "nt" else "npm"
-FORCE_REPAIR = os.environ.get("DEPENDABOT_REPAIR_FORCE", "").strip() == "1"
+DEPENDABOT_LOGINS = {"app/dependabot", "dependabot[bot]"}
+MAX_SCAN_LIMIT = 5
+REQUIRED_CHECK_NAMES = {
+    "check-name",
+    "Quality Core (lint, test, coverage, build)",
+    "E2E Smoke (Playwright)",
+    "Container Image (build + metadata artifact)",
+}
 
 
 def run(
@@ -50,36 +56,44 @@ def git(*args: str, check: bool = True) -> str:
     return run(["git", *args], check=check).stdout
 
 
-def failing_dependabot_prs() -> list[dict[str, Any]]:
-    prs = gh_json(
-        [
-            "pr",
-            "list",
-            "--state",
-            "open",
-            "--search",
-            "author:app/dependabot",
-            "--json",
-            "number,title,headRefName,headRefOid,labels,statusCheckRollup,url",
-        ]
+def is_dependabot_pr(pr: dict[str, Any]) -> bool:
+    author = pr.get("author") or {}
+    return (
+        pr.get("headRefName", "").startswith("dependabot/")
+        and author.get("login") in DEPENDABOT_LOGINS
+        and not pr.get("isDraft", False)
+        and pr.get("state", "OPEN") == "OPEN"
     )
 
-    failing: list[dict[str, Any]] = []
-    for pr in prs:
-        labels = {label["name"] for label in pr.get("labels", [])}
-        if "dependabot:auto-merge" in labels:
+
+def label_names(pr: dict[str, Any]) -> set[str]:
+    return {label["name"] for label in pr.get("labels", [])}
+
+
+def pr_has_failure(pr: dict[str, Any]) -> bool:
+    latest_checks: dict[str, dict[str, Any]] = {}
+    latest_keys: dict[str, str] = {}
+
+    for check_run in pr.get("statusCheckRollup") or []:
+        name = check_run.get("name") or ""
+        if name not in REQUIRED_CHECK_NAMES:
             continue
 
-        checks = pr.get("statusCheckRollup") or []
-        has_failure = any(
-            check_run.get("status") == "COMPLETED"
-            and check_run.get("conclusion") not in {"SUCCESS", "NEUTRAL", "SKIPPED", None, ""}
-            for check_run in checks
+        sort_key = (
+            check_run.get("completedAt")
+            or check_run.get("startedAt")
+            or check_run.get("detailsUrl")
+            or ""
         )
-        if has_failure:
-            failing.append(pr)
+        if name not in latest_keys or sort_key > latest_keys[name]:
+            latest_keys[name] = sort_key
+            latest_checks[name] = check_run
 
-    return failing[:MAX_PRS]
+    return any(
+        check_run.get("status") == "COMPLETED"
+        and check_run.get("conclusion") not in {"SUCCESS", "NEUTRAL", "SKIPPED", None, ""}
+        for check_run in latest_checks.values()
+    )
 
 
 def get_comments(pr_number: int) -> list[dict[str, Any]]:
@@ -90,8 +104,25 @@ def has_marker(pr_number: int, marker: str) -> bool:
     return any(marker in (comment.get("body") or "") for comment in get_comments(pr_number))
 
 
-def add_manual_review_label(pr_number: int) -> None:
-    gh("pr", "edit", str(pr_number), "--add-label", "dependabot:manual-review")
+def replacement_branch_name(pr_number: int, head_sha: str) -> str:
+    return f"chore/task-116-repair-pr-{pr_number}-{head_sha[:7]}"
+
+
+def existing_replacement_pr(branch_name: str) -> dict[str, Any] | None:
+    prs = gh_json(["pr", "list", "--state", "open", "--head", branch_name, "--json", "number,url,state"])
+    return prs[0] if prs else None
+
+
+def fetch_pr(pr_number: int) -> dict[str, Any]:
+    return gh_json(
+        [
+            "pr",
+            "view",
+            str(pr_number),
+            "--json",
+            "number,title,headRefName,headRefOid,labels,statusCheckRollup,url,author,isDraft,state",
+        ]
+    )
 
 
 def extract_run_id(pr: dict[str, Any]) -> str | None:
@@ -115,200 +146,340 @@ def fetch_failed_log(pr: dict[str, Any]) -> str:
     return completed.stdout or completed.stderr
 
 
-def classify_failure(log_text: str) -> dict[str, str]:
-    if (
-        "package.json and package-lock.json or npm-shrinkwrap.json are in sync" in log_text
-        or "`npm ci` can only install packages when your package.json and package-lock.json" in log_text
-        or "Missing: magicast@" in log_text
-    ):
-        return {
-            "kind": "lockfile-refresh",
-            "summary": (
-                "CI is failing because `npm ci` sees the lockfile out of sync with "
-                "`package.json`. This is in the bounded auto-repair lane."
-            ),
-        }
-
-    if "trying to use `tailwindcss` directly as a PostCSS plugin" in log_text:
-        return {
-            "kind": "comment-only",
-            "summary": (
-                "Tailwind 4 is not a lockfile-only repair here. It needs the "
-                "PostCSS plugin migration to `@tailwindcss/postcss` plus config validation."
-            ),
-        }
-
-    return {
-        "kind": "comment-only",
-        "summary": (
-            "The failure is outside the bounded auto-repair lane, so the agent is "
-            "recording the diagnosis for manual review instead of guessing."
-        ),
-    }
-
-
 def comment(pr_number: int, body: str) -> None:
     gh("pr", "comment", str(pr_number), "--body", body)
 
 
-def existing_replacement_pr(branch_name: str) -> dict[str, Any] | None:
-    prs = gh_json(["pr", "list", "--state", "open", "--head", branch_name, "--json", "number,url"])
-    return prs[0] if prs else None
-
-
-def repair_lockfile(pr: dict[str, Any], diagnosis: dict[str, str], marker: str) -> None:
-    pr_number = pr["number"]
-    branch_name = f"chore/task-116-repair-pr-{pr_number}-lockfile-{pr['headRefOid'][:7]}"
-    existing = existing_replacement_pr(branch_name)
-    if existing:
-        comment(
-            pr_number,
-            "\n".join(
-                [
-                    marker,
-                    f"Bounded repair already exists for this PR head: replacement PR #{existing['number']} ({existing['url']}).",
-                    "Human review is still required before merge.",
-                ]
+def load_result(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {
+            "decision": "defer",
+            "summary": (
+                "The Copilot repair lane did not produce a machine-readable result. "
+                "Leaving this Dependabot PR open for manual review."
             ),
+            "validation": [],
+        }
+
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def working_tree_has_changes() -> bool:
+    return bool(run(["git", "status", "--short"], capture_output=True).stdout.strip())
+
+
+def scan_targets(limit: int, specific_pr: int | None = None) -> list[dict[str, Any]]:
+    if specific_pr is not None:
+        prs = [fetch_pr(specific_pr)]
+    else:
+        prs = gh_json(
+            [
+                "pr",
+                "list",
+                "--state",
+                "open",
+                "--search",
+                "head:dependabot/",
+                "--json",
+                "number,title,headRefName,headRefOid,labels,statusCheckRollup,url,author,isDraft,state",
+            ]
         )
-        return
 
-    git("fetch", "origin", pr["headRefName"])
-    git("checkout", "-B", branch_name, "FETCH_HEAD")
+    targets: list[dict[str, Any]] = []
+    for pr in prs:
+        if not is_dependabot_pr(pr):
+            continue
 
-    try:
-        run([NPM_EXECUTABLE, "install"])
-    except subprocess.CalledProcessError as exc:
-        git("checkout", "main")
-        excerpt = (exc.stderr or exc.stdout or "npm install failed without captured output").strip()[:3500]
-        comment(
-            pr_number,
-            "\n".join(
-                [
-                    marker,
-                    diagnosis["summary"],
-                    "The agent attempted a lockfile refresh on a repo-owned superseding branch, but `npm install` failed before a repair PR could be created.",
-                    "",
-                    "Failure excerpt:",
-                    "```text",
-                    excerpt,
-                    "```",
-                ]
-            ),
+        labels = label_names(pr)
+        if "dependabot:auto-merge" in labels:
+            continue
+
+        if "dependabot:manual-review" not in labels and specific_pr is None:
+            continue
+
+        if not pr_has_failure(pr):
+            continue
+
+        marker = f"{MARKER_PREFIX}pr-{pr['number']}:{pr['headRefOid']} -->"
+        branch_name = replacement_branch_name(pr["number"], pr["headRefOid"])
+        if has_marker(pr["number"], marker) or existing_replacement_pr(branch_name):
+            continue
+
+        targets.append(
+            {
+                "number": pr["number"],
+                "title": pr["title"],
+                "url": pr["url"],
+                "head_ref": pr["headRefName"],
+                "head_sha": pr["headRefOid"],
+                "replacement_branch": branch_name,
+                "marker": marker,
+            }
         )
-        return
 
-    status = run(["git", "status", "--short"]).stdout.strip()
-    if not status:
-        git("checkout", "main")
-        comment(
-            pr_number,
-            "\n".join(
-                [
-                    marker,
-                    diagnosis["summary"],
-                    "The agent attempted a lockfile refresh, but it produced no file changes on a superseding branch.",
-                    "That usually means the failure needs a deeper compatibility fix than a lockfile sync.",
-                ]
-            ),
-        )
-        return
+    targets.sort(key=lambda item: item["number"])
+    return targets[:limit]
 
-    git("add", "package-lock.json", "package.json")
-    git("commit", "-m", f"chore(task-116): repair Dependabot PR #{pr_number} lockfile drift")
-    git("push", "-u", "origin", branch_name)
 
-    title = f"chore(task-116): repair Dependabot PR #{pr_number} lockfile drift"
-    body = "\n".join(
+def write_output(path: Path | None, payload: Any) -> None:
+    content = json.dumps(payload, indent=2)
+    if path:
+        path.write_text(content, encoding="utf-8")
+    else:
+        print(content)
+
+
+def validated_limit(limit: int) -> int:
+    if 1 <= limit <= MAX_SCAN_LIMIT:
+        return limit
+
+    raise ValueError(
+        f"--limit must be between 1 and {MAX_SCAN_LIMIT} so the repair lane stays bounded."
+    )
+
+
+def prompt_text(pr: dict[str, Any], result_path: Path, log_path: Path) -> str:
+    return "\n".join(
         [
-            f"Supersedes Dependabot PR #{pr_number}.",
+            "You are the NexusDash Dependabot repair agent.",
             "",
-            "## Why this exists",
-            diagnosis["summary"],
+            "Task boundaries:",
+            f"- Work only on Dependabot PR #{pr['number']}: {pr['title']}",
+            f"- The current branch already contains the Dependabot update from `{pr['head_ref']}`.",
+            f"- Original PR URL: {pr['url']}",
+            "- Preserve the dependency intent. Do not revert or replace the upgrade unless the only safe outcome is to defer and explain why.",
+            "- Prefer the smallest compatibility fix that makes the update viable.",
+            "- Do not create or merge a PR yourself. Do not push. Do not close any PR.",
             "",
-            "This repo-owned replacement branch refreshes the lockfile without mutating the original Dependabot branch.",
+            "Required work:",
+            "- Inspect the failing update in the current branch.",
+            f"- Use the failed-check log at `{log_path}` as a starting point.",
+            "- Decide whether the update is worth pursuing now.",
+            "- If it is worth pursuing now, make the necessary code/config/test fixes on the current branch and run the smallest relevant validation commands.",
+            "- If it is not worth pursuing now, do not make speculative changes.",
             "",
-            "## Review guidance",
-            "- verify the dependency bump itself is still desirable",
-            "- treat this PR as manual-review even if the repair is small",
-            "- close or supersede the original Dependabot PR only after this path is validated",
+            "Before finishing, write a JSON result file at:",
+            f"- `{result_path}`",
+            "",
+            "The JSON must use this exact shape:",
+            '{',
+            '  "decision": "fixed" | "defer",',
+            '  "summary": "short markdown-ready summary for maintainers",',
+            '  "validation": ["command 1", "command 2"]',
+            '}',
+            "",
+            "Additional rules:",
+            "- If you choose `fixed`, ensure the branch actually contains the repair changes before writing the result.",
+            "- If you choose `defer`, explain why the update should stay in manual review right now.",
+            "- Keep the summary concise and concrete.",
         ]
     )
+
+
+def cmd_scan(args: argparse.Namespace) -> int:
+    try:
+        limit = validated_limit(args.limit)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    targets = scan_targets(limit, args.pr_number)
+    write_output(Path(args.output) if args.output else None, targets)
+    return 0
+
+
+def cmd_prepare(args: argparse.Namespace) -> int:
+    pr = fetch_pr(args.pr_number)
+    if not is_dependabot_pr(pr):
+        print(f"PR #{args.pr_number} is not an open Dependabot PR.", file=sys.stderr)
+        return 2
+
+    prompt_pr = {
+        "number": pr["number"],
+        "title": pr["title"],
+        "head_ref": pr["headRefName"],
+        "url": pr["url"],
+    }
+
+    failed_log = fetch_failed_log(pr).strip() or "No failed log was captured for the current PR head."
+    log_path = Path(args.log_path)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.write_text(failed_log[:12000], encoding="utf-8")
+
+    prompt_path = Path(args.prompt_path)
+    prompt_path.parent.mkdir(parents=True, exist_ok=True)
+    prompt_path.write_text(prompt_text(prompt_pr, Path(args.result_path), log_path), encoding="utf-8")
+    return 0
+
+
+def commit_changes(commit_message: str) -> None:
+    git("add", "-A")
+    git("commit", "-m", commit_message)
+
+
+def create_superseding_pr(
+    *,
+    original_pr: dict[str, Any],
+    replacement_branch: str,
+    summary: str,
+    validation: list[str],
+) -> tuple[int, str]:
+    title = f"chore(task-116): supersede Dependabot PR #{original_pr['number']}"
+    body_lines = [
+        f"Supersedes Dependabot PR #{original_pr['number']} ({original_pr['url']}).",
+        "",
+        "## Why this exists",
+        summary,
+        "",
+        "## Review guidance",
+        "- review the dependency update itself",
+        "- verify the compatibility fix is minimal and correct",
+        "- merge this PR manually if the result looks good",
+    ]
+    if validation:
+        body_lines.extend(["", "## Validation run by Copilot lane"])
+        body_lines.extend([f"- `{command}`" for command in validation])
+
     pr_url = gh(
         "pr",
         "create",
         "--base",
         "main",
         "--head",
-        branch_name,
+        replacement_branch,
         "--title",
         title,
         "--body",
-        body,
+        "\n".join(body_lines),
     ).strip()
-    new_pr_number = int(pr_url.rstrip("/").split("/")[-1])
+    pr_number = int(pr_url.rstrip("/").split("/")[-1])
 
-    gh("pr", "edit", str(new_pr_number), "--add-label", "dependencies")
-    gh("pr", "edit", str(new_pr_number), "--add-label", "dependabot:manual-review")
+    gh("pr", "edit", str(pr_number), "--add-label", "dependencies")
+    gh("pr", "edit", str(pr_number), "--add-label", "dependabot:manual-review")
+    return pr_number, pr_url
 
-    comment(
-        pr_number,
+
+def close_original_pr(original_pr_number: int, replacement_pr_number: int, replacement_pr_url: str, marker: str, summary: str) -> None:
+    gh(
+        "pr",
+        "close",
+        str(original_pr_number),
+        "--comment",
         "\n".join(
             [
                 marker,
-                diagnosis["summary"],
-                f"The agent opened repo-owned replacement PR #{new_pr_number} ({pr_url}) on a superseding branch.",
-                "The original Dependabot branch was left untouched. Human review is still required.",
-            ]
-        ),
-    )
-    comment(
-        new_pr_number,
-        "\n".join(
-            [
-                f"{MARKER_PREFIX}replacement-for-{pr_number}:{pr['headRefOid']} -->",
-                f"This PR was opened automatically by the TASK-116 Dependabot repair agent as a bounded repair path for Dependabot PR #{pr_number}.",
-                "It is intentionally not auto-merged. Please review it as a manual-review dependency PR.",
+                summary,
+                f"Superseded by repo-owned PR #{replacement_pr_number} ({replacement_pr_url}).",
+                "Closing the original Dependabot PR to keep a single merge surface for review.",
             ]
         ),
     )
 
-    git("checkout", "main")
 
-
-def comment_only(pr: dict[str, Any], diagnosis: dict[str, str], marker: str, log_text: str) -> None:
-    excerpt = (log_text or "No failed log excerpt was captured.").strip()[:3500]
+def comment_manual_review(original_pr_number: int, marker: str, summary: str) -> None:
     comment(
-        pr["number"],
+        original_pr_number,
         "\n".join(
             [
                 marker,
-                diagnosis["summary"],
-                "This failure is outside the bounded auto-repair lane, so the agent is leaving it for manual review instead of opening a guessy replacement PR.",
-                "",
-                "Failure excerpt:",
-                "```text",
-                excerpt,
-                "```",
+                summary,
+                "The scheduled Copilot repair lane is leaving this Dependabot PR open in manual review.",
             ]
         ),
     )
 
 
-def process_pr(pr: dict[str, Any]) -> None:
-    pr_number = pr["number"]
-    marker = f"{MARKER_PREFIX}pr-{pr_number}:{pr['headRefOid']} -->"
-    add_manual_review_label(pr_number)
-    if not FORCE_REPAIR and has_marker(pr_number, marker):
-        print(f"Skipping PR #{pr_number}; marker already present for current head.")
-        return
+def cmd_finalize(args: argparse.Namespace) -> int:
+    original_pr = fetch_pr(args.pr_number)
+    result = load_result(Path(args.result_path))
+    summary = (result.get("summary") or "No summary was produced.").strip()
+    validation = [str(item).strip() for item in result.get("validation") or [] if str(item).strip()]
+    marker = f"{MARKER_PREFIX}pr-{args.pr_number}:{args.head_sha} -->"
+    replacement_branch = args.replacement_branch
+    expected_branch = replacement_branch_name(args.pr_number, args.head_sha)
 
-    log_text = fetch_failed_log(pr)
-    diagnosis = classify_failure(log_text)
-    if diagnosis["kind"] == "lockfile-refresh":
-        repair_lockfile(pr, diagnosis, marker)
-    else:
-        comment_only(pr, diagnosis, marker, log_text)
+    if replacement_branch != expected_branch:
+        print(
+            (
+                f"Replacement branch mismatch for PR #{args.pr_number}: "
+                f"expected `{expected_branch}`, got `{replacement_branch}`."
+            ),
+            file=sys.stderr,
+        )
+        return 2
+
+    if original_pr.get("state") != "OPEN":
+        print(
+            f"PR #{args.pr_number} is no longer open; skipping finalize.",
+            file=sys.stderr,
+        )
+        return 0
+
+    current_head_sha = original_pr.get("headRefOid") or ""
+    if current_head_sha != args.head_sha:
+        print(
+            (
+                f"PR #{args.pr_number} moved from `{args.head_sha}` to "
+                f"`{current_head_sha}` after scan; skipping finalize."
+            ),
+            file=sys.stderr,
+        )
+        return 0
+
+    existing = existing_replacement_pr(replacement_branch)
+    if existing:
+        close_original_pr(args.pr_number, existing["number"], existing["url"], marker, summary)
+        return 0
+
+    if result.get("decision") != "fixed":
+        comment_manual_review(args.pr_number, marker, summary)
+        return 0
+
+    if not working_tree_has_changes():
+        comment_manual_review(
+            args.pr_number,
+            marker,
+            f"{summary}\n\nCopilot reported a fix path, but no file changes were produced on the superseding branch.",
+        )
+        return 0
+
+    commit_changes(f"chore(task-116): supersede Dependabot PR #{args.pr_number}")
+    git("push", "-u", "origin", replacement_branch)
+    replacement_pr_number, replacement_pr_url = create_superseding_pr(
+        original_pr=original_pr,
+        replacement_branch=replacement_branch,
+        summary=summary,
+        validation=validation,
+    )
+    close_original_pr(args.pr_number, replacement_pr_number, replacement_pr_url, marker, summary)
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    scan = subparsers.add_parser("scan", help="List open red/manual-review Dependabot PRs.")
+    scan.add_argument("--limit", type=int, default=2)
+    scan.add_argument("--pr-number", type=int)
+    scan.add_argument("--output")
+    scan.set_defaults(func=cmd_scan)
+
+    prepare = subparsers.add_parser("prepare", help="Write Copilot prompt and failed-log context for a PR.")
+    prepare.add_argument("--pr-number", type=int, required=True)
+    prepare.add_argument("--prompt-path", required=True)
+    prepare.add_argument("--result-path", required=True)
+    prepare.add_argument("--log-path", required=True)
+    prepare.set_defaults(func=cmd_prepare)
+
+    finalize = subparsers.add_parser("finalize", help="Create/comment/close PRs based on Copilot result.")
+    finalize.add_argument("--pr-number", type=int, required=True)
+    finalize.add_argument("--head-sha", required=True)
+    finalize.add_argument("--replacement-branch", required=True)
+    finalize.add_argument("--result-path", required=True)
+    finalize.set_defaults(func=cmd_finalize)
+
+    return parser
 
 
 def main() -> int:
@@ -316,17 +487,9 @@ def main() -> int:
         print("GITHUB_REPOSITORY is required.", file=sys.stderr)
         return 2
 
-    prs = failing_dependabot_prs()
-    if not prs:
-        print("No failing/manual-review Dependabot PRs matched the repair lane.")
-        return 0
-
-    git("checkout", "main")
-    for pr in prs:
-        print(f"Processing Dependabot PR #{pr['number']}: {pr['title']}")
-        process_pr(pr)
-
-    return 0
+    parser = build_parser()
+    args = parser.parse_args()
+    return args.func(args)
 
 
 if __name__ == "__main__":
