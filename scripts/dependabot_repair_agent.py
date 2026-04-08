@@ -18,7 +18,6 @@ REPO = os.environ.get("GITHUB_REPOSITORY", "").strip()
 MARKER_PREFIX = "<!-- dependabot-repair-agent:"
 DEPENDABOT_LOGINS = {"app/dependabot", "dependabot[bot]"}
 REQUIRED_CHECK_NAMES = {
-    "check-name",
     "Quality Core (lint, test, coverage, build)",
     "E2E Smoke (Playwright)",
     "Container Image (build + metadata artifact)",
