@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-09
+- Type: Validation
+- Summary: A live manual dispatch of the weekly TASK-116 repair lane against Dependabot PR `#133` proved the workflow fails safely, but not yet successfully: the Copilot step could not find the prepared prompt file and fell back to the defer/manual-review path instead of producing a superseding PR or machine-readable result.
+- Evidence: Actions run `24163757088`; original PR `#133` received a defer comment from `github-actions`; repair job logs show `cat: /home/runner/work/_temp/dependabot-repair/prompt.md: No such file or directory` immediately before the Copilot step exited.
+
+### 2026-04-09
+- Type: Execution
+- Summary: TASK-116 live follow-up isolated and patched the weekly repair-lane orchestration bugs on branch `fix/task-116-repair-lane-followup`, including stale-script execution after Dependabot checkout, repo-root resolution from a copied orchestrator, targeted force-reruns for already-marked PR heads, finalize support for already-committed repair branches, and bounded replacement-PR bodies after a verbose Copilot summary broke `gh pr create`.
+- Evidence: Branch `fix/task-116-repair-lane-followup`; validation runs `24164472211`, `24164505684`, and `24164768702`; updated `.github/workflows/dependabot-repair-agent.yml`, `scripts/dependabot_repair_agent.py`, `tasks/current.md`, and `tasks/task-116-ci-maintenance-and-workflow-hygiene.md`; branch run `24164505684` reached Copilot end to end on PR `#133`, and branch run `24164768702` successfully synthesized and pushed repo-owned repair branch `chore/task-116-repair-pr-133-9d4d38f` before failing late on replacement PR creation.
+
 ### 2026-04-08
 - Type: Execution
 - Summary: TASK-116 moved the bounded Dependabot repair lane from weekly-primary to event-driven-primary so failing/manual-review bot PRs can be triaged as their CI workflows complete, while keeping the scheduled/manual run as a backstop.

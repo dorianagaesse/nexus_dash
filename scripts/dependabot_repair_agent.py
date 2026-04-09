@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(os.environ.get("GITHUB_WORKSPACE") or Path(__file__).resolve().parents[1]).resolve()
 REPO = os.environ.get("GITHUB_REPOSITORY", "").strip()
 MARKER_PREFIX = "<!-- dependabot-repair-agent:"
 DEPENDABOT_LOGINS = {"app/dependabot", "dependabot[bot]"}
@@ -24,6 +24,7 @@ REQUIRED_CHECK_NAMES = {
     "E2E Smoke (Playwright)",
     "Container Image (build + metadata artifact)",
 }
+MAX_REPLACEMENT_SUMMARY_CHARS = 2500
 
 
 def run(
@@ -150,6 +151,16 @@ def comment(pr_number: int, body: str) -> None:
     gh("pr", "comment", str(pr_number), "--body", body)
 
 
+def clipped_text(text: str, limit: int) -> str:
+    normalized = text.strip()
+    if len(normalized) <= limit:
+        return normalized
+    ellipsis = "..."
+    if limit <= len(ellipsis):
+        return normalized[:limit]
+    return normalized[: limit - len(ellipsis)].rstrip() + ellipsis
+
+
 def load_result(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {
@@ -168,7 +179,16 @@ def working_tree_has_changes() -> bool:
     return bool(run(["git", "status", "--short"], capture_output=True).stdout.strip())
 
 
-def scan_targets(limit: int, specific_pr: int | None = None) -> list[dict[str, Any]]:
+def current_head_commit() -> str:
+    return git("rev-parse", "HEAD").strip()
+
+
+def scan_targets(
+    limit: int,
+    specific_pr: int | None = None,
+    *,
+    force: bool = False,
+) -> list[dict[str, Any]]:
     if specific_pr is not None:
         prs = [fetch_pr(specific_pr)]
     else:
@@ -202,7 +222,10 @@ def scan_targets(limit: int, specific_pr: int | None = None) -> list[dict[str, A
 
         marker = f"{MARKER_PREFIX}pr-{pr['number']}:{pr['headRefOid']} -->"
         branch_name = replacement_branch_name(pr["number"], pr["headRefOid"])
-        if has_marker(pr["number"], marker) or existing_replacement_pr(branch_name):
+        if existing_replacement_pr(branch_name):
+            continue
+
+        if not force and has_marker(pr["number"], marker):
             continue
 
         targets.append(
@@ -283,7 +306,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
-    targets = scan_targets(limit, args.pr_number)
+    targets = scan_targets(limit, args.pr_number, force=args.force)
     write_output(Path(args.output) if args.output else None, targets)
     return 0
 
@@ -325,33 +348,70 @@ def create_superseding_pr(
     validation: list[str],
 ) -> tuple[int, str]:
     title = f"chore(task-116): supersede Dependabot PR #{original_pr['number']}"
-    body_lines = [
-        f"Supersedes Dependabot PR #{original_pr['number']} ({original_pr['url']}).",
-        "",
-        "## Why this exists",
-        summary,
-        "",
-        "## Review guidance",
-        "- review the dependency update itself",
-        "- verify the compatibility fix is minimal and correct",
-        "- merge this PR manually if the result looks good",
-    ]
-    if validation:
-        body_lines.extend(["", "## Validation run by Copilot lane"])
-        body_lines.extend([f"- `{command}`" for command in validation])
+    validation_lines = [f"- `{command}`" for command in validation[:5]]
+    truncated_summary = clipped_text(summary, MAX_REPLACEMENT_SUMMARY_CHARS)
 
-    pr_url = gh(
-        "pr",
-        "create",
-        "--base",
-        "main",
-        "--head",
-        replacement_branch,
-        "--title",
-        title,
-        "--body",
-        "\n".join(body_lines),
-    ).strip()
+    body_variants = [
+        "\n".join(
+            [
+                f"Supersedes Dependabot PR #{original_pr['number']} ({original_pr['url']}).",
+                "",
+                "## Why this exists",
+                truncated_summary,
+                "",
+                "## Review guidance",
+                "- review the dependency update itself",
+                "- verify the compatibility fix is minimal and correct",
+                "- merge this PR manually if the result looks good",
+                *(
+                    ["", "## Validation run by Copilot lane", *validation_lines]
+                    if validation_lines
+                    else []
+                ),
+            ]
+        ),
+        "\n".join(
+            [
+                f"Supersedes Dependabot PR #{original_pr['number']} ({original_pr['url']}).",
+                "",
+                "## Why this exists",
+                "Copilot prepared a bounded compatibility fix for this Dependabot update.",
+                "",
+                "## Review guidance",
+                "- review the dependency update itself",
+                "- verify the compatibility fix is minimal and correct",
+                "- merge this PR manually if the result looks good",
+            ]
+        ),
+    ]
+
+    completed: subprocess.CompletedProcess[str] | None = None
+    for body in body_variants:
+        completed = run(
+            [
+                "gh",
+                "pr",
+                "create",
+                "--base",
+                "main",
+                "--head",
+                replacement_branch,
+                "--title",
+                title,
+                "--body",
+                body,
+            ],
+            check=False,
+        )
+        if completed.returncode == 0:
+            break
+
+    if completed is None or completed.returncode != 0:
+        stderr = (completed.stderr or "").strip() if completed else ""
+        stdout = (completed.stdout or "").strip() if completed else ""
+        raise RuntimeError(stderr or stdout or "gh pr create failed without output")
+
+    pr_url = completed.stdout.strip()
     pr_number = int(pr_url.rstrip("/").split("/")[-1])
 
     gh("pr", "edit", str(pr_number), "--add-label", "dependencies")
@@ -435,7 +495,11 @@ def cmd_finalize(args: argparse.Namespace) -> int:
         comment_manual_review(args.pr_number, marker, summary)
         return 0
 
-    if not working_tree_has_changes():
+    branch_head_commit = current_head_commit()
+    has_uncommitted_changes = working_tree_has_changes()
+    has_new_commit = branch_head_commit != args.head_sha
+
+    if not has_uncommitted_changes and not has_new_commit:
         comment_manual_review(
             args.pr_number,
             marker,
@@ -443,8 +507,10 @@ def cmd_finalize(args: argparse.Namespace) -> int:
         )
         return 0
 
-    commit_changes(f"chore(task-116): supersede Dependabot PR #{args.pr_number}")
-    git("push", "-u", "origin", replacement_branch)
+    if has_uncommitted_changes:
+        commit_changes(f"chore(task-116): supersede Dependabot PR #{args.pr_number}")
+
+    git("push", "--force", "-u", "origin", replacement_branch)
     replacement_pr_number, replacement_pr_url = create_superseding_pr(
         original_pr=original_pr,
         replacement_branch=replacement_branch,
@@ -462,6 +528,7 @@ def build_parser() -> argparse.ArgumentParser:
     scan = subparsers.add_parser("scan", help="List open red/manual-review Dependabot PRs.")
     scan.add_argument("--limit", type=int, default=2)
     scan.add_argument("--pr-number", type=int)
+    scan.add_argument("--force", action="store_true")
     scan.add_argument("--output")
     scan.set_defaults(func=cmd_scan)
 

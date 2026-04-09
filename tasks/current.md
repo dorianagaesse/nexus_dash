@@ -4,7 +4,7 @@
 TASK-116
 
 ## Status
-Implementation in progress, awaiting review and validation
+Implementation in progress, live validation follow-up patched and awaiting review
 
 ## Objective
 Turn Dependabot into a low-friction maintenance lane instead of a delivery
@@ -68,14 +68,38 @@ distraction by:
   the `COPILOT_ACTIONS_TOKEN` secret, the repository custom agent profile, and
   the fact that model selection intentionally falls back to Auto in the weekly
   workflow.
+- Live workflow validation must prove more than a green Actions run:
+  the weekly lane must either produce a repo-owned superseding PR or emit a
+  machine-readable defer path from Copilot rather than failing before agent
+  execution.
+- Manual workflow dispatch should support a force-rerun path for a specific
+  Dependabot PR so we can re-validate an already-marked PR head without
+  weakening the default dedupe behavior.
+- The repair workflow must preserve its own validated orchestration code across
+  the Dependabot branch checkout, or it will silently execute stale repair
+  logic from the target bot branch instead.
+- Finalize must handle both Copilot edit shapes:
+  uncommitted working-tree changes and already-committed repair branches.
 
 ## Notes
 - This remains a workflow/dependency-maintenance task under `TASK-116`, not a
   reopening of `TASK-061`.
 - The current `main` baseline is coherent, but it does not yet match this
   clarified weekly Copilot repair model.
-- PR `#145` is the active rollout vehicle for aligning the workflow and docs to
-  the final weekly model.
+- A live main-branch smoke test on Dependabot PR `#133` proved the workflow
+  safety fallback works, but also exposed that the job was executing the stale
+  `scripts/dependabot_repair_agent.py` from the Dependabot branch after
+  checkout, which meant no prompt file was ever prepared for Copilot.
+- The TASK-116 follow-up branch now patches four live issues surfaced during
+  investigation:
+  - stable repair tooling is materialized before checking out the Dependabot
+    branch
+  - the copied orchestrator script resolves the repo root from
+    `GITHUB_WORKSPACE`
+  - targeted workflow dispatch can force-rerun an already-marked PR head
+  - finalize accepts both dirty repair branches and repair branches where
+    Copilot already created a local commit, with bounded replacement-PR bodies
+    to avoid `gh pr create` failures on verbose summaries
 
 ---
 

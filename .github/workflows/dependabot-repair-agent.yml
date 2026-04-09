@@ -13,6 +13,10 @@ on:
         description: "Optional specific Dependabot PR number to target"
         required: false
         default: ""
+      force_rerun:
+        description: "Force a targeted rerun even if the PR already has a repair marker"
+        required: false
+        default: "false"
 
 concurrency:
   group: dependabot-repair-agent
@@ -47,6 +51,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           MAX_PRS: ${{ github.event.inputs.max_prs || '2' }}
           PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
+          FORCE_RERUN: ${{ github.event.inputs.force_rerun || 'false' }}
         run: |
           if [[ ! "$MAX_PRS" =~ ^[0-9]+$ ]]; then
             echo "max_prs must be an integer between 1 and 5." >&2
@@ -59,9 +64,15 @@ jobs:
           fi
 
           if [[ -n "$PR_NUMBER" ]]; then
+            FORCE_ARGS=()
+            if [[ "$FORCE_RERUN" == "true" ]]; then
+              FORCE_ARGS+=(--force)
+            fi
+
             python scripts/dependabot_repair_agent.py scan \
               --limit "$MAX_PRS" \
               --pr-number "$PR_NUMBER" \
+              "${FORCE_ARGS[@]}" \
               --output "$RUNNER_TEMP/targets.json"
           else
             python scripts/dependabot_repair_agent.py scan \
@@ -87,6 +98,8 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
+    env:
+      REPAIR_AGENT_TARGET_PATH: .github/agents/dependabot-repair.agent.md
 
     steps:
       - name: Checkout repository
@@ -104,6 +117,16 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Define repair paths
+        run: |
+          BASE_DIR="$RUNNER_TEMP/dependabot-repair/${{ matrix.target.number }}"
+          {
+            echo "REPAIR_CONTEXT_DIR=$BASE_DIR"
+            echo "REPAIR_ORCHESTRATOR_PATH=$BASE_DIR/dependabot_repair_agent.py"
+            echo "REPAIR_AGENT_SPEC_PATH=$BASE_DIR/dependabot-repair.agent.md"
+            echo "REPAIR_AGENT_BACKUP_PATH=$BASE_DIR/dependabot-repair.agent.backup.md"
+          } >> "$GITHUB_ENV"
+
       - name: Install Copilot CLI
         run: npm install -g @github/copilot
 
@@ -111,6 +134,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Materialize TASK-116 repair tooling
+        run: |
+          rm -rf "$REPAIR_CONTEXT_DIR"
+          mkdir -p "$REPAIR_CONTEXT_DIR"
+          cp scripts/dependabot_repair_agent.py "$REPAIR_ORCHESTRATOR_PATH"
+          cp .github/agents/dependabot-repair.agent.md "$REPAIR_AGENT_SPEC_PATH"
 
       - name: Preflight Copilot authentication
         id: preflight
@@ -130,6 +160,26 @@ jobs:
 
           echo "ready=true" >> "$GITHUB_OUTPUT"
 
+      - name: Prepare Copilot repair context
+        if: steps.preflight.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ matrix.target.number }}
+        run: |
+          python "$REPAIR_ORCHESTRATOR_PATH" prepare \
+            --pr-number "$PR_NUMBER" \
+            --prompt-path "$REPAIR_CONTEXT_DIR/prompt.md" \
+            --result-path "$REPAIR_CONTEXT_DIR/result.json" \
+            --log-path "$REPAIR_CONTEXT_DIR/failure.log"
+
+      - name: Verify repair context files
+        if: steps.preflight.outputs.ready == 'true'
+        run: |
+          test -f "$REPAIR_CONTEXT_DIR/prompt.md"
+          test -f "$REPAIR_CONTEXT_DIR/failure.log"
+          ls -la "$REPAIR_CONTEXT_DIR"
+
       - name: Checkout Dependabot update on repo-owned branch
         if: steps.preflight.outputs.ready == 'true'
         env:
@@ -139,19 +189,14 @@ jobs:
           git fetch origin "$HEAD_REF"
           git checkout -B "$REPAIR_BRANCH" FETCH_HEAD
 
-      - name: Prepare Copilot repair context
+      - name: Inject TASK-116 repair agent spec
         if: steps.preflight.outputs.ready == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ matrix.target.number }}
         run: |
-          mkdir -p "$RUNNER_TEMP/dependabot-repair"
-          python scripts/dependabot_repair_agent.py prepare \
-            --pr-number "$PR_NUMBER" \
-            --prompt-path "$RUNNER_TEMP/dependabot-repair/prompt.md" \
-            --result-path "$RUNNER_TEMP/dependabot-repair/result.json" \
-            --log-path "$RUNNER_TEMP/dependabot-repair/failure.log"
+          mkdir -p "$(dirname "$REPAIR_AGENT_TARGET_PATH")"
+          if [[ -f "$REPAIR_AGENT_TARGET_PATH" ]]; then
+            cp "$REPAIR_AGENT_TARGET_PATH" "$REPAIR_AGENT_BACKUP_PATH"
+          fi
+          cp "$REPAIR_AGENT_SPEC_PATH" "$REPAIR_AGENT_TARGET_PATH"
 
       - name: Run Copilot repair agent
         if: steps.preflight.outputs.ready == 'true'
@@ -162,11 +207,32 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          PROMPT="$(cat "$RUNNER_TEMP/dependabot-repair/prompt.md")"
+          set -o pipefail
+          PROMPT="$(cat "$REPAIR_CONTEXT_DIR/prompt.md")"
           copilot \
             --agent dependabot-repair \
             --prompt "$PROMPT" \
-            --silent
+            --silent 2>&1 | tee "$REPAIR_CONTEXT_DIR/copilot-output.log"
+
+      - name: Restore repair agent spec
+        if: steps.preflight.outputs.ready == 'true'
+        run: |
+          if [[ -f "$REPAIR_AGENT_BACKUP_PATH" ]]; then
+            cp "$REPAIR_AGENT_BACKUP_PATH" "$REPAIR_AGENT_TARGET_PATH"
+          else
+            rm -f "$REPAIR_AGENT_TARGET_PATH"
+            rmdir .github/agents 2>/dev/null || true
+          fi
+
+      - name: Inspect Copilot repair outputs
+        if: steps.preflight.outputs.ready == 'true'
+        run: |
+          ls -la "$REPAIR_CONTEXT_DIR"
+          if [[ -f "$REPAIR_CONTEXT_DIR/result.json" ]]; then
+            cat "$REPAIR_CONTEXT_DIR/result.json"
+          else
+            echo "No result.json produced by Copilot."
+          fi
 
       - name: Finalize superseding PR workflow
         if: steps.preflight.outputs.ready == 'true'
@@ -177,8 +243,8 @@ jobs:
           HEAD_SHA: ${{ matrix.target.head_sha }}
           REPAIR_BRANCH: ${{ matrix.target.replacement_branch }}
         run: |
-          python scripts/dependabot_repair_agent.py finalize \
+          python "$REPAIR_ORCHESTRATOR_PATH" finalize \
             --pr-number "$PR_NUMBER" \
             --head-sha "$HEAD_SHA" \
             --replacement-branch "$REPAIR_BRANCH" \
-            --result-path "$RUNNER_TEMP/dependabot-repair/result.json"
+            --result-path "$REPAIR_CONTEXT_DIR/result.json"
