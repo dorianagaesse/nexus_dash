@@ -141,12 +141,14 @@ def existing_replacement_pr_for_source(
             state,
             "--base",
             "main",
+            "--limit",
+            "100",
             "--json",
             "number,url,state,mergedAt,headRefName",
         ]
     )
     matches = [pr for pr in prs if str(pr.get("headRefName") or "").startswith(prefix)]
-    matches.sort(key=lambda pr: int(pr["number"]))
+    matches.sort(key=lambda pr: int(pr["number"]), reverse=True)
     return matches[0] if matches else None
 
 
