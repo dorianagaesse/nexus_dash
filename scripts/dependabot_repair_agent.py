@@ -33,8 +33,11 @@ WORKFLOW_DISPATCH_TARGETS = (
 )
 WORKFLOW_DISPATCH_POLL_SECONDS = 45
 WORKFLOW_DISPATCH_POLL_INTERVAL_SECONDS = 3
-WORKFLOW_COMPLETION_POLL_SECONDS = 900
 WORKFLOW_COMPLETION_POLL_INTERVAL_SECONDS = 10
+WORKFLOW_COMPLETION_POLL_SECONDS = max(
+    int(os.environ.get("WORKFLOW_COMPLETION_POLL_SECONDS", "3600")),
+    WORKFLOW_COMPLETION_POLL_INTERVAL_SECONDS,
+)
 
 
 def run(
@@ -835,10 +838,11 @@ def cmd_finalize(args: argparse.Namespace) -> int:
         changed_files=changed_files,
         diff_summary=diff_summary,
     )
+    head_sha = current_head_commit()
     try:
-        run_urls = dispatch_validation_workflows(active_replacement_branch, head_sha=current_head_commit())
-        mirror_validation_statuses(current_head_commit(), run_urls)
-    except RuntimeError as exc:
+        run_urls = dispatch_validation_workflows(active_replacement_branch, head_sha=head_sha)
+        mirror_validation_statuses(head_sha, run_urls)
+    except (RuntimeError, subprocess.CalledProcessError) as exc:
         close_replacement_pr(
             replacement_pr_number,
             (
