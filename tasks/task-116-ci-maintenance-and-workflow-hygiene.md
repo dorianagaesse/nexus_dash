@@ -4,7 +4,7 @@
 TASK-116
 
 ## Status
-Implementation in progress, live validation follow-up in progress
+Implementation in progress, live validation follow-up patched and awaiting review
 
 ## Objective
 Keep dependency automation trustworthy without letting it pull focus from
@@ -100,18 +100,23 @@ Dependabot PRs into a weekly scheduled GitHub Copilot repair lane.
   - excluded majors and high-churn packages remain visible manual-review PRs
   - grouped GitHub Actions updates stay patch/minor only so major action bumps
     remain outside the auto-merge lane
-  - the red-PR repair lane is implemented as a separate weekly workflow using
-    GitHub Copilot CLI with a repository custom agent profile
-  - the workflow scans only open red/manual-review Dependabot PRs and creates
-    repo-owned superseding PRs when Copilot produces a repair
-  - the workflow closes original Dependabot PRs once a superseding PR exists
+- the red-PR repair lane is implemented as a separate weekly workflow using
+  GitHub Copilot CLI with a repository custom agent profile
+- the workflow scans only open red/manual-review Dependabot PRs and creates
+  repo-owned superseding PRs when Copilot produces a repair
+- the workflow closes original Dependabot PRs once a superseding PR exists
   - superseding PRs are not auto-merged
-  - a live smoke test on Dependabot PR `#133` must prove the Copilot lane
-    actually reaches agent execution and does not stop early on missing repair
-    context files
-  - manual workflow dispatch should allow a targeted force-rerun on a marked
-    Dependabot PR head so live debugging does not require reopening or mutating
-    the original PR first
+- a live smoke test on Dependabot PR `#133` must prove the Copilot lane
+  actually reaches agent execution and does not stop early on missing repair
+  context files
+- manual workflow dispatch should allow a targeted force-rerun on a marked
+  Dependabot PR head so live debugging does not require reopening or mutating
+  the original PR first
+- live validation must also prove the workflow does not regress when Copilot
+  creates a local commit on the repair branch instead of leaving uncommitted
+  edits for finalize to capture
+- replacement PR creation must stay bounded even when Copilot writes a long
+  markdown summary, or the lane will fail late on `gh pr create`
 
 ---
 
