@@ -473,7 +473,13 @@ def create_superseding_pr(
     return pr_number, pr_url
 
 
-def dispatched_run_url(branch_name: str, workflow_file: str) -> str | None:
+def dispatched_run_url(
+    branch_name: str,
+    workflow_file: str,
+    *,
+    head_sha: str,
+    not_before: str,
+) -> str | None:
     runs = gh_json(
         [
             "run",
@@ -485,19 +491,24 @@ def dispatched_run_url(branch_name: str, workflow_file: str) -> str | None:
             "--event",
             "workflow_dispatch",
             "--limit",
-            "1",
+            "5",
             "--json",
-            "url",
+            "url,headSha,createdAt",
         ]
     )
-    if not runs:
-        return None
-    return str(runs[0].get("url") or "").strip() or None
+    for run_item in runs:
+        run_url = str(run_item.get("url") or "").strip()
+        run_head_sha = str(run_item.get("headSha") or "").strip()
+        created_at = str(run_item.get("createdAt") or "").strip()
+        if run_url and run_head_sha == head_sha and created_at >= not_before:
+            return run_url
+    return None
 
 
-def dispatch_validation_workflows(branch_name: str) -> list[str]:
+def dispatch_validation_workflows(branch_name: str, *, head_sha: str) -> list[str]:
     run_urls: list[str] = []
     for workflow_file, workflow_name in WORKFLOW_DISPATCH_TARGETS:
+        dispatched_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         completed = run(["gh", "workflow", "run", workflow_file, "--ref", branch_name], check=False)
         if completed.returncode != 0:
             stderr = (completed.stderr or "").strip()
@@ -509,7 +520,12 @@ def dispatch_validation_workflows(branch_name: str) -> list[str]:
         deadline = time.time() + WORKFLOW_DISPATCH_POLL_SECONDS
         run_url: str | None = None
         while time.time() < deadline:
-            run_url = dispatched_run_url(branch_name, workflow_file)
+            run_url = dispatched_run_url(
+                branch_name,
+                workflow_file,
+                head_sha=head_sha,
+                not_before=dispatched_at,
+            )
             if run_url:
                 break
             time.sleep(WORKFLOW_DISPATCH_POLL_INTERVAL_SECONDS)
@@ -643,7 +659,7 @@ def cmd_finalize(args: argparse.Namespace) -> int:
         diff_summary=diff_summary,
     )
     try:
-        run_urls = dispatch_validation_workflows(replacement_branch)
+        run_urls = dispatch_validation_workflows(replacement_branch, head_sha=current_head_commit())
     except RuntimeError as exc:
         close_replacement_pr(
             replacement_pr_number,
