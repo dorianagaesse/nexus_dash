@@ -118,7 +118,7 @@ def replacement_branch_name(pr_number: int, head_sha: str) -> str:
 
 
 def existing_replacement_pr(branch_name: str, *, state: str = "open") -> dict[str, Any] | None:
-    prs = gh_json(["pr", "list", "--state", state, "--head", branch_name, "--json", "number,url,state"])
+    prs = gh_json(["pr", "list", "--state", state, "--head", branch_name, "--json", "number,url,state,mergedAt"])
     return prs[0] if prs else None
 
 
@@ -441,6 +441,13 @@ def create_superseding_pr(
 
     existing_any = existing_replacement_pr(replacement_branch, state="all")
     if existing_any:
+        if existing_any.get("mergedAt") or existing_any.get("state") == "MERGED":
+            raise RuntimeError(
+                (
+                    f"replacement branch `{replacement_branch}` already has merged PR "
+                    f"#{existing_any['number']}`; refusing to reuse a merged review surface."
+                )
+            )
         pr_number = int(existing_any["number"])
         if existing_any.get("state") == "CLOSED":
             gh("pr", "reopen", str(pr_number))
@@ -669,7 +676,7 @@ def cmd_finalize(args: argparse.Namespace) -> int:
 
     branch_head_commit = current_head_commit()
     has_uncommitted_changes = working_tree_has_changes()
-    has_new_commit = branch_head_commit != args.head_sha
+    has_new_commit = branch_head_commit != args.baseline_sha
 
     if not has_uncommitted_changes and not has_new_commit:
         comment_manual_review(
@@ -751,6 +758,7 @@ def build_parser() -> argparse.ArgumentParser:
     finalize.add_argument("--pr-number", type=int, required=True)
     finalize.add_argument("--head-sha", required=True)
     finalize.add_argument("--replacement-branch", required=True)
+    finalize.add_argument("--baseline-sha", required=True)
     finalize.add_argument("--result-path", required=True)
     finalize.set_defaults(func=cmd_finalize)
 

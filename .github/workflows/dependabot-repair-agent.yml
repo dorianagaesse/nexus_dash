@@ -184,12 +184,18 @@ jobs:
         if: steps.preflight.outputs.ready == 'true'
         env:
           HEAD_REF: ${{ matrix.target.head_ref }}
-          HEAD_SHA: ${{ matrix.target.head_sha }}
           REPAIR_BRANCH: ${{ matrix.target.replacement_branch }}
         run: |
-          git fetch origin main "$HEAD_REF"
+          git fetch origin main
+          git fetch origin "$HEAD_REF:refs/remotes/origin/$HEAD_REF"
           git checkout -B "$REPAIR_BRANCH" origin/main
-          git cherry-pick "$HEAD_SHA"
+          mapfile -t pr_commits < <(git rev-list --reverse "origin/main..refs/remotes/origin/$HEAD_REF")
+          if [[ "${#pr_commits[@]}" -eq 0 ]]; then
+            echo "No commits found on $HEAD_REF ahead of origin/main."
+            exit 1
+          fi
+          git cherry-pick "${pr_commits[@]}"
+          echo "REPAIR_BASELINE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Inject TASK-116 repair agent spec
         if: steps.preflight.outputs.ready == 'true'
@@ -244,9 +250,11 @@ jobs:
           PR_NUMBER: ${{ matrix.target.number }}
           HEAD_SHA: ${{ matrix.target.head_sha }}
           REPAIR_BRANCH: ${{ matrix.target.replacement_branch }}
+          REPAIR_BASELINE_SHA: ${{ env.REPAIR_BASELINE_SHA }}
         run: |
           python "$REPAIR_ORCHESTRATOR_PATH" finalize \
             --pr-number "$PR_NUMBER" \
             --head-sha "$HEAD_SHA" \
             --replacement-branch "$REPAIR_BRANCH" \
+            --baseline-sha "$REPAIR_BASELINE_SHA" \
             --result-path "$REPAIR_CONTEXT_DIR/result.json"
