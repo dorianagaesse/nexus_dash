@@ -19,6 +19,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-04-09
 - Type: Validation
+- Summary: The first rerun after `#149` created superseding PR `#150` for Dependabot PR `#133`, but still closed it immediately because the repair branch had been created from the stale Dependabot head rather than current `main`, so the branch itself did not contain the new `workflow_dispatch` workflow definitions and GitHub rejected the explicit check dispatch.
+- Evidence: Actions run `24198650964`; closed superseding PR `#150`; workflow comment on `#150` cites `HTTP 422: Workflow does not have 'workflow_dispatch' trigger` while `origin/main` already contains the updated `check-branch-names.yml` and `quality-gates.yml`.
+
+### 2026-04-09
+- Type: Validation
 - Summary: A live manual dispatch of the weekly TASK-116 repair lane against Dependabot PR `#133` proved the workflow fails safely, but not yet successfully: the Copilot step could not find the prepared prompt file and fell back to the defer/manual-review path instead of producing a superseding PR or machine-readable result.
 - Evidence: Actions run `24163757088`; original PR `#133` received a defer comment from `github-actions`; repair job logs show `cat: /home/runner/work/_temp/dependabot-repair/prompt.md: No such file or directory` immediately before the Copilot step exited.
 

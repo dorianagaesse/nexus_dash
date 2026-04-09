@@ -184,10 +184,12 @@ jobs:
         if: steps.preflight.outputs.ready == 'true'
         env:
           HEAD_REF: ${{ matrix.target.head_ref }}
+          HEAD_SHA: ${{ matrix.target.head_sha }}
           REPAIR_BRANCH: ${{ matrix.target.replacement_branch }}
         run: |
-          git fetch origin "$HEAD_REF"
-          git checkout -B "$REPAIR_BRANCH" FETCH_HEAD
+          git fetch origin main "$HEAD_REF"
+          git checkout -B "$REPAIR_BRANCH" origin/main
+          git cherry-pick "$HEAD_SHA"
 
       - name: Inject TASK-116 repair agent spec
         if: steps.preflight.outputs.ready == 'true'

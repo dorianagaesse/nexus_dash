@@ -117,8 +117,8 @@ def replacement_branch_name(pr_number: int, head_sha: str) -> str:
     return f"chore/task-116-repair-pr-{pr_number}-{head_sha[:7]}"
 
 
-def existing_replacement_pr(branch_name: str) -> dict[str, Any] | None:
-    prs = gh_json(["pr", "list", "--state", "open", "--head", branch_name, "--json", "number,url,state"])
+def existing_replacement_pr(branch_name: str, *, state: str = "open") -> dict[str, Any] | None:
+    prs = gh_json(["pr", "list", "--state", state, "--head", branch_name, "--json", "number,url,state"])
     return prs[0] if prs else None
 
 
@@ -438,6 +438,41 @@ def create_superseding_pr(
             ]
         ),
     ]
+
+    existing_any = existing_replacement_pr(replacement_branch, state="all")
+    if existing_any:
+        pr_number = int(existing_any["number"])
+        if existing_any.get("state") == "CLOSED":
+            gh("pr", "reopen", str(pr_number))
+
+        edit_completed: subprocess.CompletedProcess[str] | None = None
+        for body in body_variants:
+            edit_completed = run(
+                [
+                    "gh",
+                    "pr",
+                    "edit",
+                    str(pr_number),
+                    "--title",
+                    title,
+                    "--body",
+                    body,
+                ],
+                check=False,
+            )
+            if edit_completed.returncode == 0:
+                break
+
+        if edit_completed is None or edit_completed.returncode != 0:
+            stderr = (edit_completed.stderr or "").strip() if edit_completed else ""
+            stdout = (edit_completed.stdout or "").strip() if edit_completed else ""
+            raise RuntimeError(stderr or stdout or "gh pr edit failed without output")
+
+        pr_url = gh("pr", "view", str(pr_number), "--json", "url")
+        pr_url = json.loads(pr_url)["url"]
+        gh("pr", "edit", str(pr_number), "--add-label", "dependencies")
+        gh("pr", "edit", str(pr_number), "--add-label", "dependabot:manual-review")
+        return pr_number, pr_url
 
     completed: subprocess.CompletedProcess[str] | None = None
     for body in body_variants:
