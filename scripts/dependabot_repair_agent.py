@@ -24,6 +24,7 @@ REQUIRED_CHECK_NAMES = {
     "E2E Smoke (Playwright)",
     "Container Image (build + metadata artifact)",
 }
+MAX_REPLACEMENT_SUMMARY_CHARS = 2500
 
 
 def run(
@@ -148,6 +149,13 @@ def fetch_failed_log(pr: dict[str, Any]) -> str:
 
 def comment(pr_number: int, body: str) -> None:
     gh("pr", "comment", str(pr_number), "--body", body)
+
+
+def clipped_text(text: str, limit: int) -> str:
+    normalized = text.strip()
+    if len(normalized) <= limit:
+        return normalized
+    return normalized[: limit - 1].rstrip() + "..."
 
 
 def load_result(path: Path) -> dict[str, Any]:
@@ -337,33 +345,70 @@ def create_superseding_pr(
     validation: list[str],
 ) -> tuple[int, str]:
     title = f"chore(task-116): supersede Dependabot PR #{original_pr['number']}"
-    body_lines = [
-        f"Supersedes Dependabot PR #{original_pr['number']} ({original_pr['url']}).",
-        "",
-        "## Why this exists",
-        summary,
-        "",
-        "## Review guidance",
-        "- review the dependency update itself",
-        "- verify the compatibility fix is minimal and correct",
-        "- merge this PR manually if the result looks good",
-    ]
-    if validation:
-        body_lines.extend(["", "## Validation run by Copilot lane"])
-        body_lines.extend([f"- `{command}`" for command in validation])
+    validation_lines = [f"- `{command}`" for command in validation[:5]]
+    truncated_summary = clipped_text(summary, MAX_REPLACEMENT_SUMMARY_CHARS)
 
-    pr_url = gh(
-        "pr",
-        "create",
-        "--base",
-        "main",
-        "--head",
-        replacement_branch,
-        "--title",
-        title,
-        "--body",
-        "\n".join(body_lines),
-    ).strip()
+    body_variants = [
+        "\n".join(
+            [
+                f"Supersedes Dependabot PR #{original_pr['number']} ({original_pr['url']}).",
+                "",
+                "## Why this exists",
+                truncated_summary,
+                "",
+                "## Review guidance",
+                "- review the dependency update itself",
+                "- verify the compatibility fix is minimal and correct",
+                "- merge this PR manually if the result looks good",
+                *(
+                    ["", "## Validation run by Copilot lane", *validation_lines]
+                    if validation_lines
+                    else []
+                ),
+            ]
+        ),
+        "\n".join(
+            [
+                f"Supersedes Dependabot PR #{original_pr['number']} ({original_pr['url']}).",
+                "",
+                "## Why this exists",
+                "Copilot prepared a bounded compatibility fix for this Dependabot update.",
+                "",
+                "## Review guidance",
+                "- review the dependency update itself",
+                "- verify the compatibility fix is minimal and correct",
+                "- merge this PR manually if the result looks good",
+            ]
+        ),
+    ]
+
+    completed: subprocess.CompletedProcess[str] | None = None
+    for body in body_variants:
+        completed = run(
+            [
+                "gh",
+                "pr",
+                "create",
+                "--base",
+                "main",
+                "--head",
+                replacement_branch,
+                "--title",
+                title,
+                "--body",
+                body,
+            ],
+            check=False,
+        )
+        if completed.returncode == 0:
+            break
+
+    if completed is None or completed.returncode != 0:
+        stderr = (completed.stderr or "").strip() if completed else ""
+        stdout = (completed.stdout or "").strip() if completed else ""
+        raise RuntimeError(stderr or stdout or "gh pr create failed without output")
+
+    pr_url = completed.stdout.strip()
     pr_number = int(pr_url.rstrip("/").split("/")[-1])
 
     gh("pr", "edit", str(pr_number), "--add-label", "dependencies")
