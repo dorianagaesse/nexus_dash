@@ -14,6 +14,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-04-09
 - Type: Validation
+- Summary: A live main-branch rerun of the weekly TASK-116 repair lane on Dependabot PR `#133` finally reached a successful Copilot repair and created superseding PR `#148`, but the replacement PR never became mergeable because `GITHUB_TOKEN`-created PRs do not automatically trigger the repository's required workflows.
+- Evidence: Actions run `24189096005`; replacement PR `#148`; run logs show Copilot produced a `fixed` result and then failed late on `gh pr create` policy before repo settings were updated, after which the generated PR still showed no status checks because no workflows had been triggered on its branch.
+
+### 2026-04-09
+- Type: Validation
 - Summary: A live manual dispatch of the weekly TASK-116 repair lane against Dependabot PR `#133` proved the workflow fails safely, but not yet successfully: the Copilot step could not find the prepared prompt file and fell back to the defer/manual-review path instead of producing a superseding PR or machine-readable result.
 - Evidence: Actions run `24163757088`; original PR `#133` received a defer comment from `github-actions`; repair job logs show `cat: /home/runner/work/_temp/dependabot-repair/prompt.md: No such file or directory` immediately before the Copilot step exited.
 

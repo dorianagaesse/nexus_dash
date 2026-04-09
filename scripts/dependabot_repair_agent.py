@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,13 @@ REQUIRED_CHECK_NAMES = {
     "Container Image (build + metadata artifact)",
 }
 MAX_REPLACEMENT_SUMMARY_CHARS = 2500
+MAX_CHANGED_FILES_IN_BODY = 10
+WORKFLOW_DISPATCH_TARGETS = (
+    ("check-branch-names.yml", "Check Branch Name"),
+    ("quality-gates.yml", "Quality Gates"),
+)
+WORKFLOW_DISPATCH_POLL_SECONDS = 45
+WORKFLOW_DISPATCH_POLL_INTERVAL_SECONDS = 3
 
 
 def run(
@@ -159,6 +167,15 @@ def clipped_text(text: str, limit: int) -> str:
     if limit <= len(ellipsis):
         return normalized[:limit]
     return normalized[: limit - len(ellipsis)].rstrip() + ellipsis
+
+
+def changed_files_against_main() -> list[str]:
+    output = git("diff", "--name-only", "origin/main...HEAD").strip()
+    return [line.strip() for line in output.splitlines() if line.strip()]
+
+
+def diff_shortstat_against_main() -> str:
+    return git("diff", "--shortstat", "origin/main...HEAD").strip()
 
 
 def load_result(path: Path) -> dict[str, Any]:
@@ -340,42 +357,79 @@ def commit_changes(commit_message: str) -> None:
     git("commit", "-m", commit_message)
 
 
+def build_replacement_pr_body(
+    *,
+    original_pr: dict[str, Any],
+    summary: str,
+    validation: list[str],
+    changed_files: list[str],
+    diff_summary: str,
+) -> str:
+    truncated_summary = clipped_text(summary, MAX_REPLACEMENT_SUMMARY_CHARS)
+    validation_lines = [f"- `{command}`" for command in validation[:5]]
+    file_lines = [f"- `{path}`" for path in changed_files[:MAX_CHANGED_FILES_IN_BODY]]
+    if len(changed_files) > MAX_CHANGED_FILES_IN_BODY:
+        file_lines.append(f"- ... and {len(changed_files) - MAX_CHANGED_FILES_IN_BODY} more file(s)")
+
+    body_lines = [
+        f"Supersedes Dependabot PR #{original_pr['number']} ({original_pr['url']}).",
+        "",
+        "## Why this PR exists",
+        "The weekly TASK-116 Copilot repair lane produced a bounded compatibility fix for a red/manual-review Dependabot update.",
+        "",
+        "## Original Dependabot update",
+        f"- `{original_pr['title']}`",
+        f"- head branch: `{original_pr['headRefName']}`",
+        "",
+        "## What the repair lane changed",
+        truncated_summary,
+    ]
+
+    if file_lines:
+        body_lines.extend(["", "## Files changed", *file_lines])
+
+    if diff_summary:
+        body_lines.extend(["", "## Diff summary", f"- {diff_summary}"])
+
+    body_lines.extend(
+        [
+            "",
+            "## Validation reported by the repair lane",
+            *(validation_lines or ["- No validation commands were reported by Copilot."]),
+            "",
+            "## CI note",
+            "- Required checks are dispatched explicitly after PR creation so this superseding PR becomes mergeable under the normal branch protection rules.",
+            "- Review and merge remain human-owned.",
+        ]
+    )
+    return "\n".join(body_lines)
+
+
 def create_superseding_pr(
     *,
     original_pr: dict[str, Any],
     replacement_branch: str,
     summary: str,
     validation: list[str],
+    changed_files: list[str],
+    diff_summary: str,
 ) -> tuple[int, str]:
     title = f"chore(task-116): supersede Dependabot PR #{original_pr['number']}"
-    validation_lines = [f"- `{command}`" for command in validation[:5]]
-    truncated_summary = clipped_text(summary, MAX_REPLACEMENT_SUMMARY_CHARS)
 
     body_variants = [
-        "\n".join(
-            [
-                f"Supersedes Dependabot PR #{original_pr['number']} ({original_pr['url']}).",
-                "",
-                "## Why this exists",
-                truncated_summary,
-                "",
-                "## Review guidance",
-                "- review the dependency update itself",
-                "- verify the compatibility fix is minimal and correct",
-                "- merge this PR manually if the result looks good",
-                *(
-                    ["", "## Validation run by Copilot lane", *validation_lines]
-                    if validation_lines
-                    else []
-                ),
-            ]
+        build_replacement_pr_body(
+            original_pr=original_pr,
+            summary=summary,
+            validation=validation,
+            changed_files=changed_files,
+            diff_summary=diff_summary,
         ),
         "\n".join(
             [
                 f"Supersedes Dependabot PR #{original_pr['number']} ({original_pr['url']}).",
                 "",
                 "## Why this exists",
-                "Copilot prepared a bounded compatibility fix for this Dependabot update.",
+                "Copilot prepared a bounded compatibility fix for this Dependabot update and a maintainer should review it manually.",
                 "",
                 "## Review guidance",
                 "- review the dependency update itself",
@@ -419,6 +473,73 @@ def create_superseding_pr(
     return pr_number, pr_url
 
 
+def dispatched_run_url(
+    branch_name: str,
+    workflow_file: str,
+    *,
+    head_sha: str,
+    not_before: str,
+) -> str | None:
+    runs = gh_json(
+        [
+            "run",
+            "list",
+            "--workflow",
+            workflow_file,
+            "--branch",
+            branch_name,
+            "--event",
+            "workflow_dispatch",
+            "--limit",
+            "5",
+            "--json",
+            "url,headSha,createdAt",
+        ]
+    )
+    for run_item in runs:
+        run_url = str(run_item.get("url") or "").strip()
+        run_head_sha = str(run_item.get("headSha") or "").strip()
+        created_at = str(run_item.get("createdAt") or "").strip()
+        if run_url and run_head_sha == head_sha and created_at >= not_before:
+            return run_url
+    return None
+
+
+def dispatch_validation_workflows(branch_name: str, *, head_sha: str) -> list[str]:
+    run_urls: list[str] = []
+    for workflow_file, workflow_name in WORKFLOW_DISPATCH_TARGETS:
+        dispatched_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        completed = run(["gh", "workflow", "run", workflow_file, "--ref", branch_name], check=False)
+        if completed.returncode != 0:
+            stderr = (completed.stderr or "").strip()
+            stdout = (completed.stdout or "").strip()
+            raise RuntimeError(
+                f"failed to dispatch `{workflow_name}` for `{branch_name}`: {stderr or stdout or 'no output'}"
+            )
+
+        deadline = time.time() + WORKFLOW_DISPATCH_POLL_SECONDS
+        run_url: str | None = None
+        while time.time() < deadline:
+            run_url = dispatched_run_url(
+                branch_name,
+                workflow_file,
+                head_sha=head_sha,
+                not_before=dispatched_at,
+            )
+            if run_url:
+                break
+            time.sleep(WORKFLOW_DISPATCH_POLL_INTERVAL_SECONDS)
+
+        if not run_url:
+            raise RuntimeError(
+                f"`{workflow_name}` was dispatched for `{branch_name}`, but no workflow run appeared within {WORKFLOW_DISPATCH_POLL_SECONDS} seconds."
+            )
+
+        run_urls.append(run_url)
+
+    return run_urls
+
+
 def close_original_pr(original_pr_number: int, replacement_pr_number: int, replacement_pr_url: str, marker: str, summary: str) -> None:
     gh(
         "pr",
@@ -431,6 +552,22 @@ def close_original_pr(original_pr_number: int, replacement_pr_number: int, repla
                 summary,
                 f"Superseded by repo-owned PR #{replacement_pr_number} ({replacement_pr_url}).",
                 "Closing the original Dependabot PR to keep a single merge surface for review.",
+            ]
+        ),
+    )
+
+
+def close_replacement_pr(replacement_pr_number: int, reason: str) -> None:
+    gh(
+        "pr",
+        "close",
+        str(replacement_pr_number),
+        "--comment",
+        "\n".join(
+            [
+                "Closing this generated superseding PR because the automation could not make it fully reviewable.",
+                "",
+                reason,
             ]
         ),
     )
@@ -511,11 +648,47 @@ def cmd_finalize(args: argparse.Namespace) -> int:
         commit_changes(f"chore(task-116): supersede Dependabot PR #{args.pr_number}")
 
     git("push", "--force", "-u", "origin", replacement_branch)
+    changed_files = changed_files_against_main()
+    diff_summary = diff_shortstat_against_main()
     replacement_pr_number, replacement_pr_url = create_superseding_pr(
         original_pr=original_pr,
         replacement_branch=replacement_branch,
         summary=summary,
         validation=validation,
+        changed_files=changed_files,
+        diff_summary=diff_summary,
+    )
+    try:
+        run_urls = dispatch_validation_workflows(replacement_branch, head_sha=current_head_commit())
+    except RuntimeError as exc:
+        close_replacement_pr(
+            replacement_pr_number,
+            (
+                "The repair lane created this PR but could not successfully dispatch the required CI workflows.\n"
+                f"Dispatch failure: {exc}"
+            ),
+        )
+        comment_manual_review(
+            args.pr_number,
+            marker,
+            (
+                f"{summary}\n\n"
+                "The repair lane created a superseding PR candidate, but it did not become mergeable because the required checks could not be dispatched automatically."
+            ),
+        )
+        return 0
+
+    gh(
+        "pr",
+        "comment",
+        str(replacement_pr_number),
+        "--body",
+        "\n".join(
+            [
+                "Required validation workflows were dispatched for this superseding PR:",
+                *[f"- {url}" for url in run_urls],
+            ]
+        ),
     )
     close_original_pr(args.pr_number, replacement_pr_number, replacement_pr_url, marker, summary)
     return 0

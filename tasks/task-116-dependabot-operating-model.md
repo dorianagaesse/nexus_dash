@@ -108,8 +108,13 @@ They should be handled in a dedicated lane with a simple mental model:
 - The scheduled lane needs a repository secret for Copilot CLI automation:
   `COPILOT_ACTIONS_TOKEN`.
 - Superseding PRs are opened by the scheduled workflow after Copilot has
-  produced changes, so they should run the normal repository workflows like any
-  other repo-owned PR.
+  produced changes.
+- Because those PRs are created by `GITHUB_TOKEN`, the workflow must explicitly
+  dispatch the repository's required `Check Branch Name` and `Quality Gates`
+  workflows on the superseding branch so the PR becomes normally mergeable.
+- The generated PR body should also explain the original Dependabot PR, the
+  file list, the rough diff size, and Copilot-reported validation so
+  maintainers can review it quickly.
 
 ### Selection policy for red PRs
 - The scheduled lane should not blindly pursue every red Dependabot PR.

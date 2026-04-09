@@ -94,7 +94,7 @@ jobs:
       matrix:
         target: ${{ fromJson(needs.scan-red-prs.outputs.targets) }}
     permissions:
-      actions: read
+      actions: write
       contents: write
       issues: write
       pull-requests: write

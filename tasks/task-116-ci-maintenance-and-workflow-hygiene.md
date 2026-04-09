@@ -109,6 +109,16 @@ Dependabot PRs into a weekly scheduled GitHub Copilot repair lane.
 - a live smoke test on Dependabot PR `#133` must prove the Copilot lane
   actually reaches agent execution and does not stop early on missing repair
   context files
+- a live smoke test on a generated superseding PR must also prove the required
+  checks actually start
+  - because PRs created by `GITHUB_TOKEN` do not automatically trigger new
+    workflow runs
+  - the repair lane therefore needs an explicit post-create dispatch path for
+    the required `Check Branch Name` and `Quality Gates` workflows
+- generated superseding PRs should be self-explanatory enough for maintainers
+  to review quickly
+  - include the original Dependabot PR, the key repair summary, the changed
+    file list, a rough diff-size summary, and Copilot-reported validation
 - manual workflow dispatch should allow a targeted force-rerun on a marked
   Dependabot PR head so live debugging does not require reopening or mutating
   the original PR first
