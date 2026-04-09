@@ -122,6 +122,53 @@ def existing_replacement_pr(branch_name: str, *, state: str = "open") -> dict[st
     return prs[0] if prs else None
 
 
+def replacement_pr_prefix(pr_number: int, head_sha: str) -> str:
+    return f"chore/task-116-repair-pr-{pr_number}-{head_sha[:7]}"
+
+
+def existing_replacement_pr_for_source(
+    pr_number: int,
+    head_sha: str,
+    *,
+    state: str = "open",
+) -> dict[str, Any] | None:
+    prefix = replacement_pr_prefix(pr_number, head_sha)
+    prs = gh_json(
+        [
+            "pr",
+            "list",
+            "--state",
+            state,
+            "--base",
+            "main",
+            "--json",
+            "number,url,state,mergedAt,headRefName",
+        ]
+    )
+    matches = [pr for pr in prs if str(pr.get("headRefName") or "").startswith(prefix)]
+    matches.sort(key=lambda pr: int(pr["number"]))
+    return matches[0] if matches else None
+
+
+def remote_branch_exists(branch_name: str) -> bool:
+    completed = run(
+        ["git", "ls-remote", "--exit-code", "--heads", "origin", branch_name],
+        check=False,
+    )
+    return completed.returncode == 0
+
+
+def next_replacement_branch_name(pr_number: int, head_sha: str) -> str:
+    prefix = replacement_pr_prefix(pr_number, head_sha)
+    attempt = 2
+    while True:
+        candidate = f"{prefix}-r{attempt}"
+        if existing_replacement_pr(candidate, state="all") or remote_branch_exists(candidate):
+            attempt += 1
+            continue
+        return candidate
+
+
 def fetch_pr(pr_number: int) -> dict[str, Any]:
     return gh_json(
         [
@@ -239,7 +286,7 @@ def scan_targets(
 
         marker = f"{MARKER_PREFIX}pr-{pr['number']}:{pr['headRefOid']} -->"
         branch_name = replacement_branch_name(pr["number"], pr["headRefOid"])
-        if existing_replacement_pr(branch_name):
+        if existing_replacement_pr_for_source(pr["number"], pr["headRefOid"]):
             continue
 
         if not force and has_marker(pr["number"], marker):
@@ -413,7 +460,7 @@ def create_superseding_pr(
     validation: list[str],
     changed_files: list[str],
     diff_summary: str,
-) -> tuple[int, str]:
+) -> tuple[int, str, str]:
     title = f"chore(task-116): supersede Dependabot PR #{original_pr['number']}"
 
     body_variants = [
@@ -450,36 +497,37 @@ def create_superseding_pr(
             )
         pr_number = int(existing_any["number"])
         if existing_any.get("state") == "CLOSED":
-            gh("pr", "reopen", str(pr_number))
+            replacement_branch = next_replacement_branch_name(original_pr["number"], original_pr["headRefOid"])
+            git("push", "--force", "origin", f"HEAD:refs/heads/{replacement_branch}")
+        else:
+            edit_completed: subprocess.CompletedProcess[str] | None = None
+            for body in body_variants:
+                edit_completed = run(
+                    [
+                        "gh",
+                        "pr",
+                        "edit",
+                        str(pr_number),
+                        "--title",
+                        title,
+                        "--body",
+                        body,
+                    ],
+                    check=False,
+                )
+                if edit_completed.returncode == 0:
+                    break
 
-        edit_completed: subprocess.CompletedProcess[str] | None = None
-        for body in body_variants:
-            edit_completed = run(
-                [
-                    "gh",
-                    "pr",
-                    "edit",
-                    str(pr_number),
-                    "--title",
-                    title,
-                    "--body",
-                    body,
-                ],
-                check=False,
-            )
-            if edit_completed.returncode == 0:
-                break
+            if edit_completed is None or edit_completed.returncode != 0:
+                stderr = (edit_completed.stderr or "").strip() if edit_completed else ""
+                stdout = (edit_completed.stdout or "").strip() if edit_completed else ""
+                raise RuntimeError(stderr or stdout or "gh pr edit failed without output")
 
-        if edit_completed is None or edit_completed.returncode != 0:
-            stderr = (edit_completed.stderr or "").strip() if edit_completed else ""
-            stdout = (edit_completed.stdout or "").strip() if edit_completed else ""
-            raise RuntimeError(stderr or stdout or "gh pr edit failed without output")
-
-        pr_url = gh("pr", "view", str(pr_number), "--json", "url")
-        pr_url = json.loads(pr_url)["url"]
-        gh("pr", "edit", str(pr_number), "--add-label", "dependencies")
-        gh("pr", "edit", str(pr_number), "--add-label", "dependabot:manual-review")
-        return pr_number, pr_url
+            pr_url = gh("pr", "view", str(pr_number), "--json", "url")
+            pr_url = json.loads(pr_url)["url"]
+            gh("pr", "edit", str(pr_number), "--add-label", "dependencies")
+            gh("pr", "edit", str(pr_number), "--add-label", "dependabot:manual-review")
+            return pr_number, pr_url, replacement_branch
 
     completed: subprocess.CompletedProcess[str] | None = None
     for body in body_variants:
@@ -512,7 +560,7 @@ def create_superseding_pr(
 
     gh("pr", "edit", str(pr_number), "--add-label", "dependencies")
     gh("pr", "edit", str(pr_number), "--add-label", "dependabot:manual-review")
-    return pr_number, pr_url
+    return pr_number, pr_url, replacement_branch
 
 
 def dispatched_run_url(
@@ -665,7 +713,7 @@ def cmd_finalize(args: argparse.Namespace) -> int:
         )
         return 0
 
-    existing = existing_replacement_pr(replacement_branch)
+    existing = existing_replacement_pr_for_source(args.pr_number, args.head_sha)
     if existing:
         close_original_pr(args.pr_number, existing["number"], existing["url"], marker, summary)
         return 0
@@ -692,7 +740,7 @@ def cmd_finalize(args: argparse.Namespace) -> int:
     git("push", "--force", "-u", "origin", replacement_branch)
     changed_files = changed_files_against_main()
     diff_summary = diff_shortstat_against_main()
-    replacement_pr_number, replacement_pr_url = create_superseding_pr(
+    replacement_pr_number, replacement_pr_url, active_replacement_branch = create_superseding_pr(
         original_pr=original_pr,
         replacement_branch=replacement_branch,
         summary=summary,
@@ -701,7 +749,7 @@ def cmd_finalize(args: argparse.Namespace) -> int:
         diff_summary=diff_summary,
     )
     try:
-        run_urls = dispatch_validation_workflows(replacement_branch, head_sha=current_head_commit())
+        run_urls = dispatch_validation_workflows(active_replacement_branch, head_sha=current_head_commit())
     except RuntimeError as exc:
         close_replacement_pr(
             replacement_pr_number,

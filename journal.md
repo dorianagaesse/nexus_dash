@@ -14,6 +14,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-04-09
 - Type: Validation
+- Summary: The next live rerun on Dependabot PR `#133` proved the repair lane was finally building branches from current `main`, but GitHub still refused to reopen the previously closed superseding PR `#150`, so TASK-116 needs one more follow-up to create a fresh retry review surface instead of reusing a closed PR.
+- Evidence: Actions run `24201632661`; traceback at `create_superseding_pr()` shows `gh pr reopen 150` failed with `GraphQL: Could not open the pull request`; original Dependabot PR `#133` remained open and superseding PR `#150` remained closed.
+
+### 2026-04-09
+- Type: Validation
 - Summary: A live main-branch rerun of the weekly TASK-116 repair lane on Dependabot PR `#133` finally reached a successful Copilot repair and created superseding PR `#148`, but the replacement PR never became mergeable because `GITHUB_TOKEN`-created PRs do not automatically trigger the repository's required workflows.
 - Evidence: Actions run `24189096005`; replacement PR `#148`; run logs show Copilot produced a `fixed` result and then failed late on `gh pr create` policy before repo settings were updated, after which the generated PR still showed no status checks because no workflows had been triggered on its branch.
 
