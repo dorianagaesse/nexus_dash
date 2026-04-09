@@ -33,6 +33,11 @@ WORKFLOW_DISPATCH_TARGETS = (
 )
 WORKFLOW_DISPATCH_POLL_SECONDS = 45
 WORKFLOW_DISPATCH_POLL_INTERVAL_SECONDS = 3
+WORKFLOW_COMPLETION_POLL_INTERVAL_SECONDS = 10
+WORKFLOW_COMPLETION_POLL_SECONDS = max(
+    int(os.environ.get("WORKFLOW_COMPLETION_POLL_SECONDS", "3600")),
+    WORKFLOW_COMPLETION_POLL_INTERVAL_SECONDS,
+)
 
 
 def run(
@@ -632,6 +637,89 @@ def dispatch_validation_workflows(branch_name: str, *, head_sha: str) -> list[st
     return run_urls
 
 
+def parse_run_id(run_url: str) -> str:
+    match = re.search(r"/actions/runs/(\d+)", run_url)
+    if not match:
+        raise RuntimeError(f"could not parse workflow run id from `{run_url}`")
+    return match.group(1)
+
+
+def wait_for_workflow_run(run_id: str, workflow_name: str) -> dict[str, Any]:
+    deadline = time.time() + WORKFLOW_COMPLETION_POLL_SECONDS
+    while time.time() < deadline:
+        run_data = gh_json(["run", "view", run_id, "--json", "status,conclusion,url,jobs"])
+        if str(run_data.get("status") or "").lower() == "completed":
+            return run_data
+        time.sleep(WORKFLOW_COMPLETION_POLL_INTERVAL_SECONDS)
+
+    raise RuntimeError(
+        f"`{workflow_name}` run `{run_id}` did not complete within {WORKFLOW_COMPLETION_POLL_SECONDS} seconds."
+    )
+
+
+def job_state_from_conclusion(conclusion: str) -> str:
+    normalized = (conclusion or "").strip().lower()
+    if normalized in {"success", "neutral", "skipped"}:
+        return "success"
+    if normalized in {"failure", "timed_out", "cancelled", "action_required", "startup_failure"}:
+        return "failure"
+    if normalized in {"queued", "in_progress", "waiting", "pending", "requested"}:
+        return "pending"
+    return "error"
+
+
+def job_description(context: str, conclusion: str) -> str:
+    normalized = (conclusion or "").strip().lower()
+    if normalized == "success":
+        return f"Mirrored from dispatched validation run for `{context}`."
+    if normalized:
+        return f"Mirrored `{normalized}` result from dispatched validation run for `{context}`."
+    return f"Mirrored validation result from dispatched run for `{context}`."
+
+
+def mirror_validation_statuses(head_sha: str, run_urls: list[str]) -> None:
+    mirrored: dict[str, tuple[str, str, str]] = {}
+
+    for run_url in run_urls:
+        run_id = parse_run_id(run_url)
+        run_data = wait_for_workflow_run(run_id, run_url)
+        for job in run_data.get("jobs") or []:
+            job_name = str(job.get("name") or "").strip()
+            if job_name not in REQUIRED_CHECK_NAMES:
+                continue
+            job_url = str(job.get("url") or run_data.get("url") or run_url).strip()
+            job_conclusion = str(job.get("conclusion") or run_data.get("conclusion") or "").strip()
+            mirrored[job_name] = (
+                job_state_from_conclusion(job_conclusion),
+                job_description(job_name, job_conclusion),
+                job_url,
+            )
+
+    missing = [name for name in REQUIRED_CHECK_NAMES if name not in mirrored]
+    if missing:
+        raise RuntimeError(
+            "missing mirrored validation contexts for "
+            + ", ".join(f"`{name}`" for name in missing)
+        )
+
+    for context, (state, description, target_url) in mirrored.items():
+        run(
+            [
+                "gh",
+                "api",
+                f"repos/{REPO}/statuses/{head_sha}",
+                "-f",
+                f"state={state}",
+                "-f",
+                f"context={context}",
+                "-f",
+                f"description={description}",
+                "-f",
+                f"target_url={target_url}",
+            ]
+        )
+
+
 def close_original_pr(original_pr_number: int, replacement_pr_number: int, replacement_pr_url: str, marker: str, summary: str) -> None:
     gh(
         "pr",
@@ -750,9 +838,11 @@ def cmd_finalize(args: argparse.Namespace) -> int:
         changed_files=changed_files,
         diff_summary=diff_summary,
     )
+    head_sha = current_head_commit()
     try:
-        run_urls = dispatch_validation_workflows(active_replacement_branch, head_sha=current_head_commit())
-    except RuntimeError as exc:
+        run_urls = dispatch_validation_workflows(active_replacement_branch, head_sha=head_sha)
+        mirror_validation_statuses(head_sha, run_urls)
+    except (RuntimeError, subprocess.CalledProcessError) as exc:
         close_replacement_pr(
             replacement_pr_number,
             (
