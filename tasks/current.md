@@ -83,6 +83,10 @@ distraction by:
 - Generated superseding PRs must not stop at "created":
   they need the repository's required checks explicitly dispatched, because
   PRs created by `GITHUB_TOKEN` do not automatically trigger new workflow runs.
+- Those dispatched runs must also be mirrored back into commit statuses using
+  the required check names, because GitHub branch protection is not treating
+  the raw `workflow_dispatch` runs as merge-satisfying PR checks on the
+  generated repair branches.
 - Generated superseding PRs should explain themselves clearly for maintainers:
   why they exist, which Dependabot PR they supersede, which files changed,
   the rough diff size, and which validation commands Copilot reported.
@@ -129,6 +133,11 @@ distraction by:
   refused to reopen closed superseding PR `#150`, so the repair lane now needs
   to treat closed generated PRs as historical artifacts and open a fresh retry
   review surface instead of trying to reuse the old one.
+- The repaired rerun on `#133` then proved the generated PR surface itself was
+  good (`#153`), but also exposed one more GitHub integration gap: the
+  explicitly dispatched workflows completed successfully while the PR still
+  showed no required checks, so the lane must mirror those successful results
+  into commit statuses for the repair branch head SHA.
 
 ---
 
