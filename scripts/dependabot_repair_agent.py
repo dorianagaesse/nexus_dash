@@ -157,7 +157,7 @@ def clipped_text(text: str, limit: int) -> str:
         return normalized
     ellipsis = "..."
     if limit <= len(ellipsis):
-        return ellipsis[:limit]
+        return normalized[:limit]
     return normalized[: limit - len(ellipsis)].rstrip() + ellipsis
 
 
@@ -510,7 +510,7 @@ def cmd_finalize(args: argparse.Namespace) -> int:
     if has_uncommitted_changes:
         commit_changes(f"chore(task-116): supersede Dependabot PR #{args.pr_number}")
 
-    git("push", "-u", "origin", replacement_branch)
+    git("push", "--force", "-u", "origin", replacement_branch)
     replacement_pr_number, replacement_pr_url = create_superseding_pr(
         original_pr=original_pr,
         replacement_branch=replacement_branch,
