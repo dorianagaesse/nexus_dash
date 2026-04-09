@@ -1,143 +1,39 @@
-# Current Task: TASK-116 Dependabot Operating Model - Green Auto-Merge + Weekly Copilot Repair Lane
+# Current Task: TASK-050 Security Baseline Phase 2 - High-Priority Remediation Sprint
 
 ## Task ID
-TASK-116
+TASK-050
 
 ## Status
-Implementation in progress, rerun replacement-PR follow-up in progress
+Ready to start
 
 ## Objective
-Turn Dependabot into a low-friction maintenance lane instead of a delivery
-distraction by:
-- keeping Dependabot cadence separate from feature/product PR flow
-- auto-merging green Dependabot PRs after full CI when they are in the safe
-  lane
-- treating red Dependabot PRs as one explicit manual-review lane
-- running a weekly scheduled GitHub Copilot CLI custom-agent pass on those red
-  PRs so it can repair them on repo-owned superseding branches, comment and
-  close the originals once superseded, and leave the final review decision to
-  humans
+Implement the highest-priority security fixes identified by the completed
+`TASK-049` assessment so the project closes its most material exposure gaps
+before moving further into feature delivery.
 
 ## Why This Task Matters
-- `TASK-061` enabled recurring Dependabot updates for npm and GitHub Actions.
-- The useful part of Dependabot is automated update proposal, not forcing us
-  to spend feature-review attention on maintenance PRs every day.
-- The repository now needs a cleaner operating model that keeps green bot PRs
-  out of the way and gives red bot PRs a deliberate weekly AI-assisted
-  review/fix lane that does not bleed into product PRs.
+- `TASK-049` produced a ranked remediation list instead of a vague audit.
+- The next security value is now in code changes, not more assessment.
+- This task is the bridge between the validated hardening baseline from
+  `TASK-048` / `TASK-116` and a stronger production-ready security posture.
 
-## Scope Snapshot
-- Landed baseline:
-  - Dependabot branch naming works without weakening the human branch contract
-  - safe grouped Dependabot lanes can auto-merge after full CI
-  - blocked upgrade cases already proved the need for repo-owned superseding
-    PRs (`#127`, `#128`)
-  - the repo can already classify manual-review Dependabot PRs separately from
-    safe-lane PRs
-- Clarified next slice:
-  - replace the event-driven red-PR repair idea with a weekly scheduled repair
-    workflow
-  - run GitHub Copilot CLI with a dedicated repository custom agent profile
-  - scan only open red/manual-review Dependabot PRs
-  - require any agent fix to land on a repo-owned superseding PR
-  - close the original Dependabot PR once the superseding PR exists so there is
-    only one merge surface
-  - keep all final merge decisions human-owned
-- Dedicated design note: `tasks/task-116-dependabot-operating-model.md`
+## Initial Focus
+- implement abuse-control baseline on the public auth and token-exchange paths
+- harden session-token storage semantics
+- reduce revocation lag on agent bearer-token usage where feasible
+- preserve existing CI and preview validation standards while making these
+  changes
 
-## Acceptance Snapshot
-- Dependabot runs on its own cadence, separate from feature/product PR flow.
-- Green safe-lane Dependabot PRs can merge automatically after required checks
-  pass.
-- Red/manual-review Dependabot PRs are the only Dependabot PRs considered by
-  the scheduled weekly Copilot repair lane.
-- The scheduled repair lane works only on Dependabot-created PRs.
-- Copilot-generated fixes land on repo-owned superseding PRs rather than
-  mutating the original bot branch.
-- Original Dependabot PRs are commented and then closed once a superseding PR
-  exists, preventing accidental merge on the wrong surface.
-- Superseding PRs are never auto-merged by the automation.
-
-## Validation / Evidence Expectations
-- Repo guidance should explain the two-lane Dependabot model clearly:
-  green auto-merge vs red weekly Copilot repair.
-- The implementation note should explain how red PRs are selected, how a
-  superseding PR is opened, when the original bot PR is closed, and why merge
-  stays human-owned.
-- We should record the GitHub-side prerequisites for Copilot CLI automation:
-  the `COPILOT_ACTIONS_TOKEN` secret, the repository custom agent profile, and
-  the fact that model selection intentionally falls back to Auto in the weekly
-  workflow.
-- Live workflow validation must prove more than a green Actions run:
-  the weekly lane must either produce a repo-owned superseding PR or emit a
-  machine-readable defer path from Copilot rather than failing before agent
-  execution.
-- Manual workflow dispatch should support a force-rerun path for a specific
-  Dependabot PR so we can re-validate an already-marked PR head without
-  weakening the default dedupe behavior.
-- The repair workflow must preserve its own validated orchestration code across
-  the Dependabot branch checkout, or it will silently execute stale repair
-  logic from the target bot branch instead.
-- Finalize must handle both Copilot edit shapes:
-  uncommitted working-tree changes and already-committed repair branches.
-- Generated superseding PRs must not stop at "created":
-  they need the repository's required checks explicitly dispatched, because
-  PRs created by `GITHUB_TOKEN` do not automatically trigger new workflow runs.
-- Those dispatched runs must also be mirrored back into commit statuses using
-  the required check names, because GitHub branch protection is not treating
-  the raw `workflow_dispatch` runs as merge-satisfying PR checks on the
-  generated repair branches.
-- Generated superseding PRs should explain themselves clearly for maintainers:
-  why they exist, which Dependabot PR they supersede, which files changed,
-  the rough diff size, and which validation commands Copilot reported.
-- Repair branches must be built from current `main` plus the Dependabot update,
-  not from the stale Dependabot branch head alone, or they will miss the
-  latest workflow definitions and any post-merge task fixes already on `main`.
-- If a repair rerun targets a PR that already produced a closed superseding PR,
-  the automation should mint a fresh retry branch/PR instead of failing on
-  GitHub's non-reopenable closed review surface.
+## Dependencies
+- `TASK-048`
+- `TASK-049`
+- `TASK-043`
 
 ## Notes
-- This remains a workflow/dependency-maintenance task under `TASK-116`, not a
-  reopening of `TASK-061`.
-- The current `main` baseline is coherent, but it does not yet match this
-  clarified weekly Copilot repair model.
-- A live main-branch smoke test on Dependabot PR `#133` proved the workflow
-  safety fallback works, but also exposed that the job was executing the stale
-  `scripts/dependabot_repair_agent.py` from the Dependabot branch after
-  checkout, which meant no prompt file was ever prepared for Copilot.
-- The TASK-116 follow-up branch now patches four live issues surfaced during
-  investigation:
-  - stable repair tooling is materialized before checking out the Dependabot
-    branch
-  - the copied orchestrator script resolves the repo root from
-    `GITHUB_WORKSPACE`
-  - targeted workflow dispatch can force-rerun an already-marked PR head
-  - finalize accepts both dirty repair branches and repair branches where
-    Copilot already created a local commit, with bounded replacement-PR bodies
-    to avoid `gh pr create` failures on verbose summaries
-- The latest live main-branch run proved a new blocker after those fixes:
-  Copilot successfully produced repo-owned replacement PR `#148`, but the
-  branch protections stayed pending because the PR was created by
-  `GITHUB_TOKEN`, which does not auto-trigger the required PR workflows.
-- The next follow-up slice is therefore to dispatch the required
-  `Check Branch Name` and `Quality Gates` workflows explicitly after creating a
-  superseding PR and to tighten the generated PR body so maintainers can
-  quickly understand what the repair lane actually changed.
-- Live rerun evidence on `#133` exposed one more integration bug after `#149`:
-  the repair branch was still being created directly from the old Dependabot
-  head, so the generated PR branch did not actually contain the new
-  `workflow_dispatch` workflow definitions from `main`; GitHub therefore
-  rejected the dispatch and the lane closed superseding PR `#150`.
-- The next live rerun on `#133` exposed a final reuse bug after `#151`: GitHub
-  refused to reopen closed superseding PR `#150`, so the repair lane now needs
-  to treat closed generated PRs as historical artifacts and open a fresh retry
-  review surface instead of trying to reuse the old one.
-- The repaired rerun on `#133` then proved the generated PR surface itself was
-  good (`#153`), but also exposed one more GitHub integration gap: the
-  explicitly dispatched workflows completed successfully while the PR still
-  showed no required checks, so the lane must mirror those successful results
-  into commit statuses for the repair branch head SHA.
+- Treat this as a code-first remediation task, not another assessment pass.
+- Use the findings and prioritization from
+  `tasks/task-049-security-assessment-and-threat-model.md`.
+- Follow-up verification and closure reporting remain in `TASK-051`.
 
 ---
 

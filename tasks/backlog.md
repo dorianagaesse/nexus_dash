@@ -4,16 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-116
-  Title: Dependabot and CI automation - workflow hygiene, safe auto-merge, and bounded red-PR repair agent
-  Status: Pending
-  Rationale: Keep dependency maintenance trustworthy without stealing focus from product delivery by hardening workflow hygiene, automatically merging only proven-safe update lanes after full CI, and adding a bounded repair agent for failing/manual-review Dependabot PRs that works through repo-owned superseding branches and human review.
-  Dependencies: TASK-038, TASK-041, TASK-042, TASK-061
-- ID: TASK-049
-  Title: Security baseline phase 1 - OWASP-focused assessment and threat model
-  Status: Pending
-  Rationale: Perform a structured review of attack surface and rank risks by impact/likelihood to guide remediation scope.
-  Dependencies: TASK-020, TASK-039
 - ID: TASK-050
   Title: Security baseline phase 2 - high-priority remediation sprint
   Status: Pending
@@ -155,6 +145,16 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-116
+  Title: Dependabot and CI automation - workflow hygiene, safe auto-merge, and bounded red-PR repair agent
+  Status: Done (2026-04-09)
+  Rationale: Completed the Dependabot operating model end to end by keeping safe lanes auto-mergeable after full CI, validating the weekly Copilot repair lane on live red PRs, automatically producing green repo-owned superseding PRs, and closing the original Dependabot PRs to preserve a single review surface.
+  Dependencies: TASK-038, TASK-041, TASK-042, TASK-061
+- ID: TASK-049
+  Title: Security baseline phase 1 - OWASP-focused assessment and threat model
+  Status: Done (2026-04-09)
+  Rationale: Completed the OWASP-focused security assessment and threat model, refreshed it against the merged dependency/workflow baseline, and produced the ranked remediation scope that now feeds TASK-050.
+  Dependencies: TASK-020, TASK-039
 - ID: TASK-061
   Title: Dependency security baseline - vulnerability remediation and scan cadence definition
   Status: Done (2026-04-04)
