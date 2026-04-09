@@ -115,6 +115,9 @@ Dependabot PRs into a weekly scheduled GitHub Copilot repair lane.
     workflow runs
   - the repair lane therefore needs an explicit post-create dispatch path for
     the required `Check Branch Name` and `Quality Gates` workflows
+- and because branch protection is still evaluating required named contexts on
+  the PR surface, the lane also needs to mirror those dispatched results into
+  commit statuses for the generated repair-branch head SHA
 - generated superseding PRs should be self-explanatory enough for maintainers
   to review quickly
   - include the original Dependabot PR, the key repair summary, the changed

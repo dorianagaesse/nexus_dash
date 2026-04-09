@@ -14,6 +14,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-04-09
 - Type: Validation
+- Summary: The repaired rerun on Dependabot PR `#133` finally created fresh retry PR `#153` and dispatched the required workflows, but GitHub branch protection still showed no required checks on the PR until the same successful results were mirrored into commit statuses for the repair-branch head SHA.
+- Evidence: Actions run `24202784221`; superseding PR `#153`; `gh api /commits/0baa776.../check-runs` showed all four required runs associated with PR `#153` while `gh pr checks 153` still returned no checks until matching commit statuses were posted.
+
+### 2026-04-09
+- Type: Validation
 - Summary: The next live rerun on Dependabot PR `#133` proved the repair lane was finally building branches from current `main`, but GitHub still refused to reopen the previously closed superseding PR `#150`, so TASK-116 needs one more follow-up to create a fresh retry review surface instead of reusing a closed PR.
 - Evidence: Actions run `24201632661`; traceback at `create_superseding_pr()` shows `gh pr reopen 150` failed with `GraphQL: Could not open the pull request`; original Dependabot PR `#133` remained open and superseding PR `#150` remained closed.
 
