@@ -4,7 +4,7 @@
 TASK-116
 
 ## Status
-Implementation in progress, live validation follow-up patched and awaiting review
+Implementation in progress, replacement-PR CI dispatch follow-up in progress
 
 ## Objective
 Turn Dependabot into a low-friction maintenance lane instead of a delivery
@@ -80,6 +80,12 @@ distraction by:
   logic from the target bot branch instead.
 - Finalize must handle both Copilot edit shapes:
   uncommitted working-tree changes and already-committed repair branches.
+- Generated superseding PRs must not stop at "created":
+  they need the repository's required checks explicitly dispatched, because
+  PRs created by `GITHUB_TOKEN` do not automatically trigger new workflow runs.
+- Generated superseding PRs should explain themselves clearly for maintainers:
+  why they exist, which Dependabot PR they supersede, which files changed,
+  the rough diff size, and which validation commands Copilot reported.
 
 ## Notes
 - This remains a workflow/dependency-maintenance task under `TASK-116`, not a
@@ -100,6 +106,14 @@ distraction by:
   - finalize accepts both dirty repair branches and repair branches where
     Copilot already created a local commit, with bounded replacement-PR bodies
     to avoid `gh pr create` failures on verbose summaries
+- The latest live main-branch run proved a new blocker after those fixes:
+  Copilot successfully produced repo-owned replacement PR `#148`, but the
+  branch protections stayed pending because the PR was created by
+  `GITHUB_TOKEN`, which does not auto-trigger the required PR workflows.
+- The next follow-up slice is therefore to dispatch the required
+  `Check Branch Name` and `Quality Gates` workflows explicitly after creating a
+  superseding PR and to tighten the generated PR body so maintainers can
+  quickly understand what the repair lane actually changed.
 
 ---
 
