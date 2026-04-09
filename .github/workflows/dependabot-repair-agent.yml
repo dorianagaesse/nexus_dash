@@ -207,6 +207,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
+          set -o pipefail
           PROMPT="$(cat "$REPAIR_CONTEXT_DIR/prompt.md")"
           copilot \
             --agent dependabot-repair \

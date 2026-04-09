@@ -155,7 +155,10 @@ def clipped_text(text: str, limit: int) -> str:
     normalized = text.strip()
     if len(normalized) <= limit:
         return normalized
-    return normalized[: limit - 1].rstrip() + "..."
+    ellipsis = "..."
+    if limit <= len(ellipsis):
+        return ellipsis[:limit]
+    return normalized[: limit - len(ellipsis)].rstrip() + ellipsis
 
 
 def load_result(path: Path) -> dict[str, Any]:
