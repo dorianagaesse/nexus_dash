@@ -86,6 +86,12 @@ distraction by:
 - Generated superseding PRs should explain themselves clearly for maintainers:
   why they exist, which Dependabot PR they supersede, which files changed,
   the rough diff size, and which validation commands Copilot reported.
+- Repair branches must be built from current `main` plus the Dependabot update,
+  not from the stale Dependabot branch head alone, or they will miss the
+  latest workflow definitions and any post-merge task fixes already on `main`.
+- If a repair rerun targets a PR that already produced a closed superseding PR,
+  the automation should reopen and reuse that PR instead of failing on branch
+  reuse.
 
 ## Notes
 - This remains a workflow/dependency-maintenance task under `TASK-116`, not a
@@ -114,6 +120,11 @@ distraction by:
   `Check Branch Name` and `Quality Gates` workflows explicitly after creating a
   superseding PR and to tighten the generated PR body so maintainers can
   quickly understand what the repair lane actually changed.
+- Live rerun evidence on `#133` exposed one more integration bug after `#149`:
+  the repair branch was still being created directly from the old Dependabot
+  head, so the generated PR branch did not actually contain the new
+  `workflow_dispatch` workflow definitions from `main`; GitHub therefore
+  rejected the dispatch and the lane closed superseding PR `#150`.
 
 ---
 

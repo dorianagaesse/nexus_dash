@@ -119,6 +119,13 @@ Dependabot PRs into a weekly scheduled GitHub Copilot repair lane.
   to review quickly
   - include the original Dependabot PR, the key repair summary, the changed
     file list, a rough diff-size summary, and Copilot-reported validation
+- generated repair branches must start from current `main` and then apply the
+  Dependabot update
+  - otherwise the superseding PR branch can miss freshly-merged workflow fixes
+    from `main`, which breaks CI dispatch and makes validation misleading
+- reruns against the same Dependabot PR should reuse a previously closed
+  superseding PR when the branch name is deterministic, instead of failing on
+  duplicate branch/PR creation
 - manual workflow dispatch should allow a targeted force-rerun on a marked
   Dependabot PR head so live debugging does not require reopening or mutating
   the original PR first
