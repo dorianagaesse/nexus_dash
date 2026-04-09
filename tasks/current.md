@@ -4,7 +4,7 @@
 TASK-116
 
 ## Status
-Implementation in progress, replacement-PR CI dispatch follow-up in progress
+Implementation in progress, rerun replacement-PR follow-up in progress
 
 ## Objective
 Turn Dependabot into a low-friction maintenance lane instead of a delivery
@@ -90,8 +90,8 @@ distraction by:
   not from the stale Dependabot branch head alone, or they will miss the
   latest workflow definitions and any post-merge task fixes already on `main`.
 - If a repair rerun targets a PR that already produced a closed superseding PR,
-  the automation should reopen and reuse that PR instead of failing on branch
-  reuse.
+  the automation should mint a fresh retry branch/PR instead of failing on
+  GitHub's non-reopenable closed review surface.
 
 ## Notes
 - This remains a workflow/dependency-maintenance task under `TASK-116`, not a
@@ -125,6 +125,10 @@ distraction by:
   head, so the generated PR branch did not actually contain the new
   `workflow_dispatch` workflow definitions from `main`; GitHub therefore
   rejected the dispatch and the lane closed superseding PR `#150`.
+- The next live rerun on `#133` exposed a final reuse bug after `#151`: GitHub
+  refused to reopen closed superseding PR `#150`, so the repair lane now needs
+  to treat closed generated PRs as historical artifacts and open a fresh retry
+  review surface instead of trying to reuse the old one.
 
 ---
 

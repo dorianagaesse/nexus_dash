@@ -4,7 +4,7 @@
 TASK-116
 
 ## Status
-Implementation in progress, live validation follow-up patched and awaiting review
+Implementation in progress, live rerun follow-up patched and awaiting review
 
 ## Objective
 Keep dependency automation trustworthy without letting it pull focus from
@@ -123,9 +123,9 @@ Dependabot PRs into a weekly scheduled GitHub Copilot repair lane.
   Dependabot update
   - otherwise the superseding PR branch can miss freshly-merged workflow fixes
     from `main`, which breaks CI dispatch and makes validation misleading
-- reruns against the same Dependabot PR should reuse a previously closed
-  superseding PR when the branch name is deterministic, instead of failing on
-  duplicate branch/PR creation
+- reruns against the same Dependabot PR should avoid GitHub's non-reopenable
+  closed superseding PRs by minting a fresh retry branch/PR when needed,
+  instead of failing on duplicate review-surface reuse
 - manual workflow dispatch should allow a targeted force-rerun on a marked
   Dependabot PR head so live debugging does not require reopening or mutating
   the original PR first
