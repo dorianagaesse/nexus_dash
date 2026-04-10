@@ -82,7 +82,6 @@ before moving further into feature delivery.
      path must be recorded explicitly
 5. Residual risk and any verification-only follow-up work are left clearly
    bounded for `TASK-051` rather than staying implicit.
-
 ## Dependencies
 - `TASK-048`
 - `TASK-049`
