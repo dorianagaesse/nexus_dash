@@ -5,6 +5,7 @@ import {
   getAgentTokenRuntimeConfig,
   getDatabaseRuntimeConfig,
   getOptionalServerEnv,
+  getPrismaPgRuntimeConnectionString,
   getRequiredServerEnv,
   getRuntimeEnvironment,
   getStorageRuntimeConfig,
@@ -157,6 +158,39 @@ describe("env.server", () => {
       databaseUrl: "postgresql://primary-host:5432/appdb",
       directUrl: "postgresql://read-replica-host:5432/appdb",
     });
+  });
+
+  test("adds libpq compatibility for prisma pg runtime when sslmode=require", () => {
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@project.pooler.supabase.com:5432/postgres?sslmode=require"
+    );
+
+    expect(getPrismaPgRuntimeConnectionString()).toBe(
+      "postgresql://runtime-user:pwd@project.pooler.supabase.com:5432/postgres?sslmode=require&uselibpqcompat=true"
+    );
+  });
+
+  test("preserves existing prisma pg libpq compatibility flag", () => {
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@project.pooler.supabase.com:5432/postgres?sslmode=require&uselibpqcompat=true"
+    );
+
+    expect(getPrismaPgRuntimeConnectionString()).toBe(
+      "postgresql://runtime-user:pwd@project.pooler.supabase.com:5432/postgres?sslmode=require&uselibpqcompat=true"
+    );
+  });
+
+  test("leaves prisma pg runtime url unchanged when sslmode is verify-full", () => {
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@project.pooler.supabase.com:5432/postgres?sslmode=verify-full"
+    );
+
+    expect(getPrismaPgRuntimeConnectionString()).toBe(
+      "postgresql://runtime-user:pwd@project.pooler.supabase.com:5432/postgres?sslmode=verify-full"
+    );
   });
 
   test("returns null when supabase pair is fully empty/unset", () => {

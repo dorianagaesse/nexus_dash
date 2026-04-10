@@ -13,6 +13,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-04-10
+- Type: Validation
+- Summary: Investigated a broken TASK-050 preview and traced `GET /` runtime failures to Prisma's `@prisma/adapter-pg` path interpreting `sslmode=require` as certificate-verifying TLS against the Supabase pooler; fixed the runtime client to add `uselibpqcompat=true` for `sslmode=require`, which matches libpq semantics and restores preview connectivity.
+- Evidence: `npx vercel logs https://nexus-dash-87wiabtci-dorian-agaesses-projects.vercel.app --no-follow --since 6h --level error --expand`; `npx vercel curl / --deployment https://nexus-dash-87wiabtci-dorian-agaesses-projects.vercel.app`; one-off `pg` reproduction against preview `DATABASE_URL` showing raw connection failure and success after appending `uselibpqcompat=true`; updated `lib/env.server.ts`, `lib/prisma.ts`, and `tests/lib/env.server.test.ts`; validated with `npm test -- --run tests/lib/env.server.test.ts`, `npm run lint`, and `npm run build`.
+
+### 2026-04-10
 - Type: Governance
 - Summary: Tightened the TASK-050 execution contract by adding explicit expected output, acceptance criteria, and definition of done, and updated the repo operating guide so future task briefs must include acceptance criteria plus DoD before implementation starts.
 - Evidence: Updated `tasks/current.md` and `agent.md`.
