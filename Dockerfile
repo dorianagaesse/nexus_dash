@@ -3,7 +3,11 @@ FROM node:20-bullseye AS base
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci \
+  --fetch-retries=5 \
+  --fetch-retry-factor=2 \
+  --fetch-retry-mintimeout=20000 \
+  --fetch-retry-maxtimeout=120000
 
 COPY . .
 ARG DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public
