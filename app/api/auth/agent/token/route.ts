@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { readClientIpAddress, resolveRequestId } from "@/lib/auth/api-guard";
+import {
+  readClientIpAddressFromHeaders,
+  resolveRequestIdFromHeaders,
+  readUserAgentFromHeaders,
+} from "@/lib/http/request-metadata";
 import { logServerWarning } from "@/lib/observability/logger";
 import { exchangeAgentApiKeyForAccessToken } from "@/lib/services/project-agent-access-service";
 
@@ -43,9 +47,9 @@ export async function POST(request: NextRequest) {
 
   const result = await exchangeAgentApiKeyForAccessToken({
     apiKey,
-    requestId: resolveRequestId(request),
-    ipAddress: readClientIpAddress(request),
-    userAgent: request.headers.get("user-agent"),
+    requestId: resolveRequestIdFromHeaders(request.headers),
+    ipAddress: readClientIpAddressFromHeaders(request.headers),
+    userAgent: readUserAgentFromHeaders(request.headers),
   });
 
   if (!result.ok) {

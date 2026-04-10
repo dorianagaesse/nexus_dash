@@ -2,10 +2,13 @@ import crypto from "node:crypto";
 
 import type { Page } from "@playwright/test";
 
-import { prisma } from "../../../lib/prisma";
 import {
   PRIMARY_SESSION_COOKIE_NAME,
   SESSION_MAX_AGE_SECONDS,
+} from "../../../lib/auth/session-constants";
+import { prisma } from "../../../lib/prisma";
+import {
+  hashSessionToken,
 } from "../../../lib/services/session-service";
 
 function uniqueSuffix(): string {
@@ -50,7 +53,7 @@ export async function signInAsVerifiedUser(page: Page): Promise<void> {
   await prisma.session.create({
     data: {
       userId: user.id,
-      sessionToken,
+      sessionTokenHash: hashSessionToken(sessionToken),
       expires: expiresAt,
     },
   });

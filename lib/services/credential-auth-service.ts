@@ -1,4 +1,16 @@
+import { AuthRateLimitScope } from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
+import { logServerWarning } from "@/lib/observability/logger";
+import {
+  buildAuthRateLimitKey,
+  buildCompositeAuthRateLimitKey,
+  checkAuthAbuseControls,
+  clearAuthAbuseControls,
+  consumeAuthAbuseQuota,
+  registerAuthAbuseFailure,
+  type AuthAbuseSignal,
+} from "@/lib/services/auth-abuse-control-service";
 import { isPreviewDeployment } from "@/lib/env.server";
 import { createSessionForUser } from "@/lib/services/session-service";
 import { hashPassword, verifyPassword } from "@/lib/services/password-service";
@@ -34,7 +46,8 @@ type AuthFailureCode =
   | "password-requirements-not-met"
   | "password-confirmation-mismatch"
   | "email-in-use"
-  | "invalid-credentials";
+  | "invalid-credentials"
+  | "too-many-attempts";
 
 interface AuthSuccess {
   ok: true;
@@ -114,13 +127,153 @@ function isUsernameDiscriminatorConstraint(error: unknown): boolean {
   );
 }
 
+const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
+const THIRTY_MINUTES_MS = 30 * 60 * 1000;
+
+function buildSignInSignals(input: {
+  email: string;
+  ipAddress?: string | null;
+}): AuthAbuseSignal[] {
+  const signals: AuthAbuseSignal[] = [];
+  const ipKey = buildAuthRateLimitKey("sign-in:ip", input.ipAddress);
+  const emailKey = buildAuthRateLimitKey("sign-in:email", input.email);
+  const ipEmailKey = buildCompositeAuthRateLimitKey("sign-in:ip-email", [
+    input.ipAddress ?? null,
+    input.email,
+  ]);
+
+  if (ipKey) {
+    signals.push({
+      key: ipKey,
+      maxAttempts: 12,
+      windowMs: FIFTEEN_MINUTES_MS,
+      blockMs: FIFTEEN_MINUTES_MS,
+    });
+  }
+
+  if (emailKey) {
+    signals.push({
+      key: emailKey,
+      maxAttempts: 8,
+      windowMs: FIFTEEN_MINUTES_MS,
+      blockMs: THIRTY_MINUTES_MS,
+    });
+  }
+
+  if (ipEmailKey) {
+    signals.push({
+      key: ipEmailKey,
+      maxAttempts: 5,
+      windowMs: FIFTEEN_MINUTES_MS,
+      blockMs: THIRTY_MINUTES_MS,
+    });
+  }
+
+  return signals;
+}
+
+function buildSignUpSignals(input: {
+  email: string;
+  ipAddress?: string | null;
+}): AuthAbuseSignal[] {
+  const signals: AuthAbuseSignal[] = [];
+  const ipKey = buildAuthRateLimitKey("sign-up:ip", input.ipAddress);
+  const emailKey = buildAuthRateLimitKey("sign-up:email", input.email);
+  const ipEmailKey = buildCompositeAuthRateLimitKey("sign-up:ip-email", [
+    input.ipAddress ?? null,
+    input.email,
+  ]);
+
+  if (ipKey) {
+    signals.push({
+      key: ipKey,
+      maxAttempts: 8,
+      windowMs: THIRTY_MINUTES_MS,
+      blockMs: THIRTY_MINUTES_MS,
+    });
+  }
+
+  if (emailKey) {
+    signals.push({
+      key: emailKey,
+      maxAttempts: 5,
+      windowMs: THIRTY_MINUTES_MS,
+      blockMs: THIRTY_MINUTES_MS,
+    });
+  }
+
+  if (ipEmailKey) {
+    signals.push({
+      key: ipEmailKey,
+      maxAttempts: 4,
+      windowMs: THIRTY_MINUTES_MS,
+      blockMs: THIRTY_MINUTES_MS,
+    });
+  }
+
+  return signals;
+}
+
+async function resolveSignInFailure(input: {
+  email: string;
+  ipAddress?: string | null;
+  requestId?: string | null;
+  userAgent?: string | null;
+  reason: string;
+}): Promise<AuthFailure> {
+  const signals = buildSignInSignals({
+    email: input.email,
+    ipAddress: input.ipAddress,
+  });
+  const abuseResult = await registerAuthAbuseFailure({
+    scope: AuthRateLimitScope.sign_in,
+    signals,
+  });
+
+  logServerWarning("credentialAuth.signInFailed", "Email/password sign-in failed.", {
+    requestId: input.requestId ?? null,
+    ipAddress: input.ipAddress ?? null,
+    userAgent: input.userAgent ?? null,
+    reason: input.reason,
+    accountKey: buildAuthRateLimitKey("sign-in:email", input.email),
+    throttled: !abuseResult.ok,
+    retryAfterSeconds: abuseResult.ok ? null : abuseResult.retryAfterSeconds,
+  });
+
+  return {
+    ok: false,
+    error: abuseResult.ok ? "invalid-credentials" : "too-many-attempts",
+  };
+}
+
 export async function signUpWithEmailPassword(input: {
   emailRaw: string;
   usernameRaw: string;
   passwordRaw: string;
   passwordConfirmationRaw: string;
+  ipAddress?: string | null;
+  requestId?: string | null;
+  userAgent?: string | null;
 }): Promise<EmailPasswordAuthResult> {
   const email = normalizeEmail(input.emailRaw);
+  const abuseSignals = buildSignUpSignals({
+    email,
+    ipAddress: input.ipAddress,
+  });
+  const abuseControlResult = await consumeAuthAbuseQuota({
+    scope: AuthRateLimitScope.sign_up,
+    signals: abuseSignals,
+  });
+  if (!abuseControlResult.ok) {
+    logServerWarning("credentialAuth.signUpThrottled", "Email/password sign-up throttled.", {
+      requestId: input.requestId ?? null,
+      ipAddress: input.ipAddress ?? null,
+      userAgent: input.userAgent ?? null,
+      retryAfterSeconds: abuseControlResult.retryAfterSeconds,
+    });
+    return { ok: false, error: "too-many-attempts" };
+  }
+
   if (!validateEmail(email)) {
     return { ok: false, error: "invalid-email" };
   }
@@ -189,15 +342,49 @@ export async function signUpWithEmailPassword(input: {
 export async function signInWithEmailPassword(input: {
   emailRaw: string;
   passwordRaw: string;
+  ipAddress?: string | null;
+  requestId?: string | null;
+  userAgent?: string | null;
 }): Promise<EmailPasswordAuthResult> {
   const email = normalizeEmail(input.emailRaw);
+  const abuseSignals = buildSignInSignals({
+    email,
+    ipAddress: input.ipAddress,
+  });
+  const abuseCheck = await checkAuthAbuseControls({
+    scope: AuthRateLimitScope.sign_in,
+    signals: abuseSignals,
+  });
+  if (!abuseCheck.ok) {
+    logServerWarning("credentialAuth.signInThrottled", "Email/password sign-in throttled.", {
+      requestId: input.requestId ?? null,
+      ipAddress: input.ipAddress ?? null,
+      userAgent: input.userAgent ?? null,
+      accountKey: buildAuthRateLimitKey("sign-in:email", email),
+      retryAfterSeconds: abuseCheck.retryAfterSeconds,
+    });
+    return { ok: false, error: "too-many-attempts" };
+  }
+
   if (!validateEmail(email)) {
-    return { ok: false, error: "invalid-email" };
+    return resolveSignInFailure({
+      email,
+      ipAddress: input.ipAddress,
+      requestId: input.requestId,
+      userAgent: input.userAgent,
+      reason: "invalid-email",
+    });
   }
 
   const passwordValidation = validatePasswordLength(input.passwordRaw);
   if (passwordValidation !== "ok") {
-    return { ok: false, error: "invalid-credentials" };
+    return resolveSignInFailure({
+      email,
+      ipAddress: input.ipAddress,
+      requestId: input.requestId,
+      userAgent: input.userAgent,
+      reason: "password-validation-failed",
+    });
   }
 
   const user = await prisma.user.findUnique({
@@ -210,13 +397,30 @@ export async function signInWithEmailPassword(input: {
   });
 
   if (!user?.passwordHash) {
-    return { ok: false, error: "invalid-credentials" };
+    return resolveSignInFailure({
+      email,
+      ipAddress: input.ipAddress,
+      requestId: input.requestId,
+      userAgent: input.userAgent,
+      reason: "user-not-found",
+    });
   }
 
   const passwordMatches = await verifyPassword(input.passwordRaw, user.passwordHash);
   if (!passwordMatches) {
-    return { ok: false, error: "invalid-credentials" };
+    return resolveSignInFailure({
+      email,
+      ipAddress: input.ipAddress,
+      requestId: input.requestId,
+      userAgent: input.userAgent,
+      reason: "password-mismatch",
+    });
   }
+
+  await clearAuthAbuseControls({
+    scope: AuthRateLimitScope.sign_in,
+    keys: abuseSignals.map((signal) => signal.key),
+  });
 
   return issueSession({
     userId: user.id,

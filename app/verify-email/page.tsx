@@ -36,6 +36,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   "resend-cooldown": `Please wait about ${EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS} seconds before requesting another email.`,
   "resend-limit-reached":
     "You reached the resend limit for today. Please try again tomorrow.",
+  "resend-throttled":
+    "Too many verification resend attempts. Please wait a few minutes and retry.",
   "verification-email-send-failed":
     "Could not send verification email right now. Please retry shortly.",
   "verification-pending":

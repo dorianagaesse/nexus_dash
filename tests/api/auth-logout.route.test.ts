@@ -22,10 +22,13 @@ const loggerMock = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/services/session-service", () => ({
-  SESSION_COOKIE_NAMES: sessionServiceMock.SESSION_COOKIE_NAMES,
   deleteSessionByToken: sessionServiceMock.deleteSessionByToken,
   readSessionTokensFromCookieReader:
     sessionServiceMock.readSessionTokensFromCookieReader,
+}));
+
+vi.mock("@/lib/auth/session-constants", () => ({
+  SESSION_COOKIE_NAMES: sessionServiceMock.SESSION_COOKIE_NAMES,
 }));
 
 vi.mock("@/lib/env.server", () => ({

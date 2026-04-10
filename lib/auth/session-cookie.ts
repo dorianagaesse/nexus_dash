@@ -4,7 +4,7 @@ import { isProductionEnvironment } from "@/lib/env.server";
 import {
   PRIMARY_SESSION_COOKIE_NAME,
   SESSION_MAX_AGE_SECONDS,
-} from "@/lib/services/session-service";
+} from "@/lib/auth/session-constants";
 
 type PrimarySessionCookieOptions = {
   httpOnly: true;

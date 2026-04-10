@@ -1,19 +1,10 @@
 import crypto from "node:crypto";
 
 import { prisma } from "@/lib/prisma";
-
-export const PRIMARY_SESSION_COOKIE_NAME = "nexusdash.session-token";
-export const LEGACY_SESSION_COOKIE_NAMES = [
-  "__Secure-authjs.session-token",
-  "authjs.session-token",
-  "__Secure-next-auth.session-token",
-  "next-auth.session-token",
-] as const;
-export const SESSION_COOKIE_NAMES = [
-  PRIMARY_SESSION_COOKIE_NAME,
-  ...LEGACY_SESSION_COOKIE_NAMES,
-] as const;
-export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+import {
+  SESSION_COOKIE_NAMES,
+  SESSION_MAX_AGE_SECONDS,
+} from "@/lib/auth/session-constants";
 
 type CookieReader = (name: string) => string | null;
 
@@ -24,6 +15,10 @@ function normalizeSessionToken(value: string | null): string | null {
 
   const trimmedValue = value.trim();
   return trimmedValue.length > 0 ? trimmedValue : null;
+}
+
+export function hashSessionToken(sessionToken: string): string {
+  return crypto.createHash("sha256").update(sessionToken).digest("base64url");
 }
 
 export function readSessionTokenFromCookieReader(readCookie: CookieReader): string | null {
@@ -83,8 +78,10 @@ export async function resolveSessionUserIdByToken(
     return null;
   }
 
+  const sessionTokenHash = hashSessionToken(normalizedToken);
+
   const session = await prisma.session.findUnique({
-    where: { sessionToken: normalizedToken },
+    where: { sessionTokenHash },
     select: {
       userId: true,
       expires: true,
@@ -112,11 +109,12 @@ export async function createSessionForUser(userId: string): Promise<{
   }
 
   const sessionToken = crypto.randomBytes(32).toString("base64url");
+  const sessionTokenHash = hashSessionToken(sessionToken);
   const expiresAt = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
 
   await prisma.session.create({
     data: {
-      sessionToken,
+      sessionTokenHash,
       userId: normalizedUserId,
       expires: expiresAt,
     },
@@ -134,8 +132,10 @@ export async function deleteSessionByToken(sessionToken: string): Promise<void> 
     return;
   }
 
+  const sessionTokenHash = hashSessionToken(normalizedToken);
+
   await prisma.session.deleteMany({
-    where: { sessionToken: normalizedToken },
+    where: { sessionTokenHash },
   });
 }
 
@@ -149,8 +149,11 @@ export async function deleteAllOtherSessionsForUser(
   }
 
   const normalizedTokenToKeep = normalizeSessionToken(sessionTokenToKeep);
+  const sessionTokenHashToKeep = normalizedTokenToKeep
+    ? hashSessionToken(normalizedTokenToKeep)
+    : null;
 
-  if (!normalizedTokenToKeep) {
+  if (!sessionTokenHashToKeep) {
     await prisma.session.deleteMany({
       where: { userId: normalizedUserId },
     });
@@ -161,7 +164,7 @@ export async function deleteAllOtherSessionsForUser(
     where: {
       userId: normalizedUserId,
       NOT: {
-        sessionToken: normalizedTokenToKeep,
+        sessionTokenHash: sessionTokenHashToKeep,
       },
     },
   });

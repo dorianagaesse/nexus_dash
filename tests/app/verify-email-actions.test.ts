@@ -13,6 +13,18 @@ const headersMock = vi.hoisted(() => vi.fn());
 const redirectMock = vi.hoisted(() => vi.fn());
 const logServerErrorMock = vi.hoisted(() => vi.fn());
 const logServerWarningMock = vi.hoisted(() => vi.fn());
+const abuseControlServiceMock = vi.hoisted(() => ({
+  buildAuthRateLimitKey: vi.fn((namespace: string, value: string | null | undefined) =>
+    value ? `${namespace}:${value}` : null
+  ),
+  buildCompositeAuthRateLimitKey: vi.fn(
+    (namespace: string, values: Array<string | null | undefined>) =>
+      values.every((value) => typeof value === "string" && value.trim().length > 0)
+        ? `${namespace}:${values.join("|")}`
+        : null
+  ),
+  consumeAuthAbuseQuota: vi.fn(),
+}));
 
 vi.mock("next/headers", () => ({
   headers: headersMock,
@@ -31,6 +43,15 @@ vi.mock("@/lib/services/email-verification-service", () => ({
   issueEmailVerificationForUser: emailVerificationMock.issueEmailVerificationForUser,
 }));
 
+vi.mock("@/lib/services/auth-abuse-control-service", () => ({
+  buildAuthRateLimitKey: abuseControlServiceMock.buildAuthRateLimitKey,
+  buildCompositeAuthRateLimitKey: abuseControlServiceMock.buildCompositeAuthRateLimitKey,
+  consumeAuthAbuseQuota: abuseControlServiceMock.consumeAuthAbuseQuota,
+  AuthRateLimitScope: {
+    verification_resend: "verification_resend",
+  },
+}));
+
 vi.mock("@/lib/observability/logger", () => ({
   logServerError: logServerErrorMock,
   logServerWarning: logServerWarningMock,
@@ -44,6 +65,7 @@ import {
 describe("verify-email actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    abuseControlServiceMock.consumeAuthAbuseQuota.mockResolvedValue({ ok: true });
     sessionUserMock.getSessionUserIdFromServer.mockResolvedValue("user-1");
     emailVerificationMock.issueEmailVerificationForUser.mockResolvedValue({
       ok: true,
@@ -121,6 +143,19 @@ describe("verify-email actions", () => {
       "resendVerificationEmailAction",
       expect.any(Error)
     );
+  });
+
+  test("resendVerificationEmailAction redirects with resend-throttled when abuse controls trip", async () => {
+    abuseControlServiceMock.consumeAuthAbuseQuota.mockResolvedValueOnce({
+      ok: false,
+      retryAfterSeconds: 600,
+    });
+
+    await expect(resendVerificationEmailAction()).rejects.toThrow(
+      "NEXT_REDIRECT:/verify-email?error=resend-throttled&returnTo=%2Fprojects"
+    );
+    expect(emailVerificationMock.issueEmailVerificationForUser).not.toHaveBeenCalled();
+    expect(logServerWarningMock).toHaveBeenCalled();
   });
 
   test("continueAfterVerificationAction redirects to projects for verified users", async () => {

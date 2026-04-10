@@ -16,6 +16,13 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-04-10 - Close TASK-050 security gaps with DB-backed abuse controls, hashed sessions, and request-time agent credential liveness
+- Status: Accepted
+- Context: `TASK-049` ranked perimeter abuse control, plaintext human sessions at rest, and agent bearer revocation lag as the top remaining security findings, and the repo already operates as a stateless Next.js/PostgreSQL system.
+- Decision: Added PostgreSQL-backed auth abuse buckets for public auth/token-entry paths, moved human sessions to hashed token storage with explicit legacy-session invalidation during migration, and made agent bearer-token use contingent on current credential liveness during request usage logging.
+- Consequences: Public auth/token exchange now has an authoritative cross-instance abuse-control baseline, legacy human sessions are signed out once during rollout, and credential rotate/revoke now takes effect immediately for already-issued bearer tokens.
+- Links: `adr/task-050-security-remediation-adr.md`, `tasks/current.md`, `prisma/migrations/20260410110000_task050_security_remediation/migration.sql`
+
 ## 2026-03-31 - Ship agent access v1 as project-scoped API credentials exchanged into short-lived bearer tokens
 - Status: Accepted
 - Context: TASK-059 needs safe non-human access without reusing browser sessions, while preserving the current human session model, RLS visibility boundary, and project-scoped authorization guarantees.

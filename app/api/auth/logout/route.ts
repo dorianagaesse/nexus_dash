@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { SESSION_COOKIE_NAMES } from "@/lib/auth/session-constants";
 import { isProductionEnvironment } from "@/lib/env.server";
 import { normalizeReturnToPath } from "@/lib/navigation/return-to";
 import { logServerError } from "@/lib/observability/logger";
 import {
-  SESSION_COOKIE_NAMES,
   deleteSessionByToken,
   readSessionTokensFromCookieReader,
 } from "@/lib/services/session-service";

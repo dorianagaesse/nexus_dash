@@ -20,6 +20,25 @@ const agentTokenServiceMock = vi.hoisted(() => ({
   issueAgentAccessToken: vi.fn(),
 }));
 
+const abuseControlServiceMock = vi.hoisted(() => ({
+  buildAuthRateLimitKey: vi.fn((namespace: string, value: string | null | undefined) =>
+    value ? `${namespace}:${value}` : null
+  ),
+  buildCompositeAuthRateLimitKey: vi.fn(
+    (namespace: string, values: Array<string | null | undefined>) =>
+      values.every((value) => typeof value === "string" && value.trim().length > 0)
+        ? `${namespace}:${values.join("|")}`
+        : null
+  ),
+  checkAuthAbuseControls: vi.fn(),
+  clearAuthAbuseControls: vi.fn(),
+  registerAuthAbuseFailure: vi.fn(),
+}));
+
+const loggerMock = vi.hoisted(() => ({
+  logServerWarning: vi.fn(),
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: prismaMock,
 }));
@@ -30,6 +49,21 @@ vi.mock("@/lib/services/password-service", () => ({
 
 vi.mock("@/lib/auth/agent-token-service", () => ({
   issueAgentAccessToken: agentTokenServiceMock.issueAgentAccessToken,
+}));
+
+vi.mock("@/lib/services/auth-abuse-control-service", () => ({
+  buildAuthRateLimitKey: abuseControlServiceMock.buildAuthRateLimitKey,
+  buildCompositeAuthRateLimitKey: abuseControlServiceMock.buildCompositeAuthRateLimitKey,
+  checkAuthAbuseControls: abuseControlServiceMock.checkAuthAbuseControls,
+  clearAuthAbuseControls: abuseControlServiceMock.clearAuthAbuseControls,
+  registerAuthAbuseFailure: abuseControlServiceMock.registerAuthAbuseFailure,
+  AuthRateLimitScope: {
+    agent_token_exchange: "agent_token_exchange",
+  },
+}));
+
+vi.mock("@/lib/observability/logger", () => ({
+  logServerWarning: loggerMock.logServerWarning,
 }));
 
 import { exchangeAgentApiKeyForAccessToken } from "@/lib/services/project-agent-access-service";
@@ -44,6 +78,9 @@ describe("exchangeAgentApiKeyForAccessToken", () => {
       __mock: "authAuditEvent.create",
     });
     prismaMock.$transaction.mockResolvedValue([]);
+    abuseControlServiceMock.checkAuthAbuseControls.mockResolvedValue({ ok: true });
+    abuseControlServiceMock.registerAuthAbuseFailure.mockResolvedValue({ ok: true });
+    abuseControlServiceMock.clearAuthAbuseControls.mockResolvedValue(undefined);
     passwordServiceMock.verifySecret.mockResolvedValue(true);
     agentTokenServiceMock.issueAgentAccessToken.mockReturnValue({
       accessToken: "issued-token",
@@ -116,6 +153,26 @@ describe("exchangeAgentApiKeyForAccessToken", () => {
           },
         },
       },
+    });
+  });
+
+  test("returns too-many-attempts when abuse controls are already active", async () => {
+    abuseControlServiceMock.checkAuthAbuseControls.mockResolvedValueOnce({
+      ok: false,
+      retryAfterSeconds: 600,
+    });
+
+    const result = await exchangeAgentApiKeyForAccessToken({
+      apiKey: "nda_public.secret-value",
+      requestId: "request-123",
+      ipAddress: "198.51.100.12",
+      userAgent: "Vitest",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 429,
+      error: "too-many-attempts",
     });
   });
 });

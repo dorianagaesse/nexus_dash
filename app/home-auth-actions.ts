@@ -6,6 +6,11 @@ import { redirect } from "next/navigation";
 import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
 import { setPrimarySessionCookie } from "@/lib/auth/session-cookie";
 import { isLiveProductionDeployment } from "@/lib/env.server";
+import {
+  readClientIpAddressFromHeaders,
+  readUserAgentFromHeaders,
+  resolveRequestIdFromHeaders,
+} from "@/lib/http/request-metadata";
 import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
 import { appendQueryToPath, normalizeReturnToPath } from "@/lib/navigation/return-to";
 import { logServerError, logServerWarning } from "@/lib/observability/logger";
@@ -82,12 +87,16 @@ export async function signInAction(formData: FormData): Promise<void> {
 
   const email = readText(formData, "email");
   const password = readText(formData, "password");
+  const requestHeaders = await headers();
 
   let result: Awaited<ReturnType<typeof signInWithEmailPassword>>;
   try {
     result = await signInWithEmailPassword({
       emailRaw: email,
       passwordRaw: password,
+      requestId: resolveRequestIdFromHeaders(requestHeaders),
+      ipAddress: readClientIpAddressFromHeaders(requestHeaders),
+      userAgent: readUserAgentFromHeaders(requestHeaders),
     });
   } catch (error) {
     logServerError("signInAction", error);
@@ -129,6 +138,7 @@ export async function signUpAction(formData: FormData): Promise<void> {
   const username = readText(formData, "username");
   const password = readText(formData, "password");
   const confirmPassword = readText(formData, "confirmPassword");
+  const requestHeaders = await headers();
 
   let result: Awaited<ReturnType<typeof signUpWithEmailPassword>>;
   try {
@@ -137,6 +147,9 @@ export async function signUpAction(formData: FormData): Promise<void> {
       usernameRaw: username,
       passwordRaw: password,
       passwordConfirmationRaw: confirmPassword,
+      requestId: resolveRequestIdFromHeaders(requestHeaders),
+      ipAddress: readClientIpAddressFromHeaders(requestHeaders),
+      userAgent: readUserAgentFromHeaders(requestHeaders),
     });
   } catch (error) {
     logServerError("signUpAction", error);
@@ -160,7 +173,7 @@ export async function signUpAction(formData: FormData): Promise<void> {
 
   let issueResult: Awaited<ReturnType<typeof issueEmailVerificationForUser>>;
   try {
-    const requestOrigin = resolveRequestOriginFromHeaders(await headers());
+    const requestOrigin = resolveRequestOriginFromHeaders(requestHeaders);
     issueResult = await issueEmailVerificationForUser({
       actorUserId: result.data.userId,
       requestOrigin,
