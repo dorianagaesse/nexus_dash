@@ -382,13 +382,22 @@ async function recordFailedAgentTokenExchange(input: {
   userAgent?: string | null;
   reason: string;
 }): Promise<void> {
+  const normalizedIpAddress = normalizeBoundedString(
+    input.ipAddress ?? null,
+    MAX_IP_ADDRESS_LENGTH
+  );
+  const normalizedUserAgent = normalizeBoundedString(
+    input.userAgent ?? null,
+    MAX_USER_AGENT_LENGTH
+  );
+
   logServerWarning(
     "projectAgentAccess.tokenExchangeFailed",
     "Agent token exchange failed.",
     {
       requestId: input.requestId ?? null,
-      ipAddress: input.ipAddress ?? null,
-      userAgent: input.userAgent ?? null,
+      ipAddress: normalizedIpAddress,
+      userAgent: normalizedUserAgent,
       publicId: input.credential?.publicId ?? null,
       reason: input.reason,
     }
@@ -1077,10 +1086,25 @@ export async function exchangeAgentApiKeyForAccessToken(input: {
     return createError(failureResult.ok ? 401 : 429, failureResult.ok ? "invalid-api-key" : "too-many-attempts");
   }
 
-  await clearAuthAbuseControls({
-    scope: AuthRateLimitScope.agent_token_exchange,
-    keys: abuseSignals.map((signal) => signal.key),
-  });
+  try {
+    await clearAuthAbuseControls({
+      scope: AuthRateLimitScope.agent_token_exchange,
+      keys: abuseSignals.map((signal) => signal.key),
+    });
+  } catch (error) {
+    logServerWarning(
+      "projectAgentAccess.tokenExchangeAbuseControlsClearFailed",
+      "Failed to clear auth abuse controls after successful agent token exchange.",
+      {
+        requestId: input.requestId ?? null,
+        ipAddress: normalizeBoundedString(input.ipAddress ?? null, MAX_IP_ADDRESS_LENGTH),
+        userAgent: normalizeBoundedString(input.userAgent ?? null, MAX_USER_AGENT_LENGTH),
+        publicId: credential.publicId,
+        credentialId: credential.id,
+        error,
+      }
+    );
+  }
 
   const scopes = credential.scopeGrants.map((grant) =>
     mapDbScopeToAgentScope(grant.scope)

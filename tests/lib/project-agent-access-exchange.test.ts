@@ -175,4 +175,52 @@ describe("exchangeAgentApiKeyForAccessToken", () => {
       error: "too-many-attempts",
     });
   });
+
+  test("still issues a token when abuse-control cleanup fails after a valid exchange", async () => {
+    prismaMock.apiCredential.findUnique.mockResolvedValueOnce({
+      id: "credential-1",
+      label: "Preview validation bot",
+      secretHash: "hashed-secret",
+      publicId: "nda_public",
+      projectId: "project-1",
+      createdByUserId: "owner-1",
+      expiresAt: null,
+      revokedAt: null,
+      scopeGrants: [{ scope: ApiCredentialScope.task_read }],
+    });
+    abuseControlServiceMock.clearAuthAbuseControls.mockRejectedValueOnce(
+      new Error("cleanup-down")
+    );
+
+    const result = await exchangeAgentApiKeyForAccessToken({
+      apiKey: "nda_public.secret-value",
+      requestId: "request-123",
+      ipAddress: "198.51.100.12",
+      userAgent: "Vitest",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      status: 200,
+      data: {
+        accessToken: "issued-token",
+        tokenType: "Bearer",
+        expiresAt: "2026-03-31T10:10:00.000Z",
+        expiresInSeconds: 600,
+        projectId: "project-1",
+        scopes: ["task:read"],
+      },
+    });
+    expect(loggerMock.logServerWarning).toHaveBeenCalledWith(
+      "projectAgentAccess.tokenExchangeAbuseControlsClearFailed",
+      expect.any(String),
+      expect.objectContaining({
+        requestId: "request-123",
+        ipAddress: "198.51.100.12",
+        userAgent: "Vitest",
+        credentialId: "credential-1",
+        publicId: "nda_public",
+      })
+    );
+  });
 });

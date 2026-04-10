@@ -26,6 +26,8 @@ interface AuthAbuseLimited {
 
 export type AuthAbuseCheckResult = AuthAbuseAllowed | AuthAbuseLimited;
 
+const BUCKET_RETENTION_WINDOW_MULTIPLIER = 4;
+
 function hashRateLimitValue(value: string): string {
   return createHash("sha256").update(value).digest("base64url");
 }
@@ -183,6 +185,38 @@ async function incrementSignalBucket(input: {
   return rows[0] ?? { blockedUntil: null };
 }
 
+async function pruneExpiredBuckets(input: {
+  db: DbClient;
+  scope: AuthRateLimitScope;
+  signals: AuthAbuseSignal[];
+  now: Date;
+}): Promise<void> {
+  const retentionWindowMs = input.signals.reduce((longestWindow, signal) => {
+    const signalRetentionMs =
+      Math.max(signal.windowMs, signal.blockMs) * BUCKET_RETENTION_WINDOW_MULTIPLIER;
+    return Math.max(longestWindow, signalRetentionMs);
+  }, 0);
+
+  if (retentionWindowMs <= 0) {
+    return;
+  }
+
+  const cutoff = new Date(input.now.getTime() - retentionWindowMs);
+
+  await input.db.authRateLimitBucket.deleteMany({
+    where: {
+      scope: input.scope,
+      key: {
+        in: input.signals.map((signal) => signal.key),
+      },
+      windowStart: {
+        lt: cutoff,
+      },
+      OR: [{ blockedUntil: null }, { blockedUntil: { lt: input.now } }],
+    },
+  });
+}
+
 export async function checkAuthAbuseControls(input: {
   scope: AuthRateLimitScope;
   signals: AuthAbuseSignal[];
@@ -222,6 +256,13 @@ export async function consumeAuthAbuseQuota(input: {
   if (!existingBlock.ok) {
     return existingBlock;
   }
+
+  await pruneExpiredBuckets({
+    db,
+    scope: input.scope,
+    signals,
+    now,
+  });
 
   const runIncrementSequence = async (transactionDb: DbClient) => {
     const results: Array<{ blockedUntil: Date | null }> = [];

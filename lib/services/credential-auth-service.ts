@@ -36,6 +36,8 @@ export {
 };
 
 const MAX_USERNAME_GENERATION_ATTEMPTS = 12;
+const MAX_IP_ADDRESS_LENGTH = 64;
+const MAX_USER_AGENT_LENGTH = 512;
 
 type AuthFailureCode =
   | "invalid-email"
@@ -125,6 +127,27 @@ function isUsernameDiscriminatorConstraint(error: unknown): boolean {
     targets.includes("username") &&
     targets.includes("usernameDiscriminator")
   );
+}
+
+function normalizeTrimmedString(value: string | null | undefined): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? trimmedValue : null;
+}
+
+function normalizeBoundedString(
+  value: string | null | undefined,
+  maxLength: number
+): string | null {
+  const trimmedValue = normalizeTrimmedString(value);
+  if (!trimmedValue) {
+    return null;
+  }
+
+  return trimmedValue.slice(0, maxLength);
 }
 
 const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
@@ -232,8 +255,8 @@ async function resolveSignInFailure(input: {
 
   logServerWarning("credentialAuth.signInFailed", "Email/password sign-in failed.", {
     requestId: input.requestId ?? null,
-    ipAddress: input.ipAddress ?? null,
-    userAgent: input.userAgent ?? null,
+    ipAddress: normalizeBoundedString(input.ipAddress ?? null, MAX_IP_ADDRESS_LENGTH),
+    userAgent: normalizeBoundedString(input.userAgent ?? null, MAX_USER_AGENT_LENGTH),
     reason: input.reason,
     accountKey: buildAuthRateLimitKey("sign-in:email", input.email),
     throttled: !abuseResult.ok,
@@ -267,8 +290,8 @@ export async function signUpWithEmailPassword(input: {
   if (!abuseControlResult.ok) {
     logServerWarning("credentialAuth.signUpThrottled", "Email/password sign-up throttled.", {
       requestId: input.requestId ?? null,
-      ipAddress: input.ipAddress ?? null,
-      userAgent: input.userAgent ?? null,
+      ipAddress: normalizeBoundedString(input.ipAddress ?? null, MAX_IP_ADDRESS_LENGTH),
+      userAgent: normalizeBoundedString(input.userAgent ?? null, MAX_USER_AGENT_LENGTH),
       retryAfterSeconds: abuseControlResult.retryAfterSeconds,
     });
     return { ok: false, error: "too-many-attempts" };
@@ -358,8 +381,8 @@ export async function signInWithEmailPassword(input: {
   if (!abuseCheck.ok) {
     logServerWarning("credentialAuth.signInThrottled", "Email/password sign-in throttled.", {
       requestId: input.requestId ?? null,
-      ipAddress: input.ipAddress ?? null,
-      userAgent: input.userAgent ?? null,
+      ipAddress: normalizeBoundedString(input.ipAddress ?? null, MAX_IP_ADDRESS_LENGTH),
+      userAgent: normalizeBoundedString(input.userAgent ?? null, MAX_USER_AGENT_LENGTH),
       accountKey: buildAuthRateLimitKey("sign-in:email", email),
       retryAfterSeconds: abuseCheck.retryAfterSeconds,
     });
@@ -417,10 +440,25 @@ export async function signInWithEmailPassword(input: {
     });
   }
 
-  await clearAuthAbuseControls({
-    scope: AuthRateLimitScope.sign_in,
-    keys: abuseSignals.map((signal) => signal.key),
-  });
+  try {
+    await clearAuthAbuseControls({
+      scope: AuthRateLimitScope.sign_in,
+      keys: abuseSignals.map((signal) => signal.key),
+    });
+  } catch (error) {
+    logServerWarning(
+      "credentialAuth.signInAbuseControlsClearFailed",
+      "Failed to clear auth abuse controls after successful email/password sign-in.",
+      {
+        requestId: input.requestId ?? null,
+        ipAddress: normalizeBoundedString(input.ipAddress ?? null, MAX_IP_ADDRESS_LENGTH),
+        userAgent: normalizeBoundedString(input.userAgent ?? null, MAX_USER_AGENT_LENGTH),
+        accountKey: buildAuthRateLimitKey("sign-in:email", email),
+        userId: user.id,
+        error,
+      }
+    );
+  }
 
   return issueSession({
     userId: user.id,

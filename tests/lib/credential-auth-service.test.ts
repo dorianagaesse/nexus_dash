@@ -464,6 +464,45 @@ describe("credential-auth-service", () => {
     });
   });
 
+  test("signIn still succeeds when abuse-control cleanup fails after valid credentials", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: "user-1",
+      passwordHash: "hash-1",
+    });
+    passwordServiceMock.verifyPassword.mockResolvedValueOnce(true);
+    abuseControlServiceMock.clearAuthAbuseControls.mockRejectedValueOnce(
+      new Error("cleanup-down")
+    );
+
+    const result = await signInWithEmailPassword({
+      emailRaw: "user@example.com",
+      passwordRaw: "password123",
+      requestId: "request-1",
+      ipAddress: "198.51.100.12",
+      userAgent: "Vitest",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        userId: "user-1",
+        emailVerified: false,
+        sessionToken: "session-token",
+        expiresAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    });
+    expect(loggerMock.logServerWarning).toHaveBeenCalledWith(
+      "credentialAuth.signInAbuseControlsClearFailed",
+      expect.any(String),
+      expect.objectContaining({
+        requestId: "request-1",
+        ipAddress: "198.51.100.12",
+        userAgent: "Vitest",
+        userId: "user-1",
+      })
+    );
+  });
+
   test("signUp returns too-many-attempts when abuse controls are exceeded", async () => {
     abuseControlServiceMock.consumeAuthAbuseQuota.mockResolvedValueOnce({
       ok: false,

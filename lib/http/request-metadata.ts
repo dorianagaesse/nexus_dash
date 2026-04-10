@@ -12,7 +12,8 @@ export function readClientIpAddressFromHeaders(headers: Headers): string | null 
     }
   }
 
-  return headers.get("x-real-ip")?.trim() ?? null;
+  const realIp = headers.get("x-real-ip")?.trim();
+  return realIp && realIp.length > 0 ? realIp : null;
 }
 
 export function resolveRequestIdFromHeaders(headers: Headers): string {

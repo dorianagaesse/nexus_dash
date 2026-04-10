@@ -20,7 +20,7 @@ CREATE TABLE "AuthRateLimitBucket" (
   "attemptCount" INTEGER NOT NULL DEFAULT 0,
   "blockedUntil" TIMESTAMPTZ(6),
   "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "updatedAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMPTZ(6) NOT NULL,
 
   CONSTRAINT "AuthRateLimitBucket_pkey" PRIMARY KEY ("scope", "key", "windowStart")
 );
