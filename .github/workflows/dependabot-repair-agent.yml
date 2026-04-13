@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       max_prs:
-        description: "Maximum number of red Dependabot PRs to process"
+        description: "Manual-only maximum number of red Dependabot PRs to process"
         required: false
         default: "2"
       pr_number:
@@ -49,18 +49,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          MAX_PRS: ${{ github.event.inputs.max_prs || '2' }}
+          EVENT_NAME: ${{ github.event_name }}
+          MAX_PRS_INPUT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.max_prs || '' }}
           PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
           FORCE_RERUN: ${{ github.event.inputs.force_rerun || 'false' }}
         run: |
-          if [[ ! "$MAX_PRS" =~ ^[0-9]+$ ]]; then
-            echo "max_prs must be an integer between 1 and 5." >&2
-            exit 2
-          fi
+          LIMIT_ARGS=()
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            if [[ ! "$MAX_PRS_INPUT" =~ ^[0-9]+$ ]]; then
+              echo "workflow_dispatch max_prs must be an integer between 1 and 5." >&2
+              exit 2
+            fi
 
-          if (( MAX_PRS < 1 || MAX_PRS > 5 )); then
-            echo "max_prs must be between 1 and 5." >&2
-            exit 2
+            if (( MAX_PRS_INPUT < 1 || MAX_PRS_INPUT > 5 )); then
+              echo "workflow_dispatch max_prs must be between 1 and 5." >&2
+              exit 2
+            fi
+
+            LIMIT_ARGS+=(--limit "$MAX_PRS_INPUT")
           fi
 
           if [[ -n "$PR_NUMBER" ]]; then
@@ -70,13 +76,13 @@ jobs:
             fi
 
             python scripts/dependabot_repair_agent.py scan \
-              --limit "$MAX_PRS" \
+              "${LIMIT_ARGS[@]}" \
               --pr-number "$PR_NUMBER" \
               "${FORCE_ARGS[@]}" \
               --output "$RUNNER_TEMP/targets.json"
           else
             python scripts/dependabot_repair_agent.py scan \
-              --limit "$MAX_PRS" \
+              "${LIMIT_ARGS[@]}" \
               --output "$RUNNER_TEMP/targets.json"
           fi
 
@@ -91,6 +97,7 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: false
+      max-parallel: 3
       matrix:
         target: ${{ fromJson(needs.scan-red-prs.outputs.targets) }}
     permissions:
