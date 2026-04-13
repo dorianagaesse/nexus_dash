@@ -1,89 +1,70 @@
-# Current Task: TASK-051 Security Baseline Phase 3 - Verification, Retest, and Closure Report
+# Current Task: TASK-122 Dependabot Repair Cadence - Scheduled Full-Backlog Drain
 
 ## Task ID
-TASK-051
+TASK-122
 
 ## Status
-Completed on 2026-04-13
+In Progress
 
 ## Objective
-Confirm that the TASK-050 remediation work is effective on the current repo
-baseline, retest the security-sensitive paths it changed, and produce a clear
-closure report that captures what is verified, what remains residual risk, and
-what follow-up items still exist.
+Update the Dependabot repair lane so the weekly scheduled run attempts every
+eligible red Dependabot PR instead of stopping at a small fixed batch size,
+while keeping manual targeted controls and bounded execution characteristics for
+operators.
 
 ## Why This Task Matters
-- `TASK-049` identified the highest-priority security gaps, and `TASK-050`
-  implemented the chosen remediation path.
-- Without a dedicated verification and closure pass, the repo would still lack
-  an explicit answer to whether those controls behave as intended across
-  code, tests, and current runtime assumptions.
-- This task closes the security-baseline mini-epic by turning implementation
-  into evidenced confidence and by documenting any remaining risk honestly.
+- The current Monday schedule still behaves like “repair only the first N red
+  PRs,” which can leave a backlog behind even when the repair lane itself is
+  functioning correctly.
+- The intended operating model is stronger: every scheduled run should attempt
+  the full eligible red Dependabot backlog, while maintainers still retain
+  precise manual controls for debugging or single-PR reruns.
+- Now that TASK-120 has proven the repair lane end to end, the safety mechanism
+  should shift from a weekly item cap to explicit matrix parallelism.
 
-## Verification Summary
-- Mapped the TASK-050 implementation surface back to the original TASK-049
-  findings and the accepted TASK-050 ADR.
-- Confirmed that the security-critical implementation files have not drifted
-  since TASK-050 merged; later repo changes only touched docs and the separate
-  Dependabot follow-up.
-- Reused preserved TASK-050 CI and preview evidence from PR `#161` while also
-  probing the current local validation surface for replayability.
-- Recorded the current workstation blockers precisely:
-  - local dependency install now fails on Node `20.17.0` because Prisma 7
-    requires Node `^20.19 || ^22.12 || >=24.0` rather than a generic
-    `20.19+` baseline
-  - Playwright/DB-backed E2E remained previously blocked by the missing local
-    PostgreSQL fixture service at `127.0.0.1:5432`
+## Implementation Plan
+- Make scheduled runs call the scanner without a numeric item cap so every
+  eligible red Dependabot PR enters the matrix.
+- Keep `workflow_dispatch` support for `max_prs`, `pr_number`, and `force_rerun`
+  so maintainers can still run small, targeted repairs manually.
+- Add explicit matrix `max-parallel` control so “repair all” does not become
+  uncontrolled concurrency.
+- Validate the new scan behavior locally, then open and monitor a PR until the
+  Copilot review appears and handle any actionable feedback.
 
 ## Expected Output
-- a verification artifact for TASK-051 that assesses TASK-050 against the
-  original TASK-049 findings
-- updated tests or targeted hardening only where verification reveals a real gap
-- refreshed tracking/docs that record validation evidence, residual risk, and
-  final closure status for the security-baseline epic
+- a workflow/script change that makes the Monday repair run attempt the full
+  eligible red Dependabot backlog
+- preserved manual controls for bounded or single-PR runs
+- controlled parallel repair execution instead of a weekly item cap
+- a PR with review/validation evidence for the new operating model
 
 ## Acceptance Criteria
-- Each top-ranked TASK-049 finding has an explicit verification outcome tied to
-  current code and evidence.
-- TASK-050 validation requirements are rechecked against the present repo
-  baseline, with any gaps either closed or documented with a clear reason.
-- Residual risks and follow-up items are written down clearly enough that the
-  backlog/ADR/journal state remains trustworthy after this task.
-- Validation is executed to the extent supported by the current environment, and
-  any environment blockers are captured precisely rather than hand-waved.
+- Scheduled runs no longer enforce a small fixed `max_prs` cap and instead scan
+  the full eligible red Dependabot set.
+- Manual dispatch retains `max_prs`, `pr_number`, and `force_rerun` controls.
+- Repair execution uses explicit bounded parallelism rather than a silent scan
+  cap as the primary safety control.
+- The implementation is validated and reviewed through a dedicated PR.
 
 ## Definition Of Done
-1. TASK-051 has a dedicated verification/closure artifact in `tasks/` and an
-   active brief in `tasks/current.md`.
-2. Relevant validation commands have been run and their outcomes recorded:
-   - `npm run lint`
-   - `npm test`
-   - `npm run test:coverage`
-   - `npm run build`
-   - targeted security-focused verification where useful
-3. Any code or test changes required to close real verification gaps are
-   implemented and validated.
-4. `tasks/backlog.md`, `journal.md`, and any supporting docs are updated so the
-   TASK-049/TASK-050/TASK-051 sequence is coherent and auditable.
+1. `TASK-122` is tracked in `tasks/current.md` and `tasks/backlog.md`.
+2. The repair workflow and script implement the new scheduled/manual split.
+3. The change is validated with targeted local checks.
+4. A PR is opened and monitored through Copilot review, with any valid review
+   follow-up addressed.
 
 ## Dependencies
-- `TASK-049`
-- `TASK-050`
-- current local environment support for Node/npm and PostgreSQL-backed tests
+- `TASK-120`
+- `TASK-116`
+- repository GitHub Actions / Copilot automation secrets
 
 ## Notes
-- Local prerequisites for the full validation baseline:
-  - Node/npm compatible with the current Prisma/Next toolchain
-  - PostgreSQL reachability for suites that touch the real DB fixture path
-- If Playwright or other DB-backed flows are blocked by this workstation
-  environment, record that explicitly in the closure report instead of forcing a
-  false green.
-- Closure decision for this pass:
-  - the three top-ranked TASK-049 findings are considered closed on the current
-    repo baseline
-  - lower-priority security follow-up remains intentionally outside this task
-    (`TASK-064`, `TASK-088`, browser-header baseline, broader monitoring)
+- Recommended operating model for this task:
+  - scheduled Mondays drain all eligible red Dependabot PRs
+  - manual runs stay bounded and targetable for diagnosis or controlled reruns
+- Preferred safety control:
+  - matrix `max-parallel`, not a hidden weekly item cap
 
 ---
 
