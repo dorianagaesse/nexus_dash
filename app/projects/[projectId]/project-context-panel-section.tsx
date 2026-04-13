@@ -11,6 +11,9 @@ import { getContextCardColorFromSeed } from "@/lib/context-card-colors";
 import { listProjectContextResources } from "@/lib/services/project-service";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 
+type ContextCardAttachment =
+  Awaited<ReturnType<typeof listProjectContextResources>>[number]["attachments"][number];
+
 interface ProjectContextPanelSectionProps {
   projectId: string;
   actorUserId: string;
@@ -31,7 +34,7 @@ export async function ProjectContextPanelSection({
     title: resource.name,
     content: resource.content,
     color: resource.color ?? getContextCardColorFromSeed(resource.id),
-    attachments: resource.attachments.map((attachment) => ({
+    attachments: resource.attachments.map((attachment: ContextCardAttachment) => ({
       id: attachment.id,
       kind: attachment.kind,
       name: attachment.name,

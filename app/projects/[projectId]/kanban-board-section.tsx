@@ -12,6 +12,8 @@ import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import { isTaskStatus } from "@/lib/task-status";
 
+type TaskAttachment = Awaited<ReturnType<typeof listProjectKanbanTasks>>[number]["attachments"][number];
+
 interface KanbanBoardSectionProps {
   projectId: string;
   actorUserId: string;
@@ -50,7 +52,7 @@ export async function KanbanBoardSection({
         ...task.incomingRelations.map((entry) => mapRelatedTaskSummary(entry.leftTask)),
       ].sort((left, right) => left.title.localeCompare(right.title)),
       status: task.status,
-      attachments: task.attachments.map((attachment) => ({
+      attachments: task.attachments.map((attachment: TaskAttachment) => ({
         id: attachment.id,
         kind: attachment.kind,
         name: attachment.name,
