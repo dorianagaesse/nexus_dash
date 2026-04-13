@@ -159,10 +159,16 @@ jobs:
                 $required[] as $required_name
                 | (
                     [.statusCheckRollup[] | select(.name == $required_name)]
-                    | map(select(.status == "COMPLETED" and .conclusion != "SUCCESS" and .conclusion != "NEUTRAL" and .conclusion != "SKIPPED"))
-                    | length
+                    | sort_by(.completedAt // .startedAt // .detailsUrl // "")
+                    | last
                   )
-                | select(. > 0)
+                | select(
+                    . != null
+                    and .status == "COMPLETED"
+                    and .conclusion != "SUCCESS"
+                    and .conclusion != "NEUTRAL"
+                    and .conclusion != "SKIPPED"
+                  )
               ]
               | length
             ')"; then
@@ -179,10 +185,17 @@ jobs:
                 $required[] as $required_name
                 | (
                     [.statusCheckRollup[] | select(.name == $required_name)]
-                    | if length == 0 then
+                    | sort_by(.completedAt // .startedAt // .detailsUrl // "")
+                    | last
+                    | if . == null then
                         true
                       else
-                        any(.status != "COMPLETED" or .conclusion != "SUCCESS")
+                        .status != "COMPLETED"
+                        or (
+                          .conclusion != "SUCCESS"
+                          and .conclusion != "NEUTRAL"
+                          and .conclusion != "SKIPPED"
+                        )
                       end
                   )
                 | select(. == true)

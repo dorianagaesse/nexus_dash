@@ -245,11 +245,13 @@ def inferred_result_from_copilot_output(path: Path | None) -> dict[str, Any] | N
         return None
 
     summary_match = re.search(r'"summary"\s*:\s*"((?:[^"\\]|\\.)*)"', text)
-    summary = (
-        json.loads(f'"{summary_match.group(1)}"')
-        if summary_match
-        else "Recovered the repair decision from Copilot output after the result file could not be written."
-    )
+    summary = "Recovered the repair decision from Copilot output after the result file could not be written."
+    if summary_match:
+        recovered_summary = summary_match.group(1)
+        try:
+            summary = json.loads(f'"{recovered_summary}"')
+        except json.JSONDecodeError:
+            summary = recovered_summary.strip() or summary
 
     validation_match = re.search(r'"validation"\s*:\s*(\[[\s\S]*?\])', text)
     validation: list[str] = []
@@ -281,7 +283,18 @@ def load_result(path: Path, *, copilot_output_path: Path | None = None) -> dict[
             "validation": [],
         }
 
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        inferred = inferred_result_from_copilot_output(copilot_output_path)
+        if inferred:
+            return inferred
+
+        return {
+            "decision": "defer",
+            "summary": default_result_summary(),
+            "validation": [],
+        }
 
 
 def working_tree_has_changes() -> bool:
@@ -847,11 +860,18 @@ def cmd_finalize(args: argparse.Namespace) -> int:
 
     if result.get("decision") != "fixed":
         if not result_path.exists() and (has_uncommitted_changes or has_new_commit):
-            summary = (
-                f"{summary}\n\n"
-                "The repair branch contains changes even though no structured result file was available, "
-                "so opening a superseding PR for human review."
-            )
+            if summary == default_result_summary():
+                summary = (
+                    "The Copilot repair lane did not produce a machine-readable result, "
+                    "but the repair branch contains changes, so opening a superseding PR "
+                    "for human review."
+                )
+            else:
+                summary = (
+                    f"{summary}\n\n"
+                    "The repair branch contains changes even though no structured result file was available, "
+                    "so opening a superseding PR for human review."
+                )
         else:
             comment_manual_review(args.pr_number, marker, summary)
             return 0
