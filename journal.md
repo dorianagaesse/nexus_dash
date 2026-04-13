@@ -14,6 +14,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-04-13
 - Type: Validation
+- Summary: TASK-051 closed the security-baseline verification pass by confirming the merged TASK-050 implementation still matches the original TASK-049 findings, pulling preserved CI evidence from PR `#161`, and recording the current local replay blockers precisely.
+- Evidence: `git diff --name-only a1bc590..HEAD -- lib app prisma tests README.md journal.md tasks adr` showed no drift in the security-critical implementation; `gh pr checks 161 --repo dorianagaesse/nexus_dash` confirmed passing `check-name`, `Quality Core`, `E2E Smoke`, and `Container Image`; `gh run list --repo dorianagaesse/nexus_dash --branch fix/task-050-security-remediation --limit 10` confirmed successful branch-scoped `Quality Gates`, `Check Branch Name`, and preview deploy runs; attempted `npx vitest run tests/lib/session-service-storage.test.ts tests/lib/credential-auth-service.test.ts tests/app/forgot-password-actions.test.ts tests/app/verify-email-actions.test.ts tests/lib/project-agent-access-exchange.test.ts tests/lib/project-agent-access-service.test.ts tests/lib/api-guard.test.ts` and `npm install`, both blocked locally because this workstation is on Node `20.17.0` while Prisma 7 in this repo requires Node `^20.19 || ^22.12 || >=24.0`.
+
+### 2026-04-13
+- Type: Execution
+- Summary: TASK-051 produced the closure report for the TASK-049/TASK-050 security baseline, marked TASK-051 complete, and corrected the README Node prerequisite to match the current Prisma/Next toolchain floor.
+- Evidence: Updated `tasks/current.md`, `tasks/task-051-security-verification-and-closure-report.md`, `tasks/backlog.md`, `journal.md`, and `README.md`.
+
+### 2026-04-13
+- Type: Validation
 - Summary: TASK-120 follow-up validated on PR `#167` with all required checks green, Copilot review comments addressed/resolved, and a manual preview deploy confirmed from branch `fix/task-120-dependabot-repair-followup`.
 - Evidence: PR `#167`; commits `9271309` and `5629103`; green runs `24343300501` (`check-name`) and `24343300445` (`Quality Core`, `E2E Smoke`, `Container Image`); resolved review threads `PRRT_kwDORPDIrs56hcqG`, `PRRT_kwDORPDIrs56hcqw`, and `PRRT_kwDORPDIrs56hcrA`; preview deploy run `24343028393` checked out `fix/task-120-dependabot-repair-followup` and published `https://nexus-dash-itlv8pqfw-dorian-agaesses-projects.vercel.app`.
 

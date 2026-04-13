@@ -4,16 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-120
-  Title: Dependabot repair-lane follow-up - precise labeling and resilient superseding PR creation
-  Status: Pending
-  Rationale: Follow up TASK-116 by making Dependabot labels reflect real PR state, ensuring red safe-lane PRs no longer stay mislabeled as auto-mergeable, and restoring a reliable repair path that can still produce repo-owned superseding PRs when a bounded fix is available.
-  Dependencies: TASK-116, TASK-061, TASK-041
-- ID: TASK-051
-  Title: Security baseline phase 3 - verification, retest, and closure report
-  Status: Pending
-  Rationale: Confirm remediation effectiveness and document residual risk with explicit follow-up items.
-  Dependencies: TASK-050
 - ID: TASK-091
   Title: Mobile UI adaptation - responsive layout and interaction polish
   Status: Pending
@@ -140,11 +130,21 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-048, TASK-058, TASK-059
 - ID: TASK-023
   Title: Security assessment and remediation baseline
-  Status: Pending (Epic - split into TASK-049/TASK-050/TASK-051)
-  Rationale: Perform structured security review (OWASP-focused) and implement high-priority mitigations before broader rollout.
+  Status: Done (Epic completed via TASK-049/TASK-050/TASK-051 on 2026-04-13)
+  Rationale: Completed the full security-baseline sequence by producing the OWASP-focused assessment, implementing the top-ranked remediations, and closing the loop with a dedicated verification and residual-risk report.
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-051
+  Title: Security baseline phase 3 - verification, retest, and closure report
+  Status: Done (2026-04-13)
+  Rationale: Confirmed that the TASK-050 remediation still closes the top-ranked TASK-049 findings on the current repo baseline, recorded explicit evidence plus environment blockers, corrected the local Node prerequisite docs, and closed the security-baseline verification/reporting pass.
+  Dependencies: TASK-050
+- ID: TASK-120
+  Title: Dependabot repair-lane follow-up - precise labeling and resilient superseding PR creation
+  Status: Done (2026-04-13)
+  Rationale: Completed the TASK-116 follow-up by making Dependabot labels track real PR health, widening the repair scanner beyond stale labels, moving Copilot repair artifacts into the repo so superseding-PR creation can complete again, and validating the rollout through merged PR `#167`.
+  Dependencies: TASK-116, TASK-061, TASK-041
 - ID: TASK-050
   Title: Security baseline phase 2 - high-priority remediation sprint
   Status: Done (2026-04-10)
