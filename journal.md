@@ -12,6 +12,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-13
+- Type: Execution
+- Summary: TASK-120 hardened the Dependabot follow-up flow by reclassifying failed safe-lane PRs out of `dependabot:auto-merge`, broadening the repair scanner to any red Dependabot PR, and moving the Copilot repair context into the repo so the agent can finally write/read its machine-readable result.
+- Evidence: Updated `.github/workflows/dependabot-auto-triage.yml`, `.github/workflows/dependabot-repair-agent.yml`, `scripts/dependabot_repair_agent.py`, `README.md`, `tasks/current.md`, and `tasks/backlog.md`; fix addresses live red PR behavior seen on Dependabot PRs `#162`, `#163`, and `#164`.
+
 ### 2026-04-10
 - Type: Validation
 - Summary: Investigated a broken TASK-050 preview and traced `GET /` runtime failures to Prisma's `@prisma/adapter-pg` path interpreting `sslmode=require` as certificate-verifying TLS against the Supabase pooler; fixed the runtime client to add `uselibpqcompat=true` for `sslmode=require`, which matches libpq semantics and restores preview connectivity.
