@@ -268,11 +268,12 @@ Required GitHub secrets:
 - `.github/workflows/dependency-security.yml`: scheduled every Monday at 07:00 UTC and runnable on demand
 - `.github/dependabot.yml`: weekly npm + GitHub Actions dependency update cadence
 - `.github/workflows/dependabot-auto-triage.yml`: labels and auto-approves safe
-  Dependabot lanes, then auto-merges them after the required PR checks pass
+  Dependabot lanes, reclassifies failed safe-lane PRs back into manual review,
+  then auto-merges them after the required PR checks pass
 - `.github/workflows/dependabot-repair-agent.yml`: weekly scheduled GitHub
-  Copilot CLI repair lane for failing manual-review Dependabot PRs; it may
-  create repo-owned superseding PRs and close the original Dependabot PRs, but
-  it never merges the superseding PRs automatically
+  Copilot CLI repair lane for failing Dependabot PRs; it may create repo-owned
+  superseding PRs and close the original Dependabot PRs, but it never merges
+  the superseding PRs automatically
 
 Dependabot automation policy:
 - grouped GitHub Actions updates are considered safe auto-merge candidates
@@ -284,7 +285,10 @@ Dependabot automation policy:
     `tailwindcss-animate`, `sanitize-html`, `emojibase-data`)
 - majors and excluded high-churn dependencies stay in manual review
 - a weekly Copilot repair lane may triage failing/manual-review Dependabot PRs:
-  - it runs only for Dependabot-created `dependabot/*` PRs in the manual-review lane
+  - red safe-lane PRs are reclassified out of `dependabot:auto-merge` once
+    required checks fail
+  - it scans open red Dependabot-created `dependabot/*` PRs, so stale labels do
+    not block repair follow-up
   - it uses a repository custom Copilot agent profile plus a scheduled GitHub
     Actions workflow
   - when it repairs an update, it opens a repo-owned superseding PR and closes

@@ -120,7 +120,7 @@ jobs:
 
       - name: Define repair paths
         run: |
-          BASE_DIR="$RUNNER_TEMP/dependabot-repair/${{ matrix.target.number }}"
+          BASE_DIR="$GITHUB_WORKSPACE/tmp/dependabot-repair/${{ matrix.target.number }}"
           {
             echo "REPAIR_CONTEXT_DIR=$BASE_DIR"
             echo "REPAIR_ORCHESTRATOR_PATH=$BASE_DIR/dependabot_repair_agent.py"
@@ -258,4 +258,5 @@ jobs:
             --head-sha "$HEAD_SHA" \
             --replacement-branch "$REPAIR_BRANCH" \
             --baseline-sha "$REPAIR_BASELINE_SHA" \
-            --result-path "$REPAIR_CONTEXT_DIR/result.json"
+            --result-path "$REPAIR_CONTEXT_DIR/result.json" \
+            --copilot-output-path "$REPAIR_CONTEXT_DIR/copilot-output.log"

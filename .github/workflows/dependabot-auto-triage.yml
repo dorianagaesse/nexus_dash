@@ -75,22 +75,22 @@ jobs:
             || true
 
   merge-safe-pr:
-    name: Merge safe Dependabot PR after green checks
+    name: Reconcile safe Dependabot PR state after checks
     if: >
       github.event_name == 'workflow_run' &&
       github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.conclusion == 'success' &&
       startsWith(github.event.workflow_run.head_branch, 'dependabot/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
       pull-requests: write
     env:
       GH_REPO: ${{ github.repository }}
       GH_TOKEN: ${{ github.token }}
 
     steps:
-      - name: Merge safe Dependabot PR
+      - name: Reconcile safe Dependabot labels and merge green PRs
         shell: bash
         run: |
           PR_NUMBER="${{ github.event.workflow_run.pull_requests[0].number }}"
@@ -121,6 +121,8 @@ jobs:
           fi
 
           HAS_AUTO_LABEL=""
+          HAS_MANUAL_LABEL=""
+          FAILING_COUNT=""
           INCOMPLETE_COUNT=""
           MERGE_STATE=""
 
@@ -143,15 +145,57 @@ jobs:
               exit 1
             fi
 
+            if ! HAS_MANUAL_LABEL="$(echo "$PR_JSON" | jq -r '[.labels[].name] | index("dependabot:manual-review") != null')"; then
+              echo "Failed to parse manual-review label for PR #$PR_NUMBER (attempt $attempt/6)."
+              if [[ "$attempt" -lt 6 ]]; then
+                sleep 10
+                continue
+              fi
+              exit 1
+            fi
+
+            if ! FAILING_COUNT="$(echo "$PR_JSON" | jq --argjson required "$REQUIRED_CHECK_NAMES_JSON" '
+              [
+                $required[] as $required_name
+                | (
+                    [.statusCheckRollup[] | select(.name == $required_name)]
+                    | sort_by(.completedAt // .startedAt // .detailsUrl // "")
+                    | last
+                  )
+                | select(
+                    . != null
+                    and .status == "COMPLETED"
+                    and .conclusion != "SUCCESS"
+                    and .conclusion != "NEUTRAL"
+                    and .conclusion != "SKIPPED"
+                  )
+              ]
+              | length
+            ')"; then
+              echo "Failed to parse failing checks for PR #$PR_NUMBER (attempt $attempt/6)."
+              if [[ "$attempt" -lt 6 ]]; then
+                sleep 10
+                continue
+              fi
+              exit 1
+            fi
+
             if ! INCOMPLETE_COUNT="$(echo "$PR_JSON" | jq --argjson required "$REQUIRED_CHECK_NAMES_JSON" '
               [
                 $required[] as $required_name
                 | (
                     [.statusCheckRollup[] | select(.name == $required_name)]
-                    | if length == 0 then
+                    | sort_by(.completedAt // .startedAt // .detailsUrl // "")
+                    | last
+                    | if . == null then
                         true
                       else
-                        any(.status != "COMPLETED" or .conclusion != "SUCCESS")
+                        .status != "COMPLETED"
+                        or (
+                          .conclusion != "SUCCESS"
+                          and .conclusion != "NEUTRAL"
+                          and .conclusion != "SKIPPED"
+                        )
                       end
                   )
                 | select(. == true)
@@ -175,16 +219,31 @@ jobs:
               exit 1
             fi
 
+            if [[ "$FAILING_COUNT" != "0" ]]; then
+              break
+            fi
+
             if [[ "$HAS_AUTO_LABEL" == "true" && "$INCOMPLETE_COUNT" == "0" && ( "$MERGE_STATE" == "CLEAN" || "$MERGE_STATE" == "HAS_HOOKS" ) ]]; then
               break
             fi
 
-            echo "PR #$PR_NUMBER is not ready yet (attempt $attempt/6): has_auto_label=$HAS_AUTO_LABEL incomplete_count=$INCOMPLETE_COUNT merge_state=$MERGE_STATE"
+            echo "PR #$PR_NUMBER is not ready yet (attempt $attempt/6): has_auto_label=$HAS_AUTO_LABEL has_manual_label=$HAS_MANUAL_LABEL failing_count=$FAILING_COUNT incomplete_count=$INCOMPLETE_COUNT merge_state=$MERGE_STATE"
 
             if [[ "$attempt" -lt 6 ]]; then
               sleep 10
             fi
           done
+
+          if [[ "$FAILING_COUNT" != "0" ]]; then
+            if [[ "$HAS_AUTO_LABEL" == "true" || "$HAS_MANUAL_LABEL" != "true" ]]; then
+              gh pr edit "$PR_NUMBER" \
+                --add-label "dependabot:manual-review" \
+                --remove-label "dependabot:auto-merge"
+            fi
+
+            echo "PR #$PR_NUMBER has failing required checks and was moved to the manual-review lane."
+            exit 0
+          fi
 
           if [[ "$HAS_AUTO_LABEL" != "true" ]]; then
             echo "PR #$PR_NUMBER is not in the safe auto-merge lane."

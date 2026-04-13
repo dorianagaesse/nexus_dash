@@ -4,11 +4,11 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-050
-  Title: Security baseline phase 2 - high-priority remediation sprint
+- ID: TASK-120
+  Title: Dependabot repair-lane follow-up - precise labeling and resilient superseding PR creation
   Status: Pending
-  Rationale: Implement mitigations for top-ranked findings discovered in the security assessment.
-  Dependencies: TASK-048, TASK-049, TASK-043
+  Rationale: Follow up TASK-116 by making Dependabot labels reflect real PR state, ensuring red safe-lane PRs no longer stay mislabeled as auto-mergeable, and restoring a reliable repair path that can still produce repo-owned superseding PRs when a bounded fix is available.
+  Dependencies: TASK-116, TASK-061, TASK-041
 - ID: TASK-051
   Title: Security baseline phase 3 - verification, retest, and closure report
   Status: Pending
@@ -145,6 +145,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-050
+  Title: Security baseline phase 2 - high-priority remediation sprint
+  Status: Done (2026-04-10)
+  Rationale: Completed the top-ranked security remediation slice by adding DB-backed abuse controls across public auth and agent-token entry points, moving human sessions to hashed-at-rest lookup semantics with explicit legacy invalidation, and enforcing current credential liveness during agent bearer-token use.
+  Dependencies: TASK-048, TASK-049, TASK-043
 - ID: TASK-116
   Title: Dependabot and CI automation - workflow hygiene, safe auto-merge, and bounded red-PR repair agent
   Status: Done (2026-04-09)

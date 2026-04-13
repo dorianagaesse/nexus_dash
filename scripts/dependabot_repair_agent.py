@@ -80,10 +80,6 @@ def is_dependabot_pr(pr: dict[str, Any]) -> bool:
     )
 
 
-def label_names(pr: dict[str, Any]) -> set[str]:
-    return {label["name"] for label in pr.get("labels", [])}
-
-
 def pr_has_failure(pr: dict[str, Any]) -> bool:
     latest_checks: dict[str, dict[str, Any]] = {}
     latest_keys: dict[str, str] = {}
@@ -232,18 +228,73 @@ def diff_shortstat_against_main() -> str:
     return git("diff", "--shortstat", "origin/main...HEAD").strip()
 
 
-def load_result(path: Path) -> dict[str, Any]:
+def default_result_summary() -> str:
+    return (
+        "The Copilot repair lane did not produce a machine-readable result. "
+        "Leaving this Dependabot PR open for manual review."
+    )
+
+
+def inferred_result_from_copilot_output(path: Path | None) -> dict[str, Any] | None:
+    if path is None or not path.exists():
+        return None
+
+    text = path.read_text(encoding="utf-8")
+    decision_match = re.search(r'"decision"\s*:\s*"(fixed|defer)"', text)
+    if not decision_match:
+        return None
+
+    summary_match = re.search(r'"summary"\s*:\s*"((?:[^"\\]|\\.)*)"', text)
+    summary = "Recovered the repair decision from Copilot output after the result file could not be written."
+    if summary_match:
+        recovered_summary = summary_match.group(1)
+        try:
+            summary = json.loads(f'"{recovered_summary}"')
+        except json.JSONDecodeError:
+            summary = recovered_summary.strip() or summary
+
+    validation_match = re.search(r'"validation"\s*:\s*(\[[\s\S]*?\])', text)
+    validation: list[str] = []
+    if validation_match:
+        try:
+            parsed_validation = json.loads(validation_match.group(1))
+        except json.JSONDecodeError:
+            parsed_validation = []
+        validation = [str(item).strip() for item in parsed_validation if str(item).strip()]
+
+    return {
+        "decision": decision_match.group(1),
+        "summary": (
+            f"{summary}\n\nRecovered the decision from Copilot output because the result file was unavailable."
+        ).strip(),
+        "validation": validation,
+    }
+
+
+def load_result(path: Path, *, copilot_output_path: Path | None = None) -> dict[str, Any]:
     if not path.exists():
+        inferred = inferred_result_from_copilot_output(copilot_output_path)
+        if inferred:
+            return inferred
+
         return {
             "decision": "defer",
-            "summary": (
-                "The Copilot repair lane did not produce a machine-readable result. "
-                "Leaving this Dependabot PR open for manual review."
-            ),
+            "summary": default_result_summary(),
             "validation": [],
         }
 
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        inferred = inferred_result_from_copilot_output(copilot_output_path)
+        if inferred:
+            return inferred
+
+        return {
+            "decision": "defer",
+            "summary": default_result_summary(),
+            "validation": [],
+        }
 
 
 def working_tree_has_changes() -> bool:
@@ -279,13 +330,6 @@ def scan_targets(
     targets: list[dict[str, Any]] = []
     for pr in prs:
         if not is_dependabot_pr(pr):
-            continue
-
-        labels = label_names(pr)
-        if "dependabot:auto-merge" in labels:
-            continue
-
-        if "dependabot:manual-review" not in labels and specific_pr is None:
             continue
 
         if not pr_has_failure(pr):
@@ -768,7 +812,9 @@ def comment_manual_review(original_pr_number: int, marker: str, summary: str) ->
 
 def cmd_finalize(args: argparse.Namespace) -> int:
     original_pr = fetch_pr(args.pr_number)
-    result = load_result(Path(args.result_path))
+    result_path = Path(args.result_path)
+    copilot_output_path = Path(args.copilot_output_path) if args.copilot_output_path else None
+    result = load_result(result_path, copilot_output_path=copilot_output_path)
     summary = (result.get("summary") or "No summary was produced.").strip()
     validation = [str(item).strip() for item in result.get("validation") or [] if str(item).strip()]
     marker = f"{MARKER_PREFIX}pr-{args.pr_number}:{args.head_sha} -->"
@@ -808,13 +854,27 @@ def cmd_finalize(args: argparse.Namespace) -> int:
         close_original_pr(args.pr_number, existing["number"], existing["url"], marker, summary)
         return 0
 
-    if result.get("decision") != "fixed":
-        comment_manual_review(args.pr_number, marker, summary)
-        return 0
-
     branch_head_commit = current_head_commit()
     has_uncommitted_changes = working_tree_has_changes()
     has_new_commit = branch_head_commit != args.baseline_sha
+
+    if result.get("decision") != "fixed":
+        if not result_path.exists() and (has_uncommitted_changes or has_new_commit):
+            if summary == default_result_summary():
+                summary = (
+                    "The Copilot repair lane did not produce a machine-readable result, "
+                    "but the repair branch contains changes, so opening a superseding PR "
+                    "for human review."
+                )
+            else:
+                summary = (
+                    f"{summary}\n\n"
+                    "The repair branch contains changes even though no structured result file was available, "
+                    "so opening a superseding PR for human review."
+                )
+        else:
+            comment_manual_review(args.pr_number, marker, summary)
+            return 0
 
     if not has_uncommitted_changes and not has_new_commit:
         comment_manual_review(
@@ -880,7 +940,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    scan = subparsers.add_parser("scan", help="List open red/manual-review Dependabot PRs.")
+    scan = subparsers.add_parser("scan", help="List open red Dependabot PRs that need repair follow-up.")
     scan.add_argument("--limit", type=int, default=2)
     scan.add_argument("--pr-number", type=int)
     scan.add_argument("--force", action="store_true")
@@ -900,6 +960,7 @@ def build_parser() -> argparse.ArgumentParser:
     finalize.add_argument("--replacement-branch", required=True)
     finalize.add_argument("--baseline-sha", required=True)
     finalize.add_argument("--result-path", required=True)
+    finalize.add_argument("--copilot-output-path")
     finalize.set_defaults(func=cmd_finalize)
 
     return parser
