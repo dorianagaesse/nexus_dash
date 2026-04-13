@@ -18,6 +18,7 @@ ROOT = Path(os.environ.get("GITHUB_WORKSPACE") or Path(__file__).resolve().paren
 REPO = os.environ.get("GITHUB_REPOSITORY", "").strip()
 MARKER_PREFIX = "<!-- dependabot-repair-agent:"
 DEPENDABOT_LOGINS = {"app/dependabot", "dependabot[bot]"}
+OPEN_DEPENDABOT_SCAN_FETCH_LIMIT = 1000
 REQUIRED_CHECK_NAMES = {
     "check-name",
     "Quality Core (lint, test, coverage, build)",
@@ -321,6 +322,8 @@ def scan_targets(
                 "open",
                 "--search",
                 "head:dependabot/",
+                "--limit",
+                str(OPEN_DEPENDABOT_SCAN_FETCH_LIMIT),
                 "--json",
                 "number,title,headRefName,headRefOid,labels,statusCheckRollup,url,author,isDraft,state",
             ]
