@@ -247,6 +247,7 @@ describe("api-guard", () => {
       ownerUserId: "owner-1",
       projectId: "project-1",
       tokenId: "token-1",
+      issuedAt: new Date("2026-03-31T09:00:00.000Z"),
       requestId: "request-123",
       ipAddress: "198.51.100.24",
       userAgent: "Vitest",

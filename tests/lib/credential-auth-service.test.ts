@@ -16,12 +16,32 @@ const passwordServiceMock = vi.hoisted(() => ({
   verifyPassword: vi.fn(),
 }));
 
+const abuseControlServiceMock = vi.hoisted(() => ({
+  buildAuthRateLimitKey: vi.fn((namespace: string, value: string | null | undefined) =>
+    value ? `${namespace}:${value}` : null
+  ),
+  buildCompositeAuthRateLimitKey: vi.fn(
+    (namespace: string, values: Array<string | null | undefined>) =>
+      values.every((value) => typeof value === "string" && value.trim().length > 0)
+        ? `${namespace}:${values.join("|")}`
+        : null
+  ),
+  checkAuthAbuseControls: vi.fn(),
+  clearAuthAbuseControls: vi.fn(),
+  consumeAuthAbuseQuota: vi.fn(),
+  registerAuthAbuseFailure: vi.fn(),
+}));
+
 const cryptoMock = vi.hoisted(() => ({
   randomInt: vi.fn(),
 }));
 
 const envMock = vi.hoisted(() => ({
   isPreviewDeployment: vi.fn(() => false),
+}));
+
+const loggerMock = vi.hoisted(() => ({
+  logServerWarning: vi.fn(),
 }));
 
 vi.mock("node:crypto", () => ({
@@ -41,8 +61,21 @@ vi.mock("@/lib/services/password-service", () => ({
   verifyPassword: passwordServiceMock.verifyPassword,
 }));
 
+vi.mock("@/lib/services/auth-abuse-control-service", () => ({
+  buildAuthRateLimitKey: abuseControlServiceMock.buildAuthRateLimitKey,
+  buildCompositeAuthRateLimitKey: abuseControlServiceMock.buildCompositeAuthRateLimitKey,
+  checkAuthAbuseControls: abuseControlServiceMock.checkAuthAbuseControls,
+  clearAuthAbuseControls: abuseControlServiceMock.clearAuthAbuseControls,
+  consumeAuthAbuseQuota: abuseControlServiceMock.consumeAuthAbuseQuota,
+  registerAuthAbuseFailure: abuseControlServiceMock.registerAuthAbuseFailure,
+}));
+
 vi.mock("@/lib/env.server", () => ({
   isPreviewDeployment: envMock.isPreviewDeployment,
+}));
+
+vi.mock("@/lib/observability/logger", () => ({
+  logServerWarning: loggerMock.logServerWarning,
 }));
 
 import {
@@ -60,6 +93,10 @@ describe("credential-auth-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     envMock.isPreviewDeployment.mockReturnValue(false);
+    abuseControlServiceMock.checkAuthAbuseControls.mockResolvedValue({ ok: true });
+    abuseControlServiceMock.consumeAuthAbuseQuota.mockResolvedValue({ ok: true });
+    abuseControlServiceMock.registerAuthAbuseFailure.mockResolvedValue({ ok: true });
+    abuseControlServiceMock.clearAuthAbuseControls.mockResolvedValue(undefined);
     sessionServiceMock.createSessionForUser.mockResolvedValue({
       sessionToken: "session-token",
       expiresAt: new Date("2026-03-01T00:00:00.000Z"),
@@ -425,5 +462,99 @@ describe("credential-auth-service", () => {
         expiresAt: new Date("2026-03-01T00:00:00.000Z"),
       },
     });
+  });
+
+  test("signIn still succeeds when abuse-control cleanup fails after valid credentials", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: "user-1",
+      passwordHash: "hash-1",
+    });
+    passwordServiceMock.verifyPassword.mockResolvedValueOnce(true);
+    abuseControlServiceMock.clearAuthAbuseControls.mockRejectedValueOnce(
+      new Error("cleanup-down")
+    );
+
+    const result = await signInWithEmailPassword({
+      emailRaw: "user@example.com",
+      passwordRaw: "password123",
+      requestId: "request-1",
+      ipAddress: "198.51.100.12",
+      userAgent: "Vitest",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        userId: "user-1",
+        emailVerified: false,
+        sessionToken: "session-token",
+        expiresAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    });
+    expect(loggerMock.logServerWarning).toHaveBeenCalledWith(
+      "credentialAuth.signInAbuseControlsClearFailed",
+      expect.any(String),
+      expect.objectContaining({
+        requestId: "request-1",
+        ipAddress: "198.51.100.12",
+        userAgent: "Vitest",
+        userId: "user-1",
+      })
+    );
+  });
+
+  test("signUp returns too-many-attempts when abuse controls are exceeded", async () => {
+    abuseControlServiceMock.consumeAuthAbuseQuota.mockResolvedValueOnce({
+      ok: false,
+      retryAfterSeconds: 600,
+    });
+
+    const result = await signUpWithEmailPassword({
+      usernameRaw: "test.user",
+      emailRaw: "user@example.com",
+      passwordRaw: VALID_SIGN_UP_PASSWORD,
+      passwordConfirmationRaw: VALID_SIGN_UP_PASSWORD,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "too-many-attempts",
+    });
+  });
+
+  test("signIn returns too-many-attempts when preflight abuse controls are active", async () => {
+    abuseControlServiceMock.checkAuthAbuseControls.mockResolvedValueOnce({
+      ok: false,
+      retryAfterSeconds: 600,
+    });
+
+    const result = await signInWithEmailPassword({
+      emailRaw: "user@example.com",
+      passwordRaw: "password123",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "too-many-attempts",
+    });
+  });
+
+  test("signIn escalates to too-many-attempts when a failed login trips the limiter", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce(null);
+    abuseControlServiceMock.registerAuthAbuseFailure.mockResolvedValueOnce({
+      ok: false,
+      retryAfterSeconds: 600,
+    });
+
+    const result = await signInWithEmailPassword({
+      emailRaw: "user@example.com",
+      passwordRaw: "password123",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "too-many-attempts",
+    });
+    expect(loggerMock.logServerWarning).toHaveBeenCalled();
   });
 });

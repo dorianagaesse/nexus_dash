@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -9,6 +8,10 @@ import {
   getRuntimeEnvironment,
   isLiveProductionDeployment,
 } from "@/lib/env.server";
+import {
+  readClientIpAddressFromHeaders,
+  resolveRequestIdFromHeaders,
+} from "@/lib/http/request-metadata";
 import { logServerError } from "@/lib/observability/logger";
 import {
   recordAgentRequestUsage,
@@ -63,8 +66,7 @@ interface ApiPrincipalFailure {
 export type ApiPrincipalResult = ApiPrincipalSuccess | ApiPrincipalFailure;
 
 export function resolveRequestId(request: NextRequest | Request): string {
-  const requestId = request.headers.get("x-request-id")?.trim();
-  return requestId && requestId.length > 0 ? requestId : crypto.randomUUID();
+  return resolveRequestIdFromHeaders(request.headers);
 }
 
 function readBearerToken(request: NextRequest | Request): string | null {
@@ -87,18 +89,7 @@ function hasBearerToken(request: NextRequest | Request): boolean {
 }
 
 export function readClientIpAddress(request: NextRequest | Request): string | null {
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  if (forwardedFor) {
-    const firstAddress = forwardedFor
-      .split(",")
-      .map((entry) => entry.trim())
-      .find((entry) => entry.length > 0);
-    if (firstAddress) {
-      return firstAddress;
-    }
-  }
-
-  return request.headers.get("x-real-ip")?.trim() ?? null;
+  return readClientIpAddressFromHeaders(request.headers);
 }
 
 async function requireVerifiedSessionApiUser(
@@ -197,6 +188,7 @@ export async function requireApiPrincipal(
         ownerUserId: verifiedToken.data.ownerUserId,
         projectId: verifiedToken.data.projectId,
         tokenId: verifiedToken.data.tokenId,
+        issuedAt: verifiedToken.data.issuedAt,
         requestId,
         ipAddress: readClientIpAddress(request),
         userAgent: request.headers.get("user-agent"),

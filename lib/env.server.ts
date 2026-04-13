@@ -104,6 +104,29 @@ export function getDatabaseRuntimeConfig(
   };
 }
 
+export function getPrismaPgRuntimeConnectionString(): string {
+  const databaseUrl = getRequiredServerEnv("DATABASE_URL");
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(databaseUrl);
+  } catch {
+    return databaseUrl;
+  }
+
+  const sslMode = (parsedUrl.searchParams.get("sslmode") ?? "").toLowerCase();
+  if (sslMode !== "require") {
+    return databaseUrl;
+  }
+
+  if ((parsedUrl.searchParams.get("uselibpqcompat") ?? "").length > 0) {
+    return parsedUrl.toString();
+  }
+
+  parsedUrl.searchParams.set("uselibpqcompat", "true");
+  return parsedUrl.toString();
+}
+
 export interface SupabaseClientRuntimeConfig {
   url: string;
   publishableKey: string;

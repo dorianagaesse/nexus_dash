@@ -90,12 +90,12 @@ model Account {
 }
 
 model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String   @id @default(cuid())
+  sessionTokenHash String   @unique
+  userId           String
+  expires          DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -318,7 +318,16 @@ enum AuthAuditAction {
   credential_rotated
   credential_revoked
   token_exchanged
+  token_exchange_failed
   request_used
+}
+
+enum AuthRateLimitScope {
+  sign_in
+  sign_up
+  password_reset
+  verification_resend
+  agent_token_exchange
 }
 
 model ApiCredential {
@@ -379,4 +388,18 @@ model AuthAuditEvent {
   @@index([projectId, createdAt])
   @@index([credentialId, createdAt])
   @@index([actorUserId, createdAt])
+}
+
+model AuthRateLimitBucket {
+  scope        AuthRateLimitScope
+  key          String    @db.VarChar(191)
+  windowStart  DateTime  @db.Timestamptz(6)
+  attemptCount Int       @default(0)
+  blockedUntil DateTime? @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@id([scope, key, windowStart])
+  @@index([scope, key, blockedUntil])
+  @@index([createdAt])
 }

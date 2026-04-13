@@ -303,6 +303,9 @@ describe("home auth actions", () => {
       emailRaw: "user@example.com",
       passwordRaw: "password123",
       passwordConfirmationRaw: "password123",
+      requestId: expect.any(String),
+      ipAddress: null,
+      userAgent: null,
     });
 
     expect(cookieStoreMock.set).toHaveBeenCalledWith(
@@ -349,6 +352,38 @@ describe("home auth actions", () => {
       requestOrigin: "https://nexus-dash.app",
       returnToPath: "/invite/project/invite-1",
     });
+  });
+
+  test("signInAction redirects with too-many-attempts when auth abuse controls trip", async () => {
+    credentialAuthMock.signInWithEmailPassword.mockResolvedValueOnce({
+      ok: false,
+      error: "too-many-attempts",
+    });
+
+    const formData = new FormData();
+    formData.set("email", "user@example.com");
+    formData.set("password", "password123");
+
+    await expect(signInAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/?form=signin&error=too-many-attempts"
+    );
+  });
+
+  test("signUpAction redirects with too-many-attempts when auth abuse controls trip", async () => {
+    credentialAuthMock.signUpWithEmailPassword.mockResolvedValueOnce({
+      ok: false,
+      error: "too-many-attempts",
+    });
+
+    const formData = new FormData();
+    formData.set("username", "test.user");
+    formData.set("email", "user@example.com");
+    formData.set("password", "password123");
+    formData.set("confirmPassword", "password123");
+
+    await expect(signUpAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/?form=signup&error=too-many-attempts"
+    );
   });
 
   test("signUpAction bypasses verification screen outside live production", async () => {

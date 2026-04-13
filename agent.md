@@ -18,6 +18,9 @@ make the task brief explicit before deep implementation:
 - capture deploy/review workflow assumptions when preview or production behavior
   is part of acceptance
 - link the relevant runbook when preview validation is expected
+- ensure `tasks/current.md` has explicit `Acceptance Criteria` and
+  `Definition Of Done` sections; if either is missing or too vague, add or
+  tighten them before implementation starts
 
 If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `tasks/backlog.md`, then update `tasks/current.md` before implementation.
 
@@ -88,3 +91,9 @@ A task is complete only when:
 1. Acceptance criteria in `tasks/current.md` are satisfied.
 2. Required validation is green.
 3. Tracking docs (`tasks/current.md`, `journal.md`, `adr/decisions.md` when applicable) are updated and consistent.
+
+Additional rule:
+- Every active task brief must explicitly state both `Acceptance Criteria` and
+  `Definition Of Done`.
+- If a task is missing either section, the agent must add them before treating
+  the task as ready for implementation.

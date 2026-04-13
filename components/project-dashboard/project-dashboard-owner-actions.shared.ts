@@ -199,6 +199,8 @@ export function formatAgentAuditAction(action: AgentAuditAction): string {
       return "Credential revoked";
     case "token_exchanged":
       return "Token exchanged";
+    case "token_exchange_failed":
+      return "Token exchange failed";
     case "request_used":
       return "Request used";
     default:

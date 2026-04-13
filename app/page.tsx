@@ -65,6 +65,8 @@ const ERROR_MESSAGES: Record<string, string> = {
     "Password must include uppercase, lowercase, number, and symbol characters.",
   "password-confirmation-mismatch": "Passwords do not match.",
   "invalid-credentials": "Incorrect email or password.",
+  "too-many-attempts":
+    "Too many authentication attempts. Please wait a few minutes and retry.",
   "email-in-use": "An account with this email already exists.",
   "auth-unavailable": "Authentication is temporarily unavailable. Please retry.",
   "social-provider-disabled":

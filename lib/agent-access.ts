@@ -16,6 +16,7 @@ export type AgentAuditAction =
   | "credential_rotated"
   | "credential_revoked"
   | "token_exchanged"
+  | "token_exchange_failed"
   | "request_used";
 
 export const MAX_AGENT_CREDENTIAL_LABEL_LENGTH = 80;

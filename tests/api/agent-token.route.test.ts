@@ -99,6 +99,28 @@ describe("POST /api/auth/agent/token", () => {
     });
   });
 
+  test("returns 429 when abuse controls throttle token exchange", async () => {
+    projectAgentAccessServiceMock.exchangeAgentApiKeyForAccessToken.mockResolvedValueOnce({
+      ok: false,
+      status: 429,
+      error: "too-many-attempts",
+    });
+
+    const request = new Request("http://localhost/api/auth/agent/token", {
+      method: "POST",
+      headers: {
+        authorization: "ApiKey nda_public.secret",
+      },
+    });
+
+    const response = await POST(request as never);
+
+    expect(response.status).toBe(429);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "too-many-attempts",
+    });
+  });
+
   test("returns 400 for invalid json payloads", async () => {
     const request = new Request("http://localhost/api/auth/agent/token", {
       method: "POST",

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(),
   apiCredential: {
-    update: vi.fn(),
+    updateMany: vi.fn(),
   },
   authAuditEvent: {
     create: vi.fn(),
@@ -19,23 +19,24 @@ import { recordAgentRequestUsage } from "@/lib/services/project-agent-access-ser
 describe("project-agent-access-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    prismaMock.apiCredential.update.mockReturnValue({
-      __mock: "apiCredential.update",
+    prismaMock.apiCredential.updateMany.mockResolvedValue({
+      count: 1,
     });
-    prismaMock.authAuditEvent.create.mockReturnValue({
-      __mock: "authAuditEvent.create",
-    });
-    prismaMock.$transaction.mockResolvedValue([]);
+    prismaMock.$transaction.mockImplementation(async (callback: (tx: typeof prismaMock) => unknown) =>
+      callback(prismaMock)
+    );
   });
 
   test("returns unauthorized when the backing credential disappears before usage is recorded", async () => {
-    prismaMock.$transaction.mockRejectedValueOnce({ code: "P2025" });
+    prismaMock.apiCredential.updateMany.mockResolvedValueOnce({ count: 0 });
+    const issuedAt = new Date("2026-03-31T09:00:00.000Z");
 
     const result = await recordAgentRequestUsage({
       credentialId: "credential-1",
       ownerUserId: "owner-1",
       projectId: "project-1",
       tokenId: "token-1",
+      issuedAt,
       requestId: "request-1",
       httpMethod: "GET",
       path: "/api/projects/project-1/tasks",
@@ -45,6 +46,25 @@ describe("project-agent-access-service", () => {
       ok: false,
       status: 401,
       error: "unauthorized",
+    });
+    expect(prismaMock.apiCredential.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "credential-1",
+        projectId: "project-1",
+        createdByUserId: "owner-1",
+        revokedAt: null,
+        AND: [
+          {
+            OR: [{ expiresAt: null }, { expiresAt: { gt: expect.any(Date) } }],
+          },
+          {
+            OR: [{ lastRotatedAt: null }, { lastRotatedAt: { lte: issuedAt } }],
+          },
+        ],
+      },
+      data: {
+        lastUsedAt: expect.any(Date),
+      },
     });
   });
 
@@ -56,6 +76,7 @@ describe("project-agent-access-service", () => {
       ownerUserId: "owner-1",
       projectId: "project-1",
       tokenId: "token-1",
+      issuedAt: new Date("2026-03-31T09:00:00.000Z"),
       requestId: "request-1",
       httpMethod: "GET",
       path: "/api/projects/project-1/tasks",

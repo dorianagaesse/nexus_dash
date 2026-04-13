@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { expect, test } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
+import { hashSessionToken } from "../../lib/services/session-service";
 import { hashPassword } from "../../lib/services/password-service";
 
 function uniqueSuffix(): string {
@@ -83,7 +84,7 @@ test.describe("password recovery flow", () => {
     await prisma.session.create({
       data: {
         userId: user.id,
-        sessionToken: existingSessionToken,
+        sessionTokenHash: hashSessionToken(existingSessionToken),
         expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
     });

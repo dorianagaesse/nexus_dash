@@ -3,11 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getPrimarySessionCookieOptions,
 } from "@/lib/auth/session-cookie";
+import { PRIMARY_SESSION_COOKIE_NAME } from "@/lib/auth/session-constants";
 import { isProductionEnvironment } from "@/lib/env.server";
 import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
 import { logServerError } from "@/lib/observability/logger";
 import { authenticateWithSocialProvider } from "@/lib/services/social-auth-service";
-import { PRIMARY_SESSION_COOKIE_NAME } from "@/lib/services/session-service";
 import {
   isSocialAuthProvider,
   normalizeHomeAuthForm,

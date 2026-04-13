@@ -12,6 +12,36 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-10
+- Type: Validation
+- Summary: Investigated a broken TASK-050 preview and traced `GET /` runtime failures to Prisma's `@prisma/adapter-pg` path interpreting `sslmode=require` as certificate-verifying TLS against the Supabase pooler; fixed the runtime client to add `uselibpqcompat=true` for `sslmode=require`, which matches libpq semantics and restores preview connectivity.
+- Evidence: `npx vercel logs https://nexus-dash-87wiabtci-dorian-agaesses-projects.vercel.app --no-follow --since 6h --level error --expand`; `npx vercel curl / --deployment https://nexus-dash-87wiabtci-dorian-agaesses-projects.vercel.app`; one-off `pg` reproduction against preview `DATABASE_URL` showing raw connection failure and success after appending `uselibpqcompat=true`; updated `lib/env.server.ts`, `lib/prisma.ts`, and `tests/lib/env.server.test.ts`; validated with `npm test -- --run tests/lib/env.server.test.ts`, `npm run lint`, and `npm run build`.
+
+### 2026-04-10
+- Type: Governance
+- Summary: Tightened the TASK-050 execution contract by adding explicit expected output, acceptance criteria, and definition of done, and updated the repo operating guide so future task briefs must include acceptance criteria plus DoD before implementation starts.
+- Evidence: Updated `tasks/current.md` and `agent.md`.
+
+### 2026-04-10
+- Type: Execution
+- Summary: TASK-050 implemented the ranked security remediation slice from `TASK-049` by adding PostgreSQL-backed abuse controls on public auth/token exchange paths, hashing human session tokens at rest, and enforcing request-time credential liveness for agent bearer-token usage.
+- Evidence: Updated `lib/services/auth-abuse-control-service.ts`, `lib/services/credential-auth-service.ts`, `app/forgot-password/actions.ts`, `app/verify-email/actions.ts`, `lib/services/session-service.ts`, `lib/services/project-agent-access-service.ts`, `lib/auth/api-guard.ts`, `app/api/auth/agent/token/route.ts`, `prisma/schema.prisma`, and migration `prisma/migrations/20260410110000_task050_security_remediation/migration.sql`.
+
+### 2026-04-10
+- Type: Governance
+- Summary: TASK-050 security implementation was locked with an explicit architecture record covering DB-backed abuse buckets, one-time legacy session invalidation, and immediate-effect agent credential liveness checks.
+- Evidence: Added `adr/task-050-security-remediation-adr.md` and updated `adr/decisions.md`.
+
+### 2026-04-10
+- Type: Validation
+- Summary: TASK-050 local validation passed for lint, unit tests, coverage, and production build after syncing the Prisma 7 / Next 16 toolchain in this checkout and regenerating the Prisma client on a Node 20.19 runtime.
+- Evidence: `npm run lint`; `npm test`; `npm run test:coverage`; `$env:DATABASE_URL='postgresql://user:pass@localhost:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run build`; `npx prisma generate`.
+
+### 2026-04-10
+- Type: Blocker
+- Summary: TASK-050 local Playwright smoke validation remains environment-blocked because the PostgreSQL fixture service expected at `127.0.0.1:5432` is unreachable in this workstation session.
+- Evidence: `$env:DATABASE_URL='postgresql://user:pass@127.0.0.1:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npm run test:e2e` built successfully, then all 6 Playwright specs failed with `PrismaClientKnownRequestError: Can't reach database server at 127.0.0.1:5432`.
+
 ### 2026-04-09
 - Type: Validation
 - Summary: The repaired rerun on Dependabot PR `#133` finally created fresh retry PR `#153` and dispatched the required workflows, but GitHub branch protection still showed no required checks on the PR until the same successful results were mirrored into commit statuses for the repair-branch head SHA.

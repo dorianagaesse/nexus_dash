@@ -1,12 +1,16 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
+import { getPrismaPgRuntimeConnectionString } from "@/lib/env.server";
+
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
 function createPrismaClient(): PrismaClient {
-  const adapter = new PrismaPg(process.env.DATABASE_URL ?? "");
+  const adapter = new PrismaPg({
+    connectionString: getPrismaPgRuntimeConnectionString(),
+  });
   return new PrismaClient({ adapter });
 }
 
