@@ -11,6 +11,8 @@ import { listProjectContextResources } from "@/lib/services/project-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 
 const ATTACHMENT_FILES_FIELD = "attachmentFiles";
+type ContextCardAttachment =
+  Awaited<ReturnType<typeof listProjectContextResources>>[number]["attachments"][number];
 
 interface ContextCardCreateJsonRequestBody {
   title?: unknown;
@@ -82,7 +84,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
       content: card.content,
       color: card.color,
       createdAt: card.createdAt,
-      attachments: card.attachments.map((attachment) =>
+      attachments: card.attachments.map((attachment: ContextCardAttachment) =>
         mapContextAttachmentResponse(params.projectId, card.id, attachment)
       ),
     })),

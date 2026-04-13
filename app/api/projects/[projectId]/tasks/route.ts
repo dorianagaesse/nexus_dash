@@ -11,6 +11,7 @@ import { createTaskForProject } from "@/lib/services/project-task-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 
 const ATTACHMENT_FILES_FIELD = "attachmentFiles";
+type TaskAttachment = Awaited<ReturnType<typeof listProjectKanbanTasks>>[number]["attachments"][number];
 
 interface TaskCreateJsonRequestBody {
   title?: unknown;
@@ -114,7 +115,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
       labelsJson: task.labelsJson,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
-      attachments: task.attachments.map((attachment) =>
+      attachments: task.attachments.map((attachment: TaskAttachment) =>
         mapTaskAttachmentResponse(params.projectId, task.id, attachment)
       ),
       relatedTasks: mapRelatedTasks(task),
