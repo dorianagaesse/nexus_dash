@@ -43,7 +43,7 @@ Implemented today:
 
 ### 1. Prerequisites
 
-- Node.js 20.19+ or 22.12+
+- Node.js 20.19+ (v20), 22.12+ (v22), or 24+
 - npm
 - PostgreSQL database (local or remote)
 

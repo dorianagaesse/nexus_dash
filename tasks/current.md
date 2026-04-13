@@ -31,7 +31,8 @@ what follow-up items still exist.
   probing the current local validation surface for replayability.
 - Recorded the current workstation blockers precisely:
   - local dependency install now fails on Node `20.17.0` because Prisma 7
-    requires Node `20.19+`
+    requires Node `^20.19 || ^22.12 || >=24.0` rather than a generic
+    `20.19+` baseline
   - Playwright/DB-backed E2E remained previously blocked by the missing local
     PostgreSQL fixture service at `127.0.0.1:5432`
 

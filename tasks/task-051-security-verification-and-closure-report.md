@@ -177,8 +177,9 @@ verified, what remains residual risk, and what still needs follow-up.
 - Result:
   - local validation replay is currently blocked before test execution because
     this workstation is on Node `20.17.0`
-  - Prisma 7 now requires Node `20.19+`, so `npm install` fails during Prisma's
-    preinstall step
+  - Prisma 7 now requires Node `^20.19 || ^22.12 || >=24.0`, so `npm install`
+    fails during Prisma's preinstall step; unsupported Node 21 and 23 releases
+    would also fail
 - Additional known blocker carried from TASK-050:
   - local Playwright execution still depends on a PostgreSQL fixture service at
     `127.0.0.1:5432`, which was not reachable in the earlier TASK-050 session
