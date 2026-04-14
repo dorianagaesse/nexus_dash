@@ -231,7 +231,7 @@ export function TaskDetailModal({
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4 overflow-x-hidden overflow-y-auto">
+            <CardContent className="min-h-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto">
               {!isEditing ? (
                 <TaskReadOnlyContent
                   canEdit={canEdit}
@@ -497,7 +497,7 @@ function TaskReadOnlyContent({
       <RichTextContent
         html={selectedTask.description}
         emptyContentHtml="<p>No description provided.</p>"
-          className="max-h-[44vh] overflow-y-auto text-sm text-muted-foreground sm:max-h-[52vh]"
+        className="text-sm text-muted-foreground"
         onDoubleClick={() => {
           if (!canEdit) {
             return;

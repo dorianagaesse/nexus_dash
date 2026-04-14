@@ -77,11 +77,11 @@ export function ContextPreviewModal({
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent className="space-y-4 overflow-y-auto">
+        <CardContent className="min-h-0 flex-1 space-y-4 overflow-y-auto">
           <RichTextContent
             html={card.content}
             emptyContentHtml="<p>No content.</p>"
-            className={`max-h-[45vh] overflow-y-auto pr-1 text-sm text-slate-800 ${CONTEXT_CARD_PREVIEW_RICH_TEXT_CLASS}`}
+            className={`pr-1 text-sm text-slate-800 ${CONTEXT_CARD_PREVIEW_RICH_TEXT_CLASS}`}
             onDoubleClick={() => {
               if (!canEdit) {
                 return;

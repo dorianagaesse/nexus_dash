@@ -96,7 +96,7 @@ export function CalendarEventModal({
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent className="overflow-y-auto">
+        <CardContent className="flex-1 min-h-0 overflow-y-auto">
           <form
             className="grid gap-4"
             onSubmit={(submitEvent) => {

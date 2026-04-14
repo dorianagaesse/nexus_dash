@@ -357,7 +357,7 @@ export function CreateTaskDialog({
                     <X className="h-4 w-4" />
                   </Button>
                 </CardHeader>
-                <CardContent className="overflow-y-auto">
+                <CardContent className="min-h-0 flex-1 overflow-y-auto">
                   <form className="grid gap-4" onSubmit={handleSubmit}>
                     <div className="grid gap-2">
                       <label htmlFor="task-title" className="text-sm font-medium">
