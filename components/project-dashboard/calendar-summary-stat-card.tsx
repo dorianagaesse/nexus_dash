@@ -99,10 +99,10 @@ export function CalendarSummaryStatCard({
       className={className}
       valueClassName="text-foreground"
       labelTrailing={
-        <span className="inline-flex h-4 shrink-0 items-center whitespace-nowrap rounded-full border border-emerald-500/20 bg-emerald-500/8 px-1.5 text-[8px] font-semibold uppercase leading-none tracking-[0.04em] text-emerald-700 dark:text-emerald-300">
-          Connected
-        </span>
-      }
-    />
+          <span className="hidden h-4 shrink-0 items-center whitespace-nowrap rounded-full border border-emerald-500/20 bg-emerald-500/8 px-1.5 text-[8px] font-semibold uppercase leading-none tracking-[0.04em] text-emerald-700 sm:inline-flex dark:text-emerald-300">
+            Connected
+          </span>
+        }
+      />
   );
 }

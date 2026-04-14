@@ -11,4 +11,4 @@ export const PROJECT_SECTION_CARD_CLASS = cn(
 export const PROJECT_SECTION_HEADER_CLASS =
   "border-b border-border/50 bg-background/30";
 
-export const PROJECT_SECTION_CONTENT_CLASS = "px-5 py-5";
+export const PROJECT_SECTION_CONTENT_CLASS = "px-4 py-4 sm:px-5 sm:py-5";

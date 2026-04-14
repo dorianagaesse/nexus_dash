@@ -30,7 +30,7 @@ export function ConfirmDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[120] flex min-h-dvh w-screen items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-[120] flex min-h-dvh w-screen items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !isConfirming) {
           onCancel();
@@ -38,7 +38,7 @@ export function ConfirmDialog({
       }}
     >
       <Card
-        className="w-full max-w-md"
+        className="w-full max-w-md rounded-t-3xl sm:rounded-xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <CardHeader className="space-y-2">
@@ -46,11 +46,12 @@ export function ConfirmDialog({
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">{description}</p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
             <Button
               type="button"
               variant="destructive"
               disabled={isConfirming}
+              className="w-full sm:w-auto"
               onClick={() => {
                 try {
                   const result = onConfirm();
@@ -70,6 +71,7 @@ export function ConfirmDialog({
               type="button"
               variant="ghost"
               disabled={isConfirming}
+              className="w-full sm:w-auto"
               onClick={onCancel}
             >
               Cancel

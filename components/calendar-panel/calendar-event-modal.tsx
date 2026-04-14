@@ -71,7 +71,7 @@ export function CalendarEventModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-50 flex min-h-dvh w-screen items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4"
       onMouseDown={(mouseEvent) => {
         if (mouseEvent.target === mouseEvent.currentTarget) {
           onClose();
@@ -79,10 +79,10 @@ export function CalendarEventModal({
       }}
     >
       <Card
-        className="w-full max-w-lg"
+        className="flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl sm:max-h-[calc(100vh-2rem)] sm:rounded-xl"
         onMouseDown={(mouseEvent) => mouseEvent.stopPropagation()}
       >
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0">
           <CardTitle className="text-lg">
             {eventModalMode === "create" ? "Create calendar event" : "Edit calendar event"}
           </CardTitle>
@@ -96,7 +96,7 @@ export function CalendarEventModal({
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-y-auto">
           <form
             className="grid gap-4"
             onSubmit={(submitEvent) => {
@@ -233,19 +233,24 @@ export function CalendarEventModal({
               </div>
             ) : null}
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:items-center">
               {eventModalMode === "edit" ? (
                 <Button
                   type="button"
                   variant="destructive"
                   onClick={() => void onDelete()}
                   disabled={isEventMutationPending}
+                  className="w-full sm:w-auto"
                 >
                   <Trash2 className="h-4 w-4" />
                   {isDeletingEvent ? "Deleting..." : "Delete event"}
                 </Button>
               ) : null}
-              <Button type="submit" disabled={isEventMutationPending}>
+              <Button
+                type="submit"
+                disabled={isEventMutationPending}
+                className="w-full sm:w-auto"
+              >
                 {isSavingEvent
                   ? eventModalMode === "create"
                     ? "Creating..."
@@ -259,6 +264,7 @@ export function CalendarEventModal({
                 variant="ghost"
                 onClick={onClose}
                 disabled={isEventMutationPending}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>

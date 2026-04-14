@@ -219,8 +219,12 @@ export function ContextEditModal({
           ) : null}
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button type="submit" disabled={isUpdatingCard || isSubmittingAttachment}>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+          <Button
+            type="submit"
+            disabled={isUpdatingCard || isSubmittingAttachment}
+            className="w-full sm:w-auto"
+          >
             {isUpdatingCard ? "Saving..." : "Save card"}
           </Button>
           <Button
@@ -228,6 +232,7 @@ export function ContextEditModal({
             variant="ghost"
             onClick={onClose}
             disabled={isUpdatingCard || isSubmittingAttachment}
+            className="w-full sm:w-auto"
           >
             Cancel
           </Button>

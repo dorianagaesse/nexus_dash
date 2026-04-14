@@ -16,14 +16,14 @@ export function CreateProjectDialog({ action }: CreateProjectDialogProps) {
 
   return (
     <>
-      <Button type="button" onClick={() => setIsOpen(true)}>
+      <Button type="button" onClick={() => setIsOpen(true)} className="w-full sm:w-auto">
         <PlusSquare className="h-4 w-4" />
         Create project
       </Button>
 
       {isOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          className="fixed inset-0 z-50 flex min-h-dvh w-screen items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               setIsOpen(false);
@@ -31,16 +31,16 @@ export function CreateProjectDialog({ action }: CreateProjectDialogProps) {
           }}
         >
           <Card
-            className="w-full max-w-lg"
+            className="flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl sm:max-h-[calc(100vh-2rem)] sm:rounded-xl"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0">
               <CardTitle className="text-lg">Create project</CardTitle>
               <Button type="button" variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
                 <X className="h-4 w-4" />
               </Button>
             </CardHeader>
-            <CardContent>
+            <CardContent className="overflow-y-auto">
               <form
                 action={action}
                 className="grid gap-4"
@@ -75,9 +75,16 @@ export function CreateProjectDialog({ action }: CreateProjectDialogProps) {
                   />
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Button type="submit">Create project</Button>
-                  <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+                  <Button type="submit" className="w-full sm:w-auto">
+                    Create project
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setIsOpen(false)}
+                    className="w-full sm:w-auto"
+                  >
                     Cancel
                   </Button>
                 </div>

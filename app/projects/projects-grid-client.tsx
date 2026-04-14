@@ -113,7 +113,7 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
     <>
       <Card>
         <CardHeader className="space-y-3">
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
               <Badge variant="outline">
                 {project.taskCount} task{project.taskCount === 1 ? "" : "s"}
@@ -126,7 +126,7 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
                 {project.role}
               </Badge>
             </div>
-            <div className="flex h-9 w-9 shrink-0 items-start justify-end">
+            <div className="flex h-9 w-9 shrink-0 items-start self-end justify-end sm:self-auto">
               {!isEditMode && project.role === "owner" ? (
                 <ProjectOptionsMenu
                   isOpen={isOptionsMenuOpen}
@@ -155,7 +155,7 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
           <CardDescription>Updated {project.updatedAtLabel}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button asChild>
+          <Button asChild className="w-full sm:w-auto">
             <Link href={`/projects/${project.id}`}>
               Open dashboard
               <ArrowRight className="h-4 w-4" />
@@ -219,14 +219,19 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
             )}
 
             {isEditMode && project.role === "owner" ? (
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 {canSave ? (
-                  <Button type="submit" variant="secondary">
+                  <Button type="submit" variant="secondary" className="w-full sm:w-auto">
                     <Pencil className="h-4 w-4" />
                     Save changes
                   </Button>
                 ) : null}
-                <Button type="button" variant="ghost" onClick={handleCancelEdit}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleCancelEdit}
+                  className="w-full sm:w-auto"
+                >
                   Cancel
                 </Button>
               </div>

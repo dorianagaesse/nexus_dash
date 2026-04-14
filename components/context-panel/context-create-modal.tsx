@@ -194,11 +194,17 @@ export function ContextCreateModal({
           ) : null}
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button type="submit" disabled={isCreatingCard}>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+          <Button type="submit" disabled={isCreatingCard} className="w-full sm:w-auto">
             {isCreatingCard ? "Creating..." : "Create card"}
           </Button>
-          <Button type="button" variant="ghost" onClick={onClose} disabled={isCreatingCard}>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onClose}
+            disabled={isCreatingCard}
+            className="w-full sm:w-auto"
+          >
             Cancel
           </Button>
         </div>

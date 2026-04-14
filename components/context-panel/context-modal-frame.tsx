@@ -21,7 +21,7 @@ export function ContextModalFrame({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[90] flex min-h-dvh w-screen items-start justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-4 sm:items-center"
+      className="fixed inset-0 z-[90] flex min-h-dvh w-screen items-end justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-0 sm:items-center sm:p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -29,16 +29,16 @@ export function ContextModalFrame({
       }}
     >
       <Card
-        className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-x-hidden overflow-y-auto"
+        className="flex max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0">
           <CardTitle className="text-lg">{title}</CardTitle>
           <Button type="button" variant="ghost" size="icon" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent>{children}</CardContent>
+        <CardContent className="overflow-y-auto">{children}</CardContent>
       </Card>
     </div>,
     document.body

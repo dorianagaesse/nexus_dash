@@ -161,8 +161,8 @@ export default async function Home(
         <div className="absolute right-[-10%] top-[8rem] h-[20rem] w-[20rem] rounded-full bg-sky-400/10 blur-3xl" />
       </div>
 
-      <main className="container relative z-10 grid min-h-screen items-center gap-10 py-10 lg:grid-cols-[1.15fr_minmax(390px,470px)] lg:gap-16 lg:py-16">
-        <section className="space-y-8 lg:space-y-10">
+      <main className="container relative z-10 grid min-h-screen items-start gap-8 py-8 sm:gap-10 sm:py-10 lg:grid-cols-[1.15fr_minmax(390px,470px)] lg:items-center lg:gap-16 lg:py-16">
+        <section className="order-2 space-y-6 sm:space-y-8 lg:order-1 lg:space-y-10">
           <div className="flex flex-wrap items-center gap-3 text-xs">
             <Badge variant="secondary" className="rounded-full px-3 py-1">
               NexusDash workspace
@@ -172,17 +172,17 @@ export default async function Home(
             </Badge>
           </div>
           <div className="space-y-5">
-            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight md:text-5xl lg:text-[3.4rem]">
+            <h1 className="max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl lg:text-[3.4rem]">
               Sign in fast, keep delivery context tight, and move work without losing the thread.
             </h1>
-            <p className="max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base md:text-lg">
               Credentials stay available, but Google and GitHub entry can sit beside them
               cleanly once configured. The goal is one calm auth surface, not three
               disconnected flows.
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {highlights.map((item, index) => (
               <Card
                 key={item.title}
@@ -200,7 +200,7 @@ export default async function Home(
           </div>
 
           <Card className="border-border/70 bg-card/60 backdrop-blur">
-            <CardContent className="grid gap-4 p-5 md:grid-cols-[1fr_auto] md:items-center">
+            <CardContent className="grid gap-4 p-4 sm:p-5 md:grid-cols-[1fr_auto] md:items-center">
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Sparkles className="h-4 w-4 text-sky-500" />
@@ -212,7 +212,7 @@ export default async function Home(
                   into projects.
                 </p>
               </div>
-              <div className="flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-4 py-2 text-sm text-muted-foreground">
+              <div className="flex w-fit items-center gap-2 rounded-full border border-border/70 bg-background/60 px-4 py-2 text-sm text-muted-foreground">
                 <LockKeyhole className="h-4 w-4" />
                 Session-backed
               </div>
@@ -220,7 +220,7 @@ export default async function Home(
           </Card>
         </section>
 
-        <Card className="border-border/70 bg-card/95 shadow-2xl shadow-black/20">
+        <Card className="order-1 border-border/70 bg-card/95 shadow-2xl shadow-black/20 lg:order-2">
           <CardHeader className="space-y-4">
             <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted p-1">
               <HomeAuthModeToggleLink
@@ -228,7 +228,7 @@ export default async function Home(
                 returnTo={returnToPath}
                 ariaCurrent={isSignIn ? "page" : undefined}
                 className={cn(
-                  "rounded-md px-3 py-2 text-center text-sm font-medium transition",
+                  "flex min-h-10 items-center justify-center rounded-md px-3 py-2 text-center text-sm font-medium transition",
                   isSignIn
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -241,7 +241,7 @@ export default async function Home(
                 returnTo={returnToPath}
                 ariaCurrent={!isSignIn ? "page" : undefined}
                 className={cn(
-                  "rounded-md px-3 py-2 text-center text-sm font-medium transition",
+                  "flex min-h-10 items-center justify-center rounded-md px-3 py-2 text-center text-sm font-medium transition",
                   !isSignIn
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -440,7 +440,7 @@ export default async function Home(
               </form>
             )}
 
-            <div className="flex items-center justify-between gap-4 border-t border-border/70 pt-2 text-sm text-muted-foreground">
+            <div className="flex flex-col items-start gap-2 border-t border-border/70 pt-2 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <p>
                 {isSignIn ? "New to NexusDash?" : "Already have an account?"}{" "}
                 <HomeAuthModeToggleLink
@@ -451,7 +451,7 @@ export default async function Home(
                   {isSignIn ? "Create an account" : "Sign in"}
                 </HomeAuthModeToggleLink>
               </p>
-              <ArrowRight className="hidden h-4 w-4 shrink-0 md:block" />
+              <ArrowRight className="hidden h-4 w-4 shrink-0 sm:block" />
             </div>
           </CardContent>
         </Card>

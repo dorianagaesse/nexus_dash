@@ -4,14 +4,9 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-122
-  Title: Dependabot repair cadence - scheduled full-backlog drain with bounded parallelism
-  Status: In Progress
-  Rationale: Align the weekly Dependabot repair lane with the intended operating model by making Monday runs attempt every eligible red Dependabot PR while preserving manual targeted controls and using controlled matrix parallelism instead of a silent weekly item cap.
-  Dependencies: TASK-120, TASK-116
 - ID: TASK-091
   Title: Mobile UI adaptation - responsive layout and interaction polish
-  Status: Pending
+  Status: In Progress
   Rationale: The current experience is optimized for desktop and degrades on smaller screens; adapt core views (home, projects grid, project workspace, modals, and key controls) for mobile readability, touch ergonomics, and overflow-safe navigation.
   Dependencies: TASK-012, TASK-024
 - ID: TASK-100
@@ -140,6 +135,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-122
+  Title: Dependabot repair cadence - scheduled full-backlog drain with bounded parallelism
+  Status: Done (2026-04-14)
+  Rationale: Aligned the weekly Dependabot repair lane with the intended operating model by letting scheduled runs scan the full eligible red-PR backlog, preserving manual targeted controls, bounding execution with explicit matrix parallelism, and validating the rollout through merged PR `#174`.
+  Dependencies: TASK-120, TASK-116
 - ID: TASK-051
   Title: Security baseline phase 3 - verification, retest, and closure report
   Status: Done (2026-04-13)
