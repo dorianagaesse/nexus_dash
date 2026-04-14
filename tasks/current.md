@@ -4,7 +4,7 @@
 TASK-091
 
 ## Status
-In Progress
+Completed on 2026-04-13
 
 ## Objective
 Adapt the current desktop-first experience so the core product surfaces remain

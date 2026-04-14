@@ -18,6 +18,7 @@ ROOT = Path(os.environ.get("GITHUB_WORKSPACE") or Path(__file__).resolve().paren
 REPO = os.environ.get("GITHUB_REPOSITORY", "").strip()
 MARKER_PREFIX = "<!-- dependabot-repair-agent:"
 DEPENDABOT_LOGINS = {"app/dependabot", "dependabot[bot]"}
+MAX_SCAN_LIMIT = 5
 REQUIRED_CHECK_NAMES = {
     "check-name",
     "Quality Core (lint, test, coverage, build)",
@@ -305,7 +306,7 @@ def current_head_commit() -> str:
 
 
 def scan_targets(
-    limit: int | None,
+    limit: int,
     specific_pr: int | None = None,
     *,
     force: bool = False,
@@ -355,8 +356,6 @@ def scan_targets(
         )
 
     targets.sort(key=lambda item: item["number"])
-    if limit is None:
-        return targets
     return targets[:limit]
 
 
@@ -368,13 +367,13 @@ def write_output(path: Path | None, payload: Any) -> None:
         print(content)
 
 
-def validated_limit(limit: int | None) -> int | None:
-    if limit is None:
-        return None
-    if limit >= 1:
+def validated_limit(limit: int) -> int:
+    if 1 <= limit <= MAX_SCAN_LIMIT:
         return limit
 
-    raise ValueError("--limit must be a positive integer when provided.")
+    raise ValueError(
+        f"--limit must be between 1 and {MAX_SCAN_LIMIT} so the repair lane stays bounded."
+    )
 
 
 def prompt_text(pr: dict[str, Any], result_path: Path, log_path: Path) -> str:
@@ -941,11 +940,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    scan = subparsers.add_parser(
-        "scan",
-        help="List open red Dependabot PRs that need repair follow-up.",
-    )
-    scan.add_argument("--limit", type=int)
+    scan = subparsers.add_parser("scan", help="List open red Dependabot PRs that need repair follow-up.")
+    scan.add_argument("--limit", type=int, default=2)
     scan.add_argument("--pr-number", type=int)
     scan.add_argument("--force", action="store_true")
     scan.add_argument("--output")
