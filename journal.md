@@ -697,3 +697,13 @@ Low-value entries to avoid going forward:
 - Type: Execution
 - Summary: TASK-113 editor state sync hardened so block controls do not disappear after continuing below structured blocks.
 - Evidence: Updated `components/rich-text-editor.tsx` to serialize editor-only shells back to canonical rich HTML before state updates and to intercept `Enter` on the empty paragraph directly below a block; extended `tests/components/rich-text-editor.test.ts` with serialization coverage.
+
+### 2026-04-15
+- Type: Execution
+- Summary: Developer onboarding settings page now keeps long code blocks and endpoint metadata contained on narrow mobile viewports instead of widening the card layout.
+- Evidence: Updated `components/agent-onboarding/agent-onboarding-guide.tsx` so cards and endpoint rows use `min-w-0`, code blocks stay scrollable inside the card, and long endpoint paths wrap safely; added regression coverage in `tests/components/agent-onboarding-guide.test.ts`.
+
+### 2026-04-15
+- Type: Validation
+- Summary: Mobile containment follow-up for the developer onboarding surface passed the targeted local validation slice before preview deployment.
+- Evidence: `npm run lint` and `npx vitest run tests/components/agent-onboarding-guide.test.ts tests/app/agent-onboarding-pages.test.ts`.

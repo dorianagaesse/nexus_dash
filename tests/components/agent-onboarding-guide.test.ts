@@ -26,4 +26,17 @@ describe("agent-onboarding-guide", () => {
     expect(result).toContain("/context-cards/$CARD_ID/attachments/upload-url");
     expect(result).toContain("Move the task to Done before archiving it");
   });
+
+  test("keeps long code and endpoint content inside shrinkable mobile-safe containers", () => {
+    const result = renderToStaticMarkup(
+      React.createElement(AgentOnboardingGuide, {
+        initialAppOrigin: "https://preview.nexusdash.test",
+      })
+    );
+
+    expect(result).toContain("min-w-0 max-w-full overflow-x-auto");
+    expect(result).toContain("class=\"block min-w-max\"");
+    expect(result).toContain("class=\"min-w-0 flex-1 space-y-2\"");
+    expect(result).toContain("class=\"break-all [overflow-wrap:anywhere]\"");
+  });
 });
