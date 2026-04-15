@@ -4,6 +4,11 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-122
+  Title: Dependabot repair cadence - scheduled full-backlog drain with bounded parallelism
+  Status: In Progress
+  Rationale: Align the weekly Dependabot repair lane with the intended operating model by making Monday runs attempt every eligible red Dependabot PR while preserving manual targeted controls and using controlled matrix parallelism instead of a silent weekly item cap.
+  Dependencies: TASK-120, TASK-116
 - ID: TASK-091
   Title: Mobile UI adaptation - responsive layout and interaction polish
   Status: In Progress
