@@ -17,7 +17,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 - ID: TASK-100
   Title: Mobile UI/UX refinement - touch ergonomics, compact layouts, and small-screen polish
   Status: Pending
-  Rationale: After the baseline responsive pass, refine the mobile experience so it feels intentionally designed rather than merely supported by tightening spacing, improving touch targets, reducing modal friction, and smoothing small-screen navigation patterns across high-traffic flows.
+  Rationale: After the baseline responsive pass, refine the mobile experience so it feels intentionally designed rather than merely supported by tightening spacing, improving touch targets, reducing modal friction, and smoothing small-screen navigation patterns across high-traffic flows. This refinement scope should explicitly include Google Calendar behavior on mobile, especially event readability, interaction density, and create/edit usability on narrow viewports.
   Dependencies: TASK-091, TASK-079, TASK-096
 
 ### Deferred (Intentional)
