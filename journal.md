@@ -12,6 +12,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-15
+- Type: Planning
+- Summary: Started `TASK-105` on a dedicated `docs/task-105-convex-assessment` branch, moved it to the top of the execution queue, replaced `tasks/current.md`, and drafted the initial Convex migration assessment plus architecture decision update.
+- Evidence: Reviewed `project.md`, `README.md`, `prisma/schema.prisma`, `prisma/migrations/**`, `lib/services/rls-context.ts`, `lib/services/project-access-service.ts`, `lib/services/project-service.ts`, `lib/services/project-task-service.ts`, `lib/services/project-collaboration-service.ts`, `lib/services/project-agent-access-service.ts`, `lib/services/session-service.ts`, `lib/services/calendar-service.ts`, and `lib/auth/api-guard.ts`; consulted official docs at `https://docs.convex.dev/functions`, `https://docs.convex.dev/realtime`, `https://docs.convex.dev/database/schemas`, `https://docs.convex.dev/auth/convex-auth`, `https://docs.convex.dev/scheduling/scheduled-functions`, `https://docs.convex.dev/file-storage`, `https://docs.convex.dev/database/import-export`, `https://docs.convex.dev/database/backup-restore`, `https://supabase.com/docs/guides/auth`, `https://supabase.com/docs/guides/database/postgres/row-level-security`, `https://supabase.com/docs/guides/realtime/postgres-changes`, `https://supabase.com/docs/guides/database/prisma`, and `https://supabase.com/docs/guides/deployment/branching`.
+
 ### 2026-04-14
 - Type: Validation
 - Summary: TASK-091 mobile QA passed across the priority small-screen flows on `390x844` and `360x800`, confirming no horizontal overflow on home, projects, workspace, and the task/context modal paths while keeping modal primary actions reachable inside the viewport.
