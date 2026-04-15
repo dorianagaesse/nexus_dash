@@ -331,7 +331,7 @@ export function CreateTaskDialog({
       <Button
         type="button"
         size="sm"
-        className="rounded-full px-4"
+        className="h-10 w-full rounded-full px-4 sm:w-auto"
         onClick={openDialog}
       >
         <PlusSquare className="h-4 w-4" />
@@ -340,7 +340,7 @@ export function CreateTaskDialog({
       {isOpen && typeof document !== "undefined"
         ? createPortal(
             <div
-              className="fixed inset-0 z-[90] flex min-h-dvh w-screen items-start justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-4 sm:items-center"
+              className="fixed inset-0 z-[90] flex min-h-dvh w-screen items-end justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-0 sm:items-center sm:p-4"
               onMouseDown={(event) => {
                 if (event.target === event.currentTarget) {
                   closeDialog();
@@ -348,16 +348,16 @@ export function CreateTaskDialog({
               }}
             >
               <Card
-                className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-x-hidden overflow-y-auto"
+                className="flex max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
                 onMouseDown={(event) => event.stopPropagation()}
               >
-                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0">
                   <CardTitle className="text-lg">Create task</CardTitle>
                   <Button type="button" variant="ghost" size="icon" onClick={closeDialog}>
                     <X className="h-4 w-4" />
                   </Button>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="min-h-0 flex-1 overflow-y-auto">
                   <form className="grid gap-4" onSubmit={handleSubmit}>
                     <div className="grid gap-2">
                       <label htmlFor="task-title" className="text-sm font-medium">
@@ -408,8 +408,8 @@ export function CreateTaskDialog({
                               }
                             }}
                             maxLength={60}
-                            wrapperClassName="min-w-[160px] flex-1"
-                            className="h-8 min-w-[160px] flex-1 bg-transparent px-1 text-sm outline-none"
+                            wrapperClassName="min-w-[120px] flex-1 sm:min-w-[160px]"
+                            className="h-8 min-w-[120px] flex-1 bg-transparent px-1 text-sm outline-none sm:min-w-[160px]"
                             placeholder={
                               labels.length >= MAX_TASK_LABELS
                                 ? "Label limit reached"
@@ -585,8 +585,8 @@ export function CreateTaskDialog({
                   <input type="hidden" name="attachmentLinks" value={serializedLinks} />
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Button type="submit" disabled={isSubmitting}>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+                  <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
                     {isSubmitting ? "Creating..." : "Create task"}
                   </Button>
                   <Button
@@ -594,6 +594,7 @@ export function CreateTaskDialog({
                     variant="ghost"
                     onClick={closeDialog}
                     disabled={isSubmitting}
+                    className="w-full sm:w-auto"
                   >
                     Cancel
                   </Button>

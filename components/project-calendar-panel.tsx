@@ -342,7 +342,7 @@ export function ProjectCalendarPanel({
             type="button"
             onClick={() => setIsExpanded((previous) => !previous)}
             aria-expanded={isExpanded}
-            className="flex min-w-0 items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-muted/40"
+            className="flex min-w-0 w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-muted/40"
           >
             {isExpanded ? (
               <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -391,7 +391,7 @@ export function ProjectCalendarPanel({
                   <p className="text-xs text-muted-foreground">
                     {syncedAt ? `Synced ${new Date(syncedAt).toLocaleString()}` : "Connected"}
                   </p>
-                  <div className="flex items-center gap-2">
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                     {canEdit ? (
                       <Button
                         type="button"
@@ -399,6 +399,7 @@ export function ProjectCalendarPanel({
                         size="sm"
                         onClick={openCreateEventModal}
                         disabled={isLoading}
+                        className="w-full sm:w-auto"
                       >
                         <PlusSquare className="h-4 w-4" />
                         New event
@@ -410,6 +411,7 @@ export function ProjectCalendarPanel({
                       size="sm"
                       onClick={() => void loadEvents()}
                       disabled={isLoading}
+                      className="w-full sm:w-auto"
                     >
                       <RefreshCcw className="h-4 w-4" />
                       Refresh

@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-14
+- Type: Validation
+- Summary: TASK-091 mobile QA passed across the priority small-screen flows on `390x844` and `360x800`, confirming no horizontal overflow on home, projects, workspace, and the task/context modal paths while keeping modal primary actions reachable inside the viewport.
+- Evidence: `npm run lint`; Playwright mobile checks against `http://localhost:3000` with screenshots `home-qa-390.png`, `projects-qa-390.png`, `workspace-qa-390.png`, `task-create-modal-390.png`, `task-detail-modal-390.png`, `context-create-modal-390.png`, `context-preview-modal-390.png`, plus matching `360px` captures; metrics and overflow results recorded in `.tmp/task-091-qa-results.json`.
+
+### 2026-04-14
+- Type: Execution
+- Summary: TASK-091 completed the baseline responsive adaptation pass by reordering home mobile auth prominence, reducing workspace compression, converting shared task/context/confirm flows to mobile bottom-sheet behavior, and replacing the calendar's phone-sized horizontal week grid with a stacked mobile week view.
+- Evidence: Updated `app/page.tsx`, `app/projects/page.tsx`, `app/projects/[projectId]/page.tsx`, `app/projects/projects-grid-client.tsx`, `components/create-project-dialog.tsx`, `components/create-task-dialog.tsx`, `components/ui/confirm-dialog.tsx`, `components/context-panel/context-modal-frame.tsx`, `components/context-panel/context-preview-modal.tsx`, `components/context-panel/context-create-modal.tsx`, `components/context-panel/context-edit-modal.tsx`, `components/kanban/task-detail-modal.tsx`, `components/calendar-panel/calendar-event-modal.tsx`, `components/calendar-panel/calendar-week-grid.tsx`, `components/project-context-panel.tsx`, `components/project-calendar-panel.tsx`, `components/kanban/kanban-board-header.tsx`, `components/project-dashboard/project-dashboard-owner-actions.tsx`, and related dashboard spacing/stat files.
+
 ### 2026-04-13
 - Type: Validation
 - Summary: TASK-051 closed the security-baseline verification pass by confirming the merged TASK-050 implementation still matches the original TASK-049 findings, pulling preserved CI evidence from PR `#161`, and recording the current local replay blockers precisely.
@@ -687,3 +697,13 @@ Low-value entries to avoid going forward:
 - Type: Execution
 - Summary: TASK-113 editor state sync hardened so block controls do not disappear after continuing below structured blocks.
 - Evidence: Updated `components/rich-text-editor.tsx` to serialize editor-only shells back to canonical rich HTML before state updates and to intercept `Enter` on the empty paragraph directly below a block; extended `tests/components/rich-text-editor.test.ts` with serialization coverage.
+
+### 2026-04-15
+- Type: Execution
+- Summary: Developer onboarding settings page now keeps long code blocks and endpoint metadata contained on narrow mobile viewports instead of widening the card layout.
+- Evidence: Updated `components/agent-onboarding/agent-onboarding-guide.tsx` so cards and endpoint rows use `min-w-0`, code blocks stay scrollable inside the card, and long endpoint paths wrap safely; added regression coverage in `tests/components/agent-onboarding-guide.test.ts`.
+
+### 2026-04-15
+- Type: Validation
+- Summary: Mobile containment follow-up for the developer onboarding surface passed the targeted local validation slice before preview deployment.
+- Evidence: `npm run lint` and `npx vitest run tests/components/agent-onboarding-guide.test.ts tests/app/agent-onboarding-pages.test.ts`.

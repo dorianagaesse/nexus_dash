@@ -829,12 +829,12 @@ export function ProjectContextPanel({
           isExpanded ? "pb-4" : "pb-3"
         )}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <button
             type="button"
             onClick={() => setIsExpanded((previous) => !previous)}
             aria-expanded={isExpanded}
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-muted/40"
+            className="flex min-w-0 w-full flex-1 items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-muted/40"
           >
             {isExpanded ? (
               <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -849,7 +849,7 @@ export function ProjectContextPanel({
                 </span>
               </CardTitle>
             </div>
-            <span className="ml-auto rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground">
+            <span className="rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground sm:ml-auto">
               {localCards.length} card{localCards.length === 1 ? "" : "s"}
             </span>
           </button>
@@ -857,7 +857,7 @@ export function ProjectContextPanel({
             <Button
               type="button"
               size="sm"
-              className="rounded-full px-4"
+              className="h-10 w-full rounded-full px-4 sm:w-auto"
               onClick={openCreateModal}
             >
               <PlusSquare className="h-4 w-4" />

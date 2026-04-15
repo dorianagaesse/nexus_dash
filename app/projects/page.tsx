@@ -48,7 +48,7 @@ export default async function ProjectsPage({
   const error = readQueryValue(resolvedSearchParams?.error);
 
   return (
-    <main className="container py-16">
+    <main className="container py-10 sm:py-16">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
         <Badge variant="secondary" className="w-fit">
           Project management
@@ -75,7 +75,7 @@ export default async function ProjectsPage({
           </div>
         ) : null}
 
-        <div>
+        <div className="flex">
           <CreateProjectDialog action={createProjectAction} />
         </div>
 

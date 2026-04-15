@@ -162,7 +162,7 @@ export function TaskDetailModal({
     <>
       {createPortal(
         <div
-          className="fixed inset-0 z-[90] flex min-h-dvh w-screen items-start justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-4 sm:items-center"
+          className="fixed inset-0 z-[90] flex min-h-dvh w-screen items-end justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-0 sm:items-center sm:p-4"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               onClose();
@@ -170,11 +170,11 @@ export function TaskDetailModal({
           }}
         >
           <Card
-            className="flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden"
+            className="flex max-h-[100dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <CardHeader className="flex shrink-0 flex-row items-start justify-between space-y-0">
-              <div className="space-y-2">
+            <CardHeader className="flex shrink-0 flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 space-y-2">
                 <Badge
                   variant="outline"
                   className={
@@ -187,7 +187,7 @@ export function TaskDetailModal({
                 </Badge>
                 {!isEditing ? (
                   <CardTitle
-                    className="text-xl"
+                    className="text-xl leading-tight"
                     onDoubleClick={() => {
                       if (!canEdit) {
                         return;
@@ -207,7 +207,7 @@ export function TaskDetailModal({
                   />
                 )}
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 self-end sm:self-auto">
                 {!isEditing && canEdit ? (
                   <TaskOptionsMenu
                     currentStatus={selectedTask.status}
@@ -231,7 +231,7 @@ export function TaskDetailModal({
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4 overflow-x-hidden overflow-y-auto">
+            <CardContent className="min-h-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto">
               {!isEditing ? (
                 <TaskReadOnlyContent
                   canEdit={canEdit}
@@ -480,7 +480,7 @@ function TaskReadOnlyContent({
               {selectedTask.blockedFollowUps.map((entry) => (
                 <article
                   key={entry.id}
-                  className="grid grid-cols-[90px_1fr] items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1.5"
+                  className="grid gap-1 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1.5 sm:grid-cols-[90px_1fr] sm:gap-2"
                 >
                   <p className="text-[11px] font-medium opacity-90">
                     {formatFollowUpTimestamp(entry.createdAt)}
@@ -497,7 +497,7 @@ function TaskReadOnlyContent({
       <RichTextContent
         html={selectedTask.description}
         emptyContentHtml="<p>No description provided.</p>"
-        className="max-h-[52vh] overflow-y-auto text-sm text-muted-foreground"
+        className="text-sm text-muted-foreground"
         onDoubleClick={() => {
           if (!canEdit) {
             return;
@@ -688,8 +688,8 @@ function TaskEditContent({
                 }
               }}
               maxLength={60}
-              wrapperClassName="min-w-[160px] flex-1"
-              className="h-8 min-w-[160px] flex-1 bg-transparent px-1 text-sm outline-none"
+              wrapperClassName="min-w-[120px] flex-1 sm:min-w-[160px]"
+              className="h-8 min-w-[120px] flex-1 bg-transparent px-1 text-sm outline-none sm:min-w-[160px]"
               placeholder={
                 editLabels.length >= MAX_TASK_LABELS
                   ? "Label limit reached"
@@ -736,7 +736,7 @@ function TaskEditContent({
               {selectedTask.blockedFollowUps.map((entry) => (
                 <article
                   key={entry.id}
-                  className="grid grid-cols-[90px_1fr] items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1.5"
+                  className="grid gap-1 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1.5 sm:grid-cols-[90px_1fr] sm:gap-2"
                 >
                   <p className="text-[11px] font-medium text-amber-800/90 dark:text-amber-100/90">
                     {formatFollowUpTimestamp(entry.createdAt)}
@@ -753,7 +753,7 @@ function TaskEditContent({
             New follow-up
           </p>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <EmojiInputField
               value={newBlockedFollowUpEntry}
               onChange={(event) => onNewBlockedFollowUpEntryChange(event.target.value)}
@@ -775,6 +775,7 @@ function TaskEditContent({
               variant="secondary"
               onClick={() => void onAddBlockedFollowUpEntry()}
               disabled={isUpdatingTask || !newBlockedFollowUpEntry.trim()}
+              className="w-full sm:w-auto"
             >
               Add
             </Button>
@@ -928,8 +929,13 @@ function TaskEditContent({
         </div>
       ) : null}
 
-      <div className="flex items-center gap-2">
-        <Button type="button" onClick={() => void onSaveTask()} disabled={isUpdatingTask}>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+        <Button
+          type="button"
+          onClick={() => void onSaveTask()}
+          disabled={isUpdatingTask}
+          className="w-full sm:w-auto"
+        >
           {isUpdatingTask ? "Saving..." : "Save changes"}
         </Button>
         <Button
@@ -937,6 +943,7 @@ function TaskEditContent({
           variant="ghost"
           onClick={onCancelEdit}
           disabled={isUpdatingTask}
+          className="w-full sm:w-auto"
         >
           Cancel
         </Button>

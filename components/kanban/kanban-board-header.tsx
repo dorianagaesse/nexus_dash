@@ -19,12 +19,17 @@ export function KanbanBoardHeader({
   onToggleExpanded,
 }: KanbanBoardHeaderProps) {
   return (
-    <div className={cn("flex flex-wrap items-start justify-between gap-3 px-5 py-4", PROJECT_SECTION_CHROME_CLASS)}>
+    <div
+      className={cn(
+        "flex flex-col items-stretch gap-3 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:px-5",
+        PROJECT_SECTION_CHROME_CLASS
+      )}
+    >
       <button
         type="button"
         onClick={onToggleExpanded}
         aria-expanded={isExpanded}
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-muted/40"
+        className="flex min-w-0 w-full flex-1 items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-muted/40"
       >
         {isExpanded ? (
           <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -39,18 +44,18 @@ export function KanbanBoardHeader({
             </span>
           </h2>
         </div>
-        <span className="ml-auto rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground">
+        <span className="rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground sm:ml-auto">
           {totalTaskCount} task{totalTaskCount === 1 ? "" : "s"}
         </span>
       </button>
 
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
         {isExpanded && isSaving ? (
           <span className="text-xs text-muted-foreground">
             Saving movement...
           </span>
         ) : null}
-        {headerAction ? <div>{headerAction}</div> : null}
+        {headerAction ? <div className="w-full sm:w-auto">{headerAction}</div> : null}
       </div>
     </div>
   );

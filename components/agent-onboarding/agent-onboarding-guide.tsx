@@ -54,8 +54,8 @@ function buildMethodTone(method: string): string {
 
 function CodeBlock({ value }: { value: string }) {
   return (
-    <pre className="overflow-x-auto rounded-xl border border-border/70 bg-slate-950 px-4 py-3 text-xs leading-6 text-slate-50">
-      <code>{value}</code>
+    <pre className="min-w-0 max-w-full overflow-x-auto rounded-xl border border-border/70 bg-slate-950 px-3 py-3 text-[11px] leading-6 text-slate-50 sm:px-4 sm:text-xs">
+      <code className="block min-w-max">{value}</code>
     </pre>
   );
 }
@@ -82,7 +82,7 @@ export function AgentOnboardingGuide({
   return (
     <div className="space-y-6">
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="border-border/60 bg-card/70">
+        <Card className="min-w-0 border-border/60 bg-card/70">
           <CardHeader className="space-y-2">
             <div className="flex items-center gap-2">
               <Bot className="h-4 w-4 text-muted-foreground" />
@@ -95,7 +95,7 @@ export function AgentOnboardingGuide({
           </CardHeader>
         </Card>
 
-        <Card className="border-border/60 bg-card/70">
+        <Card className="min-w-0 border-border/60 bg-card/70">
           <CardHeader className="space-y-2">
             <div className="flex items-center gap-2">
               <KeyRound className="h-4 w-4 text-muted-foreground" />
@@ -108,7 +108,7 @@ export function AgentOnboardingGuide({
           </CardHeader>
         </Card>
 
-        <Card className="border-border/60 bg-card/70">
+        <Card className="min-w-0 border-border/60 bg-card/70">
           <CardHeader className="space-y-2">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-muted-foreground" />
@@ -123,7 +123,7 @@ export function AgentOnboardingGuide({
         </Card>
       </div>
 
-      <Card className="border-border/60 bg-background/70">
+      <Card className="min-w-0 border-border/60 bg-background/70">
         <CardHeader className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-1">
@@ -156,7 +156,7 @@ export function AgentOnboardingGuide({
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-        <Card className="border-border/60 bg-background/70">
+        <Card className="min-w-0 border-border/60 bg-background/70">
           <CardHeader className="space-y-2">
             <div className="flex items-center gap-2">
               <Globe className="h-4 w-4 text-muted-foreground" />
@@ -179,7 +179,7 @@ export function AgentOnboardingGuide({
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-background/70">
+        <Card className="min-w-0 border-border/60 bg-background/70">
           <CardHeader className="space-y-2">
             <div className="flex items-center gap-2">
               <Layers3 className="h-4 w-4 text-muted-foreground" />
@@ -210,7 +210,7 @@ export function AgentOnboardingGuide({
         </Card>
       </div>
 
-      <Card className="border-border/60 bg-background/70">
+      <Card className="min-w-0 border-border/60 bg-background/70">
         <CardHeader className="space-y-2">
           <CardTitle className="text-xl">Supported endpoints</CardTitle>
           <CardDescription>
@@ -221,10 +221,10 @@ export function AgentOnboardingGuide({
           {AGENT_API_ENDPOINTS.map((endpoint) => (
             <div
               key={`${endpoint.method}-${endpoint.path}`}
-              className="rounded-xl border border-border/60 bg-card/70 px-4 py-4"
+              className="min-w-0 rounded-xl border border-border/60 bg-card/70 px-4 py-4"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-2">
+                <div className="min-w-0 flex-1 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="secondary" className={buildMethodTone(endpoint.method)}>
                       {endpoint.method}
@@ -240,11 +240,11 @@ export function AgentOnboardingGuide({
                     ) : null}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    <code>{endpoint.path}</code>
+                    <code className="break-all [overflow-wrap:anywhere]">{endpoint.path}</code>
                   </p>
                   <p className="text-sm text-muted-foreground">{endpoint.description}</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex shrink-0 flex-wrap gap-2">
                   {endpoint.requiredScopes.length === 0 ? (
                     <Badge variant="outline" className="rounded-full">
                       Token exchange
@@ -271,7 +271,7 @@ export function AgentOnboardingGuide({
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <Card className="border-border/60 bg-background/70">
+        <Card className="min-w-0 border-border/60 bg-background/70">
           <CardHeader>
             <CardTitle className="text-xl">Read example</CardTitle>
             <CardDescription>
@@ -283,7 +283,7 @@ export function AgentOnboardingGuide({
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-background/70">
+        <Card className="min-w-0 border-border/60 bg-background/70">
           <CardHeader>
             <CardTitle className="text-xl">Create examples</CardTitle>
             <CardDescription>
@@ -299,7 +299,7 @@ export function AgentOnboardingGuide({
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <Card className="border-border/60 bg-background/70">
+        <Card className="min-w-0 border-border/60 bg-background/70">
           <CardHeader>
             <CardTitle className="text-xl">Update and lifecycle examples</CardTitle>
             <CardDescription>
@@ -314,7 +314,7 @@ export function AgentOnboardingGuide({
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-background/70">
+        <Card className="min-w-0 border-border/60 bg-background/70">
           <CardHeader>
             <CardTitle className="text-xl">Binary upload examples</CardTitle>
             <CardDescription>
@@ -340,7 +340,7 @@ export function AgentOnboardingGuide({
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <Card className="border-border/60 bg-background/70">
+        <Card className="min-w-0 border-border/60 bg-background/70">
           <CardHeader>
             <CardTitle className="text-xl">Agent limitations</CardTitle>
             <CardDescription>
@@ -354,7 +354,7 @@ export function AgentOnboardingGuide({
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-background/70">
+        <Card className="min-w-0 border-border/60 bg-background/70">
           <CardHeader>
             <CardTitle className="text-xl">Copy-paste smoke test</CardTitle>
             <CardDescription>

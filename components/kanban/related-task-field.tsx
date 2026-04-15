@@ -220,7 +220,7 @@ export function RelatedTaskPill({
         ) : (
           <Link2 className="h-3.5 w-3.5" />
         )}
-        <span className="max-w-[180px] truncate">{task.title}</span>
+        <span className="max-w-[140px] truncate sm:max-w-[180px]">{task.title}</span>
       </button>
       {isArchived || showStatus ? (
         <span

@@ -808,11 +808,11 @@ export function ProjectDashboardOwnerActions({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
         <Button
           type="button"
           variant="secondary"
-          className="rounded-full px-4"
+          className="w-full rounded-full px-4 sm:w-auto"
           onClick={() => openModal("sharing")}
         >
           <Share2 className="h-4 w-4" />
@@ -821,7 +821,7 @@ export function ProjectDashboardOwnerActions({
         <Button
           type="button"
           variant="outline"
-          className="rounded-full px-4"
+          className="w-full rounded-full px-4 sm:w-auto"
           onClick={() => openModal("general")}
         >
           <Settings2 className="h-4 w-4" />
@@ -832,7 +832,7 @@ export function ProjectDashboardOwnerActions({
       {isOpen && typeof document !== "undefined"
         ? createPortal(
             <div
-              className="fixed inset-0 z-[120] flex min-h-dvh w-screen items-center justify-center bg-black/70 p-4"
+              className="fixed inset-0 z-[120] flex min-h-dvh w-screen items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4"
               onMouseDown={(event) => {
                 if (event.target === event.currentTarget) {
                   closeModal();
@@ -840,10 +840,10 @@ export function ProjectDashboardOwnerActions({
               }}
             >
               <Card
-                className="flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-hidden"
+                className="flex max-h-[100dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
                 onMouseDown={(event) => event.stopPropagation()}
               >
-                <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 border-b border-border/60">
+                <CardHeader className="flex flex-col gap-4 space-y-0 border-b border-border/60 sm:flex-row sm:items-start sm:justify-between">
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="secondary" className="rounded-full px-3 py-1">
@@ -860,12 +860,18 @@ export function ProjectDashboardOwnerActions({
                       </p>
                     </div>
                   </div>
-                  <Button type="button" variant="ghost" size="icon" onClick={closeModal}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={closeModal}
+                    className="self-end sm:self-auto"
+                  >
                     <X className="h-4 w-4" />
                   </Button>
                 </CardHeader>
 
-                <CardContent className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-6">
+                <CardContent className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6">
                   <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"

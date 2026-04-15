@@ -41,7 +41,7 @@ export function ContextPreviewModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[95] flex min-h-dvh w-screen items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-[95] flex min-h-dvh w-screen items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -49,11 +49,11 @@ export function ContextPreviewModal({
       }}
     >
       <Card
-        className="max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-x-hidden overflow-y-auto"
+        className="flex max-h-[100dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
         style={{ backgroundColor: card.color, borderColor: "rgb(15 23 42 / 0.2)" }}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+        <CardHeader className="flex shrink-0 flex-row items-start justify-between gap-3 space-y-0">
           <CardTitle
             className="text-xl text-slate-900"
             onDoubleClick={() => {
@@ -77,11 +77,11 @@ export function ContextPreviewModal({
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="min-h-0 flex-1 space-y-4 overflow-y-auto">
           <RichTextContent
             html={card.content}
             emptyContentHtml="<p>No content.</p>"
-            className={`max-h-[45vh] overflow-y-auto pr-1 text-sm text-slate-800 ${CONTEXT_CARD_PREVIEW_RICH_TEXT_CLASS}`}
+            className={`pr-1 text-sm text-slate-800 ${CONTEXT_CARD_PREVIEW_RICH_TEXT_CLASS}`}
             onDoubleClick={() => {
               if (!canEdit) {
                 return;
@@ -139,7 +139,7 @@ export function ContextPreviewModal({
           </div>
 
           {canEdit ? (
-            <p className="text-xs text-slate-700">
+            <p className="text-xs leading-5 text-slate-700">
               Tip: double-click title or content to edit this card.
             </p>
           ) : null}
