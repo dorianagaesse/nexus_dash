@@ -41,7 +41,9 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
 - If the current task does not already have an open PR, create one once the branch is reviewable; continue updating the same PR for that task.
 - After the PR is first opened, monitor automated review/check feedback until Copilot has finished generating its initial review outcome, even when that outcome contains no inline comments.
 - If Copilot completes its review and produces no comments, treat that as a clean review state with nothing further to handle.
-- Triage Copilot review comments: apply relevant changes, respond on threads, resolve conversations you addressed, and leave clear rationale when a suggestion is intentionally not applied.
+- Triage Copilot review comments: apply relevant changes, respond on threads, resolve every conversation you addressed before handoff, and leave clear rationale when a suggestion is intentionally not applied.
+- Final task/PR handoff must mention the commit SHA or SHAs that contain the delivered changes.
+- When preview validation is part of the task, review, or acceptance flow, trigger a preview deploy from the active branch git ref through the expected workflow and include both the workflow reference and preview result in the handoff.
 
 ## 4. Architecture Boundaries (Non-Negotiable)
 
