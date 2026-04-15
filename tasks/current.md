@@ -4,7 +4,7 @@
 TASK-105
 
 ## Status
-In Progress
+Completed on 2026-04-15 (PR `#176`)
 
 ## Objective
 Produce a grounded, repo-specific assessment of whether NexusDash should move
@@ -118,6 +118,16 @@ explicit migration risks, benefits, and revisit conditions.
 - Minimum validation for this task:
   - review the written assessment for internal consistency against repo code
   - ensure the PR body clearly summarizes the recommendation and evidence base
+
+## Outcome
+- The recommendation is to keep the current `Prisma + PostgreSQL +
+  Supabase-hosted Postgres` baseline and not migrate to Convex now.
+- Convex is considered worth revisiting only if NexusDash becomes strongly
+  realtime-first and collaborative enough to justify replacing Prisma-owned
+  migrations, PostgreSQL RLS, and the current auth/session model.
+- The durable output for this task lives in
+  `adr/task-105-convex-migration-assessment.md`, with the concise resulting
+  decision captured in `adr/decisions.md`.
 
 ---
 
