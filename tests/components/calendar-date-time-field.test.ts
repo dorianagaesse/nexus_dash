@@ -156,4 +156,58 @@ describe("calendar-date-time-field", () => {
       root.unmount();
     });
   });
+
+  test("opens above the trigger when there is not enough space below", async () => {
+    const { container, root } = createTestRenderer();
+
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      writable: true,
+      value: 900,
+    });
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      writable: true,
+      value: 800,
+    });
+
+    await renderWithRoot(
+      root,
+      React.createElement(CalendarDateTimeField, {
+        id: "calendar-date",
+        value: "2026-04-17",
+        onChange: vi.fn(),
+        includeTime: false,
+        disabled: false,
+      })
+    );
+
+    const trigger = container.querySelector<HTMLButtonElement>("#calendar-date");
+    expect(trigger).not.toBeNull();
+
+    vi.spyOn(trigger as HTMLButtonElement, "getBoundingClientRect").mockImplementation(() => ({
+      x: 100,
+      y: 700,
+      left: 100,
+      top: 700,
+      right: 340,
+      bottom: 740,
+      width: 240,
+      height: 40,
+      toJSON: () => ({}),
+    }));
+
+    await act(async () => {
+      trigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const popover = document.body.querySelector<HTMLElement>("[data-calendar-popover='true']");
+    expect(popover).not.toBeNull();
+    expect(popover?.style.top).toBe("");
+    expect(popover?.style.bottom).toBe("104px");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });
