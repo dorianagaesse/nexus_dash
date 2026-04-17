@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-17
+- Type: Execution
+- Summary: Fixed the shared calendar datepicker so its popup renders through a body portal instead of inside scrollable modal content, preventing Google Calendar event dialogs from growing inner scrollbars when the picker opens.
+- Evidence: Updated `components/calendar-date-time-field.tsx` to portal the picker surface, track trigger position on resize/scroll, and preserve outside-click dismissal across the portaled popup.
+
+### 2026-04-17
+- Type: Validation
+- Summary: Datepicker overflow follow-up validated with lint, a focused picker regression test, and a production build on the repo's Node `20.19.0` toolchain.
+- Evidence: `npm run lint`; `npx -y -p node@20.19.0 node .\\node_modules\\vitest\\vitest.mjs run tests/components/calendar-date-time-field.test.ts`; `$env:DATABASE_URL='postgresql://user:pass@localhost:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@localhost:5432/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npx -y -p node@20.19.0 node .\\node_modules\\next\\dist\\bin\\next build`.
+
 ### 2026-04-15
 - Type: Planning
 - Summary: Started `TASK-105` on a dedicated `docs/task-105-convex-assessment` branch, moved it to the top of the execution queue, replaced `tasks/current.md`, and drafted the initial Convex migration assessment plus architecture decision update.
