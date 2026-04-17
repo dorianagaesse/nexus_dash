@@ -37,8 +37,16 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
 - Branch name must match CI rule: `feature/*`, `fix/*`, `refactor/*`, `docs/*`, or `chore/*`.
 - Dependabot-authored PRs are the one exception and may use `dependabot/*`.
 - Keep PRs single-purpose; do not mix unrelated backlog tasks.
+- PR titles must follow repository convention rather than generic agent branding:
+  - when the PR implements or closes a backlog task, include the primary task
+    ID in the title
+  - do not use generic prefixes like `[codex]`
 - Push the active branch remotely after meaningful implementation/validation progress and before handoff.
 - If the current task does not already have an open PR, create one once the branch is reviewable; continue updating the same PR for that task.
+- Open PRs in a ready-for-review state once they are reviewable so automatic
+  Copilot review can start immediately.
+- Use draft PRs only when the user explicitly asks for a draft or when the work
+  is genuinely not reviewable yet and needs to be parked intentionally.
 - After the PR is first opened, monitor automated review/check feedback until Copilot has finished generating its initial review outcome, even when that outcome contains no inline comments.
 - If Copilot completes its review and produces no comments, treat that as a clean review state with nothing further to handle.
 - Triage Copilot review comments: apply relevant changes, respond on threads, resolve every conversation you addressed before handoff, and leave clear rationale when a suggestion is intentionally not applied.
