@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Link2, Paperclip, PlusSquare, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import { TaskDeadlineField } from "@/components/kanban/task-deadline-field";
 import { RelatedTaskSelector, type RelatedTaskOption } from "@/components/kanban/related-task-field";
 import type { TaskRelatedSummary } from "@/components/kanban-board-types";
 import { RichTextEditor } from "@/components/rich-text-editor";
@@ -453,35 +454,15 @@ export function CreateTaskDialog({
                       <input type="hidden" name="description" value={description} />
                     </div>
 
-                    <div className="grid gap-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <label htmlFor="task-deadline-date" className="text-sm font-medium">
-                          Deadline
-                        </label>
-                        {deadlineDate ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-auto px-2 py-1 text-xs"
-                            onClick={() => setDeadlineDate("")}
-                          >
-                            Clear
-                          </Button>
-                        ) : null}
-                      </div>
-                      <input
-                        id="task-deadline-date"
-                        name="deadlineDate"
-                        type="date"
-                        value={deadlineDate}
-                        onChange={(event) => setDeadlineDate(event.target.value)}
-                        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Optional. Near deadlines are highlighted automatically on the board.
-                      </p>
-                    </div>
+                    <TaskDeadlineField
+                      id="task-deadline-date"
+                      label="Deadline"
+                      name="deadlineDate"
+                      value={deadlineDate}
+                      onChange={setDeadlineDate}
+                      disabled={isSubmitting}
+                      helperText="Optional. Near deadlines are highlighted automatically on the board."
+                    />
 
                     <div className="grid gap-2">
                       <label className="text-sm font-medium">Related tasks</label>

@@ -30,6 +30,7 @@ import {
   RelatedTaskSelector,
   type RelatedTaskOption,
 } from "@/components/kanban/related-task-field";
+import { TaskDeadlineField } from "@/components/kanban/task-deadline-field";
 import { AttachmentPreviewModal } from "@/components/attachment-preview-modal";
 import { RichTextContent } from "@/components/rich-text-content";
 import { RichTextEditor } from "@/components/rich-text-editor";
@@ -821,36 +822,13 @@ function TaskEditContent({
         />
       </div>
 
-      <div className="grid gap-2">
-        <div className="flex items-center justify-between gap-3">
-          <label htmlFor="task-edit-deadline" className="text-sm font-medium">
-            Deadline
-          </label>
-          {editDeadlineDate ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-auto px-2 py-1 text-xs"
-              onClick={() => onEditDeadlineDateChange("")}
-              disabled={isUpdatingTask}
-            >
-              Clear
-            </Button>
-          ) : null}
-        </div>
-        <input
-          id="task-edit-deadline"
-          type="date"
-          value={editDeadlineDate}
-          onChange={(event) => onEditDeadlineDateChange(event.target.value)}
-          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-          disabled={isUpdatingTask}
-        />
-        <p className="text-xs text-muted-foreground">
-          Optional. Close deadlines are highlighted on the board automatically.
-        </p>
-      </div>
+      <TaskDeadlineField
+        id="task-edit-deadline"
+        label="Deadline"
+        value={editDeadlineDate}
+        onChange={onEditDeadlineDateChange}
+        disabled={isUpdatingTask}
+      />
 
       {selectedTask.status === "Blocked" ? (
         <div className="grid gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">
