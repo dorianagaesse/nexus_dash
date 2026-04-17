@@ -9,6 +9,7 @@ import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-ser
 import { listProjectKanbanTasks } from "@/lib/services/project-service";
 import { createTaskForProject } from "@/lib/services/project-task-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
+import { formatTaskDeadlineDate } from "@/lib/task-deadline";
 
 const ATTACHMENT_FILES_FIELD = "attachmentFiles";
 type TaskAttachment = Awaited<ReturnType<typeof listProjectKanbanTasks>>[number]["attachments"][number];
@@ -16,6 +17,7 @@ type TaskAttachment = Awaited<ReturnType<typeof listProjectKanbanTasks>>[number]
 interface TaskCreateJsonRequestBody {
   title?: unknown;
   description?: unknown;
+  deadlineDate?: unknown;
   labels?: unknown;
   relatedTaskIds?: unknown;
   attachmentLinks?: unknown;
@@ -107,6 +109,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
       title: task.title,
       description: task.description,
       blockedNote: task.blockedNote,
+      deadlineDate: formatTaskDeadlineDate(task.deadlineAt),
       completedAt: task.completedAt,
       archivedAt: task.archivedAt,
       status: task.status,
@@ -139,6 +142,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
 
   let title = "";
   let description = "";
+  let deadlineDate = "";
   let labelsJsonRaw = "";
   let relatedTaskIdsJsonRaw = "";
   let attachmentLinksJsonRaw = "";
@@ -160,6 +164,8 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     title = typeof payload.title === "string" ? payload.title.trim() : "";
     description =
       typeof payload.description === "string" ? payload.description.trim() : "";
+    deadlineDate =
+      typeof payload.deadlineDate === "string" ? payload.deadlineDate.trim() : "";
     labelsJsonRaw = serializeJsonField(payload.labels);
     relatedTaskIdsJsonRaw = serializeJsonField(payload.relatedTaskIds);
     attachmentLinksJsonRaw = serializeJsonField(payload.attachmentLinks);
@@ -178,6 +184,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
 
     title = readText(formData, "title");
     description = readText(formData, "description");
+    deadlineDate = readText(formData, "deadlineDate");
     labelsJsonRaw = readText(formData, "labels");
     relatedTaskIdsJsonRaw = readText(formData, "relatedTaskIds");
     attachmentLinksJsonRaw = readText(formData, "attachmentLinks");
@@ -196,6 +203,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     projectId,
     title,
     description,
+    deadlineDate,
     labelsJsonRaw,
     relatedTaskIdsJsonRaw,
     attachmentLinksJsonRaw,

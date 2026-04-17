@@ -4,7 +4,7 @@ import {
   Droppable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { Archive, GripVertical, Link2, Paperclip, TriangleAlert } from "lucide-react";
+import { Archive, Clock3, GripVertical, Link2, Paperclip, TriangleAlert } from "lucide-react";
 
 import type { KanbanTask } from "@/components/kanban-board-types";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,11 @@ import {
   getDescriptionPreview,
   type TaskColumns,
 } from "@/components/kanban-board-utils";
+import {
+  formatTaskDeadlineForDisplay,
+  getTaskDeadlineUrgency,
+  type TaskDeadlineUrgency,
+} from "@/lib/task-deadline";
 import { getTaskLabelColor } from "@/lib/task-label";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 import { cn } from "@/lib/utils";
@@ -309,13 +314,25 @@ function TaskCardIndicators({
 }) {
   const hasRelatedTasks = task.relatedTasks.length > 0;
   const hasAttachments = task.attachments.length > 0;
+  const deadlineUrgency = getTaskDeadlineUrgency({
+    deadlineDate: task.deadlineDate,
+    status: task.status,
+    archivedAt: task.archivedAt,
+  });
+  const hasDeadline = Boolean(task.deadlineDate);
 
-  if (!hasRelatedTasks && !hasAttachments) {
+  if (!hasRelatedTasks && !hasAttachments && !hasDeadline) {
     return null;
   }
 
   return (
     <div className={cn("flex items-center gap-1 text-muted-foreground", className)}>
+      {hasDeadline ? (
+        <TaskDeadlineIndicator
+          deadlineDate={task.deadlineDate}
+          urgency={deadlineUrgency}
+        />
+      ) : null}
       {hasRelatedTasks ? (
         <span
           className="rounded-sm p-1"
@@ -335,5 +352,42 @@ function TaskCardIndicators({
         </span>
       ) : null}
     </div>
+  );
+}
+
+function getDeadlineIndicatorTone(urgency: TaskDeadlineUrgency): string {
+  switch (urgency) {
+    case "overdue":
+      return "border-red-500/35 bg-red-500/10 text-red-700 dark:text-red-200";
+    case "soon":
+      return "border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-200";
+    default:
+      return "border-border/60 bg-background/70 text-muted-foreground";
+  }
+}
+
+function TaskDeadlineIndicator({
+  deadlineDate,
+  urgency,
+}: {
+  deadlineDate: string | null;
+  urgency: TaskDeadlineUrgency;
+}) {
+  if (!deadlineDate) {
+    return null;
+  }
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+        getDeadlineIndicatorTone(urgency)
+      )}
+      title={`Deadline ${formatTaskDeadlineForDisplay(deadlineDate)}`}
+      aria-label={`Deadline ${formatTaskDeadlineForDisplay(deadlineDate)}`}
+    >
+      <Clock3 className="h-3.5 w-3.5" />
+      <span>{formatTaskDeadlineForDisplay(deadlineDate)}</span>
+    </span>
   );
 }

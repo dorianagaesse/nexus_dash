@@ -21,6 +21,7 @@ describe("agent-onboarding-guide", () => {
     expect(result).toContain("Supported endpoints");
     expect(result).toContain("/api/projects/{projectId}/tasks");
     expect(result).toContain("application/json");
+    expect(result).toContain("deadlineDate");
     expect(result).toContain("Agent limitations");
     expect(result).toContain("/attachments/upload-url");
     expect(result).toContain("/context-cards/$CARD_ID/attachments/upload-url");

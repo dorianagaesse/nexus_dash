@@ -186,6 +186,7 @@ model Task {
   title             String
   description       String?
   blockedNote       String?
+  deadlineAt        DateTime?             @db.Date
   completedAt       DateTime?
   archivedAt        DateTime?
   status            String                @default("Backlog")
@@ -202,6 +203,7 @@ model Task {
   updatedAt         DateTime              @updatedAt
 
   @@index([projectId])
+  @@index([projectId, deadlineAt])
 }
 
 model TaskRelation {

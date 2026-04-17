@@ -91,6 +91,27 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     expect(prismaMock.task.findUnique).not.toHaveBeenCalled();
   });
 
+  test("returns 400 for invalid deadline value", async () => {
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Valid title",
+        deadlineDate: "2026-02-30",
+      }),
+    });
+
+    const response = await PATCH(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "deadline-invalid",
+    });
+    expect(prismaMock.task.findUnique).not.toHaveBeenCalled();
+  });
+
   test("returns 404 when task is missing or outside project scope", async () => {
     prismaMock.task.findUnique.mockResolvedValueOnce(null);
 
@@ -127,6 +148,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       label: "Critical",
       labelsJson: JSON.stringify(["Critical", "backend"]),
       description: "<p>Hello</p>",
+      deadlineAt: new Date("2026-04-24T00:00:00.000Z"),
       blockedNote: null,
       status: "Blocked",
       position: 0,
@@ -152,6 +174,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         title: "  Updated task  ",
         labels: ["Critical", " backend ", "critical"],
         description: "<p>Hello<script>alert(1)</script></p>",
+        deadlineDate: "2026-04-24",
         blockedFollowUpEntry: "  Waiting on IAM role  ",
         relatedTaskIds: ["t2"],
       }),
@@ -169,6 +192,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         label: "Critical",
         labelsJson: JSON.stringify(["Critical", "backend"]),
         description: "<p>Hello</p>",
+        deadlineDate: "2026-04-24",
         blockedNote: null,
         status: "Blocked",
         position: 0,
@@ -193,6 +217,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       label: "Critical",
       labelsJson: JSON.stringify(["Critical", "backend"]),
       description: "<p>Hello</p>",
+      deadlineAt: new Date("2026-04-24T00:00:00.000Z"),
     });
 
     expect(prismaMock.taskBlockedFollowUp.create).toHaveBeenCalledTimes(1);
@@ -236,6 +261,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       label: null,
       labelsJson: null,
       description: null,
+      deadlineAt: null,
       blockedNote: null,
       status: "In Progress",
       position: 2,
@@ -320,6 +346,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       label: null,
       labelsJson: null,
       description: null,
+      deadlineAt: new Date("2026-04-18T00:00:00.000Z"),
       blockedNote: null,
       status: "In Progress",
       position: 2,
@@ -359,6 +386,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         label: null,
         labelsJson: null,
         description: null,
+        deadlineDate: "2026-04-18",
         blockedNote: null,
         status: "In Progress",
         position: 2,

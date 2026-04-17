@@ -63,6 +63,7 @@ describe("GET /api/docs/agent/v1/openapi.json", () => {
       { ApiKeyAuthorization: [] },
       { AgentApiKeyHeader: [] },
     ]);
+    expect(JSON.stringify(payload)).toContain("deadlineDate");
     expect(resolveRequestOriginFromHeadersMock).toHaveBeenCalledWith(expect.any(Headers));
   });
 });

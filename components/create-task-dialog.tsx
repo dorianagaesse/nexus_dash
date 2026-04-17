@@ -53,6 +53,7 @@ export function CreateTaskDialog({
   const { pushToast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [description, setDescription] = useState("");
+  const [deadlineDate, setDeadlineDate] = useState("");
   const [labels, setLabels] = useState<string[]>([]);
   const [labelInput, setLabelInput] = useState("");
   const [relatedTaskSearch, setRelatedTaskSearch] = useState("");
@@ -85,6 +86,7 @@ export function CreateTaskDialog({
 
   const resetDraft = () => {
     setDescription("");
+    setDeadlineDate("");
     setLabels([]);
     setLabelInput("");
     setRelatedTaskSearch("");
@@ -115,6 +117,8 @@ export function CreateTaskDialog({
         return "Project not found.";
       case "attachment-link-invalid":
         return "One or more attachment links are invalid. Use http:// or https:// URLs.";
+      case "deadline-invalid":
+        return "Deadline must use a valid date.";
       case "attachment-file-too-large":
         return attachmentFileSizeErrorMessage;
       case "attachment-file-type-invalid":
@@ -447,6 +451,36 @@ export function CreateTaskDialog({
                         placeholder="Optional implementation notes..."
                       />
                       <input type="hidden" name="description" value={description} />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <label htmlFor="task-deadline-date" className="text-sm font-medium">
+                          Deadline
+                        </label>
+                        {deadlineDate ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto px-2 py-1 text-xs"
+                            onClick={() => setDeadlineDate("")}
+                          >
+                            Clear
+                          </Button>
+                        ) : null}
+                      </div>
+                      <input
+                        id="task-deadline-date"
+                        name="deadlineDate"
+                        type="date"
+                        value={deadlineDate}
+                        onChange={(event) => setDeadlineDate(event.target.value)}
+                        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Optional. Near deadlines are highlighted automatically on the board.
+                      </p>
                     </div>
 
                     <div className="grid gap-2">

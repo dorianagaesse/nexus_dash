@@ -42,6 +42,9 @@ import {
 } from "@/lib/task-attachment";
 import { uploadFileAttachmentDirect } from "@/lib/direct-upload-client";
 import {
+  getTaskDeadlineUrgency,
+} from "@/lib/task-deadline";
+import {
   MAX_TASK_LABELS,
   getTaskLabelsFromStorage,
   normalizeTaskLabel,
@@ -101,6 +104,7 @@ export function KanbanBoard({
   const [editLabels, setEditLabels] = useState<string[]>([]);
   const [editLabelInput, setEditLabelInput] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editDeadlineDate, setEditDeadlineDate] = useState("");
   const [editRelatedTasks, setEditRelatedTasks] = useState<TaskRelatedSummary[]>([]);
   const [relatedTaskSearch, setRelatedTaskSearch] = useState("");
   const [newBlockedFollowUpEntry, setNewBlockedFollowUpEntry] = useState("");
@@ -134,6 +138,7 @@ export function KanbanBoard({
     setEditLabels(task.labels);
     setEditLabelInput("");
     setEditDescription(task.description ?? "");
+    setEditDeadlineDate(task.deadlineDate ?? "");
     setEditRelatedTasks(task.relatedTasks);
     setRelatedTaskSearch("");
     setNewBlockedFollowUpEntry("");
@@ -627,6 +632,7 @@ export function KanbanBoard({
               title: normalizedTitle,
               labels: editLabels,
               description: editDescription,
+              deadlineDate: editDeadlineDate || null,
               blockedFollowUpEntry: normalizedBlockedEntry,
               relatedTaskIds,
             }),
@@ -640,6 +646,8 @@ export function KanbanBoard({
           const message =
             payload?.error === "related-tasks-invalid"
               ? "Related tasks must stay active and belong to this project."
+              : payload?.error === "deadline-invalid"
+                ? "Deadline must use a valid date."
               : (payload?.error ?? "Failed to update task");
           throw new Error(message);
         }
@@ -651,6 +659,7 @@ export function KanbanBoard({
             label: string | null;
             labelsJson: string | null;
             description: string | null;
+            deadlineDate: string | null;
             blockedNote: string | null;
             status: string;
             position: number;
@@ -676,6 +685,7 @@ export function KanbanBoard({
             payload.task.label
           ),
           description: payload.task.description,
+          deadlineDate: payload.task.deadlineDate,
           blockedFollowUps: payload.task.blockedFollowUps.map((entry) => ({
             ...entry,
             createdAt: entry.createdAt,
@@ -757,6 +767,7 @@ export function KanbanBoard({
     },
     [
       canEdit,
+      editDeadlineDate,
       editDescription,
       editLabels,
       editRelatedTasks,
@@ -1316,12 +1327,34 @@ export function KanbanBoard({
       archivedDoneTasks.length,
     [archivedDoneTasks.length, columns]
   );
+  const deadlineSummary = useMemo(() => {
+    return TASK_STATUSES.flatMap((status) => columns[status]).reduce(
+      (summary, task) => {
+        const urgency = getTaskDeadlineUrgency({
+          deadlineDate: task.deadlineDate,
+          status: task.status,
+          archivedAt: task.archivedAt,
+        });
+
+        if (urgency === "overdue") {
+          summary.overdueCount += 1;
+        } else if (urgency === "soon") {
+          summary.soonCount += 1;
+        }
+
+        return summary;
+      },
+      { overdueCount: 0, soonCount: 0 }
+    );
+  }, [columns]);
 
   return (
     <div className="space-y-4">
       <KanbanBoardHeader
         isExpanded={isExpanded}
         totalTaskCount={totalTaskCount}
+        overdueDeadlineCount={deadlineSummary.overdueCount}
+        soonDeadlineCount={deadlineSummary.soonCount}
         isSaving={isSaving}
         headerAction={canEdit ? (
           <CreateTaskDialog
@@ -1363,6 +1396,7 @@ export function KanbanBoard({
         editLabelInput={editLabelInput}
         editLabelSuggestions={editLabelSuggestions}
         editDescription={editDescription}
+        editDeadlineDate={editDeadlineDate}
         editRelatedTasks={editRelatedTasks}
         relatedTaskSearch={relatedTaskSearch}
         newBlockedFollowUpEntry={newBlockedFollowUpEntry}
@@ -1386,6 +1420,7 @@ export function KanbanBoard({
         onAddEditLabel={addEditLabel}
         onRemoveEditLabel={removeEditLabel}
         onEditDescriptionChange={setEditDescription}
+        onEditDeadlineDateChange={setEditDeadlineDate}
         onRelatedTaskSearchChange={setRelatedTaskSearch}
         onAddRelatedTask={addRelatedTask}
         onRemoveRelatedTask={removeRelatedTask}

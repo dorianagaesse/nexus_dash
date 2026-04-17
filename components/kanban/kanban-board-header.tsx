@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 interface KanbanBoardHeaderProps {
   isExpanded: boolean;
   totalTaskCount: number;
+  overdueDeadlineCount: number;
+  soonDeadlineCount: number;
   isSaving: boolean;
   headerAction?: React.ReactNode;
   onToggleExpanded: () => void;
@@ -14,6 +16,8 @@ interface KanbanBoardHeaderProps {
 export function KanbanBoardHeader({
   isExpanded,
   totalTaskCount,
+  overdueDeadlineCount,
+  soonDeadlineCount,
   isSaving,
   headerAction,
   onToggleExpanded,
@@ -47,6 +51,16 @@ export function KanbanBoardHeader({
         <span className="rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground sm:ml-auto">
           {totalTaskCount} task{totalTaskCount === 1 ? "" : "s"}
         </span>
+        {overdueDeadlineCount > 0 ? (
+          <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs text-red-700 dark:text-red-200">
+            {overdueDeadlineCount} overdue
+          </span>
+        ) : null}
+        {soonDeadlineCount > 0 ? (
+          <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-700 dark:text-amber-200">
+            {soonDeadlineCount} due soon
+          </span>
+        ) : null}
       </button>
 
       <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">

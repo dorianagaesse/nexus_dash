@@ -64,6 +64,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
     const formData = new FormData();
     formData.set("title", "  New Task  ");
     formData.set("description", "  Description  ");
+    formData.set("deadlineDate", "2026-04-24");
     formData.set("labels", '["backend"]');
     formData.set("relatedTaskIds", '["task-a","task-b"]');
     formData.set(
@@ -92,6 +93,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
     expect(call.projectId).toBe("p1");
     expect(call.title).toBe("New Task");
     expect(call.description).toBe("Description");
+    expect(call.deadlineDate).toBe("2026-04-24");
     expect(call.labelsJsonRaw).toBe('["backend"]');
     expect(call.relatedTaskIdsJsonRaw).toBe('["task-a","task-b"]');
     expect(call.attachmentLinksJsonRaw).toBe(
@@ -116,6 +118,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
       body: JSON.stringify({
         title: "  Draft API smoke test  ",
         description: "  <p>Validate the agent route.</p>  ",
+        deadlineDate: "2026-04-25",
         labels: ["agent", "qa"],
         relatedTaskIds: ["task-a"],
         attachmentLinks: [{ name: "Spec", url: "https://example.com/spec" }],
@@ -133,6 +136,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
       projectId: "p1",
       title: "Draft API smoke test",
       description: "<p>Validate the agent route.</p>",
+      deadlineDate: "2026-04-25",
       labelsJsonRaw: '["agent","qa"]',
       relatedTaskIdsJsonRaw: '["task-a"]',
       attachmentLinksJsonRaw:

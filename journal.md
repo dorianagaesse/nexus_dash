@@ -12,6 +12,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-17
+- Type: Execution
+- Summary: TASK-117 implemented first-class task deadlines end to end with a date-only task contract, urgency-aware board/task UI, deadline-aware task service/API handling, and aligned agent onboarding/OpenAPI docs.
+- Evidence: Added `lib/task-deadline.ts` and migration `prisma/migrations/20260417153000_task117_task_deadlines/migration.sql`; updated `prisma/schema.prisma`, `lib/services/project-task-service.ts`, `app/api/projects/[projectId]/tasks/route.ts`, `app/projects/[projectId]/kanban-board-section.tsx`, `components/create-task-dialog.tsx`, `components/kanban-board.tsx`, `components/kanban/kanban-board-header.tsx`, `components/kanban/kanban-columns-grid.tsx`, `components/kanban/task-detail-modal.tsx`, `components/kanban-board-types.ts`, `lib/agent-onboarding.ts`, `tasks/current.md`, and deadline-related tests under `tests/api/**`, `tests/components/**`, and `tests/lib/task-deadline.test.ts`.
+
+### 2026-04-17
+- Type: Validation
+- Summary: TASK-117 validation passed for lint, targeted deadline regressions, full Vitest suite, coverage, and production build after running the repo toolchain on a Node `20.19.0` runtime compatible with the current Prisma/Next baseline.
+- Evidence: `npm run lint`; `$env:DATABASE_URL='postgresql://user:pass@localhost:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@localhost:5432/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npx -y -p node@20.19.0 node .\\node_modules\\vitest\\vitest.mjs run`; same env with `--coverage`; same env with `npx -y -p node@20.19.0 node .\\node_modules\\next\\dist\\bin\\next build`; targeted local slice also passed with `npx vitest run tests/lib/task-deadline.test.ts tests/api/task-create.route.test.ts tests/api/task-update.route.test.ts tests/api/agent-project-routes.test.ts tests/api/agent-openapi.route.test.ts tests/components/agent-onboarding-guide.test.ts tests/lib/project-service.test.ts`.
+
+### 2026-04-17
+- Type: Blocker
+- Summary: TASK-117 local Playwright smoke validation could not run in this workstation session because the required PostgreSQL fixture service is unreachable and Docker Desktop is unavailable, so the app cannot boot for browser-based verification.
+- Evidence: `Test-NetConnection -ComputerName 127.0.0.1 -Port 5432` returned `TcpTestSucceeded : False`; `docker ps` failed with missing `dockerDesktopLinuxEngine` pipe while `playwright.config.ts` expects a local `next start` server backed by the app database.
+
 ### 2026-04-15
 - Type: Planning
 - Summary: Started `TASK-105` on a dedicated `docs/task-105-convex-assessment` branch, moved it to the top of the execution queue, replaced `tasks/current.md`, and drafted the initial Convex migration assessment plus architecture decision update.

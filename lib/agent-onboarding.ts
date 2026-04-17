@@ -75,6 +75,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     requestContentType: "application/json",
     notes: [
       "Canonical agent format is application/json; multipart/form-data remains supported for browser-oriented flows.",
+      "deadlineDate uses YYYY-MM-DD when provided.",
       "Use attachmentLinks as an array of { name, url } objects.",
       "Use the direct-upload attachment routes for binary files and images.",
     ],
@@ -87,6 +88,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     description: "Update task metadata, rich text content, labels, and relations.",
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
+    notes: ["Set deadlineDate to null or an empty string to clear the deadline."],
   },
   {
     tag: "Tasks",
@@ -370,7 +372,7 @@ export function buildAgentTaskCreateExample(): string {
     'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
-    "  -d '{\"title\":\"Draft release notes\",\"description\":\"<p>Summarize this week''s changes.</p>\",\"labels\":[\"release\",\"docs\"],\"attachmentLinks\":[{\"name\":\"Spec\",\"url\":\"https://example.com/spec\"}]}'",
+    "  -d '{\"title\":\"Draft release notes\",\"description\":\"<p>Summarize this week''s changes.</p>\",\"deadlineDate\":\"2026-04-24\",\"labels\":[\"release\",\"docs\"],\"attachmentLinks\":[{\"name\":\"Spec\",\"url\":\"https://example.com/spec\"}]}'",
   ].join("\n");
 }
 
@@ -388,7 +390,7 @@ export function buildAgentTaskUpdateExample(): string {
     'curl -X PATCH "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
-    '  -d \'{"title":"Draft release notes","description":"<p>Add release highlights.</p>","labels":["release","ready"],"relatedTaskIds":["task_456"]}\'',
+    '  -d \'{"title":"Draft release notes","description":"<p>Add release highlights.</p>","deadlineDate":"2026-04-25","labels":["release","ready"],"relatedTaskIds":["task_456"]}\'',
   ].join("\n");
 }
 
@@ -517,13 +519,13 @@ export function buildAgentSmokeTestExample(): string {
     'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
-    '  -d \'{"title":"External smoke task","description":"<p>Created by smoke test.</p>"}\'',
+    '  -d \'{"title":"External smoke task","description":"<p>Created by smoke test.</p>","deadlineDate":"2026-04-24"}\'',
     "",
     "# Update the task",
     'curl -X PATCH "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
-    '  -d \'{"title":"External smoke task","description":"<p>Updated by smoke test.</p>","labels":["smoke"]}\'',
+    '  -d \'{"title":"External smoke task","description":"<p>Updated by smoke test.</p>","deadlineDate":"2026-04-25","labels":["smoke"]}\'',
     "",
     "# Request a signed upload target for a binary attachment",
     'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/attachments/upload-url" \\',
@@ -896,6 +898,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             "title",
             "description",
             "blockedNote",
+            "deadlineDate",
             "completedAt",
             "archivedAt",
             "status",
@@ -913,6 +916,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             title: { type: "string" },
             description: { type: ["string", "null"] },
             blockedNote: { type: ["string", "null"] },
+            deadlineDate: { type: ["string", "null"], format: "date" },
             completedAt: { type: ["string", "null"], format: "date-time" },
             archivedAt: { type: ["string", "null"], format: "date-time" },
             status: {
@@ -962,6 +966,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           properties: {
             title: { type: "string" },
             description: { type: "string" },
+            deadlineDate: { type: "string", format: "date" },
             labels: {
               type: "array",
               items: {
@@ -1000,6 +1005,10 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               items: { type: "string" },
             },
             description: { type: "string" },
+            deadlineDate: {
+              type: ["string", "null"],
+              format: "date",
+            },
             blockedFollowUpEntry: { type: "string" },
             relatedTaskIds: {
               type: "array",
@@ -1019,6 +1028,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 "label",
                 "labelsJson",
                 "description",
+                "deadlineDate",
                 "blockedNote",
                 "status",
                 "position",
@@ -1032,6 +1042,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 label: { type: ["string", "null"] },
                 labelsJson: { type: ["string", "null"] },
                 description: { type: ["string", "null"] },
+                deadlineDate: { type: ["string", "null"], format: "date" },
                 blockedNote: { type: ["string", "null"] },
                 status: {
                   type: "string",

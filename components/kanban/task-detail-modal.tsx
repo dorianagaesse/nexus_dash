@@ -4,6 +4,7 @@ import {
   Archive,
   ArrowRightLeft,
   ChevronRight,
+  Clock3,
   Link2,
   MoreHorizontal,
   Paperclip,
@@ -44,6 +45,12 @@ import {
   formatAttachmentFileSize,
   isAttachmentPreviewable,
 } from "@/lib/task-attachment";
+import {
+  formatTaskDeadlineForDisplay,
+  getTaskDeadlineDayDelta,
+  getTaskDeadlineUrgency,
+  type TaskDeadlineUrgency,
+} from "@/lib/task-deadline";
 import { MAX_TASK_LABELS, getTaskLabelColor } from "@/lib/task-label";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 
@@ -57,6 +64,7 @@ interface TaskDetailModalProps {
   editLabelInput: string;
   editLabelSuggestions: string[];
   editDescription: string;
+  editDeadlineDate: string;
   editRelatedTasks: KanbanTask["relatedTasks"];
   relatedTaskSearch: string;
   newBlockedFollowUpEntry: string;
@@ -80,6 +88,7 @@ interface TaskDetailModalProps {
   onAddEditLabel: (value: string) => void;
   onRemoveEditLabel: (label: string) => void;
   onEditDescriptionChange: (value: string) => void;
+  onEditDeadlineDateChange: (value: string) => void;
   onRelatedTaskSearchChange: (value: string) => void;
   onAddRelatedTask: (taskId: string) => void;
   onRemoveRelatedTask: (taskId: string) => void;
@@ -110,6 +119,7 @@ export function TaskDetailModal({
   editLabelInput,
   editLabelSuggestions,
   editDescription,
+  editDeadlineDate,
   editRelatedTasks,
   relatedTaskSearch,
   newBlockedFollowUpEntry,
@@ -133,6 +143,7 @@ export function TaskDetailModal({
   onAddEditLabel,
   onRemoveEditLabel,
   onEditDescriptionChange,
+  onEditDeadlineDateChange,
   onRelatedTaskSearchChange,
   onAddRelatedTask,
   onRemoveRelatedTask,
@@ -247,6 +258,7 @@ export function TaskDetailModal({
                   editLabelInput={editLabelInput}
                   editLabelSuggestions={editLabelSuggestions}
                   editDescription={editDescription}
+                  editDeadlineDate={editDeadlineDate}
                   editRelatedTasks={editRelatedTasks}
                   relatedTaskSearch={relatedTaskSearch}
                   newBlockedFollowUpEntry={newBlockedFollowUpEntry}
@@ -263,6 +275,7 @@ export function TaskDetailModal({
                   onAddEditLabel={onAddEditLabel}
                   onRemoveEditLabel={onRemoveEditLabel}
                   onEditDescriptionChange={onEditDescriptionChange}
+                  onEditDeadlineDateChange={onEditDeadlineDateChange}
                   onRelatedTaskSearchChange={onRelatedTaskSearchChange}
                   onAddRelatedTask={onAddRelatedTask}
                   onRemoveRelatedTask={onRemoveRelatedTask}
@@ -289,6 +302,80 @@ export function TaskDetailModal({
         onClose={() => onPreviewAttachmentChange(null)}
       />
     </>
+  );
+}
+
+function getDeadlineToneClasses(urgency: TaskDeadlineUrgency): string {
+  switch (urgency) {
+    case "overdue":
+      return "border-red-500/35 bg-red-500/10 text-red-700 dark:text-red-200";
+    case "soon":
+      return "border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-200";
+    default:
+      return "border-border/60 bg-muted/20 text-muted-foreground";
+  }
+}
+
+function getDeadlineRelativeLabel(deadlineDate: string): string {
+  const dayDelta = getTaskDeadlineDayDelta(deadlineDate);
+  if (dayDelta === null) {
+    return "";
+  }
+
+  if (dayDelta < 0) {
+    return dayDelta === -1 ? "Overdue since yesterday" : `Overdue by ${Math.abs(dayDelta)} days`;
+  }
+
+  if (dayDelta === 0) {
+    return "Due today";
+  }
+
+  if (dayDelta === 1) {
+    return "Due tomorrow";
+  }
+
+  return `Due in ${dayDelta} days`;
+}
+
+function TaskDeadlineBadge({
+  deadlineDate,
+  status,
+  archivedAt,
+  compact = false,
+}: {
+  deadlineDate: string | null;
+  status: string;
+  archivedAt: string | null;
+  compact?: boolean;
+}) {
+  if (!deadlineDate) {
+    return null;
+  }
+
+  const urgency = getTaskDeadlineUrgency({
+    deadlineDate,
+    status,
+    archivedAt,
+  });
+  const relativeLabel = getDeadlineRelativeLabel(deadlineDate);
+  const label = formatTaskDeadlineForDisplay(deadlineDate);
+
+  return (
+    <div
+      className={[
+        "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium",
+        getDeadlineToneClasses(urgency),
+        compact ? "px-2 py-0.5 text-[11px]" : "",
+      ].join(" ")}
+      title={relativeLabel ? `${relativeLabel} (${label})` : label}
+      aria-label={relativeLabel ? `${relativeLabel} (${label})` : `Deadline ${label}`}
+    >
+      <Clock3 className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
+      <span>{label}</span>
+      {relativeLabel ? (
+        <span className="hidden sm:inline">- {relativeLabel}</span>
+      ) : null}
+    </div>
   );
 }
 
@@ -443,6 +530,11 @@ function TaskReadOnlyContent({
 
   return (
     <>
+      <TaskDeadlineBadge
+        deadlineDate={selectedTask.deadlineDate}
+        status={selectedTask.status}
+        archivedAt={selectedTask.archivedAt}
+      />
       {selectedTask.labels.length > 0 ? (
         <div className="flex flex-wrap gap-1">
           {selectedTask.labels.map((label) => (
@@ -581,6 +673,7 @@ interface TaskEditContentProps {
   editLabelInput: string;
   editLabelSuggestions: string[];
   editDescription: string;
+  editDeadlineDate: string;
   editRelatedTasks: KanbanTask["relatedTasks"];
   relatedTaskSearch: string;
   newBlockedFollowUpEntry: string;
@@ -597,6 +690,7 @@ interface TaskEditContentProps {
   onAddEditLabel: (value: string) => void;
   onRemoveEditLabel: (label: string) => void;
   onEditDescriptionChange: (value: string) => void;
+  onEditDeadlineDateChange: (value: string) => void;
   onRelatedTaskSearchChange: (value: string) => void;
   onAddRelatedTask: (taskId: string) => void;
   onRemoveRelatedTask: (taskId: string) => void;
@@ -619,6 +713,7 @@ function TaskEditContent({
   editLabelInput,
   editLabelSuggestions,
   editDescription,
+  editDeadlineDate,
   editRelatedTasks,
   relatedTaskSearch,
   newBlockedFollowUpEntry,
@@ -635,6 +730,7 @@ function TaskEditContent({
   onAddEditLabel,
   onRemoveEditLabel,
   onEditDescriptionChange,
+  onEditDeadlineDateChange,
   onRelatedTaskSearchChange,
   onAddRelatedTask,
   onRemoveRelatedTask,
@@ -723,6 +819,37 @@ function TaskEditContent({
           onChange={onEditDescriptionChange}
           placeholder="Task details..."
         />
+      </div>
+
+      <div className="grid gap-2">
+        <div className="flex items-center justify-between gap-3">
+          <label htmlFor="task-edit-deadline" className="text-sm font-medium">
+            Deadline
+          </label>
+          {editDeadlineDate ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-auto px-2 py-1 text-xs"
+              onClick={() => onEditDeadlineDateChange("")}
+              disabled={isUpdatingTask}
+            >
+              Clear
+            </Button>
+          ) : null}
+        </div>
+        <input
+          id="task-edit-deadline"
+          type="date"
+          value={editDeadlineDate}
+          onChange={(event) => onEditDeadlineDateChange(event.target.value)}
+          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+          disabled={isUpdatingTask}
+        />
+        <p className="text-xs text-muted-foreground">
+          Optional. Close deadlines are highlighted on the board automatically.
+        </p>
       </div>
 
       {selectedTask.status === "Blocked" ? (

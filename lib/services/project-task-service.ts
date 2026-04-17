@@ -20,6 +20,10 @@ import {
 import { logServerError } from "@/lib/observability/logger";
 import { createTaskAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
 import {
+  formatTaskDeadlineDate,
+  parseTaskDeadlineDate,
+} from "@/lib/task-deadline";
+import {
   requireAgentProjectScopes,
   requireProjectRole,
   type AgentProjectAccessContext,
@@ -55,6 +59,7 @@ export interface UpdateTaskPayload {
   label?: string;
   labels?: string[];
   description?: string;
+  deadlineDate?: string | null;
   blockedFollowUpEntry?: string;
   relatedTaskIds?: string[];
 }
@@ -64,6 +69,7 @@ interface CreateTaskForProjectInput {
   projectId: string;
   title: string;
   description: string;
+  deadlineDate: string;
   labelsJsonRaw: string;
   relatedTaskIdsJsonRaw: string;
   attachmentLinksJsonRaw: string;
@@ -77,6 +83,7 @@ interface UpdatedTaskPayload {
   label: string | null;
   labelsJson: string | null;
   description: string | null;
+  deadlineDate: string | null;
   blockedNote: string | null;
   status: string;
   position: number;
@@ -98,6 +105,59 @@ function normalizeText(value: unknown): string {
     return "";
   }
   return value.trim();
+}
+
+function parseDeadlineInput(
+  value: unknown,
+  options?: { preserveWhenMissing?: boolean }
+): ServiceResult<{ provided: boolean; deadlineAt: Date | null }> {
+  if (value === undefined) {
+    return {
+      ok: true,
+      data: {
+        provided: options?.preserveWhenMissing !== true,
+        deadlineAt: null,
+      },
+    };
+  }
+
+  if (value === null) {
+    return {
+      ok: true,
+      data: {
+        provided: true,
+        deadlineAt: null,
+      },
+    };
+  }
+
+  if (typeof value !== "string") {
+    return createError(400, "deadline-invalid");
+  }
+
+  const normalizedValue = value.trim();
+  if (!normalizedValue) {
+    return {
+      ok: true,
+      data: {
+        provided: true,
+        deadlineAt: null,
+      },
+    };
+  }
+
+  const parsedDeadline = parseTaskDeadlineDate(normalizedValue);
+  if (!parsedDeadline) {
+    return createError(400, "deadline-invalid");
+  }
+
+  return {
+    ok: true,
+    data: {
+      provided: true,
+      deadlineAt: parsedDeadline,
+    },
+  };
 }
 
 function parseRelatedTaskIdsJson(rawValue: string): string[] | null {
@@ -291,6 +351,10 @@ export async function createTaskForProject(
   const labels = parseTaskLabelsJson(input.labelsJsonRaw);
   const serializedLabels = serializeTaskLabels(labels);
   const description = sanitizeRichText(normalizeText(input.description));
+  const deadlineInput = parseDeadlineInput(input.deadlineDate);
+  if (!deadlineInput.ok) {
+    return deadlineInput;
+  }
   const status = TASK_STATUSES[0];
   const agentScopeAccess = requireAgentProjectScopes({
     agentAccess: input.agentAccess,
@@ -345,6 +409,7 @@ export async function createTaskForProject(
           projectId: input.projectId,
           title,
           description,
+          deadlineAt: deadlineInput.data.deadlineAt,
           label: labels[0] ?? null,
           labelsJson: serializedLabels,
           status,
@@ -520,6 +585,12 @@ export async function updateTaskForProject(
   const normalizedLabels = normalizeTaskLabels(labels);
   const serializedLabels = serializeTaskLabels(normalizedLabels);
   const description = sanitizeRichText(normalizeText(payload.description));
+  const deadlineInput = parseDeadlineInput(payload.deadlineDate, {
+    preserveWhenMissing: true,
+  });
+  if (!deadlineInput.ok) {
+    return deadlineInput;
+  }
   const blockedFollowUpEntry = normalizeText(payload.blockedFollowUpEntry);
   const relatedTaskIds = normalizeRelatedTaskIds(payload.relatedTaskIds ?? []);
   const agentScopeAccess = requireAgentProjectScopes({
@@ -593,6 +664,9 @@ export async function updateTaskForProject(
             label: normalizedLabels[0] ?? null,
             labelsJson: serializedLabels,
             description,
+            ...(deadlineInput.data.provided
+              ? { deadlineAt: deadlineInput.data.deadlineAt }
+              : {}),
           },
         });
 
@@ -620,6 +694,7 @@ export async function updateTaskForProject(
             label: true,
             labelsJson: true,
             description: true,
+            deadlineAt: true,
             blockedNote: true,
             status: true,
             position: true,
@@ -665,6 +740,7 @@ export async function updateTaskForProject(
             label: updatedTask.label,
             labelsJson: updatedTask.labelsJson,
             description: updatedTask.description,
+            deadlineDate: formatTaskDeadlineDate(updatedTask.deadlineAt),
             blockedNote: updatedTask.blockedNote,
             status: updatedTask.status,
             position: updatedTask.position,
