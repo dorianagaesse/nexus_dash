@@ -16,6 +16,13 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-04-15 - Keep PostgreSQL/Prisma baseline; do not pursue Convex migration now
+- Status: Accepted
+- Context: `TASK-105` re-evaluated Convex against the current NexusDash architecture after the repo had already adopted Prisma-owned PostgreSQL migrations, production RLS, DB-backed human sessions, project-scoped agent access, and a service-layer authorization model, while future backlog work made realtime collaboration worth reassessing explicitly.
+- Decision: Keep `Prisma + PostgreSQL` as the system of record and do not migrate NexusDash to Convex at this stage; revisit only if the product becomes strongly realtime-first and the team is willing to replace Prisma migrations, PostgreSQL RLS, and the current auth/session architecture as part of a broader backend rewrite.
+- Consequences: The repo preserves its existing relational and security guarantees while avoiding a broad platform rewrite whose main payoff would currently be limited mostly to future realtime collaboration work; near-term live-update needs should be explored on the current stack before reopening the migration question.
+- Links: `adr/task-105-convex-migration-assessment.md`, `tasks/current.md`, `tasks/backlog.md`
+
 ## 2026-04-10 - Close TASK-050 security gaps with DB-backed abuse controls, hashed sessions, and request-time agent credential liveness
 - Status: Accepted
 - Context: `TASK-049` ranked perimeter abuse control, plaintext human sessions at rest, and agent bearer revocation lag as the top remaining security findings, and the repo already operates as a stateless Next.js/PostgreSQL system.

@@ -4,6 +4,11 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-105
+  Title: Convex migration assessment - fit, tradeoffs, and migration risk review
+  Status: In Progress
+  Rationale: Reassess the current PostgreSQL/Prisma baseline against Convex so we have an explicit, written pros/cons view before any future platform pivot, including real constraints around relational data, RLS-style isolation, existing migrations, auth boundaries, and operational complexity rather than evaluating the option abstractly.
+  Dependencies: TASK-056, TASK-057, TASK-085
 - ID: TASK-122
   Title: Dependabot repair cadence - scheduled full-backlog drain with bounded parallelism
   Status: In Progress
@@ -21,11 +26,6 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-091, TASK-079, TASK-096
 
 ### Deferred (Intentional)
-- ID: TASK-105
-  Title: Convex migration assessment - fit, tradeoffs, and migration risk review
-  Status: Pending
-  Rationale: Reassess the current PostgreSQL/Prisma baseline against Convex so we have an explicit, written pros/cons view before any future platform pivot, including real constraints around relational data, RLS-style isolation, existing migrations, auth boundaries, and operational complexity rather than evaluating the option abstractly.
-  Dependencies: TASK-056, TASK-057, TASK-085
 - ID: TASK-106
   Title: Project roadmap feature - milestone/timeline visibility for better execution sight
   Status: Pending
