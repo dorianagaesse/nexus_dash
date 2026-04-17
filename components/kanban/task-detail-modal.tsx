@@ -37,7 +37,7 @@ import { RichTextEditor } from "@/components/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmojiInputField } from "@/components/ui/emoji-field";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import {
@@ -243,15 +243,17 @@ export function TaskDetailModal({
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="min-h-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto">
+            <CardContent className="min-h-0 flex-1 overflow-hidden">
               {!isEditing ? (
-                <TaskReadOnlyContent
-                  canEdit={canEdit}
-                  selectedTask={selectedTask}
-                  onPreviewAttachment={onPreviewAttachmentChange}
-                  onActivateEditMode={onActivateEditMode}
-                  onOpenRelatedTask={onOpenRelatedTask}
-                />
+                <div className="h-full space-y-4 overflow-x-hidden overflow-y-auto pr-1">
+                  <TaskReadOnlyContent
+                    canEdit={canEdit}
+                    selectedTask={selectedTask}
+                    onPreviewAttachment={onPreviewAttachmentChange}
+                    onActivateEditMode={onActivateEditMode}
+                    onOpenRelatedTask={onOpenRelatedTask}
+                  />
+                </div>
               ) : (
                 <TaskEditContent
                   selectedTask={selectedTask}
@@ -748,311 +750,316 @@ function TaskEditContent({
   onCancelEdit,
 }: TaskEditContentProps) {
   return (
-    <>
-      <div className="grid gap-2">
-        <label htmlFor="task-edit-label-input" className="text-sm font-medium">
-          Labels
-        </label>
-        <div className="rounded-md border border-input bg-background p-2">
-          <div className="flex flex-wrap gap-2">
-            {editLabels.map((label) => (
-              <span
-                key={label}
-                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-slate-900"
-                style={{
-                  backgroundColor: getTaskLabelColor(label),
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto pr-1">
+        <div className="grid gap-2">
+          <label htmlFor="task-edit-label-input" className="text-sm font-medium">
+            Labels
+          </label>
+          <div className="rounded-md border border-input bg-background p-2">
+            <div className="flex flex-wrap gap-2">
+              {editLabels.map((label) => (
+                <span
+                  key={label}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-slate-900"
+                  style={{
+                    backgroundColor: getTaskLabelColor(label),
+                  }}
+                >
+                  {label}
+                  <button
+                    type="button"
+                    className="rounded-sm p-0.5 hover:bg-slate-900/10"
+                    onClick={() => onRemoveEditLabel(label)}
+                    aria-label={`Remove label ${label}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+              <EmojiInputField
+                id="task-edit-label-input"
+                value={editLabelInput}
+                onChange={(event) => onEditLabelInputChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === ",") {
+                    event.preventDefault();
+                    onAddEditLabel(editLabelInput);
+                  }
                 }}
-              >
-                {label}
-                <button
-                  type="button"
-                  className="rounded-sm p-0.5 hover:bg-slate-900/10"
-                  onClick={() => onRemoveEditLabel(label)}
-                  aria-label={`Remove label ${label}`}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-            <EmojiInputField
-              id="task-edit-label-input"
-              value={editLabelInput}
-              onChange={(event) => onEditLabelInputChange(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === ",") {
-                  event.preventDefault();
-                  onAddEditLabel(editLabelInput);
+                maxLength={60}
+                wrapperClassName="min-w-[120px] flex-1 sm:min-w-[160px]"
+                className="h-8 min-w-[120px] flex-1 bg-transparent px-1 text-sm outline-none sm:min-w-[160px]"
+                placeholder={
+                  editLabels.length >= MAX_TASK_LABELS
+                    ? "Label limit reached"
+                    : "Type label and press Enter"
                 }
-              }}
-              maxLength={60}
-              wrapperClassName="min-w-[120px] flex-1 sm:min-w-[160px]"
-              className="h-8 min-w-[120px] flex-1 bg-transparent px-1 text-sm outline-none sm:min-w-[160px]"
-              placeholder={
-                editLabels.length >= MAX_TASK_LABELS
-                  ? "Label limit reached"
-                  : "Type label and press Enter"
-              }
-              disabled={editLabels.length >= MAX_TASK_LABELS}
-            />
+                disabled={editLabels.length >= MAX_TASK_LABELS}
+              />
+            </div>
           </div>
-        </div>
-        {editLabelSuggestions.length > 0 ? (
-          <div className="flex flex-wrap gap-1">
-            {editLabelSuggestions.map((suggestion) => (
-              <button
-                key={suggestion}
-                type="button"
-                onClick={() => onAddEditLabel(suggestion)}
-                className="rounded-full border border-border/70 bg-background px-2 py-1 text-xs text-foreground hover:bg-muted"
-              >
-                {suggestion}
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      <div className="grid gap-2">
-        <label className="text-sm font-medium">Description</label>
-        <RichTextEditor
-          id={`task-description-editor-${selectedTask.id}`}
-          value={editDescription}
-          onChange={onEditDescriptionChange}
-          placeholder="Task details..."
-        />
-      </div>
-
-      <TaskDeadlineField
-        id="task-edit-deadline"
-        label="Deadline"
-        value={editDeadlineDate}
-        onChange={onEditDeadlineDateChange}
-        disabled={isUpdatingTask}
-      />
-
-      {selectedTask.status === "Blocked" ? (
-        <div className="grid gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">
-          {selectedTask.blockedFollowUps.length === 0 ? (
-            <p className="text-xs text-amber-700/80 dark:text-amber-200/90">
-              No follow-up entries yet.
-            </p>
-          ) : (
-            <div className="space-y-1.5">
-              {selectedTask.blockedFollowUps.map((entry) => (
-                <article
-                  key={entry.id}
-                  className="grid gap-1 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1.5 sm:grid-cols-[90px_1fr] sm:gap-2"
+          {editLabelSuggestions.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {editLabelSuggestions.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => onAddEditLabel(suggestion)}
+                  className="rounded-full border border-border/70 bg-background px-2 py-1 text-xs text-foreground hover:bg-muted"
                 >
-                  <p className="text-[11px] font-medium text-amber-800/90 dark:text-amber-100/90">
-                    {formatFollowUpTimestamp(entry.createdAt)}
-                  </p>
-                  <p className="whitespace-pre-wrap break-words text-[13px] text-amber-900 dark:text-amber-100">
-                    {entry.content}
-                  </p>
-                </article>
+                  {suggestion}
+                </button>
               ))}
             </div>
+          ) : null}
+        </div>
+        <div className="grid gap-2">
+          <label className="text-sm font-medium">Description</label>
+          <RichTextEditor
+            id={`task-description-editor-${selectedTask.id}`}
+            value={editDescription}
+            onChange={onEditDescriptionChange}
+            placeholder="Task details..."
+          />
+        </div>
+
+        <TaskDeadlineField
+          id="task-edit-deadline"
+          label="Deadline"
+          value={editDeadlineDate}
+          onChange={onEditDeadlineDateChange}
+          disabled={isUpdatingTask}
+        />
+
+        {selectedTask.status === "Blocked" ? (
+          <div className="grid gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+            {selectedTask.blockedFollowUps.length === 0 ? (
+              <p className="text-xs text-amber-700/80 dark:text-amber-200/90">
+                No follow-up entries yet.
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {selectedTask.blockedFollowUps.map((entry) => (
+                  <article
+                    key={entry.id}
+                    className="grid gap-1 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1.5 sm:grid-cols-[90px_1fr] sm:gap-2"
+                  >
+                    <p className="text-[11px] font-medium text-amber-800/90 dark:text-amber-100/90">
+                      {formatFollowUpTimestamp(entry.createdAt)}
+                    </p>
+                    <p className="whitespace-pre-wrap break-words text-[13px] text-amber-900 dark:text-amber-100">
+                      {entry.content}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            )}
+
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-800/80 dark:text-amber-100/80">
+              New follow-up
+            </p>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <EmojiInputField
+                value={newBlockedFollowUpEntry}
+                onChange={(event) => onNewBlockedFollowUpEntryChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void onAddBlockedFollowUpEntry();
+                  }
+                }}
+                maxLength={1200}
+                placeholder="Add follow-up and press Enter"
+                wrapperClassName="flex-1"
+                className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                disabled={isUpdatingTask}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => void onAddBlockedFollowUpEntry()}
+                disabled={isUpdatingTask || !newBlockedFollowUpEntry.trim()}
+                className="w-full sm:w-auto"
+              >
+                Add
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="space-y-2">
+          {selectedTask.attachments.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No attachments yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {selectedTask.attachments.map((attachment) => {
+                const href = resolveAttachmentHref(attachment);
+                const canPreview =
+                  isAttachmentPreviewable(attachment.kind, attachment.mimeType) &&
+                  Boolean(attachment.downloadUrl);
+
+                return (
+                  <div
+                    key={attachment.id}
+                    className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5"
+                  >
+                    <div className="min-w-0">
+                      {canPreview ? (
+                        <button
+                          type="button"
+                          onClick={() => onPreviewAttachment(attachment)}
+                          className="truncate text-left text-xs font-medium text-foreground underline underline-offset-2"
+                        >
+                          {attachment.name}
+                        </button>
+                      ) : href ? (
+                        <a
+                          href={href}
+                          target={attachment.kind === ATTACHMENT_KIND_LINK ? "_blank" : undefined}
+                          rel={attachment.kind === ATTACHMENT_KIND_LINK ? "noreferrer" : undefined}
+                          className="truncate text-xs font-medium text-foreground underline underline-offset-2"
+                        >
+                          {attachment.name}
+                        </a>
+                      ) : (
+                        <p className="truncate text-xs font-medium text-foreground">
+                          {attachment.name}
+                        </p>
+                      )}
+                      {attachment.kind === ATTACHMENT_KIND_FILE ? (
+                        <p className="text-[11px] text-muted-foreground">
+                          {formatAttachmentFileSize(attachment.sizeBytes)}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => void onDeleteAttachment(attachment.id)}
+                        disabled={isSubmittingAttachment || hasPendingAttachmentUploads}
+                        aria-label="Delete attachment"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
+          {pendingAttachmentUploads.length > 0 ? (
+            <div className="space-y-2">
+              {pendingAttachmentUploads.map((upload) => (
+                <div
+                  key={upload.id}
+                  className="flex items-center justify-between gap-2 rounded-md border border-dashed border-border/70 bg-muted/20 px-2 py-1.5"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-medium text-foreground">{upload.name}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Uploading... {formatAttachmentFileSize(upload.sizeBytes)}
+                    </p>
+                  </div>
+                  <Upload className="h-4 w-4 animate-pulse text-muted-foreground" />
+                </div>
+              ))}
+            </div>
+          ) : null}
 
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-800/80 dark:text-amber-100/80">
-            New follow-up
-          </p>
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <EmojiInputField
-              value={newBlockedFollowUpEntry}
-              onChange={(event) => onNewBlockedFollowUpEntryChange(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  void onAddBlockedFollowUpEntry();
-                }
-              }}
-              maxLength={1200}
-              placeholder="Add follow-up and press Enter"
-              wrapperClassName="flex-1"
-              className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-              disabled={isUpdatingTask}
-            />
+          <div className="flex items-center gap-2">
             <Button
               type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => void onAddBlockedFollowUpEntry()}
-              disabled={isUpdatingTask || !newBlockedFollowUpEntry.trim()}
+              variant={isLinkComposerOpen ? "secondary" : "ghost"}
+              size="icon"
+              onClick={onToggleLinkComposer}
+              disabled={isSubmittingAttachment || hasPendingAttachmentUploads}
+              aria-label="Open attachment link input"
+            >
+              <Link2 className="h-4 w-4" />
+            </Button>
+            <input
+              key={fileInputKey}
+              id="task-edit-attachment-file"
+              type="file"
+              onChange={(event) => void onAddFileAttachment(event.target.files?.[0] ?? null)}
+              className="hidden"
+            />
+            <Button type="button" variant="ghost" size="icon" asChild>
+              <label
+                htmlFor="task-edit-attachment-file"
+                aria-label="Upload attachment file"
+                className="cursor-pointer"
+              >
+                <Upload className="h-4 w-4" />
+              </label>
+            </Button>
+          </div>
+
+          {isLinkComposerOpen ? (
+            <AttachmentLinkComposer
+              value={linkUrl}
+              onValueChange={onLinkUrlChange}
+              onSubmit={onAddLinkAttachment}
+              isSubmitDisabled={
+                isSubmittingAttachment || hasPendingAttachmentUploads || !linkUrl.trim()
+              }
+            />
+          ) : null}
+
+          {attachmentError ? (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {attachmentError}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="grid gap-2">
+          <label className="text-sm font-medium">Related tasks</label>
+          <RelatedTaskSelector
+            selectedTasks={editRelatedTasks}
+            availableTasks={availableRelatedTaskOptions}
+            searchValue={relatedTaskSearch}
+            onSearchChange={onRelatedTaskSearchChange}
+            onAddTask={onAddRelatedTask}
+            onRemoveTask={onRemoveRelatedTask}
+          />
+        </div>
+      </div>
+
+      <CardFooter className="shrink-0 border-t border-border/60 bg-card/95 px-0 pb-0 pt-4 backdrop-blur supports-[backdrop-filter]:bg-card/90">
+        <div className="flex w-full flex-col gap-3">
+          {taskModalError ? (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {taskModalError}
+            </div>
+          ) : null}
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+            <Button
+              type="button"
+              onClick={() => void onSaveTask()}
+              disabled={isUpdatingTask}
               className="w-full sm:w-auto"
             >
-              Add
+              {isUpdatingTask ? "Saving..." : "Save changes"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onCancelEdit}
+              disabled={isUpdatingTask}
+              className="w-full sm:w-auto"
+            >
+              Cancel
             </Button>
           </div>
         </div>
-      ) : null}
-
-      <div className="space-y-2">
-        {selectedTask.attachments.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No attachments yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {selectedTask.attachments.map((attachment) => {
-              const href = resolveAttachmentHref(attachment);
-              const canPreview =
-                isAttachmentPreviewable(attachment.kind, attachment.mimeType) &&
-                Boolean(attachment.downloadUrl);
-
-              return (
-                <div
-                  key={attachment.id}
-                  className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5"
-                >
-                  <div className="min-w-0">
-                    {canPreview ? (
-                      <button
-                        type="button"
-                        onClick={() => onPreviewAttachment(attachment)}
-                        className="truncate text-left text-xs font-medium text-foreground underline underline-offset-2"
-                      >
-                        {attachment.name}
-                      </button>
-                    ) : href ? (
-                      <a
-                        href={href}
-                        target={attachment.kind === ATTACHMENT_KIND_LINK ? "_blank" : undefined}
-                        rel={attachment.kind === ATTACHMENT_KIND_LINK ? "noreferrer" : undefined}
-                        className="truncate text-xs font-medium text-foreground underline underline-offset-2"
-                      >
-                        {attachment.name}
-                      </a>
-                    ) : (
-                      <p className="truncate text-xs font-medium text-foreground">
-                        {attachment.name}
-                      </p>
-                    )}
-                    {attachment.kind === ATTACHMENT_KIND_FILE ? (
-                      <p className="text-[11px] text-muted-foreground">
-                        {formatAttachmentFileSize(attachment.sizeBytes)}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => void onDeleteAttachment(attachment.id)}
-                      disabled={isSubmittingAttachment || hasPendingAttachmentUploads}
-                      aria-label="Delete attachment"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-        {pendingAttachmentUploads.length > 0 ? (
-          <div className="space-y-2">
-            {pendingAttachmentUploads.map((upload) => (
-              <div
-                key={upload.id}
-                className="flex items-center justify-between gap-2 rounded-md border border-dashed border-border/70 bg-muted/20 px-2 py-1.5"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-medium text-foreground">{upload.name}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Uploading... {formatAttachmentFileSize(upload.sizeBytes)}
-                  </p>
-                </div>
-                <Upload className="h-4 w-4 animate-pulse text-muted-foreground" />
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant={isLinkComposerOpen ? "secondary" : "ghost"}
-            size="icon"
-            onClick={onToggleLinkComposer}
-            disabled={isSubmittingAttachment || hasPendingAttachmentUploads}
-            aria-label="Open attachment link input"
-          >
-            <Link2 className="h-4 w-4" />
-          </Button>
-          <input
-            key={fileInputKey}
-            id="task-edit-attachment-file"
-            type="file"
-            onChange={(event) => void onAddFileAttachment(event.target.files?.[0] ?? null)}
-            className="hidden"
-          />
-          <Button type="button" variant="ghost" size="icon" asChild>
-            <label
-              htmlFor="task-edit-attachment-file"
-              aria-label="Upload attachment file"
-              className="cursor-pointer"
-            >
-              <Upload className="h-4 w-4" />
-            </label>
-          </Button>
-        </div>
-
-        {isLinkComposerOpen ? (
-          <AttachmentLinkComposer
-            value={linkUrl}
-            onValueChange={onLinkUrlChange}
-            onSubmit={onAddLinkAttachment}
-            isSubmitDisabled={
-              isSubmittingAttachment || hasPendingAttachmentUploads || !linkUrl.trim()
-            }
-          />
-        ) : null}
-
-        {attachmentError ? (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            {attachmentError}
-          </div>
-        ) : null}
-      </div>
-
-      <div className="grid gap-2">
-        <label className="text-sm font-medium">Related tasks</label>
-        <RelatedTaskSelector
-          selectedTasks={editRelatedTasks}
-          availableTasks={availableRelatedTaskOptions}
-          searchValue={relatedTaskSearch}
-          onSearchChange={onRelatedTaskSearchChange}
-          onAddTask={onAddRelatedTask}
-          onRemoveTask={onRemoveRelatedTask}
-        />
-      </div>
-
-      {taskModalError ? (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {taskModalError}
-        </div>
-      ) : null}
-
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
-        <Button
-          type="button"
-          onClick={() => void onSaveTask()}
-          disabled={isUpdatingTask}
-          className="w-full sm:w-auto"
-        >
-          {isUpdatingTask ? "Saving..." : "Save changes"}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onCancelEdit}
-          disabled={isUpdatingTask}
-          className="w-full sm:w-auto"
-        >
-          Cancel
-        </Button>
-      </div>
-    </>
+      </CardFooter>
+    </div>
   );
 }
