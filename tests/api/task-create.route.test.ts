@@ -146,6 +146,29 @@ describe("POST /api/projects/:projectId/tasks", () => {
     });
   });
 
+  test("returns 400 when json deadlineDate is not a string", async () => {
+    const request = new Request("http://localhost/api/projects/p1/tasks", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        title: "Draft API smoke test",
+        deadlineDate: 123,
+      }),
+    });
+
+    const response = await POST(request as never, {
+      params: { projectId: "p1" },
+    });
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "deadline-invalid",
+    });
+    expect(projectTaskServiceMock.createTaskForProject).not.toHaveBeenCalled();
+  });
+
   test("returns mapped error from service", async () => {
     projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
       ok: false,

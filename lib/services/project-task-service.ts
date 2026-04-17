@@ -112,10 +112,20 @@ function parseDeadlineInput(
   options?: { preserveWhenMissing?: boolean }
 ): ServiceResult<{ provided: boolean; deadlineAt: Date | null }> {
   if (value === undefined) {
+    if (options?.preserveWhenMissing === true) {
+      return {
+        ok: true,
+        data: {
+          provided: false,
+          deadlineAt: null,
+        },
+      };
+    }
+
     return {
       ok: true,
       data: {
-        provided: options?.preserveWhenMissing !== true,
+        provided: true,
         deadlineAt: null,
       },
     };

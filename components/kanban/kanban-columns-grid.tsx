@@ -377,17 +377,19 @@ function TaskDeadlineIndicator({
     return null;
   }
 
+  const formattedDeadline = formatTaskDeadlineForDisplay(deadlineDate);
+
   return (
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
         getDeadlineIndicatorTone(urgency)
       )}
-      title={`Deadline ${formatTaskDeadlineForDisplay(deadlineDate)}`}
-      aria-label={`Deadline ${formatTaskDeadlineForDisplay(deadlineDate)}`}
+      title={`Deadline ${formattedDeadline}`}
+      aria-label={`Deadline ${formattedDeadline}`}
     >
       <Clock3 className="h-3.5 w-3.5" />
-      <span>{formatTaskDeadlineForDisplay(deadlineDate)}</span>
+      <span>{formattedDeadline}</span>
     </span>
   );
 }

@@ -164,6 +164,13 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     title = typeof payload.title === "string" ? payload.title.trim() : "";
     description =
       typeof payload.description === "string" ? payload.description.trim() : "";
+    if (
+      payload.deadlineDate !== undefined &&
+      payload.deadlineDate !== null &&
+      typeof payload.deadlineDate !== "string"
+    ) {
+      return NextResponse.json({ error: "deadline-invalid" }, { status: 400 });
+    }
     deadlineDate =
       typeof payload.deadlineDate === "string" ? payload.deadlineDate.trim() : "";
     labelsJsonRaw = serializeJsonField(payload.labels);
