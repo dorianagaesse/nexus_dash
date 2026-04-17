@@ -4,53 +4,38 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-105
-  Title: Convex migration assessment - fit, tradeoffs, and migration risk review
-  Status: In Progress
-  Rationale: Reassess the current PostgreSQL/Prisma baseline against Convex so we have an explicit, written pros/cons view before any future platform pivot, including real constraints around relational data, RLS-style isolation, existing migrations, auth boundaries, and operational complexity rather than evaluating the option abstractly.
-  Dependencies: TASK-056, TASK-057, TASK-085
-- ID: TASK-122
-  Title: Dependabot repair cadence - scheduled full-backlog drain with bounded parallelism
-  Status: In Progress
-  Rationale: Align the weekly Dependabot repair lane with the intended operating model by making Monday runs attempt every eligible red Dependabot PR while preserving manual targeted controls and using controlled matrix parallelism instead of a silent weekly item cap.
-  Dependencies: TASK-120, TASK-116
-- ID: TASK-091
-  Title: Mobile UI adaptation - responsive layout and interaction polish
-  Status: In Progress
-  Rationale: The current experience is optimized for desktop and degrades on smaller screens; adapt core views (home, projects grid, project workspace, modals, and key controls) for mobile readability, touch ergonomics, and overflow-safe navigation.
-  Dependencies: TASK-012, TASK-024
-- ID: TASK-100
-  Title: Mobile UI/UX refinement - touch ergonomics, compact layouts, and small-screen polish
+- ID: TASK-117
+  Title: Deadline feature - due dates, urgency visibility, and reminder-ready planning hooks
   Status: Pending
-  Rationale: After the baseline responsive pass, refine the mobile experience so it feels intentionally designed rather than merely supported by tightening spacing, improving touch targets, reducing modal friction, and smoothing small-screen navigation patterns across high-traffic flows. This refinement scope should explicitly include Google Calendar behavior on mobile, especially event readability, interaction density, and create/edit usability on narrow viewports.
-  Dependencies: TASK-091, TASK-079, TASK-096
-
-### Deferred (Intentional)
-- ID: TASK-106
-  Title: Project roadmap feature - milestone/timeline visibility for better execution sight
-  Status: Pending
-  Rationale: Add a roadmap-oriented project view so teams can see planned direction, upcoming milestones, and sequencing at a higher level than the current Kanban board, improving long-range visibility without losing the existing execution detail.
+  Rationale: Add explicit deadline tracking so projects and work items can surface due dates, urgency, and upcoming commitments more clearly across dashboard views, planning flows, and future reminder/reporting surfaces.
   Dependencies: TASK-076, TASK-079, TASK-096
-- ID: TASK-107
-  Title: Task epic links - parent epic relationship and grouped execution context
-  Status: Pending
-  Rationale: Let tasks link to a higher-level epic so day-to-day work can roll up into larger initiatives, improving planning, grouping, and future roadmap/reporting surfaces beyond the current symmetric related-task model.
-  Dependencies: TASK-079, TASK-095
-- ID: TASK-098
-  Title: Meeting notes manager - structured project meeting log with participants, topics, decisions, and follow-ups
-  Status: Pending
-  Rationale: Add a dedicated project-scoped meeting-notes surface so discussions are not buried in generic context cards; each entry should capture meeting date/time, participants, topics discussed, key decisions, and follow-up actions, with future-friendly room for chronological browsing, search/filtering, and task linkage when implementation begins.
-  Dependencies: TASK-076, TASK-079
-- ID: TASK-099
-  Title: Task comments - project-scoped discussion thread on tasks
-  Status: Pending
-  Rationale: Let users comment directly on tasks so execution context, quick discussion, clarifications, and follow-up decisions stay attached to the work item instead of being lost in external chat or generic context cards; implementation should stay future-friendly for chronology, author attribution, and mention/notification follow-ups.
-  Dependencies: TASK-076, TASK-079
 - ID: TASK-101
   Title: Task ownership and provenance - created-by visibility, assignee model, and task activity attribution
   Status: Pending
   Rationale: Add task-level ownership metadata so collaborators can see who created a task, who is currently responsible for it, and who last touched it, with room for future filtering, accountability, and notification workflows without relying on external chat context.
   Dependencies: TASK-058, TASK-076, TASK-079
+- ID: TASK-099
+  Title: Task comments - project-scoped discussion thread on tasks
+  Status: Pending
+  Rationale: Let users comment directly on tasks so execution context, quick discussion, clarifications, and follow-up decisions stay attached to the work item instead of being lost in external chat or generic context cards; implementation should stay future-friendly for chronology, author attribution, and mention/notification follow-ups.
+  Dependencies: TASK-076, TASK-079
+- ID: TASK-107
+  Title: Task epic links - parent epic relationship and grouped execution context
+  Status: Pending
+  Rationale: Let tasks link to a higher-level epic so day-to-day work can roll up into larger initiatives, improving planning, grouping, and future roadmap/reporting surfaces beyond the current symmetric related-task model.
+  Dependencies: TASK-079, TASK-095
+- ID: TASK-106
+  Title: Project roadmap feature - milestone/timeline visibility for better execution sight
+  Status: Pending
+  Rationale: Add a roadmap-oriented project view so teams can see planned direction, upcoming milestones, and sequencing at a higher level than the current Kanban board, improving long-range visibility without losing the existing execution detail.
+  Dependencies: TASK-076, TASK-079, TASK-096
+
+### Deferred (Intentional)
+- ID: TASK-098
+  Title: Meeting notes manager - structured project meeting log with participants, topics, decisions, and follow-ups
+  Status: Pending
+  Rationale: Add a dedicated project-scoped meeting-notes surface so discussions are not buried in generic context cards; each entry should capture meeting date/time, participants, topics discussed, key decisions, and follow-up actions, with future-friendly room for chronological browsing, search/filtering, and task linkage when implementation begins.
+  Dependencies: TASK-076, TASK-079
 - ID: TASK-102
   Title: Collaboration service modularization - split invite, membership, and recipient flows into smaller service units
   Status: Pending
@@ -66,11 +51,6 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Add a lighter-weight todo list surface for quick checklist-style capture that does not require the full structure of Kanban tasks, giving teams a place for small actionable items, personal punch lists, or short operational checklists that may later connect to richer task flows.
   Dependencies: TASK-076, TASK-079
-- ID: TASK-117
-  Title: Deadline feature - due dates, urgency visibility, and reminder-ready planning hooks
-  Status: Pending
-  Rationale: Add explicit deadline tracking so projects and work items can surface due dates, urgency, and upcoming commitments more clearly across dashboard views, planning flows, and future reminder/reporting surfaces.
-  Dependencies: TASK-076, TASK-079, TASK-096
 - ID: TASK-118
   Title: Real-time collaboration updates - live project refresh for multi-user work
   Status: Pending
@@ -101,6 +81,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Run a broader refinement pass across the entire app so pages, panels, forms, and feedback patterns feel cohesive, intentional, and production-grade instead of evolving as isolated local improvements.
   Dependencies: TASK-096, TASK-100
+- ID: TASK-100
+  Title: Mobile UI/UX refinement - touch ergonomics, compact layouts, and small-screen polish
+  Status: Pending
+  Rationale: After the baseline responsive pass, refine the mobile experience so it feels intentionally designed rather than merely supported by tightening spacing, improving touch targets, reducing modal friction, and smoothing small-screen navigation patterns across high-traffic flows. This refinement scope should explicitly include Google Calendar behavior on mobile, especially event readability, interaction density, and create/edit usability on narrow viewports.
+  Dependencies: TASK-091, TASK-079, TASK-096
 - ID: TASK-063
   Title: Background jobs phase 1 - maintenance workload extraction (deferred)
   Status: Pending
@@ -140,6 +125,16 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-105
+  Title: Convex migration assessment - fit, tradeoffs, and migration risk review
+  Status: Done (2026-04-17)
+  Rationale: Completed a repo-specific reassessment of the current PostgreSQL/Prisma baseline against Convex, reviewed the implemented architecture plus official Convex/Supabase documentation, recorded the recommendation to keep the current stack for now, and merged the durable assessment/decision through PR `#176`.
+  Dependencies: TASK-056, TASK-057, TASK-085
+- ID: TASK-091
+  Title: Mobile UI adaptation - responsive layout and interaction polish
+  Status: Done (2026-04-15)
+  Rationale: Delivered the baseline mobile responsive pass across the priority surfaces, improved small-screen layout safety and modal behavior, validated the main flows with focused mobile QA evidence, and merged the task through PR `#175`.
+  Dependencies: TASK-012, TASK-024
 - ID: TASK-122
   Title: Dependabot repair cadence - scheduled full-backlog drain with bounded parallelism
   Status: Done (2026-04-14)
