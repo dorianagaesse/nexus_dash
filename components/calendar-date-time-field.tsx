@@ -25,6 +25,10 @@ import { cn } from "@/lib/utils";
 const PICKER_WIDTH = 320;
 const PICKER_GUTTER = 12;
 const PICKER_OFFSET = 4;
+const ESTIMATED_PICKER_HEIGHT = {
+  dateOnly: 320,
+  withTime: 396,
+} as const;
 
 export interface CalendarDateTimeFieldProps {
   id: string;
@@ -78,12 +82,15 @@ export function CalendarDateTimeField({
     const triggerRect = triggerRef.current.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
-    const width = Math.min(PICKER_WIDTH, viewportWidth - PICKER_GUTTER * 2);
+    const maxAvailableWidth = Math.max(0, viewportWidth - PICKER_GUTTER * 2);
+    const width = Math.min(PICKER_WIDTH, maxAvailableWidth);
     const left = Math.min(
       Math.max(PICKER_GUTTER, triggerRect.left),
-      viewportWidth - width - PICKER_GUTTER
+      Math.max(PICKER_GUTTER, viewportWidth - width - PICKER_GUTTER)
     );
-    const estimatedPopoverHeight = includeTime ? 396 : 320;
+    const estimatedPopoverHeight = includeTime
+      ? ESTIMATED_PICKER_HEIGHT.withTime
+      : ESTIMATED_PICKER_HEIGHT.dateOnly;
     const spaceBelow = viewportHeight - triggerRect.bottom - PICKER_GUTTER;
     const spaceAbove = triggerRect.top - PICKER_GUTTER;
     const shouldOpenAbove = spaceBelow < estimatedPopoverHeight && spaceAbove > spaceBelow;
@@ -137,13 +144,13 @@ export function CalendarDateTimeField({
     document.addEventListener("mousedown", handlePointerDown);
     document.addEventListener("keydown", handleEscape);
     window.addEventListener("resize", updatePopoverPosition);
-    document.addEventListener("scroll", updatePopoverPosition, true);
+    window.addEventListener("scroll", updatePopoverPosition, true);
 
     return () => {
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleEscape);
       window.removeEventListener("resize", updatePopoverPosition);
-      document.removeEventListener("scroll", updatePopoverPosition, true);
+      window.removeEventListener("scroll", updatePopoverPosition, true);
     };
   }, [isOpen, updatePopoverPosition]);
 

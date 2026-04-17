@@ -94,4 +94,66 @@ describe("calendar-date-time-field", () => {
       root.unmount();
     });
   });
+
+  test("repositions the portaled popover when the viewport changes", async () => {
+    const { container, root } = createTestRenderer();
+    let triggerLeft = 100;
+
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      writable: true,
+      value: 900,
+    });
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      writable: true,
+      value: 800,
+    });
+
+    await renderWithRoot(
+      root,
+      React.createElement(CalendarDateTimeField, {
+        id: "calendar-date",
+        value: "2026-04-17",
+        onChange: vi.fn(),
+        includeTime: false,
+        disabled: false,
+      })
+    );
+
+    const trigger = container.querySelector<HTMLButtonElement>("#calendar-date");
+    expect(trigger).not.toBeNull();
+
+    vi.spyOn(trigger as HTMLButtonElement, "getBoundingClientRect").mockImplementation(() => ({
+      x: triggerLeft,
+      y: 200,
+      left: triggerLeft,
+      top: 200,
+      right: triggerLeft + 240,
+      bottom: 240,
+      width: 240,
+      height: 40,
+      toJSON: () => ({}),
+    }));
+
+    await act(async () => {
+      trigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const popover = document.body.querySelector<HTMLElement>("[data-calendar-popover='true']");
+    expect(popover).not.toBeNull();
+    expect(popover?.style.left).toBe("100px");
+
+    triggerLeft = 180;
+
+    await act(async () => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    expect(popover?.style.left).toBe("180px");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });
