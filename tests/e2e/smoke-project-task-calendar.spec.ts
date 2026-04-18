@@ -65,7 +65,7 @@ test.describe("critical UI smoke flows", () => {
         /\/comments$/.test(response.url()) &&
         response.ok()
     );
-    await page.getByPlaceholder("Add a task comment...").fill(taskComment);
+    await page.getByLabel("Task comment").fill(taskComment);
     await page.getByRole("button", { name: "Add comment" }).click();
     await createCommentRequest;
     await expect(page.getByText(taskComment)).toBeVisible();

@@ -692,7 +692,12 @@ function TaskReadOnlyContent({
 
         {canEdit ? (
           <div className="grid gap-2">
+            <label htmlFor="task-comment-input" className="sr-only">
+              Task comment
+            </label>
             <EmojiTextareaField
+              id="task-comment-input"
+              aria-label="Task comment"
               value={newTaskComment}
               onChange={(event) => onNewTaskCommentChange(event.target.value)}
               maxLength={4000}

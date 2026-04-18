@@ -202,8 +202,10 @@ export function KanbanBoard({
     setIsClient(true);
   }, []);
 
+  const selectedTaskId = selectedTask?.id ?? null;
+
   useEffect(() => {
-    if (!selectedTask) {
+    if (!selectedTaskId) {
       setTaskComments([]);
       setTaskCommentsError(null);
       setIsLoadingTaskComments(false);
@@ -218,7 +220,7 @@ export function KanbanBoard({
 
       try {
         const response = await fetch(
-          `/api/projects/${projectId}/tasks/${selectedTask.id}/comments`,
+          `/api/projects/${projectId}/tasks/${selectedTaskId}/comments`,
           {
             signal: abortController.signal,
           }
@@ -257,7 +259,7 @@ export function KanbanBoard({
     return () => {
       abortController.abort();
     };
-  }, [projectId, selectedTask]);
+  }, [projectId, selectedTaskId]);
 
   const allKnownLabels = useMemo(() => {
     const labels = new Set<string>();
