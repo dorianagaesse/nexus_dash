@@ -156,7 +156,6 @@ describe("calendar-date-time-field", () => {
       root.unmount();
     });
   });
-
   test("closes on outside click even when an ancestor stops mousedown propagation", async () => {
     const { container, root } = createTestRenderer();
 

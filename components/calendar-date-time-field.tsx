@@ -78,15 +78,7 @@ export function CalendarDateTimeField({
     if (!triggerRef.current || typeof window === "undefined") {
       return;
     }
-
-    const popoverScope = wrapperRef.current?.closest(
-      "[data-calendar-popover-scope='true']"
-    ) as HTMLElement | null;
-    const footerBoundary = popoverScope?.querySelector(
-      "[data-calendar-popover-footer-boundary='true']"
-    ) as HTMLElement | null;
     const triggerRect = triggerRef.current.getBoundingClientRect();
-    const footerRect = footerBoundary?.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const maxAvailableWidth = Math.max(0, viewportWidth - PICKER_GUTTER * 2);
@@ -98,6 +90,13 @@ export function CalendarDateTimeField({
     const estimatedPopoverHeight = includeTime
       ? ESTIMATED_PICKER_HEIGHT.withTime
       : ESTIMATED_PICKER_HEIGHT.dateOnly;
+    const popoverScope = wrapperRef.current?.closest(
+      "[data-calendar-popover-scope='true']"
+    ) as HTMLElement | null;
+    const footerBoundary = popoverScope?.querySelector(
+      "[data-calendar-popover-footer-boundary='true']"
+    ) as HTMLElement | null;
+    const footerRect = footerBoundary?.getBoundingClientRect();
     const bottomBoundary = footerRect
       ? Math.min(viewportHeight - PICKER_GUTTER, footerRect.top - PICKER_GUTTER)
       : viewportHeight - PICKER_GUTTER;
