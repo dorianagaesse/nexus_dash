@@ -157,6 +157,51 @@ describe("calendar-date-time-field", () => {
     });
   });
 
+  test("closes on outside click even when an ancestor stops mousedown propagation", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(
+        "div",
+        {
+          onMouseDown: (event: React.MouseEvent<HTMLDivElement>) => event.stopPropagation(),
+        },
+        React.createElement(CalendarDateTimeField, {
+          id: "calendar-date",
+          value: "2026-04-17",
+          onChange: vi.fn(),
+          includeTime: false,
+          disabled: false,
+        }),
+        React.createElement("button", { type: "button", "data-outside-target": "true" }, "Outside")
+      )
+    );
+
+    const trigger = container.querySelector<HTMLButtonElement>("#calendar-date");
+    const outsideTarget = container.querySelector<HTMLButtonElement>(
+      "[data-outside-target='true']"
+    );
+    expect(trigger).not.toBeNull();
+    expect(outsideTarget).not.toBeNull();
+
+    await act(async () => {
+      trigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(document.body.querySelector("[data-calendar-popover='true']")).not.toBeNull();
+
+    await act(async () => {
+      outsideTarget?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    });
+
+    expect(document.body.querySelector("[data-calendar-popover='true']")).toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("opens above the trigger when there is not enough space below", async () => {
     const { container, root } = createTestRenderer();
 
