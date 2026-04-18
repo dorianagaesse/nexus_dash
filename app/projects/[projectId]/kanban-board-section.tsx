@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listProjectKanbanTasks } from "@/lib/services/project-service";
 import { mapRelatedTaskSummary } from "@/lib/task-related";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
+import { formatTaskDeadlineDate } from "@/lib/task-deadline";
 import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import { isTaskStatus } from "@/lib/task-status";
 
@@ -40,6 +41,7 @@ export async function KanbanBoardSection({
       id: task.id,
       title: task.title,
       description: task.description,
+      deadlineDate: formatTaskDeadlineDate(task.deadlineAt),
       labels: getTaskLabelsFromStorage(task.labelsJson, task.label),
       blockedFollowUps: task.blockedFollowUps.map((entry) => ({
         id: entry.id,

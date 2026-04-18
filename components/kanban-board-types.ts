@@ -27,6 +27,7 @@ export interface KanbanTask {
   id: string;
   title: string;
   description: string | null;
+  deadlineDate: string | null;
   labels: string[];
   blockedFollowUps: TaskBlockedFollowUp[];
   status: TaskStatus;

@@ -64,6 +64,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
     const formData = new FormData();
     formData.set("title", "  New Task  ");
     formData.set("description", "  Description  ");
+    formData.set("deadlineDate", "2026-04-24");
     formData.set("labels", '["backend"]');
     formData.set("relatedTaskIds", '["task-a","task-b"]');
     formData.set(
@@ -92,6 +93,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
     expect(call.projectId).toBe("p1");
     expect(call.title).toBe("New Task");
     expect(call.description).toBe("Description");
+    expect(call.deadlineDate).toBe("2026-04-24");
     expect(call.labelsJsonRaw).toBe('["backend"]');
     expect(call.relatedTaskIdsJsonRaw).toBe('["task-a","task-b"]');
     expect(call.attachmentLinksJsonRaw).toBe(
@@ -116,6 +118,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
       body: JSON.stringify({
         title: "  Draft API smoke test  ",
         description: "  <p>Validate the agent route.</p>  ",
+        deadlineDate: "2026-04-25",
         labels: ["agent", "qa"],
         relatedTaskIds: ["task-a"],
         attachmentLinks: [{ name: "Spec", url: "https://example.com/spec" }],
@@ -133,6 +136,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
       projectId: "p1",
       title: "Draft API smoke test",
       description: "<p>Validate the agent route.</p>",
+      deadlineDate: "2026-04-25",
       labelsJsonRaw: '["agent","qa"]',
       relatedTaskIdsJsonRaw: '["task-a"]',
       attachmentLinksJsonRaw:
@@ -140,6 +144,29 @@ describe("POST /api/projects/:projectId/tasks", () => {
       attachmentFiles: [],
       agentAccess: undefined,
     });
+  });
+
+  test("returns 400 when json deadlineDate is not a string", async () => {
+    const request = new Request("http://localhost/api/projects/p1/tasks", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        title: "Draft API smoke test",
+        deadlineDate: 123,
+      }),
+    });
+
+    const response = await POST(request as never, {
+      params: { projectId: "p1" },
+    });
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "deadline-invalid",
+    });
+    expect(projectTaskServiceMock.createTaskForProject).not.toHaveBeenCalled();
   });
 
   test("returns mapped error from service", async () => {

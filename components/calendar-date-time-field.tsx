@@ -78,7 +78,6 @@ export function CalendarDateTimeField({
     if (!triggerRef.current || typeof window === "undefined") {
       return;
     }
-
     const triggerRect = triggerRef.current.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
@@ -91,7 +90,17 @@ export function CalendarDateTimeField({
     const estimatedPopoverHeight = includeTime
       ? ESTIMATED_PICKER_HEIGHT.withTime
       : ESTIMATED_PICKER_HEIGHT.dateOnly;
-    const spaceBelow = viewportHeight - triggerRect.bottom - PICKER_GUTTER;
+    const popoverScope = wrapperRef.current?.closest(
+      "[data-calendar-popover-scope='true']"
+    ) as HTMLElement | null;
+    const footerBoundary = popoverScope?.querySelector(
+      "[data-calendar-popover-footer-boundary='true']"
+    ) as HTMLElement | null;
+    const footerRect = footerBoundary?.getBoundingClientRect();
+    const bottomBoundary = footerRect
+      ? Math.min(viewportHeight - PICKER_GUTTER, footerRect.top - PICKER_GUTTER)
+      : viewportHeight - PICKER_GUTTER;
+    const spaceBelow = bottomBoundary - triggerRect.bottom;
     const spaceAbove = triggerRect.top - PICKER_GUTTER;
     const shouldOpenAbove = spaceBelow < estimatedPopoverHeight && spaceAbove > spaceBelow;
 
@@ -141,13 +150,13 @@ export function CalendarDateTimeField({
       }
     };
 
-    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("mousedown", handlePointerDown, true);
     document.addEventListener("keydown", handleEscape);
     window.addEventListener("resize", updatePopoverPosition);
     window.addEventListener("scroll", updatePopoverPosition, true);
 
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("mousedown", handlePointerDown, true);
       document.removeEventListener("keydown", handleEscape);
       window.removeEventListener("resize", updatePopoverPosition);
       window.removeEventListener("scroll", updatePopoverPosition, true);
