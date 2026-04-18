@@ -5,8 +5,8 @@ TASK-099
 
 ## Status
 Active on `feature/task-099-task-comments` as of `2026-04-19`; implementation
-completed locally from the post-merge `TASK-117` baseline and moving through PR,
-Copilot review, and preview deployment.
+is complete, PR `#180` is open, Copilot feedback has been applied/resolved, and
+preview deployment plus PR checks have passed for the latest branch head.
 
 ## Objective
 Add first-class task comments so execution-specific discussion, clarifications,
@@ -167,9 +167,7 @@ mentions, or a full notification system.
   - agent onboarding/OpenAPI updates
   - regression coverage for task comments and updated task payload contracts
 - Shipping steps in progress:
-  - open task PR
-  - monitor/triage Copilot review
-  - trigger preview deployment workflow from branch git ref
+  - final merge decision on PR `#180`
 
 ## Acceptance Criteria
 - Tasks support a persisted comment thread with at least create and list
