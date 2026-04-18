@@ -210,4 +210,78 @@ describe("calendar-date-time-field", () => {
       root.unmount();
     });
   });
+
+  test("opens above the trigger when a modal footer boundary leaves insufficient room below", async () => {
+    const { container, root } = createTestRenderer();
+
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      writable: true,
+      value: 900,
+    });
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      writable: true,
+      value: 800,
+    });
+
+    await renderWithRoot(
+      root,
+      React.createElement(
+        "div",
+        { "data-calendar-popover-scope": "true" },
+        React.createElement(CalendarDateTimeField, {
+          id: "calendar-date",
+          value: "2026-04-17",
+          onChange: vi.fn(),
+          includeTime: false,
+          disabled: false,
+        }),
+        React.createElement("div", { "data-calendar-popover-footer-boundary": "true" })
+      )
+    );
+
+    const trigger = container.querySelector<HTMLButtonElement>("#calendar-date");
+    const footerBoundary = container.querySelector<HTMLElement>(
+      "[data-calendar-popover-footer-boundary='true']"
+    );
+    expect(trigger).not.toBeNull();
+    expect(footerBoundary).not.toBeNull();
+
+    vi.spyOn(trigger as HTMLButtonElement, "getBoundingClientRect").mockImplementation(() => ({
+      x: 100,
+      y: 400,
+      left: 100,
+      top: 400,
+      right: 340,
+      bottom: 440,
+      width: 240,
+      height: 40,
+      toJSON: () => ({}),
+    }));
+    vi.spyOn(footerBoundary as HTMLElement, "getBoundingClientRect").mockImplementation(() => ({
+      x: 0,
+      y: 520,
+      left: 0,
+      top: 520,
+      right: 900,
+      bottom: 600,
+      width: 900,
+      height: 80,
+      toJSON: () => ({}),
+    }));
+
+    await act(async () => {
+      trigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const popover = document.body.querySelector<HTMLElement>("[data-calendar-popover='true']");
+    expect(popover).not.toBeNull();
+    expect(popover?.style.top).toBe("");
+    expect(popover?.style.bottom).toBe("404px");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });

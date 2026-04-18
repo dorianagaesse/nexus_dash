@@ -345,6 +345,7 @@ export function CreateTaskDialog({
       {isOpen && typeof document !== "undefined"
         ? createPortal(
             <div
+              data-calendar-popover-scope="true"
               className="fixed inset-0 z-[90] flex min-h-dvh w-screen items-end justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-0 sm:items-center sm:p-4"
               onMouseDown={(event) => {
                 if (event.target === event.currentTarget) {
@@ -602,7 +603,10 @@ export function CreateTaskDialog({
                       </div>
                     </div>
                   </CardContent>
-                  <CardFooter className="shrink-0 border-t border-border/60 bg-card/95 px-6 pb-6 pt-4 backdrop-blur supports-[backdrop-filter]:bg-card/90">
+                  <CardFooter
+                    data-calendar-popover-footer-boundary="true"
+                    className="shrink-0 border-t border-border/60 bg-card/95 px-6 pb-6 pt-4 backdrop-blur supports-[backdrop-filter]:bg-card/90"
+                  >
                     <div className="flex w-full flex-col gap-3">
                       {submitError ? (
                         <p className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">

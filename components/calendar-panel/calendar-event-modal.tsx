@@ -71,6 +71,7 @@ export function CalendarEventModal({
 
   return createPortal(
     <div
+      data-calendar-popover-scope="true"
       className="fixed inset-0 z-50 flex min-h-dvh w-screen items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4"
       onMouseDown={(mouseEvent) => {
         if (mouseEvent.target === mouseEvent.currentTarget) {
@@ -233,7 +234,10 @@ export function CalendarEventModal({
               </div>
             ) : null}
 
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <div
+              data-calendar-popover-footer-boundary="true"
+              className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:items-center"
+            >
               {eventModalMode === "edit" ? (
                 <Button
                   type="button"
