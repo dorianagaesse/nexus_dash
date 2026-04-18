@@ -14,14 +14,24 @@ export async function createProjectFromProjectsPage(
   description = "Smoke test project"
 ): Promise<void> {
   await page.goto("/projects");
+  await page.waitForLoadState("networkidle");
 
-  await page.getByRole("button", { name: "Create project" }).first().click();
-  await expect(page.locator("#create-name")).toBeVisible();
+  const createProjectButton = page.getByRole("button", { name: "Create project" }).first();
+  const createNameField = page.locator("#create-name");
 
-  await page.locator("#create-name").fill(projectName);
+  await createProjectButton.click();
+
+  if (!(await createNameField.isVisible().catch(() => false))) {
+    await page.waitForLoadState("networkidle");
+    await createProjectButton.click();
+  }
+
+  await expect(createNameField).toBeVisible();
+
+  await createNameField.fill(projectName);
   await page.locator("#create-description").fill(description);
 
-  const createForm = page.locator("#create-name").locator("xpath=ancestor::form");
+  const createForm = createNameField.locator("xpath=ancestor::form");
   await createForm.getByRole("button", { name: "Create project" }).click();
 
   await expect(page).toHaveURL(/\/projects(\?.*)?$/);

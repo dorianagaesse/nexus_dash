@@ -92,6 +92,24 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
   },
   {
     tag: "Tasks",
+    method: "GET",
+    path: "/api/projects/{projectId}/tasks/{taskId}/comments",
+    title: "List task comments",
+    description: "List the chronological comment thread for one task.",
+    requiredScopes: ["task:read"],
+  },
+  {
+    tag: "Tasks",
+    method: "POST",
+    path: "/api/projects/{projectId}/tasks/{taskId}/comments",
+    title: "Create task comment",
+    description: "Append a new plain-text comment to a task discussion thread.",
+    requiredScopes: ["task:write"],
+    requestContentType: "application/json",
+    notes: ["Task comments are append-only in v1 and preserve line breaks."],
+  },
+  {
+    tag: "Tasks",
     method: "POST",
     path: "/api/projects/{projectId}/tasks/reorder",
     title: "Reorder tasks",
@@ -391,6 +409,19 @@ export function buildAgentTaskUpdateExample(): string {
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
     '  -d \'{"title":"Draft release notes","description":"<p>Add release highlights.</p>","deadlineDate":"2026-04-25","labels":["release","ready"],"relatedTaskIds":["task_456"]}\'',
+  ].join("\n");
+}
+
+export function buildAgentTaskCommentExample(): string {
+  return [
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/comments" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    '  -d \'{"content":"Waiting on design sign-off before moving this into In Progress."}\'',
+    "",
+    "# Read the full task thread",
+    'curl "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/comments" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
   ].join("\n");
 }
 
@@ -899,6 +930,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             "description",
             "blockedNote",
             "deadlineDate",
+            "commentCount",
             "completedAt",
             "archivedAt",
             "status",
@@ -917,6 +949,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             description: { type: ["string", "null"] },
             blockedNote: { type: ["string", "null"] },
             deadlineDate: { type: ["string", "null"], format: "date" },
+            commentCount: { type: "integer" },
             completedAt: { type: ["string", "null"], format: "date-time" },
             archivedAt: { type: ["string", "null"], format: "date-time" },
             status: {
@@ -1029,6 +1062,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 "labelsJson",
                 "description",
                 "deadlineDate",
+                "commentCount",
                 "blockedNote",
                 "status",
                 "position",
@@ -1043,6 +1077,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 labelsJson: { type: ["string", "null"] },
                 description: { type: ["string", "null"] },
                 deadlineDate: { type: ["string", "null"], format: "date" },
+                commentCount: { type: "integer" },
                 blockedNote: { type: ["string", "null"] },
                 status: {
                   type: "string",
@@ -1063,6 +1098,55 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                   },
                 },
               },
+            },
+          },
+        },
+        TaskCommentAuthor: {
+          type: "object",
+          required: ["id", "displayName", "usernameTag"],
+          properties: {
+            id: { type: "string" },
+            displayName: { type: "string" },
+            usernameTag: { type: ["string", "null"] },
+          },
+        },
+        TaskCommentRecord: {
+          type: "object",
+          required: ["id", "content", "createdAt", "author"],
+          properties: {
+            id: { type: "string" },
+            content: { type: "string" },
+            createdAt: { type: "string", format: "date-time" },
+            author: {
+              $ref: "#/components/schemas/TaskCommentAuthor",
+            },
+          },
+        },
+        TaskCommentListResponse: {
+          type: "object",
+          required: ["comments"],
+          properties: {
+            comments: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/TaskCommentRecord",
+              },
+            },
+          },
+        },
+        TaskCommentCreateRequest: {
+          type: "object",
+          required: ["content"],
+          properties: {
+            content: { type: "string" },
+          },
+        },
+        TaskCommentCreateResponse: {
+          type: "object",
+          required: ["comment"],
+          properties: {
+            comment: {
+              $ref: "#/components/schemas/TaskCommentRecord",
             },
           },
         },
@@ -1487,6 +1571,66 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 "application/json": {
                   schema: {
                     $ref: "#/components/schemas/OkResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/tasks/{taskId}/comments": {
+        get: {
+          ...buildOperationMetadata(
+            "GET",
+            "/api/projects/{projectId}/tasks/{taskId}/comments"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/TaskId" },
+          ],
+          responses: {
+            200: {
+              description: "Task comments returned",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/TaskCommentListResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+        post: {
+          ...buildOperationMetadata(
+            "POST",
+            "/api/projects/{projectId}/tasks/{taskId}/comments"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/TaskId" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/TaskCommentCreateRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: "Task comment created",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/TaskCommentCreateResponse",
                   },
                 },
               },

@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Clock3,
   Link2,
+  MessageSquare,
   MoreHorizontal,
   Paperclip,
   Pencil,
@@ -18,6 +19,7 @@ import {
 
 import {
   type KanbanTask,
+  type TaskComment,
   type PendingAttachmentUpload,
   type TaskAttachment,
 } from "@/components/kanban-board-types";
@@ -38,7 +40,7 @@ import { Badge } from "@/components/ui/badge";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmojiInputField } from "@/components/ui/emoji-field";
+import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import {
   ATTACHMENT_KIND_FILE,
@@ -81,6 +83,11 @@ interface TaskDetailModalProps {
   linkUrl: string;
   fileInputKey: number;
   previewAttachment: TaskAttachment | null;
+  taskComments: TaskComment[];
+  taskCommentsError: string | null;
+  isLoadingTaskComments: boolean;
+  newTaskComment: string;
+  isSubmittingTaskComment: boolean;
   onClose: () => void;
   onActivateEditMode: () => void;
   onToggleEditMode: (nextValue: boolean) => void;
@@ -104,6 +111,8 @@ interface TaskDetailModalProps {
   onAddFileAttachment: (file: File | null) => void | Promise<void>;
   onDeleteAttachment: (attachmentId: string) => void | Promise<void>;
   onPreviewAttachmentChange: (attachment: TaskAttachment | null) => void;
+  onNewTaskCommentChange: (value: string) => void;
+  onSubmitTaskComment: () => void | Promise<void>;
   onMoveTask: (nextStatus: TaskStatus) => void;
   onArchiveTask: () => void | Promise<void>;
   onUnarchiveTask: () => void | Promise<void>;
@@ -136,6 +145,11 @@ export function TaskDetailModal({
   linkUrl,
   fileInputKey,
   previewAttachment,
+  taskComments,
+  taskCommentsError,
+  isLoadingTaskComments,
+  newTaskComment,
+  isSubmittingTaskComment,
   onClose,
   onActivateEditMode,
   onToggleEditMode,
@@ -159,6 +173,8 @@ export function TaskDetailModal({
   onAddFileAttachment,
   onDeleteAttachment,
   onPreviewAttachmentChange,
+  onNewTaskCommentChange,
+  onSubmitTaskComment,
   onMoveTask,
   onArchiveTask,
   onUnarchiveTask,
@@ -250,9 +266,16 @@ export function TaskDetailModal({
                   <TaskReadOnlyContent
                     canEdit={canEdit}
                     selectedTask={selectedTask}
+                    taskComments={taskComments}
+                    taskCommentsError={taskCommentsError}
+                    isLoadingTaskComments={isLoadingTaskComments}
+                    newTaskComment={newTaskComment}
+                    isSubmittingTaskComment={isSubmittingTaskComment}
                     onPreviewAttachment={onPreviewAttachmentChange}
                     onActivateEditMode={onActivateEditMode}
                     onOpenRelatedTask={onOpenRelatedTask}
+                    onNewTaskCommentChange={onNewTaskCommentChange}
+                    onSubmitTaskComment={onSubmitTaskComment}
                   />
                 </div>
               ) : (
@@ -519,15 +542,29 @@ function TaskOptionsMenu({
 function TaskReadOnlyContent({
   canEdit,
   selectedTask,
+  taskComments,
+  taskCommentsError,
+  isLoadingTaskComments,
+  newTaskComment,
+  isSubmittingTaskComment,
   onPreviewAttachment,
   onActivateEditMode,
   onOpenRelatedTask,
+  onNewTaskCommentChange,
+  onSubmitTaskComment,
 }: {
   canEdit: boolean;
   selectedTask: KanbanTask;
+  taskComments: TaskComment[];
+  taskCommentsError: string | null;
+  isLoadingTaskComments: boolean;
+  newTaskComment: string;
+  isSubmittingTaskComment: boolean;
   onPreviewAttachment: (attachment: TaskAttachment | null) => void;
   onActivateEditMode: () => void;
   onOpenRelatedTask: (taskId: string) => void;
+  onNewTaskCommentChange: (value: string) => void;
+  onSubmitTaskComment: () => void | Promise<void>;
 }) {
   const hasAttachments = selectedTask.attachments.length > 0;
   const hasRelatedTasks = selectedTask.relatedTasks.length > 0;
@@ -602,6 +639,86 @@ function TaskReadOnlyContent({
           onActivateEditMode();
         }}
       />
+      <div className="grid gap-3 rounded-md border border-border/60 bg-muted/20 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <p className="text-sm font-medium">
+              Comments
+            </p>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {selectedTask.commentCount} comment{selectedTask.commentCount === 1 ? "" : "s"}
+          </span>
+        </div>
+
+        {isLoadingTaskComments ? (
+          <p className="text-sm text-muted-foreground">Loading comments...</p>
+        ) : taskComments.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No comments yet. Use this thread for task-specific discussion.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {taskComments.map((comment) => (
+              <article
+                key={comment.id}
+                className="rounded-md border border-border/60 bg-background px-3 py-2"
+              >
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <p className="text-sm font-medium">{comment.author.displayName}</p>
+                  {getCommentIdentityMeta(comment.author) ? (
+                    <p className="text-[11px] text-muted-foreground">
+                      {getCommentIdentityMeta(comment.author)}
+                    </p>
+                  ) : null}
+                  <p className="text-[11px] text-muted-foreground">
+                    {formatTaskCommentTimestamp(comment.createdAt)}
+                  </p>
+                </div>
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm text-foreground">
+                  {comment.content}
+                </p>
+              </article>
+            ))}
+          </div>
+        )}
+
+        {taskCommentsError ? (
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {taskCommentsError}
+          </div>
+        ) : null}
+
+        {canEdit ? (
+          <div className="grid gap-2">
+            <EmojiTextareaField
+              value={newTaskComment}
+              onChange={(event) => onNewTaskCommentChange(event.target.value)}
+              maxLength={4000}
+              rows={4}
+              placeholder="Add a task comment..."
+              wrapperClassName="w-full"
+              className="min-h-[112px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+              disabled={isSubmittingTaskComment}
+            />
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-muted-foreground">
+                Plain text only in v1. Line breaks are preserved.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void onSubmitTaskComment()}
+                disabled={isSubmittingTaskComment || !newTaskComment.trim()}
+                className="w-full sm:w-auto"
+              >
+                {isSubmittingTaskComment ? "Posting..." : "Add comment"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </div>
       {hasAttachments ? (
         <div className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
           <p className="text-sm font-medium">Attachments</p>
@@ -1066,4 +1183,16 @@ function TaskEditContent({
       </CardFooter>
     </div>
   );
+}
+
+function formatTaskCommentTimestamp(createdAt: string): string {
+  return new Date(createdAt).toLocaleString();
+}
+
+function getCommentIdentityMeta(author: TaskComment["author"]): string | null {
+  if (!author.usernameTag || author.usernameTag === author.displayName) {
+    return null;
+  }
+
+  return author.usernameTag;
 }

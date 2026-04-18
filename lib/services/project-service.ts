@@ -16,6 +16,11 @@ const ARCHIVE_AFTER_MS = ARCHIVE_AFTER_DAYS * 24 * 60 * 60 * 1000;
 
 type ProjectKanbanTaskRecord = Prisma.TaskGetPayload<{
   include: {
+    _count: {
+      select: {
+        comments: true;
+      };
+    };
     attachments: true;
     blockedFollowUps: true;
     outgoingRelations: {
@@ -494,6 +499,11 @@ export async function listProjectKanbanTasks(
       },
       orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
       include: {
+        _count: {
+          select: {
+            comments: true,
+          },
+        },
         attachments: {
           orderBy: [{ createdAt: "desc" }],
         },

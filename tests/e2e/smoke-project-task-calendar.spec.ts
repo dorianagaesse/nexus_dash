@@ -29,6 +29,7 @@ test.describe("critical UI smoke flows", () => {
     const projectName = uniqueProjectName("smoke-task");
     const createdTaskTitle = uniqueProjectName("task");
     const editedTaskTitle = `${createdTaskTitle}-edited`;
+    const taskComment = `Comment ${uniqueProjectName("note")}`;
 
     await createProjectFromProjectsPage(page, projectName);
     await openNewestProjectDashboard(page, projectName);
@@ -58,6 +59,18 @@ test.describe("critical UI smoke flows", () => {
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByRole("button", { name: "Task options" })).toBeVisible();
 
+    const createCommentRequest = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        /\/comments$/.test(response.url()) &&
+        response.ok()
+    );
+    await page.getByPlaceholder("Add a task comment...").fill(taskComment);
+    await page.getByRole("button", { name: "Add comment" }).click();
+    await createCommentRequest;
+    await expect(page.getByText(taskComment)).toBeVisible();
+    await expect(page.getByText("1 comment")).toBeVisible();
+
     await page.getByRole("button", { name: "Task options" }).click();
     await page.getByRole("button", { name: /^Edit$/ }).click();
     const deleteAttachmentRequest = page.waitForResponse(
@@ -73,7 +86,12 @@ test.describe("critical UI smoke flows", () => {
     await expect(page.getByRole("button", { name: "Task options" })).toBeVisible();
     await page.getByRole("button", { name: "Close task" }).click();
 
-    await expect(page.locator("article").filter({ hasText: editedTaskTitle }).first()).toBeVisible();
+    const editedTaskCard = page.locator("article").filter({ hasText: editedTaskTitle }).first();
+    await expect(editedTaskCard).toBeVisible();
+
+    await editedTaskCard.click();
+    await expect(page.getByText(taskComment)).toBeVisible();
+    await page.getByRole("button", { name: "Close task" }).click();
   });
 
   test("context card rich preview flow", async ({ page }) => {

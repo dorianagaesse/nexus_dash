@@ -24,6 +24,7 @@ import {
   buildAgentProjectReadExample,
   buildAgentSmokeTestExample,
   buildAgentTaskArchiveExample,
+  buildAgentTaskCommentExample,
   buildAgentTaskCreateExample,
   buildAgentTaskReorderExample,
   buildAgentTaskUpdateExample,
@@ -308,6 +309,7 @@ export function AgentOnboardingGuide({
           </CardHeader>
           <CardContent className="space-y-4">
             <CodeBlock value={buildAgentTaskUpdateExample()} />
+            <CodeBlock value={buildAgentTaskCommentExample()} />
             <CodeBlock value={buildAgentTaskReorderExample()} />
             <CodeBlock value={buildAgentTaskArchiveExample()} />
             <CodeBlock value={buildAgentContextUpdateExample()} />

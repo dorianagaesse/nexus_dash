@@ -249,6 +249,11 @@ describe("project-service", () => {
       },
       orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
       include: {
+        _count: {
+          select: {
+            comments: true,
+          },
+        },
         attachments: {
           orderBy: [{ createdAt: "desc" }],
         },

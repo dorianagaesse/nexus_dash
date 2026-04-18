@@ -165,6 +165,9 @@ describe("agent project routes", () => {
         description: "<p>Write the onboarding flow.</p>",
         blockedNote: null,
         deadlineAt: "2026-04-24T00:00:00.000Z",
+        _count: {
+          comments: 2,
+        },
         completedAt: null,
         archivedAt: null,
         status: "Backlog",
@@ -203,6 +206,7 @@ describe("agent project routes", () => {
           description: "<p>Write the onboarding flow.</p>",
           blockedNote: null,
           deadlineDate: "2026-04-24",
+          commentCount: 2,
           completedAt: null,
           archivedAt: null,
           status: "Backlog",

@@ -13,6 +13,19 @@ export interface TaskRelatedSummary {
   archivedAt: string | null;
 }
 
+export interface TaskCommentAuthor {
+  id: string;
+  displayName: string;
+  usernameTag: string | null;
+}
+
+export interface TaskComment {
+  id: string;
+  content: string;
+  createdAt: string;
+  author: TaskCommentAuthor;
+}
+
 export interface TaskAttachment {
   id: string;
   kind: string;
@@ -28,6 +41,7 @@ export interface KanbanTask {
   title: string;
   description: string | null;
   deadlineDate: string | null;
+  commentCount: number;
   labels: string[];
   blockedFollowUps: TaskBlockedFollowUp[];
   status: TaskStatus;
