@@ -9,11 +9,6 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Add task-level ownership metadata so collaborators can see who created a task, who is currently responsible for it, and who last touched it, with room for future filtering, accountability, and notification workflows without relying on external chat context.
   Dependencies: TASK-058, TASK-076, TASK-079
-- ID: TASK-099
-  Title: Task comments - project-scoped discussion thread on tasks
-  Status: Pending
-  Rationale: Let users comment directly on tasks so execution context, quick discussion, clarifications, and follow-up decisions stay attached to the work item instead of being lost in external chat or generic context cards; implementation should stay future-friendly for chronology, author attribution, and mention/notification follow-ups.
-  Dependencies: TASK-076, TASK-079
 - ID: TASK-107
   Title: Task epic links - parent epic relationship and grouped execution context
   Status: Pending
@@ -39,8 +34,28 @@ Use this file to capture tasks discovered during development. Each entry should 
 - ID: TASK-104
   Title: Invite email delivery - app-managed sending for project collaboration invites
   Status: Pending
-  Rationale: After copy-link invite delivery is in place, add first-party email sending for collaboration invites so owners can trigger invite delivery directly from the app, with explicit sender identity, provider configuration, and deliverability/error-handling decisions rather than coupling those concerns into TASK-103 by default.
-  Dependencies: TASK-103, TASK-083
+  Rationale: After copy-link invite delivery is in place, add first-party email sending for collaboration invites so owners can trigger invite delivery directly from the app, building on the reusable outbound-email foundation instead of coupling provider/deliverability concerns into TASK-103 by default.
+  Dependencies: TASK-103, TASK-083, TASK-125
+- ID: TASK-123
+  Title: Notification center - unified in-app inbox for invitations, mentions, and future activity
+  Status: Pending
+  Rationale: Introduce a dedicated notification center so invitation events, future task-comment mentions, and other product activity can land in one durable in-app inbox instead of being split across isolated surfaces, giving NexusDash a reusable foundation for unread state, chronological triage, and future notification categories.
+  Dependencies: TASK-058, TASK-103
+- ID: TASK-124
+  Title: Comment mentions - project-member @tagging with notification-center delivery
+  Status: Pending
+  Rationale: Let collaborators tag project members directly in task comments with `@` mentions, including member autocomplete, highlighted mention rendering, and notification creation routed into the in-app notification center so task discussion can pull the right people in without external chat.
+  Dependencies: TASK-058, TASK-099, TASK-123
+- ID: TASK-125
+  Title: Outbound email foundation - reusable app-owned email delivery for invites and future notifications
+  Status: Pending
+  Rationale: Establish NexusDash-owned outbound email infrastructure so future invite delivery, notification emails, and other transactional sends can come from the product itself with explicit provider, sender identity, template, observability, and failure-handling decisions instead of being implemented piecemeal.
+  Dependencies: TASK-083
+- ID: TASK-126
+  Title: Comment reactions - lightweight emoji response system on task threads
+  Status: Pending
+  Rationale: Add lightweight reactions on task comments so collaborators can acknowledge, support, or quickly respond without posting extra text, preserving comment readability while giving task discussions faster signal.
+  Dependencies: TASK-099
 - ID: TASK-109
   Title: Todo list feature - lightweight checklist capture alongside project execution
   Status: Pending
@@ -120,6 +135,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-099
+  Title: Task comments - project-scoped discussion thread on tasks
+  Status: Done (2026-04-20, merged via PR #180)
+  Rationale: Added project-scoped task discussion threads with append-only, chronological, author-attributed comments in task detail, lightweight board-level comment visibility, API/service coverage, and merged the rollout through PR `#180`.
+  Dependencies: TASK-076, TASK-079
 - ID: TASK-117
   Title: Deadline feature - due dates, urgency visibility, and reminder-ready planning hooks
   Status: Done (2026-04-19, merged via PR #178)
