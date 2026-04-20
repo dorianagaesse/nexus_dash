@@ -57,7 +57,7 @@ export async function getAuthorizedGoogleCalendarContext(
     };
   }
 
-  let credential;
+  let credential: Awaited<ReturnType<typeof findGoogleCalendarCredential>>;
   try {
     credential = await findGoogleCalendarCredential(normalizedActorUserId);
   } catch (error) {

@@ -13,7 +13,12 @@ import { formatTaskDeadlineDate } from "@/lib/task-deadline";
 import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import { isTaskStatus } from "@/lib/task-status";
 
-type TaskAttachment = Awaited<ReturnType<typeof listProjectKanbanTasks>>[number]["attachments"][number];
+type ProjectKanbanTask = Awaited<ReturnType<typeof listProjectKanbanTasks>>[number];
+type TaskAttachment = ProjectKanbanTask["attachments"][number];
+type TaskBlockedFollowUp =
+  ProjectKanbanTask["blockedFollowUps"][number];
+type OutgoingRelation = ProjectKanbanTask["outgoingRelations"][number];
+type IncomingRelation = ProjectKanbanTask["incomingRelations"][number];
 
 interface KanbanBoardSectionProps {
   projectId: string;
@@ -32,7 +37,7 @@ export async function KanbanBoardSection({
   const kanbanTasks: KanbanTask[] = [];
   const archivedDoneTasks: KanbanTask[] = [];
 
-  tasks.forEach((task) => {
+  tasks.forEach((task: ProjectKanbanTask) => {
     if (!isTaskStatus(task.status)) {
       return;
     }
@@ -43,15 +48,19 @@ export async function KanbanBoardSection({
       description: task.description,
       deadlineDate: formatTaskDeadlineDate(task.deadlineAt),
       labels: getTaskLabelsFromStorage(task.labelsJson, task.label),
-      blockedFollowUps: task.blockedFollowUps.map((entry) => ({
+      blockedFollowUps: task.blockedFollowUps.map((entry: TaskBlockedFollowUp) => ({
         id: entry.id,
         content: entry.content,
         createdAt: entry.createdAt.toISOString(),
       })),
       archivedAt: task.archivedAt ? task.archivedAt.toISOString() : null,
       relatedTasks: [
-        ...task.outgoingRelations.map((entry) => mapRelatedTaskSummary(entry.rightTask)),
-        ...task.incomingRelations.map((entry) => mapRelatedTaskSummary(entry.leftTask)),
+        ...task.outgoingRelations.map((entry: OutgoingRelation) =>
+          mapRelatedTaskSummary(entry.rightTask)
+        ),
+        ...task.incomingRelations.map((entry: IncomingRelation) =>
+          mapRelatedTaskSummary(entry.leftTask)
+        ),
       ].sort((left, right) => left.title.localeCompare(right.title)),
       status: task.status,
       attachments: task.attachments.map((attachment: TaskAttachment) => ({
