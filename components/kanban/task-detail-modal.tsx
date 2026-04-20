@@ -639,91 +639,86 @@ function TaskReadOnlyContent({
           onActivateEditMode();
         }}
       />
-      <div className="grid gap-3 rounded-md border border-border/60 bg-muted/20 p-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-            <p className="text-sm font-medium">
-              Comments
-            </p>
-          </div>
-          <span className="text-xs text-muted-foreground">
-            {selectedTask.commentCount} comment{selectedTask.commentCount === 1 ? "" : "s"}
-          </span>
-        </div>
-
-        {isLoadingTaskComments ? (
-          <p className="text-sm text-muted-foreground">Loading comments...</p>
-        ) : taskComments.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No comments yet. Use this thread for task-specific discussion.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {taskComments.map((comment) => (
-              <article
-                key={comment.id}
-                className="rounded-md border border-border/60 bg-background px-3 py-2"
-              >
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <p className="text-sm font-medium">{comment.author.displayName}</p>
-                  {getCommentIdentityMeta(comment.author) ? (
-                    <p className="text-[11px] text-muted-foreground">
-                      {getCommentIdentityMeta(comment.author)}
-                    </p>
-                  ) : null}
-                  <p className="text-[11px] text-muted-foreground">
-                    {formatTaskCommentTimestamp(comment.createdAt)}
-                  </p>
-                </div>
-                <p className="mt-2 whitespace-pre-wrap break-words text-sm text-foreground">
-                  {comment.content}
-                </p>
-              </article>
-            ))}
-          </div>
-        )}
-
-        {taskCommentsError ? (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            {taskCommentsError}
-          </div>
-        ) : null}
-
-        {canEdit ? (
-          <div className="grid gap-2">
-            <label htmlFor="task-comment-input" className="sr-only">
-              Task comment
-            </label>
-            <EmojiTextareaField
-              id="task-comment-input"
-              aria-label="Task comment"
-              value={newTaskComment}
-              onChange={(event) => onNewTaskCommentChange(event.target.value)}
-              maxLength={4000}
-              rows={4}
-              placeholder="Add a task comment..."
-              wrapperClassName="w-full"
-              className="min-h-[112px] rounded-md border border-input bg-background px-3 py-2 text-sm"
-              disabled={isSubmittingTaskComment}
-            />
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-muted-foreground">
-                Plain text only in v1. Line breaks are preserved.
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => void onSubmitTaskComment()}
-                disabled={isSubmittingTaskComment || !newTaskComment.trim()}
-                className="w-full sm:w-auto"
-              >
-                {isSubmittingTaskComment ? "Posting..." : "Add comment"}
-              </Button>
+      <section className="border-t border-border/60 pt-4">
+        <div className="space-y-3 rounded-2xl border border-border/50 bg-muted/10 px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              <p className="text-sm font-medium">Comments</p>
             </div>
+            <span className="text-xs text-muted-foreground">
+              {selectedTask.commentCount} comment{selectedTask.commentCount === 1 ? "" : "s"}
+            </span>
           </div>
-        ) : null}
-      </div>
+
+          {isLoadingTaskComments ? (
+            <p className="text-xs text-muted-foreground">Loading comments...</p>
+          ) : taskComments.length > 0 ? (
+            <div className="space-y-2.5">
+              {taskComments.map((comment) => (
+                <article
+                  key={comment.id}
+                  className="rounded-xl border border-border/50 bg-background/80 px-3 py-2.5"
+                >
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <p className="text-sm font-medium">{comment.author.displayName}</p>
+                    {getCommentIdentityMeta(comment.author) ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        {getCommentIdentityMeta(comment.author)}
+                      </p>
+                    ) : null}
+                    <p className="text-[11px] text-muted-foreground">
+                      {formatTaskCommentTimestamp(comment.createdAt)}
+                    </p>
+                  </div>
+                  <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-foreground">
+                    {comment.content}
+                  </p>
+                </article>
+              ))}
+            </div>
+          ) : !canEdit ? (
+            <p className="text-xs text-muted-foreground">No comments yet.</p>
+          ) : null}
+
+          {taskCommentsError ? (
+            <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {taskCommentsError}
+            </div>
+          ) : null}
+
+          {canEdit ? (
+            <div className="space-y-2 rounded-xl border border-border/50 bg-background/55 p-2.5">
+              <label htmlFor="task-comment-input" className="sr-only">
+                Task comment
+              </label>
+              <EmojiTextareaField
+                id="task-comment-input"
+                aria-label="Task comment"
+                value={newTaskComment}
+                onChange={(event) => onNewTaskCommentChange(event.target.value)}
+                maxLength={4000}
+                rows={3}
+                placeholder="Add a task comment..."
+                wrapperClassName="w-full"
+                className="min-h-[88px] rounded-lg border border-border/50 bg-background/80 px-3 py-2 text-sm"
+                disabled={isSubmittingTaskComment}
+              />
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void onSubmitTaskComment()}
+                  disabled={isSubmittingTaskComment || !newTaskComment.trim()}
+                  className="w-full sm:w-auto"
+                >
+                  {isSubmittingTaskComment ? "Posting..." : "Add comment"}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </section>
       {hasAttachments ? (
         <div className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
           <p className="text-sm font-medium">Attachments</p>
