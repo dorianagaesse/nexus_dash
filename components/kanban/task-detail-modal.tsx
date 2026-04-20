@@ -696,10 +696,10 @@ function TaskReadOnlyContent({
                 value={newTaskComment}
                 onChange={(event) => onNewTaskCommentChange(event.target.value)}
                 maxLength={4000}
-                rows={2}
+                rows={1}
                 placeholder="Add a task comment..."
                 wrapperClassName="w-full"
-                className="min-h-[72px] rounded-xl border border-border/50 bg-background/80 px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:border-ring/60"
+                className="h-11 min-h-11 rounded-xl border border-border/50 bg-background/80 px-3 py-2 text-sm leading-5 transition-colors focus-visible:outline-none focus-visible:border-ring/60"
                 disabled={isSubmittingTaskComment}
               />
               <div className="flex justify-end">
