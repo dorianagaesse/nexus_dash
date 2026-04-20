@@ -639,8 +639,8 @@ function TaskReadOnlyContent({
           onActivateEditMode();
         }}
       />
-      <section className="border-t border-border/60 pt-4">
-        <div className="space-y-3 rounded-2xl border border-border/50 bg-muted/10 px-4 py-3">
+      <section className="pt-4">
+        <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
@@ -682,13 +682,11 @@ function TaskReadOnlyContent({
           ) : null}
 
           {taskCommentsError ? (
-            <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {taskCommentsError}
-            </div>
+            <p className="text-xs text-destructive">{taskCommentsError}</p>
           ) : null}
 
           {canEdit ? (
-            <div className="space-y-2 rounded-xl border border-border/50 bg-background/55 p-2.5">
+            <div className="space-y-2">
               <label htmlFor="task-comment-input" className="sr-only">
                 Task comment
               </label>
@@ -701,7 +699,7 @@ function TaskReadOnlyContent({
                 rows={3}
                 placeholder="Add a task comment..."
                 wrapperClassName="w-full"
-                className="min-h-[88px] rounded-lg border border-border/50 bg-background/80 px-3 py-2 text-sm"
+                className="min-h-[88px] rounded-xl border border-border/50 bg-background/80 px-3 py-2 text-sm"
                 disabled={isSubmittingTaskComment}
               />
               <div className="flex justify-end">
