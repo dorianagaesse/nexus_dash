@@ -13,6 +13,7 @@ import type { DropResult } from "@hello-pangea/dnd";
 import type { RelatedTaskOption } from "@/components/kanban/related-task-field";
 import {
   type KanbanTask,
+  type TaskComment,
   type PendingAttachmentUpload,
   type TaskAttachment,
   type TaskRelatedSummary,
@@ -121,6 +122,11 @@ export function KanbanBoard({
   const [isClient, setIsClient] = useState(false);
   const [previewAttachment, setPreviewAttachment] =
     useState<TaskAttachment | null>(null);
+  const [taskComments, setTaskComments] = useState<TaskComment[]>([]);
+  const [taskCommentsError, setTaskCommentsError] = useState<string | null>(null);
+  const [isLoadingTaskComments, setIsLoadingTaskComments] = useState(false);
+  const [newTaskComment, setNewTaskComment] = useState("");
+  const [isSubmittingTaskComment, setIsSubmittingTaskComment] = useState(false);
   const maxAttachmentFileSizeBytes =
     storageProvider === "r2"
       ? DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES
@@ -143,11 +149,13 @@ export function KanbanBoard({
     setRelatedTaskSearch("");
     setNewBlockedFollowUpEntry("");
     setAttachmentError(null);
+    setTaskCommentsError(null);
     setPendingAttachmentUploads([]);
     setIsLinkComposerOpen(false);
     setLinkUrl("");
     setFileInputKey((previous) => previous + 1);
     setPreviewAttachment(null);
+    setNewTaskComment("");
   }, []);
 
   useEffect(() => {
@@ -193,6 +201,65 @@ export function KanbanBoard({
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  const selectedTaskId = selectedTask?.id ?? null;
+
+  useEffect(() => {
+    if (!selectedTaskId) {
+      setTaskComments([]);
+      setTaskCommentsError(null);
+      setIsLoadingTaskComments(false);
+      setNewTaskComment("");
+      return;
+    }
+
+    const abortController = new AbortController();
+    const loadTaskComments = async () => {
+      setIsLoadingTaskComments(true);
+      setTaskCommentsError(null);
+
+      try {
+        const response = await fetch(
+          `/api/projects/${projectId}/tasks/${selectedTaskId}/comments`,
+          {
+            signal: abortController.signal,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            await readApiError(response, "Could not load task comments.")
+          );
+        }
+
+        const payload = (await response.json()) as {
+          comments: TaskComment[];
+        };
+
+        setTaskComments(payload.comments);
+      } catch (error) {
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        console.error("[KanbanBoard.loadTaskComments]", error);
+        setTaskComments([]);
+        setTaskCommentsError(
+          error instanceof Error ? error.message : "Could not load task comments."
+        );
+      } finally {
+        if (!abortController.signal.aborted) {
+          setIsLoadingTaskComments(false);
+        }
+      }
+    };
+
+    void loadTaskComments();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [projectId, selectedTaskId]);
 
   const allKnownLabels = useMemo(() => {
     const labels = new Set<string>();
@@ -539,9 +606,12 @@ export function KanbanBoard({
     setIsEditMode(false);
     setTaskModalError(null);
     setAttachmentError(null);
+    setTaskCommentsError(null);
     setEditRelatedTasks([]);
     setRelatedTaskSearch("");
     setPreviewAttachment(null);
+    setTaskComments([]);
+    setNewTaskComment("");
   }, []);
 
   const handleSelectTask = useCallback((task: KanbanTask) => {
@@ -660,6 +730,7 @@ export function KanbanBoard({
             labelsJson: string | null;
             description: string | null;
             deadlineDate: string | null;
+            commentCount: number;
             blockedNote: string | null;
             status: string;
             position: number;
@@ -686,6 +757,7 @@ export function KanbanBoard({
           ),
           description: payload.task.description,
           deadlineDate: payload.task.deadlineDate,
+          commentCount: payload.task.commentCount,
           blockedFollowUps: payload.task.blockedFollowUps.map((entry) => ({
             ...entry,
             createdAt: entry.createdAt,
@@ -1108,6 +1180,75 @@ export function KanbanBoard({
     []
   );
 
+  const handleSubmitTaskComment = useCallback(async () => {
+    if (!canEdit) {
+      return;
+    }
+
+    if (!selectedTask) {
+      return;
+    }
+
+    const content = newTaskComment.trim();
+    if (!content) {
+      setTaskCommentsError("Comment cannot be empty.");
+      return;
+    }
+
+    setIsSubmittingTaskComment(true);
+    setTaskCommentsError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/tasks/${selectedTask.id}/comments`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ content }),
+        }
+      );
+
+      if (!response.ok) {
+        const message = await readApiError(response, "Could not add comment.");
+        throw new Error(
+          message === "content-required"
+            ? "Comment cannot be empty."
+            : message === "content-too-long"
+              ? "Comment must be 4000 characters or fewer."
+              : message
+        );
+      }
+
+      const payload = (await response.json()) as {
+        comment: TaskComment;
+      };
+
+      setTaskComments((previousComments) => [...previousComments, payload.comment]);
+      setNewTaskComment("");
+      applyTaskMutation(selectedTask.id, (task) => ({
+        ...task,
+        commentCount: task.commentCount + 1,
+      }));
+      pushToast({
+        variant: "success",
+        message: "Comment added.",
+      });
+    } catch (error) {
+      console.error("[KanbanBoard.handleSubmitTaskComment]", error);
+      const message =
+        error instanceof Error ? error.message : "Could not add comment.";
+      setTaskCommentsError(message);
+      pushToast({
+        variant: "error",
+        message,
+      });
+    } finally {
+      setIsSubmittingTaskComment(false);
+    }
+  }, [applyTaskMutation, canEdit, newTaskComment, projectId, pushToast, selectedTask]);
+
   const handleAddLinkAttachment = useCallback(async () => {
     if (!canEdit) {
       return;
@@ -1412,6 +1553,11 @@ export function KanbanBoard({
         linkUrl={linkUrl}
         fileInputKey={fileInputKey}
         previewAttachment={previewAttachment}
+        taskComments={taskComments}
+        taskCommentsError={taskCommentsError}
+        isLoadingTaskComments={isLoadingTaskComments}
+        newTaskComment={newTaskComment}
+        isSubmittingTaskComment={isSubmittingTaskComment}
         onClose={closeTaskModal}
         onActivateEditMode={handleActivateTaskEditMode}
         onToggleEditMode={handleToggleTaskEditMode}
@@ -1437,6 +1583,8 @@ export function KanbanBoard({
         onAddFileAttachment={handleAddFileAttachment}
         onDeleteAttachment={handleDeleteAttachment}
         onPreviewAttachmentChange={setPreviewAttachment}
+        onNewTaskCommentChange={setNewTaskComment}
+        onSubmitTaskComment={handleSubmitTaskComment}
         onMoveTask={(nextStatus) => {
           if (!selectedTask) {
             return;

@@ -49,6 +49,7 @@ describe("GET /api/docs/agent/v1/openapi.json", () => {
     expect(servers?.[0]?.url).toBe("https://preview.nexusdash.test");
     expect(paths).toHaveProperty("/api/auth/agent/token");
     expect(paths).toHaveProperty("/api/projects/{projectId}/tasks");
+    expect(paths).toHaveProperty("/api/projects/{projectId}/tasks/{taskId}/comments");
     expect(paths).toHaveProperty(
       "/api/projects/{projectId}/tasks/{taskId}/attachments/upload-url"
     );
@@ -64,6 +65,7 @@ describe("GET /api/docs/agent/v1/openapi.json", () => {
       { AgentApiKeyHeader: [] },
     ]);
     expect(JSON.stringify(payload)).toContain("deadlineDate");
+    expect(JSON.stringify(payload)).toContain("commentCount");
     expect(resolveRequestOriginFromHeadersMock).toHaveBeenCalledWith(expect.any(Headers));
   });
 });

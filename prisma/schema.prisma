@@ -25,6 +25,7 @@ model User {
   projectMemberships         ProjectMembership[]
   projectInvitationsSent     ProjectInvitation[]       @relation("ProjectInvitationInviter")
   taskAttachments            TaskAttachment[]          @relation("TaskAttachmentUploader")
+  taskComments               TaskComment[]             @relation("TaskCommentAuthor")
   resourceAttachments        ResourceAttachment[]      @relation("ResourceAttachmentUploader")
   googleCalendarCredential   GoogleCalendarCredential?
   emailVerificationTokens    EmailVerificationToken[]
@@ -196,6 +197,7 @@ model Task {
   projectId         String
   project           Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
   attachments       TaskAttachment[]
+  comments          TaskComment[]
   blockedFollowUps  TaskBlockedFollowUp[]
   outgoingRelations TaskRelation[]        @relation("TaskRelationLeft")
   incomingRelations TaskRelation[]        @relation("TaskRelationRight")
@@ -204,6 +206,19 @@ model Task {
 
   @@index([projectId])
   @@index([projectId, deadlineAt])
+}
+
+model TaskComment {
+  id           String   @id @default(cuid())
+  taskId       String
+  authorUserId String
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author       User     @relation("TaskCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  content      String
+  createdAt    DateTime @default(now())
+
+  @@index([taskId, createdAt])
+  @@index([authorUserId])
 }
 
 model TaskRelation {

@@ -110,6 +110,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
       description: task.description,
       blockedNote: task.blockedNote,
       deadlineDate: formatTaskDeadlineDate(task.deadlineAt),
+      commentCount: task._count.comments,
       completedAt: task.completedAt,
       archivedAt: task.archivedAt,
       status: task.status,

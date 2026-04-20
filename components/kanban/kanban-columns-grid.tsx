@@ -4,7 +4,7 @@ import {
   Droppable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { Archive, Clock3, GripVertical, Link2, Paperclip, TriangleAlert } from "lucide-react";
+import { Archive, Clock3, GripVertical, Link2, MessageSquare, Paperclip, TriangleAlert } from "lucide-react";
 
 import type { KanbanTask } from "@/components/kanban-board-types";
 import { Badge } from "@/components/ui/badge";
@@ -314,6 +314,7 @@ function TaskCardIndicators({
 }) {
   const hasRelatedTasks = task.relatedTasks.length > 0;
   const hasAttachments = task.attachments.length > 0;
+  const hasComments = task.commentCount > 0;
   const deadlineUrgency = getTaskDeadlineUrgency({
     deadlineDate: task.deadlineDate,
     status: task.status,
@@ -321,7 +322,7 @@ function TaskCardIndicators({
   });
   const hasDeadline = Boolean(task.deadlineDate);
 
-  if (!hasRelatedTasks && !hasAttachments && !hasDeadline) {
+  if (!hasRelatedTasks && !hasAttachments && !hasDeadline && !hasComments) {
     return null;
   }
 
@@ -340,6 +341,16 @@ function TaskCardIndicators({
           title="Task has related tasks"
         >
           <Link2 className="h-3.5 w-3.5" />
+        </span>
+      ) : null}
+      {hasComments ? (
+        <span
+          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/70 px-2 py-0.5 text-[11px] font-medium"
+          aria-label={`Task has ${task.commentCount} comment${task.commentCount === 1 ? "" : "s"}`}
+          title={`${task.commentCount} comment${task.commentCount === 1 ? "" : "s"}`}
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+          <span>{task.commentCount}</span>
         </span>
       ) : null}
       {hasAttachments ? (

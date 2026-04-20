@@ -84,6 +84,7 @@ interface UpdatedTaskPayload {
   labelsJson: string | null;
   description: string | null;
   deadlineDate: string | null;
+  commentCount: number;
   blockedNote: string | null;
   status: string;
   position: number;
@@ -705,6 +706,11 @@ export async function updateTaskForProject(
             labelsJson: true,
             description: true,
             deadlineAt: true,
+            _count: {
+              select: {
+                comments: true,
+              },
+            },
             blockedNote: true,
             status: true,
             position: true,
@@ -751,6 +757,7 @@ export async function updateTaskForProject(
             labelsJson: updatedTask.labelsJson,
             description: updatedTask.description,
             deadlineDate: formatTaskDeadlineDate(updatedTask.deadlineAt),
+            commentCount: updatedTask._count.comments,
             blockedNote: updatedTask.blockedNote,
             status: updatedTask.status,
             position: updatedTask.position,

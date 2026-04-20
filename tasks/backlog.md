@@ -4,11 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-117
-  Title: Deadline feature - due dates, urgency visibility, and reminder-ready planning hooks
-  Status: Pending
-  Rationale: Add explicit deadline tracking so projects and work items can surface due dates, urgency, and upcoming commitments more clearly across dashboard views, planning flows, and future reminder/reporting surfaces.
-  Dependencies: TASK-076, TASK-079, TASK-096
 - ID: TASK-101
   Title: Task ownership and provenance - created-by visibility, assignee model, and task activity attribution
   Status: Pending
@@ -125,6 +120,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-117
+  Title: Deadline feature - due dates, urgency visibility, and reminder-ready planning hooks
+  Status: Done (2026-04-19, merged via PR #178)
+  Rationale: Added first-class task deadline tracking across schema, service/API contracts, Kanban create/edit/read surfaces, board-level urgency visibility, and agent/OpenAPI documentation, then merged the rollout through PR `#178`.
+  Dependencies: TASK-076, TASK-079, TASK-096
 - ID: TASK-105
   Title: Convex migration assessment - fit, tradeoffs, and migration risk review
   Status: Done (2026-04-17)

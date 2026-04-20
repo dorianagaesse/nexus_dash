@@ -47,6 +47,7 @@ export async function KanbanBoardSection({
       title: task.title,
       description: task.description,
       deadlineDate: formatTaskDeadlineDate(task.deadlineAt),
+      commentCount: task._count.comments,
       labels: getTaskLabelsFromStorage(task.labelsJson, task.label),
       blockedFollowUps: task.blockedFollowUps.map((entry: TaskBlockedFollowUp) => ({
         id: entry.id,

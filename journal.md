@@ -12,6 +12,26 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-19
+- Type: Governance
+- Summary: TASK-099 shipped to PR `#180`, initial Copilot review completed with two actionable comments, both were applied in follow-up commit `94b534a` and the review threads were replied to and resolved before handoff.
+- Evidence: PR `#180`; implementation commit `97bb45c`; follow-up review-response commit `94b534a`; resolved threads on `components/kanban-board.tsx` and `components/kanban/task-detail-modal.tsx`; latest PR checks passed (`check-name`, `Quality Core`, `E2E Smoke`, `Container Image`).
+
+### 2026-04-19
+- Type: Validation
+- Summary: TASK-099 branch preview deployment completed successfully from the latest reviewed branch head through the manual Vercel workflow.
+- Evidence: Workflow `Deploy Vercel (CD + Rollback)` run `24616376957` with `action=deploy-preview` and `git_ref=feature/task-099-task-comments`; preview URL `https://nexus-dash-f73912u3w-dorian-agaesses-projects.vercel.app`.
+
+### 2026-04-19
+- Type: Execution
+- Summary: TASK-099 implemented project-scoped task comments end to end with append-only persistence, RLS-aware service/API handling, lazy-loaded task threads, lightweight board comment metadata, and aligned agent onboarding/OpenAPI documentation.
+- Evidence: Added `TaskComment` in `prisma/schema.prisma` plus migration `prisma/migrations/20260419110000_task099_task_comments/migration.sql`; added `lib/services/project-task-comment-service.ts` and `app/api/projects/[projectId]/tasks/[taskId]/comments/route.ts`; updated task payloads in `lib/services/project-service.ts`, `lib/services/project-task-service.ts`, and `app/api/projects/[projectId]/tasks/route.ts`; wired thread UI in `components/kanban-board.tsx`, `components/kanban/task-detail-modal.tsx`, `components/kanban/kanban-columns-grid.tsx`, and `app/projects/[projectId]/kanban-board-section.tsx`; updated agent docs in `lib/agent-onboarding.ts` and `components/agent-onboarding/agent-onboarding-guide.tsx`; refreshed tracking docs in `tasks/current.md`, `tasks/backlog.md`, and `project.md`.
+
+### 2026-04-19
+- Type: Validation
+- Summary: TASK-099 local validation passed for lint, full Vitest suite, coverage, production build, schema migration, and focused Playwright smoke after forcing a fresh `next start` instance on an alternate port instead of reusing an unrelated local process on `3000`.
+- Evidence: `npm run lint`; `$env:DATABASE_URL='postgresql://user:pass@localhost:5432/postgres'; $env:DIRECT_URL='postgresql://user:pass@localhost:5432/postgres'; $env:VERCEL_ENV='preview'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npx -y -p node@20.19.0 node .\\node_modules\\vitest\\vitest.mjs run`; same env with `--coverage`; same env with `npx -y -p node@20.19.0 node .\\node_modules\\next\\dist\\bin\\next build`; repo `.env` loaded with `npx -y -p node@20.19.0 node .\\node_modules\\prisma\\build\\index.js migrate deploy`; repo `.env` loaded with `$env:CI='1'; $env:PORT='3001'; npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts`.
+
 ### 2026-04-17
 - Type: Execution
 - Summary: TASK-117 implemented first-class task deadlines end to end with a date-only task contract, urgency-aware board/task UI, deadline-aware task service/API handling, and aligned agent onboarding/OpenAPI docs.
