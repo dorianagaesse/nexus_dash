@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Archive,
@@ -568,6 +568,22 @@ function TaskReadOnlyContent({
 }) {
   const hasAttachments = selectedTask.attachments.length > 0;
   const hasRelatedTasks = selectedTask.relatedTasks.length > 0;
+  const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const textarea = commentInputRef.current;
+    if (!textarea) {
+      return;
+    }
+
+    const minHeight = 44;
+    const maxHeight = 140;
+
+    textarea.style.height = "0px";
+    const nextHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
+    textarea.style.height = `${nextHeight}px`;
+    textarea.style.overflowY = nextHeight >= maxHeight ? "auto" : "hidden";
+  }, [newTaskComment]);
 
   return (
     <>
@@ -691,6 +707,7 @@ function TaskReadOnlyContent({
                 Task comment
               </label>
               <EmojiTextareaField
+                ref={commentInputRef}
                 id="task-comment-input"
                 aria-label="Task comment"
                 value={newTaskComment}
@@ -699,7 +716,7 @@ function TaskReadOnlyContent({
                 rows={1}
                 placeholder="Add a task comment..."
                 wrapperClassName="w-full"
-                className="h-11 min-h-11 rounded-xl border border-border/50 bg-background/80 px-3 py-2 text-sm leading-5 transition-colors focus-visible:outline-none focus-visible:border-ring/60"
+                className="h-11 min-h-11 resize-none rounded-xl border border-border/50 bg-background/80 px-3 py-2 text-sm leading-5 transition-colors focus-visible:outline-none focus-visible:border-ring/60"
                 disabled={isSubmittingTaskComment}
               />
               <div className="flex justify-end">
