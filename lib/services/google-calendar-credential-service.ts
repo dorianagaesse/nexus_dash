@@ -1,3 +1,4 @@
+import type { GoogleCalendarCredential } from "@prisma/client";
 import {
   createExpiryDate,
 } from "@/lib/google-calendar";
@@ -35,6 +36,14 @@ interface GoogleCalendarCalendarIdUpdateInput {
 export const DEFAULT_GOOGLE_CALENDAR_ID = "primary";
 export const MAX_GOOGLE_CALENDAR_ID_LENGTH = 255;
 
+type DecryptedGoogleCalendarCredential = Omit<
+  GoogleCalendarCredential,
+  "accessToken" | "refreshToken"
+> & {
+  accessToken: string | null;
+  refreshToken: string;
+};
+
 function normalizeUserId(userId: string): string {
   return userId.trim();
 }
@@ -44,7 +53,9 @@ export function normalizeGoogleCalendarId(calendarId: string | null | undefined)
   return normalized.length > 0 ? normalized : DEFAULT_GOOGLE_CALENDAR_ID;
 }
 
-export async function findGoogleCalendarCredential(userId: string) {
+export async function findGoogleCalendarCredential(
+  userId: string
+): Promise<DecryptedGoogleCalendarCredential | null> {
   const normalizedUserId = normalizeUserId(userId);
   if (!normalizedUserId) {
     return null;
