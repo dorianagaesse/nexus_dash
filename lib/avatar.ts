@@ -1,8 +1,8 @@
 const AVATAR_SIZE = 64;
 const GRID_SIZE = 5;
-const GRID_INSET = 8;
-const CELL_SIZE = 8;
-const CELL_GAP = 2;
+const GRID_INSET = 7;
+const CELL_SIZE = 10;
+const CELL_GAP = 0;
 const PIXEL_COLORS = ["#F5F7FA", "#D5DBE3", "#5D6470"] as const;
 const BACKGROUND_COLORS = [
   "#E76F51",
@@ -50,6 +50,97 @@ function createMulberry32(seed: number) {
   };
 }
 
+function createEmptyGrid(): boolean[][] {
+  return Array.from({ length: GRID_SIZE }, () => Array.from({ length: GRID_SIZE }, () => false));
+}
+
+function getNeighborCoordinates(row: number, column: number) {
+  const neighbors: Array<{ row: number; column: number }> = [];
+
+  for (let rowOffset = -1; rowOffset <= 1; rowOffset += 1) {
+    for (let columnOffset = -1; columnOffset <= 1; columnOffset += 1) {
+      if (rowOffset === 0 && columnOffset === 0) {
+        continue;
+      }
+
+      const nextRow = row + rowOffset;
+      const nextColumn = column + columnOffset;
+      const isWithinBounds =
+        nextRow >= 0 &&
+        nextRow < GRID_SIZE &&
+        nextColumn >= 0 &&
+        nextColumn < GRID_SIZE;
+
+      if (isWithinBounds) {
+        neighbors.push({
+          row: nextRow,
+          column: nextColumn,
+        });
+      }
+    }
+  }
+
+  return neighbors;
+}
+
+function buildPixelMask(random: () => number): boolean[][] {
+  const grid = createEmptyGrid();
+  const filledCells: Array<{ row: number; column: number }> = [];
+  const targetPixelCount = 6 + Math.floor(random() * 3);
+
+  const startRow = Math.floor(random() * GRID_SIZE);
+  const startColumn = Math.floor(random() * GRID_SIZE);
+
+  grid[startRow]![startColumn] = true;
+  filledCells.push({ row: startRow, column: startColumn });
+
+  while (filledCells.length < targetPixelCount) {
+    const anchor = filledCells[Math.floor(random() * filledCells.length)];
+    if (!anchor) {
+      break;
+    }
+
+    const availableNeighbors = getNeighborCoordinates(anchor.row, anchor.column).filter(
+      ({ row, column }) => !grid[row]![column]
+    );
+
+    if (availableNeighbors.length === 0) {
+      const fallbackNeighbors = filledCells.flatMap(({ row, column }) =>
+        getNeighborCoordinates(row, column).filter(
+          (neighbor) => !grid[neighbor.row]![neighbor.column]
+        )
+      );
+
+      if (fallbackNeighbors.length === 0) {
+        break;
+      }
+
+      const fallback =
+        fallbackNeighbors[Math.floor(random() * fallbackNeighbors.length)];
+
+      if (!fallback) {
+        break;
+      }
+
+      grid[fallback.row]![fallback.column] = true;
+      filledCells.push(fallback);
+      continue;
+    }
+
+    const nextCell =
+      availableNeighbors[Math.floor(random() * availableNeighbors.length)];
+
+    if (!nextCell) {
+      break;
+    }
+
+    grid[nextCell.row]![nextCell.column] = true;
+    filledCells.push(nextCell);
+  }
+
+  return grid;
+}
+
 function buildAvatarSvg(seed: string): string {
   const normalizedSeed = normalizeSeed(seed);
   const random = createMulberry32(hashSeed(normalizedSeed));
@@ -57,11 +148,11 @@ function buildAvatarSvg(seed: string): string {
     BACKGROUND_COLORS[Math.floor(random() * BACKGROUND_COLORS.length)] ??
     BACKGROUND_COLORS[0];
   const pixels: string[] = [];
+  const pixelMask = buildPixelMask(random);
 
   for (let row = 0; row < GRID_SIZE; row += 1) {
     for (let column = 0; column < GRID_SIZE; column += 1) {
-      const shouldDrawPixel = random() >= 0.71;
-      if (!shouldDrawPixel) {
+      if (!pixelMask[row]![column]) {
         continue;
       }
 
