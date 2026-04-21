@@ -1,8 +1,8 @@
 const AVATAR_SIZE = 64;
-const GRID_SIZE = 7;
-const GRID_INSET = 11;
-const CELL_SIZE = 6;
-const CELL_GAP = 1;
+const GRID_SIZE = 5;
+const GRID_INSET = 8;
+const CELL_SIZE = 8;
+const CELL_GAP = 2;
 const PIXEL_COLORS = ["#F5F7FA", "#D5DBE3", "#5D6470"] as const;
 const BACKGROUND_COLORS = [
   "#E76F51",
