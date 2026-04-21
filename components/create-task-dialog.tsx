@@ -14,6 +14,7 @@ import type {
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { useToast } from "@/components/toast-provider";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
+import { AssigneeSelect } from "@/components/ui/assignee-select";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmojiInputField } from "@/components/ui/emoji-field";
@@ -479,23 +480,13 @@ export function CreateTaskDialog({
                         <label htmlFor="task-assignee" className="text-sm font-medium">
                           Assignee
                         </label>
-                        <select
+                        <AssigneeSelect
                           id="task-assignee"
                           name="assigneeUserId"
                           value={assigneeUserId}
-                          onChange={(event) => setAssigneeUserId(event.target.value)}
-                          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                        >
-                          <option value="">Unassigned</option>
-                          {availableAssignees.map((assignee) => (
-                            <option key={assignee.id} value={assignee.id}>
-                              {assignee.usernameTag &&
-                              assignee.usernameTag !== assignee.displayName
-                                ? `${assignee.displayName} (${assignee.usernameTag})`
-                                : assignee.displayName}
-                            </option>
-                          ))}
-                        </select>
+                          onChange={setAssigneeUserId}
+                          options={availableAssignees}
+                        />
                         <p className="text-xs text-muted-foreground">
                           Optional. Leave unassigned until ownership is clear.
                         </p>

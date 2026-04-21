@@ -7,6 +7,8 @@ export interface TaskPersonSummary {
   avatarSeed: string;
 }
 
+export type ProjectTaskCollaboratorRole = "owner" | "editor" | "viewer";
+
 export interface TaskBlockedFollowUp {
   id: string;
   content: string;
@@ -64,4 +66,6 @@ export interface PendingAttachmentUpload {
   sizeBytes: number;
 }
 
-export type ProjectTaskCollaborator = TaskPersonSummary;
+export interface ProjectTaskCollaborator extends TaskPersonSummary {
+  projectRole: ProjectTaskCollaboratorRole;
+}

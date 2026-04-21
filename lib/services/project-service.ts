@@ -132,7 +132,9 @@ interface ProjectWithCountsRecord {
   };
 }
 
-export type ProjectCollaboratorIdentitySummary = TaskPersonSummary;
+export interface ProjectCollaboratorIdentitySummary extends TaskPersonSummary {
+  projectRole: ProjectMembershipRole;
+}
 
 interface ProjectUpsertInput {
   actorUserId: string;
@@ -178,8 +180,12 @@ function buildProjectCollaboratorIdentitySummary(input: {
   username: string | null;
   usernameDiscriminator: string | null;
   avatarSeed: string | null;
+  projectRole: ProjectMembershipRole;
 }): ProjectCollaboratorIdentitySummary {
-  return mapTaskPersonSummary(input)!;
+  return {
+    ...mapTaskPersonSummary(input)!,
+    projectRole: input.projectRole,
+  };
 }
 
 async function ensureSyntheticTestUserExists(actorUserId: string, db: DbClient = prisma) {
@@ -645,6 +651,7 @@ export async function listProjectCollaborators(
         memberships: {
           orderBy: [{ createdAt: "asc" }],
           select: {
+            role: true,
             user: {
               select: {
                 id: true,
@@ -665,7 +672,10 @@ export async function listProjectCollaborators(
     }
 
     const collaboratorById = new Map<string, ProjectCollaboratorIdentitySummary>();
-    const ownerSummary = buildProjectCollaboratorIdentitySummary(project.owner);
+    const ownerSummary = buildProjectCollaboratorIdentitySummary({
+      ...project.owner,
+      projectRole: "owner",
+    });
     collaboratorById.set(ownerSummary.id, ownerSummary);
 
     for (const membership of project.memberships) {
@@ -675,7 +685,10 @@ export async function listProjectCollaborators(
 
       collaboratorById.set(
         membership.user.id,
-        buildProjectCollaboratorIdentitySummary(membership.user)
+        buildProjectCollaboratorIdentitySummary({
+          ...membership.user,
+          projectRole: membership.role,
+        })
       );
     }
 

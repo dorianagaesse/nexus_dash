@@ -39,6 +39,7 @@ import { AttachmentPreviewModal } from "@/components/attachment-preview-modal";
 import { RichTextContent } from "@/components/rich-text-content";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
+import { AssigneeSelect } from "@/components/ui/assignee-select";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -212,7 +213,7 @@ export function TaskDetailModal({
             onMouseDown={(event) => event.stopPropagation()}
           >
             <CardHeader className="flex shrink-0 flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0 space-y-2">
+              <div className="min-w-0 flex-1 space-y-2">
                 <Badge
                   variant="outline"
                   className={
@@ -224,18 +225,21 @@ export function TaskDetailModal({
                   {isArchivedTask ? "Archived" : selectedTask.status}
                 </Badge>
                 {!isEditing ? (
-                  <CardTitle
-                    className="text-xl leading-tight"
-                    onDoubleClick={() => {
-                      if (!canEdit) {
-                        return;
-                      }
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <CardTitle
+                      className="min-w-0 flex-1 text-xl leading-tight"
+                      onDoubleClick={() => {
+                        if (!canEdit) {
+                          return;
+                        }
 
-                      onActivateEditMode();
-                    }}
-                  >
-                    {selectedTask.title}
-                  </CardTitle>
+                        onActivateEditMode();
+                      }}
+                    >
+                      {selectedTask.title}
+                    </CardTitle>
+                    <TaskAssigneeBadge assignee={selectedTask.assignee} />
+                  </div>
                 ) : (
                   <EmojiInputField
                     aria-label="Task title"
@@ -422,15 +426,39 @@ function formatTaskActivityTimestamp(value: string): string {
   return new Date(value).toLocaleString();
 }
 
-function getTaskPersonMeta(person: TaskPersonSummary): string | null {
-  if (!person.usernameTag || person.usernameTag === person.displayName) {
-    return null;
-  }
-
-  return person.usernameTag;
+function buildTaskPersonHoverLabel(person: TaskPersonSummary): string {
+  return person.usernameTag ?? person.displayName;
 }
 
-function TaskIdentityRow({
+function TaskAssigneeBadge({ assignee }: { assignee: TaskPersonSummary | null }) {
+  return (
+    <div
+      className="inline-flex max-w-full items-center gap-2 rounded-full border border-border/60 bg-background/85 px-2.5 py-1.5"
+      title={assignee ? buildTaskPersonHoverLabel(assignee) : "Unassigned"}
+    >
+      {assignee ? (
+        <>
+          <UserAvatar
+            avatarSeed={assignee.avatarSeed}
+            displayName={assignee.displayName}
+            className="h-7 w-7 border-border/70"
+            decorative
+          />
+          <span className="max-w-[160px] truncate text-sm font-medium text-foreground">
+            {assignee.displayName}
+          </span>
+        </>
+      ) : (
+        <>
+          <span className="inline-flex h-7 w-7 shrink-0 rounded-full border border-dashed border-border/70 bg-muted/30" />
+          <span className="text-sm text-muted-foreground">Unassigned</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TaskActivityInline({
   label,
   person,
   fallback,
@@ -439,42 +467,34 @@ function TaskIdentityRow({
   label: string;
   person: TaskPersonSummary | null;
   fallback: string;
-  timestamp?: string;
+  timestamp: string;
 }) {
+  if (!person) {
+    return (
+      <div className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/75 px-2.5 py-1 text-xs text-muted-foreground">
+        <span>{label}</span>
+        <span>{fallback}</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="grid gap-2 rounded-xl border border-border/60 bg-background/70 px-3 py-2.5">
-      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-        {label}
-      </p>
-      {person ? (
-        <div className="flex items-center gap-3">
-          <UserAvatar
-            avatarSeed={person.avatarSeed}
-            displayName={person.displayName}
-            className="h-9 w-9 border-border/70"
-            decorative
-          />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">
-              {person.displayName}
-            </p>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              {getTaskPersonMeta(person) ? (
-                <p className="text-[11px] text-muted-foreground">
-                  {getTaskPersonMeta(person)}
-                </p>
-              ) : null}
-              {timestamp ? (
-                <p className="text-[11px] text-muted-foreground">
-                  {formatTaskActivityTimestamp(timestamp)}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">{fallback}</p>
-      )}
+    <div
+      className="inline-flex min-w-0 items-center gap-2 rounded-full border border-border/50 bg-background/75 px-2.5 py-1"
+      title={`${label}: ${buildTaskPersonHoverLabel(person)}`}
+    >
+      <UserAvatar
+        avatarSeed={person.avatarSeed}
+        displayName={person.displayName}
+        className="h-6 w-6 border-border/70"
+        decorative
+      />
+      <span className="max-w-[110px] truncate text-xs font-medium text-foreground">
+        {person.displayName}
+      </span>
+      <span className="text-[11px] text-muted-foreground">
+        {formatTaskActivityTimestamp(timestamp)}
+      </span>
     </div>
   );
 }
@@ -716,25 +736,6 @@ function TaskReadOnlyContent({
           )}
         </div>
       ) : null}
-      <section className="grid gap-2 sm:grid-cols-3">
-        <TaskIdentityRow
-          label="Assignee"
-          person={selectedTask.assignee}
-          fallback="Unassigned"
-        />
-        <TaskIdentityRow
-          label="Created by"
-          person={selectedTask.createdBy}
-          fallback="Unknown creator"
-          timestamp={selectedTask.createdAt}
-        />
-        <TaskIdentityRow
-          label="Last updated by"
-          person={selectedTask.updatedBy}
-          fallback="Unknown collaborator"
-          timestamp={selectedTask.updatedAt}
-        />
-      </section>
       <RichTextContent
         html={selectedTask.description}
         emptyContentHtml="<p>No description provided.</p>"
@@ -766,13 +767,13 @@ function TaskReadOnlyContent({
               {taskComments.map((comment) => (
                 <article
                   key={comment.id}
-                  className="rounded-xl border border-border/50 bg-background/80 px-3 py-2.5"
+                  className="rounded-xl border border-border/50 bg-background/80 px-3 py-2"
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-2.5">
                     <UserAvatar
                       avatarSeed={comment.author.avatarSeed}
                       displayName={comment.author.displayName}
-                      className="mt-0.5 h-9 w-9 border-border/70"
+                      className="mt-0.5 h-8 w-8 border-border/70"
                       decorative
                     />
                     <div className="min-w-0 flex-1">
@@ -787,7 +788,7 @@ function TaskReadOnlyContent({
                           {formatTaskCommentTimestamp(comment.createdAt)}
                         </p>
                       </div>
-                      <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-foreground">
+                      <p className="mt-1 whitespace-pre-wrap break-words text-sm text-foreground">
                         {comment.content}
                       </p>
                     </div>
@@ -821,7 +822,21 @@ function TaskReadOnlyContent({
                 className="h-11 min-h-11 resize-none rounded-xl border border-border/50 bg-background/80 px-3 py-2 text-sm leading-5 transition-colors focus-visible:outline-none focus-visible:border-ring/60"
                 disabled={isSubmittingTaskComment}
               />
-              <div className="flex justify-end">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
+                  <TaskActivityInline
+                    label="Created by"
+                    person={selectedTask.createdBy}
+                    fallback="Unknown creator"
+                    timestamp={selectedTask.createdAt}
+                  />
+                  <TaskActivityInline
+                    label="Last updated by"
+                    person={selectedTask.updatedBy}
+                    fallback="Unknown collaborator"
+                    timestamp={selectedTask.updatedAt}
+                  />
+                </div>
                 <Button
                   type="button"
                   size="sm"
@@ -833,7 +848,22 @@ function TaskReadOnlyContent({
                 </Button>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <TaskActivityInline
+                label="Created by"
+                person={selectedTask.createdBy}
+                fallback="Unknown creator"
+                timestamp={selectedTask.createdAt}
+              />
+              <TaskActivityInline
+                label="Last updated by"
+                person={selectedTask.updatedBy}
+                fallback="Unknown collaborator"
+                timestamp={selectedTask.updatedAt}
+              />
+            </div>
+          )}
         </div>
       </section>
       {hasAttachments ? (
@@ -1077,23 +1107,13 @@ function TaskEditContent({
           <label htmlFor="task-edit-assignee" className="text-sm font-medium">
             Assignee
           </label>
-          <select
+          <AssigneeSelect
             id="task-edit-assignee"
             value={editAssigneeUserId}
-            onChange={(event) => onEditAssigneeUserIdChange(event.target.value)}
+            onChange={onEditAssigneeUserIdChange}
             disabled={isUpdatingTask}
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="">Unassigned</option>
-            {availableAssignees.map((assignee) => (
-              <option key={assignee.id} value={assignee.id}>
-                {assignee.usernameTag &&
-                assignee.usernameTag !== assignee.displayName
-                  ? `${assignee.displayName} (${assignee.usernameTag})`
-                  : assignee.displayName}
-              </option>
-            ))}
-          </select>
+            options={availableAssignees}
+          />
         </div>
 
         {selectedTask.status === "Blocked" ? (

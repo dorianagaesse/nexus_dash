@@ -331,6 +331,7 @@ describe("project-service", () => {
       },
       memberships: [
         {
+          role: "owner",
           user: {
             id: "user-1",
             name: "Owner Duplicate",
@@ -341,6 +342,7 @@ describe("project-service", () => {
           },
         },
         {
+          role: "editor",
           user: {
             id: "user-2",
             name: "Editor",
@@ -361,12 +363,14 @@ describe("project-service", () => {
         displayName: "owner",
         usernameTag: "owner#1111",
         avatarSeed: "user-1",
+        projectRole: "owner",
       },
       {
         id: "user-2",
         displayName: "Editor",
         usernameTag: null,
         avatarSeed: "seed-editor",
+        projectRole: "editor",
       },
     ]);
     expect(prismaMock.project.findFirst).toHaveBeenCalledWith({
@@ -391,6 +395,7 @@ describe("project-service", () => {
         memberships: {
           orderBy: [{ createdAt: "asc" }],
           select: {
+            role: true,
             user: {
               select: {
                 id: true,

@@ -4,9 +4,6 @@ import {
   KanbanBoard,
   type KanbanTask,
 } from "@/components/kanban-board";
-import type {
-  ProjectTaskCollaborator,
-} from "@/components/kanban-board-types";
 import {
   PROJECT_SECTION_CARD_CLASS,
   PROJECT_SECTION_HEADER_CLASS,
@@ -111,7 +108,7 @@ export async function KanbanBoardSection({
       storageProvider={storageProvider}
       initialTasks={kanbanTasks}
       archivedDoneTasks={archivedDoneTasks}
-      collaborators={collaborators as ProjectTaskCollaborator[]}
+      collaborators={collaborators}
       actorUserId={actorUserId}
     />
   );
