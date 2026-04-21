@@ -10,6 +10,10 @@ import {
 } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
 import type { DbClient } from "@/lib/services/rls-context";
+import {
+  mapTaskPersonSummary,
+  type TaskPersonSummary,
+} from "@/lib/task-person";
 
 const ARCHIVE_AFTER_DAYS = 7;
 const ARCHIVE_AFTER_MS = ARCHIVE_AFTER_DAYS * 24 * 60 * 60 * 1000;
@@ -45,6 +49,36 @@ type ProjectKanbanTaskRecord = Prisma.TaskGetPayload<{
             archivedAt: true;
           };
         };
+      };
+    };
+    createdByUser: {
+      select: {
+        id: true;
+        name: true;
+        email: true;
+        username: true;
+        usernameDiscriminator: true;
+        avatarSeed: true;
+      };
+    };
+    updatedByUser: {
+      select: {
+        id: true;
+        name: true;
+        email: true;
+        username: true;
+        usernameDiscriminator: true;
+        avatarSeed: true;
+      };
+    };
+    assigneeUser: {
+      select: {
+        id: true;
+        name: true;
+        email: true;
+        username: true;
+        usernameDiscriminator: true;
+        avatarSeed: true;
       };
     };
   };
@@ -98,6 +132,10 @@ interface ProjectWithCountsRecord {
   };
 }
 
+export interface ProjectCollaboratorIdentitySummary extends TaskPersonSummary {
+  projectRole: ProjectMembershipRole;
+}
+
 interface ProjectUpsertInput {
   actorUserId: string;
   name: string;
@@ -133,6 +171,21 @@ function normalizeProjectDescription(
 
   const normalizedDescription = description.trim();
   return normalizedDescription.length > 0 ? normalizedDescription : null;
+}
+
+function buildProjectCollaboratorIdentitySummary(input: {
+  id: string;
+  name: string | null;
+  email: string | null;
+  username: string | null;
+  usernameDiscriminator: string | null;
+  avatarSeed: string | null;
+  projectRole: ProjectMembershipRole;
+}): ProjectCollaboratorIdentitySummary {
+  return {
+    ...mapTaskPersonSummary(input)!,
+    projectRole: input.projectRole,
+  };
 }
 
 async function ensureSyntheticTestUserExists(actorUserId: string, db: DbClient = prisma) {
@@ -534,8 +587,112 @@ export async function listProjectKanbanTasks(
             },
           },
         },
+        createdByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+            usernameDiscriminator: true,
+            avatarSeed: true,
+          },
+        },
+        updatedByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+            usernameDiscriminator: true,
+            avatarSeed: true,
+          },
+        },
+        assigneeUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+            usernameDiscriminator: true,
+            avatarSeed: true,
+          },
+        },
       },
     });
+  });
+}
+
+export async function listProjectCollaborators(
+  projectId: string,
+  actorUserId: string
+): Promise<ProjectCollaboratorIdentitySummary[]> {
+  const normalizedActorUserId = normalizeActorUserId(actorUserId);
+  if (!normalizedActorUserId) {
+    return [];
+  }
+
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    const project = await db.project.findFirst({
+      where: {
+        id: projectId,
+        ...buildProjectPrincipalWhere(normalizedActorUserId),
+      },
+      select: {
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+            usernameDiscriminator: true,
+            avatarSeed: true,
+          },
+        },
+        memberships: {
+          orderBy: [{ createdAt: "asc" }],
+          select: {
+            role: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                username: true,
+                usernameDiscriminator: true,
+                avatarSeed: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!project) {
+      return [];
+    }
+
+    const collaboratorById = new Map<string, ProjectCollaboratorIdentitySummary>();
+    const ownerSummary = buildProjectCollaboratorIdentitySummary({
+      ...project.owner,
+      projectRole: "owner",
+    });
+    collaboratorById.set(ownerSummary.id, ownerSummary);
+
+    for (const membership of project.memberships) {
+      if (collaboratorById.has(membership.user.id)) {
+        continue;
+      }
+
+      collaboratorById.set(
+        membership.user.id,
+        buildProjectCollaboratorIdentitySummary({
+          ...membership.user,
+          projectRole: membership.role,
+        })
+      );
+    }
+
+    return Array.from(collaboratorById.values());
   });
 }
 

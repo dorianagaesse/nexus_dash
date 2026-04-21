@@ -1,12 +1,19 @@
 import { Columns3 } from "lucide-react";
 
-import { KanbanBoard, type KanbanTask } from "@/components/kanban-board";
+import {
+  KanbanBoard,
+  type KanbanTask,
+} from "@/components/kanban-board";
 import {
   PROJECT_SECTION_CARD_CLASS,
   PROJECT_SECTION_HEADER_CLASS,
 } from "@/components/project-dashboard/project-section-chrome";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { listProjectKanbanTasks } from "@/lib/services/project-service";
+import {
+  listProjectCollaborators,
+  listProjectKanbanTasks,
+} from "@/lib/services/project-service";
+import { mapTaskPersonSummary } from "@/lib/task-person";
 import { mapRelatedTaskSummary } from "@/lib/task-related";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import { formatTaskDeadlineDate } from "@/lib/task-deadline";
@@ -33,7 +40,10 @@ export async function KanbanBoardSection({
   canEdit,
   storageProvider,
 }: KanbanBoardSectionProps) {
-  const tasks = await listProjectKanbanTasks(projectId, actorUserId);
+  const [tasks, collaborators] = await Promise.all([
+    listProjectKanbanTasks(projectId, actorUserId),
+    listProjectCollaborators(projectId, actorUserId),
+  ]);
   const kanbanTasks: KanbanTask[] = [];
   const archivedDoneTasks: KanbanTask[] = [];
 
@@ -54,6 +64,11 @@ export async function KanbanBoardSection({
         content: entry.content,
         createdAt: entry.createdAt.toISOString(),
       })),
+      assignee: mapTaskPersonSummary(task.assigneeUser),
+      createdBy: mapTaskPersonSummary(task.createdByUser)!,
+      updatedBy: mapTaskPersonSummary(task.updatedByUser)!,
+      createdAt: task.createdAt.toISOString(),
+      updatedAt: task.updatedAt.toISOString(),
       archivedAt: task.archivedAt ? task.archivedAt.toISOString() : null,
       relatedTasks: [
         ...task.outgoingRelations.map((entry: OutgoingRelation) =>
@@ -93,6 +108,8 @@ export async function KanbanBoardSection({
       storageProvider={storageProvider}
       initialTasks={kanbanTasks}
       archivedDoneTasks={archivedDoneTasks}
+      collaborators={collaborators}
+      actorUserId={actorUserId}
     />
   );
 }

@@ -21,6 +21,8 @@ import {
   type KanbanTask,
   type TaskComment,
   type PendingAttachmentUpload,
+  type ProjectTaskCollaborator,
+  type TaskPersonSummary,
   type TaskAttachment,
 } from "@/components/kanban-board-types";
 import {
@@ -37,10 +39,12 @@ import { AttachmentPreviewModal } from "@/components/attachment-preview-modal";
 import { RichTextContent } from "@/components/rich-text-content";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
+import { AssigneeSelect } from "@/components/ui/assignee-select";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import {
   ATTACHMENT_KIND_FILE,
@@ -68,6 +72,7 @@ interface TaskDetailModalProps {
   editLabelSuggestions: string[];
   editDescription: string;
   editDeadlineDate: string;
+  editAssigneeUserId: string;
   editRelatedTasks: KanbanTask["relatedTasks"];
   relatedTaskSearch: string;
   newBlockedFollowUpEntry: string;
@@ -97,9 +102,11 @@ interface TaskDetailModalProps {
   onRemoveEditLabel: (label: string) => void;
   onEditDescriptionChange: (value: string) => void;
   onEditDeadlineDateChange: (value: string) => void;
+  onEditAssigneeUserIdChange: (value: string) => void;
   onRelatedTaskSearchChange: (value: string) => void;
   onAddRelatedTask: (taskId: string) => void;
   onRemoveRelatedTask: (taskId: string) => void;
+  availableAssignees: ProjectTaskCollaborator[];
   availableRelatedTaskOptions: RelatedTaskOption[];
   onOpenRelatedTask: (taskId: string) => void;
   onNewBlockedFollowUpEntryChange: (value: string) => void;
@@ -130,6 +137,7 @@ export function TaskDetailModal({
   editLabelSuggestions,
   editDescription,
   editDeadlineDate,
+  editAssigneeUserId,
   editRelatedTasks,
   relatedTaskSearch,
   newBlockedFollowUpEntry,
@@ -159,9 +167,11 @@ export function TaskDetailModal({
   onRemoveEditLabel,
   onEditDescriptionChange,
   onEditDeadlineDateChange,
+  onEditAssigneeUserIdChange,
   onRelatedTaskSearchChange,
   onAddRelatedTask,
   onRemoveRelatedTask,
+  availableAssignees,
   availableRelatedTaskOptions,
   onOpenRelatedTask,
   onNewBlockedFollowUpEntryChange,
@@ -203,7 +213,7 @@ export function TaskDetailModal({
             onMouseDown={(event) => event.stopPropagation()}
           >
             <CardHeader className="flex shrink-0 flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0 space-y-2">
+              <div className="min-w-0 flex-1 space-y-2">
                 <Badge
                   variant="outline"
                   className={
@@ -215,18 +225,21 @@ export function TaskDetailModal({
                   {isArchivedTask ? "Archived" : selectedTask.status}
                 </Badge>
                 {!isEditing ? (
-                  <CardTitle
-                    className="text-xl leading-tight"
-                    onDoubleClick={() => {
-                      if (!canEdit) {
-                        return;
-                      }
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <CardTitle
+                      className="min-w-0 flex-1 text-xl leading-tight"
+                      onDoubleClick={() => {
+                        if (!canEdit) {
+                          return;
+                        }
 
-                      onActivateEditMode();
-                    }}
-                  >
-                    {selectedTask.title}
-                  </CardTitle>
+                        onActivateEditMode();
+                      }}
+                    >
+                      {selectedTask.title}
+                    </CardTitle>
+                    <TaskAssigneeBadge assignee={selectedTask.assignee} />
+                  </div>
                 ) : (
                   <EmojiInputField
                     aria-label="Task title"
@@ -286,6 +299,7 @@ export function TaskDetailModal({
                   editLabelSuggestions={editLabelSuggestions}
                   editDescription={editDescription}
                   editDeadlineDate={editDeadlineDate}
+                  editAssigneeUserId={editAssigneeUserId}
                   editRelatedTasks={editRelatedTasks}
                   relatedTaskSearch={relatedTaskSearch}
                   newBlockedFollowUpEntry={newBlockedFollowUpEntry}
@@ -303,9 +317,11 @@ export function TaskDetailModal({
                   onRemoveEditLabel={onRemoveEditLabel}
                   onEditDescriptionChange={onEditDescriptionChange}
                   onEditDeadlineDateChange={onEditDeadlineDateChange}
+                  onEditAssigneeUserIdChange={onEditAssigneeUserIdChange}
                   onRelatedTaskSearchChange={onRelatedTaskSearchChange}
                   onAddRelatedTask={onAddRelatedTask}
                   onRemoveRelatedTask={onRemoveRelatedTask}
+                  availableAssignees={availableAssignees}
                   availableRelatedTaskOptions={availableRelatedTaskOptions}
                   onNewBlockedFollowUpEntryChange={onNewBlockedFollowUpEntryChange}
                   onAddBlockedFollowUpEntry={onAddBlockedFollowUpEntry}
@@ -402,6 +418,95 @@ function TaskDeadlineBadge({
       {relativeLabel ? (
         <span className="hidden sm:inline">- {relativeLabel}</span>
       ) : null}
+    </div>
+  );
+}
+
+function formatTaskActivityDate(value: string): string {
+  return new Date(value).toLocaleDateString();
+}
+
+function buildTaskPersonHoverLabel(person: TaskPersonSummary): string {
+  return person.usernameTag ?? person.displayName;
+}
+
+function TaskAssigneeBadge({ assignee }: { assignee: TaskPersonSummary | null }) {
+  return (
+    <div className="flex flex-col gap-1 sm:items-end">
+      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        Assignee
+      </p>
+      <div
+        className="inline-flex max-w-full items-center gap-2 rounded-full border border-border/60 bg-background/85 px-2.5 py-1.5"
+        title={assignee ? buildTaskPersonHoverLabel(assignee) : "Unassigned"}
+      >
+        {assignee ? (
+          <>
+            <UserAvatar
+              avatarSeed={assignee.avatarSeed}
+              displayName={assignee.displayName}
+              className="h-7 w-7 border-border/70"
+              decorative
+            />
+            <span className="max-w-[160px] truncate text-sm font-medium text-foreground">
+              {assignee.displayName}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="inline-flex h-7 w-7 shrink-0 rounded-full border border-dashed border-border/70 bg-muted/30" />
+            <span className="text-sm text-muted-foreground">Unassigned</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TaskActivityInline({
+  label,
+  person,
+  fallback,
+  timestamp,
+}: {
+  label: string;
+  person: TaskPersonSummary | null;
+  fallback: string;
+  timestamp: string;
+}) {
+  if (!person) {
+    return (
+      <div className="grid gap-1 rounded-xl border border-border/50 bg-background/75 px-2.5 py-2">
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          {label}
+        </p>
+        <p className="text-xs text-muted-foreground">{fallback}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="grid min-w-0 gap-1 rounded-xl border border-border/50 bg-background/75 px-2.5 py-2"
+      title={`${label}: ${buildTaskPersonHoverLabel(person)}`}
+    >
+      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        {label}
+      </p>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <UserAvatar
+          avatarSeed={person.avatarSeed}
+          displayName={person.displayName}
+          className="h-5 w-5 border-border/70"
+          decorative
+        />
+        <span className="max-w-[96px] truncate text-xs font-medium text-foreground">
+          {person.displayName}
+        </span>
+      </div>
+      <span className="text-[11px] text-muted-foreground">
+        {formatTaskActivityDate(timestamp)}
+      </span>
     </div>
   );
 }
@@ -674,22 +779,32 @@ function TaskReadOnlyContent({
               {taskComments.map((comment) => (
                 <article
                   key={comment.id}
-                  className="rounded-xl border border-border/50 bg-background/80 px-3 py-2.5"
+                  className="rounded-xl border border-border/50 bg-background/80 px-3 py-2"
                 >
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <p className="text-sm font-medium">{comment.author.displayName}</p>
-                    {getCommentIdentityMeta(comment.author) ? (
-                      <p className="text-[11px] text-muted-foreground">
-                        {getCommentIdentityMeta(comment.author)}
+                  <div className="flex items-start gap-2.5">
+                    <UserAvatar
+                      avatarSeed={comment.author.avatarSeed}
+                      displayName={comment.author.displayName}
+                      className="mt-0.5 h-8 w-8 border-border/70"
+                      decorative
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <p className="text-sm font-medium">{comment.author.displayName}</p>
+                        {getCommentIdentityMeta(comment.author) ? (
+                          <p className="text-[11px] text-muted-foreground">
+                            {getCommentIdentityMeta(comment.author)}
+                          </p>
+                        ) : null}
+                        <p className="text-[11px] text-muted-foreground">
+                          {formatTaskCommentTimestamp(comment.createdAt)}
+                        </p>
+                      </div>
+                      <p className="mt-1 whitespace-pre-wrap break-words text-sm text-foreground">
+                        {comment.content}
                       </p>
-                    ) : null}
-                    <p className="text-[11px] text-muted-foreground">
-                      {formatTaskCommentTimestamp(comment.createdAt)}
-                    </p>
+                    </div>
                   </div>
-                  <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-foreground">
-                    {comment.content}
-                  </p>
                 </article>
               ))}
             </div>
@@ -719,7 +834,21 @@ function TaskReadOnlyContent({
                 className="h-11 min-h-11 resize-none rounded-xl border border-border/50 bg-background/80 px-3 py-2 text-sm leading-5 transition-colors focus-visible:outline-none focus-visible:border-ring/60"
                 disabled={isSubmittingTaskComment}
               />
-              <div className="flex justify-end">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
+                  <TaskActivityInline
+                    label="Created by"
+                    person={selectedTask.createdBy}
+                    fallback="Unknown creator"
+                    timestamp={selectedTask.createdAt}
+                  />
+                  <TaskActivityInline
+                    label="Last updated by"
+                    person={selectedTask.updatedBy}
+                    fallback="Unknown collaborator"
+                    timestamp={selectedTask.updatedAt}
+                  />
+                </div>
                 <Button
                   type="button"
                   size="sm"
@@ -731,7 +860,22 @@ function TaskReadOnlyContent({
                 </Button>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <TaskActivityInline
+                label="Created by"
+                person={selectedTask.createdBy}
+                fallback="Unknown creator"
+                timestamp={selectedTask.createdAt}
+              />
+              <TaskActivityInline
+                label="Last updated by"
+                person={selectedTask.updatedBy}
+                fallback="Unknown collaborator"
+                timestamp={selectedTask.updatedAt}
+              />
+            </div>
+          )}
         </div>
       </section>
       {hasAttachments ? (
@@ -810,6 +954,7 @@ interface TaskEditContentProps {
   editLabelSuggestions: string[];
   editDescription: string;
   editDeadlineDate: string;
+  editAssigneeUserId: string;
   editRelatedTasks: KanbanTask["relatedTasks"];
   relatedTaskSearch: string;
   newBlockedFollowUpEntry: string;
@@ -827,9 +972,11 @@ interface TaskEditContentProps {
   onRemoveEditLabel: (label: string) => void;
   onEditDescriptionChange: (value: string) => void;
   onEditDeadlineDateChange: (value: string) => void;
+  onEditAssigneeUserIdChange: (value: string) => void;
   onRelatedTaskSearchChange: (value: string) => void;
   onAddRelatedTask: (taskId: string) => void;
   onRemoveRelatedTask: (taskId: string) => void;
+  availableAssignees: ProjectTaskCollaborator[];
   availableRelatedTaskOptions: RelatedTaskOption[];
   onNewBlockedFollowUpEntryChange: (value: string) => void;
   onAddBlockedFollowUpEntry: () => void | Promise<void>;
@@ -850,6 +997,7 @@ function TaskEditContent({
   editLabelSuggestions,
   editDescription,
   editDeadlineDate,
+  editAssigneeUserId,
   editRelatedTasks,
   relatedTaskSearch,
   newBlockedFollowUpEntry,
@@ -867,9 +1015,11 @@ function TaskEditContent({
   onRemoveEditLabel,
   onEditDescriptionChange,
   onEditDeadlineDateChange,
+  onEditAssigneeUserIdChange,
   onRelatedTaskSearchChange,
   onAddRelatedTask,
   onRemoveRelatedTask,
+  availableAssignees,
   availableRelatedTaskOptions,
   onNewBlockedFollowUpEntryChange,
   onAddBlockedFollowUpEntry,
@@ -964,6 +1114,19 @@ function TaskEditContent({
           onChange={onEditDeadlineDateChange}
           disabled={isUpdatingTask}
         />
+
+        <div className="grid gap-2">
+          <label htmlFor="task-edit-assignee" className="text-sm font-medium">
+            Assignee
+          </label>
+          <AssigneeSelect
+            id="task-edit-assignee"
+            value={editAssigneeUserId}
+            onChange={onEditAssigneeUserIdChange}
+            disabled={isUpdatingTask}
+            options={availableAssignees}
+          />
+        </div>
 
         {selectedTask.status === "Blocked" ? (
           <div className="grid gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">

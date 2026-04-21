@@ -21,6 +21,7 @@ describe("account-menu", () => {
         isAuthenticated: false,
         displayName: null,
         usernameTag: null,
+        avatarSeed: null,
         pendingInvitationCount: 0,
       })
     );
@@ -34,12 +35,15 @@ describe("account-menu", () => {
         isAuthenticated: true,
         displayName: "test.user",
         usernameTag: "test.user#1234",
+        avatarSeed: "seed-123",
         pendingInvitationCount: 0,
       })
     );
 
     expect(result).toContain("aria-label=\"Account menu\"");
     expect(result).toContain("aria-expanded=\"false\"");
+    expect(result).toContain("data:image/svg+xml");
+    expect(result).toContain("alt=\"\"");
   });
 
   test("renders invitation indicator when pending invitations exist", () => {
@@ -48,6 +52,7 @@ describe("account-menu", () => {
         isAuthenticated: true,
         displayName: "test.user",
         usernameTag: "test.user#1234",
+        avatarSeed: "seed-123",
         pendingInvitationCount: 3,
       })
     );

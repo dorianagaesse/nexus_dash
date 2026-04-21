@@ -1,5 +1,6 @@
 import { Prisma, ProjectMembershipRole } from "@prisma/client";
 
+import { resolveAvatarSeed } from "@/lib/avatar";
 import { normalizeReturnToPath } from "@/lib/navigation/return-to";
 import { prisma } from "@/lib/prisma";
 import {
@@ -39,6 +40,7 @@ export interface CollaboratorIdentitySummary {
   displayName: string;
   usernameTag: string | null;
   email: string | null;
+  avatarSeed: string;
 }
 
 export interface ProjectMemberSummary extends CollaboratorIdentitySummary {
@@ -260,12 +262,14 @@ function buildIdentitySummary(input: {
   username: string | null;
   usernameDiscriminator: string | null;
   email: string | null;
+  avatarSeed?: string | null;
 }): CollaboratorIdentitySummary {
   return {
     id: input.id,
     displayName: buildDisplayName(input),
     usernameTag: buildUsernameTag(input.username, input.usernameDiscriminator),
     email: input.email,
+    avatarSeed: resolveAvatarSeed(input.avatarSeed, input.id),
   };
 }
 
@@ -400,6 +404,7 @@ async function getVerifiedUsersByEmail(
       name: true,
       username: true,
       usernameDiscriminator: true,
+      avatarSeed: true,
     },
   });
 
@@ -641,6 +646,7 @@ export async function searchInvitableUsersForProject(input: {
         name: true,
         username: true,
         usernameDiscriminator: true,
+        avatarSeed: true,
       },
       take: INVITABLE_USER_SEARCH_LIMIT,
       orderBy: [{ username: "asc" }, { name: "asc" }, { email: "asc" }],
@@ -721,6 +727,7 @@ export async function inviteUserToProject(input: {
           name: true,
           username: true,
           usernameDiscriminator: true,
+          avatarSeed: true,
         },
       }),
       db.projectMembership.findFirst({
@@ -860,6 +867,7 @@ export async function getProjectSharingSummary(input: {
                 name: true,
                 username: true,
                 usernameDiscriminator: true,
+                avatarSeed: true,
               },
             },
           },
@@ -1115,6 +1123,7 @@ export async function listPendingProjectInvitationsForUser(
           name: true,
           username: true,
           usernameDiscriminator: true,
+          avatarSeed: true,
         },
       }),
       listPendingInvitationMetadataRows(db),
@@ -1447,6 +1456,7 @@ export async function getProjectInvitationRecipientView(input: {
       name: true,
       username: true,
       usernameDiscriminator: true,
+      avatarSeed: true,
     },
   });
 

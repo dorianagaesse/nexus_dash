@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { resolveAvatarSeed } from "@/lib/avatar";
 import { validateUsernameDiscriminator } from "@/lib/services/account-security-policy";
 
 interface AccountIdentitySummary {
@@ -6,6 +7,7 @@ interface AccountIdentitySummary {
   username: string | null;
   usernameDiscriminator: string | null;
   usernameTag: string | null;
+  avatarSeed: string;
 }
 
 function normalizeActorUserId(actorUserId: string | null | undefined): string {
@@ -50,10 +52,12 @@ export async function getAccountIdentitySummary(
   const user = await prisma.user.findUnique({
     where: { id: normalizedActorUserId },
     select: {
+      id: true,
       name: true,
       email: true,
       username: true,
       usernameDiscriminator: true,
+      avatarSeed: true,
     },
   });
 
@@ -79,5 +83,6 @@ export async function getAccountIdentitySummary(
     username: user.username ?? null,
     usernameDiscriminator,
     usernameTag,
+    avatarSeed: resolveAvatarSeed(user.avatarSeed, user.id),
   };
 }

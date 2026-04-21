@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { generateAvatarSeed, resolveAvatarSeed } from "@/lib/avatar";
 import {
   generateUsernameDiscriminator,
   normalizeEmail,
@@ -164,6 +165,7 @@ export async function getAccountProfile(
     username: string;
     usernameDiscriminator: string | null;
     usernameTag: string | null;
+    avatarSeed: string;
   }>
 > {
   const normalizedActorUserId = normalizeUserId(actorUserId);
@@ -174,10 +176,12 @@ export async function getAccountProfile(
   const user = await prisma.user.findUnique({
     where: { id: normalizedActorUserId },
     select: {
+      id: true,
       email: true,
       emailVerified: true,
       username: true,
       usernameDiscriminator: true,
+      avatarSeed: true,
     },
   });
 
@@ -197,7 +201,54 @@ export async function getAccountProfile(
     username: user.username ?? "",
     usernameDiscriminator,
     usernameTag: buildUsernameTag(user.username, usernameDiscriminator),
+    avatarSeed: resolveAvatarSeed(user.avatarSeed, user.id),
   });
+}
+
+export async function regenerateAccountAvatar(
+  input: {
+    actorUserId: string;
+    subjectUserId?: string;
+  }
+): Promise<
+  AccountProfileResult<{
+    avatarSeed: string;
+  }>
+> {
+  const authError = isUnauthorizedOrForbidden(input.actorUserId, input.subjectUserId);
+  if (authError) {
+    return authError;
+  }
+
+  const actorUserId = normalizeUserId(input.actorUserId);
+  const avatarSeed = generateAvatarSeed();
+
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: actorUserId },
+      data: {
+        avatarSeed,
+      },
+      select: {
+        avatarSeed: true,
+      },
+    });
+
+    return createSuccess(200, {
+      avatarSeed: updatedUser.avatarSeed ?? avatarSeed,
+    });
+  } catch (error) {
+    if (
+      !!error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: string }).code === "P2025"
+    ) {
+      return createError(401, "unauthorized");
+    }
+
+    throw error;
+  }
 }
 
 export async function updateAccountEmail(

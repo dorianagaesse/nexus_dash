@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
+  $transaction: vi.fn(),
   project: {
     findFirst: vi.fn(),
   },
   task: {
     findUnique: vi.fn(),
+    update: vi.fn(),
   },
   taskComment: {
     findMany: vi.fn(),
@@ -39,6 +41,7 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
 describe("task comments route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
     apiGuardMock.requireApiPrincipal.mockResolvedValue({
       ok: true,
       principal: {
@@ -70,6 +73,7 @@ describe("task comments route", () => {
           email: "alice@example.com",
           username: "alice",
           usernameDiscriminator: "1234",
+          avatarSeed: null,
         },
       },
       {
@@ -82,6 +86,7 @@ describe("task comments route", () => {
           email: "bob@example.com",
           username: null,
           usernameDiscriminator: null,
+          avatarSeed: "seed-222",
         },
       },
     ]);
@@ -102,6 +107,7 @@ describe("task comments route", () => {
             id: "user-1",
             displayName: "alice",
             usernameTag: "alice#1234",
+            avatarSeed: "user-1",
           },
         },
         {
@@ -112,6 +118,7 @@ describe("task comments route", () => {
             id: "user-2",
             displayName: "bob",
             usernameTag: null,
+            avatarSeed: "seed-222",
           },
         },
       ],
@@ -132,6 +139,7 @@ describe("task comments route", () => {
             email: true,
             username: true,
             usernameDiscriminator: true,
+            avatarSeed: true,
           },
         },
       },
@@ -187,6 +195,7 @@ describe("task comments route", () => {
         email: "reviewer@example.com",
         username: "reviewer",
         usernameDiscriminator: "0007",
+        avatarSeed: null,
       },
     });
 
@@ -211,6 +220,7 @@ describe("task comments route", () => {
           id: "test-user",
           displayName: "reviewer",
           usernameTag: "reviewer#0007",
+          avatarSeed: "test-user",
         },
       },
     });
@@ -231,8 +241,18 @@ describe("task comments route", () => {
             email: true,
             username: true,
             usernameDiscriminator: true,
+            avatarSeed: true,
           },
         },
+      },
+    });
+    expect(prismaMock.task.update).toHaveBeenCalledWith({
+      where: { id: "task-1" },
+      data: {
+        updatedByUserId: "test-user",
+      },
+      select: {
+        id: true,
       },
     });
   });

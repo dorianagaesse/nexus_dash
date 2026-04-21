@@ -18,6 +18,24 @@ vi.mock("@/lib/services/project-task-service", () => ({
   createTaskForProject: projectTaskServiceMock.createTaskForProject,
 }));
 
+vi.mock("@/lib/services/project-attachment-service", () => ({
+  mapTaskAttachmentResponse: vi.fn((projectId: string, taskId: string, attachment: Record<string, unknown>) => ({
+    ...attachment,
+    downloadUrl:
+      attachment.kind === "file"
+        ? `/api/projects/${projectId}/tasks/${taskId}/attachments/${attachment.id}/download`
+        : null,
+  })),
+}));
+
+vi.mock("@/lib/services/project-service", () => ({
+  listProjectKanbanTasks: vi.fn(),
+}));
+
+vi.mock("@/lib/services/project-access-service", () => ({
+  requireAgentProjectScopes: vi.fn(() => ({ ok: true })),
+}));
+
 import { POST } from "@/app/api/projects/[projectId]/tasks/route";
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {
@@ -65,6 +83,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
     formData.set("title", "  New Task  ");
     formData.set("description", "  Description  ");
     formData.set("deadlineDate", "2026-04-24");
+    formData.set("assigneeUserId", "user-2");
     formData.set("labels", '["backend"]');
     formData.set("relatedTaskIds", '["task-a","task-b"]');
     formData.set(
@@ -94,6 +113,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
     expect(call.title).toBe("New Task");
     expect(call.description).toBe("Description");
     expect(call.deadlineDate).toBe("2026-04-24");
+    expect(call.assigneeUserId).toBe("user-2");
     expect(call.labelsJsonRaw).toBe('["backend"]');
     expect(call.relatedTaskIdsJsonRaw).toBe('["task-a","task-b"]');
     expect(call.attachmentLinksJsonRaw).toBe(
@@ -119,6 +139,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
         title: "  Draft API smoke test  ",
         description: "  <p>Validate the agent route.</p>  ",
         deadlineDate: "2026-04-25",
+        assigneeUserId: "user-2",
         labels: ["agent", "qa"],
         relatedTaskIds: ["task-a"],
         attachmentLinks: [{ name: "Spec", url: "https://example.com/spec" }],
@@ -137,6 +158,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
       title: "Draft API smoke test",
       description: "<p>Validate the agent route.</p>",
       deadlineDate: "2026-04-25",
+      assigneeUserId: "user-2",
       labelsJsonRaw: '["agent","qa"]',
       relatedTaskIdsJsonRaw: '["task-a"]',
       attachmentLinksJsonRaw:
@@ -165,6 +187,29 @@ describe("POST /api/projects/:projectId/tasks", () => {
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({
       error: "deadline-invalid",
+    });
+    expect(projectTaskServiceMock.createTaskForProject).not.toHaveBeenCalled();
+  });
+
+  test("returns 400 when json assigneeUserId is not a string", async () => {
+    const request = new Request("http://localhost/api/projects/p1/tasks", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        title: "Draft API smoke test",
+        assigneeUserId: 123,
+      }),
+    });
+
+    const response = await POST(request as never, {
+      params: { projectId: "p1" },
+    });
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "assignee-invalid",
     });
     expect(projectTaskServiceMock.createTaskForProject).not.toHaveBeenCalled();
   });

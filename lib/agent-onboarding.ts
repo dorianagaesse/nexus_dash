@@ -390,7 +390,7 @@ export function buildAgentTaskCreateExample(): string {
     'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
-    "  -d '{\"title\":\"Draft release notes\",\"description\":\"<p>Summarize this week''s changes.</p>\",\"deadlineDate\":\"2026-04-24\",\"labels\":[\"release\",\"docs\"],\"attachmentLinks\":[{\"name\":\"Spec\",\"url\":\"https://example.com/spec\"}]}'",
+    "  -d '{\"title\":\"Draft release notes\",\"description\":\"<p>Summarize this week''s changes.</p>\",\"deadlineDate\":\"2026-04-24\",\"assigneeUserId\":\"user_456\",\"labels\":[\"release\",\"docs\"],\"attachmentLinks\":[{\"name\":\"Spec\",\"url\":\"https://example.com/spec\"}]}'",
   ].join("\n");
 }
 
@@ -408,7 +408,7 @@ export function buildAgentTaskUpdateExample(): string {
     'curl -X PATCH "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
-    '  -d \'{"title":"Draft release notes","description":"<p>Add release highlights.</p>","deadlineDate":"2026-04-25","labels":["release","ready"],"relatedTaskIds":["task_456"]}\'',
+    '  -d \'{"title":"Draft release notes","description":"<p>Add release highlights.</p>","deadlineDate":"2026-04-25","assigneeUserId":"user_456","labels":["release","ready"],"relatedTaskIds":["task_456"]}\'',
   ].join("\n");
 }
 
@@ -939,6 +939,9 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             "labelsJson",
             "createdAt",
             "updatedAt",
+            "assignee",
+            "createdBy",
+            "updatedBy",
             "attachments",
             "relatedTasks",
             "blockedFollowUps",
@@ -961,6 +964,18 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             labelsJson: { type: ["string", "null"] },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
+            assignee: {
+              anyOf: [
+                { $ref: "#/components/schemas/TaskCommentAuthor" },
+                { type: "null" },
+              ],
+            },
+            createdBy: {
+              $ref: "#/components/schemas/TaskCommentAuthor",
+            },
+            updatedBy: {
+              $ref: "#/components/schemas/TaskCommentAuthor",
+            },
             attachments: {
               type: "array",
               items: {
@@ -1000,6 +1015,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             title: { type: "string" },
             description: { type: "string" },
             deadlineDate: { type: "string", format: "date" },
+            assigneeUserId: { type: ["string", "null"] },
             labels: {
               type: "array",
               items: {
@@ -1042,6 +1058,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               type: ["string", "null"],
               format: "date",
             },
+            assigneeUserId: { type: ["string", "null"] },
             blockedFollowUpEntry: { type: "string" },
             relatedTaskIds: {
               type: "array",
@@ -1067,6 +1084,11 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 "status",
                 "position",
                 "archivedAt",
+                "assignee",
+                "createdBy",
+                "updatedBy",
+                "createdAt",
+                "updatedAt",
                 "relatedTasks",
                 "blockedFollowUps",
               ],
@@ -1085,6 +1107,20 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 },
                 position: { type: "integer" },
                 archivedAt: { type: ["string", "null"], format: "date-time" },
+                assignee: {
+                  anyOf: [
+                    { $ref: "#/components/schemas/TaskCommentAuthor" },
+                    { type: "null" },
+                  ],
+                },
+                createdBy: {
+                  $ref: "#/components/schemas/TaskCommentAuthor",
+                },
+                updatedBy: {
+                  $ref: "#/components/schemas/TaskCommentAuthor",
+                },
+                createdAt: { type: "string", format: "date-time" },
+                updatedAt: { type: "string", format: "date-time" },
                 relatedTasks: {
                   type: "array",
                   items: {
@@ -1103,11 +1139,12 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
         TaskCommentAuthor: {
           type: "object",
-          required: ["id", "displayName", "usernameTag"],
+          required: ["id", "displayName", "usernameTag", "avatarSeed"],
           properties: {
             id: { type: "string" },
             displayName: { type: "string" },
             usernameTag: { type: ["string", "null"] },
+            avatarSeed: { type: "string" },
           },
         },
         TaskCommentRecord: {

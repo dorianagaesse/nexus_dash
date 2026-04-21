@@ -4,11 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-101
-  Title: Task ownership and provenance - created-by visibility, assignee model, and task activity attribution
-  Status: Pending
-  Rationale: Add task-level ownership metadata so collaborators can see who created a task, who is currently responsible for it, and who last touched it, with room for future filtering, accountability, and notification workflows without relying on external chat context.
-  Dependencies: TASK-058, TASK-076, TASK-079
 - ID: TASK-107
   Title: Task epic links - parent epic relationship and grouped execution context
   Status: Pending
@@ -135,6 +130,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-101
+  Title: Task ownership and provenance - created-by visibility, assignee model, and task activity attribution
+  Status: Done (2026-04-21, merged via PR #193 into PR #192)
+  Rationale: Added task-level ownership/provenance across schema, services, APIs, and Kanban surfaces so collaborators can see who created a task, who is assigned, and who last updated it, with avatar-backed UI and durable attribution for future filtering and notification workflows.
+  Dependencies: TASK-058, TASK-076, TASK-079
 - ID: TASK-099
   Title: Task comments - project-scoped discussion thread on tasks
   Status: Done (2026-04-20, merged via PR #180)

@@ -13,8 +13,10 @@ import type { DropResult } from "@hello-pangea/dnd";
 import type { RelatedTaskOption } from "@/components/kanban/related-task-field";
 import {
   type KanbanTask,
+  type ProjectTaskCollaborator,
   type TaskComment,
   type PendingAttachmentUpload,
+  type TaskPersonSummary,
   type TaskAttachment,
   type TaskRelatedSummary,
 } from "@/components/kanban-board-types";
@@ -58,21 +60,40 @@ export type { KanbanTask } from "@/components/kanban-board-types";
 interface KanbanBoardProps {
   canEdit: boolean;
   projectId: string;
+  actorUserId: string;
   storageProvider: "local" | "r2";
   initialTasks: KanbanTask[];
   archivedDoneTasks?: KanbanTask[];
+  collaborators: ProjectTaskCollaborator[];
 }
 
 function createLocalUploadId(): string {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function stampTaskActivity(
+  task: KanbanTask,
+  actor: TaskPersonSummary | null
+): KanbanTask {
+  if (!actor) {
+    return task;
+  }
+
+  return {
+    ...task,
+    updatedBy: actor,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 export function KanbanBoard({
   canEdit,
   projectId,
+  actorUserId,
   storageProvider,
   initialTasks,
   archivedDoneTasks: initialArchivedDoneTasks = [],
+  collaborators,
 }: KanbanBoardProps) {
   const initialColumns = useMemo(
     () => mapTasksToColumns(initialTasks),
@@ -106,6 +127,7 @@ export function KanbanBoard({
   const [editLabelInput, setEditLabelInput] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editDeadlineDate, setEditDeadlineDate] = useState("");
+  const [editAssigneeUserId, setEditAssigneeUserId] = useState("");
   const [editRelatedTasks, setEditRelatedTasks] = useState<TaskRelatedSummary[]>([]);
   const [relatedTaskSearch, setRelatedTaskSearch] = useState("");
   const [newBlockedFollowUpEntry, setNewBlockedFollowUpEntry] = useState("");
@@ -137,6 +159,10 @@ export function KanbanBoard({
       : MAX_ATTACHMENT_FILE_SIZE_LABEL;
   const attachmentFileSizeErrorMessage = `Attachment files must be ${maxAttachmentFileSizeLabel} or smaller.`;
   const hasPendingAttachmentUploads = pendingAttachmentUploads.length > 0;
+  const currentActorSummary = useMemo<TaskPersonSummary | null>(
+    () => collaborators.find((collaborator) => collaborator.id === actorUserId) ?? null,
+    [actorUserId, collaborators]
+  );
 
   const resetTaskEditDraft = useCallback((task: KanbanTask) => {
     setTaskModalError(null);
@@ -145,6 +171,7 @@ export function KanbanBoard({
     setEditLabelInput("");
     setEditDescription(task.description ?? "");
     setEditDeadlineDate(task.deadlineDate ?? "");
+    setEditAssigneeUserId(task.assignee?.id ?? "");
     setEditRelatedTasks(task.relatedTasks);
     setRelatedTaskSearch("");
     setNewBlockedFollowUpEntry("");
@@ -344,6 +371,14 @@ export function KanbanBoard({
         }))
         .sort((left, right) => left.title.localeCompare(right.title)),
     [columns]
+  );
+
+  const availableAssignees = useMemo<ProjectTaskCollaborator[]>(
+    () =>
+      [...collaborators].sort((left, right) =>
+        left.displayName.localeCompare(right.displayName)
+      ),
+    [collaborators]
   );
 
   const addEditLabel = useCallback(
@@ -580,10 +615,17 @@ export function KanbanBoard({
         return;
       }
 
-      nextColumns[destinationStatus].splice(destination.index, 0, {
-        ...movedTask,
-        status: destinationStatus,
-      });
+      nextColumns[destinationStatus].splice(
+        destination.index,
+        0,
+        stampTaskActivity(
+          {
+            ...movedTask,
+            status: destinationStatus,
+          },
+          currentActorSummary
+        )
+      );
 
       setColumns(nextColumns);
       syncRelatedTaskSummary(movedTask.id, {
@@ -597,7 +639,7 @@ export function KanbanBoard({
         void persistColumns(nextColumns, previousColumns);
       });
     },
-    [canEdit, columns, persistColumns, syncRelatedTaskSummary]
+    [canEdit, columns, currentActorSummary, persistColumns, syncRelatedTaskSummary]
   );
 
   const closeTaskModal = useCallback(() => {
@@ -608,6 +650,7 @@ export function KanbanBoard({
     setAttachmentError(null);
     setTaskCommentsError(null);
     setEditRelatedTasks([]);
+    setEditAssigneeUserId("");
     setRelatedTaskSearch("");
     setPreviewAttachment(null);
     setTaskComments([]);
@@ -703,6 +746,7 @@ export function KanbanBoard({
               labels: editLabels,
               description: editDescription,
               deadlineDate: editDeadlineDate || null,
+              assigneeUserId: editAssigneeUserId || null,
               blockedFollowUpEntry: normalizedBlockedEntry,
               relatedTaskIds,
             }),
@@ -716,6 +760,8 @@ export function KanbanBoard({
           const message =
             payload?.error === "related-tasks-invalid"
               ? "Related tasks must stay active and belong to this project."
+              : payload?.error === "assignee-invalid"
+                ? "Assignee must be a current collaborator on this project."
               : payload?.error === "deadline-invalid"
                 ? "Deadline must use a valid date."
               : (payload?.error ?? "Failed to update task");
@@ -735,6 +781,11 @@ export function KanbanBoard({
             status: string;
             position: number;
             archivedAt: string | null;
+            assignee: TaskPersonSummary | null;
+            createdBy: TaskPersonSummary;
+            updatedBy: TaskPersonSummary;
+            createdAt: string;
+            updatedAt: string;
             relatedTasks: TaskRelatedSummary[];
             blockedFollowUps: {
               id: string;
@@ -758,6 +809,11 @@ export function KanbanBoard({
           description: payload.task.description,
           deadlineDate: payload.task.deadlineDate,
           commentCount: payload.task.commentCount,
+          assignee: payload.task.assignee,
+          createdBy: payload.task.createdBy,
+          updatedBy: payload.task.updatedBy,
+          createdAt: payload.task.createdAt,
+          updatedAt: payload.task.updatedAt,
           blockedFollowUps: payload.task.blockedFollowUps.map((entry) => ({
             ...entry,
             createdAt: entry.createdAt,
@@ -839,6 +895,7 @@ export function KanbanBoard({
     },
     [
       canEdit,
+      editAssigneeUserId,
       editDeadlineDate,
       editDescription,
       editLabels,
@@ -904,21 +961,30 @@ export function KanbanBoard({
         return;
       }
 
-      nextColumns[nextStatus].unshift({
-        ...movedTask,
-        status: nextStatus,
-      });
+      nextColumns[nextStatus].unshift(
+        stampTaskActivity(
+          {
+            ...movedTask,
+            status: nextStatus,
+            archivedAt: null,
+          },
+          currentActorSummary
+        )
+      );
 
       setColumns(nextColumns);
       setSelectedTask((previousTask) => {
         if (!previousTask || previousTask.id !== task.id) {
           return previousTask;
         }
-        return {
-          ...previousTask,
-          status: nextStatus,
-          archivedAt: null,
-        };
+        return stampTaskActivity(
+          {
+            ...previousTask,
+            status: nextStatus,
+            archivedAt: null,
+          },
+          currentActorSummary
+        );
       });
       syncRelatedTaskSummary(task.id, {
         title: task.title,
@@ -936,7 +1002,14 @@ export function KanbanBoard({
         message: `Task moved to ${nextStatus}.`,
       });
     },
-    [canEdit, columns, persistColumns, pushToast, syncRelatedTaskSummary]
+    [
+      canEdit,
+      columns,
+      currentActorSummary,
+      persistColumns,
+      pushToast,
+      syncRelatedTaskSummary,
+    ]
   );
 
   const confirmDeleteTask = useCallback(async () => {
@@ -1024,10 +1097,13 @@ export function KanbanBoard({
       const payload = (await response.json()) as { archivedAt: string };
 
       const taskToArchive = selectedTask;
-      const archivedTask = {
-        ...taskToArchive,
-        archivedAt: payload.archivedAt,
-      };
+      const archivedTask = stampTaskActivity(
+        {
+          ...taskToArchive,
+          archivedAt: payload.archivedAt,
+        },
+        currentActorSummary
+      );
 
       setColumns((previousColumns) => {
         const nextColumns = createEmptyColumns<KanbanTask>();
@@ -1061,7 +1137,16 @@ export function KanbanBoard({
     } finally {
       setIsArchivingTask(false);
     }
-  }, [canEdit, closeTaskModal, isArchivingTask, projectId, pushToast, selectedTask, syncRelatedTaskSummary]);
+  }, [
+    canEdit,
+    closeTaskModal,
+    currentActorSummary,
+    isArchivingTask,
+    projectId,
+    pushToast,
+    selectedTask,
+    syncRelatedTaskSummary,
+  ]);
 
   const handleUnarchiveTask = useCallback(async () => {
     if (!canEdit) {
@@ -1086,10 +1171,13 @@ export function KanbanBoard({
         throw new Error(await readApiError(response, "Could not unarchive task."));
       }
 
-      const taskToRestore = {
-        ...selectedTask,
-        archivedAt: null,
-      };
+      const taskToRestore = stampTaskActivity(
+        {
+          ...selectedTask,
+          archivedAt: null,
+        },
+        currentActorSummary
+      );
 
       setArchivedDoneTasks((previousTasks) =>
         previousTasks.filter((task) => task.id !== taskToRestore.id)
@@ -1123,7 +1211,16 @@ export function KanbanBoard({
     } finally {
       setIsArchivingTask(false);
     }
-  }, [canEdit, isArchivingTask, isSelectedTaskArchived, projectId, pushToast, selectedTask, syncRelatedTaskSummary]);
+  }, [
+    canEdit,
+    currentActorSummary,
+    isArchivingTask,
+    isSelectedTaskArchived,
+    projectId,
+    pushToast,
+    selectedTask,
+    syncRelatedTaskSummary,
+  ]);
 
   const handleAddBlockedFollowUpEntry = useCallback(async () => {
     if (!canEdit) {
@@ -1227,10 +1324,15 @@ export function KanbanBoard({
 
       setTaskComments((previousComments) => [...previousComments, payload.comment]);
       setNewTaskComment("");
-      applyTaskMutation(selectedTask.id, (task) => ({
-        ...task,
-        commentCount: task.commentCount + 1,
-      }));
+      applyTaskMutation(selectedTask.id, (task) =>
+        stampTaskActivity(
+          {
+            ...task,
+            commentCount: task.commentCount + 1,
+          },
+          currentActorSummary
+        )
+      );
       pushToast({
         variant: "success",
         message: "Comment added.",
@@ -1247,7 +1349,15 @@ export function KanbanBoard({
     } finally {
       setIsSubmittingTaskComment(false);
     }
-  }, [applyTaskMutation, canEdit, newTaskComment, projectId, pushToast, selectedTask]);
+  }, [
+    applyTaskMutation,
+    canEdit,
+    currentActorSummary,
+    newTaskComment,
+    projectId,
+    pushToast,
+    selectedTask,
+  ]);
 
   const handleAddLinkAttachment = useCallback(async () => {
     if (!canEdit) {
@@ -1282,10 +1392,15 @@ export function KanbanBoard({
       }
 
       const payload = (await response.json()) as { attachment: TaskAttachment };
-      applyTaskMutation(selectedTask.id, (task) => ({
-        ...task,
-        attachments: [payload.attachment, ...task.attachments],
-      }));
+      applyTaskMutation(selectedTask.id, (task) =>
+        stampTaskActivity(
+          {
+            ...task,
+            attachments: [payload.attachment, ...task.attachments],
+          },
+          currentActorSummary
+        )
+      );
       setLinkUrl("");
       setIsLinkComposerOpen(false);
       pushToast({
@@ -1304,7 +1419,15 @@ export function KanbanBoard({
     } finally {
       setIsSubmittingAttachment(false);
     }
-  }, [applyTaskMutation, canEdit, linkUrl, projectId, pushToast, selectedTask]);
+  }, [
+    applyTaskMutation,
+    canEdit,
+    currentActorSummary,
+    linkUrl,
+    projectId,
+    pushToast,
+    selectedTask,
+  ]);
 
   const handleAddFileAttachment = useCallback(
     async (selectedFile: File | null) => {
@@ -1372,10 +1495,15 @@ export function KanbanBoard({
           attachment = payload.attachment;
         }
 
-        applyTaskMutation(taskId, (task) => ({
-          ...task,
-          attachments: [attachment, ...task.attachments],
-        }));
+        applyTaskMutation(taskId, (task) =>
+          stampTaskActivity(
+            {
+              ...task,
+              attachments: [attachment, ...task.attachments],
+            },
+            currentActorSummary
+          )
+        );
         pushToast({
           variant: "success",
           message: "Attachment uploaded.",
@@ -1401,6 +1529,7 @@ export function KanbanBoard({
       applyTaskMutation,
       attachmentFileSizeErrorMessage,
       canEdit,
+      currentActorSummary,
       maxAttachmentFileSizeBytes,
       projectId,
       selectedTask,
@@ -1436,12 +1565,17 @@ export function KanbanBoard({
           );
         }
 
-        applyTaskMutation(selectedTask.id, (task) => ({
-          ...task,
-          attachments: task.attachments.filter(
-            (attachment) => attachment.id !== attachmentId
-          ),
-        }));
+        applyTaskMutation(selectedTask.id, (task) =>
+          stampTaskActivity(
+            {
+              ...task,
+              attachments: task.attachments.filter(
+                (attachment) => attachment.id !== attachmentId
+              ),
+            },
+            currentActorSummary
+          )
+        );
         pushToast({
           variant: "success",
           message: "Attachment deleted.",
@@ -1459,7 +1593,7 @@ export function KanbanBoard({
         setIsSubmittingAttachment(false);
       }
     },
-    [applyTaskMutation, canEdit, projectId, pushToast, selectedTask]
+    [applyTaskMutation, canEdit, currentActorSummary, projectId, pushToast, selectedTask]
   );
 
   const totalTaskCount = useMemo(
@@ -1503,6 +1637,7 @@ export function KanbanBoard({
             storageProvider={storageProvider}
             existingLabels={allKnownLabels}
             availableTasks={createDialogAvailableTasks}
+            availableAssignees={availableAssignees}
           />
         ) : null}
         onToggleExpanded={() => setIsExpanded((previous) => !previous)}
@@ -1538,6 +1673,7 @@ export function KanbanBoard({
         editLabelSuggestions={editLabelSuggestions}
         editDescription={editDescription}
         editDeadlineDate={editDeadlineDate}
+        editAssigneeUserId={editAssigneeUserId}
         editRelatedTasks={editRelatedTasks}
         relatedTaskSearch={relatedTaskSearch}
         newBlockedFollowUpEntry={newBlockedFollowUpEntry}
@@ -1567,9 +1703,11 @@ export function KanbanBoard({
         onRemoveEditLabel={removeEditLabel}
         onEditDescriptionChange={setEditDescription}
         onEditDeadlineDateChange={setEditDeadlineDate}
+        onEditAssigneeUserIdChange={setEditAssigneeUserId}
         onRelatedTaskSearchChange={setRelatedTaskSearch}
         onAddRelatedTask={addRelatedTask}
         onRemoveRelatedTask={removeRelatedTask}
+        availableAssignees={availableAssignees}
         availableRelatedTaskOptions={availableRelatedTaskOptions}
         onOpenRelatedTask={openRelatedTask}
         onNewBlockedFollowUpEntryChange={setNewBlockedFollowUpEntry}

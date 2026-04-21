@@ -28,6 +28,11 @@ import {
   requireProjectRole,
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
+import {
+  mapTaskPersonSummary,
+  taskPersonSummarySelect,
+  type TaskPersonSummary,
+} from "@/lib/task-person";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 
 const MIN_TITLE_LENGTH = 2;
@@ -62,6 +67,7 @@ export interface UpdateTaskPayload {
   deadlineDate?: string | null;
   blockedFollowUpEntry?: string;
   relatedTaskIds?: string[];
+  assigneeUserId?: string | null;
 }
 
 interface CreateTaskForProjectInput {
@@ -70,6 +76,7 @@ interface CreateTaskForProjectInput {
   title: string;
   description: string;
   deadlineDate: string;
+  assigneeUserId: string | null;
   labelsJsonRaw: string;
   relatedTaskIdsJsonRaw: string;
   attachmentLinksJsonRaw: string;
@@ -89,6 +96,11 @@ interface UpdatedTaskPayload {
   status: string;
   position: number;
   archivedAt: Date | null;
+  assignee: TaskPersonSummary | null;
+  createdBy: TaskPersonSummary;
+  updatedBy: TaskPersonSummary;
+  createdAt: Date;
+  updatedAt: Date;
   relatedTasks: RelatedTaskSummary[];
   blockedFollowUps: {
     id: string;
@@ -256,6 +268,46 @@ async function validateRelatedTaskIds(input: {
   };
 }
 
+async function validateAssigneeUserId(input: {
+  db: DbClient;
+  projectId: string;
+  assigneeUserId: string | null;
+}): Promise<ServiceResult<{ assigneeUserId: string | null }>> {
+  const assigneeUserId = normalizeText(input.assigneeUserId);
+  if (!assigneeUserId) {
+    return {
+      ok: true,
+      data: {
+        assigneeUserId: null,
+      },
+    };
+  }
+
+  const collaborator = await input.db.project.findFirst({
+    where: {
+      id: input.projectId,
+      OR: [
+        { ownerId: assigneeUserId },
+        { memberships: { some: { userId: assigneeUserId } } },
+      ],
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!collaborator) {
+    return createError(400, "assignee-invalid");
+  }
+
+  return {
+    ok: true,
+    data: {
+      assigneeUserId,
+    },
+  };
+}
+
 async function replaceTaskRelations(input: {
   db: DbClient;
   projectId: string;
@@ -399,6 +451,15 @@ export async function createTaskForProject(
         return relatedTaskValidation;
       }
 
+      const assigneeValidation = await validateAssigneeUserId({
+        db,
+        projectId: input.projectId,
+        assigneeUserId: input.assigneeUserId,
+      });
+      if (!assigneeValidation.ok) {
+        return assigneeValidation;
+      }
+
       const maxPosition = await db.task.aggregate({
         where: {
           projectId: input.projectId,
@@ -425,6 +486,9 @@ export async function createTaskForProject(
           labelsJson: serializedLabels,
           status,
           position: nextPosition,
+          createdByUserId: actorUserId,
+          updatedByUserId: actorUserId,
+          assigneeUserId: assigneeValidation.data.assigneeUserId,
         },
         select: { id: true },
       });
@@ -551,6 +615,7 @@ export async function reorderProjectTasks(
                 status: column.status,
                 position: index,
                 archivedAt: null,
+                updatedByUserId: normalizedActorUserId,
                 completedAt:
                   column.status === "Done"
                     ? movedToDone
@@ -604,6 +669,10 @@ export async function updateTaskForProject(
   }
   const blockedFollowUpEntry = normalizeText(payload.blockedFollowUpEntry);
   const relatedTaskIds = normalizeRelatedTaskIds(payload.relatedTaskIds ?? []);
+  const assigneeProvided = Object.prototype.hasOwnProperty.call(payload, "assigneeUserId");
+  const assigneeUserId = assigneeProvided
+    ? normalizeText(payload.assigneeUserId)
+    : null;
   const agentScopeAccess = requireAgentProjectScopes({
     agentAccess,
     projectId,
@@ -636,6 +705,7 @@ export async function updateTaskForProject(
           projectId: true,
           status: true,
           position: true,
+          assigneeUserId: true,
           outgoingRelations: {
             select: {
               rightTaskId: true,
@@ -667,6 +737,22 @@ export async function updateTaskForProject(
         return relatedTaskValidation;
       }
 
+      const assigneeValidation = assigneeProvided
+        ? await validateAssigneeUserId({
+            db,
+            projectId,
+            assigneeUserId: assigneeUserId || null,
+          })
+        : {
+            ok: true as const,
+            data: {
+              assigneeUserId: existingTask.assigneeUserId,
+            },
+          };
+      if (!assigneeValidation.ok) {
+        return assigneeValidation;
+      }
+
       const updateWithClient = async (tx: typeof db) => {
         await tx.task.update({
           where: { id: taskId },
@@ -675,6 +761,8 @@ export async function updateTaskForProject(
             label: normalizedLabels[0] ?? null,
             labelsJson: serializedLabels,
             description,
+            updatedByUserId: normalizedActorUserId,
+            assigneeUserId: assigneeValidation.data.assigneeUserId,
             ...(deadlineInput.data.provided
               ? { deadlineAt: deadlineInput.data.deadlineAt }
               : {}),
@@ -715,6 +803,17 @@ export async function updateTaskForProject(
             status: true,
             position: true,
             archivedAt: true,
+            createdAt: true,
+            updatedAt: true,
+            createdByUser: {
+              select: taskPersonSummarySelect,
+            },
+            updatedByUser: {
+              select: taskPersonSummarySelect,
+            },
+            assigneeUser: {
+              select: taskPersonSummarySelect,
+            },
             outgoingRelations: {
               select: {
                 rightTask: {
@@ -762,6 +861,13 @@ export async function updateTaskForProject(
             status: updatedTask.status,
             position: updatedTask.position,
             archivedAt: updatedTask.archivedAt,
+            assignee: updatedTask.assigneeUser
+              ? mapTaskPersonSummary(updatedTask.assigneeUser)
+              : null,
+            createdBy: mapTaskPersonSummary(updatedTask.createdByUser)!,
+            updatedBy: mapTaskPersonSummary(updatedTask.updatedByUser)!,
+            createdAt: updatedTask.createdAt,
+            updatedAt: updatedTask.updatedAt,
             relatedTasks: mergeRelatedTaskSummaries(updatedTask),
             blockedFollowUps: updatedTask.blockedFollowUps,
           },
@@ -837,6 +943,7 @@ export async function archiveTaskForProject(
         where: { id: taskId },
         data: {
           archivedAt: new Date(),
+          updatedByUserId: normalizedActorUserId,
         },
         select: {
           archivedAt: true,
@@ -929,6 +1036,7 @@ export async function unarchiveTaskForProject(
         where: { id: taskId },
         data: {
           archivedAt: null,
+          updatedByUserId: normalizedActorUserId,
         },
         select: {
           id: true,

@@ -7,6 +7,7 @@ import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { logServerError } from "@/lib/observability/logger";
 import {
@@ -24,6 +25,7 @@ import {
 import {
   acceptProjectInvitationAction,
   declineProjectInvitationAction,
+  regenerateAccountAvatarAction,
   updateAccountEmailAction,
   updateAccountPasswordAction,
   updateAccountUsernameAction,
@@ -34,6 +36,7 @@ type SearchParams = Record<string, string | string[] | undefined>;
 export const dynamic = "force-dynamic";
 
 const STATUS_MESSAGES: Record<string, string> = {
+  "avatar-regenerated": "Avatar regenerated.",
   "username-updated": "Username updated.",
   "username-updated-regenerated":
     "Username updated. Discriminator changed to keep your tag unique.",
@@ -46,6 +49,7 @@ const STATUS_MESSAGES: Record<string, string> = {
 const ERROR_MESSAGES: Record<string, string> = {
   unauthorized: "You must be signed in to manage account profile.",
   forbidden: "You cannot update another user profile.",
+  "avatar-regenerate-failed": "Could not regenerate avatar. Please retry.",
   "invalid-email": "Email address is invalid.",
   "email-in-use": "This email is already used by another account.",
   "invalid-username":
@@ -104,6 +108,8 @@ export default async function AccountProfilePage({
 
   const status = readQueryValue(resolvedSearchParams?.status);
   const error = readQueryValue(resolvedSearchParams?.error);
+  const avatarDisplayName =
+    profileResult.data.usernameTag || profileResult.data.username || "Account";
 
   return (
     <main className="container py-12">
@@ -215,88 +221,113 @@ export default async function AccountProfilePage({
           <CardHeader>
             <CardTitle className="text-xl">Identity</CardTitle>
             <CardDescription>
-              Update your public tag and account email from one place.
+              Manage your generated avatar, public tag, and account email from one
+              place.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-6 md:grid-cols-2">
-            <form action={updateAccountUsernameAction} className="grid gap-4">
-              <div className="space-y-1">
-                <h2 className="text-base font-medium">Username</h2>
-                <p className="text-xs text-muted-foreground">
-                  {profileResult.data.usernameTag ? (
-                    <>
-                      Current tag: <code>{profileResult.data.usernameTag}</code>
-                    </>
-                  ) : (
-                    "No public tag assigned yet."
-                  )}
-                </p>
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="account-username" className="text-sm font-medium">
-                  Username
-                </label>
-                <div className="relative">
-                  <input
-                    id="account-username"
-                    name="username"
-                    type="text"
-                    defaultValue={profileResult.data.username}
-                    autoComplete="username"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    required
-                    minLength={MIN_USERNAME_LENGTH}
-                    maxLength={MAX_USERNAME_LENGTH}
-                    pattern="[A-Za-z0-9._]+"
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 pr-24 text-sm"
-                  />
-                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground select-none">
-                    #{profileResult.data.usernameDiscriminator ?? "pending"}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Use {MIN_USERNAME_LENGTH}-{MAX_USERNAME_LENGTH} letters, numbers,
-                  dots, or underscores. Uppercase input is normalized to lowercase.
-                </p>
-              </div>
-              <div>
-                <Button type="submit">Save username</Button>
-              </div>
-            </form>
-
-            <form action={updateAccountEmailAction} className="grid gap-4">
-              <div className="space-y-1">
-                <h2 className="text-base font-medium">Email</h2>
-                <p className="text-xs text-muted-foreground">
-                  {profileResult.data.isEmailVerified
-                    ? "Verified email on file."
-                    : "Email pending verification."}
-                </p>
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="account-email" className="text-sm font-medium">
-                  Email address
-                </label>
-                <input
-                  id="account-email"
-                  name="email"
-                  type="email"
-                  defaultValue={profileResult.data.email ?? ""}
-                  autoComplete="email"
-                  required
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+          <CardContent className="grid gap-6">
+            <div className="flex flex-col gap-4 rounded-xl border border-border/70 bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <UserAvatar
+                  avatarSeed={profileResult.data.avatarSeed}
+                  displayName={avatarDisplayName}
+                  className="h-16 w-16 border-border/80"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Changing email requires verifying the new address before workspace
-                  access resumes.
-                </p>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Generated avatar</p>
+                  <p className="text-xs text-muted-foreground">
+                    NexusDash uses a deterministic pixel avatar seeded to your
+                    account. Regenerate it any time from here.
+                  </p>
+                </div>
               </div>
-              <div>
-                <Button type="submit">Update email</Button>
-              </div>
-            </form>
+              <form action={regenerateAccountAvatarAction}>
+                <Button type="submit" variant="outline">
+                  Regenerate avatar
+                </Button>
+              </form>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <form action={updateAccountUsernameAction} className="grid gap-4">
+                <div className="space-y-1">
+                  <h2 className="text-base font-medium">Username</h2>
+                  <p className="text-xs text-muted-foreground">
+                    {profileResult.data.usernameTag ? (
+                      <>
+                        Current tag: <code>{profileResult.data.usernameTag}</code>
+                      </>
+                    ) : (
+                      "No public tag assigned yet."
+                    )}
+                  </p>
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="account-username" className="text-sm font-medium">
+                    Username
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="account-username"
+                      name="username"
+                      type="text"
+                      defaultValue={profileResult.data.username}
+                      autoComplete="username"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      required
+                      minLength={MIN_USERNAME_LENGTH}
+                      maxLength={MAX_USERNAME_LENGTH}
+                      pattern="[A-Za-z0-9._]+"
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 pr-24 text-sm"
+                    />
+                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground select-none">
+                      #{profileResult.data.usernameDiscriminator ?? "pending"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Use {MIN_USERNAME_LENGTH}-{MAX_USERNAME_LENGTH} letters, numbers,
+                    dots, or underscores. Uppercase input is normalized to lowercase.
+                  </p>
+                </div>
+                <div>
+                  <Button type="submit">Save username</Button>
+                </div>
+              </form>
+
+              <form action={updateAccountEmailAction} className="grid gap-4">
+                <div className="space-y-1">
+                  <h2 className="text-base font-medium">Email</h2>
+                  <p className="text-xs text-muted-foreground">
+                    {profileResult.data.isEmailVerified
+                      ? "Verified email on file."
+                      : "Email pending verification."}
+                  </p>
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="account-email" className="text-sm font-medium">
+                    Email address
+                  </label>
+                  <input
+                    id="account-email"
+                    name="email"
+                    type="email"
+                    defaultValue={profileResult.data.email ?? ""}
+                    autoComplete="email"
+                    required
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Changing email requires verifying the new address before workspace
+                    access resumes.
+                  </p>
+                </div>
+                <div>
+                  <Button type="submit">Update email</Button>
+                </div>
+              </form>
+            </div>
           </CardContent>
         </Card>
 

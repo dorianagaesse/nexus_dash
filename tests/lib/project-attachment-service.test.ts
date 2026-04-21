@@ -4,11 +4,13 @@ import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
 import { AttachmentStorageUnavailableError } from "@/lib/storage/errors";
 
 const prismaMock = vi.hoisted(() => ({
+  $transaction: vi.fn(),
   project: {
     findFirst: vi.fn(),
   },
   task: {
     findUnique: vi.fn(),
+    update: vi.fn(),
   },
   resource: {
     findUnique: vi.fn(),
@@ -67,6 +69,7 @@ describe("project-attachment-service", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
     prismaMock.project.findFirst.mockResolvedValue({ ownerId: actorUserId, memberships: [] });
   });
 
@@ -256,6 +259,10 @@ describe("project-attachment-service", () => {
       mimeType: "application/pdf",
       sizeBytes: 2048,
     });
+    prismaMock.task.update.mockResolvedValueOnce({
+      id: "task-1",
+    });
+    attachmentStorageMock.deleteAttachmentFile.mockResolvedValue(undefined);
 
     const result = await finalizeTaskAttachmentDirectUpload({
       actorUserId,
@@ -281,6 +288,11 @@ describe("project-attachment-service", () => {
       },
     });
     expect(prismaMock.taskAttachment.create).toHaveBeenCalledTimes(1);
+    expect(prismaMock.task.update).toHaveBeenCalledWith({
+      where: { id: "task-1" },
+      data: { updatedByUserId: actorUserId },
+      select: { id: true },
+    });
     expect(attachmentStorageMock.deleteAttachmentFile).not.toHaveBeenCalled();
   });
 
