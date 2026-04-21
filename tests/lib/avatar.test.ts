@@ -31,6 +31,15 @@ describe("avatar helpers", () => {
     expect(svg).not.toContain("seed-123");
   });
 
+  test("always includes the center pixel block in the generated pattern", () => {
+    const encodedUri = buildGeneratedAvatarDataUri("seed-123");
+    const svg = decodeURIComponent(
+      encodedUri.replace("data:image/svg+xml;charset=UTF-8,", "")
+    );
+
+    expect(svg).toContain('<rect x="27" y="27" width="10" height="10"');
+  });
+
   test("resolves avatar seed from stored seed or stable fallback key", () => {
     expect(resolveAvatarSeed(" custom-seed ", "user-1")).toBe("custom-seed");
     expect(resolveAvatarSeed(null, "user-1")).toBe("user-1");
