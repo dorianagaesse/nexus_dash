@@ -92,6 +92,16 @@ function isEdgeCell(row: number, column: number): boolean {
   return row === 0 || column === 0 || row === GRID_SIZE - 1 || column === GRID_SIZE - 1;
 }
 
+function countFilledNeighbors(
+  grid: boolean[][],
+  row: number,
+  column: number
+): number {
+  return getNeighborCoordinates(row, column).reduce((count, neighbor) => {
+    return count + (grid[neighbor.row]![neighbor.column] ? 1 : 0);
+  }, 0);
+}
+
 function buildFrontier(grid: boolean[][], filledCells: Array<{ row: number; column: number }>) {
   const uniqueCandidates = new Map<string, { row: number; column: number }>();
 
@@ -110,21 +120,43 @@ function buildFrontier(grid: boolean[][], filledCells: Array<{ row: number; colu
 
 function pickNextCell(
   random: () => number,
+  grid: boolean[][],
   candidates: Array<{ row: number; column: number }>
 ) {
-  const scoredCandidates = candidates
-    .map((candidate) => {
-      const centerDistance = getDistanceFromCenter(candidate.row, candidate.column);
-      const edgePenalty = isEdgeCell(candidate.row, candidate.column) ? 1.25 : 0;
+  const weightedCandidates = candidates.map((candidate) => {
+    const centerDistance = getDistanceFromCenter(candidate.row, candidate.column);
+    const filledNeighborCount = countFilledNeighbors(
+      grid,
+      candidate.row,
+      candidate.column
+    );
+    const edgePenalty = isEdgeCell(candidate.row, candidate.column) ? 0.85 : 0;
+    const weight = Math.max(
+      0.2,
+      4.2 - centerDistance * 0.8 + filledNeighborCount * 0.3 - edgePenalty
+    );
 
-      return {
-        candidate,
-        score: 5 - centerDistance - edgePenalty + random() * 0.35,
-      };
-    })
-    .sort((left, right) => right.score - left.score);
+    return {
+      candidate,
+      weight,
+    };
+  });
 
-  return scoredCandidates[0]?.candidate ?? null;
+  const totalWeight = weightedCandidates.reduce((sum, entry) => sum + entry.weight, 0);
+  if (totalWeight <= 0) {
+    return weightedCandidates[0]?.candidate ?? null;
+  }
+
+  let remainingWeight = random() * totalWeight;
+
+  for (const entry of weightedCandidates) {
+    remainingWeight -= entry.weight;
+    if (remainingWeight <= 0) {
+      return entry.candidate;
+    }
+  }
+
+  return weightedCandidates[weightedCandidates.length - 1]?.candidate ?? null;
 }
 
 function buildPixelMask(random: () => number): boolean[][] {
@@ -144,7 +176,7 @@ function buildPixelMask(random: () => number): boolean[][] {
       break;
     }
 
-    const nextCell = pickNextCell(random, frontier);
+    const nextCell = pickNextCell(random, grid, frontier);
 
     if (!nextCell) {
       break;
