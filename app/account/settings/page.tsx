@@ -5,6 +5,7 @@ import { AccountSettingsShell } from "@/components/account/account-settings-shel
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
+import { getAccountIdentitySummary } from "@/lib/services/account-identity-service";
 import {
   DEFAULT_GOOGLE_CALENDAR_ID,
   MAX_GOOGLE_CALENDAR_ID_LENGTH,
@@ -50,8 +51,11 @@ export default async function AccountSettingsPage({
   const actorUserId = await requireSessionUserIdFromServer();
   const resolvedSearchParams = await searchParams;
 
-  const settingsResult = await getGoogleCalendarTargetSettings(actorUserId);
-  if (!settingsResult.ok) {
+  const [settingsResult, identity] = await Promise.all([
+    getGoogleCalendarTargetSettings(actorUserId),
+    getAccountIdentitySummary(actorUserId),
+  ]);
+  if (!settingsResult.ok || !identity) {
     notFound();
   }
 
@@ -65,6 +69,7 @@ export default async function AccountSettingsPage({
       activeTab="calendar"
       title="Google Calendar target"
       description="Choose which Google Calendar receives events created from NexusDash."
+      identity={identity}
     >
       {status && STATUS_MESSAGES[status] ? (
         <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-200">

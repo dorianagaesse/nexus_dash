@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const headersMock = vi.hoisted(() => vi.fn());
 const requireSessionUserIdFromServerMock = vi.hoisted(() => vi.fn());
 const resolveRequestOriginFromHeadersMock = vi.hoisted(() => vi.fn());
+const getAccountIdentitySummaryMock = vi.hoisted(() => vi.fn());
 
 vi.mock("next/headers", () => ({
   headers: headersMock,
@@ -18,6 +19,10 @@ vi.mock("@/lib/http/request-origin", () => ({
   resolveRequestOriginFromHeaders: resolveRequestOriginFromHeadersMock,
 }));
 
+vi.mock("@/lib/services/account-identity-service", () => ({
+  getAccountIdentitySummary: getAccountIdentitySummaryMock,
+}));
+
 import AccountDeveloperSettingsPage from "@/app/account/settings/developers/page";
 import AgentApiDocsPage from "@/app/docs/agent/v1/page";
 
@@ -28,6 +33,13 @@ describe("agent onboarding pages", () => {
     vi.clearAllMocks();
     headersMock.mockReturnValue(new Headers());
     requireSessionUserIdFromServerMock.mockResolvedValue("user-1");
+    getAccountIdentitySummaryMock.mockResolvedValue({
+      displayName: "test.user",
+      username: "test.user",
+      usernameDiscriminator: "1234",
+      usernameTag: "test.user#1234",
+      avatarSeed: "seed-123",
+    });
   });
 
   test("renders hosted docs with concrete SSR URLs", async () => {

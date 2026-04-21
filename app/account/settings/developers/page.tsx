@@ -1,20 +1,27 @@
 import { headers } from "next/headers";
+import { notFound } from "next/navigation";
 
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { AgentOnboardingGuide } from "@/components/agent-onboarding/agent-onboarding-guide";
 import { AccountSettingsShell } from "@/components/account/account-settings-shell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
+import { getAccountIdentitySummary } from "@/lib/services/account-identity-service";
 
 export default async function AccountDeveloperSettingsPage() {
-  await requireSessionUserIdFromServer();
+  const actorUserId = await requireSessionUserIdFromServer();
+  const identity = await getAccountIdentitySummary(actorUserId);
   const requestOrigin = resolveRequestOriginFromHeaders(await headers());
+  if (!identity) {
+    notFound();
+  }
 
   return (
     <AccountSettingsShell
       activeTab="developers"
       title="Developer onboarding"
       description="Use hosted docs and project-scoped credentials to connect external agents to NexusDash."
+      identity={identity}
     >
       <Card className="border-border/60 bg-background/70">
         <CardHeader>

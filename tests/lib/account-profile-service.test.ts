@@ -16,6 +16,10 @@ const sessionServiceMock = vi.hoisted(() => ({
   deleteAllOtherSessionsForUser: vi.fn(),
 }));
 
+const avatarMock = vi.hoisted(() => ({
+  generateAvatarSeed: vi.fn(),
+}));
+
 const cryptoMock = vi.hoisted(() => ({
   randomInt: vi.fn(),
 }));
@@ -37,8 +41,17 @@ vi.mock("@/lib/services/session-service", () => ({
   deleteAllOtherSessionsForUser: sessionServiceMock.deleteAllOtherSessionsForUser,
 }));
 
+vi.mock("@/lib/avatar", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/avatar")>("@/lib/avatar");
+  return {
+    ...actual,
+    generateAvatarSeed: avatarMock.generateAvatarSeed,
+  };
+});
+
 import {
   getAccountProfile,
+  regenerateAccountAvatar,
   updateAccountEmail,
   updateAccountPassword,
   updateAccountUsername,
@@ -48,6 +61,7 @@ describe("account-profile-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     cryptoMock.randomInt.mockReturnValue(1);
+    avatarMock.generateAvatarSeed.mockReturnValue("seed-generated");
   });
 
   test("returns unauthorized profile result for missing actor", async () => {
@@ -63,10 +77,12 @@ describe("account-profile-service", () => {
 
   test("returns profile summary for authenticated user", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: "user-1",
       email: "user@example.com",
       emailVerified: new Date("2026-02-27T00:00:00.000Z"),
       username: "test.user",
       usernameDiscriminator: "1234",
+      avatarSeed: "seed-123",
     });
 
     const result = await getAccountProfile("user-1");
@@ -80,16 +96,19 @@ describe("account-profile-service", () => {
         username: "test.user",
         usernameDiscriminator: "1234",
         usernameTag: "test.user#1234",
+        avatarSeed: "seed-123",
       },
     });
   });
 
   test("sanitizes legacy non-numeric discriminator in profile summary", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: "user-1",
       email: "user@example.com",
       emailVerified: new Date("2026-02-27T00:00:00.000Z"),
       username: "test.user",
       usernameDiscriminator: "abc123",
+      avatarSeed: null,
     });
 
     const result = await getAccountProfile("user-1");
@@ -103,16 +122,19 @@ describe("account-profile-service", () => {
         username: "test.user",
         usernameDiscriminator: null,
         usernameTag: null,
+        avatarSeed: "user-1",
       },
     });
   });
 
   test("returns profile with nullable identity fields for legacy users", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: "user-1",
       email: "legacy@example.com",
       emailVerified: null,
       username: null,
       usernameDiscriminator: null,
+      avatarSeed: null,
     });
 
     const result = await getAccountProfile("user-1");
@@ -126,6 +148,34 @@ describe("account-profile-service", () => {
         username: "",
         usernameDiscriminator: null,
         usernameTag: null,
+        avatarSeed: "user-1",
+      },
+    });
+  });
+
+  test("regenerates avatar seed for authenticated user", async () => {
+    prismaMock.user.update.mockResolvedValueOnce({
+      avatarSeed: "seed-generated",
+    });
+
+    const result = await regenerateAccountAvatar({
+      actorUserId: "user-1",
+    });
+
+    expect(prismaMock.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        avatarSeed: "seed-generated",
+      },
+      select: {
+        avatarSeed: true,
+      },
+    });
+    expect(result).toEqual({
+      ok: true,
+      status: 200,
+      data: {
+        avatarSeed: "seed-generated",
       },
     });
   });

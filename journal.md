@@ -12,6 +12,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-21
+- Type: Validation
+- Summary: TASK-089 local validation passed for lint, full Vitest suite, coverage, Prisma client regeneration, and production build after running the repo toolchain on Node `20.19.0`, which matches the current Prisma/Next baseline better than the workstation default Node `20.17.0`.
+- Evidence: `npm run lint`; `$env:DATABASE_URL='postgresql://user:pass@127.0.0.1:5432/postgres?sslmode=require'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres?sslmode=require'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npx -y -p node@20.19.0 node .\\node_modules\\vitest\\vitest.mjs run`; same env with `--coverage`; same env with `npx -y -p node@20.19.0 node .\\node_modules\\next\\dist\\bin\\next build`; `npx -y -p node@20.19.0 node .\\node_modules\\prisma\\build\\index.js generate`.
+
+### 2026-04-21
+- Type: Blocker
+- Summary: TASK-089 browser-based Playwright validation remains blocked in this workstation session because the local PostgreSQL fixture service expected by the authenticated app flow is unreachable, so the app cannot boot into a usable browser test target.
+- Evidence: `Test-NetConnection -ComputerName 127.0.0.1 -Port 5432` returned `TcpTestSucceeded : False`; `playwright.config.ts` expects a local app server backed by the project database.
+
+### 2026-04-21
+- Type: Execution
+- Summary: TASK-089 implemented the generated avatar baseline end to end with persisted avatar seeds, deterministic pixel-avatar rendering, account-page regeneration, and first-party rollout across the top-right account affordance plus account/settings identity surfaces.
+- Evidence: Added `avatarSeed` to `User` in `prisma/schema.prisma` plus migration `prisma/migrations/20260421103000_task089_generated_avatar_baseline/migration.sql`; added `lib/avatar.ts` and `components/ui/user-avatar.tsx`; updated account identity/profile flows in `lib/services/account-identity-service.ts`, `lib/services/account-profile-service.ts`, and `app/account/actions.ts`; updated UI consumers in `app/account/page.tsx`, `components/account-menu.tsx`, `components/top-right-controls.tsx`, `components/account/account-settings-shell.tsx`, `app/account/settings/page.tsx`, and `app/account/settings/developers/page.tsx`; added avatar coverage in `tests/lib/avatar.test.ts` and refreshed affected account/menu tests.
+
 ### 2026-04-19
 - Type: Governance
 - Summary: TASK-099 shipped to PR `#180`, initial Copilot review completed with two actionable comments, both were applied in follow-up commit `94b534a` and the review threads were replied to and resolved before handoff.

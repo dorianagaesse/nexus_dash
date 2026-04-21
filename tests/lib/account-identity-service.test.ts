@@ -33,10 +33,12 @@ describe("account-identity-service", () => {
 
   test("returns username tag when username identity is present", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: "user-1",
       name: "Test User",
       email: "user@example.com",
       username: "test.user",
       usernameDiscriminator: "1234",
+      avatarSeed: "seed-123",
     });
 
     const result = await getAccountIdentitySummary("user-1");
@@ -46,15 +48,18 @@ describe("account-identity-service", () => {
       username: "test.user",
       usernameDiscriminator: "1234",
       usernameTag: "test.user#1234",
+      avatarSeed: "seed-123",
     });
   });
 
   test("hides invalid legacy discriminator from account identity summary", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: "user-1",
       name: "Test User",
       email: "user@example.com",
       username: "test.user",
       usernameDiscriminator: "ab12cd",
+      avatarSeed: null,
     });
 
     const result = await getAccountIdentitySummary("user-1");
@@ -64,15 +69,18 @@ describe("account-identity-service", () => {
       username: "test.user",
       usernameDiscriminator: null,
       usernameTag: null,
+      avatarSeed: "user-1",
     });
   });
 
   test("falls back to name/email when username identity is not present", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: "user-1",
       name: null,
       email: "user@example.com",
       username: null,
       usernameDiscriminator: null,
+      avatarSeed: null,
     });
 
     const result = await getAccountIdentitySummary("user-1");
@@ -82,15 +90,18 @@ describe("account-identity-service", () => {
       username: null,
       usernameDiscriminator: null,
       usernameTag: null,
+      avatarSeed: "user-1",
     });
   });
 
   test("falls back to Account when email has no local-part separator", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: "user-1",
       name: null,
       email: "invalid-email-format",
       username: null,
       usernameDiscriminator: null,
+      avatarSeed: null,
     });
 
     const result = await getAccountIdentitySummary("user-1");
@@ -100,6 +111,7 @@ describe("account-identity-service", () => {
       username: null,
       usernameDiscriminator: null,
       usernameTag: null,
+      avatarSeed: "user-1",
     });
   });
 });

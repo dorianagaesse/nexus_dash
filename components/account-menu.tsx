@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { CircleUserRound, LogOut, MailPlus, Settings } from "lucide-react";
 
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { Button } from "@/components/ui/button";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 
@@ -11,6 +12,7 @@ interface AccountMenuProps {
   isAuthenticated: boolean;
   displayName: string | null;
   usernameTag: string | null;
+  avatarSeed: string | null;
   pendingInvitationCount: number;
 }
 
@@ -18,6 +20,7 @@ export function AccountMenu({
   isAuthenticated,
   displayName,
   usernameTag,
+  avatarSeed,
   pendingInvitationCount,
 }: AccountMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -37,8 +40,17 @@ export function AccountMenu({
         aria-haspopup="menu"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((previous) => !previous)}
+        className="relative overflow-hidden rounded-full p-0"
       >
-        <CircleUserRound className="h-5 w-5" />
+        {avatarSeed && displayName ? (
+          <UserAvatar
+            avatarSeed={avatarSeed}
+            displayName={displayName}
+            className="h-full w-full border-none"
+          />
+        ) : (
+          <CircleUserRound className="h-5 w-5" />
+        )}
         {pendingInvitationCount > 0 ? (
           <span
             aria-hidden="true"
@@ -50,12 +62,23 @@ export function AccountMenu({
         <div className="absolute right-0 z-30 mt-1 w-56 rounded-md border border-border/70 bg-background p-1 shadow-md">
           {displayName ? (
             <div className="border-b border-border/70 px-3 py-2">
-              <p className="truncate text-xs font-medium">Welcome {displayName}!</p>
-              {usernameTag ? (
-                <p className="truncate text-[11px] text-muted-foreground">
-                  {usernameTag}
-                </p>
-              ) : null}
+              <div className="flex items-center gap-3">
+                {avatarSeed ? (
+                  <UserAvatar
+                    avatarSeed={avatarSeed}
+                    displayName={displayName}
+                    className="h-10 w-10 border-border/80"
+                  />
+                ) : null}
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-medium">Welcome {displayName}!</p>
+                  {usernameTag ? (
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {usernameTag}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
             </div>
           ) : null}
           <Button type="button" variant="ghost" className="w-full justify-start" asChild>

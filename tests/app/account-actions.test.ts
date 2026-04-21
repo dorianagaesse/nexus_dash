@@ -5,6 +5,7 @@ const authGuardMock = vi.hoisted(() => ({
 }));
 
 const accountProfileServiceMock = vi.hoisted(() => ({
+  regenerateAccountAvatar: vi.fn(),
   updateAccountEmail: vi.fn(),
   updateAccountPassword: vi.fn(),
   updateAccountUsername: vi.fn(),
@@ -55,6 +56,7 @@ vi.mock("@/lib/observability/logger", () => ({
 }));
 
 vi.mock("@/lib/services/account-profile-service", () => ({
+  regenerateAccountAvatar: accountProfileServiceMock.regenerateAccountAvatar,
   updateAccountEmail: accountProfileServiceMock.updateAccountEmail,
   updateAccountPassword: accountProfileServiceMock.updateAccountPassword,
   updateAccountUsername: accountProfileServiceMock.updateAccountUsername,
@@ -76,6 +78,7 @@ vi.mock("@/lib/services/session-service", () => ({
 import {
   acceptProjectInvitationAction,
   declineProjectInvitationAction,
+  regenerateAccountAvatarAction,
   updateAccountEmailAction,
 } from "@/app/account/actions";
 
@@ -83,6 +86,13 @@ describe("account actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authGuardMock.requireVerifiedSessionUserIdFromServer.mockResolvedValue("user-1");
+    accountProfileServiceMock.regenerateAccountAvatar.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: {
+        avatarSeed: "seed-123",
+      },
+    });
     accountProfileServiceMock.updateAccountEmail.mockResolvedValue({
       ok: true,
       status: 200,
@@ -127,6 +137,19 @@ describe("account actions", () => {
       "NEXT_REDIRECT:/account?error=invalid-email"
     );
     expect(emailVerificationServiceMock.issueEmailVerificationForUser).not.toHaveBeenCalled();
+  });
+
+  test("regenerates avatar and redirects with success status", async () => {
+    await expect(regenerateAccountAvatarAction()).rejects.toThrow(
+      "NEXT_REDIRECT:/account?status=avatar-regenerated"
+    );
+
+    expect(accountProfileServiceMock.regenerateAccountAvatar).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/account");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/account/settings");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/projects");
   });
 
   test("redirects to verify-email with sent status when email changes successfully", async () => {

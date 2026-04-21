@@ -14,6 +14,7 @@ model User {
   passwordHash          String?
   username              String?   @db.VarChar(20)
   usernameDiscriminator String?   @db.VarChar(4)
+  avatarSeed            String?   @db.VarChar(64)
   emailVerified         DateTime?
   image                 String?
   createdAt             DateTime  @default(now())

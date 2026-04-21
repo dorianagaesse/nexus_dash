@@ -1,0 +1,2 @@
+ALTER TABLE "User"
+ADD COLUMN "avatarSeed" VARCHAR(64);

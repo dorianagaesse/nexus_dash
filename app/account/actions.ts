@@ -13,6 +13,7 @@ import {
   respondToProjectInvitation,
 } from "@/lib/services/project-collaboration-service";
 import {
+  regenerateAccountAvatar,
   updateAccountEmail,
   updateAccountPassword,
   updateAccountUsername,
@@ -90,6 +91,27 @@ export async function updateAccountUsernameAction(formData: FormData): Promise<v
   }
 
   redirectWithStatus("username-updated");
+}
+
+export async function regenerateAccountAvatarAction(): Promise<void> {
+  const actorUserId = await requireVerifiedSessionUserIdFromServer();
+
+  let result: Awaited<ReturnType<typeof regenerateAccountAvatar>>;
+  try {
+    result = await regenerateAccountAvatar({
+      actorUserId,
+    });
+  } catch (error) {
+    logServerError("regenerateAccountAvatarAction", error);
+    redirectWithError("avatar-regenerate-failed");
+  }
+
+  if (!result.ok) {
+    redirectWithError(result.error);
+  }
+
+  revalidateAccountPaths();
+  redirectWithStatus("avatar-regenerated");
 }
 
 export async function updateAccountPasswordAction(formData: FormData): Promise<void> {

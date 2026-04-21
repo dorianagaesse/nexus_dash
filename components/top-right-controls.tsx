@@ -47,6 +47,7 @@ export async function TopRightControls() {
         isAuthenticated={Boolean(actorUserId)}
         displayName={accountIdentity?.displayName ?? null}
         usernameTag={accountIdentity?.usernameTag ?? null}
+        avatarSeed={accountIdentity?.avatarSeed ?? null}
         pendingInvitationCount={pendingInvitationCount}
       />
       <ThemeToggle />
