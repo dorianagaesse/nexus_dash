@@ -41,6 +41,7 @@ import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import {
   ATTACHMENT_KIND_FILE,
@@ -676,20 +677,30 @@ function TaskReadOnlyContent({
                   key={comment.id}
                   className="rounded-xl border border-border/50 bg-background/80 px-3 py-2.5"
                 >
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <p className="text-sm font-medium">{comment.author.displayName}</p>
-                    {getCommentIdentityMeta(comment.author) ? (
-                      <p className="text-[11px] text-muted-foreground">
-                        {getCommentIdentityMeta(comment.author)}
+                  <div className="flex items-start gap-3">
+                    <UserAvatar
+                      avatarSeed={comment.author.avatarSeed}
+                      displayName={comment.author.displayName}
+                      className="mt-0.5 h-9 w-9 border-border/70"
+                      decorative
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <p className="text-sm font-medium">{comment.author.displayName}</p>
+                        {getCommentIdentityMeta(comment.author) ? (
+                          <p className="text-[11px] text-muted-foreground">
+                            {getCommentIdentityMeta(comment.author)}
+                          </p>
+                        ) : null}
+                        <p className="text-[11px] text-muted-foreground">
+                          {formatTaskCommentTimestamp(comment.createdAt)}
+                        </p>
+                      </div>
+                      <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-foreground">
+                        {comment.content}
                       </p>
-                    ) : null}
-                    <p className="text-[11px] text-muted-foreground">
-                      {formatTaskCommentTimestamp(comment.createdAt)}
-                    </p>
+                    </div>
                   </div>
-                  <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-foreground">
-                    {comment.content}
-                  </p>
                 </article>
               ))}
             </div>

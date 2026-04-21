@@ -16,6 +16,7 @@ export interface CollaboratorIdentitySummary {
   displayName: string;
   usernameTag: string | null;
   email: string | null;
+  avatarSeed: string;
 }
 
 export interface ProjectMemberSummary extends CollaboratorIdentitySummary {

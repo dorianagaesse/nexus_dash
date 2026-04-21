@@ -1,3 +1,4 @@
+import { resolveAvatarSeed } from "@/lib/avatar";
 import { logServerError } from "@/lib/observability/logger";
 import {
   requireAgentProjectScopes,
@@ -26,6 +27,7 @@ export interface TaskCommentAuthorSummary {
   id: string;
   displayName: string;
   usernameTag: string | null;
+  avatarSeed: string;
 }
 
 export interface TaskCommentSummary {
@@ -80,6 +82,7 @@ function mapTaskComment(input: {
     email: string | null;
     username: string | null;
     usernameDiscriminator: string | null;
+    avatarSeed: string | null;
   };
 }): TaskCommentSummary {
   const usernameTag = buildUsernameTag(
@@ -100,6 +103,7 @@ function mapTaskComment(input: {
       id: input.author.id,
       displayName,
       usernameTag,
+      avatarSeed: resolveAvatarSeed(input.author.avatarSeed, input.author.id),
     },
   };
 }
@@ -164,6 +168,7 @@ export async function listTaskCommentsForProject(input: {
               email: true,
               username: true,
               usernameDiscriminator: true,
+              avatarSeed: true,
             },
           },
         },
@@ -252,6 +257,7 @@ export async function createTaskCommentForProject(input: {
               email: true,
               username: true,
               usernameDiscriminator: true,
+              avatarSeed: true,
             },
           },
         },

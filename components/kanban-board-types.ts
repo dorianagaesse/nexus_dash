@@ -17,6 +17,7 @@ export interface TaskCommentAuthor {
   id: string;
   displayName: string;
   usernameTag: string | null;
+  avatarSeed: string;
 }
 
 export interface TaskComment {

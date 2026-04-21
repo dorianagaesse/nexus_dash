@@ -13,6 +13,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-04-21
+- Type: Execution
+- Summary: TASK-089 follow-up extended the generated-avatar rollout by lowering pixel density, rendering avatars in task comments, and adding avatars to the project settings contributors list while keeping the same shared avatar primitive and collaborator/comment identity contracts.
+- Evidence: Updated `lib/avatar.ts`, `lib/services/project-task-comment-service.ts`, `components/kanban/task-detail-modal.tsx`, `lib/services/project-collaboration-service.ts`, `components/project-dashboard/project-dashboard-owner-access-panel.tsx`, `components/project-dashboard/project-dashboard-owner-actions.shared.ts`, `lib/agent-onboarding.ts`, `tasks/current.md`, and related tests in `tests/api/task-comments.route.test.ts` plus `tests/components/project-dashboard-owner-access-panel.test.tsx`.
+
+### 2026-04-21
 - Type: Validation
 - Summary: TASK-089 local validation passed for lint, full Vitest suite, coverage, Prisma client regeneration, and production build after running the repo toolchain on Node `20.19.0`, which matches the current Prisma/Next baseline better than the workstation default Node `20.17.0`.
 - Evidence: `npm run lint`; `$env:DATABASE_URL='postgresql://user:pass@127.0.0.1:5432/postgres?sslmode=require'; $env:DIRECT_URL='postgresql://user:pass@127.0.0.1:5433/postgres?sslmode=require'; $env:RESEND_API_KEY='test-resend-key'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef'; npx -y -p node@20.19.0 node .\\node_modules\\vitest\\vitest.mjs run`; same env with `--coverage`; same env with `npx -y -p node@20.19.0 node .\\node_modules\\next\\dist\\bin\\next build`; `npx -y -p node@20.19.0 node .\\node_modules\\prisma\\build\\index.js generate`.

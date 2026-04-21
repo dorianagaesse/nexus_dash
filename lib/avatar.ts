@@ -60,7 +60,7 @@ function buildAvatarSvg(seed: string): string {
 
   for (let row = 0; row < GRID_SIZE; row += 1) {
     for (let column = 0; column < GRID_SIZE; column += 1) {
-      const shouldDrawPixel = random() >= 0.42;
+      const shouldDrawPixel = random() >= 0.71;
       if (!shouldDrawPixel) {
         continue;
       }

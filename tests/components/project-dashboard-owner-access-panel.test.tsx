@@ -21,6 +21,7 @@ describe("project-dashboard-owner-access-panel", () => {
               displayName: "dorianagaesse#3762",
               usernameTag: "dorianagaesse#3762",
               email: "dorian@example.com",
+              avatarSeed: "seed-owner",
               role: "owner",
               joinedAt: "2026-03-25T10:00:00.000Z",
               isOwner: true,
@@ -40,6 +41,7 @@ describe("project-dashboard-owner-access-panel", () => {
     expect(result.match(/dorianagaesse#3762/g)?.length).toBe(1);
     expect(result).not.toContain("Project owner");
     expect(result).toContain("Only you are on this project right now.");
+    expect(result).toContain("data:image/svg+xml");
   });
 
   test("renders the inline copy control for pending email invitations", () => {

@@ -75,6 +75,8 @@ surfaces without waiting for a full profile-photo management feature.
 - Apply the new avatar baseline to the first consumer surfaces:
   - top-right account icon/menu
   - account/settings identity surfaces
+  - task comments
+  - project settings contributors tab
 - Add targeted regression coverage for avatar resolution and the first UI
   consumer surfaces.
 - Update tracking docs in the same task PR.
@@ -84,7 +86,6 @@ surfaces without waiting for a full profile-photo management feature.
 - Rendering provider-supplied `user.image` through the shared avatar path.
 - Project-page collaborator presence rollout; that belongs to `TASK-119`.
 - Task-surface avatar rollout for:
-  - comments
   - assignee
   - created-by / modified-by
   Those are expected follow-ons for `TASK-101`.
@@ -94,11 +95,12 @@ surfaces without waiting for a full profile-photo management feature.
 ## Desired Follow-On Consumers
 These are not all part of `TASK-089`, but this task should make them easy:
 - After `TASK-089` + `TASK-101`, avatars should be usable in:
-  - task comments
   - assignee display
   - created-by / modified-by metadata
   - top-right account icon
   - settings/account identity surfaces
+  - task comments
+  - project settings contributors
 - Later, `TASK-119` should reuse the same avatar foundation for:
   - project-page collaborator presence and member rows
 
@@ -131,8 +133,11 @@ These are not all part of `TASK-089`, but this task should make them easy:
 - `components/top-right-controls.tsx`
 - `app/account/page.tsx`
 - `app/account/settings/**` if settings-shell identity chrome is updated
+- `components/kanban/task-detail-modal.tsx`
+- `components/project-dashboard/project-dashboard-owner-access-panel.tsx`
 - `lib/services/account-identity-service.ts`
 - `lib/services/account-profile-service.ts`
+- `lib/services/project-task-comment-service.ts`
 - `lib/services/project-collaboration-service.ts` if shared identity types are
   expanded for future reuse
 - a new shared avatar helper under `lib/**`
@@ -146,6 +151,8 @@ These are not all part of `TASK-089`, but this task should make them easy:
 - top-right account/menu avatar rendering
 - account/settings identity surfaces updated to use the generated avatar
   baseline
+- task comments and project-settings contributor rows updated to use the shared
+  avatar baseline
 - aligned tests and documentation updates
 - a dedicated task branch and PR that follow the repository shipping workflow
 
@@ -155,6 +162,8 @@ These are not all part of `TASK-089`, but this task should make them easy:
   the updated result on account-owned surfaces.
 - The top-right signed-in account affordance uses the new avatar system.
 - Account/settings identity surfaces use the new avatar system.
+- Task comments use the new avatar system.
+- Project settings contributor rows use the new avatar system.
 - The avatar baseline is implemented in a reusable way that can support
   `TASK-101` and `TASK-119` without redesigning the primitive.
 - Required tracking docs are updated consistently in the same PR.

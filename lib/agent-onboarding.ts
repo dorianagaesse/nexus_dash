@@ -1103,11 +1103,12 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
         TaskCommentAuthor: {
           type: "object",
-          required: ["id", "displayName", "usernameTag"],
+          required: ["id", "displayName", "usernameTag", "avatarSeed"],
           properties: {
             id: { type: "string" },
             displayName: { type: "string" },
             usernameTag: { type: ["string", "null"] },
+            avatarSeed: { type: "string" },
           },
         },
         TaskCommentRecord: {

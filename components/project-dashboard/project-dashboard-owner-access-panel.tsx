@@ -5,6 +5,7 @@ import { Check, Copy } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/ui/user-avatar";
 
 import {
   formatIdentity,
@@ -108,21 +109,29 @@ export function ProjectDashboardOwnerAccessPanel({
                   key={member.membershipId}
                   className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3"
                 >
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium">{member.displayName}</p>
-                      <Badge
-                        variant={member.isOwner ? "secondary" : "outline"}
-                        className="capitalize"
-                      >
-                        {member.role}
-                      </Badge>
+                  <div className="flex items-center gap-3">
+                    <UserAvatar
+                      avatarSeed={member.avatarSeed}
+                      displayName={member.displayName}
+                      className="h-10 w-10 border-border/70"
+                      decorative
+                    />
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium">{member.displayName}</p>
+                        <Badge
+                          variant={member.isOwner ? "secondary" : "outline"}
+                          className="capitalize"
+                        >
+                          {member.role}
+                        </Badge>
+                      </div>
+                      {getSecondaryIdentity(member.displayName, formatIdentity(member)) ? (
+                        <p className="text-xs text-muted-foreground">
+                          {getSecondaryIdentity(member.displayName, formatIdentity(member))}
+                        </p>
+                      ) : null}
                     </div>
-                    {getSecondaryIdentity(member.displayName, formatIdentity(member)) ? (
-                      <p className="text-xs text-muted-foreground">
-                        {getSecondaryIdentity(member.displayName, formatIdentity(member))}
-                      </p>
-                    ) : null}
                   </div>
 
                   {member.isOwner ? null : (
@@ -165,6 +174,7 @@ export function ProjectDashboardOwnerAccessPanel({
                       displayName: invitation.invitedUserDisplayName,
                       usernameTag: invitation.invitedUserUsernameTag,
                       email: invitation.invitedEmail,
+                      avatarSeed: invitation.invitedUserId ?? invitation.invitedEmail,
                     })
                   : invitation.invitedEmail;
                 const secondaryIdentity = getSecondaryIdentity(
