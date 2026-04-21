@@ -422,8 +422,8 @@ function TaskDeadlineBadge({
   );
 }
 
-function formatTaskActivityTimestamp(value: string): string {
-  return new Date(value).toLocaleString();
+function formatTaskActivityDate(value: string): string {
+  return new Date(value).toLocaleDateString();
 }
 
 function buildTaskPersonHoverLabel(person: TaskPersonSummary): string {
@@ -432,28 +432,33 @@ function buildTaskPersonHoverLabel(person: TaskPersonSummary): string {
 
 function TaskAssigneeBadge({ assignee }: { assignee: TaskPersonSummary | null }) {
   return (
-    <div
-      className="inline-flex max-w-full items-center gap-2 rounded-full border border-border/60 bg-background/85 px-2.5 py-1.5"
-      title={assignee ? buildTaskPersonHoverLabel(assignee) : "Unassigned"}
-    >
-      {assignee ? (
-        <>
-          <UserAvatar
-            avatarSeed={assignee.avatarSeed}
-            displayName={assignee.displayName}
-            className="h-7 w-7 border-border/70"
-            decorative
-          />
-          <span className="max-w-[160px] truncate text-sm font-medium text-foreground">
-            {assignee.displayName}
-          </span>
-        </>
-      ) : (
-        <>
-          <span className="inline-flex h-7 w-7 shrink-0 rounded-full border border-dashed border-border/70 bg-muted/30" />
-          <span className="text-sm text-muted-foreground">Unassigned</span>
-        </>
-      )}
+    <div className="flex flex-col gap-1 sm:items-end">
+      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        Assignee
+      </p>
+      <div
+        className="inline-flex max-w-full items-center gap-2 rounded-full border border-border/60 bg-background/85 px-2.5 py-1.5"
+        title={assignee ? buildTaskPersonHoverLabel(assignee) : "Unassigned"}
+      >
+        {assignee ? (
+          <>
+            <UserAvatar
+              avatarSeed={assignee.avatarSeed}
+              displayName={assignee.displayName}
+              className="h-7 w-7 border-border/70"
+              decorative
+            />
+            <span className="max-w-[160px] truncate text-sm font-medium text-foreground">
+              {assignee.displayName}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="inline-flex h-7 w-7 shrink-0 rounded-full border border-dashed border-border/70 bg-muted/30" />
+            <span className="text-sm text-muted-foreground">Unassigned</span>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -471,29 +476,36 @@ function TaskActivityInline({
 }) {
   if (!person) {
     return (
-      <div className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/75 px-2.5 py-1 text-xs text-muted-foreground">
-        <span>{label}</span>
-        <span>{fallback}</span>
+      <div className="grid gap-1 rounded-xl border border-border/50 bg-background/75 px-2.5 py-2">
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          {label}
+        </p>
+        <p className="text-xs text-muted-foreground">{fallback}</p>
       </div>
     );
   }
 
   return (
     <div
-      className="inline-flex min-w-0 items-center gap-2 rounded-full border border-border/50 bg-background/75 px-2.5 py-1"
+      className="grid min-w-0 gap-1 rounded-xl border border-border/50 bg-background/75 px-2.5 py-2"
       title={`${label}: ${buildTaskPersonHoverLabel(person)}`}
     >
-      <UserAvatar
-        avatarSeed={person.avatarSeed}
-        displayName={person.displayName}
-        className="h-6 w-6 border-border/70"
-        decorative
-      />
-      <span className="max-w-[110px] truncate text-xs font-medium text-foreground">
-        {person.displayName}
-      </span>
+      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        {label}
+      </p>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <UserAvatar
+          avatarSeed={person.avatarSeed}
+          displayName={person.displayName}
+          className="h-5 w-5 border-border/70"
+          decorative
+        />
+        <span className="max-w-[96px] truncate text-xs font-medium text-foreground">
+          {person.displayName}
+        </span>
+      </div>
       <span className="text-[11px] text-muted-foreground">
-        {formatTaskActivityTimestamp(timestamp)}
+        {formatTaskActivityDate(timestamp)}
       </span>
     </div>
   );
