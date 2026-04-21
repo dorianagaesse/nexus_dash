@@ -3,6 +3,7 @@ const GRID_SIZE = 5;
 const GRID_INSET = 7;
 const CELL_SIZE = 10;
 const CELL_GAP = 0;
+const GRID_CENTER_INDEX = Math.floor(GRID_SIZE / 2);
 const PIXEL_COLORS = ["#F5F7FA", "#D5DBE3", "#5D6470"] as const;
 const BACKGROUND_COLORS = [
   "#E76F51",
@@ -83,52 +84,67 @@ function getNeighborCoordinates(row: number, column: number) {
   return neighbors;
 }
 
+function getDistanceFromCenter(row: number, column: number): number {
+  return Math.abs(row - GRID_CENTER_INDEX) + Math.abs(column - GRID_CENTER_INDEX);
+}
+
+function isEdgeCell(row: number, column: number): boolean {
+  return row === 0 || column === 0 || row === GRID_SIZE - 1 || column === GRID_SIZE - 1;
+}
+
+function buildFrontier(grid: boolean[][], filledCells: Array<{ row: number; column: number }>) {
+  const uniqueCandidates = new Map<string, { row: number; column: number }>();
+
+  for (const { row, column } of filledCells) {
+    for (const neighbor of getNeighborCoordinates(row, column)) {
+      if (grid[neighbor.row]![neighbor.column]) {
+        continue;
+      }
+
+      uniqueCandidates.set(`${neighbor.row}:${neighbor.column}`, neighbor);
+    }
+  }
+
+  return Array.from(uniqueCandidates.values());
+}
+
+function pickNextCell(
+  random: () => number,
+  candidates: Array<{ row: number; column: number }>
+) {
+  const scoredCandidates = candidates
+    .map((candidate) => {
+      const centerDistance = getDistanceFromCenter(candidate.row, candidate.column);
+      const edgePenalty = isEdgeCell(candidate.row, candidate.column) ? 1.25 : 0;
+
+      return {
+        candidate,
+        score: 5 - centerDistance - edgePenalty + random() * 0.35,
+      };
+    })
+    .sort((left, right) => right.score - left.score);
+
+  return scoredCandidates[0]?.candidate ?? null;
+}
+
 function buildPixelMask(random: () => number): boolean[][] {
   const grid = createEmptyGrid();
   const filledCells: Array<{ row: number; column: number }> = [];
-  const targetPixelCount = 6 + Math.floor(random() * 3);
+  const targetPixelCount = 9 + Math.floor(random() * 3);
 
-  const startRow = Math.floor(random() * GRID_SIZE);
-  const startColumn = Math.floor(random() * GRID_SIZE);
+  const startRow = GRID_CENTER_INDEX;
+  const startColumn = GRID_CENTER_INDEX;
 
   grid[startRow]![startColumn] = true;
   filledCells.push({ row: startRow, column: startColumn });
 
   while (filledCells.length < targetPixelCount) {
-    const anchor = filledCells[Math.floor(random() * filledCells.length)];
-    if (!anchor) {
+    const frontier = buildFrontier(grid, filledCells);
+    if (frontier.length === 0) {
       break;
     }
 
-    const availableNeighbors = getNeighborCoordinates(anchor.row, anchor.column).filter(
-      ({ row, column }) => !grid[row]![column]
-    );
-
-    if (availableNeighbors.length === 0) {
-      const fallbackNeighbors = filledCells.flatMap(({ row, column }) =>
-        getNeighborCoordinates(row, column).filter(
-          (neighbor) => !grid[neighbor.row]![neighbor.column]
-        )
-      );
-
-      if (fallbackNeighbors.length === 0) {
-        break;
-      }
-
-      const fallback =
-        fallbackNeighbors[Math.floor(random() * fallbackNeighbors.length)];
-
-      if (!fallback) {
-        break;
-      }
-
-      grid[fallback.row]![fallback.column] = true;
-      filledCells.push(fallback);
-      continue;
-    }
-
-    const nextCell =
-      availableNeighbors[Math.floor(random() * availableNeighbors.length)];
+    const nextCell = pickNextCell(random, frontier);
 
     if (!nextCell) {
       break;
