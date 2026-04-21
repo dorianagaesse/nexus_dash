@@ -14,6 +14,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-04-21
 - Type: Execution
+- Summary: TASK-101 implemented first-class task ownership and provenance end to end so tasks now persist creator, updater, and optional assignee metadata and surface avatar-backed attribution across task cards, task detail, create/edit flows, comments, and task-related attachment activity.
+- Evidence: Added task ownership fields plus migration `prisma/migrations/20260421131500_task101_task_ownership_and_provenance/migration.sql`; updated `prisma/schema.prisma`, `lib/services/project-task-service.ts`, `lib/services/project-service.ts`, `lib/services/project-task-comment-service.ts`, `lib/services/project-attachment-service.ts`, `app/api/projects/[projectId]/tasks/route.ts`, `app/projects/[projectId]/kanban-board-section.tsx`, `components/kanban-board.tsx`, `components/kanban/task-detail-modal.tsx`, `components/kanban/kanban-columns-grid.tsx`, `components/create-task-dialog.tsx`, `components/kanban-board-types.ts`, `lib/agent-onboarding.ts`, and related API/service tests.
+
+### 2026-04-21
+- Type: Validation
+- Summary: TASK-101 local validation passed for lint, targeted regressions, full Vitest suite, coverage, and production build after regenerating Prisma client artifacts with a Node `20.19.0` runtime compatible with the current Prisma `7.7` toolchain.
+- Evidence: `npm run lint`; `npx vitest run tests/lib/project-attachment-service.test.ts tests/api/task-create.route.test.ts tests/api/task-comments.route.test.ts tests/api/task-update.route.test.ts tests/api/tasks-reorder.route.test.ts tests/api/agent-project-routes.test.ts tests/lib/project-service.test.ts`; `$env:DATABASE_URL='postgresql://localhost:5432/postgres'; $env:DIRECT_URL='postgresql://localhost:5432/postgres'; npx -y -p node@20.19.0 node .\\node_modules\\vitest\\vitest.mjs run`; same env with `--coverage`; `npx -y -p node@20.19.0 node .\\node_modules\\prisma\\build\\index.js generate`; `$env:DATABASE_URL='postgresql://localhost:5432/postgres'; $env:DIRECT_URL='postgresql://localhost:5433/postgres'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'; npm run build`.
+
+### 2026-04-21
+- Type: Blocker
+- Summary: TASK-101 local Playwright validation is blocked before browser interaction because Playwright boots against the shared `.env` database, and that database has not yet had the TASK-101 ownership/provenance migration applied.
+- Evidence: `$env:DATABASE_URL='postgresql://localhost:5432/postgres'; $env:DIRECT_URL='postgresql://localhost:5433/postgres'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; npx -y -p node@20.19.0 node .\\node_modules\\playwright\\cli.js test` failed during seed user creation in `tests/e2e/helpers/auth-helpers.ts` / `tests/e2e/password-recovery.spec.ts` with `PrismaClientKnownRequestError` before UI flow execution; the controlled preview deployment workflow applies migrations and is the safe place to complete browser verification.
+
+### 2026-04-21
+- Type: Execution
 - Summary: TASK-089 follow-up extended the generated-avatar rollout by lowering pixel density, rendering avatars in task comments, and adding avatars to the project settings contributors list while keeping the same shared avatar primitive and collaborator/comment identity contracts.
 - Evidence: Updated `lib/avatar.ts`, `lib/services/project-task-comment-service.ts`, `components/kanban/task-detail-modal.tsx`, `lib/services/project-collaboration-service.ts`, `components/project-dashboard/project-dashboard-owner-access-panel.tsx`, `components/project-dashboard/project-dashboard-owner-actions.shared.ts`, `lib/agent-onboarding.ts`, `tasks/current.md`, and related tests in `tests/api/task-comments.route.test.ts` plus `tests/components/project-dashboard-owner-access-panel.test.tsx`.
 

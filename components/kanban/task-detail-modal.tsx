@@ -21,6 +21,8 @@ import {
   type KanbanTask,
   type TaskComment,
   type PendingAttachmentUpload,
+  type ProjectTaskCollaborator,
+  type TaskPersonSummary,
   type TaskAttachment,
 } from "@/components/kanban-board-types";
 import {
@@ -69,6 +71,7 @@ interface TaskDetailModalProps {
   editLabelSuggestions: string[];
   editDescription: string;
   editDeadlineDate: string;
+  editAssigneeUserId: string;
   editRelatedTasks: KanbanTask["relatedTasks"];
   relatedTaskSearch: string;
   newBlockedFollowUpEntry: string;
@@ -98,9 +101,11 @@ interface TaskDetailModalProps {
   onRemoveEditLabel: (label: string) => void;
   onEditDescriptionChange: (value: string) => void;
   onEditDeadlineDateChange: (value: string) => void;
+  onEditAssigneeUserIdChange: (value: string) => void;
   onRelatedTaskSearchChange: (value: string) => void;
   onAddRelatedTask: (taskId: string) => void;
   onRemoveRelatedTask: (taskId: string) => void;
+  availableAssignees: ProjectTaskCollaborator[];
   availableRelatedTaskOptions: RelatedTaskOption[];
   onOpenRelatedTask: (taskId: string) => void;
   onNewBlockedFollowUpEntryChange: (value: string) => void;
@@ -131,6 +136,7 @@ export function TaskDetailModal({
   editLabelSuggestions,
   editDescription,
   editDeadlineDate,
+  editAssigneeUserId,
   editRelatedTasks,
   relatedTaskSearch,
   newBlockedFollowUpEntry,
@@ -160,9 +166,11 @@ export function TaskDetailModal({
   onRemoveEditLabel,
   onEditDescriptionChange,
   onEditDeadlineDateChange,
+  onEditAssigneeUserIdChange,
   onRelatedTaskSearchChange,
   onAddRelatedTask,
   onRemoveRelatedTask,
+  availableAssignees,
   availableRelatedTaskOptions,
   onOpenRelatedTask,
   onNewBlockedFollowUpEntryChange,
@@ -287,6 +295,7 @@ export function TaskDetailModal({
                   editLabelSuggestions={editLabelSuggestions}
                   editDescription={editDescription}
                   editDeadlineDate={editDeadlineDate}
+                  editAssigneeUserId={editAssigneeUserId}
                   editRelatedTasks={editRelatedTasks}
                   relatedTaskSearch={relatedTaskSearch}
                   newBlockedFollowUpEntry={newBlockedFollowUpEntry}
@@ -304,9 +313,11 @@ export function TaskDetailModal({
                   onRemoveEditLabel={onRemoveEditLabel}
                   onEditDescriptionChange={onEditDescriptionChange}
                   onEditDeadlineDateChange={onEditDeadlineDateChange}
+                  onEditAssigneeUserIdChange={onEditAssigneeUserIdChange}
                   onRelatedTaskSearchChange={onRelatedTaskSearchChange}
                   onAddRelatedTask={onAddRelatedTask}
                   onRemoveRelatedTask={onRemoveRelatedTask}
+                  availableAssignees={availableAssignees}
                   availableRelatedTaskOptions={availableRelatedTaskOptions}
                   onNewBlockedFollowUpEntryChange={onNewBlockedFollowUpEntryChange}
                   onAddBlockedFollowUpEntry={onAddBlockedFollowUpEntry}
@@ -403,6 +414,67 @@ function TaskDeadlineBadge({
       {relativeLabel ? (
         <span className="hidden sm:inline">- {relativeLabel}</span>
       ) : null}
+    </div>
+  );
+}
+
+function formatTaskActivityTimestamp(value: string): string {
+  return new Date(value).toLocaleString();
+}
+
+function getTaskPersonMeta(person: TaskPersonSummary): string | null {
+  if (!person.usernameTag || person.usernameTag === person.displayName) {
+    return null;
+  }
+
+  return person.usernameTag;
+}
+
+function TaskIdentityRow({
+  label,
+  person,
+  fallback,
+  timestamp,
+}: {
+  label: string;
+  person: TaskPersonSummary | null;
+  fallback: string;
+  timestamp?: string;
+}) {
+  return (
+    <div className="grid gap-2 rounded-xl border border-border/60 bg-background/70 px-3 py-2.5">
+      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        {label}
+      </p>
+      {person ? (
+        <div className="flex items-center gap-3">
+          <UserAvatar
+            avatarSeed={person.avatarSeed}
+            displayName={person.displayName}
+            className="h-9 w-9 border-border/70"
+            decorative
+          />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-foreground">
+              {person.displayName}
+            </p>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              {getTaskPersonMeta(person) ? (
+                <p className="text-[11px] text-muted-foreground">
+                  {getTaskPersonMeta(person)}
+                </p>
+              ) : null}
+              {timestamp ? (
+                <p className="text-[11px] text-muted-foreground">
+                  {formatTaskActivityTimestamp(timestamp)}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">{fallback}</p>
+      )}
     </div>
   );
 }
@@ -644,6 +716,25 @@ function TaskReadOnlyContent({
           )}
         </div>
       ) : null}
+      <section className="grid gap-2 sm:grid-cols-3">
+        <TaskIdentityRow
+          label="Assignee"
+          person={selectedTask.assignee}
+          fallback="Unassigned"
+        />
+        <TaskIdentityRow
+          label="Created by"
+          person={selectedTask.createdBy}
+          fallback="Unknown creator"
+          timestamp={selectedTask.createdAt}
+        />
+        <TaskIdentityRow
+          label="Last updated by"
+          person={selectedTask.updatedBy}
+          fallback="Unknown collaborator"
+          timestamp={selectedTask.updatedAt}
+        />
+      </section>
       <RichTextContent
         html={selectedTask.description}
         emptyContentHtml="<p>No description provided.</p>"
@@ -821,6 +912,7 @@ interface TaskEditContentProps {
   editLabelSuggestions: string[];
   editDescription: string;
   editDeadlineDate: string;
+  editAssigneeUserId: string;
   editRelatedTasks: KanbanTask["relatedTasks"];
   relatedTaskSearch: string;
   newBlockedFollowUpEntry: string;
@@ -838,9 +930,11 @@ interface TaskEditContentProps {
   onRemoveEditLabel: (label: string) => void;
   onEditDescriptionChange: (value: string) => void;
   onEditDeadlineDateChange: (value: string) => void;
+  onEditAssigneeUserIdChange: (value: string) => void;
   onRelatedTaskSearchChange: (value: string) => void;
   onAddRelatedTask: (taskId: string) => void;
   onRemoveRelatedTask: (taskId: string) => void;
+  availableAssignees: ProjectTaskCollaborator[];
   availableRelatedTaskOptions: RelatedTaskOption[];
   onNewBlockedFollowUpEntryChange: (value: string) => void;
   onAddBlockedFollowUpEntry: () => void | Promise<void>;
@@ -861,6 +955,7 @@ function TaskEditContent({
   editLabelSuggestions,
   editDescription,
   editDeadlineDate,
+  editAssigneeUserId,
   editRelatedTasks,
   relatedTaskSearch,
   newBlockedFollowUpEntry,
@@ -878,9 +973,11 @@ function TaskEditContent({
   onRemoveEditLabel,
   onEditDescriptionChange,
   onEditDeadlineDateChange,
+  onEditAssigneeUserIdChange,
   onRelatedTaskSearchChange,
   onAddRelatedTask,
   onRemoveRelatedTask,
+  availableAssignees,
   availableRelatedTaskOptions,
   onNewBlockedFollowUpEntryChange,
   onAddBlockedFollowUpEntry,
@@ -975,6 +1072,29 @@ function TaskEditContent({
           onChange={onEditDeadlineDateChange}
           disabled={isUpdatingTask}
         />
+
+        <div className="grid gap-2">
+          <label htmlFor="task-edit-assignee" className="text-sm font-medium">
+            Assignee
+          </label>
+          <select
+            id="task-edit-assignee"
+            value={editAssigneeUserId}
+            onChange={(event) => onEditAssigneeUserIdChange(event.target.value)}
+            disabled={isUpdatingTask}
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="">Unassigned</option>
+            {availableAssignees.map((assignee) => (
+              <option key={assignee.id} value={assignee.id}>
+                {assignee.usernameTag &&
+                assignee.usernameTag !== assignee.displayName
+                  ? `${assignee.displayName} (${assignee.usernameTag})`
+                  : assignee.displayName}
+              </option>
+            ))}
+          </select>
+        </div>
 
         {selectedTask.status === "Blocked" ? (
           <div className="grid gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">

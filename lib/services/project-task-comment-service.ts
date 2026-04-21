@@ -5,7 +5,7 @@ import {
   requireProjectRole,
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
-import { withActorRlsContext } from "@/lib/services/rls-context";
+import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 import { validateUsernameDiscriminator } from "@/lib/services/account-security-policy";
 
 const MAX_TASK_COMMENT_LENGTH = 4000;
@@ -106,6 +106,22 @@ function mapTaskComment(input: {
       avatarSeed: resolveAvatarSeed(input.author.avatarSeed, input.author.id),
     },
   };
+}
+
+async function touchTaskActivity(
+  db: DbClient,
+  taskId: string,
+  actorUserId: string
+) {
+  await db.task.update({
+    where: { id: taskId },
+    data: {
+      updatedByUserId: actorUserId,
+    },
+    select: {
+      id: true,
+    },
+  });
 }
 
 export async function listTaskCommentsForProject(input: {
@@ -240,27 +256,33 @@ export async function createTaskCommentForProject(input: {
     }
 
     try {
-      const comment = await db.taskComment.create({
-        data: {
-          taskId: input.taskId,
-          authorUserId: actorUserId,
-          content,
-        },
-        select: {
-          id: true,
-          content: true,
-          createdAt: true,
-          author: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              username: true,
-              usernameDiscriminator: true,
-              avatarSeed: true,
+      const comment = await db.$transaction(async (tx) => {
+        const createdComment = await tx.taskComment.create({
+          data: {
+            taskId: input.taskId,
+            authorUserId: actorUserId,
+            content,
+          },
+          select: {
+            id: true,
+            content: true,
+            createdAt: true,
+            author: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                username: true,
+                usernameDiscriminator: true,
+                avatarSeed: true,
+              },
             },
           },
-        },
+        });
+
+        await touchTaskActivity(tx, input.taskId, actorUserId);
+
+        return createdComment;
       });
 
       return {

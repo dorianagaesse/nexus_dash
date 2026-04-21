@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { resolveAvatarSeed } from "@/lib/avatar";
 import {
   getAgentProjectAccessContext,
   requireApiPrincipal,
@@ -9,6 +10,7 @@ import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-ser
 import { listProjectKanbanTasks } from "@/lib/services/project-service";
 import { createTaskForProject } from "@/lib/services/project-task-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
+import { validateUsernameDiscriminator } from "@/lib/services/account-security-policy";
 import { formatTaskDeadlineDate } from "@/lib/task-deadline";
 
 const ATTACHMENT_FILES_FIELD = "attachmentFiles";
@@ -18,6 +20,7 @@ interface TaskCreateJsonRequestBody {
   title?: unknown;
   description?: unknown;
   deadlineDate?: unknown;
+  assigneeUserId?: unknown;
   labels?: unknown;
   relatedTaskIds?: unknown;
   attachmentLinks?: unknown;
@@ -77,6 +80,35 @@ function mapRelatedTasks(task: {
   ].sort((left, right) => left.title.localeCompare(right.title));
 }
 
+function mapTaskPerson(person: {
+  id: string;
+  name: string | null;
+  email: string | null;
+  username: string | null;
+  usernameDiscriminator: string | null;
+  avatarSeed: string | null;
+} | null) {
+  if (!person) {
+    return null;
+  }
+
+  return {
+    id: person.id,
+    displayName:
+      person.username ??
+      person.name ??
+      person.email?.split("@", 1)[0] ??
+      "Account",
+    usernameTag:
+      person.username &&
+      person.usernameDiscriminator &&
+      validateUsernameDiscriminator(person.usernameDiscriminator)
+        ? `${person.username}#${person.usernameDiscriminator}`
+        : null,
+    avatarSeed: resolveAvatarSeed(person.avatarSeed, person.id),
+  };
+}
+
 export async function GET(request: NextRequest, props: { params: Promise<{ projectId: string }> }) {
   const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
@@ -119,6 +151,9 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
       labelsJson: task.labelsJson,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
+      assignee: mapTaskPerson(task.assigneeUser),
+      createdBy: mapTaskPerson(task.createdByUser),
+      updatedBy: mapTaskPerson(task.updatedByUser),
       attachments: task.attachments.map((attachment: TaskAttachment) =>
         mapTaskAttachmentResponse(params.projectId, task.id, attachment)
       ),
@@ -144,6 +179,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
   let title = "";
   let description = "";
   let deadlineDate = "";
+  let assigneeUserId: string | null = null;
   let labelsJsonRaw = "";
   let relatedTaskIdsJsonRaw = "";
   let attachmentLinksJsonRaw = "";
@@ -174,6 +210,17 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     }
     deadlineDate =
       typeof payload.deadlineDate === "string" ? payload.deadlineDate.trim() : "";
+    if (
+      payload.assigneeUserId !== undefined &&
+      payload.assigneeUserId !== null &&
+      typeof payload.assigneeUserId !== "string"
+    ) {
+      return NextResponse.json({ error: "assignee-invalid" }, { status: 400 });
+    }
+    assigneeUserId =
+      typeof payload.assigneeUserId === "string"
+        ? payload.assigneeUserId.trim() || null
+        : null;
     labelsJsonRaw = serializeJsonField(payload.labels);
     relatedTaskIdsJsonRaw = serializeJsonField(payload.relatedTaskIds);
     attachmentLinksJsonRaw = serializeJsonField(payload.attachmentLinks);
@@ -193,6 +240,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     title = readText(formData, "title");
     description = readText(formData, "description");
     deadlineDate = readText(formData, "deadlineDate");
+    assigneeUserId = readText(formData, "assigneeUserId") || null;
     labelsJsonRaw = readText(formData, "labels");
     relatedTaskIdsJsonRaw = readText(formData, "relatedTaskIds");
     attachmentLinksJsonRaw = readText(formData, "attachmentLinks");
@@ -212,6 +260,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     title,
     description,
     deadlineDate,
+    assigneeUserId,
     labelsJsonRaw,
     relatedTaskIdsJsonRaw,
     attachmentLinksJsonRaw,

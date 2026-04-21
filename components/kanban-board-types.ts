@@ -1,5 +1,12 @@
 import type { TaskStatus } from "@/lib/task-status";
 
+export interface TaskPersonSummary {
+  id: string;
+  displayName: string;
+  usernameTag: string | null;
+  avatarSeed: string;
+}
+
 export interface TaskBlockedFollowUp {
   id: string;
   content: string;
@@ -13,12 +20,7 @@ export interface TaskRelatedSummary {
   archivedAt: string | null;
 }
 
-export interface TaskCommentAuthor {
-  id: string;
-  displayName: string;
-  usernameTag: string | null;
-  avatarSeed: string;
-}
+export type TaskCommentAuthor = TaskPersonSummary;
 
 export interface TaskComment {
   id: string;
@@ -49,6 +51,11 @@ export interface KanbanTask {
   archivedAt: string | null;
   attachments: TaskAttachment[];
   relatedTasks: TaskRelatedSummary[];
+  assignee: TaskPersonSummary | null;
+  createdBy: TaskPersonSummary;
+  updatedBy: TaskPersonSummary;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PendingAttachmentUpload {
@@ -56,3 +63,5 @@ export interface PendingAttachmentUpload {
   name: string;
   sizeBytes: number;
 }
+
+export type ProjectTaskCollaborator = TaskPersonSummary;

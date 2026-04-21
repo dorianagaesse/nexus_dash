@@ -52,6 +52,23 @@ vi.mock("@/lib/services/context-card-service", () => ({
   createContextCardForProject: contextCardServiceMock.createContextCardForProject,
 }));
 
+vi.mock("@/lib/services/project-attachment-service", () => ({
+  mapTaskAttachmentResponse: vi.fn((projectId: string, taskId: string, attachment: Record<string, unknown>) => ({
+    ...attachment,
+    downloadUrl:
+      attachment.kind === "file"
+        ? `/api/projects/${projectId}/tasks/${taskId}/attachments/${attachment.id}/download`
+        : null,
+  })),
+  mapContextAttachmentResponse: vi.fn((projectId: string, cardId: string, attachment: Record<string, unknown>) => ({
+    ...attachment,
+    downloadUrl:
+      attachment.kind === "file"
+        ? `/api/projects/${projectId}/context-cards/${cardId}/attachments/${attachment.id}/download`
+        : null,
+  })),
+}));
+
 import { GET as getProject } from "@/app/api/projects/[projectId]/route";
 import { GET as getTasks } from "@/app/api/projects/[projectId]/tasks/route";
 import { GET as getContextCards } from "@/app/api/projects/[projectId]/context-cards/route";
@@ -176,6 +193,30 @@ describe("agent project routes", () => {
         labelsJson: '["docs"]',
         createdAt: "2026-04-03T09:00:00.000Z",
         updatedAt: "2026-04-03T10:00:00.000Z",
+        createdByUser: {
+          id: "user-1",
+          name: "Alice Example",
+          email: "alice@example.com",
+          username: "alice",
+          usernameDiscriminator: "1234",
+          avatarSeed: null,
+        },
+        updatedByUser: {
+          id: "user-2",
+          name: null,
+          email: "bob@example.com",
+          username: "bob",
+          usernameDiscriminator: "4321",
+          avatarSeed: "seed-bob",
+        },
+        assigneeUser: {
+          id: "user-3",
+          name: "Casey Example",
+          email: "casey@example.com",
+          username: null,
+          usernameDiscriminator: null,
+          avatarSeed: null,
+        },
         attachments: [
           {
             id: "att-1",
@@ -215,6 +256,24 @@ describe("agent project routes", () => {
           labelsJson: '["docs"]',
           createdAt: "2026-04-03T09:00:00.000Z",
           updatedAt: "2026-04-03T10:00:00.000Z",
+          createdBy: {
+            id: "user-1",
+            displayName: "alice",
+            usernameTag: "alice#1234",
+            avatarSeed: "user-1",
+          },
+          updatedBy: {
+            id: "user-2",
+            displayName: "bob",
+            usernameTag: "bob#4321",
+            avatarSeed: "seed-bob",
+          },
+          assignee: {
+            id: "user-3",
+            displayName: "Casey Example",
+            usernameTag: null,
+            avatarSeed: "user-3",
+          },
           attachments: [
             {
               id: "att-1",

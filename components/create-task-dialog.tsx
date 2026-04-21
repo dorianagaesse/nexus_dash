@@ -7,7 +7,10 @@ import { useRouter } from "next/navigation";
 
 import { TaskDeadlineField } from "@/components/kanban/task-deadline-field";
 import { RelatedTaskSelector, type RelatedTaskOption } from "@/components/kanban/related-task-field";
-import type { TaskRelatedSummary } from "@/components/kanban-board-types";
+import type {
+  ProjectTaskCollaborator,
+  TaskRelatedSummary,
+} from "@/components/kanban-board-types";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { useToast } from "@/components/toast-provider";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
@@ -32,6 +35,7 @@ interface CreateTaskDialogProps {
   storageProvider: "local" | "r2";
   existingLabels: string[];
   availableTasks: RelatedTaskOption[];
+  availableAssignees: ProjectTaskCollaborator[];
 }
 
 interface PendingAttachmentLink {
@@ -48,6 +52,7 @@ export function CreateTaskDialog({
   storageProvider,
   existingLabels,
   availableTasks,
+  availableAssignees,
 }: CreateTaskDialogProps) {
   const isMountedRef = useRef(true);
   const router = useRouter();
@@ -55,6 +60,7 @@ export function CreateTaskDialog({
   const [isOpen, setIsOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [deadlineDate, setDeadlineDate] = useState("");
+  const [assigneeUserId, setAssigneeUserId] = useState("");
   const [labels, setLabels] = useState<string[]>([]);
   const [labelInput, setLabelInput] = useState("");
   const [relatedTaskSearch, setRelatedTaskSearch] = useState("");
@@ -88,6 +94,7 @@ export function CreateTaskDialog({
   const resetDraft = () => {
     setDescription("");
     setDeadlineDate("");
+    setAssigneeUserId("");
     setLabels([]);
     setLabelInput("");
     setRelatedTaskSearch("");
@@ -120,6 +127,8 @@ export function CreateTaskDialog({
         return "One or more attachment links are invalid. Use http:// or https:// URLs.";
       case "deadline-invalid":
         return "Deadline must use a valid date.";
+      case "assignee-invalid":
+        return "Assignee must be a current collaborator on this project.";
       case "attachment-file-too-large":
         return attachmentFileSizeErrorMessage;
       case "attachment-file-type-invalid":
@@ -465,6 +474,32 @@ export function CreateTaskDialog({
                         disabled={isSubmitting}
                         helperText="Optional. Near deadlines are highlighted automatically on the board."
                       />
+
+                      <div className="grid gap-2">
+                        <label htmlFor="task-assignee" className="text-sm font-medium">
+                          Assignee
+                        </label>
+                        <select
+                          id="task-assignee"
+                          name="assigneeUserId"
+                          value={assigneeUserId}
+                          onChange={(event) => setAssigneeUserId(event.target.value)}
+                          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                        >
+                          <option value="">Unassigned</option>
+                          {availableAssignees.map((assignee) => (
+                            <option key={assignee.id} value={assignee.id}>
+                              {assignee.usernameTag &&
+                              assignee.usernameTag !== assignee.displayName
+                                ? `${assignee.displayName} (${assignee.usernameTag})`
+                                : assignee.displayName}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-muted-foreground">
+                          Optional. Leave unassigned until ownership is clear.
+                        </p>
+                      </div>
 
                       <div className="grid gap-2">
                         <label className="text-sm font-medium">Related tasks</label>

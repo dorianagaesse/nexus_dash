@@ -41,6 +41,7 @@ import {
   createProject,
   getProjectDashboardById,
   getProjectSummaryById,
+  listProjectCollaborators,
   listProjectsWithCounts,
   listProjectContextResources,
   listProjectKanbanTasks,
@@ -280,6 +281,124 @@ describe("project-service", () => {
                 title: true,
                 status: true,
                 archivedAt: true,
+              },
+            },
+          },
+        },
+        createdByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+            usernameDiscriminator: true,
+            avatarSeed: true,
+          },
+        },
+        updatedByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+            usernameDiscriminator: true,
+            avatarSeed: true,
+          },
+        },
+        assigneeUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+            usernameDiscriminator: true,
+            avatarSeed: true,
+          },
+        },
+      },
+    });
+  });
+
+  test("lists project collaborators with owner included once", async () => {
+    prismaMock.project.findFirst.mockResolvedValueOnce({
+      owner: {
+        id: "user-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "1111",
+        avatarSeed: null,
+      },
+      memberships: [
+        {
+          user: {
+            id: "user-1",
+            name: "Owner Duplicate",
+            email: "owner@example.com",
+            username: "owner",
+            usernameDiscriminator: "1111",
+            avatarSeed: null,
+          },
+        },
+        {
+          user: {
+            id: "user-2",
+            name: "Editor",
+            email: "editor@example.com",
+            username: null,
+            usernameDiscriminator: null,
+            avatarSeed: "seed-editor",
+          },
+        },
+      ],
+    });
+
+    const result = await listProjectCollaborators("project-1", actorUserId);
+
+    expect(result).toEqual([
+      {
+        id: "user-1",
+        displayName: "owner",
+        usernameTag: "owner#1111",
+        avatarSeed: "user-1",
+      },
+      {
+        id: "user-2",
+        displayName: "Editor",
+        usernameTag: null,
+        avatarSeed: "seed-editor",
+      },
+    ]);
+    expect(prismaMock.project.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "project-1",
+        OR: [
+          { ownerId: actorUserId },
+          { memberships: { some: { userId: actorUserId } } },
+        ],
+      },
+      select: {
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+            usernameDiscriminator: true,
+            avatarSeed: true,
+          },
+        },
+        memberships: {
+          orderBy: [{ createdAt: "asc" }],
+          select: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                username: true,
+                usernameDiscriminator: true,
+                avatarSeed: true,
               },
             },
           },

@@ -9,6 +9,7 @@ import { Archive, Clock3, GripVertical, Link2, MessageSquare, Paperclip, Triangl
 import type { KanbanTask } from "@/components/kanban-board-types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   buildDragStyle,
   getDescriptionPreview,
@@ -275,6 +276,18 @@ function KanbanColumn({
                         <p className="break-words text-xs text-muted-foreground">
                           {getDescriptionPreview(task.description)}
                         </p>
+                      ) : null}
+
+                      {task.assignee ? (
+                        <div className="mt-3 flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-2 py-1 text-xs text-muted-foreground">
+                          <UserAvatar
+                            avatarSeed={task.assignee.avatarSeed}
+                            displayName={task.assignee.displayName}
+                            className="h-5 w-5 border-border/70"
+                            decorative
+                          />
+                          <span className="truncate">{task.assignee.displayName}</span>
+                        </div>
                       ) : null}
 
                       {task.labels.length > 0 ? (

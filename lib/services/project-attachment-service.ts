@@ -210,6 +210,22 @@ export function mapTaskAttachmentResponse(
   };
 }
 
+async function touchTaskActivity(
+  db: DbClient,
+  taskId: string,
+  actorUserId: string
+) {
+  await db.task.update({
+    where: { id: taskId },
+    data: {
+      updatedByUserId: actorUserId,
+    },
+    select: {
+      id: true,
+    },
+  });
+}
+
 export function mapContextAttachmentResponse(
   projectId: string,
   cardId: string,
@@ -405,22 +421,28 @@ export async function createTaskAttachmentFromForm(input: {
       }
 
       try {
-        const attachment = await db.taskAttachment.create({
-          data: {
-            taskId: input.taskId,
-            uploadedByUserId: actorUserId,
-            kind: ATTACHMENT_KIND_LINK,
-            name: providedName || new URL(normalizedUrl).hostname,
-            url: normalizedUrl,
-          },
-          select: {
-            id: true,
-            kind: true,
-            name: true,
-            url: true,
-            mimeType: true,
-            sizeBytes: true,
-          },
+        const attachment = await db.$transaction(async (tx) => {
+          const createdAttachment = await tx.taskAttachment.create({
+            data: {
+              taskId: input.taskId,
+              uploadedByUserId: actorUserId,
+              kind: ATTACHMENT_KIND_LINK,
+              name: providedName || new URL(normalizedUrl).hostname,
+              url: normalizedUrl,
+            },
+            select: {
+              id: true,
+              kind: true,
+              name: true,
+              url: true,
+              mimeType: true,
+              sizeBytes: true,
+            },
+          });
+
+          await touchTaskActivity(tx, input.taskId, actorUserId);
+
+          return createdAttachment;
         });
 
         return {
@@ -475,24 +497,30 @@ export async function createTaskAttachmentFromForm(input: {
         resolveAttachmentMimeType(storedFile.mimeType, storedFile.originalName) ??
         resolvedFormMimeType;
 
-      const attachment = await db.taskAttachment.create({
-        data: {
-          taskId: input.taskId,
-          uploadedByUserId: actorUserId,
-          kind: ATTACHMENT_KIND_FILE,
-          name: providedName || storedFile.originalName,
-          storageKey: storedFile.storageKey,
-          mimeType: resolvedStoredMimeType,
-          sizeBytes: storedFile.sizeBytes,
-        },
-        select: {
-          id: true,
-          kind: true,
-          name: true,
-          url: true,
-          mimeType: true,
-          sizeBytes: true,
-        },
+      const attachment = await db.$transaction(async (tx) => {
+        const createdAttachment = await tx.taskAttachment.create({
+          data: {
+            taskId: input.taskId,
+            uploadedByUserId: actorUserId,
+            kind: ATTACHMENT_KIND_FILE,
+            name: providedName || storedFile.originalName,
+            storageKey: storedFile.storageKey,
+            mimeType: resolvedStoredMimeType,
+            sizeBytes: storedFile.sizeBytes,
+          },
+          select: {
+            id: true,
+            kind: true,
+            name: true,
+            url: true,
+            mimeType: true,
+            sizeBytes: true,
+          },
+        });
+
+        await touchTaskActivity(tx, input.taskId, actorUserId);
+
+        return createdAttachment;
       });
 
       return {
@@ -867,24 +895,30 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
         );
       }
 
-      const attachment = await db.taskAttachment.create({
-        data: {
-          taskId: input.taskId,
-          uploadedByUserId: actorUserId,
-          kind: ATTACHMENT_KIND_FILE,
-          name: normalizedUpload.data.name,
-          storageKey: normalizedStorageKey,
-          mimeType: resolvedMimeType,
-          sizeBytes: resolvedSizeBytes,
-        },
-        select: {
-          id: true,
-          kind: true,
-          name: true,
-          url: true,
-          mimeType: true,
-          sizeBytes: true,
-        },
+      const attachment = await db.$transaction(async (tx) => {
+        const createdAttachment = await tx.taskAttachment.create({
+          data: {
+            taskId: input.taskId,
+            uploadedByUserId: actorUserId,
+            kind: ATTACHMENT_KIND_FILE,
+            name: normalizedUpload.data.name,
+            storageKey: normalizedStorageKey,
+            mimeType: resolvedMimeType,
+            sizeBytes: resolvedSizeBytes,
+          },
+          select: {
+            id: true,
+            kind: true,
+            name: true,
+            url: true,
+            mimeType: true,
+            sizeBytes: true,
+          },
+        });
+
+        await touchTaskActivity(tx, input.taskId, actorUserId);
+
+        return createdAttachment;
       });
 
       return {
@@ -1351,8 +1385,12 @@ export async function deleteTaskAttachmentForProject(input: {
         return createError(404, "Attachment not found");
       }
 
-      await db.taskAttachment.delete({
-        where: { id: attachment.id },
+      await db.$transaction(async (tx) => {
+        await tx.taskAttachment.delete({
+          where: { id: attachment.id },
+        });
+
+        await touchTaskActivity(tx, input.taskId, actorUserId);
       });
 
       if (attachment.kind === ATTACHMENT_KIND_FILE && attachment.storageKey) {
