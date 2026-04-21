@@ -21,6 +21,16 @@ describe("avatar helpers", () => {
     expect(first).not.toBe(second);
   });
 
+  test("does not embed the raw seed in the generated svg metadata", () => {
+    const encodedUri = buildGeneratedAvatarDataUri("seed-123");
+    const svg = decodeURIComponent(
+      encodedUri.replace("data:image/svg+xml;charset=UTF-8,", "")
+    );
+
+    expect(svg).toContain("Generated avatar");
+    expect(svg).not.toContain("seed-123");
+  });
+
   test("resolves avatar seed from stored seed or stable fallback key", () => {
     expect(resolveAvatarSeed(" custom-seed ", "user-1")).toBe("custom-seed");
     expect(resolveAvatarSeed(null, "user-1")).toBe("user-1");

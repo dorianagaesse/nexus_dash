@@ -77,7 +77,7 @@ function buildAvatarSvg(seed: string): string {
     }
   }
 
-  const title = escapeSvgAttribute(`Generated avatar ${normalizedSeed}`);
+  const title = escapeSvgAttribute("Generated avatar");
 
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${AVATAR_SIZE} ${AVATAR_SIZE}" role="img" aria-labelledby="avatar-title">`,

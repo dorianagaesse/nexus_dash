@@ -47,6 +47,7 @@ export function AccountMenu({
             avatarSeed={avatarSeed}
             displayName={displayName}
             className="h-full w-full border-none"
+            decorative
           />
         ) : (
           <CircleUserRound className="h-5 w-5" />

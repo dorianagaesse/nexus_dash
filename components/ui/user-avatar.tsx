@@ -8,6 +8,7 @@ interface UserAvatarProps {
   displayName: string;
   className?: string;
   imageClassName?: string;
+  decorative?: boolean;
 }
 
 export function UserAvatar({
@@ -15,9 +16,11 @@ export function UserAvatar({
   displayName,
   className,
   imageClassName,
+  decorative = false,
 }: UserAvatarProps) {
   return (
     <span
+      aria-hidden={decorative}
       className={cn(
         "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-muted",
         className
@@ -25,7 +28,7 @@ export function UserAvatar({
     >
       <Image
         src={buildGeneratedAvatarDataUri(avatarSeed)}
-        alt={`${displayName} avatar`}
+        alt={decorative ? "" : `${displayName} avatar`}
         width={64}
         height={64}
         unoptimized

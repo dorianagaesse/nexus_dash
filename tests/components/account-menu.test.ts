@@ -43,6 +43,7 @@ describe("account-menu", () => {
     expect(result).toContain("aria-label=\"Account menu\"");
     expect(result).toContain("aria-expanded=\"false\"");
     expect(result).toContain("data:image/svg+xml");
+    expect(result).toContain("alt=\"\"");
   });
 
   test("renders invitation indicator when pending invitations exist", () => {
