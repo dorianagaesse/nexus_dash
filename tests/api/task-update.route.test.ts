@@ -139,6 +139,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       status: "Blocked",
       position: 0,
       archivedAt: null,
+      assigneeUserId: "user-2",
       outgoingRelations: [],
       incomingRelations: [],
     });
@@ -156,6 +157,32 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       status: "Blocked",
       position: 0,
       archivedAt: null,
+      createdAt: new Date("2026-04-20T08:00:00.000Z"),
+      updatedAt: new Date("2026-04-21T09:00:00.000Z"),
+      createdByUser: {
+        id: "user-1",
+        name: "Alice Example",
+        email: "alice@example.com",
+        username: "alice",
+        usernameDiscriminator: "1234",
+        avatarSeed: null,
+      },
+      updatedByUser: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: "seed-reviewer",
+      },
+      assigneeUser: {
+        id: "user-2",
+        name: "Bob Example",
+        email: "bob@example.com",
+        username: null,
+        usernameDiscriminator: null,
+        avatarSeed: null,
+      },
       outgoingRelations: [
         {
           rightTask: {
@@ -201,6 +228,26 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         status: "Blocked",
         position: 0,
         archivedAt: null,
+        assignee: {
+          id: "user-2",
+          displayName: "Bob Example",
+          usernameTag: null,
+          avatarSeed: "user-2",
+        },
+        createdBy: {
+          id: "user-1",
+          displayName: "alice",
+          usernameTag: "alice#1234",
+          avatarSeed: "user-1",
+        },
+        updatedBy: {
+          id: "test-user",
+          displayName: "reviewer",
+          usernameTag: "reviewer#0007",
+          avatarSeed: "seed-reviewer",
+        },
+        createdAt: "2026-04-20T08:00:00.000Z",
+        updatedAt: "2026-04-21T09:00:00.000Z",
         relatedTasks: [
           {
             id: "t2",
@@ -222,6 +269,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       labelsJson: JSON.stringify(["Critical", "backend"]),
       description: "<p>Hello</p>",
       deadlineAt: new Date("2026-04-24T00:00:00.000Z"),
+      updatedByUserId: "test-user",
     });
 
     expect(prismaMock.taskBlockedFollowUp.create).toHaveBeenCalledTimes(1);
@@ -256,6 +304,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       status: "In Progress",
       position: 2,
       archivedAt: null,
+      assigneeUserId: null,
       outgoingRelations: [],
       incomingRelations: [],
     });
@@ -273,6 +322,25 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       status: "In Progress",
       position: 2,
       archivedAt: null,
+      createdAt: new Date("2026-04-18T08:00:00.000Z"),
+      updatedAt: new Date("2026-04-18T09:00:00.000Z"),
+      createdByUser: {
+        id: "user-1",
+        name: "Alice Example",
+        email: "alice@example.com",
+        username: "alice",
+        usernameDiscriminator: "1234",
+        avatarSeed: null,
+      },
+      updatedByUser: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+      assigneeUser: null,
       outgoingRelations: [],
       incomingRelations: [],
       blockedFollowUps: [],
@@ -303,6 +371,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       status: "In Progress",
       position: 2,
       archivedAt: null,
+      assigneeUserId: null,
       outgoingRelations: [
         {
           rightTaskId: "archived-task",
@@ -339,6 +408,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       status: "In Progress",
       position: 2,
       archivedAt: null,
+      assigneeUserId: null,
       outgoingRelations: [
         {
           rightTaskId: "archived-task",
@@ -361,6 +431,25 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       status: "In Progress",
       position: 2,
       archivedAt: null,
+      createdAt: new Date("2026-04-10T08:00:00.000Z"),
+      updatedAt: new Date("2026-04-18T09:00:00.000Z"),
+      createdByUser: {
+        id: "user-1",
+        name: "Alice Example",
+        email: "alice@example.com",
+        username: "alice",
+        usernameDiscriminator: "1234",
+        avatarSeed: null,
+      },
+      updatedByUser: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+      assigneeUser: null,
       outgoingRelations: [
         {
           rightTask: {
@@ -402,6 +491,21 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         status: "In Progress",
         position: 2,
         archivedAt: null,
+        assignee: null,
+        createdBy: {
+          id: "user-1",
+          displayName: "alice",
+          usernameTag: "alice#1234",
+          avatarSeed: "user-1",
+        },
+        updatedBy: {
+          id: "test-user",
+          displayName: "reviewer",
+          usernameTag: "reviewer#0007",
+          avatarSeed: "test-user",
+        },
+        createdAt: "2026-04-10T08:00:00.000Z",
+        updatedAt: "2026-04-18T09:00:00.000Z",
         relatedTasks: [
           {
             id: "archived-task",
@@ -574,6 +678,7 @@ describe("POST /api/projects/:projectId/tasks/:taskId/archive", () => {
       where: { id: "t1" },
       data: {
         archivedAt: expect.any(Date),
+        updatedByUserId: "test-user",
       },
       select: {
         archivedAt: true,
@@ -665,6 +770,7 @@ describe("DELETE /api/projects/:projectId/tasks/:taskId/archive", () => {
       where: { id: "t1" },
       data: {
         archivedAt: null,
+        updatedByUserId: "test-user",
       },
       select: {
         id: true,

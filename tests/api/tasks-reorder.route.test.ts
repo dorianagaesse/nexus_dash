@@ -162,6 +162,7 @@ describe("POST /api/projects/:projectId/tasks/reorder", () => {
     expect(firstUpdate.data.status).toBe("Done");
     expect(firstUpdate.data.position).toBe(0);
     expect(firstUpdate.data.archivedAt).toBeNull();
+    expect(firstUpdate.data.updatedByUserId).toBe("test-user");
     expect(firstUpdate.data.completedAt).toBeInstanceOf(Date);
 
     const secondUpdate = prismaMock.task.update.mock.calls[1][0];
@@ -169,6 +170,7 @@ describe("POST /api/projects/:projectId/tasks/reorder", () => {
     expect(secondUpdate.data.status).toBe("Done");
     expect(secondUpdate.data.position).toBe(1);
     expect(secondUpdate.data.archivedAt).toBeNull();
+    expect(secondUpdate.data.updatedByUserId).toBe("test-user");
     expect(secondUpdate.data.completedAt).toBe(existingDoneDate);
   });
 

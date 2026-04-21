@@ -1,217 +1,139 @@
-# Current Task: TASK-089 Automatic Avatar Creation - Generated Identity Avatar Baseline
+# Current Task: TASK-101 Task Ownership And Provenance
 
 ## Task ID
-TASK-089
+TASK-101
 
 ## Status
-Implemented locally on branch `feature/task-089-generated-avatar-baseline`;
-local validation is complete and the task is ready for the repository review /
-PR path.
+Implementation complete on branch
+`feature/task-101-task-ownership-and-provenance`, stacked on top of `TASK-089`
+so the avatar baseline can be reused immediately across task ownership
+surfaces. Local validation is green aside from Playwright being blocked by the
+shared database schema not yet reflecting this branch migration; PR/review and
+preview deployment are the remaining release steps.
 
 ## Objective
-Introduce a deterministic generated-avatar baseline with persisted seed and
-user-triggered regeneration so NexusDash can render a consistent visual
-identity across account-owned surfaces now and unblock later collaboration
-surfaces without waiting for a full profile-photo management feature.
+Add first-class task ownership metadata so every task can show who created it,
+who is currently assigned to it, and who last touched it, with the data model,
+API contracts, and UI all aligned around the same provenance source of truth.
 
 ## Why This Task Matters
-- The data model already supports optional user images, but only social-auth
-  users reliably get one today. Credentials users still appear as text-only
-  identities across the product.
-- Upcoming collaboration and task-provenance work benefits from a reusable
-  avatar foundation instead of inventing ad hoc text badges for every new
-  person-oriented surface.
-- `TASK-101` needs a clean visual identity affordance for assignee,
-  created-by, and modified-by metadata. Shipping a baseline avatar system first
-  reduces rework and gives those future surfaces a stronger default UX.
-- `TASK-119` is intended to expose collaborator presence on project pages, and
-  that feature should build on a shared avatar primitive rather than defining a
-  second identity presentation model.
+- Collaboration is already live, but task ownership is still implicit and
+  depends on outside context instead of product-visible metadata.
+- `TASK-089` established a shared avatar foundation; `TASK-101` is the first
+  feature that needs to apply that foundation to real work attribution.
+- Assignee and provenance data are prerequisites for later filtering,
+  accountability, notification, and richer project-presence work.
+- Shipping this cleanly now reduces the risk of inventing multiple incompatible
+  identity models across task comments, assignee chips, and future activity
+  surfaces.
 
 ## Current Baseline Confirmed In Repo
-- `User.image` already exists in `prisma/schema.prisma`.
-- Social auth ingestion already preserves provider-supplied avatar URLs in
-  `lib/services/social-auth-service.ts`.
-- Human-readable identity summaries already exist via:
-  - `lib/services/account-identity-service.ts`
-  - `lib/services/account-profile-service.ts`
-  - `lib/services/project-collaboration-service.ts`
-  - `lib/services/project-task-comment-service.ts`
-- The top-right signed-in affordance currently shows text identity only through
-  `components/account-menu.tsx` and `components/top-right-controls.tsx`.
-- The account page (`app/account/page.tsx`) already exposes identity/settings
-  surfaces, but it does not yet render avatar state or avatar-specific copy.
+- `Task` currently has no creator, updater, or assignee relationship fields in
+  `prisma/schema.prisma`.
+- Kanban task reads come from `listProjectKanbanTasks` and the task routes, so
+  provenance data needs to be added at the service/API layer rather than only
+  in the UI.
+- Task comments already resolve avatar-backed author identities after
+  `TASK-089`.
+- The board already has a stable task detail modal, task create dialog, and
+  task edit flow, which are the right surfaces to introduce ownership and
+  provenance.
 
 ## Working Product Assumptions
-- `TASK-089` ships a generated avatar baseline, not a full avatar-management
-  system.
-- The generated avatar is the active account avatar for this milestone, even if
-  provider-supplied `user.image` exists today.
-- The visual should be deterministic from a stable persisted seed until the
-  user explicitly regenerates it.
-- The generated avatar must not depend on external avatar services.
-- The generated avatar must stay privacy-safe and cheap to compute:
-  - no external fetch
-  - no separate object storage pipeline
-  - no requirement for uploaded image assets
-- A user must be able to regenerate the avatar from the account page without
-  needing admin involvement or direct database changes.
-- The baseline should be reusable by future task/collaboration work, but this
-  task should not broaden into task ownership/provenance or project presence
-  rollout by itself.
+- A task must always retain a creator and last-updater once the migration is
+  applied.
+- Assignee is optional and should support explicit clearing back to an
+  unassigned state.
+- Valid assignees are current project collaborators, including the owner.
+- "Last touched" should reflect task mutations that materially change the task
+  record or task activity, including comment and attachment writes.
+- Existing tasks need a practical backfill path; project owner is the baseline
+  provenance fallback for legacy rows.
 
 ## Scope
-- Add a reusable avatar rendering primitive for NexusDash identity surfaces.
-- Add deterministic generated-avatar helpers, including:
-  - stable seed handling
-  - color/style derivation
-  - pixel-pattern generation
-- Persist a generated-avatar seed on the user record so the avatar remains
-  stable until explicit regeneration.
-- Extend account-level identity data flow so the signed-in shell and account
-  surfaces can render resolved avatar state.
-- Add account-level avatar regeneration through the existing account-management
-  flow.
-- Apply the new avatar baseline to the first consumer surfaces:
-  - top-right account icon/menu
-  - account/settings identity surfaces
-  - task comments
-  - project settings contributors tab
-- Add targeted regression coverage for avatar resolution and the first UI
-  consumer surfaces.
-- Update tracking docs in the same task PR.
+- Extend the task schema with:
+  - creator relationship
+  - updater relationship
+  - optional assignee relationship
+- Backfill provenance for existing tasks through a migration.
+- Validate assignee changes against current project collaborators.
+- Update task create, update, reorder, archive, unarchive, comment, and
+  attachment flows so provenance stays accurate.
+- Expose provenance and assignee metadata through task list/update API
+  responses.
+- Add assignee selection to task create/edit flows.
+- Render avatar-backed ownership UI on the main task surfaces:
+  - board card assignee display
+  - task detail assignee display
+  - task detail created-by / modified-by display
+- Update agent/OpenAPI documentation where task payloads change.
+- Add targeted regression coverage for the new task contracts and provenance
+  behavior.
+- Update tracking docs in the same task branch.
 
 ## Out Of Scope
-- User-uploaded avatar management or avatar file storage.
-- Rendering provider-supplied `user.image` through the shared avatar path.
-- Project-page collaborator presence rollout; that belongs to `TASK-119`.
-- Task-surface avatar rollout for:
-  - assignee
-  - created-by / modified-by
-  Those are expected follow-ons for `TASK-101`.
-- Notification, activity-feed, or presence semantics.
-- Reworking auth or social-account linking behavior.
-
-## Desired Follow-On Consumers
-These are not all part of `TASK-089`, but this task should make them easy:
-- After `TASK-089` + `TASK-101`, avatars should be usable in:
-  - assignee display
-  - created-by / modified-by metadata
-  - top-right account icon
-  - settings/account identity surfaces
-  - task comments
-  - project settings contributors
-- Later, `TASK-119` should reuse the same avatar foundation for:
-  - project-page collaborator presence and member rows
-
-## Design Constraints
-### 1. Determinism
-- A given user should receive the same generated avatar every time.
-- The seed should prefer a stable principal identifier and not rely only on
-  mutable presentation text.
-
-### 2. Fallback Quality
-- The generated fallback should feel intentional rather than like a generic
-  placeholder.
-- If initials are used, they should complement the visual treatment rather than
-  becoming the entire design.
-
-### 3. Reusability
-- The avatar primitive should support future compact and expanded contexts:
-  - menu trigger
-  - inline person metadata
-  - collaborator rows
-  - task provenance chips
-
-### 4. Safe Incremental Rollout
-- First ship the avatar baseline in account-owned surfaces that already exist.
-- Avoid coupling this task to collaboration-presence or task-provenance schema
-  changes.
-
-## Likely Implementation Touchpoints
-- `components/account-menu.tsx`
-- `components/top-right-controls.tsx`
-- `app/account/page.tsx`
-- `app/account/settings/**` if settings-shell identity chrome is updated
-- `components/kanban/task-detail-modal.tsx`
-- `components/project-dashboard/project-dashboard-owner-access-panel.tsx`
-- `lib/services/account-identity-service.ts`
-- `lib/services/account-profile-service.ts`
-- `lib/services/project-task-comment-service.ts`
-- `lib/services/project-collaboration-service.ts` if shared identity types are
-  expanded for future reuse
-- a new shared avatar helper under `lib/**`
-- a new shared avatar UI component under `components/**`
-- relevant `tests/**`
-
-## Expected Output
-- an active `tasks/current.md` brief for `TASK-089`
-- a reusable avatar component + deterministic generated-avatar helpers
-- persisted avatar seed + account-page regeneration flow
-- top-right account/menu avatar rendering
-- account/settings identity surfaces updated to use the generated avatar
-  baseline
-- task comments and project-settings contributor rows updated to use the shared
-  avatar baseline
-- aligned tests and documentation updates
-- a dedicated task branch and PR that follow the repository shipping workflow
+- User-uploaded avatars or alternative avatar rendering systems.
+- Project-page collaborator rollups; that remains later work (`TASK-119`).
+- Notification delivery, reminders, or ownership-based inbox features.
+- Complex assignee filtering/search UX on the board.
+- Historic provenance reconstruction beyond a sensible legacy backfill.
 
 ## Acceptance Criteria
-- Users render a deterministic generated avatar from a stable persisted seed.
-- Users can regenerate their avatar from the account page and immediately see
-  the updated result on account-owned surfaces.
-- The top-right signed-in account affordance uses the new avatar system.
-- Account/settings identity surfaces use the new avatar system.
-- Task comments use the new avatar system.
-- Project settings contributor rows use the new avatar system.
-- The avatar baseline is implemented in a reusable way that can support
-  `TASK-101` and `TASK-119` without redesigning the primitive.
+- New tasks persist creator and updater metadata automatically.
+- Tasks can store an optional assignee and reject non-collaborator assignees.
+- Task update flows keep updater metadata current.
+- Comment and attachment task activity updates the task attribution trail.
+- The kanban board can render assignee identity with the avatar baseline.
+- The task detail modal shows assignee, created-by, and modified-by metadata.
+- Task create/edit flows allow selecting or clearing an assignee.
+- Task API and agent docs stay aligned with the new payload shape.
 - Required tracking docs are updated consistently in the same PR.
 
 ## Definition Of Done
-1. `TASK-089` is the active task in `tasks/current.md`.
-2. The avatar baseline is implemented end to end across helpers and the first
-   account-owned UI surfaces.
-3. Validation is green for the relevant scope:
+1. `TASK-101` is the active brief in `tasks/current.md`.
+2. Schema, services, routes, and UI all support task assignee + provenance end
+   to end.
+3. Relevant validation is green:
    - `npm run lint`
    - `npm test`
    - `npm run test:coverage`
    - `npm run build`
-   - `npm run test:e2e` if the final UI changes materially affect an existing
-     covered authenticated flow and local prerequisites are available
+   - preview validation once the branch is published
 4. Tracking docs are updated consistently (`tasks/current.md`, `journal.md`,
-   `adr/decisions.md` if the final design introduces an architecture-level
-   identity-rendering decision).
-5. The task ships through a dedicated PR whose title includes `TASK-089`, with
-   Copilot's initial review state monitored and any valid feedback handled
-   before handoff.
+   and `adr/decisions.md` only if an architecture-level decision is introduced).
+5. The task ships through its own dedicated PR with the normal review and
+   preview workflow handled before handoff.
 
 ## Dependencies
-- `TASK-047`
-- `TASK-082`
+- `TASK-058`
+- `TASK-076`
+- `TASK-079`
+- `TASK-089`
 
 ## Evidence Plan
 - Repo source of truth:
   - `agent.md`
-  - `project.md`
-  - `README.md`
+  - `tasks/backlog.md`
   - `prisma/schema.prisma`
-  - `lib/services/social-auth-service.ts`
-  - `lib/services/account-identity-service.ts`
-  - `lib/services/account-profile-service.ts`
-  - `components/account-menu.tsx`
-  - `components/top-right-controls.tsx`
-  - `app/account/page.tsx`
+  - `lib/services/project-service.ts`
+  - `lib/services/project-task-service.ts`
+  - `lib/services/project-task-comment-service.ts`
+  - `lib/services/project-attachment-service.ts`
+  - `app/api/projects/[projectId]/tasks/**`
+  - `app/projects/[projectId]/kanban-board-section.tsx`
+  - `components/kanban-board.tsx`
+  - `components/kanban/task-detail-modal.tsx`
+  - `components/create-task-dialog.tsx`
 - Validation source of truth:
-  - local lint/unit/coverage/build runs
-  - PR checks: `check-name`, `Quality Core`, `E2E Smoke`, and
-    `Container Image`
+  - local lint/unit/build runs
+  - PR review comments and CI checks
+  - preview deployment verification
 
 ## Outcome Target
-- NexusDash gains a consistent visual identity baseline for every user, even
-  without uploaded photos.
-- The resulting avatar system should make `TASK-101` and `TASK-119` additive
-  consumer rollouts rather than forcing a second identity-UI rewrite.
+- NexusDash gains explicit task ownership and provenance instead of relying on
+  chat context or naming conventions.
+- The avatar baseline from `TASK-089` becomes visible where ownership actually
+  matters: assignee, creator, and last modifier.
 
 ---
 

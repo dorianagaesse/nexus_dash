@@ -210,6 +210,22 @@ export function mapTaskAttachmentResponse(
   };
 }
 
+async function touchTaskActivity(
+  db: DbClient,
+  taskId: string,
+  actorUserId: string
+) {
+  await db.task.update({
+    where: { id: taskId },
+    data: {
+      updatedByUserId: actorUserId,
+    },
+    select: {
+      id: true,
+    },
+  });
+}
+
 export function mapContextAttachmentResponse(
   projectId: string,
   cardId: string,
@@ -423,6 +439,8 @@ export async function createTaskAttachmentFromForm(input: {
           },
         });
 
+        await touchTaskActivity(db, input.taskId, actorUserId);
+
         return {
           ok: true,
           data: mapTaskAttachmentResponse(input.projectId, input.taskId, attachment),
@@ -494,6 +512,8 @@ export async function createTaskAttachmentFromForm(input: {
           sizeBytes: true,
         },
       });
+
+      await touchTaskActivity(db, input.taskId, actorUserId);
 
       return {
         ok: true,
@@ -886,6 +906,8 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
           sizeBytes: true,
         },
       });
+
+      await touchTaskActivity(db, input.taskId, actorUserId);
 
       return {
         ok: true,
@@ -1354,6 +1376,8 @@ export async function deleteTaskAttachmentForProject(input: {
       await db.taskAttachment.delete({
         where: { id: attachment.id },
       });
+
+      await touchTaskActivity(db, input.taskId, actorUserId);
 
       if (attachment.kind === ATTACHMENT_KIND_FILE && attachment.storageKey) {
         await deleteAttachmentFile(attachment.storageKey).catch((error) => {

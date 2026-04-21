@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
+  $transaction: vi.fn(),
   project: {
     findFirst: vi.fn(),
   },
   task: {
     findUnique: vi.fn(),
+    update: vi.fn(),
   },
   taskComment: {
     findMany: vi.fn(),
@@ -39,6 +41,7 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
 describe("task comments route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
     apiGuardMock.requireApiPrincipal.mockResolvedValue({
       ok: true,
       principal: {
@@ -241,6 +244,15 @@ describe("task comments route", () => {
             avatarSeed: true,
           },
         },
+      },
+    });
+    expect(prismaMock.task.update).toHaveBeenCalledWith({
+      where: { id: "task-1" },
+      data: {
+        updatedByUserId: "test-user",
+      },
+      select: {
+        id: true,
       },
     });
   });
