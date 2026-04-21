@@ -6,19 +6,17 @@ import {
 } from "@/components/kanban-board";
 import type {
   ProjectTaskCollaborator,
-  TaskPersonSummary,
 } from "@/components/kanban-board-types";
 import {
   PROJECT_SECTION_CARD_CLASS,
   PROJECT_SECTION_HEADER_CLASS,
 } from "@/components/project-dashboard/project-section-chrome";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { resolveAvatarSeed } from "@/lib/avatar";
-import { validateUsernameDiscriminator } from "@/lib/services/account-security-policy";
 import {
   listProjectCollaborators,
   listProjectKanbanTasks,
 } from "@/lib/services/project-service";
+import { mapTaskPersonSummary } from "@/lib/task-person";
 import { mapRelatedTaskSummary } from "@/lib/task-related";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import { formatTaskDeadlineDate } from "@/lib/task-deadline";
@@ -37,35 +35,6 @@ interface KanbanBoardSectionProps {
   actorUserId: string;
   canEdit: boolean;
   storageProvider: "local" | "r2";
-}
-
-function mapTaskPersonSummary(person: {
-  id: string;
-  name: string | null;
-  email: string | null;
-  username: string | null;
-  usernameDiscriminator: string | null;
-  avatarSeed: string | null;
-} | null): TaskPersonSummary | null {
-  if (!person) {
-    return null;
-  }
-
-  return {
-    id: person.id,
-    displayName:
-      person.username ??
-      person.name ??
-      person.email?.split("@", 1)[0] ??
-      "Account",
-    usernameTag:
-      person.username &&
-      person.usernameDiscriminator &&
-      validateUsernameDiscriminator(person.usernameDiscriminator)
-        ? `${person.username}#${person.usernameDiscriminator}`
-        : null,
-    avatarSeed: resolveAvatarSeed(person.avatarSeed, person.id),
-  };
 }
 
 export async function KanbanBoardSection({

@@ -1,4 +1,3 @@
-import { resolveAvatarSeed } from "@/lib/avatar";
 import { logServerError } from "@/lib/observability/logger";
 import {
   requireAgentProjectScopes,
@@ -6,7 +5,10 @@ import {
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
-import { validateUsernameDiscriminator } from "@/lib/services/account-security-policy";
+import {
+  mapTaskPersonSummary,
+  type TaskPersonSummary,
+} from "@/lib/task-person";
 
 const MAX_TASK_COMMENT_LENGTH = 4000;
 
@@ -23,12 +25,7 @@ interface ServiceSuccessResult<T> {
 
 type ServiceResult<T> = ServiceSuccessResult<T> | ServiceErrorResult;
 
-export interface TaskCommentAuthorSummary {
-  id: string;
-  displayName: string;
-  usernameTag: string | null;
-  avatarSeed: string;
-}
+export type TaskCommentAuthorSummary = TaskPersonSummary;
 
 export interface TaskCommentSummary {
   id: string;
@@ -49,29 +46,6 @@ function normalizeActorUserId(actorUserId: string | null | undefined): string {
   return actorUserId.trim();
 }
 
-function getEmailLocalPart(email: string | null | undefined): string | null {
-  if (!email || !email.includes("@")) {
-    return null;
-  }
-
-  return email.split("@", 1)[0] ?? null;
-}
-
-function buildUsernameTag(
-  username: string | null | undefined,
-  usernameDiscriminator: string | null | undefined
-): string | null {
-  if (
-    !username ||
-    !usernameDiscriminator ||
-    !validateUsernameDiscriminator(usernameDiscriminator)
-  ) {
-    return null;
-  }
-
-  return `${username}#${usernameDiscriminator}`;
-}
-
 function mapTaskComment(input: {
   id: string;
   content: string;
@@ -85,26 +59,11 @@ function mapTaskComment(input: {
     avatarSeed: string | null;
   };
 }): TaskCommentSummary {
-  const usernameTag = buildUsernameTag(
-    input.author.username,
-    input.author.usernameDiscriminator
-  );
-  const displayName =
-    input.author.username ??
-    input.author.name ??
-    getEmailLocalPart(input.author.email) ??
-    "Account";
-
   return {
     id: input.id,
     content: input.content,
     createdAt: input.createdAt,
-    author: {
-      id: input.author.id,
-      displayName,
-      usernameTag,
-      avatarSeed: resolveAvatarSeed(input.author.avatarSeed, input.author.id),
-    },
+    author: mapTaskPersonSummary(input.author)!,
   };
 }
 
@@ -256,34 +215,30 @@ export async function createTaskCommentForProject(input: {
     }
 
     try {
-      const comment = await db.$transaction(async (tx) => {
-        const createdComment = await tx.taskComment.create({
-          data: {
-            taskId: input.taskId,
-            authorUserId: actorUserId,
-            content,
-          },
-          select: {
-            id: true,
-            content: true,
-            createdAt: true,
-            author: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                username: true,
-                usernameDiscriminator: true,
-                avatarSeed: true,
-              },
+      const comment = await db.taskComment.create({
+        data: {
+          taskId: input.taskId,
+          authorUserId: actorUserId,
+          content,
+        },
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          author: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              username: true,
+              usernameDiscriminator: true,
+              avatarSeed: true,
             },
           },
-        });
-
-        await touchTaskActivity(tx, input.taskId, actorUserId);
-
-        return createdComment;
+        },
       });
+
+      await touchTaskActivity(db, input.taskId, actorUserId);
 
       return {
         ok: true,

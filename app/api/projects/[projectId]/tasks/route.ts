@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { resolveAvatarSeed } from "@/lib/avatar";
 import {
   getAgentProjectAccessContext,
   requireApiPrincipal,
@@ -10,7 +9,7 @@ import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-ser
 import { listProjectKanbanTasks } from "@/lib/services/project-service";
 import { createTaskForProject } from "@/lib/services/project-task-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
-import { validateUsernameDiscriminator } from "@/lib/services/account-security-policy";
+import { mapTaskPersonSummary } from "@/lib/task-person";
 import { formatTaskDeadlineDate } from "@/lib/task-deadline";
 
 const ATTACHMENT_FILES_FIELD = "attachmentFiles";
@@ -80,35 +79,6 @@ function mapRelatedTasks(task: {
   ].sort((left, right) => left.title.localeCompare(right.title));
 }
 
-function mapTaskPerson(person: {
-  id: string;
-  name: string | null;
-  email: string | null;
-  username: string | null;
-  usernameDiscriminator: string | null;
-  avatarSeed: string | null;
-} | null) {
-  if (!person) {
-    return null;
-  }
-
-  return {
-    id: person.id,
-    displayName:
-      person.username ??
-      person.name ??
-      person.email?.split("@", 1)[0] ??
-      "Account",
-    usernameTag:
-      person.username &&
-      person.usernameDiscriminator &&
-      validateUsernameDiscriminator(person.usernameDiscriminator)
-        ? `${person.username}#${person.usernameDiscriminator}`
-        : null,
-    avatarSeed: resolveAvatarSeed(person.avatarSeed, person.id),
-  };
-}
-
 export async function GET(request: NextRequest, props: { params: Promise<{ projectId: string }> }) {
   const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
@@ -151,9 +121,9 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
       labelsJson: task.labelsJson,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
-      assignee: mapTaskPerson(task.assigneeUser),
-      createdBy: mapTaskPerson(task.createdByUser),
-      updatedBy: mapTaskPerson(task.updatedByUser),
+      assignee: mapTaskPersonSummary(task.assigneeUser),
+      createdBy: mapTaskPersonSummary(task.createdByUser),
+      updatedBy: mapTaskPersonSummary(task.updatedByUser),
       attachments: task.attachments.map((attachment: TaskAttachment) =>
         mapTaskAttachmentResponse(params.projectId, task.id, attachment)
       ),

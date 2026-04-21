@@ -1,6 +1,5 @@
 import { deleteAttachmentFile } from "@/lib/attachment-storage";
 import { sanitizeRichText } from "@/lib/rich-text";
-import { resolveAvatarSeed } from "@/lib/avatar";
 import {
   buildCanonicalTaskRelation,
   mapRelatedTaskSummary,
@@ -29,7 +28,11 @@ import {
   requireProjectRole,
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
-import { validateUsernameDiscriminator } from "@/lib/services/account-security-policy";
+import {
+  mapTaskPersonSummary,
+  taskPersonSummarySelect,
+  type TaskPersonSummary,
+} from "@/lib/task-person";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 
 const MIN_TITLE_LENGTH = 2;
@@ -81,13 +84,6 @@ interface CreateTaskForProjectInput {
   agentAccess?: AgentProjectAccessContext;
 }
 
-interface TaskPersonSummary {
-  id: string;
-  displayName: string;
-  usernameTag: string | null;
-  avatarSeed: string;
-}
-
 interface UpdatedTaskPayload {
   id: string;
   title: string;
@@ -122,49 +118,6 @@ function normalizeText(value: unknown): string {
     return "";
   }
   return value.trim();
-}
-
-function buildUsernameTag(
-  username: string | null | undefined,
-  usernameDiscriminator: string | null | undefined
-): string | null {
-  if (
-    !username ||
-    !usernameDiscriminator ||
-    !validateUsernameDiscriminator(usernameDiscriminator)
-  ) {
-    return null;
-  }
-
-  return `${username}#${usernameDiscriminator}`;
-}
-
-function getEmailLocalPart(email: string | null | undefined): string | null {
-  if (!email || !email.includes("@")) {
-    return null;
-  }
-
-  return email.split("@", 1)[0] ?? null;
-}
-
-function mapTaskPersonSummary(input: {
-  id: string;
-  name: string | null;
-  email: string | null;
-  username: string | null;
-  usernameDiscriminator: string | null;
-  avatarSeed: string | null;
-}): TaskPersonSummary {
-  return {
-    id: input.id,
-    displayName:
-      input.username ??
-      input.name ??
-      getEmailLocalPart(input.email) ??
-      "Account",
-    usernameTag: buildUsernameTag(input.username, input.usernameDiscriminator),
-    avatarSeed: resolveAvatarSeed(input.avatarSeed, input.id),
-  };
 }
 
 function parseDeadlineInput(
@@ -253,15 +206,6 @@ const relatedTaskSummarySelect = {
   title: true,
   status: true,
   archivedAt: true,
-} as const;
-
-const taskPersonSummarySelect = {
-  id: true,
-  name: true,
-  email: true,
-  username: true,
-  usernameDiscriminator: true,
-  avatarSeed: true,
 } as const;
 
 function mergeRelatedTaskSummaries(task: {
@@ -920,8 +864,8 @@ export async function updateTaskForProject(
             assignee: updatedTask.assigneeUser
               ? mapTaskPersonSummary(updatedTask.assigneeUser)
               : null,
-            createdBy: mapTaskPersonSummary(updatedTask.createdByUser),
-            updatedBy: mapTaskPersonSummary(updatedTask.updatedByUser),
+            createdBy: mapTaskPersonSummary(updatedTask.createdByUser)!,
+            updatedBy: mapTaskPersonSummary(updatedTask.updatedByUser)!,
             createdAt: updatedTask.createdAt,
             updatedAt: updatedTask.updatedAt,
             relatedTasks: mergeRelatedTaskSummaries(updatedTask),

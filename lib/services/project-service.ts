@@ -1,6 +1,5 @@
 import { Prisma, ProjectMembershipRole } from "@prisma/client";
 
-import { resolveAvatarSeed } from "@/lib/avatar";
 import { prisma } from "@/lib/prisma";
 import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
 import {
@@ -11,7 +10,10 @@ import {
 } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
 import type { DbClient } from "@/lib/services/rls-context";
-import { validateUsernameDiscriminator } from "@/lib/services/account-security-policy";
+import {
+  mapTaskPersonSummary,
+  type TaskPersonSummary,
+} from "@/lib/task-person";
 
 const ARCHIVE_AFTER_DAYS = 7;
 const ARCHIVE_AFTER_MS = ARCHIVE_AFTER_DAYS * 24 * 60 * 60 * 1000;
@@ -130,12 +132,7 @@ interface ProjectWithCountsRecord {
   };
 }
 
-export interface ProjectCollaboratorIdentitySummary {
-  id: string;
-  displayName: string;
-  usernameTag: string | null;
-  avatarSeed: string;
-}
+export type ProjectCollaboratorIdentitySummary = TaskPersonSummary;
 
 interface ProjectUpsertInput {
   actorUserId: string;
@@ -174,29 +171,6 @@ function normalizeProjectDescription(
   return normalizedDescription.length > 0 ? normalizedDescription : null;
 }
 
-function buildUsernameTag(
-  username: string | null | undefined,
-  usernameDiscriminator: string | null | undefined
-): string | null {
-  if (
-    !username ||
-    !usernameDiscriminator ||
-    !validateUsernameDiscriminator(usernameDiscriminator)
-  ) {
-    return null;
-  }
-
-  return `${username}#${usernameDiscriminator}`;
-}
-
-function getEmailLocalPart(email: string | null | undefined): string | null {
-  if (!email || !email.includes("@")) {
-    return null;
-  }
-
-  return email.split("@", 1)[0] ?? null;
-}
-
 function buildProjectCollaboratorIdentitySummary(input: {
   id: string;
   name: string | null;
@@ -205,16 +179,7 @@ function buildProjectCollaboratorIdentitySummary(input: {
   usernameDiscriminator: string | null;
   avatarSeed: string | null;
 }): ProjectCollaboratorIdentitySummary {
-  return {
-    id: input.id,
-    displayName:
-      input.username ??
-      input.name ??
-      getEmailLocalPart(input.email) ??
-      "Account",
-    usernameTag: buildUsernameTag(input.username, input.usernameDiscriminator),
-    avatarSeed: resolveAvatarSeed(input.avatarSeed, input.id),
-  };
+  return mapTaskPersonSummary(input)!;
 }
 
 async function ensureSyntheticTestUserExists(actorUserId: string, db: DbClient = prisma) {
