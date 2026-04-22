@@ -68,7 +68,9 @@ test.describe("critical UI smoke flows", () => {
     );
     await assigneeOptionButtons.nth(1).click();
     await quickAssigneeUpdateRequest;
-    await expect(page.getByText("Owner")).toBeVisible();
+    await expect(page.locator("[data-task-assignee-badge='true']")).toContainText(
+      "E2E Smoke User"
+    );
 
     await page.getByRole("button", { name: "Task options" }).click();
     await page.getByRole("button", { name: /^Edit$/ }).click();

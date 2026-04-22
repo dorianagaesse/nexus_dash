@@ -47,6 +47,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
+import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
 import {
   ATTACHMENT_KIND_FILE,
   ATTACHMENT_KIND_LINK,
@@ -436,22 +437,9 @@ function buildTaskPersonHoverLabel(person: TaskPersonSummary): string {
   return person.usernameTag ?? person.displayName;
 }
 
-function formatAssigneeProjectRole(role: ProjectTaskCollaborator["projectRole"]): string {
-  switch (role) {
-    case "owner":
-      return "Owner";
-    case "editor":
-      return "Editor";
-    case "viewer":
-      return "Viewer";
-    default:
-      return role;
-  }
-}
-
 function TaskAssigneeBadge({ assignee }: { assignee: TaskPersonSummary | null }) {
   return (
-    <div className="flex flex-col gap-1 sm:items-end">
+    <div data-task-assignee-badge="true" className="flex flex-col gap-1 sm:items-end">
       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         Assignee
       </p>
@@ -467,7 +455,10 @@ function TaskAssigneeBadge({ assignee }: { assignee: TaskPersonSummary | null })
               className="h-7 w-7 border-border/70"
               decorative
             />
-            <span className="max-w-[160px] truncate text-sm font-medium text-foreground">
+            <span
+              data-task-assignee-name="true"
+              className="max-w-[160px] truncate text-sm font-medium text-foreground"
+            >
               {assignee.displayName}
             </span>
           </>
@@ -607,7 +598,9 @@ function TaskOptionsMenu({
                 variant="ghost"
                 className="w-full justify-between"
                 disabled={isMutating}
+                aria-haspopup="menu"
                 aria-expanded={activeSubmenu === "move"}
+                aria-controls="task-options-submenu-move"
                 onClick={() =>
                   setActiveSubmenu((previous) => (previous === "move" ? null : "move"))
                 }
@@ -619,6 +612,8 @@ function TaskOptionsMenu({
                 <ChevronRight className="h-4 w-4" />
               </Button>
               <div
+                id="task-options-submenu-move"
+                role="menu"
                 className={[
                   "absolute right-full top-0 z-30 mr-1 w-36 rounded-md border border-border/70 bg-background p-1 shadow-md transition",
                   activeSubmenu === "move"
@@ -651,7 +646,9 @@ function TaskOptionsMenu({
               className="w-full justify-between"
               aria-label="Assignee options"
               disabled={isMutating}
+              aria-haspopup="menu"
               aria-expanded={activeSubmenu === "assignee"}
+              aria-controls="task-options-submenu-assignee"
               onClick={() =>
                 setActiveSubmenu((previous) => (previous === "assignee" ? null : "assignee"))
               }
@@ -673,6 +670,8 @@ function TaskOptionsMenu({
               </span>
             </Button>
             <div
+              id="task-options-submenu-assignee"
+              role="menu"
               data-task-options-submenu="assignee"
               className={[
                 "absolute right-full top-0 z-30 mr-1 w-64 rounded-md border border-border/70 bg-background p-1 shadow-md transition",
@@ -734,7 +733,7 @@ function TaskOptionsMenu({
                             {assignee.displayName}
                           </span>
                           <span className="block truncate text-xs text-muted-foreground">
-                            {formatAssigneeProjectRole(assignee.projectRole)}
+                            {formatProjectCollaboratorRole(assignee.projectRole)}
                           </span>
                         </span>
                       </span>
