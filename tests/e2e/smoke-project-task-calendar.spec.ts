@@ -68,14 +68,20 @@ test.describe("critical UI smoke flows", () => {
     await expect(page.getByText("example.com")).toBeVisible();
 
     await page.getByRole("button", { name: "Task options" }).click();
-    await page.getByRole("button", { name: "Epic options" }).click();
+    const epicOptionsButton = page.getByRole("button", { name: "Epic options" });
+    await epicOptionsButton.click();
+    const epicOptionsGroup = epicOptionsButton.locator(
+      "xpath=ancestor::div[contains(@class,'group relative')][1]"
+    );
+    const epicOptionButtons = epicOptionsGroup.locator("div.absolute button");
+    await expect(epicOptionButtons).toHaveCount(2);
     const quickEpicUpdateRequest = page.waitForResponse(
       (response) =>
         response.request().method() === "PATCH" &&
         /\/tasks\/[^/]+$/.test(response.url()) &&
         response.ok()
     );
-    await page.getByRole("button", { name: new RegExp(epicName) }).click();
+    await epicOptionButtons.nth(1).click();
     await quickEpicUpdateRequest;
     await expect(page.getByText(epicName)).toBeVisible();
 
