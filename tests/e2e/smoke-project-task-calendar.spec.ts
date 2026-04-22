@@ -70,10 +70,9 @@ test.describe("critical UI smoke flows", () => {
     await page.getByRole("button", { name: "Task options" }).click();
     const epicOptionsButton = page.getByRole("button", { name: "Epic options" });
     await epicOptionsButton.click();
-    const epicOptionsGroup = epicOptionsButton.locator(
-      "xpath=ancestor::div[contains(@class,'group relative')][1]"
-    );
-    const epicOptionButtons = epicOptionsGroup.locator("div.absolute button");
+    const epicOptionsGroup = page.locator("[data-task-options-submenu='epic']");
+    await expect(epicOptionsGroup).toBeVisible();
+    const epicOptionButtons = epicOptionsGroup.getByRole("button");
     await expect(epicOptionButtons).toHaveCount(2);
     const quickEpicUpdateRequest = page.waitForResponse(
       (response) =>

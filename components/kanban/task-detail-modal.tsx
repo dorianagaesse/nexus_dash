@@ -597,7 +597,14 @@ function TaskOptionsMenu({
   onRequestDeleteTask,
 }: TaskOptionsMenuProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuRef = useDismissibleMenu<HTMLDivElement>(isMenuOpen, () => setIsMenuOpen(false));
+  const [activeSubmenu, setActiveSubmenu] = useState<"move" | "epic" | null>(null);
+
+  const closeMenu = () => {
+    setIsMenuOpen(false);
+    setActiveSubmenu(null);
+  };
+
+  const menuRef = useDismissibleMenu<HTMLDivElement>(isMenuOpen, closeMenu);
 
   return (
     <div ref={menuRef} className="relative">
@@ -607,7 +614,15 @@ function TaskOptionsMenu({
         size="icon"
         aria-label="Task options"
         aria-expanded={isMenuOpen}
-        onClick={() => setIsMenuOpen((previous) => !previous)}
+        onClick={() => {
+          setIsMenuOpen((previous) => {
+            if (previous) {
+              setActiveSubmenu(null);
+            }
+
+            return !previous;
+          });
+        }}
       >
         <MoreHorizontal className="h-4 w-4" />
       </Button>
@@ -620,19 +635,25 @@ function TaskOptionsMenu({
             disabled={isMutating}
             onClick={() => {
               onStartEdit();
-              setIsMenuOpen(false);
+              closeMenu();
             }}
           >
             <Pencil className="h-4 w-4" />
             Edit
           </Button>
           {!isArchived ? (
-            <div className="group relative">
+            <div className="relative">
               <Button
                 type="button"
                 variant="ghost"
                 className="w-full justify-between"
                 disabled={isMutating}
+                aria-haspopup="menu"
+                aria-expanded={activeSubmenu === "move"}
+                aria-controls="task-options-submenu-move"
+                onClick={() =>
+                  setActiveSubmenu((previous) => (previous === "move" ? null : "move"))
+                }
               >
                 <span className="inline-flex items-center gap-2">
                   <ArrowRightLeft className="h-4 w-4" />
@@ -640,7 +661,16 @@ function TaskOptionsMenu({
                 </span>
                 <ChevronRight className="h-4 w-4" />
               </Button>
-              <div className="invisible pointer-events-none absolute right-full top-0 z-30 mr-1 w-36 rounded-md border border-border/70 bg-background p-1 opacity-0 shadow-md transition group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+              <div
+                id="task-options-submenu-move"
+                role="menu"
+                className={[
+                  "absolute right-full top-0 z-30 mr-1 w-36 rounded-md border border-border/70 bg-background p-1 shadow-md transition",
+                  activeSubmenu === "move"
+                    ? "visible pointer-events-auto opacity-100"
+                    : "invisible pointer-events-none opacity-0",
+                ].join(" ")}
+              >
                 {TASK_STATUSES.map((nextStatus) => (
                   <Button
                     key={nextStatus}
@@ -650,7 +680,7 @@ function TaskOptionsMenu({
                     disabled={nextStatus === currentStatus || isMutating}
                     onClick={() => {
                       onMoveTask(nextStatus);
-                      setIsMenuOpen(false);
+                      closeMenu();
                     }}
                   >
                     {nextStatus}
@@ -659,13 +689,19 @@ function TaskOptionsMenu({
               </div>
             </div>
           ) : null}
-          <div className="group relative">
+          <div className="relative">
             <Button
               type="button"
               variant="ghost"
               className="w-full justify-between"
               aria-label="Epic options"
               disabled={isMutating}
+              aria-haspopup="menu"
+              aria-expanded={activeSubmenu === "epic"}
+              aria-controls="task-options-submenu-epic"
+              onClick={() =>
+                setActiveSubmenu((previous) => (previous === "epic" ? null : "epic"))
+              }
             >
               <span className="inline-flex items-center gap-2">
                 <Flag className="h-4 w-4" />
@@ -676,7 +712,17 @@ function TaskOptionsMenu({
                 <ChevronRight className="h-4 w-4 shrink-0" />
               </span>
             </Button>
-            <div className="invisible pointer-events-none absolute right-full top-0 z-30 mr-1 w-64 rounded-md border border-border/70 bg-background p-1 opacity-0 shadow-md transition group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+            <div
+              id="task-options-submenu-epic"
+              role="menu"
+              data-task-options-submenu="epic"
+              className={[
+                "absolute right-full top-0 z-30 mr-1 w-64 rounded-md border border-border/70 bg-background p-1 shadow-md transition",
+                activeSubmenu === "epic"
+                  ? "visible pointer-events-auto opacity-100"
+                  : "invisible pointer-events-none opacity-0",
+              ].join(" ")}
+            >
               <div className="max-h-72 space-y-1 overflow-y-auto">
                 <Button
                   type="button"
@@ -685,7 +731,7 @@ function TaskOptionsMenu({
                   disabled={!currentEpic || isMutating}
                   onClick={() => {
                     void onQuickEpicChange("");
-                    setIsMenuOpen(false);
+                    closeMenu();
                   }}
                 >
                   <span className="inline-flex min-w-0 items-center gap-2">
@@ -720,7 +766,7 @@ function TaskOptionsMenu({
                         disabled={isSelected || isMutating}
                         onClick={() => {
                           void onQuickEpicChange(epic.id);
-                          setIsMenuOpen(false);
+                          closeMenu();
                         }}
                       >
                         <span className="inline-flex min-w-0 items-center gap-2">
@@ -758,7 +804,7 @@ function TaskOptionsMenu({
               disabled={isMutating}
               onClick={() => {
                 void onArchiveTask();
-                setIsMenuOpen(false);
+                closeMenu();
               }}
             >
               <Archive className="h-4 w-4" />
@@ -773,7 +819,7 @@ function TaskOptionsMenu({
               disabled={isMutating}
               onClick={() => {
                 void onUnarchiveTask();
-                setIsMenuOpen(false);
+                closeMenu();
               }}
             >
               <Undo2 className="h-4 w-4" />
@@ -786,7 +832,7 @@ function TaskOptionsMenu({
             className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
             disabled={isMutating}
             onClick={() => {
-              setIsMenuOpen(false);
+              closeMenu();
               onRequestDeleteTask();
             }}
           >
