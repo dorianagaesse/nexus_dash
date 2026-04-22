@@ -82,7 +82,7 @@ test.describe("critical UI smoke flows", () => {
     );
     await epicOptionButtons.nth(1).click();
     await quickEpicUpdateRequest;
-    await expect(page.getByText(epicName)).toBeVisible();
+    await expect(page.getByText(`Epic updated to ${epicName}.`)).toBeVisible();
 
     await page.getByRole("button", { name: "Task options" }).click();
     await page.getByRole("button", { name: /^Edit$/ }).click();
