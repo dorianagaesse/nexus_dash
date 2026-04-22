@@ -516,7 +516,10 @@ function TaskAssigneeBadge({ assignee }: { assignee: TaskPersonSummary | null })
               className="h-7 w-7 border-border/70"
               decorative
             />
-            <span className="max-w-[160px] truncate text-sm font-medium text-foreground">
+            <span
+              data-task-assignee-name="true"
+              className="max-w-[160px] truncate text-sm font-medium text-foreground"
+            >
               {assignee.displayName}
             </span>
           </>
