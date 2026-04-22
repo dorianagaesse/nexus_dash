@@ -211,20 +211,20 @@ export default async function ProjectDashboardPage({
         </div>
       ) : null}
 
-      <Suspense fallback={<ProjectEpicPanelSkeleton />}>
-        <ProjectEpicPanelSection
-          projectId={project.id}
-          actorUserId={actorUserId}
-          canEdit={canEditProjectContent}
-        />
-      </Suspense>
-
       <Suspense fallback={<ProjectContextPanelSkeleton />}>
         <ProjectContextPanelSection
           projectId={project.id}
           actorUserId={actorUserId}
           canEdit={canEditProjectContent}
           storageProvider={storageProvider}
+        />
+      </Suspense>
+
+      <Suspense fallback={<ProjectEpicPanelSkeleton />}>
+        <ProjectEpicPanelSection
+          projectId={project.id}
+          actorUserId={actorUserId}
+          canEdit={canEditProjectContent}
         />
       </Suspense>
 

@@ -14,6 +14,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-04-22
 - Type: Execution
+- Summary: TASK-107 follow-up refined the epic registry UX to sit between project context and Kanban, removed the extra epic-header subtitle for better section consistency, made `New epic` expand the collapsed section before opening the form, and replaced the full-card light gradient treatment with a more consistent accent-strip/card treatment that stays readable in dark mode.
+- Evidence: Updated `app/projects/[projectId]/page.tsx`, `components/project-epic-panel.tsx`, and added focused regression coverage in `tests/components/project-epic-panel.test.tsx`.
+
+### 2026-04-22
+- Type: Execution
+- Summary: Hardened the new epic server section so an epic-fetch failure no longer crashes the whole project page; the section now logs the server error and degrades to an inline epic-panel warning instead of surfacing a route-level error boundary.
+- Evidence: Updated `app/projects/[projectId]/project-epic-panel-section.tsx` to catch/log `listProjectEpics(...)` failures and render `ProjectEpicPanel` with a temporary load error banner.
+
+### 2026-04-22
+- Type: Governance
+- Summary: Clarified the repository release workflow so coding tasks are not considered handoff-ready without an open PR, and branch-scoped preview validation now explicitly requires passing the branch `git_ref` and confirming from workflow logs that the requested branch ref was checked out.
+- Evidence: Updated `agent.md` execution-contract bullets covering mandatory PR creation, branch-ref preview invocation, and workflow-log verification expectations.
+
+### 2026-04-22
+- Type: Execution
 - Summary: TASK-107 implemented project-scoped epics end to end as dedicated planning entities with CRUD support, nullable task-to-epic links, automatic epic status/progress rollups, a colorful project epic registry section, and epic visibility across task create/edit/detail/Kanban plus agent-facing API documentation.
 - Evidence: Added `Epic` plus `Task.epicId` in `prisma/schema.prisma` with migration `prisma/migrations/20260422103000_task107_project_epics/migration.sql`; added `lib/epic.ts` and `lib/services/project-epic-service.ts`; added epic routes in `app/api/projects/[projectId]/epics/route.ts` and `app/api/projects/[projectId]/epics/[epicId]/route.ts`; updated task/project service and API contracts in `lib/services/project-service.ts`, `lib/services/project-task-service.ts`, `app/api/projects/[projectId]/tasks/route.ts`, and `app/api/projects/[projectId]/tasks/[taskId]/route.ts`; added the project epic section and epic task surfaces in `app/projects/[projectId]/project-epic-panel-section.tsx`, `components/project-epic-panel.tsx`, `components/create-task-dialog.tsx`, `components/kanban-board.tsx`, `components/kanban/kanban-columns-grid.tsx`, `components/kanban/task-detail-modal.tsx`, and related onboarding/docs updates in `lib/agent-onboarding.ts`, `components/agent-onboarding/agent-onboarding-guide.tsx`, and `project.md`.
 

@@ -50,6 +50,7 @@ interface ProjectEpicPanelProps {
   projectId: string;
   canEdit: boolean;
   epics: ProjectEpicPanelEpic[];
+  loadError?: string | null;
 }
 
 function mapEpicMutationError(errorCode: string): string {
@@ -118,6 +119,7 @@ export function ProjectEpicPanel({
   projectId,
   canEdit,
   epics,
+  loadError = null,
 }: ProjectEpicPanelProps) {
   const router = useRouter();
   const { pushToast } = useToast();
@@ -347,9 +349,6 @@ export function ProjectEpicPanel({
                 <Flag className="h-4 w-4" />
                 Epics
               </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Higher-level initiatives with automatic state and progress.
-              </p>
             </div>
             <span className="rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground">
               {localEpics.length} epic{localEpics.length === 1 ? "" : "s"}
@@ -363,6 +362,7 @@ export function ProjectEpicPanel({
               className="w-full sm:w-auto"
               onClick={() => {
                 resetCreateDraft();
+                setIsExpanded(true);
                 setIsCreateOpen(true);
               }}
             >
@@ -375,6 +375,12 @@ export function ProjectEpicPanel({
 
       {isExpanded ? (
         <CardContent className={cn("space-y-4", PROJECT_SECTION_CONTENT_CLASS)}>
+          {loadError ? (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200">
+              {loadError}
+            </div>
+          ) : null}
+
           {isCreateOpen ? (
             <section className="space-y-3 rounded-2xl border border-border/70 bg-background/70 p-4">
               <div className="space-y-1">
@@ -457,14 +463,19 @@ export function ProjectEpicPanel({
                 return (
                   <article
                     key={epic.id}
-                    className="rounded-2xl border p-4 shadow-[0_18px_48px_-42px_rgba(15,23,42,0.45)]"
+                    className="overflow-hidden rounded-2xl border bg-card/85 shadow-[0_18px_48px_-42px_rgba(15,23,42,0.45)] backdrop-blur-sm"
                     style={{
                       borderColor: color.border,
-                      background: `linear-gradient(180deg, ${color.soft}, rgba(255,255,255,0.9))`,
                     }}
                   >
+                    <div
+                      className="h-1.5 w-full"
+                      style={{
+                        backgroundColor: color.accent,
+                      }}
+                    />
                     {isEditing ? (
-                      <div className="space-y-3">
+                      <div className="space-y-3 p-4">
                         <div className="grid gap-2">
                           <label
                             htmlFor={`edit-epic-name-${epic.id}`}
@@ -521,7 +532,7 @@ export function ProjectEpicPanel({
                         </div>
                       </div>
                     ) : (
-                      <div className="space-y-4">
+                      <div className="space-y-4 p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 space-y-2">
                             <div className="flex flex-wrap items-center gap-2">
@@ -538,7 +549,7 @@ export function ProjectEpicPanel({
                               </span>
                               <EpicStatusBadge status={epic.status} />
                             </div>
-                            <p className="text-sm leading-6 text-foreground/85">
+                            <p className="text-sm leading-6 text-foreground">
                               {epic.description}
                             </p>
                           </div>

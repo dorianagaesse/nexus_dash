@@ -10,6 +10,7 @@ import {
   type ProjectEpicPanelEpic,
 } from "@/components/project-epic-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { logServerError } from "@/lib/observability/logger";
 import { listProjectEpics } from "@/lib/services/project-epic-service";
 
 interface ProjectEpicPanelSectionProps {
@@ -23,19 +24,31 @@ export async function ProjectEpicPanelSection({
   actorUserId,
   canEdit,
 }: ProjectEpicPanelSectionProps) {
-  const epics = await listProjectEpics(projectId, actorUserId);
+  let serializableEpics: ProjectEpicPanelEpic[] = [];
+  let loadError: string | null = null;
 
-  const serializableEpics: ProjectEpicPanelEpic[] = epics.map((epic) => ({
-    ...epic,
-    createdAt: epic.createdAt.toISOString(),
-    updatedAt: epic.updatedAt.toISOString(),
-  }));
+  try {
+    const epics = await listProjectEpics(projectId, actorUserId);
+
+    serializableEpics = epics.map((epic) => ({
+      ...epic,
+      createdAt: epic.createdAt.toISOString(),
+      updatedAt: epic.updatedAt.toISOString(),
+    }));
+  } catch (error) {
+    logServerError("ProjectEpicPanelSection", error, {
+      actorUserId,
+      projectId,
+    });
+    loadError = "Epics are temporarily unavailable. Reload to try again.";
+  }
 
   return (
     <ProjectEpicPanel
       projectId={projectId}
       canEdit={canEdit}
       epics={serializableEpics}
+      loadError={loadError}
     />
   );
 }
