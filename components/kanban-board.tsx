@@ -90,6 +90,75 @@ function stampTaskActivity(
   };
 }
 
+interface TaskMutationResponseTask {
+  id: string;
+  title: string;
+  label: string | null;
+  labelsJson: string | null;
+  description: string | null;
+  deadlineDate: string | null;
+  commentCount: number;
+  blockedNote: string | null;
+  status: TaskStatus;
+  position: number;
+  archivedAt: string | null;
+  epic: TaskEpicSummary | null;
+  assignee: TaskPersonSummary | null;
+  createdBy: TaskPersonSummary;
+  updatedBy: TaskPersonSummary;
+  createdAt: string;
+  updatedAt: string;
+  relatedTasks: TaskRelatedSummary[];
+  blockedFollowUps: {
+    id: string;
+    content: string;
+    createdAt: string;
+  }[];
+}
+
+function getTaskMutationErrorMessage(errorCode?: string): string {
+  switch (errorCode) {
+    case "related-tasks-invalid":
+      return "Related tasks must stay active and belong to this project.";
+    case "epic-invalid":
+      return "Epic must belong to this project.";
+    case "assignee-invalid":
+      return "Assignee must be a current collaborator on this project.";
+    case "deadline-invalid":
+      return "Deadline must use a valid date.";
+    default:
+      return errorCode ?? "Failed to update task";
+  }
+}
+
+function mapTaskMutationResponseTask(
+  task: TaskMutationResponseTask,
+  attachments: TaskAttachment[]
+): KanbanTask {
+  return {
+    id: task.id,
+    title: task.title,
+    labels: getTaskLabelsFromStorage(task.labelsJson, task.label),
+    description: task.description,
+    deadlineDate: task.deadlineDate,
+    commentCount: task.commentCount,
+    epic: task.epic,
+    assignee: task.assignee,
+    createdBy: task.createdBy,
+    updatedBy: task.updatedBy,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+    blockedFollowUps: task.blockedFollowUps.map((entry) => ({
+      ...entry,
+      createdAt: entry.createdAt,
+    })),
+    status: task.status,
+    archivedAt: task.archivedAt,
+    relatedTasks: task.relatedTasks,
+    attachments,
+  };
+}
+
 export function KanbanBoard({
   canEdit,
   projectId,
@@ -748,6 +817,132 @@ export function KanbanBoard({
     [canEdit, resetTaskEditDraft, selectedTask]
   );
 
+  const applyUpdatedTask = useCallback(
+    (updatedTask: KanbanTask) => {
+      setColumns((previousColumns) => {
+        const nextColumns = cloneColumns(previousColumns);
+        const taskColumn = nextColumns[updatedTask.status];
+        const taskIndex = taskColumn.findIndex((task) => task.id === updatedTask.id);
+
+        if (taskIndex === -1) {
+          return previousColumns;
+        }
+
+        taskColumn[taskIndex] = {
+          ...taskColumn[taskIndex],
+          ...updatedTask,
+        };
+
+        return nextColumns;
+      });
+
+      setArchivedDoneTasks((previousArchivedTasks) => {
+        const taskIndex = previousArchivedTasks.findIndex((task) => task.id === updatedTask.id);
+
+        if (taskIndex === -1) {
+          return previousArchivedTasks;
+        }
+
+        if (updatedTask.status !== "Done") {
+          return previousArchivedTasks.filter((task) => task.id !== updatedTask.id);
+        }
+
+        const nextArchivedTasks = [...previousArchivedTasks];
+        nextArchivedTasks[taskIndex] = {
+          ...nextArchivedTasks[taskIndex],
+          ...updatedTask,
+        };
+        return nextArchivedTasks;
+      });
+
+      setSelectedTask((previousTask) => {
+        if (!previousTask || previousTask.id !== updatedTask.id) {
+          return previousTask;
+        }
+        return updatedTask;
+      });
+      setEditEpicId(updatedTask.epic?.id ?? "");
+      setEditAssigneeUserId(updatedTask.assignee?.id ?? "");
+      syncRelatedTaskSummary(updatedTask.id, {
+        title: updatedTask.title,
+        status: updatedTask.status,
+        archivedAt: updatedTask.archivedAt,
+      });
+    },
+    [syncRelatedTaskSummary]
+  );
+
+  const patchSelectedTask = useCallback(
+    async ({
+      payload,
+      successMessage,
+      fallbackErrorMessage,
+    }: {
+      payload: Record<string, unknown>;
+      successMessage: string;
+      fallbackErrorMessage: string;
+    }) => {
+      if (!selectedTask || !canEdit) {
+        return false;
+      }
+
+      setIsUpdatingTask(true);
+      setTaskModalError(null);
+
+      try {
+        const response = await fetch(`/api/projects/${projectId}/tasks/${selectedTask.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const responsePayload = (await response.json().catch(() => null)) as
+            | {
+                error?: string;
+              }
+            | null;
+          throw new Error(getTaskMutationErrorMessage(responsePayload?.error));
+        }
+
+        const responsePayload = (await response.json()) as {
+          task: TaskMutationResponseTask;
+        };
+
+        if (!isTaskStatus(responsePayload.task.status)) {
+          throw new Error("Invalid task status returned by server");
+        }
+
+        const updatedTask = mapTaskMutationResponseTask(
+          responsePayload.task,
+          selectedTask.attachments
+        );
+        applyUpdatedTask(updatedTask);
+        router.refresh();
+        pushToast({
+          variant: "success",
+          message: successMessage,
+        });
+        return true;
+      } catch (error) {
+        console.error("[KanbanBoard.patchSelectedTask]", error);
+        const message =
+          error instanceof Error ? error.message : fallbackErrorMessage;
+        setTaskModalError(message);
+        pushToast({
+          variant: "error",
+          message,
+        });
+        return false;
+      } finally {
+        setIsUpdatingTask(false);
+      }
+    },
+    [applyUpdatedTask, canEdit, projectId, pushToast, router, selectedTask]
+  );
+
   const persistTaskChanges = useCallback(
     async (options?: { exitEditMode?: boolean }) => {
       if (!selectedTask) {
@@ -794,130 +989,19 @@ export function KanbanBoard({
           const payload = (await response.json().catch(() => null)) as {
             error?: string;
           } | null;
-          const message =
-            payload?.error === "related-tasks-invalid"
-              ? "Related tasks must stay active and belong to this project."
-              : payload?.error === "epic-invalid"
-                ? "Epic must belong to this project."
-              : payload?.error === "assignee-invalid"
-                ? "Assignee must be a current collaborator on this project."
-              : payload?.error === "deadline-invalid"
-                ? "Deadline must use a valid date."
-              : (payload?.error ?? "Failed to update task");
-          throw new Error(message);
+          throw new Error(getTaskMutationErrorMessage(payload?.error));
         }
 
         const payload = (await response.json()) as {
-          task: {
-            id: string;
-            title: string;
-            label: string | null;
-            labelsJson: string | null;
-            description: string | null;
-            deadlineDate: string | null;
-            commentCount: number;
-            blockedNote: string | null;
-            status: string;
-            position: number;
-            archivedAt: string | null;
-            epic: TaskEpicSummary | null;
-            assignee: TaskPersonSummary | null;
-            createdBy: TaskPersonSummary;
-            updatedBy: TaskPersonSummary;
-            createdAt: string;
-            updatedAt: string;
-            relatedTasks: TaskRelatedSummary[];
-            blockedFollowUps: {
-              id: string;
-              content: string;
-              createdAt: string;
-            }[];
-          };
+          task: TaskMutationResponseTask;
         };
 
         if (!isTaskStatus(payload.task.status)) {
           throw new Error("Invalid task status returned by server");
         }
 
-        const updatedTask: KanbanTask = {
-          id: payload.task.id,
-          title: payload.task.title,
-          labels: getTaskLabelsFromStorage(
-            payload.task.labelsJson,
-            payload.task.label
-          ),
-          description: payload.task.description,
-          deadlineDate: payload.task.deadlineDate,
-          commentCount: payload.task.commentCount,
-          epic: payload.task.epic,
-          assignee: payload.task.assignee,
-          createdBy: payload.task.createdBy,
-          updatedBy: payload.task.updatedBy,
-          createdAt: payload.task.createdAt,
-          updatedAt: payload.task.updatedAt,
-          blockedFollowUps: payload.task.blockedFollowUps.map((entry) => ({
-            ...entry,
-            createdAt: entry.createdAt,
-          })),
-          status: payload.task.status,
-          archivedAt: payload.task.archivedAt,
-          relatedTasks: payload.task.relatedTasks,
-          attachments: selectedTask.attachments,
-        };
-
-        setColumns((previousColumns) => {
-          const nextColumns = cloneColumns(previousColumns);
-          const taskColumn = nextColumns[updatedTask.status];
-          const taskIndex = taskColumn.findIndex(
-            (task) => task.id === updatedTask.id
-          );
-
-          if (taskIndex === -1) {
-            return previousColumns;
-          }
-
-          taskColumn[taskIndex] = {
-            ...taskColumn[taskIndex],
-            ...updatedTask,
-          };
-
-          return nextColumns;
-        });
-
-        setArchivedDoneTasks((previousArchivedTasks) => {
-          const taskIndex = previousArchivedTasks.findIndex(
-            (task) => task.id === updatedTask.id
-          );
-
-          if (taskIndex === -1) {
-            return previousArchivedTasks;
-          }
-
-          if (updatedTask.status !== "Done") {
-            return previousArchivedTasks.filter(
-              (task) => task.id !== updatedTask.id
-            );
-          }
-
-          const nextArchivedTasks = [...previousArchivedTasks];
-          nextArchivedTasks[taskIndex] = {
-            ...nextArchivedTasks[taskIndex],
-            ...updatedTask,
-          };
-          return nextArchivedTasks;
-        });
-
-        setSelectedTask((previousTask) => {
-          if (!previousTask || previousTask.id !== updatedTask.id) {
-            return previousTask;
-          }
-          return updatedTask;
-        });
-        syncRelatedTaskSummary(updatedTask.id, {
-          title: updatedTask.title,
-          status: updatedTask.status,
-          archivedAt: updatedTask.archivedAt,
-        });
+        const updatedTask = mapTaskMutationResponseTask(payload.task, selectedTask.attachments);
+        applyUpdatedTask(updatedTask);
         setTaskModalError(null);
         if (options?.exitEditMode !== false) {
           setIsEditMode(false);
@@ -948,8 +1032,26 @@ export function KanbanBoard({
       projectId,
       router,
       selectedTask,
-      syncRelatedTaskSummary,
+      applyUpdatedTask,
     ]
+  );
+
+  const handleQuickEpicUpdate = useCallback(
+    async (nextEpicId: string) => {
+      const nextEpicLabel =
+        availableEpicOptions.find((epic) => epic.id === nextEpicId)?.name ?? null;
+
+      await patchSelectedTask({
+        payload: {
+          epicId: nextEpicId || null,
+        },
+        successMessage: nextEpicLabel
+          ? `Epic updated to ${nextEpicLabel}.`
+          : "Epic cleared.",
+        fallbackErrorMessage: "Could not update epic.",
+      });
+    },
+    [availableEpicOptions, patchSelectedTask]
   );
 
   const handleTaskUpdate = useCallback(async () => {
@@ -1768,6 +1870,7 @@ export function KanbanBoard({
         onNewBlockedFollowUpEntryChange={setNewBlockedFollowUpEntry}
         onAddBlockedFollowUpEntry={handleAddBlockedFollowUpEntry}
         onSaveTask={handleTaskUpdate}
+        onQuickEpicChange={handleQuickEpicUpdate}
         onToggleLinkComposer={() =>
           setIsLinkComposerOpen((previous) => !previous)
         }

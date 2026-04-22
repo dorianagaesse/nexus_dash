@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import {
   Archive,
   ArrowRightLeft,
+  Check,
   ChevronRight,
   Clock3,
   Flag,
@@ -119,6 +120,7 @@ interface TaskDetailModalProps {
   onNewBlockedFollowUpEntryChange: (value: string) => void;
   onAddBlockedFollowUpEntry: () => void | Promise<void>;
   onSaveTask: () => void | Promise<void>;
+  onQuickEpicChange: (value: string) => void | Promise<void>;
   onToggleLinkComposer: () => void;
   onLinkUrlChange: (value: string) => void;
   onAddLinkAttachment: () => void | Promise<void>;
@@ -187,6 +189,7 @@ export function TaskDetailModal({
   onNewBlockedFollowUpEntryChange,
   onAddBlockedFollowUpEntry,
   onSaveTask,
+  onQuickEpicChange,
   onToggleLinkComposer,
   onLinkUrlChange,
   onAddLinkAttachment,
@@ -266,9 +269,12 @@ export function TaskDetailModal({
                 {!isEditing && canEdit ? (
                   <TaskOptionsMenu
                     currentStatus={selectedTask.status}
+                    currentEpic={selectedTask.epic}
+                    epicOptions={availableEpicOptions}
                     isArchived={isArchivedTask}
-                    isArchiving={isArchivingTask}
+                    isMutating={isArchivingTask || isUpdatingTask}
                     onStartEdit={() => onToggleEditMode(true)}
+                    onQuickEpicChange={onQuickEpicChange}
                     onMoveTask={onMoveTask}
                     onArchiveTask={onArchiveTask}
                     onUnarchiveTask={onUnarchiveTask}
@@ -565,9 +571,12 @@ function TaskActivityInline({
 
 interface TaskOptionsMenuProps {
   currentStatus: TaskStatus;
+  currentEpic: KanbanTask["epic"];
+  epicOptions: ProjectEpicOption[];
   isArchived: boolean;
-  isArchiving: boolean;
+  isMutating: boolean;
   onStartEdit: () => void;
+  onQuickEpicChange: (value: string) => void | Promise<void>;
   onMoveTask: (nextStatus: TaskStatus) => void;
   onArchiveTask: () => void | Promise<void>;
   onUnarchiveTask: () => void | Promise<void>;
@@ -576,9 +585,12 @@ interface TaskOptionsMenuProps {
 
 function TaskOptionsMenu({
   currentStatus,
+  currentEpic,
+  epicOptions,
   isArchived,
-  isArchiving,
+  isMutating,
   onStartEdit,
+  onQuickEpicChange,
   onMoveTask,
   onArchiveTask,
   onUnarchiveTask,
@@ -605,7 +617,7 @@ function TaskOptionsMenu({
             type="button"
             variant="ghost"
             className="w-full justify-start"
-            disabled={isArchiving}
+            disabled={isMutating}
             onClick={() => {
               onStartEdit();
               setIsMenuOpen(false);
@@ -620,7 +632,7 @@ function TaskOptionsMenu({
                 type="button"
                 variant="ghost"
                 className="w-full justify-between"
-                disabled={isArchiving}
+                disabled={isMutating}
               >
                 <span className="inline-flex items-center gap-2">
                   <ArrowRightLeft className="h-4 w-4" />
@@ -635,7 +647,7 @@ function TaskOptionsMenu({
                     type="button"
                     variant="ghost"
                     className="w-full justify-start"
-                    disabled={nextStatus === currentStatus || isArchiving}
+                    disabled={nextStatus === currentStatus || isMutating}
                     onClick={() => {
                       onMoveTask(nextStatus);
                       setIsMenuOpen(false);
@@ -647,19 +659,110 @@ function TaskOptionsMenu({
               </div>
             </div>
           ) : null}
+          <div className="group relative">
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full justify-between"
+              aria-label="Epic options"
+              disabled={isMutating}
+            >
+              <span className="inline-flex items-center gap-2">
+                <Flag className="h-4 w-4" />
+                Epic
+              </span>
+              <span className="inline-flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                <span className="max-w-[76px] truncate">{currentEpic?.name ?? "None"}</span>
+                <ChevronRight className="h-4 w-4 shrink-0" />
+              </span>
+            </Button>
+            <div className="invisible pointer-events-none absolute right-full top-0 z-30 mr-1 w-64 rounded-md border border-border/70 bg-background p-1 opacity-0 shadow-md transition group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+              <div className="max-h-72 space-y-1 overflow-y-auto">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full justify-between"
+                  disabled={!currentEpic || isMutating}
+                  onClick={() => {
+                    void onQuickEpicChange("");
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <span className="inline-flex min-w-0 items-center gap-2">
+                    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-dashed border-border/70 bg-muted/30">
+                      <Flag className="h-3.5 w-3.5 text-muted-foreground" />
+                    </span>
+                    <span className="min-w-0 text-left">
+                      <span className="block truncate text-sm font-medium">No epic</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        Leave this task outside an epic
+                      </span>
+                    </span>
+                  </span>
+                  {!currentEpic ? <Check className="h-4 w-4" /> : null}
+                </Button>
+
+                {epicOptions.length === 0 ? (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">
+                    Create an epic in the Epics section to link it here.
+                  </p>
+                ) : (
+                  epicOptions.map((epic) => {
+                    const color = getEpicColorFromName(epic.name);
+                    const isSelected = epic.id === currentEpic?.id;
+
+                    return (
+                      <Button
+                        key={epic.id}
+                        type="button"
+                        variant="ghost"
+                        className="h-auto w-full justify-between py-2"
+                        disabled={isSelected || isMutating}
+                        onClick={() => {
+                          void onQuickEpicChange(epic.id);
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        <span className="inline-flex min-w-0 items-center gap-2">
+                          <span
+                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border"
+                            style={{
+                              backgroundColor: color.soft,
+                              borderColor: color.border,
+                              color: color.accent,
+                            }}
+                          >
+                            <Flag className="h-3.5 w-3.5" />
+                          </span>
+                          <span className="min-w-0 text-left">
+                            <span className="block truncate text-sm font-medium">{epic.name}</span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {epic.status} · {epic.progressPercent}% complete · {epic.taskCount} task
+                              {epic.taskCount === 1 ? "" : "s"}
+                            </span>
+                          </span>
+                        </span>
+                        {isSelected ? <Check className="h-4 w-4" /> : null}
+                      </Button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
           {currentStatus === "Done" && !isArchived ? (
             <Button
               type="button"
               variant="ghost"
               className="w-full justify-start"
-              disabled={isArchiving}
+              disabled={isMutating}
               onClick={() => {
                 void onArchiveTask();
                 setIsMenuOpen(false);
               }}
             >
               <Archive className="h-4 w-4" />
-              {isArchiving ? "Archiving..." : "Archive"}
+              {isMutating ? "Working..." : "Archive"}
             </Button>
           ) : null}
           {isArchived ? (
@@ -667,7 +770,7 @@ function TaskOptionsMenu({
               type="button"
               variant="ghost"
               className="w-full justify-start"
-              disabled={isArchiving}
+              disabled={isMutating}
               onClick={() => {
                 void onUnarchiveTask();
                 setIsMenuOpen(false);
@@ -681,7 +784,7 @@ function TaskOptionsMenu({
             type="button"
             variant="ghost"
             className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
-            disabled={isArchiving}
+            disabled={isMutating}
             onClick={() => {
               setIsMenuOpen(false);
               onRequestDeleteTask();

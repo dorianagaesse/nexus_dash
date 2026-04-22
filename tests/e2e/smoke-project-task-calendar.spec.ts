@@ -30,9 +30,23 @@ test.describe("critical UI smoke flows", () => {
     const createdTaskTitle = uniqueProjectName("task");
     const editedTaskTitle = `${createdTaskTitle}-edited`;
     const taskComment = `Comment ${uniqueProjectName("note")}`;
+    const epicName = uniqueProjectName("epic");
 
     await createProjectFromProjectsPage(page, projectName);
     await openNewestProjectDashboard(page, projectName);
+
+    const projectId = page.url().match(/\/projects\/([^/?#]+)/)?.[1];
+    expect(projectId).toBeTruthy();
+
+    const createEpicResponse = await page.request.post(`/api/projects/${projectId}/epics`, {
+      data: {
+        name: epicName,
+        description: "Smoke-test epic for quick assignment coverage.",
+      },
+    });
+    expect(createEpicResponse.ok()).toBeTruthy();
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Kanban board" })).toBeVisible();
 
     await page.getByRole("button", { name: "New task" }).click();
     await expect(page.locator("#task-title")).toBeVisible();
@@ -52,6 +66,18 @@ test.describe("critical UI smoke flows", () => {
     await createdTaskCard.click();
     await expect(page.getByRole("button", { name: "Task options" })).toBeVisible();
     await expect(page.getByText("example.com")).toBeVisible();
+
+    await page.getByRole("button", { name: "Task options" }).click();
+    await page.getByRole("button", { name: "Epic options" }).click();
+    const quickEpicUpdateRequest = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        /\/tasks\/[^/]+$/.test(response.url()) &&
+        response.ok()
+    );
+    await page.getByRole("button", { name: new RegExp(epicName) }).click();
+    await quickEpicUpdateRequest;
+    await expect(page.getByText(epicName)).toBeVisible();
 
     await page.getByRole("button", { name: "Task options" }).click();
     await page.getByRole("button", { name: /^Edit$/ }).click();

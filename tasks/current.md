@@ -113,6 +113,8 @@ the existing Kanban model.
   - able to show all epics with name, description, derived status, progress,
     and linked-task count
 - Add task create/edit support for linking or clearing one epic.
+- Allow task detail quick actions to assign or clear an epic from the existing
+  task options menu without entering full edit mode.
 - Render the epic flag/chip on task surfaces where it matters:
   - task card
   - task detail
@@ -136,6 +138,8 @@ the existing Kanban model.
 - Epic names are unique within a project and duplicate-name writes are rejected.
 - Each task can store zero or one linked epic from the same project.
 - Task create/edit flows can assign an epic or clear it back to no epic.
+- Task options in task detail can assign or clear the linked epic without
+  switching into full edit mode.
 - Task cards and task detail surfaces display the linked epic flag when present.
 - The project page includes a dedicated epic section showing all epics with:
   - name

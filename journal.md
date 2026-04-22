@@ -788,6 +788,16 @@ Low-value entries to avoid going forward:
 - minor UI tweaks without task linkage
 - repetitive step-by-step notes that already exist in PR history
 
+### 2026-04-22
+- Type: Execution
+- Summary: TASK-107 follow-up added quick epic assignment directly from the task options menu and tightened backlog tracking for API-capability audit plus mobile navigation bug-fix scope.
+- Evidence: Updated `components/kanban-board.tsx` and `components/kanban/task-detail-modal.tsx` to patch task epic links from the existing dots menu without entering full edit mode; updated `tasks/current.md` acceptance/scope wording; added `TASK-127` in `tasks/backlog.md` and expanded `TASK-100` to explicitly cover mobile navigation bug fixing.
+
+### 2026-04-22
+- Type: Validation
+- Summary: TASK-107 quick-epic follow-up passed local lint, targeted epic service/API tests, and production build; targeted Playwright remains blocked by local E2E database fixture state before the new UI path executes.
+- Evidence: `npm run lint`; `npx -y -p node@20.19.0 node .\\node_modules\\vitest\\vitest.mjs run tests\\api\\project-epics.route.test.ts tests\\lib\\project-epic-service.test.ts`; `npm run build` with local env overrides; `npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "task lifecycle and attachment interaction flow"` failed in `tests/e2e/helpers/auth-helpers.ts` during seeded-user creation via Prisma before the browser reached the new epic quick-action flow.
+
 ### 2026-03-02
 - Type: Execution
 - Summary: ISSUE-070 targeted remediation implemented as low-risk performance patch set (no broad architecture rewrite).
