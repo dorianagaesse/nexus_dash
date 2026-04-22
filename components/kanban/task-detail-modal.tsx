@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import {
   Archive,
   ArrowRightLeft,
+  Check,
   ChevronRight,
   Clock3,
   Link2,
@@ -112,6 +113,7 @@ interface TaskDetailModalProps {
   onNewBlockedFollowUpEntryChange: (value: string) => void;
   onAddBlockedFollowUpEntry: () => void | Promise<void>;
   onSaveTask: () => void | Promise<void>;
+  onQuickAssigneeChange: (value: string) => void | Promise<void>;
   onToggleLinkComposer: () => void;
   onLinkUrlChange: (value: string) => void;
   onAddLinkAttachment: () => void | Promise<void>;
@@ -177,6 +179,7 @@ export function TaskDetailModal({
   onNewBlockedFollowUpEntryChange,
   onAddBlockedFollowUpEntry,
   onSaveTask,
+  onQuickAssigneeChange,
   onToggleLinkComposer,
   onLinkUrlChange,
   onAddLinkAttachment,
@@ -253,9 +256,12 @@ export function TaskDetailModal({
                 {!isEditing && canEdit ? (
                   <TaskOptionsMenu
                     currentStatus={selectedTask.status}
+                    currentAssignee={selectedTask.assignee}
+                    assigneeOptions={availableAssignees}
                     isArchived={isArchivedTask}
-                    isArchiving={isArchivingTask}
+                    isMutating={isArchivingTask || isUpdatingTask}
                     onStartEdit={() => onToggleEditMode(true)}
+                    onQuickAssigneeChange={onQuickAssigneeChange}
                     onMoveTask={onMoveTask}
                     onArchiveTask={onArchiveTask}
                     onUnarchiveTask={onUnarchiveTask}
@@ -430,6 +436,19 @@ function buildTaskPersonHoverLabel(person: TaskPersonSummary): string {
   return person.usernameTag ?? person.displayName;
 }
 
+function formatAssigneeProjectRole(role: ProjectTaskCollaborator["projectRole"]): string {
+  switch (role) {
+    case "owner":
+      return "Owner";
+    case "editor":
+      return "Editor";
+    case "viewer":
+      return "Viewer";
+    default:
+      return role;
+  }
+}
+
 function TaskAssigneeBadge({ assignee }: { assignee: TaskPersonSummary | null }) {
   return (
     <div className="flex flex-col gap-1 sm:items-end">
@@ -513,9 +532,12 @@ function TaskActivityInline({
 
 interface TaskOptionsMenuProps {
   currentStatus: TaskStatus;
+  currentAssignee: TaskPersonSummary | null;
+  assigneeOptions: ProjectTaskCollaborator[];
   isArchived: boolean;
-  isArchiving: boolean;
+  isMutating: boolean;
   onStartEdit: () => void;
+  onQuickAssigneeChange: (value: string) => void | Promise<void>;
   onMoveTask: (nextStatus: TaskStatus) => void;
   onArchiveTask: () => void | Promise<void>;
   onUnarchiveTask: () => void | Promise<void>;
@@ -524,9 +546,12 @@ interface TaskOptionsMenuProps {
 
 function TaskOptionsMenu({
   currentStatus,
+  currentAssignee,
+  assigneeOptions,
   isArchived,
-  isArchiving,
+  isMutating,
   onStartEdit,
+  onQuickAssigneeChange,
   onMoveTask,
   onArchiveTask,
   onUnarchiveTask,
@@ -553,7 +578,7 @@ function TaskOptionsMenu({
             type="button"
             variant="ghost"
             className="w-full justify-start"
-            disabled={isArchiving}
+            disabled={isMutating}
             onClick={() => {
               onStartEdit();
               setIsMenuOpen(false);
@@ -568,7 +593,7 @@ function TaskOptionsMenu({
                 type="button"
                 variant="ghost"
                 className="w-full justify-between"
-                disabled={isArchiving}
+                disabled={isMutating}
               >
                 <span className="inline-flex items-center gap-2">
                   <ArrowRightLeft className="h-4 w-4" />
@@ -583,7 +608,7 @@ function TaskOptionsMenu({
                     type="button"
                     variant="ghost"
                     className="w-full justify-start"
-                    disabled={nextStatus === currentStatus || isArchiving}
+                    disabled={nextStatus === currentStatus || isMutating}
                     onClick={() => {
                       onMoveTask(nextStatus);
                       setIsMenuOpen(false);
@@ -595,19 +620,108 @@ function TaskOptionsMenu({
               </div>
             </div>
           ) : null}
+          <div className="group relative">
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full justify-between"
+              aria-label="Assignee options"
+              disabled={isMutating}
+            >
+              <span className="inline-flex items-center gap-2">
+                <UserAvatar
+                  avatarSeed={currentAssignee?.avatarSeed ?? "unassigned"}
+                  displayName={currentAssignee?.displayName ?? "Unassigned"}
+                  className="h-5 w-5 border-border/70"
+                  decorative
+                />
+                Assignee
+              </span>
+              <span className="inline-flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                <span className="max-w-[72px] truncate">
+                  {currentAssignee?.displayName ?? "None"}
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0" />
+              </span>
+            </Button>
+            <div className="invisible pointer-events-none absolute right-full top-0 z-30 mr-1 w-64 rounded-md border border-border/70 bg-background p-1 opacity-0 shadow-md transition group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+              <div className="max-h-72 space-y-1 overflow-y-auto">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full justify-between"
+                  disabled={!currentAssignee || isMutating}
+                  onClick={() => {
+                    void onQuickAssigneeChange("");
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <span className="inline-flex min-w-0 items-center gap-2">
+                    <span className="inline-flex h-7 w-7 shrink-0 rounded-full border border-dashed border-border/70 bg-muted/30" />
+                    <span className="min-w-0 text-left">
+                      <span className="block truncate text-sm font-medium">Unassigned</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        Leave without an assignee
+                      </span>
+                    </span>
+                  </span>
+                  {!currentAssignee ? <Check className="h-4 w-4" /> : null}
+                </Button>
+
+                {assigneeOptions.map((assignee) => {
+                  const isSelected = assignee.id === currentAssignee?.id;
+
+                  return (
+                    <Button
+                      key={assignee.id}
+                      type="button"
+                      variant="ghost"
+                      className="h-auto w-full justify-between py-2"
+                      disabled={isSelected || isMutating}
+                      onClick={() => {
+                        void onQuickAssigneeChange(assignee.id);
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      <span
+                        className="inline-flex min-w-0 items-center gap-2"
+                        title={buildTaskPersonHoverLabel(assignee)}
+                      >
+                        <UserAvatar
+                          avatarSeed={assignee.avatarSeed}
+                          displayName={assignee.displayName}
+                          className="h-7 w-7 border-border/70"
+                          decorative
+                        />
+                        <span className="min-w-0 text-left">
+                          <span className="block truncate text-sm font-medium">
+                            {assignee.displayName}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {formatAssigneeProjectRole(assignee.projectRole)}
+                          </span>
+                        </span>
+                      </span>
+                      {isSelected ? <Check className="h-4 w-4" /> : null}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
           {currentStatus === "Done" && !isArchived ? (
             <Button
               type="button"
               variant="ghost"
               className="w-full justify-start"
-              disabled={isArchiving}
+              disabled={isMutating}
               onClick={() => {
                 void onArchiveTask();
                 setIsMenuOpen(false);
               }}
             >
               <Archive className="h-4 w-4" />
-              {isArchiving ? "Archiving..." : "Archive"}
+              {isMutating ? "Working..." : "Archive"}
             </Button>
           ) : null}
           {isArchived ? (
@@ -615,7 +729,7 @@ function TaskOptionsMenu({
               type="button"
               variant="ghost"
               className="w-full justify-start"
-              disabled={isArchiving}
+              disabled={isMutating}
               onClick={() => {
                 void onUnarchiveTask();
                 setIsMenuOpen(false);
@@ -629,7 +743,7 @@ function TaskOptionsMenu({
             type="button"
             variant="ghost"
             className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
-            disabled={isArchiving}
+            disabled={isMutating}
             onClick={() => {
               setIsMenuOpen(false);
               onRequestDeleteTask();

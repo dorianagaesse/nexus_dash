@@ -1,141 +1,104 @@
-# Current Task: TASK-101 Task Ownership And Provenance
+# Current Task: TASK-128 Task Assignee Quick Assign From Task Options
 
 ## Task ID
-TASK-101
+TASK-128
 
 ## Status
-Implementation complete on branch
-`feature/task-101-task-ownership-and-provenance`, stacked on top of `TASK-089`
-so the avatar baseline can be reused immediately across task ownership
-surfaces. Local validation is green aside from Playwright being blocked by the
-shared database schema not yet reflecting this branch migration; PR/review and
-preview deployment are the remaining release steps.
+In progress.
 
 ## Objective
-Add first-class task ownership metadata so every task can show who created it,
-who is currently assigned to it, and who last touched it, with the data model,
-API contracts, and UI all aligned around the same provenance source of truth.
+Let collaborators assign or clear a task assignee directly from the existing
+task options menu, so common ownership changes do not require switching into
+full edit mode.
 
 ## Why This Task Matters
-- Collaboration is already live, but task ownership is still implicit and
-  depends on outside context instead of product-visible metadata.
-- `TASK-089` established a shared avatar foundation; `TASK-101` is the first
-  feature that needs to apply that foundation to real work attribution.
-- Assignee and provenance data are prerequisites for later filtering,
-  accountability, notification, and richer project-presence work.
-- Shipping this cleanly now reduces the risk of inventing multiple incompatible
-  identity models across task comments, assignee chips, and future activity
-  surfaces.
+- `TASK-101` already introduced assignee data across schema, services, API
+  routes, and task surfaces, but the fastest reassignment path still lives
+  behind full task edit mode.
+- Ownership changes are one of the most frequent task adjustments during daily
+  execution, especially while triaging new work or redistributing active work.
+- The task options menu already hosts quick actions for move/archive/delete, so
+  assignee fits naturally there as another lightweight task-management action.
 
 ## Current Baseline Confirmed In Repo
-- `Task` currently has no creator, updater, or assignee relationship fields in
-  `prisma/schema.prisma`.
-- Kanban task reads come from `listProjectKanbanTasks` and the task routes, so
-  provenance data needs to be added at the service/API layer rather than only
-  in the UI.
-- Task comments already resolve avatar-backed author identities after
-  `TASK-089`.
-- The board already has a stable task detail modal, task create dialog, and
-  task edit flow, which are the right surfaces to introduce ownership and
-  provenance.
-
-## Working Product Assumptions
-- A task must always retain a creator and last-updater once the migration is
-  applied.
-- Assignee is optional and should support explicit clearing back to an
-  unassigned state.
-- Valid assignees are current project collaborators, including the owner.
-- "Last touched" should reflect task mutations that materially change the task
-  record or task activity, including comment and attachment writes.
-- Existing tasks need a practical backfill path; project owner is the baseline
-  provenance fallback for legacy rows.
+- Tasks already persist an optional `assigneeUserId`.
+- Task create/edit flows already validate assignees against current project
+  collaborators.
+- The task detail modal already shows the current assignee and already exposes a
+  task options menu.
+- The `PATCH /api/projects/{projectId}/tasks/{taskId}` route already supports
+  changing or clearing assignee through the existing service boundary.
 
 ## Scope
-- Extend the task schema with:
-  - creator relationship
-  - updater relationship
-  - optional assignee relationship
-- Backfill provenance for existing tasks through a migration.
-- Validate assignee changes against current project collaborators.
-- Update task create, update, reorder, archive, unarchive, comment, and
-  attachment flows so provenance stays accurate.
-- Expose provenance and assignee metadata through task list/update API
-  responses.
-- Add assignee selection to task create/edit flows.
-- Render avatar-backed ownership UI on the main task surfaces:
-  - board card assignee display
-  - task detail assignee display
-  - task detail created-by / modified-by display
-- Update agent/OpenAPI documentation where task payloads change.
-- Add targeted regression coverage for the new task contracts and provenance
-  behavior.
-- Update tracking docs in the same task branch.
+- Add an assignee quick-action entry inside the existing task options menu.
+- Allow assigning the task to any current project collaborator from that menu.
+- Allow clearing the assignee back to unassigned from that menu.
+- Reuse the existing task update API/service path instead of introducing a
+  parallel assignee-only endpoint.
+- Keep local task state, modal header assignee badge, and board card assignee
+  UI aligned immediately after the quick update.
+- Preserve current collaborator validation and current error handling behavior.
+- Add targeted regression coverage for the quick-assignment path.
+- Update task tracking docs in the same branch.
 
 ## Out Of Scope
-- User-uploaded avatars or alternative avatar rendering systems.
-- Project-page collaborator rollups; that remains later work (`TASK-119`).
-- Notification delivery, reminders, or ownership-based inbox features.
-- Complex assignee filtering/search UX on the board.
-- Historic provenance reconstruction beyond a sensible legacy backfill.
+- Assignee search/filter across the whole board.
+- Bulk assignment actions.
+- New collaborator-management UX.
+- Additional provenance model changes beyond the already shipped `TASK-101`
+  contract.
 
 ## Acceptance Criteria
-- New tasks persist creator and updater metadata automatically.
-- Tasks can store an optional assignee and reject non-collaborator assignees.
-- Task update flows keep updater metadata current.
-- Comment and attachment task activity updates the task attribution trail.
-- The kanban board can render assignee identity with the avatar baseline.
-- The task detail modal shows assignee, created-by, and modified-by metadata.
-- Task create/edit flows allow selecting or clearing an assignee.
-- Task API and agent docs stay aligned with the new payload shape.
-- Required tracking docs are updated consistently in the same PR.
+- The task options menu includes an assignee quick-action path.
+- Users can assign a task to any current project collaborator from that menu.
+- Users can clear an assignee back to unassigned from that menu.
+- Invalid assignee writes are still rejected by the existing service boundary.
+- The task detail assignee badge updates immediately after a successful quick
+  assignment change.
+- Task tracking docs are updated consistently in the same PR.
 
 ## Definition Of Done
-1. `TASK-101` is the active brief in `tasks/current.md`.
-2. Schema, services, routes, and UI all support task assignee + provenance end
-   to end.
+1. `TASK-128` is the active brief in `tasks/current.md`.
+2. Task options support assignee quick assignment end to end through the
+   existing UI/API/service stack.
 3. Relevant validation is green:
    - `npm run lint`
-   - `npm test`
-   - `npm run test:coverage`
+   - targeted automated coverage for the quick-action path
    - `npm run build`
    - preview validation once the branch is published
-4. Tracking docs are updated consistently (`tasks/current.md`, `journal.md`,
-   and `adr/decisions.md` only if an architecture-level decision is introduced).
-5. The task ships through its own dedicated PR with the normal review and
-   preview workflow handled before handoff.
+4. Tracking docs are updated consistently (`tasks/current.md`,
+   `tasks/backlog.md`, and `journal.md`; `adr/decisions.md` only if a new
+   architecture-level decision appears).
+5. The task ships through its own dedicated branch and PR with Copilot review
+   triaged before handoff.
 
 ## Dependencies
-- `TASK-058`
-- `TASK-076`
+- `TASK-101`
 - `TASK-079`
-- `TASK-089`
 
 ## Evidence Plan
 - Repo source of truth:
   - `agent.md`
   - `tasks/backlog.md`
-  - `prisma/schema.prisma`
-  - `lib/services/project-service.ts`
-  - `lib/services/project-task-service.ts`
-  - `lib/services/project-task-comment-service.ts`
-  - `lib/services/project-attachment-service.ts`
-  - `app/api/projects/[projectId]/tasks/**`
-  - `app/projects/[projectId]/kanban-board-section.tsx`
-  - `components/kanban-board.tsx`
   - `components/kanban/task-detail-modal.tsx`
-  - `components/create-task-dialog.tsx`
+  - `components/kanban-board.tsx`
+  - `components/ui/assignee-select.tsx`
+  - `app/api/projects/[projectId]/tasks/[taskId]/route.ts`
+  - `lib/services/project-task-service.ts`
+  - `tests/e2e/smoke-project-task-calendar.spec.ts`
 - Validation source of truth:
-  - local lint/unit/build runs
-  - PR review comments and CI checks
+  - local lint/build runs
+  - targeted automated tests
+  - PR review comments and checks
   - preview deployment verification
 
 ## Outcome Target
-- NexusDash gains explicit task ownership and provenance instead of relying on
-  chat context or naming conventions.
-- The avatar baseline from `TASK-089` becomes visible where ownership actually
-  matters: assignee, creator, and last modifier.
+- Reassigning task ownership becomes a lightweight task-management action rather
+  than a full edit workflow.
+- NexusDash keeps the task detail modal focused on quick execution changes where
+  that makes the most sense.
 
 ---
 
-Last Updated: 2026-04-21
+Last Updated: 2026-04-22
 Assigned To: Agent
