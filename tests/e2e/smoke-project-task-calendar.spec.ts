@@ -60,7 +60,9 @@ test.describe("critical UI smoke flows", () => {
     await page.locator("input[placeholder='https://...']").press("Enter");
     await page.getByRole("button", { name: "Create task" }).click();
 
-    const createdTaskCard = page.locator("article").filter({ hasText: createdTaskTitle }).first();
+    const createdTaskCard = page
+      .getByRole("button", { name: new RegExp(createdTaskTitle) })
+      .first();
     await expect(createdTaskCard).toBeVisible();
 
     await createdTaskCard.click();
@@ -117,10 +119,13 @@ test.describe("critical UI smoke flows", () => {
     await expect(page.getByRole("button", { name: "Task options" })).toBeVisible();
     await page.getByRole("button", { name: "Close task" }).click();
 
-    const editedTaskCard = page.locator("article").filter({ hasText: editedTaskTitle }).first();
+    const editedTaskCard = page
+      .getByRole("button", { name: new RegExp(editedTaskTitle) })
+      .first();
     await expect(editedTaskCard).toBeVisible();
 
     await editedTaskCard.click();
+    await expect(page.getByRole("button", { name: "Close task" })).toBeVisible();
     await expect(page.getByText(taskComment)).toBeVisible();
     await page.getByRole("button", { name: "Close task" }).click();
   });
