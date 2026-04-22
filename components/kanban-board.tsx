@@ -1054,6 +1054,25 @@ export function KanbanBoard({
     [availableEpicOptions, patchSelectedTask]
   );
 
+  const handleQuickAssigneeUpdate = useCallback(
+    async (nextAssigneeUserId: string) => {
+      const nextAssigneeLabel =
+        availableAssignees.find((assignee) => assignee.id === nextAssigneeUserId)
+          ?.displayName ?? null;
+
+      await patchSelectedTask({
+        payload: {
+          assigneeUserId: nextAssigneeUserId || null,
+        },
+        successMessage: nextAssigneeLabel
+          ? `Assignee updated to ${nextAssigneeLabel}.`
+          : "Assignee cleared.",
+        fallbackErrorMessage: "Could not update assignee.",
+      });
+    },
+    [availableAssignees, patchSelectedTask]
+  );
+
   const handleTaskUpdate = useCallback(async () => {
     if (!selectedTask) {
       return;
@@ -1871,6 +1890,7 @@ export function KanbanBoard({
         onAddBlockedFollowUpEntry={handleAddBlockedFollowUpEntry}
         onSaveTask={handleTaskUpdate}
         onQuickEpicChange={handleQuickEpicUpdate}
+        onQuickAssigneeChange={handleQuickAssigneeUpdate}
         onToggleLinkComposer={() =>
           setIsLinkComposerOpen((previous) => !previous)
         }

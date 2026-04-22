@@ -837,3 +837,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: Mobile containment follow-up for the developer onboarding surface passed the targeted local validation slice before preview deployment.
 - Evidence: `npm run lint` and `npx vitest run tests/components/agent-onboarding-guide.test.ts tests/app/agent-onboarding-pages.test.ts`.
+
+### 2026-04-22
+- Type: Execution
+- Summary: TASK-128 added assignee quick assignment in the task options menu so ownership can be reassigned without entering full edit mode.
+- Evidence: Updated `components/kanban/task-detail-modal.tsx` to add an assignee submenu in the existing task options flyout; updated `components/kanban-board.tsx` to reuse the existing task PATCH boundary for quick assignee mutations with immediate local state refresh; updated `tests/e2e/smoke-project-task-calendar.spec.ts` for assignee quick-action coverage; updated `tasks/current.md` and `tasks/backlog.md` for the new follow-up task brief.
+
+### 2026-04-22
+- Type: Validation
+- Summary: TASK-128 passed local lint and production build; targeted Playwright remained blocked by the local E2E database fixture state before the new assignee path executed.
+- Evidence: `npm run lint`; `npm run build` with local env overrides; `npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "task lifecycle and attachment interaction flow"` failed in `tests/e2e/helpers/auth-helpers.ts` during seeded-user creation via Prisma before the browser reached the new assignee quick-action flow.
