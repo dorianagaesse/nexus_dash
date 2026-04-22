@@ -401,6 +401,87 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     expect(prismaMock.taskRelation.deleteMany).not.toHaveBeenCalled();
   });
 
+  test("preserves untouched fields during assignee-only quick updates", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      status: "In Progress",
+      position: 2,
+      archivedAt: null,
+      assigneeUserId: null,
+      outgoingRelations: [],
+      incomingRelations: [],
+    });
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      title: "Keep title",
+      label: "ship",
+      labelsJson: JSON.stringify(["ship"]),
+      description: "<p>Keep description</p>",
+      deadlineAt: null,
+      _count: {
+        comments: 0,
+      },
+      blockedNote: null,
+      status: "In Progress",
+      position: 2,
+      archivedAt: null,
+      createdAt: new Date("2026-04-18T08:00:00.000Z"),
+      updatedAt: new Date("2026-04-18T09:00:00.000Z"),
+      createdByUser: {
+        id: "user-1",
+        name: "Alice Example",
+        email: "alice@example.com",
+        username: "alice",
+        usernameDiscriminator: "1234",
+        avatarSeed: null,
+      },
+      updatedByUser: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+      assigneeUser: {
+        id: "user-2",
+        name: "Bob Example",
+        email: "bob@example.com",
+        username: "bob",
+        usernameDiscriminator: "2222",
+        avatarSeed: null,
+      },
+      outgoingRelations: [],
+      incomingRelations: [],
+      blockedFollowUps: [],
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        assigneeUserId: "user-2",
+      }),
+    });
+
+    const response = await PATCH(request as never, {
+      params: { projectId: "p1", taskId: "t1" },
+    });
+
+    expect(response.status).toBe(200);
+    const updateCall = prismaMock.task.update.mock.calls.at(-1)?.[0];
+    expect(updateCall?.data).toMatchObject({
+      assigneeUserId: "user-2",
+      updatedByUserId: "test-user",
+    });
+    expect(updateCall?.data).not.toHaveProperty("title");
+    expect(updateCall?.data).not.toHaveProperty("label");
+    expect(updateCall?.data).not.toHaveProperty("labelsJson");
+    expect(updateCall?.data).not.toHaveProperty("description");
+    expect(prismaMock.taskRelation.deleteMany).not.toHaveBeenCalled();
+  });
+
   test("allows keeping an already-related archived task during updates", async () => {
     prismaMock.task.findUnique.mockResolvedValueOnce({
       id: "t1",
