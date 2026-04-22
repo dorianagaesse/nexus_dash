@@ -475,6 +475,181 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     });
   });
 
+  test("preserves untouched fields during epic-only quick updates", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      status: "In Progress",
+      position: 2,
+      archivedAt: null,
+      epicId: null,
+      assigneeUserId: null,
+      outgoingRelations: [
+        {
+          rightTaskId: "t2",
+        },
+      ],
+      incomingRelations: [],
+    });
+    prismaMock.epic.findFirst.mockResolvedValueOnce({ id: "epic-1" });
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      title: "Keep title",
+      label: "ship",
+      labelsJson: JSON.stringify(["ship"]),
+      description: "<p>Keep description</p>",
+      deadlineAt: new Date("2026-04-24T00:00:00.000Z"),
+      _count: {
+        comments: 1,
+      },
+      blockedNote: null,
+      status: "In Progress",
+      position: 2,
+      archivedAt: null,
+      epic: {
+        id: "epic-1",
+        name: "Workspace launch",
+      },
+      createdAt: new Date("2026-04-18T08:00:00.000Z"),
+      updatedAt: new Date("2026-04-18T09:00:00.000Z"),
+      createdByUser: {
+        id: "user-1",
+        name: "Alice Example",
+        email: "alice@example.com",
+        username: "alice",
+        usernameDiscriminator: "1234",
+        avatarSeed: null,
+      },
+      updatedByUser: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+      assigneeUser: null,
+      outgoingRelations: [
+        {
+          rightTask: {
+            id: "t2",
+            title: "Sibling task",
+            status: "Backlog",
+            archivedAt: null,
+          },
+        },
+      ],
+      incomingRelations: [],
+      blockedFollowUps: [],
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        epicId: "epic-1",
+      }),
+    });
+
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
+
+    expect(response.status).toBe(200);
+    const updateCall = prismaMock.task.update.mock.calls.at(-1)?.[0];
+    expect(updateCall?.data).toMatchObject({
+      epicId: "epic-1",
+      updatedByUserId: "test-user",
+    });
+    expect(updateCall?.data).not.toHaveProperty("title");
+    expect(updateCall?.data).not.toHaveProperty("label");
+    expect(updateCall?.data).not.toHaveProperty("labelsJson");
+    expect(updateCall?.data).not.toHaveProperty("description");
+    expect(prismaMock.taskRelation.deleteMany).not.toHaveBeenCalled();
+  });
+
+  test("preserves untouched fields during assignee-only quick updates", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      status: "In Progress",
+      position: 2,
+      archivedAt: null,
+      epicId: "epic-1",
+      assigneeUserId: null,
+      outgoingRelations: [],
+      incomingRelations: [],
+    });
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      title: "Keep title",
+      label: "ship",
+      labelsJson: JSON.stringify(["ship"]),
+      description: "<p>Keep description</p>",
+      deadlineAt: null,
+      _count: {
+        comments: 0,
+      },
+      blockedNote: null,
+      status: "In Progress",
+      position: 2,
+      archivedAt: null,
+      epic: {
+        id: "epic-1",
+        name: "Workspace launch",
+      },
+      createdAt: new Date("2026-04-18T08:00:00.000Z"),
+      updatedAt: new Date("2026-04-18T09:00:00.000Z"),
+      createdByUser: {
+        id: "user-1",
+        name: "Alice Example",
+        email: "alice@example.com",
+        username: "alice",
+        usernameDiscriminator: "1234",
+        avatarSeed: null,
+      },
+      updatedByUser: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+      assigneeUser: {
+        id: "user-2",
+        name: "Bob Example",
+        email: "bob@example.com",
+        username: "bob",
+        usernameDiscriminator: "2222",
+        avatarSeed: null,
+      },
+      outgoingRelations: [],
+      incomingRelations: [],
+      blockedFollowUps: [],
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        assigneeUserId: "user-2",
+      }),
+    });
+
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
+
+    expect(response.status).toBe(200);
+    const updateCall = prismaMock.task.update.mock.calls.at(-1)?.[0];
+    expect(updateCall?.data).toMatchObject({
+      assigneeUserId: "user-2",
+      updatedByUserId: "test-user",
+    });
+    expect(updateCall?.data).not.toHaveProperty("title");
+    expect(updateCall?.data).not.toHaveProperty("label");
+    expect(updateCall?.data).not.toHaveProperty("labelsJson");
+    expect(updateCall?.data).not.toHaveProperty("description");
+    expect(prismaMock.taskRelation.deleteMany).not.toHaveBeenCalled();
+  });
+
   test("returns 400 when related tasks are invalid", async () => {
     prismaMock.task.findUnique.mockResolvedValueOnce({
       id: "t1",

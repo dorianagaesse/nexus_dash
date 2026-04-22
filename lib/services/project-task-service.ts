@@ -703,7 +703,11 @@ export async function updateTaskForProject(
     return createError(401, "unauthorized");
   }
 
+  const titleProvided = Object.prototype.hasOwnProperty.call(payload, "title");
   const title = normalizeText(payload.title);
+  const labelsProvided =
+    Object.prototype.hasOwnProperty.call(payload, "labels") ||
+    Object.prototype.hasOwnProperty.call(payload, "label");
   const rawLabels =
     Array.isArray(payload.labels) && payload.labels.length > 0
       ? payload.labels
@@ -711,6 +715,7 @@ export async function updateTaskForProject(
   const labels = rawLabels.map((entry) => normalizeText(entry)).filter(Boolean);
   const normalizedLabels = normalizeTaskLabels(labels);
   const serializedLabels = serializeTaskLabels(normalizedLabels);
+  const descriptionProvided = Object.prototype.hasOwnProperty.call(payload, "description");
   const description = sanitizeRichText(normalizeText(payload.description));
   const deadlineInput = parseDeadlineInput(payload.deadlineDate, {
     preserveWhenMissing: true,
@@ -719,7 +724,10 @@ export async function updateTaskForProject(
     return deadlineInput;
   }
   const blockedFollowUpEntry = normalizeText(payload.blockedFollowUpEntry);
-  const relatedTaskIds = normalizeRelatedTaskIds(payload.relatedTaskIds ?? []);
+  const relatedTaskIdsProvided = Object.prototype.hasOwnProperty.call(payload, "relatedTaskIds");
+  const relatedTaskIds = relatedTaskIdsProvided
+    ? normalizeRelatedTaskIds(payload.relatedTaskIds ?? [])
+    : [];
   const epicProvided = Object.prototype.hasOwnProperty.call(payload, "epicId");
   const epicId = epicProvided ? normalizeText(payload.epicId) : null;
   const assigneeProvided = Object.prototype.hasOwnProperty.call(payload, "assigneeUserId");
@@ -735,7 +743,7 @@ export async function updateTaskForProject(
     return createError(agentScopeAccess.status, agentScopeAccess.error);
   }
 
-  if (title.length < MIN_TITLE_LENGTH) {
+  if (titleProvided && title.length < MIN_TITLE_LENGTH) {
     return createError(400, "Task title must be at least 2 characters");
   }
 
@@ -777,16 +785,26 @@ export async function updateTaskForProject(
         return createError(404, "Task not found");
       }
 
-      const relatedTaskValidation = await validateRelatedTaskIds({
-        db,
-        projectId,
-        taskId,
-        relatedTaskIds,
-        allowArchivedTaskIds: [
-          ...existingTask.outgoingRelations.map((entry) => entry.rightTaskId),
-          ...existingTask.incomingRelations.map((entry) => entry.leftTaskId),
-        ],
-      });
+      const relatedTaskValidation = relatedTaskIdsProvided
+        ? await validateRelatedTaskIds({
+            db,
+            projectId,
+            taskId,
+            relatedTaskIds,
+            allowArchivedTaskIds: [
+              ...existingTask.outgoingRelations.map((entry) => entry.rightTaskId),
+              ...existingTask.incomingRelations.map((entry) => entry.leftTaskId),
+            ],
+          })
+        : {
+            ok: true as const,
+            data: {
+              relatedTaskIds: [
+                ...existingTask.outgoingRelations.map((entry) => entry.rightTaskId),
+                ...existingTask.incomingRelations.map((entry) => entry.leftTaskId),
+              ],
+            },
+          };
       if (!relatedTaskValidation.ok) {
         return relatedTaskValidation;
       }
@@ -827,13 +845,17 @@ export async function updateTaskForProject(
         await tx.task.update({
           where: { id: taskId },
           data: {
-            title,
-            label: normalizedLabels[0] ?? null,
-            labelsJson: serializedLabels,
-            description,
             updatedByUserId: normalizedActorUserId,
             epicId: epicValidation.data.epicId,
             assigneeUserId: assigneeValidation.data.assigneeUserId,
+            ...(titleProvided ? { title } : {}),
+            ...(labelsProvided
+              ? {
+                  label: normalizedLabels[0] ?? null,
+                  labelsJson: serializedLabels,
+                }
+              : {}),
+            ...(descriptionProvided ? { description } : {}),
             ...(deadlineInput.data.provided
               ? { deadlineAt: deadlineInput.data.deadlineAt }
               : {}),
@@ -849,12 +871,14 @@ export async function updateTaskForProject(
           });
         }
 
-        await replaceTaskRelations({
-          db: tx,
-          projectId,
-          taskId,
-          relatedTaskIds: relatedTaskValidation.data.relatedTaskIds,
-        });
+        if (relatedTaskIdsProvided) {
+          await replaceTaskRelations({
+            db: tx,
+            projectId,
+            taskId,
+            relatedTaskIds: relatedTaskValidation.data.relatedTaskIds,
+          });
+        }
 
         return tx.task.findUnique({
           where: { id: taskId },
