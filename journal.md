@@ -847,3 +847,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-128 passed local lint and production build; targeted Playwright remained blocked by the local E2E database fixture state before the new assignee path executed.
 - Evidence: `npm run lint`; `npm run build` with local env overrides; `npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "task lifecycle and attachment interaction flow"` failed in `tests/e2e/helpers/auth-helpers.ts` during seeded-user creation via Prisma before the browser reached the new assignee quick-action flow.
+
+### 2026-04-22
+- Type: Execution
+- Summary: TASK-128 task options submenus now open intentionally by click so assignee quick assignment is reliable in the task flyout and no longer depends on hover-only behavior.
+- Evidence: Updated `components/kanban/task-detail-modal.tsx` to manage submenu open state explicitly for move and assignee actions, added a stable assignee submenu marker for validation, and aligned `tests/e2e/smoke-project-task-calendar.spec.ts` with the click-open interaction.
+
+### 2026-04-22
+- Type: Validation
+- Summary: TASK-128 submenu interaction follow-up passed local lint and production build before being republished to the PR branch.
+- Evidence: `npm run lint`; `npm run build` with local `DATABASE_URL`, `DIRECT_URL`, `GOOGLE_TOKEN_ENCRYPTION_KEY`, and `AGENT_TOKEN_SIGNING_SECRET` overrides.
