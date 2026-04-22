@@ -6,6 +6,7 @@ import {
   Check,
   ChevronRight,
   Clock3,
+  Flag,
   Link2,
   MessageSquare,
   MoreHorizontal,
@@ -23,6 +24,7 @@ import {
   type KanbanTask,
   type TaskComment,
   type PendingAttachmentUpload,
+  type ProjectEpicOption,
   type ProjectTaskCollaborator,
   type TaskPersonSummary,
   type TaskAttachment,
@@ -46,7 +48,9 @@ import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
+import { EpicSelect } from "@/components/ui/epic-select";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { getEpicColorFromName } from "@/lib/epic";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
 import {
@@ -75,6 +79,7 @@ interface TaskDetailModalProps {
   editLabelSuggestions: string[];
   editDescription: string;
   editDeadlineDate: string;
+  editEpicId: string;
   editAssigneeUserId: string;
   editRelatedTasks: KanbanTask["relatedTasks"];
   relatedTaskSearch: string;
@@ -105,16 +110,19 @@ interface TaskDetailModalProps {
   onRemoveEditLabel: (label: string) => void;
   onEditDescriptionChange: (value: string) => void;
   onEditDeadlineDateChange: (value: string) => void;
+  onEditEpicIdChange: (value: string) => void;
   onEditAssigneeUserIdChange: (value: string) => void;
   onRelatedTaskSearchChange: (value: string) => void;
   onAddRelatedTask: (taskId: string) => void;
   onRemoveRelatedTask: (taskId: string) => void;
+  availableEpicOptions: ProjectEpicOption[];
   availableAssignees: ProjectTaskCollaborator[];
   availableRelatedTaskOptions: RelatedTaskOption[];
   onOpenRelatedTask: (taskId: string) => void;
   onNewBlockedFollowUpEntryChange: (value: string) => void;
   onAddBlockedFollowUpEntry: () => void | Promise<void>;
   onSaveTask: () => void | Promise<void>;
+  onQuickEpicChange: (value: string) => void | Promise<void>;
   onQuickAssigneeChange: (value: string) => void | Promise<void>;
   onToggleLinkComposer: () => void;
   onLinkUrlChange: (value: string) => void;
@@ -141,6 +149,7 @@ export function TaskDetailModal({
   editLabelSuggestions,
   editDescription,
   editDeadlineDate,
+  editEpicId,
   editAssigneeUserId,
   editRelatedTasks,
   relatedTaskSearch,
@@ -171,16 +180,19 @@ export function TaskDetailModal({
   onRemoveEditLabel,
   onEditDescriptionChange,
   onEditDeadlineDateChange,
+  onEditEpicIdChange,
   onEditAssigneeUserIdChange,
   onRelatedTaskSearchChange,
   onAddRelatedTask,
   onRemoveRelatedTask,
+  availableEpicOptions,
   availableAssignees,
   availableRelatedTaskOptions,
   onOpenRelatedTask,
   onNewBlockedFollowUpEntryChange,
   onAddBlockedFollowUpEntry,
   onSaveTask,
+  onQuickEpicChange,
   onQuickAssigneeChange,
   onToggleLinkComposer,
   onLinkUrlChange,
@@ -230,7 +242,7 @@ export function TaskDetailModal({
                   {isArchivedTask ? "Archived" : selectedTask.status}
                 </Badge>
                 {!isEditing ? (
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-3 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:space-y-0">
                     <CardTitle
                       className="min-w-0 flex-1 text-xl leading-tight"
                       onDoubleClick={() => {
@@ -243,7 +255,10 @@ export function TaskDetailModal({
                     >
                       {selectedTask.title}
                     </CardTitle>
-                    <TaskAssigneeBadge assignee={selectedTask.assignee} />
+                    <div className="flex flex-wrap items-start gap-3 sm:justify-end">
+                      {selectedTask.epic ? <TaskEpicBadge epic={selectedTask.epic} /> : null}
+                      <TaskAssigneeBadge assignee={selectedTask.assignee} />
+                    </div>
                   </div>
                 ) : (
                   <EmojiInputField
@@ -258,11 +273,14 @@ export function TaskDetailModal({
                 {!isEditing && canEdit ? (
                   <TaskOptionsMenu
                     currentStatus={selectedTask.status}
+                    currentEpic={selectedTask.epic}
+                    epicOptions={availableEpicOptions}
                     currentAssignee={selectedTask.assignee}
                     assigneeOptions={availableAssignees}
                     isArchived={isArchivedTask}
                     isMutating={isArchivingTask || isUpdatingTask}
                     onStartEdit={() => onToggleEditMode(true)}
+                    onQuickEpicChange={onQuickEpicChange}
                     onQuickAssigneeChange={onQuickAssigneeChange}
                     onMoveTask={onMoveTask}
                     onArchiveTask={onArchiveTask}
@@ -307,6 +325,7 @@ export function TaskDetailModal({
                   editLabelSuggestions={editLabelSuggestions}
                   editDescription={editDescription}
                   editDeadlineDate={editDeadlineDate}
+                  editEpicId={editEpicId}
                   editAssigneeUserId={editAssigneeUserId}
                   editRelatedTasks={editRelatedTasks}
                   relatedTaskSearch={relatedTaskSearch}
@@ -325,10 +344,12 @@ export function TaskDetailModal({
                   onRemoveEditLabel={onRemoveEditLabel}
                   onEditDescriptionChange={onEditDescriptionChange}
                   onEditDeadlineDateChange={onEditDeadlineDateChange}
+                  onEditEpicIdChange={onEditEpicIdChange}
                   onEditAssigneeUserIdChange={onEditAssigneeUserIdChange}
                   onRelatedTaskSearchChange={onRelatedTaskSearchChange}
                   onAddRelatedTask={onAddRelatedTask}
                   onRemoveRelatedTask={onRemoveRelatedTask}
+                  availableEpicOptions={availableEpicOptions}
                   availableAssignees={availableAssignees}
                   availableRelatedTaskOptions={availableRelatedTaskOptions}
                   onNewBlockedFollowUpEntryChange={onNewBlockedFollowUpEntryChange}
@@ -438,9 +459,48 @@ function buildTaskPersonHoverLabel(person: TaskPersonSummary): string {
   return person.usernameTag ?? person.displayName;
 }
 
+function TaskEpicBadge({
+  epic,
+  showLabel = true,
+}: {
+  epic: KanbanTask["epic"];
+  showLabel?: boolean;
+}) {
+  if (!epic) {
+    return null;
+  }
+
+  const color = getEpicColorFromName(epic.name);
+
+  return (
+    <div className="flex flex-col items-center gap-1 text-center sm:items-end sm:text-right">
+      {showLabel ? (
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Epic
+        </p>
+      ) : null}
+      <div
+        className="inline-flex max-w-full items-center gap-2 rounded-full border px-2.5 py-1.5"
+        style={{
+          backgroundColor: color.soft,
+          borderColor: color.border,
+          color: color.accent,
+        }}
+        title={epic.name}
+      >
+        <Flag className="h-3.5 w-3.5" />
+        <span className="max-w-[180px] truncate text-sm font-medium">{epic.name}</span>
+      </div>
+    </div>
+  );
+}
+
 function TaskAssigneeBadge({ assignee }: { assignee: TaskPersonSummary | null }) {
   return (
-    <div data-task-assignee-badge="true" className="flex flex-col gap-1 sm:items-end">
+    <div
+      data-task-assignee-badge="true"
+      className="flex flex-col items-center gap-1 text-center sm:items-end sm:text-right"
+    >
       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         Assignee
       </p>
@@ -456,10 +516,7 @@ function TaskAssigneeBadge({ assignee }: { assignee: TaskPersonSummary | null })
               className="h-7 w-7 border-border/70"
               decorative
             />
-            <span
-              data-task-assignee-name="true"
-              className="max-w-[160px] truncate text-sm font-medium text-foreground"
-            >
+            <span className="max-w-[160px] truncate text-sm font-medium text-foreground">
               {assignee.displayName}
             </span>
           </>
@@ -524,11 +581,14 @@ function TaskActivityInline({
 
 interface TaskOptionsMenuProps {
   currentStatus: TaskStatus;
+  currentEpic: KanbanTask["epic"];
+  epicOptions: ProjectEpicOption[];
   currentAssignee: TaskPersonSummary | null;
   assigneeOptions: ProjectTaskCollaborator[];
   isArchived: boolean;
   isMutating: boolean;
   onStartEdit: () => void;
+  onQuickEpicChange: (value: string) => void | Promise<void>;
   onQuickAssigneeChange: (value: string) => void | Promise<void>;
   onMoveTask: (nextStatus: TaskStatus) => void;
   onArchiveTask: () => void | Promise<void>;
@@ -538,11 +598,14 @@ interface TaskOptionsMenuProps {
 
 function TaskOptionsMenu({
   currentStatus,
+  currentEpic,
+  epicOptions,
   currentAssignee,
   assigneeOptions,
   isArchived,
   isMutating,
   onStartEdit,
+  onQuickEpicChange,
   onQuickAssigneeChange,
   onMoveTask,
   onArchiveTask,
@@ -550,11 +613,13 @@ function TaskOptionsMenu({
   onRequestDeleteTask,
 }: TaskOptionsMenuProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [activeSubmenu, setActiveSubmenu] = useState<"move" | "assignee" | null>(null);
+  const [activeSubmenu, setActiveSubmenu] = useState<"move" | "epic" | "assignee" | null>(null);
+
   const closeMenu = () => {
     setIsMenuOpen(false);
     setActiveSubmenu(null);
   };
+
   const menuRef = useDismissibleMenu<HTMLDivElement>(isMenuOpen, closeMenu);
 
   return (
@@ -640,6 +705,113 @@ function TaskOptionsMenu({
               </div>
             </div>
           ) : null}
+          <div className="relative">
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full justify-between"
+              aria-label="Epic options"
+              disabled={isMutating}
+              aria-haspopup="menu"
+              aria-expanded={activeSubmenu === "epic"}
+              aria-controls="task-options-submenu-epic"
+              onClick={() =>
+                setActiveSubmenu((previous) => (previous === "epic" ? null : "epic"))
+              }
+            >
+              <span className="inline-flex items-center gap-2">
+                <Flag className="h-4 w-4" />
+                Epic
+              </span>
+              <span className="inline-flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                <span className="max-w-[76px] truncate">{currentEpic?.name ?? "None"}</span>
+                <ChevronRight className="h-4 w-4 shrink-0" />
+              </span>
+            </Button>
+            <div
+              id="task-options-submenu-epic"
+              role="menu"
+              data-task-options-submenu="epic"
+              className={[
+                "absolute right-full top-0 z-30 mr-1 w-64 rounded-md border border-border/70 bg-background p-1 shadow-md transition",
+                activeSubmenu === "epic"
+                  ? "visible pointer-events-auto opacity-100"
+                  : "invisible pointer-events-none opacity-0",
+              ].join(" ")}
+            >
+              <div className="max-h-72 space-y-1 overflow-y-auto">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full justify-between"
+                  disabled={!currentEpic || isMutating}
+                  onClick={() => {
+                    void onQuickEpicChange("");
+                    closeMenu();
+                  }}
+                >
+                  <span className="inline-flex min-w-0 items-center gap-2">
+                    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-dashed border-border/70 bg-muted/30">
+                      <Flag className="h-3.5 w-3.5 text-muted-foreground" />
+                    </span>
+                    <span className="min-w-0 text-left">
+                      <span className="block truncate text-sm font-medium">No epic</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        Leave this task outside an epic
+                      </span>
+                    </span>
+                  </span>
+                  {!currentEpic ? <Check className="h-4 w-4" /> : null}
+                </Button>
+
+                {epicOptions.length === 0 ? (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">
+                    Create an epic in the Epics section to link it here.
+                  </p>
+                ) : (
+                  epicOptions.map((epic) => {
+                    const color = getEpicColorFromName(epic.name);
+                    const isSelected = epic.id === currentEpic?.id;
+
+                    return (
+                      <Button
+                        key={epic.id}
+                        type="button"
+                        variant="ghost"
+                        className="h-auto w-full justify-between py-2"
+                        disabled={isSelected || isMutating}
+                        onClick={() => {
+                          void onQuickEpicChange(epic.id);
+                          closeMenu();
+                        }}
+                      >
+                        <span className="inline-flex min-w-0 items-center gap-2">
+                          <span
+                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border"
+                            style={{
+                              backgroundColor: color.soft,
+                              borderColor: color.border,
+                              color: color.accent,
+                            }}
+                          >
+                            <Flag className="h-3.5 w-3.5" />
+                          </span>
+                          <span className="min-w-0 text-left">
+                            <span className="block truncate text-sm font-medium">{epic.name}</span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {epic.status} · {epic.progressPercent}% complete · {epic.taskCount} task
+                              {epic.taskCount === 1 ? "" : "s"}
+                            </span>
+                          </span>
+                        </span>
+                        {isSelected ? <Check className="h-4 w-4" /> : null}
+                      </Button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
           <div className="relative">
             <Button
               type="button"
@@ -745,7 +917,7 @@ function TaskOptionsMenu({
               disabled={isMutating}
               onClick={() => {
                 void onArchiveTask();
-                setIsMenuOpen(false);
+                closeMenu();
               }}
             >
               <Archive className="h-4 w-4" />
@@ -760,7 +932,7 @@ function TaskOptionsMenu({
               disabled={isMutating}
               onClick={() => {
                 void onUnarchiveTask();
-                setIsMenuOpen(false);
+                closeMenu();
               }}
             >
               <Undo2 className="h-4 w-4" />
@@ -773,7 +945,7 @@ function TaskOptionsMenu({
             className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
             disabled={isMutating}
             onClick={() => {
-              setIsMenuOpen(false);
+              closeMenu();
               onRequestDeleteTask();
             }}
           >
@@ -1096,6 +1268,7 @@ interface TaskEditContentProps {
   editLabelSuggestions: string[];
   editDescription: string;
   editDeadlineDate: string;
+  editEpicId: string;
   editAssigneeUserId: string;
   editRelatedTasks: KanbanTask["relatedTasks"];
   relatedTaskSearch: string;
@@ -1114,10 +1287,12 @@ interface TaskEditContentProps {
   onRemoveEditLabel: (label: string) => void;
   onEditDescriptionChange: (value: string) => void;
   onEditDeadlineDateChange: (value: string) => void;
+  onEditEpicIdChange: (value: string) => void;
   onEditAssigneeUserIdChange: (value: string) => void;
   onRelatedTaskSearchChange: (value: string) => void;
   onAddRelatedTask: (taskId: string) => void;
   onRemoveRelatedTask: (taskId: string) => void;
+  availableEpicOptions: ProjectEpicOption[];
   availableAssignees: ProjectTaskCollaborator[];
   availableRelatedTaskOptions: RelatedTaskOption[];
   onNewBlockedFollowUpEntryChange: (value: string) => void;
@@ -1139,6 +1314,7 @@ function TaskEditContent({
   editLabelSuggestions,
   editDescription,
   editDeadlineDate,
+  editEpicId,
   editAssigneeUserId,
   editRelatedTasks,
   relatedTaskSearch,
@@ -1157,10 +1333,12 @@ function TaskEditContent({
   onRemoveEditLabel,
   onEditDescriptionChange,
   onEditDeadlineDateChange,
+  onEditEpicIdChange,
   onEditAssigneeUserIdChange,
   onRelatedTaskSearchChange,
   onAddRelatedTask,
   onRemoveRelatedTask,
+  availableEpicOptions,
   availableAssignees,
   availableRelatedTaskOptions,
   onNewBlockedFollowUpEntryChange,
@@ -1256,6 +1434,19 @@ function TaskEditContent({
           onChange={onEditDeadlineDateChange}
           disabled={isUpdatingTask}
         />
+
+        <div className="grid gap-2">
+          <label htmlFor="task-edit-epic" className="text-sm font-medium">
+            Epic
+          </label>
+          <EpicSelect
+            id="task-edit-epic"
+            value={editEpicId}
+            onChange={onEditEpicIdChange}
+            disabled={isUpdatingTask}
+            options={availableEpicOptions}
+          />
+        </div>
 
         <div className="grid gap-2">
           <label htmlFor="task-edit-assignee" className="text-sm font-medium">

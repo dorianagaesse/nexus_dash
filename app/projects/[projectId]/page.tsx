@@ -29,6 +29,10 @@ import {
   ProjectContextPanelSection,
   ProjectContextPanelSkeleton,
 } from "./project-context-panel-section";
+import {
+  ProjectEpicPanelSection,
+  ProjectEpicPanelSkeleton,
+} from "./project-epic-panel-section";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -213,6 +217,14 @@ export default async function ProjectDashboardPage({
           actorUserId={actorUserId}
           canEdit={canEditProjectContent}
           storageProvider={storageProvider}
+        />
+      </Suspense>
+
+      <Suspense fallback={<ProjectEpicPanelSkeleton />}>
+        <ProjectEpicPanelSection
+          projectId={project.id}
+          actorUserId={actorUserId}
+          canEdit={canEditProjectContent}
         />
       </Suspense>
 

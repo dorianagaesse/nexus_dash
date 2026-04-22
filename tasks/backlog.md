@@ -10,15 +10,20 @@ Use this file to capture tasks discovered during development. Each entry should 
   Rationale: Extend the existing task options menu with a lightweight assignee quick-action flow so collaborators can assign or clear task ownership during daily execution without switching into full edit mode, while still reusing the shipped `TASK-101` assignee validation and task update boundaries.
   Dependencies: TASK-101, TASK-079
 - ID: TASK-107
-  Title: Task epic links - parent epic relationship and grouped execution context
-  Status: Pending
-  Rationale: Let tasks link to a higher-level epic so day-to-day work can roll up into larger initiatives, improving planning, grouping, and future roadmap/reporting surfaces beyond the current symmetric related-task model.
+  Title: Project epics and task epic flags
+  Status: In review (PR #194)
+  Rationale: Add first-class project epics as dedicated planning entities, with one optional epic flag per task, so teams can group execution work under visible initiatives without turning epics into pseudo-tasks or weakening Kanban clarity.
   Dependencies: TASK-079, TASK-095
 - ID: TASK-106
   Title: Project roadmap feature - milestone/timeline visibility for better execution sight
   Status: Pending
   Rationale: Add a roadmap-oriented project view so teams can see planned direction, upcoming milestones, and sequencing at a higher level than the current Kanban board, improving long-range visibility without losing the existing execution detail.
   Dependencies: TASK-076, TASK-079, TASK-096
+- ID: TASK-127
+  Title: API capability audit - confirm every shipped feature remains fully manageable through the API
+  Status: Pending
+  Rationale: Run a focused audit across current product features to verify that core entities and workflows remain fully manageable through the public app API, close gaps where the UI can do more than the API, and keep the agent-facing contract trustworthy as NexusDash adds richer planning and collaboration features.
+  Dependencies: TASK-107, TASK-115
 
 ### Deferred (Intentional)
 - ID: TASK-098
@@ -94,7 +99,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 - ID: TASK-100
   Title: Mobile UI/UX refinement - touch ergonomics, compact layouts, and small-screen polish
   Status: Pending
-  Rationale: After the baseline responsive pass, refine the mobile experience so it feels intentionally designed rather than merely supported by tightening spacing, improving touch targets, reducing modal friction, and smoothing small-screen navigation patterns across high-traffic flows. This refinement scope should explicitly include Google Calendar behavior on mobile, especially event readability, interaction density, and create/edit usability on narrow viewports.
+  Rationale: After the baseline responsive pass, refine the mobile experience so it feels intentionally designed rather than merely supported by tightening spacing, improving touch targets, reducing modal friction, and smoothing small-screen navigation patterns across high-traffic flows. This refinement scope should explicitly include concrete mobile navigation bug fixing, plus Google Calendar behavior on mobile, especially event readability, interaction density, and create/edit usability on narrow viewports.
   Dependencies: TASK-091, TASK-079, TASK-096
 - ID: TASK-063
   Title: Background jobs phase 1 - maintenance workload extraction (deferred)

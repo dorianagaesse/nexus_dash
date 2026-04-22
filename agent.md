@@ -43,6 +43,7 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
   - do not use generic prefixes like `[codex]`
 - Push the active branch remotely after meaningful implementation/validation progress and before handoff.
 - If the current task does not already have an open PR, create one once the branch is reviewable; continue updating the same PR for that task.
+- Do not treat PR creation as optional. A coding task that changes product code is not ready for handoff until its dedicated branch has an open PR, unless the user explicitly says not to open one.
 - Open PRs in a ready-for-review state once they are reviewable so automatic
   Copilot review can start immediately.
 - Use draft PRs only when the user explicitly asks for a draft or when the work
@@ -52,6 +53,9 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
 - Triage Copilot review comments: apply relevant changes, respond on threads, resolve every conversation you addressed before handoff, and leave clear rationale when a suggestion is intentionally not applied.
 - Final task/PR handoff must mention the commit SHA or SHAs that contain the delivered changes.
 - When preview validation is part of the task, review, or acceptance flow, trigger a preview deploy from the active branch git ref through the expected workflow and include both the workflow reference and preview result in the handoff.
+- For manual preview workflows that accept a `git_ref` or equivalent input, pass the active branch name explicitly and verify from the workflow logs that the job checked out that branch ref.
+- Do not rely only on the workflow UI `headBranch` field for branch-scoped preview evidence when the workflow itself runs from the default branch file; the handoff must mention the explicit `git_ref` used and the log evidence that the requested branch ref was checked out.
+- A task that requires preview validation is not ready for handoff until the preview workflow has completed for the active branch ref and the resulting preview URL or artifact has been recorded.
 
 ## 4. Architecture Boundaries (Non-Negotiable)
 

@@ -48,6 +48,8 @@ describe("GET /api/docs/agent/v1/openapi.json", () => {
     });
     expect(servers?.[0]?.url).toBe("https://preview.nexusdash.test");
     expect(paths).toHaveProperty("/api/auth/agent/token");
+    expect(paths).toHaveProperty("/api/projects/{projectId}/epics");
+    expect(paths).toHaveProperty("/api/projects/{projectId}/epics/{epicId}");
     expect(paths).toHaveProperty("/api/projects/{projectId}/tasks");
     expect(paths).toHaveProperty("/api/projects/{projectId}/tasks/{taskId}/comments");
     expect(paths).toHaveProperty(
@@ -65,6 +67,8 @@ describe("GET /api/docs/agent/v1/openapi.json", () => {
       { AgentApiKeyHeader: [] },
     ]);
     expect(JSON.stringify(payload)).toContain("deadlineDate");
+    expect(JSON.stringify(payload)).toContain("epicId");
+    expect(JSON.stringify(payload)).toContain("progressPercent");
     expect(JSON.stringify(payload)).toContain("commentCount");
     expect(resolveRequestOriginFromHeadersMock).toHaveBeenCalledWith(expect.any(Headers));
   });

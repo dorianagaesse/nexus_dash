@@ -22,6 +22,17 @@ export interface TaskRelatedSummary {
   archivedAt: string | null;
 }
 
+export interface TaskEpicSummary {
+  id: string;
+  name: string;
+}
+
+export interface ProjectEpicOption extends TaskEpicSummary {
+  status: "Ready" | "In progress" | "Completed";
+  progressPercent: number;
+  taskCount: number;
+}
+
 export type TaskCommentAuthor = TaskPersonSummary;
 
 export interface TaskComment {
@@ -53,6 +64,7 @@ export interface KanbanTask {
   archivedAt: string | null;
   attachments: TaskAttachment[];
   relatedTasks: TaskRelatedSummary[];
+  epic: TaskEpicSummary | null;
   assignee: TaskPersonSummary | null;
   createdBy: TaskPersonSummary;
   updatedBy: TaskPersonSummary;

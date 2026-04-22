@@ -6,6 +6,7 @@ import {
   normalizeRelatedTaskIds,
   type RelatedTaskSummary,
 } from "@/lib/task-related";
+import { mapTaskEpicSummary, type TaskEpicSummary } from "@/lib/epic";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import {
   normalizeTaskLabels,
@@ -67,6 +68,7 @@ export interface UpdateTaskPayload {
   deadlineDate?: string | null;
   blockedFollowUpEntry?: string;
   relatedTaskIds?: string[];
+  epicId?: string | null;
   assigneeUserId?: string | null;
 }
 
@@ -76,6 +78,7 @@ interface CreateTaskForProjectInput {
   title: string;
   description: string;
   deadlineDate: string;
+  epicId: string | null;
   assigneeUserId: string | null;
   labelsJsonRaw: string;
   relatedTaskIdsJsonRaw: string;
@@ -96,6 +99,7 @@ interface UpdatedTaskPayload {
   status: string;
   position: number;
   archivedAt: Date | null;
+  epic: TaskEpicSummary | null;
   assignee: TaskPersonSummary | null;
   createdBy: TaskPersonSummary;
   updatedBy: TaskPersonSummary;
@@ -308,6 +312,43 @@ async function validateAssigneeUserId(input: {
   };
 }
 
+async function validateEpicId(input: {
+  db: DbClient;
+  projectId: string;
+  epicId: string | null;
+}): Promise<ServiceResult<{ epicId: string | null }>> {
+  const epicId = normalizeText(input.epicId);
+  if (!epicId) {
+    return {
+      ok: true,
+      data: {
+        epicId: null,
+      },
+    };
+  }
+
+  const epic = await input.db.epic.findFirst({
+    where: {
+      id: epicId,
+      projectId: input.projectId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!epic) {
+    return createError(400, "epic-invalid");
+  }
+
+  return {
+    ok: true,
+    data: {
+      epicId,
+    },
+  };
+}
+
 async function replaceTaskRelations(input: {
   db: DbClient;
   projectId: string;
@@ -460,6 +501,15 @@ export async function createTaskForProject(
         return assigneeValidation;
       }
 
+      const epicValidation = await validateEpicId({
+        db,
+        projectId: input.projectId,
+        epicId: input.epicId,
+      });
+      if (!epicValidation.ok) {
+        return epicValidation;
+      }
+
       const maxPosition = await db.task.aggregate({
         where: {
           projectId: input.projectId,
@@ -482,6 +532,7 @@ export async function createTaskForProject(
           title,
           description,
           deadlineAt: deadlineInput.data.deadlineAt,
+          epicId: epicValidation.data.epicId,
           label: labels[0] ?? null,
           labelsJson: serializedLabels,
           status,
@@ -677,6 +728,8 @@ export async function updateTaskForProject(
   const relatedTaskIds = relatedTaskIdsProvided
     ? normalizeRelatedTaskIds(payload.relatedTaskIds ?? [])
     : [];
+  const epicProvided = Object.prototype.hasOwnProperty.call(payload, "epicId");
+  const epicId = epicProvided ? normalizeText(payload.epicId) : null;
   const assigneeProvided = Object.prototype.hasOwnProperty.call(payload, "assigneeUserId");
   const assigneeUserId = assigneeProvided
     ? normalizeText(payload.assigneeUserId)
@@ -713,6 +766,7 @@ export async function updateTaskForProject(
           projectId: true,
           status: true,
           position: true,
+          epicId: true,
           assigneeUserId: true,
           outgoingRelations: {
             select: {
@@ -755,6 +809,22 @@ export async function updateTaskForProject(
         return relatedTaskValidation;
       }
 
+      const epicValidation = epicProvided
+        ? await validateEpicId({
+            db,
+            projectId,
+            epicId: epicId || null,
+          })
+        : {
+            ok: true as const,
+            data: {
+              epicId: existingTask.epicId,
+            },
+          };
+      if (!epicValidation.ok) {
+        return epicValidation;
+      }
+
       const assigneeValidation = assigneeProvided
         ? await validateAssigneeUserId({
             db,
@@ -776,6 +846,7 @@ export async function updateTaskForProject(
           where: { id: taskId },
           data: {
             updatedByUserId: normalizedActorUserId,
+            epicId: epicValidation.data.epicId,
             assigneeUserId: assigneeValidation.data.assigneeUserId,
             ...(titleProvided ? { title } : {}),
             ...(labelsProvided
@@ -829,6 +900,12 @@ export async function updateTaskForProject(
             archivedAt: true,
             createdAt: true,
             updatedAt: true,
+            epic: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
             createdByUser: {
               select: taskPersonSummarySelect,
             },
@@ -885,6 +962,7 @@ export async function updateTaskForProject(
             status: updatedTask.status,
             position: updatedTask.position,
             archivedAt: updatedTask.archivedAt,
+            epic: mapTaskEpicSummary(updatedTask.epic),
             assignee: updatedTask.assigneeUser
               ? mapTaskPersonSummary(updatedTask.assigneeUser)
               : null,

@@ -77,6 +77,10 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
 }
 
+function projectRouteParams(projectId: string) {
+  return { params: Promise.resolve({ projectId }) };
+}
+
 describe("agent project routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -118,7 +122,7 @@ describe("agent project routes", () => {
 
     const response = await getProject(
       new Request("http://localhost/api/projects/project-1") as never,
-      { params: { projectId: "project-1" } }
+      projectRouteParams("project-1")
     );
 
     expect(response.status).toBe(200);
@@ -164,7 +168,7 @@ describe("agent project routes", () => {
 
     const response = await getProject(
       new Request("http://localhost/api/projects/project-2") as never,
-      { params: { projectId: "project-2" } }
+      projectRouteParams("project-2")
     );
 
     expect(response.status).toBe(404);
@@ -193,6 +197,7 @@ describe("agent project routes", () => {
         labelsJson: '["docs"]',
         createdAt: "2026-04-03T09:00:00.000Z",
         updatedAt: "2026-04-03T10:00:00.000Z",
+        epic: null,
         createdByUser: {
           id: "user-1",
           name: "Alice Example",
@@ -235,7 +240,7 @@ describe("agent project routes", () => {
 
     const response = await getTasks(
       new Request("http://localhost/api/projects/project-1/tasks") as never,
-      { params: { projectId: "project-1" } }
+      projectRouteParams("project-1")
     );
 
     expect(response.status).toBe(200);
@@ -256,6 +261,7 @@ describe("agent project routes", () => {
           labelsJson: '["docs"]',
           createdAt: "2026-04-03T09:00:00.000Z",
           updatedAt: "2026-04-03T10:00:00.000Z",
+          epic: null,
           createdBy: {
             id: "user-1",
             displayName: "alice",
@@ -302,7 +308,7 @@ describe("agent project routes", () => {
 
     const response = await getTasks(
       new Request("http://localhost/api/projects/project-1/tasks") as never,
-      { params: { projectId: "project-1" } }
+      projectRouteParams("project-1")
     );
 
     expect(response.status).toBe(403);
@@ -344,7 +350,7 @@ describe("agent project routes", () => {
 
     const response = await getContextCards(
       new Request("http://localhost/api/projects/project-1/context-cards") as never,
-      { params: { projectId: "project-1" } }
+      projectRouteParams("project-1")
     );
 
     expect(response.status).toBe(200);
