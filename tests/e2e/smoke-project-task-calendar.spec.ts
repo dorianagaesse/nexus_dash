@@ -54,14 +54,19 @@ test.describe("critical UI smoke flows", () => {
     await expect(page.getByText("example.com")).toBeVisible();
 
     await page.getByRole("button", { name: "Task options" }).click();
-    await page.getByRole("button", { name: "Assignee options" }).click();
+    const assigneeOptionsButton = page.getByRole("button", { name: "Assignee options" });
+    await assigneeOptionsButton.click();
+    const assigneeSubmenu = page.locator("[data-task-options-submenu='assignee']");
+    await expect(assigneeSubmenu).toBeVisible();
+    const assigneeOptionButtons = assigneeSubmenu.getByRole("button");
+    await expect(assigneeOptionButtons).toHaveCount(2);
     const quickAssigneeUpdateRequest = page.waitForResponse(
       (response) =>
         response.request().method() === "PATCH" &&
         /\/tasks\/[^/]+$/.test(response.url()) &&
         response.ok()
     );
-    await page.getByRole("button", { name: /Owner/ }).last().click();
+    await assigneeOptionButtons.nth(1).click();
     await quickAssigneeUpdateRequest;
     await expect(page.getByText("Owner")).toBeVisible();
 
