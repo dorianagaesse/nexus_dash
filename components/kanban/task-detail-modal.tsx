@@ -15,6 +15,7 @@ import {
   TriangleAlert,
   Undo2,
   Upload,
+  UserRound,
   X,
 } from "lucide-react";
 
@@ -654,12 +655,7 @@ function TaskOptionsMenu({
               }
             >
               <span className="inline-flex items-center gap-2">
-                <UserAvatar
-                  avatarSeed={currentAssignee?.avatarSeed ?? "unassigned"}
-                  displayName={currentAssignee?.displayName ?? "Unassigned"}
-                  className="h-5 w-5 border-border/70"
-                  decorative
-                />
+                <UserRound className="h-4 w-4" />
                 Assignee
               </span>
               <span className="inline-flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
