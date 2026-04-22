@@ -87,6 +87,23 @@ test.describe("critical UI smoke flows", () => {
     await expect(page.getByText(`Epic updated to ${epicName}.`)).toBeVisible();
 
     await page.getByRole("button", { name: "Task options" }).click();
+    const assigneeOptionsButton = page.getByRole("button", { name: "Assignee options" });
+    await assigneeOptionsButton.click();
+    const assigneeSubmenu = page.locator("[data-task-options-submenu='assignee']");
+    await expect(assigneeSubmenu).toBeVisible();
+    const assigneeOptionButtons = assigneeSubmenu.getByRole("button");
+    await expect(assigneeOptionButtons).toHaveCount(2);
+    const quickAssigneeUpdateRequest = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        /\/tasks\/[^/]+$/.test(response.url()) &&
+        response.ok()
+    );
+    await assigneeOptionButtons.nth(1).click();
+    await quickAssigneeUpdateRequest;
+    await expect(page.locator("[data-task-assignee-name='true']")).toBeVisible();
+
+    await page.getByRole("button", { name: "Task options" }).click();
     await page.getByRole("button", { name: /^Edit$/ }).click();
     await page.getByLabel("Task title").fill(editedTaskTitle);
     await page.getByRole("button", { name: "Save changes" }).click();

@@ -16,6 +16,7 @@ import {
   TriangleAlert,
   Undo2,
   Upload,
+  UserRound,
   X,
 } from "lucide-react";
 
@@ -51,6 +52,7 @@ import { EpicSelect } from "@/components/ui/epic-select";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { getEpicColorFromName } from "@/lib/epic";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
+import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
 import {
   ATTACHMENT_KIND_FILE,
   ATTACHMENT_KIND_LINK,
@@ -121,6 +123,7 @@ interface TaskDetailModalProps {
   onAddBlockedFollowUpEntry: () => void | Promise<void>;
   onSaveTask: () => void | Promise<void>;
   onQuickEpicChange: (value: string) => void | Promise<void>;
+  onQuickAssigneeChange: (value: string) => void | Promise<void>;
   onToggleLinkComposer: () => void;
   onLinkUrlChange: (value: string) => void;
   onAddLinkAttachment: () => void | Promise<void>;
@@ -190,6 +193,7 @@ export function TaskDetailModal({
   onAddBlockedFollowUpEntry,
   onSaveTask,
   onQuickEpicChange,
+  onQuickAssigneeChange,
   onToggleLinkComposer,
   onLinkUrlChange,
   onAddLinkAttachment,
@@ -271,10 +275,13 @@ export function TaskDetailModal({
                     currentStatus={selectedTask.status}
                     currentEpic={selectedTask.epic}
                     epicOptions={availableEpicOptions}
+                    currentAssignee={selectedTask.assignee}
+                    assigneeOptions={availableAssignees}
                     isArchived={isArchivedTask}
                     isMutating={isArchivingTask || isUpdatingTask}
                     onStartEdit={() => onToggleEditMode(true)}
                     onQuickEpicChange={onQuickEpicChange}
+                    onQuickAssigneeChange={onQuickAssigneeChange}
                     onMoveTask={onMoveTask}
                     onArchiveTask={onArchiveTask}
                     onUnarchiveTask={onUnarchiveTask}
@@ -490,7 +497,10 @@ function TaskEpicBadge({
 
 function TaskAssigneeBadge({ assignee }: { assignee: TaskPersonSummary | null }) {
   return (
-    <div className="flex flex-col items-center gap-1 text-center sm:items-end sm:text-right">
+    <div
+      data-task-assignee-badge="true"
+      className="flex flex-col items-center gap-1 text-center sm:items-end sm:text-right"
+    >
       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         Assignee
       </p>
@@ -506,7 +516,10 @@ function TaskAssigneeBadge({ assignee }: { assignee: TaskPersonSummary | null })
               className="h-7 w-7 border-border/70"
               decorative
             />
-            <span className="max-w-[160px] truncate text-sm font-medium text-foreground">
+            <span
+              data-task-assignee-name="true"
+              className="max-w-[160px] truncate text-sm font-medium text-foreground"
+            >
               {assignee.displayName}
             </span>
           </>
@@ -573,10 +586,13 @@ interface TaskOptionsMenuProps {
   currentStatus: TaskStatus;
   currentEpic: KanbanTask["epic"];
   epicOptions: ProjectEpicOption[];
+  currentAssignee: TaskPersonSummary | null;
+  assigneeOptions: ProjectTaskCollaborator[];
   isArchived: boolean;
   isMutating: boolean;
   onStartEdit: () => void;
   onQuickEpicChange: (value: string) => void | Promise<void>;
+  onQuickAssigneeChange: (value: string) => void | Promise<void>;
   onMoveTask: (nextStatus: TaskStatus) => void;
   onArchiveTask: () => void | Promise<void>;
   onUnarchiveTask: () => void | Promise<void>;
@@ -587,17 +603,20 @@ function TaskOptionsMenu({
   currentStatus,
   currentEpic,
   epicOptions,
+  currentAssignee,
+  assigneeOptions,
   isArchived,
   isMutating,
   onStartEdit,
   onQuickEpicChange,
+  onQuickAssigneeChange,
   onMoveTask,
   onArchiveTask,
   onUnarchiveTask,
   onRequestDeleteTask,
 }: TaskOptionsMenuProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [activeSubmenu, setActiveSubmenu] = useState<"move" | "epic" | null>(null);
+  const [activeSubmenu, setActiveSubmenu] = useState<"move" | "epic" | "assignee" | null>(null);
 
   const closeMenu = () => {
     setIsMenuOpen(false);
@@ -793,6 +812,103 @@ function TaskOptionsMenu({
                     );
                   })
                 )}
+              </div>
+            </div>
+          </div>
+          <div className="relative">
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full justify-between"
+              aria-label="Assignee options"
+              disabled={isMutating}
+              aria-haspopup="menu"
+              aria-expanded={activeSubmenu === "assignee"}
+              aria-controls="task-options-submenu-assignee"
+              onClick={() =>
+                setActiveSubmenu((previous) => (previous === "assignee" ? null : "assignee"))
+              }
+            >
+              <span className="inline-flex items-center gap-2">
+                <UserRound className="h-4 w-4" />
+                Assignee
+              </span>
+              <span className="inline-flex items-center text-muted-foreground">
+                <ChevronRight className="h-4 w-4 shrink-0" />
+              </span>
+            </Button>
+            <div
+              id="task-options-submenu-assignee"
+              role="menu"
+              data-task-options-submenu="assignee"
+              className={[
+                "absolute right-full top-0 z-30 mr-1 w-64 rounded-md border border-border/70 bg-background p-1 shadow-md transition",
+                activeSubmenu === "assignee"
+                  ? "visible pointer-events-auto opacity-100"
+                  : "invisible pointer-events-none opacity-0",
+              ].join(" ")}
+            >
+              <div className="max-h-72 space-y-1 overflow-y-auto">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full justify-between"
+                  disabled={!currentAssignee || isMutating}
+                  onClick={() => {
+                    void onQuickAssigneeChange("");
+                    closeMenu();
+                  }}
+                >
+                  <span className="inline-flex min-w-0 items-center gap-2">
+                    <span className="inline-flex h-7 w-7 shrink-0 rounded-full border border-dashed border-border/70 bg-muted/30" />
+                    <span className="min-w-0 text-left">
+                      <span className="block truncate text-sm font-medium">Unassigned</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        Leave without an assignee
+                      </span>
+                    </span>
+                  </span>
+                  {!currentAssignee ? <Check className="h-4 w-4" /> : null}
+                </Button>
+
+                {assigneeOptions.map((assignee) => {
+                  const isSelected = assignee.id === currentAssignee?.id;
+
+                  return (
+                    <Button
+                      key={assignee.id}
+                      type="button"
+                      variant="ghost"
+                      className="h-auto w-full justify-between py-2"
+                      disabled={isSelected || isMutating}
+                      onClick={() => {
+                        void onQuickAssigneeChange(assignee.id);
+                        closeMenu();
+                      }}
+                    >
+                      <span
+                        className="inline-flex min-w-0 items-center gap-2"
+                        title={buildTaskPersonHoverLabel(assignee)}
+                      >
+                        <UserAvatar
+                          avatarSeed={assignee.avatarSeed}
+                          displayName={assignee.displayName}
+                          className="h-7 w-7 border-border/70"
+                          decorative
+                        />
+                        <span className="min-w-0 text-left">
+                          <span className="block truncate text-sm font-medium">
+                            {assignee.displayName}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {formatProjectCollaboratorRole(assignee.projectRole)}
+                          </span>
+                        </span>
+                      </span>
+                      {isSelected ? <Check className="h-4 w-4" /> : null}
+                    </Button>
+                  );
+                })}
               </div>
             </div>
           </div>

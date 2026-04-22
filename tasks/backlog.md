@@ -4,6 +4,11 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-128
+  Title: Task assignee quick action from task options menu
+  Status: In progress
+  Rationale: Extend the existing task options menu with a lightweight assignee quick-action flow so collaborators can assign or clear task ownership during daily execution without switching into full edit mode, while still reusing the shipped `TASK-101` assignee validation and task update boundaries.
+  Dependencies: TASK-101, TASK-079
 - ID: TASK-107
   Title: Project epics and task epic flags
   Status: In review (PR #194)

@@ -1,205 +1,102 @@
-# Current Task: TASK-107 Task Epic Flags And Project Epic Registry
+# Current Task: TASK-128 Task Assignee Quick Assign From Task Options
 
 ## Task ID
-TASK-107
+TASK-128
 
 ## Status
-In review.
+In progress.
 
 ## Objective
-Introduce first-class project epics as a dedicated project-scoped planning
-entity, separate from tasks, so work can be grouped under a clear higher-level
- initiative without turning epics into pseudo-tasks or weakening the clarity of
-the existing Kanban model.
+Let collaborators assign or clear a task assignee directly from the existing
+task options menu, so common ownership changes do not require switching into
+full edit mode.
 
 ## Why This Task Matters
-- The task system already supports labels, related-task links, comments,
-  deadlines, and ownership, but it still lacks a clear way to group several
-  execution tasks under one larger initiative.
-- Treating epics as tasks would blur the distinction between planning context
-  and executable work, which would make the board harder to understand.
-- A dedicated epic model gives NexusDash a clearer planning layer now and a
-  cleaner foundation for later roadmap/reporting work (`TASK-106`) without
-  forcing users to overload task semantics.
-- Epics should feel visible and useful in daily workflow, which means the
-  feature needs both task-level linking and a project-level epic surface rather
-  than a hidden settings-only implementation.
+- `TASK-101` already introduced assignee data across schema, services, API
+  routes, and task surfaces, but the fastest reassignment path still lives
+  behind full task edit mode.
+- Ownership changes are one of the most frequent task adjustments during daily
+  execution, especially while triaging new work or redistributing active work.
+- The task options menu already hosts quick actions for move/archive/delete, so
+  assignee fits naturally there as another lightweight task-management action.
 
 ## Current Baseline Confirmed In Repo
-- Tasks already support project-scoped metadata and linked relationships
-  through the service/API/UI stack:
-  - labels
-  - related tasks
-  - deadlines
-  - assignee / provenance
-  - comments
-  - attachments
-- The Kanban board already has stable create/edit/read task flows that can host
-  one additional optional task field without inventing a new interaction model.
-- Project pages already support multiple section-level panels, so a dedicated
-  epic section fits the existing dashboard composition better than a settings
-  detour.
-- The repo already maintains agent-facing task contracts in
-  `lib/agent-onboarding.ts`, so epic-aware API changes must stay aligned there
-  too.
-
-## Product Contract
-- Epics are not tasks.
-- Epics are project-scoped entities with their own CRUD lifecycle.
-- Each epic has:
-  - a unique project-scoped name / flag
-  - a description
-  - an automatically derived status
-- Each task may link to zero or one epic.
-- Tasks never become parents of other tasks through this feature.
-- Epic status is derived automatically from linked task states and is never
-  edited directly.
-- Deleting an epic must clear the linked `epicId` from affected tasks rather
-  than deleting or mutating those tasks otherwise.
-- Epic names must be unique within a project.
-
-## Automatic Epic Status Rules
-- `Ready`
-  - epic has zero linked tasks, or
-  - every linked task is in `Backlog`
-- `In progress`
-  - at least one linked task is in `In Progress`, or
-  - at least one linked task is in `Blocked`, or
-  - linked tasks are mixed between `Backlog` and `Done` / archived with no task
-    currently in `In Progress`
-- `Completed`
-  - every linked task is `Done` or archived
-
-## Progress Bar Rules
-- Every epic shown in the dedicated epic section should include a visible
-  progress bar.
-- Progress is derived automatically from linked tasks.
-- Progress percent for v1 is:
-  - numerator: linked tasks that are `Done` or archived
-  - denominator: all linked tasks currently linked to the epic
-- An epic with zero linked tasks shows `0%` progress and still resolves to
-  status `Ready`.
+- Tasks already persist an optional `assigneeUserId`.
+- Task create/edit flows already validate assignees against current project
+  collaborators.
+- The task detail modal already shows the current assignee and already exposes a
+  task options menu.
+- The `PATCH /api/projects/{projectId}/tasks/{taskId}` route already supports
+  changing or clearing assignee through the existing service boundary.
 
 ## Scope
-- Add a dedicated `Epic` persistence model to the Prisma schema with:
-  - `id`
-  - `projectId`
-  - unique project-scoped `name`
-  - `description`
-  - timestamps
-- Add an optional `epicId` relationship on `Task`.
-- Ship a migration that:
-  - creates the epic table
-  - adds the nullable task-to-epic foreign key
-  - enforces unique epic names per project
-- Add epic-aware service support for:
-  - create epic
-  - list epics
-  - update epic
-  - delete epic
-  - task create with optional epic link
-  - task update with epic assignment or clearing
-  - task reads that return epic summary metadata when linked
-- Enforce epic/task validation in services:
-  - epic must belong to the same project
-  - tasks may link to at most one epic
-  - clearing epic linkage must be supported explicitly
-- Add API routes for epic CRUD under the project scope.
-- Extend task APIs so create/update payloads can set or clear a linked epic.
-- Add a dedicated project-page epic section that is:
-  - visible
-  - colorful
-  - easy to scan
-  - able to show all epics with name, description, derived status, progress,
-    and linked-task count
-- Add task create/edit support for linking or clearing one epic.
-- Allow task detail quick actions to assign or clear an epic from the existing
-  task options menu without entering full edit mode.
-- Render the epic flag/chip on task surfaces where it matters:
-  - task card
-  - task detail
-  - task create/edit flow
-- Show linked task rollup inside the epic section so users can understand the
-  initiative without turning the epic into a task card.
-- Keep agent/OpenAPI documentation aligned with the new epic and task payloads.
-- Add targeted regression coverage across schema/service/API/component layers.
+- Add an assignee quick-action entry inside the existing task options menu.
+- Allow assigning the task to any current project collaborator from that menu.
+- Allow clearing the assignee back to unassigned from that menu.
+- Reuse the existing task update API/service path instead of introducing a
+  parallel assignee-only endpoint.
+- Keep local task state, modal header assignee badge, and board card assignee
+  UI aligned immediately after the quick update.
+- Preserve current collaborator validation and current error handling behavior.
+- Add targeted regression coverage for the quick-assignment path.
 - Update task tracking docs in the same branch.
 
 ## Out Of Scope
-- Turning epics into executable Kanban tasks.
-- Nested epics or epic hierarchies.
-- Multiple epics per task.
-- Board regrouping, lane regrouping, or epic-based board filtering in v1.
-- Roadmap/timeline planning beyond the dedicated epic section.
-- Notifications, reminders, or epic activity feeds.
+- Assignee search/filter across the whole board.
+- Bulk assignment actions.
+- New collaborator-management UX.
+- Additional provenance model changes beyond the already shipped `TASK-101`
+  contract.
 
 ## Acceptance Criteria
-- A project can create, list, update, and delete epics through the app and API.
-- Epic names are unique within a project and duplicate-name writes are rejected.
-- Each task can store zero or one linked epic from the same project.
-- Task create/edit flows can assign an epic or clear it back to no epic.
-- Task options in task detail can assign or clear the linked epic without
-  switching into full edit mode.
-- Task cards and task detail surfaces display the linked epic flag when present.
-- The project page includes a dedicated epic section showing all epics with:
-  - name
-  - description
-  - derived status
-  - linked-task count
-  - progress bar
-- Epic status is derived automatically using the locked product rules in this
-  brief and is never manually edited.
-- Epic deletion leaves tasks intact and clears their epic link.
-- API and agent docs stay aligned with the new epic-aware contracts.
-- Required tracking docs are updated consistently in the same PR.
+- The task options menu includes an assignee quick-action path.
+- Users can assign a task to any current project collaborator from that menu.
+- Users can clear an assignee back to unassigned from that menu.
+- Invalid assignee writes are still rejected by the existing service boundary.
+- The task detail assignee badge updates immediately after a successful quick
+  assignment change.
+- Task tracking docs are updated consistently in the same PR.
 
 ## Definition Of Done
-1. `TASK-107` is the active brief in `tasks/current.md`.
-2. Schema, services, routes, task flows, and the new project epic section all
-   support epics end to end.
+1. `TASK-128` is the active brief in `tasks/current.md`.
+2. Task options support assignee quick assignment end to end through the
+   existing UI/API/service stack.
 3. Relevant validation is green:
    - `npm run lint`
-   - `npm test`
-   - `npm run test:coverage`
+   - targeted automated coverage for the quick-action path
    - `npm run build`
    - preview validation once the branch is published
-4. Tracking docs are updated consistently (`tasks/current.md`, `journal.md`,
-   and `adr/decisions.md` only if an architecture-level decision is
-   introduced).
-5. The task ships through its own dedicated branch and PR with the normal
-   review and preview workflow handled before handoff.
+4. Tracking docs are updated consistently (`tasks/current.md`,
+   `tasks/backlog.md`, and `journal.md`; `adr/decisions.md` only if a new
+   architecture-level decision appears).
+5. The task ships through its own dedicated branch and PR with Copilot review
+   triaged before handoff.
 
 ## Dependencies
+- `TASK-101`
 - `TASK-079`
-- `TASK-095`
 
 ## Evidence Plan
 - Repo source of truth:
   - `agent.md`
   - `tasks/backlog.md`
-  - `prisma/schema.prisma`
-  - `lib/services/project-service.ts`
-  - `lib/services/project-task-service.ts`
-  - `app/api/projects/[projectId]/**`
-  - `app/projects/[projectId]/page.tsx`
-  - `app/projects/[projectId]/kanban-board-section.tsx`
-  - `components/kanban-board.tsx`
   - `components/kanban/task-detail-modal.tsx`
-  - `components/create-task-dialog.tsx`
-  - new epic section/components introduced by this task
-  - `lib/agent-onboarding.ts`
+  - `components/kanban-board.tsx`
+  - `components/ui/assignee-select.tsx`
+  - `app/api/projects/[projectId]/tasks/[taskId]/route.ts`
+  - `lib/services/project-task-service.ts`
+  - `tests/e2e/smoke-project-task-calendar.spec.ts`
 - Validation source of truth:
-  - local lint/unit/build runs
-  - PR review comments and CI checks
+  - local lint/build runs
+  - targeted automated tests
+  - PR review comments and checks
   - preview deployment verification
 
 ## Outcome Target
-- NexusDash gains a clear planning layer above tasks without turning epics into
-  confusing pseudo-work items.
-- Users can understand project initiatives at a glance through a visible epic
-  section, while still linking day-to-day tasks to one clear execution context.
-- The task model stays simple: tasks remain tasks, epics remain project-scoped
-  planning flags with richer meaning.
+- Reassigning task ownership becomes a lightweight task-management action rather
+  than a full edit workflow.
+- NexusDash keeps the task detail modal focused on quick execution changes where
+  that makes the most sense.
 
 ---
 

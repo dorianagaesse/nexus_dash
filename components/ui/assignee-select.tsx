@@ -6,9 +6,9 @@ import { Check, ChevronDown } from "lucide-react";
 
 import type {
   ProjectTaskCollaborator,
-  ProjectTaskCollaboratorRole,
 } from "@/components/kanban-board-types";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
 import { cn } from "@/lib/utils";
 
 interface AssigneeSelectProps {
@@ -20,19 +20,6 @@ interface AssigneeSelectProps {
   disabled?: boolean;
   className?: string;
   unassignedLabel?: string;
-}
-
-function formatProjectRole(role: ProjectTaskCollaboratorRole): string {
-  switch (role) {
-    case "owner":
-      return "Owner";
-    case "editor":
-      return "Editor";
-    case "viewer":
-      return "Viewer";
-    default:
-      return role;
-  }
 }
 
 function buildAssigneeHoverLabel(assignee: ProjectTaskCollaborator): string {
@@ -169,7 +156,7 @@ export function AssigneeSelect({
                 {selectedAssignee.displayName}
               </p>
               <p className="truncate text-xs text-muted-foreground">
-                {formatProjectRole(selectedAssignee.projectRole)}
+                {formatProjectCollaboratorRole(selectedAssignee.projectRole)}
               </p>
             </div>
           </div>
@@ -257,7 +244,7 @@ export function AssigneeSelect({
                             {assignee.displayName}
                           </p>
                           <p className="truncate text-xs text-muted-foreground">
-                            {formatProjectRole(assignee.projectRole)}
+                            {formatProjectCollaboratorRole(assignee.projectRole)}
                           </p>
                         </div>
                       </div>
