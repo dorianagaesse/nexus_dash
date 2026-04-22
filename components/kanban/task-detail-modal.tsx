@@ -238,7 +238,7 @@ export function TaskDetailModal({
                   {isArchivedTask ? "Archived" : selectedTask.status}
                 </Badge>
                 {!isEditing ? (
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-3">
                     <CardTitle
                       className="min-w-0 flex-1 text-xl leading-tight"
                       onDoubleClick={() => {
@@ -251,8 +251,8 @@ export function TaskDetailModal({
                     >
                       {selectedTask.title}
                     </CardTitle>
-                    <div className="flex flex-col gap-2 sm:items-end">
-                      <TaskEpicBadge epic={selectedTask.epic} />
+                    <div className="flex flex-wrap items-center gap-2">
+                      {selectedTask.epic ? <TaskEpicBadge epic={selectedTask.epic} /> : null}
                       <TaskAssigneeBadge assignee={selectedTask.assignee} />
                     </div>
                   </div>
