@@ -854,7 +854,14 @@ export function KanbanBoard({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            title: selectedTask.title,
+            labels: selectedTask.labels,
+            description: selectedTask.description ?? "",
+            deadlineDate: selectedTask.deadlineDate ?? null,
+            relatedTaskIds: selectedTask.relatedTasks.map((task) => task.id),
+            ...payload,
+          }),
         });
 
         if (!response.ok) {

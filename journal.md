@@ -817,3 +817,8 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-128 submenu interaction follow-up passed local lint and production build before being republished to the PR branch.
 - Evidence: `npm run lint`; `npm run build` with local `DATABASE_URL`, `DIRECT_URL`, `GOOGLE_TOKEN_ENCRYPTION_KEY`, and `AGENT_TOKEN_SIGNING_SECRET` overrides.
+
+### 2026-04-22
+- Type: Execution
+- Summary: TASK-128 quick assignee updates were hardened after CI exposed that the shared task PATCH endpoint expects a full persisted task payload, not a sparse assignee-only body.
+- Evidence: Updated `components/kanban-board.tsx` so quick assignee mutations preserve title, labels, description, deadline, and related-task ids while overriding only the assignee field; tightened `tests/e2e/smoke-project-task-calendar.spec.ts` to assert the task header badge switches from unassigned to an assigned identity.
