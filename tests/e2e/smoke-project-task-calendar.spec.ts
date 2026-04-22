@@ -99,9 +99,11 @@ test.describe("critical UI smoke flows", () => {
         /\/tasks\/[^/]+$/.test(response.url()) &&
         response.ok()
     );
-    await page.getByRole("button", { name: /E2E Smoke User/ }).click();
+    await assigneeOptionButtons.nth(1).click();
     await quickAssigneeUpdateRequest;
-    await expect(page.locator("[data-task-assignee-name='true']")).toBeVisible();
+    await expect(page.locator("[data-task-assignee-badge='true']")).toContainText(
+      "E2E Smoke User"
+    );
 
     await page.getByRole("button", { name: "Task options" }).click();
     await page.getByRole("button", { name: /^Edit$/ }).click();
