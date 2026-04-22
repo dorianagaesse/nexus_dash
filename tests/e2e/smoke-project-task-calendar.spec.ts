@@ -101,7 +101,9 @@ test.describe("critical UI smoke flows", () => {
     );
     await page.getByRole("button", { name: /E2E Smoke User/ }).click();
     await quickAssigneeUpdateRequest;
-    await expect(page.getByText("E2E Smoke User")).toBeVisible();
+    await expect(page.locator("[data-task-assignee-badge='true']")).toContainText(
+      "E2E Smoke User"
+    );
 
     await page.getByRole("button", { name: "Task options" }).click();
     await page.getByRole("button", { name: /^Edit$/ }).click();

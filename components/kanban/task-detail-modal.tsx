@@ -52,6 +52,7 @@ import { EpicSelect } from "@/components/ui/epic-select";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { getEpicColorFromName } from "@/lib/epic";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
+import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
 import {
   ATTACHMENT_KIND_FILE,
   ATTACHMENT_KIND_LINK,
@@ -458,19 +459,6 @@ function buildTaskPersonHoverLabel(person: TaskPersonSummary): string {
   return person.usernameTag ?? person.displayName;
 }
 
-function formatAssigneeProjectRole(role: ProjectTaskCollaborator["projectRole"]): string {
-  switch (role) {
-    case "owner":
-      return "Owner";
-    case "editor":
-      return "Editor";
-    case "viewer":
-      return "Viewer";
-    default:
-      return role;
-  }
-}
-
 function TaskEpicBadge({
   epic,
   showLabel = true,
@@ -509,7 +497,10 @@ function TaskEpicBadge({
 
 function TaskAssigneeBadge({ assignee }: { assignee: TaskPersonSummary | null }) {
   return (
-    <div className="flex flex-col items-center gap-1 text-center sm:items-end sm:text-right">
+    <div
+      data-task-assignee-badge="true"
+      className="flex flex-col items-center gap-1 text-center sm:items-end sm:text-right"
+    >
       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         Assignee
       </p>
@@ -907,7 +898,7 @@ function TaskOptionsMenu({
                             {assignee.displayName}
                           </span>
                           <span className="block truncate text-xs text-muted-foreground">
-                            {formatAssigneeProjectRole(assignee.projectRole)}
+                            {formatProjectCollaboratorRole(assignee.projectRole)}
                           </span>
                         </span>
                       </span>
