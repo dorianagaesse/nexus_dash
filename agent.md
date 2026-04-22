@@ -52,6 +52,9 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
 - Triage Copilot review comments: apply relevant changes, respond on threads, resolve every conversation you addressed before handoff, and leave clear rationale when a suggestion is intentionally not applied.
 - Final task/PR handoff must mention the commit SHA or SHAs that contain the delivered changes.
 - When preview validation is part of the task, review, or acceptance flow, trigger a preview deploy from the active branch git ref through the expected workflow and include both the workflow reference and preview result in the handoff.
+- Preview validation should use the active branch git ref, not `main`. For the repository Vercel workflow, run `deploy-vercel.yml` with `action=deploy-preview` and `git_ref=<active-branch-or-sha>`, then confirm the workflow checkout step used that ref before trusting the preview result.
+- When preview deploy validation is requested, capture the workflow run URL, the checked-out git ref/SHA, and the resulting preview URL in the handoff.
+- If Playwright needs to run against a deployed preview instead of a local server, set `PLAYWRIGHT_BASE_URL=<preview-url>` before running the desired Playwright command so the suite targets the preview directly rather than starting `next start` locally.
 
 ## 4. Architecture Boundaries (Non-Negotiable)
 
@@ -84,6 +87,19 @@ npm run build
 ```
 
 Use `npm run test:e2e` when UI flows, auth flows, calendar flows, or upload flows are touched.
+
+When preview validation is part of acceptance, use this sequence:
+
+```bash
+gh workflow run deploy-vercel.yml -f action=deploy-preview -f git_ref=<branch-or-sha>
+gh run download <deploy-run-id> -n preview-deployment --dir .tmp/preview
+$env:PLAYWRIGHT_BASE_URL = Get-Content .tmp/preview/preview-deployment.txt
+npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts
+```
+
+Notes:
+- The deploy workflow also writes the preview URL to the `preview-deployment` artifact and the job summary.
+- Browser automation against the preview is encouraged when the task is UI-heavy; record which preview URL was validated and whether the check was Playwright, browser automation, or both.
 
 ## 7. Environment and Secrets Discipline
 
