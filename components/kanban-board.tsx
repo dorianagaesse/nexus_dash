@@ -9,16 +9,19 @@ import {
   useTransition,
 } from "react";
 import type { DropResult } from "@hello-pangea/dnd";
+import { useRouter } from "next/navigation";
 
 import type { RelatedTaskOption } from "@/components/kanban/related-task-field";
 import {
   type KanbanTask,
+  type ProjectEpicOption,
   type ProjectTaskCollaborator,
   type TaskComment,
   type PendingAttachmentUpload,
   type TaskPersonSummary,
   type TaskAttachment,
   type TaskRelatedSummary,
+  type TaskEpicSummary,
 } from "@/components/kanban-board-types";
 import { CreateTaskDialog } from "@/components/create-task-dialog";
 import { KanbanBoardHeader } from "@/components/kanban/kanban-board-header";
@@ -64,6 +67,7 @@ interface KanbanBoardProps {
   storageProvider: "local" | "r2";
   initialTasks: KanbanTask[];
   archivedDoneTasks?: KanbanTask[];
+  epics: ProjectEpicOption[];
   collaborators: ProjectTaskCollaborator[];
 }
 
@@ -93,8 +97,10 @@ export function KanbanBoard({
   storageProvider,
   initialTasks,
   archivedDoneTasks: initialArchivedDoneTasks = [],
+  epics,
   collaborators,
 }: KanbanBoardProps) {
+  const router = useRouter();
   const initialColumns = useMemo(
     () => mapTasksToColumns(initialTasks),
     [initialTasks]
@@ -127,6 +133,7 @@ export function KanbanBoard({
   const [editLabelInput, setEditLabelInput] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editDeadlineDate, setEditDeadlineDate] = useState("");
+  const [editEpicId, setEditEpicId] = useState("");
   const [editAssigneeUserId, setEditAssigneeUserId] = useState("");
   const [editRelatedTasks, setEditRelatedTasks] = useState<TaskRelatedSummary[]>([]);
   const [relatedTaskSearch, setRelatedTaskSearch] = useState("");
@@ -171,6 +178,7 @@ export function KanbanBoard({
     setEditLabelInput("");
     setEditDescription(task.description ?? "");
     setEditDeadlineDate(task.deadlineDate ?? "");
+    setEditEpicId(task.epic?.id ?? "");
     setEditAssigneeUserId(task.assignee?.id ?? "");
     setEditRelatedTasks(task.relatedTasks);
     setRelatedTaskSearch("");
@@ -192,6 +200,28 @@ export function KanbanBoard({
   useEffect(() => {
     setArchivedDoneTasks(initialArchivedDoneTasks);
   }, [initialArchivedDoneTasks]);
+
+  useEffect(() => {
+    if (!selectedTask) {
+      return;
+    }
+
+    const nextTask =
+      TASK_STATUSES.flatMap((status) => columns[status]).find(
+        (task) => task.id === selectedTask.id
+      ) ??
+      archivedDoneTasks.find((task) => task.id === selectedTask.id) ??
+      null;
+
+    if (!nextTask) {
+      setSelectedTask(null);
+      return;
+    }
+
+    if (nextTask !== selectedTask) {
+      setSelectedTask(nextTask);
+    }
+  }, [archivedDoneTasks, columns, selectedTask]);
 
   useEffect(() => {
     if (!selectedTask) {
@@ -371,6 +401,11 @@ export function KanbanBoard({
         }))
         .sort((left, right) => left.title.localeCompare(right.title)),
     [columns]
+  );
+
+  const availableEpicOptions = useMemo<ProjectEpicOption[]>(
+    () => [...epics].sort((left, right) => left.name.localeCompare(right.name)),
+    [epics]
   );
 
   const availableAssignees = useMemo<ProjectTaskCollaborator[]>(
@@ -567,16 +602,17 @@ export function KanbanBoard({
 
         if (!response.ok) {
           throw new Error("Persist request failed");
-        }
-
-        setPersistError(null);
-      } catch (error) {
-        console.error("[KanbanBoard.persistColumns]", error);
-        setColumns(previousColumns);
-        setPersistError("Could not save task movement. Board reverted.");
       }
-    },
-    [projectId]
+
+      setPersistError(null);
+      router.refresh();
+    } catch (error) {
+      console.error("[KanbanBoard.persistColumns]", error);
+      setColumns(previousColumns);
+      setPersistError("Could not save task movement. Board reverted.");
+    }
+  },
+    [projectId, router]
   );
 
   const onDragEnd = useCallback(
@@ -746,6 +782,7 @@ export function KanbanBoard({
               labels: editLabels,
               description: editDescription,
               deadlineDate: editDeadlineDate || null,
+              epicId: editEpicId || null,
               assigneeUserId: editAssigneeUserId || null,
               blockedFollowUpEntry: normalizedBlockedEntry,
               relatedTaskIds,
@@ -760,6 +797,8 @@ export function KanbanBoard({
           const message =
             payload?.error === "related-tasks-invalid"
               ? "Related tasks must stay active and belong to this project."
+              : payload?.error === "epic-invalid"
+                ? "Epic must belong to this project."
               : payload?.error === "assignee-invalid"
                 ? "Assignee must be a current collaborator on this project."
               : payload?.error === "deadline-invalid"
@@ -781,6 +820,7 @@ export function KanbanBoard({
             status: string;
             position: number;
             archivedAt: string | null;
+            epic: TaskEpicSummary | null;
             assignee: TaskPersonSummary | null;
             createdBy: TaskPersonSummary;
             updatedBy: TaskPersonSummary;
@@ -809,6 +849,7 @@ export function KanbanBoard({
           description: payload.task.description,
           deadlineDate: payload.task.deadlineDate,
           commentCount: payload.task.commentCount,
+          epic: payload.task.epic,
           assignee: payload.task.assignee,
           createdBy: payload.task.createdBy,
           updatedBy: payload.task.updatedBy,
@@ -882,6 +923,7 @@ export function KanbanBoard({
           setIsEditMode(false);
         }
         setNewBlockedFollowUpEntry("");
+        router.refresh();
         return true;
       } catch (error) {
         console.error("[KanbanBoard.handleTaskUpdate]", error);
@@ -898,11 +940,13 @@ export function KanbanBoard({
       editAssigneeUserId,
       editDeadlineDate,
       editDescription,
+      editEpicId,
       editLabels,
       editRelatedTasks,
       editTitle,
       newBlockedFollowUpEntry,
       projectId,
+      router,
       selectedTask,
       syncRelatedTaskSummary,
     ]
@@ -1054,6 +1098,7 @@ export function KanbanBoard({
         return null;
       });
       removeRelatedTaskReferences(pendingDeleteTask.id);
+      router.refresh();
 
       pushToast({
         variant: "success",
@@ -1069,7 +1114,7 @@ export function KanbanBoard({
       setPendingDeleteTask(null);
       setIsDeletingTask(false);
     }
-  }, [canEdit, isDeletingTask, pendingDeleteTask, projectId, pushToast, removeRelatedTaskReferences]);
+  }, [canEdit, isDeletingTask, pendingDeleteTask, projectId, pushToast, removeRelatedTaskReferences, router]);
 
   const handleArchiveTask = useCallback(async () => {
     if (!canEdit) {
@@ -1124,6 +1169,7 @@ export function KanbanBoard({
         archivedAt: payload.archivedAt,
       });
       closeTaskModal();
+      router.refresh();
       pushToast({
         variant: "success",
         message: "Task moved to archive.",
@@ -1144,6 +1190,7 @@ export function KanbanBoard({
     isArchivingTask,
     projectId,
     pushToast,
+    router,
     selectedTask,
     syncRelatedTaskSummary,
   ]);
@@ -1198,6 +1245,7 @@ export function KanbanBoard({
         status: taskToRestore.status,
         archivedAt: null,
       });
+      router.refresh();
       pushToast({
         variant: "success",
         message: "Task moved back to Done.",
@@ -1218,6 +1266,7 @@ export function KanbanBoard({
     isSelectedTaskArchived,
     projectId,
     pushToast,
+    router,
     selectedTask,
     syncRelatedTaskSummary,
   ]);
@@ -1333,6 +1382,7 @@ export function KanbanBoard({
           currentActorSummary
         )
       );
+      router.refresh();
       pushToast({
         variant: "success",
         message: "Comment added.",
@@ -1356,6 +1406,7 @@ export function KanbanBoard({
     newTaskComment,
     projectId,
     pushToast,
+    router,
     selectedTask,
   ]);
 
@@ -1637,6 +1688,7 @@ export function KanbanBoard({
             storageProvider={storageProvider}
             existingLabels={allKnownLabels}
             availableTasks={createDialogAvailableTasks}
+            availableEpics={availableEpicOptions}
             availableAssignees={availableAssignees}
           />
         ) : null}
@@ -1673,6 +1725,7 @@ export function KanbanBoard({
         editLabelSuggestions={editLabelSuggestions}
         editDescription={editDescription}
         editDeadlineDate={editDeadlineDate}
+        editEpicId={editEpicId}
         editAssigneeUserId={editAssigneeUserId}
         editRelatedTasks={editRelatedTasks}
         relatedTaskSearch={relatedTaskSearch}
@@ -1703,10 +1756,12 @@ export function KanbanBoard({
         onRemoveEditLabel={removeEditLabel}
         onEditDescriptionChange={setEditDescription}
         onEditDeadlineDateChange={setEditDeadlineDate}
+        onEditEpicIdChange={setEditEpicId}
         onEditAssigneeUserIdChange={setEditAssigneeUserId}
         onRelatedTaskSearchChange={setRelatedTaskSearch}
         onAddRelatedTask={addRelatedTask}
         onRemoveRelatedTask={removeRelatedTask}
+        availableEpicOptions={availableEpicOptions}
         availableAssignees={availableAssignees}
         availableRelatedTaskOptions={availableRelatedTaskOptions}
         onOpenRelatedTask={openRelatedTask}

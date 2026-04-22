@@ -10,6 +10,9 @@ const prismaMock = vi.hoisted(() => ({
     update: vi.fn(),
     delete: vi.fn(),
   },
+  epic: {
+    findFirst: vi.fn(),
+  },
   taskRelation: {
     deleteMany: vi.fn(),
     createMany: vi.fn(),
@@ -41,6 +44,10 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
 }
 
+function taskRouteParams(projectId: string, taskId: string) {
+  return { params: Promise.resolve({ projectId, taskId }) };
+}
+
 describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -61,9 +68,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       body: "{",
     });
 
-    const response = await PATCH(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({
@@ -80,9 +85,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       }),
     });
 
-    const response = await PATCH(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({
@@ -101,9 +104,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       }),
     });
 
-    const response = await PATCH(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({
@@ -123,9 +124,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       }),
     });
 
-    const response = await PATCH(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(404);
     await expect(readJson(response)).resolves.toEqual({ error: "Task not found" });
@@ -210,9 +209,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       }),
     });
 
-    const response = await PATCH(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toEqual({
@@ -228,6 +225,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         status: "Blocked",
         position: 0,
         archivedAt: null,
+        epic: null,
         assignee: {
           id: "user-2",
           displayName: "Bob Example",
@@ -356,12 +354,125 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       }),
     });
 
-    const response = await PATCH(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(200);
     expect(prismaMock.taskBlockedFollowUp.create).not.toHaveBeenCalled();
+  });
+
+  test("updates the linked epic when epicId is provided", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      status: "In Progress",
+      position: 2,
+      archivedAt: null,
+      epicId: null,
+      assigneeUserId: null,
+      outgoingRelations: [],
+      incomingRelations: [],
+    });
+    prismaMock.epic.findFirst.mockResolvedValueOnce({ id: "epic-1" });
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      title: "Updated",
+      label: null,
+      labelsJson: null,
+      description: null,
+      deadlineAt: null,
+      _count: {
+        comments: 0,
+      },
+      blockedNote: null,
+      status: "In Progress",
+      position: 2,
+      archivedAt: null,
+      epic: {
+        id: "epic-1",
+        name: "Workspace launch",
+      },
+      createdAt: new Date("2026-04-18T08:00:00.000Z"),
+      updatedAt: new Date("2026-04-18T09:00:00.000Z"),
+      createdByUser: {
+        id: "user-1",
+        name: "Alice Example",
+        email: "alice@example.com",
+        username: "alice",
+        usernameDiscriminator: "1234",
+        avatarSeed: null,
+      },
+      updatedByUser: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+      assigneeUser: null,
+      outgoingRelations: [],
+      incomingRelations: [],
+      blockedFollowUps: [],
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Updated",
+        epicId: "epic-1",
+        relatedTaskIds: [],
+      }),
+    });
+
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({
+      task: {
+        id: "t1",
+        title: "Updated",
+        label: null,
+        labelsJson: null,
+        description: null,
+        deadlineDate: null,
+        commentCount: 0,
+        blockedNote: null,
+        status: "In Progress",
+        position: 2,
+        archivedAt: null,
+        epic: {
+          id: "epic-1",
+          name: "Workspace launch",
+        },
+        assignee: null,
+        createdBy: {
+          id: "user-1",
+          displayName: "alice",
+          usernameTag: "alice#1234",
+          avatarSeed: "user-1",
+        },
+        updatedBy: {
+          id: "test-user",
+          displayName: "reviewer",
+          usernameTag: "reviewer#0007",
+          avatarSeed: "test-user",
+        },
+        createdAt: "2026-04-18T08:00:00.000Z",
+        updatedAt: "2026-04-18T09:00:00.000Z",
+        relatedTasks: [],
+        blockedFollowUps: [],
+      },
+    });
+
+    expect(prismaMock.task.update).toHaveBeenCalledWith({
+      where: { id: "t1" },
+      data: expect.objectContaining({
+        title: "Updated",
+        epicId: "epic-1",
+        updatedByUserId: "test-user",
+      }),
+    });
   });
 
   test("returns 400 when related tasks are invalid", async () => {
@@ -390,9 +501,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       }),
     });
 
-    const response = await PATCH(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({
@@ -473,9 +582,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       }),
     });
 
-    const response = await PATCH(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toEqual({
@@ -491,6 +598,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         status: "In Progress",
         position: 2,
         archivedAt: null,
+        epic: null,
         assignee: null,
         createdBy: {
           id: "user-1",
@@ -530,9 +638,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       }),
     });
 
-    const response = await PATCH(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(500);
     await expect(readJson(response)).resolves.toEqual({
@@ -558,9 +664,7 @@ describe("DELETE /api/projects/:projectId/tasks/:taskId", () => {
       method: "DELETE",
     });
 
-    const response = await DELETE(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await DELETE(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(404);
     await expect(readJson(response)).resolves.toEqual({ error: "Task not found" });
@@ -578,9 +682,7 @@ describe("DELETE /api/projects/:projectId/tasks/:taskId", () => {
       method: "DELETE",
     });
 
-    const response = await DELETE(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await DELETE(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toEqual({ ok: true });
@@ -605,9 +707,7 @@ describe("DELETE /api/projects/:projectId/tasks/:taskId", () => {
       method: "DELETE",
     });
 
-    const response = await DELETE(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await DELETE(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(500);
     await expect(readJson(response)).resolves.toEqual({
@@ -630,9 +730,7 @@ describe("DELETE /api/projects/:projectId/tasks/:taskId", () => {
       method: "DELETE",
     });
 
-    const response = await DELETE(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await DELETE(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(404);
     await expect(readJson(response)).resolves.toEqual({
@@ -665,9 +763,7 @@ describe("POST /api/projects/:projectId/tasks/:taskId/archive", () => {
       method: "POST",
     });
 
-    const response = await archiveTask(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await archiveTask(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toEqual({
@@ -698,9 +794,7 @@ describe("POST /api/projects/:projectId/tasks/:taskId/archive", () => {
       method: "POST",
     });
 
-    const response = await archiveTask(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await archiveTask(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({
@@ -721,9 +815,7 @@ describe("POST /api/projects/:projectId/tasks/:taskId/archive", () => {
       method: "POST",
     });
 
-    const response = await archiveTask(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await archiveTask(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toEqual({
@@ -758,9 +850,7 @@ describe("DELETE /api/projects/:projectId/tasks/:taskId/archive", () => {
       method: "DELETE",
     });
 
-    const response = await unarchiveTask(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await unarchiveTask(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toEqual({
@@ -790,9 +880,7 @@ describe("DELETE /api/projects/:projectId/tasks/:taskId/archive", () => {
       method: "DELETE",
     });
 
-    const response = await unarchiveTask(request as never, {
-      params: { projectId: "p1", taskId: "t1" },
-    });
+    const response = await unarchiveTask(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({

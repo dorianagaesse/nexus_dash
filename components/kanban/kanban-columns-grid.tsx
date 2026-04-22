@@ -4,12 +4,13 @@ import {
   Droppable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { Archive, Clock3, GripVertical, Link2, MessageSquare, Paperclip, TriangleAlert } from "lucide-react";
+import { Archive, Clock3, Flag, GripVertical, Link2, MessageSquare, Paperclip, TriangleAlert } from "lucide-react";
 
 import type { KanbanTask } from "@/components/kanban-board-types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { getEpicColorFromName } from "@/lib/epic";
 import {
   buildDragStyle,
   getDescriptionPreview,
@@ -276,6 +277,23 @@ function KanbanColumn({
                         <p className="break-words text-xs text-muted-foreground">
                           {getDescriptionPreview(task.description)}
                         </p>
+                      ) : null}
+
+                      {task.epic ? (
+                        <div className="mt-3">
+                          <span
+                            className="inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium"
+                            style={{
+                              backgroundColor: getEpicColorFromName(task.epic.name).soft,
+                              borderColor: getEpicColorFromName(task.epic.name).border,
+                              color: getEpicColorFromName(task.epic.name).accent,
+                            }}
+                            title={task.epic.name}
+                          >
+                            <Flag className="h-3 w-3" />
+                            <span className="truncate">{task.epic.name}</span>
+                          </span>
+                        </div>
                       ) : null}
 
                       {task.assignee ? (

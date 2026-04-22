@@ -5,6 +5,7 @@ import {
   ArrowRightLeft,
   ChevronRight,
   Clock3,
+  Flag,
   Link2,
   MessageSquare,
   MoreHorizontal,
@@ -21,6 +22,7 @@ import {
   type KanbanTask,
   type TaskComment,
   type PendingAttachmentUpload,
+  type ProjectEpicOption,
   type ProjectTaskCollaborator,
   type TaskPersonSummary,
   type TaskAttachment,
@@ -44,7 +46,9 @@ import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
+import { EpicSelect } from "@/components/ui/epic-select";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { getEpicColorFromName } from "@/lib/epic";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import {
   ATTACHMENT_KIND_FILE,
@@ -72,6 +76,7 @@ interface TaskDetailModalProps {
   editLabelSuggestions: string[];
   editDescription: string;
   editDeadlineDate: string;
+  editEpicId: string;
   editAssigneeUserId: string;
   editRelatedTasks: KanbanTask["relatedTasks"];
   relatedTaskSearch: string;
@@ -102,10 +107,12 @@ interface TaskDetailModalProps {
   onRemoveEditLabel: (label: string) => void;
   onEditDescriptionChange: (value: string) => void;
   onEditDeadlineDateChange: (value: string) => void;
+  onEditEpicIdChange: (value: string) => void;
   onEditAssigneeUserIdChange: (value: string) => void;
   onRelatedTaskSearchChange: (value: string) => void;
   onAddRelatedTask: (taskId: string) => void;
   onRemoveRelatedTask: (taskId: string) => void;
+  availableEpicOptions: ProjectEpicOption[];
   availableAssignees: ProjectTaskCollaborator[];
   availableRelatedTaskOptions: RelatedTaskOption[];
   onOpenRelatedTask: (taskId: string) => void;
@@ -137,6 +144,7 @@ export function TaskDetailModal({
   editLabelSuggestions,
   editDescription,
   editDeadlineDate,
+  editEpicId,
   editAssigneeUserId,
   editRelatedTasks,
   relatedTaskSearch,
@@ -167,10 +175,12 @@ export function TaskDetailModal({
   onRemoveEditLabel,
   onEditDescriptionChange,
   onEditDeadlineDateChange,
+  onEditEpicIdChange,
   onEditAssigneeUserIdChange,
   onRelatedTaskSearchChange,
   onAddRelatedTask,
   onRemoveRelatedTask,
+  availableEpicOptions,
   availableAssignees,
   availableRelatedTaskOptions,
   onOpenRelatedTask,
@@ -238,7 +248,10 @@ export function TaskDetailModal({
                     >
                       {selectedTask.title}
                     </CardTitle>
-                    <TaskAssigneeBadge assignee={selectedTask.assignee} />
+                    <div className="flex flex-col gap-2 sm:items-end">
+                      <TaskEpicBadge epic={selectedTask.epic} />
+                      <TaskAssigneeBadge assignee={selectedTask.assignee} />
+                    </div>
                   </div>
                 ) : (
                   <EmojiInputField
@@ -299,6 +312,7 @@ export function TaskDetailModal({
                   editLabelSuggestions={editLabelSuggestions}
                   editDescription={editDescription}
                   editDeadlineDate={editDeadlineDate}
+                  editEpicId={editEpicId}
                   editAssigneeUserId={editAssigneeUserId}
                   editRelatedTasks={editRelatedTasks}
                   relatedTaskSearch={relatedTaskSearch}
@@ -317,10 +331,12 @@ export function TaskDetailModal({
                   onRemoveEditLabel={onRemoveEditLabel}
                   onEditDescriptionChange={onEditDescriptionChange}
                   onEditDeadlineDateChange={onEditDeadlineDateChange}
+                  onEditEpicIdChange={onEditEpicIdChange}
                   onEditAssigneeUserIdChange={onEditAssigneeUserIdChange}
                   onRelatedTaskSearchChange={onRelatedTaskSearchChange}
                   onAddRelatedTask={onAddRelatedTask}
                   onRemoveRelatedTask={onRemoveRelatedTask}
+                  availableEpicOptions={availableEpicOptions}
                   availableAssignees={availableAssignees}
                   availableRelatedTaskOptions={availableRelatedTaskOptions}
                   onNewBlockedFollowUpEntryChange={onNewBlockedFollowUpEntryChange}
@@ -428,6 +444,42 @@ function formatTaskActivityDate(value: string): string {
 
 function buildTaskPersonHoverLabel(person: TaskPersonSummary): string {
   return person.usernameTag ?? person.displayName;
+}
+
+function TaskEpicBadge({
+  epic,
+  showLabel = true,
+}: {
+  epic: KanbanTask["epic"];
+  showLabel?: boolean;
+}) {
+  if (!epic) {
+    return null;
+  }
+
+  const color = getEpicColorFromName(epic.name);
+
+  return (
+    <div className="flex flex-col gap-1 sm:items-end">
+      {showLabel ? (
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Epic
+        </p>
+      ) : null}
+      <div
+        className="inline-flex max-w-full items-center gap-2 rounded-full border px-2.5 py-1.5"
+        style={{
+          backgroundColor: color.soft,
+          borderColor: color.border,
+          color: color.accent,
+        }}
+        title={epic.name}
+      >
+        <Flag className="h-3.5 w-3.5" />
+        <span className="max-w-[180px] truncate text-sm font-medium">{epic.name}</span>
+      </div>
+    </div>
+  );
 }
 
 function TaskAssigneeBadge({ assignee }: { assignee: TaskPersonSummary | null }) {
@@ -673,6 +725,7 @@ function TaskReadOnlyContent({
 }) {
   const hasAttachments = selectedTask.attachments.length > 0;
   const hasRelatedTasks = selectedTask.relatedTasks.length > 0;
+  const hasEpic = Boolean(selectedTask.epic);
   const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -710,6 +763,14 @@ function TaskReadOnlyContent({
               {label}
             </span>
           ))}
+        </div>
+      ) : null}
+      {hasEpic ? (
+        <div className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
+          <p className="text-sm font-medium">Epic</p>
+          <div className="flex flex-wrap gap-2">
+            <TaskEpicBadge epic={selectedTask.epic} showLabel={false} />
+          </div>
         </div>
       ) : null}
       {selectedTask.status === "Blocked" ? (
@@ -954,6 +1015,7 @@ interface TaskEditContentProps {
   editLabelSuggestions: string[];
   editDescription: string;
   editDeadlineDate: string;
+  editEpicId: string;
   editAssigneeUserId: string;
   editRelatedTasks: KanbanTask["relatedTasks"];
   relatedTaskSearch: string;
@@ -972,10 +1034,12 @@ interface TaskEditContentProps {
   onRemoveEditLabel: (label: string) => void;
   onEditDescriptionChange: (value: string) => void;
   onEditDeadlineDateChange: (value: string) => void;
+  onEditEpicIdChange: (value: string) => void;
   onEditAssigneeUserIdChange: (value: string) => void;
   onRelatedTaskSearchChange: (value: string) => void;
   onAddRelatedTask: (taskId: string) => void;
   onRemoveRelatedTask: (taskId: string) => void;
+  availableEpicOptions: ProjectEpicOption[];
   availableAssignees: ProjectTaskCollaborator[];
   availableRelatedTaskOptions: RelatedTaskOption[];
   onNewBlockedFollowUpEntryChange: (value: string) => void;
@@ -997,6 +1061,7 @@ function TaskEditContent({
   editLabelSuggestions,
   editDescription,
   editDeadlineDate,
+  editEpicId,
   editAssigneeUserId,
   editRelatedTasks,
   relatedTaskSearch,
@@ -1015,10 +1080,12 @@ function TaskEditContent({
   onRemoveEditLabel,
   onEditDescriptionChange,
   onEditDeadlineDateChange,
+  onEditEpicIdChange,
   onEditAssigneeUserIdChange,
   onRelatedTaskSearchChange,
   onAddRelatedTask,
   onRemoveRelatedTask,
+  availableEpicOptions,
   availableAssignees,
   availableRelatedTaskOptions,
   onNewBlockedFollowUpEntryChange,
@@ -1114,6 +1181,19 @@ function TaskEditContent({
           onChange={onEditDeadlineDateChange}
           disabled={isUpdatingTask}
         />
+
+        <div className="grid gap-2">
+          <label htmlFor="task-edit-epic" className="text-sm font-medium">
+            Epic
+          </label>
+          <EpicSelect
+            id="task-edit-epic"
+            value={editEpicId}
+            onChange={onEditEpicIdChange}
+            disabled={isUpdatingTask}
+            options={availableEpicOptions}
+          />
+        </div>
 
         <div className="grid gap-2">
           <label htmlFor="task-edit-assignee" className="text-sm font-medium">

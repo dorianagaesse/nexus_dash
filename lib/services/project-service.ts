@@ -81,6 +81,12 @@ type ProjectKanbanTaskRecord = Prisma.TaskGetPayload<{
         avatarSeed: true;
       };
     };
+    epic: {
+      select: {
+        id: true;
+        name: true;
+      };
+    };
   };
 }>;
 
@@ -615,6 +621,12 @@ export async function listProjectKanbanTasks(
             username: true,
             usernameDiscriminator: true,
             avatarSeed: true,
+          },
+        },
+        epic: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },

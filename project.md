@@ -1,6 +1,6 @@
 # NexusDash Project Blueprint (Current State)
 
-Last verified: 2026-04-19
+Last verified: 2026-04-22
 
 ## 1. Vision
 
@@ -15,7 +15,8 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
 - Project sharing v2 with owner-managed invites, role-based membership, email-bound invitation flows, and resumable invite acceptance.
 - Project dashboard with three core panels:
   - Context cards (create/edit/delete + attachments)
-  - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`) with reorder, deadline/comment visibility, and task detail modal
+  - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`) with reorder, deadline/comment visibility, task epic links, and task detail modal
+  - Project epics registry with dedicated epic CRUD, automatic status/progress, and linked-task rollups
   - Google Calendar panel (read/create/update/delete events when connected)
 - Task comments:
   - project-scoped, append-only task discussion threads
@@ -57,7 +58,7 @@ Current schema includes:
 - Auth/session: `User`, `Account`, `Session`, `VerificationToken`
 - Authorization boundaries: `Project.ownerId`, `ProjectMembership` (`owner|editor|viewer`)
 - Agent auth: `ApiCredential`, `ApiCredentialScopeGrant`, `AuthAuditEvent`
-- Domain: `Project`, `Task`, `Resource` (context cards), `TaskBlockedFollowUp`
+- Domain: `Project`, `Epic`, `Task`, `Resource` (context cards), `TaskBlockedFollowUp`
 - Collaboration on tasks: `TaskComment`
 - Attachments: `TaskAttachment`, `ResourceAttachment` with `uploadedByUserId`
 - Calendar: `GoogleCalendarCredential` (one row per user)

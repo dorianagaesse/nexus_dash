@@ -9,6 +9,7 @@ import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-ser
 import { listProjectKanbanTasks } from "@/lib/services/project-service";
 import { createTaskForProject } from "@/lib/services/project-task-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
+import { mapTaskEpicSummary } from "@/lib/epic";
 import { mapTaskPersonSummary } from "@/lib/task-person";
 import { formatTaskDeadlineDate } from "@/lib/task-deadline";
 
@@ -19,6 +20,7 @@ interface TaskCreateJsonRequestBody {
   title?: unknown;
   description?: unknown;
   deadlineDate?: unknown;
+  epicId?: unknown;
   assigneeUserId?: unknown;
   labels?: unknown;
   relatedTaskIds?: unknown;
@@ -121,6 +123,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
       labelsJson: task.labelsJson,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
+      epic: mapTaskEpicSummary(task.epic),
       assignee: mapTaskPersonSummary(task.assigneeUser),
       createdBy: mapTaskPersonSummary(task.createdByUser),
       updatedBy: mapTaskPersonSummary(task.updatedByUser),
@@ -149,6 +152,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
   let title = "";
   let description = "";
   let deadlineDate = "";
+  let epicId: string | null = null;
   let assigneeUserId: string | null = null;
   let labelsJsonRaw = "";
   let relatedTaskIdsJsonRaw = "";
@@ -181,6 +185,14 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     deadlineDate =
       typeof payload.deadlineDate === "string" ? payload.deadlineDate.trim() : "";
     if (
+      payload.epicId !== undefined &&
+      payload.epicId !== null &&
+      typeof payload.epicId !== "string"
+    ) {
+      return NextResponse.json({ error: "epic-invalid" }, { status: 400 });
+    }
+    epicId = typeof payload.epicId === "string" ? payload.epicId.trim() || null : null;
+    if (
       payload.assigneeUserId !== undefined &&
       payload.assigneeUserId !== null &&
       typeof payload.assigneeUserId !== "string"
@@ -210,6 +222,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     title = readText(formData, "title");
     description = readText(formData, "description");
     deadlineDate = readText(formData, "deadlineDate");
+    epicId = readText(formData, "epicId") || null;
     assigneeUserId = readText(formData, "assigneeUserId") || null;
     labelsJsonRaw = readText(formData, "labels");
     relatedTaskIdsJsonRaw = readText(formData, "relatedTaskIds");
@@ -230,6 +243,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     title,
     description,
     deadlineDate,
+    epicId,
     assigneeUserId,
     labelsJsonRaw,
     relatedTaskIdsJsonRaw,
