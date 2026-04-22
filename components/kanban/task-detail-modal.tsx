@@ -238,7 +238,7 @@ export function TaskDetailModal({
                   {isArchivedTask ? "Archived" : selectedTask.status}
                 </Badge>
                 {!isEditing ? (
-                  <div className="space-y-3">
+                  <div className="space-y-3 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:space-y-0">
                     <CardTitle
                       className="min-w-0 flex-1 text-xl leading-tight"
                       onDoubleClick={() => {
@@ -251,7 +251,7 @@ export function TaskDetailModal({
                     >
                       {selectedTask.title}
                     </CardTitle>
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-start gap-3 sm:justify-end">
                       {selectedTask.epic ? <TaskEpicBadge epic={selectedTask.epic} /> : null}
                       <TaskAssigneeBadge assignee={selectedTask.assignee} />
                     </div>
@@ -466,7 +466,7 @@ function TaskEpicBadge({
   const color = getEpicColorFromName(epic.name);
 
   return (
-    <div className="flex flex-col gap-1 sm:items-end">
+    <div className="flex flex-col items-center gap-1 text-center sm:items-end sm:text-right">
       {showLabel ? (
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Epic
@@ -490,7 +490,7 @@ function TaskEpicBadge({
 
 function TaskAssigneeBadge({ assignee }: { assignee: TaskPersonSummary | null }) {
   return (
-    <div className="flex flex-col gap-1 sm:items-end">
+    <div className="flex flex-col items-center gap-1 text-center sm:items-end sm:text-right">
       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         Assignee
       </p>
@@ -874,7 +874,6 @@ function TaskReadOnlyContent({
 }) {
   const hasAttachments = selectedTask.attachments.length > 0;
   const hasRelatedTasks = selectedTask.relatedTasks.length > 0;
-  const hasEpic = Boolean(selectedTask.epic);
   const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -912,14 +911,6 @@ function TaskReadOnlyContent({
               {label}
             </span>
           ))}
-        </div>
-      ) : null}
-      {hasEpic ? (
-        <div className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
-          <p className="text-sm font-medium">Epic</p>
-          <div className="flex flex-wrap gap-2">
-            <TaskEpicBadge epic={selectedTask.epic} showLabel={false} />
-          </div>
         </div>
       ) : null}
       {selectedTask.status === "Blocked" ? (
