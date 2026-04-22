@@ -1,98 +1,162 @@
-# Current Task: TASK-101 Task Ownership And Provenance
+# Current Task: TASK-107 Task Epic Flags And Project Epic Registry
 
 ## Task ID
-TASK-101
+TASK-107
 
 ## Status
-Implementation complete on branch
-`feature/task-101-task-ownership-and-provenance`, stacked on top of `TASK-089`
-so the avatar baseline can be reused immediately across task ownership
-surfaces. Local validation is green aside from Playwright being blocked by the
-shared database schema not yet reflecting this branch migration; PR/review and
-preview deployment are the remaining release steps.
+In review.
 
 ## Objective
-Add first-class task ownership metadata so every task can show who created it,
-who is currently assigned to it, and who last touched it, with the data model,
-API contracts, and UI all aligned around the same provenance source of truth.
+Introduce first-class project epics as a dedicated project-scoped planning
+entity, separate from tasks, so work can be grouped under a clear higher-level
+ initiative without turning epics into pseudo-tasks or weakening the clarity of
+the existing Kanban model.
 
 ## Why This Task Matters
-- Collaboration is already live, but task ownership is still implicit and
-  depends on outside context instead of product-visible metadata.
-- `TASK-089` established a shared avatar foundation; `TASK-101` is the first
-  feature that needs to apply that foundation to real work attribution.
-- Assignee and provenance data are prerequisites for later filtering,
-  accountability, notification, and richer project-presence work.
-- Shipping this cleanly now reduces the risk of inventing multiple incompatible
-  identity models across task comments, assignee chips, and future activity
-  surfaces.
+- The task system already supports labels, related-task links, comments,
+  deadlines, and ownership, but it still lacks a clear way to group several
+  execution tasks under one larger initiative.
+- Treating epics as tasks would blur the distinction between planning context
+  and executable work, which would make the board harder to understand.
+- A dedicated epic model gives NexusDash a clearer planning layer now and a
+  cleaner foundation for later roadmap/reporting work (`TASK-106`) without
+  forcing users to overload task semantics.
+- Epics should feel visible and useful in daily workflow, which means the
+  feature needs both task-level linking and a project-level epic surface rather
+  than a hidden settings-only implementation.
 
 ## Current Baseline Confirmed In Repo
-- `Task` currently has no creator, updater, or assignee relationship fields in
-  `prisma/schema.prisma`.
-- Kanban task reads come from `listProjectKanbanTasks` and the task routes, so
-  provenance data needs to be added at the service/API layer rather than only
-  in the UI.
-- Task comments already resolve avatar-backed author identities after
-  `TASK-089`.
-- The board already has a stable task detail modal, task create dialog, and
-  task edit flow, which are the right surfaces to introduce ownership and
-  provenance.
+- Tasks already support project-scoped metadata and linked relationships
+  through the service/API/UI stack:
+  - labels
+  - related tasks
+  - deadlines
+  - assignee / provenance
+  - comments
+  - attachments
+- The Kanban board already has stable create/edit/read task flows that can host
+  one additional optional task field without inventing a new interaction model.
+- Project pages already support multiple section-level panels, so a dedicated
+  epic section fits the existing dashboard composition better than a settings
+  detour.
+- The repo already maintains agent-facing task contracts in
+  `lib/agent-onboarding.ts`, so epic-aware API changes must stay aligned there
+  too.
 
-## Working Product Assumptions
-- A task must always retain a creator and last-updater once the migration is
-  applied.
-- Assignee is optional and should support explicit clearing back to an
-  unassigned state.
-- Valid assignees are current project collaborators, including the owner.
-- "Last touched" should reflect task mutations that materially change the task
-  record or task activity, including comment and attachment writes.
-- Existing tasks need a practical backfill path; project owner is the baseline
-  provenance fallback for legacy rows.
+## Product Contract
+- Epics are not tasks.
+- Epics are project-scoped entities with their own CRUD lifecycle.
+- Each epic has:
+  - a unique project-scoped name / flag
+  - a description
+  - an automatically derived status
+- Each task may link to zero or one epic.
+- Tasks never become parents of other tasks through this feature.
+- Epic status is derived automatically from linked task states and is never
+  edited directly.
+- Deleting an epic must clear the linked `epicId` from affected tasks rather
+  than deleting or mutating those tasks otherwise.
+- Epic names must be unique within a project.
+
+## Automatic Epic Status Rules
+- `Ready`
+  - epic has zero linked tasks, or
+  - every linked task is in `Backlog`
+- `In progress`
+  - at least one linked task is in `In Progress`, or
+  - at least one linked task is in `Blocked`, or
+  - linked tasks are mixed between `Backlog` and `Done` / archived with no task
+    currently in `In Progress`
+- `Completed`
+  - every linked task is `Done` or archived
+
+## Progress Bar Rules
+- Every epic shown in the dedicated epic section should include a visible
+  progress bar.
+- Progress is derived automatically from linked tasks.
+- Progress percent for v1 is:
+  - numerator: linked tasks that are `Done` or archived
+  - denominator: all linked tasks currently linked to the epic
+- An epic with zero linked tasks shows `0%` progress and still resolves to
+  status `Ready`.
 
 ## Scope
-- Extend the task schema with:
-  - creator relationship
-  - updater relationship
-  - optional assignee relationship
-- Backfill provenance for existing tasks through a migration.
-- Validate assignee changes against current project collaborators.
-- Update task create, update, reorder, archive, unarchive, comment, and
-  attachment flows so provenance stays accurate.
-- Expose provenance and assignee metadata through task list/update API
-  responses.
-- Add assignee selection to task create/edit flows.
-- Render avatar-backed ownership UI on the main task surfaces:
-  - board card assignee display
-  - task detail assignee display
-  - task detail created-by / modified-by display
-- Update agent/OpenAPI documentation where task payloads change.
-- Add targeted regression coverage for the new task contracts and provenance
-  behavior.
-- Update tracking docs in the same task branch.
+- Add a dedicated `Epic` persistence model to the Prisma schema with:
+  - `id`
+  - `projectId`
+  - unique project-scoped `name`
+  - `description`
+  - timestamps
+- Add an optional `epicId` relationship on `Task`.
+- Ship a migration that:
+  - creates the epic table
+  - adds the nullable task-to-epic foreign key
+  - enforces unique epic names per project
+- Add epic-aware service support for:
+  - create epic
+  - list epics
+  - update epic
+  - delete epic
+  - task create with optional epic link
+  - task update with epic assignment or clearing
+  - task reads that return epic summary metadata when linked
+- Enforce epic/task validation in services:
+  - epic must belong to the same project
+  - tasks may link to at most one epic
+  - clearing epic linkage must be supported explicitly
+- Add API routes for epic CRUD under the project scope.
+- Extend task APIs so create/update payloads can set or clear a linked epic.
+- Add a dedicated project-page epic section that is:
+  - visible
+  - colorful
+  - easy to scan
+  - able to show all epics with name, description, derived status, progress,
+    and linked-task count
+- Add task create/edit support for linking or clearing one epic.
+- Allow task detail quick actions to assign or clear an epic from the existing
+  task options menu without entering full edit mode.
+- Render the epic flag/chip on task surfaces where it matters:
+  - task card
+  - task detail
+  - task create/edit flow
+- Show linked task rollup inside the epic section so users can understand the
+  initiative without turning the epic into a task card.
+- Keep agent/OpenAPI documentation aligned with the new epic and task payloads.
+- Add targeted regression coverage across schema/service/API/component layers.
+- Update task tracking docs in the same branch.
 
 ## Out Of Scope
-- User-uploaded avatars or alternative avatar rendering systems.
-- Project-page collaborator rollups; that remains later work (`TASK-119`).
-- Notification delivery, reminders, or ownership-based inbox features.
-- Complex assignee filtering/search UX on the board.
-- Historic provenance reconstruction beyond a sensible legacy backfill.
+- Turning epics into executable Kanban tasks.
+- Nested epics or epic hierarchies.
+- Multiple epics per task.
+- Board regrouping, lane regrouping, or epic-based board filtering in v1.
+- Roadmap/timeline planning beyond the dedicated epic section.
+- Notifications, reminders, or epic activity feeds.
 
 ## Acceptance Criteria
-- New tasks persist creator and updater metadata automatically.
-- Tasks can store an optional assignee and reject non-collaborator assignees.
-- Task update flows keep updater metadata current.
-- Comment and attachment task activity updates the task attribution trail.
-- The kanban board can render assignee identity with the avatar baseline.
-- The task detail modal shows assignee, created-by, and modified-by metadata.
-- Task create/edit flows allow selecting or clearing an assignee.
-- Task API and agent docs stay aligned with the new payload shape.
+- A project can create, list, update, and delete epics through the app and API.
+- Epic names are unique within a project and duplicate-name writes are rejected.
+- Each task can store zero or one linked epic from the same project.
+- Task create/edit flows can assign an epic or clear it back to no epic.
+- Task options in task detail can assign or clear the linked epic without
+  switching into full edit mode.
+- Task cards and task detail surfaces display the linked epic flag when present.
+- The project page includes a dedicated epic section showing all epics with:
+  - name
+  - description
+  - derived status
+  - linked-task count
+  - progress bar
+- Epic status is derived automatically using the locked product rules in this
+  brief and is never manually edited.
+- Epic deletion leaves tasks intact and clears their epic link.
+- API and agent docs stay aligned with the new epic-aware contracts.
 - Required tracking docs are updated consistently in the same PR.
 
 ## Definition Of Done
-1. `TASK-101` is the active brief in `tasks/current.md`.
-2. Schema, services, routes, and UI all support task assignee + provenance end
-   to end.
+1. `TASK-107` is the active brief in `tasks/current.md`.
+2. Schema, services, routes, task flows, and the new project epic section all
+   support epics end to end.
 3. Relevant validation is green:
    - `npm run lint`
    - `npm test`
@@ -100,15 +164,14 @@ API contracts, and UI all aligned around the same provenance source of truth.
    - `npm run build`
    - preview validation once the branch is published
 4. Tracking docs are updated consistently (`tasks/current.md`, `journal.md`,
-   and `adr/decisions.md` only if an architecture-level decision is introduced).
-5. The task ships through its own dedicated PR with the normal review and
-   preview workflow handled before handoff.
+   and `adr/decisions.md` only if an architecture-level decision is
+   introduced).
+5. The task ships through its own dedicated branch and PR with the normal
+   review and preview workflow handled before handoff.
 
 ## Dependencies
-- `TASK-058`
-- `TASK-076`
 - `TASK-079`
-- `TASK-089`
+- `TASK-095`
 
 ## Evidence Plan
 - Repo source of truth:
@@ -117,25 +180,28 @@ API contracts, and UI all aligned around the same provenance source of truth.
   - `prisma/schema.prisma`
   - `lib/services/project-service.ts`
   - `lib/services/project-task-service.ts`
-  - `lib/services/project-task-comment-service.ts`
-  - `lib/services/project-attachment-service.ts`
-  - `app/api/projects/[projectId]/tasks/**`
+  - `app/api/projects/[projectId]/**`
+  - `app/projects/[projectId]/page.tsx`
   - `app/projects/[projectId]/kanban-board-section.tsx`
   - `components/kanban-board.tsx`
   - `components/kanban/task-detail-modal.tsx`
   - `components/create-task-dialog.tsx`
+  - new epic section/components introduced by this task
+  - `lib/agent-onboarding.ts`
 - Validation source of truth:
   - local lint/unit/build runs
   - PR review comments and CI checks
   - preview deployment verification
 
 ## Outcome Target
-- NexusDash gains explicit task ownership and provenance instead of relying on
-  chat context or naming conventions.
-- The avatar baseline from `TASK-089` becomes visible where ownership actually
-  matters: assignee, creator, and last modifier.
+- NexusDash gains a clear planning layer above tasks without turning epics into
+  confusing pseudo-work items.
+- Users can understand project initiatives at a glance through a visible epic
+  section, while still linking day-to-day tasks to one clear execution context.
+- The task model stays simple: tasks remain tasks, epics remain project-scoped
+  planning flags with richer meaning.
 
 ---
 
-Last Updated: 2026-04-21
+Last Updated: 2026-04-22
 Assigned To: Agent

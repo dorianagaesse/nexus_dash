@@ -138,12 +138,13 @@ model Project {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  owner         User                @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  tasks         Task[]
-  resources     Resource[]
-  memberships   ProjectMembership[]
-  invitations   ProjectInvitation[]
-  taskRelations TaskRelation[]
+  owner          User                 @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  tasks          Task[]
+  epics          Epic[]
+  resources      Resource[]
+  memberships    ProjectMembership[]
+  invitations    ProjectInvitation[]
+  taskRelations  TaskRelation[]
   apiCredentials ApiCredential[]
   authAuditEvents AuthAuditEvent[]
 
@@ -186,6 +187,20 @@ model ProjectInvitation {
   @@index([invitedByUserId])
 }
 
+model Epic {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String   @db.VarChar(80)
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@index([projectId, updatedAt])
+}
+
 model Task {
   id                String                @id @default(cuid())
   title             String
@@ -199,10 +214,12 @@ model Task {
   label             String?
   labelsJson        String?
   projectId         String
+  epicId            String?
   createdByUserId   String
   updatedByUserId   String
   assigneeUserId    String?
   project           Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  epic              Epic?                 @relation(fields: [epicId], references: [id], onDelete: SetNull)
   createdByUser     User                  @relation("TaskCreatedBy", fields: [createdByUserId], references: [id])
   updatedByUser     User                  @relation("TaskUpdatedBy", fields: [updatedByUserId], references: [id])
   assigneeUser      User?                 @relation("TaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
@@ -216,6 +233,8 @@ model Task {
 
   @@index([projectId])
   @@index([projectId, deadlineAt])
+  @@index([epicId])
+  @@index([projectId, epicId])
   @@index([createdByUserId])
   @@index([updatedByUserId])
   @@index([assigneeUserId])

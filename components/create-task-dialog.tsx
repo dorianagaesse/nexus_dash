@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { TaskDeadlineField } from "@/components/kanban/task-deadline-field";
 import { RelatedTaskSelector, type RelatedTaskOption } from "@/components/kanban/related-task-field";
 import type {
+  ProjectEpicOption,
   ProjectTaskCollaborator,
   TaskRelatedSummary,
 } from "@/components/kanban-board-types";
@@ -16,6 +17,7 @@ import { useToast } from "@/components/toast-provider";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { AssigneeSelect } from "@/components/ui/assignee-select";
 import { Button } from "@/components/ui/button";
+import { EpicSelect } from "@/components/ui/epic-select";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmojiInputField } from "@/components/ui/emoji-field";
 import {
@@ -36,6 +38,7 @@ interface CreateTaskDialogProps {
   storageProvider: "local" | "r2";
   existingLabels: string[];
   availableTasks: RelatedTaskOption[];
+  availableEpics: ProjectEpicOption[];
   availableAssignees: ProjectTaskCollaborator[];
 }
 
@@ -53,6 +56,7 @@ export function CreateTaskDialog({
   storageProvider,
   existingLabels,
   availableTasks,
+  availableEpics,
   availableAssignees,
 }: CreateTaskDialogProps) {
   const isMountedRef = useRef(true);
@@ -61,6 +65,7 @@ export function CreateTaskDialog({
   const [isOpen, setIsOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [deadlineDate, setDeadlineDate] = useState("");
+  const [epicId, setEpicId] = useState("");
   const [assigneeUserId, setAssigneeUserId] = useState("");
   const [labels, setLabels] = useState<string[]>([]);
   const [labelInput, setLabelInput] = useState("");
@@ -95,6 +100,7 @@ export function CreateTaskDialog({
   const resetDraft = () => {
     setDescription("");
     setDeadlineDate("");
+    setEpicId("");
     setAssigneeUserId("");
     setLabels([]);
     setLabelInput("");
@@ -128,6 +134,8 @@ export function CreateTaskDialog({
         return "One or more attachment links are invalid. Use http:// or https:// URLs.";
       case "deadline-invalid":
         return "Deadline must use a valid date.";
+      case "epic-invalid":
+        return "Epic must belong to this project.";
       case "assignee-invalid":
         return "Assignee must be a current collaborator on this project.";
       case "attachment-file-too-large":
@@ -475,6 +483,23 @@ export function CreateTaskDialog({
                         disabled={isSubmitting}
                         helperText="Optional. Near deadlines are highlighted automatically on the board."
                       />
+
+                      <div className="grid gap-2">
+                        <label htmlFor="task-epic" className="text-sm font-medium">
+                          Epic
+                        </label>
+                        <EpicSelect
+                          id="task-epic"
+                          name="epicId"
+                          value={epicId}
+                          onChange={setEpicId}
+                          options={availableEpics}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Optional. Link this task to a broader initiative without turning the
+                          epic into a task.
+                        </p>
+                      </div>
 
                       <div className="grid gap-2">
                         <label htmlFor="task-assignee" className="text-sm font-medium">

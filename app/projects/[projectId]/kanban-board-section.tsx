@@ -4,6 +4,7 @@ import {
   KanbanBoard,
   type KanbanTask,
 } from "@/components/kanban-board";
+import type { ProjectEpicOption } from "@/components/kanban-board-types";
 import {
   PROJECT_SECTION_CARD_CLASS,
   PROJECT_SECTION_HEADER_CLASS,
@@ -13,6 +14,8 @@ import {
   listProjectCollaborators,
   listProjectKanbanTasks,
 } from "@/lib/services/project-service";
+import { listProjectEpics } from "@/lib/services/project-epic-service";
+import { mapTaskEpicSummary } from "@/lib/epic";
 import { mapTaskPersonSummary } from "@/lib/task-person";
 import { mapRelatedTaskSummary } from "@/lib/task-related";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
@@ -40,12 +43,20 @@ export async function KanbanBoardSection({
   canEdit,
   storageProvider,
 }: KanbanBoardSectionProps) {
-  const [tasks, collaborators] = await Promise.all([
+  const [tasks, collaborators, epics] = await Promise.all([
     listProjectKanbanTasks(projectId, actorUserId),
     listProjectCollaborators(projectId, actorUserId),
+    listProjectEpics(projectId, actorUserId),
   ]);
   const kanbanTasks: KanbanTask[] = [];
   const archivedDoneTasks: KanbanTask[] = [];
+  const epicOptions: ProjectEpicOption[] = epics.map((epic) => ({
+    id: epic.id,
+    name: epic.name,
+    status: epic.status,
+    progressPercent: epic.progressPercent,
+    taskCount: epic.taskCount,
+  }));
 
   tasks.forEach((task: ProjectKanbanTask) => {
     if (!isTaskStatus(task.status)) {
@@ -64,6 +75,7 @@ export async function KanbanBoardSection({
         content: entry.content,
         createdAt: entry.createdAt.toISOString(),
       })),
+      epic: mapTaskEpicSummary(task.epic),
       assignee: mapTaskPersonSummary(task.assigneeUser),
       createdBy: mapTaskPersonSummary(task.createdByUser)!,
       updatedBy: mapTaskPersonSummary(task.updatedByUser)!,
@@ -108,6 +120,7 @@ export async function KanbanBoardSection({
       storageProvider={storageProvider}
       initialTasks={kanbanTasks}
       archivedDoneTasks={archivedDoneTasks}
+      epics={epicOptions}
       collaborators={collaborators}
       actorUserId={actorUserId}
     />

@@ -42,6 +42,10 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
 }
 
+function taskRouteParams(projectId: string) {
+  return { params: Promise.resolve({ projectId }) };
+}
+
 describe("POST /api/projects/:projectId/tasks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -63,7 +67,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
     });
 
     const response = await POST(request as never, {
-      params: { projectId: "" },
+      params: Promise.resolve({ projectId: "" }),
     });
 
     expect(response.status).toBe(400);
@@ -83,6 +87,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
     formData.set("title", "  New Task  ");
     formData.set("description", "  Description  ");
     formData.set("deadlineDate", "2026-04-24");
+    formData.set("epicId", "epic-9");
     formData.set("assigneeUserId", "user-2");
     formData.set("labels", '["backend"]');
     formData.set("relatedTaskIds", '["task-a","task-b"]');
@@ -100,9 +105,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
       body: formData,
     });
 
-    const response = await POST(request as never, {
-      params: { projectId: "p1" },
-    });
+    const response = await POST(request as never, taskRouteParams("p1"));
 
     expect(response.status).toBe(201);
     await expect(readJson(response)).resolves.toEqual({ taskId: "task-created" });
@@ -113,6 +116,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
     expect(call.title).toBe("New Task");
     expect(call.description).toBe("Description");
     expect(call.deadlineDate).toBe("2026-04-24");
+    expect(call.epicId).toBe("epic-9");
     expect(call.assigneeUserId).toBe("user-2");
     expect(call.labelsJsonRaw).toBe('["backend"]');
     expect(call.relatedTaskIdsJsonRaw).toBe('["task-a","task-b"]');
@@ -139,6 +143,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
         title: "  Draft API smoke test  ",
         description: "  <p>Validate the agent route.</p>  ",
         deadlineDate: "2026-04-25",
+        epicId: "epic-7",
         assigneeUserId: "user-2",
         labels: ["agent", "qa"],
         relatedTaskIds: ["task-a"],
@@ -146,9 +151,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
       }),
     });
 
-    const response = await POST(request as never, {
-      params: { projectId: "p1" },
-    });
+    const response = await POST(request as never, taskRouteParams("p1"));
 
     expect(response.status).toBe(201);
     await expect(readJson(response)).resolves.toEqual({ taskId: "task-json" });
@@ -158,6 +161,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
       title: "Draft API smoke test",
       description: "<p>Validate the agent route.</p>",
       deadlineDate: "2026-04-25",
+      epicId: "epic-7",
       assigneeUserId: "user-2",
       labelsJsonRaw: '["agent","qa"]',
       relatedTaskIdsJsonRaw: '["task-a"]',
@@ -180,13 +184,32 @@ describe("POST /api/projects/:projectId/tasks", () => {
       }),
     });
 
-    const response = await POST(request as never, {
-      params: { projectId: "p1" },
-    });
+    const response = await POST(request as never, taskRouteParams("p1"));
 
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({
       error: "deadline-invalid",
+    });
+    expect(projectTaskServiceMock.createTaskForProject).not.toHaveBeenCalled();
+  });
+
+  test("returns 400 when json epicId is not a string", async () => {
+    const request = new Request("http://localhost/api/projects/p1/tasks", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        title: "Draft API smoke test",
+        epicId: 123,
+      }),
+    });
+
+    const response = await POST(request as never, taskRouteParams("p1"));
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "epic-invalid",
     });
     expect(projectTaskServiceMock.createTaskForProject).not.toHaveBeenCalled();
   });
@@ -203,9 +226,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
       }),
     });
 
-    const response = await POST(request as never, {
-      params: { projectId: "p1" },
-    });
+    const response = await POST(request as never, taskRouteParams("p1"));
 
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({
@@ -229,9 +250,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
       body: formData,
     });
 
-    const response = await POST(request as never, {
-      params: { projectId: "p1" },
-    });
+    const response = await POST(request as never, taskRouteParams("p1"));
 
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({
@@ -271,9 +290,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
       body: formData,
     });
 
-    const response = await POST(request as never, {
-      params: { projectId: "p1" },
-    });
+    const response = await POST(request as never, taskRouteParams("p1"));
 
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({
@@ -291,9 +308,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
       body: "{",
     });
 
-    const response = await POST(request as never, {
-      params: { projectId: "p1" },
-    });
+    const response = await POST(request as never, taskRouteParams("p1"));
 
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({

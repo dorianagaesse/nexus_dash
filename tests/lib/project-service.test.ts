@@ -315,6 +315,12 @@ describe("project-service", () => {
             avatarSeed: true,
           },
         },
+        epic: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
   });
