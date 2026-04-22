@@ -5,9 +5,9 @@ Use this file to capture tasks discovered during development. Each entry should 
 ## Pending
 ### Execution Queue (Now / Next)
 - ID: TASK-107
-  Title: Task epic links - parent epic relationship and grouped execution context
-  Status: Pending
-  Rationale: Let tasks link to a higher-level epic so day-to-day work can roll up into larger initiatives, improving planning, grouping, and future roadmap/reporting surfaces beyond the current symmetric related-task model.
+  Title: Project epics and task epic flags
+  Status: In review (PR #194)
+  Rationale: Add first-class project epics as dedicated planning entities, with one optional epic flag per task, so teams can group execution work under visible initiatives without turning epics into pseudo-tasks or weakening Kanban clarity.
   Dependencies: TASK-079, TASK-095
 - ID: TASK-106
   Title: Project roadmap feature - milestone/timeline visibility for better execution sight

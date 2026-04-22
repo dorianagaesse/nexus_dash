@@ -216,115 +216,121 @@ function KanbanColumn({
                   index={index}
                   isDragDisabled={!canEdit}
                 >
-                  {(draggableProvided, draggableSnapshot) => (
-                    <article
-                      ref={draggableProvided.innerRef}
-                      {...draggableProvided.draggableProps}
-                      {...(canEdit ? draggableProvided.dragHandleProps : {})}
-                      style={buildDragStyle(
-                        draggableProvided.draggableProps.style,
-                        draggableSnapshot.isDragging
-                      )}
-                      className={cn(
-                        "rounded-xl border border-border/70 bg-card/95 p-3 shadow-sm transition duration-150",
-                        canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
-                        draggableSnapshot.isDragging && "shadow-lg",
-                        highlightedTaskIds.has(task.id) &&
-                          "border-border/80 bg-muted/35 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
-                      )}
-                      onClick={() => {
-                        if (!draggableSnapshot.isDragging) {
-                          onSelectTask(task);
-                        }
-                      }}
-                      onMouseEnter={() => onTaskHoverChange(task.id)}
-                      onMouseLeave={() => onTaskHoverChange(null)}
-                      onDoubleClick={(event) => {
-                        if (!canEdit) {
-                          return;
-                        }
-                        event.stopPropagation();
-                        onEditTask(task);
-                      }}
-                    >
-                      <div className="mb-2 flex items-start justify-between gap-2">
-                        <h3 className="text-sm font-medium leading-snug">{task.title}</h3>
-                        <div className="flex items-center gap-1">
-                          {status === "Blocked" ? (
-                            <span
-                              className="rounded-sm p-1 text-amber-500"
-                              aria-label="Blocked task"
-                              title="Blocked task"
-                            >
-                              <TriangleAlert className="h-4 w-4" />
-                            </span>
-                          ) : null}
-                          {canEdit ? (
-                            <span
-                              className="rounded-sm p-1 text-muted-foreground"
-                              aria-label="Drag task"
-                              title="Drag task"
-                            >
-                              <GripVertical className="h-4 w-4" />
-                            </span>
-                          ) : null}
+                  {(draggableProvided, draggableSnapshot) => {
+                    const epicColor = task.epic
+                      ? getEpicColorFromName(task.epic.name)
+                      : null;
+
+                    return (
+                      <article
+                        ref={draggableProvided.innerRef}
+                        {...draggableProvided.draggableProps}
+                        {...(canEdit ? draggableProvided.dragHandleProps : {})}
+                        style={buildDragStyle(
+                          draggableProvided.draggableProps.style,
+                          draggableSnapshot.isDragging
+                        )}
+                        className={cn(
+                          "rounded-xl border border-border/70 bg-card/95 p-3 shadow-sm transition duration-150",
+                          canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
+                          draggableSnapshot.isDragging && "shadow-lg",
+                          highlightedTaskIds.has(task.id) &&
+                            "border-border/80 bg-muted/35 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
+                        )}
+                        onClick={() => {
+                          if (!draggableSnapshot.isDragging) {
+                            onSelectTask(task);
+                          }
+                        }}
+                        onMouseEnter={() => onTaskHoverChange(task.id)}
+                        onMouseLeave={() => onTaskHoverChange(null)}
+                        onDoubleClick={(event) => {
+                          if (!canEdit) {
+                            return;
+                          }
+                          event.stopPropagation();
+                          onEditTask(task);
+                        }}
+                      >
+                        <div className="mb-2 flex items-start justify-between gap-2">
+                          <h3 className="text-sm font-medium leading-snug">{task.title}</h3>
+                          <div className="flex items-center gap-1">
+                            {status === "Blocked" ? (
+                              <span
+                                className="rounded-sm p-1 text-amber-500"
+                                aria-label="Blocked task"
+                                title="Blocked task"
+                              >
+                                <TriangleAlert className="h-4 w-4" />
+                              </span>
+                            ) : null}
+                            {canEdit ? (
+                              <span
+                                className="rounded-sm p-1 text-muted-foreground"
+                                aria-label="Drag task"
+                                title="Drag task"
+                              >
+                                <GripVertical className="h-4 w-4" />
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
 
-                      <TaskCardIndicators task={task} className="-mt-1 mb-2" />
+                        <TaskCardIndicators task={task} className="-mt-1 mb-2" />
 
-                      {task.description ? (
-                        <p className="break-words text-xs text-muted-foreground">
-                          {getDescriptionPreview(task.description)}
-                        </p>
-                      ) : null}
+                        {task.description ? (
+                          <p className="break-words text-xs text-muted-foreground">
+                            {getDescriptionPreview(task.description)}
+                          </p>
+                        ) : null}
 
-                      {task.epic ? (
-                        <div className="mt-3">
-                          <span
-                            className="inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium"
-                            style={{
-                              backgroundColor: getEpicColorFromName(task.epic.name).soft,
-                              borderColor: getEpicColorFromName(task.epic.name).border,
-                              color: getEpicColorFromName(task.epic.name).accent,
-                            }}
-                            title={task.epic.name}
-                          >
-                            <Flag className="h-3 w-3" />
-                            <span className="truncate">{task.epic.name}</span>
-                          </span>
-                        </div>
-                      ) : null}
-
-                      {task.assignee ? (
-                        <div className="mt-3 flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-2 py-1 text-xs text-muted-foreground">
-                          <UserAvatar
-                            avatarSeed={task.assignee.avatarSeed}
-                            displayName={task.assignee.displayName}
-                            className="h-5 w-5 border-border/70"
-                            decorative
-                          />
-                          <span className="truncate">{task.assignee.displayName}</span>
-                        </div>
-                      ) : null}
-
-                      {task.labels.length > 0 ? (
-                        <div className="mt-3 flex flex-wrap gap-1">
-                          {task.labels.map((label) => (
+                        {task.epic && epicColor ? (
+                          <div className="mt-3">
                             <span
-                              key={label}
-                              className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium text-slate-900"
+                              className="inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium"
                               style={{
-                                backgroundColor: getTaskLabelColor(label),
+                                backgroundColor: epicColor.soft,
+                                borderColor: epicColor.border,
+                                color: epicColor.accent,
                               }}
+                              title={task.epic.name}
                             >
-                              {label}
+                              <Flag className="h-3 w-3" />
+                              <span className="truncate">{task.epic.name}</span>
                             </span>
-                          ))}
-                        </div>
-                      ) : null}
-                    </article>
-                  )}
+                          </div>
+                        ) : null}
+
+                        {task.assignee ? (
+                          <div className="mt-3 flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-2 py-1 text-xs text-muted-foreground">
+                            <UserAvatar
+                              avatarSeed={task.assignee.avatarSeed}
+                              displayName={task.assignee.displayName}
+                              className="h-5 w-5 border-border/70"
+                              decorative
+                            />
+                            <span className="truncate">{task.assignee.displayName}</span>
+                          </div>
+                        ) : null}
+
+                        {task.labels.length > 0 ? (
+                          <div className="mt-3 flex flex-wrap gap-1">
+                            {task.labels.map((label) => (
+                              <span
+                                key={label}
+                                className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium text-slate-900"
+                                style={{
+                                  backgroundColor: getTaskLabelColor(label),
+                                }}
+                              >
+                                {label}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </article>
+                    );
+                  }}
                 </Draggable>
               ))}
               {provided.placeholder}

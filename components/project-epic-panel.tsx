@@ -161,8 +161,8 @@ export function ProjectEpicPanel({
     setCreateError(null);
   };
 
-  const closeCreate = () => {
-    if (isCreating) {
+  const closeCreate = (force = false) => {
+    if (isCreating && !force) {
       return;
     }
 
@@ -177,8 +177,8 @@ export function ProjectEpicPanel({
     setEditError(null);
   };
 
-  const cancelEdit = () => {
-    if (isSavingEdit) {
+  const cancelEdit = (force = false) => {
+    if (isSavingEdit && !force) {
       return;
     }
 
@@ -225,7 +225,7 @@ export function ProjectEpicPanel({
 
       const createdEpic = payload.epic;
       setLocalEpics((previousEpics) => [createdEpic, ...previousEpics]);
-      closeCreate();
+      closeCreate(true);
       refreshProjectData();
       pushToast({
         variant: "success",
@@ -277,7 +277,7 @@ export function ProjectEpicPanel({
       setLocalEpics((previousEpics) =>
         previousEpics.map((epic) => (epic.id === updatedEpic.id ? updatedEpic : epic))
       );
-      cancelEdit();
+      cancelEdit(true);
       refreshProjectData();
       pushToast({
         variant: "success",
@@ -421,7 +421,7 @@ export function ProjectEpicPanel({
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={closeCreate}
+                  onClick={() => closeCreate()}
                   disabled={isCreating}
                   className="w-full sm:w-auto"
                 >
@@ -504,7 +504,7 @@ export function ProjectEpicPanel({
                           <Button
                             type="button"
                             variant="ghost"
-                            onClick={cancelEdit}
+                            onClick={() => cancelEdit()}
                             disabled={isSavingEdit}
                             className="w-full sm:w-auto"
                           >

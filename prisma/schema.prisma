@@ -198,7 +198,6 @@ model Epic {
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tasks   Task[]
 
-  @@unique([projectId, name])
   @@index([projectId, updatedAt])
 }
 

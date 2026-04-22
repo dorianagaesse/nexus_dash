@@ -12,6 +12,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-22
+- Type: Execution
+- Summary: TASK-107 implemented project-scoped epics end to end as dedicated planning entities with CRUD support, nullable task-to-epic links, automatic epic status/progress rollups, a colorful project epic registry section, and epic visibility across task create/edit/detail/Kanban plus agent-facing API documentation.
+- Evidence: Added `Epic` plus `Task.epicId` in `prisma/schema.prisma` with migration `prisma/migrations/20260422103000_task107_project_epics/migration.sql`; added `lib/epic.ts` and `lib/services/project-epic-service.ts`; added epic routes in `app/api/projects/[projectId]/epics/route.ts` and `app/api/projects/[projectId]/epics/[epicId]/route.ts`; updated task/project service and API contracts in `lib/services/project-service.ts`, `lib/services/project-task-service.ts`, `app/api/projects/[projectId]/tasks/route.ts`, and `app/api/projects/[projectId]/tasks/[taskId]/route.ts`; added the project epic section and epic task surfaces in `app/projects/[projectId]/project-epic-panel-section.tsx`, `components/project-epic-panel.tsx`, `components/create-task-dialog.tsx`, `components/kanban-board.tsx`, `components/kanban/kanban-columns-grid.tsx`, `components/kanban/task-detail-modal.tsx`, and related onboarding/docs updates in `lib/agent-onboarding.ts`, `components/agent-onboarding/agent-onboarding-guide.tsx`, and `project.md`.
+
+### 2026-04-22
+- Type: Validation
+- Summary: TASK-107 local validation passed for lint, focused regressions, full Vitest, coverage, Prisma client generation, and production build; the follow-up Copilot review fixes also passed the same baseline after tightening epic form close-state handling and aligning epic name uniqueness with the database layer.
+- Evidence: `npm run lint`; `npx -y -p node@20.19.0 node .\\node_modules\\prisma\\build\\index.js generate`; `npx -y -p node@20.19.0 node .\\node_modules\\vitest\\vitest.mjs run tests\\lib\\project-epic-service.test.ts tests\\lib\\epic.test.ts tests\\api\\project-epics.route.test.ts --pool=threads --maxWorkers=1 --no-file-parallelism`; `$env:DATABASE_URL='postgresql://localhost:5432/postgres'; $env:DIRECT_URL='postgresql://localhost:5433/postgres'; npx -y -p node@20.19.0 node .\\node_modules\\vitest\\vitest.mjs run --pool=threads --maxWorkers=1 --no-file-parallelism`; same env with `--coverage`; same env plus `GOOGLE_TOKEN_ENCRYPTION_KEY` and `AGENT_TOKEN_SIGNING_SECRET` with `npx -y -p node@20.19.0 node .\\node_modules\\next\\dist\\bin\\next build`.
+
+### 2026-04-22
+- Type: Blocker
+- Summary: TASK-107 local Playwright coverage remains blocked in this workstation session before browser interaction because the required PostgreSQL-backed fixture state is unavailable, so authenticated E2E seed user creation fails before the app can boot into the smoke flows.
+- Evidence: `$env:DATABASE_URL='postgresql://localhost:5432/postgres'; $env:DIRECT_URL='postgresql://localhost:5433/postgres'; $env:GOOGLE_TOKEN_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef'; $env:AGENT_TOKEN_SIGNING_SECRET='0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'; npx -y -p node@20.19.0 node .\\node_modules\\playwright\\cli.js test` failed in `tests/e2e/password-recovery.spec.ts` and `tests/e2e/helpers/auth-helpers.ts` with `PrismaClientKnownRequestError` during `prisma.user.create(...)` setup.
+
 ### 2026-04-21
 - Type: Execution
 - Summary: TASK-101 implemented first-class task ownership and provenance end to end so tasks now persist creator, updater, and optional assignee metadata and surface avatar-backed attribution across task cards, task detail, create/edit flows, comments, and task-related attachment activity.

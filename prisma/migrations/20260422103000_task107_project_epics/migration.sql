@@ -4,13 +4,13 @@ CREATE TABLE "Epic" (
     "name" VARCHAR(80) NOT NULL,
     "description" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Epic_pkey" PRIMARY KEY ("id"),
     CONSTRAINT "Epic_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-CREATE UNIQUE INDEX "Epic_projectId_name_key" ON "Epic"("projectId", "name");
+CREATE UNIQUE INDEX "Epic_projectId_lower_name_key" ON "Epic"("projectId", LOWER("name"));
 CREATE INDEX "Epic_projectId_updatedAt_idx" ON "Epic"("projectId", "updatedAt");
 
 ALTER TABLE "Task"

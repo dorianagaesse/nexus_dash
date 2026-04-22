@@ -4,7 +4,7 @@
 TASK-107
 
 ## Status
-Ready for implementation.
+In review.
 
 ## Objective
 Introduce first-class project epics as a dedicated project-scoped planning
