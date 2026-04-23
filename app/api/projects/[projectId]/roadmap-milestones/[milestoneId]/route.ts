@@ -14,6 +14,10 @@ interface RoadmapMilestoneRequestBody {
   status?: unknown;
 }
 
+function hasOwn(payload: RoadmapMilestoneRequestBody, key: keyof RoadmapMilestoneRequestBody) {
+  return Object.prototype.hasOwnProperty.call(payload, key);
+}
+
 export async function PATCH(
   request: NextRequest,
   props: { params: Promise<{ projectId: string; milestoneId: string }> }
@@ -36,29 +40,46 @@ export async function PATCH(
     return NextResponse.json({ error: "invalid-json" }, { status: 400 });
   }
 
+  if (hasOwn(payload, "title") && typeof payload.title !== "string") {
+    return NextResponse.json({ error: "invalid-payload" }, { status: 400 });
+  }
+  if (
+    hasOwn(payload, "description") &&
+    payload.description !== null &&
+    typeof payload.description !== "string"
+  ) {
+    return NextResponse.json({ error: "invalid-payload" }, { status: 400 });
+  }
+  if (
+    hasOwn(payload, "targetDate") &&
+    payload.targetDate !== null &&
+    typeof payload.targetDate !== "string"
+  ) {
+    return NextResponse.json({ error: "invalid-payload" }, { status: 400 });
+  }
+  if (
+    hasOwn(payload, "status") &&
+    payload.status !== null &&
+    typeof payload.status !== "string"
+  ) {
+    return NextResponse.json({ error: "invalid-payload" }, { status: 400 });
+  }
+
   const result = await updateProjectRoadmapMilestone({
     actorUserId: authenticatedUser.userId,
     projectId: params.projectId,
     milestoneId: params.milestoneId,
-    ...(Object.prototype.hasOwnProperty.call(payload, "title")
-      ? { title: typeof payload.title === "string" ? payload.title : "" }
+    ...(hasOwn(payload, "title")
+      ? { title: payload.title as string }
       : {}),
-    ...(Object.prototype.hasOwnProperty.call(payload, "description")
-      ? {
-          description:
-            typeof payload.description === "string" ? payload.description : null,
-        }
+    ...(hasOwn(payload, "description")
+      ? { description: (payload.description ?? null) as string | null }
       : {}),
-    ...(Object.prototype.hasOwnProperty.call(payload, "targetDate")
-      ? {
-          targetDate:
-            typeof payload.targetDate === "string" ? payload.targetDate : null,
-        }
+    ...(hasOwn(payload, "targetDate")
+      ? { targetDate: (payload.targetDate ?? null) as string | null }
       : {}),
-    ...(Object.prototype.hasOwnProperty.call(payload, "status")
-      ? {
-          status: typeof payload.status === "string" ? payload.status : null,
-        }
+    ...(hasOwn(payload, "status")
+      ? { status: (payload.status ?? null) as string | null }
       : {}),
   });
 

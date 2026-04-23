@@ -212,15 +212,20 @@ export function isValidRoadmapReorderPayload(
 
   const seenMilestoneIds = new Set<string>();
   return milestoneIds.every((milestoneId) => {
-    if (typeof milestoneId !== "string" || milestoneId.trim().length === 0) {
+    if (typeof milestoneId !== "string") {
       return false;
     }
 
-    if (seenMilestoneIds.has(milestoneId)) {
+    const trimmedMilestoneId = milestoneId.trim();
+    if (trimmedMilestoneId.length === 0 || milestoneId !== trimmedMilestoneId) {
       return false;
     }
 
-    seenMilestoneIds.add(milestoneId);
+    if (seenMilestoneIds.has(trimmedMilestoneId)) {
+      return false;
+    }
+
+    seenMilestoneIds.add(trimmedMilestoneId);
     return true;
   });
 }

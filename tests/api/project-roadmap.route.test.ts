@@ -210,6 +210,27 @@ describe("project roadmap routes", () => {
     });
   });
 
+  test("PATCH /api/projects/:projectId/roadmap-milestones/:milestoneId rejects invalid field types", async () => {
+    const response = await updateRoadmapMilestone(
+      new Request("http://localhost/api/projects/p1/roadmap-milestones/m1", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          description: 123,
+        }),
+      }) as never,
+      milestoneParams("p1", "m1")
+    );
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "invalid-payload",
+    });
+    expect(roadmapServiceMock.updateProjectRoadmapMilestone).not.toHaveBeenCalled();
+  });
+
   test("DELETE /api/projects/:projectId/roadmap-milestones/:milestoneId deletes a milestone", async () => {
     roadmapServiceMock.deleteProjectRoadmapMilestone.mockResolvedValueOnce({
       ok: true,

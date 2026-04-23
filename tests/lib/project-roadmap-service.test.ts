@@ -191,6 +191,14 @@ describe("project-roadmap-service", () => {
     ).toBe(false);
   });
 
+  test("reorder validation rejects ids with surrounding whitespace", () => {
+    expect(
+      isValidRoadmapReorderPayload({
+        milestoneIds: ["m1", " m2 "],
+      })
+    ).toBe(false);
+  });
+
   test("returns 400 when reorder payload includes ids outside the project", async () => {
     dbMock.roadmapMilestone.findMany.mockResolvedValueOnce([{ id: "milestone-1" }]);
 
