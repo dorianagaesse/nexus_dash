@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, startTransition, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -8,10 +8,12 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronUp,
+  Eye,
   Map,
   Pencil,
   PlusSquare,
   Trash2,
+  X,
 } from "lucide-react";
 
 import { CalendarDateTimeField } from "@/components/calendar-date-time-field";
@@ -58,6 +60,13 @@ const DEFAULT_DRAFT_STATE: RoadmapDraftState = {
   targetDate: "",
   status: "planned",
 };
+
+const ROADMAP_DESCRIPTION_PREVIEW_STYLE = {
+  display: "-webkit-box",
+  WebkitBoxOrient: "vertical",
+  WebkitLineClamp: 4,
+  overflow: "hidden",
+} satisfies CSSProperties;
 
 function cloneDraftState(
   milestone?: ProjectRoadmapPanelMilestone | null
@@ -143,6 +152,29 @@ function RoadmapStatusBadge({ status }: { status: RoadmapMilestoneStatus }) {
     <Badge variant="outline" className={tone.badge}>
       {getRoadmapMilestoneStatusLabel(status)}
     </Badge>
+  );
+}
+
+function RoadmapMilestoneDescriptionPreview({
+  description,
+}: {
+  description: string | null;
+}) {
+  if (!description) {
+    return (
+      <p className="text-sm italic text-muted-foreground">
+        No extra note attached to this milestone yet.
+      </p>
+    );
+  }
+
+  return (
+    <p
+      className="break-words text-sm leading-6 text-muted-foreground"
+      style={ROADMAP_DESCRIPTION_PREVIEW_STYLE}
+    >
+      {description}
+    </p>
   );
 }
 
@@ -314,6 +346,7 @@ function DesktopRoadmapTimeline({
   milestones,
   canEdit,
   editingMilestoneId,
+  onView,
   onStartEdit,
   onDelete,
   onMove,
@@ -321,6 +354,7 @@ function DesktopRoadmapTimeline({
   milestones: ProjectRoadmapPanelMilestone[];
   canEdit: boolean;
   editingMilestoneId: string | null;
+  onView: (milestoneId: string) => void;
   onStartEdit: (milestone: ProjectRoadmapPanelMilestone) => void;
   onDelete: (milestoneId: string) => void;
   onMove: (milestoneId: string, direction: -1 | 1) => void;
@@ -328,22 +362,15 @@ function DesktopRoadmapTimeline({
   return (
     <div className="hidden lg:block">
       <div className="overflow-x-auto pb-4">
-        <div className="relative min-w-max px-2 py-5">
-          <div className="absolute left-10 right-10 top-[5.2rem] h-px bg-[linear-gradient(90deg,rgba(148,163,184,0.12),rgba(148,163,184,0.8),rgba(14,165,233,0.18),rgba(148,163,184,0.8),rgba(148,163,184,0.12))]" />
-          <div className="flex min-w-max items-start gap-5">
-            {milestones.map((milestone, index) => {
-              const tone = getRoadmapStatusClasses(milestone.status);
-              const isEditing = editingMilestoneId === milestone.id;
+        <div className="flex min-w-max items-stretch gap-4 px-2 py-3">
+          {milestones.map((milestone, index) => {
+            const tone = getRoadmapStatusClasses(milestone.status);
+            const isEditing = editingMilestoneId === milestone.id;
 
-              return (
-                <div
-                  key={milestone.id}
-                  className={cn(
-                    "relative w-[19rem] shrink-0",
-                    index % 2 === 0 ? "pt-0" : "pt-14"
-                  )}
-                >
-                  <div className="mb-4 flex items-center gap-3">
+            return (
+              <div key={milestone.id} className="flex items-start gap-4">
+                <div className="w-[19rem] shrink-0 space-y-3">
+                  <div className="flex items-center gap-3 pl-1">
                     <span
                       className={cn(
                         "relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-4 border-background shadow-sm",
@@ -352,13 +379,16 @@ function DesktopRoadmapTimeline({
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-background/90" />
                     </span>
-                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <div className="min-w-0 space-y-1">
+                      <p
+                        className={cn(
+                          "text-[11px] font-medium uppercase tracking-[0.22em]",
+                          tone.accent
+                        )}
+                      >
+                        Milestone {index + 1}
+                      </p>
                       <RoadmapStatusBadge status={milestone.status} />
-                      <span className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-xs text-muted-foreground">
-                        {milestone.targetDate
-                          ? formatRoadmapTargetDateForDisplay(milestone.targetDate)
-                          : `Step ${index + 1}`}
-                      </span>
                     </div>
                   </div>
 
@@ -377,13 +407,20 @@ function DesktopRoadmapTimeline({
                     />
                     <div className="relative space-y-4">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 space-y-1">
-                          <p className={cn("text-xs font-medium uppercase tracking-[0.22em]", tone.accent)}>
-                            Milestone {index + 1}
-                          </p>
-                          <h3 className="text-lg font-semibold leading-6 text-foreground">
+                        <div className="min-w-0 space-y-2">
+                          <h3 className="break-words text-lg font-semibold leading-6 text-foreground">
                             {milestone.title}
                           </h3>
+                          {milestone.targetDate ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/75 px-3 py-1 text-xs text-muted-foreground">
+                              <CalendarDays className="h-3.5 w-3.5" />
+                              {formatRoadmapTargetDateForDisplay(milestone.targetDate)}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full border border-dashed border-border/60 bg-background/60 px-3 py-1 text-xs text-muted-foreground">
+                              No target date
+                            </span>
+                          )}
                         </div>
                         {canEdit ? (
                           <div className="flex items-center gap-1">
@@ -413,57 +450,56 @@ function DesktopRoadmapTimeline({
                         ) : null}
                       </div>
 
-                      {milestone.description ? (
-                        <p className="text-sm leading-6 text-muted-foreground">
-                          {milestone.description}
-                        </p>
-                      ) : (
-                        <p className="text-sm italic text-muted-foreground">
-                          No extra note attached to this milestone yet.
-                        </p>
-                      )}
+                      <RoadmapMilestoneDescriptionPreview description={milestone.description} />
 
-                      <div className="flex flex-wrap items-center gap-2">
-                        {milestone.targetDate ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/75 px-3 py-1 text-xs text-muted-foreground">
-                            <CalendarDays className="h-3.5 w-3.5" />
-                            {formatRoadmapTargetDateForDisplay(milestone.targetDate)}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center rounded-full border border-dashed border-border/60 bg-background/60 px-3 py-1 text-xs text-muted-foreground">
-                            No target date
-                          </span>
-                        )}
+                      <div className="flex items-center justify-between gap-2 border-t border-border/40 pt-3">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => onView(milestone.id)}
+                        >
+                          <Eye className="h-4 w-4" />
+                          View
+                        </Button>
+
+                        {canEdit ? (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onStartEdit(milestone)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onDelete(milestone.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Delete
+                            </Button>
+                          </div>
+                        ) : null}
                       </div>
-
-                      {canEdit ? (
-                        <div className="flex items-center justify-end gap-2 border-t border-border/40 pt-3">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onStartEdit(milestone)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                            Edit
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onDelete(milestone.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Delete
-                          </Button>
-                        </div>
-                      ) : null}
                     </div>
                   </article>
                 </div>
-              );
-            })}
-          </div>
+
+                {index < milestones.length - 1 ? (
+                  <div className="flex h-[15.5rem] items-center">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-background/85 text-muted-foreground shadow-[0_14px_35px_-28px_rgba(15,23,42,0.55)]">
+                      <ArrowRight className="h-4 w-4" />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -474,6 +510,7 @@ function MobileRoadmapTimeline({
   milestones,
   canEdit,
   editingMilestoneId,
+  onView,
   onStartEdit,
   onDelete,
   onMove,
@@ -481,6 +518,7 @@ function MobileRoadmapTimeline({
   milestones: ProjectRoadmapPanelMilestone[];
   canEdit: boolean;
   editingMilestoneId: string | null;
+  onView: (milestoneId: string) => void;
   onStartEdit: (milestone: ProjectRoadmapPanelMilestone) => void;
   onDelete: (milestoneId: string) => void;
   onMove: (milestoneId: string, direction: -1 | 1) => void;
@@ -513,79 +551,285 @@ function MobileRoadmapTimeline({
               )}
             >
               <div className="space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <RoadmapStatusBadge status={milestone.status} />
-                  <span className="rounded-full border border-border/60 bg-background/75 px-2.5 py-1 text-[11px] text-muted-foreground">
-                    {milestone.targetDate
-                      ? formatRoadmapTargetDateForDisplay(milestone.targetDate)
-                      : `Step ${index + 1}`}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-2">
+                    <p
+                      className={cn(
+                        "text-[11px] font-medium uppercase tracking-[0.22em]",
+                        tone.accent
+                      )}
+                    >
+                      Milestone {index + 1}
+                    </p>
+                    <RoadmapStatusBadge status={milestone.status} />
+                  </div>
+
+                  {canEdit ? (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                        onClick={() => onMove(milestone.id, -1)}
+                        disabled={index === 0}
+                        aria-label={`Move ${milestone.title} earlier`}
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                        onClick={() => onMove(milestone.id, 1)}
+                        disabled={index === milestones.length - 1}
+                        aria-label={`Move ${milestone.title} later`}
+                      >
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+
+                <h3 className="break-words text-base font-semibold text-foreground">
+                  {milestone.title}
+                </h3>
+
+                {milestone.targetDate ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/75 px-3 py-1 text-xs text-muted-foreground">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                    {formatRoadmapTargetDateForDisplay(milestone.targetDate)}
                   </span>
-                </div>
-
-                <div className="space-y-1">
-                  <p className={cn("text-[11px] font-medium uppercase tracking-[0.22em]", tone.accent)}>
-                    Milestone {index + 1}
-                  </p>
-                  <h3 className="text-base font-semibold text-foreground">{milestone.title}</h3>
-                </div>
-
-                {milestone.description ? (
-                  <p className="text-sm leading-6 text-muted-foreground">
-                    {milestone.description}
-                  </p>
                 ) : (
-                  <p className="text-sm italic text-muted-foreground">
-                    No extra note attached to this milestone yet.
-                  </p>
+                  <span className="inline-flex items-center rounded-full border border-dashed border-border/60 bg-background/60 px-3 py-1 text-xs text-muted-foreground">
+                    No target date
+                  </span>
                 )}
 
-                {canEdit ? (
-                  <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onMove(milestone.id, -1)}
-                      disabled={index === 0}
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                      Earlier
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onMove(milestone.id, 1)}
-                      disabled={index === milestones.length - 1}
-                    >
-                      <ArrowRight className="h-4 w-4" />
-                      Later
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onStartEdit(milestone)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Edit
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onDelete(milestone.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Delete
-                    </Button>
-                  </div>
-                ) : null}
+                <RoadmapMilestoneDescriptionPreview description={milestone.description} />
+
+                <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onView(milestone.id)}
+                  >
+                    <Eye className="h-4 w-4" />
+                    View
+                  </Button>
+
+                  {canEdit ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onStartEdit(milestone)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onDelete(milestone.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </Button>
+                    </>
+                  ) : null}
+                </div>
               </div>
             </article>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function RoadmapMilestoneDetailModal({
+  milestone,
+  milestoneIndex,
+  milestonesCount,
+  canEdit,
+  isOpen,
+  onClose,
+  onStartEdit,
+  onDelete,
+  onMove,
+}: {
+  milestone: ProjectRoadmapPanelMilestone | null;
+  milestoneIndex: number;
+  milestonesCount: number;
+  canEdit: boolean;
+  isOpen: boolean;
+  onClose: () => void;
+  onStartEdit: (milestone: ProjectRoadmapPanelMilestone) => void;
+  onDelete: (milestoneId: string) => void;
+  onMove: (milestoneId: string, direction: -1 | 1) => void;
+}) {
+  if (!isOpen || !milestone) {
+    return null;
+  }
+
+  const tone = getRoadmapStatusClasses(milestone.status);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/55 p-3 sm:items-center sm:justify-center sm:p-6">
+      <button
+        type="button"
+        aria-label="Close milestone details"
+        className="absolute inset-0"
+        onClick={onClose}
+      />
+
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="roadmap-milestone-dialog-title"
+        className={cn(
+          "relative z-10 w-full max-w-2xl overflow-hidden rounded-[2rem] border border-border/70 bg-background shadow-[0_35px_100px_-40px_rgba(15,23,42,0.6)]",
+          tone.card
+        )}
+      >
+        <div
+          className={cn(
+            "pointer-events-none absolute inset-0 bg-gradient-to-br opacity-80",
+            tone.glow
+          )}
+        />
+
+        <div className="relative space-y-6 p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={cn(
+                    "rounded-full border border-border/60 bg-background/80 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em]",
+                    tone.accent
+                  )}
+                >
+                  Milestone {milestoneIndex + 1}
+                </span>
+                <RoadmapStatusBadge status={milestone.status} />
+              </div>
+              <h3
+                id="roadmap-milestone-dialog-title"
+                className="break-words text-2xl font-semibold leading-tight text-foreground"
+              >
+                {milestone.title}
+              </h3>
+            </div>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full"
+              onClick={onClose}
+              aria-label="Close milestone details"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                Target date
+              </p>
+              {milestone.targetDate ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/80 px-3 py-1 text-sm text-muted-foreground">
+                  <CalendarDays className="h-4 w-4" />
+                  {formatRoadmapTargetDateForDisplay(milestone.targetDate)}
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-full border border-dashed border-border/60 bg-background/65 px-3 py-1 text-sm text-muted-foreground">
+                  No target date
+                </span>
+              )}
+            </div>
+
+            {canEdit ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onMove(milestone.id, -1)}
+                  disabled={milestoneIndex === 0}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Earlier
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onMove(milestone.id, 1)}
+                  disabled={milestoneIndex === milestonesCount - 1}
+                >
+                  <ArrowRight className="h-4 w-4" />
+                  Later
+                </Button>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="space-y-2 rounded-[1.4rem] border border-border/60 bg-background/70 p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Description
+            </p>
+            {milestone.description ? (
+              <p className="whitespace-pre-wrap break-words text-sm leading-7 text-foreground/85">
+                {milestone.description}
+              </p>
+            ) : (
+              <p className="text-sm italic text-muted-foreground">
+                No extra note attached to this milestone yet.
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col-reverse gap-2 border-t border-border/40 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Close
+            </Button>
+
+            {canEdit ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    onStartEdit(milestone);
+                    onClose();
+                  }}
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    onDelete(milestone.id);
+                    onClose();
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -620,6 +864,7 @@ export function ProjectRoadmapPanel({
   const [editError, setEditError] = useState<string | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [pendingDeleteMilestoneId, setPendingDeleteMilestoneId] = useState<string | null>(null);
+  const [viewMilestoneId, setViewMilestoneId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [reorderingMilestoneId, setReorderingMilestoneId] = useState<string | null>(null);
 
@@ -631,6 +876,19 @@ export function ProjectRoadmapPanel({
     () =>
       localMilestones.find((milestone) => milestone.id === pendingDeleteMilestoneId) ?? null,
     [localMilestones, pendingDeleteMilestoneId]
+  );
+
+  const viewedMilestone = useMemo(
+    () => localMilestones.find((milestone) => milestone.id === viewMilestoneId) ?? null,
+    [localMilestones, viewMilestoneId]
+  );
+
+  const viewedMilestoneIndex = useMemo(
+    () =>
+      viewedMilestone
+        ? localMilestones.findIndex((milestone) => milestone.id === viewedMilestone.id)
+        : -1,
+    [localMilestones, viewedMilestone]
   );
 
   const refreshProjectData = () => {
@@ -703,10 +961,11 @@ export function ProjectRoadmapPanel({
         );
       }
 
-      setLocalMilestones((previousMilestones) => [
-        ...previousMilestones,
-        payload.milestone!,
-      ].sort((left, right) => left.position - right.position));
+      setLocalMilestones((previousMilestones) =>
+        [...previousMilestones, payload.milestone!].sort(
+          (left, right) => left.position - right.position
+        )
+      );
       closeCreate(true);
       refreshProjectData();
       pushToast({
@@ -810,6 +1069,9 @@ export function ProjectRoadmapPanel({
       setLocalMilestones((previousMilestones) =>
         previousMilestones.filter((milestone) => milestone.id !== pendingDeleteMilestone.id)
       );
+      if (viewMilestoneId === pendingDeleteMilestone.id) {
+        setViewMilestoneId(null);
+      }
       setPendingDeleteMilestoneId(null);
       refreshProjectData();
       pushToast({
@@ -858,18 +1120,15 @@ export function ProjectRoadmapPanel({
     setReorderingMilestoneId(milestoneId);
 
     try {
-      const response = await fetch(
-        `/api/projects/${projectId}/roadmap-milestones/reorder`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            milestoneIds: normalizedReorderedMilestones.map((milestone) => milestone.id),
-          }),
-        }
-      );
+      const response = await fetch(`/api/projects/${projectId}/roadmap-milestones/reorder`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          milestoneIds: normalizedReorderedMilestones.map((milestone) => milestone.id),
+        }),
+      });
 
       const payload = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) {
@@ -883,8 +1142,7 @@ export function ProjectRoadmapPanel({
       setLocalMilestones(previousMilestones);
       pushToast({
         variant: "error",
-        message:
-          error instanceof Error ? error.message : "Could not save roadmap order.",
+        message: error instanceof Error ? error.message : "Could not save roadmap order.",
       });
     } finally {
       setReorderingMilestoneId(null);
@@ -937,28 +1195,6 @@ export function ProjectRoadmapPanel({
 
       {isExpanded ? (
         <CardContent className={cn("space-y-5", PROJECT_SECTION_CONTENT_CLASS)}>
-          <div className="rounded-[1.6rem] border border-border/70 bg-[linear-gradient(135deg,rgba(15,23,42,0.04),rgba(14,165,233,0.08),rgba(255,255,255,0.58))] px-4 py-4 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.78),rgba(14,165,233,0.16),rgba(15,23,42,0.72))]">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-              <div className="space-y-1.5">
-                <p className="text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
-                  Direction View
-                </p>
-                <h3 className="text-lg font-semibold text-foreground">
-                  Show where the project is going before people dive into the work.
-                </h3>
-                <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                  The roadmap is intentionally lightweight in v1: manual milestones, visual
-                  sequencing, and enough narrative context to make the project feel oriented.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <RoadmapStatusBadge status="planned" />
-                <RoadmapStatusBadge status="active" />
-                <RoadmapStatusBadge status="reached" />
-              </div>
-            </div>
-          </div>
-
           {loadError ? (
             <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200">
               {loadError}
@@ -1003,6 +1239,7 @@ export function ProjectRoadmapPanel({
                 milestones={localMilestones}
                 canEdit={canEdit}
                 editingMilestoneId={editingMilestoneId}
+                onView={setViewMilestoneId}
                 onStartEdit={startEdit}
                 onDelete={(milestoneId) => setPendingDeleteMilestoneId(milestoneId)}
                 onMove={(milestoneId, direction) =>
@@ -1013,6 +1250,7 @@ export function ProjectRoadmapPanel({
                 milestones={localMilestones}
                 canEdit={canEdit}
                 editingMilestoneId={editingMilestoneId}
+                onView={setViewMilestoneId}
                 onStartEdit={startEdit}
                 onDelete={(milestoneId) => setPendingDeleteMilestoneId(milestoneId)}
                 onMove={(milestoneId, direction) =>
@@ -1023,6 +1261,18 @@ export function ProjectRoadmapPanel({
           )}
         </CardContent>
       ) : null}
+
+      <RoadmapMilestoneDetailModal
+        milestone={viewedMilestone}
+        milestoneIndex={viewedMilestoneIndex}
+        milestonesCount={localMilestones.length}
+        canEdit={canEdit}
+        isOpen={Boolean(viewedMilestone)}
+        onClose={() => setViewMilestoneId(null)}
+        onStartEdit={startEdit}
+        onDelete={(milestoneId) => setPendingDeleteMilestoneId(milestoneId)}
+        onMove={(milestoneId, direction) => void handleMoveMilestone(milestoneId, direction)}
+      />
 
       <ConfirmDialog
         isOpen={Boolean(pendingDeleteMilestone)}
