@@ -155,6 +155,18 @@ function RoadmapStatusBadge({ status }: { status: RoadmapMilestoneStatus }) {
   );
 }
 
+function getRoadmapActionButtonClasses(status: RoadmapMilestoneStatus) {
+  if (status === "reached") {
+    return "rounded-full border border-emerald-500/25 bg-emerald-500/10 text-emerald-700 hover:border-emerald-500 hover:bg-emerald-500 hover:text-slate-950 dark:text-emerald-200 dark:hover:text-slate-950";
+  }
+
+  if (status === "active") {
+    return "rounded-full border border-amber-500/25 bg-amber-500/10 text-amber-700 hover:border-amber-500 hover:bg-amber-500 hover:text-slate-950 dark:text-amber-200 dark:hover:text-slate-950";
+  }
+
+  return "rounded-full border border-sky-500/25 bg-sky-500/10 text-sky-700 hover:border-sky-500 hover:bg-sky-500 hover:text-slate-950 dark:text-sky-200 dark:hover:text-slate-950";
+}
+
 function RoadmapMilestoneDescriptionPreview({
   description,
 }: {
@@ -460,8 +472,9 @@ function DesktopRoadmapTimeline({
                       <div className="flex items-center justify-between gap-2 border-t border-border/40 pt-3">
                         <Button
                           type="button"
-                          variant="secondary"
+                          variant="ghost"
                           size="sm"
+                          className={getRoadmapActionButtonClasses(milestone.status)}
                           onClick={() => onView(milestone.id)}
                         >
                           <Eye className="h-4 w-4" />
@@ -474,6 +487,7 @@ function DesktopRoadmapTimeline({
                               type="button"
                               variant="ghost"
                               size="sm"
+                              className={getRoadmapActionButtonClasses(milestone.status)}
                               onClick={() => onStartEdit(milestone)}
                             >
                               <Pencil className="h-4 w-4" />
@@ -483,6 +497,7 @@ function DesktopRoadmapTimeline({
                               type="button"
                               variant="ghost"
                               size="sm"
+                              className={getRoadmapActionButtonClasses(milestone.status)}
                               onClick={() => onDelete(milestone.id)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -608,8 +623,9 @@ function MobileRoadmapTimeline({
                 <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
                   <Button
                     type="button"
-                    variant="secondary"
+                    variant="ghost"
                     size="sm"
+                    className={getRoadmapActionButtonClasses(milestone.status)}
                     onClick={() => onView(milestone.id)}
                   >
                     <Eye className="h-4 w-4" />
@@ -622,6 +638,7 @@ function MobileRoadmapTimeline({
                         type="button"
                         variant="ghost"
                         size="sm"
+                        className={getRoadmapActionButtonClasses(milestone.status)}
                         onClick={() => onStartEdit(milestone)}
                       >
                         <Pencil className="h-4 w-4" />
@@ -631,6 +648,7 @@ function MobileRoadmapTimeline({
                         type="button"
                         variant="ghost"
                         size="sm"
+                        className={getRoadmapActionButtonClasses(milestone.status)}
                         onClick={() => onDelete(milestone.id)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -801,7 +819,8 @@ function RoadmapMilestoneDetailModal({
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="ghost"
+                  className={getRoadmapActionButtonClasses(milestone.status)}
                   onClick={() => {
                     onStartEdit(milestone);
                     onClose();
@@ -813,6 +832,7 @@ function RoadmapMilestoneDetailModal({
                 <Button
                   type="button"
                   variant="ghost"
+                  className={getRoadmapActionButtonClasses(milestone.status)}
                   onClick={() => {
                     onDelete(milestone.id);
                     onClose();
