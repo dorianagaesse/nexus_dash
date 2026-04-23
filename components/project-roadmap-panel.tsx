@@ -368,8 +368,7 @@ function DesktopRoadmapTimeline({
             const isEditing = editingMilestoneId === milestone.id;
 
             return (
-              <div key={milestone.id} className="flex items-start gap-4">
-                <div className="w-[19rem] shrink-0 space-y-3">
+              <div key={milestone.id} className="w-[19rem] shrink-0 space-y-3">
                   <div className="flex items-center gap-3 pl-1">
                     <span
                       className={cn(
@@ -379,16 +378,22 @@ function DesktopRoadmapTimeline({
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-background/90" />
                     </span>
-                    <div className="min-w-0 space-y-1">
-                      <p
-                        className={cn(
-                          "text-[11px] font-medium uppercase tracking-[0.22em]",
-                          tone.accent
-                        )}
-                      >
-                        Milestone {index + 1}
-                      </p>
-                      <RoadmapStatusBadge status={milestone.status} />
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <div className="min-w-0 space-y-1">
+                        <p
+                          className={cn(
+                            "text-[11px] font-medium uppercase tracking-[0.22em]",
+                            tone.accent
+                          )}
+                        >
+                          Milestone {index + 1}
+                        </p>
+                        <RoadmapStatusBadge status={milestone.status} />
+                      </div>
+
+                      {index < milestones.length - 1 ? (
+                        <div className="h-0.5 min-w-10 flex-1 rounded-full bg-border/75" />
+                      ) : null}
                     </div>
                   </div>
 
@@ -488,13 +493,6 @@ function DesktopRoadmapTimeline({
                       </div>
                     </div>
                   </article>
-                </div>
-
-                {index < milestones.length - 1 ? (
-                  <div className="flex w-12 shrink-0 pt-[1.15rem]">
-                    <div className="h-0.5 w-full rounded-full bg-border/75" />
-                  </div>
-                ) : null}
               </div>
             );
           })}
