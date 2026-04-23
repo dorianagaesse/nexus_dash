@@ -56,6 +56,7 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
 - For manual preview workflows that accept a `git_ref` or equivalent input, pass the active branch name explicitly and verify from the workflow logs that the job checked out that branch ref.
 - Do not rely only on the workflow UI `headBranch` field for branch-scoped preview evidence when the workflow itself runs from the default branch file; the handoff must mention the explicit `git_ref` used and the log evidence that the requested branch ref was checked out.
 - A task that requires preview validation is not ready for handoff until the preview workflow has completed for the active branch ref and the resulting preview URL or artifact has been recorded.
+- If Playwright needs to run against a deployed preview instead of a local server, set `PLAYWRIGHT_BASE_URL=<preview-url>` before running the desired Playwright command so the suite targets the preview directly rather than starting `next start` locally.
 
 ## 4. Architecture Boundaries (Non-Negotiable)
 
@@ -88,6 +89,32 @@ npm run build
 ```
 
 Use `npm run test:e2e` when UI flows, auth flows, calendar flows, or upload flows are touched.
+
+When preview validation is part of acceptance, use the active branch or commit SHA as `git_ref`, then wait for the exact workflow run before downloading artifacts.
+
+```bash
+gh workflow run deploy-vercel.yml -f action=deploy-preview -f git_ref=<branch-or-sha>
+run_id="$(gh run list --workflow deploy-vercel.yml --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')"
+gh run watch "$run_id" --exit-status
+gh run download "$run_id" -n preview-deployment --dir .tmp/preview
+preview_url="$(tr -d '\r\n' < .tmp/preview/preview-deployment.txt)"
+PLAYWRIGHT_BASE_URL="$preview_url" npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts
+```
+
+PowerShell:
+
+```pwsh
+gh workflow run deploy-vercel.yml -f action=deploy-preview -f git_ref=<branch-or-sha>
+$RunId = gh run list --workflow deploy-vercel.yml --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId'
+gh run watch $RunId --exit-status
+gh run download $RunId -n preview-deployment --dir .tmp/preview
+$env:PLAYWRIGHT_BASE_URL = (Get-Content -Raw .tmp/preview/preview-deployment.txt).Trim()
+npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts
+```
+
+Notes:
+- The deploy workflow also writes the preview URL to the `preview-deployment` artifact and the job summary.
+- Browser automation against the preview is encouraged when the task is UI-heavy; record which preview URL was validated and whether the check was Playwright, browser automation, or both.
 
 ## 7. Environment and Secrets Discipline
 

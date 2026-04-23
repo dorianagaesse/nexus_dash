@@ -4,28 +4,33 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-128
-  Title: Task assignee quick action from task options menu
-  Status: In progress
-  Rationale: Extend the existing task options menu with a lightweight assignee quick-action flow so collaborators can assign or clear task ownership during daily execution without switching into full edit mode, while still reusing the shipped `TASK-101` assignee validation and task update boundaries.
-  Dependencies: TASK-101, TASK-079
-- ID: TASK-107
-  Title: Project epics and task epic flags
-  Status: In review (PR #194)
-  Rationale: Add first-class project epics as dedicated planning entities, with one optional epic flag per task, so teams can group execution work under visible initiatives without turning epics into pseudo-tasks or weakening Kanban clarity.
-  Dependencies: TASK-079, TASK-095
 - ID: TASK-106
   Title: Project roadmap feature - milestone/timeline visibility for better execution sight
   Status: Pending
   Rationale: Add a roadmap-oriented project view so teams can see planned direction, upcoming milestones, and sequencing at a higher level than the current Kanban board, improving long-range visibility without losing the existing execution detail.
   Dependencies: TASK-076, TASK-079, TASK-096
+- ID: TASK-123
+  Title: Notification center - unified in-app inbox for invitations, mentions, and future activity
+  Status: Pending
+  Rationale: Introduce a dedicated notification center so invitation events, future task-comment mentions, and other product activity can land in one durable in-app inbox instead of being split across isolated surfaces, giving NexusDash a reusable foundation for unread state, chronological triage, and future notification categories.
+  Dependencies: TASK-058, TASK-103
+- ID: TASK-124
+  Title: Comment mentions - project-member @tagging with notification-center delivery
+  Status: Pending
+  Rationale: Let collaborators tag project members directly in task comments with `@` mentions, including member autocomplete, highlighted mention rendering, and notification creation routed into the in-app notification center so task discussion can pull the right people in without external chat.
+  Dependencies: TASK-058, TASK-099, TASK-123
+- ID: TASK-126
+  Title: Comment reactions - lightweight emoji response system on task threads
+  Status: Pending
+  Rationale: Add lightweight reactions on task comments so collaborators can acknowledge, support, or quickly respond without posting extra text, preserving comment readability while giving task discussions faster signal.
+  Dependencies: TASK-099
+
+### Deferred (Intentional)
 - ID: TASK-127
   Title: API capability audit - confirm every shipped feature remains fully manageable through the API
   Status: Pending
-  Rationale: Run a focused audit across current product features to verify that core entities and workflows remain fully manageable through the public app API, close gaps where the UI can do more than the API, and keep the agent-facing contract trustworthy as NexusDash adds richer planning and collaboration features.
-  Dependencies: TASK-107, TASK-115
-
-### Deferred (Intentional)
+  Rationale: Run a focused audit across current product features to verify that core entities and workflows remain fully manageable through the public app API, identify any gaps where shipped UI features outpace the API, and align the API contract or feature boundaries accordingly so agent-facing capabilities stay trustworthy.
+  Dependencies: TASK-107, TASK-115, TASK-128
 - ID: TASK-098
   Title: Meeting notes manager - structured project meeting log with participants, topics, decisions, and follow-ups
   Status: Pending
@@ -41,26 +46,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: After copy-link invite delivery is in place, add first-party email sending for collaboration invites so owners can trigger invite delivery directly from the app, building on the reusable outbound-email foundation instead of coupling provider/deliverability concerns into TASK-103 by default.
   Dependencies: TASK-103, TASK-083, TASK-125
-- ID: TASK-123
-  Title: Notification center - unified in-app inbox for invitations, mentions, and future activity
-  Status: Pending
-  Rationale: Introduce a dedicated notification center so invitation events, future task-comment mentions, and other product activity can land in one durable in-app inbox instead of being split across isolated surfaces, giving NexusDash a reusable foundation for unread state, chronological triage, and future notification categories.
-  Dependencies: TASK-058, TASK-103
-- ID: TASK-124
-  Title: Comment mentions - project-member @tagging with notification-center delivery
-  Status: Pending
-  Rationale: Let collaborators tag project members directly in task comments with `@` mentions, including member autocomplete, highlighted mention rendering, and notification creation routed into the in-app notification center so task discussion can pull the right people in without external chat.
-  Dependencies: TASK-058, TASK-099, TASK-123
 - ID: TASK-125
   Title: Outbound email foundation - reusable app-owned email delivery for invites and future notifications
   Status: Pending
   Rationale: Establish NexusDash-owned outbound email infrastructure so future invite delivery, notification emails, and other transactional sends can come from the product itself with explicit provider, sender identity, template, observability, and failure-handling decisions instead of being implemented piecemeal.
   Dependencies: TASK-083
-- ID: TASK-126
-  Title: Comment reactions - lightweight emoji response system on task threads
-  Status: Pending
-  Rationale: Add lightweight reactions on task comments so collaborators can acknowledge, support, or quickly respond without posting extra text, preserving comment readability while giving task discussions faster signal.
-  Dependencies: TASK-099
 - ID: TASK-109
   Title: Todo list feature - lightweight checklist capture alongside project execution
   Status: Pending
@@ -140,6 +130,16 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-128
+  Title: Task assignee quick action from task options menu
+  Status: Done (2026-04-23)
+  Rationale: Completed the task options menu assignee quick-action flow so collaborators can assign or clear task ownership during daily execution without switching into full edit mode, while preserving the shipped `TASK-101` assignee validation and task update boundaries.
+  Dependencies: TASK-101, TASK-079
+- ID: TASK-107
+  Title: Project epics and task epic flags
+  Status: Done (2026-04-23)
+  Rationale: Completed first-class project epics as dedicated planning entities, with one optional epic flag per task, so teams can group execution work under visible initiatives without turning epics into pseudo-tasks or weakening Kanban clarity.
+  Dependencies: TASK-079, TASK-095
 - ID: TASK-101
   Title: Task ownership and provenance - created-by visibility, assignee model, and task activity attribution
   Status: Done (2026-04-21, merged via PR #193 into PR #192)
