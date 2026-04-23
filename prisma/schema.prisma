@@ -147,7 +147,8 @@ model Project {
   owner          User                 @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   tasks          Task[]
   epics          Epic[]
-  roadmapMilestones RoadmapMilestone[]
+  roadmapPhases  RoadmapPhase[]
+  roadmapEvents  RoadmapEvent[]
   resources      Resource[]
   memberships    ProjectMembership[]
   invitations    ProjectInvitation[]
@@ -208,7 +209,7 @@ model Epic {
   @@index([projectId, updatedAt])
 }
 
-model RoadmapMilestone {
+model RoadmapPhase {
   id          String                 @id @default(cuid())
   projectId   String
   title       String                 @db.VarChar(100)
@@ -220,10 +221,32 @@ model RoadmapMilestone {
   updatedAt   DateTime               @updatedAt
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  events  RoadmapEvent[]
 
   @@index([projectId])
   @@index([projectId, position])
   @@index([projectId, targetDate])
+}
+
+model RoadmapEvent {
+  id          String                 @id @default(cuid())
+  projectId   String
+  phaseId     String
+  title       String                 @db.VarChar(100)
+  description String?
+  targetDate  DateTime?              @db.Date
+  status      RoadmapMilestoneStatus @default(planned)
+  position    Int                    @default(0)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phase   RoadmapPhase @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([projectId, targetDate])
+  @@index([phaseId])
+  @@index([phaseId, position])
 }
 
 model Task {

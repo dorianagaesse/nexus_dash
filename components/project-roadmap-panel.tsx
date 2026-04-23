@@ -1,14 +1,24 @@
 "use client";
 
-import { type CSSProperties, startTransition, useEffect, useMemo, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  useEffect,
+  useState,
+} from "react";
+import {
+  DragDropContext,
+  Draggable,
+  Droppable,
+  type DropResult,
+} from "@hello-pangea/dnd";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft,
-  ArrowRight,
   CalendarDays,
   ChevronDown,
   ChevronUp,
   Eye,
+  GripVertical,
   Map,
   Pencil,
   PlusSquare,
@@ -30,20 +40,22 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
 import {
   formatRoadmapTargetDateForDisplay,
-  getRoadmapMilestoneStatusLabel,
-  ROADMAP_MILESTONE_STATUSES,
-  type ProjectRoadmapMilestone,
-  type RoadmapMilestoneStatus,
+  getRoadmapStatusLabel,
+  ROADMAP_STATUSES,
+  type ProjectRoadmapEvent,
+  type ProjectRoadmapPhase,
+  type RoadmapStatus,
 } from "@/lib/roadmap-milestone";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import { cn } from "@/lib/utils";
 
-export type ProjectRoadmapPanelMilestone = ProjectRoadmapMilestone;
+export type ProjectRoadmapPanelPhase = ProjectRoadmapPhase;
+export type ProjectRoadmapPanelEvent = ProjectRoadmapEvent;
 
 interface ProjectRoadmapPanelProps {
   projectId: string;
   canEdit: boolean;
-  milestones: ProjectRoadmapPanelMilestone[];
+  phases: ProjectRoadmapPanelPhase[];
   loadError?: string | null;
 }
 
@@ -51,7 +63,18 @@ interface RoadmapDraftState {
   title: string;
   description: string;
   targetDate: string;
-  status: RoadmapMilestoneStatus;
+  status: RoadmapStatus;
+}
+
+interface PhaseDialogState {
+  mode: "create" | "edit";
+  phaseId: string | null;
+}
+
+interface EventDialogState {
+  mode: "create" | "edit";
+  phaseId: string;
+  eventId: string | null;
 }
 
 const DEFAULT_DRAFT_STATE: RoadmapDraftState = {
@@ -61,66 +84,182 @@ const DEFAULT_DRAFT_STATE: RoadmapDraftState = {
   status: "planned",
 };
 
-const ROADMAP_DESCRIPTION_PREVIEW_STYLE = {
+const ROADMAP_ACTION_BUTTON_CLASS =
+  "rounded-full border border-transparent bg-transparent text-foreground/90 hover:border-slate-950 hover:bg-slate-950 hover:text-white dark:text-white/90 dark:hover:border-white dark:hover:bg-white dark:hover:text-slate-950";
+
+const EVENT_DESCRIPTION_PREVIEW_STYLE = {
   display: "-webkit-box",
   WebkitBoxOrient: "vertical",
-  WebkitLineClamp: 4,
+  WebkitLineClamp: 3,
+  overflow: "hidden",
+} satisfies CSSProperties;
+
+const PHASE_DESCRIPTION_PREVIEW_STYLE = {
+  display: "-webkit-box",
+  WebkitBoxOrient: "vertical",
+  WebkitLineClamp: 2,
   overflow: "hidden",
 } satisfies CSSProperties;
 
 function cloneDraftState(
-  milestone?: ProjectRoadmapPanelMilestone | null
+  entity?:
+    | ProjectRoadmapPanelPhase
+    | ProjectRoadmapPanelEvent
+    | null
 ): RoadmapDraftState {
-  if (!milestone) {
+  if (!entity) {
     return { ...DEFAULT_DRAFT_STATE };
   }
 
   return {
-    title: milestone.title,
-    description: milestone.description ?? "",
-    targetDate: milestone.targetDate ?? "",
-    status: milestone.status,
+    title: entity.title,
+    description: entity.description ?? "",
+    targetDate: entity.targetDate ?? "",
+    status: entity.status,
   };
 }
 
-function mapRoadmapMutationError(errorCode: string): string {
+function reorderList<T>(items: T[], sourceIndex: number, destinationIndex: number): T[] {
+  const nextItems = items.slice();
+  const [movedItem] = nextItems.splice(sourceIndex, 1);
+  if (movedItem === undefined) {
+    return items;
+  }
+
+  nextItems.splice(destinationIndex, 0, movedItem);
+  return nextItems;
+}
+
+function moveEventBetweenPhases(
+  phases: ProjectRoadmapPanelPhase[],
+  sourcePhaseId: string,
+  destinationPhaseId: string,
+  sourceIndex: number,
+  destinationIndex: number
+): ProjectRoadmapPanelPhase[] {
+  let movedEvent: ProjectRoadmapPanelEvent | null = null;
+
+  const sourceEvents = phases.find((phase) => phase.id === sourcePhaseId)?.events ?? [];
+  const nextSourceEvents = sourceEvents.filter((_, index) => {
+    const shouldKeep = index !== sourceIndex;
+    if (!shouldKeep) {
+      movedEvent = sourceEvents[index] ?? null;
+    }
+    return shouldKeep;
+  });
+
+  if (!movedEvent) {
+    return phases;
+  }
+
+  const eventToMove: ProjectRoadmapPanelEvent = movedEvent;
+
+  return phases.map((phase) => {
+    if (phase.id === sourcePhaseId && phase.id === destinationPhaseId) {
+      return {
+        ...phase,
+        events: reorderList(phase.events, sourceIndex, destinationIndex).map((event, index) => ({
+          ...event,
+          position: index,
+        })),
+      };
+    }
+
+    if (phase.id === sourcePhaseId) {
+      return {
+        ...phase,
+        events: nextSourceEvents.map((event, index) => ({
+          ...event,
+          position: index,
+        })),
+      };
+    }
+
+    if (phase.id === destinationPhaseId) {
+      const nextDestinationEvents = phase.events.slice();
+      nextDestinationEvents.splice(destinationIndex, 0, {
+        ...eventToMove,
+        phaseId: destinationPhaseId,
+      });
+
+      return {
+        ...phase,
+        events: nextDestinationEvents.map((event, index) => ({
+          ...event,
+          phaseId: destinationPhaseId,
+          position: index,
+        })),
+      };
+    }
+
+    return phase;
+  });
+}
+
+function mapRoadmapMutationError(errorCode?: string): string {
   switch (errorCode) {
     case "roadmap-title-too-short":
-      return "Milestone title must be at least 2 characters.";
+      return "Title must be at least 2 characters.";
     case "roadmap-title-too-long":
-      return "Milestone title must be 100 characters or fewer.";
+      return "Title must be 100 characters or fewer.";
     case "roadmap-description-too-long":
-      return "Milestone description must be 400 characters or fewer.";
+      return "Description must be 400 characters or fewer.";
     case "roadmap-target-date-invalid":
       return "Target date must be a valid calendar date.";
     case "roadmap-status-invalid":
-      return "Milestone status is invalid.";
-    case "roadmap-milestone-not-found":
-      return "Roadmap milestone not found.";
-    case "roadmap-milestones-invalid":
-      return "Roadmap order could not be saved because one or more milestones are invalid.";
-    case "roadmap-milestone-create-failed":
-      return "Could not create roadmap milestone. Please retry.";
-    case "roadmap-milestone-update-failed":
-      return "Could not update roadmap milestone. Please retry.";
-    case "roadmap-milestone-delete-failed":
-      return "Could not delete roadmap milestone. Please retry.";
-    case "roadmap-milestones-reorder-failed":
+      return "Status is invalid.";
+    case "roadmap-phase-not-found":
+      return "Roadmap phase not found.";
+    case "roadmap-event-not-found":
+      return "Roadmap event not found.";
+    case "roadmap-phases-invalid":
+      return "Roadmap order could not be saved because one or more phases are invalid.";
+    case "roadmap-events-invalid":
+      return "Roadmap event order could not be saved because one or more events are invalid.";
+    case "roadmap-target-index-invalid":
+      return "The drop target is invalid. Please retry.";
+    case "roadmap-phase-create-failed":
+      return "Could not create roadmap phase. Please retry.";
+    case "roadmap-phase-update-failed":
+      return "Could not update roadmap phase. Please retry.";
+    case "roadmap-phase-delete-failed":
+      return "Could not delete roadmap phase. Please retry.";
+    case "roadmap-event-create-failed":
+      return "Could not create roadmap event. Please retry.";
+    case "roadmap-event-update-failed":
+      return "Could not update roadmap event. Please retry.";
+    case "roadmap-event-delete-failed":
+      return "Could not delete roadmap event. Please retry.";
+    case "roadmap-phases-reorder-failed":
+    case "roadmap-events-reorder-failed":
+    case "roadmap-event-move-failed":
       return "Could not save roadmap order. Please retry.";
     default:
       return "Could not save roadmap changes. Please retry.";
   }
 }
 
-function getRoadmapStatusClasses(status: RoadmapMilestoneStatus) {
+async function readApiError(response: Response): Promise<string | undefined> {
+  try {
+    const payload = (await response.json()) as { error?: string };
+    return payload.error;
+  } catch {
+    return undefined;
+  }
+}
+
+function getRoadmapStatusClasses(status: RoadmapStatus) {
   if (status === "reached") {
     return {
       accent: "text-emerald-700 dark:text-emerald-200",
       badge: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200",
       dot: "border-emerald-500/40 bg-emerald-500",
-      card:
-        "border-emerald-500/25 bg-[linear-gradient(160deg,rgba(16,185,129,0.12),rgba(255,255,255,0.72))] dark:bg-[linear-gradient(160deg,rgba(16,185,129,0.2),rgba(15,23,42,0.82))]",
-      glow: "from-emerald-500/30 via-emerald-400/10 to-transparent",
+      line: "bg-emerald-500/45 dark:bg-emerald-400/45",
+      phaseCard:
+        "border-emerald-500/25 bg-[linear-gradient(160deg,rgba(16,185,129,0.12),rgba(255,255,255,0.88))] dark:bg-[linear-gradient(160deg,rgba(16,185,129,0.2),rgba(15,23,42,0.86))]",
+      eventCard:
+        "border-emerald-500/18 bg-background/88 dark:bg-slate-950/45",
+      glow: "from-emerald-500/20 via-emerald-400/5 to-transparent",
     };
   }
 
@@ -129,9 +268,12 @@ function getRoadmapStatusClasses(status: RoadmapMilestoneStatus) {
       accent: "text-amber-700 dark:text-amber-200",
       badge: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200",
       dot: "border-amber-500/40 bg-amber-500",
-      card:
-        "border-amber-500/25 bg-[linear-gradient(160deg,rgba(245,158,11,0.12),rgba(255,255,255,0.72))] dark:bg-[linear-gradient(160deg,rgba(245,158,11,0.18),rgba(15,23,42,0.82))]",
-      glow: "from-amber-500/25 via-amber-400/10 to-transparent",
+      line: "bg-amber-500/45 dark:bg-amber-400/45",
+      phaseCard:
+        "border-amber-500/25 bg-[linear-gradient(160deg,rgba(245,158,11,0.14),rgba(255,255,255,0.88))] dark:bg-[linear-gradient(160deg,rgba(245,158,11,0.18),rgba(15,23,42,0.86))]",
+      eventCard:
+        "border-amber-500/18 bg-background/88 dark:bg-slate-950/45",
+      glow: "from-amber-500/18 via-amber-400/5 to-transparent",
     };
   }
 
@@ -139,81 +281,64 @@ function getRoadmapStatusClasses(status: RoadmapMilestoneStatus) {
     accent: "text-sky-700 dark:text-sky-200",
     badge: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-200",
     dot: "border-sky-500/40 bg-sky-500",
-    card:
-      "border-sky-500/25 bg-[linear-gradient(160deg,rgba(14,165,233,0.1),rgba(255,255,255,0.72))] dark:bg-[linear-gradient(160deg,rgba(14,165,233,0.16),rgba(15,23,42,0.82))]",
-    glow: "from-sky-500/25 via-sky-400/10 to-transparent",
+    line: "bg-sky-500/45 dark:bg-sky-400/45",
+    phaseCard:
+      "border-sky-500/25 bg-[linear-gradient(160deg,rgba(14,165,233,0.12),rgba(255,255,255,0.88))] dark:bg-[linear-gradient(160deg,rgba(14,165,233,0.16),rgba(15,23,42,0.86))]",
+    eventCard:
+      "border-sky-500/18 bg-background/88 dark:bg-slate-950/45",
+    glow: "from-sky-500/18 via-sky-400/5 to-transparent",
   };
 }
 
-function RoadmapStatusBadge({ status }: { status: RoadmapMilestoneStatus }) {
+function RoadmapStatusBadge({ status }: { status: RoadmapStatus }) {
   const tone = getRoadmapStatusClasses(status);
 
   return (
     <Badge variant="outline" className={tone.badge}>
-      {getRoadmapMilestoneStatusLabel(status)}
+      {getRoadmapStatusLabel(status)}
     </Badge>
   );
 }
 
-const ROADMAP_ACTION_BUTTON_CLASS =
-  "rounded-full border border-transparent bg-transparent text-foreground/90 hover:border-slate-950 hover:bg-slate-950 hover:text-white dark:text-white/90 dark:hover:border-white dark:hover:bg-white dark:hover:text-slate-950";
-
-function RoadmapMilestoneDescriptionPreview({
-  description,
-}: {
-  description: string | null;
-}) {
-  if (!description) {
-    return (
-      <p className="text-sm italic text-muted-foreground">
-        No extra note attached to this milestone yet.
-      </p>
-    );
-  }
-
-  return (
-    <p
-      className="break-words text-sm leading-6 text-muted-foreground"
-      style={ROADMAP_DESCRIPTION_PREVIEW_STYLE}
-    >
-      {description}
-    </p>
-  );
-}
-
-function RoadmapDraftForm({
+function RoadmapEntityForm({
   draft,
+  title,
+  subtitle,
+  submitLabel,
+  targetDateLabel,
+  statusLabel,
+  isSubmitting,
+  error,
   onChange,
   onSubmit,
   onCancel,
-  submitLabel,
-  isSubmitting,
-  error,
 }: {
   draft: RoadmapDraftState;
+  title: string;
+  subtitle: string;
+  submitLabel: string;
+  targetDateLabel: string;
+  statusLabel: string;
+  isSubmitting: boolean;
+  error: string | null;
   onChange: (nextDraft: RoadmapDraftState) => void;
   onSubmit: () => void;
   onCancel: () => void;
-  submitLabel: string;
-  isSubmitting: boolean;
-  error: string | null;
 }) {
   return (
-    <section className="space-y-4 rounded-[1.75rem] border border-border/70 bg-background/75 p-4 shadow-[0_18px_48px_-40px_rgba(15,23,42,0.45)]">
+    <div className="space-y-4">
       <div className="space-y-1">
-        <h3 className="text-sm font-semibold text-foreground">{submitLabel}</h3>
-        <p className="text-xs text-muted-foreground">
-          Capture the milestone as a directional moment, not a task checklist.
-        </p>
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        <p className="text-xs text-muted-foreground">{subtitle}</p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="grid gap-2">
-          <label htmlFor="roadmap-title" className="text-sm font-medium">
+          <label htmlFor="roadmap-entity-title" className="text-sm font-medium">
             Title
           </label>
           <EmojiInputField
-            id="roadmap-title"
+            id="roadmap-entity-title"
             value={draft.title}
             onChange={(event) =>
               onChange({
@@ -222,15 +347,15 @@ function RoadmapDraftForm({
               })
             }
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            placeholder="Private beta opens"
+            placeholder="Public launch"
             maxLength={100}
           />
         </div>
 
         <div className="grid gap-2">
           <div className="flex items-center justify-between gap-3">
-            <label htmlFor="roadmap-target-date" className="text-sm font-medium">
-              Target date
+            <label htmlFor="roadmap-entity-target-date" className="text-sm font-medium">
+              {targetDateLabel}
             </label>
             {draft.targetDate ? (
               <Button
@@ -251,7 +376,7 @@ function RoadmapDraftForm({
             ) : null}
           </div>
           <CalendarDateTimeField
-            id="roadmap-target-date"
+            id="roadmap-entity-target-date"
             value={draft.targetDate}
             onChange={(nextValue) =>
               onChange({
@@ -262,19 +387,16 @@ function RoadmapDraftForm({
             includeTime={false}
             disabled={isSubmitting}
           />
-          <p className="text-xs text-muted-foreground">
-            Optional. Use this when the milestone has a meaningful target moment.
-          </p>
         </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_200px]">
         <div className="grid gap-2">
-          <label htmlFor="roadmap-description" className="text-sm font-medium">
+          <label htmlFor="roadmap-entity-description" className="text-sm font-medium">
             Description
           </label>
           <EmojiTextareaField
-            id="roadmap-description"
+            id="roadmap-entity-description"
             value={draft.description}
             onChange={(event) =>
               onChange({
@@ -283,36 +405,33 @@ function RoadmapDraftForm({
               })
             }
             className="min-h-28 rounded-md border border-input bg-background px-3 py-2 text-sm"
-            placeholder="Describe why this milestone matters and what it signals for the project."
+            placeholder="Describe what this moment means for the project."
             maxLength={400}
           />
         </div>
 
         <div className="grid gap-2">
-          <label htmlFor="roadmap-status" className="text-sm font-medium">
-            Visual state
+          <label htmlFor="roadmap-entity-status" className="text-sm font-medium">
+            {statusLabel}
           </label>
           <select
-            id="roadmap-status"
+            id="roadmap-entity-status"
             value={draft.status}
             onChange={(event) =>
               onChange({
                 ...draft,
-                status: event.target.value as RoadmapMilestoneStatus,
+                status: event.target.value as RoadmapStatus,
               })
             }
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
             disabled={isSubmitting}
           >
-            {ROADMAP_MILESTONE_STATUSES.map((status) => (
+            {ROADMAP_STATUSES.map((status) => (
               <option key={status} value={status}>
-                {getRoadmapMilestoneStatusLabel(status)}
+                {getRoadmapStatusLabel(status)}
               </option>
             ))}
           </select>
-          <p className="text-xs text-muted-foreground">
-            This is manual for v1 and helps the roadmap read clearly.
-          </p>
         </div>
       </div>
 
@@ -341,296 +460,422 @@ function RoadmapDraftForm({
           {isSubmitting ? "Saving..." : submitLabel}
         </Button>
       </div>
-    </section>
+    </div>
   );
 }
 
-function DesktopRoadmapTimeline({
-  milestones,
-  canEdit,
-  editingMilestoneId,
-  onView,
-  onStartEdit,
-  onDelete,
-  onMove,
+function RoadmapDialogShell({
+  title,
+  subtitle,
+  isOpen,
+  onClose,
+  children,
 }: {
-  milestones: ProjectRoadmapPanelMilestone[];
-  canEdit: boolean;
-  editingMilestoneId: string | null;
-  onView: (milestoneId: string) => void;
-  onStartEdit: (milestone: ProjectRoadmapPanelMilestone) => void;
-  onDelete: (milestoneId: string) => void;
-  onMove: (milestoneId: string, direction: -1 | 1) => void;
+  title: string;
+  subtitle?: string;
+  isOpen: boolean;
+  onClose: () => void;
+  children: ReactNode;
 }) {
+  if (!isOpen) {
+    return null;
+  }
+
   return (
-    <div className="hidden lg:block">
-      <div className="overflow-x-auto pb-4 [scrollbar-color:rgba(148,163,184,0.52)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[rgba(148,163,184,0.14)] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]">
-        <div className="flex min-w-max items-stretch gap-2 px-2 py-3">
-          {milestones.map((milestone, index) => {
-            const tone = getRoadmapStatusClasses(milestone.status);
-            const isEditing = editingMilestoneId === milestone.id;
+    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/55 p-3 sm:items-center sm:justify-center sm:p-6">
+      <button type="button" aria-label={`Close ${title}`} className="absolute inset-0" onClick={onClose} />
 
-            return (
-              <div key={milestone.id} className="w-[19rem] shrink-0 space-y-3">
-                  <div className="flex items-center gap-3 pl-1">
-                    <span
-                      className={cn(
-                        "relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-4 border-background shadow-sm",
-                        tone.dot
-                      )}
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full bg-background/90" />
-                    </span>
-                    <div className="flex min-w-0 flex-1 items-center gap-3">
-                      <div className="min-w-0 space-y-1">
-                        <p
-                          className={cn(
-                            "text-[11px] font-medium uppercase tracking-[0.22em]",
-                            tone.accent
-                          )}
-                        >
-                          Milestone {index + 1}
-                        </p>
-                        <RoadmapStatusBadge status={milestone.status} />
-                      </div>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="roadmap-dialog-title"
+        className="relative z-10 w-full max-w-2xl rounded-[2rem] border border-border/70 bg-background p-5 shadow-[0_35px_100px_-40px_rgba(15,23,42,0.65)] sm:p-6"
+      >
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <h3 id="roadmap-dialog-title" className="text-xl font-semibold text-foreground">
+              {title}
+            </h3>
+            {subtitle ? (
+              <p className="text-sm text-muted-foreground">{subtitle}</p>
+            ) : null}
+          </div>
 
-                      {index < milestones.length - 1 ? (
-                        <div className="h-0.5 min-w-10 flex-1 rounded-full bg-border/75" />
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <article
-                    className={cn(
-                      "relative overflow-hidden rounded-[1.8rem] border p-4 shadow-[0_24px_70px_-46px_rgba(15,23,42,0.55)] backdrop-blur-sm transition",
-                      tone.card,
-                      isEditing ? "ring-1 ring-primary/30" : ""
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "pointer-events-none absolute inset-0 bg-gradient-to-br opacity-80",
-                        tone.glow
-                      )}
-                    />
-                    <div className="relative space-y-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 space-y-2">
-                          <h3 className="break-words text-lg font-semibold leading-6 text-foreground">
-                            {milestone.title}
-                          </h3>
-                          {milestone.targetDate ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/75 px-3 py-1 text-xs text-muted-foreground">
-                              <CalendarDays className="h-3.5 w-3.5" />
-                              {formatRoadmapTargetDateForDisplay(milestone.targetDate)}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center rounded-full border border-dashed border-border/60 bg-background/60 px-3 py-1 text-xs text-muted-foreground">
-                              No target date
-                            </span>
-                          )}
-                        </div>
-                        {canEdit ? (
-                          <div className="flex items-center gap-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 rounded-full"
-                              onClick={() => onMove(milestone.id, -1)}
-                              disabled={index === 0}
-                              aria-label={`Move ${milestone.title} earlier`}
-                            >
-                              <ArrowLeft className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 rounded-full"
-                              onClick={() => onMove(milestone.id, 1)}
-                              disabled={index === milestones.length - 1}
-                              aria-label={`Move ${milestone.title} later`}
-                            >
-                              <ArrowRight className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ) : null}
-                      </div>
-
-                      <RoadmapMilestoneDescriptionPreview description={milestone.description} />
-
-                      <div className="flex items-center justify-between gap-2 border-t border-border/40 pt-3">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className={ROADMAP_ACTION_BUTTON_CLASS}
-                          onClick={() => onView(milestone.id)}
-                        >
-                          <Eye className="h-4 w-4" />
-                          View
-                        </Button>
-
-                        {canEdit ? (
-                          <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className={ROADMAP_ACTION_BUTTON_CLASS}
-                              onClick={() => onStartEdit(milestone)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                              Edit
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className={ROADMAP_ACTION_BUTTON_CLASS}
-                              onClick={() => onDelete(milestone.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              Delete
-                            </Button>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </article>
-              </div>
-            );
-          })}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 rounded-full"
+            onClick={onClose}
+            aria-label={`Close ${title}`}
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
+
+        {children}
       </div>
     </div>
   );
 }
 
-function MobileRoadmapTimeline({
-  milestones,
+function RoadmapEventDetailModal({
+  event,
+  phase,
+  phaseIndex,
   canEdit,
-  editingMilestoneId,
-  onView,
-  onStartEdit,
+  onClose,
+  onEdit,
   onDelete,
-  onMove,
 }: {
-  milestones: ProjectRoadmapPanelMilestone[];
+  event: ProjectRoadmapPanelEvent | null;
+  phase: ProjectRoadmapPanelPhase | null;
+  phaseIndex: number;
   canEdit: boolean;
-  editingMilestoneId: string | null;
-  onView: (milestoneId: string) => void;
-  onStartEdit: (milestone: ProjectRoadmapPanelMilestone) => void;
-  onDelete: (milestoneId: string) => void;
-  onMove: (milestoneId: string, direction: -1 | 1) => void;
+  onClose: () => void;
+  onEdit: (event: ProjectRoadmapPanelEvent) => void;
+  onDelete: (eventId: string) => void;
 }) {
-  return (
-    <div className="grid gap-4 lg:hidden">
-      {milestones.map((milestone, index) => {
-        const tone = getRoadmapStatusClasses(milestone.status);
-        const isEditing = editingMilestoneId === milestone.id;
+  if (!event || !phase) {
+    return null;
+  }
 
-        return (
-          <div key={milestone.id} className="relative pl-8">
-            {index < milestones.length - 1 ? (
-              <div className="absolute bottom-[-1.25rem] left-[0.55rem] top-7 w-px bg-[linear-gradient(180deg,rgba(148,163,184,0.7),rgba(148,163,184,0.18))]" />
+  const tone = getRoadmapStatusClasses(event.status);
+
+  return (
+    <RoadmapDialogShell
+      title={event.title}
+      subtitle={`Milestone ${phaseIndex + 1} · ${phase.title}`}
+      isOpen={true}
+      onClose={onClose}
+    >
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <RoadmapStatusBadge status={event.status} />
+          {event.targetDate ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/75 px-3 py-1 text-xs text-muted-foreground">
+              <CalendarDays className="h-3.5 w-3.5" />
+              {formatRoadmapTargetDateForDisplay(event.targetDate)}
+            </span>
+          ) : null}
+        </div>
+
+        {phase.description ? (
+          <div className="rounded-2xl border border-border/60 bg-muted/25 px-4 py-3">
+            <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
+              Parent milestone
+            </p>
+            <p className="mt-2 text-sm font-medium text-foreground">{phase.title}</p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{phase.description}</p>
+          </div>
+        ) : null}
+
+        <div
+          className={cn(
+            "rounded-[1.6rem] border p-4 shadow-[0_24px_70px_-52px_rgba(15,23,42,0.55)]",
+            tone.phaseCard
+          )}
+        >
+          <p className="text-sm leading-7 text-foreground/90">
+            {event.description ?? "No extra note attached to this event yet."}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-4">
+          {canEdit ? (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className={ROADMAP_ACTION_BUTTON_CLASS}
+                onClick={() => onEdit(event)}
+              >
+                <Pencil className="h-4 w-4" />
+                Edit
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className={ROADMAP_ACTION_BUTTON_CLASS}
+                onClick={() => onDelete(event.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </Button>
+            </>
+          ) : null}
+          <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
+    </RoadmapDialogShell>
+  );
+}
+
+function RoadmapEventCard({
+  event,
+  phaseIndex,
+  eventIndex,
+  eventsCount,
+  canEdit,
+  onView,
+  onEdit,
+  onDelete,
+}: {
+  event: ProjectRoadmapPanelEvent;
+  phaseIndex: number;
+  eventIndex: number;
+  eventsCount: number;
+  canEdit: boolean;
+  onView: (eventId: string) => void;
+  onEdit: (event: ProjectRoadmapPanelEvent) => void;
+  onDelete: (eventId: string) => void;
+}) {
+  const tone = getRoadmapStatusClasses(event.status);
+
+  return (
+    <Draggable draggableId={event.id} index={eventIndex} isDragDisabled={!canEdit}>
+      {(provided, snapshot) => (
+        <article
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          className={cn(
+            "relative rounded-[1.45rem] border p-4 shadow-[0_18px_48px_-40px_rgba(15,23,42,0.55)] transition",
+            tone.eventCard,
+            snapshot.isDragging && "shadow-lg ring-1 ring-primary/25"
+          )}
+        >
+          {eventsCount > 1 ? (
+            <>
+              {eventIndex > 0 ? (
+                <span className={cn("absolute left-5 top-[-1rem] h-4 w-0.5", tone.line)} />
+              ) : null}
+              {eventIndex < eventsCount - 1 ? (
+                <span className={cn("absolute bottom-[-1rem] left-5 h-4 w-0.5", tone.line)} />
+              ) : null}
+            </>
+          ) : null}
+
+          <span
+            className={cn(
+              "absolute left-3.5 top-5 flex h-3 w-3 items-center justify-center rounded-full border-2 border-background shadow-sm",
+              tone.dot
+            )}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-background/90" />
+          </span>
+
+          <div className="space-y-4 pl-6">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={cn(
+                      "text-[11px] font-medium uppercase tracking-[0.2em]",
+                      tone.accent
+                    )}
+                  >
+                    Event {phaseIndex + 1}.{eventIndex + 1}
+                  </span>
+                  <RoadmapStatusBadge status={event.status} />
+                </div>
+                <h4 className="break-words text-base font-semibold text-foreground">{event.title}</h4>
+              </div>
+
+              {canEdit ? (
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full"
+                    aria-label={`Drag ${event.title}`}
+                    {...provided.dragHandleProps}
+                  >
+                    <GripVertical className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+
+            {event.targetDate ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/75 px-3 py-1 text-xs text-muted-foreground">
+                <CalendarDays className="h-3.5 w-3.5" />
+                {formatRoadmapTargetDateForDisplay(event.targetDate)}
+              </span>
             ) : null}
+
+            {event.description ? (
+              <p className="break-words text-sm leading-6 text-muted-foreground" style={EVENT_DESCRIPTION_PREVIEW_STYLE}>
+                {event.description}
+              </p>
+            ) : (
+              <p className="text-sm italic text-muted-foreground">
+                No extra note attached to this event yet.
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className={ROADMAP_ACTION_BUTTON_CLASS}
+                onClick={() => onView(event.id)}
+              >
+                <Eye className="h-4 w-4" />
+                View
+              </Button>
+
+              {canEdit ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className={ROADMAP_ACTION_BUTTON_CLASS}
+                    onClick={() => onEdit(event)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className={ROADMAP_ACTION_BUTTON_CLASS}
+                    onClick={() => onDelete(event.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </Button>
+                </>
+              ) : null}
+            </div>
+          </div>
+        </article>
+      )}
+    </Draggable>
+  );
+}
+
+function RoadmapPhaseCard({
+  phase,
+  phaseIndex,
+  totalPhases,
+  canEdit,
+  isDesktop,
+  onCreateEvent,
+  onViewEvent,
+  onEditPhase,
+  onEditEvent,
+  onDeletePhase,
+  onDeleteEvent,
+}: {
+  phase: ProjectRoadmapPanelPhase;
+  phaseIndex: number;
+  totalPhases: number;
+  canEdit: boolean;
+  isDesktop: boolean;
+  onCreateEvent: (phase: ProjectRoadmapPanelPhase) => void;
+  onViewEvent: (eventId: string) => void;
+  onEditPhase: (phase: ProjectRoadmapPanelPhase) => void;
+  onEditEvent: (event: ProjectRoadmapPanelEvent) => void;
+  onDeletePhase: (phaseId: string) => void;
+  onDeleteEvent: (eventId: string) => void;
+}) {
+  const tone = getRoadmapStatusClasses(phase.status);
+
+  return (
+    <Draggable draggableId={phase.id} index={phaseIndex} isDragDisabled={!canEdit}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          className={cn(
+            "relative shrink-0",
+            isDesktop ? "w-[23rem]" : "w-full",
+            snapshot.isDragging && "z-20"
+          )}
+        >
+          <div className="mb-4 flex items-center gap-3 pl-1">
             <span
               className={cn(
-                "absolute left-0 top-4 flex h-5 w-5 items-center justify-center rounded-full border-4 border-background shadow-sm",
+                "relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-4 border-background shadow-sm",
                 tone.dot
               )}
             >
               <span className="h-1.5 w-1.5 rounded-full bg-background/90" />
             </span>
 
-            <article
-              className={cn(
-                "overflow-hidden rounded-[1.6rem] border p-4 shadow-[0_22px_60px_-46px_rgba(15,23,42,0.45)]",
-                tone.card,
-                isEditing ? "ring-1 ring-primary/30" : ""
-              )}
-            >
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="min-w-0">
+                <p className={cn("text-[11px] font-medium uppercase tracking-[0.24em]", tone.accent)}>
+                  Milestone {phaseIndex + 1}
+                </p>
+              </div>
+              {isDesktop && phaseIndex < totalPhases - 1 ? (
+                <div className={cn("h-0.5 flex-1 rounded-full", tone.line)} />
+              ) : null}
+            </div>
+
+            {canEdit ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-full"
+                aria-label={`Drag ${phase.title}`}
+                {...provided.dragHandleProps}
+              >
+                <GripVertical className="h-4 w-4" />
+              </Button>
+            ) : null}
+          </div>
+
+          <section
+            className={cn(
+              "relative overflow-hidden rounded-[1.85rem] border p-4 shadow-[0_24px_70px_-46px_rgba(15,23,42,0.55)] backdrop-blur-sm transition",
+              tone.phaseCard,
+              snapshot.isDragging && "ring-1 ring-primary/25"
+            )}
+          >
+            <div className={cn("pointer-events-none absolute inset-0 bg-gradient-to-br opacity-85", tone.glow)} />
+
+            <div className="relative space-y-4">
               <div className="space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-2">
-                    <p
-                      className={cn(
-                        "text-[11px] font-medium uppercase tracking-[0.22em]",
-                        tone.accent
-                      )}
-                    >
-                      Milestone {index + 1}
-                    </p>
-                    <RoadmapStatusBadge status={milestone.status} />
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <RoadmapStatusBadge status={phase.status} />
+                      <Badge variant="outline" className="rounded-full border-border/70 bg-background/70 text-muted-foreground">
+                        {phase.events.length} event{phase.events.length === 1 ? "" : "s"}
+                      </Badge>
+                    </div>
+                    <h3 className="break-words text-lg font-semibold text-foreground">{phase.title}</h3>
                   </div>
 
                   {canEdit ? (
-                    <div className="flex items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-full"
-                        onClick={() => onMove(milestone.id, -1)}
-                        disabled={index === 0}
-                        aria-label={`Move ${milestone.title} earlier`}
-                      >
-                        <ArrowLeft className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-full"
-                        onClick={() => onMove(milestone.id, 1)}
-                        disabled={index === milestones.length - 1}
-                        aria-label={`Move ${milestone.title} later`}
-                      >
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : null}
-                </div>
-
-                <h3 className="break-words text-base font-semibold text-foreground">
-                  {milestone.title}
-                </h3>
-
-                {milestone.targetDate ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/75 px-3 py-1 text-xs text-muted-foreground">
-                    <CalendarDays className="h-3.5 w-3.5" />
-                    {formatRoadmapTargetDateForDisplay(milestone.targetDate)}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center rounded-full border border-dashed border-border/60 bg-background/60 px-3 py-1 text-xs text-muted-foreground">
-                    No target date
-                  </span>
-                )}
-
-                <RoadmapMilestoneDescriptionPreview description={milestone.description} />
-
-                <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className={ROADMAP_ACTION_BUTTON_CLASS}
-                    onClick={() => onView(milestone.id)}
-                  >
-                    <Eye className="h-4 w-4" />
-                    View
-                  </Button>
-
-                  {canEdit ? (
-                    <>
+                    <div className="flex flex-wrap items-center gap-2">
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
                         className={ROADMAP_ACTION_BUTTON_CLASS}
-                        onClick={() => onStartEdit(milestone)}
+                        onClick={() => onCreateEvent(phase)}
+                      >
+                        <PlusSquare className="h-4 w-4" />
+                        Event
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className={ROADMAP_ACTION_BUTTON_CLASS}
+                        onClick={() => onEditPhase(phase)}
                       >
                         <Pencil className="h-4 w-4" />
                         Edit
@@ -640,212 +885,78 @@ function MobileRoadmapTimeline({
                         variant="ghost"
                         size="sm"
                         className={ROADMAP_ACTION_BUTTON_CLASS}
-                        onClick={() => onDelete(milestone.id)}
+                        onClick={() => onDeletePhase(phase.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                         Delete
                       </Button>
-                    </>
+                    </div>
                   ) : null}
                 </div>
+
+                {phase.targetDate ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/75 px-3 py-1 text-xs text-muted-foreground">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                    {formatRoadmapTargetDateForDisplay(phase.targetDate)}
+                  </span>
+                ) : null}
+
+                {phase.description ? (
+                  <p className="text-sm leading-6 text-muted-foreground" style={PHASE_DESCRIPTION_PREVIEW_STYLE}>
+                    {phase.description}
+                  </p>
+                ) : null}
               </div>
-            </article>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
-function RoadmapMilestoneDetailModal({
-  milestone,
-  milestoneIndex,
-  milestonesCount,
-  canEdit,
-  isOpen,
-  onClose,
-  onStartEdit,
-  onDelete,
-  onMove,
-}: {
-  milestone: ProjectRoadmapPanelMilestone | null;
-  milestoneIndex: number;
-  milestonesCount: number;
-  canEdit: boolean;
-  isOpen: boolean;
-  onClose: () => void;
-  onStartEdit: (milestone: ProjectRoadmapPanelMilestone) => void;
-  onDelete: (milestoneId: string) => void;
-  onMove: (milestoneId: string, direction: -1 | 1) => void;
-}) {
-  if (!isOpen || !milestone) {
-    return null;
-  }
-
-  const tone = getRoadmapStatusClasses(milestone.status);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/55 p-3 sm:items-center sm:justify-center sm:p-6">
-      <button
-        type="button"
-        aria-label="Close milestone details"
-        className="absolute inset-0"
-        onClick={onClose}
-      />
-
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="roadmap-milestone-dialog-title"
-        className={cn(
-          "relative z-10 w-full max-w-2xl overflow-hidden rounded-[2rem] border border-border/70 bg-background shadow-[0_35px_100px_-40px_rgba(15,23,42,0.6)]",
-          tone.card
-        )}
-      >
-        <div
-          className={cn(
-            "pointer-events-none absolute inset-0 bg-gradient-to-br opacity-80",
-            tone.glow
-          )}
-        />
-
-        <div className="relative space-y-6 p-5 sm:p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={cn(
-                    "rounded-full border border-border/60 bg-background/80 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em]",
-                    tone.accent
-                  )}
-                >
-                  Milestone {milestoneIndex + 1}
-                </span>
-                <RoadmapStatusBadge status={milestone.status} />
-              </div>
-              <h3
-                id="roadmap-milestone-dialog-title"
-                className="break-words text-2xl font-semibold leading-tight text-foreground"
-              >
-                {milestone.title}
-              </h3>
+              <Droppable droppableId={phase.id} type="ROADMAP_EVENT" isDropDisabled={!canEdit}>
+                {(droppableProvided, droppableSnapshot) => (
+                  <div
+                    ref={droppableProvided.innerRef}
+                    {...droppableProvided.droppableProps}
+                    className={cn(
+                      "space-y-4 rounded-[1.5rem] border border-dashed border-border/45 bg-background/35 p-3 transition",
+                      droppableSnapshot.isDraggingOver && "border-primary/35 bg-primary/5"
+                    )}
+                  >
+                    {phase.events.length === 0 ? (
+                      <div className="rounded-[1.25rem] border border-border/50 bg-background/75 px-4 py-6 text-center">
+                        <p className="text-sm font-medium text-foreground/90">No events yet</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Add the first event that makes this milestone concrete.
+                        </p>
+                      </div>
+                    ) : (
+                      phase.events.map((event, eventIndex) => (
+                        <RoadmapEventCard
+                          key={event.id}
+                          event={event}
+                          phaseIndex={phaseIndex}
+                          eventIndex={eventIndex}
+                          eventsCount={phase.events.length}
+                          canEdit={canEdit}
+                          onView={onViewEvent}
+                          onEdit={onEditEvent}
+                          onDelete={onDeleteEvent}
+                        />
+                      ))
+                    )}
+                    {droppableProvided.placeholder}
+                  </div>
+                )}
+              </Droppable>
             </div>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-full"
-              onClick={onClose}
-              aria-label="Close milestone details"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
-            <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                Target date
-              </p>
-              {milestone.targetDate ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/80 px-3 py-1 text-sm text-muted-foreground">
-                  <CalendarDays className="h-4 w-4" />
-                  {formatRoadmapTargetDateForDisplay(milestone.targetDate)}
-                </span>
-              ) : (
-                <span className="inline-flex items-center rounded-full border border-dashed border-border/60 bg-background/65 px-3 py-1 text-sm text-muted-foreground">
-                  No target date
-                </span>
-              )}
-            </div>
-
-            {canEdit ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onMove(milestone.id, -1)}
-                  disabled={milestoneIndex === 0}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Earlier
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onMove(milestone.id, 1)}
-                  disabled={milestoneIndex === milestonesCount - 1}
-                >
-                  <ArrowRight className="h-4 w-4" />
-                  Later
-                </Button>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="space-y-2 rounded-[1.4rem] border border-border/60 bg-background/70 p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Description
-            </p>
-            {milestone.description ? (
-              <p className="whitespace-pre-wrap break-words text-sm leading-7 text-foreground/85">
-                {milestone.description}
-              </p>
-            ) : (
-              <p className="text-sm italic text-muted-foreground">
-                No extra note attached to this milestone yet.
-              </p>
-            )}
-          </div>
-
-          <div className="flex flex-col-reverse gap-2 border-t border-border/40 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <Button type="button" variant="ghost" onClick={onClose}>
-              Close
-            </Button>
-
-            {canEdit ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className={ROADMAP_ACTION_BUTTON_CLASS}
-                  onClick={() => {
-                    onStartEdit(milestone);
-                    onClose();
-                  }}
-                >
-                  <Pencil className="h-4 w-4" />
-                  Edit
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className={ROADMAP_ACTION_BUTTON_CLASS}
-                  onClick={() => {
-                    onDelete(milestone.id);
-                    onClose();
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Delete
-                </Button>
-              </div>
-            ) : null}
-          </div>
+          </section>
         </div>
-      </div>
-    </div>
+      )}
+    </Draggable>
   );
 }
 
 export function ProjectRoadmapPanel({
   projectId,
   canEdit,
-  milestones,
-  loadError = null,
+  phases,
+  loadError,
 }: ProjectRoadmapPanelProps) {
   const router = useRouter();
   const { pushToast } = useToast();
@@ -855,450 +966,665 @@ export function ProjectRoadmapPanel({
     defaultExpanded: true,
     logLabel: "ProjectRoadmapPanel",
   });
-  const [localMilestones, setLocalMilestones] = useState<ProjectRoadmapPanelMilestone[]>(
-    milestones
-  );
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [createDraft, setCreateDraft] = useState<RoadmapDraftState>({
-    ...DEFAULT_DRAFT_STATE,
-  });
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-  const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<RoadmapDraftState>({
-    ...DEFAULT_DRAFT_STATE,
-  });
-  const [editError, setEditError] = useState<string | null>(null);
-  const [isSavingEdit, setIsSavingEdit] = useState(false);
-  const [pendingDeleteMilestoneId, setPendingDeleteMilestoneId] = useState<string | null>(null);
-  const [viewMilestoneId, setViewMilestoneId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [reorderingMilestoneId, setReorderingMilestoneId] = useState<string | null>(null);
+
+  const [roadmapPhases, setRoadmapPhases] = useState(phases);
+  const [phaseDialog, setPhaseDialog] = useState<PhaseDialogState | null>(null);
+  const [phaseDraft, setPhaseDraft] = useState<RoadmapDraftState>({ ...DEFAULT_DRAFT_STATE });
+  const [eventDialog, setEventDialog] = useState<EventDialogState | null>(null);
+  const [eventDraft, setEventDraft] = useState<RoadmapDraftState>({ ...DEFAULT_DRAFT_STATE });
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [pendingDeletePhaseId, setPendingDeletePhaseId] = useState<string | null>(null);
+  const [pendingDeleteEventId, setPendingDeleteEventId] = useState<string | null>(null);
+  const [phaseMutationError, setPhaseMutationError] = useState<string | null>(null);
+  const [eventMutationError, setEventMutationError] = useState<string | null>(null);
+  const [isSubmittingPhase, setIsSubmittingPhase] = useState(false);
+  const [isSubmittingEvent, setIsSubmittingEvent] = useState(false);
+  const [isDeletingPhase, setIsDeletingPhase] = useState(false);
+  const [isDeletingEvent, setIsDeletingEvent] = useState(false);
+  const [isDesktopLayout, setIsDesktopLayout] = useState(false);
 
   useEffect(() => {
-    setLocalMilestones(milestones);
-  }, [milestones]);
+    setRoadmapPhases(phases);
+  }, [phases]);
 
-  const pendingDeleteMilestone = useMemo(
-    () =>
-      localMilestones.find((milestone) => milestone.id === pendingDeleteMilestoneId) ?? null,
-    [localMilestones, pendingDeleteMilestoneId]
-  );
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
 
-  const viewedMilestone = useMemo(
-    () => localMilestones.find((milestone) => milestone.id === viewMilestoneId) ?? null,
-    [localMilestones, viewMilestoneId]
-  );
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const handleChange = () => {
+      setIsDesktopLayout(mediaQuery.matches);
+    };
 
-  const viewedMilestoneIndex = useMemo(
-    () =>
-      viewedMilestone
-        ? localMilestones.findIndex((milestone) => milestone.id === viewedMilestone.id)
-        : -1,
-    [localMilestones, viewedMilestone]
-  );
+    handleChange();
+    mediaQuery.addEventListener("change", handleChange);
 
-  const refreshProjectData = () => {
-    startTransition(() => {
-      router.refresh();
+    return () => {
+      mediaQuery.removeEventListener("change", handleChange);
+    };
+  }, []);
+
+  const selectedPhase =
+    selectedEventId == null
+      ? null
+      : roadmapPhases.find((phase) => phase.events.some((event) => event.id === selectedEventId)) ?? null;
+  const selectedEvent =
+    selectedPhase?.events.find((event) => event.id === selectedEventId) ?? null;
+  const selectedPhaseIndex =
+    selectedPhase == null
+      ? -1
+      : roadmapPhases.findIndex((phase) => phase.id === selectedPhase.id);
+
+  const pendingDeletePhase =
+    roadmapPhases.find((phase) => phase.id === pendingDeletePhaseId) ?? null;
+  const pendingDeleteEvent =
+    pendingDeleteEventId == null
+      ? null
+      : roadmapPhases.flatMap((phase) => phase.events).find((event) => event.id === pendingDeleteEventId) ?? null;
+
+  function openCreatePhase() {
+    setIsExpanded(true);
+    setPhaseMutationError(null);
+    setPhaseDraft({ ...DEFAULT_DRAFT_STATE });
+    setPhaseDialog({
+      mode: "create",
+      phaseId: null,
     });
-  };
+  }
 
-  const resetCreateDraft = () => {
-    setCreateDraft({ ...DEFAULT_DRAFT_STATE });
-    setCreateError(null);
-  };
+  function openEditPhase(phase: ProjectRoadmapPanelPhase) {
+    setIsExpanded(true);
+    setPhaseMutationError(null);
+    setPhaseDraft(cloneDraftState(phase));
+    setPhaseDialog({
+      mode: "edit",
+      phaseId: phase.id,
+    });
+  }
 
-  const closeCreate = (force = false) => {
-    if (isCreating && !force) {
+  function openCreateEvent(phase: ProjectRoadmapPanelPhase) {
+    setIsExpanded(true);
+    setEventMutationError(null);
+    setEventDraft({
+      ...DEFAULT_DRAFT_STATE,
+      status: phase.status,
+    });
+    setEventDialog({
+      mode: "create",
+      phaseId: phase.id,
+      eventId: null,
+    });
+  }
+
+  function openEditEvent(event: ProjectRoadmapPanelEvent) {
+    setIsExpanded(true);
+    setEventMutationError(null);
+    setEventDraft(cloneDraftState(event));
+    setEventDialog({
+      mode: "edit",
+      phaseId: event.phaseId,
+      eventId: event.id,
+    });
+  }
+
+  function closePhaseDialog() {
+    setPhaseDialog(null);
+    setPhaseMutationError(null);
+    setPhaseDraft({ ...DEFAULT_DRAFT_STATE });
+  }
+
+  function closeEventDialog() {
+    setEventDialog(null);
+    setEventMutationError(null);
+    setEventDraft({ ...DEFAULT_DRAFT_STATE });
+  }
+
+  async function submitPhase() {
+    if (!phaseDialog) {
       return;
     }
 
-    setIsCreateOpen(false);
-    resetCreateDraft();
-  };
+    setIsSubmittingPhase(true);
+    setPhaseMutationError(null);
 
-  const startEdit = (milestone: ProjectRoadmapPanelMilestone) => {
-    setEditingMilestoneId(milestone.id);
-    setEditDraft(cloneDraftState(milestone));
-    setEditError(null);
-  };
-
-  const cancelEdit = (force = false) => {
-    if (isSavingEdit && !force) {
-      return;
-    }
-
-    setEditingMilestoneId(null);
-    setEditDraft({ ...DEFAULT_DRAFT_STATE });
-    setEditError(null);
-  };
-
-  const handleCreateMilestone = async () => {
-    const normalizedTitle = createDraft.title.trim();
-    if (!normalizedTitle) {
-      setCreateError("Milestone title is required.");
-      return;
-    }
-
-    setIsCreating(true);
-    setCreateError(null);
+    const endpoint =
+      phaseDialog.mode === "create"
+        ? `/api/projects/${projectId}/roadmap`
+        : `/api/projects/${projectId}/roadmap/phases/${phaseDialog.phaseId}`;
+    const method = phaseDialog.mode === "create" ? "POST" : "PATCH";
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/roadmap-milestones`, {
-        method: "POST",
+      const response = await fetch(endpoint, {
+        method,
         headers: {
-          "Content-Type": "application/json",
+          "content-type": "application/json",
         },
-        body: JSON.stringify({
-          title: normalizedTitle,
-          description: createDraft.description,
-          targetDate: createDraft.targetDate || null,
-          status: createDraft.status,
-        }),
+        body: JSON.stringify(phaseDraft),
       });
 
-      const payload = (await response.json().catch(() => null)) as
-        | { error?: string; milestone?: ProjectRoadmapPanelMilestone }
-        | null;
-
-      if (!response.ok || !payload?.milestone) {
-        throw new Error(
-          mapRoadmapMutationError(payload?.error ?? "roadmap-milestone-create-failed")
-        );
+      if (!response.ok) {
+        const errorCode = await readApiError(response);
+        setPhaseMutationError(mapRoadmapMutationError(errorCode));
+        return;
       }
 
-      setLocalMilestones((previousMilestones) =>
-        [...previousMilestones, payload.milestone!].sort(
-          (left, right) => left.position - right.position
-        )
-      );
-      closeCreate(true);
-      refreshProjectData();
-      pushToast({
-        variant: "success",
-        message: "Roadmap milestone created.",
-      });
+      const payload = (await response.json()) as { phase: ProjectRoadmapPanelPhase };
+      if (phaseDialog.mode === "create") {
+        setRoadmapPhases((currentPhases) => [...currentPhases, payload.phase]);
+        pushToast({
+          message: `${payload.phase.title} is now on the roadmap.`,
+          variant: "success",
+        });
+      } else {
+        setRoadmapPhases((currentPhases) =>
+          currentPhases.map((phase) => (phase.id === payload.phase.id ? payload.phase : phase))
+        );
+        pushToast({
+          message: `${payload.phase.title} has been updated.`,
+          variant: "success",
+        });
+      }
+
+      closePhaseDialog();
+      router.refresh();
     } catch (error) {
-      setCreateError(
-        error instanceof Error ? error.message : "Could not create roadmap milestone."
-      );
+      console.error(error);
+      setPhaseMutationError(mapRoadmapMutationError());
     } finally {
-      setIsCreating(false);
+      setIsSubmittingPhase(false);
     }
-  };
+  }
 
-  const handleSaveMilestone = async () => {
-    if (!editingMilestoneId) {
+  async function submitEvent() {
+    if (!eventDialog) {
       return;
     }
 
-    const normalizedTitle = editDraft.title.trim();
-    if (!normalizedTitle) {
-      setEditError("Milestone title is required.");
+    setIsSubmittingEvent(true);
+    setEventMutationError(null);
+
+    const endpoint =
+      eventDialog.mode === "create"
+        ? `/api/projects/${projectId}/roadmap/phases/${eventDialog.phaseId}/events`
+        : `/api/projects/${projectId}/roadmap/events/${eventDialog.eventId}`;
+    const method = eventDialog.mode === "create" ? "POST" : "PATCH";
+
+    try {
+      const response = await fetch(endpoint, {
+        method,
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(eventDraft),
+      });
+
+      if (!response.ok) {
+        const errorCode = await readApiError(response);
+        setEventMutationError(mapRoadmapMutationError(errorCode));
+        return;
+      }
+
+      const payload = (await response.json()) as {
+        event: ProjectRoadmapPanelEvent;
+        phase: ProjectRoadmapPanelPhase;
+      };
+
+      setRoadmapPhases((currentPhases) =>
+        currentPhases.map((phase) => (phase.id === payload.phase.id ? payload.phase : phase))
+      );
+
+      pushToast({
+        message:
+          eventDialog.mode === "create"
+            ? `${payload.event.title} has been added to ${payload.phase.title}.`
+            : `${payload.event.title} has been updated.`,
+        variant: "success",
+      });
+
+      closeEventDialog();
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      setEventMutationError(mapRoadmapMutationError());
+    } finally {
+      setIsSubmittingEvent(false);
+    }
+  }
+
+  async function confirmDeletePhase() {
+    if (!pendingDeletePhase) {
       return;
     }
 
-    setIsSavingEdit(true);
-    setEditError(null);
+    setIsDeletingPhase(true);
 
     try {
       const response = await fetch(
-        `/api/projects/${projectId}/roadmap-milestones/${editingMilestoneId}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            title: normalizedTitle,
-            description: editDraft.description,
-            targetDate: editDraft.targetDate || null,
-            status: editDraft.status,
-          }),
-        }
-      );
-
-      const payload = (await response.json().catch(() => null)) as
-        | { error?: string; milestone?: ProjectRoadmapPanelMilestone }
-        | null;
-
-      if (!response.ok || !payload?.milestone) {
-        throw new Error(
-          mapRoadmapMutationError(payload?.error ?? "roadmap-milestone-update-failed")
-        );
-      }
-
-      const updatedMilestone = payload.milestone;
-      setLocalMilestones((previousMilestones) =>
-        previousMilestones.map((milestone) =>
-          milestone.id === updatedMilestone.id ? updatedMilestone : milestone
-        )
-      );
-      cancelEdit(true);
-      refreshProjectData();
-      pushToast({
-        variant: "success",
-        message: "Roadmap milestone updated.",
-      });
-    } catch (error) {
-      setEditError(
-        error instanceof Error ? error.message : "Could not update roadmap milestone."
-      );
-    } finally {
-      setIsSavingEdit(false);
-    }
-  };
-
-  const handleDeleteMilestone = async () => {
-    if (!pendingDeleteMilestone || isDeleting) {
-      return;
-    }
-
-    setIsDeleting(true);
-
-    try {
-      const response = await fetch(
-        `/api/projects/${projectId}/roadmap-milestones/${pendingDeleteMilestone.id}`,
+        `/api/projects/${projectId}/roadmap/phases/${pendingDeletePhase.id}`,
         {
           method: "DELETE",
         }
       );
 
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-
       if (!response.ok) {
-        throw new Error(
-          mapRoadmapMutationError(payload?.error ?? "roadmap-milestone-delete-failed")
-        );
+        const errorCode = await readApiError(response);
+        pushToast({
+          message: mapRoadmapMutationError(errorCode),
+          variant: "error",
+        });
+        return;
       }
 
-      setLocalMilestones((previousMilestones) =>
-        previousMilestones.filter((milestone) => milestone.id !== pendingDeleteMilestone.id)
+      setRoadmapPhases((currentPhases) =>
+        currentPhases.filter((phase) => phase.id !== pendingDeletePhase.id)
       );
-      if (viewMilestoneId === pendingDeleteMilestone.id) {
-        setViewMilestoneId(null);
+      setPendingDeletePhaseId(null);
+
+      if (selectedPhase?.id === pendingDeletePhase.id) {
+        setSelectedEventId(null);
       }
-      setPendingDeleteMilestoneId(null);
-      refreshProjectData();
+
       pushToast({
+        message: `${pendingDeletePhase.title} has been removed.`,
         variant: "success",
-        message: "Roadmap milestone deleted.",
       });
+      router.refresh();
     } catch (error) {
+      console.error(error);
       pushToast({
+        message: mapRoadmapMutationError(),
         variant: "error",
-        message:
-          error instanceof Error ? error.message : "Could not delete roadmap milestone.",
       });
     } finally {
-      setIsDeleting(false);
+      setIsDeletingPhase(false);
     }
-  };
+  }
 
-  const handleMoveMilestone = async (milestoneId: string, direction: -1 | 1) => {
-    if (!canEdit || reorderingMilestoneId) {
+  async function confirmDeleteEvent() {
+    if (!pendingDeleteEvent) {
       return;
     }
 
-    const currentIndex = localMilestones.findIndex((milestone) => milestone.id === milestoneId);
-    if (currentIndex === -1) {
-      return;
-    }
-
-    const nextIndex = currentIndex + direction;
-    if (nextIndex < 0 || nextIndex >= localMilestones.length) {
-      return;
-    }
-
-    const reorderedMilestones = localMilestones.slice();
-    const [movedMilestone] = reorderedMilestones.splice(currentIndex, 1);
-    if (!movedMilestone) {
-      return;
-    }
-    reorderedMilestones.splice(nextIndex, 0, movedMilestone);
-
-    const normalizedReorderedMilestones = reorderedMilestones.map((milestone, index) => ({
-      ...milestone,
-      position: index,
-    }));
-    const previousMilestones = localMilestones;
-    setLocalMilestones(normalizedReorderedMilestones);
-    setReorderingMilestoneId(milestoneId);
+    setIsDeletingEvent(true);
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/roadmap-milestones/reorder`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          milestoneIds: normalizedReorderedMilestones.map((milestone) => milestone.id),
-        }),
-      });
+      const response = await fetch(
+        `/api/projects/${projectId}/roadmap/events/${pendingDeleteEvent.id}`,
+        {
+          method: "DELETE",
+        }
+      );
 
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) {
-        throw new Error(
-          mapRoadmapMutationError(payload?.error ?? "roadmap-milestones-reorder-failed")
-        );
+        const errorCode = await readApiError(response);
+        pushToast({
+          message: mapRoadmapMutationError(errorCode),
+          variant: "error",
+        });
+        return;
       }
 
-      refreshProjectData();
-    } catch (error) {
-      setLocalMilestones(previousMilestones);
+      const payload = (await response.json()) as { ok: true; phaseId: string };
+      setRoadmapPhases((currentPhases) =>
+        currentPhases.map((phase) =>
+          phase.id === payload.phaseId
+            ? {
+                ...phase,
+                events: phase.events
+                  .filter((event) => event.id !== pendingDeleteEvent.id)
+                  .map((event, index) => ({
+                    ...event,
+                    position: index,
+                  })),
+              }
+            : phase
+        )
+      );
+      setPendingDeleteEventId(null);
+      if (selectedEventId === pendingDeleteEvent.id) {
+        setSelectedEventId(null);
+      }
+
       pushToast({
+        message: `${pendingDeleteEvent.title} has been removed.`,
+        variant: "success",
+      });
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      pushToast({
+        message: mapRoadmapMutationError(),
         variant: "error",
-        message: error instanceof Error ? error.message : "Could not save roadmap order.",
       });
     } finally {
-      setReorderingMilestoneId(null);
+      setIsDeletingEvent(false);
     }
-  };
+  }
+
+  async function persistPhaseReorder(nextPhases: ProjectRoadmapPanelPhase[]) {
+    const response = await fetch(`/api/projects/${projectId}/roadmap/phases/reorder`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        phaseIds: nextPhases.map((phase) => phase.id),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(mapRoadmapMutationError(await readApiError(response)));
+    }
+
+    router.refresh();
+  }
+
+  async function persistEventReorder(phaseId: string, eventIds: string[]) {
+    const response = await fetch(`/api/projects/${projectId}/roadmap/events/reorder`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        phaseId,
+        eventIds,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(mapRoadmapMutationError(await readApiError(response)));
+    }
+
+    router.refresh();
+  }
+
+  async function persistEventMove(eventId: string, targetPhaseId: string, targetIndex: number) {
+    const response = await fetch(`/api/projects/${projectId}/roadmap/events/move`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        eventId,
+        targetPhaseId,
+        targetIndex,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(mapRoadmapMutationError(await readApiError(response)));
+    }
+
+    router.refresh();
+  }
+
+  async function handleDragEnd(result: DropResult) {
+    const { destination, source, type, draggableId } = result;
+
+    if (!destination) {
+      return;
+    }
+
+    if (type === "ROADMAP_PHASE") {
+      if (destination.index === source.index) {
+        return;
+      }
+
+      const previousPhases = roadmapPhases;
+      const nextPhases = reorderList(previousPhases, source.index, destination.index).map(
+        (phase, index) => ({
+          ...phase,
+          position: index,
+        })
+      );
+
+      setRoadmapPhases(nextPhases);
+
+      try {
+        await persistPhaseReorder(nextPhases);
+      } catch (error) {
+        setRoadmapPhases(previousPhases);
+        pushToast({
+          message: error instanceof Error ? error.message : mapRoadmapMutationError(),
+          variant: "error",
+        });
+      }
+
+      return;
+    }
+
+    const sourcePhaseId = source.droppableId;
+    const destinationPhaseId = destination.droppableId;
+    const previousPhases = roadmapPhases;
+    const nextPhases = moveEventBetweenPhases(
+      previousPhases,
+      sourcePhaseId,
+      destinationPhaseId,
+      source.index,
+      destination.index
+    );
+
+    setRoadmapPhases(nextPhases);
+
+    try {
+      if (sourcePhaseId === destinationPhaseId) {
+        const nextPhase = nextPhases.find((phase) => phase.id === destinationPhaseId);
+        await persistEventReorder(
+          destinationPhaseId,
+          nextPhase?.events.map((event) => event.id) ?? []
+        );
+      } else {
+        await persistEventMove(draggableId, destinationPhaseId, destination.index);
+      }
+    } catch (error) {
+      setRoadmapPhases(previousPhases);
+      pushToast({
+        message: error instanceof Error ? error.message : mapRoadmapMutationError(),
+        variant: "error",
+      });
+    }
+  }
+
+  const totalEvents = roadmapPhases.reduce((sum, phase) => sum + phase.events.length, 0);
 
   return (
     <Card className={PROJECT_SECTION_CARD_CLASS}>
       <CardHeader className={PROJECT_SECTION_HEADER_CLASS}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <button
-            type="button"
-            onClick={() => setIsExpanded((previous) => !previous)}
-            aria-expanded={isExpanded}
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 text-left transition hover:bg-muted/40"
-          >
-            {isExpanded ? (
-              <ChevronUp className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            )}
-            <div className="min-w-0">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Map className="h-4 w-4" />
-                Roadmap
-              </CardTitle>
-            </div>
-            <span className="rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground">
-              {localMilestones.length} milestone{localMilestones.length === 1 ? "" : "s"}
-            </span>
-          </button>
-
-          {canEdit ? (
+        <CardTitle className="flex w-full items-center justify-between gap-3 text-base">
+          <div className="flex items-center gap-3">
             <Button
               type="button"
-              size="sm"
-              className="w-full sm:w-auto"
-              onClick={() => {
-                resetCreateDraft();
-                setIsExpanded(true);
-                setIsCreateOpen(true);
-              }}
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full"
+              onClick={() => setIsExpanded(!isExpanded)}
+              aria-label={isExpanded ? "Collapse roadmap" : "Expand roadmap"}
             >
+              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+            <div className="flex items-center gap-2">
+              <Map className="h-4 w-4" />
+              <span>Roadmap</span>
+            </div>
+            <Badge variant="outline" className="rounded-full px-3 py-1 text-xs text-muted-foreground">
+              {roadmapPhases.length} milestone{roadmapPhases.length === 1 ? "" : "s"}
+            </Badge>
+            <Badge variant="outline" className="hidden rounded-full px-3 py-1 text-xs text-muted-foreground sm:inline-flex">
+              {totalEvents} event{totalEvents === 1 ? "" : "s"}
+            </Badge>
+          </div>
+
+          {canEdit ? (
+            <Button type="button" className="rounded-full px-4" onClick={openCreatePhase}>
               <PlusSquare className="h-4 w-4" />
               New milestone
             </Button>
           ) : null}
-        </div>
+        </CardTitle>
       </CardHeader>
 
       {isExpanded ? (
         <CardContent className={cn("space-y-5", PROJECT_SECTION_CONTENT_CLASS)}>
           {loadError ? (
-            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200">
+            <div className="rounded-2xl border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
               {loadError}
             </div>
           ) : null}
 
-          {isCreateOpen ? (
-            <RoadmapDraftForm
-              draft={createDraft}
-              onChange={setCreateDraft}
-              onSubmit={() => void handleCreateMilestone()}
-              onCancel={() => closeCreate()}
-              submitLabel="Create milestone"
-              isSubmitting={isCreating}
-              error={createError}
-            />
-          ) : null}
-
-          {editingMilestoneId ? (
-            <RoadmapDraftForm
-              draft={editDraft}
-              onChange={setEditDraft}
-              onSubmit={() => void handleSaveMilestone()}
-              onCancel={() => cancelEdit()}
-              submitLabel="Save milestone"
-              isSubmitting={isSavingEdit}
-              error={editError}
-            />
-          ) : null}
-
-          {localMilestones.length === 0 ? (
-            <div className="rounded-[1.8rem] border border-dashed border-border/70 bg-muted/20 px-5 py-10 text-center">
-              <p className="text-sm font-medium text-foreground">No roadmap milestones yet.</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Add the major moments ahead so the project reads like a journey, not just a list
-                of tasks.
+          {roadmapPhases.length === 0 ? (
+            <div className="rounded-[1.9rem] border border-dashed border-border/60 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.12),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.08),transparent_30%)] px-5 py-10 text-center">
+              <p className="text-lg font-semibold text-foreground">No roadmap yet</p>
+              <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Build the project journey milestone by milestone, then add the events that make
+                each phase concrete.
               </p>
+              {canEdit ? (
+                <Button type="button" className="mt-5 rounded-full px-4" onClick={openCreatePhase}>
+                  <PlusSquare className="h-4 w-4" />
+                  Create the first milestone
+                </Button>
+              ) : null}
             </div>
           ) : (
-            <>
-              <DesktopRoadmapTimeline
-                milestones={localMilestones}
-                canEdit={canEdit}
-                editingMilestoneId={editingMilestoneId}
-                onView={setViewMilestoneId}
-                onStartEdit={startEdit}
-                onDelete={(milestoneId) => setPendingDeleteMilestoneId(milestoneId)}
-                onMove={(milestoneId, direction) =>
-                  void handleMoveMilestone(milestoneId, direction)
-                }
-              />
-              <MobileRoadmapTimeline
-                milestones={localMilestones}
-                canEdit={canEdit}
-                editingMilestoneId={editingMilestoneId}
-                onView={setViewMilestoneId}
-                onStartEdit={startEdit}
-                onDelete={(milestoneId) => setPendingDeleteMilestoneId(milestoneId)}
-                onMove={(milestoneId, direction) =>
-                  void handleMoveMilestone(milestoneId, direction)
-                }
-              />
-            </>
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <div
+                className={cn(
+                  isDesktopLayout &&
+                    "overflow-x-auto pb-4 [scrollbar-color:rgba(148,163,184,0.52)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[rgba(148,163,184,0.14)] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]"
+                )}
+              >
+                <Droppable
+                  droppableId="roadmap-phase-list"
+                  type="ROADMAP_PHASE"
+                  direction={isDesktopLayout ? "horizontal" : "vertical"}
+                  isDropDisabled={!canEdit}
+                >
+                  {(provided) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className={cn(
+                        "gap-5",
+                        isDesktopLayout ? "flex min-w-max items-start px-2 py-3" : "grid"
+                      )}
+                    >
+                      {roadmapPhases.map((phase, phaseIndex) => (
+                        <RoadmapPhaseCard
+                          key={phase.id}
+                          phase={phase}
+                          phaseIndex={phaseIndex}
+                          totalPhases={roadmapPhases.length}
+                          canEdit={canEdit}
+                          isDesktop={isDesktopLayout}
+                          onCreateEvent={openCreateEvent}
+                          onViewEvent={setSelectedEventId}
+                          onEditPhase={openEditPhase}
+                          onEditEvent={openEditEvent}
+                          onDeletePhase={setPendingDeletePhaseId}
+                          onDeleteEvent={setPendingDeleteEventId}
+                        />
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </div>
+            </DragDropContext>
           )}
         </CardContent>
       ) : null}
 
-      <RoadmapMilestoneDetailModal
-        milestone={viewedMilestone}
-        milestoneIndex={viewedMilestoneIndex}
-        milestonesCount={localMilestones.length}
+      <RoadmapDialogShell
+        title={phaseDialog?.mode === "create" ? "New milestone" : "Edit milestone"}
+        subtitle="Milestones act as roadmap phases. Add events inside them once the phase exists."
+        isOpen={phaseDialog !== null}
+        onClose={closePhaseDialog}
+      >
+        <RoadmapEntityForm
+          draft={phaseDraft}
+          title={phaseDialog?.mode === "create" ? "Create milestone" : "Update milestone"}
+          subtitle="Describe the phase this project is moving through."
+          submitLabel={phaseDialog?.mode === "create" ? "Create milestone" : "Save milestone"}
+          targetDateLabel="Milestone date"
+          statusLabel="Milestone status"
+          isSubmitting={isSubmittingPhase}
+          error={phaseMutationError}
+          onChange={setPhaseDraft}
+          onSubmit={submitPhase}
+          onCancel={closePhaseDialog}
+        />
+      </RoadmapDialogShell>
+
+      <RoadmapDialogShell
+        title={eventDialog?.mode === "create" ? "New event" : "Edit event"}
+        subtitle={
+          eventDialog
+            ? `This event belongs to ${
+                roadmapPhases.find((phase) => phase.id === eventDialog.phaseId)?.title ?? "the selected milestone"
+              }.`
+            : undefined
+        }
+        isOpen={eventDialog !== null}
+        onClose={closeEventDialog}
+      >
+        <RoadmapEntityForm
+          draft={eventDraft}
+          title={eventDialog?.mode === "create" ? "Create event" : "Update event"}
+          subtitle="Capture a meaningful moment inside the milestone."
+          submitLabel={eventDialog?.mode === "create" ? "Create event" : "Save event"}
+          targetDateLabel="Event date"
+          statusLabel="Event status"
+          isSubmitting={isSubmittingEvent}
+          error={eventMutationError}
+          onChange={setEventDraft}
+          onSubmit={submitEvent}
+          onCancel={closeEventDialog}
+        />
+      </RoadmapDialogShell>
+
+      <RoadmapEventDetailModal
+        event={selectedEvent}
+        phase={selectedPhase}
+        phaseIndex={selectedPhaseIndex}
         canEdit={canEdit}
-        isOpen={Boolean(viewedMilestone)}
-        onClose={() => setViewMilestoneId(null)}
-        onStartEdit={startEdit}
-        onDelete={(milestoneId) => setPendingDeleteMilestoneId(milestoneId)}
-        onMove={(milestoneId, direction) => void handleMoveMilestone(milestoneId, direction)}
+        onClose={() => setSelectedEventId(null)}
+        onEdit={(event) => {
+          setSelectedEventId(null);
+          openEditEvent(event);
+        }}
+        onDelete={(eventId) => {
+          setSelectedEventId(null);
+          setPendingDeleteEventId(eventId);
+        }}
       />
 
       <ConfirmDialog
-        isOpen={Boolean(pendingDeleteMilestone)}
+        isOpen={pendingDeletePhase !== null}
         title="Delete roadmap milestone?"
         description={
-          pendingDeleteMilestone
-            ? `Delete "${pendingDeleteMilestone.title}" from the roadmap? This removes the milestone from the project journey.`
-            : ""
+          pendingDeletePhase
+            ? `Delete ${pendingDeletePhase.title}? Its events will be deleted too.`
+            : "Delete this roadmap milestone?"
         }
-        confirmLabel={isDeleting ? "Deleting..." : "Delete milestone"}
-        onConfirm={() => void handleDeleteMilestone()}
-        onCancel={() => {
-          if (isDeleting) {
-            return;
-          }
+        confirmLabel={isDeletingPhase ? "Deleting..." : "Delete"}
+        isConfirming={isDeletingPhase}
+        onConfirm={confirmDeletePhase}
+        onCancel={() => setPendingDeletePhaseId(null)}
+      />
 
-          setPendingDeleteMilestoneId(null);
-        }}
-        isConfirming={isDeleting}
+      <ConfirmDialog
+        isOpen={pendingDeleteEvent !== null}
+        title="Delete roadmap event?"
+        description={
+          pendingDeleteEvent
+            ? `Delete ${pendingDeleteEvent.title}?`
+            : "Delete this roadmap event?"
+        }
+        confirmLabel={isDeletingEvent ? "Deleting..." : "Delete"}
+        isConfirming={isDeletingEvent}
+        onConfirm={confirmDeleteEvent}
+        onCancel={() => setPendingDeleteEventId(null)}
       />
     </Card>
   );

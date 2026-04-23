@@ -60,7 +60,7 @@ describe("project-roadmap-panel", () => {
     document.body.innerHTML = "";
   });
 
-  test("expands the section before opening the create flow", async () => {
+  test("expands the section before opening the create milestone flow", async () => {
     const { container, root } = createTestRenderer();
 
     await renderWithRoot(
@@ -68,7 +68,7 @@ describe("project-roadmap-panel", () => {
       React.createElement(ProjectRoadmapPanel, {
         projectId: "project-1",
         canEdit: true,
-        milestones: [],
+        phases: [],
       })
     );
 
@@ -89,7 +89,7 @@ describe("project-roadmap-panel", () => {
     });
   });
 
-  test("renders milestone content when expanded", async () => {
+  test("renders grouped milestone and event content when expanded", async () => {
     projectSectionExpandedMock.isExpanded = true;
     const { container, root } = createTestRenderer();
 
@@ -98,9 +98,9 @@ describe("project-roadmap-panel", () => {
       React.createElement(ProjectRoadmapPanel, {
         projectId: "project-1",
         canEdit: false,
-        milestones: [
+        phases: [
           {
-            id: "milestone-1",
+            id: "phase-1",
             title: "Private beta",
             description: "Open the first customer wave.",
             targetDate: "2026-05-02",
@@ -108,6 +108,19 @@ describe("project-roadmap-panel", () => {
             position: 0,
             createdAt: "2026-04-23T08:00:00.000Z",
             updatedAt: "2026-04-23T08:00:00.000Z",
+            events: [
+              {
+                id: "event-1",
+                phaseId: "phase-1",
+                title: "Invite wave one",
+                description: "Invite the first five testers.",
+                targetDate: "2026-05-02",
+                status: "active",
+                position: 0,
+                createdAt: "2026-04-23T08:00:00.000Z",
+                updatedAt: "2026-04-23T08:00:00.000Z",
+              },
+            ],
           },
         ],
       })
@@ -115,38 +128,49 @@ describe("project-roadmap-panel", () => {
 
     expect(container.textContent).toContain("Roadmap");
     expect(container.textContent).toContain("Private beta");
-    expect(container.textContent).toContain("Open the first customer wave.");
+    expect(container.textContent).toContain("Invite wave one");
     expect(container.textContent).toContain("Active");
-    expect(container.textContent).not.toContain(
-      "Show where the project is going before people dive into the work."
-    );
+    expect(container.textContent).toContain("1 event");
 
     await act(async () => {
       root.unmount();
     });
   });
 
-  test("opens milestone detail view from the view button", async () => {
+  test("opens event detail view from the view button", async () => {
     projectSectionExpandedMock.isExpanded = true;
     const { container, root } = createTestRenderer();
     const fullDescription =
-      "A much longer milestone note that should remain available in the dedicated detail view even when the card preview is compact.";
+      "A much longer roadmap event note that should remain available in the dedicated detail view even when the card preview is compact.";
 
     await renderWithRoot(
       root,
       React.createElement(ProjectRoadmapPanel, {
         projectId: "project-1",
         canEdit: true,
-        milestones: [
+        phases: [
           {
-            id: "milestone-1",
+            id: "phase-1",
             title: "Private beta",
-            description: fullDescription,
+            description: "Open the first customer wave.",
             targetDate: "2026-05-02",
             status: "active",
             position: 0,
             createdAt: "2026-04-23T08:00:00.000Z",
             updatedAt: "2026-04-23T08:00:00.000Z",
+            events: [
+              {
+                id: "event-1",
+                phaseId: "phase-1",
+                title: "Invite wave one",
+                description: fullDescription,
+                targetDate: "2026-05-02",
+                status: "active",
+                position: 0,
+                createdAt: "2026-04-23T08:00:00.000Z",
+                updatedAt: "2026-04-23T08:00:00.000Z",
+              },
+            ],
           },
         ],
       })
@@ -163,9 +187,9 @@ describe("project-roadmap-panel", () => {
     });
 
     const detailDialog = container.querySelector("[role='dialog']");
-    expect(detailDialog?.textContent).toContain("Private beta");
+    expect(detailDialog?.textContent).toContain("Invite wave one");
     expect(detailDialog?.textContent).toContain(fullDescription);
-    expect(detailDialog?.textContent).toContain("Target date");
+    expect(detailDialog?.textContent).toContain("Private beta");
 
     await act(async () => {
       root.unmount();

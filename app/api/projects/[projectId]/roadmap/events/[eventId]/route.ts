@@ -3,24 +3,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import {
-  deleteProjectRoadmapMilestone,
-  updateProjectRoadmapMilestone,
+  deleteProjectRoadmapEvent,
+  updateProjectRoadmapEvent,
 } from "@/lib/services/project-roadmap-service";
 
-interface RoadmapMilestoneRequestBody {
+interface RoadmapEventRequestBody {
   title?: unknown;
   description?: unknown;
   targetDate?: unknown;
   status?: unknown;
 }
 
-function hasOwn(payload: RoadmapMilestoneRequestBody, key: keyof RoadmapMilestoneRequestBody) {
+function hasOwn(payload: RoadmapEventRequestBody, key: keyof RoadmapEventRequestBody) {
   return Object.prototype.hasOwnProperty.call(payload, key);
 }
 
 export async function PATCH(
   request: NextRequest,
-  props: { params: Promise<{ projectId: string; milestoneId: string }> }
+  props: { params: Promise<{ projectId: string; eventId: string }> }
 ) {
   const params = await props.params;
   const authenticatedUser = await requireAuthenticatedApiUser(request);
@@ -28,12 +28,12 @@ export async function PATCH(
     return authenticatedUser.response;
   }
 
-  let payload: RoadmapMilestoneRequestBody;
+  let payload: RoadmapEventRequestBody;
   try {
-    payload = (await request.json()) as RoadmapMilestoneRequestBody;
+    payload = (await request.json()) as RoadmapEventRequestBody;
   } catch (error) {
     logServerWarning(
-      "PATCH /api/projects/:projectId/roadmap-milestones/:milestoneId.invalidJson",
+      "PATCH /api/projects/:projectId/roadmap/events/:eventId.invalidJson",
       "Invalid JSON payload",
       { error }
     );
@@ -65,13 +65,11 @@ export async function PATCH(
     return NextResponse.json({ error: "invalid-payload" }, { status: 400 });
   }
 
-  const result = await updateProjectRoadmapMilestone({
+  const result = await updateProjectRoadmapEvent({
     actorUserId: authenticatedUser.userId,
     projectId: params.projectId,
-    milestoneId: params.milestoneId,
-    ...(hasOwn(payload, "title")
-      ? { title: payload.title as string }
-      : {}),
+    eventId: params.eventId,
+    ...(hasOwn(payload, "title") ? { title: payload.title as string } : {}),
     ...(hasOwn(payload, "description")
       ? { description: (payload.description ?? null) as string | null }
       : {}),
@@ -88,13 +86,14 @@ export async function PATCH(
   }
 
   return NextResponse.json({
-    milestone: result.data.milestone,
+    event: result.data.event,
+    phase: result.data.phase,
   });
 }
 
 export async function DELETE(
   request: NextRequest,
-  props: { params: Promise<{ projectId: string; milestoneId: string }> }
+  props: { params: Promise<{ projectId: string; eventId: string }> }
 ) {
   const params = await props.params;
   const authenticatedUser = await requireAuthenticatedApiUser(request);
@@ -102,15 +101,18 @@ export async function DELETE(
     return authenticatedUser.response;
   }
 
-  const result = await deleteProjectRoadmapMilestone({
+  const result = await deleteProjectRoadmapEvent({
     actorUserId: authenticatedUser.userId,
     projectId: params.projectId,
-    milestoneId: params.milestoneId,
+    eventId: params.eventId,
   });
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    phaseId: result.data.phaseId,
+  });
 }

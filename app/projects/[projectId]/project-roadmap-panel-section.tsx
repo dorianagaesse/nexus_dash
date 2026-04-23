@@ -7,11 +7,11 @@ import {
 } from "@/components/project-dashboard/project-section-chrome";
 import {
   ProjectRoadmapPanel,
-  type ProjectRoadmapPanelMilestone,
+  type ProjectRoadmapPanelPhase,
 } from "@/components/project-roadmap-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { logServerError } from "@/lib/observability/logger";
-import { listProjectRoadmapMilestones } from "@/lib/services/project-roadmap-service";
+import { listProjectRoadmapPhases } from "@/lib/services/project-roadmap-service";
 
 interface ProjectRoadmapPanelSectionProps {
   projectId: string;
@@ -24,11 +24,11 @@ export async function ProjectRoadmapPanelSection({
   actorUserId,
   canEdit,
 }: ProjectRoadmapPanelSectionProps) {
-  let milestones: ProjectRoadmapPanelMilestone[] = [];
+  let phases: ProjectRoadmapPanelPhase[] = [];
   let loadError: string | null = null;
 
   try {
-    milestones = await listProjectRoadmapMilestones(projectId, actorUserId);
+    phases = await listProjectRoadmapPhases(projectId, actorUserId);
   } catch (error) {
     logServerError("ProjectRoadmapPanelSection", error, {
       actorUserId,
@@ -41,7 +41,7 @@ export async function ProjectRoadmapPanelSection({
     <ProjectRoadmapPanel
       projectId={projectId}
       canEdit={canEdit}
-      milestones={milestones}
+      phases={phases}
       loadError={loadError}
     />
   );

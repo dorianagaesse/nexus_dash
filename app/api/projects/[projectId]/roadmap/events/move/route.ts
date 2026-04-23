@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import {
-  isValidRoadmapReorderPayload,
-  reorderProjectRoadmapMilestones,
+  isValidRoadmapEventMovePayload,
+  moveProjectRoadmapEvent,
 } from "@/lib/services/project-roadmap-service";
 
 export async function POST(
@@ -22,21 +22,23 @@ export async function POST(
     payload = await request.json();
   } catch (error) {
     logServerWarning(
-      "POST /api/projects/:projectId/roadmap-milestones/reorder.invalidJson",
+      "POST /api/projects/:projectId/roadmap/events/move.invalidJson",
       "Invalid JSON payload",
       { error }
     );
     return NextResponse.json({ error: "invalid-json" }, { status: 400 });
   }
 
-  if (!isValidRoadmapReorderPayload(payload)) {
+  if (!isValidRoadmapEventMovePayload(payload)) {
     return NextResponse.json({ error: "invalid-payload" }, { status: 400 });
   }
 
-  const result = await reorderProjectRoadmapMilestones({
+  const result = await moveProjectRoadmapEvent({
     actorUserId: authenticatedUser.userId,
     projectId: params.projectId,
-    milestoneIds: payload.milestoneIds,
+    eventId: payload.eventId,
+    targetPhaseId: payload.targetPhaseId,
+    targetIndex: payload.targetIndex,
   });
 
   if (!result.ok) {

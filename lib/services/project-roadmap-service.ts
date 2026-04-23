@@ -1,9 +1,10 @@
 import { logServerError } from "@/lib/observability/logger";
 import {
   formatRoadmapTargetDate,
-  isRoadmapMilestoneStatus,
-  type ProjectRoadmapMilestone,
-  type RoadmapMilestoneStatus,
+  isRoadmapStatus,
+  type ProjectRoadmapEvent,
+  type ProjectRoadmapPhase,
+  type RoadmapStatus,
 } from "@/lib/roadmap-milestone";
 import { requireProjectRole } from "@/lib/services/project-access-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
@@ -26,7 +27,7 @@ interface ServiceSuccessResult<T> {
 
 type ServiceResult<T> = ServiceSuccessResult<T> | ServiceErrorResult;
 
-interface CreateRoadmapMilestoneInput {
+interface CreateRoadmapPhaseInput {
   actorUserId: string;
   projectId: string;
   title: string;
@@ -35,20 +36,55 @@ interface CreateRoadmapMilestoneInput {
   status?: string | null;
 }
 
-interface UpdateRoadmapMilestoneInput {
+interface UpdateRoadmapPhaseInput {
   actorUserId: string;
   projectId: string;
-  milestoneId: string;
+  phaseId: string;
   title?: string;
   description?: string | null;
   targetDate?: string | null;
   status?: string | null;
 }
 
-interface ReorderRoadmapMilestonesInput {
+interface CreateRoadmapEventInput {
   actorUserId: string;
   projectId: string;
-  milestoneIds: string[];
+  phaseId: string;
+  title: string;
+  description?: string | null;
+  targetDate?: string | null;
+  status?: string | null;
+}
+
+interface UpdateRoadmapEventInput {
+  actorUserId: string;
+  projectId: string;
+  eventId: string;
+  title?: string;
+  description?: string | null;
+  targetDate?: string | null;
+  status?: string | null;
+}
+
+interface ReorderRoadmapPhasesInput {
+  actorUserId: string;
+  projectId: string;
+  phaseIds: string[];
+}
+
+interface ReorderRoadmapEventsInput {
+  actorUserId: string;
+  projectId: string;
+  phaseId: string;
+  eventIds: string[];
+}
+
+interface MoveRoadmapEventInput {
+  actorUserId: string;
+  projectId: string;
+  eventId: string;
+  targetPhaseId: string;
+  targetIndex: number;
 }
 
 function createError(status: number, error: string): ServiceErrorResult {
@@ -124,10 +160,10 @@ function parseRoadmapTargetDate(
   };
 }
 
-function parseRoadmapMilestoneStatus(
+function parseRoadmapStatus(
   value: unknown,
-  options?: { fallback?: RoadmapMilestoneStatus }
-): ServiceResult<{ provided: boolean; status: RoadmapMilestoneStatus }> {
+  options?: { fallback?: RoadmapStatus }
+): ServiceResult<{ provided: boolean; status: RoadmapStatus }> {
   if (value === undefined || value === null) {
     return {
       ok: true,
@@ -138,7 +174,7 @@ function parseRoadmapMilestoneStatus(
     };
   }
 
-  if (!isRoadmapMilestoneStatus(value)) {
+  if (!isRoadmapStatus(value)) {
     return createError(400, "roadmap-status-invalid");
   }
 
@@ -151,18 +187,40 @@ function parseRoadmapMilestoneStatus(
   };
 }
 
-function mapProjectRoadmapMilestone(record: {
+function validateTitle(title: string): ServiceErrorResult | null {
+  if (title.length < MIN_TITLE_LENGTH) {
+    return createError(400, "roadmap-title-too-short");
+  }
+
+  if (title.length > MAX_TITLE_LENGTH) {
+    return createError(400, "roadmap-title-too-long");
+  }
+
+  return null;
+}
+
+function validateDescription(description: string | null): ServiceErrorResult | null {
+  if (description && description.length > MAX_DESCRIPTION_LENGTH) {
+    return createError(400, "roadmap-description-too-long");
+  }
+
+  return null;
+}
+
+function mapRoadmapEvent(record: {
   id: string;
+  phaseId: string;
   title: string;
   description: string | null;
   targetDate: Date | null;
-  status: RoadmapMilestoneStatus;
+  status: RoadmapStatus;
   position: number;
   createdAt: Date;
   updatedAt: Date;
-}): ProjectRoadmapMilestone {
+}): ProjectRoadmapEvent {
   return {
     id: record.id,
+    phaseId: record.phaseId,
     title: record.title,
     description: record.description,
     targetDate: formatRoadmapTargetDate(record.targetDate),
@@ -173,14 +231,51 @@ function mapProjectRoadmapMilestone(record: {
   };
 }
 
-async function readRoadmapMilestoneById(input: {
+function mapRoadmapPhase(record: {
+  id: string;
+  title: string;
+  description: string | null;
+  targetDate: Date | null;
+  status: RoadmapStatus;
+  position: number;
+  createdAt: Date;
+  updatedAt: Date;
+  events: Array<{
+    id: string;
+    phaseId: string;
+    title: string;
+    description: string | null;
+    targetDate: Date | null;
+    status: RoadmapStatus;
+    position: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
+}): ProjectRoadmapPhase {
+  return {
+    id: record.id,
+    title: record.title,
+    description: record.description,
+    targetDate: formatRoadmapTargetDate(record.targetDate),
+    status: record.status,
+    position: record.position,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+    events: record.events
+      .slice()
+      .sort((left, right) => left.position - right.position)
+      .map((event) => mapRoadmapEvent(event)),
+  };
+}
+
+async function readRoadmapPhaseById(input: {
   db: DbClient;
   projectId: string;
-  milestoneId: string;
-}): Promise<ProjectRoadmapMilestone | null> {
-  const milestone = await input.db.roadmapMilestone.findFirst({
+  phaseId: string;
+}): Promise<ProjectRoadmapPhase | null> {
+  const phase = await input.db.roadmapPhase.findFirst({
     where: {
-      id: input.milestoneId,
+      id: input.phaseId,
       projectId: input.projectId,
     },
     select: {
@@ -192,48 +287,209 @@ async function readRoadmapMilestoneById(input: {
       position: true,
       createdAt: true,
       updatedAt: true,
+      events: {
+        orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          phaseId: true,
+          title: true,
+          description: true,
+          targetDate: true,
+          status: true,
+          position: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
     },
   });
 
-  return milestone ? mapProjectRoadmapMilestone(milestone) : null;
+  return phase ? mapRoadmapPhase(phase) : null;
 }
 
-export function isValidRoadmapReorderPayload(
+async function readRoadmapEventById(input: {
+  db: DbClient;
+  projectId: string;
+  eventId: string;
+}): Promise<ProjectRoadmapEvent | null> {
+  const event = await input.db.roadmapEvent.findFirst({
+    where: {
+      id: input.eventId,
+      projectId: input.projectId,
+    },
+    select: {
+      id: true,
+      phaseId: true,
+      title: true,
+      description: true,
+      targetDate: true,
+      status: true,
+      position: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  return event ? mapRoadmapEvent(event) : null;
+}
+
+async function requireRoadmapEditor(input: {
+  actorUserId: string;
+  projectId: string;
+  db: DbClient;
+}): Promise<ServiceResult<{ ok: true }>> {
+  const access = await requireProjectRole({
+    actorUserId: input.actorUserId,
+    projectId: input.projectId,
+    minimumRole: "editor",
+    db: input.db,
+  });
+
+  if (!access.ok) {
+    return createError(access.status, access.error);
+  }
+
+  return {
+    ok: true,
+    data: { ok: true },
+  };
+}
+
+async function listProjectRoadmapPhasesInDb(input: {
+  db: DbClient;
+  projectId: string;
+}): Promise<ProjectRoadmapPhase[]> {
+  const phases = await input.db.roadmapPhase.findMany({
+    where: {
+      projectId: input.projectId,
+    },
+    orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      targetDate: true,
+      status: true,
+      position: true,
+      createdAt: true,
+      updatedAt: true,
+      events: {
+        orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          phaseId: true,
+          title: true,
+          description: true,
+          targetDate: true,
+          status: true,
+          position: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+    },
+  });
+
+  return phases.map((phase) => mapRoadmapPhase(phase));
+}
+
+export function isValidRoadmapPhaseReorderPayload(
   payload: unknown
-): payload is { milestoneIds: string[] } {
+): payload is { phaseIds: string[] } {
   if (!payload || typeof payload !== "object") {
     return false;
   }
 
-  const milestoneIds = (payload as { milestoneIds?: unknown }).milestoneIds;
-  if (!Array.isArray(milestoneIds)) {
+  const phaseIds = (payload as { phaseIds?: unknown }).phaseIds;
+  if (!Array.isArray(phaseIds)) {
     return false;
   }
 
-  const seenMilestoneIds = new Set<string>();
-  return milestoneIds.every((milestoneId) => {
-    if (typeof milestoneId !== "string") {
+  const seenPhaseIds = new Set<string>();
+  return phaseIds.every((phaseId) => {
+    if (typeof phaseId !== "string") {
       return false;
     }
 
-    const trimmedMilestoneId = milestoneId.trim();
-    if (trimmedMilestoneId.length === 0 || milestoneId !== trimmedMilestoneId) {
+    const trimmedPhaseId = phaseId.trim();
+    if (!trimmedPhaseId || trimmedPhaseId !== phaseId) {
       return false;
     }
 
-    if (seenMilestoneIds.has(trimmedMilestoneId)) {
+    if (seenPhaseIds.has(trimmedPhaseId)) {
       return false;
     }
 
-    seenMilestoneIds.add(trimmedMilestoneId);
+    seenPhaseIds.add(trimmedPhaseId);
     return true;
   });
 }
 
-export async function listProjectRoadmapMilestones(
+export function isValidRoadmapEventReorderPayload(
+  payload: unknown
+): payload is { phaseId: string; eventIds: string[] } {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+
+  const phaseId = (payload as { phaseId?: unknown }).phaseId;
+  const eventIds = (payload as { eventIds?: unknown }).eventIds;
+  if (typeof phaseId !== "string" || phaseId.trim() !== phaseId || !phaseId) {
+    return false;
+  }
+  if (!Array.isArray(eventIds)) {
+    return false;
+  }
+
+  const seenEventIds = new Set<string>();
+  return eventIds.every((eventId) => {
+    if (typeof eventId !== "string") {
+      return false;
+    }
+
+    const trimmedEventId = eventId.trim();
+    if (!trimmedEventId || trimmedEventId !== eventId) {
+      return false;
+    }
+
+    if (seenEventIds.has(trimmedEventId)) {
+      return false;
+    }
+
+    seenEventIds.add(trimmedEventId);
+    return true;
+  });
+}
+
+export function isValidRoadmapEventMovePayload(
+  payload: unknown
+): payload is { eventId: string; targetPhaseId: string; targetIndex: number } {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+
+  const { eventId, targetPhaseId, targetIndex } = payload as {
+    eventId?: unknown;
+    targetPhaseId?: unknown;
+    targetIndex?: unknown;
+  };
+
+  return (
+    typeof eventId === "string" &&
+    eventId.trim() === eventId &&
+    eventId.length > 0 &&
+    typeof targetPhaseId === "string" &&
+    targetPhaseId.trim() === targetPhaseId &&
+    targetPhaseId.length > 0 &&
+    Number.isInteger(targetIndex) &&
+    (targetIndex as number) >= 0
+  );
+}
+
+export async function listProjectRoadmapPhases(
   projectId: string,
   actorUserId: string
-): Promise<ProjectRoadmapMilestone[]> {
+): Promise<ProjectRoadmapPhase[]> {
   const normalizedActorUserId = normalizeText(actorUserId);
   if (!normalizedActorUserId) {
     return [];
@@ -250,68 +506,56 @@ export async function listProjectRoadmapMilestones(
       return [];
     }
 
-    const milestones = await db.roadmapMilestone.findMany({
-      where: {
-        projectId,
-      },
-      orderBy: [{ position: "asc" }, { createdAt: "asc" }],
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        targetDate: true,
-        status: true,
-        position: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    return listProjectRoadmapPhasesInDb({
+      db,
+      projectId,
     });
-
-    return milestones.map((milestone) => mapProjectRoadmapMilestone(milestone));
-  }) as Promise<ProjectRoadmapMilestone[]>;
+  }) as Promise<ProjectRoadmapPhase[]>;
 }
 
-export async function createProjectRoadmapMilestone(
-  input: CreateRoadmapMilestoneInput
-): Promise<ServiceResult<{ milestone: ProjectRoadmapMilestone }>> {
+export async function createProjectRoadmapPhase(
+  input: CreateRoadmapPhaseInput
+): Promise<ServiceResult<{ phase: ProjectRoadmapPhase }>> {
   const actorUserId = normalizeText(input.actorUserId);
   const title = normalizeText(input.title);
   const description = normalizeOptionalDescription(input.description);
   const targetDateInput = parseRoadmapTargetDate(input.targetDate);
-  const statusInput = parseRoadmapMilestoneStatus(input.status);
+  const statusInput = parseRoadmapStatus(input.status);
 
   if (!actorUserId) {
     return createError(401, "unauthorized");
   }
-  if (title.length < MIN_TITLE_LENGTH) {
-    return createError(400, "roadmap-title-too-short");
+
+  const titleError = validateTitle(title);
+  if (titleError) {
+    return titleError;
   }
-  if (title.length > MAX_TITLE_LENGTH) {
-    return createError(400, "roadmap-title-too-long");
+
+  const descriptionError = validateDescription(description);
+  if (descriptionError) {
+    return descriptionError;
   }
-  if (description && description.length > MAX_DESCRIPTION_LENGTH) {
-    return createError(400, "roadmap-description-too-long");
-  }
+
   if (!targetDateInput.ok) {
     return targetDateInput;
   }
+
   if (!statusInput.ok) {
     return statusInput;
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
-    const access = await requireProjectRole({
+    const editorCheck = await requireRoadmapEditor({
       actorUserId,
       projectId: input.projectId,
-      minimumRole: "editor",
       db,
     });
-    if (!access.ok) {
-      return createError(access.status, access.error);
+    if (!editorCheck.ok) {
+      return editorCheck;
     }
 
     try {
-      const maxPosition = await db.roadmapMilestone.aggregate({
+      const maxPosition = await db.roadmapPhase.aggregate({
         where: {
           projectId: input.projectId,
         },
@@ -320,7 +564,7 @@ export async function createProjectRoadmapMilestone(
         },
       });
 
-      const createdMilestone = await db.roadmapMilestone.create({
+      const createdPhase = await db.roadmapPhase.create({
         data: {
           projectId: input.projectId,
           title,
@@ -334,36 +578,36 @@ export async function createProjectRoadmapMilestone(
         },
       });
 
-      const milestone = await readRoadmapMilestoneById({
+      const phase = await readRoadmapPhaseById({
         db,
         projectId: input.projectId,
-        milestoneId: createdMilestone.id,
+        phaseId: createdPhase.id,
       });
-      if (!milestone) {
-        return createError(500, "roadmap-milestone-create-failed");
+      if (!phase) {
+        return createError(500, "roadmap-phase-create-failed");
       }
 
       return {
         ok: true,
         data: {
-          milestone,
+          phase,
         },
       };
     } catch (error) {
-      logServerError("createProjectRoadmapMilestone", error, {
+      logServerError("createProjectRoadmapPhase", error, {
         actorUserId,
         projectId: input.projectId,
       });
-      return createError(500, "roadmap-milestone-create-failed");
+      return createError(500, "roadmap-phase-create-failed");
     }
   });
 }
 
-export async function updateProjectRoadmapMilestone(
-  input: UpdateRoadmapMilestoneInput
-): Promise<ServiceResult<{ milestone: ProjectRoadmapMilestone }>> {
+export async function updateProjectRoadmapPhase(
+  input: UpdateRoadmapPhaseInput
+): Promise<ServiceResult<{ phase: ProjectRoadmapPhase }>> {
   const actorUserId = normalizeText(input.actorUserId);
-  const milestoneId = normalizeText(input.milestoneId);
+  const phaseId = normalizeText(input.phaseId);
   const titleProvided = Object.prototype.hasOwnProperty.call(input, "title");
   const title = normalizeText(input.title);
   const descriptionProvided = Object.prototype.hasOwnProperty.call(input, "description");
@@ -373,37 +617,42 @@ export async function updateProjectRoadmapMilestone(
   if (!actorUserId) {
     return createError(401, "unauthorized");
   }
-  if (!milestoneId) {
-    return createError(400, "roadmap-milestone-not-found");
+  if (!phaseId) {
+    return createError(400, "roadmap-phase-not-found");
   }
-  if (titleProvided && title.length < MIN_TITLE_LENGTH) {
-    return createError(400, "roadmap-title-too-short");
+
+  if (titleProvided) {
+    const titleError = validateTitle(title);
+    if (titleError) {
+      return titleError;
+    }
   }
-  if (titleProvided && title.length > MAX_TITLE_LENGTH) {
-    return createError(400, "roadmap-title-too-long");
+
+  if (descriptionProvided) {
+    const descriptionError = validateDescription(description);
+    if (descriptionError) {
+      return descriptionError;
+    }
   }
-  if (descriptionProvided && description && description.length > MAX_DESCRIPTION_LENGTH) {
-    return createError(400, "roadmap-description-too-long");
-  }
+
   if (!targetDateInput.ok) {
     return targetDateInput;
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
-    const access = await requireProjectRole({
+    const editorCheck = await requireRoadmapEditor({
       actorUserId,
       projectId: input.projectId,
-      minimumRole: "editor",
       db,
     });
-    if (!access.ok) {
-      return createError(access.status, access.error);
+    if (!editorCheck.ok) {
+      return editorCheck;
     }
 
     try {
-      const existingMilestone = await db.roadmapMilestone.findFirst({
+      const existingPhase = await db.roadmapPhase.findFirst({
         where: {
-          id: milestoneId,
+          id: phaseId,
           projectId: input.projectId,
         },
         select: {
@@ -411,20 +660,20 @@ export async function updateProjectRoadmapMilestone(
           status: true,
         },
       });
-      if (!existingMilestone) {
-        return createError(404, "roadmap-milestone-not-found");
+      if (!existingPhase) {
+        return createError(404, "roadmap-phase-not-found");
       }
 
-      const statusInput = parseRoadmapMilestoneStatus(input.status, {
-        fallback: existingMilestone.status as RoadmapMilestoneStatus,
+      const statusInput = parseRoadmapStatus(input.status, {
+        fallback: existingPhase.status as RoadmapStatus,
       });
       if (!statusInput.ok) {
         return statusInput;
       }
 
-      await db.roadmapMilestone.update({
+      await db.roadmapPhase.update({
         where: {
-          id: milestoneId,
+          id: phaseId,
         },
         data: {
           ...(titleProvided ? { title } : {}),
@@ -436,74 +685,73 @@ export async function updateProjectRoadmapMilestone(
         },
       });
 
-      const milestone = await readRoadmapMilestoneById({
+      const phase = await readRoadmapPhaseById({
         db,
         projectId: input.projectId,
-        milestoneId,
+        phaseId,
       });
-      if (!milestone) {
-        return createError(404, "roadmap-milestone-not-found");
+      if (!phase) {
+        return createError(404, "roadmap-phase-not-found");
       }
 
       return {
         ok: true,
         data: {
-          milestone,
+          phase,
         },
       };
     } catch (error) {
-      logServerError("updateProjectRoadmapMilestone", error, {
+      logServerError("updateProjectRoadmapPhase", error, {
         actorUserId,
         projectId: input.projectId,
-        milestoneId,
+        phaseId,
       });
-      return createError(500, "roadmap-milestone-update-failed");
+      return createError(500, "roadmap-phase-update-failed");
     }
   });
 }
 
-export async function deleteProjectRoadmapMilestone(input: {
+export async function deleteProjectRoadmapPhase(input: {
   actorUserId: string;
   projectId: string;
-  milestoneId: string;
+  phaseId: string;
 }): Promise<ServiceResult<{ ok: true }>> {
   const actorUserId = normalizeText(input.actorUserId);
-  const milestoneId = normalizeText(input.milestoneId);
+  const phaseId = normalizeText(input.phaseId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
   }
-  if (!milestoneId) {
-    return createError(400, "roadmap-milestone-not-found");
+  if (!phaseId) {
+    return createError(400, "roadmap-phase-not-found");
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
-    const access = await requireProjectRole({
+    const editorCheck = await requireRoadmapEditor({
       actorUserId,
       projectId: input.projectId,
-      minimumRole: "editor",
       db,
     });
-    if (!access.ok) {
-      return createError(access.status, access.error);
+    if (!editorCheck.ok) {
+      return editorCheck;
     }
 
     try {
-      const existingMilestone = await db.roadmapMilestone.findFirst({
+      const existingPhase = await db.roadmapPhase.findFirst({
         where: {
-          id: milestoneId,
+          id: phaseId,
           projectId: input.projectId,
         },
         select: {
           id: true,
         },
       });
-      if (!existingMilestone) {
-        return createError(404, "roadmap-milestone-not-found");
+      if (!existingPhase) {
+        return createError(404, "roadmap-phase-not-found");
       }
 
-      await db.roadmapMilestone.delete({
+      await db.roadmapPhase.delete({
         where: {
-          id: milestoneId,
+          id: phaseId,
         },
       });
 
@@ -514,25 +762,321 @@ export async function deleteProjectRoadmapMilestone(input: {
         },
       };
     } catch (error) {
-      logServerError("deleteProjectRoadmapMilestone", error, {
+      logServerError("deleteProjectRoadmapPhase", error, {
         actorUserId,
         projectId: input.projectId,
-        milestoneId,
+        phaseId,
       });
-      return createError(500, "roadmap-milestone-delete-failed");
+      return createError(500, "roadmap-phase-delete-failed");
     }
   });
 }
 
-export async function reorderProjectRoadmapMilestones(
-  input: ReorderRoadmapMilestonesInput
+export async function createProjectRoadmapEvent(
+  input: CreateRoadmapEventInput
+): Promise<ServiceResult<{ event: ProjectRoadmapEvent; phase: ProjectRoadmapPhase }>> {
+  const actorUserId = normalizeText(input.actorUserId);
+  const phaseId = normalizeText(input.phaseId);
+  const title = normalizeText(input.title);
+  const description = normalizeOptionalDescription(input.description);
+  const targetDateInput = parseRoadmapTargetDate(input.targetDate);
+
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+  if (!phaseId) {
+    return createError(400, "roadmap-phase-not-found");
+  }
+
+  const titleError = validateTitle(title);
+  if (titleError) {
+    return titleError;
+  }
+
+  const descriptionError = validateDescription(description);
+  if (descriptionError) {
+    return descriptionError;
+  }
+
+  if (!targetDateInput.ok) {
+    return targetDateInput;
+  }
+
+  return withActorRlsContext(actorUserId, async (db) => {
+    const editorCheck = await requireRoadmapEditor({
+      actorUserId,
+      projectId: input.projectId,
+      db,
+    });
+    if (!editorCheck.ok) {
+      return editorCheck;
+    }
+
+    try {
+      const existingPhase = await db.roadmapPhase.findFirst({
+        where: {
+          id: phaseId,
+          projectId: input.projectId,
+        },
+        select: {
+          id: true,
+          status: true,
+        },
+      });
+      if (!existingPhase) {
+        return createError(404, "roadmap-phase-not-found");
+      }
+
+      const statusInput = parseRoadmapStatus(input.status, {
+        fallback: existingPhase.status as RoadmapStatus,
+      });
+      if (!statusInput.ok) {
+        return statusInput;
+      }
+
+      const maxPosition = await db.roadmapEvent.aggregate({
+        where: {
+          phaseId,
+        },
+        _max: {
+          position: true,
+        },
+      });
+
+      const createdEvent = await db.roadmapEvent.create({
+        data: {
+          projectId: input.projectId,
+          phaseId,
+          title,
+          description,
+          targetDate: targetDateInput.data.targetDate,
+          status: statusInput.data.status,
+          position: (maxPosition._max.position ?? -1) + 1,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      const event = await readRoadmapEventById({
+        db,
+        projectId: input.projectId,
+        eventId: createdEvent.id,
+      });
+      const phase = await readRoadmapPhaseById({
+        db,
+        projectId: input.projectId,
+        phaseId,
+      });
+      if (!event || !phase) {
+        return createError(500, "roadmap-event-create-failed");
+      }
+
+      return {
+        ok: true,
+        data: {
+          event,
+          phase,
+        },
+      };
+    } catch (error) {
+      logServerError("createProjectRoadmapEvent", error, {
+        actorUserId,
+        projectId: input.projectId,
+        phaseId,
+      });
+      return createError(500, "roadmap-event-create-failed");
+    }
+  });
+}
+
+export async function updateProjectRoadmapEvent(
+  input: UpdateRoadmapEventInput
+): Promise<ServiceResult<{ event: ProjectRoadmapEvent; phase: ProjectRoadmapPhase }>> {
+  const actorUserId = normalizeText(input.actorUserId);
+  const eventId = normalizeText(input.eventId);
+  const titleProvided = Object.prototype.hasOwnProperty.call(input, "title");
+  const title = normalizeText(input.title);
+  const descriptionProvided = Object.prototype.hasOwnProperty.call(input, "description");
+  const description = normalizeOptionalDescription(input.description);
+  const targetDateInput = parseRoadmapTargetDate(input.targetDate);
+
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+  if (!eventId) {
+    return createError(400, "roadmap-event-not-found");
+  }
+
+  if (titleProvided) {
+    const titleError = validateTitle(title);
+    if (titleError) {
+      return titleError;
+    }
+  }
+
+  if (descriptionProvided) {
+    const descriptionError = validateDescription(description);
+    if (descriptionError) {
+      return descriptionError;
+    }
+  }
+
+  if (!targetDateInput.ok) {
+    return targetDateInput;
+  }
+
+  return withActorRlsContext(actorUserId, async (db) => {
+    const editorCheck = await requireRoadmapEditor({
+      actorUserId,
+      projectId: input.projectId,
+      db,
+    });
+    if (!editorCheck.ok) {
+      return editorCheck;
+    }
+
+    try {
+      const existingEvent = await db.roadmapEvent.findFirst({
+        where: {
+          id: eventId,
+          projectId: input.projectId,
+        },
+        select: {
+          id: true,
+          phaseId: true,
+          status: true,
+        },
+      });
+      if (!existingEvent) {
+        return createError(404, "roadmap-event-not-found");
+      }
+
+      const statusInput = parseRoadmapStatus(input.status, {
+        fallback: existingEvent.status as RoadmapStatus,
+      });
+      if (!statusInput.ok) {
+        return statusInput;
+      }
+
+      await db.roadmapEvent.update({
+        where: {
+          id: eventId,
+        },
+        data: {
+          ...(titleProvided ? { title } : {}),
+          ...(descriptionProvided ? { description } : {}),
+          ...(targetDateInput.data.provided
+            ? { targetDate: targetDateInput.data.targetDate }
+            : {}),
+          ...(statusInput.data.provided ? { status: statusInput.data.status } : {}),
+        },
+      });
+
+      const event = await readRoadmapEventById({
+        db,
+        projectId: input.projectId,
+        eventId,
+      });
+      const phase = await readRoadmapPhaseById({
+        db,
+        projectId: input.projectId,
+        phaseId: existingEvent.phaseId,
+      });
+      if (!event || !phase) {
+        return createError(404, "roadmap-event-not-found");
+      }
+
+      return {
+        ok: true,
+        data: {
+          event,
+          phase,
+        },
+      };
+    } catch (error) {
+      logServerError("updateProjectRoadmapEvent", error, {
+        actorUserId,
+        projectId: input.projectId,
+        eventId,
+      });
+      return createError(500, "roadmap-event-update-failed");
+    }
+  });
+}
+
+export async function deleteProjectRoadmapEvent(input: {
+  actorUserId: string;
+  projectId: string;
+  eventId: string;
+}): Promise<ServiceResult<{ ok: true; phaseId: string }>> {
+  const actorUserId = normalizeText(input.actorUserId);
+  const eventId = normalizeText(input.eventId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+  if (!eventId) {
+    return createError(400, "roadmap-event-not-found");
+  }
+
+  return withActorRlsContext(actorUserId, async (db) => {
+    const editorCheck = await requireRoadmapEditor({
+      actorUserId,
+      projectId: input.projectId,
+      db,
+    });
+    if (!editorCheck.ok) {
+      return editorCheck;
+    }
+
+    try {
+      const existingEvent = await db.roadmapEvent.findFirst({
+        where: {
+          id: eventId,
+          projectId: input.projectId,
+        },
+        select: {
+          id: true,
+          phaseId: true,
+        },
+      });
+      if (!existingEvent) {
+        return createError(404, "roadmap-event-not-found");
+      }
+
+      await db.roadmapEvent.delete({
+        where: {
+          id: eventId,
+        },
+      });
+
+      return {
+        ok: true,
+        data: {
+          ok: true,
+          phaseId: existingEvent.phaseId,
+        },
+      };
+    } catch (error) {
+      logServerError("deleteProjectRoadmapEvent", error, {
+        actorUserId,
+        projectId: input.projectId,
+        eventId,
+      });
+      return createError(500, "roadmap-event-delete-failed");
+    }
+  });
+}
+
+export async function reorderProjectRoadmapPhases(
+  input: ReorderRoadmapPhasesInput
 ): Promise<ServiceResult<{ ok: true }>> {
   const actorUserId = normalizeText(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
   }
 
-  if (input.milestoneIds.length === 0) {
+  if (input.phaseIds.length === 0) {
     return {
       ok: true,
       data: { ok: true },
@@ -540,37 +1084,36 @@ export async function reorderProjectRoadmapMilestones(
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
-    const access = await requireProjectRole({
+    const editorCheck = await requireRoadmapEditor({
       actorUserId,
       projectId: input.projectId,
-      minimumRole: "editor",
       db,
     });
-    if (!access.ok) {
-      return createError(access.status, access.error);
+    if (!editorCheck.ok) {
+      return editorCheck;
     }
 
     try {
-      const milestones = await db.roadmapMilestone.findMany({
+      const phases = await db.roadmapPhase.findMany({
         where: {
           projectId: input.projectId,
           id: {
-            in: input.milestoneIds,
+            in: input.phaseIds,
           },
         },
         select: {
           id: true,
         },
       });
-      if (milestones.length !== input.milestoneIds.length) {
-        return createError(400, "roadmap-milestones-invalid");
+      if (phases.length !== input.phaseIds.length) {
+        return createError(400, "roadmap-phases-invalid");
       }
 
       await Promise.all(
-        input.milestoneIds.map((milestoneId, index) =>
-          db.roadmapMilestone.update({
+        input.phaseIds.map((phaseId, index) =>
+          db.roadmapPhase.update({
             where: {
-              id: milestoneId,
+              id: phaseId,
             },
             data: {
               position: index,
@@ -584,11 +1127,251 @@ export async function reorderProjectRoadmapMilestones(
         data: { ok: true },
       };
     } catch (error) {
-      logServerError("reorderProjectRoadmapMilestones", error, {
+      logServerError("reorderProjectRoadmapPhases", error, {
         actorUserId,
         projectId: input.projectId,
       });
-      return createError(500, "roadmap-milestones-reorder-failed");
+      return createError(500, "roadmap-phases-reorder-failed");
+    }
+  });
+}
+
+export async function reorderProjectRoadmapEvents(
+  input: ReorderRoadmapEventsInput
+): Promise<ServiceResult<{ ok: true }>> {
+  const actorUserId = normalizeText(input.actorUserId);
+  const phaseId = normalizeText(input.phaseId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+  if (!phaseId) {
+    return createError(400, "roadmap-phase-not-found");
+  }
+
+  return withActorRlsContext(actorUserId, async (db) => {
+    const editorCheck = await requireRoadmapEditor({
+      actorUserId,
+      projectId: input.projectId,
+      db,
+    });
+    if (!editorCheck.ok) {
+      return editorCheck;
+    }
+
+    try {
+      const phase = await db.roadmapPhase.findFirst({
+        where: {
+          id: phaseId,
+          projectId: input.projectId,
+        },
+        select: {
+          id: true,
+        },
+      });
+      if (!phase) {
+        return createError(404, "roadmap-phase-not-found");
+      }
+
+      const events = await db.roadmapEvent.findMany({
+        where: {
+          projectId: input.projectId,
+          phaseId,
+          id: {
+            in: input.eventIds,
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+      if (events.length !== input.eventIds.length) {
+        return createError(400, "roadmap-events-invalid");
+      }
+
+      await Promise.all(
+        input.eventIds.map((eventId, index) =>
+          db.roadmapEvent.update({
+            where: {
+              id: eventId,
+            },
+            data: {
+              position: index,
+            },
+          })
+        )
+      );
+
+      return {
+        ok: true,
+        data: { ok: true },
+      };
+    } catch (error) {
+      logServerError("reorderProjectRoadmapEvents", error, {
+        actorUserId,
+        projectId: input.projectId,
+        phaseId,
+      });
+      return createError(500, "roadmap-events-reorder-failed");
+    }
+  });
+}
+
+export async function moveProjectRoadmapEvent(
+  input: MoveRoadmapEventInput
+): Promise<ServiceResult<{ ok: true }>> {
+  const actorUserId = normalizeText(input.actorUserId);
+  const eventId = normalizeText(input.eventId);
+  const targetPhaseId = normalizeText(input.targetPhaseId);
+
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+  if (!eventId) {
+    return createError(400, "roadmap-event-not-found");
+  }
+  if (!targetPhaseId) {
+    return createError(400, "roadmap-phase-not-found");
+  }
+  if (!Number.isInteger(input.targetIndex) || input.targetIndex < 0) {
+    return createError(400, "roadmap-target-index-invalid");
+  }
+
+  return withActorRlsContext(actorUserId, async (db) => {
+    const editorCheck = await requireRoadmapEditor({
+      actorUserId,
+      projectId: input.projectId,
+      db,
+    });
+    if (!editorCheck.ok) {
+      return editorCheck;
+    }
+
+    try {
+      const existingEvent = await db.roadmapEvent.findFirst({
+        where: {
+          id: eventId,
+          projectId: input.projectId,
+        },
+        select: {
+          id: true,
+          phaseId: true,
+        },
+      });
+      if (!existingEvent) {
+        return createError(404, "roadmap-event-not-found");
+      }
+
+      const targetPhase = await db.roadmapPhase.findFirst({
+        where: {
+          id: targetPhaseId,
+          projectId: input.projectId,
+        },
+        select: {
+          id: true,
+        },
+      });
+      if (!targetPhase) {
+        return createError(404, "roadmap-phase-not-found");
+      }
+
+      const sourceEvents = await db.roadmapEvent.findMany({
+        where: {
+          projectId: input.projectId,
+          phaseId: existingEvent.phaseId,
+        },
+        orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+        },
+      });
+
+      const targetEvents = existingEvent.phaseId === targetPhaseId
+        ? sourceEvents
+        : await db.roadmapEvent.findMany({
+            where: {
+              projectId: input.projectId,
+              phaseId: targetPhaseId,
+            },
+            orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+            select: {
+              id: true,
+            },
+          });
+
+      const sourceEventIds = sourceEvents.map((event) => event.id);
+      if (!sourceEventIds.includes(eventId)) {
+        return createError(404, "roadmap-event-not-found");
+      }
+
+      const currentSourceIds = sourceEventIds.filter((id) => id !== eventId);
+      const targetIndex = Math.min(input.targetIndex, targetEvents.length);
+
+      if (existingEvent.phaseId === targetPhaseId) {
+        currentSourceIds.splice(targetIndex, 0, eventId);
+
+        await Promise.all(
+          currentSourceIds.map((orderedEventId, index) =>
+            db.roadmapEvent.update({
+              where: {
+                id: orderedEventId,
+              },
+              data: {
+                position: index,
+              },
+            })
+          )
+        );
+      } else {
+        const currentTargetIds = targetEvents.map((event) => event.id);
+        currentTargetIds.splice(targetIndex, 0, eventId);
+
+        await db.$transaction([
+          ...currentSourceIds.map((orderedEventId, index) =>
+            db.roadmapEvent.update({
+              where: {
+                id: orderedEventId,
+              },
+              data: {
+                position: index,
+              },
+            })
+          ),
+          db.roadmapEvent.update({
+            where: {
+              id: eventId,
+            },
+            data: {
+              phaseId: targetPhaseId,
+            },
+          }),
+          ...currentTargetIds.map((orderedEventId, index) =>
+            db.roadmapEvent.update({
+              where: {
+                id: orderedEventId,
+              },
+              data: {
+                position: index,
+              },
+            })
+          ),
+        ]);
+      }
+
+      return {
+        ok: true,
+        data: {
+          ok: true,
+        },
+      };
+    } catch (error) {
+      logServerError("moveProjectRoadmapEvent", error, {
+        actorUserId,
+        projectId: input.projectId,
+        eventId,
+        targetPhaseId,
+        targetIndex: input.targetIndex,
+      });
+      return createError(500, "roadmap-event-move-failed");
     }
   });
 }

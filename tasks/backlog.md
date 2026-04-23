@@ -86,6 +86,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Replace persistent explanatory copy inside dashboard sections with lighter opt-in help affordances so users can click a question-mark entry point when they want extra context, keeping section layouts cleaner while creating a reusable explanation pattern for Roadmap and future modules.
   Dependencies: TASK-096, TASK-108
+- ID: TASK-130
+  Title: Roadmap v2 - milestone phases, grouped events, and editable timeline layout
+  Status: Pending
+  Rationale: Evolve the first roadmap release from a flat milestone strip into a richer planning surface where the dashboard can express milestone phases containing one or many child events, visually connect related events, and let collaborators edit the sequence directly through drag-and-drop instead of relying on a single-level card list.
+  Dependencies: TASK-106, TASK-096, TASK-091
 - ID: TASK-100
   Title: Mobile UI/UX refinement - touch ergonomics, compact layouts, and small-screen polish
   Status: Pending

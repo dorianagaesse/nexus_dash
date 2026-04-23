@@ -23,7 +23,7 @@ Implemented today:
 - Project-scoped agent access with owner-managed API credentials, short-lived bearer-token exchange, and audit trail
 - Project dashboard with:
   - Context cards (CRUD + attachments)
-  - Roadmap milestones (manual visual sequencing + target dates)
+  - Roadmap milestone phases with grouped child events, drag-and-drop editing, and target-date planning
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`)
   - Calendar panel (Google Calendar list/create/update/delete)
 - Per-user Google Calendar connection and calendar target setting (`/account/settings`)

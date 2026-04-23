@@ -169,6 +169,38 @@ test.describe("critical UI smoke flows", () => {
     await page.getByRole("button", { name: "Close context preview" }).click();
   });
 
+  test("roadmap grouped milestone flow", async ({ page }) => {
+    const projectName = uniqueProjectName("smoke-roadmap");
+    const phaseTitle = uniqueProjectName("milestone");
+    const eventTitle = uniqueProjectName("event");
+
+    await createProjectFromProjectsPage(page, projectName);
+    await openNewestProjectDashboard(page, projectName);
+
+    await page.getByRole("button", { name: "New milestone" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.locator("#roadmap-entity-title").fill(phaseTitle);
+    await page.locator("#roadmap-entity-description").fill("Roadmap milestone for smoke coverage.");
+    await page.getByRole("button", { name: "Create milestone" }).last().click();
+
+    await expect(page.getByText(phaseTitle)).toBeVisible();
+    await expect(page.getByText("0 events")).toBeVisible();
+
+    await page.getByRole("button", { name: "Event" }).first().click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.locator("#roadmap-entity-title").fill(eventTitle);
+    await page.locator("#roadmap-entity-description").fill("First event inside the milestone.");
+    await page.getByRole("button", { name: "Create event" }).last().click();
+
+    await expect(page.getByText(eventTitle)).toBeVisible();
+    await expect(page.getByText("1 event")).toBeVisible();
+
+    await page.getByRole("button", { name: "View" }).first().click();
+    await expect(page.getByRole("heading", { name: eventTitle })).toBeVisible();
+    await expect(page.getByText(phaseTitle)).toBeVisible();
+    await page.getByRole("button", { name: "Close" }).click();
+  });
+
   test("calendar panel interaction flow", async ({ page }) => {
     const projectName = uniqueProjectName("smoke-calendar");
 
