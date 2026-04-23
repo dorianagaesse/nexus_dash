@@ -14,6 +14,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-04-23
 - Type: Execution
+- Summary: TASK-130 replaced the flat roadmap milestone strip with a grouped roadmap model built around milestone phases plus child events, preserving existing roadmap data through migration and adding direct dashboard editing with drag-and-drop sequencing for both phases and events.
+- Evidence: Replaced `RoadmapMilestone` with `RoadmapPhase` and `RoadmapEvent` in `prisma/schema.prisma` plus migration `prisma/migrations/20260423201000_task130_roadmap_v2/migration.sql`; rewrote roadmap services/routes in `lib/services/project-roadmap-service.ts` and `app/api/projects/[projectId]/roadmap/**`; rebuilt the grouped roadmap UI in `components/project-roadmap-panel.tsx` and `app/projects/[projectId]/project-roadmap-panel-section.tsx`; updated roadmap docs in `README.md`, `project.md`, `tasks/current.md`, and `tasks/backlog.md`; PR `#198`.
+
+### 2026-04-23
+- Type: Validation
+- Summary: TASK-130 passed local lint, full production build, and protected-preview Playwright validation after adding explicit Vercel preview-bypass header support so the smoke suite could target deployed branch previews directly.
+- Evidence: `npm run lint`; env-loaded `npm run build` with preview-safe overrides for `DIRECT_URL`, `VERCEL_ENV`, `RESEND_API_KEY`, `AGENT_TOKEN_SIGNING_SECRET`, and `GOOGLE_TOKEN_ENCRYPTION_KEY`; workflow `Deploy Vercel (CD + Rollback)` run `24862804725` with `action=deploy-preview` and explicit `git_ref=feature/task-130-roadmap-groups`; log evidence shows `actions/checkout@v6`, `ref: feature/task-130-roadmap-groups`, and `git checkout --progress --force -B feature/task-130-roadmap-groups`; preview URL `https://nexus-dash-j9qndtqv9-dorian-agaesses-projects.vercel.app`; `PLAYWRIGHT_BASE_URL=https://nexus-dash-j9qndtqv9-dorian-agaesses-projects.vercel.app` plus `VERCEL_AUTOMATION_BYPASS_SECRET=...` with `npx -y node@22 node_modules\\playwright\\cli.js test tests/e2e/smoke-project-task-calendar.spec.ts` passed (`5 passed`).
+
+### 2026-04-23
+- Type: Execution
 - Summary: TASK-106 roadmap follow-up refined the first milestone UI by removing the persistent explanatory hero copy, replacing the long desktop cross-rail with a card-to-card journey treatment, deduplicating deadline display, clamping card descriptions, and adding a dedicated milestone detail view triggered by a `View` action.
 - Evidence: Updated `components/project-roadmap-panel.tsx`, added roadmap detail-view regression coverage in `tests/components/project-roadmap-panel.test.tsx`, and recorded the future section-help affordance follow-up in `tasks/backlog.md` as `TASK-129`.
 

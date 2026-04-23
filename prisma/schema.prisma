@@ -223,6 +223,7 @@ model RoadmapPhase {
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   events  RoadmapEvent[]
 
+  @@unique([id, projectId])
   @@index([projectId])
   @@index([projectId, position])
   @@index([projectId, targetDate])
@@ -241,7 +242,7 @@ model RoadmapEvent {
   updatedAt   DateTime               @updatedAt
 
   project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  phase   RoadmapPhase @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  phase   RoadmapPhase @relation(fields: [phaseId, projectId], references: [id, projectId], onDelete: Cascade)
 
   @@index([projectId])
   @@index([projectId, targetDate])

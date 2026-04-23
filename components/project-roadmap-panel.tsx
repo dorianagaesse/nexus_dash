@@ -483,7 +483,7 @@ function RoadmapDialogShell({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end bg-slate-950/55 p-3 sm:items-center sm:justify-center sm:p-6">
-      <button type="button" aria-label={`Close ${title}`} className="absolute inset-0" onClick={onClose} />
+      <div aria-hidden="true" className="absolute inset-0" onMouseDown={onClose} />
 
       <div
         role="dialog"
@@ -1129,7 +1129,7 @@ export function ProjectRoadmapPanel({
       closePhaseDialog();
       router.refresh();
     } catch (error) {
-      console.error(error);
+      console.error("[ProjectRoadmapPanel.submitPhase]", error);
       setPhaseMutationError(mapRoadmapMutationError());
     } finally {
       setIsSubmittingPhase(false);
@@ -1185,7 +1185,7 @@ export function ProjectRoadmapPanel({
       closeEventDialog();
       router.refresh();
     } catch (error) {
-      console.error(error);
+      console.error("[ProjectRoadmapPanel.submitEvent]", error);
       setEventMutationError(mapRoadmapMutationError());
     } finally {
       setIsSubmittingEvent(false);
@@ -1231,7 +1231,7 @@ export function ProjectRoadmapPanel({
       });
       router.refresh();
     } catch (error) {
-      console.error(error);
+      console.error("[ProjectRoadmapPanel.confirmDeletePhase]", error);
       pushToast({
         message: mapRoadmapMutationError(),
         variant: "error",
@@ -1292,7 +1292,7 @@ export function ProjectRoadmapPanel({
       });
       router.refresh();
     } catch (error) {
-      console.error(error);
+      console.error("[ProjectRoadmapPanel.confirmDeleteEvent]", error);
       pushToast({
         message: mapRoadmapMutationError(),
         variant: "error",

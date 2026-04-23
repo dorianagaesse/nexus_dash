@@ -54,6 +54,7 @@ import {
   DELETE as deleteRoadmapEvent,
   PATCH as updateRoadmapEvent,
 } from "@/app/api/projects/[projectId]/roadmap/events/[eventId]/route";
+import { POST as reorderRoadmapEvents } from "@/app/api/projects/[projectId]/roadmap/events/reorder/route";
 import { POST as moveRoadmapEvent } from "@/app/api/projects/[projectId]/roadmap/events/move/route";
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {
@@ -361,6 +362,70 @@ describe("project roadmap routes", () => {
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({
       error: "invalid-payload",
+    });
+  });
+
+  test("POST /api/projects/:projectId/roadmap/phases/reorder saves phase order", async () => {
+    roadmapServiceMock.isValidRoadmapPhaseReorderPayload.mockReturnValueOnce(true);
+    roadmapServiceMock.reorderProjectRoadmapPhases.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        ok: true,
+      },
+    });
+
+    const response = await reorderRoadmapPhases(
+      new Request("http://localhost/api/projects/p1/roadmap/phases/reorder", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          phaseIds: ["phase-2", "phase-1"],
+        }),
+      }) as never,
+      projectParams("p1")
+    );
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({ ok: true });
+    expect(roadmapServiceMock.reorderProjectRoadmapPhases).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+      projectId: "p1",
+      phaseIds: ["phase-2", "phase-1"],
+    });
+  });
+
+  test("POST /api/projects/:projectId/roadmap/events/reorder saves event order", async () => {
+    roadmapServiceMock.isValidRoadmapEventReorderPayload.mockReturnValueOnce(true);
+    roadmapServiceMock.reorderProjectRoadmapEvents.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        ok: true,
+      },
+    });
+
+    const response = await reorderRoadmapEvents(
+      new Request("http://localhost/api/projects/p1/roadmap/events/reorder", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          phaseId: "phase-1",
+          eventIds: ["event-2", "event-1"],
+        }),
+      }) as never,
+      projectParams("p1")
+    );
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({ ok: true });
+    expect(roadmapServiceMock.reorderProjectRoadmapEvents).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+      projectId: "p1",
+      phaseId: "phase-1",
+      eventIds: ["event-2", "event-1"],
     });
   });
 

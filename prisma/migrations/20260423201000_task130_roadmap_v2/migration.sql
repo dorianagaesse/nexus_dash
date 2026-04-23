@@ -13,6 +13,8 @@ CREATE TABLE "RoadmapPhase" (
     CONSTRAINT "RoadmapPhase_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
+CREATE UNIQUE INDEX "RoadmapPhase_id_projectId_key" ON "RoadmapPhase"("id", "projectId");
+
 CREATE TABLE "RoadmapEvent" (
     "id" TEXT NOT NULL,
     "projectId" TEXT NOT NULL,
@@ -27,7 +29,7 @@ CREATE TABLE "RoadmapEvent" (
 
     CONSTRAINT "RoadmapEvent_pkey" PRIMARY KEY ("id"),
     CONSTRAINT "RoadmapEvent_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "RoadmapEvent_phaseId_fkey" FOREIGN KEY ("phaseId") REFERENCES "RoadmapPhase"("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "RoadmapEvent_phaseId_projectId_fkey" FOREIGN KEY ("phaseId", "projectId") REFERENCES "RoadmapPhase"("id", "projectId") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE INDEX "RoadmapPhase_projectId_idx" ON "RoadmapPhase"("projectId");
@@ -225,6 +227,12 @@ WITH CHECK (
         )
       )
   )
+  AND EXISTS (
+    SELECT 1
+    FROM "RoadmapPhase" rp
+    WHERE rp.id = "RoadmapEvent"."phaseId"
+      AND rp."projectId" = "RoadmapEvent"."projectId"
+  )
 );
 
 CREATE POLICY roadmap_event_update_policy ON "RoadmapEvent"
@@ -261,6 +269,12 @@ WITH CHECK (
             AND pm.role IN ('owner', 'editor')
         )
       )
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM "RoadmapPhase" rp
+    WHERE rp.id = "RoadmapEvent"."phaseId"
+      AND rp."projectId" = "RoadmapEvent"."projectId"
   )
 );
 
