@@ -183,8 +183,8 @@ test.describe("critical UI smoke flows", () => {
     await page.locator("#roadmap-entity-description").fill("Roadmap milestone for smoke coverage.");
     await page.getByRole("button", { name: "Create milestone" }).last().click();
 
-    await expect(page.getByText(phaseTitle)).toBeVisible();
-    await expect(page.getByText("0 events")).toBeVisible();
+    await expect(page.getByRole("heading", { name: phaseTitle })).toBeVisible();
+    await expect(page.getByText("0 events").last()).toBeVisible();
 
     await page.getByRole("button", { name: "Event" }).first().click();
     await expect(page.getByRole("dialog")).toBeVisible();
@@ -192,13 +192,18 @@ test.describe("critical UI smoke flows", () => {
     await page.locator("#roadmap-entity-description").fill("First event inside the milestone.");
     await page.getByRole("button", { name: "Create event" }).last().click();
 
-    await expect(page.getByText(eventTitle)).toBeVisible();
-    await expect(page.getByText("1 event")).toBeVisible();
+    await expect(page.getByRole("heading", { name: eventTitle })).toBeVisible();
+    await expect(page.getByText("1 event").last()).toBeVisible();
 
     await page.getByRole("button", { name: "View" }).first().click();
-    await expect(page.getByRole("heading", { name: eventTitle })).toBeVisible();
-    await expect(page.getByText(phaseTitle)).toBeVisible();
-    await page.getByRole("button", { name: "Close" }).click();
+    const roadmapDetailDialog = page.getByRole("dialog");
+    await expect(
+      roadmapDetailDialog.getByRole("heading", { name: eventTitle })
+    ).toBeVisible();
+    await expect(
+      roadmapDetailDialog.getByText(phaseTitle, { exact: true }).last()
+    ).toBeVisible();
+    await roadmapDetailDialog.getByRole("button", { name: "Close", exact: true }).click();
   });
 
   test("calendar panel interaction flow", async ({ page }) => {

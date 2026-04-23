@@ -225,6 +225,21 @@ Run:
 npm run test:e2e
 ```
 
+Against a deployed preview:
+
+```bash
+PLAYWRIGHT_BASE_URL=https://<preview-url> npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts
+```
+
+If the preview is behind Vercel protection, also set:
+
+```bash
+VERCEL_AUTOMATION_BYPASS_SECRET=<32-char-secret>
+```
+
+The Playwright config forwards that secret through the Vercel preview-protection
+headers so smoke runs can target the deployed branch preview directly.
+
 ## CI/CD
 
 ### CI workflows

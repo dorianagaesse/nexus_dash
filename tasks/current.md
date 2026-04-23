@@ -4,7 +4,7 @@
 TASK-130
 
 ## Status
-In progress.
+Done.
 
 ## Objective
 Evolve the project `Roadmap` section from the shipped flat milestone strip into
@@ -174,7 +174,7 @@ structure directly from the dashboard.
   - `prisma/migrations/**`
   - `lib/services/project-roadmap-service.ts`
   - `lib/roadmap-milestone.ts`
-  - `app/api/projects/[projectId]/roadmap-milestones/**`
+  - `app/api/projects/[projectId]/roadmap/**`
   - `app/projects/[projectId]/project-roadmap-panel-section.tsx`
   - `components/project-roadmap-panel.tsx`
   - focused tests under `tests/lib`, `tests/api`, `tests/components`, and
