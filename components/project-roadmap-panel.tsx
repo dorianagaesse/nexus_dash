@@ -156,7 +156,7 @@ function RoadmapStatusBadge({ status }: { status: RoadmapMilestoneStatus }) {
 }
 
 const ROADMAP_ACTION_BUTTON_CLASS =
-  "rounded-full border border-transparent bg-transparent text-foreground/90 hover:border-white/90 hover:bg-white hover:text-slate-950 dark:text-white/90 dark:hover:border-white dark:hover:bg-white dark:hover:text-slate-950";
+  "rounded-full border border-transparent bg-transparent text-foreground/90 hover:border-slate-950 hover:bg-slate-950 hover:text-white dark:text-white/90 dark:hover:border-white dark:hover:bg-white dark:hover:text-slate-950";
 
 function RoadmapMilestoneDescriptionPreview({
   description,
