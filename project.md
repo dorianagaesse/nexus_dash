@@ -1,6 +1,6 @@
 # NexusDash Project Blueprint (Current State)
 
-Last verified: 2026-04-22
+Last verified: 2026-04-23
 
 ## 1. Vision
 
@@ -13,8 +13,9 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
 - DB-backed session authentication with protected app routes (`/projects/**`, `/account/**`).
 - Multi-project workspace with project CRUD.
 - Project sharing v2 with owner-managed invites, role-based membership, email-bound invitation flows, and resumable invite acceptance.
-- Project dashboard with three core panels:
+- Project dashboard with core panels:
   - Context cards (create/edit/delete + attachments)
+  - Roadmap milestones with manual visual sequencing and target-date planning
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`) with reorder, deadline/comment visibility, task epic links, and task detail modal
   - Project epics registry with dedicated epic CRUD, automatic status/progress, and linked-task rollups
   - Google Calendar panel (read/create/update/delete events when connected)
@@ -40,9 +41,9 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
 
 ## 3. Architecture and Stack
 
-- Framework: Next.js 14 App Router + TypeScript strict
+- Framework: Next.js 16 App Router + TypeScript strict
 - UI: Tailwind CSS + Shadcn UI + Lucide + `@hello-pangea/dnd`
-- Data: Prisma 5 + PostgreSQL
+- Data: Prisma 7 + PostgreSQL
 - Auth model (current):
   - Credentials onboarding + DB sessions for humans
   - Project-scoped agent API credentials exchanged into short-lived signed bearer tokens
@@ -58,7 +59,7 @@ Current schema includes:
 - Auth/session: `User`, `Account`, `Session`, `VerificationToken`
 - Authorization boundaries: `Project.ownerId`, `ProjectMembership` (`owner|editor|viewer`)
 - Agent auth: `ApiCredential`, `ApiCredentialScopeGrant`, `AuthAuditEvent`
-- Domain: `Project`, `Epic`, `Task`, `Resource` (context cards), `TaskBlockedFollowUp`
+- Domain: `Project`, `RoadmapMilestone`, `Epic`, `Task`, `Resource` (context cards), `TaskBlockedFollowUp`
 - Collaboration on tasks: `TaskComment`
 - Attachments: `TaskAttachment`, `ResourceAttachment` with `uploadedByUserId`
 - Calendar: `GoogleCalendarCredential` (one row per user)
@@ -89,10 +90,10 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 From `tasks/current.md` + `tasks/backlog.md`:
 
-1. TASK-115: agent onboarding v1 - hosted docs, OpenAPI surface, and in-app setup UX
-2. TASK-048: authentication hardening + auth regression coverage
-3. TASK-061: dependency security baseline
-4. TASK-049/TASK-050/TASK-051: OWASP-focused security assessment, remediation, and verification
+1. TASK-123: notification center - unified in-app inbox for invitations, mentions, and future activity
+2. TASK-124: comment mentions - project-member @tagging with notification-center delivery
+3. TASK-126: comment reactions - lightweight emoji response system on task threads
+4. TASK-127: API capability audit - confirm every shipped feature remains fully manageable through the API
 
 ## 8. Source-of-Truth Docs
 

@@ -1,104 +1,170 @@
-# Current Task: TASK-128 Task Assignee Quick Assign From Task Options
+# Current Task: TASK-106 Project Roadmap
 
 ## Task ID
-TASK-128
+TASK-106
 
 ## Status
-In progress.
+Done.
 
 ## Objective
-Let collaborators assign or clear a task assignee directly from the existing
-task options menu, so common ownership changes do not require switching into
-full edit mode.
+Add a dedicated `Roadmap` section to each project dashboard where users can
+manually create and arrange visual milestones that communicate the intended
+direction of the project.
+
+This first version is intentionally a planning-communication surface, not a
+task-tracking surface. Milestones should help users see where the project is
+heading at a glance, without coupling roadmap items to Kanban tasks, task
+deadlines, or epics yet.
 
 ## Why This Task Matters
-- `TASK-101` already introduced assignee data across schema, services, API
-  routes, and task surfaces, but the fastest reassignment path still lives
-  behind full task edit mode.
-- Ownership changes are one of the most frequent task adjustments during daily
-  execution, especially while triaging new work or redistributing active work.
-- The task options menu already hosts quick actions for move/archive/delete, so
-  assignee fits naturally there as another lightweight task-management action.
+- NexusDash currently gives strong execution visibility through context cards,
+  epics, Kanban tasks, deadlines, comments, and calendar events, but it does
+  not yet provide a high-level visual story of project direction.
+- Teams need a lightweight way to express upcoming phases, target moments,
+  launch checkpoints, decision gates, or aspirational milestones without
+  forcing those ideas into task status columns.
+- A compelling roadmap section can make the project dashboard feel more
+  strategic and easier to scan before users dive into execution detail.
+- Keeping v1 independent from tasks preserves clarity now while leaving room
+  for a future v2 where epics or tasks can power milestone tracking.
 
 ## Current Baseline Confirmed In Repo
-- Tasks already persist an optional `assigneeUserId`.
-- Task create/edit flows already validate assignees against current project
-  collaborators.
-- The task detail modal already shows the current assignee and already exposes a
-  task options menu.
-- The `PATCH /api/projects/{projectId}/tasks/{taskId}` route already supports
-  changing or clearing assignee through the existing service boundary.
+- The project dashboard is composed from async server sections under
+  `app/projects/[projectId]`.
+- Existing sections use shared dashboard chrome from
+  `components/project-dashboard/project-section-chrome.ts`.
+- Project-scoped persistence and authorization belong in `lib/services/**`.
+- API routes are thin transport adapters that authenticate principals, parse
+  input, call services, and map service results.
+- Project roles are already available through the service layer:
+  - viewers can read project-scoped content
+  - editors and owners can mutate most project execution content
+  - owners keep project administration capabilities
+- The app already has a first-class `Epic` model, but roadmap v1 should not
+  depend on epics or tasks.
+
+## Product Direction
+- The section name is `Roadmap`.
+- The user experience should be creative, visual, and compelling rather than a
+  plain CRUD table.
+- Desktop should present milestones as a directional journey or timeline that
+  makes sequencing easy to understand at a glance.
+- Mobile should feel intentionally designed, likely as a vertical milestone
+  journey, stacked timeline, or card path rather than a cramped desktop layout.
+- Milestones should be standalone project artifacts in v1.
+- Future v2 may use epics as a tracking layer, but that is explicitly deferred.
 
 ## Scope
-- Add an assignee quick-action entry inside the existing task options menu.
-- Allow assigning the task to any current project collaborator from that menu.
-- Allow clearing the assignee back to unassigned from that menu.
-- Reuse the existing task update API/service path instead of introducing a
-  parallel assignee-only endpoint.
-- Keep local task state, modal header assignee badge, and board card assignee
-  UI aligned immediately after the quick update.
-- Preserve current collaborator validation and current error handling behavior.
-- Add targeted regression coverage for the quick-assignment path.
-- Update task tracking docs in the same branch.
+- Add a project-scoped roadmap milestone data model.
+- Add service-layer functions for listing, creating, updating, deleting, and
+  reordering roadmap milestones.
+- Add API routes for roadmap milestone reads and mutations.
+- Add a `Roadmap` dashboard section that matches the existing dashboard
+  architecture and visual quality bar.
+- Allow users with edit permission to create, edit, delete, and reorder
+  milestones.
+- Allow viewers to read roadmap milestones without mutation controls.
+- Support milestone fields that are expressive enough for visual planning:
+  - title
+  - optional description
+  - optional target date
+  - visual state or tone for manual planning communication
+  - explicit order/position
+- Preserve project-scoped authorization and RLS context in all service paths.
+- Add targeted unit/API/component coverage for the roadmap service, routes, and
+  core UI behavior.
+- Update task tracking documentation and the project blueprint after the
+  feature lands.
 
 ## Out Of Scope
-- Assignee search/filter across the whole board.
-- Bulk assignment actions.
-- New collaborator-management UX.
-- Additional provenance model changes beyond the already shipped `TASK-101`
-  contract.
+- Linking milestones to tasks.
+- Linking milestones to epics.
+- Automatic progress calculation.
+- Calendar synchronization.
+- Reminder or notification behavior.
+- Dependency graphs or critical-path planning.
+- Multi-project roadmap aggregation.
+- Dragging tasks onto roadmap milestones.
+- Agent/OpenAPI roadmap management unless intentionally added as a follow-up
+  after the human dashboard flow is stable.
 
 ## Acceptance Criteria
-- The task options menu includes an assignee quick-action path.
-- Users can assign a task to any current project collaborator from that menu.
-- Users can clear an assignee back to unassigned from that menu.
-- Invalid assignee writes are still rejected by the existing service boundary.
-- The task detail assignee badge updates immediately after a successful quick
-  assignment change.
-- Task tracking docs are updated consistently in the same PR.
+- A `Roadmap` section appears on the project dashboard.
+- Project members with viewer access can see roadmap milestones.
+- Editors and owners can create roadmap milestones.
+- Editors and owners can update roadmap milestone content and visual state.
+- Editors and owners can delete roadmap milestones with an intentional
+  confirmation flow.
+- Editors and owners can control milestone ordering or sequencing.
+- Milestones remain independent from tasks, deadlines, comments, and epics in
+  v1.
+- The desktop presentation communicates sequence/direction visually and is not
+  just a table or unstyled list.
+- The mobile presentation is intentionally adapted for narrow screens.
+- Service-layer authorization rejects unauthorized reads and mutations.
+- API routes remain thin adapters over the roadmap service.
+- Prisma access remains limited to `lib/services/**`.
+- Relevant automated tests cover service behavior, API contracts, and core UI
+  rendering/interactions.
+- Tracking docs are updated consistently in the same PR.
 
 ## Definition Of Done
-1. `TASK-128` is the active brief in `tasks/current.md`.
-2. Task options support assignee quick assignment end to end through the
-   existing UI/API/service stack.
-3. Relevant validation is green:
+1. `TASK-106` is the active brief in `tasks/current.md`.
+2. The roadmap milestone model, migration, service, API routes, and dashboard
+   section are implemented without coupling milestones to tasks or epics.
+3. The UI works intentionally on desktop and mobile.
+4. Relevant validation is green:
    - `npm run lint`
-   - targeted automated coverage for the quick-action path
+   - targeted roadmap service/API/component tests
+   - `npm test`
    - `npm run build`
-   - preview validation once the branch is published
-4. Tracking docs are updated consistently (`tasks/current.md`,
-   `tasks/backlog.md`, and `journal.md`; `adr/decisions.md` only if a new
-   architecture-level decision appears).
-5. The task ships through its own dedicated branch and PR with Copilot review
-   triaged before handoff.
+   - Playwright smoke coverage when the dashboard interaction flow is touched
+5. Tracking docs are updated consistently:
+   - `tasks/current.md`
+   - `tasks/backlog.md`
+   - `journal.md`
+   - `project.md`
+   - `adr/decisions.md` only if a new architecture-level decision appears
+6. The task ships through its own dedicated branch and PR with automated review
+   feedback triaged before handoff.
 
 ## Dependencies
-- `TASK-101`
+- `TASK-076`
 - `TASK-079`
+- `TASK-096`
 
 ## Evidence Plan
 - Repo source of truth:
   - `agent.md`
+  - `project.md`
+  - `README.md`
   - `tasks/backlog.md`
-  - `components/kanban/task-detail-modal.tsx`
-  - `components/kanban-board.tsx`
-  - `components/ui/assignee-select.tsx`
-  - `app/api/projects/[projectId]/tasks/[taskId]/route.ts`
-  - `lib/services/project-task-service.ts`
-  - `tests/e2e/smoke-project-task-calendar.spec.ts`
+  - `prisma/schema.prisma`
+  - `app/projects/[projectId]/page.tsx`
+  - `components/project-dashboard/project-section-chrome.ts`
+  - `lib/services/project-access-service.ts`
+  - `lib/services/rls-context.ts`
+- Likely implementation areas:
+  - `prisma/migrations/**`
+  - `lib/services/project-roadmap-service.ts`
+  - `app/api/projects/[projectId]/roadmap-milestones/**`
+  - `app/projects/[projectId]/project-roadmap-section.tsx`
+  - `components/project-roadmap-panel.tsx`
+  - focused tests under `tests/lib`, `tests/api`, and `tests/components`
 - Validation source of truth:
-  - local lint/build runs
-  - targeted automated tests
-  - PR review comments and checks
-  - preview deployment verification
+  - local lint/test/build runs
+  - targeted UI/API/service tests
+  - PR checks and review comments
+  - preview validation if the branch proceeds to full implementation handoff
 
 ## Outcome Target
-- Reassigning task ownership becomes a lightweight task-management action rather
-  than a full edit workflow.
-- NexusDash keeps the task detail modal focused on quick execution changes where
-  that makes the most sense.
+- Project dashboards gain a high-level visual roadmap that makes project
+  direction, sequencing, and upcoming milestones easy to understand.
+- Roadmap v1 remains simple, manual, and expressive, setting up a clean future
+  path for v2 tracking through epics or tasks without overloading the first
+  release.
 
 ---
 
-Last Updated: 2026-04-22
+Last Updated: 2026-04-23
 Assigned To: Agent

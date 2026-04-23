@@ -4,11 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-106
-  Title: Project roadmap feature - milestone/timeline visibility for better execution sight
-  Status: Pending
-  Rationale: Add a roadmap-oriented project view so teams can see planned direction, upcoming milestones, and sequencing at a higher level than the current Kanban board, improving long-range visibility without losing the existing execution detail.
-  Dependencies: TASK-076, TASK-079, TASK-096
 - ID: TASK-123
   Title: Notification center - unified in-app inbox for invitations, mentions, and future activity
   Status: Pending
@@ -130,6 +125,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-106
+  Title: Project roadmap feature - milestone/timeline visibility for better execution sight
+  Status: Done (2026-04-23)
+  Rationale: Added a dedicated project `Roadmap` section with standalone manual milestones, visual sequencing, and intentionally distinct desktop/mobile timeline treatments so teams can communicate project direction without coupling the first release to tasks or epics yet.
+  Dependencies: TASK-076, TASK-079, TASK-096
 - ID: TASK-128
   Title: Task assignee quick action from task options menu
   Status: Done (2026-04-23)

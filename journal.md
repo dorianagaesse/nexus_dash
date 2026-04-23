@@ -862,3 +862,13 @@ Low-value entries to avoid going forward:
 - Type: Execution
 - Summary: TASK-128 quick assignee updates were hardened after CI exposed that the shared task PATCH endpoint expects a full persisted task payload, not a sparse assignee-only body.
 - Evidence: Updated `components/kanban-board.tsx` so quick assignee mutations preserve title, labels, description, deadline, and related-task ids while overriding only the assignee field; tightened `tests/e2e/smoke-project-task-calendar.spec.ts` to assert the task header badge switches from unassigned to an assigned identity.
+
+### 2026-04-23
+- Type: Execution
+- Summary: TASK-106 added a dedicated `Roadmap` dashboard section with standalone project milestones, new project-scoped roadmap persistence/routes, and distinct desktop/mobile timeline presentations.
+- Evidence: Added `RoadmapMilestone` schema + migration, implemented `lib/services/project-roadmap-service.ts` plus human-only roadmap API routes, wired `app/projects/[projectId]/project-roadmap-panel-section.tsx` into the project page, and built the visual milestone UI in `components/project-roadmap-panel.tsx`.
+
+### 2026-04-23
+- Type: Validation
+- Summary: TASK-106 passed local lint, targeted roadmap coverage, full Vitest coverage, and production build after pinning local validation to the repo-compatible Node `20.19.0` runtime and supplying placeholder env values expected by startup/build validation.
+- Evidence: `npx -y -p node@20.19.0 node .\\node_modules\\prisma\\build\\index.js generate`; `npx -y -p node@20.19.0 node .\\node_modules\\eslint\\bin\\eslint.js .`; `npx -y -p node@20.19.0 node .\\node_modules\\vitest\\vitest.mjs run tests\\lib\\project-roadmap-service.test.ts tests\\api\\project-roadmap.route.test.ts tests\\components\\project-roadmap-panel.test.tsx`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... npx -y -p node@20.19.0 node .\\node_modules\\vitest\\vitest.mjs run`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npx -y -p node@20.19.0 node .\\node_modules\\next\\dist\\bin\\next build`.
