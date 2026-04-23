@@ -1,5 +1,6 @@
 import { AGENT_SCOPE_DEFINITIONS, type AgentScope } from "@/lib/agent-access";
 import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
+import { EPIC_STATUSES } from "@/lib/epic";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 
 export const AGENT_API_VERSION = "v1";
@@ -11,7 +12,7 @@ export const AGENT_API_KEY_PLACEHOLDER = "nda_public.secret";
 export const AGENT_BEARER_TOKEN_ENV_NAME = "NEXUSDASH_AGENT_BEARER_TOKEN";
 export const AGENT_ATTACHMENT_MAX_FILE_SIZE_LABEL = "25MB";
 
-type AgentApiTag = "Auth" | "Projects" | "Tasks" | "Context";
+type AgentApiTag = "Auth" | "Projects" | "Epics" | "Tasks" | "Context";
 type AgentHttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
 type AgentRequestContentType = "application/json" | "multipart/form-data";
 
@@ -56,6 +57,47 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     title: "Read project summary",
     description: "Read project metadata and dashboard summary metrics.",
     requiredScopes: ["project:read"],
+  },
+  {
+    tag: "Epics",
+    method: "GET",
+    path: "/api/projects/{projectId}/epics",
+    title: "List epics",
+    description: "List project epics with automatic status, progress, and linked task summaries.",
+    requiredScopes: ["task:read"],
+    notes: [
+      "Epic status is derived automatically from linked task states.",
+      "Epics are dedicated project entities, not tasks on the kanban board.",
+    ],
+  },
+  {
+    tag: "Epics",
+    method: "POST",
+    path: "/api/projects/{projectId}/epics",
+    title: "Create epic",
+    description: "Create a new project epic.",
+    requiredScopes: ["task:write"],
+    requestContentType: "application/json",
+    notes: ["Epic names must stay unique within a project."],
+  },
+  {
+    tag: "Epics",
+    method: "PATCH",
+    path: "/api/projects/{projectId}/epics/{epicId}",
+    title: "Update epic",
+    description: "Update an existing project epic.",
+    requiredScopes: ["task:write"],
+    requestContentType: "application/json",
+    notes: ["Epic names must stay unique within a project."],
+  },
+  {
+    tag: "Epics",
+    method: "DELETE",
+    path: "/api/projects/{projectId}/epics/{epicId}",
+    title: "Delete epic",
+    description: "Delete an epic and clear the epic link from its tasks.",
+    requiredScopes: ["task:write"],
+    notes: ["Deleting an epic does not delete its tasks."],
   },
   {
     tag: "Tasks",
@@ -299,6 +341,7 @@ export const AGENT_LIMITATIONS: readonly string[] = [
   "Use application/json for agent write requests unless you are intentionally following a browser-oriented multipart flow.",
   "Binary files and images use the direct-upload attachment routes; non-file writes should not rely on multipart/form-data.",
   "attachmentLinks must be arrays of { name, url } objects. Plain string URL arrays are not the canonical v1 format.",
+  "Epic status and progress are automatic. Agents should not try to set them directly.",
   "Task status changes happen through POST /api/projects/{projectId}/tasks/reorder, not PATCH /api/projects/{projectId}/tasks/{taskId}.",
   "Rich HTML is sanitized. Inline <img> content should not be treated as a supported image-delivery path; use attachments instead.",
   "Preview deployments may still be protected by Vercel. If a preview returns Vercel's auth wall, make the preview reachable or use an approved bypass before testing the agent flow.",
@@ -390,7 +433,7 @@ export function buildAgentTaskCreateExample(): string {
     'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
-    "  -d '{\"title\":\"Draft release notes\",\"description\":\"<p>Summarize this week''s changes.</p>\",\"deadlineDate\":\"2026-04-24\",\"assigneeUserId\":\"user_456\",\"labels\":[\"release\",\"docs\"],\"attachmentLinks\":[{\"name\":\"Spec\",\"url\":\"https://example.com/spec\"}]}'",
+    "  -d '{\"title\":\"Draft release notes\",\"description\":\"<p>Summarize this week''s changes.</p>\",\"deadlineDate\":\"2026-04-24\",\"epicId\":\"epic_456\",\"assigneeUserId\":\"user_456\",\"labels\":[\"release\",\"docs\"],\"attachmentLinks\":[{\"name\":\"Spec\",\"url\":\"https://example.com/spec\"}]}'",
   ].join("\n");
 }
 
@@ -408,7 +451,7 @@ export function buildAgentTaskUpdateExample(): string {
     'curl -X PATCH "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
-    '  -d \'{"title":"Draft release notes","description":"<p>Add release highlights.</p>","deadlineDate":"2026-04-25","assigneeUserId":"user_456","labels":["release","ready"],"relatedTaskIds":["task_456"]}\'',
+    '  -d \'{"title":"Draft release notes","description":"<p>Add release highlights.</p>","deadlineDate":"2026-04-25","epicId":"epic_456","assigneeUserId":"user_456","labels":["release","ready"],"relatedTaskIds":["task_456"]}\'',
   ].join("\n");
 }
 
@@ -726,6 +769,11 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         description: "Read project metadata and summary metrics.",
       },
       {
+        name: "Epics",
+        description:
+          "Create, read, update, and delete project epics with automatic status and progress.",
+      },
+      {
         name: "Tasks",
         description:
           "Create, read, update, reorder, archive, delete, and attach files to project tasks.",
@@ -910,6 +958,105 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
           },
         },
+        TaskEpicSummary: {
+          type: "object",
+          required: ["id", "name"],
+          properties: {
+            id: { type: "string" },
+            name: { type: "string" },
+          },
+        },
+        ProjectEpicRecord: {
+          type: "object",
+          required: [
+            "id",
+            "name",
+            "description",
+            "status",
+            "progressPercent",
+            "taskCount",
+            "completedTaskCount",
+            "linkedTasks",
+            "createdAt",
+            "updatedAt",
+          ],
+          properties: {
+            id: { type: "string" },
+            name: { type: "string" },
+            description: { type: "string" },
+            status: {
+              type: "string",
+              enum: EPIC_STATUSES,
+            },
+            progressPercent: {
+              type: "integer",
+              minimum: 0,
+              maximum: 100,
+            },
+            taskCount: {
+              type: "integer",
+              minimum: 0,
+            },
+            completedTaskCount: {
+              type: "integer",
+              minimum: 0,
+            },
+            linkedTasks: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/RelatedTaskSummary",
+              },
+            },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        ProjectEpicListResponse: {
+          type: "object",
+          required: ["epics"],
+          properties: {
+            epics: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/ProjectEpicRecord",
+              },
+            },
+          },
+        },
+        ProjectEpicCreateRequest: {
+          type: "object",
+          required: ["name", "description"],
+          properties: {
+            name: { type: "string" },
+            description: { type: "string" },
+          },
+        },
+        ProjectEpicCreateResponse: {
+          type: "object",
+          required: ["epic"],
+          properties: {
+            epic: {
+              $ref: "#/components/schemas/ProjectEpicRecord",
+            },
+          },
+        },
+        ProjectEpicUpdateRequest: {
+          type: "object",
+          required: ["name", "description"],
+          properties: {
+            name: { type: "string" },
+            description: { type: "string" },
+          },
+        },
+        ProjectEpicUpdateResponse: {
+          type: "object",
+          required: ["epic"],
+          properties: {
+            epic: {
+              $ref: "#/components/schemas/ProjectEpicRecord",
+            },
+          },
+        },
         TaskBlockedFollowUp: {
           type: "object",
           required: ["id", "content", "createdAt"],
@@ -939,6 +1086,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             "labelsJson",
             "createdAt",
             "updatedAt",
+            "epic",
             "assignee",
             "createdBy",
             "updatedBy",
@@ -964,6 +1112,12 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             labelsJson: { type: ["string", "null"] },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
+            epic: {
+              anyOf: [
+                { $ref: "#/components/schemas/TaskEpicSummary" },
+                { type: "null" },
+              ],
+            },
             assignee: {
               anyOf: [
                 { $ref: "#/components/schemas/TaskCommentAuthor" },
@@ -1015,6 +1169,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             title: { type: "string" },
             description: { type: "string" },
             deadlineDate: { type: "string", format: "date" },
+            epicId: { type: ["string", "null"] },
             assigneeUserId: { type: ["string", "null"] },
             labels: {
               type: "array",
@@ -1058,6 +1213,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               type: ["string", "null"],
               format: "date",
             },
+            epicId: { type: ["string", "null"] },
             assigneeUserId: { type: ["string", "null"] },
             blockedFollowUpEntry: { type: "string" },
             relatedTaskIds: {
@@ -1084,6 +1240,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 "status",
                 "position",
                 "archivedAt",
+                "epic",
                 "assignee",
                 "createdBy",
                 "updatedBy",
@@ -1107,6 +1264,12 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 },
                 position: { type: "integer" },
                 archivedAt: { type: ["string", "null"], format: "date-time" },
+                epic: {
+                  anyOf: [
+                    { $ref: "#/components/schemas/TaskEpicSummary" },
+                    { type: "null" },
+                  ],
+                },
                 assignee: {
                   anyOf: [
                     { $ref: "#/components/schemas/TaskCommentAuthor" },
@@ -1414,6 +1577,14 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             type: "string",
           },
         },
+        EpicId: {
+          name: "epicId",
+          in: "path",
+          required: true,
+          schema: {
+            type: "string",
+          },
+        },
         TaskId: {
           name: "taskId",
           in: "path",
@@ -1554,6 +1725,108 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 "application/json": {
                   schema: {
                     $ref: "#/components/schemas/TaskCreateResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/epics": {
+        get: {
+          ...buildOperationMetadata("GET", "/api/projects/{projectId}/epics"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }],
+          responses: {
+            200: {
+              description: "Epic list returned",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/ProjectEpicListResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+        post: {
+          ...buildOperationMetadata("POST", "/api/projects/{projectId}/epics"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ProjectEpicCreateRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: "Epic created",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/ProjectEpicCreateResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/epics/{epicId}": {
+        patch: {
+          ...buildOperationMetadata("PATCH", "/api/projects/{projectId}/epics/{epicId}"),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/EpicId" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ProjectEpicUpdateRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Epic updated",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/ProjectEpicUpdateResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+        delete: {
+          ...buildOperationMetadata("DELETE", "/api/projects/{projectId}/epics/{epicId}"),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/EpicId" },
+          ],
+          responses: {
+            200: {
+              description: "Epic deleted",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/OkResponse",
                   },
                 },
               },

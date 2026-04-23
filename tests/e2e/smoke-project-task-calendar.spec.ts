@@ -30,9 +30,23 @@ test.describe("critical UI smoke flows", () => {
     const createdTaskTitle = uniqueProjectName("task");
     const editedTaskTitle = `${createdTaskTitle}-edited`;
     const taskComment = `Comment ${uniqueProjectName("note")}`;
+    const epicName = uniqueProjectName("epic");
 
     await createProjectFromProjectsPage(page, projectName);
     await openNewestProjectDashboard(page, projectName);
+
+    const projectId = page.url().match(/\/projects\/([^/?#]+)/)?.[1];
+    expect(projectId).toBeTruthy();
+
+    const createEpicResponse = await page.request.post(`/api/projects/${projectId}/epics`, {
+      data: {
+        name: epicName,
+        description: "Smoke-test epic for quick assignment coverage.",
+      },
+    });
+    expect(createEpicResponse.ok()).toBeTruthy();
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Kanban board" })).toBeVisible();
 
     await page.getByRole("button", { name: "New task" }).click();
     await expect(page.locator("#task-title")).toBeVisible();
@@ -46,12 +60,48 @@ test.describe("critical UI smoke flows", () => {
     await page.locator("input[placeholder='https://...']").press("Enter");
     await page.getByRole("button", { name: "Create task" }).click();
 
-    const createdTaskCard = page.locator("article").filter({ hasText: createdTaskTitle }).first();
+    const createdTaskCard = page
+      .getByRole("button", { name: new RegExp(createdTaskTitle) })
+      .first();
     await expect(createdTaskCard).toBeVisible();
 
     await createdTaskCard.click();
     await expect(page.getByRole("button", { name: "Task options" })).toBeVisible();
     await expect(page.getByText("example.com")).toBeVisible();
+
+    await page.getByRole("button", { name: "Task options" }).click();
+    const epicOptionsButton = page.getByRole("button", { name: "Epic options" });
+    await epicOptionsButton.click();
+    const epicOptionsGroup = page.locator("[data-task-options-submenu='epic']");
+    await expect(epicOptionsGroup).toBeVisible();
+    const epicOptionButtons = epicOptionsGroup.getByRole("button");
+    await expect(epicOptionButtons).toHaveCount(2);
+    const quickEpicUpdateRequest = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        /\/tasks\/[^/]+$/.test(response.url()) &&
+        response.ok()
+    );
+    await epicOptionButtons.nth(1).click();
+    await quickEpicUpdateRequest;
+    await expect(page.getByText(`Epic updated to ${epicName}.`)).toBeVisible();
+
+    await page.getByRole("button", { name: "Task options" }).click();
+    const assigneeOptionsButton = page.getByRole("button", { name: "Assignee options" });
+    await assigneeOptionsButton.click();
+    const assigneeSubmenu = page.locator("[data-task-options-submenu='assignee']");
+    await expect(assigneeSubmenu).toBeVisible();
+    const assigneeOptionButtons = assigneeSubmenu.getByRole("button");
+    await expect(assigneeOptionButtons).toHaveCount(2);
+    const quickAssigneeUpdateRequest = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        /\/tasks\/[^/]+$/.test(response.url()) &&
+        response.ok()
+    );
+    await assigneeOptionButtons.nth(1).click();
+    await quickAssigneeUpdateRequest;
+    await expect(page.locator("[data-task-assignee-name='true']")).toBeVisible();
 
     await page.getByRole("button", { name: "Task options" }).click();
     await page.getByRole("button", { name: /^Edit$/ }).click();
@@ -86,10 +136,13 @@ test.describe("critical UI smoke flows", () => {
     await expect(page.getByRole("button", { name: "Task options" })).toBeVisible();
     await page.getByRole("button", { name: "Close task" }).click();
 
-    const editedTaskCard = page.locator("article").filter({ hasText: editedTaskTitle }).first();
+    const editedTaskCard = page
+      .getByRole("button", { name: new RegExp(editedTaskTitle) })
+      .first();
     await expect(editedTaskCard).toBeVisible();
 
     await editedTaskCard.click();
+    await expect(page.getByRole("button", { name: "Close task" })).toBeVisible();
     await expect(page.getByText(taskComment)).toBeVisible();
     await page.getByRole("button", { name: "Close task" }).click();
   });

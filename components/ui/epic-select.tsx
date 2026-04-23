@@ -2,31 +2,24 @@
 
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Flag } from "lucide-react";
 
-import type {
-  ProjectTaskCollaborator,
-} from "@/components/kanban-board-types";
-import { UserAvatar } from "@/components/ui/user-avatar";
-import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
+import type { ProjectEpicOption } from "@/components/kanban-board-types";
+import { getEpicColorFromName } from "@/lib/epic";
 import { cn } from "@/lib/utils";
 
-interface AssigneeSelectProps {
+interface EpicSelectProps {
   id?: string;
   name?: string;
   value: string;
   onChange: (value: string) => void;
-  options: ProjectTaskCollaborator[];
+  options: ProjectEpicOption[];
   disabled?: boolean;
   className?: string;
-  unassignedLabel?: string;
+  noEpicLabel?: string;
 }
 
-function buildAssigneeHoverLabel(assignee: ProjectTaskCollaborator): string {
-  return assignee.usernameTag ?? assignee.displayName;
-}
-
-export function AssigneeSelect({
+export function EpicSelect({
   id,
   name,
   value,
@@ -34,8 +27,8 @@ export function AssigneeSelect({
   options,
   disabled = false,
   className,
-  unassignedLabel = "Unassigned",
-}: AssigneeSelectProps) {
+  noEpicLabel = "No epic",
+}: EpicSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState<{
     top: number;
@@ -46,7 +39,7 @@ export function AssigneeSelect({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  const selectedAssignee = useMemo(
+  const selectedEpic = useMemo(
     () => options.find((option) => option.id === value) ?? null,
     [options, value]
   );
@@ -65,7 +58,7 @@ export function AssigneeSelect({
 
       const rect = trigger.getBoundingClientRect();
       const viewportPadding = 12;
-      const estimatedHeight = Math.min(56 * (options.length + 1), 280);
+      const estimatedHeight = Math.min(72 * (options.length + 1), 320);
       const availableBelow = window.innerHeight - rect.bottom - viewportPadding;
       const availableAbove = rect.top - viewportPadding;
       const shouldOpenAbove =
@@ -80,7 +73,7 @@ export function AssigneeSelect({
           ? Math.max(viewportPadding, rect.top - Math.min(estimatedHeight, maxHeight) - 6)
           : rect.bottom + 6,
         left: rect.left,
-        width: Math.max(rect.width, 260),
+        width: Math.max(rect.width, 280),
         maxHeight,
       });
     };
@@ -118,6 +111,8 @@ export function AssigneeSelect({
     };
   }, [isOpen, options.length]);
 
+  const selectedColor = selectedEpic ? getEpicColorFromName(selectedEpic.name) : null;
+
   return (
     <div className="relative">
       {name ? <input type="hidden" name={name} value={value} /> : null}
@@ -141,31 +136,36 @@ export function AssigneeSelect({
 
           setIsOpen((previous) => !previous);
         }}
-        title={selectedAssignee ? buildAssigneeHoverLabel(selectedAssignee) : undefined}
       >
-        {selectedAssignee ? (
+        {selectedEpic ? (
           <div className="flex min-w-0 items-center gap-3">
-            <UserAvatar
-              avatarSeed={selectedAssignee.avatarSeed}
-              displayName={selectedAssignee.displayName}
-              className="h-8 w-8 border-border/70"
-              decorative
-            />
+            <span
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border"
+              style={{
+                backgroundColor: selectedColor?.soft,
+                borderColor: selectedColor?.border,
+                color: selectedColor?.accent,
+              }}
+            >
+              <Flag className="h-4 w-4" />
+            </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-foreground">
-                {selectedAssignee.displayName}
-              </p>
+              <p className="truncate text-sm font-medium text-foreground">{selectedEpic.name}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {formatProjectCollaboratorRole(selectedAssignee.projectRole)}
+                {selectedEpic.status} · {selectedEpic.progressPercent}% complete
               </p>
             </div>
           </div>
         ) : (
           <div className="flex min-w-0 items-center gap-3">
-            <span className="inline-flex h-8 w-8 shrink-0 rounded-full border border-dashed border-border/70 bg-muted/30" />
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-border/70 bg-muted/30">
+              <Flag className="h-4 w-4 text-muted-foreground" />
+            </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-foreground">{unassignedLabel}</p>
-              <p className="truncate text-xs text-muted-foreground">No owner yet</p>
+              <p className="truncate text-sm font-medium text-foreground">{noEpicLabel}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                Leave this task outside an epic
+              </p>
             </div>
           </div>
         )}
@@ -195,7 +195,7 @@ export function AssigneeSelect({
                 <button
                   type="button"
                   role="option"
-                  aria-selected={!selectedAssignee}
+                  aria-selected={!selectedEpic}
                   className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-muted"
                   onClick={() => {
                     onChange("");
@@ -203,48 +203,55 @@ export function AssigneeSelect({
                   }}
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="inline-flex h-9 w-9 shrink-0 rounded-full border border-dashed border-border/70 bg-muted/30" />
+                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-dashed border-border/70 bg-muted/30">
+                      <Flag className="h-4 w-4 text-muted-foreground" />
+                    </span>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-foreground">
-                        {unassignedLabel}
+                        {noEpicLabel}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
-                        Leave without an assignee
+                        Leave this task outside an epic
                       </p>
                     </div>
                   </div>
-                  {!selectedAssignee ? <Check className="h-4 w-4 text-foreground" /> : null}
+                  {!selectedEpic ? <Check className="h-4 w-4 text-foreground" /> : null}
                 </button>
 
-                {options.map((assignee) => {
-                  const isSelected = assignee.id === selectedAssignee?.id;
+                {options.map((epic) => {
+                  const isSelected = epic.id === selectedEpic?.id;
+                  const color = getEpicColorFromName(epic.name);
 
                   return (
                     <button
-                      key={assignee.id}
+                      key={epic.id}
                       type="button"
                       role="option"
                       aria-selected={isSelected}
-                      title={buildAssigneeHoverLabel(assignee)}
                       className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-muted"
                       onClick={() => {
-                        onChange(assignee.id);
+                        onChange(epic.id);
                         setIsOpen(false);
                       }}
                     >
                       <div className="flex min-w-0 items-center gap-3">
-                        <UserAvatar
-                          avatarSeed={assignee.avatarSeed}
-                          displayName={assignee.displayName}
-                          className="h-9 w-9 border-border/70"
-                          decorative
-                        />
+                        <span
+                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border"
+                          style={{
+                            backgroundColor: color.soft,
+                            borderColor: color.border,
+                            color: color.accent,
+                          }}
+                        >
+                          <Flag className="h-4 w-4" />
+                        </span>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium text-foreground">
-                            {assignee.displayName}
+                            {epic.name}
                           </p>
                           <p className="truncate text-xs text-muted-foreground">
-                            {formatProjectCollaboratorRole(assignee.projectRole)}
+                            {epic.status} · {epic.progressPercent}% complete · {epic.taskCount} task
+                            {epic.taskCount === 1 ? "" : "s"}
                           </p>
                         </div>
                       </div>

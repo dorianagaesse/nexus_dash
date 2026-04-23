@@ -43,6 +43,7 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
   - do not use generic prefixes like `[codex]`
 - Push the active branch remotely after meaningful implementation/validation progress and before handoff.
 - If the current task does not already have an open PR, create one once the branch is reviewable; continue updating the same PR for that task.
+- Do not treat PR creation as optional. A coding task that changes product code is not ready for handoff until its dedicated branch has an open PR, unless the user explicitly says not to open one.
 - Open PRs in a ready-for-review state once they are reviewable so automatic
   Copilot review can start immediately.
 - Use draft PRs only when the user explicitly asks for a draft or when the work
@@ -52,8 +53,9 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
 - Triage Copilot review comments: apply relevant changes, respond on threads, resolve every conversation you addressed before handoff, and leave clear rationale when a suggestion is intentionally not applied.
 - Final task/PR handoff must mention the commit SHA or SHAs that contain the delivered changes.
 - When preview validation is part of the task, review, or acceptance flow, trigger a preview deploy from the active branch git ref through the expected workflow and include both the workflow reference and preview result in the handoff.
-- Preview validation should use the active branch git ref, not `main`. For the repository Vercel workflow, run `deploy-vercel.yml` with `action=deploy-preview` and `git_ref=<active-branch-or-sha>`, then confirm the workflow checkout step used that ref before trusting the preview result.
-- When preview deploy validation is requested, capture the workflow run URL, the checked-out git ref/SHA, and the resulting preview URL in the handoff.
+- For manual preview workflows that accept a `git_ref` or equivalent input, pass the active branch name explicitly and verify from the workflow logs that the job checked out that branch ref.
+- Do not rely only on the workflow UI `headBranch` field for branch-scoped preview evidence when the workflow itself runs from the default branch file; the handoff must mention the explicit `git_ref` used and the log evidence that the requested branch ref was checked out.
+- A task that requires preview validation is not ready for handoff until the preview workflow has completed for the active branch ref and the resulting preview URL or artifact has been recorded.
 - If Playwright needs to run against a deployed preview instead of a local server, set `PLAYWRIGHT_BASE_URL=<preview-url>` before running the desired Playwright command so the suite targets the preview directly rather than starting `next start` locally.
 
 ## 4. Architecture Boundaries (Non-Negotiable)
@@ -88,12 +90,25 @@ npm run build
 
 Use `npm run test:e2e` when UI flows, auth flows, calendar flows, or upload flows are touched.
 
-When preview validation is part of acceptance, use this sequence:
+When preview validation is part of acceptance, use the active branch or commit SHA as `git_ref`, then wait for the exact workflow run before downloading artifacts.
 
 ```bash
 gh workflow run deploy-vercel.yml -f action=deploy-preview -f git_ref=<branch-or-sha>
-gh run download <deploy-run-id> -n preview-deployment --dir .tmp/preview
-$env:PLAYWRIGHT_BASE_URL = Get-Content .tmp/preview/preview-deployment.txt
+run_id="$(gh run list --workflow deploy-vercel.yml --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')"
+gh run watch "$run_id" --exit-status
+gh run download "$run_id" -n preview-deployment --dir .tmp/preview
+preview_url="$(tr -d '\r\n' < .tmp/preview/preview-deployment.txt)"
+PLAYWRIGHT_BASE_URL="$preview_url" npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts
+```
+
+PowerShell:
+
+```pwsh
+gh workflow run deploy-vercel.yml -f action=deploy-preview -f git_ref=<branch-or-sha>
+$RunId = gh run list --workflow deploy-vercel.yml --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId'
+gh run watch $RunId --exit-status
+gh run download $RunId -n preview-deployment --dir .tmp/preview
+$env:PLAYWRIGHT_BASE_URL = (Get-Content -Raw .tmp/preview/preview-deployment.txt).Trim()
 npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts
 ```
 
