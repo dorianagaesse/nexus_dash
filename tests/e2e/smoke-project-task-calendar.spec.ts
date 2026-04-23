@@ -108,6 +108,9 @@ test.describe("critical UI smoke flows", () => {
     await page.getByLabel("Task title").fill(editedTaskTitle);
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByRole("button", { name: "Task options" })).toBeVisible();
+    const taskSavedToast = page.getByText("Task saved.");
+    await expect(taskSavedToast).toBeVisible();
+    await expect(taskSavedToast).not.toBeVisible({ timeout: 15000 });
 
     const createCommentRequest = page.waitForResponse(
       (response) =>
