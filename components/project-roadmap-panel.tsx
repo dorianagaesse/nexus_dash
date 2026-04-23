@@ -361,7 +361,7 @@ function DesktopRoadmapTimeline({
 }) {
   return (
     <div className="hidden lg:block">
-      <div className="overflow-x-auto pb-4">
+      <div className="overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex min-w-max items-stretch gap-4 px-2 py-3">
           {milestones.map((milestone, index) => {
             const tone = getRoadmapStatusClasses(milestone.status);
@@ -491,10 +491,8 @@ function DesktopRoadmapTimeline({
                 </div>
 
                 {index < milestones.length - 1 ? (
-                  <div className="flex h-[15.5rem] items-center">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-background/85 text-muted-foreground shadow-[0_14px_35px_-28px_rgba(15,23,42,0.55)]">
-                      <ArrowRight className="h-4 w-4" />
-                    </div>
+                  <div className="flex w-16 shrink-0 pt-7">
+                    <div className="h-px w-full bg-[linear-gradient(90deg,rgba(14,165,233,0.35),rgba(148,163,184,0.35),rgba(148,163,184,0.08))]" />
                   </div>
                 ) : null}
               </div>
