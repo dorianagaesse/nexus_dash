@@ -361,8 +361,8 @@ function DesktopRoadmapTimeline({
 }) {
   return (
     <div className="hidden lg:block">
-      <div className="overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex min-w-max items-stretch gap-4 px-2 py-3">
+      <div className="overflow-x-auto pb-4 [scrollbar-color:rgba(148,163,184,0.52)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[rgba(148,163,184,0.14)] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]">
+        <div className="flex min-w-max items-stretch gap-2 px-2 py-3">
           {milestones.map((milestone, index) => {
             const tone = getRoadmapStatusClasses(milestone.status);
             const isEditing = editingMilestoneId === milestone.id;
@@ -491,8 +491,8 @@ function DesktopRoadmapTimeline({
                 </div>
 
                 {index < milestones.length - 1 ? (
-                  <div className="flex w-16 shrink-0 pt-7">
-                    <div className="h-px w-full bg-[linear-gradient(90deg,rgba(14,165,233,0.35),rgba(148,163,184,0.35),rgba(148,163,184,0.08))]" />
+                  <div className="flex w-12 shrink-0 pt-[1.15rem]">
+                    <div className="h-0.5 w-full rounded-full bg-border/75" />
                   </div>
                 ) : null}
               </div>
