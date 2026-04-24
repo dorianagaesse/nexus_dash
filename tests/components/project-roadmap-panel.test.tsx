@@ -136,10 +136,7 @@ describe("project-roadmap-panel", () => {
     expect(container.textContent).toContain("1 event");
     expect(
       container.querySelector("[data-roadmap-event-card='event-1']")?.textContent
-    ).toContain("Event 1");
-    expect(
-      container.querySelector("[data-roadmap-event-card='event-1']")?.textContent
-    ).not.toContain("Milestone 1 /");
+    ).not.toContain("Event 1");
 
     await act(async () => {
       root.unmount();

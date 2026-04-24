@@ -743,10 +743,10 @@ function getLaneConnectorHeight(
 }
 
 function buildConnectorPath(width: number, startY: number, endY: number): string {
-  const controlOffset = Math.max(width * 0.22, 18);
+  const controlOffset = Math.max(width * 0.18, 16);
   const deltaY = endY - startY;
-  const controlY1 = startY + deltaY * 0.2;
-  const controlY2 = endY - deltaY * 0.2;
+  const controlY1 = startY - deltaY * 0.28;
+  const controlY2 = endY + deltaY * 0.28;
 
   return `M 0 ${startY} C ${controlOffset} ${controlY1}, ${width - controlOffset} ${controlY2}, ${width} ${endY}`;
 }
@@ -818,121 +818,121 @@ function RoadmapEventCard({
 
   return (
     <Draggable draggableId={event.id} index={eventIndex} isDragDisabled={!canEdit}>
-      {(provided, snapshot) => (
-        <article
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          data-roadmap-event-card={event.id}
-          className={cn(
-            "relative min-h-[212px] rounded-[1.55rem] border p-4 shadow-[0_24px_64px_-46px_rgba(15,23,42,0.58)] transition",
-            tone.phaseCard,
-            snapshot.isDragging &&
-              "z-20 scale-[1.01] shadow-[0_36px_100px_-44px_rgba(15,23,42,0.76)]"
-          )}
-        >
-          <div className="space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={cn(
-                      "text-[11px] font-medium uppercase tracking-[0.2em]",
-                      tone.accent
-                    )}
-                  >
-                    Event {eventIndex + 1}
-                  </span>
-                  <RoadmapStatusBadge
-                    status={event.status}
-                    onClick={
-                      canEdit
-                        ? () => {
-                            onCycleStatus(event);
-                          }
-                        : undefined
-                    }
-                    disabled={isUpdatingStatus}
-                    title={canEdit ? statusButtonTitle : undefined}
-                  />
+      {(provided, snapshot) => {
+        const content = (
+          <article
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            data-roadmap-event-card={event.id}
+            className={cn(
+              "relative min-h-[212px] rounded-[1.55rem] border p-4 shadow-[0_24px_64px_-46px_rgba(15,23,42,0.58)] transition",
+              tone.phaseCard,
+              snapshot.isDragging &&
+                "z-20 scale-[1.01] shadow-[0_36px_100px_-44px_rgba(15,23,42,0.76)]"
+            )}
+          >
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <RoadmapStatusBadge
+                      status={event.status}
+                      onClick={
+                        canEdit
+                          ? () => {
+                              onCycleStatus(event);
+                            }
+                          : undefined
+                      }
+                      disabled={isUpdatingStatus}
+                      title={canEdit ? statusButtonTitle : undefined}
+                    />
+                  </div>
+                  <h4 className="break-words text-lg font-semibold text-foreground">
+                    {event.title}
+                  </h4>
                 </div>
-                <h4 className="break-words text-lg font-semibold text-foreground">
-                  {event.title}
-                </h4>
+
+                {canEdit ? (
+                  <button
+                    type="button"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-transparent text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    aria-label={`Drag ${event.title}`}
+                    data-roadmap-event-drag-handle={event.id}
+                    {...provided.dragHandleProps}
+                  >
+                    <GripVertical className="h-4 w-4" />
+                  </button>
+                ) : null}
               </div>
 
-              {canEdit ? (
-                <button
-                  type="button"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-transparent text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  aria-label={`Drag ${event.title}`}
-                  data-roadmap-event-drag-handle={event.id}
-                  {...provided.dragHandleProps}
+              {event.targetDate ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/75 px-3 py-1 text-xs text-muted-foreground">
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  {formatRoadmapTargetDateForDisplay(event.targetDate)}
+                </span>
+              ) : null}
+
+              {event.description ? (
+                <p
+                  className="break-words text-sm leading-6 text-muted-foreground"
+                  style={EVENT_DESCRIPTION_PREVIEW_STYLE}
                 >
-                  <GripVertical className="h-4 w-4" />
-                </button>
-              ) : null}
+                  {event.description}
+                </p>
+              ) : (
+                <p className="text-sm italic text-muted-foreground">
+                  No extra note attached to this event yet.
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className={ROADMAP_ACTION_BUTTON_CLASS}
+                  onClick={() => onView(event.id)}
+                >
+                  <Eye className="h-4 w-4" />
+                  View
+                </Button>
+
+                {canEdit ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className={ROADMAP_ACTION_BUTTON_CLASS}
+                      onClick={() => onEdit(event)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className={ROADMAP_ACTION_BUTTON_CLASS}
+                      onClick={() => onDelete(event.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </Button>
+                  </>
+                ) : null}
+              </div>
             </div>
+          </article>
+        );
 
-            {event.targetDate ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/75 px-3 py-1 text-xs text-muted-foreground">
-                <CalendarDays className="h-3.5 w-3.5" />
-                {formatRoadmapTargetDateForDisplay(event.targetDate)}
-              </span>
-            ) : null}
+        if (snapshot.isDragging && typeof document !== "undefined") {
+          return createPortal(content, document.body);
+        }
 
-            {event.description ? (
-              <p
-                className="break-words text-sm leading-6 text-muted-foreground"
-                style={EVENT_DESCRIPTION_PREVIEW_STYLE}
-              >
-                {event.description}
-              </p>
-            ) : (
-              <p className="text-sm italic text-muted-foreground">
-                No extra note attached to this event yet.
-              </p>
-            )}
-
-            <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className={ROADMAP_ACTION_BUTTON_CLASS}
-                onClick={() => onView(event.id)}
-              >
-                <Eye className="h-4 w-4" />
-                View
-              </Button>
-
-              {canEdit ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className={ROADMAP_ACTION_BUTTON_CLASS}
-                    onClick={() => onEdit(event)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                    Edit
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className={ROADMAP_ACTION_BUTTON_CLASS}
-                    onClick={() => onDelete(event.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete
-                  </Button>
-                </>
-              ) : null}
-            </div>
-          </div>
-        </article>
-      )}
+        return content;
+      }}
     </Draggable>
   );
 }
@@ -942,7 +942,6 @@ function RoadmapMilestoneLane({
   phaseIndex,
   canEdit,
   isDesktop,
-  isDraggingEvent,
   statusMutationEventId,
   onViewEvent,
   onEditEvent,
@@ -953,7 +952,6 @@ function RoadmapMilestoneLane({
   phaseIndex: number;
   canEdit: boolean;
   isDesktop: boolean;
-  isDraggingEvent: boolean;
   statusMutationEventId: string | null;
   onViewEvent: (eventId: string) => void;
   onEditEvent: (event: ProjectRoadmapPanelEvent) => void;
@@ -989,8 +987,6 @@ function RoadmapMilestoneLane({
             data-roadmap-lane-dropzone={phase.id}
             className={cn(
               "space-y-4 px-1 pb-4 pt-1 transition",
-              isDraggingEvent &&
-                "rounded-[1.8rem] bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.08),transparent_42%)]",
               snapshot.isDraggingOver &&
                 "rounded-[1.8rem] bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.2),transparent_40%)] shadow-[0_30px_80px_-58px_rgba(15,23,42,0.58)] dark:bg-[radial-gradient(circle_at_top_left,rgba(71,85,105,0.34),transparent_40%)]"
             )}
@@ -1043,9 +1039,10 @@ function RoadmapNewMilestoneDropLane({
   return (
     <section
       className={cn(
-        "relative shrink-0 transition-[width,opacity,margin] duration-200",
-        isDesktop ? ROADMAP_LANE_WIDTH_CLASS : "w-full",
-        !isDraggingEvent && (isDesktop ? "w-0 overflow-hidden opacity-0" : "hidden")
+        "relative shrink-0",
+        isDesktop
+          ? "hidden w-0 overflow-visible lg:block"
+          : cn("w-full", !isDraggingEvent && "hidden")
       )}
       aria-hidden={!isDraggingEvent}
     >
@@ -1056,11 +1053,14 @@ function RoadmapNewMilestoneDropLane({
             {...provided.droppableProps}
             data-roadmap-new-milestone-dropzone="true"
             className={cn(
-              "flex min-h-[212px] items-center justify-center rounded-[1.55rem] bg-transparent px-6 py-8 text-center transition",
-              isDraggingEvent &&
-                "bg-slate-100/55 shadow-[0_24px_64px_-50px_rgba(15,23,42,0.5)] dark:bg-slate-900/50",
+              isDesktop
+                ? "absolute left-5 top-[3.5rem] flex min-h-[212px] w-[21rem] items-center justify-center rounded-[1.55rem] px-6 py-8 text-center transition"
+                : "flex min-h-[212px] items-center justify-center rounded-[1.55rem] px-6 py-8 text-center transition",
+              isDraggingEvent
+                ? "pointer-events-auto opacity-0"
+                : "pointer-events-none opacity-0",
               snapshot.isDraggingOver &&
-                "bg-slate-200/90 shadow-[0_34px_90px_-44px_rgba(15,23,42,0.66)] dark:bg-slate-800/75"
+                "opacity-100 bg-slate-200/90 shadow-[0_34px_90px_-44px_rgba(15,23,42,0.66)] dark:bg-slate-800/75"
             )}
           >
             <PlusSquare className="h-5 w-5 text-muted-foreground/70" />
@@ -1663,7 +1663,6 @@ export function ProjectRoadmapPanel({
                         phaseIndex={phaseIndex}
                         canEdit={canEdit}
                         isDesktop={isDesktopLayout}
-                        isDraggingEvent={isDraggingEvent}
                         statusMutationEventId={statusMutationEventId}
                         onViewEvent={setSelectedEventId}
                         onEditEvent={openEditEvent}
