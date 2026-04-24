@@ -778,25 +778,20 @@ function buildConnectorSegments(
     ];
   }
 
-  const stemX = Math.round(width * 0.4);
-  const minY = Math.min(startY, ...targetYs);
-  const maxY = Math.max(startY, ...targetYs);
+  const forkX = Math.round(width * 0.26);
+  const branchControlOffset = Math.max((width - forkX) * 0.32, 24);
 
   const segments = [
     {
       key: "lead",
-      d: `M 0 ${startY} L ${stemX} ${startY}`,
-    },
-    {
-      key: "stem",
-      d: `M ${stemX} ${minY} L ${stemX} ${maxY}`,
+      d: `M 0 ${startY} L ${forkX} ${startY}`,
     },
   ];
 
   targetYs.forEach((targetY, index) => {
     segments.push({
       key: `branch-${index}`,
-      d: `M ${stemX} ${targetY} L ${width} ${targetY}`,
+      d: `M ${forkX} ${startY} C ${forkX + branchControlOffset} ${startY}, ${width - branchControlOffset} ${targetY}, ${width} ${targetY}`,
     });
   });
 
