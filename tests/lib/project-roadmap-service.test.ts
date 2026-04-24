@@ -65,9 +65,13 @@ describe("project-roadmap-service", () => {
     rlsContextMock.withActorRlsContext.mockImplementation(
       async (_actorUserId: string, operation: (db: typeof dbMock) => unknown) => operation(dbMock)
     );
-    dbMock.$transaction.mockImplementation(async (operations: Promise<unknown>[]) =>
-      Promise.all(operations)
-    );
+    dbMock.$transaction.mockImplementation(async (value: unknown) => {
+      if (typeof value === "function") {
+        return value(dbMock);
+      }
+
+      return Promise.all(value as Promise<unknown>[]);
+    });
   });
 
   test("lists roadmap phases with nested events for viewers", async () => {

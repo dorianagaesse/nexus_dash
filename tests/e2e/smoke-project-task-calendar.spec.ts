@@ -204,10 +204,25 @@ test.describe("critical UI smoke flows", () => {
     await page.getByRole("button", { name: "New event" }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.locator("#roadmap-entity-title").fill(thirdEventTitle);
-    await page.locator("#roadmap-entity-description").fill("Third roadmap event grouped into milestone two.");
-    await page.locator("#roadmap-event-target-milestone").selectOption({ index: 2 });
+    await page.locator("#roadmap-entity-description").fill("Third roadmap event that will be dragged into milestone two.");
     await page.getByRole("button", { name: "Create event" }).last().click();
 
+    const milestoneThreeLane = page.locator("[data-roadmap-milestone='3']");
+    await expect(milestoneThreeLane).toContainText(thirdEventTitle);
+
+    const roadmapMoveRequest = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        /\/roadmap\/events\/move$/.test(response.url()) &&
+        response.ok()
+    );
+    await milestoneThreeLane
+      .locator(`[data-roadmap-event-drag-handle]`)
+      .first()
+      .dragTo(milestoneTwoLane.locator("[data-roadmap-lane-dropzone]").first());
+    await roadmapMoveRequest;
+
+    await expect(page.getByText("2 milestones")).toBeVisible();
     await expect(milestoneTwoLane).toContainText(secondEventTitle);
     await expect(milestoneTwoLane).toContainText(thirdEventTitle);
 

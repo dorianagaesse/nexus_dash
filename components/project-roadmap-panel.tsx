@@ -90,6 +90,8 @@ const CONNECTOR_TOP_OFFSET = 106;
 
 const ROADMAP_ACTION_BUTTON_CLASS =
   "rounded-full border border-transparent bg-transparent text-foreground/90 hover:border-slate-950 hover:bg-slate-950 hover:text-white dark:text-white/90 dark:hover:border-white dark:hover:bg-white dark:hover:text-slate-950";
+const ROADMAP_COUNT_BADGE_CLASS =
+  "rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground";
 
 const EVENT_DESCRIPTION_PREVIEW_STYLE = {
   display: "-webkit-box",
@@ -770,10 +772,12 @@ function RoadmapEventCard({
         <article
           ref={provided.innerRef}
           {...provided.draggableProps}
+          data-roadmap-event-card={event.id}
           className={cn(
             "relative min-h-[212px] rounded-[1.55rem] border p-4 shadow-[0_24px_64px_-46px_rgba(15,23,42,0.58)] transition",
             tone.phaseCard,
-            snapshot.isDragging && "z-20 shadow-[0_32px_90px_-42px_rgba(15,23,42,0.7)] ring-1 ring-primary/20"
+            snapshot.isDragging &&
+              "z-20 scale-[1.01] shadow-[0_36px_100px_-44px_rgba(15,23,42,0.76)]"
           )}
         >
           <div className="space-y-4">
@@ -802,6 +806,7 @@ function RoadmapEventCard({
                   size="icon"
                   className="h-9 w-9 rounded-full border border-border/40 bg-background/70 text-muted-foreground backdrop-blur-sm hover:bg-background"
                   aria-label={`Drag ${event.title}`}
+                  data-roadmap-event-drag-handle={event.id}
                   {...provided.dragHandleProps}
                 >
                   <GripVertical className="h-4 w-4" />
@@ -878,6 +883,7 @@ function RoadmapMilestoneLane({
   phaseIndex,
   canEdit,
   isDesktop,
+  isDraggingEvent,
   onViewEvent,
   onEditEvent,
   onDeleteEvent,
@@ -886,6 +892,7 @@ function RoadmapMilestoneLane({
   phaseIndex: number;
   canEdit: boolean;
   isDesktop: boolean;
+  isDraggingEvent: boolean;
   onViewEvent: (eventId: string) => void;
   onEditEvent: (event: ProjectRoadmapPanelEvent) => void;
   onDeleteEvent: (eventId: string) => void;
@@ -916,14 +923,17 @@ function RoadmapMilestoneLane({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
+            data-roadmap-lane-dropzone={phase.id}
             className={cn(
-              "space-y-4 rounded-[1.7rem] border border-border/65 bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.12),transparent_36%),rgba(255,255,255,0.72)] p-4 shadow-[0_24px_74px_-56px_rgba(15,23,42,0.58)] transition dark:bg-[radial-gradient(circle_at_top_left,rgba(71,85,105,0.22),transparent_36%),rgba(15,23,42,0.45)]",
+              "space-y-4 px-1 pb-4 pt-1 transition",
+              isDraggingEvent &&
+                "rounded-[1.8rem] bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.08),transparent_42%)]",
               snapshot.isDraggingOver &&
-                "border-slate-500/70 bg-[radial-gradient(circle_at_top_left,rgba(100,116,139,0.22),transparent_34%),rgba(226,232,240,0.86)] dark:bg-[radial-gradient(circle_at_top_left,rgba(71,85,105,0.36),transparent_34%),rgba(15,23,42,0.8)]"
+                "rounded-[1.8rem] bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.2),transparent_40%)] shadow-[0_30px_80px_-58px_rgba(15,23,42,0.58)] dark:bg-[radial-gradient(circle_at_top_left,rgba(71,85,105,0.34),transparent_40%)]"
             )}
           >
             {phase.events.length === 0 ? (
-              <div className="flex min-h-[212px] items-center justify-center rounded-[1.4rem] border border-dashed border-border/55 bg-background/70 px-5 py-8 text-center">
+              <div className="flex min-h-[212px] items-center justify-center rounded-[1.55rem] bg-background/55 px-5 py-8 text-center shadow-[0_24px_64px_-54px_rgba(15,23,42,0.48)]">
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-foreground/90">No events yet</p>
                   <p className="text-sm leading-6 text-muted-foreground">
@@ -956,45 +966,40 @@ function RoadmapMilestoneLane({
 function RoadmapNewMilestoneDropLane({
   canEdit,
   isDesktop,
+  isDraggingEvent,
 }: {
   canEdit: boolean;
   isDesktop: boolean;
+  isDraggingEvent: boolean;
 }) {
   if (!canEdit) {
     return null;
   }
 
   return (
-    <section className={cn("relative shrink-0", isDesktop ? ROADMAP_LANE_WIDTH_CLASS : "w-full")}>
-      <div className="mb-4 flex items-center gap-3 px-1">
-        <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-4 border-background bg-slate-300 shadow-sm dark:bg-slate-600">
-          <span className="h-1.5 w-1.5 rounded-full bg-background/90" />
-        </span>
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
-            New milestone
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">Drop here to create a new lane</p>
-        </div>
-      </div>
-
+    <section
+      className={cn(
+        "relative shrink-0 transition-[width,opacity,margin] duration-200",
+        isDesktop ? ROADMAP_LANE_WIDTH_CLASS : "w-full",
+        !isDraggingEvent && (isDesktop ? "w-0 overflow-hidden opacity-0" : "hidden")
+      )}
+      aria-hidden={!isDraggingEvent}
+    >
       <Droppable droppableId={NEW_MILESTONE_DROP_ID} type="ROADMAP_EVENT" isDropDisabled={!canEdit}>
         {(provided, snapshot) => (
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
+            data-roadmap-new-milestone-dropzone="true"
             className={cn(
-              "flex min-h-[292px] items-center justify-center rounded-[1.7rem] border border-dashed border-border/70 bg-background/55 px-6 py-8 text-center shadow-[0_24px_74px_-56px_rgba(15,23,42,0.58)] transition",
+              "flex min-h-[212px] items-center justify-center rounded-[1.55rem] bg-transparent px-6 py-8 text-center transition",
+              isDraggingEvent &&
+                "bg-slate-100/55 shadow-[0_24px_64px_-50px_rgba(15,23,42,0.5)] dark:bg-slate-900/50",
               snapshot.isDraggingOver &&
-                "border-slate-600/75 bg-slate-200/90 dark:border-slate-400/80 dark:bg-slate-900/80"
+                "bg-slate-200/90 shadow-[0_34px_90px_-44px_rgba(15,23,42,0.66)] dark:bg-slate-800/75"
             )}
           >
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground">Create the next milestone</p>
-              <p className="text-sm leading-6 text-muted-foreground">
-                Drag an event here to place it in a brand new milestone lane.
-              </p>
-            </div>
+            <PlusSquare className="h-5 w-5 text-muted-foreground/70" />
             {provided.placeholder}
           </div>
         )}
@@ -1027,6 +1032,7 @@ export function ProjectRoadmapPanel({
   const [isSubmittingEvent, setIsSubmittingEvent] = useState(false);
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [isDesktopLayout, setIsDesktopLayout] = useState(false);
+  const [isDraggingEvent, setIsDraggingEvent] = useState(false);
 
   useEffect(() => {
     setRoadmapPhases(sortRoadmapPhasesForDisplay(phases));
@@ -1319,6 +1325,7 @@ export function ProjectRoadmapPanel({
 
   async function handleDragEnd(result: DropResult) {
     const { destination, source, draggableId } = result;
+    setIsDraggingEvent(false);
 
     if (!destination) {
       return;
@@ -1436,37 +1443,39 @@ export function ProjectRoadmapPanel({
   return (
     <Card className={PROJECT_SECTION_CARD_CLASS}>
       <CardHeader className={PROJECT_SECTION_HEADER_CLASS}>
-        <CardTitle className="flex w-full items-center justify-between gap-3 text-base">
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full"
-              onClick={() => setIsExpanded(!isExpanded)}
-              aria-label={isExpanded ? "Collapse roadmap" : "Expand roadmap"}
-            >
-              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-            <div className="flex items-center gap-2">
-              <Map className="h-4 w-4" />
-              <span>Roadmap</span>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <button
+            type="button"
+            onClick={() => setIsExpanded((previous) => !previous)}
+            aria-expanded={isExpanded}
+            className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 text-left transition hover:bg-muted/40"
+          >
+            {isExpanded ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            )}
+            <div className="min-w-0">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Map className="h-4 w-4" />
+                Roadmap
+              </CardTitle>
             </div>
-            <Badge variant="outline" className="rounded-full px-3 py-1 text-xs text-muted-foreground">
+            <span className={ROADMAP_COUNT_BADGE_CLASS}>
               {roadmapPhases.length} milestone{roadmapPhases.length === 1 ? "" : "s"}
-            </Badge>
-            <Badge variant="outline" className="hidden rounded-full px-3 py-1 text-xs text-muted-foreground sm:inline-flex">
+            </span>
+            <span className={cn(ROADMAP_COUNT_BADGE_CLASS, "hidden sm:inline-flex")}>
               {totalEvents} event{totalEvents === 1 ? "" : "s"}
-            </Badge>
-          </div>
+            </span>
+          </button>
 
           {canEdit ? (
-            <Button type="button" className="rounded-full px-4" onClick={openCreateEvent}>
+            <Button type="button" size="sm" className="w-full sm:w-auto" onClick={openCreateEvent}>
               <PlusSquare className="h-4 w-4" />
               New event
             </Button>
           ) : null}
-        </CardTitle>
+        </div>
       </CardHeader>
 
       {isExpanded ? (
@@ -1492,7 +1501,10 @@ export function ProjectRoadmapPanel({
               ) : null}
             </div>
           ) : (
-            <DragDropContext onDragEnd={handleDragEnd}>
+            <DragDropContext
+              onDragStart={() => setIsDraggingEvent(true)}
+              onDragEnd={handleDragEnd}
+            >
               <div
                 className={cn(
                   isDesktopLayout &&
@@ -1515,6 +1527,7 @@ export function ProjectRoadmapPanel({
                         phaseIndex={phaseIndex}
                         canEdit={canEdit}
                         isDesktop={isDesktopLayout}
+                        isDraggingEvent={isDraggingEvent}
                         onViewEvent={setSelectedEventId}
                         onEditEvent={openEditEvent}
                         onDeleteEvent={setPendingDeleteEventId}
@@ -1530,6 +1543,7 @@ export function ProjectRoadmapPanel({
                   <RoadmapNewMilestoneDropLane
                     canEdit={canEdit}
                     isDesktop={isDesktopLayout}
+                    isDraggingEvent={isDraggingEvent}
                   />
                 </div>
               </div>

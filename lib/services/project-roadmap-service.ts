@@ -1309,52 +1309,55 @@ export async function moveProjectRoadmapEvent(
       if (existingEvent.phaseId === targetPhaseId) {
         currentSourceIds.splice(targetIndex, 0, eventId);
 
-        await Promise.all(
-          currentSourceIds.map((orderedEventId, index) =>
-            db.roadmapEvent.update({
+        await db.$transaction(async (transaction) => {
+          for (const [index, orderedEventId] of currentSourceIds.entries()) {
+            await transaction.roadmapEvent.update({
               where: {
                 id: orderedEventId,
               },
               data: {
                 position: index,
               },
-            })
-          )
-        );
+            });
+          }
+        });
       } else {
         const currentTargetIds = targetEvents.map((event) => event.id);
         currentTargetIds.splice(targetIndex, 0, eventId);
 
-        await db.$transaction([
-          ...currentSourceIds.map((orderedEventId, index) =>
-            db.roadmapEvent.update({
+        await db.$transaction(async (transaction) => {
+          for (const [index, orderedEventId] of currentSourceIds.entries()) {
+            await transaction.roadmapEvent.update({
               where: {
                 id: orderedEventId,
               },
               data: {
                 position: index,
               },
-            })
-          ),
-          db.roadmapEvent.update({
+            });
+          }
+
+          await transaction.roadmapEvent.update({
             where: {
               id: eventId,
             },
             data: {
               phaseId: targetPhaseId,
+              position: targetIndex,
             },
-          }),
-          ...currentTargetIds.map((orderedEventId, index) =>
-            db.roadmapEvent.update({
+          });
+
+          for (const [index, orderedEventId] of currentTargetIds.entries()) {
+            await transaction.roadmapEvent.update({
               where: {
                 id: orderedEventId,
               },
               data: {
                 position: index,
               },
-            })
-          ),
-        ]);
+            });
+          }
+        });
       }
 
       return {

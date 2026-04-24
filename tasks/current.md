@@ -4,7 +4,7 @@
 TASK-130
 
 ## Status
-Done.
+In progress.
 
 ## Objective
 Refine roadmap v2 into an event-first planning surface where users create and
@@ -16,6 +16,19 @@ new events default into a new milestone lane, users can optionally place a new
 event into an existing milestone, stacked events inside the same milestone read
 as intentionally grouped, and dragging an event to the far-right drop target
 creates a new milestone automatically.
+
+This refinement pass also needs to tighten the shipped UX details:
+- the roadmap section should expand/collapse from the whole header row, like
+  the other dashboard sections
+- roadmap counters in the header should use the same visual treatment as the
+  `Epics` section badges
+- the roadmap should not show a persistent `New milestone` / `Create the next
+  milestone` label in the trailing drop lane
+- the extra bordered lane shell around event cards should be removed so the
+  cards read as the primary visual object
+- roadmap drag/drop must stop failing with `roadmap-event-move-failed`
+- drag feedback should use placement shadows and card-lift treatment rather
+  than expanding lane borders
 
 ## Why This Task Matters
 - The current roadmap release proves the section is valuable, but a flat list
