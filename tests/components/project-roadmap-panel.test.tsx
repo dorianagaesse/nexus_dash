@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 const routerRefreshMock = vi.hoisted(() => vi.fn());
 const pushToastMock = vi.hoisted(() => vi.fn());
 const setIsExpandedMock = vi.hoisted(() => vi.fn());
+const fetchMock = vi.hoisted(() => vi.fn());
 const projectSectionExpandedMock = vi.hoisted(() => ({
   isExpanded: false,
   setIsExpanded: setIsExpandedMock,
@@ -32,6 +33,7 @@ vi.mock("@/lib/hooks/use-project-section-expanded", () => ({
 import { ProjectRoadmapPanel } from "@/components/project-roadmap-panel";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+vi.stubGlobal("fetch", fetchMock);
 
 function createTestRenderer() {
   const container = document.createElement("div");
@@ -54,6 +56,7 @@ describe("project-roadmap-panel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     projectSectionExpandedMock.isExpanded = false;
+    fetchMock.mockReset();
   });
 
   afterEach(() => {
@@ -131,6 +134,12 @@ describe("project-roadmap-panel", () => {
     expect(container.textContent).toContain("Invite wave one");
     expect(container.textContent).toContain("Active");
     expect(container.textContent).toContain("1 event");
+    expect(
+      container.querySelector("[data-roadmap-event-card='event-1']")?.textContent
+    ).toContain("Event 1");
+    expect(
+      container.querySelector("[data-roadmap-event-card='event-1']")?.textContent
+    ).not.toContain("Milestone 1 /");
 
     await act(async () => {
       root.unmount();
@@ -190,6 +199,115 @@ describe("project-roadmap-panel", () => {
     expect(detailDialog?.textContent).toContain("Invite wave one");
     expect(detailDialog?.textContent).toContain(fullDescription);
     expect(detailDialog?.textContent).toContain("Milestone 1");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("cycles event status when the status badge is clicked", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        event: {
+          id: "event-1",
+          phaseId: "phase-1",
+          title: "Invite wave one",
+          description: "Invite the first five testers.",
+          targetDate: "2026-05-02",
+          status: "active",
+          position: 0,
+          createdAt: "2026-04-23T08:00:00.000Z",
+          updatedAt: "2026-04-23T08:00:00.000Z",
+        },
+        phase: {
+          id: "phase-1",
+          title: "Private beta",
+          description: "Open the first customer wave.",
+          targetDate: "2026-05-02",
+          status: "active",
+          position: 0,
+          createdAt: "2026-04-23T08:00:00.000Z",
+          updatedAt: "2026-04-23T08:00:00.000Z",
+          events: [
+            {
+              id: "event-1",
+              phaseId: "phase-1",
+              title: "Invite wave one",
+              description: "Invite the first five testers.",
+              targetDate: "2026-05-02",
+              status: "active",
+              position: 0,
+              createdAt: "2026-04-23T08:00:00.000Z",
+              updatedAt: "2026-04-23T08:00:00.000Z",
+            },
+          ],
+        },
+      }),
+    });
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases: [
+          {
+            id: "phase-1",
+            title: "Private beta",
+            description: "Open the first customer wave.",
+            targetDate: "2026-05-02",
+            status: "planned",
+            position: 0,
+            createdAt: "2026-04-23T08:00:00.000Z",
+            updatedAt: "2026-04-23T08:00:00.000Z",
+            events: [
+              {
+                id: "event-1",
+                phaseId: "phase-1",
+                title: "Invite wave one",
+                description: "Invite the first five testers.",
+                targetDate: "2026-05-02",
+                status: "planned",
+                position: 0,
+                createdAt: "2026-04-23T08:00:00.000Z",
+                updatedAt: "2026-04-23T08:00:00.000Z",
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    const statusButton = Array.from(container.querySelectorAll("button")).find(
+      (button) =>
+        button.textContent?.includes("Planned") &&
+        button.getAttribute("aria-label")?.includes("Change status")
+    );
+
+    expect(statusButton).not.toBeUndefined();
+
+    await act(async () => {
+      statusButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/projects/project-1/roadmap/events/event-1", {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        status: "active",
+      }),
+    });
+    expect(container.textContent).toContain("Active");
+    expect(pushToastMock).toHaveBeenCalledWith({
+      message: "Invite wave one marked as active.",
+      variant: "success",
+    });
 
     await act(async () => {
       root.unmount();

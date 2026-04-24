@@ -289,8 +289,48 @@ function getRoadmapStatusClasses(status: RoadmapStatus) {
   };
 }
 
-function RoadmapStatusBadge({ status }: { status: RoadmapStatus }) {
+function getNextRoadmapStatus(status: RoadmapStatus): RoadmapStatus {
+  const currentIndex = ROADMAP_STATUSES.indexOf(status);
+  if (currentIndex === -1) {
+    return "planned";
+  }
+
+  return ROADMAP_STATUSES[(currentIndex + 1) % ROADMAP_STATUSES.length] ?? "planned";
+}
+
+function RoadmapStatusBadge({
+  status,
+  onClick,
+  disabled = false,
+  title,
+}: {
+  status: RoadmapStatus;
+  onClick?: () => void;
+  disabled?: boolean;
+  title?: string;
+}) {
   const tone = getRoadmapStatusClasses(status);
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className={cn(
+          "rounded-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60",
+          "cursor-pointer hover:scale-[1.01]",
+          tone.accent
+        )}
+        onClick={onClick}
+        disabled={disabled}
+        title={title}
+        aria-label={title ?? getRoadmapStatusLabel(status)}
+      >
+        <Badge variant="outline" className={cn(tone.badge, "pointer-events-none")}>
+          {getRoadmapStatusLabel(status)}
+        </Badge>
+      </button>
+    );
+  }
 
   return (
     <Badge variant="outline" className={tone.badge}>
@@ -703,8 +743,12 @@ function getLaneConnectorHeight(
 }
 
 function buildConnectorPath(width: number, startY: number, endY: number): string {
-  const controlOffset = Math.max(width * 0.32, 22);
-  return `M 0 ${startY} C ${controlOffset} ${startY}, ${width - controlOffset} ${endY}, ${width} ${endY}`;
+  const controlOffset = Math.max(width * 0.22, 18);
+  const deltaY = endY - startY;
+  const controlY1 = startY + deltaY * 0.2;
+  const controlY2 = endY - deltaY * 0.2;
+
+  return `M 0 ${startY} C ${controlOffset} ${controlY1}, ${width - controlOffset} ${controlY2}, ${width} ${endY}`;
 }
 
 function RoadmapDesktopConnector({
@@ -749,22 +793,28 @@ function RoadmapDesktopConnector({
 
 function RoadmapEventCard({
   event,
-  phaseIndex,
   eventIndex,
   canEdit,
+  isUpdatingStatus,
   onView,
   onEdit,
   onDelete,
+  onCycleStatus,
 }: {
   event: ProjectRoadmapPanelEvent;
-  phaseIndex: number;
   eventIndex: number;
   canEdit: boolean;
+  isUpdatingStatus: boolean;
   onView: (eventId: string) => void;
   onEdit: (event: ProjectRoadmapPanelEvent) => void;
   onDelete: (eventId: string) => void;
+  onCycleStatus: (event: ProjectRoadmapPanelEvent) => void;
 }) {
   const tone = getRoadmapStatusClasses(event.status);
+  const nextStatus = getNextRoadmapStatus(event.status);
+  const statusButtonTitle = isUpdatingStatus
+    ? `Saving ${event.title} status`
+    : `Change status for ${event.title} to ${getRoadmapStatusLabel(nextStatus)}`;
 
   return (
     <Draggable draggableId={event.id} index={eventIndex} isDragDisabled={!canEdit}>
@@ -790,9 +840,20 @@ function RoadmapEventCard({
                       tone.accent
                     )}
                   >
-                    {getMilestoneLabel(phaseIndex)} / Event {eventIndex + 1}
+                    Event {eventIndex + 1}
                   </span>
-                  <RoadmapStatusBadge status={event.status} />
+                  <RoadmapStatusBadge
+                    status={event.status}
+                    onClick={
+                      canEdit
+                        ? () => {
+                            onCycleStatus(event);
+                          }
+                        : undefined
+                    }
+                    disabled={isUpdatingStatus}
+                    title={canEdit ? statusButtonTitle : undefined}
+                  />
                 </div>
                 <h4 className="break-words text-lg font-semibold text-foreground">
                   {event.title}
@@ -800,17 +861,15 @@ function RoadmapEventCard({
               </div>
 
               {canEdit ? (
-                <Button
+                <button
                   type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-full border border-border/40 bg-background/70 text-muted-foreground backdrop-blur-sm hover:bg-background"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-transparent text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   aria-label={`Drag ${event.title}`}
                   data-roadmap-event-drag-handle={event.id}
                   {...provided.dragHandleProps}
                 >
                   <GripVertical className="h-4 w-4" />
-                </Button>
+                </button>
               ) : null}
             </div>
 
@@ -884,18 +943,22 @@ function RoadmapMilestoneLane({
   canEdit,
   isDesktop,
   isDraggingEvent,
+  statusMutationEventId,
   onViewEvent,
   onEditEvent,
   onDeleteEvent,
+  onCycleEventStatus,
 }: {
   phase: ProjectRoadmapPanelPhase;
   phaseIndex: number;
   canEdit: boolean;
   isDesktop: boolean;
   isDraggingEvent: boolean;
+  statusMutationEventId: string | null;
   onViewEvent: (eventId: string) => void;
   onEditEvent: (event: ProjectRoadmapPanelEvent) => void;
   onDeleteEvent: (eventId: string) => void;
+  onCycleEventStatus: (event: ProjectRoadmapPanelEvent) => void;
 }) {
   const milestoneLabel = getMilestoneLabel(phaseIndex);
 
@@ -946,12 +1009,13 @@ function RoadmapMilestoneLane({
                 <RoadmapEventCard
                   key={event.id}
                   event={event}
-                  phaseIndex={phaseIndex}
                   eventIndex={eventIndex}
                   canEdit={canEdit}
+                  isUpdatingStatus={statusMutationEventId === event.id}
                   onView={onViewEvent}
                   onEdit={onEditEvent}
                   onDelete={onDeleteEvent}
+                  onCycleStatus={onCycleEventStatus}
                 />
               ))
             )}
@@ -1033,6 +1097,7 @@ export function ProjectRoadmapPanel({
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [isDesktopLayout, setIsDesktopLayout] = useState(false);
   const [isDraggingEvent, setIsDraggingEvent] = useState(false);
+  const [statusMutationEventId, setStatusMutationEventId] = useState<string | null>(null);
 
   useEffect(() => {
     setRoadmapPhases(sortRoadmapPhasesForDisplay(phases));
@@ -1323,6 +1388,77 @@ export function ProjectRoadmapPanel({
     }
   }
 
+  async function cycleEventStatus(event: ProjectRoadmapPanelEvent) {
+    if (statusMutationEventId !== null) {
+      return;
+    }
+
+    const previousPhases = roadmapPhases;
+    const nextStatus = getNextRoadmapStatus(event.status);
+
+    setStatusMutationEventId(event.id);
+    setRoadmapPhases((currentPhases) =>
+      sortRoadmapPhasesForDisplay(
+        currentPhases.map((phase) =>
+          phase.id === event.phaseId
+            ? {
+                ...phase,
+                events: phase.events.map((phaseEvent) =>
+                  phaseEvent.id === event.id
+                    ? {
+                        ...phaseEvent,
+                        status: nextStatus,
+                      }
+                    : phaseEvent
+                ),
+              }
+            : phase
+        )
+      )
+    );
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/roadmap/events/${event.id}`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          status: nextStatus,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(mapRoadmapMutationError(await readApiError(response)));
+      }
+
+      const payload = (await response.json()) as {
+        event: ProjectRoadmapPanelEvent;
+        phase: ProjectRoadmapPanelPhase;
+      };
+
+      setRoadmapPhases((currentPhases) =>
+        sortRoadmapPhasesForDisplay(
+          currentPhases.map((phase) => (phase.id === payload.phase.id ? payload.phase : phase))
+        )
+      );
+
+      pushToast({
+        message: `${payload.event.title} marked as ${getRoadmapStatusLabel(payload.event.status).toLowerCase()}.`,
+        variant: "success",
+      });
+    } catch (error) {
+      console.error("[ProjectRoadmapPanel.cycleEventStatus]", error);
+      setRoadmapPhases(previousPhases);
+      pushToast({
+        message: error instanceof Error ? error.message : mapRoadmapMutationError(),
+        variant: "error",
+      });
+    } finally {
+      setStatusMutationEventId(null);
+    }
+  }
+
   async function handleDragEnd(result: DropResult) {
     const { destination, source, draggableId } = result;
     setIsDraggingEvent(false);
@@ -1528,9 +1664,11 @@ export function ProjectRoadmapPanel({
                         canEdit={canEdit}
                         isDesktop={isDesktopLayout}
                         isDraggingEvent={isDraggingEvent}
+                        statusMutationEventId={statusMutationEventId}
                         onViewEvent={setSelectedEventId}
                         onEditEvent={openEditEvent}
                         onDeleteEvent={setPendingDeleteEventId}
+                        onCycleEventStatus={cycleEventStatus}
                       />
                       {isDesktopLayout && phaseIndex < roadmapPhases.length - 1 ? (
                         <RoadmapDesktopConnector
