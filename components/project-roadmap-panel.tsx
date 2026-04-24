@@ -87,6 +87,7 @@ const ROADMAP_LANE_WIDTH_CLASS = "w-[21rem]";
 const CONNECTOR_CARD_HEIGHT = 212;
 const CONNECTOR_CARD_GAP = 16;
 const CONNECTOR_TOP_OFFSET = 106;
+const CONNECTOR_WIDTH = 124;
 
 const ROADMAP_ACTION_BUTTON_CLASS =
   "rounded-full border border-transparent bg-transparent text-foreground/90 hover:border-slate-950 hover:bg-slate-950 hover:text-white dark:text-white/90 dark:hover:border-white dark:hover:bg-white dark:hover:text-slate-950";
@@ -712,64 +713,121 @@ function getEventCountLabel(count: number): string {
   return `${count} event${count === 1 ? "" : "s"}`;
 }
 
-function getLaneCardCenterY(eventIndex: number): number {
+function getLaneSlotCount(eventsCount: number): number {
+  return Math.max(eventsCount, 1);
+}
+
+function getLaneStackHeight(eventsCount: number): number {
+  const slotCount = getLaneSlotCount(eventsCount);
+  return slotCount * CONNECTOR_CARD_HEIGHT + (slotCount - 1) * CONNECTOR_CARD_GAP;
+}
+
+function getLaneVerticalOffset(eventsCount: number, maxEventsCount: number): number {
+  return Math.max(
+    0,
+    (getLaneStackHeight(maxEventsCount) - getLaneStackHeight(eventsCount)) / 2
+  );
+}
+
+function getLaneCardCenterY(
+  eventIndex: number,
+  eventsCount: number,
+  maxEventsCount: number
+): number {
   return (
     CONNECTOR_TOP_OFFSET +
+    getLaneVerticalOffset(eventsCount, maxEventsCount) +
     eventIndex * (CONNECTOR_CARD_HEIGHT + CONNECTOR_CARD_GAP) +
     CONNECTOR_CARD_HEIGHT / 2
   );
 }
 
-function getLaneConnectorAnchorY(eventsCount: number): number {
+function getLaneConnectorAnchorY(eventsCount: number, maxEventsCount: number): number {
   if (eventsCount <= 1) {
-    return getLaneCardCenterY(0);
+    return getLaneCardCenterY(0, eventsCount, maxEventsCount);
   }
 
-  return (
-    CONNECTOR_TOP_OFFSET +
-    ((eventsCount - 1) * (CONNECTOR_CARD_HEIGHT + CONNECTOR_CARD_GAP) +
-      CONNECTOR_CARD_HEIGHT) /
-      2
-  );
+  const firstCenter = getLaneCardCenterY(0, eventsCount, maxEventsCount);
+  const lastCenter = getLaneCardCenterY(eventsCount - 1, eventsCount, maxEventsCount);
+  return (firstCenter + lastCenter) / 2;
 }
 
-function getLaneConnectorHeight(
-  currentPhase: ProjectRoadmapPanelPhase,
-  nextPhase: ProjectRoadmapPanelPhase
-): number {
-  const currentHeight = getLaneCardCenterY(Math.max(currentPhase.events.length - 1, 0));
-  const nextHeight = getLaneCardCenterY(Math.max(nextPhase.events.length - 1, 0));
-  return Math.max(currentHeight, nextHeight) + CONNECTOR_CARD_HEIGHT / 2;
+function getLaneConnectorHeight(maxEventsCount: number): number {
+  return CONNECTOR_TOP_OFFSET + getLaneStackHeight(maxEventsCount);
 }
 
 function buildConnectorPath(width: number, startY: number, endY: number): string {
-  const controlOffset = Math.max(width * 0.18, 16);
-  const deltaY = endY - startY;
-  const controlY1 = startY - deltaY * 0.28;
-  const controlY2 = endY + deltaY * 0.28;
+  const controlOffset = Math.max(width * 0.28, 24);
+  const controlY1 = startY;
+  const controlY2 = endY;
 
   return `M 0 ${startY} C ${controlOffset} ${controlY1}, ${width - controlOffset} ${controlY2}, ${width} ${endY}`;
+}
+
+function buildConnectorSegments(
+  width: number,
+  startY: number,
+  targetYs: number[]
+): Array<{ d: string; key: string }> {
+  if (targetYs.length <= 1) {
+    return [
+      {
+        key: "single",
+        d: buildConnectorPath(width, startY, targetYs[0] ?? startY),
+      },
+    ];
+  }
+
+  const stemX = Math.round(width * 0.4);
+  const minY = Math.min(startY, ...targetYs);
+  const maxY = Math.max(startY, ...targetYs);
+
+  const segments = [
+    {
+      key: "lead",
+      d: `M 0 ${startY} L ${stemX} ${startY}`,
+    },
+    {
+      key: "stem",
+      d: `M ${stemX} ${minY} L ${stemX} ${maxY}`,
+    },
+  ];
+
+  targetYs.forEach((targetY, index) => {
+    segments.push({
+      key: `branch-${index}`,
+      d: `M ${stemX} ${targetY} L ${width} ${targetY}`,
+    });
+  });
+
+  return segments;
 }
 
 function RoadmapDesktopConnector({
   currentPhase,
   nextPhase,
+  maxEventsCount,
 }: {
   currentPhase: ProjectRoadmapPanelPhase;
   nextPhase: ProjectRoadmapPanelPhase;
+  maxEventsCount: number;
 }) {
-  const height = getLaneConnectorHeight(currentPhase, nextPhase);
-  const width = 92;
-  const startY = getLaneConnectorAnchorY(currentPhase.events.length);
+  const height = getLaneConnectorHeight(maxEventsCount);
+  const width = CONNECTOR_WIDTH;
+  const startY = getLaneConnectorAnchorY(currentPhase.events.length, maxEventsCount);
   const targetIndexes =
     nextPhase.events.length === 0
       ? [0]
       : nextPhase.events.map((_, eventIndex) => eventIndex);
+  const targetYs = targetIndexes.map((eventIndex) =>
+    getLaneCardCenterY(eventIndex, nextPhase.events.length, maxEventsCount)
+  );
+  const segments = buildConnectorSegments(width, startY, targetYs);
 
   return (
     <div
       aria-hidden="true"
-      className="relative hidden w-[5.75rem] shrink-0 lg:block"
+      className="relative hidden w-[7.75rem] shrink-0 lg:block"
       style={{ height }}
     >
       <svg
@@ -777,13 +835,14 @@ function RoadmapDesktopConnector({
         className="h-full w-full overflow-visible"
         fill="none"
       >
-        {targetIndexes.map((eventIndex) => (
+        {segments.map((segment) => (
           <path
-            key={eventIndex}
-            d={buildConnectorPath(width, startY, getLaneCardCenterY(eventIndex))}
+            key={segment.key}
+            d={segment.d}
             stroke="rgb(148 163 184 / 0.58)"
-            strokeWidth="2.25"
+            strokeWidth="2.6"
             strokeLinecap="round"
+            strokeLinejoin="round"
           />
         ))}
       </svg>
@@ -942,6 +1001,7 @@ function RoadmapMilestoneLane({
   phaseIndex,
   canEdit,
   isDesktop,
+  maxEventsCount,
   statusMutationEventId,
   onViewEvent,
   onEditEvent,
@@ -952,6 +1012,7 @@ function RoadmapMilestoneLane({
   phaseIndex: number;
   canEdit: boolean;
   isDesktop: boolean;
+  maxEventsCount: number;
   statusMutationEventId: string | null;
   onViewEvent: (eventId: string) => void;
   onEditEvent: (event: ProjectRoadmapPanelEvent) => void;
@@ -959,6 +1020,10 @@ function RoadmapMilestoneLane({
   onCycleEventStatus: (event: ProjectRoadmapPanelEvent) => void;
 }) {
   const milestoneLabel = getMilestoneLabel(phaseIndex);
+  const laneVerticalOffset = isDesktop
+    ? getLaneVerticalOffset(phase.events.length, maxEventsCount)
+    : 0;
+  const laneMinHeight = isDesktop ? getLaneStackHeight(maxEventsCount) : undefined;
 
   return (
     <section
@@ -986,36 +1051,54 @@ function RoadmapMilestoneLane({
             {...provided.droppableProps}
             data-roadmap-lane-dropzone={phase.id}
             className={cn(
-              "space-y-4 px-1 pb-4 pt-1 transition",
+              "px-1 pb-4 pt-1 transition",
               snapshot.isDraggingOver &&
                 "rounded-[1.8rem] bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.2),transparent_40%)] shadow-[0_30px_80px_-58px_rgba(15,23,42,0.58)] dark:bg-[radial-gradient(circle_at_top_left,rgba(71,85,105,0.34),transparent_40%)]"
             )}
+            style={
+              laneMinHeight !== undefined
+                ? {
+                    minHeight: laneMinHeight,
+                  }
+                : undefined
+            }
           >
-            {phase.events.length === 0 ? (
-              <div className="flex min-h-[212px] items-center justify-center rounded-[1.55rem] bg-background/55 px-5 py-8 text-center shadow-[0_24px_64px_-54px_rgba(15,23,42,0.48)]">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-foreground/90">No events yet</p>
-                  <p className="text-sm leading-6 text-muted-foreground">
-                    Drop an event here or create one directly in this milestone.
-                  </p>
+            <div
+              className="space-y-4"
+              style={
+                laneVerticalOffset > 0
+                  ? {
+                      paddingTop: laneVerticalOffset,
+                    }
+                  : undefined
+              }
+            >
+              {phase.events.length === 0 ? (
+                <div className="flex min-h-[212px] items-center justify-center rounded-[1.55rem] bg-background/55 px-5 py-8 text-center shadow-[0_24px_64px_-54px_rgba(15,23,42,0.48)]">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground/90">No events yet</p>
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      Drop an event here or create one directly in this milestone.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              phase.events.map((event, eventIndex) => (
-                <RoadmapEventCard
-                  key={event.id}
-                  event={event}
-                  eventIndex={eventIndex}
-                  canEdit={canEdit}
-                  isUpdatingStatus={statusMutationEventId === event.id}
-                  onView={onViewEvent}
-                  onEdit={onEditEvent}
-                  onDelete={onDeleteEvent}
-                  onCycleStatus={onCycleEventStatus}
-                />
-              ))
-            )}
-            {provided.placeholder}
+              ) : (
+                phase.events.map((event, eventIndex) => (
+                  <RoadmapEventCard
+                    key={event.id}
+                    event={event}
+                    eventIndex={eventIndex}
+                    canEdit={canEdit}
+                    isUpdatingStatus={statusMutationEventId === event.id}
+                    onView={onViewEvent}
+                    onEdit={onEditEvent}
+                    onDelete={onDeleteEvent}
+                    onCycleStatus={onCycleEventStatus}
+                  />
+                ))
+              )}
+              {provided.placeholder}
+            </div>
           </div>
         )}
       </Droppable>
@@ -1027,14 +1110,19 @@ function RoadmapNewMilestoneDropLane({
   canEdit,
   isDesktop,
   isDraggingEvent,
+  maxEventsCount,
 }: {
   canEdit: boolean;
   isDesktop: boolean;
   isDraggingEvent: boolean;
+  maxEventsCount: number;
 }) {
   if (!canEdit) {
     return null;
   }
+
+  const dropLaneTopOffset =
+    CONNECTOR_TOP_OFFSET + getLaneVerticalOffset(1, maxEventsCount);
 
   return (
     <section
@@ -1054,7 +1142,7 @@ function RoadmapNewMilestoneDropLane({
             data-roadmap-new-milestone-dropzone="true"
             className={cn(
               isDesktop
-                ? "absolute left-5 top-[3.5rem] flex min-h-[212px] w-[21rem] items-center justify-center rounded-[1.55rem] px-6 py-8 text-center transition"
+                ? "absolute left-5 flex min-h-[212px] w-[21rem] items-center justify-center rounded-[1.55rem] px-6 py-8 text-center transition"
                 : "flex min-h-[212px] items-center justify-center rounded-[1.55rem] px-6 py-8 text-center transition",
               isDraggingEvent
                 ? "pointer-events-auto opacity-0"
@@ -1062,6 +1150,13 @@ function RoadmapNewMilestoneDropLane({
               snapshot.isDraggingOver &&
                 "opacity-100 bg-slate-200/90 shadow-[0_34px_90px_-44px_rgba(15,23,42,0.66)] dark:bg-slate-800/75"
             )}
+            style={
+              isDesktop
+                ? {
+                    top: dropLaneTopOffset,
+                  }
+                : undefined
+            }
           >
             <PlusSquare className="h-5 w-5 text-muted-foreground/70" />
             {provided.placeholder}
@@ -1575,6 +1670,10 @@ export function ProjectRoadmapPanel({
 
   const totalEvents = roadmapPhases.reduce((sum, phase) => sum + phase.events.length, 0);
   const createMilestoneLabel = getMilestoneLabel(roadmapPhases.length);
+  const maxEventsCount = roadmapPhases.reduce(
+    (maximum, phase) => Math.max(maximum, getLaneSlotCount(phase.events.length)),
+    1
+  );
 
   return (
     <Card className={PROJECT_SECTION_CARD_CLASS}>
@@ -1663,6 +1762,7 @@ export function ProjectRoadmapPanel({
                         phaseIndex={phaseIndex}
                         canEdit={canEdit}
                         isDesktop={isDesktopLayout}
+                        maxEventsCount={maxEventsCount}
                         statusMutationEventId={statusMutationEventId}
                         onViewEvent={setSelectedEventId}
                         onEditEvent={openEditEvent}
@@ -1673,6 +1773,7 @@ export function ProjectRoadmapPanel({
                         <RoadmapDesktopConnector
                           currentPhase={phase}
                           nextPhase={roadmapPhases[phaseIndex + 1]}
+                          maxEventsCount={maxEventsCount}
                         />
                       ) : null}
                     </div>
@@ -1681,6 +1782,7 @@ export function ProjectRoadmapPanel({
                     canEdit={canEdit}
                     isDesktop={isDesktopLayout}
                     isDraggingEvent={isDraggingEvent}
+                    maxEventsCount={maxEventsCount}
                   />
                 </div>
               </div>
