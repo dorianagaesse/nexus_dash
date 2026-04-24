@@ -172,39 +172,52 @@ test.describe("critical UI smoke flows", () => {
     await page.getByRole("button", { name: "Close context preview" }).click();
   });
 
-  test("roadmap grouped milestone flow", async ({ page }) => {
+  test("roadmap event-first milestone flow", async ({ page }) => {
     const projectName = uniqueProjectName("smoke-roadmap");
-    const phaseTitle = uniqueProjectName("milestone");
-    const eventTitle = uniqueProjectName("event");
+    const firstEventTitle = uniqueProjectName("roadmap-event-1");
+    const secondEventTitle = uniqueProjectName("roadmap-event-2");
+    const thirdEventTitle = uniqueProjectName("roadmap-event-3");
 
     await createProjectFromProjectsPage(page, projectName);
     await openNewestProjectDashboard(page, projectName);
 
-    await page.getByRole("button", { name: "New milestone" }).click();
+    await page.getByRole("button", { name: "New event" }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
-    await page.locator("#roadmap-entity-title").fill(phaseTitle);
-    await page.locator("#roadmap-entity-description").fill("Roadmap milestone for smoke coverage.");
-    await page.getByRole("button", { name: "Create milestone" }).last().click();
-
-    await expect(page.getByRole("heading", { name: phaseTitle })).toBeVisible();
-    await expect(page.getByText("0 events").last()).toBeVisible();
-
-    await page.getByRole("button", { name: "Event" }).first().click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await page.locator("#roadmap-entity-title").fill(eventTitle);
-    await page.locator("#roadmap-entity-description").fill("First event inside the milestone.");
+    await page.locator("#roadmap-entity-title").fill(firstEventTitle);
+    await page.locator("#roadmap-entity-description").fill("First roadmap event for smoke coverage.");
     await page.getByRole("button", { name: "Create event" }).last().click();
 
-    await expect(page.getByRole("heading", { name: eventTitle })).toBeVisible();
-    await expect(page.getByText("1 event").last()).toBeVisible();
+    const milestoneOneLane = page.locator("[data-roadmap-milestone='1']");
+    await expect(milestoneOneLane).toContainText(firstEventTitle);
+    await expect(page.getByText("1 milestone")).toBeVisible();
 
-    await page.getByRole("button", { name: "View" }).first().click();
+    await page.getByRole("button", { name: "New event" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.locator("#roadmap-entity-title").fill(secondEventTitle);
+    await page.locator("#roadmap-entity-description").fill("Second roadmap event in a new milestone.");
+    await page.getByRole("button", { name: "Create event" }).last().click();
+
+    const milestoneTwoLane = page.locator("[data-roadmap-milestone='2']");
+    await expect(milestoneTwoLane).toContainText(secondEventTitle);
+    await expect(page.getByText("2 milestones")).toBeVisible();
+
+    await page.getByRole("button", { name: "New event" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.locator("#roadmap-entity-title").fill(thirdEventTitle);
+    await page.locator("#roadmap-entity-description").fill("Third roadmap event grouped into milestone two.");
+    await page.locator("#roadmap-event-target-milestone").selectOption({ index: 2 });
+    await page.getByRole("button", { name: "Create event" }).last().click();
+
+    await expect(milestoneTwoLane).toContainText(secondEventTitle);
+    await expect(milestoneTwoLane).toContainText(thirdEventTitle);
+
+    await milestoneTwoLane.getByRole("button", { name: "View" }).last().click();
     const roadmapDetailDialog = page.getByRole("dialog");
     await expect(
-      roadmapDetailDialog.getByRole("heading", { name: eventTitle })
+      roadmapDetailDialog.getByRole("heading", { name: thirdEventTitle })
     ).toBeVisible();
     await expect(
-      roadmapDetailDialog.getByText(phaseTitle, { exact: true }).last()
+      roadmapDetailDialog.getByText("Milestone 2", { exact: true }).last()
     ).toBeVisible();
     await roadmapDetailDialog.getByRole("button", { name: "Close", exact: true }).click();
   });

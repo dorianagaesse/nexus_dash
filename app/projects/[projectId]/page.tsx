@@ -224,14 +224,6 @@ export default async function ProjectDashboardPage({
         />
       </Suspense>
 
-      <Suspense fallback={<ProjectRoadmapPanelSkeleton />}>
-        <ProjectRoadmapPanelSection
-          projectId={project.id}
-          actorUserId={actorUserId}
-          canEdit={canEditProjectContent}
-        />
-      </Suspense>
-
       <Suspense fallback={<ProjectEpicPanelSkeleton />}>
         <ProjectEpicPanelSection
           projectId={project.id}
@@ -246,6 +238,14 @@ export default async function ProjectDashboardPage({
           actorUserId={actorUserId}
           canEdit={canEditProjectContent}
           storageProvider={storageProvider}
+        />
+      </Suspense>
+
+      <Suspense fallback={<ProjectRoadmapPanelSkeleton />}>
+        <ProjectRoadmapPanelSection
+          projectId={project.id}
+          actorUserId={actorUserId}
+          canEdit={canEditProjectContent}
         />
       </Suspense>
 

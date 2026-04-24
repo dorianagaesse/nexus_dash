@@ -60,7 +60,7 @@ describe("project-roadmap-panel", () => {
     document.body.innerHTML = "";
   });
 
-  test("expands the section before opening the create milestone flow", async () => {
+  test("expands the section before opening the create event flow", async () => {
     const { container, root } = createTestRenderer();
 
     await renderWithRoot(
@@ -72,14 +72,14 @@ describe("project-roadmap-panel", () => {
       })
     );
 
-    const newMilestoneButton = Array.from(container.querySelectorAll("button")).find((button) =>
-      button.textContent?.includes("New milestone")
+    const newEventButton = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("New event")
     );
 
-    expect(newMilestoneButton).not.toBeUndefined();
+    expect(newEventButton).not.toBeUndefined();
 
     await act(async () => {
-      newMilestoneButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      newEventButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(setIsExpandedMock).toHaveBeenCalledWith(true);
@@ -89,7 +89,7 @@ describe("project-roadmap-panel", () => {
     });
   });
 
-  test("renders grouped milestone and event content when expanded", async () => {
+  test("renders milestone lanes with grouped event content when expanded", async () => {
     projectSectionExpandedMock.isExpanded = true;
     const { container, root } = createTestRenderer();
 
@@ -127,7 +127,7 @@ describe("project-roadmap-panel", () => {
     );
 
     expect(container.textContent).toContain("Roadmap");
-    expect(container.textContent).toContain("Private beta");
+    expect(container.textContent).toContain("Milestone 1");
     expect(container.textContent).toContain("Invite wave one");
     expect(container.textContent).toContain("Active");
     expect(container.textContent).toContain("1 event");
@@ -186,10 +186,10 @@ describe("project-roadmap-panel", () => {
       viewButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    const detailDialog = container.querySelector("[role='dialog']");
+    const detailDialog = document.body.querySelector("[role='dialog']");
     expect(detailDialog?.textContent).toContain("Invite wave one");
     expect(detailDialog?.textContent).toContain(fullDescription);
-    expect(detailDialog?.textContent).toContain("Private beta");
+    expect(detailDialog?.textContent).toContain("Milestone 1");
 
     await act(async () => {
       root.unmount();

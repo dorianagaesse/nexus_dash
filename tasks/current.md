@@ -4,18 +4,18 @@
 TASK-130
 
 ## Status
-Done.
+In progress.
 
 ## Objective
-Evolve the project `Roadmap` section from the shipped flat milestone strip into
-an editable milestone-phase timeline where each roadmap phase can contain one
-or many child events.
+Refine roadmap v2 into an event-first planning surface where users create and
+move roadmap events directly, while milestone groupings remain the structural
+lane concept rather than the primary authored card.
 
-This version should stay intentionally separate from task/epic tracking while
-making the roadmap feel more intentional, expressive, and structurally useful:
-users should be able to shape a journey such as `Milestone 2 -> event 2, event
-3, event 4`, see those related events visually connected, and edit the
-structure directly from the dashboard.
+This follow-up should make the section behave closer to a visual journey map:
+new events default into a new milestone lane, users can optionally place a new
+event into an existing milestone, stacked events inside the same milestone read
+as intentionally grouped, and dragging an event to the far-right drop target
+creates a new milestone automatically.
 
 ## Why This Task Matters
 - The current roadmap release proves the section is valuable, but a flat list
@@ -40,54 +40,61 @@ structure directly from the dashboard.
 ## Product Direction
 - The section name is `Roadmap`.
 - The roadmap remains a planning/communication feature, not a task tracker.
-- The top-level concept should become a roadmap phase or milestone group.
-- Each phase can contain one or many child events.
-- Events inside the same phase should read as intentionally connected through
-  line treatment and shared visual grouping.
-- Desktop should feel like an editable phase journey rather than a flat strip.
-- Mobile should stay clean and validated, with grouped events stacking in a way
-  that still communicates belonging and order without desktop overflow hacks.
+- Users should create roadmap `events`, not milestone cards.
+- Milestones remain visible as grouping levels (`Milestone 1`, `Milestone 2`,
+  etc.) that hold one or many event cards.
+- New events should default into a new milestone lane at the end unless the
+  user explicitly targets an existing milestone during creation.
+- Event cards keep `View`, `Edit`, and `Delete` actions.
+- Drag handles belong inside event cards, not on milestone chrome.
+- Desktop should visually connect event cards between milestones with gray
+  connector lines at the event-card level; when one milestone fans into
+  multiple stacked events, the connector treatment should curve/branch rather
+  than stay as a single straight segment.
+- Dragging an event over an existing milestone should darken that destination
+  so the grouping outcome is obvious before drop.
+- Dragging an event to the far-right drop target should create a new milestone
+  and place the event there.
+- Mobile should stay clean and intentionally adapted even if the desktop
+  connector treatment simplifies on smaller screens.
 - Future tracking through epics or tasks is still deferred and should not be
   coupled into this task.
 
 ## Scope
-- Replace the flat roadmap milestone model with a project-scoped hierarchy:
-  roadmap phases plus child roadmap events.
-- Preserve existing roadmap data by migrating current milestones into phases
-  with a single child event rather than discarding shipped user content.
-- Add service-layer functions for:
-  - listing roadmap phases with nested events
-  - creating, updating, deleting roadmap phases
-  - creating, updating, deleting roadmap events
-  - reordering phases
-  - reordering events within a phase
-  - moving events between phases
-- Add or update project API routes for roadmap reads and mutations while
-  keeping transport logic thin.
-- Rebuild the `Roadmap` dashboard section so desktop presents milestone phases
-  as a connected journey with grouped child events and mobile presents a
-  compact grouped vertical flow.
+- Keep the roadmap persistence model project-scoped around milestone groups plus
+  child events, but shift the authored UI model so events are the primary
+  created and manipulated entity.
+- Preserve current roadmap data while presenting milestones as generic grouping
+  labels instead of user-authored milestone cards.
+- Allow new roadmap event creation from a `New event` entry point only.
+- Let event creation target either:
+  - a new milestone lane (default)
+  - an existing milestone lane selected from the current milestone list
+- Rebuild the `Roadmap` dashboard section so desktop presents milestone lanes
+  containing stacked event cards with card-level connectors and drag/drop
+  regrouping, while mobile presents the same grouping model in a cleaner
+  vertical stack.
 - Allow viewers to read the roadmap.
-- Allow editors and owners to edit roadmap phases and events directly from the
-  dashboard.
+- Allow editors and owners to create, edit, delete, and regroup roadmap events
+  directly from the dashboard.
 - Add drag-and-drop interactions for roadmap editing:
-  - reorder phases
-  - reorder events inside phases
-  - move an event into another phase
-- Support phase fields:
-  - title
-  - optional description
-  - optional target date
-  - visual state
-  - explicit order
+  - reorder events inside a milestone
+  - move an event into another existing milestone
+  - move an event into a new milestone by dropping onto the trailing new-lane
+    destination
+- Remove milestone-level edit/delete controls from the primary roadmap UI.
+- Keep milestone numbering derived from visual order (`Milestone 1`, `Milestone 2`, etc.).
 - Support event fields:
   - title
   - optional description
   - optional target date
-  - optional visual state override or inherited state behavior, whichever is
-    chosen during implementation and documented clearly
-  - explicit order within the phase
-- Keep roadmap v2 unrelated to tasks, epics, deadlines, and automatic progress.
+  - visual state
+  - explicit order within the milestone lane
+- Keep roadmap unrelated to tasks, epics, deadlines, and automatic progress.
+- Fix the roadmap modal presentation so dialogs render as real viewport overlays
+  rather than appearing clipped or visually anchored inside the roadmap panel.
+- Move the `Roadmap` section below `Kanban board` in the project dashboard
+  composition.
 - Preserve project-scoped authorization and RLS context in all service paths.
 - Add targeted unit/API/component coverage, plus Playwright validation against
   the deployed preview for the roadmap interaction flow.
@@ -106,20 +113,28 @@ structure directly from the dashboard.
 
 ## Acceptance Criteria
 - A `Roadmap` section appears on the project dashboard.
-- Project members with viewer access can see grouped roadmap phases and nested
-  roadmap events.
-- Editors and owners can create, edit, and delete roadmap phases.
-- Editors and owners can create, edit, and delete roadmap events.
-- Editors and owners can reorder phases via drag-and-drop.
-- Editors and owners can reorder events within a phase via drag-and-drop.
-- Editors and owners can move an event between phases via drag-and-drop.
+- The `Roadmap` section is rendered below `Kanban board`.
+- Project members with viewer access can see milestone lanes with nested roadmap
+  event cards.
+- Editors and owners can create roadmap events from a `New event` action.
+- New event creation defaults to a new milestone lane and can optionally target
+  an existing milestone lane.
+- Editors and owners can edit and delete roadmap events from event-card actions.
+- Editors and owners can reorder events within a milestone via drag-and-drop.
+- Editors and owners can move an event between milestones via drag-and-drop.
+- Editors and owners can drop an event into a trailing destination that creates
+  a new milestone lane automatically.
 - The desktop presentation clearly communicates:
-  - phase-to-phase sequence
-  - event grouping inside a phase
-  - visual connection between sibling events
+  - milestone-to-milestone sequence
+  - event grouping inside a milestone
+  - visual connection between sibling events at the card level
+  - curved/branching connector behavior when one milestone fans into multiple
+    stacked events in the next milestone
 - The mobile presentation remains intentionally adapted and readable.
-- Roadmap v2 remains independent from tasks, deadlines, comments, and epics.
-- Existing roadmap data is preserved through migration into the new structure.
+- The roadmap modal renders as a usable full overlay and is not clipped or
+  visually trapped inside the roadmap section.
+- Roadmap remains independent from tasks, deadlines, comments, and epics.
+- Existing roadmap data remains usable in the updated event-first UI model.
 - Service-layer authorization rejects unauthorized reads and mutations.
 - API routes remain thin adapters over the roadmap service.
 - Prisma access remains limited to `lib/services/**`.
@@ -132,11 +147,13 @@ structure directly from the dashboard.
 ## Definition Of Done
 1. `TASK-130` is the active brief in `tasks/current.md`.
 2. The roadmap schema, migration, services, routes, and dashboard section are
-   implemented around milestone phases plus child events without coupling them
-   to tasks or epics.
-3. Existing roadmap milestone data migrates safely into the new structure.
-4. The UI works intentionally on desktop and mobile, including drag-and-drop
-   editing for the intended roadmap interactions.
+   implemented around milestone groups plus child events without coupling them
+   to tasks or epics, with an event-first authored UI.
+3. Existing roadmap milestone data remains usable inside the new event-first
+   presentation.
+4. The UI works intentionally on desktop and mobile, including event-first
+   creation, regrouping, drop-to-new-milestone behavior, and corrected modal
+   overlay behavior.
 5. Relevant validation is green:
    - `npm run lint`
    - targeted roadmap service/API/component tests
@@ -196,5 +213,5 @@ structure directly from the dashboard.
 
 ---
 
-Last Updated: 2026-04-23
+Last Updated: 2026-04-24
 Assigned To: Agent
