@@ -15,7 +15,7 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
 - Project sharing v2 with owner-managed invites, role-based membership, email-bound invitation flows, and resumable invite acceptance.
 - Project dashboard with core panels:
   - Context cards (create/edit/delete + attachments)
-  - Roadmap milestone phases with grouped child events, drag-and-drop editing, and target-date planning
+  - Roadmap event-first milestone lanes with grouped child events, drag-and-drop regrouping, and target-date planning
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`) with reorder, deadline/comment visibility, task epic links, and task detail modal
   - Project epics registry with dedicated epic CRUD, automatic status/progress, and linked-task rollups
   - Google Calendar panel (read/create/update/delete events when connected)

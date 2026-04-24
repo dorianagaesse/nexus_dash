@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-24
+- Type: Execution
+- Summary: TASK-130 was refined into an event-first roadmap experience: the dashboard now creates `New event` items directly, treats milestones as structural lanes instead of authored cards, moves roadmap below Kanban, keeps drag handles inside event cards, supports regrouping events into existing milestones or a new trailing milestone lane, and fixes roadmap dialogs so they render as true viewport overlays.
+- Evidence: Updated `components/project-roadmap-panel.tsx`, `app/projects/[projectId]/page.tsx`, `tests/components/project-roadmap-panel.test.tsx`, `tests/e2e/smoke-project-task-calendar.spec.ts`, `tasks/current.md`, `README.md`, and `project.md`; commit `186eeac`; PR `#198`.
+
+### 2026-04-24
+- Type: Validation
+- Summary: The event-first TASK-130 refinement passed lint, a production build with repo-aligned preview-safe env overrides, and protected-preview Playwright validation on the deployed branch preview, including the full critical dashboard smoke suite.
+- Evidence: `npm run lint -- components/project-roadmap-panel.tsx app/projects/[projectId]/page.tsx tests/components/project-roadmap-panel.test.tsx tests/e2e/smoke-project-task-calendar.spec.ts`; env-overridden `npm run build` with direct Supabase host plus `GOOGLE_TOKEN_ENCRYPTION_KEY` and `AGENT_TOKEN_SIGNING_SECRET`; workflow `Deploy Vercel (CD + Rollback)` run `24877497847` with explicit `git_ref=feature/task-130-roadmap-groups`; log evidence shows `actions/checkout@v6`, `ref: feature/task-130-roadmap-groups`, and `git checkout --progress --force -B feature/task-130-roadmap-groups`; preview URL `https://nexus-dash-27ddw5ukv-dorian-agaesses-projects.vercel.app`; `.env`-loaded `PLAYWRIGHT_BASE_URL=https://nexus-dash-27ddw5ukv-dorian-agaesses-projects.vercel.app` plus `VERCEL_AUTOMATION_BYPASS_SECRET=...` with `npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep 'roadmap event-first milestone flow'` passed and the full `npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts` suite passed (`5 passed`).
+
 ### 2026-04-23
 - Type: Execution
 - Summary: TASK-130 replaced the flat roadmap milestone strip with a grouped roadmap model built around milestone phases plus child events, preserving existing roadmap data through migration and adding direct dashboard editing with drag-and-drop sequencing for both phases and events.

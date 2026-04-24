@@ -4,7 +4,7 @@
 TASK-130
 
 ## Status
-In progress.
+Done.
 
 ## Objective
 Refine roadmap v2 into an event-first planning surface where users create and
