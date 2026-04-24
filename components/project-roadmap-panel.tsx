@@ -87,7 +87,7 @@ const ROADMAP_LANE_WIDTH_CLASS = "w-[21rem]";
 const CONNECTOR_CARD_HEIGHT = 212;
 const CONNECTOR_CARD_GAP = 16;
 const CONNECTOR_TOP_OFFSET = 106;
-const CONNECTOR_WIDTH = 124;
+const CONNECTOR_WIDTH = 148;
 
 const ROADMAP_ACTION_BUTTON_CLASS =
   "rounded-full border border-transparent bg-transparent text-foreground/90 hover:border-slate-950 hover:bg-slate-950 hover:text-white dark:text-white/90 dark:hover:border-white dark:hover:bg-white dark:hover:text-slate-950";
@@ -756,46 +756,68 @@ function getLaneConnectorHeight(maxEventsCount: number): number {
   return CONNECTOR_TOP_OFFSET + getLaneStackHeight(maxEventsCount);
 }
 
-function buildConnectorPath(width: number, startY: number, endY: number): string {
-  const controlOffset = Math.max(width * 0.28, 24);
-  const controlY1 = startY;
-  const controlY2 = endY;
+function buildSingleConnectorPath(width: number, startY: number, endY: number): string {
+  if (Math.abs(endY - startY) < 1) {
+    return `M 0 ${startY} H ${width}`;
+  }
 
-  return `M 0 ${startY} C ${controlOffset} ${controlY1}, ${width - controlOffset} ${controlY2}, ${width} ${endY}`;
+  const turnX = Math.round(width * 0.46);
+  const radius = Math.min(18, Math.abs(endY - startY) / 2, (width - turnX) / 2);
+  const verticalDirection = endY > startY ? 1 : -1;
+
+  return `M 0 ${startY} H ${turnX - radius} Q ${turnX} ${startY} ${turnX} ${startY + verticalDirection * radius} V ${endY - verticalDirection * radius} Q ${turnX} ${endY} ${turnX + radius} ${endY} H ${width}`;
 }
 
-function buildConnectorSegments(
+function buildForkConnectorSegments(
   width: number,
   startY: number,
   targetYs: number[]
-): Array<{ d: string; key: string }> {
+): {
+  branches: Array<{ d: string; key: string }>;
+  leadPath: string;
+  trunkPath: string;
+  hubRadius: number;
+  hubX: number;
+} {
   if (targetYs.length <= 1) {
-    return [
-      {
-        key: "single",
-        d: buildConnectorPath(width, startY, targetYs[0] ?? startY),
-      },
-    ];
+    const endY = targetYs[0] ?? startY;
+    return {
+      branches: [{ key: "single", d: buildSingleConnectorPath(width, startY, endY) }],
+      leadPath: "",
+      trunkPath: "",
+      hubRadius: 0,
+      hubX: 0,
+    };
   }
 
-  const forkX = Math.round(width * 0.26);
-  const branchControlOffset = Math.max((width - forkX) * 0.32, 24);
+  const hubX = Math.round(width * 0.42);
+  const hubRadius = 4;
+  const minY = Math.min(startY, ...targetYs);
+  const maxY = Math.max(startY, ...targetYs);
+  const branches = targetYs.map((targetY, index) => {
+    if (Math.abs(targetY - startY) < 1) {
+      return {
+        key: `branch-${index}`,
+        d: `M ${hubX} ${targetY} H ${width}`,
+      };
+    }
 
-  const segments = [
-    {
-      key: "lead",
-      d: `M 0 ${startY} L ${forkX} ${startY}`,
-    },
-  ];
+    const verticalDirection = targetY > startY ? 1 : -1;
+    const radius = Math.min(18, Math.abs(targetY - startY) / 2, (width - hubX) / 2);
 
-  targetYs.forEach((targetY, index) => {
-    segments.push({
+    return {
       key: `branch-${index}`,
-      d: `M ${forkX} ${startY} C ${forkX + branchControlOffset} ${startY}, ${width - branchControlOffset} ${targetY}, ${width} ${targetY}`,
-    });
+      d: `M ${hubX} ${targetY - verticalDirection * radius} Q ${hubX} ${targetY} ${hubX + radius} ${targetY} H ${width}`,
+    };
   });
 
-  return segments;
+  return {
+    branches,
+    leadPath: `M 0 ${startY} H ${hubX}`,
+    trunkPath: `M ${hubX} ${minY} V ${maxY}`,
+    hubRadius,
+    hubX,
+  };
 }
 
 function RoadmapDesktopConnector({
@@ -817,12 +839,14 @@ function RoadmapDesktopConnector({
   const targetYs = targetIndexes.map((eventIndex) =>
     getLaneCardCenterY(eventIndex, nextPhase.events.length, maxEventsCount)
   );
-  const segments = buildConnectorSegments(width, startY, targetYs);
+  const connector = buildForkConnectorSegments(width, startY, targetYs);
+  const strokeColor = "rgb(148 163 184 / 0.58)";
+  const strokeWidth = 2.6;
 
   return (
     <div
       aria-hidden="true"
-      className="relative hidden w-[7.75rem] shrink-0 lg:block"
+      className="relative hidden w-[9.25rem] shrink-0 lg:block"
       style={{ height }}
     >
       <svg
@@ -830,16 +854,37 @@ function RoadmapDesktopConnector({
         className="h-full w-full overflow-visible"
         fill="none"
       >
-        {segments.map((segment) => (
+        {connector.leadPath ? (
+          <path
+            d={connector.leadPath}
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : null}
+        {connector.trunkPath ? (
+          <path
+            d={connector.trunkPath}
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : null}
+        {connector.branches.map((segment) => (
           <path
             key={segment.key}
             d={segment.d}
-            stroke="rgb(148 163 184 / 0.58)"
-            strokeWidth="2.6"
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
         ))}
+        {connector.hubRadius > 0 ? (
+          <circle cx={connector.hubX} cy={startY} r={connector.hubRadius} fill={strokeColor} />
+        ) : null}
       </svg>
     </div>
   );
