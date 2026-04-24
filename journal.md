@@ -897,3 +897,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-106 passed local lint, targeted roadmap coverage, full Vitest coverage, and production build after pinning local validation to the repo-compatible Node `20.19.0` runtime and supplying placeholder env values expected by startup/build validation.
 - Evidence: `npx -y -p node@20.19.0 node .\\node_modules\\prisma\\build\\index.js generate`; `npx -y -p node@20.19.0 node .\\node_modules\\eslint\\bin\\eslint.js .`; `npx -y -p node@20.19.0 node .\\node_modules\\vitest\\vitest.mjs run tests\\lib\\project-roadmap-service.test.ts tests\\api\\project-roadmap.route.test.ts tests\\components\\project-roadmap-panel.test.tsx`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... npx -y -p node@20.19.0 node .\\node_modules\\vitest\\vitest.mjs run`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npx -y -p node@20.19.0 node .\\node_modules\\next\\dist\\bin\\next build`.
+
+### 2026-04-24
+- Type: Execution
+- Summary: TASK-130 roadmap follow-up aligned the event-first UX with the approved interaction model and removed the remaining misleading roadmap chrome.
+- Evidence: Updated `components/project-roadmap-panel.tsx` so the roadmap header toggles from the full row, roadmap counts reuse the Epics-style pill badges, the trailing new-milestone lane no longer shows persistent explanatory text, event lanes render without the extra outer shell, drag-over uses shadow/lift feedback instead of border expansion, and roadmap event moves persist through the hardened `lib/services/project-roadmap-service.ts` transaction path.
+
+### 2026-04-24
+- Type: Validation
+- Summary: TASK-130 follow-up passed targeted lint, roadmap service regression coverage, production build, and deployed-preview Playwright validation after tightening the roadmap smoke to use the shipped drag handle geometry reliably.
+- Evidence: `npm run lint -- components/project-roadmap-panel.tsx lib/services/project-roadmap-service.ts tests/lib/project-roadmap-service.test.ts tests/e2e/smoke-project-task-calendar.spec.ts`; `npx vitest run tests/lib/project-roadmap-service.test.ts`; `npm run build` with local `DATABASE_URL`, `DIRECT_URL`, `GOOGLE_TOKEN_ENCRYPTION_KEY`, and `AGENT_TOKEN_SIGNING_SECRET` overrides; `PLAYWRIGHT_BASE_URL=https://nexus-dash-2x8b9ruwh-dorian-agaesses-projects.vercel.app VERCEL_AUTOMATION_BYPASS_SECRET=... npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "roadmap event-first milestone flow"`.

@@ -210,23 +210,52 @@ test.describe("critical UI smoke flows", () => {
     const milestoneThreeLane = page.locator("[data-roadmap-milestone='3']");
     await expect(milestoneThreeLane).toContainText(thirdEventTitle);
 
+    const sourceCard = milestoneThreeLane.locator("[data-roadmap-event-card]").first();
+    const sourceHandle = milestoneThreeLane.locator("[data-roadmap-event-drag-handle]").first();
+    const targetDropzone = milestoneTwoLane.locator("[data-roadmap-lane-dropzone]").first();
+
+    await sourceCard.scrollIntoViewIfNeeded();
+    await sourceHandle.scrollIntoViewIfNeeded();
+
+    const sourceCardBox = await sourceCard.boundingBox();
+    const sourceHandleBox = await sourceHandle.boundingBox();
+    const targetDropzoneBox = await targetDropzone.boundingBox();
+
+    expect(sourceCardBox).toBeTruthy();
+    expect(sourceHandleBox).toBeTruthy();
+    expect(targetDropzoneBox).toBeTruthy();
+
+    const handleCenterX = sourceHandleBox!.x + sourceHandleBox!.width / 2;
+    const handleCenterY = sourceHandleBox!.y + sourceHandleBox!.height / 2;
+    const handleOffsetX = handleCenterX - sourceCardBox!.x;
+    const handleOffsetY = handleCenterY - sourceCardBox!.y;
+    const desiredCardX = targetDropzoneBox!.x + 18;
+    const desiredCardY = targetDropzoneBox!.y + 14;
+    const targetCursorX = desiredCardX + handleOffsetX;
+    const targetCursorY = desiredCardY + handleOffsetY;
+
     const roadmapMoveRequest = page.waitForResponse(
       (response) =>
         response.request().method() === "POST" &&
-        /\/roadmap\/events\/move$/.test(response.url()) &&
-        response.ok()
+        /\/roadmap\/events\/move$/.test(response.url())
     );
-    await milestoneThreeLane
-      .locator(`[data-roadmap-event-drag-handle]`)
-      .first()
-      .dragTo(milestoneTwoLane.locator("[data-roadmap-lane-dropzone]").first());
-    await roadmapMoveRequest;
+    await page.mouse.move(handleCenterX, handleCenterY);
+    await page.mouse.down();
+    await page.mouse.move(handleCenterX + 12, handleCenterY + 8, { steps: 8 });
+    await page.mouse.move(targetCursorX, targetCursorY, { steps: 24 });
+    await page.mouse.up();
+    const roadmapMoveResponse = await roadmapMoveRequest;
+    expect(roadmapMoveResponse.ok()).toBeTruthy();
 
     await expect(page.getByText("2 milestones")).toBeVisible();
     await expect(milestoneTwoLane).toContainText(secondEventTitle);
     await expect(milestoneTwoLane).toContainText(thirdEventTitle);
 
-    await milestoneTwoLane.getByRole("button", { name: "View" }).last().click();
+    await milestoneTwoLane
+      .locator("article")
+      .filter({ hasText: thirdEventTitle })
+      .getByRole("button", { name: "View" })
+      .click();
     const roadmapDetailDialog = page.getByRole("dialog");
     await expect(
       roadmapDetailDialog.getByRole("heading", { name: thirdEventTitle })
