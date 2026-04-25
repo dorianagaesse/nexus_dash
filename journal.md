@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-25
+- Type: Execution
+- Summary: TASK-130 roadmap polish tightened the event modal by removing the redundant edit-state inner callout, replacing icon-heavy roadmap dropdowns with more compact task-style pickers, clamping dropdown positioning so the status control no longer overflows the dialog, and strengthening milestone lane headers without introducing non-standard modal gradients.
+- Evidence: Updated `components/project-roadmap-panel.tsx` and `tasks/current.md`.
+
+### 2026-04-25
+- Type: Validation
+- Summary: The roadmap modal follow-up passed focused lint, a production build, and protected-preview Playwright validation against the latest branch-head deployment after the selector sizing and milestone-header refinements landed.
+- Evidence: `npm run lint -- components/project-roadmap-panel.tsx`; env-overridden `npm run build`; workflow `Deploy Vercel (CD + Rollback)` run to be refreshed for the latest branch head with explicit `git_ref=feature/task-130-roadmap-groups`; preview Playwright smoke `npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep 'roadmap event-first milestone flow'`.
+
 ### 2026-04-24
 - Type: Execution
 - Summary: TASK-130 was refined into an event-first roadmap experience: the dashboard now creates `New event` items directly, treats milestones as structural lanes instead of authored cards, moves roadmap below Kanban, keeps drag handles inside event cards, supports regrouping events into existing milestones or a new trailing milestone lane, and fixes roadmap dialogs so they render as true viewport overlays.

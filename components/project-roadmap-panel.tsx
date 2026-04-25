@@ -21,7 +21,6 @@ import {
   ChevronDown,
   ChevronUp,
   Eye,
-  Flag,
   GripVertical,
   Map,
   Pencil,
@@ -81,7 +80,6 @@ interface RoadmapSelectOption {
   value: string;
   label: string;
   description: string;
-  icon?: ReactNode;
   badge?: ReactNode;
 }
 
@@ -357,6 +355,7 @@ function RoadmapSelectField({
   options,
   disabled = false,
   placeholder,
+  showDescriptionInTrigger = true,
   onChange,
 }: {
   id: string;
@@ -364,6 +363,7 @@ function RoadmapSelectField({
   options: RoadmapSelectOption[];
   disabled?: boolean;
   placeholder: string;
+  showDescriptionInTrigger?: boolean;
   onChange: (value: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -400,13 +400,15 @@ function RoadmapSelectField({
         160,
         shouldOpenAbove ? availableAbove - 8 : availableBelow - 8
       );
+      const width = Math.min(Math.max(rect.width, 280), window.innerWidth - viewportPadding * 2);
+      const maxLeft = window.innerWidth - viewportPadding - width;
 
       setDropdownPosition({
         top: shouldOpenAbove
           ? Math.max(viewportPadding, rect.top - Math.min(estimatedHeight, maxHeight) - 8)
           : rect.bottom + 8,
-        left: rect.left,
-        width: Math.max(rect.width, 320),
+        left: Math.min(rect.left, Math.max(viewportPadding, maxLeft)),
+        width,
         maxHeight,
       });
     };
@@ -467,12 +469,7 @@ function RoadmapSelectField({
         }}
       >
         {selectedOption ? (
-          <div className="flex min-w-0 items-center gap-3">
-            {selectedOption.icon ? (
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/70 bg-muted/30 text-muted-foreground">
-                {selectedOption.icon}
-              </span>
-            ) : null}
+          <div className="min-w-0 flex-1">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="truncate text-sm font-medium text-foreground">
@@ -480,9 +477,11 @@ function RoadmapSelectField({
                 </p>
                 {selectedOption.badge}
               </div>
-              <p className="truncate text-xs text-muted-foreground">
-                {selectedOption.description}
-              </p>
+              {showDescriptionInTrigger ? (
+                <p className="truncate text-xs text-muted-foreground">
+                  {selectedOption.description}
+                </p>
+              ) : null}
             </div>
           </div>
         ) : (
@@ -526,12 +525,7 @@ function RoadmapSelectField({
                         setIsOpen(false);
                       }}
                     >
-                      <div className="flex min-w-0 items-center gap-3">
-                        {option.icon ? (
-                          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border/70 bg-muted/30 text-muted-foreground">
-                            {option.icon}
-                          </span>
-                        ) : null}
+                      <div className="min-w-0 flex-1">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="truncate text-sm font-medium text-foreground">
@@ -573,8 +567,8 @@ function RoadmapEntityForm({
   onCancel,
 }: {
   draft: RoadmapDraftState;
-  title: string;
-  subtitle: string;
+  title?: string;
+  subtitle?: string;
   submitLabel: string;
   targetDateLabel: string;
   statusLabel: string;
@@ -588,12 +582,16 @@ function RoadmapEntityForm({
 }) {
   return (
     <div className="space-y-5">
-      <div className="rounded-2xl border border-border/60 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.08),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.05),transparent_26%)] px-4 py-3">
-        <div className="space-y-1">
-          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-          <p className="text-xs leading-5 text-muted-foreground">{subtitle}</p>
+      {title || subtitle ? (
+        <div className="rounded-2xl border border-border/60 bg-muted/20 px-4 py-3">
+          <div className="space-y-1">
+            {title ? <h3 className="text-sm font-semibold text-foreground">{title}</h3> : null}
+            {subtitle ? (
+              <p className="text-xs leading-5 text-muted-foreground">{subtitle}</p>
+            ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="grid gap-2">
@@ -653,7 +651,7 @@ function RoadmapEntityForm({
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_240px]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,280px)]">
         <div className="grid gap-2">
           <label htmlFor="roadmap-entity-description" className="text-sm font-medium">
             Description
@@ -682,6 +680,7 @@ function RoadmapEntityForm({
             value={draft.status}
             options={statusOptions}
             placeholder="Choose a status"
+            showDescriptionInTrigger={false}
             onChange={(nextStatus) =>
               onChange({
                 ...draft,
@@ -731,12 +730,14 @@ function RoadmapEntityForm({
 function RoadmapDialogShell({
   title,
   subtitle,
+  headerBadge,
   isOpen,
   onClose,
   children,
 }: {
   title: string;
   subtitle?: string;
+  headerBadge?: ReactNode;
   isOpen: boolean;
   onClose: () => void;
   children: ReactNode;
@@ -755,12 +756,15 @@ function RoadmapDialogShell({
         aria-labelledby="roadmap-dialog-title"
         className="relative z-10 flex max-h-[100dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-3xl border border-border/70 bg-background/95 shadow-[0_40px_120px_-44px_rgba(15,23,42,0.7)] backdrop-blur sm:max-h-[calc(100vh-2rem)] sm:rounded-[2rem]"
       >
-        <div className="border-b border-border/60 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.1),transparent_36%),radial-gradient(circle_at_top_right,rgba(56,189,248,0.06),transparent_28%)] px-5 py-4 sm:px-6 sm:py-5">
+        <div className="border-b border-border/60 bg-background px-5 py-4 sm:px-6 sm:py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
-              <h3 id="roadmap-dialog-title" className="text-xl font-semibold text-foreground">
-                {title}
-              </h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 id="roadmap-dialog-title" className="text-xl font-semibold text-foreground">
+                  {title}
+                </h3>
+                {headerBadge}
+              </div>
               {subtitle ? (
                 <p className="text-sm leading-6 text-muted-foreground">{subtitle}</p>
               ) : null}
@@ -1293,14 +1297,14 @@ function RoadmapMilestoneLane({
       data-roadmap-milestone={phaseIndex + 1}
     >
       <div className="mb-4 flex items-center gap-3 px-1">
-        <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-4 border-background bg-slate-400 shadow-sm dark:bg-slate-500">
-          <span className="h-1.5 w-1.5 rounded-full bg-background/90" />
+        <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-4 border-background bg-sky-500/70 shadow-[0_10px_28px_-18px_rgba(14,165,233,0.85)] dark:bg-sky-400/60">
+          <span className="h-1.5 w-1.5 rounded-full bg-background" />
         </span>
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
+        <div className="min-w-0 space-y-1">
+          <p className="inline-flex max-w-full items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground/80 shadow-[0_14px_30px_-24px_rgba(15,23,42,0.45)]">
             {milestoneLabel}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="pl-1 text-xs font-medium text-muted-foreground">
             {getEventCountLabel(phase.events.length)}
           </p>
         </div>
@@ -1945,7 +1949,6 @@ export function ProjectRoadmapPanel({
         : status === "active"
           ? "Currently moving or being emphasized."
           : "Already reached or completed.",
-    icon: <Flag className="h-4 w-4" />,
     badge: <RoadmapStatusBadge status={status} />,
   }));
   const milestonePlacementOptions: RoadmapSelectOption[] = [
@@ -1953,7 +1956,6 @@ export function ProjectRoadmapPanel({
       value: NEW_MILESTONE_TARGET,
       label: `New milestone (${createMilestoneLabel})`,
       description: "Start a fresh lane and place this event there.",
-      icon: <PlusSquare className="h-4 w-4" />,
     },
     ...roadmapPhases.map((phase, phaseIndex) => ({
       value: phase.id,
@@ -1962,7 +1964,6 @@ export function ProjectRoadmapPanel({
         phase.events.length === 0
           ? "Empty lane ready for a first event."
           : `${getEventCountLabel(phase.events.length)} already in this lane.`,
-      icon: <Map className="h-4 w-4" />,
       badge: (
         <span className="rounded-full border border-border/70 bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
           {getEventCountLabel(phase.events.length)}
@@ -2103,13 +2104,21 @@ export function ProjectRoadmapPanel({
                 }.`
             : undefined
         }
+        headerBadge={
+          eventDialog?.mode === "edit" ? (
+            <Badge
+              variant="outline"
+              className="rounded-full border-border/70 bg-muted/30 px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+            >
+              Editing
+            </Badge>
+          ) : null
+        }
         isOpen={eventDialog !== null}
         onClose={closeEventDialog}
       >
         <RoadmapEntityForm
           draft={eventDraft}
-          title={eventDialog?.mode === "create" ? "Create event" : "Update event"}
-          subtitle="Capture a meaningful moment inside the milestone."
           submitLabel={eventDialog?.mode === "create" ? "Create event" : "Save event"}
           targetDateLabel="Event date"
           statusLabel="Event status"

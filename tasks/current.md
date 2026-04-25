@@ -35,6 +35,9 @@ This refinement pass also needs to tighten the shipped UX details:
 - roadmap event creation controls should match the visual quality of task
   creation selectors, and the event modal should be polished to the same UI
   standard as the rest of the dashboard
+- roadmap modal follow-up polish should keep the edit dialog compact and
+  aligned: no overflowing status picker, no redundant `Update event` callout,
+  and milestone headers should feel more intentionally highlighted
 
 ## Why This Task Matters
 - The current roadmap release proves the section is valuable, but a flat list
