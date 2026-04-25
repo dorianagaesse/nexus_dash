@@ -4,6 +4,7 @@ import {
   type CSSProperties,
   type ReactNode,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
@@ -15,10 +16,12 @@ import {
 } from "@hello-pangea/dnd";
 import { useRouter } from "next/navigation";
 import {
+  Check,
   CalendarDays,
   ChevronDown,
   ChevronUp,
   Eye,
+  Flag,
   GripVertical,
   Map,
   Pencil,
@@ -72,6 +75,14 @@ interface EventDialogState {
   phaseId: string | null;
   eventId: string | null;
   targetPhaseId: string;
+}
+
+interface RoadmapSelectOption {
+  value: string;
+  label: string;
+  description: string;
+  icon?: ReactNode;
+  badge?: ReactNode;
 }
 
 const DEFAULT_DRAFT_STATE: RoadmapDraftState = {
@@ -340,6 +351,212 @@ function RoadmapStatusBadge({
   );
 }
 
+function RoadmapSelectField({
+  id,
+  value,
+  options,
+  disabled = false,
+  placeholder,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  options: RoadmapSelectOption[];
+  disabled?: boolean;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const selectedOption = options.find((option) => option.value === value) ?? null;
+
+  useEffect(() => {
+    if (!isOpen) {
+      setDropdownPosition(null);
+      return undefined;
+    }
+
+    const updateDropdownPosition = () => {
+      const trigger = triggerRef.current;
+      if (!trigger) {
+        return;
+      }
+
+      const rect = trigger.getBoundingClientRect();
+      const viewportPadding = 12;
+      const estimatedHeight = Math.min(72 * options.length, 320);
+      const availableBelow = window.innerHeight - rect.bottom - viewportPadding;
+      const availableAbove = rect.top - viewportPadding;
+      const shouldOpenAbove =
+        availableBelow < estimatedHeight && availableAbove > availableBelow;
+      const maxHeight = Math.max(
+        160,
+        shouldOpenAbove ? availableAbove - 8 : availableBelow - 8
+      );
+
+      setDropdownPosition({
+        top: shouldOpenAbove
+          ? Math.max(viewportPadding, rect.top - Math.min(estimatedHeight, maxHeight) - 8)
+          : rect.bottom + 8,
+        left: rect.left,
+        width: Math.max(rect.width, 320),
+        maxHeight,
+      });
+    };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) {
+        return;
+      }
+
+      if (triggerRef.current?.contains(target) || dropdownRef.current?.contains(target)) {
+        return;
+      }
+
+      setIsOpen(false);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
+    updateDropdownPosition();
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+    window.addEventListener("resize", updateDropdownPosition);
+    window.addEventListener("scroll", updateDropdownPosition, true);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("resize", updateDropdownPosition);
+      window.removeEventListener("scroll", updateDropdownPosition, true);
+    };
+  }, [isOpen, options.length]);
+
+  return (
+    <div className="relative">
+      <button
+        ref={triggerRef}
+        id={id}
+        type="button"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        className={cn(
+          "flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-border/70 bg-background px-3 py-2 text-left transition-colors",
+          "shadow-[0_14px_36px_-30px_rgba(15,23,42,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+          "disabled:cursor-not-allowed disabled:opacity-60"
+        )}
+        onClick={() => {
+          if (disabled) {
+            return;
+          }
+
+          setIsOpen((previous) => !previous);
+        }}
+      >
+        {selectedOption ? (
+          <div className="flex min-w-0 items-center gap-3">
+            {selectedOption.icon ? (
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/70 bg-muted/30 text-muted-foreground">
+                {selectedOption.icon}
+              </span>
+            ) : null}
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {selectedOption.label}
+                </p>
+                {selectedOption.badge}
+              </div>
+              <p className="truncate text-xs text-muted-foreground">
+                {selectedOption.description}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">{placeholder}</p>
+        )}
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+            isOpen && "rotate-180"
+          )}
+        />
+      </button>
+
+      {isOpen && dropdownPosition && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              ref={dropdownRef}
+              role="listbox"
+              className="z-[140] overflow-hidden rounded-2xl border border-border/70 bg-popover p-1.5 shadow-[0_24px_70px_-32px_rgba(15,23,42,0.58)]"
+              style={{
+                position: "fixed",
+                top: dropdownPosition.top,
+                left: dropdownPosition.left,
+                width: dropdownPosition.width,
+                maxHeight: dropdownPosition.maxHeight,
+              }}
+            >
+              <div className="scrollbar-hidden space-y-1 overflow-y-auto p-0.5">
+                {options.map((option) => {
+                  const isSelected = option.value === selectedOption?.value;
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-muted"
+                      onClick={() => {
+                        onChange(option.value);
+                        setIsOpen(false);
+                      }}
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        {option.icon ? (
+                          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border/70 bg-muted/30 text-muted-foreground">
+                            {option.icon}
+                          </span>
+                        ) : null}
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {option.label}
+                            </p>
+                            {option.badge}
+                          </div>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {option.description}
+                          </p>
+                        </div>
+                      </div>
+                      {isSelected ? <Check className="h-4 w-4 text-foreground" /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
+    </div>
+  );
+}
+
 function RoadmapEntityForm({
   draft,
   title,
@@ -347,6 +564,7 @@ function RoadmapEntityForm({
   submitLabel,
   targetDateLabel,
   statusLabel,
+  statusOptions,
   extraFields,
   isSubmitting,
   error,
@@ -360,6 +578,7 @@ function RoadmapEntityForm({
   submitLabel: string;
   targetDateLabel: string;
   statusLabel: string;
+  statusOptions: RoadmapSelectOption[];
   extraFields?: ReactNode;
   isSubmitting: boolean;
   error: string | null;
@@ -368,10 +587,12 @@ function RoadmapEntityForm({
   onCancel: () => void;
 }) {
   return (
-    <div className="space-y-4">
-      <div className="space-y-1">
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        <p className="text-xs text-muted-foreground">{subtitle}</p>
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-border/60 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.08),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.05),transparent_26%)] px-4 py-3">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          <p className="text-xs leading-5 text-muted-foreground">{subtitle}</p>
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -432,7 +653,7 @@ function RoadmapEntityForm({
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_200px]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_240px]">
         <div className="grid gap-2">
           <label htmlFor="roadmap-entity-description" className="text-sm font-medium">
             Description
@@ -456,28 +677,27 @@ function RoadmapEntityForm({
           <label htmlFor="roadmap-entity-status" className="text-sm font-medium">
             {statusLabel}
           </label>
-          <select
+          <RoadmapSelectField
             id="roadmap-entity-status"
             value={draft.status}
-            onChange={(event) =>
+            options={statusOptions}
+            placeholder="Choose a status"
+            onChange={(nextStatus) =>
               onChange({
                 ...draft,
-                status: event.target.value as RoadmapStatus,
+                status: nextStatus as RoadmapStatus,
               })
             }
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
             disabled={isSubmitting}
-          >
-            {ROADMAP_STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {getRoadmapStatusLabel(status)}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       </div>
 
-      {extraFields ? <div className="grid gap-2">{extraFields}</div> : null}
+      {extraFields ? (
+        <div className="rounded-2xl border border-border/60 bg-muted/20 px-4 py-3">
+          <div className="grid gap-2">{extraFields}</div>
+        </div>
+      ) : null}
 
       {error ? (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -485,7 +705,7 @@ function RoadmapEntityForm({
         </div>
       ) : null}
 
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+      <div className="flex flex-col-reverse gap-2 border-t border-border/60 pt-4 sm:flex-row sm:items-center">
         <Button
           type="button"
           variant="ghost"
@@ -526,38 +746,40 @@ function RoadmapDialogShell({
   }
 
   const content = (
-    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/55 p-3 sm:items-center sm:justify-center sm:p-6">
+    <div className="fixed inset-0 z-[90] flex min-h-dvh items-end justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-0 sm:items-center sm:p-4">
       <div aria-hidden="true" className="absolute inset-0" onMouseDown={onClose} />
 
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="roadmap-dialog-title"
-        className="relative z-10 w-full max-w-2xl rounded-[2rem] border border-border/70 bg-background p-5 shadow-[0_35px_100px_-40px_rgba(15,23,42,0.65)] sm:p-6"
+        className="relative z-10 flex max-h-[100dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-3xl border border-border/70 bg-background/95 shadow-[0_40px_120px_-44px_rgba(15,23,42,0.7)] backdrop-blur sm:max-h-[calc(100vh-2rem)] sm:rounded-[2rem]"
       >
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <h3 id="roadmap-dialog-title" className="text-xl font-semibold text-foreground">
-              {title}
-            </h3>
-            {subtitle ? (
-              <p className="text-sm text-muted-foreground">{subtitle}</p>
-            ) : null}
-          </div>
+        <div className="border-b border-border/60 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.1),transparent_36%),radial-gradient(circle_at_top_right,rgba(56,189,248,0.06),transparent_28%)] px-5 py-4 sm:px-6 sm:py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <h3 id="roadmap-dialog-title" className="text-xl font-semibold text-foreground">
+                {title}
+              </h3>
+              {subtitle ? (
+                <p className="text-sm leading-6 text-muted-foreground">{subtitle}</p>
+              ) : null}
+            </div>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 rounded-full"
-            onClick={onClose}
-            aria-label={`Close ${title}`}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full"
+              onClick={onClose}
+              aria-label={`Close ${title}`}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
-        {children}
+        <div className="min-h-0 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">{children}</div>
       </div>
     </div>
   );
@@ -817,7 +1039,7 @@ function buildForkConnectorSegments(
 
   return {
     branches,
-    leadPath: `M 0 ${startY} H ${trunkX}`,
+    leadPath: `M 0 ${startY} H ${trunkX - 0.5}`,
     trunkPath:
       trunkMaxY - trunkMinY < 1 ? "" : `M ${trunkX} ${trunkMinY} V ${trunkMaxY}`,
   };
@@ -862,7 +1084,7 @@ function RoadmapDesktopConnector({
             d={connector.leadPath}
             stroke={strokeColor}
             strokeWidth={strokeWidth}
-            strokeLinecap="round"
+            strokeLinecap="butt"
             strokeLinejoin="round"
           />
         ) : null}
@@ -871,7 +1093,7 @@ function RoadmapDesktopConnector({
             d={connector.trunkPath}
             stroke={strokeColor}
             strokeWidth={strokeWidth}
-            strokeLinecap="round"
+            strokeLinecap="butt"
             strokeLinejoin="round"
           />
         ) : null}
@@ -881,7 +1103,7 @@ function RoadmapDesktopConnector({
             d={segment.d}
             stroke={strokeColor}
             strokeWidth={strokeWidth}
-            strokeLinecap="round"
+            strokeLinecap="butt"
             strokeLinejoin="round"
           />
         ))}
@@ -1714,6 +1936,40 @@ export function ProjectRoadmapPanel({
     (maximum, phase) => Math.max(maximum, getLaneSlotCount(phase.events.length)),
     1
   );
+  const statusSelectOptions: RoadmapSelectOption[] = ROADMAP_STATUSES.map((status) => ({
+    value: status,
+    label: getRoadmapStatusLabel(status),
+    description:
+      status === "planned"
+        ? "Upcoming direction that is not in motion yet."
+        : status === "active"
+          ? "Currently moving or being emphasized."
+          : "Already reached or completed.",
+    icon: <Flag className="h-4 w-4" />,
+    badge: <RoadmapStatusBadge status={status} />,
+  }));
+  const milestonePlacementOptions: RoadmapSelectOption[] = [
+    {
+      value: NEW_MILESTONE_TARGET,
+      label: `New milestone (${createMilestoneLabel})`,
+      description: "Start a fresh lane and place this event there.",
+      icon: <PlusSquare className="h-4 w-4" />,
+    },
+    ...roadmapPhases.map((phase, phaseIndex) => ({
+      value: phase.id,
+      label: getMilestoneLabel(phaseIndex),
+      description:
+        phase.events.length === 0
+          ? "Empty lane ready for a first event."
+          : `${getEventCountLabel(phase.events.length)} already in this lane.`,
+      icon: <Map className="h-4 w-4" />,
+      badge: (
+        <span className="rounded-full border border-border/70 bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
+          {getEventCountLabel(phase.events.length)}
+        </span>
+      ),
+    })),
+  ];
 
   return (
     <Card className={PROJECT_SECTION_CARD_CLASS}>
@@ -1857,6 +2113,7 @@ export function ProjectRoadmapPanel({
           submitLabel={eventDialog?.mode === "create" ? "Create event" : "Save event"}
           targetDateLabel="Event date"
           statusLabel="Event status"
+          statusOptions={statusSelectOptions}
           isSubmitting={isSubmittingEvent}
           error={eventMutationError}
           onChange={setEventDraft}
@@ -1868,31 +2125,23 @@ export function ProjectRoadmapPanel({
                 <label htmlFor="roadmap-event-target-milestone" className="text-sm font-medium">
                   Milestone placement
                 </label>
-                <select
+                <RoadmapSelectField
                   id="roadmap-event-target-milestone"
                   value={eventDialog.targetPhaseId}
-                  onChange={(selectEvent) =>
+                  options={milestonePlacementOptions}
+                  placeholder="Choose where this event should live"
+                  onChange={(nextTargetPhaseId) =>
                     setEventDialog((currentDialog) =>
                       currentDialog
                         ? {
                             ...currentDialog,
-                            targetPhaseId: selectEvent.target.value,
+                            targetPhaseId: nextTargetPhaseId,
                           }
                         : currentDialog
                     )
                   }
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                   disabled={isSubmittingEvent}
-                >
-                  <option value={NEW_MILESTONE_TARGET}>
-                    New milestone ({createMilestoneLabel})
-                  </option>
-                  {roadmapPhases.map((phase, phaseIndex) => (
-                    <option key={phase.id} value={phase.id}>
-                      {getMilestoneLabel(phaseIndex)} ({getEventCountLabel(phase.events.length)})
-                    </option>
-                  ))}
-                </select>
+                />
               </>
             ) : null
           }

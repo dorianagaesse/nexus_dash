@@ -32,6 +32,9 @@ This refinement pass also needs to tighten the shipped UX details:
 - desktop roadmap connector geometry should stay centered on event cards, emit
   a single centered stem from the left milestone, and branch cleanly on the
   right without overlap artifacts, hub dots, or misaligned turns
+- roadmap event creation controls should match the visual quality of task
+  creation selectors, and the event modal should be polished to the same UI
+  standard as the rest of the dashboard
 
 ## Why This Task Matters
 - The current roadmap release proves the section is valuable, but a flat list

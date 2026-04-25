@@ -917,3 +917,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-130 connector follow-up passed focused lint and a production build before preview republish.
 - Evidence: `npm run lint -- components/project-roadmap-panel.tsx tests/components/project-roadmap-panel.test.tsx`; `npm run build` with local `DATABASE_URL`, `DIRECT_URL`, `GOOGLE_TOKEN_ENCRYPTION_KEY`, and `AGENT_TOKEN_SIGNING_SECRET` overrides. `npx vitest run tests/components/project-roadmap-panel.test.tsx` did not execute because the repo's current Vitest include pattern still only matches `tests/**/*.test.ts`.
+
+### 2026-04-25
+- Type: Execution
+- Summary: TASK-130 roadmap modal follow-up replaced the old event form selects with richer task-style pickers and refreshed the dialog shell while removing the last connector junction artifact.
+- Evidence: Updated `components/project-roadmap-panel.tsx` so event status and milestone placement use portaled roadmap pickers with richer option summaries, the event dialog now uses a more polished full-surface modal shell, and desktop connectors use butt-capped junctions to avoid the remaining visible dot at branch starts.
+
+### 2026-04-25
+- Type: Validation
+- Summary: TASK-130 roadmap modal follow-up passed focused lint and a production build before preview redeploy.
+- Evidence: `npm run lint -- components/project-roadmap-panel.tsx`; `npm run build` with local `DATABASE_URL`, `DIRECT_URL`, `GOOGLE_TOKEN_ENCRYPTION_KEY`, and `AGENT_TOKEN_SIGNING_SECRET` overrides.
