@@ -907,3 +907,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-130 follow-up passed targeted lint, roadmap service regression coverage, production build, and deployed-preview Playwright validation after tightening the roadmap smoke to use the shipped drag handle geometry reliably.
 - Evidence: `npm run lint -- components/project-roadmap-panel.tsx lib/services/project-roadmap-service.ts tests/lib/project-roadmap-service.test.ts tests/e2e/smoke-project-task-calendar.spec.ts`; `npx vitest run tests/lib/project-roadmap-service.test.ts`; `npm run build` with local `DATABASE_URL`, `DIRECT_URL`, `GOOGLE_TOKEN_ENCRYPTION_KEY`, and `AGENT_TOKEN_SIGNING_SECRET` overrides; `PLAYWRIGHT_BASE_URL=https://nexus-dash-2x8b9ruwh-dorian-agaesses-projects.vercel.app VERCEL_AUTOMATION_BYPASS_SECRET=... npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "roadmap event-first milestone flow"`.
+
+### 2026-04-25
+- Type: Execution
+- Summary: TASK-130 roadmap connector follow-up simplified desktop branch geometry so milestone connectors originate from the centered left lane, branch cleanly toward right-side event stacks, and no longer render hub dots or overlapping elbow artifacts.
+- Evidence: Updated `components/project-roadmap-panel.tsx` to recalibrate connector offsets against the current lane layout, replace the old multi-primitive fork with a single centered trunk + clean right-side branch stems, and remove the rendered hub marker.
+
+### 2026-04-25
+- Type: Validation
+- Summary: TASK-130 connector follow-up passed focused lint and a production build before preview republish.
+- Evidence: `npm run lint -- components/project-roadmap-panel.tsx tests/components/project-roadmap-panel.test.tsx`; `npm run build` with local `DATABASE_URL`, `DIRECT_URL`, `GOOGLE_TOKEN_ENCRYPTION_KEY`, and `AGENT_TOKEN_SIGNING_SECRET` overrides. `npx vitest run tests/components/project-roadmap-panel.test.tsx` did not execute because the repo's current Vitest include pattern still only matches `tests/**/*.test.ts`.

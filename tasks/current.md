@@ -29,6 +29,9 @@ This refinement pass also needs to tighten the shipped UX details:
 - roadmap drag/drop must stop failing with `roadmap-event-move-failed`
 - drag feedback should use placement shadows and card-lift treatment rather
   than expanding lane borders
+- desktop roadmap connector geometry should stay centered on event cards, emit
+  a single centered stem from the left milestone, and branch cleanly on the
+  right without overlap artifacts, hub dots, or misaligned turns
 
 ## Why This Task Matters
 - The current roadmap release proves the section is valuable, but a flat list
@@ -226,5 +229,5 @@ This refinement pass also needs to tighten the shipped UX details:
 
 ---
 
-Last Updated: 2026-04-24
+Last Updated: 2026-04-25
 Assigned To: Agent

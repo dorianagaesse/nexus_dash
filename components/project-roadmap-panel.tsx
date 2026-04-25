@@ -86,7 +86,7 @@ const NEW_MILESTONE_DROP_ID = "__roadmap-drop-new-milestone__";
 const ROADMAP_LANE_WIDTH_CLASS = "w-[21rem]";
 const CONNECTOR_CARD_HEIGHT = 212;
 const CONNECTOR_CARD_GAP = 16;
-const CONNECTOR_TOP_OFFSET = 106;
+const CONNECTOR_TOP_OFFSET = 56;
 const CONNECTOR_WIDTH = 148;
 
 const ROADMAP_ACTION_BUTTON_CLASS =
@@ -761,11 +761,10 @@ function buildSingleConnectorPath(width: number, startY: number, endY: number): 
     return `M 0 ${startY} H ${width}`;
   }
 
-  const turnX = Math.round(width * 0.46);
-  const radius = Math.min(18, Math.abs(endY - startY) / 2, (width - turnX) / 2);
-  const verticalDirection = endY > startY ? 1 : -1;
+  const firstControlX = Math.round(width * 0.28);
+  const secondControlX = Math.round(width * 0.72);
 
-  return `M 0 ${startY} H ${turnX - radius} Q ${turnX} ${startY} ${turnX} ${startY + verticalDirection * radius} V ${endY - verticalDirection * radius} Q ${turnX} ${endY} ${turnX + radius} ${endY} H ${width}`;
+  return `M 0 ${startY} C ${firstControlX} ${startY} ${secondControlX} ${endY} ${width} ${endY}`;
 }
 
 function buildForkConnectorSegments(
@@ -776,8 +775,6 @@ function buildForkConnectorSegments(
   branches: Array<{ d: string; key: string }>;
   leadPath: string;
   trunkPath: string;
-  hubRadius: number;
-  hubX: number;
 } {
   if (targetYs.length <= 1) {
     const endY = targetYs[0] ?? startY;
@@ -785,38 +782,44 @@ function buildForkConnectorSegments(
       branches: [{ key: "single", d: buildSingleConnectorPath(width, startY, endY) }],
       leadPath: "",
       trunkPath: "",
-      hubRadius: 0,
-      hubX: 0,
     };
   }
 
-  const hubX = Math.round(width * 0.42);
-  const hubRadius = 4;
-  const minY = Math.min(startY, ...targetYs);
-  const maxY = Math.max(startY, ...targetYs);
-  const branches = targetYs.map((targetY, index) => {
+  const trunkX = Math.round(width * 0.42);
+  const branchStemYs = targetYs.map((targetY) => {
     if (Math.abs(targetY - startY) < 1) {
-      return {
-        key: `branch-${index}`,
-        d: `M ${hubX} ${targetY} H ${width}`,
-      };
+      return targetY;
     }
 
     const verticalDirection = targetY > startY ? 1 : -1;
-    const radius = Math.min(18, Math.abs(targetY - startY) / 2, (width - hubX) / 2);
+    const radius = Math.min(18, Math.abs(targetY - startY) / 2, (width - trunkX) / 2);
+    return targetY - verticalDirection * radius;
+  });
+  const trunkMinY = Math.min(startY, ...branchStemYs);
+  const trunkMaxY = Math.max(startY, ...branchStemYs);
+  const branches = targetYs.map((targetY, index) => {
+    const stemY = branchStemYs[index] ?? targetY;
+
+    if (Math.abs(targetY - stemY) < 1) {
+      return {
+        key: `branch-${index}`,
+        d: `M ${trunkX} ${targetY} H ${width}`,
+      };
+    }
+
+    const radius = Math.abs(targetY - stemY);
 
     return {
       key: `branch-${index}`,
-      d: `M ${hubX} ${targetY - verticalDirection * radius} Q ${hubX} ${targetY} ${hubX + radius} ${targetY} H ${width}`,
+      d: `M ${trunkX} ${stemY} Q ${trunkX} ${targetY} ${trunkX + radius} ${targetY} H ${width}`,
     };
   });
 
   return {
     branches,
-    leadPath: `M 0 ${startY} H ${hubX}`,
-    trunkPath: `M ${hubX} ${minY} V ${maxY}`,
-    hubRadius,
-    hubX,
+    leadPath: `M 0 ${startY} H ${trunkX}`,
+    trunkPath:
+      trunkMaxY - trunkMinY < 1 ? "" : `M ${trunkX} ${trunkMinY} V ${trunkMaxY}`,
   };
 }
 
@@ -841,7 +844,7 @@ function RoadmapDesktopConnector({
   );
   const connector = buildForkConnectorSegments(width, startY, targetYs);
   const strokeColor = "rgb(148 163 184 / 0.58)";
-  const strokeWidth = 2.6;
+  const strokeWidth = 2.8;
 
   return (
     <div
@@ -882,9 +885,6 @@ function RoadmapDesktopConnector({
             strokeLinejoin="round"
           />
         ))}
-        {connector.hubRadius > 0 ? (
-          <circle cx={connector.hubX} cy={startY} r={connector.hubRadius} fill={strokeColor} />
-        ) : null}
       </svg>
     </div>
   );
