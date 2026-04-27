@@ -961,4 +961,4 @@ Low-value entries to avoid going forward:
 ### 2026-04-27
 - Type: Governance
 - Summary: Added TASK-131 to track the local validation environment repair work across container bootstrap, database availability, and required toolchain/version alignment.
-- Evidence: Updated `tasks/backlog.md` and `journal.md` on branch `docs/add-local-testing-backlog-task`.
+- Evidence: Updated `tasks/backlog.md` and `journal.md`; PR title: `TASK-131 add local testing backlog task`.
