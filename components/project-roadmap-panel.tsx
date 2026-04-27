@@ -85,7 +85,7 @@ interface RoadmapPhaseLayoutMeasurement {
 interface RoadmapSelectOption {
   value: string;
   label: string;
-  description: string;
+  description?: string;
   badge?: ReactNode;
 }
 
@@ -362,6 +362,7 @@ function RoadmapSelectField({
   disabled = false,
   placeholder,
   showDescriptionInTrigger = true,
+  showDescriptionInMenu = true,
   onChange,
 }: {
   id: string;
@@ -370,6 +371,7 @@ function RoadmapSelectField({
   disabled?: boolean;
   placeholder: string;
   showDescriptionInTrigger?: boolean;
+  showDescriptionInMenu?: boolean;
   onChange: (value: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -483,7 +485,7 @@ function RoadmapSelectField({
                 </p>
                 {selectedOption.badge}
               </div>
-              {showDescriptionInTrigger ? (
+              {showDescriptionInTrigger && selectedOption.description ? (
                 <p className="truncate text-xs text-muted-foreground">
                   {selectedOption.description}
                 </p>
@@ -539,9 +541,11 @@ function RoadmapSelectField({
                             </p>
                             {option.badge}
                           </div>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {option.description}
-                          </p>
+                          {showDescriptionInMenu && option.description ? (
+                            <p className="truncate text-xs text-muted-foreground">
+                              {option.description}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                       {isSelected ? <Check className="h-4 w-4 text-foreground" /> : null}
@@ -589,7 +593,7 @@ function RoadmapEntityForm({
   return (
     <div className="space-y-5">
       {title || subtitle ? (
-        <div className="rounded-2xl border border-border/60 bg-muted/20 px-4 py-3">
+        <div className="rounded-2xl border border-border/60 bg-background px-4 py-3">
           <div className="space-y-1">
             {title ? <h3 className="text-sm font-semibold text-foreground">{title}</h3> : null}
             {subtitle ? (
@@ -699,7 +703,7 @@ function RoadmapEntityForm({
       </div>
 
       {extraFields ? (
-        <div className="rounded-2xl border border-border/60 bg-muted/20 px-4 py-3">
+        <div className="rounded-2xl border border-border/60 bg-background px-4 py-3">
           <div className="grid gap-2">{extraFields}</div>
         </div>
       ) : null}
@@ -2310,6 +2314,8 @@ export function ProjectRoadmapPanel({
                   value={eventDialog.targetPhaseId}
                   options={milestonePlacementOptions}
                   placeholder="Choose where this event should live"
+                  showDescriptionInTrigger={false}
+                  showDescriptionInMenu={false}
                   onChange={(nextTargetPhaseId) =>
                     setEventDialog((currentDialog) =>
                       currentDialog
