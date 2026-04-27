@@ -29,8 +29,13 @@ Use this file to capture tasks discovered during development. Each entry should 
 - ID: TASK-127
   Title: API capability audit - confirm every shipped feature remains fully manageable through the API
   Status: Pending
-  Rationale: Run a focused audit across current product features to verify that core entities and workflows remain fully manageable through the public app API, identify any gaps where shipped UI features outpace the API, and align the API contract or feature boundaries accordingly so agent-facing capabilities stay trustworthy.
+  Rationale: Run a focused audit across current product features to verify that core entities and workflows remain fully manageable through the public app API, identify any gaps where shipped UI features outpace the API, and align the API contract or feature boundaries accordingly so agent-facing capabilities stay trustworthy. Potential sub-task: if the audit reveals missing API functionalities, implement the gaps to bring the API back to full parity with the UI surface.
   Dependencies: TASK-107, TASK-115, TASK-128
+- ID: TASK-129
+  Title: Login/home page UI polish - user-friendly, product-oriented entry experience
+  Status: Pending
+  Rationale: Redesign the login and home page so they feel like a polished product surface rather than a technical auth form: improve visual hierarchy, copy, branding presence, and call-to-action clarity so new visitors understand the product value at a glance and returning users get a frictionless sign-in experience.
+  Dependencies: TASK-045, TASK-059, TASK-083
 - ID: TASK-098
   Title: Meeting notes manager - structured project meeting log with participants, topics, decisions, and follow-ups
   Status: Pending
@@ -84,7 +89,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 - ID: TASK-108
   Title: Whole-app UI/UX refinement - global interaction, visual, and information-design polish
   Status: Pending
-  Rationale: Run a broader refinement pass across the entire app so pages, panels, forms, and feedback patterns feel cohesive, intentional, and production-grade instead of evolving as isolated local improvements.
+  Rationale: Run a broader refinement pass across the entire app so pages, panels, forms, and feedback patterns feel cohesive, intentional, and production-grade instead of evolving as isolated local improvements. Explicitly includes a sweep for inconsistent UI components (spacing, typography, color tokens, button/input variants, modal patterns) with the goal of uniformizing the visual design language across all surfaces.
   Dependencies: TASK-096, TASK-100
 - ID: TASK-100
   Title: Mobile UI/UX refinement - touch ergonomics, compact layouts, and small-screen polish
