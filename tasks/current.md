@@ -38,6 +38,12 @@ This refinement pass also needs to tighten the shipped UX details:
 - roadmap modal follow-up polish should keep the edit dialog compact and
   aligned: no overflowing status picker, no redundant `Update event` callout,
   and milestone headers should feel more intentionally highlighted
+- desktop connector anchoring should use the real rendered event-card centers,
+  not fixed card-height assumptions, so milestones with mixed card content
+  still align perfectly
+- milestone lane markers should inherit roadmap status tone from their child
+  events: any `active` event makes the milestone active, all `reached` makes it
+  reached, otherwise it stays planned
 
 ## Why This Task Matters
 - The current roadmap release proves the section is valuable, but a flat list

@@ -76,6 +76,12 @@ interface EventDialogState {
   targetPhaseId: string;
 }
 
+interface RoadmapPhaseLayoutMeasurement {
+  anchorY: number;
+  centers: number[];
+  height: number;
+}
+
 interface RoadmapSelectOption {
   value: string;
   label: string;
@@ -939,6 +945,18 @@ function getEventCountLabel(count: number): string {
   return `${count} event${count === 1 ? "" : "s"}`;
 }
 
+function getMilestoneStatus(events: ProjectRoadmapPanelEvent[]): RoadmapStatus {
+  if (events.some((event) => event.status === "active")) {
+    return "active";
+  }
+
+  if (events.length > 0 && events.every((event) => event.status === "reached")) {
+    return "reached";
+  }
+
+  return "planned";
+}
+
 function getLaneSlotCount(eventsCount: number): number {
   return Math.max(eventsCount, 1);
 }
@@ -1053,22 +1071,36 @@ function RoadmapDesktopConnector({
   currentPhase,
   nextPhase,
   maxEventsCount,
+  currentMeasurement,
+  nextMeasurement,
 }: {
   currentPhase: ProjectRoadmapPanelPhase;
   nextPhase: ProjectRoadmapPanelPhase;
   maxEventsCount: number;
+  currentMeasurement?: RoadmapPhaseLayoutMeasurement;
+  nextMeasurement?: RoadmapPhaseLayoutMeasurement;
 }) {
-  const height = getLaneConnectorHeight(maxEventsCount);
+  const fallbackHeight = getLaneConnectorHeight(maxEventsCount);
   const width = CONNECTOR_WIDTH;
-  const startY = getLaneConnectorAnchorY(currentPhase.events.length, maxEventsCount);
-  const targetIndexes =
-    nextPhase.events.length === 0
-      ? [0]
-      : nextPhase.events.map((_, eventIndex) => eventIndex);
-  const targetYs = targetIndexes.map((eventIndex) =>
-    getLaneCardCenterY(eventIndex, nextPhase.events.length, maxEventsCount)
-  );
+  const startY =
+    currentMeasurement?.anchorY ??
+    getLaneConnectorAnchorY(currentPhase.events.length, maxEventsCount);
+  const targetYs =
+    nextMeasurement?.centers.length
+      ? nextMeasurement.centers
+      : (nextPhase.events.length === 0
+          ? [getLaneCardCenterY(0, nextPhase.events.length, maxEventsCount)]
+          : nextPhase.events.map((_, eventIndex) =>
+              getLaneCardCenterY(eventIndex, nextPhase.events.length, maxEventsCount)
+            ));
   const connector = buildForkConnectorSegments(width, startY, targetYs);
+  const measuredBottom = Math.max(
+    startY,
+    ...targetYs,
+    currentMeasurement?.height ?? 0,
+    nextMeasurement?.height ?? 0
+  );
+  const height = Math.max(fallbackHeight, Math.ceil(measuredBottom + 24));
   const strokeColor = "rgb(148 163 184 / 0.58)";
   const strokeWidth = 2.8;
 
@@ -1286,6 +1318,8 @@ function RoadmapMilestoneLane({
   onCycleEventStatus: (event: ProjectRoadmapPanelEvent) => void;
 }) {
   const milestoneLabel = getMilestoneLabel(phaseIndex);
+  const milestoneStatus = getMilestoneStatus(phase.events);
+  const milestoneTone = getRoadmapStatusClasses(milestoneStatus);
   const laneVerticalOffset = isDesktop
     ? getLaneVerticalOffset(phase.events.length, maxEventsCount)
     : 0;
@@ -1295,16 +1329,27 @@ function RoadmapMilestoneLane({
     <section
       className={cn("relative shrink-0", isDesktop ? ROADMAP_LANE_WIDTH_CLASS : "w-full")}
       data-roadmap-milestone={phaseIndex + 1}
+      data-roadmap-phase-id={phase.id}
     >
       <div className="mb-4 flex items-center gap-3 px-1">
-        <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-4 border-background bg-sky-500/70 shadow-[0_10px_28px_-18px_rgba(14,165,233,0.85)] dark:bg-sky-400/60">
+        <span
+          className={cn(
+            "relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-4 border-background shadow-[0_10px_28px_-18px_rgba(15,23,42,0.5)]",
+            milestoneTone.dot
+          )}
+        >
           <span className="h-1.5 w-1.5 rounded-full bg-background" />
         </span>
         <div className="min-w-0 space-y-1">
-          <p className="inline-flex max-w-full items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground/80 shadow-[0_14px_30px_-24px_rgba(15,23,42,0.45)]">
+          <p
+            className={cn(
+              "inline-flex max-w-full items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] shadow-[0_14px_30px_-24px_rgba(15,23,42,0.45)]",
+              milestoneTone.badge
+            )}
+          >
             {milestoneLabel}
           </p>
-          <p className="pl-1 text-xs font-medium text-muted-foreground">
+          <p className={cn("pl-1 text-xs font-medium", milestoneTone.accent)}>
             {getEventCountLabel(phase.events.length)}
           </p>
         </div>
@@ -1340,7 +1385,10 @@ function RoadmapMilestoneLane({
               }
             >
               {phase.events.length === 0 ? (
-                <div className="flex min-h-[212px] items-center justify-center rounded-[1.55rem] bg-background/55 px-5 py-8 text-center shadow-[0_24px_64px_-54px_rgba(15,23,42,0.48)]">
+                <div
+                  data-roadmap-empty-state={phase.id}
+                  className="flex min-h-[212px] items-center justify-center rounded-[1.55rem] bg-background/55 px-5 py-8 text-center shadow-[0_24px_64px_-54px_rgba(15,23,42,0.48)]"
+                >
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-foreground/90">No events yet</p>
                     <p className="text-sm leading-6 text-muted-foreground">
@@ -1459,10 +1507,128 @@ export function ProjectRoadmapPanel({
   const [isDesktopLayout, setIsDesktopLayout] = useState(false);
   const [isDraggingEvent, setIsDraggingEvent] = useState(false);
   const [statusMutationEventId, setStatusMutationEventId] = useState<string | null>(null);
+  const [phaseLayoutMeasurements, setPhaseLayoutMeasurements] = useState<
+    Record<string, RoadmapPhaseLayoutMeasurement>
+  >({});
+  const desktopRoadmapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setRoadmapPhases(sortRoadmapPhasesForDisplay(phases));
   }, [phases]);
+
+  useEffect(() => {
+    if (!isDesktopLayout || !isExpanded) {
+      setPhaseLayoutMeasurements({});
+      return undefined;
+    }
+
+    const desktopRoot = desktopRoadmapRef.current;
+    if (!desktopRoot) {
+      return undefined;
+    }
+
+    let animationFrameId = 0;
+    const collectMeasurements = () => {
+      animationFrameId = 0;
+
+      const nextMeasurements: Record<string, RoadmapPhaseLayoutMeasurement> = {};
+      const phaseSections = desktopRoot.querySelectorAll<HTMLElement>("[data-roadmap-phase-id]");
+
+      phaseSections.forEach((section) => {
+        const phaseId = section.dataset.roadmapPhaseId;
+        if (!phaseId) {
+          return;
+        }
+
+        const sectionRect = section.getBoundingClientRect();
+        const cards = Array.from(
+          section.querySelectorAll<HTMLElement>("[data-roadmap-event-card]")
+        );
+        const centers = cards.map(
+          (card) => card.getBoundingClientRect().top - sectionRect.top + card.offsetHeight / 2
+        );
+
+        if (centers.length === 0) {
+          const emptyState = section.querySelector<HTMLElement>("[data-roadmap-empty-state]");
+          if (emptyState) {
+            const emptyRect = emptyState.getBoundingClientRect();
+            centers.push(emptyRect.top - sectionRect.top + emptyState.offsetHeight / 2);
+          }
+        }
+
+        const firstCenter = centers[0] ?? getLaneCardCenterY(0, 0, 1);
+        const lastCenter = centers[centers.length - 1] ?? firstCenter;
+
+        nextMeasurements[phaseId] = {
+          centers,
+          anchorY: centers.length <= 1 ? firstCenter : (firstCenter + lastCenter) / 2,
+          height: Math.ceil(sectionRect.height),
+        };
+      });
+
+      setPhaseLayoutMeasurements((currentMeasurements) => {
+        const currentKeys = Object.keys(currentMeasurements);
+        const nextKeys = Object.keys(nextMeasurements);
+        if (currentKeys.length !== nextKeys.length) {
+          return nextMeasurements;
+        }
+
+        for (const key of nextKeys) {
+          const currentMeasurement = currentMeasurements[key];
+          const nextMeasurement = nextMeasurements[key];
+          if (!currentMeasurement || !nextMeasurement) {
+            return nextMeasurements;
+          }
+
+          if (
+            currentMeasurement.anchorY !== nextMeasurement.anchorY ||
+            currentMeasurement.height !== nextMeasurement.height ||
+            currentMeasurement.centers.length !== nextMeasurement.centers.length
+          ) {
+            return nextMeasurements;
+          }
+
+          for (let index = 0; index < currentMeasurement.centers.length; index += 1) {
+            if (currentMeasurement.centers[index] !== nextMeasurement.centers[index]) {
+              return nextMeasurements;
+            }
+          }
+        }
+
+        return currentMeasurements;
+      });
+    };
+
+    const scheduleMeasurements = () => {
+      if (animationFrameId !== 0) {
+        cancelAnimationFrame(animationFrameId);
+      }
+
+      animationFrameId = window.requestAnimationFrame(collectMeasurements);
+    };
+
+    scheduleMeasurements();
+
+    const resizeObserver = new ResizeObserver(() => {
+      scheduleMeasurements();
+    });
+
+    resizeObserver.observe(desktopRoot);
+    desktopRoot
+      .querySelectorAll<HTMLElement>("[data-roadmap-phase-id], [data-roadmap-event-card]")
+      .forEach((element) => resizeObserver.observe(element));
+
+    window.addEventListener("resize", scheduleMeasurements);
+
+    return () => {
+      if (animationFrameId !== 0) {
+        cancelAnimationFrame(animationFrameId);
+      }
+
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", scheduleMeasurements);
+    };
+  }, [isDesktopLayout, isExpanded, roadmapPhases]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -2044,6 +2210,7 @@ export function ProjectRoadmapPanel({
                 )}
               >
                 <div
+                  ref={isDesktopLayout ? desktopRoadmapRef : null}
                   className={cn(
                     "gap-5",
                     isDesktopLayout ? "flex min-w-max items-start px-2 py-3" : "grid"
@@ -2071,6 +2238,10 @@ export function ProjectRoadmapPanel({
                           currentPhase={phase}
                           nextPhase={roadmapPhases[phaseIndex + 1]}
                           maxEventsCount={maxEventsCount}
+                          currentMeasurement={phaseLayoutMeasurements[phase.id]}
+                          nextMeasurement={
+                            phaseLayoutMeasurements[roadmapPhases[phaseIndex + 1]?.id ?? ""]
+                          }
                         />
                       ) : null}
                     </div>
