@@ -4,6 +4,11 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-131
+  Title: Local validation baseline repair - reproducible container, database, and toolchain setup
+  Status: Pending
+  Rationale: Restore a dependable local validation path by aligning the repo-required Node/npm/Prisma toolchain, making the containerized database/app bootstrap reproducible, and documenting one reliable workflow for `npm ci`, Prisma generate/migrate, Vitest, build, and Playwright smoke runs so routine development stops getting blocked by environment drift.
+  Dependencies: TASK-041, TASK-067
 - ID: TASK-123
   Title: Notification center - unified in-app inbox for invitations, mentions, and future activity
   Status: Pending
