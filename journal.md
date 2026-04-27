@@ -12,6 +12,56 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-27
+- Type: Execution
+- Summary: TASK-130 roadmap follow-up fixed a connector-centering bug by replacing the old fixed-height desktop math with measured event-card centers, and milestone lane markers now inherit a status tone from their child events so lane chrome reflects planned, active, or reached state.
+- Evidence: Updated `components/project-roadmap-panel.tsx` and `tasks/current.md`.
+
+### 2026-04-27
+- Type: Validation
+- Summary: The connector-centering follow-up passed focused lint, a production build, and fresh preview validation on the branch-head roadmap deployment.
+- Evidence: `npm run lint -- components/project-roadmap-panel.tsx`; env-overridden `npm run build`; preview deploy plus Playwright smoke against the latest branch-head preview.
+
+### 2026-04-27
+- Type: Execution
+- Summary: TASK-130 modal follow-up aligned the light-theme event dialog with the darker unified surface treatment, reordered fields into the intended top-down authoring flow, and removed the extra milestone-placement shell so the picker matches the status control pattern.
+- Evidence: Updated `components/project-roadmap-panel.tsx` and `tasks/current.md`.
+
+### 2026-04-25
+- Type: Execution
+- Summary: TASK-130 roadmap polish tightened the event modal by removing the redundant edit-state inner callout, replacing icon-heavy roadmap dropdowns with more compact task-style pickers, clamping dropdown positioning so the status control no longer overflows the dialog, and strengthening milestone lane headers without introducing non-standard modal gradients.
+- Evidence: Updated `components/project-roadmap-panel.tsx` and `tasks/current.md`.
+
+### 2026-04-25
+- Type: Validation
+- Summary: The roadmap modal follow-up passed focused lint, a production build, and protected-preview Playwright validation against the latest branch-head deployment after the selector sizing and milestone-header refinements landed.
+- Evidence: `npm run lint -- components/project-roadmap-panel.tsx`; env-overridden `npm run build`; workflow `Deploy Vercel (CD + Rollback)` run to be refreshed for the latest branch head with explicit `git_ref=feature/task-130-roadmap-groups`; preview Playwright smoke `npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep 'roadmap event-first milestone flow'`.
+
+### 2026-04-24
+- Type: Execution
+- Summary: TASK-130 was refined into an event-first roadmap experience: the dashboard now creates `New event` items directly, treats milestones as structural lanes instead of authored cards, moves roadmap below Kanban, keeps drag handles inside event cards, supports regrouping events into existing milestones or a new trailing milestone lane, and fixes roadmap dialogs so they render as true viewport overlays.
+- Evidence: Updated `components/project-roadmap-panel.tsx`, `app/projects/[projectId]/page.tsx`, `tests/components/project-roadmap-panel.test.tsx`, `tests/e2e/smoke-project-task-calendar.spec.ts`, `tasks/current.md`, `README.md`, and `project.md`; commit `186eeac`; PR `#198`.
+
+### 2026-04-24
+- Type: Validation
+- Summary: The event-first TASK-130 refinement passed lint, a production build with repo-aligned preview-safe env overrides, and protected-preview Playwright validation on the deployed branch preview, including the full critical dashboard smoke suite.
+- Evidence: `npm run lint -- components/project-roadmap-panel.tsx app/projects/[projectId]/page.tsx tests/components/project-roadmap-panel.test.tsx tests/e2e/smoke-project-task-calendar.spec.ts`; env-overridden `npm run build` with direct Supabase host plus `GOOGLE_TOKEN_ENCRYPTION_KEY` and `AGENT_TOKEN_SIGNING_SECRET`; workflow `Deploy Vercel (CD + Rollback)` run `24877497847` with explicit `git_ref=feature/task-130-roadmap-groups`; log evidence shows `actions/checkout@v6`, `ref: feature/task-130-roadmap-groups`, and `git checkout --progress --force -B feature/task-130-roadmap-groups`; preview URL `https://nexus-dash-27ddw5ukv-dorian-agaesses-projects.vercel.app`; `.env`-loaded `PLAYWRIGHT_BASE_URL=https://nexus-dash-27ddw5ukv-dorian-agaesses-projects.vercel.app` plus `VERCEL_AUTOMATION_BYPASS_SECRET=...` with `npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep 'roadmap event-first milestone flow'` passed and the full `npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts` suite passed (`5 passed`).
+
+### 2026-04-23
+- Type: Execution
+- Summary: TASK-130 replaced the flat roadmap milestone strip with a grouped roadmap model built around milestone phases plus child events, preserving existing roadmap data through migration and adding direct dashboard editing with drag-and-drop sequencing for both phases and events.
+- Evidence: Replaced `RoadmapMilestone` with `RoadmapPhase` and `RoadmapEvent` in `prisma/schema.prisma` plus migration `prisma/migrations/20260423201000_task130_roadmap_v2/migration.sql`; rewrote roadmap services/routes in `lib/services/project-roadmap-service.ts` and `app/api/projects/[projectId]/roadmap/**`; rebuilt the grouped roadmap UI in `components/project-roadmap-panel.tsx` and `app/projects/[projectId]/project-roadmap-panel-section.tsx`; updated roadmap docs in `README.md`, `project.md`, `tasks/current.md`, and `tasks/backlog.md`; PR `#198`.
+
+### 2026-04-23
+- Type: Validation
+- Summary: TASK-130 passed local Prisma regeneration, focused roadmap regressions, lint, production build, and protected-preview Playwright validation after adding explicit Vercel preview-bypass header support so the smoke suite could target deployed branch previews directly and after addressing the remaining Copilot review follow-ups.
+- Evidence: `npx -y node@22 node_modules\\prisma\\build\\index.js generate`; `npx -y node@22 node_modules\\vitest\\vitest.mjs run tests/api/project-roadmap.route.test.ts tests/components/project-roadmap-panel.test.tsx tests/lib/project-roadmap-service.test.ts`; `npm run lint`; env-loaded `npm run build` with preview-safe overrides for `DIRECT_URL`, `VERCEL_ENV`, `RESEND_API_KEY`, `AGENT_TOKEN_SIGNING_SECRET`, and `GOOGLE_TOKEN_ENCRYPTION_KEY`; workflow `Deploy Vercel (CD + Rollback)` run `24863190808` with `action=deploy-preview` and explicit `git_ref=feature/task-130-roadmap-groups`; log evidence shows `actions/checkout@v6`, `ref: feature/task-130-roadmap-groups`, and `git checkout --progress --force -B feature/task-130-roadmap-groups`; preview URL `https://nexus-dash-kcse5jmrn-dorian-agaesses-projects.vercel.app`; `PLAYWRIGHT_BASE_URL=https://nexus-dash-kcse5jmrn-dorian-agaesses-projects.vercel.app` plus `VERCEL_AUTOMATION_BYPASS_SECRET=...` with `npx -y node@22 node_modules\\playwright\\cli.js test tests/e2e/smoke-project-task-calendar.spec.ts` passed (`5 passed`).
+
+### 2026-04-23
+- Type: Execution
+- Summary: TASK-106 roadmap follow-up refined the first milestone UI by removing the persistent explanatory hero copy, replacing the long desktop cross-rail with a card-to-card journey treatment, deduplicating deadline display, clamping card descriptions, and adding a dedicated milestone detail view triggered by a `View` action.
+- Evidence: Updated `components/project-roadmap-panel.tsx`, added roadmap detail-view regression coverage in `tests/components/project-roadmap-panel.test.tsx`, and recorded the future section-help affordance follow-up in `tasks/backlog.md` as `TASK-129`.
+
 ### 2026-04-22
 - Type: Execution
 - Summary: TASK-107 follow-up refined the epic registry UX to sit between project context and Kanban, removed the extra epic-header subtitle for better section consistency, made `New epic` expand the collapsed section before opening the form, and replaced the full-card light gradient treatment with a more consistent accent-strip/card treatment that stays readable in dark mode.
@@ -863,7 +913,47 @@ Low-value entries to avoid going forward:
 - Summary: TASK-128 quick assignee updates were hardened after CI exposed that the shared task PATCH endpoint expects a full persisted task payload, not a sparse assignee-only body.
 - Evidence: Updated `components/kanban-board.tsx` so quick assignee mutations preserve title, labels, description, deadline, and related-task ids while overriding only the assignee field; tightened `tests/e2e/smoke-project-task-calendar.spec.ts` to assert the task header badge switches from unassigned to an assigned identity.
 
+### 2026-04-23
+- Type: Execution
+- Summary: TASK-106 added a dedicated `Roadmap` dashboard section with standalone project milestones, new project-scoped roadmap persistence/routes, and distinct desktop/mobile timeline presentations.
+- Evidence: Added `RoadmapMilestone` schema + migration, implemented `lib/services/project-roadmap-service.ts` plus human-only roadmap API routes, wired `app/projects/[projectId]/project-roadmap-panel-section.tsx` into the project page, and built the visual milestone UI in `components/project-roadmap-panel.tsx`.
+
+### 2026-04-23
+- Type: Validation
+- Summary: TASK-106 passed local lint, targeted roadmap coverage, full Vitest coverage, and production build after pinning local validation to the repo-compatible Node `20.19.0` runtime and supplying placeholder env values expected by startup/build validation.
+- Evidence: `npx -y -p node@20.19.0 node .\\node_modules\\prisma\\build\\index.js generate`; `npx -y -p node@20.19.0 node .\\node_modules\\eslint\\bin\\eslint.js .`; `npx -y -p node@20.19.0 node .\\node_modules\\vitest\\vitest.mjs run tests\\lib\\project-roadmap-service.test.ts tests\\api\\project-roadmap.route.test.ts tests\\components\\project-roadmap-panel.test.tsx`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... npx -y -p node@20.19.0 node .\\node_modules\\vitest\\vitest.mjs run`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npx -y -p node@20.19.0 node .\\node_modules\\next\\dist\\bin\\next build`.
+
+### 2026-04-24
+- Type: Execution
+- Summary: TASK-130 roadmap follow-up aligned the event-first UX with the approved interaction model and removed the remaining misleading roadmap chrome.
+- Evidence: Updated `components/project-roadmap-panel.tsx` so the roadmap header toggles from the full row, roadmap counts reuse the Epics-style pill badges, the trailing new-milestone lane no longer shows persistent explanatory text, event lanes render without the extra outer shell, drag-over uses shadow/lift feedback instead of border expansion, and roadmap event moves persist through the hardened `lib/services/project-roadmap-service.ts` transaction path.
+
+### 2026-04-24
+- Type: Validation
+- Summary: TASK-130 follow-up passed targeted lint, roadmap service regression coverage, production build, and deployed-preview Playwright validation after tightening the roadmap smoke to use the shipped drag handle geometry reliably.
+- Evidence: `npm run lint -- components/project-roadmap-panel.tsx lib/services/project-roadmap-service.ts tests/lib/project-roadmap-service.test.ts tests/e2e/smoke-project-task-calendar.spec.ts`; `npx vitest run tests/lib/project-roadmap-service.test.ts`; `npm run build` with local `DATABASE_URL`, `DIRECT_URL`, `GOOGLE_TOKEN_ENCRYPTION_KEY`, and `AGENT_TOKEN_SIGNING_SECRET` overrides; `PLAYWRIGHT_BASE_URL=https://nexus-dash-2x8b9ruwh-dorian-agaesses-projects.vercel.app VERCEL_AUTOMATION_BYPASS_SECRET=... npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "roadmap event-first milestone flow"`.
+
 ### 2026-04-24
 - Type: Governance
 - Summary: Backlog updates for TASK-108 (global UI polish), TASK-127 (API audit), and new TASK-129 (login page UI polish) merged to docs/ branch.
 - Evidence: Updated `tasks/backlog.md` and `journal.md` on branch `docs/add-backlog-entries`.
+
+### 2026-04-25
+- Type: Execution
+- Summary: TASK-130 roadmap connector follow-up simplified desktop branch geometry so milestone connectors originate from the centered left lane, branch cleanly toward right-side event stacks, and no longer render hub dots or overlapping elbow artifacts.
+- Evidence: Updated `components/project-roadmap-panel.tsx` to recalibrate connector offsets against the current lane layout, replace the old multi-primitive fork with a single centered trunk + clean right-side branch stems, and remove the rendered hub marker.
+
+### 2026-04-25
+- Type: Validation
+- Summary: TASK-130 connector follow-up passed focused lint and a production build before preview republish.
+- Evidence: `npm run lint -- components/project-roadmap-panel.tsx tests/components/project-roadmap-panel.test.tsx`; `npm run build` with local `DATABASE_URL`, `DIRECT_URL`, `GOOGLE_TOKEN_ENCRYPTION_KEY`, and `AGENT_TOKEN_SIGNING_SECRET` overrides. `npx vitest run tests/components/project-roadmap-panel.test.tsx` did not execute because the repo's current Vitest include pattern still only matches `tests/**/*.test.ts`.
+
+### 2026-04-25
+- Type: Execution
+- Summary: TASK-130 roadmap modal follow-up replaced the old event form selects with richer task-style pickers and refreshed the dialog shell while removing the last connector junction artifact.
+- Evidence: Updated `components/project-roadmap-panel.tsx` so event status and milestone placement use portaled roadmap pickers with richer option summaries, the event dialog now uses a more polished full-surface modal shell, and desktop connectors use butt-capped junctions to avoid the remaining visible dot at branch starts.
+
+### 2026-04-25
+- Type: Validation
+- Summary: TASK-130 roadmap modal follow-up passed focused lint and a production build before preview redeploy.
+- Evidence: `npm run lint -- components/project-roadmap-panel.tsx`; `npm run build` with local `DATABASE_URL`, `DIRECT_URL`, `GOOGLE_TOKEN_ENCRYPTION_KEY`, and `AGENT_TOKEN_SIGNING_SECRET` overrides.

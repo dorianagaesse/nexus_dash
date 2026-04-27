@@ -23,6 +23,7 @@ Implemented today:
 - Project-scoped agent access with owner-managed API credentials, short-lived bearer-token exchange, and audit trail
 - Project dashboard with:
   - Context cards (CRUD + attachments)
+  - Roadmap event-first milestone lanes with grouped child events, drag-and-drop regrouping, and target-date planning
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`)
   - Calendar panel (Google Calendar list/create/update/delete)
 - Per-user Google Calendar connection and calendar target setting (`/account/settings`)
@@ -32,7 +33,7 @@ Implemented today:
 
 ## Tech Stack
 
-- Next.js 14 (App Router)
+- Next.js 16 (App Router)
 - TypeScript (strict)
 - Tailwind CSS + Shadcn UI
 - Prisma + PostgreSQL
@@ -223,6 +224,21 @@ Run:
 ```bash
 npm run test:e2e
 ```
+
+Against a deployed preview:
+
+```bash
+PLAYWRIGHT_BASE_URL=https://<preview-url> npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts
+```
+
+If the preview is behind Vercel protection, also set:
+
+```bash
+VERCEL_AUTOMATION_BYPASS_SECRET=<32-char-secret>
+```
+
+The Playwright config forwards that secret through the Vercel preview-protection
+headers so smoke runs can target the deployed branch preview directly.
 
 ## CI/CD
 

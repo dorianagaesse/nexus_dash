@@ -4,11 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-106
-  Title: Project roadmap feature - milestone/timeline visibility for better execution sight
-  Status: Pending
-  Rationale: Add a roadmap-oriented project view so teams can see planned direction, upcoming milestones, and sequencing at a higher level than the current Kanban board, improving long-range visibility without losing the existing execution detail.
-  Dependencies: TASK-076, TASK-079, TASK-096
 - ID: TASK-123
   Title: Notification center - unified in-app inbox for invitations, mentions, and future activity
   Status: Pending
@@ -91,6 +86,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Run a broader refinement pass across the entire app so pages, panels, forms, and feedback patterns feel cohesive, intentional, and production-grade instead of evolving as isolated local improvements. Explicitly includes a sweep for inconsistent UI components (spacing, typography, color tokens, button/input variants, modal patterns) with the goal of uniformizing the visual design language across all surfaces.
   Dependencies: TASK-096, TASK-100
+- ID: TASK-129
+  Title: Section help affordances - opt-in question-mark guidance across dashboard modules
+  Status: Pending
+  Rationale: Replace persistent explanatory copy inside dashboard sections with lighter opt-in help affordances so users can click a question-mark entry point when they want extra context, keeping section layouts cleaner while creating a reusable explanation pattern for Roadmap and future modules.
+  Dependencies: TASK-096, TASK-108
 - ID: TASK-100
   Title: Mobile UI/UX refinement - touch ergonomics, compact layouts, and small-screen polish
   Status: Pending
@@ -135,6 +135,16 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-130
+  Title: Roadmap v2 - milestone phases, grouped events, and editable timeline layout
+  Status: Done (2026-04-23)
+  Rationale: Rebuilt the Roadmap section around milestone phases plus grouped child events, preserved shipped roadmap data through migration, added direct phase/event editing with drag-and-drop sequencing, and validated the grouped roadmap flow against a deployed preview using Playwright.
+  Dependencies: TASK-106, TASK-096, TASK-091
+- ID: TASK-106
+  Title: Project roadmap feature - milestone/timeline visibility for better execution sight
+  Status: Done (2026-04-23)
+  Rationale: Added a dedicated project `Roadmap` section with standalone manual milestones, visual sequencing, and intentionally distinct desktop/mobile timeline treatments so teams can communicate project direction without coupling the first release to tasks or epics yet.
+  Dependencies: TASK-076, TASK-079, TASK-096
 - ID: TASK-128
   Title: Task assignee quick action from task options menu
   Status: Done (2026-04-23)

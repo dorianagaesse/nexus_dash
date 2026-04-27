@@ -33,6 +33,10 @@ import {
   ProjectEpicPanelSection,
   ProjectEpicPanelSkeleton,
 } from "./project-epic-panel-section";
+import {
+  ProjectRoadmapPanelSection,
+  ProjectRoadmapPanelSkeleton,
+} from "./project-roadmap-panel-section";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -234,6 +238,14 @@ export default async function ProjectDashboardPage({
           actorUserId={actorUserId}
           canEdit={canEditProjectContent}
           storageProvider={storageProvider}
+        />
+      </Suspense>
+
+      <Suspense fallback={<ProjectRoadmapPanelSkeleton />}>
+        <ProjectRoadmapPanelSection
+          projectId={project.id}
+          actorUserId={actorUserId}
+          canEdit={canEditProjectContent}
         />
       </Suspense>
 
