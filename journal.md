@@ -864,5 +864,6 @@ Low-value entries to avoid going forward:
 - Evidence: Updated `components/kanban-board.tsx` so quick assignee mutations preserve title, labels, description, deadline, and related-task ids while overriding only the assignee field; tightened `tests/e2e/smoke-project-task-calendar.spec.ts` to assert the task header badge switches from unassigned to an assigned identity.
 
 ### 2026-04-24
-- Type: Docs
+- Type: Governance
 - Summary: Backlog updates for TASK-108 (global UI polish), TASK-127 (API audit), and new TASK-129 (login page UI polish) merged to docs/ branch.
+- Evidence: Updated `tasks/backlog.md` and `journal.md` on branch `docs/add-backlog-entries`.
