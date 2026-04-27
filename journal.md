@@ -933,6 +933,11 @@ Low-value entries to avoid going forward:
 - Summary: TASK-130 follow-up passed targeted lint, roadmap service regression coverage, production build, and deployed-preview Playwright validation after tightening the roadmap smoke to use the shipped drag handle geometry reliably.
 - Evidence: `npm run lint -- components/project-roadmap-panel.tsx lib/services/project-roadmap-service.ts tests/lib/project-roadmap-service.test.ts tests/e2e/smoke-project-task-calendar.spec.ts`; `npx vitest run tests/lib/project-roadmap-service.test.ts`; `npm run build` with local `DATABASE_URL`, `DIRECT_URL`, `GOOGLE_TOKEN_ENCRYPTION_KEY`, and `AGENT_TOKEN_SIGNING_SECRET` overrides; `PLAYWRIGHT_BASE_URL=https://nexus-dash-2x8b9ruwh-dorian-agaesses-projects.vercel.app VERCEL_AUTOMATION_BYPASS_SECRET=... npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "roadmap event-first milestone flow"`.
 
+### 2026-04-24
+- Type: Governance
+- Summary: Backlog updates for TASK-108 (global UI polish), TASK-127 (API audit), and new TASK-129 (login page UI polish) merged to docs/ branch.
+- Evidence: Updated `tasks/backlog.md` and `journal.md` on branch `docs/add-backlog-entries`.
+
 ### 2026-04-25
 - Type: Execution
 - Summary: TASK-130 roadmap connector follow-up simplified desktop branch geometry so milestone connectors originate from the centered left lane, branch cleanly toward right-side event stacks, and no longer render hub dots or overlapping elbow artifacts.
