@@ -957,3 +957,8 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-130 roadmap modal follow-up passed focused lint and a production build before preview redeploy.
 - Evidence: `npm run lint -- components/project-roadmap-panel.tsx`; `npm run build` with local `DATABASE_URL`, `DIRECT_URL`, `GOOGLE_TOKEN_ENCRYPTION_KEY`, and `AGENT_TOKEN_SIGNING_SECRET` overrides.
+
+### 2026-04-27
+- Type: Governance
+- Summary: Added TASK-131 to track the local validation environment repair work across container bootstrap, database availability, and required toolchain/version alignment.
+- Evidence: Updated `tasks/backlog.md` and `journal.md` on branch `docs/add-local-testing-backlog-task`.
