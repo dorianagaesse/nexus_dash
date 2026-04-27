@@ -22,6 +22,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Summary: The connector-centering follow-up passed focused lint, a production build, and fresh preview validation on the branch-head roadmap deployment.
 - Evidence: `npm run lint -- components/project-roadmap-panel.tsx`; env-overridden `npm run build`; preview deploy plus Playwright smoke against the latest branch-head preview.
 
+### 2026-04-27
+- Type: Execution
+- Summary: TASK-130 modal follow-up aligned the light-theme event dialog with the darker unified surface treatment, reordered fields into the intended top-down authoring flow, and removed the extra milestone-placement shell so the picker matches the status control pattern.
+- Evidence: Updated `components/project-roadmap-panel.tsx` and `tasks/current.md`.
+
 ### 2026-04-25
 - Type: Execution
 - Summary: TASK-130 roadmap polish tightened the event modal by removing the redundant edit-state inner callout, replacing icon-heavy roadmap dropdowns with more compact task-style pickers, clamping dropdown positioning so the status control no longer overflows the dialog, and strengthening milestone lane headers without introducing non-standard modal gradients.

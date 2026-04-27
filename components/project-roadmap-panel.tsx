@@ -603,26 +603,45 @@ function RoadmapEntityForm({
         </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="grid gap-2">
-          <label htmlFor="roadmap-entity-title" className="text-sm font-medium">
-            Title
-          </label>
-          <EmojiInputField
-            id="roadmap-entity-title"
-            value={draft.title}
-            onChange={(event) =>
-              onChange({
-                ...draft,
-                title: event.target.value,
-              })
-            }
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            placeholder="Public launch"
-            maxLength={100}
-          />
-        </div>
+      <div className="grid gap-2">
+        <label htmlFor="roadmap-entity-title" className="text-sm font-medium">
+          Title
+        </label>
+        <EmojiInputField
+          id="roadmap-entity-title"
+          value={draft.title}
+          onChange={(event) =>
+            onChange({
+              ...draft,
+              title: event.target.value,
+            })
+          }
+          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+          placeholder="Public launch"
+          maxLength={100}
+        />
+      </div>
 
+      <div className="grid gap-2">
+        <label htmlFor="roadmap-entity-description" className="text-sm font-medium">
+          Description
+        </label>
+        <EmojiTextareaField
+          id="roadmap-entity-description"
+          value={draft.description}
+          onChange={(event) =>
+            onChange({
+              ...draft,
+              description: event.target.value,
+            })
+          }
+          className="min-h-28 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          placeholder="Describe what this moment means for the project."
+          maxLength={400}
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
         <div className="grid gap-2">
           <div className="flex items-center justify-between gap-3">
             <label htmlFor="roadmap-entity-target-date" className="text-sm font-medium">
@@ -659,27 +678,6 @@ function RoadmapEntityForm({
             disabled={isSubmitting}
           />
         </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,280px)]">
-        <div className="grid gap-2">
-          <label htmlFor="roadmap-entity-description" className="text-sm font-medium">
-            Description
-          </label>
-          <EmojiTextareaField
-            id="roadmap-entity-description"
-            value={draft.description}
-            onChange={(event) =>
-              onChange({
-                ...draft,
-                description: event.target.value,
-              })
-            }
-            className="min-h-28 rounded-md border border-input bg-background px-3 py-2 text-sm"
-            placeholder="Describe what this moment means for the project."
-            maxLength={400}
-          />
-        </div>
 
         <div className="grid gap-2">
           <label htmlFor="roadmap-entity-status" className="text-sm font-medium">
@@ -702,11 +700,7 @@ function RoadmapEntityForm({
         </div>
       </div>
 
-      {extraFields ? (
-        <div className="rounded-2xl border border-border/60 bg-background px-4 py-3">
-          <div className="grid gap-2">{extraFields}</div>
-        </div>
-      ) : null}
+      {extraFields ? <div className="grid gap-2">{extraFields}</div> : null}
 
       {error ? (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -764,7 +758,7 @@ function RoadmapDialogShell({
         role="dialog"
         aria-modal="true"
         aria-labelledby="roadmap-dialog-title"
-        className="relative z-10 flex max-h-[100dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-3xl border border-border/70 bg-background/95 shadow-[0_40px_120px_-44px_rgba(15,23,42,0.7)] backdrop-blur sm:max-h-[calc(100vh-2rem)] sm:rounded-[2rem]"
+        className="relative z-10 flex max-h-[100dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-3xl border border-border/70 bg-background shadow-[0_40px_120px_-44px_rgba(15,23,42,0.7)] backdrop-blur sm:max-h-[calc(100vh-2rem)] sm:rounded-[2rem]"
       >
         <div className="border-b border-border/60 bg-background px-5 py-4 sm:px-6 sm:py-5">
           <div className="flex items-start justify-between gap-4">

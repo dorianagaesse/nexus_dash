@@ -44,6 +44,9 @@ This refinement pass also needs to tighten the shipped UX details:
 - milestone lane markers should inherit roadmap status tone from their child
   events: any `active` event makes the milestone active, all `reached` makes it
   reached, otherwise it stays planned
+- light-theme roadmap event modal should mirror the same uniform surface logic
+  as dark theme, and the field layout should follow the intended authoring
+  order without extra nested containers around milestone placement
 
 ## Why This Task Matters
 - The current roadmap release proves the section is valuable, but a flat list
