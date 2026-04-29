@@ -14,10 +14,10 @@ export function renderContentWithMentions(
     mentionHighlightClassName?: string;
   }
 ): React.ReactNode {
-  const { mentions, plainText } = parseMentions(content);
+  const { mentions } = parseMentions(content);
 
   if (mentions.length === 0) {
-    return <>{plainText}</>;
+    return <>{content}</>;
   }
 
   const segments: React.ReactNode[] = [];
@@ -30,9 +30,9 @@ export function renderContentWithMentions(
   ].join(" ");
 
   for (const mention of mentions) {
-    // Add text before the mention
+    // Add text before the mention using original content indices
     if (mention.startIndex > lastIndex) {
-      segments.push(plainText.slice(lastIndex, mention.startIndex));
+      segments.push(content.slice(lastIndex, mention.startIndex));
     }
 
     // Add highlighted mention
@@ -48,9 +48,9 @@ export function renderContentWithMentions(
     lastIndex = mention.endIndex;
   }
 
-  // Add remaining text after last mention
-  if (lastIndex < plainText.length) {
-    segments.push(plainText.slice(lastIndex));
+  // Add remaining text after last mention using original content
+  if (lastIndex < content.length) {
+    segments.push(content.slice(lastIndex));
   }
 
   return <>{segments}</>;

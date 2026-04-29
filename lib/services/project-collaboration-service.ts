@@ -1676,11 +1676,13 @@ export async function searchProjectMembersForMention(input: {
       return createError(404, "project-not-found");
     }
 
-    // Build list of all project members (including owner)
+    // Build list of all project members (owner + memberships, filtered to avoid owner duplication)
     const allMembers: Array<{
+      membershipId: string;
       userId: string;
       role: ProjectMembershipRole;
       isOwner: boolean;
+      createdAt: Date;
       user: {
         id: string;
         email: string | null;
@@ -1691,18 +1693,27 @@ export async function searchProjectMembersForMention(input: {
       };
     }> = [];
 
+    // Add owner with placeholder membershipId (owner has no ProjectMembership record)
     allMembers.push({
+      membershipId: "",
       userId: project.owner.id,
       role: "owner" as ProjectMembershipRole,
       isOwner: true,
+      createdAt: new Date(), // Owner's createdAt isn't stored on Project record
       user: project.owner,
     });
 
+    // Add memberships, excluding the owner (already included above)
     for (const membership of project.memberships) {
+      if (membership.userId === project.ownerId) {
+        continue; // Skip owner - already added above
+      }
       allMembers.push({
+        membershipId: membership.id,
         userId: membership.userId,
         role: membership.role,
         isOwner: false,
+        createdAt: membership.createdAt,
         user: membership.user,
       });
     }
@@ -1733,10 +1744,10 @@ export async function searchProjectMembersForMention(input: {
         ? `${member.user.username}#${member.user.usernameDiscriminator}`
         : null,
       email: member.user.email,
-      avatarSeed: member.user.avatarSeed ?? "default",
-      membershipId: member.role === "owner" ? "" : member.userId, // Placeholder for owner
+      avatarSeed: resolveAvatarSeed(member.user.avatarSeed, member.userId),
+      membershipId: member.membershipId,
       role: member.role,
-      joinedAt: new Date().toISOString(), // Placeholder
+      joinedAt: member.createdAt.toISOString(),
       isOwner: member.isOwner,
     }));
 

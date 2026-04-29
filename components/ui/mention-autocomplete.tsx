@@ -4,7 +4,6 @@ import {
   type MouseEvent,
   type KeyboardEvent,
   useEffect,
-  useMemo,
   useRef,
   useState,
   useCallback,

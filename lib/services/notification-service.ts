@@ -5,7 +5,6 @@ import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 
 const NOTIFICATION_TYPE_PROJECT_INVITATION = "project_invitation";
 const NOTIFICATION_SOURCE_PROJECT_INVITATION = "project_invitation";
-
 const NOTIFICATION_TYPE_TASK_COMMENT_MENTION = "task_comment_mention";
 const NOTIFICATION_SOURCE_TASK_COMMENT_MENTION = "task_comment_mention";
 
@@ -188,9 +187,10 @@ function buildInvitationNotificationContent(
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function toJsonObject(metadata: any): Prisma.InputJsonObject {
-  return metadata as Prisma.InputJsonObject;
+function toJsonObject(
+  metadata: ProjectInvitationNotificationMetadata | TaskCommentMentionNotificationMetadata
+): Prisma.InputJsonObject {
+  return metadata as unknown as Prisma.InputJsonObject;
 }
 
 function isProjectInvitationMetadata(

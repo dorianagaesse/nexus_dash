@@ -26,7 +26,7 @@ export interface MentionParseResult {
  */
 export function parseMentions(input: string): MentionParseResult {
   if (typeof input !== "string" || !input) {
-    return { mentions: [], plainText: input ?? "" };
+    return { mentions: [], plainText: "" };
   }
 
   const mentions: ParsedMention[] = [];

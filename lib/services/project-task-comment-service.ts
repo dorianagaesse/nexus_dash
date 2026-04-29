@@ -258,7 +258,14 @@ export async function createTaskCommentForProject(input: {
       return createError(404, "project-not-found");
     }
 
-    // Build a map of username -> user for mention resolution
+    // Build a map of username#discriminator -> user for mention resolution
+    // Also build a separate map for username-only lookups (for backward compatibility)
+    const usernameTagToUser = new Map<string, {
+      id: string;
+      displayName: string;
+      username: string;
+      discriminator: string | null;
+    }>();
     const usernameToUser = new Map<string, {
       id: string;
       displayName: string;
@@ -266,25 +273,31 @@ export async function createTaskCommentForProject(input: {
       discriminator: string | null;
     }>();
 
-    // Add owner
-    if (project.owner.username) {
-      usernameToUser.set(project.owner.username.toLowerCase(), {
+    // Add owner (only if username is set)
+    if (project.owner.username && project.owner.usernameDiscriminator) {
+      const usernameTag = `${project.owner.username}#${project.owner.usernameDiscriminator}`;
+      const userData = {
         id: project.owner.id,
         displayName: project.owner.name || project.owner.email || project.owner.username,
         username: project.owner.username,
         discriminator: project.owner.usernameDiscriminator,
-      });
+      };
+      usernameTagToUser.set(usernameTag.toLowerCase(), userData);
+      usernameToUser.set(project.owner.username.toLowerCase(), userData);
     }
 
     // Add members
     for (const membership of project.memberships) {
-      if (membership.user.username) {
-        usernameToUser.set(membership.user.username.toLowerCase(), {
+      if (membership.user.username && membership.user.usernameDiscriminator) {
+        const usernameTag = `${membership.user.username}#${membership.user.usernameDiscriminator}`;
+        const userData = {
           id: membership.userId,
           displayName: membership.user.name || membership.user.email || membership.user.username,
           username: membership.user.username,
           discriminator: membership.user.usernameDiscriminator,
-        });
+        };
+        usernameTagToUser.set(usernameTag.toLowerCase(), userData);
+        usernameToUser.set(membership.user.username.toLowerCase(), userData);
       }
     }
 
@@ -300,13 +313,9 @@ export async function createTaskCommentForProject(input: {
     }> = [];
 
     for (const mention of mentions) {
-      const userKey = mention.discriminator
-        ? `${mention.username.toLowerCase()}#${mention.discriminator.toLowerCase()}`
-        : mention.username.toLowerCase();
-
-      // Look up by username#discriminator or username
+      // Look up by username#discriminator if discriminator is present
       const matchedUser = mention.discriminator
-        ? usernameToUser.get(`${mention.username.toLowerCase()}#${mention.discriminator.toLowerCase()}`)
+        ? usernameTagToUser.get(`${mention.username.toLowerCase()}#${mention.discriminator.toLowerCase()}`)
         : usernameToUser.get(mention.username.toLowerCase());
 
       if (matchedUser) {
@@ -348,7 +357,7 @@ export async function createTaskCommentForProject(input: {
 
       await touchTaskActivity(db, input.taskId, actorUserId);
 
-      // Send mention notifications (fire-and-forget, errors logged internally)
+      // Send mention notifications sequentially (each error is logged internally)
       const authorDisplayName = comment.author.name || comment.author.email || comment.author.username || "Someone";
       const taskPath = `/projects/${input.projectId}/tasks/${input.taskId}`;
 
