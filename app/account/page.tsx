@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Settings } from "lucide-react";
+import { ArrowLeft, Bell, Settings } from "lucide-react";
 
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
   MAX_USERNAME_LENGTH,
   MIN_USERNAME_LENGTH,
 } from "@/lib/services/account-security-policy";
+import { countUnreadNotificationsForUser } from "@/lib/services/notification-service";
 import { getAccountProfile } from "@/lib/services/account-profile-service";
 
 import {
@@ -91,6 +92,14 @@ export default async function AccountProfilePage({
   if (!profileResult.ok) {
     notFound();
   }
+
+  let unreadNotificationCount = 0;
+  try {
+    unreadNotificationCount = await countUnreadNotificationsForUser(actorUserId);
+  } catch {
+    // Non-critical, ignore count fetch failure
+  }
+
   const status = readQueryValue(resolvedSearchParams?.status);
   const error = readQueryValue(resolvedSearchParams?.error);
   const avatarDisplayName =
@@ -106,16 +115,33 @@ export default async function AccountProfilePage({
               Back to projects
             </Link>
           </Button>
-          <Button
-            asChild
-            variant="outline"
-            className="rounded-full border-border/60 px-3 py-1.5 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
-          >
-            <Link href="/account/settings" className="inline-flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Settings
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              asChild
+              variant="outline"
+              className="relative rounded-full border-border/60 px-3 py-1.5 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
+            >
+              <Link href="/account/notifications">
+                <Bell className="h-4 w-4" />
+                Notifications
+                {unreadNotificationCount > 0 ? (
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
+                    {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+                  </span>
+                ) : null}
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="rounded-full border-border/60 px-3 py-1.5 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
+            >
+              <Link href="/account/settings" className="inline-flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Link>
+            </Button>
+          </div>
         </div>
         <Badge variant="secondary" className="w-fit">
           Account profile
@@ -139,25 +165,6 @@ export default async function AccountProfilePage({
             {ERROR_MESSAGES[error]}
           </div>
         ) : null}
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">Notifications</CardTitle>
-            <CardDescription>
-              Review active project invitations and future product activity from
-              one notification center.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              Project invitations now live in the notification center, alongside
-              the shared inbox that future mentions and product activity will use.
-            </p>
-            <Button asChild>
-              <Link href="/account/notifications">Open notifications</Link>
-            </Button>
-          </CardContent>
-        </Card>
 
         <Card>
           <CardHeader>

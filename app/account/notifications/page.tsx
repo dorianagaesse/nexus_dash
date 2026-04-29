@@ -105,13 +105,8 @@ export default async function AccountNotificationsPage({
 
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight">
-            Notification center
+            Notifications
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Review active product notifications from one durable inbox. Project
-            invitations are handled here now; mentions and future activity can
-            reuse the same system.
-          </p>
         </div>
 
         {status && STATUS_MESSAGES[status] ? (

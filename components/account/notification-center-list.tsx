@@ -52,11 +52,8 @@ export function NotificationCenterList({
           <div>
             <p className="text-sm font-medium">
               {unreadCount === 0
-                ? "All visible notifications are read."
-                : `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Active notifications stay here until their underlying work is resolved.
+                ? "All read"
+                : `${unreadCount} unread`}
             </p>
           </div>
         </div>

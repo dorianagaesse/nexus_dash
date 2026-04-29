@@ -22,7 +22,7 @@ describe("notification-center-list", () => {
     );
 
     expect(result).toContain("No active notifications.");
-    expect(result).toContain("All visible notifications are read.");
+    expect(result).toContain("All read");
   });
 
   test("renders an actionable project invitation notification", () => {
@@ -62,7 +62,7 @@ describe("notification-center-list", () => {
       })
     );
 
-    expect(result).toContain("1 unread notification");
+    expect(result).toContain("1 unread");
     expect(result).toContain("Project invitation: Shared Project");
     expect(result).toContain("owner#4321");
     expect(result).toContain("Accept");
