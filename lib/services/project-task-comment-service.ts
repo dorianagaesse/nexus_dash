@@ -1,10 +1,14 @@
 import { logServerError } from "@/lib/observability/logger";
+import { parseMentions } from "@/lib/mention";
 import {
   requireAgentProjectScopes,
   requireProjectRole,
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
+import {
+  createTaskCommentMentionNotification,
+} from "@/lib/services/notification-service";
 import {
   mapTaskPersonSummary,
   type TaskPersonSummary,
@@ -206,12 +210,116 @@ export async function createTaskCommentForProject(input: {
       where: { id: input.taskId },
       select: {
         id: true,
+        title: true,
         projectId: true,
       },
     });
 
     if (!task || task.projectId !== input.projectId) {
       return createError(404, "task-not-found");
+    }
+
+    // Fetch project with owner and members for mention resolution
+    const project = await db.project.findUnique({
+      where: { id: input.projectId },
+      select: {
+        id: true,
+        name: true,
+        ownerId: true,
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+            usernameDiscriminator: true,
+            avatarSeed: true,
+          },
+        },
+        memberships: {
+          select: {
+            userId: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                username: true,
+                usernameDiscriminator: true,
+                avatarSeed: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!project) {
+      return createError(404, "project-not-found");
+    }
+
+    // Build a map of username -> user for mention resolution
+    const usernameToUser = new Map<string, {
+      id: string;
+      displayName: string;
+      username: string;
+      discriminator: string | null;
+    }>();
+
+    // Add owner
+    if (project.owner.username) {
+      usernameToUser.set(project.owner.username.toLowerCase(), {
+        id: project.owner.id,
+        displayName: project.owner.name || project.owner.email || project.owner.username,
+        username: project.owner.username,
+        discriminator: project.owner.usernameDiscriminator,
+      });
+    }
+
+    // Add members
+    for (const membership of project.memberships) {
+      if (membership.user.username) {
+        usernameToUser.set(membership.user.username.toLowerCase(), {
+          id: membership.userId,
+          displayName: membership.user.name || membership.user.email || membership.user.username,
+          username: membership.user.username,
+          discriminator: membership.user.usernameDiscriminator,
+        });
+      }
+    }
+
+    // Parse mentions from comment content
+    const { mentions } = parseMentions(content);
+
+    // Resolve mentions to user IDs (only existing project members)
+    const mentionedUsers: Array<{
+      userId: string;
+      username: string;
+      discriminator: string | null;
+      displayName: string;
+    }> = [];
+
+    for (const mention of mentions) {
+      const userKey = mention.discriminator
+        ? `${mention.username.toLowerCase()}#${mention.discriminator.toLowerCase()}`
+        : mention.username.toLowerCase();
+
+      // Look up by username#discriminator or username
+      const matchedUser = mention.discriminator
+        ? usernameToUser.get(`${mention.username.toLowerCase()}#${mention.discriminator.toLowerCase()}`)
+        : usernameToUser.get(mention.username.toLowerCase());
+
+      if (matchedUser) {
+        // Avoid duplicates
+        if (!mentionedUsers.some((u) => u.userId === matchedUser.id)) {
+          mentionedUsers.push({
+            userId: matchedUser.id,
+            username: matchedUser.username,
+            discriminator: matchedUser.discriminator,
+            displayName: matchedUser.displayName,
+          });
+        }
+      }
     }
 
     try {
@@ -239,6 +347,35 @@ export async function createTaskCommentForProject(input: {
       });
 
       await touchTaskActivity(db, input.taskId, actorUserId);
+
+      // Send mention notifications (fire-and-forget, errors logged internally)
+      const authorDisplayName = comment.author.name || comment.author.email || comment.author.username || "Someone";
+      const taskPath = `/projects/${input.projectId}/tasks/${input.taskId}`;
+
+      for (const mentionedUser of mentionedUsers) {
+        // Don't notify the author if they mention themselves
+        if (mentionedUser.userId === actorUserId) {
+          continue;
+        }
+
+        await createTaskCommentMentionNotification({
+          db,
+          recipientUserId: mentionedUser.userId,
+          notification: {
+            commentId: comment.id,
+            taskId: input.taskId,
+            taskTitle: task.title,
+            projectId: input.projectId,
+            projectName: project.name,
+            mentionedUsername: mentionedUser.username,
+            mentionedUserId: mentionedUser.userId,
+            mentionedUserDisplayName: mentionedUser.displayName,
+            authorUsername: comment.author.username || "",
+            authorDisplayName,
+            targetPath: taskPath,
+          },
+        });
+      }
 
       return {
         ok: true,

@@ -1843,6 +1843,7 @@ export function KanbanBoard({
       ) : null}
 
       <TaskDetailModal
+        projectId={projectId}
         canEdit={canEdit}
         isOpen={isClient && Boolean(selectedTask)}
         selectedTask={selectedTask}

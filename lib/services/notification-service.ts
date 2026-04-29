@@ -6,6 +6,9 @@ import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 const NOTIFICATION_TYPE_PROJECT_INVITATION = "project_invitation";
 const NOTIFICATION_SOURCE_PROJECT_INVITATION = "project_invitation";
 
+const NOTIFICATION_TYPE_TASK_COMMENT_MENTION = "task_comment_mention";
+const NOTIFICATION_SOURCE_TASK_COMMENT_MENTION = "task_comment_mention";
+
 interface ServiceErrorResult {
   ok: false;
   status: number;
@@ -76,6 +79,24 @@ export interface ProjectInvitationNotificationMetadata {
   inviteLinkPath: string;
 }
 
+export interface TaskCommentMentionNotificationMetadata {
+  commentId: string;
+  taskId: string;
+  taskTitle: string;
+  projectId: string;
+  projectName: string;
+  mentionedUsername: string;
+  mentionedUserId: string;
+  mentionedUserDisplayName: string;
+  authorUsername: string;
+  authorDisplayName: string;
+  targetPath: string;
+}
+
+export type NotificationMetadata =
+  | ProjectInvitationNotificationMetadata
+  | TaskCommentMentionNotificationMetadata;
+
 export interface NotificationSummary {
   id: string;
   type: string;
@@ -84,7 +105,7 @@ export interface NotificationSummary {
   targetPath: string | null;
   sourceType: string;
   sourceId: string;
-  metadata: ProjectInvitationNotificationMetadata | null;
+  metadata: NotificationMetadata | null;
   readAt: string | null;
   resolvedAt: string | null;
   createdAt: string;
@@ -167,10 +188,9 @@ function buildInvitationNotificationContent(
   };
 }
 
-function toJsonObject(
-  metadata: ProjectInvitationNotificationMetadata
-): Prisma.InputJsonObject {
-  return metadata as unknown as Prisma.InputJsonObject;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toJsonObject(metadata: any): Prisma.InputJsonObject {
+  return metadata as Prisma.InputJsonObject;
 }
 
 function isProjectInvitationMetadata(
@@ -215,6 +235,14 @@ function mapProjectInvitationMetadata(
 }
 
 function mapNotification(notification: NotificationRecord): NotificationSummary {
+  let metadata: NotificationMetadata | null = null;
+
+  if (notification.type === NOTIFICATION_TYPE_PROJECT_INVITATION) {
+    metadata = mapProjectInvitationMetadata(notification.metadata);
+  } else if (notification.type === NOTIFICATION_TYPE_TASK_COMMENT_MENTION) {
+    metadata = mapTaskCommentMentionMetadata(notification.metadata);
+  }
+
   return {
     id: notification.id,
     type: notification.type,
@@ -223,10 +251,7 @@ function mapNotification(notification: NotificationRecord): NotificationSummary 
     targetPath: notification.targetPath,
     sourceType: notification.sourceType,
     sourceId: notification.sourceId,
-    metadata:
-      notification.type === NOTIFICATION_TYPE_PROJECT_INVITATION
-        ? mapProjectInvitationMetadata(notification.metadata)
-        : null,
+    metadata,
     readAt: notification.readAt?.toISOString() ?? null,
     resolvedAt: notification.resolvedAt?.toISOString() ?? null,
     createdAt: notification.createdAt.toISOString(),
@@ -609,6 +634,228 @@ export async function setNotificationReadState(input: {
       return createError(500, "notification-update-failed");
     }
   });
+}
+
+// ---------------------------------------------------------------------------
+// Task comment mention notifications
+// ---------------------------------------------------------------------------
+
+export interface TaskCommentMentionNotificationInput {
+  commentId: string;
+  taskId: string;
+  taskTitle: string;
+  projectId: string;
+  projectName: string;
+  mentionedUsername: string;
+  mentionedUserId: string;
+  mentionedUserDisplayName: string;
+  authorUsername: string;
+  authorDisplayName: string;
+  targetPath: string;
+}
+
+function buildTaskCommentMentionNotificationContent(
+  input: TaskCommentMentionNotificationInput
+) {
+  return {
+    title: `Mentioned in: ${input.taskTitle}`,
+    body: `${input.authorDisplayName} mentioned you in a comment on ${input.taskTitle}.`,
+    targetPath: input.targetPath,
+  };
+}
+
+function buildTaskCommentMentionMetadata(
+  input: TaskCommentMentionNotificationInput
+): TaskCommentMentionNotificationMetadata {
+  return {
+    commentId: input.commentId,
+    taskId: input.taskId,
+    taskTitle: input.taskTitle,
+    projectId: input.projectId,
+    projectName: input.projectName,
+    mentionedUsername: input.mentionedUsername,
+    mentionedUserId: input.mentionedUserId,
+    mentionedUserDisplayName: input.mentionedUserDisplayName,
+    authorUsername: input.authorUsername,
+    authorDisplayName: input.authorDisplayName,
+    targetPath: input.targetPath,
+  };
+}
+
+function isTaskCommentMentionMetadata(
+  value: Prisma.JsonValue | null
+): boolean {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      "commentId" in (value as Record<string, unknown>)
+  );
+}
+
+function mapTaskCommentMentionMetadata(
+  value: Prisma.JsonValue | null
+): TaskCommentMentionNotificationMetadata | null {
+  if (!isTaskCommentMentionMetadata(value)) {
+    return null;
+  }
+
+  const metadata = value as Record<string, unknown>;
+  if (
+    typeof metadata.commentId !== "string" ||
+    typeof metadata.taskId !== "string" ||
+    typeof metadata.taskTitle !== "string" ||
+    typeof metadata.projectId !== "string" ||
+    typeof metadata.projectName !== "string" ||
+    typeof metadata.mentionedUsername !== "string" ||
+    typeof metadata.mentionedUserId !== "string" ||
+    typeof metadata.mentionedUserDisplayName !== "string" ||
+    typeof metadata.authorUsername !== "string" ||
+    typeof metadata.authorDisplayName !== "string" ||
+    typeof metadata.targetPath !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    commentId: metadata.commentId,
+    taskId: metadata.taskId,
+    taskTitle: metadata.taskTitle,
+    projectId: metadata.projectId,
+    projectName: metadata.projectName,
+    mentionedUsername: metadata.mentionedUsername,
+    mentionedUserId: metadata.mentionedUserId,
+    mentionedUserDisplayName: metadata.mentionedUserDisplayName,
+    authorUsername: metadata.authorUsername,
+    authorDisplayName: metadata.authorDisplayName,
+    targetPath: metadata.targetPath,
+  };
+}
+
+async function createOrRefreshTaskCommentMentionNotification(input: {
+  db: DbClient;
+  recipientUserId: string;
+  notification: TaskCommentMentionNotificationInput;
+}) {
+  const content = buildTaskCommentMentionNotificationContent(input.notification);
+  const metadata = toJsonObject(
+    buildTaskCommentMentionMetadata(input.notification)
+  );
+  const notificationWhere = {
+    recipientUserId: input.recipientUserId,
+    sourceType: NOTIFICATION_SOURCE_TASK_COMMENT_MENTION,
+    sourceId: input.notification.commentId,
+  };
+
+  const existingNotifications = await input.db.notification.findMany({
+    where: notificationWhere,
+    take: 1,
+    select: {
+      type: true,
+      title: true,
+      body: true,
+      targetPath: true,
+      metadata: true,
+      resolvedAt: true,
+    },
+  });
+
+  const existingNotification = existingNotifications[0];
+
+  if (!existingNotification) {
+    await input.db.notification.createMany({
+      data: [
+        {
+          recipientUserId: input.recipientUserId,
+          type: NOTIFICATION_TYPE_TASK_COMMENT_MENTION,
+          title: content.title,
+          body: content.body,
+          targetPath: content.targetPath,
+          sourceType: NOTIFICATION_SOURCE_TASK_COMMENT_MENTION,
+          sourceId: input.notification.commentId,
+          metadata,
+        },
+      ],
+      skipDuplicates: true,
+    });
+    return;
+  }
+
+  const metadataUnchanged =
+    JSON.stringify(existingNotification.metadata) ===
+    JSON.stringify(metadata);
+  const notificationUnchanged =
+    existingNotification.type === NOTIFICATION_TYPE_TASK_COMMENT_MENTION &&
+    existingNotification.title === content.title &&
+    existingNotification.body === content.body &&
+    existingNotification.targetPath === content.targetPath &&
+    metadataUnchanged &&
+    existingNotification.resolvedAt === null;
+
+  if (notificationUnchanged) {
+    return;
+  }
+
+  await input.db.notification.updateMany({
+    where: notificationWhere,
+    data: {
+      type: NOTIFICATION_TYPE_TASK_COMMENT_MENTION,
+      title: content.title,
+      body: content.body,
+      targetPath: content.targetPath,
+      metadata,
+      resolvedAt: null,
+    },
+  });
+}
+
+export async function createTaskCommentMentionNotification(input: {
+  db: DbClient;
+  recipientUserId: string | null | undefined;
+  notification: TaskCommentMentionNotificationInput;
+}): Promise<void> {
+  const recipientUserId = normalizeActorUserId(input.recipientUserId);
+  if (!recipientUserId) {
+    return;
+  }
+
+  try {
+    await createOrRefreshTaskCommentMentionNotification({
+      db: input.db,
+      recipientUserId,
+      notification: input.notification,
+    });
+  } catch (error) {
+    logServerError("createTaskCommentMentionNotification", error);
+  }
+}
+
+export async function resolveTaskCommentMentionNotifications(input: {
+  db: DbClient;
+  commentIds: string[];
+}): Promise<void> {
+  const commentIds = input.commentIds.map(normalizeId).filter(Boolean);
+  if (commentIds.length === 0) {
+    return;
+  }
+
+  try {
+    await input.db.notification.updateMany({
+      where: {
+        sourceType: NOTIFICATION_SOURCE_TASK_COMMENT_MENTION,
+        sourceId: {
+          in: commentIds,
+        },
+        resolvedAt: null,
+      },
+      data: {
+        resolvedAt: new Date(),
+        readAt: new Date(),
+      },
+    });
+  } catch (error) {
+    logServerError("resolveTaskCommentMentionNotifications", error);
+  }
 }
 
 export async function markAllNotificationsReadForUser(

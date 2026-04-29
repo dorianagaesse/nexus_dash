@@ -1604,3 +1604,142 @@ export function canManageProjectCollaboration(role: ProjectMembershipRole): bool
 export function canEditProjectContent(role: ProjectMembershipRole): boolean {
   return hasRequiredRole(role, "editor");
 }
+
+// ---------------------------------------------------------------------------
+// Project member search for @mention autocomplete
+// ---------------------------------------------------------------------------
+
+const MENTION_AUTOCOMPLETE_LIMIT = 8;
+
+export async function searchProjectMembersForMention(input: {
+  actorUserId: string;
+  projectId: string;
+  query: string;
+}): Promise<ServiceResult<{ members: ProjectMemberSummary[] }>> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  const query = normalizeSearchQuery(input.query);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  if (query.length < 1) {
+    return createSuccess(200, { members: [] });
+  }
+
+  const normalizedQuery = query.toLowerCase();
+  const queryWithoutTag = normalizedQuery.split("#", 1)[0] ?? normalizedQuery;
+
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "viewer",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
+
+    const project = await db.project.findUnique({
+      where: { id: input.projectId },
+      select: {
+        id: true,
+        ownerId: true,
+        owner: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            username: true,
+            usernameDiscriminator: true,
+            avatarSeed: true,
+          },
+        },
+        memberships: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+                username: true,
+                usernameDiscriminator: true,
+                avatarSeed: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!project) {
+      return createError(404, "project-not-found");
+    }
+
+    // Build list of all project members (including owner)
+    const allMembers: Array<{
+      userId: string;
+      role: ProjectMembershipRole;
+      isOwner: boolean;
+      user: {
+        id: string;
+        email: string | null;
+        name: string | null;
+        username: string | null;
+        usernameDiscriminator: string | null;
+        avatarSeed: string | null;
+      };
+    }> = [];
+
+    allMembers.push({
+      userId: project.owner.id,
+      role: "owner" as ProjectMembershipRole,
+      isOwner: true,
+      user: project.owner,
+    });
+
+    for (const membership of project.memberships) {
+      allMembers.push({
+        userId: membership.userId,
+        role: membership.role,
+        isOwner: false,
+        user: membership.user,
+      });
+    }
+
+    // Filter by query matching username, name, or email
+    const filteredMembers = allMembers.filter((member) => {
+      const usernameMatch = member.user.username?.toLowerCase().startsWith(queryWithoutTag);
+      const nameMatch = member.user.name?.toLowerCase().includes(normalizedQuery);
+      const emailMatch = member.user.email?.toLowerCase().includes(normalizedQuery);
+      return usernameMatch || nameMatch || emailMatch;
+    });
+
+    // Sort: exact username#discriminator matches first, then by username
+    filteredMembers.sort((a, b) => {
+      const aUsername = a.user.username ?? "";
+      const bUsername = b.user.username ?? "";
+      const aExact = aUsername.toLowerCase() === queryWithoutTag;
+      const bExact = bUsername.toLowerCase() === queryWithoutTag;
+      if (aExact && !bExact) return -1;
+      if (!aExact && bExact) return 1;
+      return aUsername.localeCompare(bUsername);
+    });
+
+    const members: ProjectMemberSummary[] = filteredMembers.slice(0, MENTION_AUTOCOMPLETE_LIMIT).map((member) => ({
+      id: member.userId,
+      displayName: buildDisplayName(member.user),
+      usernameTag: member.user.username && member.user.usernameDiscriminator
+        ? `${member.user.username}#${member.user.usernameDiscriminator}`
+        : null,
+      email: member.user.email,
+      avatarSeed: member.user.avatarSeed ?? "default",
+      membershipId: member.role === "owner" ? "" : member.userId, // Placeholder for owner
+      role: member.role,
+      joinedAt: new Date().toISOString(), // Placeholder
+      isOwner: member.isOwner,
+    }));
+
+    return createSuccess(200, { members });
+  });
+}

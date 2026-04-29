@@ -52,6 +52,7 @@ import { EpicSelect } from "@/components/ui/epic-select";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { getEpicColorFromName } from "@/lib/epic";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
+import { renderContentWithMentions } from "@/lib/content-with-mentions";
 import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
 import {
   ATTACHMENT_KIND_FILE,
@@ -69,6 +70,7 @@ import { MAX_TASK_LABELS, getTaskLabelColor } from "@/lib/task-label";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 
 interface TaskDetailModalProps {
+  projectId: string;
   canEdit: boolean;
   isOpen: boolean;
   selectedTask: KanbanTask | null;
@@ -139,6 +141,7 @@ interface TaskDetailModalProps {
 }
 
 export function TaskDetailModal({
+  projectId,
   canEdit,
   isOpen,
   selectedTask,
@@ -1118,7 +1121,7 @@ function TaskReadOnlyContent({
                         </p>
                       </div>
                       <p className="mt-1 whitespace-pre-wrap break-words text-sm text-foreground">
-                        {comment.content}
+                        {renderContentWithMentions(comment.content)}
                       </p>
                     </div>
                   </div>
