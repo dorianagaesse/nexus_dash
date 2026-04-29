@@ -71,8 +71,12 @@ USING (
     AND EXISTS (
       SELECT 1
       FROM "ProjectInvitation" pi
+      JOIN "User" recipient_user
+        ON recipient_user.id = "Notification"."recipientUserId"
       WHERE pi.id = "Notification"."sourceId"
         AND pi."invitedByUserId" = app.current_user_id()
+        AND recipient_user.email IS NOT NULL
+        AND pi."invitedEmail" = recipient_user.email
     )
   )
 )
@@ -83,8 +87,12 @@ WITH CHECK (
     AND EXISTS (
       SELECT 1
       FROM "ProjectInvitation" pi
+      JOIN "User" recipient_user
+        ON recipient_user.id = "Notification"."recipientUserId"
       WHERE pi.id = "Notification"."sourceId"
         AND pi."invitedByUserId" = app.current_user_id()
+        AND recipient_user.email IS NOT NULL
+        AND pi."invitedEmail" = recipient_user.email
     )
   )
 );

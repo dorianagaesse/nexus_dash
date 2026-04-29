@@ -14,6 +14,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-04-29
 - Type: Execution
+- Summary: TASK-123 Copilot review follow-up tightened notification durability and read-path efficiency before preview deployment.
+- Evidence: Addressed six PR #210 review threads by adding typed error handling for notification read-state writes, making notification timestamps deterministic across render environments, tightening the notification RLS update policy to preserve recipient email binding, and changing invitation sync to batch missing-row creation/stale resolution instead of refreshing every active invitation during list/count reads.
+
+### 2026-04-29
+- Type: Validation
+- Summary: TASK-123 Copilot follow-up passed the repository validation baseline locally.
+- Evidence: `DATABASE_URL=... DIRECT_URL=... npm test -- tests/lib/notification-service.test.ts tests/components/notification-center-list.test.ts tests/app/account-notifications-actions.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... npm run test:coverage`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build`. A first build attempt used a too-short local `AGENT_TOKEN_SIGNING_SECRET` and failed env validation before succeeding with a 32-character test secret.
+
+### 2026-04-29
+- Type: Execution
 - Summary: TASK-123 delivered the durable in-app notification center foundation with project invitations as the first producer.
 - Evidence: Added `Notification` schema/migration/RLS, implemented `lib/services/notification-service.ts`, integrated invitation create/replace/revoke/respond lifecycle with notification delivery/resolution, replaced invitation-specific account menu/count behavior with notification unread counts, added `/account/notifications`, replaced the account invitation card with a notification-center entry, and routed quick awareness banners to the notification center.
 

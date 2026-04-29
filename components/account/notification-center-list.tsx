@@ -14,8 +14,14 @@ interface NotificationCenterListProps {
   onDeclineInvitation: (formData: FormData) => void | Promise<void>;
 }
 
+const notificationTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "UTC",
+});
+
 function formatNotificationTime(value: string): string {
-  return new Date(value).toLocaleString();
+  return notificationTimeFormatter.format(new Date(value));
 }
 
 function getNotificationTypeLabel(notification: NotificationSummary): string {

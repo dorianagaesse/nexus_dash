@@ -55,32 +55,34 @@ describe("notification-service", () => {
         expiresAt: new Date("2026-05-13T08:00:00.000Z"),
       },
     ]);
-    prismaMock.notification.findMany.mockResolvedValueOnce([
-      {
-        id: "notification-1",
-        type: "project_invitation",
-        title: "Project invitation: Shared Project",
-        body: "owner#4321 invited you to collaborate on Shared Project.",
-        targetPath: "/invite/project/invite-1",
-        sourceType: "project_invitation",
-        sourceId: "invite-1",
-        metadata: {
-          invitationId: "invite-1",
-          projectId: "project-1",
-          projectName: "Shared Project",
-          invitedEmail: "invitee@example.com",
-          invitedByDisplayName: "owner#4321",
-          invitedByEmail: "owner@example.com",
-          role: "editor",
-          expiresAt: "2026-05-13T08:00:00.000Z",
-          inviteLinkPath: "/invite/project/invite-1",
+    prismaMock.notification.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: "notification-1",
+          type: "project_invitation",
+          title: "Project invitation: Shared Project",
+          body: "owner#4321 invited you to collaborate on Shared Project.",
+          targetPath: "/invite/project/invite-1",
+          sourceType: "project_invitation",
+          sourceId: "invite-1",
+          metadata: {
+            invitationId: "invite-1",
+            projectId: "project-1",
+            projectName: "Shared Project",
+            invitedEmail: "invitee@example.com",
+            invitedByDisplayName: "owner#4321",
+            invitedByEmail: "owner@example.com",
+            role: "editor",
+            expiresAt: "2026-05-13T08:00:00.000Z",
+            inviteLinkPath: "/invite/project/invite-1",
+          },
+          readAt: null,
+          resolvedAt: null,
+          createdAt: new Date("2026-04-29T08:00:00.000Z"),
+          updatedAt: new Date("2026-04-29T08:01:00.000Z"),
         },
-        readAt: null,
-        resolvedAt: null,
-        createdAt: new Date("2026-04-29T08:00:00.000Z"),
-        updatedAt: new Date("2026-04-29T08:01:00.000Z"),
-      },
-    ]);
+      ]);
 
     const result = await listNotificationsForUser("user-1");
 
@@ -147,6 +149,51 @@ describe("notification-service", () => {
     });
   });
 
+  test("does not refresh existing active invitation notifications during count sync", async () => {
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      {
+        invitationId: "invite-1",
+        projectId: "project-1",
+        projectName: "Shared Project",
+        invitedEmail: "invitee@example.com",
+        invitedByUserId: "owner-1",
+        invitedByEmail: "owner@example.com",
+        invitedByName: "Owner",
+        invitedByUsername: "owner",
+        invitedByUsernameDiscriminator: "4321",
+        invitationRole: "viewer",
+        createdAt: new Date("2026-04-29T08:00:00.000Z"),
+        expiresAt: new Date("2026-05-13T08:00:00.000Z"),
+      },
+    ]);
+    prismaMock.notification.findMany.mockResolvedValueOnce([
+      {
+        sourceId: "invite-1",
+        resolvedAt: null,
+      },
+    ]);
+    prismaMock.notification.count.mockResolvedValueOnce(1);
+
+    const result = await countUnreadNotificationsForUser("user-1");
+
+    expect(result).toBe(1);
+    expect(prismaMock.notification.createMany).not.toHaveBeenCalled();
+    expect(prismaMock.notification.updateMany).toHaveBeenCalledTimes(1);
+    expect(prismaMock.notification.updateMany).toHaveBeenCalledWith({
+      where: {
+        recipientUserId: "user-1",
+        sourceType: "project_invitation",
+        sourceId: {
+          notIn: ["invite-1"],
+        },
+        resolvedAt: null,
+      },
+      data: {
+        resolvedAt: expect.any(Date),
+      },
+    });
+  });
+
   test("marks a recipient-owned notification read", async () => {
     const result = await setNotificationReadState({
       actorUserId: "user-1",
@@ -182,6 +229,27 @@ describe("notification-service", () => {
     });
   });
 
+  test("returns a typed error when notification read-state update fails", async () => {
+    const error = new Error("update failed");
+    prismaMock.notification.updateMany.mockRejectedValueOnce(error);
+
+    const result = await setNotificationReadState({
+      actorUserId: "user-1",
+      notificationId: "notification-1",
+      read: true,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 500,
+      error: "notification-update-failed",
+    });
+    expect(logServerErrorMock).toHaveBeenCalledWith(
+      "setNotificationReadState",
+      error
+    );
+  });
+
   test("marks all visible recipient notifications read", async () => {
     prismaMock.notification.updateMany
       .mockResolvedValueOnce({ count: 0 })
@@ -206,6 +274,25 @@ describe("notification-service", () => {
         readAt: expect.any(Date),
       },
     });
+  });
+
+  test("returns a typed error when marking all notifications read fails", async () => {
+    const error = new Error("bulk update failed");
+    prismaMock.notification.updateMany
+      .mockResolvedValueOnce({ count: 0 })
+      .mockRejectedValueOnce(error);
+
+    const result = await markAllNotificationsReadForUser("user-1");
+
+    expect(result).toEqual({
+      ok: false,
+      status: 500,
+      error: "notification-update-failed",
+    });
+    expect(logServerErrorMock).toHaveBeenCalledWith(
+      "markAllNotificationsReadForUser",
+      error
+    );
   });
 
   test("resolves project invitation notifications by source id", async () => {

@@ -279,38 +279,72 @@ async function createOrRefreshProjectInvitationNotification(input: {
   invitation: ProjectInvitationNotificationInput;
 }) {
   const content = buildInvitationNotificationContent(input.invitation);
+  const metadata = toJsonObject(content.metadata);
+  const notificationWhere = {
+    recipientUserId: input.recipientUserId,
+    sourceType: NOTIFICATION_SOURCE_PROJECT_INVITATION,
+    sourceId: input.invitation.invitationId,
+  };
+
+  const existingNotifications = await input.db.notification.findMany({
+    where: notificationWhere,
+    take: 1,
+    select: {
+      type: true,
+      title: true,
+      body: true,
+      targetPath: true,
+      metadata: true,
+      resolvedAt: true,
+    },
+  });
+
+  const existingNotification = existingNotifications[0];
+
+  if (!existingNotification) {
+    await input.db.notification.createMany({
+      data: [
+        {
+          recipientUserId: input.recipientUserId,
+          type: NOTIFICATION_TYPE_PROJECT_INVITATION,
+          title: content.title,
+          body: content.body,
+          targetPath: content.targetPath,
+          sourceType: NOTIFICATION_SOURCE_PROJECT_INVITATION,
+          sourceId: input.invitation.invitationId,
+          metadata,
+          createdAt: input.invitation.createdAt,
+        },
+      ],
+      skipDuplicates: true,
+    });
+    return;
+  }
+
+  const metadataUnchanged =
+    JSON.stringify(existingNotification.metadata) === JSON.stringify(metadata);
+  const notificationUnchanged =
+    existingNotification.type === NOTIFICATION_TYPE_PROJECT_INVITATION &&
+    existingNotification.title === content.title &&
+    existingNotification.body === content.body &&
+    existingNotification.targetPath === content.targetPath &&
+    metadataUnchanged &&
+    existingNotification.resolvedAt === null;
+
+  if (notificationUnchanged) {
+    return;
+  }
 
   await input.db.notification.updateMany({
-    where: {
-      recipientUserId: input.recipientUserId,
-      sourceType: NOTIFICATION_SOURCE_PROJECT_INVITATION,
-      sourceId: input.invitation.invitationId,
-    },
+    where: notificationWhere,
     data: {
       type: NOTIFICATION_TYPE_PROJECT_INVITATION,
       title: content.title,
       body: content.body,
       targetPath: content.targetPath,
-      metadata: toJsonObject(content.metadata),
+      metadata,
       resolvedAt: null,
     },
-  });
-
-  await input.db.notification.createMany({
-    data: [
-      {
-        recipientUserId: input.recipientUserId,
-        type: NOTIFICATION_TYPE_PROJECT_INVITATION,
-        title: content.title,
-        body: content.body,
-        targetPath: content.targetPath,
-        sourceType: NOTIFICATION_SOURCE_PROJECT_INVITATION,
-        sourceId: input.invitation.invitationId,
-        metadata: toJsonObject(content.metadata),
-        createdAt: input.invitation.createdAt,
-      },
-    ],
-    skipDuplicates: true,
   });
 }
 
@@ -350,11 +384,68 @@ async function syncProjectInvitationNotificationsForUser(
     },
   });
 
-  for (const row of invitationRows) {
-    await createOrRefreshProjectInvitationNotification({
-      db,
+  const existingNotifications = await db.notification.findMany({
+    where: {
       recipientUserId: actorUserId,
-      invitation: mapPendingInvitationRow(row),
+      sourceType: NOTIFICATION_SOURCE_PROJECT_INVITATION,
+      sourceId: {
+        in: activeInvitationIds,
+      },
+    },
+    select: {
+      sourceId: true,
+      resolvedAt: true,
+    },
+  });
+
+  const existingInvitationIds = new Set(
+    existingNotifications.map((notification) => notification.sourceId)
+  );
+  const missingInvitationRows = invitationRows.filter(
+    (row) => !existingInvitationIds.has(row.invitationId)
+  );
+
+  if (missingInvitationRows.length > 0) {
+    await db.notification.createMany({
+      data: missingInvitationRows.map((row) => {
+        const invitation = mapPendingInvitationRow(row);
+        const content = buildInvitationNotificationContent(invitation);
+
+        return {
+          recipientUserId: actorUserId,
+          type: NOTIFICATION_TYPE_PROJECT_INVITATION,
+          title: content.title,
+          body: content.body,
+          targetPath: content.targetPath,
+          sourceType: NOTIFICATION_SOURCE_PROJECT_INVITATION,
+          sourceId: invitation.invitationId,
+          metadata: toJsonObject(content.metadata),
+          createdAt: invitation.createdAt,
+        };
+      }),
+      skipDuplicates: true,
+    });
+  }
+
+  const resolvedActiveInvitationIds = existingNotifications
+    .filter((notification) => notification.resolvedAt !== null)
+    .map((notification) => notification.sourceId);
+
+  if (resolvedActiveInvitationIds.length > 0) {
+    await db.notification.updateMany({
+      where: {
+        recipientUserId: actorUserId,
+        sourceType: NOTIFICATION_SOURCE_PROJECT_INVITATION,
+        sourceId: {
+          in: resolvedActiveInvitationIds,
+        },
+        resolvedAt: {
+          not: null,
+        },
+      },
+      data: {
+        resolvedAt: null,
+      },
     });
   }
 }
@@ -493,25 +584,30 @@ export async function setNotificationReadState(input: {
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
-    const readAt = input.read ? new Date() : null;
-    const result = await db.notification.updateMany({
-      where: {
-        id: notificationId,
-        recipientUserId: actorUserId,
-      },
-      data: {
-        readAt,
-      },
-    });
+    try {
+      const readAt = input.read ? new Date() : null;
+      const result = await db.notification.updateMany({
+        where: {
+          id: notificationId,
+          recipientUserId: actorUserId,
+        },
+        data: {
+          readAt,
+        },
+      });
 
-    if (result.count !== 1) {
-      return createError(404, "notification-not-found");
+      if (result.count !== 1) {
+        return createError(404, "notification-not-found");
+      }
+
+      return createSuccess(200, {
+        notificationId,
+        readAt: readAt?.toISOString() ?? null,
+      });
+    } catch (error) {
+      logServerError("setNotificationReadState", error);
+      return createError(500, "notification-update-failed");
     }
-
-    return createSuccess(200, {
-      notificationId,
-      readAt: readAt?.toISOString() ?? null,
-    });
   });
 }
 
@@ -524,21 +620,26 @@ export async function markAllNotificationsReadForUser(
   }
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
-    await syncProjectInvitationNotificationsForUser(db, normalizedActorUserId);
+    try {
+      await syncProjectInvitationNotificationsForUser(db, normalizedActorUserId);
 
-    const result = await db.notification.updateMany({
-      where: {
-        recipientUserId: normalizedActorUserId,
-        resolvedAt: null,
-        readAt: null,
-      },
-      data: {
-        readAt: new Date(),
-      },
-    });
+      const result = await db.notification.updateMany({
+        where: {
+          recipientUserId: normalizedActorUserId,
+          resolvedAt: null,
+          readAt: null,
+        },
+        data: {
+          readAt: new Date(),
+        },
+      });
 
-    return createSuccess(200, {
-      updatedCount: result.count,
-    });
+      return createSuccess(200, {
+        updatedCount: result.count,
+      });
+    } catch (error) {
+      logServerError("markAllNotificationsReadForUser", error);
+      return createError(500, "notification-update-failed");
+    }
   });
 }

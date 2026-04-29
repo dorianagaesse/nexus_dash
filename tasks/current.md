@@ -206,6 +206,26 @@ underlying invitation is accepted, declined, revoked, expired, or replaced.
 8. The task ships through its own dedicated branch and PR with automated review
    feedback triaged before handoff.
 
+## Review Follow-up Evidence
+- PR #210 Copilot review generated six inline comments and all were treated as
+  actionable before handoff.
+- Backend follow-up tightened `notification-service` write error handling so
+  read/unread and mark-all-read operations preserve the `ServiceResult`
+  contract on unexpected DB/RLS failures.
+- Invitation notification sync now batches read-path repair work: stale rows
+  are resolved in one update, existing active notification sources are fetched
+  once, and only missing rows are bulk-created during list/count sync.
+- Explicit invitation lifecycle delivery still refreshes existing notification
+  content, but skips no-op updates when the existing row already matches the
+  current invitation payload.
+- Notification timestamps render with an explicit `Intl.DateTimeFormat`
+  locale/timezone contract.
+- The notification RLS update policy now mirrors the insert policy recipient
+  email binding for invitation-producer updates.
+- Local follow-up validation passed: focused notification tests, `npm run
+  lint`, full `npm test`, full `npm run test:coverage`, and `npm run build`
+  with valid local test env values.
+
 ## Dependencies
 - `TASK-058`
 - `TASK-103`
