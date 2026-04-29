@@ -11,8 +11,8 @@ models:
   - name: "GLM 5.1 via OpenRouter"
     provider: openrouter
     model: z-ai/glm-5.1
-    apiKey: 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
-    
+    apiKey: ${OPENROUTER_API_KEY}
+
 # MCP Servers that Continue can access
 # https://docs.continue.dev/customization/mcp-tools
 mcpServers:
