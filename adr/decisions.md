@@ -16,6 +16,13 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-04-29 - Centralize in-app activity through durable per-user notifications
+- Status: Accepted
+- Context: `TASK-123` needed project invitations to move out of invitation-specific popups/account cards while providing a reusable delivery target for future task-comment mentions and other product activity.
+- Decision: Added a `Notification` persistence model addressed to one recipient user, with type/source identity, JSON metadata for producer-specific snapshots, unread/read state, resolved lifecycle, recipient-scoped RLS, and service APIs for listing, counting, read-state mutation, and idempotent invitation delivery/resolution.
+- Consequences: Invitations now use the notification center as the durable in-app inbox while retaining collaboration-service ownership of invitation authorization and accept/decline semantics; future producers can add notification delivery without creating separate badge/banner systems, but realtime push, preferences, and history/archive filtering remain deferred.
+- Links: `tasks/current.md`, `lib/services/notification-service.ts`, `prisma/migrations/20260429110000_task123_notification_center/migration.sql`
+
 ## 2026-04-15 - Keep PostgreSQL/Prisma baseline; do not pursue Convex migration now
 - Status: Accepted
 - Context: `TASK-105` re-evaluated Convex against the current NexusDash architecture after the repo had already adopted Prisma-owned PostgreSQL migrations, production RLS, DB-backed human sessions, project-scoped agent access, and a service-layer authorization model, while future backlog work made realtime collaboration worth reassessing explicitly.

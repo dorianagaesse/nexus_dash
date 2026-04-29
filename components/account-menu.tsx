@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { CircleUserRound, LogOut, MailPlus, Settings } from "lucide-react";
+import { Bell, CircleUserRound, LogOut, Settings } from "lucide-react";
 
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ interface AccountMenuProps {
   displayName: string | null;
   usernameTag: string | null;
   avatarSeed: string | null;
-  pendingInvitationCount: number;
+  unreadNotificationCount: number;
 }
 
 export function AccountMenu({
@@ -21,7 +21,7 @@ export function AccountMenu({
   displayName,
   usernameTag,
   avatarSeed,
-  pendingInvitationCount,
+  unreadNotificationCount,
 }: AccountMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useDismissibleMenu<HTMLDivElement>(isOpen, () => setIsOpen(false));
@@ -52,7 +52,7 @@ export function AccountMenu({
         ) : (
           <CircleUserRound className="h-5 w-5" />
         )}
-        {pendingInvitationCount > 0 ? (
+        {unreadNotificationCount > 0 ? (
           <span
             aria-hidden="true"
             className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background"
@@ -95,12 +95,12 @@ export function AccountMenu({
             </Link>
           </Button>
           <Button type="button" variant="ghost" className="w-full justify-start" asChild>
-            <Link href="/account#project-invitations" onClick={() => setIsOpen(false)}>
-              <MailPlus className="h-4 w-4" />
-              Invitations
-              {pendingInvitationCount > 0 ? (
+            <Link href="/account/notifications" onClick={() => setIsOpen(false)}>
+              <Bell className="h-4 w-4" />
+              Notifications
+              {unreadNotificationCount > 0 ? (
                 <span className="ml-auto rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-medium text-white">
-                  {pendingInvitationCount}
+                  {unreadNotificationCount}
                 </span>
               ) : null}
             </Link>

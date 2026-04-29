@@ -12,6 +12,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-04-29
+- Type: Execution
+- Summary: TASK-123 delivered the durable in-app notification center foundation with project invitations as the first producer.
+- Evidence: Added `Notification` schema/migration/RLS, implemented `lib/services/notification-service.ts`, integrated invitation create/replace/revoke/respond lifecycle with notification delivery/resolution, replaced invitation-specific account menu/count behavior with notification unread counts, added `/account/notifications`, replaced the account invitation card with a notification-center entry, and routed quick awareness banners to the notification center.
+
+### 2026-04-29
+- Type: Validation
+- Summary: TASK-123 passed local lint, focused notification tests, full Vitest, coverage, and production build after restoring stale local dependencies to the repo-required Prisma 7 toolchain.
+- Evidence: `npm install`; `DATABASE_URL=... DIRECT_URL=... node node_modules/prisma/build/index.js generate`; `npm run lint`; focused `npm test -- tests/lib/notification-service.test.ts tests/components/notification-center-list.test.ts tests/components/account-menu.test.ts tests/app/account-notifications-actions.test.ts tests/lib/project-collaboration-service.test.ts`; `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... npm run test:coverage`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build`. Initial `npm test` without `DATABASE_URL` failed at env bootstrap before affected suites executed.
+
+### 2026-04-29
+- Type: Blocker
+- Summary: TASK-123 local Playwright validation could not complete against the local E2E fixture.
+- Evidence: `npm run test:e2e -- --grep "task lifecycle and attachment interaction flow"` first failed because Chromium was missing; after `npx playwright install chromium`, the focused smoke built successfully but failed in `tests/e2e/helpers/auth-helpers.ts` during Prisma seeded-user creation before browser flow execution, matching the local validation fragility tracked by `TASK-131`.
+
 ### 2026-04-27
 - Type: Execution
 - Summary: TASK-130 roadmap follow-up fixed a connector-centering bug by replacing the old fixed-height desktop math with measured event-card centers, and milestone lane markers now inherit a status tone from their child events so lane chrome reflects planned, active, or reached state.

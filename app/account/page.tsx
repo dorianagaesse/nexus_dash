@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
-import { logServerError } from "@/lib/observability/logger";
 import {
   MAX_PASSWORD_LENGTH,
   MIN_PASSWORD_LENGTH,
@@ -17,14 +16,8 @@ import {
   MIN_USERNAME_LENGTH,
 } from "@/lib/services/account-security-policy";
 import { getAccountProfile } from "@/lib/services/account-profile-service";
-import {
-  listPendingProjectInvitationsForUser,
-  type ProjectInvitationSummary,
-} from "@/lib/services/project-collaboration-service";
 
 import {
-  acceptProjectInvitationAction,
-  declineProjectInvitationAction,
   regenerateAccountAvatarAction,
   updateAccountEmailAction,
   updateAccountPasswordAction,
@@ -98,14 +91,6 @@ export default async function AccountProfilePage({
   if (!profileResult.ok) {
     notFound();
   }
-  let pendingInvitations: ProjectInvitationSummary[] = [];
-  try {
-    const invitationsResult = await listPendingProjectInvitationsForUser(actorUserId);
-    pendingInvitations = invitationsResult.ok ? invitationsResult.data.invitations : [];
-  } catch (error) {
-    logServerError("AccountProfilePage.listPendingProjectInvitationsForUser", error);
-  }
-
   const status = readQueryValue(resolvedSearchParams?.status);
   const error = readQueryValue(resolvedSearchParams?.error);
   const avatarDisplayName =
@@ -138,7 +123,7 @@ export default async function AccountProfilePage({
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight">Account</h1>
           <p className="text-sm text-muted-foreground">
-            Manage your identity, email, password, and invitations.
+            Manage your identity, email, password, and notifications.
           </p>
         </div>
 
@@ -155,65 +140,22 @@ export default async function AccountProfilePage({
           </div>
         ) : null}
 
-        <Card id="project-invitations">
+        <Card>
           <CardHeader>
-            <CardTitle className="text-xl">Invitations</CardTitle>
+            <CardTitle className="text-xl">Notifications</CardTitle>
             <CardDescription>
-              Review pending project invitations sent to your account.
+              Review active project invitations and future product activity from
+              one notification center.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {pendingInvitations.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border/60 bg-muted/20 px-4 py-5 text-sm text-muted-foreground">
-                No pending invitations.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {pendingInvitations.map((invitation) => {
-                  const invitationCopy =
-                    invitation.role === "viewer"
-                      ? `${invitation.invitedByDisplayName} invited you to view project ${invitation.projectName}.`
-                      : `${invitation.invitedByDisplayName} invited you to collaborate on project ${invitation.projectName}.`;
-
-                  return (
-                    <div
-                      key={invitation.invitationId}
-                      className="rounded-xl border border-border/70 bg-card/70 px-4 py-4"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium">{invitationCopy}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Role: {invitation.role} · Expires{" "}
-                            {new Date(invitation.expiresAt).toLocaleString()}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <form action={acceptProjectInvitationAction}>
-                            <input
-                              type="hidden"
-                              name="invitationId"
-                              value={invitation.invitationId}
-                            />
-                            <Button type="submit">Accept</Button>
-                          </form>
-                          <form action={declineProjectInvitationAction}>
-                            <input
-                              type="hidden"
-                              name="invitationId"
-                              value={invitation.invitationId}
-                            />
-                            <Button type="submit" variant="outline">
-                              Decline
-                            </Button>
-                          </form>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+          <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              Project invitations now live in the notification center, alongside
+              the shared inbox that future mentions and product activity will use.
+            </p>
+            <Button asChild>
+              <Link href="/account/notifications">Open notifications</Link>
+            </Button>
           </CardContent>
         </Card>
 
