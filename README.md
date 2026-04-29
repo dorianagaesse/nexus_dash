@@ -20,6 +20,7 @@ Implemented today:
 - Protected routes: `/projects/**`, `/account/**`
 - Project CRUD
 - Project sharing with owner-managed membership/invitation flows, including email-bound invite links
+- In-app notification center for durable unread/read notification review, starting with project invitations
 - Project-scoped agent access with owner-managed API credentials, short-lived bearer-token exchange, and audit trail
 - Project dashboard with:
   - Context cards (CRUD + attachments)

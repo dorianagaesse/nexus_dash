@@ -9,11 +9,6 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Restore a dependable local validation path by aligning the repo-required Node/npm/Prisma toolchain, making the containerized database/app bootstrap reproducible, and documenting one reliable workflow for `npm ci`, Prisma generate/migrate, Vitest, build, and Playwright smoke runs so routine development stops getting blocked by environment drift.
   Dependencies: TASK-041, TASK-067
-- ID: TASK-123
-  Title: Notification center - unified in-app inbox for invitations, mentions, and future activity
-  Status: Pending
-  Rationale: Introduce a dedicated notification center so invitation events, future task-comment mentions, and other product activity can land in one durable in-app inbox instead of being split across isolated surfaces, giving NexusDash a reusable foundation for unread state, chronological triage, and future notification categories.
-  Dependencies: TASK-058, TASK-103
 - ID: TASK-124
   Title: Comment mentions - project-member @tagging with notification-center delivery
   Status: Pending
@@ -140,6 +135,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-123
+  Title: Notification center - unified in-app inbox for invitations, mentions, and future activity
+  Status: Done (2026-04-29)
+  Rationale: Added a durable per-user notification backend with recipient-scoped persistence, unread/read and resolved lifecycle, invitation notification delivery/resolution, a `/account/notifications` review surface, notification-aware account menu counts, and a reusable foundation for future mention/activity producers.
+  Dependencies: TASK-058, TASK-103
 - ID: TASK-130
   Title: Roadmap v2 - milestone phases, grouped events, and editable timeline layout
   Status: Done (2026-04-23)

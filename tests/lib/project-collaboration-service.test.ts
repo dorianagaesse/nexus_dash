@@ -7,6 +7,7 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
   },
   projectInvitation: {
+    findMany: vi.fn(),
     findUnique: vi.fn(),
     updateMany: vi.fn(),
   },
@@ -17,8 +18,20 @@ const prismaMock = vi.hoisted(() => ({
   },
 }));
 
+const notificationServiceMock = vi.hoisted(() => ({
+  createProjectInvitationNotification: vi.fn(),
+  resolveProjectInvitationNotifications: vi.fn(),
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: prismaMock,
+}));
+
+vi.mock("@/lib/services/notification-service", () => ({
+  createProjectInvitationNotification:
+    notificationServiceMock.createProjectInvitationNotification,
+  resolveProjectInvitationNotifications:
+    notificationServiceMock.resolveProjectInvitationNotifications,
 }));
 
 import {

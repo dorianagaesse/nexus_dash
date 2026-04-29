@@ -22,7 +22,7 @@ describe("account-menu", () => {
         displayName: null,
         usernameTag: null,
         avatarSeed: null,
-        pendingInvitationCount: 0,
+        unreadNotificationCount: 0,
       })
     );
 
@@ -36,7 +36,7 @@ describe("account-menu", () => {
         displayName: "test.user",
         usernameTag: "test.user#1234",
         avatarSeed: "seed-123",
-        pendingInvitationCount: 0,
+        unreadNotificationCount: 0,
       })
     );
 
@@ -46,14 +46,14 @@ describe("account-menu", () => {
     expect(result).toContain("alt=\"\"");
   });
 
-  test("renders invitation indicator when pending invitations exist", () => {
+  test("renders notification indicator when unread notifications exist", () => {
     const result = renderToStaticMarkup(
       React.createElement(AccountMenu, {
         isAuthenticated: true,
         displayName: "test.user",
         usernameTag: "test.user#1234",
         avatarSeed: "seed-123",
-        pendingInvitationCount: 3,
+        unreadNotificationCount: 3,
       })
     );
 

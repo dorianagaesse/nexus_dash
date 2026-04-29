@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Settings } from "lucide-react";
+import { ArrowLeft, Bell, Settings } from "lucide-react";
 
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { Badge } from "@/components/ui/badge";
@@ -9,22 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
-import { logServerError } from "@/lib/observability/logger";
 import {
   MAX_PASSWORD_LENGTH,
   MIN_PASSWORD_LENGTH,
   MAX_USERNAME_LENGTH,
   MIN_USERNAME_LENGTH,
 } from "@/lib/services/account-security-policy";
+import { countUnreadNotificationsForUser } from "@/lib/services/notification-service";
 import { getAccountProfile } from "@/lib/services/account-profile-service";
-import {
-  listPendingProjectInvitationsForUser,
-  type ProjectInvitationSummary,
-} from "@/lib/services/project-collaboration-service";
 
 import {
-  acceptProjectInvitationAction,
-  declineProjectInvitationAction,
   regenerateAccountAvatarAction,
   updateAccountEmailAction,
   updateAccountPasswordAction,
@@ -98,12 +92,12 @@ export default async function AccountProfilePage({
   if (!profileResult.ok) {
     notFound();
   }
-  let pendingInvitations: ProjectInvitationSummary[] = [];
+
+  let unreadNotificationCount = 0;
   try {
-    const invitationsResult = await listPendingProjectInvitationsForUser(actorUserId);
-    pendingInvitations = invitationsResult.ok ? invitationsResult.data.invitations : [];
-  } catch (error) {
-    logServerError("AccountProfilePage.listPendingProjectInvitationsForUser", error);
+    unreadNotificationCount = await countUnreadNotificationsForUser(actorUserId);
+  } catch {
+    // Non-critical, ignore count fetch failure
   }
 
   const status = readQueryValue(resolvedSearchParams?.status);
@@ -121,16 +115,33 @@ export default async function AccountProfilePage({
               Back to projects
             </Link>
           </Button>
-          <Button
-            asChild
-            variant="outline"
-            className="rounded-full border-border/60 px-3 py-1.5 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
-          >
-            <Link href="/account/settings" className="inline-flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Settings
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              asChild
+              variant="outline"
+              className="relative rounded-full border-border/60 px-3 py-1.5 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
+            >
+              <Link href="/account/notifications">
+                <Bell className="h-4 w-4" />
+                Notifications
+                {unreadNotificationCount > 0 ? (
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
+                    {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+                  </span>
+                ) : null}
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="rounded-full border-border/60 px-3 py-1.5 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
+            >
+              <Link href="/account/settings" className="inline-flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Link>
+            </Button>
+          </div>
         </div>
         <Badge variant="secondary" className="w-fit">
           Account profile
@@ -138,7 +149,7 @@ export default async function AccountProfilePage({
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight">Account</h1>
           <p className="text-sm text-muted-foreground">
-            Manage your identity, email, password, and invitations.
+            Manage your identity, email, password, and notifications.
           </p>
         </div>
 
@@ -154,68 +165,6 @@ export default async function AccountProfilePage({
             {ERROR_MESSAGES[error]}
           </div>
         ) : null}
-
-        <Card id="project-invitations">
-          <CardHeader>
-            <CardTitle className="text-xl">Invitations</CardTitle>
-            <CardDescription>
-              Review pending project invitations sent to your account.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {pendingInvitations.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border/60 bg-muted/20 px-4 py-5 text-sm text-muted-foreground">
-                No pending invitations.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {pendingInvitations.map((invitation) => {
-                  const invitationCopy =
-                    invitation.role === "viewer"
-                      ? `${invitation.invitedByDisplayName} invited you to view project ${invitation.projectName}.`
-                      : `${invitation.invitedByDisplayName} invited you to collaborate on project ${invitation.projectName}.`;
-
-                  return (
-                    <div
-                      key={invitation.invitationId}
-                      className="rounded-xl border border-border/70 bg-card/70 px-4 py-4"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium">{invitationCopy}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Role: {invitation.role} · Expires{" "}
-                            {new Date(invitation.expiresAt).toLocaleString()}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <form action={acceptProjectInvitationAction}>
-                            <input
-                              type="hidden"
-                              name="invitationId"
-                              value={invitation.invitationId}
-                            />
-                            <Button type="submit">Accept</Button>
-                          </form>
-                          <form action={declineProjectInvitationAction}>
-                            <input
-                              type="hidden"
-                              name="invitationId"
-                              value={invitation.invitationId}
-                            />
-                            <Button type="submit" variant="outline">
-                              Decline
-                            </Button>
-                          </form>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         <Card>
           <CardHeader>

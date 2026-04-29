@@ -61,6 +61,7 @@ function mapIssueVerificationError(error: string): string {
 
 function revalidateAccountPaths() {
   revalidatePath(ACCOUNT_PATH);
+  revalidatePath(`${ACCOUNT_PATH}/notifications`);
   revalidatePath("/account/settings");
   revalidatePath("/projects");
 }

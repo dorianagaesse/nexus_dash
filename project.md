@@ -19,6 +19,11 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`) with reorder, deadline/comment visibility, task epic links, and task detail modal
   - Project epics registry with dedicated epic CRUD, automatic status/progress, and linked-task rollups
   - Google Calendar panel (read/create/update/delete events when connected)
+- Notification center:
+  - durable per-user in-app inbox at `/account/notifications`
+  - unread/read state and resolved lifecycle
+  - project invitation delivery, accept/decline actions, and notification-aware account menu counts
+  - foundation for future mention and activity producers
 - Task comments:
   - project-scoped, append-only task discussion threads
   - chronological author-attributed comment history in the task detail modal
@@ -90,10 +95,10 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 From `tasks/current.md` + `tasks/backlog.md`:
 
-1. TASK-123: notification center - unified in-app inbox for invitations, mentions, and future activity
-2. TASK-124: comment mentions - project-member @tagging with notification-center delivery
-3. TASK-126: comment reactions - lightweight emoji response system on task threads
-4. TASK-127: API capability audit - confirm every shipped feature remains fully manageable through the API
+1. TASK-124: comment mentions - project-member @tagging with notification-center delivery
+2. TASK-126: comment reactions - lightweight emoji response system on task threads
+3. TASK-127: API capability audit - confirm every shipped feature remains fully manageable through the API
+4. TASK-131: local validation baseline repair - reproducible container, database, and toolchain setup
 
 ## 8. Source-of-Truth Docs
 

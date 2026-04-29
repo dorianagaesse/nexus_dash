@@ -6,19 +6,19 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
 import { logServerError } from "@/lib/observability/logger";
 import { getAccountIdentitySummary } from "@/lib/services/account-identity-service";
-import { countPendingProjectInvitationsForUser } from "@/lib/services/project-collaboration-service";
+import { countUnreadNotificationsForUser } from "@/lib/services/notification-service";
 
 export async function TopRightControls() {
   noStore();
   const actorUserId = await getSessionUserIdFromServer();
   let accountIdentity = null;
-  let pendingInvitationCount = 0;
+  let unreadNotificationCount = 0;
 
   if (actorUserId) {
-    const [accountIdentityResult, pendingInvitationCountResult] =
+    const [accountIdentityResult, unreadNotificationCountResult] =
       await Promise.allSettled([
         getAccountIdentitySummary(actorUserId),
-        countPendingProjectInvitationsForUser(actorUserId),
+        countUnreadNotificationsForUser(actorUserId),
       ]);
 
     if (accountIdentityResult.status === "fulfilled") {
@@ -30,12 +30,12 @@ export async function TopRightControls() {
       );
     }
 
-    if (pendingInvitationCountResult.status === "fulfilled") {
-      pendingInvitationCount = pendingInvitationCountResult.value;
+    if (unreadNotificationCountResult.status === "fulfilled") {
+      unreadNotificationCount = unreadNotificationCountResult.value;
     } else {
       logServerError(
-        "TopRightControls.countPendingProjectInvitationsForUser",
-        pendingInvitationCountResult.reason
+        "TopRightControls.countUnreadNotificationsForUser",
+        unreadNotificationCountResult.reason
       );
     }
   }
@@ -48,7 +48,7 @@ export async function TopRightControls() {
         displayName={accountIdentity?.displayName ?? null}
         usernameTag={accountIdentity?.usernameTag ?? null}
         avatarSeed={accountIdentity?.avatarSeed ?? null}
-        pendingInvitationCount={pendingInvitationCount}
+        unreadNotificationCount={unreadNotificationCount}
       />
       <ThemeToggle />
     </div>

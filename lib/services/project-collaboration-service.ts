@@ -13,6 +13,10 @@ import {
   hasRequiredRole,
   requireProjectRole,
 } from "@/lib/services/project-access-service";
+import {
+  createProjectInvitationNotification,
+  resolveProjectInvitationNotifications,
+} from "@/lib/services/notification-service";
 import { withActorRlsContext, type DbClient } from "@/lib/services/rls-context";
 
 const PROJECT_INVITATION_TTL_DAYS = 14;
@@ -759,7 +763,7 @@ export async function inviteUserToProject(input: {
       return createError(409, "already-a-member");
     }
 
-    await db.projectInvitation.updateMany({
+    const invitationsToReplace = await db.projectInvitation.findMany({
       where: {
         projectId: input.projectId,
         invitedEmail,
@@ -767,10 +771,27 @@ export async function inviteUserToProject(input: {
         revokedAt: null,
         replacedAt: null,
       },
-      data: {
-        replacedAt: now,
+      select: {
+        id: true,
       },
     });
+
+    if (invitationsToReplace.length > 0) {
+      await db.projectInvitation.updateMany({
+        where: {
+          id: {
+            in: invitationsToReplace.map((invitation) => invitation.id),
+          },
+        },
+        data: {
+          replacedAt: now,
+        },
+      });
+      await resolveProjectInvitationNotifications({
+        db,
+        invitationIds: invitationsToReplace.map((invitation) => invitation.id),
+      });
+    }
 
     try {
       const invitation = await db.projectInvitation.create({
@@ -809,12 +830,35 @@ export async function inviteUserToProject(input: {
         },
       });
 
+      const invitationSummary = buildProjectInvitationSummary({
+        invitation,
+        invitedBy: invitation.invitedByUser,
+        matchedInvitee: matchedInvitee?.emailVerified ? matchedInvitee : null,
+      });
+
+      if (matchedInvitee?.emailVerified) {
+        await createProjectInvitationNotification({
+          db,
+          recipientUserId: matchedInvitee.id,
+          invitation: {
+            invitationId: invitation.id,
+            projectId: invitation.projectId,
+            projectName: invitation.project.name,
+            invitedEmail: invitation.invitedEmail,
+            invitedByEmail: invitation.invitedByUser.email,
+            invitedByName: invitation.invitedByUser.name,
+            invitedByUsername: invitation.invitedByUser.username,
+            invitedByUsernameDiscriminator:
+              invitation.invitedByUser.usernameDiscriminator,
+            role: requireCollaboratorRole(invitation.role),
+            createdAt: invitation.createdAt,
+            expiresAt: invitation.expiresAt,
+          },
+        });
+      }
+
       return createSuccess(201, {
-        invitation: buildProjectInvitationSummary({
-          invitation,
-          invitedBy: invitation.invitedByUser,
-          matchedInvitee: matchedInvitee?.emailVerified ? matchedInvitee : null,
-        }),
+        invitation: invitationSummary,
       });
     } catch (error) {
       if (isUniqueConstraintError(error)) {
@@ -981,6 +1025,11 @@ export async function revokeProjectInvitation(input: {
     if (result.count !== 1) {
       return createError(404, "invitation-not-found");
     }
+
+    await resolveProjectInvitationNotifications({
+      db,
+      invitationIds: [invitationId],
+    });
 
     return createSuccess(200, { ok: true as const });
   });
@@ -1224,19 +1273,30 @@ export async function respondToProjectInvitation(input: {
       return createError(404, "invitation-not-found");
     }
 
+    const resolveCurrentInvitationNotification = async () => {
+      await resolveProjectInvitationNotifications({
+        db,
+        invitationIds: [invitation.id],
+      });
+    };
+
     if (invitation.acceptedAt) {
+      await resolveCurrentInvitationNotification();
       return createSuccess(200, { projectId: invitation.projectId });
     }
 
     if (invitation.replacedAt) {
+      await resolveCurrentInvitationNotification();
       return createError(409, "invitation-replaced");
     }
 
     if (invitation.revokedAt) {
+      await resolveCurrentInvitationNotification();
       return createError(409, "invitation-revoked");
     }
 
     if (invitation.expiresAt.getTime() <= Date.now()) {
+      await resolveCurrentInvitationNotification();
       return createError(409, "invitation-expired");
     }
 
@@ -1262,6 +1322,7 @@ export async function respondToProjectInvitation(input: {
       });
 
       if (declinedInvitation.count === 1) {
+        await resolveCurrentInvitationNotification();
         return createSuccess(200, { projectId: invitation.projectId });
       }
 
@@ -1276,18 +1337,22 @@ export async function respondToProjectInvitation(input: {
       });
 
       if (latestInvitation?.acceptedAt) {
+        await resolveCurrentInvitationNotification();
         return createError(409, "invitation-already-accepted");
       }
 
       if (latestInvitation?.replacedAt) {
+        await resolveCurrentInvitationNotification();
         return createError(409, "invitation-replaced");
       }
 
       if (latestInvitation?.revokedAt) {
+        await resolveCurrentInvitationNotification();
         return createSuccess(200, { projectId: invitation.projectId });
       }
 
       if (latestInvitation && latestInvitation.expiresAt.getTime() <= Date.now()) {
+        await resolveCurrentInvitationNotification();
         return createError(409, "invitation-expired");
       }
 
@@ -1354,6 +1419,7 @@ export async function respondToProjectInvitation(input: {
       });
 
       if (latestInvitation?.acceptedAt) {
+        await resolveCurrentInvitationNotification();
         return createSuccess(200, { projectId: latestInvitation.projectId });
       }
 
@@ -1373,20 +1439,24 @@ export async function respondToProjectInvitation(input: {
       }
 
       if (latestInvitation?.replacedAt) {
+        await resolveCurrentInvitationNotification();
         return createError(409, "invitation-replaced");
       }
 
       if (latestInvitation?.revokedAt) {
+        await resolveCurrentInvitationNotification();
         return createError(409, "invitation-revoked");
       }
 
       if (latestInvitation && latestInvitation.expiresAt.getTime() <= Date.now()) {
+        await resolveCurrentInvitationNotification();
         return createError(409, "invitation-expired");
       }
 
       return createError(404, "invitation-not-found");
     }
 
+    await resolveCurrentInvitationNotification();
     return createSuccess(200, { projectId: invitation.projectId });
   });
 }
