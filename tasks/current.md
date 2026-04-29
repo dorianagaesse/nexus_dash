@@ -225,6 +225,18 @@ underlying invitation is accepted, declined, revoked, expired, or replaced.
 - Local follow-up validation passed: focused notification tests, `npm run
   lint`, full `npm test`, full `npm run test:coverage`, and `npm run build`
   with valid local test env values.
+- PR CI after commit `f4b42b8` passed: Quality Core, E2E Smoke, Container
+  Image, and branch-name check.
+- Preview deployment was triggered through `deploy-vercel.yml` with
+  `action=deploy-preview` and
+  `git_ref=feature/task-123-notification-center`; workflow run `25097818406`
+  succeeded with preview
+  `https://nexus-dash-lzzh9ro0y-dorian-agaesses-projects.vercel.app`.
+- Preview checkout evidence was verified from workflow logs: the checkout step
+  used `ref: feature/task-123-notification-center`, fetched
+  `origin/feature/task-123-notification-center`, and checked out that branch
+  ref. Direct preview Playwright was not run because the deployment is Vercel
+  SSO-protected and no `VERCEL_AUTOMATION_BYPASS_SECRET` was available locally.
 
 ## Dependencies
 - `TASK-058`

@@ -23,6 +23,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Evidence: `DATABASE_URL=... DIRECT_URL=... npm test -- tests/lib/notification-service.test.ts tests/components/notification-center-list.test.ts tests/app/account-notifications-actions.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... npm run test:coverage`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build`. A first build attempt used a too-short local `AGENT_TOKEN_SIGNING_SECRET` and failed env validation before succeeding with a 32-character test secret.
 
 ### 2026-04-29
+- Type: Validation
+- Summary: TASK-123 preview deployment completed from the active branch ref after Copilot review follow-up.
+- Evidence: Ran `gh workflow run deploy-vercel.yml -f action=deploy-preview -f git_ref=feature/task-123-notification-center`; workflow run `25097818406` succeeded and produced preview `https://nexus-dash-lzzh9ro0y-dorian-agaesses-projects.vercel.app`. Log evidence includes `ref: feature/task-123-notification-center`, fetch of `origin/feature/task-123-notification-center`, and checkout command `git checkout --progress --force -B feature/task-123-notification-center refs/remotes/origin/feature/task-123-notification-center`. Direct preview browser automation was not run because the preview is Vercel SSO-protected and no `VERCEL_AUTOMATION_BYPASS_SECRET` was available locally; PR CI E2E Smoke passed on run `25097764300`.
+
+### 2026-04-29
 - Type: Execution
 - Summary: TASK-123 delivered the durable in-app notification center foundation with project invitations as the first producer.
 - Evidence: Added `Notification` schema/migration/RLS, implemented `lib/services/notification-service.ts`, integrated invitation create/replace/revoke/respond lifecycle with notification delivery/resolution, replaced invitation-specific account menu/count behavior with notification unread counts, added `/account/notifications`, replaced the account invitation card with a notification-center entry, and routed quick awareness banners to the notification center.
