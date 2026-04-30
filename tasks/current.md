@@ -4,7 +4,7 @@
 TASK-124
 
 ## Status
-Implementation follow-up in progress after autocomplete visibility bug.
+Implementation follow-up complete; PR checks green.
 
 ## Objective
 Implement @username#discriminator project-member tagging in task comments with:
