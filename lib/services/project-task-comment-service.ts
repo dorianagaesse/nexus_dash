@@ -602,17 +602,22 @@ export async function addTaskCommentReaction(input: {
     if (!task || task.projectId !== input.projectId) return createError(404, "comment-not-found");
 
     try {
-      const existing = await db.taskCommentReaction.findUnique({
-        where: { commentId_userId_emoji: { commentId: input.commentId, userId: actorUserId, emoji } },
+      const existing = await db.taskCommentReaction.findMany({
+        where: { commentId: input.commentId, userId: actorUserId },
       });
 
-      if (existing) {
-        await db.taskCommentReaction.delete({ where: { id: existing.id } });
-      } else {
-        await db.taskCommentReaction.create({
-          data: { commentId: input.commentId, userId: actorUserId, emoji },
-        });
-      }
+    if (existing.length > 0) {
+      // Replace all reactions from this user with the new emoji (one reaction per user total)
+      await db.taskCommentReaction.deleteMany({
+        where: { commentId: input.commentId, userId: actorUserId },
+      });
+    }
+
+    if (emoji) {
+      await db.taskCommentReaction.create({
+        data: { commentId: input.commentId, userId: actorUserId, emoji },
+      });
+    }
 
       const rawReactions = await db.taskCommentReaction.findMany({
         where: { commentId: input.commentId },

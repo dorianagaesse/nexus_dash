@@ -53,6 +53,7 @@ function createMockDb(overrides: Partial<{
       findMany: vi.fn(() => []),
       create: vi.fn(() => Promise.resolve({ id: "r-new", emoji: "👍", userId: "test-user", commentId: "comment-1", createdAt: new Date() })),
       delete: vi.fn(() => Promise.resolve({ id: "r1", emoji: "👍", userId: "test-user", commentId: "comment-1", createdAt: new Date() })),
+      deleteMany: vi.fn(() => Promise.resolve({ count: 1 })),
       ...overrides.taskCommentReaction,
     },
   };
@@ -133,11 +134,12 @@ describe("task comment reactions service", () => {
     expect(reactions).toContainEqual(expect.objectContaining({ emoji: "👍", reacted: true }));
   });
 
-  test("addTaskCommentReaction removes reaction when already exists (toggle)", async () => {
+  test("addTaskCommentReaction replaces existing reaction when switching emoji", async () => {
     const mockDb = createMockDb({
       taskCommentReaction: {
-        findUnique: vi.fn(() => Promise.resolve({ id: "r1", emoji: "👍", userId: "test-user", commentId: "comment-1", createdAt: new Date() })),
-        findMany: vi.fn(() => Promise.resolve([])),
+        findMany: vi.fn(() => Promise.resolve([
+          { id: "r-new", emoji: "🎉", userId: "test-user", commentId: "comment-1", createdAt: new Date(), user: { id: "test-user", name: "Me", email: "m@example.com", username: "me", usernameDiscriminator: "5678", avatarSeed: "seed-me" } },
+        ])),
       },
     });
     rlsContextMock.withActorRlsContext.mockImplementationOnce(async (_actorUserId: string, operation: (db: unknown) => unknown) =>
@@ -148,11 +150,13 @@ describe("task comment reactions service", () => {
       actorUserId: "test-user",
       projectId: "project-1",
       commentId: "comment-1",
-      emoji: "👍",
+      emoji: "🎉",
     });
 
     expect(result.ok).toBe(true);
-    expect(result.data?.reactions).toEqual([]);
+    const reactions = result.data?.reactions ?? [];
+    expect(reactions).toContainEqual(expect.objectContaining({ emoji: "🎉", reacted: true }));
+    expect(reactions).not.toContainEqual(expect.objectContaining({ emoji: "👍" }));
   });
 
   test("addTaskCommentReaction returns 400 when emoji is empty", async () => {
