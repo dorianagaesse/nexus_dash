@@ -16,8 +16,8 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-058, TASK-099, TASK-123
 - ID: TASK-126
   Title: Comment reactions - lightweight emoji response system on task threads
-  Status: Pending
-  Rationale: Add lightweight reactions on task comments so collaborators can acknowledge, support, or quickly respond without posting extra text, preserving comment readability while giving task discussions faster signal.
+  Status: Done (2026-04-30)
+  Rationale: Added lightweight emoji reactions on task comments so collaborators can acknowledge, support, or quickly respond without posting extra text, with toggle semantics, grouped display with counts, and persisted database storage.
   Dependencies: TASK-099
 
 ### Deferred (Intentional)
