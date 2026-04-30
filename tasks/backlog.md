@@ -26,6 +26,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Run a focused audit across current product features to verify that core entities and workflows remain fully manageable through the public app API, identify any gaps where shipped UI features outpace the API, and align the API contract or feature boundaries accordingly so agent-facing capabilities stay trustworthy. Potential sub-task: if the audit reveals missing API functionalities, implement the gaps to bring the API back to full parity with the UI surface.
   Dependencies: TASK-107, TASK-115, TASK-128
+- ID: TASK-132
+  Title: Version update system adjustments - align version metadata, automation, and release communication
+  Status: Pending
+  Rationale: Review and adjust the app's version update system so version metadata, dependency-update cadence, release notes, deployment visibility, and any user-facing update indicators stay consistent across automated maintenance, manual releases, and future API or agent-facing surfaces.
+  Dependencies: TASK-041, TASK-042, TASK-116
 - ID: TASK-129
   Title: Login/home page UI polish - user-friendly, product-oriented entry experience
   Status: Pending
