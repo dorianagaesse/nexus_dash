@@ -4,7 +4,7 @@
 TASK-126
 
 ## Status
-PR #213 open — Copilot review complete; addressing feedback.
+PR #213 merged — all CI green, Copilot review closed, unit tests added.
 
 ## Objective
 Add lightweight emoji reactions on task comments so collaborators can acknowledge, support, or quickly respond without posting extra text.
