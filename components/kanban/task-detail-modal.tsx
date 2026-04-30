@@ -1010,6 +1010,7 @@ function TaskReadOnlyContent({
   const hasAttachments = selectedTask.attachments.length > 0;
   const hasRelatedTasks = selectedTask.relatedTasks.length > 0;
   const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const commentHighlightRef = useRef<HTMLDivElement | null>(null);
   const [commentCursorPosition, setCommentCursorPosition] = useState(0);
   const commentMentionState = useMentionAutocomplete(
     newTaskComment,
@@ -1019,6 +1020,12 @@ function TaskReadOnlyContent({
 
   const syncCommentCursorPosition = (textarea: HTMLTextAreaElement) => {
     setCommentCursorPosition(textarea.selectionStart ?? textarea.value.length);
+  };
+
+  const syncCommentHighlightScroll = (textarea: HTMLTextAreaElement) => {
+    if (commentHighlightRef.current) {
+      commentHighlightRef.current.scrollTop = textarea.scrollTop;
+    }
   };
 
   const handleCommentMentionSelect = (member: MentionAutocompleteMember) => {
@@ -1195,24 +1202,41 @@ function TaskReadOnlyContent({
               <label htmlFor="task-comment-input" className="sr-only">
                 Task comment
               </label>
-              <EmojiTextareaField
-                ref={commentInputRef}
-                id="task-comment-input"
-                aria-label="Task comment"
-                value={newTaskComment}
-                onChange={(event) => {
-                  onNewTaskCommentChange(event.target.value);
-                  syncCommentCursorPosition(event.target);
-                }}
-                onClick={(event) => syncCommentCursorPosition(event.currentTarget)}
-                onKeyUp={(event) => syncCommentCursorPosition(event.currentTarget)}
-                maxLength={4000}
-                rows={1}
-                placeholder="Add a task comment..."
-                wrapperClassName="w-full"
-                className="h-11 min-h-11 resize-none rounded-xl border border-border/50 bg-background/80 px-3 py-2 text-sm leading-5 transition-colors focus-visible:outline-none focus-visible:border-ring/60"
-                disabled={isSubmittingTaskComment}
-              />
+              <div className="relative">
+                <div
+                  ref={commentHighlightRef}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 z-0 overflow-hidden whitespace-pre-wrap break-words px-3 py-2 pr-12 text-sm leading-5 text-foreground"
+                >
+                  {newTaskComment
+                    ? renderContentWithMentions(newTaskComment, {
+                        mentionUsers,
+                        mentionHighlightClassName:
+                          "rounded-sm bg-primary/10 px-1 py-0.5 font-medium text-primary",
+                      })
+                    : null}
+                </div>
+                <EmojiTextareaField
+                  ref={commentInputRef}
+                  id="task-comment-input"
+                  aria-label="Task comment"
+                  value={newTaskComment}
+                  onChange={(event) => {
+                    onNewTaskCommentChange(event.target.value);
+                    syncCommentCursorPosition(event.target);
+                    syncCommentHighlightScroll(event.target);
+                  }}
+                  onClick={(event) => syncCommentCursorPosition(event.currentTarget)}
+                  onKeyUp={(event) => syncCommentCursorPosition(event.currentTarget)}
+                  onScroll={(event) => syncCommentHighlightScroll(event.currentTarget)}
+                  maxLength={4000}
+                  rows={1}
+                  placeholder="Add a task comment..."
+                  wrapperClassName="relative z-10 w-full"
+                  className="h-11 min-h-11 resize-none rounded-xl border border-border/50 bg-transparent px-3 py-2 text-sm leading-5 text-transparent caret-foreground transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-ring/60"
+                  disabled={isSubmittingTaskComment}
+                />
+              </div>
               {commentMentionState.isActive ? (
                 <MentionAutocomplete
                   projectId={projectId}

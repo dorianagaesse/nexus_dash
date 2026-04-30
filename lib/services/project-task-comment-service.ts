@@ -7,6 +7,7 @@ import {
 } from "@/lib/services/project-access-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 import {
+  type TaskCommentMentionNotificationInput,
   createTaskCommentMentionNotification,
 } from "@/lib/services/notification-service";
 import {
@@ -36,6 +37,11 @@ export interface TaskCommentSummary {
   content: string;
   createdAt: Date;
   author: TaskCommentAuthorSummary;
+}
+
+interface PendingMentionNotification {
+  recipientUserId: string;
+  notification: TaskCommentMentionNotificationInput;
 }
 
 function createError(status: number, error: string): ServiceErrorResult {
@@ -195,7 +201,7 @@ export async function createTaskCommentForProject(input: {
     return createError(agentScopeAccess.status, agentScopeAccess.error);
   }
 
-  return withActorRlsContext(actorUserId, async (db) => {
+  const result = await withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
       projectId: input.projectId,
@@ -357,9 +363,9 @@ export async function createTaskCommentForProject(input: {
 
       await touchTaskActivity(db, input.taskId, actorUserId);
 
-      // Send mention notifications sequentially (each error is logged internally)
       const authorDisplayName = comment.author.name || comment.author.email || comment.author.username || "Someone";
       const taskPath = `/projects/${input.projectId}/tasks/${input.taskId}`;
+      const pendingNotifications: PendingMentionNotification[] = [];
 
       for (const mentionedUser of mentionedUsers) {
         // Don't notify the author if they mention themselves
@@ -367,8 +373,7 @@ export async function createTaskCommentForProject(input: {
           continue;
         }
 
-        await createTaskCommentMentionNotification({
-          db,
+        pendingNotifications.push({
           recipientUserId: mentionedUser.userId,
           notification: {
             commentId: comment.id,
@@ -390,6 +395,7 @@ export async function createTaskCommentForProject(input: {
         ok: true,
         data: {
           comment: mapTaskComment(comment),
+          pendingNotifications,
         },
       };
     } catch (error) {
@@ -397,4 +403,28 @@ export async function createTaskCommentForProject(input: {
       return createError(500, "comment-create-failed");
     }
   });
+
+  if (!result.ok) {
+    return result;
+  }
+
+  for (const pendingNotification of result.data.pendingNotifications) {
+    try {
+      await withActorRlsContext(actorUserId, async (db) => {
+        await createTaskCommentMentionNotification({
+          db,
+          ...pendingNotification,
+        });
+      });
+    } catch (error) {
+      logServerError("createTaskCommentForProject.mentionNotification", error);
+    }
+  }
+
+  return {
+    ok: true,
+    data: {
+      comment: result.data.comment,
+    },
+  };
 }

@@ -9,6 +9,7 @@ import {
   validateUsernameDiscriminator,
 } from "@/lib/services/account-security-policy";
 import {
+  type AgentProjectAccessContext,
   getProjectAccess,
   hasRequiredRole,
   requireProjectRole,
@@ -1613,6 +1614,7 @@ const MENTION_AUTOCOMPLETE_LIMIT = 8;
 
 export async function searchProjectMembersForMention(input: {
   actorUserId: string;
+  agentAccess?: AgentProjectAccessContext;
   projectId: string;
   query: string;
 }): Promise<ServiceResult<{ members: ProjectMemberSummary[] }>> {
@@ -1624,6 +1626,19 @@ export async function searchProjectMembersForMention(input: {
 
   const normalizedQuery = query.toLowerCase();
   const queryWithoutTag = normalizedQuery.split("#", 1)[0] ?? normalizedQuery;
+  if (input.agentAccess) {
+    if (input.agentAccess.projectId !== input.projectId) {
+      return createError(404, "project-not-found");
+    }
+
+    const canSearchMembers =
+      input.agentAccess.scopes.includes("project:read") ||
+      input.agentAccess.scopes.includes("task:read") ||
+      input.agentAccess.scopes.includes("task:write");
+    if (!canSearchMembers) {
+      return createError(403, "forbidden");
+    }
+  }
 
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
@@ -1716,6 +1731,10 @@ export async function searchProjectMembersForMention(input: {
 
     // Filter by query matching username, name, or email. Empty @ opens the member list.
     const filteredMembers = allMembers.filter((member) => {
+      if (member.userId === actorUserId) {
+        return false;
+      }
+
       if (query.length < 1) {
         return true;
       }

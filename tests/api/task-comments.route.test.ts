@@ -14,6 +14,11 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
     create: vi.fn(),
   },
+  notification: {
+    findMany: vi.fn(),
+    createMany: vi.fn(),
+    updateMany: vi.fn(),
+  },
 }));
 
 const apiGuardMock = vi.hoisted(() => ({
@@ -56,6 +61,9 @@ describe("task comments route", () => {
       ownerId: "test-user",
       memberships: [],
     });
+    prismaMock.notification.findMany.mockResolvedValue([]);
+    prismaMock.notification.createMany.mockResolvedValue({ count: 1 });
+    prismaMock.notification.updateMany.mockResolvedValue({ count: 1 });
   });
 
   test("GET returns chronological task comments", async () => {
@@ -268,6 +276,80 @@ describe("task comments route", () => {
       select: {
         id: true,
       },
+    });
+  });
+
+  test("POST persists comment before creating mention notifications", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      title: "Mentionable task",
+      projectId: "project-1",
+    });
+    prismaMock.project.findUnique.mockResolvedValueOnce({
+      id: "project-1",
+      name: "Test project",
+      ownerId: "owner-1",
+      owner: {
+        id: "owner-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "0001",
+        avatarSeed: null,
+      },
+      memberships: [
+        {
+          userId: "test-user",
+          user: {
+            id: "test-user",
+            name: "Reviewer",
+            email: "reviewer@example.com",
+            username: "reviewer",
+            usernameDiscriminator: "0007",
+            avatarSeed: null,
+          },
+        },
+      ],
+    });
+    prismaMock.taskComment.create.mockResolvedValueOnce({
+      id: "comment-mention",
+      content: "Can you check this @owner#0001?",
+      createdAt: new Date("2026-04-19T11:30:00.000Z"),
+      author: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+    });
+
+    const response = await POST(
+      new Request("http://localhost/api/projects/project-1/tasks/task-1/comments", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          content: "Can you check this @owner#0001?",
+        }),
+      }) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(201);
+    expect(prismaMock.taskComment.create.mock.invocationCallOrder[0]).toBeLessThan(
+      prismaMock.notification.createMany.mock.invocationCallOrder[0]
+    );
+    expect(prismaMock.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          recipientUserId: "owner-1",
+          sourceType: "task_comment_mention",
+          sourceId: "comment-mention",
+          targetPath: "/projects/project-1/tasks/task-1",
+        }),
+      ],
+      skipDuplicates: true,
     });
   });
 
