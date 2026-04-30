@@ -7,7 +7,7 @@ import {
   resolveMentionDisplayUser,
   type MentionDisplayUser,
 } from "@/components/ui/mention-hover-card";
-import { parseMentions } from "@/lib/mention";
+import { parseMentions, type ParsedMention } from "@/lib/mention";
 import { coerceRichTextHtml } from "@/lib/rich-text";
 import { cn } from "@/lib/utils";
 
@@ -107,7 +107,10 @@ function setTokenVisibility(
   toggleButton.innerHTML = revealed ? EYE_OFF_ICON_SVG : EYE_ICON_SVG;
 }
 
-export function buildEnhancedRichTextHtml(input: string): string {
+export function buildEnhancedRichTextHtml(
+  input: string,
+  mentionUsers?: MentionDisplayUser[]
+): string {
   if (!input || typeof document === "undefined") {
     return input;
   }
@@ -195,13 +198,13 @@ export function buildEnhancedRichTextHtml(input: string): string {
   });
 
   if (hasMentions) {
-    highlightMentionTextNodes(template.content);
+    highlightMentionTextNodes(template.content, mentionUsers);
   }
 
   return template.innerHTML;
 }
 
-function highlightMentionTextNodes(root: DocumentFragment) {
+function highlightMentionTextNodes(root: DocumentFragment, mentionUsers?: MentionDisplayUser[]) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const textNodes: Text[] = [];
 
@@ -221,7 +224,7 @@ function highlightMentionTextNodes(root: DocumentFragment) {
   }
 
   for (const textNode of textNodes) {
-    const { mentions } = parseMentions(textNode.data);
+    const { mentions }: { mentions: ParsedMention[] } = parseMentions(textNode.data);
     const fragment = document.createDocumentFragment();
     let lastIndex = 0;
 
@@ -237,7 +240,16 @@ function highlightMentionTextNodes(root: DocumentFragment) {
       if (mention.discriminator) {
         mentionElement.dataset.mentionDiscriminator = mention.discriminator;
       }
-      mentionElement.textContent = mention.fullMatch;
+
+      const resolvedUser = mentionUsers
+        ? resolveMentionDisplayUser(
+            { username: mention.username, discriminator: mention.discriminator },
+            mentionUsers
+          )
+        : null;
+      mentionElement.textContent = resolvedUser
+        ? `@${resolvedUser.displayName}`
+        : mention.fullMatch;
       fragment.append(mentionElement);
       lastIndex = mention.endIndex;
     }
@@ -278,8 +290,8 @@ export function RichTextContent({
   const resetTimeoutRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
-    setRenderedHtml(buildEnhancedRichTextHtml(normalizedHtml));
-  }, [normalizedHtml]);
+    setRenderedHtml(buildEnhancedRichTextHtml(normalizedHtml, mentionUsers));
+  }, [normalizedHtml, mentionUsers]);
 
   React.useEffect(
     () => () => {
