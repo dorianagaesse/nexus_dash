@@ -38,6 +38,7 @@ model User {
   revokedApiCredentials      ApiCredential[]           @relation("ApiCredentialRevokedBy")
   authAuditEvents            AuthAuditEvent[]          @relation("AuthAuditEventActorUser")
   notifications              Notification[]            @relation("NotificationRecipient")
+  taskCommentReactions       TaskCommentReaction[]
 
   @@unique([username, usernameDiscriminator])
   @@index([username])
@@ -324,8 +325,25 @@ model TaskComment {
   content      String
   createdAt    DateTime @default(now())
 
+  reactions    TaskCommentReaction[]
+
   @@index([taskId, createdAt])
   @@index([authorUserId])
+}
+
+model TaskCommentReaction {
+  id        String      @id @default(cuid())
+  commentId String
+  userId    String
+  emoji     String
+  createdAt DateTime    @default(now())
+
+  comment   TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId, emoji])
+  @@index([commentId])
+  @@index([userId])
 }
 
 model TaskRelation {

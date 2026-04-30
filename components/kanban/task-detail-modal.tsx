@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Archive,
@@ -23,6 +23,7 @@ import {
 import {
   type KanbanTask,
   type TaskComment,
+  type TaskCommentReaction,
   type PendingAttachmentUpload,
   type ProjectEpicOption,
   type ProjectTaskCollaborator,
@@ -32,6 +33,7 @@ import {
 import {
   formatFollowUpTimestamp,
   resolveAttachmentHref,
+  readApiError,
 } from "@/components/kanban-board-utils";
 import {
   RelatedTaskPill,
@@ -48,6 +50,7 @@ import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
+import { EmojiPickerButton } from "@/components/ui/emoji-picker-button";
 import { EpicSelect } from "@/components/ui/epic-select";
 import {
   MentionAutocomplete,
@@ -58,6 +61,7 @@ import {
 import type { MentionDisplayUser } from "@/components/ui/mention-hover-card";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { getEpicColorFromName } from "@/lib/epic";
+import { cn } from "@/lib/utils";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import { renderContentWithMentions } from "@/lib/content-with-mentions";
 import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
@@ -219,6 +223,86 @@ export function TaskDetailModal({
   onUnarchiveTask,
   onRequestDeleteTask,
 }: TaskDetailModalProps) {
+  const selectedTaskId = selectedTask?.id ?? "";
+  const [taskCommentReactions, setTaskCommentReactions] = useState<Map<string, TaskCommentReaction[]>>(new Map());
+  const reactionsAbortControllerRef = useRef<AbortController | null>(null);
+
+  const loadReactionsForComments = useCallback(
+    async (comments: TaskComment[]) => {
+      if (!selectedTaskId || comments.length === 0) {
+        setTaskCommentReactions(new Map());
+        return;
+      }
+
+      if (reactionsAbortControllerRef.current) {
+        reactionsAbortControllerRef.current.abort();
+      }
+
+      const abortController = new AbortController();
+      reactionsAbortControllerRef.current = abortController;
+
+      try {
+        const reactionPromises = comments.map(async (comment) => {
+          try {
+            const response = await fetch(
+              `/api/projects/${projectId}/tasks/${selectedTaskId}/comments/${comment.id}/reactions`,
+              { signal: abortController.signal }
+            );
+            if (!response.ok) return { commentId: comment.id, reactions: [] as TaskCommentReaction[] };
+            const payload = (await response.json()) as { reactions: TaskCommentReaction[] };
+            return { commentId: comment.id, reactions: payload.reactions };
+          } catch {
+            return { commentId: comment.id, reactions: [] as TaskCommentReaction[] };
+          }
+        });
+
+        const results = await Promise.all(reactionPromises);
+        const newMap = new Map<string, TaskCommentReaction[]>();
+        for (const result of results) {
+          newMap.set(result.commentId, result.reactions);
+        }
+        setTaskCommentReactions(newMap);
+      } catch {
+        // individual fetch errors are handled per-comment
+      }
+    },
+    [projectId, selectedTaskId]
+  );
+
+  const toggleReaction = useCallback(
+    async (commentId: string, emoji: string) => {
+      try {
+        const response = await fetch(
+          `/api/projects/${projectId}/tasks/${selectedTaskId}/comments/${commentId}/reactions`,
+          { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ emoji }) }
+        );
+
+        if (!response.ok) {
+          throw new Error(await readApiError(response, "Failed to toggle reaction"));
+        }
+
+        const payload = (await response.json()) as { reactions: TaskCommentReaction[] };
+        setTaskCommentReactions((prev) => {
+          const next = new Map(prev);
+          next.set(commentId, payload.reactions);
+          return next;
+        });
+      } catch (error) {
+        console.error("[TaskDetailModal.toggleReaction]", error);
+      }
+    },
+    [projectId, selectedTaskId]
+  );
+
+  const handleAddReaction = useCallback(
+    (commentId: string) => (emoji: string) => {
+      void toggleReaction(commentId, emoji);
+    },
+    [toggleReaction]
+  );
+
+  useEffect(() => { void loadReactionsForComments(taskComments); }, [taskComments, loadReactionsForComments]);
+
   if (!isOpen || !selectedTask) {
     return null;
   }
@@ -329,6 +413,9 @@ export function TaskDetailModal({
                     mentionUsers={mentionUsers}
                     onNewTaskCommentChange={onNewTaskCommentChange}
                     onSubmitTaskComment={onSubmitTaskComment}
+                    taskCommentReactions={taskCommentReactions}
+                    toggleReaction={toggleReaction}
+                    handleAddReaction={handleAddReaction}
                   />
                 </div>
               ) : (
@@ -991,6 +1078,9 @@ function TaskReadOnlyContent({
   mentionUsers,
   onNewTaskCommentChange,
   onSubmitTaskComment,
+  taskCommentReactions,
+  toggleReaction,
+  handleAddReaction,
 }: {
   canEdit: boolean;
   selectedTask: KanbanTask;
@@ -1006,6 +1096,9 @@ function TaskReadOnlyContent({
   mentionUsers: MentionDisplayUser[];
   onNewTaskCommentChange: (value: string) => void;
   onSubmitTaskComment: () => void | Promise<void>;
+  taskCommentReactions: Map<string, TaskCommentReaction[]>;
+  toggleReaction: (commentId: string, emoji: string) => void;
+  handleAddReaction: (commentId: string) => (emoji: string) => void;
 }) {
   const hasAttachments = selectedTask.attachments.length > 0;
   const hasRelatedTasks = selectedTask.relatedTasks.length > 0;
@@ -1177,6 +1270,31 @@ function TaskReadOnlyContent({
                       <p className="mt-1 whitespace-pre-wrap break-words text-sm text-foreground">
                         {renderContentWithMentions(comment.content, { mentionUsers })}
                       </p>
+                      {canEdit ? (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                          {(taskCommentReactions.get(comment.id) ?? []).map((reaction) => (
+                            <button
+                              key={reaction.emoji}
+                              type="button"
+                              onClick={() => void toggleReaction(comment.id, reaction.emoji)}
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition-colors",
+                                reaction.reacted
+                                  ? "border-primary/40 bg-primary/12 text-foreground"
+                                  : "border-border/60 bg-muted/40 text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground"
+                              )}
+                            >
+                              <span>{reaction.emoji}</span>
+                              {reaction.count > 1 && <span>{reaction.count}</span>}
+                            </button>
+                          ))}
+                          <EmojiPickerButton
+                            presentation="field"
+                            className="h-6 w-6"
+                            onSelectEmoji={handleAddReaction(comment.id)}
+                          />
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </article>

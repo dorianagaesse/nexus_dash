@@ -35,11 +35,18 @@ export interface ProjectEpicOption extends TaskEpicSummary {
 
 export type TaskCommentAuthor = TaskPersonSummary;
 
+export interface TaskCommentReaction {
+  emoji: string;
+  count: number;
+  reacted: boolean;
+}
+
 export interface TaskComment {
   id: string;
   content: string;
   createdAt: string;
   author: TaskCommentAuthor;
+  reactions: TaskCommentReaction[];
 }
 
 export interface TaskAttachment {
