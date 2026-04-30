@@ -1665,6 +1665,8 @@ export function RichTextEditor({
 
     recordHistoryFromSnapshot(beforeSnapshot);
     emitCurrentValue();
+    // Re-highlight mentions after the DOM update from serialization
+    highlightMentionsInEditor(editor);
     closeMentionAutocomplete();
   };
 
@@ -2093,8 +2095,6 @@ export function RichTextEditor({
       };
 
     pendingInputSnapshotRef.current = null;
-
-    highlightMentionsInEditor(currentEditor);
 
     recordHistoryFromSnapshot(beforeSnapshot);
     emitValue(nextValue);
