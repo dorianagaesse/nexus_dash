@@ -4,7 +4,7 @@
 TASK-124
 
 ## Status
-Implementation complete, PR opened for review.
+Implementation follow-up in progress after autocomplete visibility bug.
 
 ## Objective
 Implement @username#discriminator project-member tagging in task comments with:
@@ -29,6 +29,7 @@ Implement @username#discriminator project-member tagging in task comments with:
 
 ## Product Direction
 - Floating dropdown appears below cursor when @ is typed in comment input
+- Floating dropdown also appears below cursor in task description rich-text editors
 - Dropdown shows project members filtered by search query (username match)
 - Keyboard navigation: Arrow keys to move, Enter to select, Escape to dismiss
 - Selected mention replaces the @query with @username#discriminator
@@ -49,17 +50,18 @@ Implement @username#discriminator project-member tagging in task comments with:
 - Comment service mention wiring (`lib/services/project-task-comment-service.ts`)
 - Floating autocomplete dropdown (`components/ui/mention-autocomplete.tsx`)
 - Highlighted mention rendering (`lib/content-with-mentions.tsx`)
+- Task description rich-text autocomplete and read-time mention highlighting
 - Task detail modal comment rendering with mentions
 - Unit tests for mention parsing (`tests/lib/mention.test.ts`)
 
 ## Out Of Scope
 - Email, SMS, or push notifications
 - Real-time WebSocket updates
-- Mention autocomplete in non-comment text areas (task descriptions, epic descriptions, etc.)
+- Mention autocomplete outside task comments and task descriptions
 - @channel or @everyone group mentions
 
 ## Acceptance Criteria
-1. Typing @ in comment input shows floating dropdown with project members
+1. Typing @ in comment input or task description shows floating dropdown with project members
 2. Dropdown filters as user types to match username
 3. Arrow keys navigate, Enter selects, Escape dismisses
 4. Selected mention replaces partial input with full @username#discriminator
@@ -109,8 +111,18 @@ Implement @username#discriminator project-member tagging in task comments with:
 5. `components/kanban-board.tsx` - Passed projectId to TaskDetailModal
 6. `components/account/notification-center-list.tsx` - Added mention notification type handling
 
+### Follow-up Fixes
+1. Mounted mention autocomplete in the task comment composer and task description rich-text editors.
+2. Replaced textarea cursor positioning with field-based caret geometry so the dropdown anchors below the active cursor.
+3. Raised the autocomplete portal z-index above the task modal.
+4. Allowed empty `@` searches to return the initial project member list.
+5. Added mention highlighting for rich task descriptions through `RichTextContent`.
+
 ## Validation Evidence
-- `npm run lint` passes (1 warning - unused eslint-disable directive)
-- `npm test -- --run tests/lib/mention.test.ts` - 32 tests pass
-- `npm test -- --run tests/components/notification-center-list.test.ts` - 2 tests pass
-- TypeScript compilation via `npx tsc --noEmit` shows no errors in implementation files
+- `npm run lint` passes
+- `DATABASE_URL=... DIRECT_URL=... npm test` - 89 test files passed, 1 skipped; 666 tests passed, 1 skipped
+- `npm test -- --run tests/lib/mention.test.ts` - 37 tests pass
+- `npm test -- --run tests/components/rich-text-editor.test.ts` - 38 tests pass
+- `npm test -- --run tests/api/task-comments.route.test.ts tests/components/notification-center-list.test.ts tests/lib/mention.test.ts` - 44 tests pass
+- `npm run build` passes with local placeholder `DATABASE_URL`, `DIRECT_URL`, `AGENT_TOKEN_SIGNING_SECRET`, and `RESEND_API_KEY` values
+- `npx tsc --noEmit` still fails on pre-existing test typing drift around Next async route params and older service-test signatures; build TypeScript passes for the application

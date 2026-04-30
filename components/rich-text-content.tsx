@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { parseMentions } from "@/lib/mention";
 import { coerceRichTextHtml } from "@/lib/rich-text";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,8 @@ const RICH_TEXT_TOKEN_VALUE_CLASS =
 const RICH_TEXT_TOKEN_ACTIONS_CLASS = "flex shrink-0 items-center gap-1.5";
 const TOKEN_BLOCK_MARKERS = ['data-rich-block="token"', "data-rich-block='token'"];
 const HIDDEN_TOKEN_VALUE_MASK = "********";
+const RICH_TEXT_MENTION_CLASS =
+  "rounded-md bg-primary/15 px-1 py-0.5 font-medium text-primary not-italic";
 const COPY_ICON_SVG =
   '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
 const CHECK_ICON_SVG =
@@ -105,8 +108,9 @@ export function buildEnhancedRichTextHtml(input: string): string {
 
   const hasCodeBlocks = input.includes("<pre");
   const hasTokenBlocks = TOKEN_BLOCK_MARKERS.some((marker) => input.includes(marker));
+  const hasMentions = input.includes("@");
 
-  if (!hasCodeBlocks && !hasTokenBlocks) {
+  if (!hasCodeBlocks && !hasTokenBlocks && !hasMentions) {
     return input;
   }
 
@@ -184,7 +188,55 @@ export function buildEnhancedRichTextHtml(input: string): string {
     tokenElement.replaceWith(shell);
   });
 
+  if (hasMentions) {
+    highlightMentionTextNodes(template.content);
+  }
+
   return template.innerHTML;
+}
+
+function highlightMentionTextNodes(root: DocumentFragment) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode as Text;
+    const parentElement = textNode.parentElement;
+    if (
+      !parentElement ||
+      parentElement.closest("pre, code, button, input, textarea, [data-rich-token-shell]")
+    ) {
+      continue;
+    }
+
+    if (parseMentions(textNode.data).mentions.length > 0) {
+      textNodes.push(textNode);
+    }
+  }
+
+  for (const textNode of textNodes) {
+    const { mentions } = parseMentions(textNode.data);
+    const fragment = document.createDocumentFragment();
+    let lastIndex = 0;
+
+    for (const mention of mentions) {
+      if (mention.startIndex > lastIndex) {
+        fragment.append(document.createTextNode(textNode.data.slice(lastIndex, mention.startIndex)));
+      }
+
+      const mentionElement = document.createElement("span");
+      mentionElement.className = RICH_TEXT_MENTION_CLASS;
+      mentionElement.textContent = mention.fullMatch;
+      fragment.append(mentionElement);
+      lastIndex = mention.endIndex;
+    }
+
+    if (lastIndex < textNode.data.length) {
+      fragment.append(document.createTextNode(textNode.data.slice(lastIndex)));
+    }
+
+    textNode.replaceWith(fragment);
+  }
 }
 
 type RichTextContentProps = React.HTMLAttributes<HTMLDivElement> & {

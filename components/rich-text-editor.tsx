@@ -6,6 +6,7 @@ import React, {
   type MouseEvent,
   useEffect,
   useRef,
+  useState,
 } from "react";
 import {
   Bold,
@@ -19,6 +20,13 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { EmojiFieldShell } from "@/components/ui/emoji-field";
+import {
+  MentionAutocomplete,
+  buildMentionAutocompleteValue,
+  type MentionAutocompleteMember,
+  type MentionAutocompleteState,
+} from "@/components/ui/mention-autocomplete";
+import { getActiveMentionTrigger } from "@/lib/mention";
 import {
   createRichTextCodeBlock,
   createRichTextTokenBlock,
@@ -35,6 +43,7 @@ interface RichTextEditorProps {
   className?: string;
   ariaLabel?: string;
   ariaLabelledBy?: string;
+  mentionProjectId?: string;
 }
 
 const MONOSPACE_FONT_FAMILY =
@@ -89,6 +98,11 @@ type EditorSelectionSnapshot =
 type EditorHistorySnapshot = {
   value: string;
   selection: EditorSelectionSnapshot | null;
+};
+
+type EditorMentionTarget = MentionAutocompleteState & {
+  textNode: Text | null;
+  endOffset: number;
 };
 
 function exec(command: string, value?: string) {
@@ -292,6 +306,72 @@ function getSelectionRange(editor: HTMLDivElement | null): Range | null {
   }
 
   return range;
+}
+
+function getCollapsedRangeViewportPosition(range: Range): { top: number; left: number } | null {
+  const firstRect = range.getClientRects()[0] ?? range.getBoundingClientRect();
+  if (firstRect.width > 0 || firstRect.height > 0) {
+    return {
+      top: firstRect.bottom,
+      left: firstRect.left,
+    };
+  }
+
+  const marker = document.createElement("span");
+  marker.textContent = "\u200b";
+  const markerRange = range.cloneRange();
+  markerRange.insertNode(marker);
+  const markerRect = marker.getBoundingClientRect();
+  const parent = marker.parentNode;
+  marker.remove();
+  parent?.normalize();
+
+  if (markerRect.width === 0 && markerRect.height === 0) {
+    return null;
+  }
+
+  return {
+    top: markerRect.bottom,
+    left: markerRect.left,
+  };
+}
+
+function getActiveEditorMention(editor: HTMLDivElement): EditorMentionTarget | null {
+  const range = getSelectionRange(editor);
+  if (!range || !range.collapsed || range.startContainer.nodeType !== Node.TEXT_NODE) {
+    return null;
+  }
+
+  const textNode = range.startContainer as Text;
+  const trigger = getActiveMentionTrigger(textNode.data, range.startOffset);
+  if (!trigger) {
+    return null;
+  }
+
+  const position = getCollapsedRangeViewportPosition(range);
+  if (!position) {
+    return null;
+  }
+
+  return {
+    isActive: true,
+    query: trigger.query,
+    startIndex: trigger.startIndex,
+    position,
+    textNode,
+    endOffset: range.startOffset,
+  };
+}
+
+function createInactiveEditorMentionState(): EditorMentionTarget {
+  return {
+    isActive: false,
+    query: "",
+    startIndex: -1,
+    position: null,
+    textNode: null,
+    endOffset: -1,
+  };
 }
 
 function getRangeText(range: Range): string {
@@ -1413,6 +1493,7 @@ export function RichTextEditor({
   className,
   ariaLabel,
   ariaLabelledBy,
+  mentionProjectId,
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const resetTimeoutRef = useRef<number | null>(null);
@@ -1425,6 +1506,9 @@ export function RichTextEditor({
     redo: [],
   });
   const pendingInputSnapshotRef = useRef<EditorHistorySnapshot | null>(null);
+  const [mentionState, setMentionState] = useState<EditorMentionTarget>(
+    createInactiveEditorMentionState
+  );
 
   useEffect(() => {
     if (!editorRef.current) {
@@ -1469,6 +1553,53 @@ export function RichTextEditor({
     }
 
     emitValue(serializeEditorRichTextHtml(editorRef.current.innerHTML));
+  };
+
+  const closeMentionAutocomplete = () => {
+    setMentionState(createInactiveEditorMentionState());
+  };
+
+  const refreshMentionAutocomplete = () => {
+    const editor = editorRef.current;
+    if (!mentionProjectId || !editor) {
+      closeMentionAutocomplete();
+      return;
+    }
+
+    setMentionState(getActiveEditorMention(editor) ?? createInactiveEditorMentionState());
+  };
+
+  const handleMentionSelect = (member: MentionAutocompleteMember) => {
+    const editor = editorRef.current;
+    const currentMention = editor ? getActiveEditorMention(editor) : null;
+    const targetMention = currentMention ?? mentionState;
+    if (!editor || !targetMention.textNode || targetMention.startIndex < 0) {
+      closeMentionAutocomplete();
+      return;
+    }
+
+    const beforeSnapshot = createEditorHistorySnapshot(editor);
+    const mentionText = `${buildMentionAutocompleteValue(member)} `;
+    const replacementRange = document.createRange();
+    replacementRange.setStart(targetMention.textNode, targetMention.startIndex);
+    replacementRange.setEnd(targetMention.textNode, targetMention.endOffset);
+    replacementRange.deleteContents();
+
+    const mentionTextNode = document.createTextNode(mentionText);
+    replacementRange.insertNode(mentionTextNode);
+
+    const selection = window.getSelection();
+    if (selection) {
+      const nextRange = document.createRange();
+      nextRange.setStart(mentionTextNode, mentionText.length);
+      nextRange.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(nextRange);
+    }
+
+    recordHistoryFromSnapshot(beforeSnapshot);
+    emitCurrentValue();
+    closeMentionAutocomplete();
   };
 
   const recordHistoryFromSnapshot = (beforeSnapshot: EditorHistorySnapshot | null) => {
@@ -1879,6 +2010,7 @@ export function RichTextEditor({
     const nextValue = serializeEditorRichTextHtml(currentEditor.innerHTML);
     if (nextValue === latestValueRef.current) {
       pendingInputSnapshotRef.current = null;
+      refreshMentionAutocomplete();
       return;
     }
 
@@ -1891,6 +2023,7 @@ export function RichTextEditor({
     pendingInputSnapshotRef.current = null;
     recordHistoryFromSnapshot(beforeSnapshot);
     emitValue(nextValue);
+    refreshMentionAutocomplete();
   };
 
   return (
@@ -2010,12 +2143,25 @@ export function RichTextEditor({
             "[&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
           )}
           onMouseDown={handleEditorMouseDown}
-          onClick={handleEditorClick}
+          onClick={(event) => {
+            void handleEditorClick(event);
+            window.setTimeout(refreshMentionAutocomplete, 0);
+          }}
           onKeyDown={handleEditorKeyDown}
+          onKeyUp={refreshMentionAutocomplete}
           onBeforeInput={handleEditorBeforeInput}
           onInput={handleEditorInput}
         />
       </EmojiFieldShell>
+      {mentionProjectId && mentionState.isActive ? (
+        <MentionAutocomplete
+          projectId={mentionProjectId}
+          query={mentionState.query}
+          position={mentionState.position}
+          onSelect={handleMentionSelect}
+          onClose={closeMentionAutocomplete}
+        />
+      ) : null}
     </div>
   );
 }

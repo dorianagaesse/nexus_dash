@@ -1622,10 +1622,6 @@ export async function searchProjectMembersForMention(input: {
     return createError(401, "unauthorized");
   }
 
-  if (query.length < 1) {
-    return createSuccess(200, { members: [] });
-  }
-
   const normalizedQuery = query.toLowerCase();
   const queryWithoutTag = normalizedQuery.split("#", 1)[0] ?? normalizedQuery;
 
@@ -1718,8 +1714,12 @@ export async function searchProjectMembersForMention(input: {
       });
     }
 
-    // Filter by query matching username, name, or email
+    // Filter by query matching username, name, or email. Empty @ opens the member list.
     const filteredMembers = allMembers.filter((member) => {
+      if (query.length < 1) {
+        return true;
+      }
+
       const usernameMatch = member.user.username?.toLowerCase().startsWith(queryWithoutTag);
       const nameMatch = member.user.name?.toLowerCase().includes(normalizedQuery);
       const emailMatch = member.user.email?.toLowerCase().includes(normalizedQuery);

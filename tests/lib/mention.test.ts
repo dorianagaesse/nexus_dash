@@ -4,6 +4,7 @@ import {
   containsMentions,
   extractMentionedUsernames,
   buildMentionString,
+  getActiveMentionTrigger,
   isValidMentionUsername,
 } from "@/lib/mention";
 
@@ -228,5 +229,37 @@ describe("isValidMentionUsername", () => {
 
   it("returns true for username at max length (20 chars)", () => {
     expect(isValidMentionUsername("abcdefghijklmnopqrst")).toBe(true);
+  });
+});
+
+describe("getActiveMentionTrigger", () => {
+  it("activates immediately after @", () => {
+    expect(getActiveMentionTrigger("Hello @", 7)).toEqual({
+      startIndex: 6,
+      query: "",
+    });
+  });
+
+  it("returns the partial query before the cursor", () => {
+    expect(getActiveMentionTrigger("Hello @ali", 10)).toEqual({
+      startIndex: 6,
+      query: "ali",
+    });
+  });
+
+  it("supports discriminator query text", () => {
+    expect(getActiveMentionTrigger("Hello @alice#12", 15)).toEqual({
+      startIndex: 6,
+      query: "alice#12",
+    });
+  });
+
+  it("ignores completed mentions separated by whitespace", () => {
+    expect(getActiveMentionTrigger("Hello @alice done", 17)).toBeNull();
+  });
+
+  it("ignores @ inside words or email addresses", () => {
+    expect(getActiveMentionTrigger("mail me@example.com", 15)).toBeNull();
+    expect(getActiveMentionTrigger("prefix@ali", 10)).toBeNull();
   });
 });

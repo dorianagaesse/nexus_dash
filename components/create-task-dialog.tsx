@@ -470,6 +470,7 @@ export function CreateTaskDialog({
                           value={description}
                           onChange={setDescription}
                           placeholder="Optional implementation notes..."
+                          mentionProjectId={projectId}
                         />
                         <input type="hidden" name="description" value={description} />
                       </div>

@@ -20,6 +20,14 @@ export interface MentionParseResult {
   plainText: string;
 }
 
+export interface ActiveMentionTrigger {
+  startIndex: number;
+  query: string;
+}
+
+const ACTIVE_MENTION_QUERY_REGEX = /^[a-zA-Z0-9_#]*$/;
+const MENTION_BOUNDARY_REGEX = /[\s([{]/;
+
 /**
  * Parse all @mentions from a string.
  * Returns both the extracted mentions and the plain-text version with mentions removed.
@@ -96,4 +104,38 @@ export function isValidMentionUsername(username: string): boolean {
   }
 
   return /^[a-zA-Z0-9_]{1,20}$/.test(username);
+}
+
+/**
+ * Locate the currently edited @mention immediately before a text cursor.
+ */
+export function getActiveMentionTrigger(
+  input: string,
+  cursorPosition: number
+): ActiveMentionTrigger | null {
+  if (typeof input !== "string" || cursorPosition < 0) {
+    return null;
+  }
+
+  const clampedCursorPosition = Math.min(cursorPosition, input.length);
+  const textBeforeCursor = input.slice(0, clampedCursorPosition);
+  const lastAtIndex = textBeforeCursor.lastIndexOf("@");
+  if (lastAtIndex === -1) {
+    return null;
+  }
+
+  const boundaryCharacter = lastAtIndex > 0 ? textBeforeCursor[lastAtIndex - 1] : "";
+  if (lastAtIndex > 0 && !MENTION_BOUNDARY_REGEX.test(boundaryCharacter)) {
+    return null;
+  }
+
+  const query = textBeforeCursor.slice(lastAtIndex + 1);
+  if (!ACTIVE_MENTION_QUERY_REGEX.test(query)) {
+    return null;
+  }
+
+  return {
+    startIndex: lastAtIndex,
+    query,
+  };
 }

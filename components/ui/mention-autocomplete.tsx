@@ -2,7 +2,7 @@
 
 import {
   type MouseEvent,
-  type KeyboardEvent,
+  type RefObject,
   useEffect,
   useRef,
   useState,
@@ -11,6 +11,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { getActiveMentionTrigger } from "@/lib/mention";
 import { cn } from "@/lib/utils";
 
 export interface MentionAutocompleteMember {
@@ -20,6 +21,14 @@ export interface MentionAutocompleteMember {
   avatarSeed: string;
   role: string;
   isOwner: boolean;
+}
+
+export function buildMentionAutocompleteValue(member: MentionAutocompleteMember): string {
+  if (member.usernameTag) {
+    return `@${member.usernameTag}`;
+  }
+
+  return `@${member.displayName.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20)}`;
 }
 
 interface MentionAutocompleteProps {
@@ -34,6 +43,13 @@ interface PanelLayout {
   top: number;
   left: number;
   maxHeight: number;
+}
+
+export interface MentionAutocompleteState {
+  isActive: boolean;
+  query: string;
+  startIndex: number;
+  position: { top: number; left: number } | null;
 }
 
 const VIEWPORT_MARGIN = 12;
@@ -60,7 +76,7 @@ export function MentionAutocomplete({
 
   // Search members when query changes
   useEffect(() => {
-    if (!position || query.length < 1) {
+    if (!position) {
       setMembers([]);
       setError(null);
       return;
@@ -159,32 +175,46 @@ export function MentionAutocomplete({
 
   // Keyboard navigation
   const handleKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLDivElement>) => {
-      if (!members.length) return;
-
+    (event: KeyboardEvent) => {
       switch (event.key) {
         case "ArrowDown":
+          if (!members.length) return;
           event.preventDefault();
+          event.stopPropagation();
           setActiveIndex((prev) => (prev + 1) % members.length);
           break;
         case "ArrowUp":
+          if (!members.length) return;
           event.preventDefault();
+          event.stopPropagation();
           setActiveIndex((prev) => (prev - 1 + members.length) % members.length);
           break;
         case "Enter":
+          if (!members.length) return;
           event.preventDefault();
+          event.stopPropagation();
           if (members[activeIndex]) {
             onSelect(members[activeIndex]);
           }
           break;
         case "Escape":
           event.preventDefault();
+          event.stopPropagation();
           onClose();
           break;
       }
     },
     [members, activeIndex, onSelect, onClose]
   );
+
+  useEffect(() => {
+    if (!position) {
+      return;
+    }
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [handleKeyDown, position]);
 
   // Mouse interaction on panel items
   const handleMouseEnter = (index: number) => {
@@ -195,8 +225,8 @@ export function MentionAutocomplete({
     onSelect(member);
   };
 
-  // Don't render if no position or no query
-  if (!position || query.length < 1) {
+  // Don't render if no active position
+  if (!position) {
     return null;
   }
 
@@ -211,7 +241,7 @@ export function MentionAutocomplete({
       role="listbox"
       aria-label="Project members"
       className={cn(
-        "fixed z-50 overflow-hidden rounded-xl border border-border/70 bg-background/95 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)] backdrop-blur-sm",
+        "fixed z-[120] overflow-hidden rounded-xl border border-border/70 bg-background/95 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)] backdrop-blur-sm",
         "transition-all duration-150 ease-out"
       )}
       style={{
@@ -222,7 +252,6 @@ export function MentionAutocomplete({
           : DESKTOP_PANEL_WIDTH,
         maxHeight: panelLayout.maxHeight,
       }}
-      onKeyDown={handleKeyDown}
     >
       <div className="overflow-y-auto overflow-x-hidden p-1" style={{ maxHeight: panelLayout.maxHeight }}>
         {isLoading && (
@@ -256,6 +285,7 @@ export function MentionAutocomplete({
                     ? "bg-muted/70"
                     : "hover:bg-muted/40"
                 )}
+                onMouseDown={(event) => event.preventDefault()}
                 onMouseEnter={() => handleMouseEnter(index)}
                 onClick={(e: MouseEvent) => {
                   e.preventDefault();
@@ -304,65 +334,111 @@ export function MentionAutocomplete({
  */
 export function useMentionAutocomplete(
   text: string,
-  cursorPosition: number
-): { isActive: boolean; query: string; position: { top: number; left: number } | null } {
-  const [mentionState, setMentionState] = useState<{
-    isActive: boolean;
-    query: string;
-    position: { top: number; left: number } | null;
-  }>({
+  cursorPosition: number,
+  targetRef: RefObject<HTMLTextAreaElement | HTMLInputElement | null>
+): MentionAutocompleteState {
+  const [mentionState, setMentionState] = useState<MentionAutocompleteState>({
     isActive: false,
     query: "",
+    startIndex: -1,
     position: null,
   });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Find the @ symbol before cursor
-    const textBeforeCursor = text.slice(0, cursorPosition);
-    const lastAtIndex = textBeforeCursor.lastIndexOf("@");
-
-    if (lastAtIndex === -1) {
-      setMentionState({ isActive: false, query: "", position: null });
+    const trigger = getActiveMentionTrigger(text, cursorPosition);
+    if (!trigger) {
+      setMentionState({ isActive: false, query: "", startIndex: -1, position: null });
       return;
     }
 
-    // Check if there's a space between @ and cursor (meaning mention is complete)
-    const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
-    if (textAfterAt.includes(" ") || textAfterAt.includes("\n")) {
-      setMentionState({ isActive: false, query: "", position: null });
+    const target = targetRef.current;
+    if (!target) {
+      setMentionState({ isActive: false, query: "", startIndex: -1, position: null });
       return;
     }
 
-    // Check if cursor is right after @ (empty query) or has some text
-    const query = textAfterAt;
-
-    // Don't activate for empty query
-    if (query.length < 1) {
-      setMentionState({ isActive: false, query: "", position: null });
+    const position = getEditableTextCaretPosition(target, cursorPosition);
+    if (!position) {
+      setMentionState({ isActive: false, query: "", startIndex: -1, position: null });
       return;
     }
-
-    // Get cursor position in viewport
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) {
-      setMentionState({ isActive: false, query: "", position: null });
-      return;
-    }
-
-    const range = selection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
 
     setMentionState({
       isActive: true,
-      query,
-      position: {
-        top: rect.bottom + window.scrollY,
-        left: rect.left + window.scrollX,
-      },
+      query: trigger.query,
+      startIndex: trigger.startIndex,
+      position,
     });
-  }, [text, cursorPosition]);
+  }, [text, cursorPosition, targetRef]);
 
   return mentionState;
+}
+
+function getEditableTextCaretPosition(
+  target: HTMLTextAreaElement | HTMLInputElement,
+  cursorPosition: number
+): { top: number; left: number } | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const computedStyle = window.getComputedStyle(target);
+  const mirror = document.createElement("div");
+  const styleProperties = [
+    "boxSizing",
+    "width",
+    "height",
+    "paddingTop",
+    "paddingRight",
+    "paddingBottom",
+    "paddingLeft",
+    "borderTopWidth",
+    "borderRightWidth",
+    "borderBottomWidth",
+    "borderLeftWidth",
+    "fontFamily",
+    "fontSize",
+    "fontWeight",
+    "fontStyle",
+    "letterSpacing",
+    "textTransform",
+    "lineHeight",
+    "textIndent",
+    "textAlign",
+    "tabSize",
+  ] as const;
+
+  mirror.style.position = "absolute";
+  mirror.style.visibility = "hidden";
+  mirror.style.pointerEvents = "none";
+  mirror.style.whiteSpace = target instanceof HTMLTextAreaElement ? "pre-wrap" : "pre";
+  mirror.style.overflowWrap = "break-word";
+  mirror.style.top = "0";
+  mirror.style.left = "-9999px";
+  mirror.style.overflow = "hidden";
+
+  for (const property of styleProperties) {
+    mirror.style[property] = computedStyle[property];
+  }
+
+  const textBeforeCursor = target.value.slice(0, cursorPosition);
+  const marker = document.createElement("span");
+  marker.textContent = "\u200b";
+  mirror.textContent = textBeforeCursor;
+  mirror.append(marker);
+  document.body.append(mirror);
+
+  const targetRect = target.getBoundingClientRect();
+  const mirrorRect = mirror.getBoundingClientRect();
+  const markerRect = marker.getBoundingClientRect();
+  const lineHeight = parseFloat(computedStyle.lineHeight) || 20;
+  const position = {
+    top: targetRect.top + (markerRect.top - mirrorRect.top) + lineHeight - target.scrollTop,
+    left: targetRect.left + (markerRect.left - mirrorRect.left) - target.scrollLeft,
+  };
+
+  mirror.remove();
+  return position;
 }
