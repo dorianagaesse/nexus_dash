@@ -2,6 +2,10 @@
 
 import React from "react";
 
+import {
+  MentionText,
+  type MentionDisplayUser,
+} from "@/components/ui/mention-hover-card";
 import { parseMentions } from "@/lib/mention";
 
 /**
@@ -12,6 +16,7 @@ export function renderContentWithMentions(
   content: string,
   options?: {
     mentionHighlightClassName?: string;
+    mentionUsers?: MentionDisplayUser[];
   }
 ): React.ReactNode {
   const { mentions } = parseMentions(content);
@@ -37,12 +42,17 @@ export function renderContentWithMentions(
 
     // Add highlighted mention
     segments.push(
-      <span
+      <MentionText
         key={`mention-${mention.startIndex}`}
+        mention={{
+          username: mention.username,
+          discriminator: mention.discriminator,
+        }}
+        users={options?.mentionUsers}
         className={highlightClass}
       >
         {mention.fullMatch}
-      </span>
+      </MentionText>
     );
 
     lastIndex = mention.endIndex;

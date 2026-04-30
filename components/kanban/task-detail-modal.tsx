@@ -55,6 +55,7 @@ import {
   type MentionAutocompleteMember,
   useMentionAutocomplete,
 } from "@/components/ui/mention-autocomplete";
+import type { MentionDisplayUser } from "@/components/ui/mention-hover-card";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { getEpicColorFromName } from "@/lib/epic";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
@@ -125,6 +126,7 @@ interface TaskDetailModalProps {
   onRemoveRelatedTask: (taskId: string) => void;
   availableEpicOptions: ProjectEpicOption[];
   availableAssignees: ProjectTaskCollaborator[];
+  mentionUsers: MentionDisplayUser[];
   availableRelatedTaskOptions: RelatedTaskOption[];
   onOpenRelatedTask: (taskId: string) => void;
   onNewBlockedFollowUpEntryChange: (value: string) => void;
@@ -196,6 +198,7 @@ export function TaskDetailModal({
   onRemoveRelatedTask,
   availableEpicOptions,
   availableAssignees,
+  mentionUsers,
   availableRelatedTaskOptions,
   onOpenRelatedTask,
   onNewBlockedFollowUpEntryChange,
@@ -323,6 +326,7 @@ export function TaskDetailModal({
                     onActivateEditMode={onActivateEditMode}
                     onOpenRelatedTask={onOpenRelatedTask}
                     projectId={projectId}
+                    mentionUsers={mentionUsers}
                     onNewTaskCommentChange={onNewTaskCommentChange}
                     onSubmitTaskComment={onSubmitTaskComment}
                   />
@@ -984,6 +988,7 @@ function TaskReadOnlyContent({
   onActivateEditMode,
   onOpenRelatedTask,
   projectId,
+  mentionUsers,
   onNewTaskCommentChange,
   onSubmitTaskComment,
 }: {
@@ -998,6 +1003,7 @@ function TaskReadOnlyContent({
   onActivateEditMode: () => void;
   onOpenRelatedTask: (taskId: string) => void;
   projectId: string;
+  mentionUsers: MentionDisplayUser[];
   onNewTaskCommentChange: (value: string) => void;
   onSubmitTaskComment: () => void | Promise<void>;
 }) {
@@ -1119,6 +1125,7 @@ function TaskReadOnlyContent({
         html={selectedTask.description}
         emptyContentHtml="<p>No description provided.</p>"
         className="text-sm text-muted-foreground"
+        mentionUsers={mentionUsers}
         onDoubleClick={() => {
           if (!canEdit) {
             return;
@@ -1168,7 +1175,7 @@ function TaskReadOnlyContent({
                         </p>
                       </div>
                       <p className="mt-1 whitespace-pre-wrap break-words text-sm text-foreground">
-                        {renderContentWithMentions(comment.content)}
+                        {renderContentWithMentions(comment.content, { mentionUsers })}
                       </p>
                     </div>
                   </div>

@@ -137,6 +137,17 @@ function isEndKey(event: Pick<KeyboardEvent, "key" | "code">): boolean {
   return event.key === "End";
 }
 
+function isMentionAutocompleteNavigationKey(
+  event: Pick<KeyboardEvent, "key">
+): boolean {
+  return (
+    event.key === "ArrowDown" ||
+    event.key === "ArrowUp" ||
+    event.key === "Enter" ||
+    event.key === "Escape"
+  );
+}
+
 function isUndoShortcut(
   event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey">
 ): boolean {
@@ -1759,6 +1770,12 @@ export function RichTextEditor({
       return;
     }
 
+    if (mentionState.isActive && isMentionAutocompleteNavigationKey(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
     if (isUndoShortcut(event)) {
       event.preventDefault();
       restoreHistorySnapshot("undo");
@@ -2026,6 +2043,16 @@ export function RichTextEditor({
     refreshMentionAutocomplete();
   };
 
+  const handleEditorKeyUp = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (mentionState.isActive && isMentionAutocompleteNavigationKey(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    refreshMentionAutocomplete();
+  };
+
   return (
     <div className={cn("space-y-2", className)}>
       <div className="flex flex-wrap gap-2">
@@ -2148,7 +2175,7 @@ export function RichTextEditor({
             window.setTimeout(refreshMentionAutocomplete, 0);
           }}
           onKeyDown={handleEditorKeyDown}
-          onKeyUp={refreshMentionAutocomplete}
+          onKeyUp={handleEditorKeyUp}
           onBeforeInput={handleEditorBeforeInput}
           onInput={handleEditorInput}
         />

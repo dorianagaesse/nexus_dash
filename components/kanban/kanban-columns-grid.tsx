@@ -6,11 +6,12 @@ import {
 } from "@hello-pangea/dnd";
 import { Archive, Clock3, Flag, GripVertical, Link2, MessageSquare, Paperclip, TriangleAlert } from "lucide-react";
 
-import type { KanbanTask } from "@/components/kanban-board-types";
+import type { KanbanTask, ProjectTaskCollaborator } from "@/components/kanban-board-types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { getEpicColorFromName } from "@/lib/epic";
+import { renderContentWithMentions } from "@/lib/content-with-mentions";
 import {
   buildDragStyle,
   getDescriptionPreview,
@@ -77,6 +78,7 @@ interface KanbanColumnsGridProps {
   canEdit: boolean;
   columns: TaskColumns<KanbanTask>;
   archivedDoneTasks: KanbanTask[];
+  mentionUsers: ProjectTaskCollaborator[];
   highlightedTaskIds: Set<string>;
   onDragEnd: (result: DropResult) => void;
   onSelectTask: (task: KanbanTask) => void;
@@ -88,6 +90,7 @@ export function KanbanColumnsGrid({
   canEdit,
   columns,
   archivedDoneTasks,
+  mentionUsers,
   highlightedTaskIds,
   onDragEnd,
   onSelectTask,
@@ -104,6 +107,7 @@ export function KanbanColumnsGrid({
             status={status}
             tasks={columns[status]}
             archivedDoneTasks={status === "Done" ? archivedDoneTasks : []}
+            mentionUsers={mentionUsers}
             highlightedTaskIds={highlightedTaskIds}
             onSelectTask={onSelectTask}
             onEditTask={onEditTask}
@@ -120,6 +124,7 @@ interface KanbanColumnProps {
   status: TaskStatus;
   tasks: KanbanTask[];
   archivedDoneTasks: KanbanTask[];
+  mentionUsers: ProjectTaskCollaborator[];
   highlightedTaskIds: Set<string>;
   onSelectTask: (task: KanbanTask) => void;
   onEditTask: (task: KanbanTask) => void;
@@ -131,6 +136,7 @@ function KanbanColumn({
   status,
   tasks,
   archivedDoneTasks,
+  mentionUsers,
   highlightedTaskIds,
   onSelectTask,
   onEditTask,
@@ -184,7 +190,11 @@ function KanbanColumn({
                   <TaskCardIndicators task={task} className="mt-1" />
                   {task.description ? (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {getDescriptionPreview(task.description, 90)}
+                      {renderContentWithMentions(getDescriptionPreview(task.description, 90), {
+                        mentionUsers,
+                        mentionHighlightClassName:
+                          "rounded-sm bg-primary/10 px-1 py-0.5 font-medium text-primary",
+                      })}
                     </p>
                   ) : null}
                 </button>
@@ -280,7 +290,11 @@ function KanbanColumn({
 
                         {task.description ? (
                           <p className="break-words text-xs text-muted-foreground">
-                            {getDescriptionPreview(task.description)}
+                            {renderContentWithMentions(getDescriptionPreview(task.description), {
+                              mentionUsers,
+                              mentionHighlightClassName:
+                                "rounded-sm bg-primary/10 px-1 py-0.5 font-medium text-primary",
+                            })}
                           </p>
                         ) : null}
 
