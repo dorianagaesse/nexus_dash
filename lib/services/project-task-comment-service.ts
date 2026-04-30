@@ -405,10 +405,15 @@ export async function createTaskCommentForProject(input: {
   });
 
   if (!result.ok) {
-    return result;
+    return result as ServiceErrorResult;
   }
 
-  for (const pendingNotification of result.data.pendingNotifications) {
+  const { pendingNotifications, ...resultData } = result.data as {
+    comment: TaskCommentSummary;
+    pendingNotifications: PendingMentionNotification[];
+  };
+
+  for (const pendingNotification of pendingNotifications) {
     try {
       await withActorRlsContext(actorUserId, async (db) => {
         await createTaskCommentMentionNotification({
@@ -423,8 +428,6 @@ export async function createTaskCommentForProject(input: {
 
   return {
     ok: true,
-    data: {
-      comment: result.data.comment,
-    },
+    data: resultData,
   };
 }
