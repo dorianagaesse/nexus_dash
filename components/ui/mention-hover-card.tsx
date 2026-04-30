@@ -130,7 +130,7 @@ export function MentionText({
         onFocus={(event) => showTooltip(event.currentTarget)}
         onBlur={() => setAnchorRect(null)}
       >
-        {children}
+        {user ? `@${user.displayName}` : children}
       </span>
       {user && anchorRect ? (
         <MentionTooltipPortal user={user} anchorRect={anchorRect} />

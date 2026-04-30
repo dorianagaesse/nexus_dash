@@ -26,7 +26,7 @@ import {
   type MentionAutocompleteMember,
   type MentionAutocompleteState,
 } from "@/components/ui/mention-autocomplete";
-import { getActiveMentionTrigger } from "@/lib/mention";
+import { getActiveMentionTrigger, parseMentions } from "@/lib/mention";
 import {
   createRichTextCodeBlock,
   createRichTextTokenBlock,
@@ -46,12 +46,15 @@ interface RichTextEditorProps {
   mentionProjectId?: string;
 }
 
+const EDITOR_MENTION_CLASS =
+  "rounded-md bg-primary/15 px-1 py-0.5 font-medium text-primary not-italic cursor-default";
+
 const MONOSPACE_FONT_FAMILY =
   "Consolas, 'Liberation Mono', Menlo, Monaco, monospace";
 const STRUCTURED_BLOCK_SELECTOR = "[data-rich-block], p, div, h1, h2, blockquote, li, pre";
 const BLOCK_BREAK_TAGS = new Set(["P", "DIV", "H1", "H2", "BLOCKQUOTE", "LI", "PRE"]);
 const EDITOR_RICH_SHELL_TAG = "nd-rich-shell";
-const EDITOR_CARET_ANCHOR = "\u200B";
+const EDITOR_CARET_ANCHOR = "​";
 const MAX_EDITOR_HISTORY = 100;
 const EDITOR_BLOCK_ROW_SELECTOR = "[data-editor-block-row='true']";
 const EDITOR_BLOCK_AFTER_ANCHOR_SELECTOR = "[data-editor-block-anchor='after']";
@@ -79,6 +82,57 @@ const EYE_ICON_SVG =
   '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M2.06 12.35a1 1 0 0 1 0-.7C3.98 7.33 7.7 4 12 4s8.02 3.33 9.94 7.65a1 1 0 0 1 0 .7C20.02 16.67 16.3 20 12 20s-8.02-3.33-9.94-7.65Z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
 const EYE_OFF_ICON_SVG =
   '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M10.58 10.58A3 3 0 0 0 12 15a3 3 0 0 0 2.42-4.42"></path><path d="M16.68 16.67A9.63 9.63 0 0 1 12 18c-4.3 0-8.02-3.33-9.94-7.65a1 1 0 0 1 0-.7 14.9 14.9 0 0 1 5.07-6.08"></path><path d="M14.12 5.11A9.53 9.53 0 0 1 12 5c4.3 0 8.02 3.33 9.94 7.65a1 1 0 0 1 0 .7 14.7 14.7 0 0 1-4.03 5.08"></path><path d="M2 2l20 20"></path></svg>';
+
+function highlightMentionsInEditor(editor: HTMLDivElement) {
+  if (typeof document === "undefined") return;
+
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode as Text;
+    const parentElement = textNode.parentElement;
+    if (
+      !parentElement ||
+      parentElement.closest("pre, code, button, input, textarea, [data-editor-token-input], [data-rich-block]")
+    ) {
+      continue;
+    }
+
+    if (parseMentions(textNode.data).mentions.length > 0) {
+      textNodes.push(textNode);
+    }
+  }
+
+  for (const textNode of textNodes) {
+    const { mentions } = parseMentions(textNode.data);
+    const fragment = document.createDocumentFragment();
+    let lastIndex = 0;
+
+    for (const mention of mentions) {
+      if (mention.startIndex > lastIndex) {
+        fragment.append(document.createTextNode(textNode.data.slice(lastIndex, mention.startIndex)));
+      }
+
+      const mentionElement = document.createElement("span");
+      mentionElement.className = EDITOR_MENTION_CLASS;
+      mentionElement.dataset.editorMention = "true";
+      mentionElement.dataset.mentionUsername = mention.username;
+      if (mention.discriminator) {
+        mentionElement.dataset.mentionDiscriminator = mention.discriminator;
+      }
+      mentionElement.textContent = mention.fullMatch;
+      fragment.append(mentionElement);
+      lastIndex = mention.endIndex;
+    }
+
+    if (lastIndex < textNode.data.length) {
+      fragment.append(document.createTextNode(textNode.data.slice(lastIndex)));
+    }
+
+    textNode.replaceWith(fragment);
+  }
+}
 
 type EditorSelectionSnapshot =
   | {
@@ -1537,6 +1591,7 @@ export function RichTextEditor({
       historyRef.current.undo = [];
       historyRef.current.redo = [];
       pendingInputSnapshotRef.current = null;
+      highlightMentionsInEditor(editorRef.current);
     }
   }, [value]);
 
@@ -2038,6 +2093,9 @@ export function RichTextEditor({
       };
 
     pendingInputSnapshotRef.current = null;
+
+    highlightMentionsInEditor(currentEditor);
+
     recordHistoryFromSnapshot(beforeSnapshot);
     emitValue(nextValue);
     refreshMentionAutocomplete();
