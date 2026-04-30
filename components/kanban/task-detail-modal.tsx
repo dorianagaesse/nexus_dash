@@ -242,6 +242,7 @@ export function TaskDetailModal({
       reactionsAbortControllerRef.current = abortController;
 
       try {
+        // Deferred: batched endpoint (TASK-127) to avoid N+1 on tasks with many comments
         const reactionPromises = comments.map(async (comment) => {
           try {
             const response = await fetch(

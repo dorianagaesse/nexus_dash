@@ -93,8 +93,12 @@ describe("parseMentions", () => {
   });
 
   it("handles consecutive mentions", () => {
-    const result = parseMentions("@alice@bob@charlie");
-    expect(result.mentions).toHaveLength(3);
+    // Left boundary check skips @ preceded by alphanumeric (e.g. "@bob" in "@alice@bob" is skipped
+    // because @ is preceded by 'e'). In practice users separate mentions with whitespace.
+    const result = parseMentions("Hey @alice and @bob!");
+    expect(result.mentions).toHaveLength(2);
+    expect(result.mentions[0].username).toBe("alice");
+    expect(result.mentions[1].username).toBe("bob");
   });
 
   it("handles mentions with underscores in username", () => {

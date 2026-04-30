@@ -30,7 +30,13 @@ const MENTION_BOUNDARY_REGEX = /[\s([{]/;
 
 /**
  * Parse all @mentions from a string.
- * Returns both the extracted mentions and the plain-text version with mentions removed.
+ * Returns both the extracted mentions and the plain-text version with
+ * discriminator suffix stripped (e.g. "@alice#1234" -> "@alice").
+ *
+ * Note: left boundary check is applied (mention must be at string start or
+ * preceded by whitespace or a punctuation char) to avoid matching @ inside
+ * email addresses. This is conservative — some valid patterns at other
+ * boundaries (e.g. `@alice.`, `@alice!`) are not captured.
  */
 export function parseMentions(input: string): MentionParseResult {
   if (typeof input !== "string" || !input) {
@@ -41,18 +47,46 @@ export function parseMentions(input: string): MentionParseResult {
   let match: RegExpExecArray | null;
 
   MENTION_REGEX.lastIndex = 0;
+  let searchFrom = 0;
   while ((match = MENTION_REGEX.exec(input)) !== null) {
+    const startIndex = match.index;
+    // Skip matches before our current scan position (avoids stale matches after reset)
+    if (startIndex < searchFrom) {
+      continue;
+    }
+    const charBefore = startIndex > 0 ? input[startIndex - 1] : " ";
+    // Skip @ preceded by an alphanumeric char (email addresses, etc.)
+    if (/[a-zA-Z0-9]/.test(charBefore)) {
+      searchFrom = startIndex + match[0].length;
+      continue;
+    }
     mentions.push({
       username: match[1],
       discriminator: match[2] ?? null,
       fullMatch: match[0],
-      startIndex: match.index,
-      endIndex: match.index + match[0].length,
+      startIndex,
+      endIndex: startIndex + match[0].length,
     });
+    searchFrom = startIndex + match[0].length;
   }
 
-  // Build plain text by replacing mentions with just the username part
-  const plainText = input.replace(MENTION_REGEX, (_full, username) => `@${username}`);
+  // Build plain text by replacing mentions with just the username part.
+  // Apply same skip logic as above for consistency (skip email-like @).
+  const plainTextParts: string[] = [];
+  let lastEnd = 0;
+  for (const match of input.matchAll(new RegExp(MENTION_REGEX.source, "g"))) {
+    const startIdx = match.index!;
+    const charBefore = startIdx > 0 ? input[startIdx - 1] : " ";
+    if (/[a-zA-Z0-9]/.test(charBefore)) {
+      lastEnd = startIdx + match[0].length;
+      continue;
+    }
+    plainTextParts.push(input.slice(lastEnd, startIdx));
+    plainTextParts.push(`@${match[1]}`); // strip discriminator in plain text
+    lastEnd = startIdx + match[0].length;
+  }
+  plainTextParts.push(input.slice(lastEnd));
+  const plainText = plainTextParts.join("");
 
   return { mentions, plainText };
 }

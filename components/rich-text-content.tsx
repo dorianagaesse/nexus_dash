@@ -349,11 +349,13 @@ export function RichTextContent({
     currentTarget: HTMLDivElement
   ) => {
     if (!mentionUsers || mentionUsers.length === 0 || !(target instanceof HTMLElement)) {
+      setMentionTooltip(null);
       return;
     }
 
     const mentionElement = target.closest(RICH_TEXT_MENTION_SELECTOR) as HTMLElement | null;
     if (!mentionElement || !currentTarget.contains(mentionElement)) {
+      setMentionTooltip(null);
       return;
     }
 

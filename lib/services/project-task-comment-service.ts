@@ -219,6 +219,47 @@ export async function createTaskCommentForProject(input: {
       return createError(404, "task-not-found");
     }
 
+    // Parse content for mentions before loading project member data
+    const { mentions } = parseMentions(content);
+    if (mentions.length === 0) {
+      try {
+        const comment = await db.taskComment.create({
+          data: {
+            taskId: input.taskId,
+            authorUserId: actorUserId,
+            content,
+          },
+          select: {
+            id: true,
+            content: true,
+            createdAt: true,
+            author: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                username: true,
+                usernameDiscriminator: true,
+                avatarSeed: true,
+              },
+            },
+          },
+        });
+
+        await touchTaskActivity(db, input.taskId, actorUserId);
+
+        return {
+          ok: true,
+          data: {
+            comment: mapTaskComment(comment),
+          },
+        };
+      } catch (error) {
+        logServerError("createTaskCommentForProject", error);
+        return createError(500, "comment-create-failed");
+      }
+    }
+
     // Fetch project with owner and members for mention resolution
     const project = await db.project.findUnique({
       where: { id: input.projectId },
@@ -300,9 +341,6 @@ export async function createTaskCommentForProject(input: {
         usernameToUser.set(membership.user.username.toLowerCase(), userData);
       }
     }
-
-    // Parse mentions from comment content
-    const { mentions } = parseMentions(content);
 
     // Resolve mentions to user IDs (only existing project members)
     const mentionedUsers: Array<{
