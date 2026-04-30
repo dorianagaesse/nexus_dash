@@ -55,5 +55,8 @@ next-env.d.ts
 /.tmp/
 /tmp_query.sql
 
+# local AI assistant configuration
+/.continue/
+
 # Python cache for workflow helper scripts
 /scripts/__pycache__/
