@@ -112,10 +112,11 @@ describe("task comment reactions service", () => {
   test("addTaskCommentReaction adds reaction when none exists", async () => {
     const mockDb = createMockDb({
       taskCommentReaction: {
-        findUnique: vi.fn(() => Promise.resolve(null)),
-        findMany: vi.fn(() => Promise.resolve([
-          { id: "r-new", emoji: "👍", createdAt: new Date(), user: { id: "test-user", name: "Me", email: "m@example.com", username: "me", usernameDiscriminator: "5678", avatarSeed: "seed-me" } },
-        ])),
+        findMany: vi.fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([
+            { id: "r-new", emoji: "👍", userId: "test-user", commentId: "comment-1", createdAt: new Date(), user: { id: "test-user", name: "Me", email: "m@example.com", username: "me", usernameDiscriminator: "5678", avatarSeed: "seed-me" } },
+          ]),
       },
     });
     rlsContextMock.withActorRlsContext.mockImplementationOnce(async (_actorUserId: string, operation: (db: unknown) => unknown) =>
@@ -137,9 +138,13 @@ describe("task comment reactions service", () => {
   test("addTaskCommentReaction replaces existing reaction when switching emoji", async () => {
     const mockDb = createMockDb({
       taskCommentReaction: {
-        findMany: vi.fn(() => Promise.resolve([
-          { id: "r-new", emoji: "🎉", userId: "test-user", commentId: "comment-1", createdAt: new Date(), user: { id: "test-user", name: "Me", email: "m@example.com", username: "me", usernameDiscriminator: "5678", avatarSeed: "seed-me" } },
-        ])),
+        findMany: vi.fn()
+          .mockResolvedValueOnce([
+            { id: "r1", emoji: "👍", userId: "test-user", commentId: "comment-1", createdAt: new Date(), user: { id: "test-user", name: "Me", email: "m@example.com", username: "me", usernameDiscriminator: "5678", avatarSeed: "seed-me" } },
+          ])
+          .mockResolvedValueOnce([
+            { id: "r-new", emoji: "🎉", userId: "test-user", commentId: "comment-1", createdAt: new Date(), user: { id: "test-user", name: "Me", email: "m@example.com", username: "me", usernameDiscriminator: "5678", avatarSeed: "seed-me" } },
+          ]),
       },
     });
     rlsContextMock.withActorRlsContext.mockImplementationOnce(async (_actorUserId: string, operation: (db: unknown) => unknown) =>
@@ -157,6 +162,31 @@ describe("task comment reactions service", () => {
     const reactions = result.data?.reactions ?? [];
     expect(reactions).toContainEqual(expect.objectContaining({ emoji: "🎉", reacted: true }));
     expect(reactions).not.toContainEqual(expect.objectContaining({ emoji: "👍" }));
+  });
+
+  test("addTaskCommentReaction removes own reaction when clicking same emoji (toggle off)", async () => {
+    const mockDb = createMockDb({
+      taskCommentReaction: {
+        findMany: vi.fn()
+          .mockResolvedValueOnce([
+            { id: "r1", emoji: "👍", userId: "test-user", commentId: "comment-1", createdAt: new Date(), user: { id: "test-user", name: "Me", email: "m@example.com", username: "me", usernameDiscriminator: "5678", avatarSeed: "seed-me" } },
+          ])
+          .mockResolvedValueOnce([]),
+      },
+    });
+    rlsContextMock.withActorRlsContext.mockImplementationOnce(async (_actorUserId: string, operation: (db: unknown) => unknown) =>
+      operation(mockDb as never)
+    );
+
+    const result = await addTaskCommentReaction({
+      actorUserId: "test-user",
+      projectId: "project-1",
+      commentId: "comment-1",
+      emoji: "👍",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.reactions).toEqual([]);
   });
 
   test("addTaskCommentReaction returns 400 when emoji is empty", async () => {

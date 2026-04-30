@@ -1279,7 +1279,7 @@ function TaskReadOnlyContent({
                               type="button"
                               onClick={() => void toggleReaction(comment.id, reaction.emoji)}
                               className={cn(
-                                "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition-colors",
+                                "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition-colors cursor-pointer",
                                 reaction.reacted
                                   ? "border-primary/40 bg-primary/12 text-foreground"
                                   : "border-border/60 bg-muted/40 text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground"

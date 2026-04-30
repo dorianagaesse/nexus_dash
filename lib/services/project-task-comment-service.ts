@@ -606,18 +606,34 @@ export async function addTaskCommentReaction(input: {
         where: { commentId: input.commentId, userId: actorUserId },
       });
 
-    if (existing.length > 0) {
-      // Replace all reactions from this user with the new emoji (one reaction per user total)
-      await db.taskCommentReaction.deleteMany({
-        where: { commentId: input.commentId, userId: actorUserId },
-      });
-    }
+      // If user already has this exact emoji, remove it (click = toggle off)
+      const sameEmoji = existing.find((r) => r.emoji === emoji);
+      if (sameEmoji) {
+        await db.taskCommentReaction.delete({ where: { id: sameEmoji.id } });
+        const rawReactions = await db.taskCommentReaction.findMany({
+          where: { commentId: input.commentId },
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            emoji: true,
+            createdAt: true,
+            user: { select: { id: true, name: true, email: true, username: true, usernameDiscriminator: true, avatarSeed: true } },
+          },
+        });
+        return { ok: true, data: { reactions: groupReactionsForActor(rawReactions, actorUserId) } };
+      }
 
-    if (emoji) {
-      await db.taskCommentReaction.create({
-        data: { commentId: input.commentId, userId: actorUserId, emoji },
-      });
-    }
+      if (existing.length > 0) {
+        await db.taskCommentReaction.deleteMany({
+          where: { commentId: input.commentId, userId: actorUserId },
+        });
+      }
+
+      if (emoji) {
+        await db.taskCommentReaction.create({
+          data: { commentId: input.commentId, userId: actorUserId, emoji },
+        });
+      }
 
       const rawReactions = await db.taskCommentReaction.findMany({
         where: { commentId: input.commentId },
