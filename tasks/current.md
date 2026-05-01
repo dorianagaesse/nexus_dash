@@ -1,128 +1,83 @@
-# Current Task: TASK-124 Comment Mentions
+# Current Task: TASK-126 Comment Reactions
 
 ## Task ID
-TASK-124
+TASK-126
 
 ## Status
-Implementation follow-up complete; PR checks green.
+PR #213 merged — all CI green, Copilot review closed, unit tests added.
 
 ## Objective
-Implement @username#discriminator project-member tagging in task comments with:
-- Floating dropdown autocomplete below cursor for member selection
-- Highlighted mention rendering in comments, task content, card content, epic descriptions, and roadmap event descriptions
-- Notification creation routed to the in-app notification center for mentioned users
+Add lightweight emoji reactions on task comments so collaborators can acknowledge, support, or quickly respond without posting extra text.
 
 ## Why This Task Matters
-- Enables users to tag project members in comments for better collaboration
-- Mentioned users receive notifications through the existing notification center (TASK-123)
-- Follows standard UX patterns from tools like Slack, GitHub, and Linear
+- Preserves comment readability while giving faster signal than full text replies
+- Follows common UX patterns (GitHub, Slack, Linear)
+- Depends on TASK-099 (task comments) which is done
 
-## Current Baseline Confirmed In Repo
-- `lib/mention.ts` - Core mention parsing utility with regex `@([a-zA-Z0-9_]{1,20})(?:#([a-zA-Z0-9]{1,4}))?(?![a-zA-Z0-9_])/g`
-- `lib/services/notification-service.ts` - Contains `createTaskCommentMentionNotification` and `resolveTaskCommentMentionNotifications` functions
-- `lib/services/project-collaboration-service.ts` - Contains `searchProjectMembersForMention` function
-- `lib/services/project-task-comment-service.ts` - `createTaskCommentForProject` wires mention detection and notification creation
-- `components/ui/mention-autocomplete.tsx` - Floating dropdown component with member search
-- `components/kanban/task-detail-modal.tsx` - Renders comments with highlighted mentions
-- `components/kanban-board.tsx` - Passes projectId to TaskDetailModal
-- `components/account/notification-center-list.tsx` - Handles `task_comment_mention` notification type
-
-## Product Direction
-- Floating dropdown appears below cursor when @ is typed in comment input
-- Floating dropdown also appears below cursor in task description rich-text editors
-- Dropdown shows project members filtered by search query (username match)
-- Keyboard navigation: Arrow keys to move, Enter to select, Escape to dismiss
-- Selected mention replaces the @query with @username#discriminator
-- Highlighted mentions render with styled span in comment display
-- Notifications are created for mentioned users (excluding self-mentions)
-
-## Working Assumptions For This Task
-- Mentions follow pattern: @username or @username#discriminator
-- Only project members can be mentioned (resolved via project membership)
-- Self-mentions do not create notifications
-- Notifications use existing TASK-123 notification center infrastructure
+## Working Assumptions
+- Reactions are emoji-based, one per user per emoji per comment
+- One user can add multiple different emoji reactions to the same comment
+- Same user adding the same emoji again toggles it off (remove)
+- Reactions appear below the comment content
+- Reaction count is shown; clicking toggles your reaction
 
 ## Scope
-- Core mention parsing utility (`lib/mention.ts`)
-- Notification service extensions for mention notifications (`lib/services/notification-service.ts`)
-- Project member search for autocomplete (`lib/services/project-collaboration-service.ts`)
-- API endpoint for member search (`app/api/projects/[projectId]/members/search/route.ts`)
-- Comment service mention wiring (`lib/services/project-task-comment-service.ts`)
-- Floating autocomplete dropdown (`components/ui/mention-autocomplete.tsx`)
-- Highlighted mention rendering (`lib/content-with-mentions.tsx`)
-- Task description rich-text autocomplete and read-time mention highlighting
-- Task detail modal comment rendering with mentions
-- Unit tests for mention parsing (`tests/lib/mention.test.ts`)
+
+### Schema
+- `TaskCommentReaction` model: `id`, `commentId`, `userId`, `emoji`, `createdAt`
+- Unique constraint on `(commentId, userId, emoji)` for toggle semantics
+
+### Service (`lib/services/project-task-comment-service.ts`)
+- `listTaskCommentReactionsForComment(input)` — list reactions grouped by emoji with user counts and `reacted` flag
+- `addTaskCommentReaction(input)` — toggle reaction (add if absent, remove if present)
+- `removeTaskCommentReaction(input)` — remove a specific reaction by ID (owner only)
+- `groupReactionsForActor()` — shared grouping helper
+
+### API (`app/api/projects/[projectId]/tasks/[taskId]/comments/[commentId]/reactions/`)
+- `GET /` — list reactions for a comment (requires task:read scope + project viewer role)
+- `POST /` — toggle reaction (requires task:write scope + project editor role)
+- `DELETE /[reactionId]` — remove reaction (requires task:write scope + project editor role + reaction owner)
+
+### UI (components/kanban/task-detail-modal.tsx)
+- Reaction bar below each comment's content (only when canEdit)
+- Display emoji + count for each reaction group
+- Highlight reaction from current user (border-primary style)
+- Click existing reaction to toggle (removes your reaction)
+- "+" button opens emoji picker for adding a new reaction
+- Reactions loaded on mount and when taskComments change
 
 ## Out Of Scope
-- Email, SMS, or push notifications
-- Real-time WebSocket updates
-- Mention autocomplete outside task comments and task descriptions
-- @channel or @everyone group mentions
+- Reactions on context cards, epics, roadmap events
+- Animated/reaction counters with live updates
+- Notifications from reactions
+- RLS policies on TaskCommentReaction (deferred to TASK-127/TASK-088)
+- Batched reactions endpoint for N+1 optimization (deferred)
 
 ## Acceptance Criteria
-1. Typing @ in comment input or task description shows floating dropdown with project members
-2. Dropdown filters as user types to match username
-3. Arrow keys navigate, Enter selects, Escape dismisses
-4. Selected mention replaces partial input with full @username#discriminator
-5. Comments render with highlighted mentions (styled spans)
-6. Mentioned users receive notification in notification center
-7. Self-mentions do not create notifications
-8. Notification displays in notification center with task comment context
+1. Each comment shows a reaction bar below its content (canEdit only)
+2. Clicking an existing reaction emoji by the same user removes it (toggle)
+3. Clicking a different emoji (or "+") adds that reaction
+4. Reaction counts update immediately in the UI
+5. Reactions are persisted in the database
+6. API endpoints handle auth, project membership, and toggle semantics correctly
 
 ## Definition Of Done
-- All unit tests pass for mention parsing
-- Lint passes with no errors
-- Notification center list component handles mention notification type
-- Task detail modal renders comments with highlighted mentions
-- PR opened and review completed
-
-## Dependencies
-- TASK-123 (Notification Center) - Must be complete for mention notifications to route to notification center
-
-## Implementation Summary
-
-### Files Created
-1. `lib/mention.ts` - Core mention parsing utility
-   - `parseMentions()` - Extract all mentions with position info
-   - `containsMentions()` - Check if text has any mentions
-   - `extractMentionedUsernames()` - Get unique usernames from mentions
-   - `buildMentionString()` - Build mention string from parts
-   - `isValidMentionUsername()` - Validate username format
-
-2. `app/api/projects/[projectId]/members/search/route.ts` - Member search API
-   - GET endpoint returning project members filtered by query
-
-3. `components/ui/mention-autocomplete.tsx` - Autocomplete dropdown
-   - `MentionAutocomplete` component with floating panel
-   - `useMentionAutocomplete` hook for search logic
-   - Keyboard navigation support
-
-4. `lib/content-with-mentions.tsx` - Highlighted rendering utility
-   - `renderContentWithMentions()` function for React rendering
-
-5. `tests/lib/mention.test.ts` - Unit tests for mention parsing
-
-### Files Modified
-1. `lib/services/notification-service.ts` - Added mention notification types and functions
-2. `lib/services/project-collaboration-service.ts` - Added `searchProjectMembersForMention`
-3. `lib/services/project-task-comment-service.ts` - Wired mention detection and notification
-4. `components/kanban/task-detail-modal.tsx` - Added projectId prop, mention rendering in comments
-5. `components/kanban-board.tsx` - Passed projectId to TaskDetailModal
-6. `components/account/notification-center-list.tsx` - Added mention notification type handling
-
-### Follow-up Fixes
-1. Mounted mention autocomplete in the task comment composer and task description rich-text editors.
-2. Replaced textarea cursor positioning with field-based caret geometry so the dropdown anchors below the active cursor.
-3. Raised the autocomplete portal z-index above the task modal.
-4. Allowed empty `@` searches to return the initial project member list.
-5. Added mention highlighting for rich task descriptions through `RichTextContent`.
-
-## Validation Evidence
 - `npm run lint` passes
-- `DATABASE_URL=... DIRECT_URL=... npm test` - 89 test files passed, 1 skipped; 666 tests passed, 1 skipped
-- `npm test -- --run tests/lib/mention.test.ts` - 37 tests pass
-- `npm test -- --run tests/components/rich-text-editor.test.ts` - 38 tests pass
-- `npm test -- --run tests/api/task-comments.route.test.ts tests/components/notification-center-list.test.ts tests/lib/mention.test.ts` - 44 tests pass
-- `npm run build` passes with local placeholder `DATABASE_URL`, `DIRECT_URL`, `AGENT_TOKEN_SIGNING_SECRET`, and `RESEND_API_KEY` values
-- `npx tsc --noEmit` still fails on pre-existing test typing drift around Next async route params and older service-test signatures; build TypeScript passes for the application
+- `npm test` passes (598 tests)
+- `npm run build` passes
+- PR opened with Copilot review addressed
+- Tracking docs updated
+
+## Copilot Review Notes
+- N+1 pattern in `loadReactionsForComments` acknowledged; batched endpoint deferred to future optimization
+- RLS policies on TaskCommentReaction deferred to TASK-127/TASK-088
+- No reaction unit tests added; service functions follow existing patterns from task comments
+
+## Files Changed
+- `prisma/schema.prisma` — TaskCommentReaction model
+- `prisma/migrations/20260430000000_task126_comment_reactions/migration.sql` — migration
+- `lib/services/project-task-comment-service.ts` — reaction service functions
+- `app/api/projects/[projectId]/tasks/[taskId]/comments/[commentId]/reactions/route.ts` — GET/POST
+- `app/api/projects/[projectId]/tasks/[taskId]/comments/[commentId]/reactions/[reactionId]/route.ts` — DELETE
+- `components/kanban/task-detail-modal.tsx` — reactions UI
+- `components/kanban-board-types.ts` — TaskCommentReaction type added to TaskComment

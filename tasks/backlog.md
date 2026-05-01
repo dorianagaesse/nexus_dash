@@ -16,8 +16,8 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-058, TASK-099, TASK-123
 - ID: TASK-126
   Title: Comment reactions - lightweight emoji response system on task threads
-  Status: Pending
-  Rationale: Add lightweight reactions on task comments so collaborators can acknowledge, support, or quickly respond without posting extra text, preserving comment readability while giving task discussions faster signal.
+  Status: Done (2026-04-30)
+  Rationale: Added lightweight emoji reactions on task comments so collaborators can acknowledge, support, or quickly respond without posting extra text, with toggle semantics, grouped display with counts, and persisted database storage.
   Dependencies: TASK-099
 
 ### Deferred (Intentional)
@@ -26,6 +26,16 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Run a focused audit across current product features to verify that core entities and workflows remain fully manageable through the public app API, identify any gaps where shipped UI features outpace the API, and align the API contract or feature boundaries accordingly so agent-facing capabilities stay trustworthy. Potential sub-task: if the audit reveals missing API functionalities, implement the gaps to bring the API back to full parity with the UI surface.
   Dependencies: TASK-107, TASK-115, TASK-128
+- ID: TASK-132
+  Title: Version update system adjustments - align version metadata, automation, and release communication
+  Status: Pending
+  Rationale: Review and adjust the app's version update system so version metadata, dependency-update cadence, release notes, deployment visibility, and any user-facing update indicators stay consistent across automated maintenance, manual releases, and future API or agent-facing surfaces.
+  Dependencies: TASK-041, TASK-042, TASK-116
+- ID: TASK-133
+  Title: Task UI bug fixing - mini scrollbar and edit modal polish
+  Status: Pending
+  Rationale: Fix task UI regressions around the compact scrollbar affordance and task edit modal behavior so dense task surfaces stay usable, visually clean, and predictable during everyday task creation and editing workflows.
+  Dependencies: TASK-076, TASK-113
 - ID: TASK-129
   Title: Login/home page UI polish - user-friendly, product-oriented entry experience
   Status: Pending
@@ -86,8 +96,8 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Run a broader refinement pass across the entire app so pages, panels, forms, and feedback patterns feel cohesive, intentional, and production-grade instead of evolving as isolated local improvements. Explicitly includes a sweep for inconsistent UI components (spacing, typography, color tokens, button/input variants, modal patterns) with the goal of uniformizing the visual design language across all surfaces.
   Dependencies: TASK-096, TASK-100
-- ID: TASK-129
-  Title: Section help affordances - opt-in question-mark guidance across dashboard modules
+- ID: TASK-134
+Title: Section help affordances - opt-in question-mark guidance across dashboard modules
   Status: Pending
   Rationale: Replace persistent explanatory copy inside dashboard sections with lighter opt-in help affordances so users can click a question-mark entry point when they want extra context, keeping section layouts cleaner while creating a reusable explanation pattern for Roadmap and future modules.
   Dependencies: TASK-096, TASK-108

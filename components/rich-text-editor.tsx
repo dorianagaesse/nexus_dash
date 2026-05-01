@@ -1709,7 +1709,13 @@ export function RichTextEditor({
     }
 
     const beforeSnapshot = createEditorHistorySnapshot(editor);
-    const mentionText = `${buildMentionAutocompleteValue(member)} `;
+    const mentionValue = buildMentionAutocompleteValue(member);
+    if (!mentionValue) {
+      closeMentionAutocomplete();
+      return;
+    }
+
+    const mentionText = `${mentionValue} `;
     const replacementRange = document.createRange();
     replacementRange.setStart(targetMention.textNode, targetMention.startIndex);
     replacementRange.setEnd(targetMention.textNode, targetMention.endOffset);

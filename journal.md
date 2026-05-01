@@ -90,7 +90,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ### 2026-04-23
 - Type: Execution
 - Summary: TASK-106 roadmap follow-up refined the first milestone UI by removing the persistent explanatory hero copy, replacing the long desktop cross-rail with a card-to-card journey treatment, deduplicating deadline display, clamping card descriptions, and adding a dedicated milestone detail view triggered by a `View` action.
-- Evidence: Updated `components/project-roadmap-panel.tsx`, added roadmap detail-view regression coverage in `tests/components/project-roadmap-panel.test.tsx`, and recorded the future section-help affordance follow-up in `tasks/backlog.md` as `TASK-129`.
+- Evidence: Updated `components/project-roadmap-panel.tsx`, added roadmap detail-view regression coverage in `tests/components/project-roadmap-panel.test.tsx`, and recorded the future section-help affordance follow-up in `tasks/backlog.md` as `TASK-134` (originally `TASK-129`, renumbered to resolve a duplicate-ID conflict).
 
 ### 2026-04-22
 - Type: Execution

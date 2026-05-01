@@ -32,10 +32,25 @@ export interface MentionTriggerReplacement {
 
 const ACTIVE_MENTION_QUERY_REGEX = /^[a-zA-Z0-9_#]*$/;
 const MENTION_BOUNDARY_REGEX = /[\s([{]/;
+const MENTION_LEFT_BOUNDARY_REGEX = /[a-zA-Z0-9_]/;
+
+function hasMentionLeftBoundary(input: string, startIndex: number): boolean {
+  if (startIndex <= 0) {
+    return true;
+  }
+
+  return !MENTION_LEFT_BOUNDARY_REGEX.test(input[startIndex - 1] ?? "");
+}
 
 /**
  * Parse all @mentions from a string.
- * Returns both the extracted mentions and the plain-text version with mentions removed.
+ * Returns both the extracted mentions and the plain-text version with
+ * discriminator suffix stripped (e.g. "@alice#1234" -> "@alice").
+ *
+ * Note: left boundary check is applied (mention must be at string start or
+ * preceded by whitespace or a punctuation char) to avoid matching @ inside
+ * email addresses. This is conservative — some valid patterns at other
+ * boundaries (e.g. `@alice.`, `@alice!`) are not captured.
  */
 export function parseMentions(input: string): MentionParseResult {
   if (typeof input !== "string" || !input) {
@@ -47,17 +62,30 @@ export function parseMentions(input: string): MentionParseResult {
 
   MENTION_REGEX.lastIndex = 0;
   while ((match = MENTION_REGEX.exec(input)) !== null) {
+    const startIndex = match.index;
+    if (!hasMentionLeftBoundary(input, startIndex)) {
+      continue;
+    }
+
     mentions.push({
       username: match[1],
       discriminator: match[2] ?? null,
       fullMatch: match[0],
-      startIndex: match.index,
-      endIndex: match.index + match[0].length,
+      startIndex,
+      endIndex: startIndex + match[0].length,
     });
   }
 
-  // Build plain text by replacing mentions with just the username part
-  const plainText = input.replace(MENTION_REGEX, (_full, username) => `@${username}`);
+  // Build plain text by replacing mentions with just the username part.
+  const plainTextParts: string[] = [];
+  let lastEnd = 0;
+  for (const mention of mentions) {
+    plainTextParts.push(input.slice(lastEnd, mention.startIndex));
+    plainTextParts.push(`@${mention.username}`);
+    lastEnd = mention.endIndex;
+  }
+  plainTextParts.push(input.slice(lastEnd));
+  const plainText = plainTextParts.join("");
 
   return { mentions, plainText };
 }
@@ -70,8 +98,7 @@ export function containsMentions(input: string): boolean {
     return false;
   }
 
-  MENTION_REGEX.lastIndex = 0;
-  return MENTION_REGEX.test(input);
+  return parseMentions(input).mentions.length > 0;
 }
 
 /**
