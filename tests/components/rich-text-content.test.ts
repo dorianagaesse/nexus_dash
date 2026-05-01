@@ -81,10 +81,14 @@ describe("rich-text-content", () => {
 
   test("marks mentions for hover-card lookup", () => {
     const output = buildEnhancedRichTextHtml("<p>Hello @alice#1234</p>");
+    const template = document.createElement("template");
+    template.innerHTML = output;
+    const mention = template.content.querySelector("[data-rich-mention='true']");
 
     expect(output).toContain('data-rich-mention="true"');
     expect(output).toContain('data-mention-username="alice"');
     expect(output).toContain('data-mention-discriminator="1234"');
+    expect(mention?.textContent).toBe("@alice");
   });
 
   test("shows a user hover card for rich-text mentions", async () => {
@@ -113,6 +117,14 @@ describe("rich-text-content", () => {
 
     expect(document.body.textContent).toContain("Alice Example");
     expect(document.body.textContent).toContain("alice#1234");
+
+    await act(async () => {
+      container
+        .querySelector("div")
+        ?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    });
+
+    expect(document.body.textContent).not.toContain("Alice Example");
 
     await act(async () => {
       root.unmount();

@@ -241,15 +241,7 @@ function highlightMentionTextNodes(root: DocumentFragment, mentionUsers?: Mentio
         mentionElement.dataset.mentionDiscriminator = mention.discriminator;
       }
 
-      const resolvedUser = mentionUsers
-        ? resolveMentionDisplayUser(
-            { username: mention.username, discriminator: mention.discriminator },
-            mentionUsers
-          )
-        : null;
-      mentionElement.textContent = resolvedUser
-        ? `@${resolvedUser.displayName}`
-        : mention.fullMatch;
+      mentionElement.textContent = `@${mention.username}`;
       fragment.append(mentionElement);
       lastIndex = mention.endIndex;
     }
@@ -361,11 +353,13 @@ export function RichTextContent({
     currentTarget: HTMLDivElement
   ) => {
     if (!mentionUsers || mentionUsers.length === 0 || !(target instanceof HTMLElement)) {
+      setMentionTooltip(null);
       return;
     }
 
     const mentionElement = target.closest(RICH_TEXT_MENTION_SELECTOR) as HTMLElement | null;
     if (!mentionElement || !currentTarget.contains(mentionElement)) {
+      setMentionTooltip(null);
       return;
     }
 
@@ -382,6 +376,7 @@ export function RichTextContent({
       mentionUsers
     );
     if (!user) {
+      setMentionTooltip(null);
       return;
     }
 

@@ -87,11 +87,11 @@ const EYE_OFF_ICON_SVG =
 
 function unwrapEditorMentionElements(root: ParentNode) {
   root.querySelectorAll<HTMLElement>(EDITOR_MENTION_SELECTOR).forEach((mentionElement) => {
-    const fragment = document.createDocumentFragment();
-    while (mentionElement.firstChild) {
-      fragment.append(mentionElement.firstChild);
-    }
-    mentionElement.replaceWith(fragment);
+    mentionElement.replaceWith(
+      document.createTextNode(
+        mentionElement.dataset.mentionRaw ?? mentionElement.textContent ?? ""
+      )
+    );
   });
 }
 
@@ -168,10 +168,11 @@ function highlightMentionsInEditor(
       mentionElement.className = EDITOR_MENTION_CLASS;
       mentionElement.dataset.editorMention = "true";
       mentionElement.dataset.mentionUsername = mention.username;
+      mentionElement.dataset.mentionRaw = mention.fullMatch;
       if (mention.discriminator) {
         mentionElement.dataset.mentionDiscriminator = mention.discriminator;
       }
-      mentionElement.textContent = mention.fullMatch;
+      mentionElement.textContent = `@${mention.username}`;
       fragment.append(mentionElement);
       lastIndex = mention.endIndex;
     }

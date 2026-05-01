@@ -53,7 +53,7 @@ export function renderContentWithMentions(
         users={mentionUsers}
         className={highlightClass}
       >
-        {mention.fullMatch}
+        {`@${mention.username}`}
       </MentionText>
     );
 

@@ -25,7 +25,7 @@ export interface MentionAutocompleteMember {
 
 export function buildMentionAutocompleteValue(member: MentionAutocompleteMember): string {
   if (member.usernameTag) {
-    return `@${member.usernameTag}`;
+    return `@${member.usernameTag.split("#", 1)[0]}`;
   }
 
   // Only offer mention if user has a resolvable username; without one,

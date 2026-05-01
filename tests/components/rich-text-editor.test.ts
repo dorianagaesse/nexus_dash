@@ -408,7 +408,8 @@ describe("rich-text-editor", () => {
     const mention = editor?.querySelector<HTMLElement>("[data-editor-mention='true']");
     const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
 
-    expect(mention?.textContent).toBe("@alice#1234");
+    expect(mention?.textContent).toBe("@alice");
+    expect(mention?.dataset.mentionRaw).toBe("@alice#1234");
     expect(persistedValue).toBe("<p>Hello @alice#1234</p>");
     expect(persistedValue).not.toContain("data-editor-mention");
 
@@ -420,6 +421,14 @@ describe("rich-text-editor", () => {
   test("serializes mention highlights as plain mention text", () => {
     const serializedHtml = serializeEditorRichTextHtml(
       '<p>Hello <span data-editor-mention="true" class="mention">@alice#1234</span></p>'
+    );
+
+    expect(serializedHtml).toBe("<p>Hello @alice#1234</p>");
+  });
+
+  test("serializes hidden mention discriminator metadata when present", () => {
+    const serializedHtml = serializeEditorRichTextHtml(
+      '<p>Hello <span data-editor-mention="true" data-mention-raw="@alice#1234" class="mention">@alice</span></p>'
     );
 
     expect(serializedHtml).toBe("<p>Hello @alice#1234</p>");
