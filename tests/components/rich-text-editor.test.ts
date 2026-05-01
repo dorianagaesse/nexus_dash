@@ -394,6 +394,37 @@ describe("rich-text-editor", () => {
     );
   });
 
+  test("highlights mentions inside the editor without persisting editor-only spans", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>Hello @alice#1234</p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const mention = editor?.querySelector<HTMLElement>("[data-editor-mention='true']");
+    const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+    expect(mention?.textContent).toBe("@alice#1234");
+    expect(persistedValue).toBe("<p>Hello @alice#1234</p>");
+    expect(persistedValue).not.toContain("data-editor-mention");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("serializes mention highlights as plain mention text", () => {
+    const serializedHtml = serializeEditorRichTextHtml(
+      '<p>Hello <span data-editor-mention="true" class="mention">@alice#1234</span></p>'
+    );
+
+    expect(serializedHtml).toBe("<p>Hello @alice#1234</p>");
+  });
+
   test("wraps only the current visual line in a code block when there is no selection", async () => {
     const { container, root } = createTestRenderer();
 

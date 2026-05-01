@@ -6,6 +6,7 @@ import {
   buildMentionString,
   getActiveMentionTrigger,
   isValidMentionUsername,
+  replaceMentionTrigger,
 } from "@/lib/mention";
 
 describe("parseMentions", () => {
@@ -196,6 +197,36 @@ describe("buildMentionString", () => {
 
   it("builds mention with discriminator", () => {
     expect(buildMentionString("alice", "1234")).toBe("@alice#1234");
+  });
+});
+
+describe("replaceMentionTrigger", () => {
+  it("replaces the active mention query and returns the next cursor position", () => {
+    expect(
+      replaceMentionTrigger({
+        text: "hello @ali there",
+        startIndex: 6,
+        endIndex: 10,
+        replacement: "@alice#1234 ",
+      })
+    ).toEqual({
+      value: "hello @alice#1234  there",
+      cursorPosition: 18,
+    });
+  });
+
+  it("clamps invalid replacement bounds to the input text", () => {
+    expect(
+      replaceMentionTrigger({
+        text: "@ali",
+        startIndex: -10,
+        endIndex: 50,
+        replacement: "@alice ",
+      })
+    ).toEqual({
+      value: "@alice ",
+      cursorPosition: 7,
+    });
   });
 });
 

@@ -25,6 +25,11 @@ export interface ActiveMentionTrigger {
   query: string;
 }
 
+export interface MentionTriggerReplacement {
+  value: string;
+  cursorPosition: number;
+}
+
 const ACTIVE_MENTION_QUERY_REGEX = /^[a-zA-Z0-9_#]*$/;
 const MENTION_BOUNDARY_REGEX = /[\s([{]/;
 
@@ -93,6 +98,26 @@ export function buildMentionString(username: string, discriminator: string | nul
   }
 
   return `@${username}`;
+}
+
+/**
+ * Replace an active mention query with the selected mention text.
+ */
+export function replaceMentionTrigger(input: {
+  text: string;
+  startIndex: number;
+  endIndex: number;
+  replacement: string;
+}): MentionTriggerReplacement {
+  const text = typeof input.text === "string" ? input.text : "";
+  const startIndex = Math.max(0, Math.min(input.startIndex, text.length));
+  const endIndex = Math.max(startIndex, Math.min(input.endIndex, text.length));
+  const nextValue = `${text.slice(0, startIndex)}${input.replacement}${text.slice(endIndex)}`;
+
+  return {
+    value: nextValue,
+    cursorPosition: startIndex + input.replacement.length,
+  };
 }
 
 /**

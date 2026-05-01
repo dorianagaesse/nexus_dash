@@ -60,6 +60,7 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { getEpicColorFromName } from "@/lib/epic";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import { renderContentWithMentions } from "@/lib/content-with-mentions";
+import { replaceMentionTrigger } from "@/lib/mention";
 import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
 import {
   ATTACHMENT_KIND_FILE,
@@ -1034,12 +1035,12 @@ function TaskReadOnlyContent({
     }
 
     const mentionText = `${buildMentionAutocompleteValue(member)} `;
-    const nextValue = [
-      newTaskComment.slice(0, commentMentionState.startIndex),
-      mentionText,
-      newTaskComment.slice(commentCursorPosition),
-    ].join("");
-    const nextCursorPosition = commentMentionState.startIndex + mentionText.length;
+    const { value: nextValue, cursorPosition: nextCursorPosition } = replaceMentionTrigger({
+      text: newTaskComment,
+      startIndex: commentMentionState.startIndex,
+      endIndex: commentCursorPosition,
+      replacement: mentionText,
+    });
 
     onNewTaskCommentChange(nextValue);
     setCommentCursorPosition(nextCursorPosition);
@@ -1211,6 +1212,7 @@ function TaskReadOnlyContent({
                   {newTaskComment
                     ? renderContentWithMentions(newTaskComment, {
                         mentionUsers,
+                        resolveDisplayUsers: false,
                         mentionHighlightClassName:
                           "rounded-sm bg-primary/10 px-1 py-0.5 font-medium text-primary",
                       })

@@ -61,6 +61,8 @@ const EDITOR_BLOCK_AFTER_ANCHOR_SELECTOR = "[data-editor-block-anchor='after']";
 const EDITOR_ACTIONS_SELECTOR = "[data-editor-actions='true']";
 const EDITOR_ACTION_BUTTON_SELECTOR = "button[data-editor-action]";
 const EDITOR_RICH_SHELL_SELECTOR = `${EDITOR_RICH_SHELL_TAG}[data-editor-shell]`;
+const EDITOR_MENTION_SELECTOR = "[data-editor-mention='true']";
+const EDITOR_CARET_MARKER_SELECTOR = "[data-editor-caret-marker='true']";
 const EDITOR_BLOCK_ROW_CLASS = "grid grid-cols-[minmax(0,1fr)_minmax(0,0.75rem)] items-start";
 const EDITOR_BLOCK_AFTER_ANCHOR_CLASS = "my-2 block min-w-[0.75rem]";
 const EDITOR_BLOCK_SHELL_CLASS =
@@ -83,18 +85,66 @@ const EYE_ICON_SVG =
 const EYE_OFF_ICON_SVG =
   '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M10.58 10.58A3 3 0 0 0 12 15a3 3 0 0 0 2.42-4.42"></path><path d="M16.68 16.67A9.63 9.63 0 0 1 12 18c-4.3 0-8.02-3.33-9.94-7.65a1 1 0 0 1 0-.7 14.9 14.9 0 0 1 5.07-6.08"></path><path d="M14.12 5.11A9.53 9.53 0 0 1 12 5c4.3 0 8.02 3.33 9.94 7.65a1 1 0 0 1 0 .7 14.7 14.7 0 0 1-4.03 5.08"></path><path d="M2 2l20 20"></path></svg>';
 
-function highlightMentionsInEditor(editor: HTMLDivElement) {
+function unwrapEditorMentionElements(root: ParentNode) {
+  root.querySelectorAll<HTMLElement>(EDITOR_MENTION_SELECTOR).forEach((mentionElement) => {
+    const fragment = document.createDocumentFragment();
+    while (mentionElement.firstChild) {
+      fragment.append(mentionElement.firstChild);
+    }
+    mentionElement.replaceWith(fragment);
+  });
+}
+
+function restoreEditorSelectionFromMarker(editor: HTMLDivElement, marker: HTMLElement | null) {
+  if (!marker || !editor.contains(marker)) {
+    return;
+  }
+
+  const selection = window.getSelection();
+  const range = document.createRange();
+  range.setStartBefore(marker);
+  range.collapse(true);
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+  marker.remove();
+}
+
+function highlightMentionsInEditor(
+  editor: HTMLDivElement,
+  options?: {
+    activeMention?: EditorMentionTarget | null;
+    preserveSelection?: boolean;
+  }
+) {
   if (typeof document === "undefined") return;
+
+  let caretMarker: HTMLElement | null = null;
+  if (options?.preserveSelection) {
+    const range = getSelectionRange(editor);
+    if (range?.collapsed) {
+      caretMarker = document.createElement("span");
+      caretMarker.dataset.editorCaretMarker = "true";
+      caretMarker.textContent = EDITOR_CARET_ANCHOR;
+      range.insertNode(caretMarker);
+    }
+  }
+
+  unwrapEditorMentionElements(editor);
+  editor.normalize();
 
   const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
   const textNodes: Text[] = [];
+  const activeMention = options?.activeMention;
 
   while (walker.nextNode()) {
     const textNode = walker.currentNode as Text;
     const parentElement = textNode.parentElement;
     if (
       !parentElement ||
-      parentElement.closest("pre, code, button, input, textarea, [data-editor-token-input], [data-rich-block]")
+      textNode === activeMention?.textNode ||
+      parentElement.closest(
+        `pre, code, button, input, textarea, [data-editor-token-input], [data-rich-block], ${EDITOR_CARET_MARKER_SELECTOR}`
+      )
     ) {
       continue;
     }
@@ -132,6 +182,8 @@ function highlightMentionsInEditor(editor: HTMLDivElement) {
 
     textNode.replaceWith(fragment);
   }
+
+  restoreEditorSelectionFromMarker(editor, caretMarker);
 }
 
 type EditorSelectionSnapshot =
@@ -1285,12 +1337,19 @@ export function serializeEditorRichTextHtml(input: string): string {
   }
 
   const cleanedInput = input.replace(/\u200b/g, "");
-  if (!cleanedInput.includes(`<${EDITOR_RICH_SHELL_TAG}`)) {
+  const hasEditorShells = cleanedInput.includes(`<${EDITOR_RICH_SHELL_TAG}`);
+  const hasEditorMentions = cleanedInput.includes("data-editor-mention");
+  if (!hasEditorShells && !hasEditorMentions) {
     return cleanedInput;
   }
 
   const template = document.createElement("template");
   template.innerHTML = cleanedInput;
+  unwrapEditorMentionElements(template.content);
+
+  if (!hasEditorShells) {
+    return template.innerHTML.replace(/\u200b/g, "");
+  }
 
   template.content
     .querySelectorAll<HTMLElement>(EDITOR_BLOCK_ROW_SELECTOR)
@@ -1582,8 +1641,10 @@ export function RichTextEditor({
 
     const hasExternalValueChange = value !== latestValueRef.current;
     const nextHtml = buildEditorRichTextHtml(value);
+    let didUpdateEditorHtml = false;
     if (serializeEditorRichTextHtml(editorRef.current.innerHTML) !== value) {
       editorRef.current.innerHTML = nextHtml;
+      didUpdateEditorHtml = true;
     }
 
     if (hasExternalValueChange) {
@@ -1591,6 +1652,9 @@ export function RichTextEditor({
       historyRef.current.undo = [];
       historyRef.current.redo = [];
       pendingInputSnapshotRef.current = null;
+    }
+
+    if (didUpdateEditorHtml || hasExternalValueChange) {
       highlightMentionsInEditor(editorRef.current);
     }
   }, [value]);
@@ -1665,8 +1729,7 @@ export function RichTextEditor({
 
     recordHistoryFromSnapshot(beforeSnapshot);
     emitCurrentValue();
-    // Re-highlight mentions after the DOM update from serialization
-    highlightMentionsInEditor(editor);
+    highlightMentionsInEditor(editor, { preserveSelection: true });
     closeMentionAutocomplete();
   };
 
@@ -2073,6 +2136,7 @@ export function RichTextEditor({
   const handleEditorInput = (event: FormEvent<HTMLDivElement>) => {
     const currentEditor = event.currentTarget as HTMLDivElement;
     const target = event.target as HTMLElement | null;
+    const activeMention = mentionProjectId ? getActiveEditorMention(currentEditor) : null;
 
     if (
       target instanceof HTMLInputElement &&
@@ -2084,7 +2148,10 @@ export function RichTextEditor({
     const nextValue = serializeEditorRichTextHtml(currentEditor.innerHTML);
     if (nextValue === latestValueRef.current) {
       pendingInputSnapshotRef.current = null;
-      refreshMentionAutocomplete();
+      if (!activeMention) {
+        highlightMentionsInEditor(currentEditor, { preserveSelection: true });
+      }
+      setMentionState(activeMention ?? createInactiveEditorMentionState());
       return;
     }
 
@@ -2098,7 +2165,10 @@ export function RichTextEditor({
 
     recordHistoryFromSnapshot(beforeSnapshot);
     emitValue(nextValue);
-    refreshMentionAutocomplete();
+    if (!activeMention) {
+      highlightMentionsInEditor(currentEditor, { preserveSelection: true });
+    }
+    setMentionState(activeMention ?? createInactiveEditorMentionState());
   };
 
   const handleEditorKeyUp = (event: KeyboardEvent<HTMLDivElement>) => {
