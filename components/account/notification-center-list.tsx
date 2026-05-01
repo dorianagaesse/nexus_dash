@@ -28,8 +28,21 @@ function getNotificationTypeLabel(notification: NotificationSummary): string {
   if (notification.type === "project_invitation") {
     return "Project invitation";
   }
+  if (notification.type === "task_comment_mention") {
+    return "Mentioned in comment";
+  }
 
   return "Notification";
+}
+
+function isProjectInvitationMetadata(
+  metadata: unknown,
+): metadata is { projectName: string; role: string; invitedByDisplayName: string; expiresAt: string; invitationId: string } {
+  return (
+    typeof metadata === "object" &&
+    metadata !== null &&
+    "invitationId" in metadata
+  );
 }
 
 export function NotificationCenterList({
@@ -74,7 +87,8 @@ export function NotificationCenterList({
         <div className="space-y-3">
           {notifications.map((notification) => {
             const isUnread = !notification.readAt;
-            const invitation = notification.metadata;
+            const metadata = notification.metadata;
+            const isInvitation = isProjectInvitationMetadata(metadata);
 
             return (
               <article
@@ -109,26 +123,26 @@ export function NotificationCenterList({
                       </p>
                     </div>
 
-                    {invitation ? (
+                    {isInvitation ? (
                       <dl className="grid gap-2 rounded-lg border border-border/60 bg-background/70 p-3 text-xs sm:grid-cols-2">
                         <div>
                           <dt className="font-medium text-foreground">Project</dt>
-                          <dd className="text-muted-foreground">{invitation.projectName}</dd>
+                          <dd className="text-muted-foreground">{metadata.projectName}</dd>
                         </div>
                         <div>
                           <dt className="font-medium text-foreground">Role</dt>
-                          <dd className="text-muted-foreground">{invitation.role}</dd>
+                          <dd className="text-muted-foreground">{metadata.role}</dd>
                         </div>
                         <div>
                           <dt className="font-medium text-foreground">Invited by</dt>
                           <dd className="text-muted-foreground">
-                            {invitation.invitedByDisplayName}
+                            {metadata.invitedByDisplayName}
                           </dd>
                         </div>
                         <div>
                           <dt className="font-medium text-foreground">Expires</dt>
                           <dd className="text-muted-foreground">
-                            {formatNotificationTime(invitation.expiresAt)}
+                            {formatNotificationTime(metadata.expiresAt)}
                           </dd>
                         </div>
                       </dl>
@@ -136,13 +150,13 @@ export function NotificationCenterList({
                   </div>
 
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    {invitation ? (
+                    {isInvitation ? (
                       <>
                         <form action={onAcceptInvitation}>
                           <input
                             type="hidden"
                             name="invitationId"
-                            value={invitation.invitationId}
+                            value={metadata.invitationId}
                           />
                           <Button type="submit">
                             <MailPlus className="h-4 w-4" />
@@ -153,7 +167,7 @@ export function NotificationCenterList({
                           <input
                             type="hidden"
                             name="invitationId"
-                            value={invitation.invitationId}
+                            value={metadata.invitationId}
                           />
                           <Button type="submit" variant="outline">
                             Decline

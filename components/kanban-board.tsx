@@ -329,6 +329,8 @@ export function KanbanBoard({
   }, []);
 
   const selectedTaskId = selectedTask?.id ?? null;
+  const selectedTaskCommentCount = selectedTask?.commentCount ?? 0;
+  const selectedTaskUpdatedAt = selectedTask?.updatedAt ?? null;
 
   useEffect(() => {
     if (!selectedTaskId) {
@@ -336,6 +338,10 @@ export function KanbanBoard({
       setTaskCommentsError(null);
       setIsLoadingTaskComments(false);
       setNewTaskComment("");
+      return;
+    }
+
+    if (isEditMode) {
       return;
     }
 
@@ -385,7 +391,13 @@ export function KanbanBoard({
     return () => {
       abortController.abort();
     };
-  }, [projectId, selectedTaskId]);
+  }, [
+    isEditMode,
+    projectId,
+    selectedTaskCommentCount,
+    selectedTaskId,
+    selectedTaskUpdatedAt,
+  ]);
 
   const allKnownLabels = useMemo(() => {
     const labels = new Set<string>();
@@ -1834,6 +1846,7 @@ export function KanbanBoard({
           canEdit={canEdit}
           columns={columns}
           archivedDoneTasks={archivedDoneTasks}
+          mentionUsers={availableAssignees}
           highlightedTaskIds={highlightedTaskIds}
           onDragEnd={onDragEnd}
           onSelectTask={handleSelectTask}
@@ -1843,6 +1856,7 @@ export function KanbanBoard({
       ) : null}
 
       <TaskDetailModal
+        projectId={projectId}
         canEdit={canEdit}
         isOpen={isClient && Boolean(selectedTask)}
         selectedTask={selectedTask}
@@ -1891,6 +1905,7 @@ export function KanbanBoard({
         onRemoveRelatedTask={removeRelatedTask}
         availableEpicOptions={availableEpicOptions}
         availableAssignees={availableAssignees}
+        mentionUsers={availableAssignees}
         availableRelatedTaskOptions={availableRelatedTaskOptions}
         onOpenRelatedTask={openRelatedTask}
         onNewBlockedFollowUpEntryChange={setNewBlockedFollowUpEntry}

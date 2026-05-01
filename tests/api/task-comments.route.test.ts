@@ -4,6 +4,7 @@ const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(),
   project: {
     findFirst: vi.fn(),
+    findUnique: vi.fn(),
   },
   task: {
     findUnique: vi.fn(),
@@ -93,7 +94,7 @@ describe("task comments route", () => {
 
     const response = await GET(
       new Request("http://localhost/api/projects/project-1/tasks/task-1/comments") as never,
-      { params: { projectId: "project-1", taskId: "task-1" } }
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
     );
 
     expect(response.status).toBe(200);
@@ -154,7 +155,7 @@ describe("task comments route", () => {
 
     const response = await GET(
       new Request("http://localhost/api/projects/project-1/tasks/task-1/comments") as never,
-      { params: { projectId: "project-1", taskId: "task-1" } }
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
     );
 
     expect(response.status).toBe(404);
@@ -171,7 +172,7 @@ describe("task comments route", () => {
         headers: { "content-type": "application/json" },
         body: "{",
       }) as never,
-      { params: { projectId: "project-1", taskId: "task-1" } }
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
     );
 
     expect(response.status).toBe(400);
@@ -184,6 +185,19 @@ describe("task comments route", () => {
     prismaMock.task.findUnique.mockResolvedValueOnce({
       id: "task-1",
       projectId: "project-1",
+    });
+    prismaMock.project.findUnique.mockResolvedValueOnce({
+      id: "project-1",
+      ownerId: "test-user",
+      owner: {
+        id: "test-user",
+        name: "Test User",
+        email: "test@example.com",
+        username: "testuser",
+        usernameDiscriminator: "0001",
+        avatarSeed: null,
+      },
+      memberships: [],
     });
     prismaMock.taskComment.create.mockResolvedValueOnce({
       id: "comment-3",
@@ -207,7 +221,7 @@ describe("task comments route", () => {
           content: "  Ready for review  ",
         }),
       }) as never,
-      { params: { projectId: "project-1", taskId: "task-1" } }
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
     );
 
     expect(response.status).toBe(201);
@@ -266,7 +280,7 @@ describe("task comments route", () => {
           content: "   ",
         }),
       }) as never,
-      { params: { projectId: "project-1", taskId: "task-1" } }
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
     );
 
     expect(response.status).toBe(400);

@@ -90,7 +90,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ### 2026-04-23
 - Type: Execution
 - Summary: TASK-106 roadmap follow-up refined the first milestone UI by removing the persistent explanatory hero copy, replacing the long desktop cross-rail with a card-to-card journey treatment, deduplicating deadline display, clamping card descriptions, and adding a dedicated milestone detail view triggered by a `View` action.
-- Evidence: Updated `components/project-roadmap-panel.tsx`, added roadmap detail-view regression coverage in `tests/components/project-roadmap-panel.test.tsx`, and recorded the future section-help affordance follow-up in `tasks/backlog.md` as `TASK-129`.
+- Evidence: Updated `components/project-roadmap-panel.tsx`, added roadmap detail-view regression coverage in `tests/components/project-roadmap-panel.test.tsx`, and recorded the future section-help affordance follow-up in `tasks/backlog.md` as `TASK-134` (originally `TASK-129`, renumbered to resolve a duplicate-ID conflict).
 
 ### 2026-04-22
 - Type: Execution
@@ -992,3 +992,13 @@ Low-value entries to avoid going forward:
 - Type: Governance
 - Summary: Added TASK-131 to track the local validation environment repair work across container bootstrap, database availability, and required toolchain/version alignment.
 - Evidence: Updated `tasks/backlog.md` and `journal.md`; PR title: `TASK-131 add local testing backlog task`.
+
+### 2026-04-30
+- Type: Execution
+- Summary: TASK-124 mention autocomplete follow-up fixed the missing dropdown in task comments and task descriptions.
+- Evidence: Mounted `MentionAutocomplete` in the task comment composer, added rich-text editor mention autocomplete for task descriptions, replaced selection-based textarea positioning with caret geometry, raised the portaled dropdown above the task modal, and changed empty `@` member search to return the initial project member list.
+
+### 2026-04-30
+- Type: Validation
+- Summary: TASK-124 autocomplete follow-up passed focused mention/editor/comment validation plus production build with local placeholder environment values.
+- Evidence: `npm run lint`; `npm test -- --run tests/lib/mention.test.ts`; `npm test -- --run tests/components/rich-text-editor.test.ts`; `npm test -- --run tests/api/task-comments.route.test.ts tests/components/notification-center-list.test.ts tests/lib/mention.test.ts`; `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... npm run build`. `npx tsc --noEmit` remains blocked by pre-existing test typing drift around Next async route params and older service signatures, while the build TypeScript phase passes.

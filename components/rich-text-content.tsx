@@ -2,6 +2,12 @@
 
 import * as React from "react";
 
+import {
+  MentionTooltipPortal,
+  resolveMentionDisplayUser,
+  type MentionDisplayUser,
+} from "@/components/ui/mention-hover-card";
+import { parseMentions } from "@/lib/mention";
 import { coerceRichTextHtml } from "@/lib/rich-text";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +27,9 @@ const RICH_TEXT_TOKEN_VALUE_CLASS =
 const RICH_TEXT_TOKEN_ACTIONS_CLASS = "flex shrink-0 items-center gap-1.5";
 const TOKEN_BLOCK_MARKERS = ['data-rich-block="token"', "data-rich-block='token'"];
 const HIDDEN_TOKEN_VALUE_MASK = "********";
+const RICH_TEXT_MENTION_CLASS =
+  "rounded-md bg-primary/15 px-1 py-0.5 font-medium text-primary not-italic";
+const RICH_TEXT_MENTION_SELECTOR = "[data-rich-mention='true']";
 const COPY_ICON_SVG =
   '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
 const CHECK_ICON_SVG =
@@ -105,8 +114,9 @@ export function buildEnhancedRichTextHtml(input: string): string {
 
   const hasCodeBlocks = input.includes("<pre");
   const hasTokenBlocks = TOKEN_BLOCK_MARKERS.some((marker) => input.includes(marker));
+  const hasMentions = input.includes("@");
 
-  if (!hasCodeBlocks && !hasTokenBlocks) {
+  if (!hasCodeBlocks && !hasTokenBlocks && !hasMentions) {
     return input;
   }
 
@@ -184,19 +194,76 @@ export function buildEnhancedRichTextHtml(input: string): string {
     tokenElement.replaceWith(shell);
   });
 
+  if (hasMentions) {
+    highlightMentionTextNodes(template.content);
+  }
+
   return template.innerHTML;
+}
+
+function highlightMentionTextNodes(root: DocumentFragment) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode as Text;
+    const parentElement = textNode.parentElement;
+    if (
+      !parentElement ||
+      parentElement.closest("pre, code, button, input, textarea, [data-rich-token-shell]")
+    ) {
+      continue;
+    }
+
+    if (parseMentions(textNode.data).mentions.length > 0) {
+      textNodes.push(textNode);
+    }
+  }
+
+  for (const textNode of textNodes) {
+    const { mentions } = parseMentions(textNode.data);
+    const fragment = document.createDocumentFragment();
+    let lastIndex = 0;
+
+    for (const mention of mentions) {
+      if (mention.startIndex > lastIndex) {
+        fragment.append(document.createTextNode(textNode.data.slice(lastIndex, mention.startIndex)));
+      }
+
+      const mentionElement = document.createElement("span");
+      mentionElement.className = RICH_TEXT_MENTION_CLASS;
+      mentionElement.dataset.richMention = "true";
+      mentionElement.dataset.mentionUsername = mention.username;
+      if (mention.discriminator) {
+        mentionElement.dataset.mentionDiscriminator = mention.discriminator;
+      }
+      mentionElement.textContent = mention.fullMatch;
+      fragment.append(mentionElement);
+      lastIndex = mention.endIndex;
+    }
+
+    if (lastIndex < textNode.data.length) {
+      fragment.append(document.createTextNode(textNode.data.slice(lastIndex)));
+    }
+
+    textNode.replaceWith(fragment);
+  }
 }
 
 type RichTextContentProps = React.HTMLAttributes<HTMLDivElement> & {
   html: string | null;
   emptyContentHtml?: string;
+  mentionUsers?: MentionDisplayUser[];
 };
 
 export function RichTextContent({
   html,
   emptyContentHtml,
+  mentionUsers,
   className,
   onClick,
+  onMouseLeave,
+  onBlur,
   ...props
 }: RichTextContentProps) {
   const normalizedHtml = React.useMemo(
@@ -204,6 +271,10 @@ export function RichTextContent({
     [emptyContentHtml, html]
   );
   const [renderedHtml, setRenderedHtml] = React.useState(normalizedHtml);
+  const [mentionTooltip, setMentionTooltip] = React.useState<{
+    user: MentionDisplayUser;
+    anchorRect: DOMRect;
+  } | null>(null);
   const resetTimeoutRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
@@ -273,19 +344,75 @@ export function RichTextContent({
     onClick?.(event);
   };
 
+  const handleMentionHover = (
+    target: EventTarget | null,
+    currentTarget: HTMLDivElement
+  ) => {
+    if (!mentionUsers || mentionUsers.length === 0 || !(target instanceof HTMLElement)) {
+      setMentionTooltip(null);
+      return;
+    }
+
+    const mentionElement = target.closest(RICH_TEXT_MENTION_SELECTOR) as HTMLElement | null;
+    if (!mentionElement || !currentTarget.contains(mentionElement)) {
+      setMentionTooltip(null);
+      return;
+    }
+
+    const username = mentionElement.dataset.mentionUsername;
+    if (!username) {
+      return;
+    }
+
+    const user = resolveMentionDisplayUser(
+      {
+        username,
+        discriminator: mentionElement.dataset.mentionDiscriminator ?? null,
+      },
+      mentionUsers
+    );
+    if (!user) {
+      return;
+    }
+
+    setMentionTooltip({
+      user,
+      anchorRect: mentionElement.getBoundingClientRect(),
+    });
+  };
+
   return (
-    <div
-      {...props}
-      className={cn(
-        "max-w-full overflow-x-hidden [overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:break-words",
-        "[&_a]:underline [&_a]:underline-offset-2 [&_blockquote]:border-l-2 [&_blockquote]:border-border/70 [&_blockquote]:pl-3",
-        "[&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold",
-        "[&_li]:mb-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-4",
-        "[&_p:last-child]:mb-0 [&_ul:last-child]:mb-0 [&_ol:last-child]:mb-0 [&_button]:font-sans",
-        className
-      )}
-      onClick={handleClick}
-      dangerouslySetInnerHTML={{ __html: renderedHtml }}
-    />
+    <>
+      <div
+        {...props}
+        className={cn(
+          "max-w-full overflow-x-hidden [overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:break-words",
+          "[&_a]:underline [&_a]:underline-offset-2 [&_blockquote]:border-l-2 [&_blockquote]:border-border/70 [&_blockquote]:pl-3",
+          "[&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold",
+          "[&_li]:mb-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-4",
+          "[&_p:last-child]:mb-0 [&_ul:last-child]:mb-0 [&_ol:last-child]:mb-0 [&_button]:font-sans",
+          "[&_[data-rich-mention='true']]:cursor-default",
+          className
+        )}
+        onClick={handleClick}
+        onMouseOver={(event) => handleMentionHover(event.target, event.currentTarget)}
+        onMouseLeave={(event) => {
+          setMentionTooltip(null);
+          onMouseLeave?.(event);
+        }}
+        onFocus={(event) => handleMentionHover(event.target, event.currentTarget)}
+        onBlur={(event) => {
+          setMentionTooltip(null);
+          onBlur?.(event);
+        }}
+        dangerouslySetInnerHTML={{ __html: renderedHtml }}
+      />
+      {mentionTooltip ? (
+        <MentionTooltipPortal
+          user={mentionTooltip.user}
+          anchorRect={mentionTooltip.anchorRect}
+        />
+      ) : null}
+    </>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Archive,
@@ -23,6 +23,7 @@ import {
 import {
   type KanbanTask,
   type TaskComment,
+  type TaskCommentReaction,
   type PendingAttachmentUpload,
   type ProjectEpicOption,
   type ProjectTaskCollaborator,
@@ -32,6 +33,7 @@ import {
 import {
   formatFollowUpTimestamp,
   resolveAttachmentHref,
+  readApiError,
 } from "@/components/kanban-board-utils";
 import {
   RelatedTaskPill,
@@ -48,10 +50,20 @@ import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
+import { EmojiPickerButton } from "@/components/ui/emoji-picker-button";
 import { EpicSelect } from "@/components/ui/epic-select";
+import {
+  MentionAutocomplete,
+  buildMentionAutocompleteValue,
+  type MentionAutocompleteMember,
+  useMentionAutocomplete,
+} from "@/components/ui/mention-autocomplete";
+import type { MentionDisplayUser } from "@/components/ui/mention-hover-card";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { getEpicColorFromName } from "@/lib/epic";
+import { cn } from "@/lib/utils";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
+import { renderContentWithMentions } from "@/lib/content-with-mentions";
 import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
 import {
   ATTACHMENT_KIND_FILE,
@@ -69,6 +81,7 @@ import { MAX_TASK_LABELS, getTaskLabelColor } from "@/lib/task-label";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 
 interface TaskDetailModalProps {
+  projectId: string;
   canEdit: boolean;
   isOpen: boolean;
   selectedTask: KanbanTask | null;
@@ -117,6 +130,7 @@ interface TaskDetailModalProps {
   onRemoveRelatedTask: (taskId: string) => void;
   availableEpicOptions: ProjectEpicOption[];
   availableAssignees: ProjectTaskCollaborator[];
+  mentionUsers: MentionDisplayUser[];
   availableRelatedTaskOptions: RelatedTaskOption[];
   onOpenRelatedTask: (taskId: string) => void;
   onNewBlockedFollowUpEntryChange: (value: string) => void;
@@ -139,6 +153,7 @@ interface TaskDetailModalProps {
 }
 
 export function TaskDetailModal({
+  projectId,
   canEdit,
   isOpen,
   selectedTask,
@@ -187,6 +202,7 @@ export function TaskDetailModal({
   onRemoveRelatedTask,
   availableEpicOptions,
   availableAssignees,
+  mentionUsers,
   availableRelatedTaskOptions,
   onOpenRelatedTask,
   onNewBlockedFollowUpEntryChange,
@@ -207,6 +223,87 @@ export function TaskDetailModal({
   onUnarchiveTask,
   onRequestDeleteTask,
 }: TaskDetailModalProps) {
+  const selectedTaskId = selectedTask?.id ?? "";
+  const [taskCommentReactions, setTaskCommentReactions] = useState<Map<string, TaskCommentReaction[]>>(new Map());
+  const reactionsAbortControllerRef = useRef<AbortController | null>(null);
+
+  const loadReactionsForComments = useCallback(
+    async (comments: TaskComment[]) => {
+      if (!selectedTaskId || comments.length === 0) {
+        setTaskCommentReactions(new Map());
+        return;
+      }
+
+      if (reactionsAbortControllerRef.current) {
+        reactionsAbortControllerRef.current.abort();
+      }
+
+      const abortController = new AbortController();
+      reactionsAbortControllerRef.current = abortController;
+
+      try {
+        // Deferred: batched endpoint (TASK-127) to avoid N+1 on tasks with many comments
+        const reactionPromises = comments.map(async (comment) => {
+          try {
+            const response = await fetch(
+              `/api/projects/${projectId}/tasks/${selectedTaskId}/comments/${comment.id}/reactions`,
+              { signal: abortController.signal }
+            );
+            if (!response.ok) return { commentId: comment.id, reactions: [] as TaskCommentReaction[] };
+            const payload = (await response.json()) as { reactions: TaskCommentReaction[] };
+            return { commentId: comment.id, reactions: payload.reactions };
+          } catch {
+            return { commentId: comment.id, reactions: [] as TaskCommentReaction[] };
+          }
+        });
+
+        const results = await Promise.all(reactionPromises);
+        const newMap = new Map<string, TaskCommentReaction[]>();
+        for (const result of results) {
+          newMap.set(result.commentId, result.reactions);
+        }
+        setTaskCommentReactions(newMap);
+      } catch {
+        // individual fetch errors are handled per-comment
+      }
+    },
+    [projectId, selectedTaskId]
+  );
+
+  const toggleReaction = useCallback(
+    async (commentId: string, emoji: string) => {
+      try {
+        const response = await fetch(
+          `/api/projects/${projectId}/tasks/${selectedTaskId}/comments/${commentId}/reactions`,
+          { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ emoji }) }
+        );
+
+        if (!response.ok) {
+          throw new Error(await readApiError(response, "Failed to toggle reaction"));
+        }
+
+        const payload = (await response.json()) as { reactions: TaskCommentReaction[] };
+        setTaskCommentReactions((prev) => {
+          const next = new Map(prev);
+          next.set(commentId, payload.reactions);
+          return next;
+        });
+      } catch (error) {
+        console.error("[TaskDetailModal.toggleReaction]", error);
+      }
+    },
+    [projectId, selectedTaskId]
+  );
+
+  const handleAddReaction = useCallback(
+    (commentId: string) => (emoji: string) => {
+      void toggleReaction(commentId, emoji);
+    },
+    [toggleReaction]
+  );
+
+  useEffect(() => { void loadReactionsForComments(taskComments); }, [taskComments, loadReactionsForComments]);
+
   if (!isOpen || !selectedTask) {
     return null;
   }
@@ -313,8 +410,13 @@ export function TaskDetailModal({
                     onPreviewAttachment={onPreviewAttachmentChange}
                     onActivateEditMode={onActivateEditMode}
                     onOpenRelatedTask={onOpenRelatedTask}
+                    projectId={projectId}
+                    mentionUsers={mentionUsers}
                     onNewTaskCommentChange={onNewTaskCommentChange}
                     onSubmitTaskComment={onSubmitTaskComment}
+                    taskCommentReactions={taskCommentReactions}
+                    toggleReaction={toggleReaction}
+                    handleAddReaction={handleAddReaction}
                   />
                 </div>
               ) : (
@@ -339,6 +441,7 @@ export function TaskDetailModal({
                   fileInputKey={fileInputKey}
                   attachmentError={attachmentError}
                   taskModalError={taskModalError}
+                  projectId={projectId}
                   onEditLabelInputChange={onEditLabelInputChange}
                   onAddEditLabel={onAddEditLabel}
                   onRemoveEditLabel={onRemoveEditLabel}
@@ -972,8 +1075,13 @@ function TaskReadOnlyContent({
   onPreviewAttachment,
   onActivateEditMode,
   onOpenRelatedTask,
+  projectId,
+  mentionUsers,
   onNewTaskCommentChange,
   onSubmitTaskComment,
+  taskCommentReactions,
+  toggleReaction,
+  handleAddReaction,
 }: {
   canEdit: boolean;
   selectedTask: KanbanTask;
@@ -985,12 +1093,54 @@ function TaskReadOnlyContent({
   onPreviewAttachment: (attachment: TaskAttachment | null) => void;
   onActivateEditMode: () => void;
   onOpenRelatedTask: (taskId: string) => void;
+  projectId: string;
+  mentionUsers: MentionDisplayUser[];
   onNewTaskCommentChange: (value: string) => void;
   onSubmitTaskComment: () => void | Promise<void>;
+  taskCommentReactions: Map<string, TaskCommentReaction[]>;
+  toggleReaction: (commentId: string, emoji: string) => void;
+  handleAddReaction: (commentId: string) => (emoji: string) => void;
 }) {
   const hasAttachments = selectedTask.attachments.length > 0;
   const hasRelatedTasks = selectedTask.relatedTasks.length > 0;
   const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const [commentCursorPosition, setCommentCursorPosition] = useState(0);
+  const commentMentionState = useMentionAutocomplete(
+    newTaskComment,
+    commentCursorPosition,
+    commentInputRef
+  );
+
+  const syncCommentCursorPosition = (textarea: HTMLTextAreaElement) => {
+    setCommentCursorPosition(textarea.selectionStart ?? textarea.value.length);
+  };
+
+  const handleCommentMentionSelect = (member: MentionAutocompleteMember) => {
+    if (!commentMentionState.isActive || commentMentionState.startIndex < 0) {
+      return;
+    }
+
+    const mentionText = `${buildMentionAutocompleteValue(member)} `;
+    const nextValue = [
+      newTaskComment.slice(0, commentMentionState.startIndex),
+      mentionText,
+      newTaskComment.slice(commentCursorPosition),
+    ].join("");
+    const nextCursorPosition = commentMentionState.startIndex + mentionText.length;
+
+    onNewTaskCommentChange(nextValue);
+    setCommentCursorPosition(nextCursorPosition);
+
+    window.requestAnimationFrame(() => {
+      const textarea = commentInputRef.current;
+      if (!textarea) {
+        return;
+      }
+
+      textarea.focus();
+      textarea.setSelectionRange(nextCursorPosition, nextCursorPosition);
+    });
+  };
 
   useEffect(() => {
     const textarea = commentInputRef.current;
@@ -1069,6 +1219,7 @@ function TaskReadOnlyContent({
         html={selectedTask.description}
         emptyContentHtml="<p>No description provided.</p>"
         className="text-sm text-muted-foreground"
+        mentionUsers={mentionUsers}
         onDoubleClick={() => {
           if (!canEdit) {
             return;
@@ -1118,8 +1269,33 @@ function TaskReadOnlyContent({
                         </p>
                       </div>
                       <p className="mt-1 whitespace-pre-wrap break-words text-sm text-foreground">
-                        {comment.content}
+                        {renderContentWithMentions(comment.content, { mentionUsers })}
                       </p>
+                      {canEdit ? (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                          {(taskCommentReactions.get(comment.id) ?? []).map((reaction) => (
+                            <button
+                              key={reaction.emoji}
+                              type="button"
+                              onClick={() => void toggleReaction(comment.id, reaction.emoji)}
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition-colors cursor-pointer",
+                                reaction.reacted
+                                  ? "border-primary/40 bg-primary/12 text-foreground"
+                                  : "border-border/60 bg-muted/40 text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground"
+                              )}
+                            >
+                              <span>{reaction.emoji}</span>
+                              {reaction.count > 1 && <span>{reaction.count}</span>}
+                            </button>
+                          ))}
+                          <EmojiPickerButton
+                            presentation="field"
+                            className="h-6 w-6"
+                            onSelectEmoji={handleAddReaction(comment.id)}
+                          />
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </article>
@@ -1143,7 +1319,12 @@ function TaskReadOnlyContent({
                 id="task-comment-input"
                 aria-label="Task comment"
                 value={newTaskComment}
-                onChange={(event) => onNewTaskCommentChange(event.target.value)}
+                onChange={(event) => {
+                  onNewTaskCommentChange(event.target.value);
+                  syncCommentCursorPosition(event.target);
+                }}
+                onClick={(event) => syncCommentCursorPosition(event.currentTarget)}
+                onKeyUp={(event) => syncCommentCursorPosition(event.currentTarget)}
                 maxLength={4000}
                 rows={1}
                 placeholder="Add a task comment..."
@@ -1151,6 +1332,17 @@ function TaskReadOnlyContent({
                 className="h-11 min-h-11 resize-none rounded-xl border border-border/50 bg-background/80 px-3 py-2 text-sm leading-5 transition-colors focus-visible:outline-none focus-visible:border-ring/60"
                 disabled={isSubmittingTaskComment}
               />
+              {commentMentionState.isActive ? (
+                <MentionAutocomplete
+                  projectId={projectId}
+                  query={commentMentionState.query}
+                  position={commentMentionState.position}
+                  onSelect={handleCommentMentionSelect}
+                  onClose={() => {
+                    setCommentCursorPosition(-1);
+                  }}
+                />
+              ) : null}
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div className="flex flex-wrap items-center gap-2">
                   <TaskActivityInline
@@ -1285,6 +1477,7 @@ interface TaskEditContentProps {
   fileInputKey: number;
   attachmentError: string | null;
   taskModalError: string | null;
+  projectId: string;
   onEditLabelInputChange: (value: string) => void;
   onAddEditLabel: (value: string) => void;
   onRemoveEditLabel: (label: string) => void;
@@ -1331,6 +1524,7 @@ function TaskEditContent({
   fileInputKey,
   attachmentError,
   taskModalError,
+  projectId,
   onEditLabelInputChange,
   onAddEditLabel,
   onRemoveEditLabel,
@@ -1427,6 +1621,7 @@ function TaskEditContent({
             value={editDescription}
             onChange={onEditDescriptionChange}
             placeholder="Task details..."
+            mentionProjectId={projectId}
           />
         </div>
 

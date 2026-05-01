@@ -79,6 +79,46 @@ describe("rich-text-content", () => {
     expect(output).toContain("********");
   });
 
+  test("marks mentions for hover-card lookup", () => {
+    const output = buildEnhancedRichTextHtml("<p>Hello @alice#1234</p>");
+
+    expect(output).toContain('data-rich-mention="true"');
+    expect(output).toContain('data-mention-username="alice"');
+    expect(output).toContain('data-mention-discriminator="1234"');
+  });
+
+  test("shows a user hover card for rich-text mentions", async () => {
+    const { container, root } = createTestRenderer();
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "<p>Hello @alice#1234</p>",
+        mentionUsers: [
+          {
+            id: "user-alice",
+            displayName: "Alice Example",
+            usernameTag: "alice#1234",
+            avatarSeed: "user-alice",
+          },
+        ],
+      })
+    );
+
+    const mention = container.querySelector<HTMLElement>("[data-rich-mention='true']");
+    expect(mention).not.toBeNull();
+
+    await act(async () => {
+      mention?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    });
+
+    expect(document.body.textContent).toContain("Alice Example");
+    expect(document.body.textContent).toContain("alice#1234");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("copies structured code content through the clipboard API", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     setClipboard({ writeText });

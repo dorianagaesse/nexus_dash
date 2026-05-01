@@ -16,8 +16,8 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-058, TASK-099, TASK-123
 - ID: TASK-126
   Title: Comment reactions - lightweight emoji response system on task threads
-  Status: Pending
-  Rationale: Add lightweight reactions on task comments so collaborators can acknowledge, support, or quickly respond without posting extra text, preserving comment readability while giving task discussions faster signal.
+  Status: Done (2026-04-30)
+  Rationale: Added lightweight emoji reactions on task comments so collaborators can acknowledge, support, or quickly respond without posting extra text, with toggle semantics, grouped display with counts, and persisted database storage.
   Dependencies: TASK-099
 
 ### Deferred (Intentional)
@@ -96,8 +96,8 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Run a broader refinement pass across the entire app so pages, panels, forms, and feedback patterns feel cohesive, intentional, and production-grade instead of evolving as isolated local improvements. Explicitly includes a sweep for inconsistent UI components (spacing, typography, color tokens, button/input variants, modal patterns) with the goal of uniformizing the visual design language across all surfaces.
   Dependencies: TASK-096, TASK-100
-- ID: TASK-129
-  Title: Section help affordances - opt-in question-mark guidance across dashboard modules
+- ID: TASK-134
+Title: Section help affordances - opt-in question-mark guidance across dashboard modules
   Status: Pending
   Rationale: Replace persistent explanatory copy inside dashboard sections with lighter opt-in help affordances so users can click a question-mark entry point when they want extra context, keeping section layouts cleaner while creating a reusable explanation pattern for Roadmap and future modules.
   Dependencies: TASK-096, TASK-108
