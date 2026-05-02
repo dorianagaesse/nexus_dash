@@ -1002,3 +1002,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-124 autocomplete follow-up passed focused mention/editor/comment validation plus production build with local placeholder environment values.
 - Evidence: `npm run lint`; `npm test -- --run tests/lib/mention.test.ts`; `npm test -- --run tests/components/rich-text-editor.test.ts`; `npm test -- --run tests/api/task-comments.route.test.ts tests/components/notification-center-list.test.ts tests/lib/mention.test.ts`; `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... npm run build`. `npx tsc --noEmit` remains blocked by pre-existing test typing drift around Next async route params and older service signatures, while the build TypeScript phase passes.
+
+### 2026-05-02
+- Type: Execution
+- Summary: TASK-124 PR #211 follow-up fixed mention caret and tooltip regressions across task descriptions and comments while documenting the required PR worktree workflow.
+- Evidence: Added the multi-agent dedicated worktree rule to `agent.md`; made rich-text editor mention spans non-editable so selection markers are not deleted during mention re-highlighting; consumed an existing following whitespace when replacing an active mention; aligned the comment composer mention highlight layer with textarea text metrics; added pointer-move hover checks so mention tooltips close when the pointer leaves the mention in any direction.
+
+### 2026-05-02
+- Type: Validation
+- Summary: TASK-124 follow-up passed focused mention/editor validation, full local test and coverage suites, production build, and task-modal Playwright smoke using the repo-compatible Node 20.19 runtime shim.
+- Evidence: Local default Node is `20.17.0`, so validation was run with `npx -y -p node@20.19.0 -p npm@10.8.2 ...`. Passed: `npm test -- --run tests/lib/mention.test.ts`; `npm test -- --run tests/components/rich-text-editor.test.ts`; `npm test -- --run tests/components/rich-text-content.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... npm run test:coverage`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build`; root `.env`-backed `npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "task lifecycle"` passed against the built app.

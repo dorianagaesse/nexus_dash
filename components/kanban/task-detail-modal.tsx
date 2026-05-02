@@ -1338,7 +1338,7 @@ function TaskReadOnlyContent({
                         mentionUsers,
                         resolveDisplayUsers: false,
                         mentionHighlightClassName:
-                          "rounded-sm bg-primary/10 px-1 py-0.5 font-medium text-primary",
+                          "rounded-sm bg-primary/10 px-0 py-0 font-normal text-primary",
                       })
                     : null}
                 </div>

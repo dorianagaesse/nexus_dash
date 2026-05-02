@@ -410,6 +410,7 @@ describe("rich-text-editor", () => {
 
     expect(mention?.textContent).toBe("@alice");
     expect(mention?.dataset.mentionRaw).toBe("@alice#1234");
+    expect(mention?.getAttribute("contenteditable")).toBe("false");
     expect(persistedValue).toBe("<p>Hello @alice#1234</p>");
     expect(persistedValue).not.toContain("data-editor-mention");
 

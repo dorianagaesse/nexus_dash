@@ -215,7 +215,7 @@ describe("buildMentionString", () => {
 });
 
 describe("replaceMentionTrigger", () => {
-  it("replaces the active mention query and returns the next cursor position", () => {
+  it("replaces the active mention query and keeps one trailing separator", () => {
     expect(
       replaceMentionTrigger({
         text: "hello @ali there",
@@ -224,7 +224,7 @@ describe("replaceMentionTrigger", () => {
         replacement: "@alice#1234 ",
       })
     ).toEqual({
-      value: "hello @alice#1234  there",
+      value: "hello @alice#1234 there",
       cursorPosition: 18,
     });
   });

@@ -34,6 +34,9 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
 
 - One task per branch and one task per PR.
 - Start each task on a dedicated branch before implementation work begins.
+- When multiple agents are active, do implementation work in a dedicated
+  worktree named for the PR or task (for example `../nexus_dash_pr211`) rather
+  than sharing the root checkout.
 - Branch name must match CI rule: `feature/*`, `fix/*`, `refactor/*`, `docs/*`, or `chore/*`.
 - Dependabot-authored PRs are the one exception and may use `dependabot/*`.
 - Keep PRs single-purpose; do not mix unrelated backlog tasks.

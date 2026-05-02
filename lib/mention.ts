@@ -139,7 +139,12 @@ export function replaceMentionTrigger(input: {
   const text = typeof input.text === "string" ? input.text : "";
   const startIndex = Math.max(0, Math.min(input.startIndex, text.length));
   const endIndex = Math.max(startIndex, Math.min(input.endIndex, text.length));
-  const nextValue = `${text.slice(0, startIndex)}${input.replacement}${text.slice(endIndex)}`;
+  const shouldConsumeFollowingWhitespace =
+    input.replacement.endsWith(" ") && /\s/.test(text[endIndex] ?? "");
+  const suffixStartIndex = shouldConsumeFollowingWhitespace ? endIndex + 1 : endIndex;
+  const nextValue = `${text.slice(0, startIndex)}${input.replacement}${text.slice(
+    suffixStartIndex
+  )}`;
 
   return {
     value: nextValue,

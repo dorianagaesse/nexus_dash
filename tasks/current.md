@@ -1,83 +1,50 @@
-# Current Task: TASK-126 Comment Reactions
+# Current Task: TASK-124 Comment Mentions
 
 ## Task ID
-TASK-126
+TASK-124
 
 ## Status
-PR #213 merged — all CI green, Copilot review closed, unit tests added.
+In progress on PR #211.
 
 ## Objective
-Add lightweight emoji reactions on task comments so collaborators can acknowledge, support, or quickly respond without posting extra text.
+Stabilize project-member `@` mentions across task descriptions and task
+comments so autocomplete insertion, caret placement, highlighted rendering, and
+mention hover cards behave consistently across the task modal.
 
-## Why This Task Matters
-- Preserves comment readability while giving faster signal than full text replies
-- Follows common UX patterns (GitHub, Slack, Linear)
-- Depends on TASK-099 (task comments) which is done
-
-## Working Assumptions
-- Reactions are emoji-based, one per user per emoji per comment
-- One user can add multiple different emoji reactions to the same comment
-- Same user adding the same emoji again toggles it off (remove)
-- Reactions appear below the comment content
-- Reaction count is shown; clicking toggles your reaction
-
-## Scope
-
-### Schema
-- `TaskCommentReaction` model: `id`, `commentId`, `userId`, `emoji`, `createdAt`
-- Unique constraint on `(commentId, userId, emoji)` for toggle semantics
-
-### Service (`lib/services/project-task-comment-service.ts`)
-- `listTaskCommentReactionsForComment(input)` — list reactions grouped by emoji with user counts and `reacted` flag
-- `addTaskCommentReaction(input)` — toggle reaction (add if absent, remove if present)
-- `removeTaskCommentReaction(input)` — remove a specific reaction by ID (owner only)
-- `groupReactionsForActor()` — shared grouping helper
-
-### API (`app/api/projects/[projectId]/tasks/[taskId]/comments/[commentId]/reactions/`)
-- `GET /` — list reactions for a comment (requires task:read scope + project viewer role)
-- `POST /` — toggle reaction (requires task:write scope + project editor role)
-- `DELETE /[reactionId]` — remove reaction (requires task:write scope + project editor role + reaction owner)
-
-### UI (components/kanban/task-detail-modal.tsx)
-- Reaction bar below each comment's content (only when canEdit)
-- Display emoji + count for each reaction group
-- Highlight reaction from current user (border-primary style)
-- Click existing reaction to toggle (removes your reaction)
-- "+" button opens emoji picker for adding a new reaction
-- Reactions loaded on mount and when taskComments change
-
-## Out Of Scope
-- Reactions on context cards, epics, roadmap events
-- Animated/reaction counters with live updates
-- Notifications from reactions
-- RLS policies on TaskCommentReaction (deferred to TASK-127/TASK-088)
-- Batched reactions endpoint for N+1 optimization (deferred)
+## Current Follow-Up Scope
+- Ensure selecting a mention inserts a usable separator after the selected user.
+- Keep the rich-text editor caret outside highlighted mention spans so typing a
+  space or more text after a mention does not jump to the start of the editor.
+- Keep comment composer highlighting visually aligned with the actual textarea
+  caret.
+- Make task-description mention hover cards dismiss reliably when the pointer
+  leaves the mention in any direction.
+- Preserve reusable mention parsing, autocomplete, rendering, and tooltip
+  components instead of one-off task-modal fixes.
 
 ## Acceptance Criteria
-1. Each comment shows a reaction bar below its content (canEdit only)
-2. Clicking an existing reaction emoji by the same user removes it (toggle)
-3. Clicking a different emoji (or "+") adds that reaction
-4. Reaction counts update immediately in the UI
-5. Reactions are persisted in the database
-6. API endpoints handle auth, project membership, and toggle semantics correctly
+1. Selecting a mention in a task description inserts the mention plus one
+   trailing separator and leaves the caret after that separator.
+2. Pressing Space or typing regular text after a task-description mention keeps
+   the caret at the expected position and allows continued typing.
+3. Selecting a mention in a task comment inserts the mention plus one trailing
+   separator and leaves the textarea caret after that separator.
+4. Comment composer highlight rendering does not visually shift text away from
+   the real textarea caret.
+5. Task-description mention hover cards disappear when the pointer leaves the
+   mention, regardless of direction.
+6. Existing mention parsing, notification, and rendering tests remain green.
 
 ## Definition Of Done
-- `npm run lint` passes
-- `npm test` passes (598 tests)
-- `npm run build` passes
-- PR opened with Copilot review addressed
-- Tracking docs updated
+- `agent.md` documents the dedicated worktree expectation for multi-agent work.
+- Root causes for the reported mention issues are fixed in shared mention/editor
+  paths where possible.
+- Focused mention/editor tests are updated for the changed behavior.
+- Local validation evidence and any environment blockers are recorded in
+  `journal.md`.
+- PR #211 remains the single review surface for TASK-124.
 
-## Copilot Review Notes
-- N+1 pattern in `loadReactionsForComments` acknowledged; batched endpoint deferred to future optimization
-- RLS policies on TaskCommentReaction deferred to TASK-127/TASK-088
-- No reaction unit tests added; service functions follow existing patterns from task comments
-
-## Files Changed
-- `prisma/schema.prisma` — TaskCommentReaction model
-- `prisma/migrations/20260430000000_task126_comment_reactions/migration.sql` — migration
-- `lib/services/project-task-comment-service.ts` — reaction service functions
-- `app/api/projects/[projectId]/tasks/[taskId]/comments/[commentId]/reactions/route.ts` — GET/POST
-- `app/api/projects/[projectId]/tasks/[taskId]/comments/[commentId]/reactions/[reactionId]/route.ts` — DELETE
-- `components/kanban/task-detail-modal.tsx` — reactions UI
-- `components/kanban-board-types.ts` — TaskCommentReaction type added to TaskComment
+## Notes
+- Local full validation currently depends on a repo-compatible Node runtime
+  (`20.19+`, `22.12+`, or `24+`) so Prisma, jsdom, Next build type generation,
+  and browser validation can run with the expected generated client.

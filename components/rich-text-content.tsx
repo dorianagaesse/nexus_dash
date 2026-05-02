@@ -401,6 +401,7 @@ export function RichTextContent({
         )}
         onClick={handleClick}
         onMouseOver={(event) => handleMentionHover(event.target, event.currentTarget)}
+        onMouseMove={(event) => handleMentionHover(event.target, event.currentTarget)}
         onMouseLeave={(event) => {
           setMentionTooltip(null);
           onMouseLeave?.(event);

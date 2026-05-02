@@ -47,7 +47,7 @@ interface RichTextEditorProps {
 }
 
 const EDITOR_MENTION_CLASS =
-  "rounded-md bg-primary/15 px-1 py-0.5 font-medium text-primary not-italic cursor-default";
+  "mr-0.5 rounded-md bg-primary/15 px-1 py-0.5 font-medium text-primary not-italic cursor-default";
 
 const MONOSPACE_FONT_FAMILY =
   "Consolas, 'Liberation Mono', Menlo, Monaco, monospace";
@@ -169,6 +169,7 @@ function highlightMentionsInEditor(
       mentionElement.dataset.editorMention = "true";
       mentionElement.dataset.mentionUsername = mention.username;
       mentionElement.dataset.mentionRaw = mention.fullMatch;
+      mentionElement.setAttribute("contenteditable", "false");
       if (mention.discriminator) {
         mentionElement.dataset.mentionDiscriminator = mention.discriminator;
       }
@@ -1718,8 +1719,12 @@ export function RichTextEditor({
 
     const mentionText = `${mentionValue} `;
     const replacementRange = document.createRange();
+    const replacementEndOffset =
+      /\s/.test(targetMention.textNode.data[targetMention.endOffset] ?? "")
+        ? targetMention.endOffset + 1
+        : targetMention.endOffset;
     replacementRange.setStart(targetMention.textNode, targetMention.startIndex);
-    replacementRange.setEnd(targetMention.textNode, targetMention.endOffset);
+    replacementRange.setEnd(targetMention.textNode, replacementEndOffset);
     replacementRange.deleteContents();
 
     const mentionTextNode = document.createTextNode(mentionText);

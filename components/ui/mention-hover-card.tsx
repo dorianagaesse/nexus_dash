@@ -126,6 +126,7 @@ export function MentionText({
             : undefined
         }
         onMouseEnter={(event) => showTooltip(event.currentTarget)}
+        onMouseMove={(event) => showTooltip(event.currentTarget)}
         onMouseLeave={() => setAnchorRect(null)}
         onFocus={(event) => showTooltip(event.currentTarget)}
         onBlur={() => setAnchorRect(null)}
