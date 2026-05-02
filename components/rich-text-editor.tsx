@@ -55,6 +55,7 @@ const STRUCTURED_BLOCK_SELECTOR = "[data-rich-block], p, div, h1, h2, blockquote
 const BLOCK_BREAK_TAGS = new Set(["P", "DIV", "H1", "H2", "BLOCKQUOTE", "LI", "PRE"]);
 const EDITOR_RICH_SHELL_TAG = "nd-rich-shell";
 const EDITOR_CARET_ANCHOR = "​";
+const EDITOR_MENTION_SEPARATOR = "\u00a0";
 const MAX_EDITOR_HISTORY = 100;
 const EDITOR_BLOCK_ROW_SELECTOR = "[data-editor-block-row='true']";
 const EDITOR_BLOCK_AFTER_ANCHOR_SELECTOR = "[data-editor-block-anchor='after']";
@@ -93,6 +94,43 @@ function unwrapEditorMentionElements(root: ParentNode) {
       )
     );
   });
+}
+
+function normalizeEditorOnlyWhitespace(root: ParentNode) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode as Text;
+    if (
+      textNode.parentElement?.closest(
+        `pre, code, button, input, textarea, [data-editor-token-input], [data-rich-block]`
+      )
+    ) {
+      continue;
+    }
+
+    if (textNode.data.includes(EDITOR_MENTION_SEPARATOR)) {
+      textNodes.push(textNode);
+    }
+  }
+
+  for (const textNode of textNodes) {
+    textNode.data = textNode.data.replaceAll(EDITOR_MENTION_SEPARATOR, " ");
+  }
+}
+
+function normalizeEditorMentionLeadingSeparator(value: string, followsMention: boolean): string {
+  if (!followsMention || value.length === 0) {
+    return value;
+  }
+
+  const firstCharacter = value[0];
+  if (firstCharacter !== " " && firstCharacter !== EDITOR_MENTION_SEPARATOR) {
+    return value;
+  }
+
+  return `${EDITOR_MENTION_SEPARATOR}${value.slice(1)}`;
 }
 
 function restoreEditorSelectionFromMarker(editor: HTMLDivElement, marker: HTMLElement | null) {
@@ -158,10 +196,19 @@ function highlightMentionsInEditor(
     const { mentions } = parseMentions(textNode.data);
     const fragment = document.createDocumentFragment();
     let lastIndex = 0;
+    let previousNodeWasMention = false;
 
     for (const mention of mentions) {
       if (mention.startIndex > lastIndex) {
-        fragment.append(document.createTextNode(textNode.data.slice(lastIndex, mention.startIndex)));
+        fragment.append(
+          document.createTextNode(
+            normalizeEditorMentionLeadingSeparator(
+              textNode.data.slice(lastIndex, mention.startIndex),
+              previousNodeWasMention
+            )
+          )
+        );
+        previousNodeWasMention = false;
       }
 
       const mentionElement = document.createElement("span");
@@ -175,11 +222,19 @@ function highlightMentionsInEditor(
       }
       mentionElement.textContent = `@${mention.username}`;
       fragment.append(mentionElement);
+      previousNodeWasMention = true;
       lastIndex = mention.endIndex;
     }
 
     if (lastIndex < textNode.data.length) {
-      fragment.append(document.createTextNode(textNode.data.slice(lastIndex)));
+      fragment.append(
+        document.createTextNode(
+          normalizeEditorMentionLeadingSeparator(
+            textNode.data.slice(lastIndex),
+            previousNodeWasMention
+          )
+        )
+      );
     }
 
     textNode.replaceWith(fragment);
@@ -646,13 +701,18 @@ function ensureMentionTrailingSpace(mentionElement: HTMLElement): Text {
   const nextSibling = mentionElement.nextSibling;
   if (nextSibling?.nodeType === Node.TEXT_NODE) {
     const textNode = nextSibling as Text;
-    if (!textNode.data.startsWith(" ")) {
-      textNode.insertData(0, " ");
+    if (textNode.data.startsWith(EDITOR_MENTION_SEPARATOR)) {
+      return textNode;
+    }
+    if (textNode.data.startsWith(" ")) {
+      textNode.replaceData(0, 1, EDITOR_MENTION_SEPARATOR);
+    } else {
+      textNode.insertData(0, EDITOR_MENTION_SEPARATOR);
     }
     return textNode;
   }
 
-  const textNode = mentionElement.ownerDocument.createTextNode(" ");
+  const textNode = mentionElement.ownerDocument.createTextNode(EDITOR_MENTION_SEPARATOR);
   mentionElement.after(textNode);
   return textNode;
 }
@@ -1511,6 +1571,7 @@ export function serializeEditorRichTextHtml(input: string): string {
   unwrapEditorMentionElements(template.content);
 
   if (!hasEditorShells) {
+    normalizeEditorOnlyWhitespace(template.content);
     return template.innerHTML.replace(/\u200b/g, "");
   }
 
@@ -1625,6 +1686,7 @@ export function serializeEditorRichTextHtml(input: string): string {
       }
     });
 
+  normalizeEditorOnlyWhitespace(template.content);
   return trimTrailingEmptyParagraphHtml(template.innerHTML.replace(/\u200b/g, ""));
 }
 
@@ -1895,7 +1957,7 @@ export function RichTextEditor({
     const fragment = documentRef.createDocumentFragment();
     fragment.append(
       documentRef.createTextNode(mentionValue),
-      documentRef.createTextNode(" "),
+      documentRef.createTextNode(EDITOR_MENTION_SEPARATOR),
       marker
     );
     replacementRange.insertNode(fragment);

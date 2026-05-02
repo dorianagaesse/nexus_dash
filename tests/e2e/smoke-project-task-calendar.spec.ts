@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 
+import { prisma } from "../../lib/prisma";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
 import {
   createProjectFromProjectsPage,
@@ -37,8 +38,9 @@ test.describe("critical UI smoke flows", () => {
 
     const projectId = page.url().match(/\/projects\/([^/?#]+)/)?.[1];
     expect(projectId).toBeTruthy();
+    const projectIdValue = projectId as string;
 
-    const createEpicResponse = await page.request.post(`/api/projects/${projectId}/epics`, {
+    const createEpicResponse = await page.request.post(`/api/projects/${projectIdValue}/epics`, {
       data: {
         name: epicName,
         description: "Smoke-test epic for quick assignment coverage.",
@@ -103,9 +105,50 @@ test.describe("critical UI smoke flows", () => {
     await quickAssigneeUpdateRequest;
     await expect(page.locator("[data-task-assignee-name='true']")).toBeVisible();
 
+    const mentionUsername = `mention${Date.now().toString().slice(-8)}`;
+    const mentionableUser = await prisma.user.create({
+      data: {
+        email: `${mentionUsername}@nexusdash.local`,
+        name: "Mention Test User",
+        username: mentionUsername,
+        usernameDiscriminator: "1240",
+        emailVerified: new Date(),
+      },
+      select: { id: true },
+    });
+    await prisma.projectMembership.create({
+      data: {
+        projectId: projectIdValue,
+        userId: mentionableUser.id,
+        role: "editor",
+      },
+    });
+
     await page.getByRole("button", { name: "Task options" }).click();
     await page.getByRole("button", { name: /^Edit$/ }).click();
     await page.getByLabel("Task title").fill(editedTaskTitle);
+    const descriptionEditor = page.locator("[id^='task-description-editor-']").first();
+    await descriptionEditor.click();
+    await page.keyboard.type("@");
+    await expect(page.getByRole("option").first()).toBeVisible();
+    await page.getByRole("option").first().click();
+    await expect
+      .poll(() =>
+        descriptionEditor.evaluate((element) =>
+          (element.textContent ?? "")
+            .split("")
+            .some((character) => character.charCodeAt(0) === 160)
+        )
+      )
+      .toBe(true);
+    await page.keyboard.type("after mention");
+    await expect
+      .poll(() =>
+        descriptionEditor.evaluate((element) =>
+          (element.textContent ?? "").includes("\u00a0after mention")
+        )
+      )
+      .toBe(true);
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByRole("button", { name: "Task options" })).toBeVisible();
     const taskSavedToast = page.getByText("Task saved.");

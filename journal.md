@@ -1027,3 +1027,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-124 second follow-up passed focused mention/editor suites, full local validation, the new worktree script smoke, and task-modal Playwright smoke using the repo-compatible Node 20.19 runtime shim.
 - Evidence: Passed: `npm test -- --run tests/lib/mention.test.ts`; `npm test -- --run tests/components/rich-text-editor.test.ts`; `npm run lint`; `npm run worktree:create -- TASK-124 comment-mentions` (reported the branch already checked out in the active PR worktree and the expected future `../nexus_dash_task124` path); `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... npm run test:coverage`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build`; root `.env`-backed `npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "task lifecycle"`.
+
+### 2026-05-02
+- Type: Execution
+- Summary: TASK-124 mention spacing follow-up fixed the remaining task-description edit-mode mismatch after Playwright confirmed the selected mention still rendered with a regular trailing space in the live editor.
+- Evidence: Root cause was the rich-text editor using a normal space after a non-editable mention span, which contenteditable can render as an invisible/unhelpful end-of-block separator; the comment textarea did not have that DOM boundary problem. The editor now uses an editor-only non-breaking separator after mention spans, normalizes it back to a regular space during serialization, and keeps loaded mention separators visible when descriptions re-enter edit mode.
+
+### 2026-05-02
+- Type: Validation
+- Summary: TASK-124 mention spacing follow-up passed focused editor/mention tests, lint, full local tests and coverage, production build, and browser smoke with a real task-description mention selection.
+- Evidence: Passed with Node `20.19.0` shim: `npm test -- --run tests/components/rich-text-editor.test.ts`; `npm test -- --run tests/lib/mention.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... npm run test:coverage`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build`; fresh-port root `.env`-backed `PORT=3012 npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "task lifecycle"` verified mention selection creates a non-breaking separator and allows typing after it.

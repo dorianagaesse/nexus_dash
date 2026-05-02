@@ -438,6 +438,32 @@ describe("rich-text-editor", () => {
     });
   });
 
+  test("renders a visible editor-only separator after highlighted mentions", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>@alice </p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const mention = editor?.querySelector<HTMLElement>("[data-editor-mention='true']");
+    const trailingTextNode = mention?.nextSibling;
+
+    expect(mention?.textContent).toBe("@alice");
+    expect(trailingTextNode?.nodeType).toBe(Node.TEXT_NODE);
+    expect((trailingTextNode as Text).data.startsWith("\u00a0")).toBe(true);
+    expect(container.querySelector("output[data-testid='value']")?.textContent).toBe(
+      "<p>@alice </p>"
+    );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("serializes mention highlights as plain mention text", () => {
     const serializedHtml = serializeEditorRichTextHtml(
       '<p>Hello <span data-editor-mention="true" class="mention">@alice#1234</span></p>'
@@ -452,6 +478,14 @@ describe("rich-text-editor", () => {
     );
 
     expect(serializedHtml).toBe("<p>Hello @alice#1234</p>");
+  });
+
+  test("serializes editor-only mention separators as regular spaces", () => {
+    const serializedHtml = serializeEditorRichTextHtml(
+      '<p><span data-editor-mention="true" data-mention-raw="@alice" class="mention">@alice</span>&nbsp;</p>'
+    );
+
+    expect(serializedHtml).toBe("<p>@alice </p>");
   });
 
   test("removes a complete mention when Backspace is pressed after its separator", async () => {
