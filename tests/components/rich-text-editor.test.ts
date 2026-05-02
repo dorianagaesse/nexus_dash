@@ -127,6 +127,25 @@ function selectionIsAtStartOfElement(element: HTMLElement | null) {
   return selection.anchorNode === element && selection.anchorOffset === 0;
 }
 
+function selectionIsBeforeNode(node: Node | null) {
+  const selection = window.getSelection();
+  const parent = node?.parentNode;
+
+  if (!selection?.anchorNode || !node || !parent) {
+    return false;
+  }
+
+  return (
+    selection.anchorNode === parent &&
+    selection.anchorOffset === Array.from(parent.childNodes).indexOf(node)
+  );
+}
+
+function selectionIsInTextNode(node: Node | null, offset: number) {
+  const selection = window.getSelection();
+  return selection?.anchorNode === node && selection.anchorOffset === offset;
+}
+
 function selectionIsAfterStructuredBlock(rowElement: HTMLElement | null) {
   const afterAnchor = rowElement?.querySelector(
     EDITOR_BLOCK_AFTER_ANCHOR_SELECTOR
@@ -433,6 +452,111 @@ describe("rich-text-editor", () => {
     );
 
     expect(serializedHtml).toBe("<p>Hello @alice#1234</p>");
+  });
+
+  test("removes a complete mention when Backspace is pressed after its separator", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>Hello @alice </p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const mention = editor?.querySelector<HTMLElement>("[data-editor-mention='true']");
+    const trailingTextNode = mention?.nextSibling;
+
+    expect(editor).not.toBeNull();
+    expect(mention).not.toBeNull();
+    expect(trailingTextNode?.nodeType).toBe(Node.TEXT_NODE);
+
+    selectTextPosition(trailingTextNode as Node, 1);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "Backspace" });
+    });
+
+    expect(editor?.querySelector("[data-editor-mention='true']")).toBeNull();
+    expect(container.querySelector("output[data-testid='value']")?.textContent).toBe(
+      "<p>Hello </p>"
+    );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("does not remove a leading mention when Backspace is pressed before it", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>@alice </p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const paragraph = editor?.querySelector("p");
+    const mention = editor?.querySelector<HTMLElement>("[data-editor-mention='true']");
+
+    expect(editor).not.toBeNull();
+    expect(paragraph).not.toBeNull();
+    expect(mention).not.toBeNull();
+
+    selectNodeOffset(paragraph as Node, 0);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "Backspace" });
+    });
+
+    expect(editor?.querySelector("[data-editor-mention='true']")).not.toBeNull();
+    expect(container.querySelector("output[data-testid='value']")?.textContent).toBe(
+      "<p>@alice </p>"
+    );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("moves left and right cleanly across a highlighted mention", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>Hello @alice </p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const mention = editor?.querySelector<HTMLElement>("[data-editor-mention='true']");
+    const trailingTextNode = mention?.nextSibling;
+
+    expect(editor).not.toBeNull();
+    expect(mention).not.toBeNull();
+    expect(trailingTextNode?.nodeType).toBe(Node.TEXT_NODE);
+
+    selectTextPosition(trailingTextNode as Node, 1);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "ArrowLeft", ctrlKey: true });
+    });
+
+    expect(selectionIsBeforeNode(mention as Node)).toBe(true);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "ArrowRight", ctrlKey: true });
+    });
+
+    expect(selectionIsInTextNode(trailingTextNode as Node, 1)).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
   });
 
   test("wraps only the current visual line in a code block when there is no selection", async () => {

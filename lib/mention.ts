@@ -153,6 +153,44 @@ export function replaceMentionTrigger(input: {
 }
 
 /**
+ * Remove the complete mention immediately before the cursor.
+ *
+ * This is used by plain textarea composers to match rich editor mention-chip
+ * deletion: pressing Backspace after `@alice ` removes the whole mention plus
+ * the separator, not just one character.
+ */
+export function removeMentionBeforeCursor(input: {
+  text: string;
+  cursorPosition: number;
+}): MentionTriggerReplacement | null {
+  const text = typeof input.text === "string" ? input.text : "";
+  const cursorPosition = Math.max(0, Math.min(input.cursorPosition, text.length));
+  const { mentions } = parseMentions(text);
+
+  let targetMention: ParsedMention | null = null;
+
+  for (const mention of mentions) {
+    if (mention.endIndex > cursorPosition) {
+      continue;
+    }
+
+    const textBetweenMentionAndCursor = text.slice(mention.endIndex, cursorPosition);
+    if (/^\s*$/.test(textBetweenMentionAndCursor)) {
+      targetMention = mention;
+    }
+  }
+
+  if (!targetMention) {
+    return null;
+  }
+
+  return {
+    value: `${text.slice(0, targetMention.startIndex)}${text.slice(cursorPosition)}`,
+    cursorPosition: targetMention.startIndex,
+  };
+}
+
+/**
  * Check if a username matches a mention pattern.
  */
 export function isValidMentionUsername(username: string): boolean {

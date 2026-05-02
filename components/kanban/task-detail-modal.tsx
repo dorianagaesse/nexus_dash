@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Archive,
@@ -64,7 +64,7 @@ import { getEpicColorFromName } from "@/lib/epic";
 import { cn } from "@/lib/utils";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import { renderContentWithMentions } from "@/lib/content-with-mentions";
-import { replaceMentionTrigger } from "@/lib/mention";
+import { removeMentionBeforeCursor, replaceMentionTrigger } from "@/lib/mention";
 import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
 import {
   ATTACHMENT_KIND_FILE,
@@ -1155,6 +1155,37 @@ function TaskReadOnlyContent({
     });
   };
 
+  const handleCommentInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Backspace") {
+      return;
+    }
+
+    const textarea = event.currentTarget;
+    const selectionStart = textarea.selectionStart ?? textarea.value.length;
+    const selectionEnd = textarea.selectionEnd ?? selectionStart;
+    if (selectionStart !== selectionEnd) {
+      return;
+    }
+
+    const replacement = removeMentionBeforeCursor({
+      text: newTaskComment,
+      cursorPosition: selectionStart,
+    });
+    if (!replacement) {
+      return;
+    }
+
+    event.preventDefault();
+    onNewTaskCommentChange(replacement.value);
+    setCommentCursorPosition(replacement.cursorPosition);
+
+    window.requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(replacement.cursorPosition, replacement.cursorPosition);
+      syncCommentHighlightScroll(textarea);
+    });
+  };
+
   useEffect(() => {
     const textarea = commentInputRef.current;
     if (!textarea) {
@@ -1353,6 +1384,7 @@ function TaskReadOnlyContent({
                     syncCommentHighlightScroll(event.target);
                   }}
                   onClick={(event) => syncCommentCursorPosition(event.currentTarget)}
+                  onKeyDown={handleCommentInputKeyDown}
                   onKeyUp={(event) => syncCommentCursorPosition(event.currentTarget)}
                   onScroll={(event) => syncCommentHighlightScroll(event.currentTarget)}
                   maxLength={4000}

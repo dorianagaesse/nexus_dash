@@ -15,8 +15,14 @@ mention hover cards behave consistently across the task modal.
 - Ensure selecting a mention inserts a usable separator after the selected user.
 - Keep the rich-text editor caret outside highlighted mention spans so typing a
   space or more text after a mention does not jump to the start of the editor.
+- Align task-description edit mode with comment composer behavior: auto-space
+  after mention selection, natural arrow/word navigation around highlighted
+  mentions, and fast whole-mention deletion when backspacing at the mention
+  boundary.
 - Keep comment composer highlighting visually aligned with the actual textarea
   caret.
+- Add fast whole-mention deletion to comments while preserving normal character
+  deletion once text has been typed after the mention.
 - Make task-description mention hover cards dismiss reliably when the pointer
   leaves the mention in any direction.
 - Preserve reusable mention parsing, autocomplete, rendering, and tooltip
@@ -29,14 +35,20 @@ mention hover cards behave consistently across the task modal.
    the caret at the expected position and allows continued typing.
 3. Selecting a mention in a task comment inserts the mention plus one trailing
    separator and leaves the textarea caret after that separator.
-4. Comment composer highlight rendering does not visually shift text away from
+4. Backspace at a mention boundary removes the whole mention consistently in
+   task-description edit mode and task comments.
+5. Arrow and Ctrl+Arrow navigation can move before and after task-description
+   mentions without trapping the caret.
+6. Comment composer highlight rendering does not visually shift text away from
    the real textarea caret.
-5. Task-description mention hover cards disappear when the pointer leaves the
+7. Task-description mention hover cards disappear when the pointer leaves the
    mention, regardless of direction.
-6. Existing mention parsing, notification, and rendering tests remain green.
+8. Existing mention parsing, notification, and rendering tests remain green.
 
 ## Definition Of Done
-- `agent.md` documents the dedicated worktree expectation for multi-agent work.
+- `agent.md` documents the dedicated worktree expectation for multi-agent work,
+  and the root worktree script creates `../nexus_dash_taskXXX` directories for
+  task branches.
 - Root causes for the reported mention issues are fixed in shared mention/editor
   paths where possible.
 - Focused mention/editor tests are updated for the changed behavior.

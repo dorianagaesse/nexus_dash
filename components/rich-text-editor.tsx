@@ -514,6 +514,167 @@ function moveCaretAfter(node: Node | null) {
   selection.addRange(range);
 }
 
+function moveCaretBefore(node: Node | null) {
+  if (!node) {
+    return;
+  }
+
+  const selection = window.getSelection();
+  if (!selection) {
+    return;
+  }
+
+  const range = document.createRange();
+  range.setStartBefore(node);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function isEditorMentionElement(node: Node | null): node is HTMLElement {
+  return node instanceof HTMLElement && node.matches(EDITOR_MENTION_SELECTOR);
+}
+
+function isWhitespaceTextNode(node: Node | null): node is Text {
+  return node?.nodeType === Node.TEXT_NODE && /^\s*$/.test(node.textContent ?? "");
+}
+
+function getPreviousNonEmptySibling(node: Node | null): Node | null {
+  let sibling = node?.previousSibling ?? null;
+  while (isWhitespaceTextNode(sibling) && (sibling.textContent ?? "").length === 0) {
+    sibling = sibling.previousSibling;
+  }
+  return sibling;
+}
+
+function getNextNonEmptySibling(node: Node | null): Node | null {
+  let sibling = node?.nextSibling ?? null;
+  while (isWhitespaceTextNode(sibling) && (sibling.textContent ?? "").length === 0) {
+    sibling = sibling.nextSibling;
+  }
+  return sibling;
+}
+
+function getMentionBeforeCaret(range: Range): {
+  mentionElement: HTMLElement;
+  trailingTextNode: Text | null;
+  trailingTextOffset: number;
+} | null {
+  if (!range.collapsed) {
+    return null;
+  }
+
+  const startContainer = range.startContainer;
+
+  if (startContainer.nodeType === Node.TEXT_NODE) {
+    const textNode = startContainer as Text;
+    const textBeforeCaret = textNode.data.slice(0, range.startOffset);
+    if (/\S/.test(textBeforeCaret)) {
+      return null;
+    }
+
+    const previousSibling = getPreviousNonEmptySibling(textNode);
+    if (isEditorMentionElement(previousSibling)) {
+      return {
+        mentionElement: previousSibling,
+        trailingTextNode: textNode,
+        trailingTextOffset: range.startOffset,
+      };
+    }
+  }
+
+  if (startContainer instanceof Element) {
+    let candidate =
+      range.startOffset > 0 ? (startContainer.childNodes[range.startOffset - 1] ?? null) : null;
+
+    while (isWhitespaceTextNode(candidate)) {
+      const previousSibling = candidate.previousSibling;
+      if (!previousSibling) {
+        break;
+      }
+      candidate = previousSibling;
+    }
+
+    if (isEditorMentionElement(candidate)) {
+      return {
+        mentionElement: candidate,
+        trailingTextNode: null,
+        trailingTextOffset: 0,
+      };
+    }
+  }
+
+  return null;
+}
+
+function getMentionAfterCaret(range: Range): HTMLElement | null {
+  if (!range.collapsed) {
+    return null;
+  }
+
+  const startContainer = range.startContainer;
+
+  if (startContainer.nodeType === Node.TEXT_NODE) {
+    const textNode = startContainer as Text;
+    const textAfterCaret = textNode.data.slice(range.startOffset);
+    if (/\S/.test(textAfterCaret)) {
+      return null;
+    }
+
+    const nextSibling = getNextNonEmptySibling(textNode);
+    return isEditorMentionElement(nextSibling) ? nextSibling : null;
+  }
+
+  if (startContainer instanceof Element) {
+    let candidate = startContainer.childNodes[range.startOffset] ?? null;
+
+    while (isWhitespaceTextNode(candidate)) {
+      const nextSibling = candidate.nextSibling;
+      if (!nextSibling) {
+        break;
+      }
+      candidate = nextSibling;
+    }
+
+    return isEditorMentionElement(candidate) ? candidate : null;
+  }
+
+  return null;
+}
+
+function ensureMentionTrailingSpace(mentionElement: HTMLElement): Text {
+  const nextSibling = mentionElement.nextSibling;
+  if (nextSibling?.nodeType === Node.TEXT_NODE) {
+    const textNode = nextSibling as Text;
+    if (!textNode.data.startsWith(" ")) {
+      textNode.insertData(0, " ");
+    }
+    return textNode;
+  }
+
+  const textNode = mentionElement.ownerDocument.createTextNode(" ");
+  mentionElement.after(textNode);
+  return textNode;
+}
+
+function moveCaretAfterMention(mentionElement: HTMLElement) {
+  const trailingTextNode = ensureMentionTrailingSpace(mentionElement);
+  selectTextPosition(trailingTextNode, 1);
+}
+
+function selectTextPosition(textNode: Text, offset: number) {
+  const selection = window.getSelection();
+  if (!selection) {
+    return;
+  }
+
+  const range = document.createRange();
+  range.setStart(textNode, Math.max(0, Math.min(offset, textNode.data.length)));
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
 function moveCaretToStart(node: Node) {
   const selection = window.getSelection();
   if (!selection) {
@@ -1717,7 +1878,11 @@ export function RichTextEditor({
       return;
     }
 
-    const mentionText = `${mentionValue} `;
+    const documentRef = editor.ownerDocument;
+    const marker = documentRef.createElement("span");
+    marker.dataset.editorCaretMarker = "true";
+    marker.textContent = EDITOR_CARET_ANCHOR;
+
     const replacementRange = document.createRange();
     const replacementEndOffset =
       /\s/.test(targetMention.textNode.data[targetMention.endOffset] ?? "")
@@ -1727,21 +1892,19 @@ export function RichTextEditor({
     replacementRange.setEnd(targetMention.textNode, replacementEndOffset);
     replacementRange.deleteContents();
 
-    const mentionTextNode = document.createTextNode(mentionText);
-    replacementRange.insertNode(mentionTextNode);
+    const fragment = documentRef.createDocumentFragment();
+    fragment.append(
+      documentRef.createTextNode(mentionValue),
+      documentRef.createTextNode(" "),
+      marker
+    );
+    replacementRange.insertNode(fragment);
 
-    const selection = window.getSelection();
-    if (selection) {
-      const nextRange = document.createRange();
-      nextRange.setStart(mentionTextNode, mentionText.length);
-      nextRange.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(nextRange);
-    }
+    highlightMentionsInEditor(editor);
+    restoreEditorSelectionFromMarker(editor, marker);
 
     recordHistoryFromSnapshot(beforeSnapshot);
     emitCurrentValue();
-    highlightMentionsInEditor(editor, { preserveSelection: true });
     closeMentionAutocomplete();
   };
 
@@ -1988,6 +2151,44 @@ export function RichTextEditor({
 
     const range = getSelectionRange(editor);
     if (!range) {
+      return;
+    }
+
+    const mentionBeforeCaret = getMentionBeforeCaret(range);
+    if (mentionBeforeCaret) {
+      if (isBackspaceKey(event)) {
+        event.preventDefault();
+        const beforeSnapshot = createEditorHistorySnapshot(editor);
+        const marker = editor.ownerDocument.createElement("span");
+        marker.dataset.editorCaretMarker = "true";
+        marker.textContent = EDITOR_CARET_ANCHOR;
+
+        mentionBeforeCaret.mentionElement.before(marker);
+        mentionBeforeCaret.mentionElement.remove();
+        if (mentionBeforeCaret.trailingTextNode) {
+          mentionBeforeCaret.trailingTextNode.deleteData(0, mentionBeforeCaret.trailingTextOffset);
+          if (mentionBeforeCaret.trailingTextNode.data.length === 0) {
+            mentionBeforeCaret.trailingTextNode.remove();
+          }
+        }
+
+        restoreEditorSelectionFromMarker(editor, marker);
+        recordHistoryFromSnapshot(beforeSnapshot);
+        emitCurrentValue();
+        return;
+      }
+
+      if (isArrowLeftKey(event)) {
+        event.preventDefault();
+        moveCaretBefore(mentionBeforeCaret.mentionElement);
+        return;
+      }
+    }
+
+    const mentionAfterCaret = getMentionAfterCaret(range);
+    if (mentionAfterCaret && isArrowRightKey(event)) {
+      event.preventDefault();
+      moveCaretAfterMention(mentionAfterCaret);
       return;
     }
 

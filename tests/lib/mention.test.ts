@@ -6,6 +6,7 @@ import {
   buildMentionString,
   getActiveMentionTrigger,
   isValidMentionUsername,
+  removeMentionBeforeCursor,
   replaceMentionTrigger,
 } from "@/lib/mention";
 
@@ -241,6 +242,41 @@ describe("replaceMentionTrigger", () => {
       value: "@alice ",
       cursorPosition: 7,
     });
+  });
+});
+
+describe("removeMentionBeforeCursor", () => {
+  it("removes the complete mention and trailing separator before the cursor", () => {
+    expect(
+      removeMentionBeforeCursor({
+        text: "hello @alice more",
+        cursorPosition: "hello @alice ".length,
+      })
+    ).toEqual({
+      value: "hello more",
+      cursorPosition: 6,
+    });
+  });
+
+  it("removes a mention without a trailing separator", () => {
+    expect(
+      removeMentionBeforeCursor({
+        text: "hello @alice",
+        cursorPosition: "hello @alice".length,
+      })
+    ).toEqual({
+      value: "hello ",
+      cursorPosition: 6,
+    });
+  });
+
+  it("does not remove a mention when regular text sits between it and the cursor", () => {
+    expect(
+      removeMentionBeforeCursor({
+        text: "hello @alice there",
+        cursorPosition: "hello @alice there".length,
+      })
+    ).toBeNull();
   });
 });
 

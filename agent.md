@@ -32,11 +32,29 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
 
 ## 3. Execution Contract
 
-- One task per branch and one task per PR.
-- Start each task on a dedicated branch before implementation work begins.
-- When multiple agents are active, do implementation work in a dedicated
-  worktree named for the PR or task (for example `../nexus_dash_pr211`) rather
-  than sharing the root checkout.
+- One issue maps to one backlog task. If work starts from a GitHub issue,
+  create or identify the matching `TASK-XXX` entry in `tasks/backlog.md` before
+  implementation.
+- One task maps to exactly one branch, one pull request, and one worktree:
+  `1 task = 1 branch = 1 PR = 1 worktree`.
+- Agents must create or enter the task worktree before coding. Use the
+  cross-platform root script:
+
+```bash
+npm run worktree:create -- TASK-124 comment-mentions
+```
+
+PowerShell uses the same command:
+
+```pwsh
+npm run worktree:create -- TASK-124 comment-mentions
+```
+
+- Worktree directories are created one level above the project root and must
+  follow `nexus_dash_taskXXX`, for example `../nexus_dash_task124`.
+- The script creates the task branch when needed, reuses an existing local or
+  remote branch when present, and keeps the root checkout free for coordination.
+- Start each task on its dedicated branch before implementation work begins.
 - Branch name must match CI rule: `feature/*`, `fix/*`, `refactor/*`, `docs/*`, or `chore/*`.
 - Dependabot-authored PRs are the one exception and may use `dependabot/*`.
 - Keep PRs single-purpose; do not mix unrelated backlog tasks.

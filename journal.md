@@ -1012,3 +1012,18 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-124 follow-up passed focused mention/editor validation, full local test and coverage suites, production build, and task-modal Playwright smoke using the repo-compatible Node 20.19 runtime shim.
 - Evidence: Local default Node is `20.17.0`, so validation was run with `npx -y -p node@20.19.0 -p npm@10.8.2 ...`. Passed: `npm test -- --run tests/lib/mention.test.ts`; `npm test -- --run tests/components/rich-text-editor.test.ts`; `npm test -- --run tests/components/rich-text-content.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... npm run test:coverage`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build`; root `.env`-backed `npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "task lifecycle"` passed against the built app.
+
+### 2026-05-02
+- Type: Execution
+- Summary: TASK-124 second PR #211 follow-up aligned task-description edit-mode mention behavior with comments while adding whole-mention fast delete to both surfaces.
+- Evidence: Added reusable `removeMentionBeforeCursor` mention deletion logic for textareas; updated the rich-text editor so selected mentions create a real trailing space, caret movement can cross highlighted mention spans in both directions, and Backspace at a mention boundary removes the whole mention plus separator; wired comment input Backspace to the same fast-delete behavior; added regression coverage for mention selection spacing, whole-mention deletion, and Ctrl+Arrow navigation.
+
+### 2026-05-02
+- Type: Execution
+- Summary: Added cross-platform task worktree automation and clarified the multi-agent task workflow.
+- Evidence: Added `create-worktree.mjs` and `npm run worktree:create -- TASK-XXX <slug-or-branch>`; updated `agent.md` to require `1 issue = 1 task` and `1 task = 1 branch = 1 PR = 1 worktree`, with task worktrees created one directory above the root as `../nexus_dash_taskXXX`.
+
+### 2026-05-02
+- Type: Validation
+- Summary: TASK-124 second follow-up passed focused mention/editor suites, full local validation, the new worktree script smoke, and task-modal Playwright smoke using the repo-compatible Node 20.19 runtime shim.
+- Evidence: Passed: `npm test -- --run tests/lib/mention.test.ts`; `npm test -- --run tests/components/rich-text-editor.test.ts`; `npm run lint`; `npm run worktree:create -- TASK-124 comment-mentions` (reported the branch already checked out in the active PR worktree and the expected future `../nexus_dash_task124` path); `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... npm run test:coverage`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build`; root `.env`-backed `npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "task lifecycle"`.
