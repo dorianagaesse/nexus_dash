@@ -32,7 +32,7 @@ const TOKEN_BLOCK_MARKERS = [
 ];
 const HIDDEN_TOKEN_VALUE_MASK = "********";
 const RICH_TEXT_MENTION_CLASS =
-  "rounded-md bg-primary/15 px-1 py-0.5 font-medium text-primary not-italic";
+  "inline-block rounded-md bg-primary/15 px-1 py-0.5 align-baseline font-medium text-primary not-italic";
 const RICH_TEXT_MENTION_SELECTOR = "[data-rich-mention='true']";
 const COPY_ICON_SVG =
   '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
@@ -78,6 +78,41 @@ function buildCopyButton(
   const button = buildIconButton(documentRef, "copy", ariaLabel, COPY_ICON_SVG);
   button.dataset.richCopyText = copyText;
   return button;
+}
+
+const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? React.useEffect : React.useLayoutEffect;
+
+function isPointInsideElementClientRects(
+  element: HTMLElement,
+  point: { clientX: number; clientY: number }
+): boolean {
+  const rects = Array.from(element.getClientRects());
+  const targetRects =
+    rects.length > 0 ? rects : [element.getBoundingClientRect()];
+
+  return targetRects.some(
+    (rect) =>
+      point.clientX >= rect.left &&
+      point.clientX <= rect.right &&
+      point.clientY >= rect.top &&
+      point.clientY <= rect.bottom
+  );
+}
+
+function isPointerOverMentionElement(
+  element: HTMLElement,
+  point: { clientX: number; clientY: number }
+): boolean {
+  if (!isPointInsideElementClientRects(element, point)) {
+    return false;
+  }
+
+  const pointedElement = element.ownerDocument.elementFromPoint(
+    point.clientX,
+    point.clientY
+  );
+  return pointedElement === element || element.contains(pointedElement);
 }
 
 function setCopyButtonState(
@@ -313,9 +348,10 @@ export function RichTextContent({
     user: MentionDisplayUser;
     anchorRect: DOMRect;
   } | null>(null);
+  const activeMentionElementRef = React.useRef<HTMLElement | null>(null);
   const resetTimeoutRef = React.useRef<number | null>(null);
 
-  React.useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     setIsMounted(true);
   }, []);
 
@@ -406,6 +442,7 @@ export function RichTextContent({
       mentionUsers.length === 0 ||
       !(target instanceof HTMLElement)
     ) {
+      activeMentionElementRef.current = null;
       setMentionTooltip(null);
       return;
     }
@@ -414,18 +451,16 @@ export function RichTextContent({
       RICH_TEXT_MENTION_SELECTOR
     ) as HTMLElement | null;
     if (!mentionElement || !currentTarget.contains(mentionElement)) {
+      activeMentionElementRef.current = null;
       setMentionTooltip(null);
       return;
     }
 
     if (pointer) {
-      const rect = mentionElement.getBoundingClientRect();
       const isInsideMention =
-        pointer.clientX >= rect.left &&
-        pointer.clientX <= rect.right &&
-        pointer.clientY >= rect.top &&
-        pointer.clientY <= rect.bottom;
+        isPointInsideElementClientRects(mentionElement, pointer);
       if (!isInsideMention) {
+        activeMentionElementRef.current = null;
         setMentionTooltip(null);
         return;
       }
@@ -444,10 +479,12 @@ export function RichTextContent({
       mentionUsers
     );
     if (!user) {
+      activeMentionElementRef.current = null;
       setMentionTooltip(null);
       return;
     }
 
+    activeMentionElementRef.current = mentionElement;
     setMentionTooltip({
       user,
       anchorRect: mentionElement.getBoundingClientRect(),
@@ -468,8 +505,38 @@ export function RichTextContent({
       return;
     }
 
+    activeMentionElementRef.current = null;
     setMentionTooltip(null);
   };
+
+  React.useEffect(() => {
+    if (!mentionTooltip) {
+      return;
+    }
+
+    const handleDocumentPointerMove = (event: PointerEvent) => {
+      const activeMentionElement = activeMentionElementRef.current;
+      if (
+        !activeMentionElement ||
+        !isPointerOverMentionElement(activeMentionElement, {
+          clientX: event.clientX,
+          clientY: event.clientY,
+        })
+      ) {
+        activeMentionElementRef.current = null;
+        setMentionTooltip(null);
+      }
+    };
+
+    document.addEventListener("pointermove", handleDocumentPointerMove, true);
+    return () => {
+      document.removeEventListener(
+        "pointermove",
+        handleDocumentPointerMove,
+        true
+      );
+    };
+  }, [mentionTooltip]);
 
   return (
     <>
@@ -499,6 +566,7 @@ export function RichTextContent({
         }
         onMouseOutCapture={handleMentionMouseOut}
         onMouseLeave={(event) => {
+          activeMentionElementRef.current = null;
           setMentionTooltip(null);
           onMouseLeave?.(event);
         }}
@@ -506,6 +574,7 @@ export function RichTextContent({
           handleMentionHover(event.target, event.currentTarget)
         }
         onBlur={(event) => {
+          activeMentionElementRef.current = null;
           setMentionTooltip(null);
           onBlur?.(event);
         }}

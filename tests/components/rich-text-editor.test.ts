@@ -480,6 +480,57 @@ describe("rich-text-editor", () => {
     expect(serializedHtml).toBe("<p>Hello @alice#1234</p>");
   });
 
+  test("keeps existing discriminator mentions when later description edits are serialized", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>test @dorian2#6425 dedede</p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>(
+      '[contenteditable="true"]'
+    );
+    const paragraph = editor?.querySelector("p");
+    const existingMention = editor?.querySelector<HTMLElement>(
+      "[data-editor-mention='true']"
+    );
+
+    expect(existingMention?.textContent).toBe("@dorian2");
+    expect(existingMention?.dataset.mentionRaw).toBe("@dorian2#6425");
+
+    paragraph?.append(document.createTextNode(" @dorianagaesse#2209 edit 1"));
+
+    await act(async () => {
+      dispatchBeforeInput(editor);
+      editor?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    const persistedValue =
+      container.querySelector("output[data-testid='value']")?.textContent;
+    const renderedMentions = Array.from(
+      editor?.querySelectorAll<HTMLElement>("[data-editor-mention='true']") ??
+        []
+    );
+
+    expect(persistedValue).toBe(
+      "<p>test @dorian2#6425 dedede @dorianagaesse#2209 edit 1</p>"
+    );
+    expect(renderedMentions.map((mention) => mention.textContent)).toEqual([
+      "@dorian2",
+      "@dorianagaesse",
+    ]);
+    expect(
+      renderedMentions.map((mention) => mention.dataset.mentionRaw)
+    ).toEqual(["@dorian2#6425", "@dorianagaesse#2209"]);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("serializes editor-only mention separators as regular spaces", () => {
     const serializedHtml = serializeEditorRichTextHtml(
       '<p><span data-editor-mention="true" data-mention-raw="@alice" class="mention">@alice</span>&nbsp;</p>'

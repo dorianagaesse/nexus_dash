@@ -1077,3 +1077,18 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-124 mention regression follow-up passed focused mention/comment/rich-text validation, lint, and production build.
 - Evidence: Passed: `npx vitest run tests/lib/mention.test.ts tests/api/task-comments.route.test.ts`; Node 20.19 shim `npm exec -- vitest run tests/components/rich-text-content.test.ts`; `npm run lint`; `npm run build` with local placeholder `DATABASE_URL`, `DIRECT_URL`, `AGENT_TOKEN_SIGNING_SECRET`, `RESEND_API_KEY`, and `GOOGLE_TOKEN_ENCRYPTION_KEY` values.
+
+### 2026-05-03
+- Type: Execution
+- Summary: TASK-124 read-mode description follow-up fixed the still-reproducible vertical tooltip dismissal gap and added regression coverage for edited plain-text descriptions retaining highlighted discriminator mentions.
+- Evidence: Root cause was the read-only rich-text mention hover relying on task-description React mouse transitions, while inline mention boxes could keep stale hover state when the pointer left vertically without a reliable mention-to-container transition. Rich mentions now render as tight inline-block targets, track the active mention element, and clear via a document-level pointermove guard when the pointer is no longer over that exact mention. Added coverage for the screenshot-shaped description text `test @dorian2#6425 dedede\nedit 1`, plus editor serialization coverage proving an existing `@dorian2#6425` mention keeps its raw discriminator while later edits add another mention.
+
+### 2026-05-03
+- Type: Investigation
+- Summary: TASK-124 has required unusual back-and-forth because the PR grew from comment mention notifications into a cross-surface mention/editor overhaul with 27 commits and broad UI/API/test ownership.
+- Evidence: PR #211 currently has 27 commits. The branch touches comment creation and notification resolution, member search, mention parsing, autocomplete layout, comment textarea highlighting, task-description rich-text rendering, a custom contenteditable editor, E2E smoke coverage, and task/worktree docs. The highest-churn area is `components/rich-text-editor.tsx`, where browser-native `contenteditable` behavior around non-editable mention spans, hidden discriminators, separators, Backspace/Arrow/Enter navigation, and serialization produced several follow-up-only edge cases that comments did not hit because comments use a plain textarea.
+
+### 2026-05-03
+- Type: Validation
+- Summary: TASK-124 read-mode description follow-up passed focused mention/editor suites, lint, full tests, coverage, and production build.
+- Evidence: Passed with Node `20.19.0` shim: `npm exec -- vitest run tests/components/rich-text-content.test.ts`; `npm exec -- vitest run tests/components/rich-text-editor.test.ts`; `npm exec -- vitest run tests/lib/mention.test.ts tests/api/task-comments.route.test.ts tests/components/rich-text-content.test.ts tests/components/rich-text-editor.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm exec -- vitest run`; same env `npm exec -- vitest run --coverage`; same env `npm run build`.

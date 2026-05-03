@@ -92,6 +92,34 @@ describe("rich-text-content", () => {
     expect(mention?.textContent).toBe("@alice");
   });
 
+  test("marks mentions in coerced task description text after edits", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "test @dorian2#6425 dedede\nedit 1",
+        mentionUsers: [
+          {
+            id: "user-dorian",
+            displayName: "Dorian Two",
+            usernameTag: "dorian2#6425",
+            avatarSeed: "user-dorian",
+          },
+        ],
+      })
+    );
+
+    const mention = container.querySelector<HTMLElement>("[data-rich-mention='true']");
+    expect(mention?.textContent).toBe("@dorian2");
+    expect(mention?.dataset.mentionDiscriminator).toBe("6425");
+    expect(container.textContent).not.toContain("@dorian2#6425");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("shows a user hover card for rich-text mentions", async () => {
     const { container, root } = createTestRenderer();
     await renderWithRoot(
@@ -195,6 +223,77 @@ describe("rich-text-content", () => {
     await act(async () => {
       activeMention?.dispatchEvent(
         new MouseEvent("mousemove", {
+          bubbles: true,
+          clientX: 20,
+          clientY: 46,
+        })
+      );
+    });
+
+    expect(document.body.textContent).not.toContain("Alice Example");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("hides a rich-text mention hover card on document pointer movement outside the mention", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "<p>Hello @alice#1234</p>",
+        mentionUsers: [
+          {
+            id: "user-alice",
+            displayName: "Alice Example",
+            usernameTag: "alice#1234",
+            avatarSeed: "user-alice",
+          },
+        ],
+      })
+    );
+
+    const mention = container.querySelector<HTMLElement>("[data-rich-mention='true']");
+    expect(mention).not.toBeNull();
+    const mentionRect = {
+      x: 10,
+      y: 10,
+      top: 10,
+      right: 110,
+      bottom: 30,
+      left: 10,
+      width: 100,
+      height: 20,
+      toJSON: () => ({}),
+    } as DOMRect;
+    vi.spyOn(mention as HTMLElement, "getBoundingClientRect").mockReturnValue(
+      mentionRect
+    );
+    vi.spyOn(mention as HTMLElement, "getClientRects").mockReturnValue([
+      mentionRect,
+    ] as unknown as DOMRectList);
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => container),
+    });
+
+    await act(async () => {
+      mention?.dispatchEvent(
+        new MouseEvent("mouseover", {
+          bubbles: true,
+          clientX: 20,
+          clientY: 20,
+        })
+      );
+    });
+
+    expect(document.body.textContent).toContain("Alice Example");
+
+    await act(async () => {
+      document.dispatchEvent(
+        new MouseEvent("pointermove", {
           bubbles: true,
           clientX: 20,
           clientY: 46,
