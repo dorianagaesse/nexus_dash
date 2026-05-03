@@ -141,11 +141,17 @@ test.describe("critical UI smoke flows", () => {
         )
       )
       .toBe(true);
+    await page.keyboard.press("Enter");
+    await expect
+      .poll(() =>
+        descriptionEditor.evaluate((element) => element.querySelectorAll("p").length >= 2)
+      )
+      .toBe(true);
     await page.keyboard.type("after mention");
     await expect
       .poll(() =>
         descriptionEditor.evaluate((element) =>
-          (element.textContent ?? "").includes("\u00a0after mention")
+          (element.textContent ?? "").includes("after mention")
         )
       )
       .toBe(true);

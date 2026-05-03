@@ -1009,6 +1009,78 @@ function insertTextAtRange(range: Range, text: string) {
   selection.addRange(nextRange);
 }
 
+function ensureParagraphHasCaretTarget(paragraph: HTMLParagraphElement) {
+  if (paragraph.childNodes.length === 0) {
+    paragraph.append(paragraph.ownerDocument.createTextNode(EDITOR_CARET_ANCHOR));
+  }
+}
+
+function moveSiblingsBeforeMarker(marker: HTMLElement, target: HTMLElement) {
+  const parent = marker.parentNode;
+  if (!parent) {
+    return;
+  }
+
+  const nodesToMove: ChildNode[] = [];
+  let node = parent.firstChild;
+  while (node && node !== marker) {
+    nodesToMove.push(node as ChildNode);
+    node = node.nextSibling;
+  }
+
+  target.append(...nodesToMove);
+}
+
+function moveSiblingsAfterMarker(marker: HTMLElement, target: HTMLElement) {
+  let node = marker.nextSibling;
+  while (node) {
+    const nextNode = node.nextSibling;
+    target.append(node);
+    node = nextNode;
+  }
+}
+
+function insertParagraphBreakAtRange(editor: HTMLDivElement, range: Range): boolean {
+  if (!range.collapsed) {
+    return false;
+  }
+
+  const documentRef = editor.ownerDocument;
+  const marker = documentRef.createElement("span");
+  marker.dataset.editorCaretMarker = "true";
+  marker.textContent = EDITOR_CARET_ANCHOR;
+  range.insertNode(marker);
+
+  const currentParagraph = marker.closest("p") as HTMLParagraphElement | null;
+  if (currentParagraph && editor.contains(currentParagraph)) {
+    const nextParagraph = documentRef.createElement("p");
+    moveSiblingsAfterMarker(marker, nextParagraph);
+    marker.remove();
+    ensureParagraphHasCaretTarget(nextParagraph);
+    currentParagraph.after(nextParagraph);
+    moveCaretToStart(nextParagraph);
+    return true;
+  }
+
+  if (marker.parentNode !== editor) {
+    marker.remove();
+    return false;
+  }
+
+  const previousParagraph = documentRef.createElement("p");
+  const nextParagraph = documentRef.createElement("p");
+  moveSiblingsBeforeMarker(marker, previousParagraph);
+  marker.remove();
+  while (editor.firstChild) {
+    nextParagraph.append(editor.firstChild);
+  }
+  ensureParagraphHasCaretTarget(previousParagraph);
+  ensureParagraphHasCaretTarget(nextParagraph);
+  editor.replaceChildren(previousParagraph, nextParagraph);
+  moveCaretToStart(nextParagraph);
+  return true;
+}
+
 function createParagraphHtmlFromText(value: string): string {
   const normalizedValue = value.replace(/\r\n/g, "\n").trim();
 
@@ -2243,6 +2315,16 @@ export function RichTextEditor({
       if (isArrowLeftKey(event)) {
         event.preventDefault();
         moveCaretBefore(mentionBeforeCaret.mentionElement);
+        return;
+      }
+
+      if (isEnterKey(event)) {
+        event.preventDefault();
+        const beforeSnapshot = createEditorHistorySnapshot(editor);
+        if (insertParagraphBreakAtRange(editor, range)) {
+          recordHistoryFromSnapshot(beforeSnapshot);
+          emitCurrentValue();
+        }
         return;
       }
     }

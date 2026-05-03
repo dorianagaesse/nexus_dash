@@ -1037,3 +1037,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-124 mention spacing follow-up passed focused editor/mention tests, lint, full local tests and coverage, production build, and browser smoke with a real task-description mention selection.
 - Evidence: Passed with Node `20.19.0` shim: `npm test -- --run tests/components/rich-text-editor.test.ts`; `npm test -- --run tests/lib/mention.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... npm run test:coverage`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build`; fresh-port root `.env`-backed `PORT=3012 npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "task lifecycle"` verified mention selection creates a non-breaking separator and allows typing after it.
+
+### 2026-05-03
+- Type: Execution
+- Summary: TASK-124 Return-key follow-up fixed task-description mention separators that ignored Enter after a selected mention.
+- Evidence: Root cause was native `contenteditable` handling at the boundary between a non-editable mention span and the editor-only non-breaking separator; comments use a textarea and do not hit that DOM boundary. Added an explicit paragraph-break path for Enter at a mention separator, including the root-level inline case created by selecting a mention in an empty description.
+
+### 2026-05-03
+- Type: Validation
+- Summary: TASK-124 Return-key follow-up passed focused mention/editor tests, lint, full local tests and coverage, production build, and browser smoke that presses Enter after selecting a task-description mention.
+- Evidence: Passed with Node `20.19.0` shim: `npm test -- --run tests/components/rich-text-editor.test.ts`; `npm test -- --run tests/lib/mention.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... npm run test:coverage`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build`; fresh-port root `.env`-backed `PORT=3013 npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "task lifecycle"`.

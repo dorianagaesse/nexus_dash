@@ -593,6 +593,46 @@ describe("rich-text-editor", () => {
     });
   });
 
+  test("creates a paragraph after a root-level mention separator on Enter", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "@alice ",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const mention = editor?.querySelector<HTMLElement>("[data-editor-mention='true']");
+    const trailingTextNode = mention?.nextSibling;
+
+    expect(editor).not.toBeNull();
+    expect(mention).not.toBeNull();
+    expect(trailingTextNode?.nodeType).toBe(Node.TEXT_NODE);
+
+    selectTextPosition(trailingTextNode as Node, 1);
+
+    let notCancelled = true;
+    await act(async () => {
+      ({ notCancelled } = dispatchKeyDown(editor, { key: "Enter" }));
+    });
+
+    const paragraphs = editor?.querySelectorAll("p");
+
+    expect(notCancelled).toBe(false);
+    expect(paragraphs).toHaveLength(2);
+    expect(paragraphs?.[0]?.querySelector("[data-editor-mention='true']")).not.toBeNull();
+    expect(selectionIsAtStartOfElement(paragraphs?.[1] as HTMLParagraphElement)).toBe(true);
+    expect(container.querySelector("output[data-testid='value']")?.textContent).toBe(
+      "<p>@alice </p><p></p>"
+    );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("wraps only the current visual line in a code block when there is no selection", async () => {
     const { container, root } = createTestRenderer();
 
