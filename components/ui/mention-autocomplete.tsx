@@ -35,6 +35,13 @@ export function buildMentionAutocompleteValue(
   return "";
 }
 
+export function buildMentionAutocompleteDisplayValue(
+  member: MentionAutocompleteMember
+): string {
+  const username = member.usernameTag?.split("#", 1)[0] ?? "";
+  return username ? `@${username}` : "";
+}
+
 interface MentionAutocompleteProps {
   projectId: string;
   query: string;

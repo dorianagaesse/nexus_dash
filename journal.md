@@ -1112,3 +1112,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-124 read-mode description follow-up passed focused mention/editor suites, lint, full tests, coverage, and production build.
 - Evidence: Passed with Node `20.19.0` shim: `npm exec -- vitest run tests/components/rich-text-content.test.ts`; `npm exec -- vitest run tests/components/rich-text-editor.test.ts`; `npm exec -- vitest run tests/lib/mention.test.ts tests/api/task-comments.route.test.ts tests/components/rich-text-content.test.ts tests/components/rich-text-editor.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm exec -- vitest run`; same env `npm exec -- vitest run --coverage`; same env `npm run build`.
+
+### 2026-05-04
+- Type: Execution
+- Summary: TASK-124 comment composer caret follow-up removed the hidden-discriminator model mismatch from comment input.
+- Evidence: Root cause was the plain textarea storing `@username#discriminator` while the overlay rendered only `@username`; the browser painted the native caret from the longer hidden value, so it appeared offset after visible text. Comment autocomplete now inserts display-only `@username` into the textarea, while selected-member metadata is submitted separately for unambiguous notification resolution.
+
+### 2026-05-04
+- Type: Validation
+- Summary: TASK-124 comment composer caret follow-up passed focused mention/comment validation, lint, and production build.
+- Evidence: Passed with Node `20.19.0` shim: `npx -p node@20.19.0 node node_modules/vitest/vitest.mjs run tests/components/mention-autocomplete.test.ts tests/api/task-comments.route.test.ts tests/components/rich-text-content.test.ts tests/components/rich-text-editor.test.ts tests/lib/mention.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... VERCEL_ENV=preview RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... AGENT_TOKEN_SIGNING_SECRET=... npx -p node@20.19.0 node node_modules/next/dist/bin/next build`.

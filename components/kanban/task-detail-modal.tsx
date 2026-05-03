@@ -23,6 +23,7 @@ import {
 import {
   type KanbanTask,
   type TaskComment,
+  type TaskCommentMentionSelection,
   type TaskCommentReaction,
   type PendingAttachmentUpload,
   type ProjectEpicOption,
@@ -54,6 +55,7 @@ import { EmojiPickerButton } from "@/components/ui/emoji-picker-button";
 import { EpicSelect } from "@/components/ui/epic-select";
 import {
   MentionAutocomplete,
+  buildMentionAutocompleteDisplayValue,
   buildMentionAutocompleteValue,
   type MentionAutocompleteMember,
   useMentionAutocomplete,
@@ -64,7 +66,11 @@ import { getEpicColorFromName } from "@/lib/epic";
 import { cn } from "@/lib/utils";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import { renderContentWithMentions } from "@/lib/content-with-mentions";
-import { removeMentionBeforeCursor, replaceMentionTrigger } from "@/lib/mention";
+import {
+  parseMentions,
+  removeMentionBeforeCursor,
+  replaceMentionTrigger,
+} from "@/lib/mention";
 import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
 import {
   ATTACHMENT_KIND_FILE,
@@ -146,7 +152,9 @@ interface TaskDetailModalProps {
   onDeleteAttachment: (attachmentId: string) => void | Promise<void>;
   onPreviewAttachmentChange: (attachment: TaskAttachment | null) => void;
   onNewTaskCommentChange: (value: string) => void;
-  onSubmitTaskComment: () => void | Promise<void>;
+  onSubmitTaskComment: (
+    mentionSelections?: TaskCommentMentionSelection[]
+  ) => void | Promise<void>;
   onMoveTask: (nextStatus: TaskStatus) => void;
   onArchiveTask: () => void | Promise<void>;
   onUnarchiveTask: () => void | Promise<void>;
@@ -1065,6 +1073,44 @@ function TaskOptionsMenu({
   );
 }
 
+function pruneCommentMentionSelections(
+  selections: TaskCommentMentionSelection[],
+  value: string
+) {
+  if (selections.length === 0) {
+    return selections;
+  }
+
+  const visibleMentionUsernames = new Set(
+    parseMentions(value).mentions.map((mention) =>
+      mention.username.toLowerCase()
+    )
+  );
+
+  return selections.filter((selection) =>
+    visibleMentionUsernames.has(selection.username.toLowerCase())
+  );
+}
+
+function buildCommentMentionSelection(
+  member: MentionAutocompleteMember
+): TaskCommentMentionSelection | null {
+  if (!member.usernameTag) {
+    return null;
+  }
+
+  const [username, discriminator] = member.usernameTag.split("#", 2);
+  if (!username) {
+    return null;
+  }
+
+  return {
+    userId: member.id,
+    username,
+    discriminator: discriminator || null,
+  };
+}
+
 function TaskReadOnlyContent({
   canEdit,
   selectedTask,
@@ -1097,7 +1143,9 @@ function TaskReadOnlyContent({
   projectId: string;
   mentionUsers: MentionDisplayUser[];
   onNewTaskCommentChange: (value: string) => void;
-  onSubmitTaskComment: () => void | Promise<void>;
+  onSubmitTaskComment: (
+    mentionSelections?: TaskCommentMentionSelection[]
+  ) => void | Promise<void>;
   taskCommentReactions: Map<string, TaskCommentReaction[]>;
   toggleReaction: (commentId: string, emoji: string) => void;
   handleAddReaction: (commentId: string) => (emoji: string) => void;
@@ -1107,6 +1155,9 @@ function TaskReadOnlyContent({
   const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
   const commentHighlightRef = useRef<HTMLDivElement | null>(null);
   const [commentCursorPosition, setCommentCursorPosition] = useState(0);
+  const [commentMentionSelections, setCommentMentionSelections] = useState<
+    TaskCommentMentionSelection[]
+  >([]);
   const commentMentionState = useMentionAutocomplete(
     newTaskComment,
     commentCursorPosition,
@@ -1128,7 +1179,7 @@ function TaskReadOnlyContent({
       return;
     }
 
-    const mentionValue = buildMentionAutocompleteValue(member);
+    const mentionValue = buildMentionAutocompleteDisplayValue(member);
     if (!mentionValue) {
       return;
     }
@@ -1143,6 +1194,15 @@ function TaskReadOnlyContent({
 
     onNewTaskCommentChange(nextValue);
     setCommentCursorPosition(nextCursorPosition);
+    const selectedMention = buildCommentMentionSelection(member);
+    if (selectedMention) {
+      setCommentMentionSelections((previousSelections) =>
+        pruneCommentMentionSelections(
+          [...previousSelections, selectedMention],
+          nextValue
+        )
+      );
+    }
 
     window.requestAnimationFrame(() => {
       const textarea = commentInputRef.current;
@@ -1177,6 +1237,9 @@ function TaskReadOnlyContent({
 
     event.preventDefault();
     onNewTaskCommentChange(replacement.value);
+    setCommentMentionSelections((previousSelections) =>
+      pruneCommentMentionSelections(previousSelections, replacement.value)
+    );
     setCommentCursorPosition(replacement.cursorPosition);
 
     window.requestAnimationFrame(() => {
@@ -1199,6 +1262,12 @@ function TaskReadOnlyContent({
     const nextHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
     textarea.style.height = `${nextHeight}px`;
     textarea.style.overflowY = nextHeight >= maxHeight ? "auto" : "hidden";
+  }, [newTaskComment]);
+
+  useEffect(() => {
+    setCommentMentionSelections((previousSelections) =>
+      pruneCommentMentionSelections(previousSelections, newTaskComment)
+    );
   }, [newTaskComment]);
 
   return (
@@ -1381,6 +1450,12 @@ function TaskReadOnlyContent({
                   value={newTaskComment}
                   onChange={(event) => {
                     onNewTaskCommentChange(event.target.value);
+                    setCommentMentionSelections((previousSelections) =>
+                      pruneCommentMentionSelections(
+                        previousSelections,
+                        event.target.value
+                      )
+                    );
                     syncCommentCursorPosition(event.target);
                     syncCommentHighlightScroll(event.target);
                   }}
@@ -1425,7 +1500,7 @@ function TaskReadOnlyContent({
                 <Button
                   type="button"
                   size="sm"
-                  onClick={() => void onSubmitTaskComment()}
+                  onClick={() => void onSubmitTaskComment(commentMentionSelections)}
                   disabled={isSubmittingTaskComment || !newTaskComment.trim()}
                   className="w-full sm:w-auto"
                 >

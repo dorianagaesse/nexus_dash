@@ -49,6 +49,12 @@ export interface TaskComment {
   reactions: TaskCommentReaction[];
 }
 
+export interface TaskCommentMentionSelection {
+  userId: string;
+  username: string;
+  discriminator: string | null;
+}
+
 export interface TaskAttachment {
   id: string;
   kind: string;

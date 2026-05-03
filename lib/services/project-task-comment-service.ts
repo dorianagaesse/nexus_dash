@@ -51,6 +51,12 @@ interface MentionedProjectMember {
   displayName: string;
 }
 
+export interface TaskCommentMentionSelection {
+  userId: string;
+  username: string;
+  discriminator: string | null;
+}
+
 interface MentionResolutionData {
   projectName: string;
   mentionedUsers: MentionedProjectMember[];
@@ -153,7 +159,8 @@ function addMentionResolutionCandidate(input: {
 async function resolveMentionedProjectMembers(
   db: DbClient,
   projectId: string,
-  mentions: ParsedMention[]
+  mentions: ParsedMention[],
+  mentionSelections: TaskCommentMentionSelection[] = []
 ): Promise<ServiceResult<MentionResolutionData>> {
   if (mentions.length === 0) {
     return {
@@ -225,6 +232,29 @@ async function resolveMentionedProjectMembers(
   }
 
   const mentionedUsers: MentionedProjectMember[] = [];
+  const mentionedUsernameKeys = new Set(
+    mentions.map((mention) => mention.username.toLowerCase())
+  );
+
+  for (const selection of mentionSelections) {
+    const usernameKey = selection.username.toLowerCase();
+    const discriminatorKey = selection.discriminator?.toLowerCase() ?? "";
+    if (!mentionedUsernameKeys.has(usernameKey) || !discriminatorKey) {
+      continue;
+    }
+
+    const selectedUser = usernameTagToUser.get(
+      `${usernameKey}#${discriminatorKey}`
+    );
+    if (!selectedUser || selectedUser.userId !== selection.userId) {
+      continue;
+    }
+
+    if (!mentionedUsers.some((user) => user.userId === selectedUser.userId)) {
+      mentionedUsers.push(selectedUser);
+    }
+  }
+
   for (const mention of mentions) {
     const matchedUser = mention.discriminator
       ? usernameTagToUser.get(
@@ -384,6 +414,7 @@ export async function createTaskCommentForProject(input: {
   projectId: string;
   taskId: string;
   content: string;
+  mentionSelections?: TaskCommentMentionSelection[];
   agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<{ comment: TaskCommentSummary }>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
@@ -437,7 +468,8 @@ export async function createTaskCommentForProject(input: {
       const mentionResolution = await resolveMentionedProjectMembers(
         db,
         input.projectId,
-        mentions
+        mentions,
+        input.mentionSelections
       );
       if (!mentionResolution.ok) {
         return mentionResolution;

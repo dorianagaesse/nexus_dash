@@ -24,10 +24,10 @@ mention hover cards behave consistently across the task modal.
   task-description mentions must render as highlighted `@name` text without the
   discriminator, with hover cards available immediately after opening a task.
 - Fix comment composer mirrors so inserted mentions display as highlighted
-  `@name` without a highlighted or blank discriminator-width tail. The textarea
-  value may still carry the discriminator for unambiguous submit-time
-  resolution, but the visual mirror must behave like task-description edit
-  chips.
+  `@name` without a highlighted or blank discriminator-width tail, and keep the
+  native textarea caret visually aligned immediately after the visible text.
+  The comment textarea value must match what is displayed; selected-member
+  metadata should carry any discriminator needed for submit-time resolution.
 - Keep added comments, task-card previews, task-description view mode, and
   task-description edit mode on the same shared mention rendering contract:
   visible mentions show no discriminator, remain highlighted, and resolve hover
@@ -75,12 +75,14 @@ mention hover cards behave consistently across the task modal.
     `@name#discriminator`, and do not show a blank discriminator-width gap
     before following text.
 12. Comment composer highlight pills end at the visible `@name`; any hidden
-    discriminator retained in the textarea mirror must not extend the highlight
-    background or consume visible layout.
+    discriminator must not be retained in the textarea value or mirror layout.
 13. A task description mention created with the task must remain highlighted,
     discriminator-free, and tooltip-capable after later edits add more text and
     more mentions to the same description.
-14. Existing mention parsing, notification, and rendering tests remain green.
+14. After selecting a mention in the comment composer, the native caret appears
+    directly after subsequently typed visible text instead of being offset by a
+    hidden discriminator.
+15. Existing mention parsing, notification, and rendering tests remain green.
 
 ## Definition Of Done
 - `agent.md` documents the dedicated worktree expectation for multi-agent work,
