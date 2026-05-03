@@ -17,6 +17,7 @@ export function renderContentWithMentions(
   options?: {
     mentionHighlightClassName?: string;
     mentionUsers?: MentionDisplayUser[];
+    preserveMentionText?: boolean;
     resolveDisplayUsers?: boolean;
   }
 ): React.ReactNode {
@@ -53,7 +54,7 @@ export function renderContentWithMentions(
         users={mentionUsers}
         className={highlightClass}
       >
-        {`@${mention.username}`}
+        {options?.preserveMentionText ? mention.fullMatch : `@${mention.username}`}
       </MentionText>
     );
 

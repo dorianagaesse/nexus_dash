@@ -1067,3 +1067,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-124 Copilot review follow-up passed focused mention/comment validation and lint; broader local validation still needs the repo-compatible env/tooling baseline.
 - Evidence: Passed: `npx vitest run tests/components/mention-autocomplete.test.ts tests/api/task-comments.route.test.ts tests/lib/mention.test.ts`; `npm run lint`; `npm run build` with local placeholder `DATABASE_URL`, `DIRECT_URL`, `AGENT_TOKEN_SIGNING_SECRET`, `RESEND_API_KEY`, and `GOOGLE_TOKEN_ENCRYPTION_KEY` values. An unqualified `npm test` is blocked locally by missing `DATABASE_URL` imports in existing Prisma-backed suites and the current jsdom `html-encoding-sniffer` / `@exodus/bytes` CommonJS-ESM worker issue.
+
+### 2026-05-03
+- Type: Execution
+- Summary: TASK-124 mention regression follow-up fixed task-description tooltip dismissal, comment composer caret alignment, and post-edit description mention highlighting.
+- Evidence: Rich-text description hover now clears the tooltip when pointer coordinates leave the actual mention span; the comment textarea highlight mirror can preserve full discriminated mention text so the visible text aligns with the transparent textarea caret; `RichTextContent` now enhances mounted content updates synchronously so a saved plain-text description with `@username#tag` is immediately highlighted.
+
+### 2026-05-03
+- Type: Validation
+- Summary: TASK-124 mention regression follow-up passed focused mention/comment/rich-text validation, lint, and production build.
+- Evidence: Passed: `npx vitest run tests/lib/mention.test.ts tests/api/task-comments.route.test.ts`; Node 20.19 shim `npm exec -- vitest run tests/components/rich-text-content.test.ts`; `npm run lint`; `npm run build` with local placeholder `DATABASE_URL`, `DIRECT_URL`, `AGENT_TOKEN_SIGNING_SECRET`, `RESEND_API_KEY`, and `GOOGLE_TOKEN_ENCRYPTION_KEY` values.

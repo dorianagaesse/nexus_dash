@@ -308,7 +308,7 @@ export function RichTextContent({
     () => coerceRichTextHtml(html ?? "") ?? emptyContentHtml ?? "",
     [emptyContentHtml, html]
   );
-  const [renderedHtml, setRenderedHtml] = React.useState(normalizedHtml);
+  const [isMounted, setIsMounted] = React.useState(false);
   const [mentionTooltip, setMentionTooltip] = React.useState<{
     user: MentionDisplayUser;
     anchorRect: DOMRect;
@@ -316,8 +316,16 @@ export function RichTextContent({
   const resetTimeoutRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
-    setRenderedHtml(buildEnhancedRichTextHtml(normalizedHtml, mentionUsers));
-  }, [normalizedHtml, mentionUsers]);
+    setIsMounted(true);
+  }, []);
+
+  const renderedHtml = React.useMemo(() => {
+    if (!isMounted) {
+      return normalizedHtml;
+    }
+
+    return buildEnhancedRichTextHtml(normalizedHtml, mentionUsers);
+  }, [isMounted, mentionUsers, normalizedHtml]);
 
   React.useEffect(
     () => () => {
@@ -390,7 +398,8 @@ export function RichTextContent({
 
   const handleMentionHover = (
     target: EventTarget | null,
-    currentTarget: HTMLDivElement
+    currentTarget: HTMLDivElement,
+    pointer?: { clientX: number; clientY: number }
   ) => {
     if (
       !mentionUsers ||
@@ -407,6 +416,19 @@ export function RichTextContent({
     if (!mentionElement || !currentTarget.contains(mentionElement)) {
       setMentionTooltip(null);
       return;
+    }
+
+    if (pointer) {
+      const rect = mentionElement.getBoundingClientRect();
+      const isInsideMention =
+        pointer.clientX >= rect.left &&
+        pointer.clientX <= rect.right &&
+        pointer.clientY >= rect.top &&
+        pointer.clientY <= rect.bottom;
+      if (!isInsideMention) {
+        setMentionTooltip(null);
+        return;
+      }
     }
 
     const username = mentionElement.dataset.mentionUsername;
@@ -432,6 +454,23 @@ export function RichTextContent({
     });
   };
 
+  const handleMentionMouseOut = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement | null;
+    const mentionElement = target?.closest(
+      RICH_TEXT_MENTION_SELECTOR
+    ) as HTMLElement | null;
+    if (!mentionElement) {
+      return;
+    }
+
+    const relatedTarget = event.relatedTarget as Node | null;
+    if (relatedTarget && mentionElement.contains(relatedTarget)) {
+      return;
+    }
+
+    setMentionTooltip(null);
+  };
+
   return (
     <>
       <div
@@ -447,11 +486,18 @@ export function RichTextContent({
         )}
         onClick={handleClick}
         onMouseOver={(event) =>
-          handleMentionHover(event.target, event.currentTarget)
+          handleMentionHover(event.target, event.currentTarget, {
+            clientX: event.clientX,
+            clientY: event.clientY,
+          })
         }
         onMouseMove={(event) =>
-          handleMentionHover(event.target, event.currentTarget)
+          handleMentionHover(event.target, event.currentTarget, {
+            clientX: event.clientX,
+            clientY: event.clientY,
+          })
         }
+        onMouseOutCapture={handleMentionMouseOut}
         onMouseLeave={(event) => {
           setMentionTooltip(null);
           onMouseLeave?.(event);

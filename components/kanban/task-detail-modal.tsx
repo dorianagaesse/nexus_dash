@@ -1367,6 +1367,7 @@ function TaskReadOnlyContent({
                   {newTaskComment
                     ? renderContentWithMentions(newTaskComment, {
                         mentionUsers,
+                        preserveMentionText: true,
                         resolveDisplayUsers: false,
                         mentionHighlightClassName:
                           "rounded-sm bg-primary/10 px-0 py-0 font-normal text-primary",

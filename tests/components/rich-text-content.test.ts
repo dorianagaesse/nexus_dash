@@ -9,6 +9,7 @@ import {
   buildEnhancedRichTextHtml,
   RichTextContent,
 } from "@/components/rich-text-content";
+import { renderContentWithMentions } from "@/lib/content-with-mentions";
 import {
   createRichTextCodeBlock,
   createRichTextTokenBlock,
@@ -127,6 +128,150 @@ describe("rich-text-content", () => {
     expect(document.body.textContent).not.toContain("Alice Example");
 
     await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("hides a rich-text mention hover card when the pointer leaves the mention", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "<p>Hello @alice#1234</p>",
+        mentionUsers: [
+          {
+            id: "user-alice",
+            displayName: "Alice Example",
+            usernameTag: "alice#1234",
+            avatarSeed: "user-alice",
+          },
+        ],
+      })
+    );
+
+    const mention = container.querySelector<HTMLElement>("[data-rich-mention='true']");
+    expect(mention).not.toBeNull();
+    vi.spyOn(mention as HTMLElement, "getBoundingClientRect").mockReturnValue({
+      x: 10,
+      y: 10,
+      top: 10,
+      right: 110,
+      bottom: 30,
+      left: 10,
+      width: 100,
+      height: 20,
+      toJSON: () => ({}),
+    });
+
+    await act(async () => {
+      mention?.dispatchEvent(
+        new MouseEvent("mouseover", {
+          bubbles: true,
+          clientX: 20,
+          clientY: 20,
+        })
+      );
+    });
+
+    expect(document.body.textContent).toContain("Alice Example");
+
+    const activeMention = container.querySelector<HTMLElement>(
+      "[data-rich-mention='true']"
+    );
+    expect(activeMention).not.toBeNull();
+    vi.spyOn(activeMention as HTMLElement, "getBoundingClientRect").mockReturnValue({
+      x: 10,
+      y: 10,
+      top: 10,
+      right: 110,
+      bottom: 30,
+      left: 10,
+      width: 100,
+      height: 20,
+      toJSON: () => ({}),
+    });
+
+    await act(async () => {
+      activeMention?.dispatchEvent(
+        new MouseEvent("mousemove", {
+          bubbles: true,
+          clientX: 20,
+          clientY: 46,
+        })
+      );
+    });
+
+    expect(document.body.textContent).not.toContain("Alice Example");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("enhances mentions immediately after mounted rich text updates", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "<p>No mention yet</p>",
+        mentionUsers: [
+          {
+            id: "user-alice",
+            displayName: "Alice Example",
+            usernameTag: "alice#1234",
+            avatarSeed: "user-alice",
+          },
+        ],
+      })
+    );
+
+    expect(container.querySelector("[data-rich-mention='true']")).toBeNull();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "Hello @alice#1234 after edit",
+        mentionUsers: [
+          {
+            id: "user-alice",
+            displayName: "Alice Example",
+            usernameTag: "alice#1234",
+            avatarSeed: "user-alice",
+          },
+        ],
+      })
+    );
+
+    const mention = container.querySelector<HTMLElement>("[data-rich-mention='true']");
+    expect(mention?.textContent).toBe("@alice");
+    expect(mention?.dataset.mentionDiscriminator).toBe("1234");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("can preserve full mention text for transparent textarea mirrors", () => {
+    const { container, root } = createTestRenderer();
+
+    act(() => {
+      root.render(
+        React.createElement(
+          "div",
+          null,
+          renderContentWithMentions("@alice#1234 hello", {
+            preserveMentionText: true,
+            resolveDisplayUsers: false,
+          })
+        )
+      );
+    });
+
+    expect(container.textContent).toBe("@alice#1234 hello");
+
+    act(() => {
       root.unmount();
     });
   });
