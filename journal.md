@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-05-03
+- Type: Execution
+- Summary: TASK-124 PR #211 follow-up fixed mention display regressions from task view mode and comment composer mirrors.
+- Evidence: Visible mentions now render as highlighted `@name` text without discriminators while retaining discriminator-backed lookup/storage where needed; updated `lib/content-with-mentions.tsx`, `components/kanban/task-detail-modal.tsx`, `components/rich-text-content.tsx`, `tests/components/rich-text-content.test.ts`, and `tasks/current.md`.
+
+### 2026-05-03
+- Type: Validation
+- Summary: TASK-124 mention display follow-up passed lint, focused mention/rich-text tests, and production build locally.
+- Evidence: `npm run lint`; `npm test -- tests/lib/mention.test.ts tests/components/mention-autocomplete.test.ts`; `npx -p node@20.19.0 node node_modules/vitest/vitest.mjs run tests/components/rich-text-content.test.ts tests/lib/mention.test.ts tests/components/mention-autocomplete.test.ts`; build with Node `20.19.0` and test env values via `npx -p node@20.19.0 node node_modules/next/dist/bin/next build`. Default workstation Node `20.17.0` still reproduces the known jsdom worker `ERR_REQUIRE_ESM` startup blocker for component tests.
+
 ### 2026-04-29
 - Type: Execution
 - Summary: TASK-123 Copilot review follow-up tightened notification durability and read-path efficiency before preview deployment.

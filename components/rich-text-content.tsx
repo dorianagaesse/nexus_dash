@@ -343,7 +343,9 @@ export function RichTextContent({
     () => coerceRichTextHtml(html ?? "") ?? emptyContentHtml ?? "",
     [emptyContentHtml, html]
   );
-  const [isMounted, setIsMounted] = React.useState(false);
+  const [isMounted, setIsMounted] = React.useState(
+    () => typeof document !== "undefined"
+  );
   const [mentionTooltip, setMentionTooltip] = React.useState<{
     user: MentionDisplayUser;
     anchorRect: DOMRect;
@@ -542,6 +544,7 @@ export function RichTextContent({
     <>
       <div
         {...props}
+        suppressHydrationWarning
         className={cn(
           "max-w-full overflow-x-hidden [overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:break-words",
           "[&_a]:underline [&_a]:underline-offset-2 [&_blockquote]:border-l-2 [&_blockquote]:border-border/70 [&_blockquote]:pl-3",

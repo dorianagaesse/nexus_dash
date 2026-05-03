@@ -12,6 +12,16 @@ comments so autocomplete insertion, caret placement, highlighted rendering, and
 mention hover cards behave consistently across the task modal.
 
 ## Current Follow-Up Scope
+- Fix the PR #211 behavior reported from task view mode:
+  task-description mentions must render as highlighted `@name` text without the
+  discriminator, with hover cards available immediately after opening a task.
+- Fix comment composer mirrors so inserted mentions display as highlighted
+  `@name` while preserving caret/text alignment for the hidden textarea value
+  that still carries the discriminator for unambiguous resolution.
+- Keep added comments, task-card previews, task-description view mode, and
+  task-description edit mode on the same shared mention rendering contract:
+  visible mentions show no discriminator, remain highlighted, and resolve hover
+  cards from the project-member lookup when a matching user is available.
 - Ensure selecting a mention inserts a usable separator after the selected user.
 - Keep the rich-text editor caret outside highlighted mention spans so typing a
   space or more text after a mention does not jump to the start of the editor.
@@ -48,7 +58,12 @@ mention hover cards behave consistently across the task modal.
    the real textarea caret.
 9. Task-description mention hover cards disappear when the pointer leaves the
    mention, regardless of direction.
-10. Existing mention parsing, notification, and rendering tests remain green.
+10. Task-description view mode highlights mentions immediately after opening an
+    existing task and never displays the discriminator in the visible mention
+    text.
+11. Comment composer visible mention mirrors show `@name`, not
+    `@name#discriminator`, while retaining stable caret alignment.
+12. Existing mention parsing, notification, and rendering tests remain green.
 
 ## Definition Of Done
 - `agent.md` documents the dedicated worktree expectation for multi-agent work,

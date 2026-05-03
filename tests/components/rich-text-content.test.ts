@@ -375,6 +375,33 @@ describe("rich-text-content", () => {
     });
   });
 
+  test("can hide mention discriminators while preserving textarea mirror layout", () => {
+    const { container, root } = createTestRenderer();
+
+    act(() => {
+      root.render(
+        React.createElement(
+          "div",
+          null,
+          renderContentWithMentions("@alice#1234 hello", {
+            preserveMentionLayout: true,
+            resolveDisplayUsers: false,
+          })
+        )
+      );
+    });
+
+    const mention = container.querySelector("span");
+    const hiddenDiscriminator = container.querySelector("[aria-hidden='true']");
+    expect(mention?.textContent).toBe("@alice#1234");
+    expect(hiddenDiscriminator?.textContent).toBe("#1234");
+    expect(hiddenDiscriminator?.className).toContain("text-transparent");
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
   test("copies structured code content through the clipboard API", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     setClipboard({ writeText });
