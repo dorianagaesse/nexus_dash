@@ -23,9 +23,11 @@ export interface MentionAutocompleteMember {
   isOwner: boolean;
 }
 
-export function buildMentionAutocompleteValue(member: MentionAutocompleteMember): string {
+export function buildMentionAutocompleteValue(
+  member: MentionAutocompleteMember
+): string {
   if (member.usernameTag) {
-    return `@${member.usernameTag.split("#", 1)[0]}`;
+    return `@${member.usernameTag}`;
   }
 
   // Only offer mention if user has a resolvable username; without one,
@@ -142,7 +144,8 @@ export function MentionAutocomplete({
       let left = position.left;
       let top = position.top + PANEL_GAP;
 
-      const panelWidth = viewportWidth < 640 ? MOBILE_PANEL_WIDTH : DESKTOP_PANEL_WIDTH;
+      const panelWidth =
+        viewportWidth < 640 ? MOBILE_PANEL_WIDTH : DESKTOP_PANEL_WIDTH;
 
       // Adjust if would overflow right edge
       if (left + panelWidth + VIEWPORT_MARGIN > viewportWidth) {
@@ -170,9 +173,25 @@ export function MentionAutocomplete({
 
     calculateLayout();
 
-    // Recalculate on resize
-    window.addEventListener("resize", calculateLayout);
-    return () => window.removeEventListener("resize", calculateLayout);
+    let resizeTimeout: number | null = null;
+    const handleResize = () => {
+      if (resizeTimeout) {
+        window.clearTimeout(resizeTimeout);
+      }
+
+      resizeTimeout = window.setTimeout(() => {
+        resizeTimeout = null;
+        calculateLayout();
+      }, 100);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      if (resizeTimeout) {
+        window.clearTimeout(resizeTimeout);
+      }
+      window.removeEventListener("resize", handleResize);
+    };
   }, [position]);
 
   // Keyboard navigation
@@ -189,7 +208,9 @@ export function MentionAutocomplete({
           if (!members.length) return;
           event.preventDefault();
           event.stopPropagation();
-          setActiveIndex((prev) => (prev - 1 + members.length) % members.length);
+          setActiveIndex(
+            (prev) => (prev - 1 + members.length) % members.length
+          );
           break;
         case "Enter":
           if (!members.length) return;
@@ -249,13 +270,17 @@ export function MentionAutocomplete({
       style={{
         top: panelLayout.top,
         left: panelLayout.left,
-        width: typeof window !== "undefined" && window.innerWidth < 640
-          ? MOBILE_PANEL_WIDTH
-          : DESKTOP_PANEL_WIDTH,
+        width:
+          typeof window !== "undefined" && window.innerWidth < 640
+            ? MOBILE_PANEL_WIDTH
+            : DESKTOP_PANEL_WIDTH,
         maxHeight: panelLayout.maxHeight,
       }}
     >
-      <div className="overflow-y-auto overflow-x-hidden p-1" style={{ maxHeight: panelLayout.maxHeight }}>
+      <div
+        className="overflow-y-auto overflow-x-hidden p-1"
+        style={{ maxHeight: panelLayout.maxHeight }}
+      >
         {isLoading && (
           <div className="flex items-center justify-center px-3 py-4 text-sm text-muted-foreground">
             Loading...
@@ -283,9 +308,7 @@ export function MentionAutocomplete({
                 aria-selected={index === activeIndex}
                 className={cn(
                   "flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors",
-                  index === activeIndex
-                    ? "bg-muted/70"
-                    : "hover:bg-muted/40"
+                  index === activeIndex ? "bg-muted/70" : "hover:bg-muted/40"
                 )}
                 onMouseDown={(event) => event.preventDefault()}
                 onMouseEnter={() => handleMouseEnter(index)}
@@ -351,19 +374,34 @@ export function useMentionAutocomplete(
 
     const trigger = getActiveMentionTrigger(text, cursorPosition);
     if (!trigger) {
-      setMentionState({ isActive: false, query: "", startIndex: -1, position: null });
+      setMentionState({
+        isActive: false,
+        query: "",
+        startIndex: -1,
+        position: null,
+      });
       return;
     }
 
     const target = targetRef.current;
     if (!target) {
-      setMentionState({ isActive: false, query: "", startIndex: -1, position: null });
+      setMentionState({
+        isActive: false,
+        query: "",
+        startIndex: -1,
+        position: null,
+      });
       return;
     }
 
     const position = getEditableTextCaretPosition(target, cursorPosition);
     if (!position) {
-      setMentionState({ isActive: false, query: "", startIndex: -1, position: null });
+      setMentionState({
+        isActive: false,
+        query: "",
+        startIndex: -1,
+        position: null,
+      });
       return;
     }
 
@@ -415,7 +453,8 @@ function getEditableTextCaretPosition(
   mirror.style.position = "absolute";
   mirror.style.visibility = "hidden";
   mirror.style.pointerEvents = "none";
-  mirror.style.whiteSpace = target instanceof HTMLTextAreaElement ? "pre-wrap" : "pre";
+  mirror.style.whiteSpace =
+    target instanceof HTMLTextAreaElement ? "pre-wrap" : "pre";
   mirror.style.overflowWrap = "break-word";
   mirror.style.top = "0";
   mirror.style.left = "-9999px";
@@ -437,8 +476,13 @@ function getEditableTextCaretPosition(
   const markerRect = marker.getBoundingClientRect();
   const lineHeight = parseFloat(computedStyle.lineHeight) || 20;
   const position = {
-    top: targetRect.top + (markerRect.top - mirrorRect.top) + lineHeight - target.scrollTop,
-    left: targetRect.left + (markerRect.left - mirrorRect.left) - target.scrollLeft,
+    top:
+      targetRect.top +
+      (markerRect.top - mirrorRect.top) +
+      lineHeight -
+      target.scrollTop,
+    left:
+      targetRect.left + (markerRect.left - mirrorRect.left) - target.scrollLeft,
   };
 
   mirror.remove();

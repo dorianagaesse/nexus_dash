@@ -26,7 +26,11 @@ import {
   type MentionAutocompleteMember,
   type MentionAutocompleteState,
 } from "@/components/ui/mention-autocomplete";
-import { getActiveMentionTrigger, parseMentions } from "@/lib/mention";
+import {
+  getActiveMentionTrigger,
+  parseMentions,
+  type ParsedMention,
+} from "@/lib/mention";
 import {
   createRichTextCodeBlock,
   createRichTextTokenBlock,
@@ -51,8 +55,17 @@ const EDITOR_MENTION_CLASS =
 
 const MONOSPACE_FONT_FAMILY =
   "Consolas, 'Liberation Mono', Menlo, Monaco, monospace";
-const STRUCTURED_BLOCK_SELECTOR = "[data-rich-block], p, div, h1, h2, blockquote, li, pre";
-const BLOCK_BREAK_TAGS = new Set(["P", "DIV", "H1", "H2", "BLOCKQUOTE", "LI", "PRE"]);
+const STRUCTURED_BLOCK_SELECTOR =
+  "[data-rich-block], p, div, h1, h2, blockquote, li, pre";
+const BLOCK_BREAK_TAGS = new Set([
+  "P",
+  "DIV",
+  "H1",
+  "H2",
+  "BLOCKQUOTE",
+  "LI",
+  "PRE",
+]);
 const EDITOR_RICH_SHELL_TAG = "nd-rich-shell";
 const EDITOR_CARET_ANCHOR = "​";
 const EDITOR_MENTION_SEPARATOR = "\u00a0";
@@ -64,7 +77,8 @@ const EDITOR_ACTION_BUTTON_SELECTOR = "button[data-editor-action]";
 const EDITOR_RICH_SHELL_SELECTOR = `${EDITOR_RICH_SHELL_TAG}[data-editor-shell]`;
 const EDITOR_MENTION_SELECTOR = "[data-editor-mention='true']";
 const EDITOR_CARET_MARKER_SELECTOR = "[data-editor-caret-marker='true']";
-const EDITOR_BLOCK_ROW_CLASS = "grid grid-cols-[minmax(0,1fr)_minmax(0,0.75rem)] items-start";
+const EDITOR_BLOCK_ROW_CLASS =
+  "grid grid-cols-[minmax(0,1fr)_minmax(0,0.75rem)] items-start";
 const EDITOR_BLOCK_AFTER_ANCHOR_CLASS = "my-2 block min-w-[0.75rem]";
 const EDITOR_BLOCK_SHELL_CLASS =
   "relative my-2 block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-border/70 bg-muted/35 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)]";
@@ -87,13 +101,15 @@ const EYE_OFF_ICON_SVG =
   '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M10.58 10.58A3 3 0 0 0 12 15a3 3 0 0 0 2.42-4.42"></path><path d="M16.68 16.67A9.63 9.63 0 0 1 12 18c-4.3 0-8.02-3.33-9.94-7.65a1 1 0 0 1 0-.7 14.9 14.9 0 0 1 5.07-6.08"></path><path d="M14.12 5.11A9.53 9.53 0 0 1 12 5c4.3 0 8.02 3.33 9.94 7.65a1 1 0 0 1 0 .7 14.7 14.7 0 0 1-4.03 5.08"></path><path d="M2 2l20 20"></path></svg>';
 
 function unwrapEditorMentionElements(root: ParentNode) {
-  root.querySelectorAll<HTMLElement>(EDITOR_MENTION_SELECTOR).forEach((mentionElement) => {
-    mentionElement.replaceWith(
-      document.createTextNode(
-        mentionElement.dataset.mentionRaw ?? mentionElement.textContent ?? ""
-      )
-    );
-  });
+  root
+    .querySelectorAll<HTMLElement>(EDITOR_MENTION_SELECTOR)
+    .forEach((mentionElement) => {
+      mentionElement.replaceWith(
+        document.createTextNode(
+          mentionElement.dataset.mentionRaw ?? mentionElement.textContent ?? ""
+        )
+      );
+    });
 }
 
 function normalizeEditorOnlyWhitespace(root: ParentNode) {
@@ -120,7 +136,10 @@ function normalizeEditorOnlyWhitespace(root: ParentNode) {
   }
 }
 
-function normalizeEditorMentionLeadingSeparator(value: string, followsMention: boolean): string {
+function normalizeEditorMentionLeadingSeparator(
+  value: string,
+  followsMention: boolean
+): string {
   if (!followsMention || value.length === 0) {
     return value;
   }
@@ -133,7 +152,10 @@ function normalizeEditorMentionLeadingSeparator(value: string, followsMention: b
   return `${EDITOR_MENTION_SEPARATOR}${value.slice(1)}`;
 }
 
-function restoreEditorSelectionFromMarker(editor: HTMLDivElement, marker: HTMLElement | null) {
+function restoreEditorSelectionFromMarker(
+  editor: HTMLDivElement,
+  marker: HTMLElement | null
+) {
   if (!marker || !editor.contains(marker)) {
     return;
   }
@@ -171,7 +193,7 @@ function highlightMentionsInEditor(
   editor.normalize();
 
   const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
-  const textNodes: Text[] = [];
+  const textNodes: Array<{ textNode: Text; mentions: ParsedMention[] }> = [];
   const activeMention = options?.activeMention;
 
   while (walker.nextNode()) {
@@ -187,13 +209,13 @@ function highlightMentionsInEditor(
       continue;
     }
 
-    if (parseMentions(textNode.data).mentions.length > 0) {
-      textNodes.push(textNode);
+    const { mentions } = parseMentions(textNode.data);
+    if (mentions.length > 0) {
+      textNodes.push({ textNode, mentions });
     }
   }
 
-  for (const textNode of textNodes) {
-    const { mentions } = parseMentions(textNode.data);
+  for (const { textNode, mentions } of textNodes) {
     const fragment = document.createDocumentFragment();
     let lastIndex = 0;
     let previousNodeWasMention = false;
@@ -312,7 +334,10 @@ function isMentionAutocompleteNavigationKey(
 }
 
 function isUndoShortcut(
-  event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey">
+  event: Pick<
+    KeyboardEvent,
+    "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey"
+  >
 ): boolean {
   return (
     !event.altKey &&
@@ -323,18 +348,27 @@ function isUndoShortcut(
 }
 
 function isRedoShortcut(
-  event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey">
+  event: Pick<
+    KeyboardEvent,
+    "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey"
+  >
 ): boolean {
   if (event.altKey || !(event.ctrlKey || event.metaKey)) {
     return false;
   }
 
   const normalizedKey = event.key.toLowerCase();
-  return (event.shiftKey && normalizedKey === "z") || (!event.metaKey && !event.shiftKey && normalizedKey === "y");
+  return (
+    (event.shiftKey && normalizedKey === "z") ||
+    (!event.metaKey && !event.shiftKey && normalizedKey === "y")
+  );
 }
 
 function supportsClipboardApi(): boolean {
-  return typeof navigator !== "undefined" && typeof navigator.clipboard?.writeText === "function";
+  return (
+    typeof navigator !== "undefined" &&
+    typeof navigator.clipboard?.writeText === "function"
+  );
 }
 
 function preventToolbarMouseDown(event: MouseEvent<HTMLButtonElement>) {
@@ -351,7 +385,11 @@ function escapeHtml(value: string): string {
 }
 
 function normalizeBlockText(value: string): string {
-  return value.replace(/\u00a0/g, " ").replace(/\u200b/g, "").replace(/\n{3,}/g, "\n\n").trim();
+  return value
+    .replace(/\u00a0/g, " ")
+    .replace(/\u200b/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function setMonospaceFont(element: HTMLElement) {
@@ -397,12 +435,18 @@ function setEditorTokenVisibility(
   revealed: boolean
 ) {
   valueElement.dataset.editorTokenVisible = revealed ? "true" : "false";
-  valueElement.setAttribute("aria-label", revealed ? "Visible token value" : "Hidden token value");
+  valueElement.setAttribute(
+    "aria-label",
+    revealed ? "Visible token value" : "Hidden token value"
+  );
 
   if (valueElement instanceof HTMLInputElement) {
     valueElement.type = revealed ? "text" : "password";
   } else {
-    valueElement.style.setProperty("-webkit-text-security", revealed ? "none" : "disc");
+    valueElement.style.setProperty(
+      "-webkit-text-security",
+      revealed ? "none" : "disc"
+    );
   }
 
   toggleButton.setAttribute(
@@ -435,7 +479,10 @@ function extractNodeText(node: Node): string {
     return "";
   }
 
-  if (node.matches(EDITOR_ACTIONS_SELECTOR) || node.matches(EDITOR_ACTION_BUTTON_SELECTOR)) {
+  if (
+    node.matches(EDITOR_ACTIONS_SELECTOR) ||
+    node.matches(EDITOR_ACTION_BUTTON_SELECTOR)
+  ) {
     return "";
   }
 
@@ -445,15 +492,22 @@ function extractNodeText(node: Node): string {
 
   if (node.dataset.richBlock === RICH_TEXT_TOKEN_BLOCK) {
     const inputValue =
-      node.querySelector<HTMLInputElement>('input[data-editor-token-input="true"]')?.value ??
-      node.querySelector<HTMLInputElement>('input[data-editor-token-input="true"]')?.getAttribute(
-        "value"
-      );
+      node.querySelector<HTMLInputElement>(
+        'input[data-editor-token-input="true"]'
+      )?.value ??
+      node
+        .querySelector<HTMLInputElement>(
+          'input[data-editor-token-input="true"]'
+        )
+        ?.getAttribute("value");
 
     return inputValue ?? node.querySelector("code")?.textContent ?? "";
   }
 
-  if (node.dataset.richBlock === RICH_TEXT_CODE_BLOCK || node.tagName === "PRE") {
+  if (
+    node.dataset.richBlock === RICH_TEXT_CODE_BLOCK ||
+    node.tagName === "PRE"
+  ) {
     return node.textContent ?? "";
   }
 
@@ -482,7 +536,9 @@ function getSelectionRange(editor: HTMLDivElement | null): Range | null {
   return range;
 }
 
-function getCollapsedRangeViewportPosition(range: Range): { top: number; left: number } | null {
+function getCollapsedRangeViewportPosition(
+  range: Range
+): { top: number; left: number } | null {
   const firstRect = range.getClientRects()[0] ?? range.getBoundingClientRect();
   if (firstRect.width > 0 || firstRect.height > 0) {
     return {
@@ -510,9 +566,15 @@ function getCollapsedRangeViewportPosition(range: Range): { top: number; left: n
   };
 }
 
-function getActiveEditorMention(editor: HTMLDivElement): EditorMentionTarget | null {
+function getActiveEditorMention(
+  editor: HTMLDivElement
+): EditorMentionTarget | null {
   const range = getSelectionRange(editor);
-  if (!range || !range.collapsed || range.startContainer.nodeType !== Node.TEXT_NODE) {
+  if (
+    !range ||
+    !range.collapsed ||
+    range.startContainer.nodeType !== Node.TEXT_NODE
+  ) {
     return null;
   }
 
@@ -591,12 +653,17 @@ function isEditorMentionElement(node: Node | null): node is HTMLElement {
 }
 
 function isWhitespaceTextNode(node: Node | null): node is Text {
-  return node?.nodeType === Node.TEXT_NODE && /^\s*$/.test(node.textContent ?? "");
+  return (
+    node?.nodeType === Node.TEXT_NODE && /^\s*$/.test(node.textContent ?? "")
+  );
 }
 
 function getPreviousNonEmptySibling(node: Node | null): Node | null {
   let sibling = node?.previousSibling ?? null;
-  while (isWhitespaceTextNode(sibling) && (sibling.textContent ?? "").length === 0) {
+  while (
+    isWhitespaceTextNode(sibling) &&
+    (sibling.textContent ?? "").length === 0
+  ) {
     sibling = sibling.previousSibling;
   }
   return sibling;
@@ -604,7 +671,10 @@ function getPreviousNonEmptySibling(node: Node | null): Node | null {
 
 function getNextNonEmptySibling(node: Node | null): Node | null {
   let sibling = node?.nextSibling ?? null;
-  while (isWhitespaceTextNode(sibling) && (sibling.textContent ?? "").length === 0) {
+  while (
+    isWhitespaceTextNode(sibling) &&
+    (sibling.textContent ?? "").length === 0
+  ) {
     sibling = sibling.nextSibling;
   }
   return sibling;
@@ -640,7 +710,9 @@ function getMentionBeforeCaret(range: Range): {
 
   if (startContainer instanceof Element) {
     let candidate =
-      range.startOffset > 0 ? (startContainer.childNodes[range.startOffset - 1] ?? null) : null;
+      range.startOffset > 0
+        ? (startContainer.childNodes[range.startOffset - 1] ?? null)
+        : null;
 
     while (isWhitespaceTextNode(candidate)) {
       const previousSibling = candidate.previousSibling;
@@ -712,7 +784,9 @@ function ensureMentionTrailingSpace(mentionElement: HTMLElement): Text {
     return textNode;
   }
 
-  const textNode = mentionElement.ownerDocument.createTextNode(EDITOR_MENTION_SEPARATOR);
+  const textNode = mentionElement.ownerDocument.createTextNode(
+    EDITOR_MENTION_SEPARATOR
+  );
   mentionElement.after(textNode);
   return textNode;
 }
@@ -811,9 +885,14 @@ function clampOffsetForNode(node: Node, offset: number): number {
   return Math.min(offset, node.childNodes.length);
 }
 
-function captureEditorSelection(editor: HTMLDivElement): EditorSelectionSnapshot | null {
+function captureEditorSelection(
+  editor: HTMLDivElement
+): EditorSelectionSnapshot | null {
   const activeElement = document.activeElement;
-  if (activeElement instanceof HTMLInputElement && editor.contains(activeElement)) {
+  if (
+    activeElement instanceof HTMLInputElement &&
+    editor.contains(activeElement)
+  ) {
     const path = getNodePath(editor, activeElement);
     if (!path) {
       return null;
@@ -856,8 +935,14 @@ function restoreEditorSelection(
     const inputNode = resolveNodePath(editor, selectionSnapshot.path);
     if (inputNode instanceof HTMLInputElement) {
       inputNode.focus();
-      const selectionStart = Math.min(selectionSnapshot.selectionStart, inputNode.value.length);
-      const selectionEnd = Math.min(selectionSnapshot.selectionEnd, inputNode.value.length);
+      const selectionStart = Math.min(
+        selectionSnapshot.selectionStart,
+        inputNode.value.length
+      );
+      const selectionEnd = Math.min(
+        selectionSnapshot.selectionEnd,
+        inputNode.value.length
+      );
       inputNode.setSelectionRange(selectionStart, selectionEnd);
       return;
     }
@@ -870,8 +955,14 @@ function restoreEditorSelection(
 
     if (startNode && endNode && selection) {
       const range = document.createRange();
-      range.setStart(startNode, clampOffsetForNode(startNode, selectionSnapshot.startOffset));
-      range.setEnd(endNode, clampOffsetForNode(endNode, selectionSnapshot.endOffset));
+      range.setStart(
+        startNode,
+        clampOffsetForNode(startNode, selectionSnapshot.startOffset)
+      );
+      range.setEnd(
+        endNode,
+        clampOffsetForNode(endNode, selectionSnapshot.endOffset)
+      );
 
       editor.focus();
       selection.removeAllRanges();
@@ -882,7 +973,10 @@ function restoreEditorSelection(
 
   editor.focus();
 
-  if (editor.lastElementChild && isEmptyEditorParagraph(editor.lastElementChild)) {
+  if (
+    editor.lastElementChild &&
+    isEmptyEditorParagraph(editor.lastElementChild)
+  ) {
     moveCaretToStart(editor.lastElementChild);
     return;
   }
@@ -895,14 +989,19 @@ function restoreEditorSelection(
   moveCaretToStart(editor);
 }
 
-function createEditorHistorySnapshot(editor: HTMLDivElement): EditorHistorySnapshot {
+function createEditorHistorySnapshot(
+  editor: HTMLDivElement
+): EditorHistorySnapshot {
   return {
     value: serializeEditorRichTextHtml(editor.innerHTML),
     selection: captureEditorSelection(editor),
   };
 }
 
-function pushHistorySnapshot(stack: EditorHistorySnapshot[], snapshot: EditorHistorySnapshot) {
+function pushHistorySnapshot(
+  stack: EditorHistorySnapshot[],
+  snapshot: EditorHistorySnapshot
+) {
   const lastSnapshot = stack.at(-1);
   if (lastSnapshot?.value === snapshot.value) {
     return;
@@ -1011,7 +1110,9 @@ function insertTextAtRange(range: Range, text: string) {
 
 function ensureParagraphHasCaretTarget(paragraph: HTMLParagraphElement) {
   if (paragraph.childNodes.length === 0) {
-    paragraph.append(paragraph.ownerDocument.createTextNode(EDITOR_CARET_ANCHOR));
+    paragraph.append(
+      paragraph.ownerDocument.createTextNode(EDITOR_CARET_ANCHOR)
+    );
   }
 }
 
@@ -1040,7 +1141,10 @@ function moveSiblingsAfterMarker(marker: HTMLElement, target: HTMLElement) {
   }
 }
 
-function insertParagraphBreakAtRange(editor: HTMLDivElement, range: Range): boolean {
+function insertParagraphBreakAtRange(
+  editor: HTMLDivElement,
+  range: Range
+): boolean {
   if (!range.collapsed) {
     return false;
   }
@@ -1092,19 +1196,27 @@ function createParagraphHtmlFromText(value: string): string {
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean)
-    .map((paragraph) => `<p>${paragraph.split("\n").map(escapeHtml).join("<br />")}</p>`)
+    .map(
+      (paragraph) =>
+        `<p>${paragraph.split("\n").map(escapeHtml).join("<br />")}</p>`
+    )
     .join("");
 }
 
 function resolveStructuredBlockTarget(element: HTMLElement): HTMLElement {
   return (
     (element.closest(EDITOR_BLOCK_ROW_SELECTOR) as HTMLElement | null) ??
-    (element.closest(EDITOR_RICH_SHELL_SELECTOR) as HTMLElement | null) ?? element
+    (element.closest(EDITOR_RICH_SHELL_SELECTOR) as HTMLElement | null) ??
+    element
   );
 }
 
-function findStructuredBlockAfterAnchor(target: HTMLElement): HTMLSpanElement | null {
-  return target.querySelector(EDITOR_BLOCK_AFTER_ANCHOR_SELECTOR) as HTMLSpanElement | null;
+function findStructuredBlockAfterAnchor(
+  target: HTMLElement
+): HTMLSpanElement | null {
+  return target.querySelector(
+    EDITOR_BLOCK_AFTER_ANCHOR_SELECTOR
+  ) as HTMLSpanElement | null;
 }
 
 function findContainingStructuredBlock(
@@ -1137,7 +1249,10 @@ function findActiveStructuredBlock(
   blockType?: string
 ): HTMLElement | null {
   const activeElement = document.activeElement;
-  if (!(activeElement instanceof HTMLElement) || !editor.contains(activeElement)) {
+  if (
+    !(activeElement instanceof HTMLElement) ||
+    !editor.contains(activeElement)
+  ) {
     return null;
   }
 
@@ -1146,13 +1261,18 @@ function findActiveStructuredBlock(
   ) as HTMLElement | null;
 }
 
-function findTransformTarget(editor: HTMLDivElement, range: Range): HTMLElement {
+function findTransformTarget(
+  editor: HTMLDivElement,
+  range: Range
+): HTMLElement {
   const baseElement =
     range.startContainer instanceof HTMLElement
       ? range.startContainer
       : range.startContainer.parentElement;
 
-  const target = baseElement?.closest(STRUCTURED_BLOCK_SELECTOR) as HTMLElement | null;
+  const target = baseElement?.closest(
+    STRUCTURED_BLOCK_SELECTOR
+  ) as HTMLElement | null;
   if (target && target !== editor && editor.contains(target)) {
     return resolveStructuredBlockTarget(target);
   }
@@ -1160,8 +1280,14 @@ function findTransformTarget(editor: HTMLDivElement, range: Range): HTMLElement 
   return editor;
 }
 
-function findDirectEditorTextNode(editor: HTMLDivElement, range: Range): Text | null {
-  if (range.startContainer.nodeType === Node.TEXT_NODE && range.startContainer.parentNode === editor) {
+function findDirectEditorTextNode(
+  editor: HTMLDivElement,
+  range: Range
+): Text | null {
+  if (
+    range.startContainer.nodeType === Node.TEXT_NODE &&
+    range.startContainer.parentNode === editor
+  ) {
     return range.startContainer as Text;
   }
 
@@ -1182,7 +1308,9 @@ function findDirectEditorTextNode(editor: HTMLDivElement, range: Range): Text | 
   return null;
 }
 
-function isEmptyEditorParagraph(element: Element | null): element is HTMLParagraphElement {
+function isEmptyEditorParagraph(
+  element: Element | null
+): element is HTMLParagraphElement {
   return (
     element instanceof HTMLParagraphElement &&
     normalizeBlockText(extractNodeText(element)) === ""
@@ -1200,7 +1328,10 @@ function ensureParagraphAfter(target: HTMLElement) {
   return paragraph;
 }
 
-function moveCaretBelowBlock(target: HTMLElement, editor?: HTMLDivElement | null) {
+function moveCaretBelowBlock(
+  target: HTMLElement,
+  editor?: HTMLDivElement | null
+) {
   const paragraph = ensureParagraphAfter(target);
 
   editor?.focus();
@@ -1224,7 +1355,10 @@ function ensureParagraphBefore(target: HTMLElement) {
   };
 }
 
-function moveCaretAboveBlock(target: HTMLElement, editor?: HTMLDivElement | null) {
+function moveCaretAboveBlock(
+  target: HTMLElement,
+  editor?: HTMLDivElement | null
+) {
   const { paragraph, created } = ensureParagraphBefore(target);
 
   editor?.focus();
@@ -1247,8 +1381,13 @@ function moveCaretToParagraphAboveStructuredBlock(
   return true;
 }
 
-function moveCaretToAfterStructuredBlock(target: HTMLElement, editor?: HTMLDivElement | null) {
-  const afterAnchor = findStructuredBlockAfterAnchor(resolveStructuredBlockTarget(target));
+function moveCaretToAfterStructuredBlock(
+  target: HTMLElement,
+  editor?: HTMLDivElement | null
+) {
+  const afterAnchor = findStructuredBlockAfterAnchor(
+    resolveStructuredBlockTarget(target)
+  );
   if (!afterAnchor) {
     return;
   }
@@ -1262,7 +1401,9 @@ function findAdjacentEditorParagraph(
   direction: "previous" | "next"
 ): HTMLParagraphElement | null {
   let sibling =
-    direction === "previous" ? target.previousElementSibling : target.nextElementSibling;
+    direction === "previous"
+      ? target.previousElementSibling
+      : target.nextElementSibling;
 
   while (sibling) {
     if (sibling instanceof HTMLParagraphElement) {
@@ -1270,7 +1411,9 @@ function findAdjacentEditorParagraph(
     }
 
     sibling =
-      direction === "previous" ? sibling.previousElementSibling : sibling.nextElementSibling;
+      direction === "previous"
+        ? sibling.previousElementSibling
+        : sibling.nextElementSibling;
   }
 
   return null;
@@ -1294,7 +1437,9 @@ function removeStructuredBlock(target: HTMLElement, editor: HTMLDivElement) {
   }
 
   const fallbackParagraph =
-    nextParagraph ?? previousParagraph ?? createEmptyParagraph(editor.ownerDocument);
+    nextParagraph ??
+    previousParagraph ??
+    createEmptyParagraph(editor.ownerDocument);
 
   if (!fallbackParagraph.isConnected) {
     editor.append(fallbackParagraph);
@@ -1315,7 +1460,10 @@ function removeStructuredBlock(target: HTMLElement, editor: HTMLDivElement) {
   moveCaretToStart(fallbackParagraph);
 }
 
-function findCurrentParagraph(editor: HTMLDivElement, range: Range): HTMLParagraphElement | null {
+function findCurrentParagraph(
+  editor: HTMLDivElement,
+  range: Range
+): HTMLParagraphElement | null {
   const baseElement =
     range.startContainer instanceof HTMLElement
       ? range.startContainer
@@ -1430,12 +1578,18 @@ function getElementTextContentWithBreaks(element: HTMLElement): string {
     .replace(/\u00a0/g, " ");
 }
 
-function getTextOffsetWithinElement(element: HTMLElement, range: Range): number {
+function getTextOffsetWithinElement(
+  element: HTMLElement,
+  range: Range
+): number {
   const measurementRange = document.createRange();
   measurementRange.selectNodeContents(element);
   measurementRange.setEnd(range.startContainer, range.startOffset);
 
-  return extractNodeText(measurementRange.cloneContents()).replace(/\u00a0/g, " ").length;
+  return extractNodeText(measurementRange.cloneContents()).replace(
+    /\u00a0/g,
+    " "
+  ).length;
 }
 
 function isRangeAtEndOfElement(element: HTMLElement, range: Range): boolean {
@@ -1455,7 +1609,10 @@ function isRangeAtStartOfElement(element: HTMLElement, range: Range): boolean {
   return getTextOffsetWithinElement(element, range) === 0;
 }
 
-function isRangeOnLastLineOfElement(element: HTMLElement, range: Range): boolean {
+function isRangeOnLastLineOfElement(
+  element: HTMLElement,
+  range: Range
+): boolean {
   if (!range.collapsed || !element.contains(range.startContainer)) {
     return false;
   }
@@ -1512,8 +1669,12 @@ export function buildEditorRichTextHtml(input: string): string {
     return input;
   }
 
-  const hasCodeBlocks = input.includes(`<pre data-rich-block="${RICH_TEXT_CODE_BLOCK}"`);
-  const hasTokenBlocks = input.includes(`data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"`);
+  const hasCodeBlocks = input.includes(
+    `<pre data-rich-block="${RICH_TEXT_CODE_BLOCK}"`
+  );
+  const hasTokenBlocks = input.includes(
+    `data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"`
+  );
 
   if (!hasCodeBlocks && !hasTokenBlocks) {
     return input;
@@ -1523,7 +1684,9 @@ export function buildEditorRichTextHtml(input: string): string {
   template.innerHTML = input;
 
   template.content
-    .querySelectorAll<HTMLElement>(`pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"]`)
+    .querySelectorAll<HTMLElement>(
+      `pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"]`
+    )
     .forEach((preElement) => {
       const shell = document.createElement(EDITOR_RICH_SHELL_TAG);
       const row = wrapStructuredShellInEditorRow(document, shell);
@@ -1556,7 +1719,9 @@ export function buildEditorRichTextHtml(input: string): string {
     });
 
   template.content
-    .querySelectorAll<HTMLElement>(`div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"]`)
+    .querySelectorAll<HTMLElement>(
+      `div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"]`
+    )
     .forEach((tokenElement) => {
       tokenElement.querySelector("p, h1, h2, strong")?.remove();
 
@@ -1570,7 +1735,10 @@ export function buildEditorRichTextHtml(input: string): string {
       tokenElement.setAttribute("contenteditable", "false");
 
       const tokenValue =
-        tokenElement.querySelector("code")?.textContent?.replace(/\u00a0/g, " ").trim() ?? "";
+        tokenElement
+          .querySelector("code")
+          ?.textContent?.replace(/\u00a0/g, " ")
+          .trim() ?? "";
       const inputElement = document.createElement("input");
       inputElement.type = "password";
       inputElement.className = EDITOR_TOKEN_INPUT_CLASS;
@@ -1615,7 +1783,8 @@ export function buildEditorRichTextHtml(input: string): string {
       shell.append(tokenElement, actions);
     });
 
-  const trailingElement = template.content.lastElementChild as HTMLElement | null;
+  const trailingElement = template.content
+    .lastElementChild as HTMLElement | null;
   if (
     trailingElement?.matches(EDITOR_RICH_SHELL_SELECTOR) ||
     trailingElement?.matches(EDITOR_BLOCK_ROW_SELECTOR)
@@ -1650,7 +1819,9 @@ export function serializeEditorRichTextHtml(input: string): string {
   template.content
     .querySelectorAll<HTMLElement>(EDITOR_BLOCK_ROW_SELECTOR)
     .forEach((rowElement) => {
-      const shellElement = rowElement.querySelector<HTMLElement>(EDITOR_RICH_SHELL_SELECTOR);
+      const shellElement = rowElement.querySelector<HTMLElement>(
+        EDITOR_RICH_SHELL_SELECTOR
+      );
       if (!shellElement) {
         return;
       }
@@ -1658,7 +1829,9 @@ export function serializeEditorRichTextHtml(input: string): string {
       if (shellElement.dataset.editorShell === RICH_TEXT_CODE_BLOCK) {
         const codeText =
           shellElement
-            .querySelector(`pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code`)
+            .querySelector(
+              `pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code`
+            )
             ?.textContent?.replace(/\u00a0/g, " ")
             .trim() ?? "";
         const codeHtml = createRichTextCodeBlock(codeText);
@@ -1688,7 +1861,9 @@ export function serializeEditorRichTextHtml(input: string): string {
             ?.replace(/\u00a0/g, " ")
             .trim() ??
           shellElement
-            .querySelector(`div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"] code`)
+            .querySelector(
+              `div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"] code`
+            )
             ?.textContent?.replace(/\u00a0/g, " ")
             .trim() ??
           "";
@@ -1713,7 +1888,9 @@ export function serializeEditorRichTextHtml(input: string): string {
       if (shellElement.dataset.editorShell === RICH_TEXT_CODE_BLOCK) {
         const codeText =
           shellElement
-            .querySelector(`pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code`)
+            .querySelector(
+              `pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code`
+            )
             ?.textContent?.replace(/\u00a0/g, " ")
             .trim() ?? "";
         const codeHtml = createRichTextCodeBlock(codeText);
@@ -1743,7 +1920,9 @@ export function serializeEditorRichTextHtml(input: string): string {
             ?.replace(/\u00a0/g, " ")
             .trim() ??
           shellElement
-            .querySelector(`div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"] code`)
+            .querySelector(
+              `div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"] code`
+            )
             ?.textContent?.replace(/\u00a0/g, " ")
             .trim() ??
           "";
@@ -1759,7 +1938,9 @@ export function serializeEditorRichTextHtml(input: string): string {
     });
 
   normalizeEditorOnlyWhitespace(template.content);
-  return trimTrailingEmptyParagraphHtml(template.innerHTML.replace(/\u200b/g, ""));
+  return trimTrailingEmptyParagraphHtml(
+    template.innerHTML.replace(/\u200b/g, "")
+  );
 }
 
 function applyStructuredBlock(
@@ -1782,9 +1963,13 @@ function applyStructuredBlock(
   }
 
   if (containingStructuredBlock) {
-    const replacementTarget = resolveStructuredBlockTarget(containingStructuredBlock);
+    const replacementTarget = resolveStructuredBlockTarget(
+      containingStructuredBlock
+    );
     if (containingStructuredBlock.dataset.richBlock === blockType) {
-      const plainTextHtml = createParagraphHtmlFromText(extractNodeText(replacementTarget));
+      const plainTextHtml = createParagraphHtmlFromText(
+        extractNodeText(replacementTarget)
+      );
       replaceElementWithHtml(replacementTarget, plainTextHtml, "inside-end");
       return true;
     }
@@ -1799,7 +1984,10 @@ function applyStructuredBlock(
       return false;
     }
 
-    replaceElementWithHtml(replacementTarget, buildEditorRichTextHtml(blockHtml));
+    replaceElementWithHtml(
+      replacementTarget,
+      buildEditorRichTextHtml(blockHtml)
+    );
     return true;
   }
 
@@ -1820,7 +2008,9 @@ function applyStructuredBlock(
 
   const directEditorTextNode = findDirectEditorTextNode(editor, range);
   if (directEditorTextNode) {
-    const targetText = normalizeBlockText(directEditorTextNode.textContent ?? "");
+    const targetText = normalizeBlockText(
+      directEditorTextNode.textContent ?? ""
+    );
     if (!targetText) {
       return false;
     }
@@ -1830,7 +2020,10 @@ function applyStructuredBlock(
       return false;
     }
 
-    replaceNodeWithHtml(directEditorTextNode, buildEditorRichTextHtml(blockHtml));
+    replaceNodeWithHtml(
+      directEditorTextNode,
+      buildEditorRichTextHtml(blockHtml)
+    );
     return true;
   }
 
@@ -1883,12 +2076,20 @@ function applyStructuredBlock(
     return false;
   }
 
-  const beforeHtml = lineSplit.before ? createParagraphHtmlFromText(lineSplit.before) : "";
-  const afterHtml = lineSplit.after ? createParagraphHtmlFromText(lineSplit.after) : "";
+  const beforeHtml = lineSplit.before
+    ? createParagraphHtmlFromText(lineSplit.before)
+    : "";
+  const afterHtml = lineSplit.after
+    ? createParagraphHtmlFromText(lineSplit.after)
+    : "";
   const enhancedCurrentLineHtml = afterHtml
-    ? trimTrailingEmptyParagraphHtml(buildEditorRichTextHtml(currentLineBlockHtml))
+    ? trimTrailingEmptyParagraphHtml(
+        buildEditorRichTextHtml(currentLineBlockHtml)
+      )
     : buildEditorRichTextHtml(currentLineBlockHtml);
-  const nextHtml = [beforeHtml, enhancedCurrentLineHtml, afterHtml].filter(Boolean).join("");
+  const nextHtml = [beforeHtml, enhancedCurrentLineHtml, afterHtml]
+    .filter(Boolean)
+    .join("");
 
   if (target === editor) {
     editor.innerHTML = nextHtml;
@@ -1993,7 +2194,9 @@ export function RichTextEditor({
       return;
     }
 
-    setMentionState(getActiveEditorMention(editor) ?? createInactiveEditorMentionState());
+    setMentionState(
+      getActiveEditorMention(editor) ?? createInactiveEditorMentionState()
+    );
   };
 
   const handleMentionSelect = (member: MentionAutocompleteMember) => {
@@ -2018,10 +2221,11 @@ export function RichTextEditor({
     marker.textContent = EDITOR_CARET_ANCHOR;
 
     const replacementRange = document.createRange();
-    const replacementEndOffset =
-      /\s/.test(targetMention.textNode.data[targetMention.endOffset] ?? "")
-        ? targetMention.endOffset + 1
-        : targetMention.endOffset;
+    const replacementEndOffset = /\s/.test(
+      targetMention.textNode.data[targetMention.endOffset] ?? ""
+    )
+      ? targetMention.endOffset + 1
+      : targetMention.endOffset;
     replacementRange.setStart(targetMention.textNode, targetMention.startIndex);
     replacementRange.setEnd(targetMention.textNode, replacementEndOffset);
     replacementRange.deleteContents();
@@ -2042,7 +2246,9 @@ export function RichTextEditor({
     closeMentionAutocomplete();
   };
 
-  const recordHistoryFromSnapshot = (beforeSnapshot: EditorHistorySnapshot | null) => {
+  const recordHistoryFromSnapshot = (
+    beforeSnapshot: EditorHistorySnapshot | null
+  ) => {
     const editor = editorRef.current;
     if (!editor || !beforeSnapshot) {
       return false;
@@ -2064,7 +2270,8 @@ export function RichTextEditor({
       return false;
     }
 
-    const sourceStack = direction === "undo" ? historyRef.current.undo : historyRef.current.redo;
+    const sourceStack =
+      direction === "undo" ? historyRef.current.undo : historyRef.current.redo;
     const targetSnapshot = sourceStack.pop();
     if (!targetSnapshot) {
       return false;
@@ -2097,7 +2304,13 @@ export function RichTextEditor({
       ? createEditorHistorySnapshot(editorRef.current)
       : null;
 
-    if (applyStructuredBlock(editorRef.current, RICH_TEXT_CODE_BLOCK, createRichTextCodeBlock)) {
+    if (
+      applyStructuredBlock(
+        editorRef.current,
+        RICH_TEXT_CODE_BLOCK,
+        createRichTextCodeBlock
+      )
+    ) {
       recordHistoryFromSnapshot(beforeSnapshot);
       emitCurrentValue();
     }
@@ -2109,7 +2322,11 @@ export function RichTextEditor({
       : null;
 
     if (
-      applyStructuredBlock(editorRef.current, RICH_TEXT_TOKEN_BLOCK, createRichTextTokenBlock)
+      applyStructuredBlock(
+        editorRef.current,
+        RICH_TEXT_TOKEN_BLOCK,
+        createRichTextTokenBlock
+      )
     ) {
       recordHistoryFromSnapshot(beforeSnapshot);
       emitCurrentValue();
@@ -2126,7 +2343,9 @@ export function RichTextEditor({
 
   const handleEditorClick = async (event: MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement | null;
-    const actionButton = target?.closest(EDITOR_ACTION_BUTTON_SELECTOR) as HTMLButtonElement | null;
+    const actionButton = target?.closest(
+      EDITOR_ACTION_BUTTON_SELECTOR
+    ) as HTMLButtonElement | null;
 
     if (!actionButton) {
       return;
@@ -2135,7 +2354,9 @@ export function RichTextEditor({
     event.preventDefault();
     event.stopPropagation();
 
-    const editorShell = actionButton.closest(EDITOR_RICH_SHELL_SELECTOR) as HTMLElement | null;
+    const editorShell = actionButton.closest(
+      EDITOR_RICH_SHELL_SELECTOR
+    ) as HTMLElement | null;
     if (!editorShell) {
       return;
     }
@@ -2169,7 +2390,7 @@ export function RichTextEditor({
     const copyText =
       copyTarget instanceof HTMLInputElement
         ? copyTarget.value.replace(/\u00a0/g, " ").trim()
-        : copyTarget?.textContent?.replace(/\u00a0/g, " ").trim() ?? "";
+        : (copyTarget?.textContent?.replace(/\u00a0/g, " ").trim() ?? "");
     if (!copyText || !supportsClipboardApi()) {
       setEditorCopyButtonState(actionButton, "unavailable");
       return;
@@ -2217,8 +2438,13 @@ export function RichTextEditor({
       return;
     }
 
-    if (target instanceof HTMLInputElement && target.dataset.editorTokenInput === "true") {
-      const tokenShell = target.closest(EDITOR_RICH_SHELL_SELECTOR) as HTMLElement | null;
+    if (
+      target instanceof HTMLInputElement &&
+      target.dataset.editorTokenInput === "true"
+    ) {
+      const tokenShell = target.closest(
+        EDITOR_RICH_SHELL_SELECTOR
+      ) as HTMLElement | null;
       if (!tokenShell) {
         return;
       }
@@ -2314,7 +2540,10 @@ export function RichTextEditor({
         mentionBeforeCaret.mentionElement.before(marker);
         mentionBeforeCaret.mentionElement.remove();
         if (mentionBeforeCaret.trailingTextNode) {
-          mentionBeforeCaret.trailingTextNode.deleteData(0, mentionBeforeCaret.trailingTextOffset);
+          mentionBeforeCaret.trailingTextNode.deleteData(
+            0,
+            mentionBeforeCaret.trailingTextOffset
+          );
           if (mentionBeforeCaret.trailingTextNode.data.length === 0) {
             mentionBeforeCaret.trailingTextNode.remove();
           }
@@ -2383,22 +2612,33 @@ export function RichTextEditor({
     }
 
     const currentParagraph =
-      findCurrentParagraph(editor, range) ?? findRootSelectionParagraph(editor, range);
-    const previousElement = currentParagraph?.previousElementSibling as HTMLElement | null;
-    const nextElement = currentParagraph?.nextElementSibling as HTMLElement | null;
+      findCurrentParagraph(editor, range) ??
+      findRootSelectionParagraph(editor, range);
+    const previousElement =
+      currentParagraph?.previousElementSibling as HTMLElement | null;
+    const nextElement =
+      currentParagraph?.nextElementSibling as HTMLElement | null;
     const hasStructuredBlockBeforeParagraph =
       previousElement?.matches(EDITOR_RICH_SHELL_SELECTOR) === true ||
       previousElement?.matches(EDITOR_BLOCK_ROW_SELECTOR) === true;
     const hasStructuredBlockAfterParagraph =
       nextElement?.matches(EDITOR_RICH_SHELL_SELECTOR) === true ||
       nextElement?.matches(EDITOR_BLOCK_ROW_SELECTOR) === true;
-    if (isArrowUpKey(event) && currentParagraph && hasStructuredBlockBeforeParagraph) {
+    if (
+      isArrowUpKey(event) &&
+      currentParagraph &&
+      hasStructuredBlockBeforeParagraph
+    ) {
       event.preventDefault();
       moveCaretToEndOfStructuredBlock(previousElement as HTMLElement);
       return;
     }
 
-    if (isArrowDownKey(event) && currentParagraph && hasStructuredBlockAfterParagraph) {
+    if (
+      isArrowDownKey(event) &&
+      currentParagraph &&
+      hasStructuredBlockAfterParagraph
+    ) {
       event.preventDefault();
       moveCaretToStartOfStructuredBlock(nextElement as HTMLElement);
       return;
@@ -2415,27 +2655,42 @@ export function RichTextEditor({
       return;
     }
 
-    const codeBlock = findContainingStructuredBlock(editor, range, RICH_TEXT_CODE_BLOCK);
+    const codeBlock = findContainingStructuredBlock(
+      editor,
+      range,
+      RICH_TEXT_CODE_BLOCK
+    );
     if (codeBlock) {
       const codeShell = resolveStructuredBlockTarget(codeBlock);
-      const codeElement =
-        codeShell.querySelector(
-          `pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code`
-        ) as HTMLElement | null;
+      const codeElement = codeShell.querySelector(
+        `pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code`
+      ) as HTMLElement | null;
 
-      if (isArrowRightKey(event) && codeElement && isRangeAtEndOfElement(codeElement, range)) {
+      if (
+        isArrowRightKey(event) &&
+        codeElement &&
+        isRangeAtEndOfElement(codeElement, range)
+      ) {
         event.preventDefault();
         moveCaretToAfterStructuredBlock(codeShell, editor);
         return;
       }
 
-      if (isArrowDownKey(event) && codeElement && isRangeOnLastLineOfElement(codeElement, range)) {
+      if (
+        isArrowDownKey(event) &&
+        codeElement &&
+        isRangeOnLastLineOfElement(codeElement, range)
+      ) {
         event.preventDefault();
         moveCaretBelowBlock(codeShell, editor);
         return;
       }
 
-      if (isArrowUpKey(event) && codeElement && isRangeAtStartOfElement(codeElement, range)) {
+      if (
+        isArrowUpKey(event) &&
+        codeElement &&
+        isRangeAtStartOfElement(codeElement, range)
+      ) {
         if (moveCaretToParagraphAboveStructuredBlock(codeShell, editor)) {
           event.preventDefault();
           return;
@@ -2448,7 +2703,10 @@ export function RichTextEditor({
         return;
       }
 
-      if (isBackspaceKey(event) && normalizeBlockText(extractNodeText(codeShell)) === "") {
+      if (
+        isBackspaceKey(event) &&
+        normalizeBlockText(extractNodeText(codeShell)) === ""
+      ) {
         event.preventDefault();
         const beforeSnapshot = createEditorHistorySnapshot(editor);
         removeStructuredBlock(codeShell, editor);
@@ -2481,7 +2739,11 @@ export function RichTextEditor({
       return;
     }
 
-    const tokenBlock = findContainingStructuredBlock(editor, range, RICH_TEXT_TOKEN_BLOCK);
+    const tokenBlock = findContainingStructuredBlock(
+      editor,
+      range,
+      RICH_TEXT_TOKEN_BLOCK
+    );
     if (tokenBlock) {
       const tokenShell = resolveStructuredBlockTarget(tokenBlock);
 
@@ -2491,7 +2753,10 @@ export function RichTextEditor({
         return;
       }
 
-      if (isBackspaceKey(event) && normalizeBlockText(extractNodeText(tokenShell)) === "") {
+      if (
+        isBackspaceKey(event) &&
+        normalizeBlockText(extractNodeText(tokenShell)) === ""
+      ) {
         event.preventDefault();
         const beforeSnapshot = createEditorHistorySnapshot(editor);
         removeStructuredBlock(tokenShell, editor);
@@ -2512,13 +2777,17 @@ export function RichTextEditor({
       return;
     }
 
-    pendingInputSnapshotRef.current = createEditorHistorySnapshot(editorRef.current);
+    pendingInputSnapshotRef.current = createEditorHistorySnapshot(
+      editorRef.current
+    );
   };
 
   const handleEditorInput = (event: FormEvent<HTMLDivElement>) => {
     const currentEditor = event.currentTarget as HTMLDivElement;
     const target = event.target as HTMLElement | null;
-    const activeMention = mentionProjectId ? getActiveEditorMention(currentEditor) : null;
+    const activeMention = mentionProjectId
+      ? getActiveEditorMention(currentEditor)
+      : null;
 
     if (
       target instanceof HTMLInputElement &&
@@ -2537,11 +2806,10 @@ export function RichTextEditor({
       return;
     }
 
-    const beforeSnapshot =
-      pendingInputSnapshotRef.current ?? {
-        value: latestValueRef.current,
-        selection: null,
-      };
+    const beforeSnapshot = pendingInputSnapshotRef.current ?? {
+      value: latestValueRef.current,
+      selection: null,
+    };
 
     pendingInputSnapshotRef.current = null;
 

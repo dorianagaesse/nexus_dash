@@ -1,5 +1,5 @@
 import { logServerError } from "@/lib/observability/logger";
-import { parseMentions } from "@/lib/mention";
+import { parseMentions, type ParsedMention } from "@/lib/mention";
 import {
   requireAgentProjectScopes,
   requireProjectRole,
@@ -42,6 +42,23 @@ export interface TaskCommentSummary {
 interface PendingMentionNotification {
   recipientUserId: string;
   notification: TaskCommentMentionNotificationInput;
+}
+
+interface MentionedProjectMember {
+  userId: string;
+  username: string;
+  discriminator: string | null;
+  displayName: string;
+}
+
+interface MentionResolutionData {
+  projectName: string;
+  mentionedUsers: MentionedProjectMember[];
+}
+
+interface CreateTaskCommentTransactionData {
+  comment: TaskCommentSummary;
+  pendingNotifications: PendingMentionNotification[];
 }
 
 function createError(status: number, error: string): ServiceErrorResult {
@@ -91,6 +108,196 @@ async function touchTaskActivity(
       id: true,
     },
   });
+}
+
+function addMentionResolutionCandidate(input: {
+  user: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    username: string | null;
+    usernameDiscriminator: string | null;
+  };
+  usernameTagToUser: Map<string, MentionedProjectMember>;
+  usernameToUser: Map<string, MentionedProjectMember | null>;
+}) {
+  if (!input.user.username || !input.user.usernameDiscriminator) {
+    return;
+  }
+
+  const userData: MentionedProjectMember = {
+    userId: input.user.id,
+    displayName: input.user.name || input.user.email || input.user.username,
+    username: input.user.username,
+    discriminator: input.user.usernameDiscriminator,
+  };
+  const usernameKey = input.user.username.toLowerCase();
+  const usernameTagKey = `${usernameKey}#${input.user.usernameDiscriminator.toLowerCase()}`;
+
+  input.usernameTagToUser.set(usernameTagKey, userData);
+
+  if (!input.usernameToUser.has(usernameKey)) {
+    input.usernameToUser.set(usernameKey, userData);
+    return;
+  }
+
+  const existingUsernameMatch = input.usernameToUser.get(usernameKey);
+  if (
+    existingUsernameMatch &&
+    existingUsernameMatch.userId !== userData.userId
+  ) {
+    input.usernameToUser.set(usernameKey, null);
+  }
+}
+
+async function resolveMentionedProjectMembers(
+  db: DbClient,
+  projectId: string,
+  mentions: ParsedMention[]
+): Promise<ServiceResult<MentionResolutionData>> {
+  if (mentions.length === 0) {
+    return {
+      ok: true,
+      data: {
+        projectName: "",
+        mentionedUsers: [],
+      },
+    };
+  }
+
+  const project = await db.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      name: true,
+      owner: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          username: true,
+          usernameDiscriminator: true,
+        },
+      },
+      memberships: {
+        select: {
+          userId: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              username: true,
+              usernameDiscriminator: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!project) {
+    return createError(404, "project-not-found");
+  }
+
+  const usernameTagToUser = new Map<string, MentionedProjectMember>();
+  const usernameToUser = new Map<string, MentionedProjectMember | null>();
+  const candidateUserIds = new Set<string>();
+
+  addMentionResolutionCandidate({
+    user: project.owner,
+    usernameTagToUser,
+    usernameToUser,
+  });
+  candidateUserIds.add(project.owner.id);
+
+  for (const membership of project.memberships) {
+    if (candidateUserIds.has(membership.userId)) {
+      continue;
+    }
+
+    addMentionResolutionCandidate({
+      user: membership.user,
+      usernameTagToUser,
+      usernameToUser,
+    });
+    candidateUserIds.add(membership.userId);
+  }
+
+  const mentionedUsers: MentionedProjectMember[] = [];
+  for (const mention of mentions) {
+    const matchedUser = mention.discriminator
+      ? usernameTagToUser.get(
+          `${mention.username.toLowerCase()}#${mention.discriminator.toLowerCase()}`
+        )
+      : usernameToUser.get(mention.username.toLowerCase());
+
+    if (
+      matchedUser &&
+      !mentionedUsers.some((user) => user.userId === matchedUser.userId)
+    ) {
+      mentionedUsers.push(matchedUser);
+    }
+  }
+
+  return {
+    ok: true,
+    data: {
+      projectName: project.name,
+      mentionedUsers,
+    },
+  };
+}
+
+function buildPendingMentionNotifications(input: {
+  actorUserId: string;
+  authorDisplayName: string;
+  authorUsername: string | null;
+  commentId: string;
+  taskId: string;
+  taskTitle: string;
+  projectId: string;
+  projectName: string;
+  mentionedUsers: MentionedProjectMember[];
+}): PendingMentionNotification[] {
+  const taskPath = `/projects/${input.projectId}/tasks/${input.taskId}`;
+
+  return input.mentionedUsers
+    .filter((mentionedUser) => mentionedUser.userId !== input.actorUserId)
+    .map((mentionedUser) => ({
+      recipientUserId: mentionedUser.userId,
+      notification: {
+        commentId: input.commentId,
+        taskId: input.taskId,
+        taskTitle: input.taskTitle,
+        projectId: input.projectId,
+        projectName: input.projectName,
+        mentionedUsername: mentionedUser.username,
+        mentionedUserId: mentionedUser.userId,
+        mentionedUserDisplayName: mentionedUser.displayName,
+        authorUsername: input.authorUsername || "",
+        authorDisplayName: input.authorDisplayName,
+        targetPath: taskPath,
+      },
+    }));
+}
+
+async function dispatchMentionNotifications(
+  actorUserId: string,
+  pendingNotifications: PendingMentionNotification[]
+) {
+  for (const pendingNotification of pendingNotifications) {
+    try {
+      await withActorRlsContext(actorUserId, async (db) => {
+        await createTaskCommentMentionNotification({
+          db,
+          ...pendingNotification,
+        });
+      });
+    } catch (error) {
+      logServerError("createTaskCommentForProject.mentionNotification", error);
+    }
+  }
 }
 
 export async function listTaskCommentsForProject(input: {
@@ -201,51 +408,53 @@ export async function createTaskCommentForProject(input: {
     return createError(agentScopeAccess.status, agentScopeAccess.error);
   }
 
-  const result = await withActorRlsContext(actorUserId, async (db) => {
-    const access = await requireProjectRole({
-      actorUserId,
-      projectId: input.projectId,
-      minimumRole: "editor",
-      db,
-    });
-    if (!access.ok) {
-      return createError(access.status, access.error);
-    }
+  const result: ServiceResult<CreateTaskCommentTransactionData> =
+    await withActorRlsContext(actorUserId, async (db) => {
+      const access = await requireProjectRole({
+        actorUserId,
+        projectId: input.projectId,
+        minimumRole: "editor",
+        db,
+      });
+      if (!access.ok) {
+        return createError(access.status, access.error);
+      }
 
-    const task = await db.task.findUnique({
-      where: { id: input.taskId },
-      select: {
-        id: true,
-        title: true,
-        projectId: true,
-      },
-    });
+      const task = await db.task.findUnique({
+        where: { id: input.taskId },
+        select: {
+          id: true,
+          title: true,
+          projectId: true,
+        },
+      });
 
-    if (!task || task.projectId !== input.projectId) {
-      return createError(404, "task-not-found");
-    }
+      if (!task || task.projectId !== input.projectId) {
+        return createError(404, "task-not-found");
+      }
 
-    // Fetch project with owner and members for mention resolution
-    const project = await db.project.findUnique({
-      where: { id: input.projectId },
-      select: {
-        id: true,
-        name: true,
-        ownerId: true,
-        owner: {
+      const { mentions } = parseMentions(content);
+      const mentionResolution = await resolveMentionedProjectMembers(
+        db,
+        input.projectId,
+        mentions
+      );
+      if (!mentionResolution.ok) {
+        return mentionResolution;
+      }
+
+      try {
+        const comment = await db.taskComment.create({
+          data: {
+            taskId: input.taskId,
+            authorUserId: actorUserId,
+            content,
+          },
           select: {
             id: true,
-            name: true,
-            email: true,
-            username: true,
-            usernameDiscriminator: true,
-            avatarSeed: true,
-          },
-        },
-        memberships: {
-          select: {
-            userId: true,
-            user: {
+            content: true,
+            createdAt: true,
+            author: {
               select: {
                 id: true,
                 name: true,
@@ -256,179 +465,54 @@ export async function createTaskCommentForProject(input: {
               },
             },
           },
-        },
-      },
+        });
+
+        await touchTaskActivity(db, input.taskId, actorUserId);
+
+        const authorDisplayName =
+          comment.author.name ||
+          comment.author.email ||
+          comment.author.username ||
+          "Someone";
+        const pendingNotifications = buildPendingMentionNotifications({
+          actorUserId,
+          authorDisplayName,
+          authorUsername: comment.author.username,
+          commentId: comment.id,
+          taskId: input.taskId,
+          taskTitle: task.title,
+          projectId: input.projectId,
+          projectName: mentionResolution.data.projectName,
+          mentionedUsers: mentionResolution.data.mentionedUsers,
+        });
+
+        return {
+          ok: true,
+          data: {
+            comment: mapTaskComment(comment),
+            pendingNotifications,
+          },
+        };
+      } catch (error) {
+        logServerError("createTaskCommentForProject", error);
+        return createError(500, "comment-create-failed");
+      }
     });
 
-    if (!project) {
-      return createError(404, "project-not-found");
-    }
-
-    // Build a map of username#discriminator -> user for mention resolution
-    // Also build a separate map for username-only lookups (for backward compatibility)
-    const usernameTagToUser = new Map<string, {
-      id: string;
-      displayName: string;
-      username: string;
-      discriminator: string | null;
-    }>();
-    const usernameToUser = new Map<string, {
-      id: string;
-      displayName: string;
-      username: string;
-      discriminator: string | null;
-    }>();
-
-    // Add owner (only if username is set)
-    if (project.owner.username && project.owner.usernameDiscriminator) {
-      const usernameTag = `${project.owner.username}#${project.owner.usernameDiscriminator}`;
-      const userData = {
-        id: project.owner.id,
-        displayName: project.owner.name || project.owner.email || project.owner.username,
-        username: project.owner.username,
-        discriminator: project.owner.usernameDiscriminator,
-      };
-      usernameTagToUser.set(usernameTag.toLowerCase(), userData);
-      usernameToUser.set(project.owner.username.toLowerCase(), userData);
-    }
-
-    // Add members
-    for (const membership of project.memberships) {
-      if (membership.user.username && membership.user.usernameDiscriminator) {
-        const usernameTag = `${membership.user.username}#${membership.user.usernameDiscriminator}`;
-        const userData = {
-          id: membership.userId,
-          displayName: membership.user.name || membership.user.email || membership.user.username,
-          username: membership.user.username,
-          discriminator: membership.user.usernameDiscriminator,
-        };
-        usernameTagToUser.set(usernameTag.toLowerCase(), userData);
-        usernameToUser.set(membership.user.username.toLowerCase(), userData);
-      }
-    }
-
-    // Parse mentions from comment content
-    const { mentions } = parseMentions(content);
-
-    // Resolve mentions to user IDs (only existing project members)
-    const mentionedUsers: Array<{
-      userId: string;
-      username: string;
-      discriminator: string | null;
-      displayName: string;
-    }> = [];
-
-    for (const mention of mentions) {
-      // Look up by username#discriminator if discriminator is present
-      const matchedUser = mention.discriminator
-        ? usernameTagToUser.get(`${mention.username.toLowerCase()}#${mention.discriminator.toLowerCase()}`)
-        : usernameToUser.get(mention.username.toLowerCase());
-
-      if (matchedUser) {
-        // Avoid duplicates
-        if (!mentionedUsers.some((u) => u.userId === matchedUser.id)) {
-          mentionedUsers.push({
-            userId: matchedUser.id,
-            username: matchedUser.username,
-            discriminator: matchedUser.discriminator,
-            displayName: matchedUser.displayName,
-          });
-        }
-      }
-    }
-
-    try {
-      const comment = await db.taskComment.create({
-        data: {
-          taskId: input.taskId,
-          authorUserId: actorUserId,
-          content,
-        },
-        select: {
-          id: true,
-          content: true,
-          createdAt: true,
-          author: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              username: true,
-              usernameDiscriminator: true,
-              avatarSeed: true,
-            },
-          },
-        },
-      });
-
-      await touchTaskActivity(db, input.taskId, actorUserId);
-
-      const authorDisplayName = comment.author.name || comment.author.email || comment.author.username || "Someone";
-      const taskPath = `/projects/${input.projectId}/tasks/${input.taskId}`;
-      const pendingNotifications: PendingMentionNotification[] = [];
-
-      for (const mentionedUser of mentionedUsers) {
-        // Don't notify the author if they mention themselves
-        if (mentionedUser.userId === actorUserId) {
-          continue;
-        }
-
-        pendingNotifications.push({
-          recipientUserId: mentionedUser.userId,
-          notification: {
-            commentId: comment.id,
-            taskId: input.taskId,
-            taskTitle: task.title,
-            projectId: input.projectId,
-            projectName: project.name,
-            mentionedUsername: mentionedUser.username,
-            mentionedUserId: mentionedUser.userId,
-            mentionedUserDisplayName: mentionedUser.displayName,
-            authorUsername: comment.author.username || "",
-            authorDisplayName,
-            targetPath: taskPath,
-          },
-        });
-      }
-
-      return {
-        ok: true,
-        data: {
-          comment: mapTaskComment(comment),
-          pendingNotifications,
-        },
-      };
-    } catch (error) {
-      logServerError("createTaskCommentForProject", error);
-      return createError(500, "comment-create-failed");
-    }
-  });
-
   if (!result.ok) {
-    return result as ServiceErrorResult;
+    return result;
   }
 
-  const { pendingNotifications, ...resultData } = result.data as {
-    comment: TaskCommentSummary;
-    pendingNotifications: PendingMentionNotification[];
-  };
-
-  for (const pendingNotification of pendingNotifications) {
-    try {
-      await withActorRlsContext(actorUserId, async (db) => {
-        await createTaskCommentMentionNotification({
-          db,
-          ...pendingNotification,
-        });
-      });
-    } catch (error) {
-      logServerError("createTaskCommentForProject.mentionNotification", error);
-    }
-  }
+  await dispatchMentionNotifications(
+    actorUserId,
+    result.data.pendingNotifications
+  );
 
   return {
     ok: true,
-    data: resultData,
+    data: {
+      comment: result.data.comment,
+    },
   };
 }
 
@@ -474,7 +558,12 @@ function groupReactionsForActor(
     };
 
     if (!grouped.has(r.emoji)) {
-      grouped.set(r.emoji, { emoji: r.emoji, count: 0, reacted: false, reactions: [] });
+      grouped.set(r.emoji, {
+        emoji: r.emoji,
+        count: 0,
+        reacted: false,
+        reactions: [],
+      });
     }
 
     const group = grouped.get(r.emoji)!;
@@ -502,7 +591,8 @@ export async function listTaskCommentReactionsForComment(input: {
     projectId: input.projectId,
     requiredScopes: ["task:read"],
   });
-  if (!agentScopeAccess.ok) return createError(agentScopeAccess.status, agentScopeAccess.error);
+  if (!agentScopeAccess.ok)
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
 
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
@@ -523,7 +613,8 @@ export async function listTaskCommentReactionsForComment(input: {
       where: { id: comment.taskId },
       select: { projectId: true },
     });
-    if (!task || task.projectId !== input.projectId) return createError(404, "comment-not-found");
+    if (!task || task.projectId !== input.projectId)
+      return createError(404, "comment-not-found");
 
     try {
       const rawReactions = await db.taskCommentReaction.findMany({
@@ -546,7 +637,10 @@ export async function listTaskCommentReactionsForComment(input: {
         },
       });
 
-      return { ok: true, data: { reactions: groupReactionsForActor(rawReactions, actorUserId) } };
+      return {
+        ok: true,
+        data: { reactions: groupReactionsForActor(rawReactions, actorUserId) },
+      };
     } catch (error) {
       logServerError("listTaskCommentReactionsForComment", error);
       return createError(500, "reactions-list-failed");
@@ -573,7 +667,8 @@ export async function addTaskCommentReaction(input: {
     projectId: input.projectId,
     requiredScopes: ["task:write"],
   });
-  if (!agentScopeAccess.ok) return createError(agentScopeAccess.status, agentScopeAccess.error);
+  if (!agentScopeAccess.ok)
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
 
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
@@ -594,7 +689,8 @@ export async function addTaskCommentReaction(input: {
       where: { id: comment.taskId },
       select: { projectId: true },
     });
-    if (!task || task.projectId !== input.projectId) return createError(404, "comment-not-found");
+    if (!task || task.projectId !== input.projectId)
+      return createError(404, "comment-not-found");
 
     try {
       const existing = await db.taskCommentReaction.findMany({
@@ -612,10 +708,24 @@ export async function addTaskCommentReaction(input: {
             id: true,
             emoji: true,
             createdAt: true,
-            user: { select: { id: true, name: true, email: true, username: true, usernameDiscriminator: true, avatarSeed: true } },
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                username: true,
+                usernameDiscriminator: true,
+                avatarSeed: true,
+              },
+            },
           },
         });
-        return { ok: true, data: { reactions: groupReactionsForActor(rawReactions, actorUserId) } };
+        return {
+          ok: true,
+          data: {
+            reactions: groupReactionsForActor(rawReactions, actorUserId),
+          },
+        };
       }
 
       if (existing.length > 0) {
@@ -650,7 +760,10 @@ export async function addTaskCommentReaction(input: {
         },
       });
 
-      return { ok: true, data: { reactions: groupReactionsForActor(rawReactions, actorUserId) } };
+      return {
+        ok: true,
+        data: { reactions: groupReactionsForActor(rawReactions, actorUserId) },
+      };
     } catch (error) {
       logServerError("addTaskCommentReaction", error);
       return createError(500, "reaction-toggle-failed");
@@ -672,7 +785,8 @@ export async function removeTaskCommentReaction(input: {
     projectId: input.projectId,
     requiredScopes: ["task:write"],
   });
-  if (!agentScopeAccess.ok) return createError(agentScopeAccess.status, agentScopeAccess.error);
+  if (!agentScopeAccess.ok)
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
 
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
@@ -693,8 +807,10 @@ export async function removeTaskCommentReaction(input: {
       where: { id: reaction.comment.taskId },
       select: { projectId: true },
     });
-    if (!task || task.projectId !== input.projectId) return createError(404, "reaction-not-found");
-    if (reaction.userId !== actorUserId) return createError(403, "not-reaction-owner");
+    if (!task || task.projectId !== input.projectId)
+      return createError(404, "reaction-not-found");
+    if (reaction.userId !== actorUserId)
+      return createError(403, "not-reaction-owner");
 
     try {
       await db.taskCommentReaction.delete({ where: { id: input.reactionId } });
@@ -719,7 +835,10 @@ export async function removeTaskCommentReaction(input: {
         },
       });
 
-      return { ok: true, data: { reactions: groupReactionsForActor(rawReactions, actorUserId) } };
+      return {
+        ok: true,
+        data: { reactions: groupReactionsForActor(rawReactions, actorUserId) },
+      };
     } catch (error) {
       logServerError("removeTaskCommentReaction", error);
       return createError(500, "reaction-remove-failed");

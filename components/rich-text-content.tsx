@@ -15,7 +15,8 @@ const MONOSPACE_FONT_FAMILY =
   "Consolas, 'Liberation Mono', Menlo, Monaco, monospace";
 const RICH_TEXT_SHELL_CLASS =
   "relative my-2 block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-border/70 bg-muted/35 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)]";
-const RICH_TEXT_SHELL_ACTIONS_CLASS = "absolute right-2 top-2 z-10 flex items-center gap-1.5";
+const RICH_TEXT_SHELL_ACTIONS_CLASS =
+  "absolute right-2 top-2 z-10 flex items-center gap-1.5";
 const RICH_TEXT_ICON_BUTTON_CLASS =
   "inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-background/90 text-muted-foreground transition hover:border-foreground/20 hover:text-foreground";
 const RICH_TEXT_CODE_BLOCK_CLASS =
@@ -25,7 +26,10 @@ const RICH_TEXT_TOKEN_SHELL_CLASS =
 const RICH_TEXT_TOKEN_VALUE_CLASS =
   "block w-full min-w-0 max-w-full overflow-x-auto whitespace-nowrap py-1 text-[12px] leading-6 text-foreground [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
 const RICH_TEXT_TOKEN_ACTIONS_CLASS = "flex shrink-0 items-center gap-1.5";
-const TOKEN_BLOCK_MARKERS = ['data-rich-block="token"', "data-rich-block='token'"];
+const TOKEN_BLOCK_MARKERS = [
+  'data-rich-block="token"',
+  "data-rich-block='token'",
+];
 const HIDDEN_TOKEN_VALUE_MASK = "********";
 const RICH_TEXT_MENTION_CLASS =
   "rounded-md bg-primary/15 px-1 py-0.5 font-medium text-primary not-italic";
@@ -40,7 +44,10 @@ const EYE_OFF_ICON_SVG =
   '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M10.58 10.58A3 3 0 0 0 12 15a3 3 0 0 0 2.42-4.42"></path><path d="M16.68 16.67A9.63 9.63 0 0 1 12 18c-4.3 0-8.02-3.33-9.94-7.65a1 1 0 0 1 0-.7 14.9 14.9 0 0 1 5.07-6.08"></path><path d="M14.12 5.11A9.53 9.53 0 0 1 12 5c4.3 0 8.02 3.33 9.94 7.65a1 1 0 0 1 0 .7 14.7 14.7 0 0 1-4.03 5.08"></path><path d="M2 2l20 20"></path></svg>';
 
 function supportsClipboardApi(): boolean {
-  return typeof navigator !== "undefined" && typeof navigator.clipboard?.writeText === "function";
+  return (
+    typeof navigator !== "undefined" &&
+    typeof navigator.clipboard?.writeText === "function"
+  );
 }
 
 function setMonospaceFont(element: HTMLElement) {
@@ -63,7 +70,11 @@ function buildIconButton(
   return button;
 }
 
-function buildCopyButton(documentRef: Document, copyText: string, ariaLabel: string) {
+function buildCopyButton(
+  documentRef: Document,
+  copyText: string,
+  ariaLabel: string
+) {
   const button = buildIconButton(documentRef, "copy", ariaLabel, COPY_ICON_SVG);
   button.dataset.richCopyText = copyText;
   return button;
@@ -93,7 +104,10 @@ function setTokenVisibility(
   const rawValue = valueElement.dataset.richTokenValue ?? "";
   valueElement.dataset.richTokenRevealed = revealed ? "true" : "false";
   valueElement.textContent = revealed ? rawValue : HIDDEN_TOKEN_VALUE_MASK;
-  valueElement.setAttribute("aria-label", revealed ? "Visible token value" : "Hidden token value");
+  valueElement.setAttribute(
+    "aria-label",
+    revealed ? "Visible token value" : "Hidden token value"
+  );
   setMonospaceFont(valueElement);
 
   toggleButton.setAttribute(
@@ -116,7 +130,9 @@ export function buildEnhancedRichTextHtml(
   }
 
   const hasCodeBlocks = input.includes("<pre");
-  const hasTokenBlocks = TOKEN_BLOCK_MARKERS.some((marker) => input.includes(marker));
+  const hasTokenBlocks = TOKEN_BLOCK_MARKERS.some((marker) =>
+    input.includes(marker)
+  );
   const hasMentions = input.includes("@");
 
   if (!hasCodeBlocks && !hasTokenBlocks && !hasMentions) {
@@ -160,42 +176,49 @@ export function buildEnhancedRichTextHtml(
     preElement.replaceWith(shell);
   });
 
-  template.content.querySelectorAll('div[data-rich-block="token"]').forEach((tokenElement) => {
-    const normalizedValue =
-      tokenElement.querySelector("code")?.textContent?.replace(/\u00a0/g, " ").trim() ?? "";
+  template.content
+    .querySelectorAll('div[data-rich-block="token"]')
+    .forEach((tokenElement) => {
+      const normalizedValue =
+        tokenElement
+          .querySelector("code")
+          ?.textContent?.replace(/\u00a0/g, " ")
+          .trim() ?? "";
 
-    if (!normalizedValue) {
-      return;
-    }
+      if (!normalizedValue) {
+        return;
+      }
 
-    const shell = document.createElement("div");
-    shell.className = RICH_TEXT_TOKEN_SHELL_CLASS;
-    shell.dataset.richTokenShell = "true";
+      const shell = document.createElement("div");
+      shell.className = RICH_TEXT_TOKEN_SHELL_CLASS;
+      shell.dataset.richTokenShell = "true";
 
-    const value = document.createElement("code");
-    value.className = RICH_TEXT_TOKEN_VALUE_CLASS;
-    value.dataset.richTokenValue = normalizedValue;
-    setMonospaceFont(value);
+      const value = document.createElement("code");
+      value.className = RICH_TEXT_TOKEN_VALUE_CLASS;
+      value.dataset.richTokenValue = normalizedValue;
+      setMonospaceFont(value);
 
-    const actions = document.createElement("div");
-    actions.className = RICH_TEXT_TOKEN_ACTIONS_CLASS;
+      const actions = document.createElement("div");
+      actions.className = RICH_TEXT_TOKEN_ACTIONS_CLASS;
 
-    const toggleButton = buildIconButton(
-      document,
-      "toggle-token",
-      "Reveal token value",
-      EYE_ICON_SVG
-    );
-    setTokenVisibility(toggleButton, value, false);
-    actions.append(toggleButton);
+      const toggleButton = buildIconButton(
+        document,
+        "toggle-token",
+        "Reveal token value",
+        EYE_ICON_SVG
+      );
+      setTokenVisibility(toggleButton, value, false);
+      actions.append(toggleButton);
 
-    if (canCopy) {
-      actions.append(buildCopyButton(document, normalizedValue, "Copy token value"));
-    }
+      if (canCopy) {
+        actions.append(
+          buildCopyButton(document, normalizedValue, "Copy token value")
+        );
+      }
 
-    shell.append(value, actions);
-    tokenElement.replaceWith(shell);
-  });
+      shell.append(value, actions);
+      tokenElement.replaceWith(shell);
+    });
 
   if (hasMentions) {
     highlightMentionTextNodes(template.content, mentionUsers);
@@ -204,33 +227,44 @@ export function buildEnhancedRichTextHtml(
   return template.innerHTML;
 }
 
-function highlightMentionTextNodes(root: DocumentFragment, mentionUsers?: MentionDisplayUser[]) {
+function highlightMentionTextNodes(
+  root: DocumentFragment,
+  mentionUsers?: MentionDisplayUser[]
+) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  const textNodes: Text[] = [];
+  const textNodes: Array<{ textNode: Text; mentions: ParsedMention[] }> = [];
 
   while (walker.nextNode()) {
     const textNode = walker.currentNode as Text;
     const parentElement = textNode.parentElement;
     if (
       !parentElement ||
-      parentElement.closest("pre, code, button, input, textarea, [data-rich-token-shell]")
+      parentElement.closest(
+        "pre, code, button, input, textarea, [data-rich-token-shell]"
+      )
     ) {
       continue;
     }
 
-    if (parseMentions(textNode.data).mentions.length > 0) {
-      textNodes.push(textNode);
+    const { mentions }: { mentions: ParsedMention[] } = parseMentions(
+      textNode.data
+    );
+    if (mentions.length > 0) {
+      textNodes.push({ textNode, mentions });
     }
   }
 
-  for (const textNode of textNodes) {
-    const { mentions }: { mentions: ParsedMention[] } = parseMentions(textNode.data);
+  for (const { textNode, mentions } of textNodes) {
     const fragment = document.createDocumentFragment();
     let lastIndex = 0;
 
     for (const mention of mentions) {
       if (mention.startIndex > lastIndex) {
-        fragment.append(document.createTextNode(textNode.data.slice(lastIndex, mention.startIndex)));
+        fragment.append(
+          document.createTextNode(
+            textNode.data.slice(lastIndex, mention.startIndex)
+          )
+        );
       }
 
       const mentionElement = document.createElement("span");
@@ -296,14 +330,20 @@ export function RichTextContent({
 
   const handleClick = async (event: React.MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement | null;
-    const actionButton = target?.closest("button[data-rich-action]") as HTMLButtonElement | null;
-    const copyButton = target?.closest("button[data-rich-copy-text]") as HTMLButtonElement | null;
+    const actionButton = target?.closest(
+      "button[data-rich-action]"
+    ) as HTMLButtonElement | null;
+    const copyButton = target?.closest(
+      "button[data-rich-copy-text]"
+    ) as HTMLButtonElement | null;
 
     if (actionButton?.dataset.richAction === "toggle-token") {
       event.preventDefault();
       event.stopPropagation();
 
-      const shell = actionButton.closest("[data-rich-token-shell]") as HTMLElement | null;
+      const shell = actionButton.closest(
+        "[data-rich-token-shell]"
+      ) as HTMLElement | null;
       const valueElement = shell?.querySelector(
         "code[data-rich-token-value]"
       ) as HTMLElement | null;
@@ -352,12 +392,18 @@ export function RichTextContent({
     target: EventTarget | null,
     currentTarget: HTMLDivElement
   ) => {
-    if (!mentionUsers || mentionUsers.length === 0 || !(target instanceof HTMLElement)) {
+    if (
+      !mentionUsers ||
+      mentionUsers.length === 0 ||
+      !(target instanceof HTMLElement)
+    ) {
       setMentionTooltip(null);
       return;
     }
 
-    const mentionElement = target.closest(RICH_TEXT_MENTION_SELECTOR) as HTMLElement | null;
+    const mentionElement = target.closest(
+      RICH_TEXT_MENTION_SELECTOR
+    ) as HTMLElement | null;
     if (!mentionElement || !currentTarget.contains(mentionElement)) {
       setMentionTooltip(null);
       return;
@@ -400,13 +446,19 @@ export function RichTextContent({
           className
         )}
         onClick={handleClick}
-        onMouseOver={(event) => handleMentionHover(event.target, event.currentTarget)}
-        onMouseMove={(event) => handleMentionHover(event.target, event.currentTarget)}
+        onMouseOver={(event) =>
+          handleMentionHover(event.target, event.currentTarget)
+        }
+        onMouseMove={(event) =>
+          handleMentionHover(event.target, event.currentTarget)
+        }
         onMouseLeave={(event) => {
           setMentionTooltip(null);
           onMouseLeave?.(event);
         }}
-        onFocus={(event) => handleMentionHover(event.target, event.currentTarget)}
+        onFocus={(event) =>
+          handleMentionHover(event.target, event.currentTarget)
+        }
         onBlur={(event) => {
           setMentionTooltip(null);
           onBlur?.(event);

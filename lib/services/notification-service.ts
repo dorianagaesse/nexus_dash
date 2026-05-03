@@ -188,15 +188,20 @@ function buildInvitationNotificationContent(
 }
 
 function toJsonObject(
-  metadata: ProjectInvitationNotificationMetadata | TaskCommentMentionNotificationMetadata
+  metadata:
+    | ProjectInvitationNotificationMetadata
+    | TaskCommentMentionNotificationMetadata
 ): Prisma.InputJsonObject {
   return metadata as unknown as Prisma.InputJsonObject;
 }
 
-function isProjectInvitationMetadata(
-  value: Prisma.JsonValue | null
-): boolean {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+function isProjectInvitationMetadata(value: Prisma.JsonValue | null): boolean {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    "invitationId" in (value as Record<string, unknown>)
+  );
 }
 
 function mapProjectInvitationMetadata(
@@ -213,7 +218,8 @@ function mapProjectInvitationMetadata(
     typeof metadata.projectName !== "string" ||
     typeof metadata.invitedEmail !== "string" ||
     typeof metadata.invitedByDisplayName !== "string" ||
-    (metadata.invitedByEmail !== null && typeof metadata.invitedByEmail !== "string") ||
+    (metadata.invitedByEmail !== null &&
+      typeof metadata.invitedByEmail !== "string") ||
     (metadata.role !== "editor" && metadata.role !== "viewer") ||
     typeof metadata.expiresAt !== "string" ||
     typeof metadata.inviteLinkPath !== "string"
@@ -234,7 +240,9 @@ function mapProjectInvitationMetadata(
   };
 }
 
-function mapNotification(notification: NotificationRecord): NotificationSummary {
+function mapNotification(
+  notification: NotificationRecord
+): NotificationSummary {
   let metadata: NotificationMetadata | null = null;
 
   if (notification.type === NOTIFICATION_TYPE_PROJECT_INVITATION) {
@@ -534,7 +542,10 @@ export async function listNotificationsForUser(
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
     try {
-      await syncProjectInvitationNotificationsForUser(db, normalizedActorUserId);
+      await syncProjectInvitationNotificationsForUser(
+        db,
+        normalizedActorUserId
+      );
 
       const notifications = await db.notification.findMany({
         where: {
@@ -578,7 +589,10 @@ export async function countUnreadNotificationsForUser(
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
     try {
-      await syncProjectInvitationNotificationsForUser(db, normalizedActorUserId);
+      await syncProjectInvitationNotificationsForUser(
+        db,
+        normalizedActorUserId
+      );
 
       return db.notification.count({
         where: {
@@ -682,14 +696,12 @@ function buildTaskCommentMentionMetadata(
   };
 }
 
-function isTaskCommentMentionMetadata(
-  value: Prisma.JsonValue | null
-): boolean {
+function isTaskCommentMentionMetadata(value: Prisma.JsonValue | null): boolean {
   return Boolean(
     value &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      "commentId" in (value as Record<string, unknown>)
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    "commentId" in (value as Record<string, unknown>)
   );
 }
 
@@ -737,7 +749,9 @@ async function createOrRefreshTaskCommentMentionNotification(input: {
   recipientUserId: string;
   notification: TaskCommentMentionNotificationInput;
 }) {
-  const content = buildTaskCommentMentionNotificationContent(input.notification);
+  const content = buildTaskCommentMentionNotificationContent(
+    input.notification
+  );
   const metadata = toJsonObject(
     buildTaskCommentMentionMetadata(input.notification)
   );
@@ -782,8 +796,7 @@ async function createOrRefreshTaskCommentMentionNotification(input: {
   }
 
   const metadataUnchanged =
-    JSON.stringify(existingNotification.metadata) ===
-    JSON.stringify(metadata);
+    JSON.stringify(existingNotification.metadata) === JSON.stringify(metadata);
   const notificationUnchanged =
     existingNotification.type === NOTIFICATION_TYPE_TASK_COMMENT_MENTION &&
     existingNotification.title === content.title &&
@@ -868,7 +881,10 @@ export async function markAllNotificationsReadForUser(
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
     try {
-      await syncProjectInvitationNotificationsForUser(db, normalizedActorUserId);
+      await syncProjectInvitationNotificationsForUser(
+        db,
+        normalizedActorUserId
+      );
 
       const result = await db.notification.updateMany({
         where: {

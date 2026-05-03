@@ -1057,3 +1057,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-124 separator-boundary follow-up passed focused mention/editor tests, lint, full local tests and coverage, production build, and browser smoke.
 - Evidence: Passed with Node `20.19.0` shim: `npm test -- --run tests/components/rich-text-editor.test.ts`; `npm test -- --run tests/lib/mention.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... npm run test:coverage`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build`; fresh-port root `.env`-backed `PORT=3014 npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "task lifecycle"`.
+
+### 2026-05-03
+- Type: Execution
+- Summary: TASK-124 PR #211 Copilot review follow-up tightened mention identity resolution, notification metadata checks, and autocomplete layout behavior.
+- Evidence: Preserved full `username#discriminator` mention insertion from autocomplete; made discriminator-less notification resolution skip ambiguous shared usernames; extracted mention-member resolution and notification dispatch helpers from comment creation; cached parsed mention results in rich-text highlighting; added an invitation metadata sentinel guard; stabilized mention member search owner timestamps; debounced autocomplete resize layout; documented the username-only extraction helper limitation.
+
+### 2026-05-03
+- Type: Validation
+- Summary: TASK-124 Copilot review follow-up passed focused mention/comment validation and lint; broader local validation still needs the repo-compatible env/tooling baseline.
+- Evidence: Passed: `npx vitest run tests/components/mention-autocomplete.test.ts tests/api/task-comments.route.test.ts tests/lib/mention.test.ts`; `npm run lint`; `npm run build` with local placeholder `DATABASE_URL`, `DIRECT_URL`, `AGENT_TOKEN_SIGNING_SECRET`, `RESEND_API_KEY`, and `GOOGLE_TOKEN_ENCRYPTION_KEY` values. An unqualified `npm test` is blocked locally by missing `DATABASE_URL` imports in existing Prisma-backed suites and the current jsdom `html-encoding-sniffer` / `@exodus/bytes` CommonJS-ESM worker issue.

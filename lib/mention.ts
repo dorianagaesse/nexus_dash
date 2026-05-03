@@ -5,7 +5,8 @@
  * and discriminator is 1-4 chars.
  */
 
-const MENTION_REGEX = /@([a-zA-Z0-9_]{1,20})(?:#([a-zA-Z0-9]{1,4}))?(?![a-zA-Z0-9_])/g;
+const MENTION_REGEX =
+  /@([a-zA-Z0-9_]{1,20})(?:#([a-zA-Z0-9]{1,4}))?(?![a-zA-Z0-9_])/g;
 
 export interface ParsedMention {
   username: string;
@@ -103,7 +104,9 @@ export function containsMentions(input: string): boolean {
 
 /**
  * Extract unique usernames from a string's mentions.
- * Returns a set of normalized usernames (lowercase).
+ * Returns a set of normalized usernames (lowercase). Discriminators are
+ * intentionally discarded, so this helper is only safe for username-only
+ * display/counting contexts, not identity resolution.
  */
 export function extractMentionedUsernames(input: string): Set<string> {
   const { mentions } = parseMentions(input);
@@ -119,7 +122,10 @@ export function extractMentionedUsernames(input: string): Set<string> {
 /**
  * Build a mention string from username and optional discriminator.
  */
-export function buildMentionString(username: string, discriminator: string | null): string {
+export function buildMentionString(
+  username: string,
+  discriminator: string | null
+): string {
   if (discriminator) {
     return `@${username}#${discriminator}`;
   }
@@ -141,7 +147,9 @@ export function replaceMentionTrigger(input: {
   const endIndex = Math.max(startIndex, Math.min(input.endIndex, text.length));
   const shouldConsumeFollowingWhitespace =
     input.replacement.endsWith(" ") && /\s/.test(text[endIndex] ?? "");
-  const suffixStartIndex = shouldConsumeFollowingWhitespace ? endIndex + 1 : endIndex;
+  const suffixStartIndex = shouldConsumeFollowingWhitespace
+    ? endIndex + 1
+    : endIndex;
   const nextValue = `${text.slice(0, startIndex)}${input.replacement}${text.slice(
     suffixStartIndex
   )}`;
@@ -165,7 +173,10 @@ export function removeMentionBeforeCursor(input: {
   cursorPosition: number;
 }): MentionTriggerReplacement | null {
   const text = typeof input.text === "string" ? input.text : "";
-  const cursorPosition = Math.max(0, Math.min(input.cursorPosition, text.length));
+  const cursorPosition = Math.max(
+    0,
+    Math.min(input.cursorPosition, text.length)
+  );
   const { mentions } = parseMentions(text);
 
   let targetMention: ParsedMention | null = null;
@@ -175,8 +186,14 @@ export function removeMentionBeforeCursor(input: {
       continue;
     }
 
-    const textBetweenMentionAndCursor = text.slice(mention.endIndex, cursorPosition);
-    if (textBetweenMentionAndCursor.length > 0 && /^\s*$/.test(textBetweenMentionAndCursor)) {
+    const textBetweenMentionAndCursor = text.slice(
+      mention.endIndex,
+      cursorPosition
+    );
+    if (
+      textBetweenMentionAndCursor.length > 0 &&
+      /^\s*$/.test(textBetweenMentionAndCursor)
+    ) {
       return {
         value: `${text.slice(0, mention.endIndex)}${text.slice(cursorPosition)}`,
         cursorPosition: mention.endIndex,
@@ -227,7 +244,8 @@ export function getActiveMentionTrigger(
     return null;
   }
 
-  const boundaryCharacter = lastAtIndex > 0 ? textBeforeCursor[lastAtIndex - 1] : "";
+  const boundaryCharacter =
+    lastAtIndex > 0 ? textBeforeCursor[lastAtIndex - 1] : "";
   if (lastAtIndex > 0 && !MENTION_BOUNDARY_REGEX.test(boundaryCharacter)) {
     return null;
   }
