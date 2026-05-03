@@ -266,6 +266,8 @@ function highlightMentionTextNodes(
   root: DocumentFragment,
   mentionUsers?: MentionDisplayUser[]
 ) {
+  root.normalize();
+
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const textNodes: Array<{ textNode: Text; mentions: ParsedMention[] }> = [];
 

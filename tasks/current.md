@@ -12,12 +12,22 @@ comments so autocomplete insertion, caret placement, highlighted rendering, and
 mention hover cards behave consistently across the task modal.
 
 ## Current Follow-Up Scope
+- Fix the two remaining PR #211 regressions reproduced on 2026-05-04:
+  - while typing a task comment, an inserted mention visually shows the right
+    `@name` label but the highlight pill includes a blank tail where the hidden
+    discriminator is laid out
+  - after creating a task with a description mention, opening it, editing the
+    description, and adding another mention, the original description mention
+    can come back in view mode as raw `@name#discriminator` text without
+    highlight or tooltip behavior
 - Fix the PR #211 behavior reported from task view mode:
   task-description mentions must render as highlighted `@name` text without the
   discriminator, with hover cards available immediately after opening a task.
 - Fix comment composer mirrors so inserted mentions display as highlighted
-  `@name` while preserving caret/text alignment for the hidden textarea value
-  that still carries the discriminator for unambiguous resolution.
+  `@name` without a highlighted or blank discriminator-width tail. The textarea
+  value may still carry the discriminator for unambiguous submit-time
+  resolution, but the visual mirror must behave like task-description edit
+  chips.
 - Keep added comments, task-card previews, task-description view mode, and
   task-description edit mode on the same shared mention rendering contract:
   visible mentions show no discriminator, remain highlighted, and resolve hover
@@ -62,8 +72,15 @@ mention hover cards behave consistently across the task modal.
     existing task and never displays the discriminator in the visible mention
     text.
 11. Comment composer visible mention mirrors show `@name`, not
-    `@name#discriminator`, while retaining stable caret alignment.
-12. Existing mention parsing, notification, and rendering tests remain green.
+    `@name#discriminator`, and do not show a blank discriminator-width gap
+    before following text.
+12. Comment composer highlight pills end at the visible `@name`; any hidden
+    discriminator retained in the textarea mirror must not extend the highlight
+    background or consume visible layout.
+13. A task description mention created with the task must remain highlighted,
+    discriminator-free, and tooltip-capable after later edits add more text and
+    more mentions to the same description.
+14. Existing mention parsing, notification, and rendering tests remain green.
 
 ## Definition Of Done
 - `agent.md` documents the dedicated worktree expectation for multi-agent work,

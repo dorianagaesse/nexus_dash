@@ -375,7 +375,7 @@ describe("rich-text-content", () => {
     });
   });
 
-  test("can hide mention discriminators while preserving textarea mirror layout", () => {
+  test("can hide mention discriminators from transparent textarea mirrors", () => {
     const { container, root } = createTestRenderer();
 
     act(() => {
@@ -384,20 +384,90 @@ describe("rich-text-content", () => {
           "div",
           null,
           renderContentWithMentions("@alice#1234 hello", {
-            preserveMentionLayout: true,
+            hideMentionDiscriminator: true,
             resolveDisplayUsers: false,
           })
         )
       );
     });
 
-    const mention = container.querySelector("span");
+    const mention = container.querySelector("span:not([aria-hidden='true'])");
     const hiddenDiscriminator = container.querySelector("[aria-hidden='true']");
-    expect(mention?.textContent).toBe("@alice#1234");
+    expect(mention?.textContent).toBe("@alice");
     expect(hiddenDiscriminator?.textContent).toBe("#1234");
-    expect(hiddenDiscriminator?.className).toContain("text-transparent");
+    expect(hiddenDiscriminator?.className).toContain("hidden");
+    expect(mention?.contains(hiddenDiscriminator)).toBe(false);
 
     act(() => {
+      root.unmount();
+    });
+  });
+
+  test("highlights every task-description mention after repeated edits", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: [
+          "<p>sdrefgtzf @dorian2#6425 fegrfer</p>",
+          "<p>another mention @dorian2#6425 dfzedez</p>",
+          "<p>fgfrez @dorian2#6425 dezdez</p>",
+        ].join(""),
+        mentionUsers: [
+          {
+            id: "user-dorian",
+            displayName: "Dorian Two",
+            usernameTag: "dorian2#6425",
+            avatarSeed: "user-dorian",
+          },
+        ],
+      })
+    );
+
+    const mentions = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-rich-mention='true']")
+    );
+    expect(mentions.map((mention) => mention.textContent)).toEqual([
+      "@dorian2",
+      "@dorian2",
+      "@dorian2",
+    ]);
+    expect(container.textContent).not.toContain("@dorian2#6425");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("rejoins mention text split by stripped editor artifacts before highlighting", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: '<p>sdrefgtzf @dorian2<span data-editor-mention="true"></span>#6425 fegrfer another mention @dorian2#6425 dfzedez</p>',
+        mentionUsers: [
+          {
+            id: "user-dorian",
+            displayName: "Dorian Two",
+            usernameTag: "dorian2#6425",
+            avatarSeed: "user-dorian",
+          },
+        ],
+      })
+    );
+
+    const mentions = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-rich-mention='true']")
+    );
+    expect(mentions.map((mention) => mention.textContent)).toEqual([
+      "@dorian2",
+      "@dorian2",
+    ]);
+    expect(container.textContent).not.toContain("@dorian2#6425");
+
+    await act(async () => {
       root.unmount();
     });
   });

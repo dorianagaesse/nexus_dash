@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-05-04
+- Type: Execution
+- Summary: TASK-124 PR #211 follow-up fixed the remaining mention display regressions reported from task comments and edited task descriptions.
+- Evidence: Comment composer mention mirrors now hide discriminator text without extending the visible `@name` highlight or leaving a blank tail; task-description view rendering normalizes split text nodes before mention highlighting so earlier mentions remain highlighted after later edits add more mentions. Updated `lib/content-with-mentions.tsx`, `components/kanban/task-detail-modal.tsx`, `components/rich-text-content.tsx`, `tests/components/rich-text-content.test.ts`, `tests/components/rich-text-editor.test.ts`, and `tasks/current.md`.
+
+### 2026-05-04
+- Type: Validation
+- Summary: TASK-124 remaining mention regression fixes passed focused local validation.
+- Evidence: `npx -p node@20.19.0 node node_modules/vitest/vitest.mjs run tests/components/rich-text-content.test.ts tests/components/rich-text-editor.test.ts tests/lib/mention.test.ts tests/components/mention-autocomplete.test.ts`; `npm run lint`; build with Node `20.19.0` and test env values via `npx -p node@20.19.0 node node_modules/next/dist/bin/next build`.
+
 ### 2026-05-03
 - Type: Execution
 - Summary: TASK-124 PR #211 follow-up fixed mention display regressions from task view mode and comment composer mirrors.

@@ -17,7 +17,7 @@ export function renderContentWithMentions(
   options?: {
     mentionHighlightClassName?: string;
     mentionUsers?: MentionDisplayUser[];
-    preserveMentionLayout?: boolean;
+    hideMentionDiscriminator?: boolean;
     preserveMentionText?: boolean;
     resolveDisplayUsers?: boolean;
   }
@@ -44,20 +44,11 @@ export function renderContentWithMentions(
       segments.push(content.slice(lastIndex, mention.startIndex));
     }
 
-    const shouldPreserveMentionLayout =
-      options?.preserveMentionLayout && mention.discriminator;
-    const mentionContent = options?.preserveMentionText ? (
-      mention.fullMatch
-    ) : shouldPreserveMentionLayout ? (
-      <>
-        @{mention.username}
-        <span aria-hidden="true" className="text-transparent">
-          #{mention.discriminator}
-        </span>
-      </>
-    ) : (
-      `@${mention.username}`
-    );
+    const shouldHideDiscriminator =
+      options?.hideMentionDiscriminator && mention.discriminator;
+    const mentionContent = options?.preserveMentionText
+      ? mention.fullMatch
+      : `@${mention.username}`;
 
     segments.push(
       <MentionText
@@ -72,6 +63,17 @@ export function renderContentWithMentions(
         {mentionContent}
       </MentionText>
     );
+    if (shouldHideDiscriminator) {
+      segments.push(
+        <span
+          key={`mention-layout-${mention.startIndex}`}
+          aria-hidden="true"
+          className="hidden"
+        >
+          #{mention.discriminator}
+        </span>
+      );
+    }
 
     lastIndex = mention.endIndex;
   }

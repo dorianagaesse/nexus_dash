@@ -531,6 +531,54 @@ describe("rich-text-editor", () => {
     });
   });
 
+  test("keeps the original description mention highlighted after adding another same-user mention", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>sdrefgtzf @dorian2#6425 fegrfer</p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>(
+      '[contenteditable="true"]'
+    );
+    const paragraph = editor?.querySelector("p");
+    const trailingText = paragraph?.lastChild;
+
+    expect(trailingText?.nodeType).toBe(Node.TEXT_NODE);
+    (trailingText as Text).appendData(" another mention @dorian2#6425 dfzedez");
+
+    await act(async () => {
+      dispatchBeforeInput(editor);
+      editor?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    const persistedValue =
+      container.querySelector("output[data-testid='value']")?.textContent;
+    const renderedMentions = Array.from(
+      editor?.querySelectorAll<HTMLElement>("[data-editor-mention='true']") ??
+        []
+    );
+
+    expect(persistedValue).toBe(
+      "<p>sdrefgtzf @dorian2#6425 fegrfer another mention @dorian2#6425 dfzedez</p>"
+    );
+    expect(renderedMentions).toHaveLength(2);
+    expect(renderedMentions.map((mention) => mention.textContent)).toEqual([
+      "@dorian2",
+      "@dorian2",
+    ]);
+    expect(
+      renderedMentions.map((mention) => mention.dataset.mentionRaw)
+    ).toEqual(["@dorian2#6425", "@dorian2#6425"]);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("serializes editor-only mention separators as regular spaces", () => {
     const serializedHtml = serializeEditorRichTextHtml(
       '<p><span data-editor-mention="true" data-mention-raw="@alice" class="mention">@alice</span>&nbsp;</p>'
