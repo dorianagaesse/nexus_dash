@@ -153,11 +153,12 @@ export function replaceMentionTrigger(input: {
 }
 
 /**
- * Remove the complete mention immediately before the cursor.
+ * Remove the separator or complete mention immediately before the cursor.
  *
  * This is used by plain textarea composers to match rich editor mention-chip
- * deletion: pressing Backspace after `@alice ` removes the whole mention plus
- * the separator, not just one character.
+ * deletion. Pressing Backspace after `@alice ` first removes the separator so
+ * the caret lands next to the mention; pressing Backspace again removes the
+ * whole mention.
  */
 export function removeMentionBeforeCursor(input: {
   text: string;
@@ -175,7 +176,14 @@ export function removeMentionBeforeCursor(input: {
     }
 
     const textBetweenMentionAndCursor = text.slice(mention.endIndex, cursorPosition);
-    if (/^\s*$/.test(textBetweenMentionAndCursor)) {
+    if (textBetweenMentionAndCursor.length > 0 && /^\s*$/.test(textBetweenMentionAndCursor)) {
+      return {
+        value: `${text.slice(0, mention.endIndex)}${text.slice(cursorPosition)}`,
+        cursorPosition: mention.endIndex,
+      };
+    }
+
+    if (textBetweenMentionAndCursor.length === 0) {
       targetMention = mention;
     }
   }

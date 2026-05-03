@@ -488,7 +488,7 @@ describe("rich-text-editor", () => {
     expect(serializedHtml).toBe("<p>@alice </p>");
   });
 
-  test("removes a complete mention when Backspace is pressed after its separator", async () => {
+  test("removes the separator before removing a mention on Backspace", async () => {
     const { container, root } = createTestRenderer();
 
     await renderWithRoot(
@@ -507,6 +507,16 @@ describe("rich-text-editor", () => {
     expect(trailingTextNode?.nodeType).toBe(Node.TEXT_NODE);
 
     selectTextPosition(trailingTextNode as Node, 1);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "Backspace" });
+    });
+
+    expect(editor?.querySelector("[data-editor-mention='true']")).not.toBeNull();
+    expect(selectionIsInTextNode(trailingTextNode as Node, 0)).toBe(true);
+    expect(container.querySelector("output[data-testid='value']")?.textContent).toBe(
+      "<p>Hello @alice</p>"
+    );
 
     await act(async () => {
       dispatchKeyDown(editor, { key: "Backspace" });
@@ -550,6 +560,43 @@ describe("rich-text-editor", () => {
     expect(container.querySelector("output[data-testid='value']")?.textContent).toBe(
       "<p>@alice </p>"
     );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("moves left to the mention edge before jumping over the mention", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>Hello @alice </p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const mention = editor?.querySelector<HTMLElement>("[data-editor-mention='true']");
+    const trailingTextNode = mention?.nextSibling;
+
+    expect(editor).not.toBeNull();
+    expect(mention).not.toBeNull();
+    expect(trailingTextNode?.nodeType).toBe(Node.TEXT_NODE);
+
+    selectTextPosition(trailingTextNode as Node, 1);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "ArrowLeft" });
+    });
+
+    expect(selectionIsInTextNode(trailingTextNode as Node, 0)).toBe(true);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "ArrowLeft" });
+    });
+
+    expect(selectionIsBeforeNode(mention as Node)).toBe(true);
 
     await act(async () => {
       root.unmount();

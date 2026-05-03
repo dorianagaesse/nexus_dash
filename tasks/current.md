@@ -17,8 +17,9 @@ mention hover cards behave consistently across the task modal.
   space or more text after a mention does not jump to the start of the editor.
 - Align task-description edit mode with comment composer behavior: auto-space
   after mention selection, natural arrow/word navigation around highlighted
-  mentions, Return/Enter behavior at mention separators, and fast
-  whole-mention deletion when backspacing at the mention boundary.
+  mentions, two-step separator movement/deletion, Return/Enter behavior at
+  mention separators, and fast whole-mention deletion when backspacing at the
+  mention boundary.
 - Keep comment composer highlighting visually aligned with the actual textarea
   caret.
 - Add fast whole-mention deletion to comments while preserving normal character
@@ -39,13 +40,15 @@ mention hover cards behave consistently across the task modal.
    task-description edit mode and task comments.
 5. Arrow and Ctrl+Arrow navigation can move before and after task-description
    mentions without trapping the caret.
-6. Pressing Enter from the separator after a task-description mention creates
+6. From one separator after a task-description mention, ArrowLeft or Backspace
+   first lands immediately after the mention instead of jumping before it.
+7. Pressing Enter from the separator after a task-description mention creates
    the expected next editable line instead of doing nothing.
-7. Comment composer highlight rendering does not visually shift text away from
+8. Comment composer highlight rendering does not visually shift text away from
    the real textarea caret.
-8. Task-description mention hover cards disappear when the pointer leaves the
+9. Task-description mention hover cards disappear when the pointer leaves the
    mention, regardless of direction.
-9. Existing mention parsing, notification, and rendering tests remain green.
+10. Existing mention parsing, notification, and rendering tests remain green.
 
 ## Definition Of Done
 - `agent.md` documents the dedicated worktree expectation for multi-agent work,

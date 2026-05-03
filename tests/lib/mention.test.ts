@@ -246,19 +246,19 @@ describe("replaceMentionTrigger", () => {
 });
 
 describe("removeMentionBeforeCursor", () => {
-  it("removes the complete mention and trailing separator before the cursor", () => {
+  it("removes only the trailing separator before the cursor", () => {
     expect(
       removeMentionBeforeCursor({
         text: "hello @alice more",
         cursorPosition: "hello @alice ".length,
       })
     ).toEqual({
-      value: "hello more",
-      cursorPosition: 6,
+      value: "hello @alicemore",
+      cursorPosition: "hello @alice".length,
     });
   });
 
-  it("removes a mention without a trailing separator", () => {
+  it("removes the mention when the cursor is directly after it", () => {
     expect(
       removeMentionBeforeCursor({
         text: "hello @alice",

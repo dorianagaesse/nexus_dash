@@ -2293,6 +2293,20 @@ export function RichTextEditor({
       if (isBackspaceKey(event)) {
         event.preventDefault();
         const beforeSnapshot = createEditorHistorySnapshot(editor);
+        if (
+          mentionBeforeCaret.trailingTextNode &&
+          mentionBeforeCaret.trailingTextOffset > 0
+        ) {
+          mentionBeforeCaret.trailingTextNode.deleteData(
+            0,
+            mentionBeforeCaret.trailingTextOffset
+          );
+          selectTextPosition(mentionBeforeCaret.trailingTextNode, 0);
+          recordHistoryFromSnapshot(beforeSnapshot);
+          emitCurrentValue();
+          return;
+        }
+
         const marker = editor.ownerDocument.createElement("span");
         marker.dataset.editorCaretMarker = "true";
         marker.textContent = EDITOR_CARET_ANCHOR;
@@ -2314,6 +2328,17 @@ export function RichTextEditor({
 
       if (isArrowLeftKey(event)) {
         event.preventDefault();
+        if (
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey &&
+          mentionBeforeCaret.trailingTextNode &&
+          mentionBeforeCaret.trailingTextOffset > 0
+        ) {
+          selectTextPosition(mentionBeforeCaret.trailingTextNode, 0);
+          return;
+        }
+
         moveCaretBefore(mentionBeforeCaret.mentionElement);
         return;
       }
