@@ -2937,7 +2937,7 @@ export function RichTextEditor({
           data-placeholder={placeholder ?? "Write here..."}
           className={cn(
             "min-h-[140px] w-full max-w-full overflow-x-hidden rounded-md border border-input bg-background px-3 py-2 pr-14 text-sm text-foreground transition-colors",
-            "focus-visible:outline-none focus-visible:border-ring/60",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
             "[&:empty:before]:pointer-events-none [&:empty:before]:text-muted-foreground [&:empty:before]:content-[attr(data-placeholder)]",
             "[overflow-wrap:anywhere] [&_blockquote]:border-l-2 [&_blockquote]:border-border/70 [&_blockquote]:pl-3",
             "[&_nd-rich-shell]:w-full [&_nd-rich-shell]:max-w-full [&_nd-rich-shell]:min-w-0",
