@@ -83,13 +83,7 @@ if (!isSupportedNodeVersion(nodeVersion)) {
 }
 
 try {
-  run("Start local PostgreSQL", "docker", [
-    "compose",
-    "up",
-    "-d",
-    "--wait",
-    "postgres",
-  ]);
+  run("Start local PostgreSQL", commandName("npm"), ["run", "db:local:up"]);
   run("Install dependencies", commandName("npm"), ["ci"]);
   run("Generate Prisma client", commandName("npx"), ["prisma", "generate"]);
   run("Apply Prisma migrations", commandName("npm"), ["run", "db:migrate"]);
@@ -100,6 +94,7 @@ try {
   run("Install Playwright Chromium", commandName("npx"), [
     "playwright",
     "install",
+    ...(process.platform === "linux" ? ["--with-deps"] : []),
     "chromium",
   ]);
   run("Playwright smoke", commandName("npm"), ["run", "test:e2e"], {

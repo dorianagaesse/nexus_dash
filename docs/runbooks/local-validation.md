@@ -67,7 +67,8 @@ npm run validate:local
 
 That command starts local Postgres, installs dependencies, generates Prisma,
 applies migrations, runs lint, unit/API tests, coverage, production build,
-installs Chromium for Playwright, and runs the Playwright smoke suite.
+installs Chromium for Playwright, and runs the Playwright smoke suite. On Linux
+it installs Playwright's required system dependencies as well.
 
 ## Manual Baseline
 
@@ -106,17 +107,21 @@ Open `http://localhost:3000`.
 
 ## Cleanup
 
-Stop containers without deleting database data:
+Stop only the local PostgreSQL service without deleting database data:
 
 ```pwsh
 npm run db:local:down
 ```
 
-Reset the local validation database volume:
+Reset only the local PostgreSQL container and database volume, then start a
+fresh PostgreSQL service:
 
 ```pwsh
 npm run db:local:reset
 ```
+
+`db:local:reset` intentionally leaves the app `node_modules` and `storage_data`
+Compose volumes alone.
 
 If port `5432` is already occupied, choose another host port:
 

@@ -20,9 +20,9 @@
     "test:e2e:headed": "npm run build && playwright test --headed",
     "worktree:create": "node create-worktree.mjs",
     "db:migrate": "prisma migrate deploy",
-    "db:local:up": "docker compose up -d postgres",
-    "db:local:down": "docker compose down",
-    "db:local:reset": "docker compose down -v",
+    "db:local:up": "docker compose up -d --wait postgres",
+    "db:local:down": "docker compose stop postgres",
+    "db:local:reset": "node scripts/local-db-reset.mjs",
     "validate:local": "node scripts/local-validation.mjs"
   },
   "dependencies": {
