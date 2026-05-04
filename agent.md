@@ -35,25 +35,20 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
 - One issue maps to one backlog task. If work starts from a GitHub issue,
   create or identify the matching `TASK-XXX` entry in `tasks/backlog.md` before
   implementation.
-- One task maps to exactly one branch, one pull request, and one worktree:
-  `1 task = 1 branch = 1 PR = 1 worktree`.
-- Agents must create or enter the task worktree before coding. Use the
-  cross-platform root script:
-
-```bash
-npm run worktree:create -- TASK-124 comment-mentions
-```
-
-PowerShell uses the same command:
-
-```pwsh
-npm run worktree:create -- TASK-124 comment-mentions
-```
-
-- Worktree directories are created one level above the project root and must
-  follow `nexus_dash_taskXXX`, for example `../nexus_dash_task124`.
-- The script creates the task branch when needed, reuses an existing local or
-  remote branch when present, and keeps the root checkout free for coordination.
+- One task maps to exactly one branch and one pull request:
+  `1 task = 1 branch = 1 PR`.
+- **Single-agent rule:** When only one agent is running, work in a clean branch
+  off `main` named `chore/issue-XXX-description`. Fetch `origin/main` and branch
+  from it before starting to avoid mixing unrelated commits.
+- **Multi-agent rule:** When multiple agents are running concurrently, each agent
+  must use a dedicated worktree created via:
+  ```bash
+  npm run worktree:create -- TASK-XXX slug
+  ```
+  Worktree directories are created one level above the project root and follow
+  `nexus_dash_taskXXX` (e.g. `../nexus_dash_task124`). The script creates the
+  task branch when needed, reuses an existing local or remote branch when
+  present, and keeps the root checkout free for coordination.
 - Start each task on its dedicated branch before implementation work begins.
 - Branch name must match CI rule: `feature/*`, `fix/*`, `refactor/*`, `docs/*`, or `chore/*`.
 - Choose the branch prefix by work type:
