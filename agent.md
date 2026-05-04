@@ -37,9 +37,11 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
   implementation.
 - One task maps to exactly one branch and one pull request:
   `1 task = 1 branch = 1 PR`.
-- **Single-agent rule:** When only one agent is running, work in a clean branch
-  off `main` named `chore/issue-XXX-description`. Fetch `origin/main` and branch
-  from it before starting to avoid mixing unrelated commits.
+- **Single-agent rule:** When only one agent is running, create a branch from
+  `origin/main` using the work-type prefix (`feature/*`, `fix/*`, `docs/*`,
+  `refactor/*`, or `chore/*`) that matches your task. Branch with
+  `git switch -c <prefix>/<id>-<slug> origin/main` to ensure you start from
+  the latest remote `main`.
 - **Multi-agent rule:** When multiple agents are running concurrently, each agent
   must use a dedicated worktree created via:
   ```bash
