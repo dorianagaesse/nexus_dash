@@ -394,7 +394,6 @@ export function CreateTaskDialog({
                           required
                           minLength={2}
                           maxLength={120}
-                          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                           placeholder="Implement drag sorting"
                         />
                       </div>
