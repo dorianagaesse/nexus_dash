@@ -473,10 +473,41 @@ export function TaskDetailModal({
                   onLinkUrlChange={onLinkUrlChange}
                   onAddLinkAttachment={onAddLinkAttachment}
                   onSaveTask={onSaveTask}
-                  onCancelEdit={() => onToggleEditMode(false)}
                 />
               )}
             </CardContent>
+            <CardFooter
+              data-calendar-popover-footer-boundary="true"
+              className="shrink-0 border-t border-border/60 bg-card/95 px-6 pb-6 pt-4 backdrop-blur supports-[backdrop-filter]:bg-card/90"
+            >
+              <div className="flex w-full flex-col gap-3">
+                {taskModalError ? (
+                  <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {taskModalError}
+                  </div>
+                ) : null}
+
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+                  <Button
+                    type="button"
+                    onClick={() => void onSaveTask()}
+                    disabled={isUpdatingTask}
+                    className="w-full sm:w-auto"
+                  >
+                    {isUpdatingTask ? "Saving..." : "Save changes"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => onToggleEditMode(false)}
+                    disabled={isUpdatingTask}
+                    className="w-full sm:w-auto"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </CardFooter>
           </Card>
         </div>,
         document.body
@@ -1639,7 +1670,6 @@ interface TaskEditContentProps {
   onLinkUrlChange: (value: string) => void;
   onAddLinkAttachment: () => void | Promise<void>;
   onSaveTask: () => void | Promise<void>;
-  onCancelEdit: () => void;
 }
 
 function TaskEditContent({
@@ -1686,7 +1716,6 @@ function TaskEditContent({
   onLinkUrlChange,
   onAddLinkAttachment,
   onSaveTask,
-  onCancelEdit,
 }: TaskEditContentProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -1996,40 +2025,6 @@ function TaskEditContent({
           />
         </div>
       </div>
-
-      <CardFooter
-        data-calendar-popover-footer-boundary="true"
-        className="shrink-0 border-t border-border/60 bg-card/95 px-0 pb-0 pt-4 backdrop-blur supports-[backdrop-filter]:bg-card/90"
-      >
-        <div className="flex w-full flex-col gap-3">
-          {taskModalError ? (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {taskModalError}
-            </div>
-          ) : null}
-
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
-            <Button
-              type="button"
-              onClick={() => void onSaveTask()}
-              disabled={isUpdatingTask}
-              className="w-full sm:w-auto"
-            >
-              {isUpdatingTask ? "Saving..." : "Save changes"}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={onCancelEdit}
-              disabled={isUpdatingTask}
-              className="w-full sm:w-auto"
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </CardFooter>
-    </div>
   );
 }
 
