@@ -83,7 +83,11 @@ export const EmojiInputField = React.forwardRef<HTMLInputElement, EmojiInputFiel
             inputRef.current = node;
             assignRef(forwardedRef, node);
           }}
-          className={cn("block w-full", className, "pr-12")}
+          className={cn(
+            "block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+            className,
+            "pr-12"
+          )}
         />
       </EmojiFieldShell>
     );
@@ -115,7 +119,11 @@ export const EmojiTextareaField = React.forwardRef<
           textareaRef.current = node;
           assignRef(forwardedRef, node);
         }}
-        className={cn("block w-full", className, "pr-12")}
+        className={cn(
+          "block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+          className,
+          "pr-12"
+        )}
       />
     </EmojiFieldShell>
   );
