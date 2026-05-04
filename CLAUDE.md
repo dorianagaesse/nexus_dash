@@ -20,8 +20,7 @@
 
 ## Workflow Rules
 
-- **One task per worktree/branch/PR.** Use `npm run worktree:create -- TASK-XXX slug` for task worktrees when a task ID exists; otherwise create a dedicated worktree manually.
-- **Branch by work type.** Use `feature/*` for planned product work, `fix/*` for GitHub issues/bugs/remediations, `docs/*` for docs-only changes, `refactor/*` for behavior-preserving restructuring, and `chore/*` for maintenance.
+- **One task per branch/PR.** Branch from `origin/main` using the appropriate work-type prefix (`feature/*`, `fix/*`, `docs/*`, `refactor/*`, or `chore/*`) for your task. Use `git switch -c <prefix>/<id>-<slug> origin/main` to start from the latest remote `main`. Never commit directly to `main` or mix task work across different branches.
 - **PR is mandatory** for any task or GitHub issue that changes repository contents, including docs-only changes.
 - **Remote stays current.** Push the active branch after meaningful progress and again before handoff so the remote branch matches local completed work.
 - **Startup:** read `tasks/current.md` before implementing. Ensure it has `Acceptance Criteria` and `Definition Of Done`; add/tighten if missing.
