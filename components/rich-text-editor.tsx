@@ -201,9 +201,8 @@ function highlightMentionsInEditor(
     const textNode = walker.currentNode as Text;
     const parentElement = textNode.parentElement;
     if (
-      !parentElement ||
       textNode === activeMention?.textNode ||
-      parentElement.closest(
+      parentElement?.closest(
         `pre, code, button, input, textarea, [data-editor-token-input], [data-rich-block], ${EDITOR_CARET_MARKER_SELECTOR}`
       )
     ) {

@@ -464,6 +464,32 @@ describe("rich-text-editor", () => {
     });
   });
 
+  test("highlights root-level mentions in mixed rich-text editor content", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "First @alice#1234<div>Second @bob#5678</div>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const mentions = editor?.querySelectorAll<HTMLElement>("[data-editor-mention='true']");
+    const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+    expect(mentions).toHaveLength(2);
+    expect(mentions?.[0]?.textContent).toBe("@alice");
+    expect(mentions?.[0]?.dataset.mentionRaw).toBe("@alice#1234");
+    expect(mentions?.[1]?.textContent).toBe("@bob");
+    expect(mentions?.[1]?.dataset.mentionRaw).toBe("@bob#5678");
+    expect(persistedValue).toBe("First @alice#1234<div>Second @bob#5678</div>");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("serializes mention highlights as plain mention text", () => {
     const serializedHtml = serializeEditorRichTextHtml(
       '<p>Hello <span data-editor-mention="true" class="mention">@alice#1234</span></p>'

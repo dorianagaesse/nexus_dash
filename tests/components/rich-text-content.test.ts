@@ -155,6 +155,21 @@ describe("rich-text-content", () => {
     });
   });
 
+  test("marks mentions in mixed root text created by later rich-text edits", () => {
+    const output = buildEnhancedRichTextHtml(
+      "First @alice#1234<div>Second @bob#5678</div>"
+    );
+    const template = document.createElement("template");
+    template.innerHTML = output;
+    const mentions = template.content.querySelectorAll("[data-rich-mention='true']");
+
+    expect(mentions).toHaveLength(2);
+    expect(mentions[0]?.textContent).toBe("@alice");
+    expect(mentions[0]?.getAttribute("data-mention-discriminator")).toBe("1234");
+    expect(mentions[1]?.textContent).toBe("@bob");
+    expect(mentions[1]?.getAttribute("data-mention-discriminator")).toBe("5678");
+  });
+
   test("shows a user hover card for rich-text mentions", async () => {
     const { container, root } = createTestRenderer();
     await renderWithRoot(

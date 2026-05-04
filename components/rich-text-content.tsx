@@ -274,12 +274,7 @@ function highlightMentionTextNodes(
   while (walker.nextNode()) {
     const textNode = walker.currentNode as Text;
     const parentElement = textNode.parentElement;
-    if (
-      !parentElement ||
-      parentElement.closest(
-        "pre, code, button, input, textarea, [data-rich-token-shell]"
-      )
-    ) {
+    if (parentElement?.closest("pre, code, button, input, textarea, [data-rich-token-shell]")) {
       continue;
     }
 
