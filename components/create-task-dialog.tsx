@@ -372,7 +372,7 @@ export function CreateTaskDialog({
               }}
             >
               <Card
-                className="flex max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
+                className="flex max-h-[100dvh] w-full max-w-xl flex-col sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
                 onMouseDown={(event) => event.stopPropagation()}
               >
                 <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0">
@@ -382,8 +382,8 @@ export function CreateTaskDialog({
                   </Button>
                 </CardHeader>
                 <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleSubmit}>
-                  <CardContent className="min-h-0 flex-1 overflow-hidden">
-                    <div className="grid h-full min-h-0 auto-rows-max gap-4 overflow-x-hidden overflow-y-auto pr-1">
+                  <CardContent className="min-h-0 flex-1 overflow-y-auto">
+                    <div className="grid min-h-0 auto-rows-max gap-4 overflow-x-hidden pr-1">
                       <div className="grid gap-2">
                         <label htmlFor="task-title" className="text-sm font-medium">
                           Title
