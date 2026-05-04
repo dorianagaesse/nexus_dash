@@ -1439,7 +1439,7 @@ function TaskReadOnlyContent({
                         hideMentionDiscriminator: true,
                         resolveDisplayUsers: false,
                         mentionHighlightClassName:
-                          "rounded-sm bg-primary/10 px-0 py-0 font-normal text-primary",
+                          "inline-block rounded-md bg-primary/15 px-1 py-0.5 align-baseline font-medium text-primary not-italic",
                       })
                     : null}
                 </div>
