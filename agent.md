@@ -56,15 +56,29 @@ npm run worktree:create -- TASK-124 comment-mentions
   remote branch when present, and keeps the root checkout free for coordination.
 - Start each task on its dedicated branch before implementation work begins.
 - Branch name must match CI rule: `feature/*`, `fix/*`, `refactor/*`, `docs/*`, or `chore/*`.
+- Choose the branch prefix by work type:
+  - `feature/*` for planned product backlog tasks
+  - `fix/*` for GitHub issue work, regressions, bugs, and remediations
+  - `docs/*` for documentation-only changes
+  - `refactor/*` for behavior-preserving code restructuring
+  - `chore/*` for maintenance that is neither product behavior nor docs
 - Dependabot-authored PRs are the one exception and may use `dependabot/*`.
 - Keep PRs single-purpose; do not mix unrelated backlog tasks.
 - PR titles must follow repository convention rather than generic agent branding:
   - when the PR implements or closes a backlog task, include the primary task
     ID in the title
   - do not use generic prefixes like `[codex]`
-- Push the active branch remotely after meaningful implementation/validation progress and before handoff.
-- If the current task does not already have an open PR, create one once the branch is reviewable; continue updating the same PR for that task.
-- Do not treat PR creation as optional. A coding task that changes product code is not ready for handoff until its dedicated branch has an open PR, unless the user explicitly says not to open one.
+- Push the active branch remotely after meaningful implementation/validation progress.
+- Push again before completion handoff whenever local commits changed after the
+  previous push. The remote branch must be up to date with the local branch at
+  handoff; do not leave completed local work only on disk.
+- If the current task or GitHub issue does not already have an open PR, create
+  one once the branch is reviewable; continue updating the same PR for that
+  task or issue.
+- Do not treat PR creation as optional. Any task or GitHub issue that changes
+  repository contents, including docs-only work, is not ready for handoff until
+  its dedicated branch has an open PR, unless the user explicitly says not to
+  open one.
 - Open PRs in a ready-for-review state once they are reviewable so automatic
   Copilot review can start immediately.
 - Use draft PRs only when the user explicitly asks for a draft or when the work

@@ -13,6 +13,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-05-04
+- Type: Governance
+- Summary: Tightened the repository agent workflow contract for worktrees, branch prefixes, mandatory PRs, and final push parity.
+- Evidence: Updated `agent.md` and `CLAUDE.md` so GitHub issue work maps to `fix/*`, docs-only repository changes still require PRs, task worktree creation points to `npm run worktree:create -- TASK-XXX slug`, and completed local work must be pushed so the remote branch matches the handoff state.
+
+### 2026-05-04
+- Type: Validation
+- Summary: Agent workflow contract documentation cleanup passed whitespace and lint validation.
+- Evidence: `git diff --check`; `npm ci` in the docs worktree to provide ignored local dependencies; `npm run lint`.
+
+### 2026-05-04
 - Type: Execution
 - Summary: TASK-124 PR #211 follow-up fixed the remaining mention display regressions reported from task comments and edited task descriptions.
 - Evidence: Comment composer mention mirrors now hide discriminator text without extending the visible `@name` highlight or leaving a blank tail; task-description view rendering normalizes split text nodes before mention highlighting so earlier mentions remain highlighted after later edits add more mentions. Updated `lib/content-with-mentions.tsx`, `components/kanban/task-detail-modal.tsx`, `components/rich-text-content.tsx`, `tests/components/rich-text-content.test.ts`, `tests/components/rich-text-editor.test.ts`, and `tasks/current.md`.
