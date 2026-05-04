@@ -332,7 +332,7 @@ export function TaskDetailModal({
           }}
         >
           <Card
-            className="flex max-h-[100dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
+            className="flex max-h-[100dvh] w-full max-w-2xl flex-col sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <CardHeader className="flex shrink-0 flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
@@ -405,9 +405,9 @@ export function TaskDetailModal({
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="min-h-0 flex-1 overflow-hidden">
+            <CardContent className="min-h-0 flex-1 overflow-y-auto [scrollbar-color:rgba(148,163,184,0.52)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]">
               {!isEditing ? (
-                <div className="h-full space-y-4 overflow-x-hidden overflow-y-auto pr-1">
+                <div className="h-full space-y-4 overflow-x-hidden pr-1">
                   <TaskReadOnlyContent
                     canEdit={canEdit}
                     selectedTask={selectedTask}
@@ -1690,7 +1690,7 @@ function TaskEditContent({
 }: TaskEditContentProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto pr-1">
+      <div className="min-h-0 flex-1 space-y-4 overflow-x-hidden pr-1">
         <div className="grid gap-2">
           <label htmlFor="task-edit-label-input" className="text-sm font-medium">
             Labels
