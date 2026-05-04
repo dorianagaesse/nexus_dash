@@ -129,7 +129,21 @@ jobs:
 
       - name: Apply Prisma migrations
         run: |
-          DATABASE_URL="$MIGRATION_DATABASE_URL" DIRECT_URL="$MIGRATION_DATABASE_URL" npx prisma migrate deploy
+          for attempt in 1 2 3; do
+            echo "Running Prisma migrations (attempt ${attempt}/3)..."
+            if DATABASE_URL="$MIGRATION_DATABASE_URL" DIRECT_URL="$MIGRATION_DATABASE_URL" npx prisma migrate deploy; then
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 3 ]; then
+              delay=$((attempt * 15))
+              echo "::warning::Prisma migrations failed; retrying in ${delay}s."
+              sleep "$delay"
+            fi
+          done
+
+          echo "::error::Prisma migrations failed after 3 attempts."
+          exit 1
 
       - name: Pull Vercel environment (production)
         run: npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=production --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
@@ -271,7 +285,21 @@ jobs:
       - name: Apply Prisma migrations
         if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
         run: |
-          DATABASE_URL="$MIGRATION_DATABASE_URL" DIRECT_URL="$MIGRATION_DATABASE_URL" npx prisma migrate deploy
+          for attempt in 1 2 3; do
+            echo "Running Prisma migrations (attempt ${attempt}/3)..."
+            if DATABASE_URL="$MIGRATION_DATABASE_URL" DIRECT_URL="$MIGRATION_DATABASE_URL" npx prisma migrate deploy; then
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 3 ]; then
+              delay=$((attempt * 15))
+              echo "::warning::Prisma migrations failed; retrying in ${delay}s."
+              sleep "$delay"
+            fi
+          done
+
+          echo "::error::Prisma migrations failed after 3 attempts."
+          exit 1
 
       - name: Deploy preview
         if: inputs.action == 'deploy-preview'
