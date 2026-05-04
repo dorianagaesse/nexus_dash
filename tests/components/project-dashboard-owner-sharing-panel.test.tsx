@@ -63,6 +63,7 @@ describe("project-dashboard-owner-sharing-panel", () => {
             displayName: "Person Example",
             usernameTag: "person#1234",
             email: "person@example.com",
+            avatarSeed: "user-1",
           },
         ],
         generatedInvitationLink: null,
