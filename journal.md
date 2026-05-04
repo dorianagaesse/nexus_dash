@@ -1122,3 +1122,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-124 comment composer caret follow-up passed focused mention/comment validation, lint, and production build.
 - Evidence: Passed with Node `20.19.0` shim: `npx -p node@20.19.0 node node_modules/vitest/vitest.mjs run tests/components/mention-autocomplete.test.ts tests/api/task-comments.route.test.ts tests/components/rich-text-content.test.ts tests/components/rich-text-editor.test.ts tests/lib/mention.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... VERCEL_ENV=preview RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... AGENT_TOKEN_SIGNING_SECRET=... npx -p node@20.19.0 node node_modules/next/dist/bin/next build`.
+
+### 2026-05-04
+- Type: Execution
+- Summary: TASK-124 view-mode description follow-up made mention parsing resilient to invisible editor format characters.
+- Evidence: Root cause was a visually contiguous task-description mention being saved with an invisible contenteditable format/caret character inside the mention token, so view-mode text-node parsing saw raw `@username#discriminator` text but did not match it as one mention. Shared mention parsing now tolerates zero-width format characters around `@`, username, `#`, and discriminator text, while editor serialization strips those characters before persisting.
+
+### 2026-05-04
+- Type: Validation
+- Summary: TASK-124 view-mode description follow-up passed focused mention/rich-text validation, lint, and production build.
+- Evidence: Passed with Node `20.19.0` shim: `npx -p node@20.19.0 node node_modules/vitest/vitest.mjs run tests/lib/mention.test.ts tests/components/rich-text-content.test.ts tests/components/rich-text-editor.test.ts tests/api/task-comments.route.test.ts tests/components/mention-autocomplete.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... VERCEL_ENV=preview RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... AGENT_TOKEN_SIGNING_SECRET=... npx -p node@20.19.0 node node_modules/next/dist/bin/next build`.

@@ -29,6 +29,7 @@ import {
 import {
   getActiveMentionTrigger,
   parseMentions,
+  stripMentionFormatCharacters,
   type ParsedMention,
 } from "@/lib/mention";
 import {
@@ -1800,7 +1801,7 @@ export function serializeEditorRichTextHtml(input: string): string {
     return input;
   }
 
-  const cleanedInput = input.replace(/\u200b/g, "");
+  const cleanedInput = stripMentionFormatCharacters(input);
   const hasEditorShells = cleanedInput.includes(`<${EDITOR_RICH_SHELL_TAG}`);
   const hasEditorMentions = cleanedInput.includes("data-editor-mention");
   if (!hasEditorShells && !hasEditorMentions) {
@@ -1813,7 +1814,7 @@ export function serializeEditorRichTextHtml(input: string): string {
 
   if (!hasEditorShells) {
     normalizeEditorOnlyWhitespace(template.content);
-    return template.innerHTML.replace(/\u200b/g, "");
+    return stripMentionFormatCharacters(template.innerHTML);
   }
 
   template.content
@@ -1939,7 +1940,7 @@ export function serializeEditorRichTextHtml(input: string): string {
 
   normalizeEditorOnlyWhitespace(template.content);
   return trimTrailingEmptyParagraphHtml(
-    template.innerHTML.replace(/\u200b/g, "")
+    stripMentionFormatCharacters(template.innerHTML)
   );
 }
 

@@ -20,6 +20,11 @@ mention hover cards behave consistently across the task modal.
     description, and adding another mention, the original description mention
     can come back in view mode as raw `@name#discriminator` text without
     highlight or tooltip behavior
+- Fix the 2026-05-04 follow-up where comment caret alignment stayed fixed but
+  the first saved task-description mention could again appear unformatted in
+  view mode after reopening edit mode, adding a second mention, and saving.
+  View-mode mention parsing must tolerate invisible contenteditable format
+  characters around `@`, username, `#`, or discriminator text.
 - Fix the PR #211 behavior reported from task view mode:
   task-description mentions must render as highlighted `@name` text without the
   discriminator, with hover cards available immediately after opening a task.
@@ -83,6 +88,9 @@ mention hover cards behave consistently across the task modal.
     directly after subsequently typed visible text instead of being offset by a
     hidden discriminator.
 15. Existing mention parsing, notification, and rendering tests remain green.
+16. View-mode task descriptions highlight and tooltip every visually valid
+    `@name#discriminator` mention even if contenteditable previously saved an
+    invisible editor format character inside the mention token.
 
 ## Definition Of Done
 - `agent.md` documents the dedicated worktree expectation for multi-agent work,

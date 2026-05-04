@@ -5,8 +5,20 @@
  * and discriminator is 1-4 chars.
  */
 
-const MENTION_REGEX =
-  /@([a-zA-Z0-9_]{1,20})(?:#([a-zA-Z0-9]{1,4}))?(?![a-zA-Z0-9_])/g;
+const MENTION_FORMAT_CHARACTER_PATTERN = /[\u200B\u200C\u200D\u2060\uFEFF]/g;
+const MENTION_FORMAT_CHARACTER_TEST_PATTERN = /[\u200B\u200C\u200D\u2060\uFEFF]/;
+const MENTION_FORMAT_CHARACTER_FRAGMENT = "[\\u200B\\u200C\\u200D\\u2060\\uFEFF]*";
+const MENTION_REGEX = new RegExp(
+  [
+    "@",
+    MENTION_FORMAT_CHARACTER_FRAGMENT,
+    `([a-zA-Z0-9_](?:${MENTION_FORMAT_CHARACTER_FRAGMENT}[a-zA-Z0-9_]){0,19})`,
+    `(?:${MENTION_FORMAT_CHARACTER_FRAGMENT}#${MENTION_FORMAT_CHARACTER_FRAGMENT}`,
+    `([a-zA-Z0-9](?:${MENTION_FORMAT_CHARACTER_FRAGMENT}[a-zA-Z0-9]){0,3}))?`,
+    `(?!${MENTION_FORMAT_CHARACTER_FRAGMENT}[a-zA-Z0-9_])`,
+  ].join(""),
+  "g"
+);
 
 export interface ParsedMention {
   username: string;
@@ -40,7 +52,20 @@ function hasMentionLeftBoundary(input: string, startIndex: number): boolean {
     return true;
   }
 
-  return !MENTION_LEFT_BOUNDARY_REGEX.test(input[startIndex - 1] ?? "");
+  for (let index = startIndex - 1; index >= 0; index -= 1) {
+    const character = input[index] ?? "";
+    if (MENTION_FORMAT_CHARACTER_TEST_PATTERN.test(character)) {
+      continue;
+    }
+
+    return !MENTION_LEFT_BOUNDARY_REGEX.test(character);
+  }
+
+  return true;
+}
+
+export function stripMentionFormatCharacters(input: string): string {
+  return input.replace(MENTION_FORMAT_CHARACTER_PATTERN, "");
 }
 
 /**
@@ -68,9 +93,14 @@ export function parseMentions(input: string): MentionParseResult {
       continue;
     }
 
+    const username = stripMentionFormatCharacters(match[1]);
+    const discriminator = match[2]
+      ? stripMentionFormatCharacters(match[2])
+      : null;
+
     mentions.push({
-      username: match[1],
-      discriminator: match[2] ?? null,
+      username,
+      discriminator,
       fullMatch: match[0],
       startIndex,
       endIndex: startIndex + match[0].length,

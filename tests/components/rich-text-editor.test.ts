@@ -480,6 +480,14 @@ describe("rich-text-editor", () => {
     expect(serializedHtml).toBe("<p>Hello @alice#1234</p>");
   });
 
+  test("serializes editor mention artifacts without invisible format characters", () => {
+    const serializedHtml = serializeEditorRichTextHtml(
+      '<p>Hello <span data-editor-mention="true" data-mention-raw="@\u200Balice\u200B#\u20601234" class="mention">@alice</span></p>'
+    );
+
+    expect(serializedHtml).toBe("<p>Hello @alice#1234</p>");
+  });
+
   test("keeps existing discriminator mentions when later description edits are serialized", async () => {
     const { container, root } = createTestRenderer();
 

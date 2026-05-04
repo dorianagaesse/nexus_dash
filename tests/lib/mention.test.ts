@@ -64,6 +64,28 @@ describe("parseMentions", () => {
     });
   });
 
+  it("parses mentions that contain invisible editor format characters", () => {
+    const result = parseMentions(
+      "Hey @\u200Balice\u200B#\u20601234, check this out"
+    );
+
+    expect(result.mentions).toHaveLength(1);
+    expect(result.mentions[0]).toEqual({
+      username: "alice",
+      discriminator: "1234",
+      fullMatch: "@\u200Balice\u200B#\u20601234",
+      startIndex: 4,
+      endIndex: 18,
+    });
+    expect(result.plainText).toBe("Hey @alice, check this out");
+  });
+
+  it("does not treat a zero-width split inside a word as a mention boundary", () => {
+    const result = parseMentions("prefix\u200B@alice");
+
+    expect(result.mentions).toEqual([]);
+  });
+
   it("parses multiple mentions", () => {
     const result = parseMentions("@alice and @bob are here, also @charlie#42");
     expect(result.mentions).toHaveLength(3);

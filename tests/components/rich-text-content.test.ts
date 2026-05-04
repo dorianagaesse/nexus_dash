@@ -120,6 +120,41 @@ describe("rich-text-content", () => {
     });
   });
 
+  test("marks task description mentions split by invisible editor format characters", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "<p>mention 1 @\u200Bdorianagaesse\u200B#\u20602209 dd<br />mention 2 @dorianagaesse#2209</p>",
+        mentionUsers: [
+          {
+            id: "user-dorian",
+            displayName: "Dorian",
+            usernameTag: "dorianagaesse#2209",
+            avatarSeed: "user-dorian",
+          },
+        ],
+      })
+    );
+
+    const mentions = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-rich-mention='true']")
+    );
+    expect(mentions.map((mention) => mention.textContent)).toEqual([
+      "@dorianagaesse",
+      "@dorianagaesse",
+    ]);
+    expect(
+      mentions.map((mention) => mention.dataset.mentionDiscriminator)
+    ).toEqual(["2209", "2209"]);
+    expect(container.textContent).not.toContain("@dorianagaesse#2209");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("shows a user hover card for rich-text mentions", async () => {
     const { container, root } = createTestRenderer();
     await renderWithRoot(
