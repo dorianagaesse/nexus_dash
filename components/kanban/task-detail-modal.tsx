@@ -2025,6 +2025,7 @@ function TaskEditContent({
           />
         </div>
       </div>
+    </div>
   );
 }
 
