@@ -127,6 +127,25 @@ function selectionIsAtStartOfElement(element: HTMLElement | null) {
   return selection.anchorNode === element && selection.anchorOffset === 0;
 }
 
+function selectionIsBeforeNode(node: Node | null) {
+  const selection = window.getSelection();
+  const parent = node?.parentNode;
+
+  if (!selection?.anchorNode || !node || !parent) {
+    return false;
+  }
+
+  return (
+    selection.anchorNode === parent &&
+    selection.anchorOffset === Array.from(parent.childNodes).indexOf(node)
+  );
+}
+
+function selectionIsInTextNode(node: Node | null, offset: number) {
+  const selection = window.getSelection();
+  return selection?.anchorNode === node && selection.anchorOffset === offset;
+}
+
 function selectionIsAfterStructuredBlock(rowElement: HTMLElement | null) {
   const afterAnchor = rowElement?.querySelector(
     EDITOR_BLOCK_AFTER_ANCHOR_SELECTOR
@@ -392,6 +411,406 @@ describe("rich-text-editor", () => {
     expect(serializedHtml).toContain(
       '<div data-rich-block="token"><code>secret-token</code></div>'
     );
+  });
+
+  test("highlights mentions inside the editor without persisting editor-only spans", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>Hello @alice#1234</p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const mention = editor?.querySelector<HTMLElement>("[data-editor-mention='true']");
+    const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+    expect(mention?.textContent).toBe("@alice");
+    expect(mention?.dataset.mentionRaw).toBe("@alice#1234");
+    expect(mention?.getAttribute("contenteditable")).toBe("false");
+    expect(persistedValue).toBe("<p>Hello @alice#1234</p>");
+    expect(persistedValue).not.toContain("data-editor-mention");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("renders a visible editor-only separator after highlighted mentions", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>@alice </p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const mention = editor?.querySelector<HTMLElement>("[data-editor-mention='true']");
+    const trailingTextNode = mention?.nextSibling;
+
+    expect(mention?.textContent).toBe("@alice");
+    expect(trailingTextNode?.nodeType).toBe(Node.TEXT_NODE);
+    expect((trailingTextNode as Text).data.startsWith("\u00a0")).toBe(true);
+    expect(container.querySelector("output[data-testid='value']")?.textContent).toBe(
+      "<p>@alice </p>"
+    );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("highlights root-level mentions in mixed rich-text editor content", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "First @alice#1234<div>Second @bob#5678</div>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const mentions = editor?.querySelectorAll<HTMLElement>("[data-editor-mention='true']");
+    const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+    expect(mentions).toHaveLength(2);
+    expect(mentions?.[0]?.textContent).toBe("@alice");
+    expect(mentions?.[0]?.dataset.mentionRaw).toBe("@alice#1234");
+    expect(mentions?.[1]?.textContent).toBe("@bob");
+    expect(mentions?.[1]?.dataset.mentionRaw).toBe("@bob#5678");
+    expect(persistedValue).toBe("First @alice#1234<div>Second @bob#5678</div>");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("serializes mention highlights as plain mention text", () => {
+    const serializedHtml = serializeEditorRichTextHtml(
+      '<p>Hello <span data-editor-mention="true" class="mention">@alice#1234</span></p>'
+    );
+
+    expect(serializedHtml).toBe("<p>Hello @alice#1234</p>");
+  });
+
+  test("serializes hidden mention discriminator metadata when present", () => {
+    const serializedHtml = serializeEditorRichTextHtml(
+      '<p>Hello <span data-editor-mention="true" data-mention-raw="@alice#1234" class="mention">@alice</span></p>'
+    );
+
+    expect(serializedHtml).toBe("<p>Hello @alice#1234</p>");
+  });
+
+  test("serializes editor mention artifacts without invisible format characters", () => {
+    const serializedHtml = serializeEditorRichTextHtml(
+      '<p>Hello <span data-editor-mention="true" data-mention-raw="@\u200Balice\u200B#\u20601234" class="mention">@alice</span></p>'
+    );
+
+    expect(serializedHtml).toBe("<p>Hello @alice#1234</p>");
+  });
+
+  test("keeps existing discriminator mentions when later description edits are serialized", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>test @dorian2#6425 dedede</p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>(
+      '[contenteditable="true"]'
+    );
+    const paragraph = editor?.querySelector("p");
+    const existingMention = editor?.querySelector<HTMLElement>(
+      "[data-editor-mention='true']"
+    );
+
+    expect(existingMention?.textContent).toBe("@dorian2");
+    expect(existingMention?.dataset.mentionRaw).toBe("@dorian2#6425");
+
+    paragraph?.append(document.createTextNode(" @dorianagaesse#2209 edit 1"));
+
+    await act(async () => {
+      dispatchBeforeInput(editor);
+      editor?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    const persistedValue =
+      container.querySelector("output[data-testid='value']")?.textContent;
+    const renderedMentions = Array.from(
+      editor?.querySelectorAll<HTMLElement>("[data-editor-mention='true']") ??
+        []
+    );
+
+    expect(persistedValue).toBe(
+      "<p>test @dorian2#6425 dedede @dorianagaesse#2209 edit 1</p>"
+    );
+    expect(renderedMentions.map((mention) => mention.textContent)).toEqual([
+      "@dorian2",
+      "@dorianagaesse",
+    ]);
+    expect(
+      renderedMentions.map((mention) => mention.dataset.mentionRaw)
+    ).toEqual(["@dorian2#6425", "@dorianagaesse#2209"]);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("keeps the original description mention highlighted after adding another same-user mention", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>sdrefgtzf @dorian2#6425 fegrfer</p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>(
+      '[contenteditable="true"]'
+    );
+    const paragraph = editor?.querySelector("p");
+    const trailingText = paragraph?.lastChild;
+
+    expect(trailingText?.nodeType).toBe(Node.TEXT_NODE);
+    (trailingText as Text).appendData(" another mention @dorian2#6425 dfzedez");
+
+    await act(async () => {
+      dispatchBeforeInput(editor);
+      editor?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    const persistedValue =
+      container.querySelector("output[data-testid='value']")?.textContent;
+    const renderedMentions = Array.from(
+      editor?.querySelectorAll<HTMLElement>("[data-editor-mention='true']") ??
+        []
+    );
+
+    expect(persistedValue).toBe(
+      "<p>sdrefgtzf @dorian2#6425 fegrfer another mention @dorian2#6425 dfzedez</p>"
+    );
+    expect(renderedMentions).toHaveLength(2);
+    expect(renderedMentions.map((mention) => mention.textContent)).toEqual([
+      "@dorian2",
+      "@dorian2",
+    ]);
+    expect(
+      renderedMentions.map((mention) => mention.dataset.mentionRaw)
+    ).toEqual(["@dorian2#6425", "@dorian2#6425"]);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("serializes editor-only mention separators as regular spaces", () => {
+    const serializedHtml = serializeEditorRichTextHtml(
+      '<p><span data-editor-mention="true" data-mention-raw="@alice" class="mention">@alice</span>&nbsp;</p>'
+    );
+
+    expect(serializedHtml).toBe("<p>@alice </p>");
+  });
+
+  test("removes the separator before removing a mention on Backspace", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>Hello @alice </p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const mention = editor?.querySelector<HTMLElement>("[data-editor-mention='true']");
+    const trailingTextNode = mention?.nextSibling;
+
+    expect(editor).not.toBeNull();
+    expect(mention).not.toBeNull();
+    expect(trailingTextNode?.nodeType).toBe(Node.TEXT_NODE);
+
+    selectTextPosition(trailingTextNode as Node, 1);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "Backspace" });
+    });
+
+    expect(editor?.querySelector("[data-editor-mention='true']")).not.toBeNull();
+    expect(selectionIsInTextNode(trailingTextNode as Node, 0)).toBe(true);
+    expect(container.querySelector("output[data-testid='value']")?.textContent).toBe(
+      "<p>Hello @alice</p>"
+    );
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "Backspace" });
+    });
+
+    expect(editor?.querySelector("[data-editor-mention='true']")).toBeNull();
+    expect(container.querySelector("output[data-testid='value']")?.textContent).toBe(
+      "<p>Hello </p>"
+    );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("does not remove a leading mention when Backspace is pressed before it", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>@alice </p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const paragraph = editor?.querySelector("p");
+    const mention = editor?.querySelector<HTMLElement>("[data-editor-mention='true']");
+
+    expect(editor).not.toBeNull();
+    expect(paragraph).not.toBeNull();
+    expect(mention).not.toBeNull();
+
+    selectNodeOffset(paragraph as Node, 0);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "Backspace" });
+    });
+
+    expect(editor?.querySelector("[data-editor-mention='true']")).not.toBeNull();
+    expect(container.querySelector("output[data-testid='value']")?.textContent).toBe(
+      "<p>@alice </p>"
+    );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("moves left to the mention edge before jumping over the mention", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>Hello @alice </p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const mention = editor?.querySelector<HTMLElement>("[data-editor-mention='true']");
+    const trailingTextNode = mention?.nextSibling;
+
+    expect(editor).not.toBeNull();
+    expect(mention).not.toBeNull();
+    expect(trailingTextNode?.nodeType).toBe(Node.TEXT_NODE);
+
+    selectTextPosition(trailingTextNode as Node, 1);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "ArrowLeft" });
+    });
+
+    expect(selectionIsInTextNode(trailingTextNode as Node, 0)).toBe(true);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "ArrowLeft" });
+    });
+
+    expect(selectionIsBeforeNode(mention as Node)).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("moves left and right cleanly across a highlighted mention", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>Hello @alice </p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const mention = editor?.querySelector<HTMLElement>("[data-editor-mention='true']");
+    const trailingTextNode = mention?.nextSibling;
+
+    expect(editor).not.toBeNull();
+    expect(mention).not.toBeNull();
+    expect(trailingTextNode?.nodeType).toBe(Node.TEXT_NODE);
+
+    selectTextPosition(trailingTextNode as Node, 1);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "ArrowLeft", ctrlKey: true });
+    });
+
+    expect(selectionIsBeforeNode(mention as Node)).toBe(true);
+
+    await act(async () => {
+      dispatchKeyDown(editor, { key: "ArrowRight", ctrlKey: true });
+    });
+
+    expect(selectionIsInTextNode(trailingTextNode as Node, 1)).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("creates a paragraph after a root-level mention separator on Enter", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "@alice ",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const mention = editor?.querySelector<HTMLElement>("[data-editor-mention='true']");
+    const trailingTextNode = mention?.nextSibling;
+
+    expect(editor).not.toBeNull();
+    expect(mention).not.toBeNull();
+    expect(trailingTextNode?.nodeType).toBe(Node.TEXT_NODE);
+
+    selectTextPosition(trailingTextNode as Node, 1);
+
+    let notCancelled = true;
+    await act(async () => {
+      ({ notCancelled } = dispatchKeyDown(editor, { key: "Enter" }));
+    });
+
+    const paragraphs = editor?.querySelectorAll("p");
+
+    expect(notCancelled).toBe(false);
+    expect(paragraphs).toHaveLength(2);
+    expect(paragraphs?.[0]?.querySelector("[data-editor-mention='true']")).not.toBeNull();
+    expect(selectionIsAtStartOfElement(paragraphs?.[1] as HTMLParagraphElement)).toBe(true);
+    expect(container.querySelector("output[data-testid='value']")?.textContent).toBe(
+      "<p>@alice </p><p></p>"
+    );
+
+    await act(async () => {
+      root.unmount();
+    });
   });
 
   test("wraps only the current visual line in a code block when there is no selection", async () => {

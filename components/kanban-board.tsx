@@ -17,6 +17,7 @@ import {
   type ProjectEpicOption,
   type ProjectTaskCollaborator,
   type TaskComment,
+  type TaskCommentMentionSelection,
   type PendingAttachmentUpload,
   type TaskPersonSummary,
   type TaskAttachment,
@@ -1466,7 +1467,9 @@ export function KanbanBoard({
     []
   );
 
-  const handleSubmitTaskComment = useCallback(async () => {
+  const handleSubmitTaskComment = useCallback(async (
+    mentionSelections?: TaskCommentMentionSelection[]
+  ) => {
     if (!canEdit) {
       return;
     }
@@ -1492,7 +1495,10 @@ export function KanbanBoard({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ content }),
+          body: JSON.stringify({
+            content,
+            mentionSelections,
+          }),
         }
       );
 

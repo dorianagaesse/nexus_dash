@@ -6,6 +6,8 @@ import {
   buildMentionString,
   getActiveMentionTrigger,
   isValidMentionUsername,
+  removeMentionBeforeCursor,
+  replaceMentionTrigger,
 } from "@/lib/mention";
 
 describe("parseMentions", () => {
@@ -31,6 +33,12 @@ describe("parseMentions", () => {
     expect(result.plainText).toBe("Hello world, no mentions here!");
   });
 
+  it("does not parse email addresses as mentions", () => {
+    const result = parseMentions("mail me@example.com");
+    expect(result.mentions).toEqual([]);
+    expect(result.plainText).toBe("mail me@example.com");
+  });
+
   it("parses a single mention without discriminator", () => {
     const result = parseMentions("Hello @alice, how are you?");
     expect(result.mentions).toHaveLength(1);
@@ -54,6 +62,28 @@ describe("parseMentions", () => {
       startIndex: 4,
       endIndex: 15,
     });
+  });
+
+  it("parses mentions that contain invisible editor format characters", () => {
+    const result = parseMentions(
+      "Hey @\u200Balice\u200B#\u20601234, check this out"
+    );
+
+    expect(result.mentions).toHaveLength(1);
+    expect(result.mentions[0]).toEqual({
+      username: "alice",
+      discriminator: "1234",
+      fullMatch: "@\u200Balice\u200B#\u20601234",
+      startIndex: 4,
+      endIndex: 18,
+    });
+    expect(result.plainText).toBe("Hey @alice, check this out");
+  });
+
+  it("does not treat a zero-width split inside a word as a mention boundary", () => {
+    const result = parseMentions("prefix\u200B@alice");
+
+    expect(result.mentions).toEqual([]);
   });
 
   it("parses multiple mentions", () => {
@@ -146,6 +176,10 @@ describe("containsMentions", () => {
     expect(containsMentions("Hello world")).toBe(false);
   });
 
+  it("returns false for email addresses", () => {
+    expect(containsMentions("mail me@example.com")).toBe(false);
+  });
+
   it("returns true for text with mention without discriminator", () => {
     expect(containsMentions("Hello @alice")).toBe(true);
   });
@@ -200,6 +234,71 @@ describe("buildMentionString", () => {
 
   it("builds mention with discriminator", () => {
     expect(buildMentionString("alice", "1234")).toBe("@alice#1234");
+  });
+});
+
+describe("replaceMentionTrigger", () => {
+  it("replaces the active mention query and keeps one trailing separator", () => {
+    expect(
+      replaceMentionTrigger({
+        text: "hello @ali there",
+        startIndex: 6,
+        endIndex: 10,
+        replacement: "@alice#1234 ",
+      })
+    ).toEqual({
+      value: "hello @alice#1234 there",
+      cursorPosition: 18,
+    });
+  });
+
+  it("clamps invalid replacement bounds to the input text", () => {
+    expect(
+      replaceMentionTrigger({
+        text: "@ali",
+        startIndex: -10,
+        endIndex: 50,
+        replacement: "@alice ",
+      })
+    ).toEqual({
+      value: "@alice ",
+      cursorPosition: 7,
+    });
+  });
+});
+
+describe("removeMentionBeforeCursor", () => {
+  it("removes only the trailing separator before the cursor", () => {
+    expect(
+      removeMentionBeforeCursor({
+        text: "hello @alice more",
+        cursorPosition: "hello @alice ".length,
+      })
+    ).toEqual({
+      value: "hello @alicemore",
+      cursorPosition: "hello @alice".length,
+    });
+  });
+
+  it("removes the mention when the cursor is directly after it", () => {
+    expect(
+      removeMentionBeforeCursor({
+        text: "hello @alice",
+        cursorPosition: "hello @alice".length,
+      })
+    ).toEqual({
+      value: "hello ",
+      cursorPosition: 6,
+    });
+  });
+
+  it("does not remove a mention when regular text sits between it and the cursor", () => {
+    expect(
+      removeMentionBeforeCursor({
+        text: "hello @alice there",
+        cursorPosition: "hello @alice there".length,
+      })
+    ).toBeNull();
   });
 });
 

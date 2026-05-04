@@ -11,7 +11,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-041, TASK-067
 - ID: TASK-124
   Title: Comment mentions - project-member @tagging with notification-center delivery
-  Status: Pending
+  Status: In Progress (PR #211 follow-up)
   Rationale: Let collaborators tag project members directly in task comments with `@` mentions, including member autocomplete, highlighted mention rendering, and notification creation routed into the in-app notification center so task discussion can pull the right people in without external chat.
   Dependencies: TASK-058, TASK-099, TASK-123
 - ID: TASK-126

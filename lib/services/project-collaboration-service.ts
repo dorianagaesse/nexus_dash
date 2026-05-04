@@ -9,6 +9,7 @@ import {
   validateUsernameDiscriminator,
 } from "@/lib/services/account-security-policy";
 import {
+  type AgentProjectAccessContext,
   getProjectAccess,
   hasRequiredRole,
   requireProjectRole,
@@ -176,7 +177,9 @@ function normalizeActorUserId(actorUserId: string | null | undefined): string {
   return actorUserId.trim();
 }
 
-function normalizeInvitationId(invitationId: string | null | undefined): string {
+function normalizeInvitationId(
+  invitationId: string | null | undefined
+): string {
   if (typeof invitationId !== "string") {
     return "";
   }
@@ -257,7 +260,12 @@ function buildDisplayName(input: {
     input.usernameDiscriminator
   );
 
-  return usernameTag ?? input.name ?? getEmailLocalPart(input.email) ?? "Unknown user";
+  return (
+    usernameTag ??
+    input.name ??
+    getEmailLocalPart(input.email) ??
+    "Unknown user"
+  );
 }
 
 function buildIdentitySummary(input: {
@@ -312,7 +320,10 @@ function buildInvitationTerminalState(
   >
 ): Exclude<
   ProjectInvitationRecipientState,
-  "sign-in-required" | "wrong-account" | "verification-required" | "accept-ready"
+  | "sign-in-required"
+  | "wrong-account"
+  | "verification-required"
+  | "accept-ready"
 > | null {
   if (invitation.acceptedAt) {
     return "accepted";
@@ -430,7 +441,9 @@ function buildProjectInvitationSummary(input: {
   matchedInvitee: InvitationMatchedUser | null;
 }) {
   const invitationId =
-    "id" in input.invitation ? input.invitation.id : input.invitation.invitationId;
+    "id" in input.invitation
+      ? input.invitation.id
+      : input.invitation.invitationId;
   const projectName =
     "project" in input.invitation
       ? input.invitation.project.name
@@ -471,7 +484,9 @@ function buildProjectInvitationSummary(input: {
 async function findInvitationById(
   invitationId: string
 ): Promise<ProjectInvitationRecord | null> {
-  const rows = await prisma.$queryRaw<InvitationRecipientLookupRow[]>(Prisma.sql`
+  const rows = await prisma.$queryRaw<
+    InvitationRecipientLookupRow[]
+  >(Prisma.sql`
     SELECT
       invitation_id AS "invitationId",
       project_id AS "projectId",
@@ -703,49 +718,50 @@ export async function inviteUserToProject(input: {
       now,
     });
 
-    const [project, actor, matchedInvitee, existingMembership] = await Promise.all([
-      db.project.findUnique({
-        where: { id: input.projectId },
-        select: {
-          id: true,
-          name: true,
-          owner: {
-            select: {
-              email: true,
+    const [project, actor, matchedInvitee, existingMembership] =
+      await Promise.all([
+        db.project.findUnique({
+          where: { id: input.projectId },
+          select: {
+            id: true,
+            name: true,
+            owner: {
+              select: {
+                email: true,
+              },
             },
           },
-        },
-      }),
-      db.user.findUnique({
-        where: { id: actorUserId },
-        select: {
-          email: true,
-        },
-      }),
-      db.user.findUnique({
-        where: { email: invitedEmail },
-        select: {
-          id: true,
-          email: true,
-          emailVerified: true,
-          name: true,
-          username: true,
-          usernameDiscriminator: true,
-          avatarSeed: true,
-        },
-      }),
-      db.projectMembership.findFirst({
-        where: {
-          projectId: input.projectId,
-          user: {
-            email: invitedEmail,
+        }),
+        db.user.findUnique({
+          where: { id: actorUserId },
+          select: {
+            email: true,
           },
-        },
-        select: {
-          id: true,
-        },
-      }),
-    ]);
+        }),
+        db.user.findUnique({
+          where: { email: invitedEmail },
+          select: {
+            id: true,
+            email: true,
+            emailVerified: true,
+            name: true,
+            username: true,
+            usernameDiscriminator: true,
+            avatarSeed: true,
+          },
+        }),
+        db.projectMembership.findFirst({
+          where: {
+            projectId: input.projectId,
+            user: {
+              email: invitedEmail,
+            },
+          },
+          select: {
+            id: true,
+          },
+        }),
+      ]);
 
     if (!project) {
       return createError(404, "project-not-found");
@@ -976,7 +992,9 @@ export async function getProjectSharingSummary(input: {
           },
           invitedBy: invitation.invitedByUser,
           matchedInvitee:
-            matchedInvitees.get(normalizeInvitationEmail(invitation.invitedEmail)) ?? null,
+            matchedInvitees.get(
+              normalizeInvitationEmail(invitation.invitedEmail)
+            ) ?? null,
         })
       ),
     });
@@ -1351,7 +1369,10 @@ export async function respondToProjectInvitation(input: {
         return createSuccess(200, { projectId: invitation.projectId });
       }
 
-      if (latestInvitation && latestInvitation.expiresAt.getTime() <= Date.now()) {
+      if (
+        latestInvitation &&
+        latestInvitation.expiresAt.getTime() <= Date.now()
+      ) {
         await resolveCurrentInvitationNotification();
         return createError(409, "invitation-expired");
       }
@@ -1427,7 +1448,8 @@ export async function respondToProjectInvitation(input: {
         createdMembership &&
         (latestInvitation?.replacedAt ||
           latestInvitation?.revokedAt ||
-          (latestInvitation && latestInvitation.expiresAt.getTime() <= Date.now()) ||
+          (latestInvitation &&
+            latestInvitation.expiresAt.getTime() <= Date.now()) ||
           !latestInvitation)
       ) {
         await db.projectMembership.deleteMany({
@@ -1448,7 +1470,10 @@ export async function respondToProjectInvitation(input: {
         return createError(409, "invitation-revoked");
       }
 
-      if (latestInvitation && latestInvitation.expiresAt.getTime() <= Date.now()) {
+      if (
+        latestInvitation &&
+        latestInvitation.expiresAt.getTime() <= Date.now()
+      ) {
         await resolveCurrentInvitationNotification();
         return createError(409, "invitation-expired");
       }
@@ -1487,12 +1512,15 @@ export async function getProjectInvitationRecipientView(input: {
     };
   }
 
-  const matchedInvitees = await getVerifiedUsersByEmail(prisma, [invitation.invitedEmail]);
+  const matchedInvitees = await getVerifiedUsersByEmail(prisma, [
+    invitation.invitedEmail,
+  ]);
   const invitationSummary = buildProjectInvitationSummary({
     invitation,
     invitedBy: invitation.invitedByUser,
     matchedInvitee:
-      matchedInvitees.get(normalizeInvitationEmail(invitation.invitedEmail)) ?? null,
+      matchedInvitees.get(normalizeInvitationEmail(invitation.invitedEmail)) ??
+      null,
   });
 
   const terminalState = buildInvitationTerminalState(invitation);
@@ -1597,7 +1625,9 @@ export async function getProjectRoleForActor(input: {
   });
 }
 
-export function canManageProjectCollaboration(role: ProjectMembershipRole): boolean {
+export function canManageProjectCollaboration(
+  role: ProjectMembershipRole
+): boolean {
   return role === "owner";
 }
 
@@ -1613,6 +1643,7 @@ const MENTION_AUTOCOMPLETE_LIMIT = 8;
 
 export async function searchProjectMembersForMention(input: {
   actorUserId: string;
+  agentAccess?: AgentProjectAccessContext;
   projectId: string;
   query: string;
 }): Promise<ServiceResult<{ members: ProjectMemberSummary[] }>> {
@@ -1624,6 +1655,19 @@ export async function searchProjectMembersForMention(input: {
 
   const normalizedQuery = query.toLowerCase();
   const queryWithoutTag = normalizedQuery.split("#", 1)[0] ?? normalizedQuery;
+  if (input.agentAccess) {
+    if (input.agentAccess.projectId !== input.projectId) {
+      return createError(404, "project-not-found");
+    }
+
+    const canSearchMembers =
+      input.agentAccess.scopes.includes("project:read") ||
+      input.agentAccess.scopes.includes("task:read") ||
+      input.agentAccess.scopes.includes("task:write");
+    if (!canSearchMembers) {
+      return createError(403, "forbidden");
+    }
+  }
 
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
@@ -1640,6 +1684,7 @@ export async function searchProjectMembersForMention(input: {
       where: { id: input.projectId },
       select: {
         id: true,
+        createdAt: true,
         ownerId: true,
         owner: {
           select: {
@@ -1672,7 +1717,7 @@ export async function searchProjectMembersForMention(input: {
       return createError(404, "project-not-found");
     }
 
-    // Build list of all project members (owner + memberships, filtered to avoid owner duplication)
+    // Build list of all project members, preserving one stable owner row.
     const allMembers: Array<{
       membershipId: string;
       userId: string;
@@ -1689,40 +1734,53 @@ export async function searchProjectMembersForMention(input: {
       };
     }> = [];
 
-    // Add owner with placeholder membershipId (owner has no ProjectMembership record)
-    allMembers.push({
-      membershipId: "",
-      userId: project.owner.id,
-      role: "owner" as ProjectMembershipRole,
-      isOwner: true,
-      createdAt: new Date(), // Owner's createdAt isn't stored on Project record
-      user: project.owner,
-    });
-
-    // Add memberships, excluding the owner (already included above)
+    let hasOwnerMembership = false;
     for (const membership of project.memberships) {
       if (membership.userId === project.ownerId) {
-        continue; // Skip owner - already added above
+        hasOwnerMembership = true;
       }
+
       allMembers.push({
         membershipId: membership.id,
         userId: membership.userId,
         role: membership.role,
-        isOwner: false,
+        isOwner: membership.userId === project.ownerId,
         createdAt: membership.createdAt,
         user: membership.user,
       });
     }
 
+    // Older project rows may predate owner memberships; fall back to project.createdAt.
+    if (!hasOwnerMembership) {
+      allMembers.push({
+        membershipId: "",
+        userId: project.owner.id,
+        role: "owner" as ProjectMembershipRole,
+        isOwner: true,
+        createdAt: project.createdAt,
+        user: project.owner,
+      });
+    }
+
     // Filter by query matching username, name, or email. Empty @ opens the member list.
     const filteredMembers = allMembers.filter((member) => {
+      if (member.userId === actorUserId) {
+        return false;
+      }
+
       if (query.length < 1) {
         return true;
       }
 
-      const usernameMatch = member.user.username?.toLowerCase().startsWith(queryWithoutTag);
-      const nameMatch = member.user.name?.toLowerCase().includes(normalizedQuery);
-      const emailMatch = member.user.email?.toLowerCase().includes(normalizedQuery);
+      const usernameMatch = member.user.username
+        ?.toLowerCase()
+        .startsWith(queryWithoutTag);
+      const nameMatch = member.user.name
+        ?.toLowerCase()
+        .includes(normalizedQuery);
+      const emailMatch = member.user.email
+        ?.toLowerCase()
+        .includes(normalizedQuery);
       return usernameMatch || nameMatch || emailMatch;
     });
 
@@ -1737,19 +1795,22 @@ export async function searchProjectMembersForMention(input: {
       return aUsername.localeCompare(bUsername);
     });
 
-    const members: ProjectMemberSummary[] = filteredMembers.slice(0, MENTION_AUTOCOMPLETE_LIMIT).map((member) => ({
-      id: member.userId,
-      displayName: buildDisplayName(member.user),
-      usernameTag: member.user.username && member.user.usernameDiscriminator
-        ? `${member.user.username}#${member.user.usernameDiscriminator}`
-        : null,
-      email: member.user.email,
-      avatarSeed: resolveAvatarSeed(member.user.avatarSeed, member.userId),
-      membershipId: member.membershipId,
-      role: member.role,
-      joinedAt: member.createdAt.toISOString(),
-      isOwner: member.isOwner,
-    }));
+    const members: ProjectMemberSummary[] = filteredMembers
+      .slice(0, MENTION_AUTOCOMPLETE_LIMIT)
+      .map((member) => ({
+        id: member.userId,
+        displayName: buildDisplayName(member.user),
+        usernameTag:
+          member.user.username && member.user.usernameDiscriminator
+            ? `${member.user.username}#${member.user.usernameDiscriminator}`
+            : null,
+        email: member.user.email,
+        avatarSeed: resolveAvatarSeed(member.user.avatarSeed, member.userId),
+        membershipId: member.membershipId,
+        role: member.role,
+        joinedAt: member.createdAt.toISOString(),
+        isOwner: member.isOwner,
+      }));
 
     return createSuccess(200, { members });
   });

@@ -5,7 +5,20 @@
  * and discriminator is 1-4 chars.
  */
 
-const MENTION_REGEX = /@([a-zA-Z0-9_]{1,20})(?:#([a-zA-Z0-9]{1,4}))?(?![a-zA-Z0-9_])/g;
+const MENTION_FORMAT_CHARACTER_PATTERN = /[\u200B\u200C\u200D\u2060\uFEFF]/g;
+const MENTION_FORMAT_CHARACTER_TEST_PATTERN = /[\u200B\u200C\u200D\u2060\uFEFF]/;
+const MENTION_FORMAT_CHARACTER_FRAGMENT = "[\\u200B\\u200C\\u200D\\u2060\\uFEFF]*";
+const MENTION_REGEX = new RegExp(
+  [
+    "@",
+    MENTION_FORMAT_CHARACTER_FRAGMENT,
+    `([a-zA-Z0-9_](?:${MENTION_FORMAT_CHARACTER_FRAGMENT}[a-zA-Z0-9_]){0,19})`,
+    `(?:${MENTION_FORMAT_CHARACTER_FRAGMENT}#${MENTION_FORMAT_CHARACTER_FRAGMENT}`,
+    `([a-zA-Z0-9](?:${MENTION_FORMAT_CHARACTER_FRAGMENT}[a-zA-Z0-9]){0,3}))?`,
+    `(?!${MENTION_FORMAT_CHARACTER_FRAGMENT}[a-zA-Z0-9_])`,
+  ].join(""),
+  "g"
+);
 
 export interface ParsedMention {
   username: string;
@@ -25,8 +38,35 @@ export interface ActiveMentionTrigger {
   query: string;
 }
 
+export interface MentionTriggerReplacement {
+  value: string;
+  cursorPosition: number;
+}
+
 const ACTIVE_MENTION_QUERY_REGEX = /^[a-zA-Z0-9_#]*$/;
 const MENTION_BOUNDARY_REGEX = /[\s([{]/;
+const MENTION_LEFT_BOUNDARY_REGEX = /[a-zA-Z0-9_]/;
+
+function hasMentionLeftBoundary(input: string, startIndex: number): boolean {
+  if (startIndex <= 0) {
+    return true;
+  }
+
+  for (let index = startIndex - 1; index >= 0; index -= 1) {
+    const character = input[index] ?? "";
+    if (MENTION_FORMAT_CHARACTER_TEST_PATTERN.test(character)) {
+      continue;
+    }
+
+    return !MENTION_LEFT_BOUNDARY_REGEX.test(character);
+  }
+
+  return true;
+}
+
+export function stripMentionFormatCharacters(input: string): string {
+  return input.replace(MENTION_FORMAT_CHARACTER_PATTERN, "");
+}
 
 /**
  * Parse all @mentions from a string.
@@ -47,43 +87,33 @@ export function parseMentions(input: string): MentionParseResult {
   let match: RegExpExecArray | null;
 
   MENTION_REGEX.lastIndex = 0;
-  let searchFrom = 0;
   while ((match = MENTION_REGEX.exec(input)) !== null) {
     const startIndex = match.index;
-    // Skip matches before our current scan position (avoids stale matches after reset)
-    if (startIndex < searchFrom) {
+    if (!hasMentionLeftBoundary(input, startIndex)) {
       continue;
     }
-    const charBefore = startIndex > 0 ? input[startIndex - 1] : " ";
-    // Skip @ preceded by an alphanumeric char (email addresses, etc.)
-    if (/[a-zA-Z0-9]/.test(charBefore)) {
-      searchFrom = startIndex + match[0].length;
-      continue;
-    }
+
+    const username = stripMentionFormatCharacters(match[1]);
+    const discriminator = match[2]
+      ? stripMentionFormatCharacters(match[2])
+      : null;
+
     mentions.push({
-      username: match[1],
-      discriminator: match[2] ?? null,
+      username,
+      discriminator,
       fullMatch: match[0],
       startIndex,
       endIndex: startIndex + match[0].length,
     });
-    searchFrom = startIndex + match[0].length;
   }
 
   // Build plain text by replacing mentions with just the username part.
-  // Apply same skip logic as above for consistency (skip email-like @).
   const plainTextParts: string[] = [];
   let lastEnd = 0;
-  for (const match of input.matchAll(new RegExp(MENTION_REGEX.source, "g"))) {
-    const startIdx = match.index!;
-    const charBefore = startIdx > 0 ? input[startIdx - 1] : " ";
-    if (/[a-zA-Z0-9]/.test(charBefore)) {
-      lastEnd = startIdx + match[0].length;
-      continue;
-    }
-    plainTextParts.push(input.slice(lastEnd, startIdx));
-    plainTextParts.push(`@${match[1]}`); // strip discriminator in plain text
-    lastEnd = startIdx + match[0].length;
+  for (const mention of mentions) {
+    plainTextParts.push(input.slice(lastEnd, mention.startIndex));
+    plainTextParts.push(`@${mention.username}`);
+    lastEnd = mention.endIndex;
   }
   plainTextParts.push(input.slice(lastEnd));
   const plainText = plainTextParts.join("");
@@ -99,13 +129,14 @@ export function containsMentions(input: string): boolean {
     return false;
   }
 
-  MENTION_REGEX.lastIndex = 0;
-  return MENTION_REGEX.test(input);
+  return parseMentions(input).mentions.length > 0;
 }
 
 /**
  * Extract unique usernames from a string's mentions.
- * Returns a set of normalized usernames (lowercase).
+ * Returns a set of normalized usernames (lowercase). Discriminators are
+ * intentionally discarded, so this helper is only safe for username-only
+ * display/counting contexts, not identity resolution.
  */
 export function extractMentionedUsernames(input: string): Set<string> {
   const { mentions } = parseMentions(input);
@@ -121,12 +152,97 @@ export function extractMentionedUsernames(input: string): Set<string> {
 /**
  * Build a mention string from username and optional discriminator.
  */
-export function buildMentionString(username: string, discriminator: string | null): string {
+export function buildMentionString(
+  username: string,
+  discriminator: string | null
+): string {
   if (discriminator) {
     return `@${username}#${discriminator}`;
   }
 
   return `@${username}`;
+}
+
+/**
+ * Replace an active mention query with the selected mention text.
+ */
+export function replaceMentionTrigger(input: {
+  text: string;
+  startIndex: number;
+  endIndex: number;
+  replacement: string;
+}): MentionTriggerReplacement {
+  const text = typeof input.text === "string" ? input.text : "";
+  const startIndex = Math.max(0, Math.min(input.startIndex, text.length));
+  const endIndex = Math.max(startIndex, Math.min(input.endIndex, text.length));
+  const shouldConsumeFollowingWhitespace =
+    input.replacement.endsWith(" ") && /\s/.test(text[endIndex] ?? "");
+  const suffixStartIndex = shouldConsumeFollowingWhitespace
+    ? endIndex + 1
+    : endIndex;
+  const nextValue = `${text.slice(0, startIndex)}${input.replacement}${text.slice(
+    suffixStartIndex
+  )}`;
+
+  return {
+    value: nextValue,
+    cursorPosition: startIndex + input.replacement.length,
+  };
+}
+
+/**
+ * Remove the separator or complete mention immediately before the cursor.
+ *
+ * This is used by plain textarea composers to match rich editor mention-chip
+ * deletion. Pressing Backspace after `@alice ` first removes the separator so
+ * the caret lands next to the mention; pressing Backspace again removes the
+ * whole mention.
+ */
+export function removeMentionBeforeCursor(input: {
+  text: string;
+  cursorPosition: number;
+}): MentionTriggerReplacement | null {
+  const text = typeof input.text === "string" ? input.text : "";
+  const cursorPosition = Math.max(
+    0,
+    Math.min(input.cursorPosition, text.length)
+  );
+  const { mentions } = parseMentions(text);
+
+  let targetMention: ParsedMention | null = null;
+
+  for (const mention of mentions) {
+    if (mention.endIndex > cursorPosition) {
+      continue;
+    }
+
+    const textBetweenMentionAndCursor = text.slice(
+      mention.endIndex,
+      cursorPosition
+    );
+    if (
+      textBetweenMentionAndCursor.length > 0 &&
+      /^\s*$/.test(textBetweenMentionAndCursor)
+    ) {
+      return {
+        value: `${text.slice(0, mention.endIndex)}${text.slice(cursorPosition)}`,
+        cursorPosition: mention.endIndex,
+      };
+    }
+
+    if (textBetweenMentionAndCursor.length === 0) {
+      targetMention = mention;
+    }
+  }
+
+  if (!targetMention) {
+    return null;
+  }
+
+  return {
+    value: `${text.slice(0, targetMention.startIndex)}${text.slice(cursorPosition)}`,
+    cursorPosition: targetMention.startIndex,
+  };
 }
 
 /**
@@ -158,7 +274,8 @@ export function getActiveMentionTrigger(
     return null;
   }
 
-  const boundaryCharacter = lastAtIndex > 0 ? textBeforeCursor[lastAtIndex - 1] : "";
+  const boundaryCharacter =
+    lastAtIndex > 0 ? textBeforeCursor[lastAtIndex - 1] : "";
   if (lastAtIndex > 0 && !MENTION_BOUNDARY_REGEX.test(boundaryCharacter)) {
     return null;
   }

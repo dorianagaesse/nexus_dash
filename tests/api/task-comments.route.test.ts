@@ -14,6 +14,11 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
     create: vi.fn(),
   },
+  notification: {
+    findMany: vi.fn(),
+    createMany: vi.fn(),
+    updateMany: vi.fn(),
+  },
 }));
 
 const apiGuardMock = vi.hoisted(() => ({
@@ -42,7 +47,9 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
 describe("task comments route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
+    prismaMock.$transaction.mockImplementation(async (callback) =>
+      callback(prismaMock)
+    );
     apiGuardMock.requireApiPrincipal.mockResolvedValue({
       ok: true,
       principal: {
@@ -56,6 +63,9 @@ describe("task comments route", () => {
       ownerId: "test-user",
       memberships: [],
     });
+    prismaMock.notification.findMany.mockResolvedValue([]);
+    prismaMock.notification.createMany.mockResolvedValue({ count: 1 });
+    prismaMock.notification.updateMany.mockResolvedValue({ count: 1 });
   });
 
   test("GET returns chronological task comments", async () => {
@@ -93,7 +103,9 @@ describe("task comments route", () => {
     ]);
 
     const response = await GET(
-      new Request("http://localhost/api/projects/project-1/tasks/task-1/comments") as never,
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments"
+      ) as never,
       { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
     );
 
@@ -154,7 +166,9 @@ describe("task comments route", () => {
     });
 
     const response = await GET(
-      new Request("http://localhost/api/projects/project-1/tasks/task-1/comments") as never,
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments"
+      ) as never,
       { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
     );
 
@@ -167,11 +181,14 @@ describe("task comments route", () => {
 
   test("POST returns 400 for invalid json payload", async () => {
     const response = await POST(
-      new Request("http://localhost/api/projects/project-1/tasks/task-1/comments", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: "{",
-      }) as never,
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "{",
+        }
+      ) as never,
       { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
     );
 
@@ -185,19 +202,6 @@ describe("task comments route", () => {
     prismaMock.task.findUnique.mockResolvedValueOnce({
       id: "task-1",
       projectId: "project-1",
-    });
-    prismaMock.project.findUnique.mockResolvedValueOnce({
-      id: "project-1",
-      ownerId: "test-user",
-      owner: {
-        id: "test-user",
-        name: "Test User",
-        email: "test@example.com",
-        username: "testuser",
-        usernameDiscriminator: "0001",
-        avatarSeed: null,
-      },
-      memberships: [],
     });
     prismaMock.taskComment.create.mockResolvedValueOnce({
       id: "comment-3",
@@ -214,13 +218,16 @@ describe("task comments route", () => {
     });
 
     const response = await POST(
-      new Request("http://localhost/api/projects/project-1/tasks/task-1/comments", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          content: "  Ready for review  ",
-        }),
-      }) as never,
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "  Ready for review  ",
+          }),
+        }
+      ) as never,
       { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
     );
 
@@ -269,17 +276,246 @@ describe("task comments route", () => {
         id: true,
       },
     });
+    expect(prismaMock.project.findUnique).not.toHaveBeenCalled();
+  });
+
+  test("POST persists comment before creating mention notifications", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      title: "Mentionable task",
+      projectId: "project-1",
+    });
+    prismaMock.project.findUnique.mockResolvedValueOnce({
+      id: "project-1",
+      name: "Test project",
+      ownerId: "owner-1",
+      owner: {
+        id: "owner-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "0001",
+        avatarSeed: null,
+      },
+      memberships: [
+        {
+          userId: "test-user",
+          user: {
+            id: "test-user",
+            name: "Reviewer",
+            email: "reviewer@example.com",
+            username: "reviewer",
+            usernameDiscriminator: "0007",
+            avatarSeed: null,
+          },
+        },
+      ],
+    });
+    prismaMock.taskComment.create.mockResolvedValueOnce({
+      id: "comment-mention",
+      content: "Can you check this @owner#0001?",
+      createdAt: new Date("2026-04-19T11:30:00.000Z"),
+      author: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+    });
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "Can you check this @owner#0001?",
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(201);
+    expect(
+      prismaMock.taskComment.create.mock.invocationCallOrder[0]
+    ).toBeLessThan(
+      prismaMock.notification.createMany.mock.invocationCallOrder[0]
+    );
+    expect(prismaMock.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          recipientUserId: "owner-1",
+          sourceType: "task_comment_mention",
+          sourceId: "comment-mention",
+          targetPath: "/projects/project-1/tasks/task-1",
+        }),
+      ],
+      skipDuplicates: true,
+    });
+  });
+
+  test("POST does not notify discriminator-less ambiguous username mentions", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      title: "Ambiguous mention task",
+      projectId: "project-1",
+    });
+    prismaMock.project.findUnique.mockResolvedValueOnce({
+      id: "project-1",
+      name: "Test project",
+      owner: {
+        id: "owner-1",
+        name: "Alice Owner",
+        email: "owner@example.com",
+        username: "alice",
+        usernameDiscriminator: "0001",
+      },
+      memberships: [
+        {
+          userId: "member-1",
+          user: {
+            id: "member-1",
+            name: "Alice Member",
+            email: "alice@example.com",
+            username: "alice",
+            usernameDiscriminator: "0002",
+          },
+        },
+      ],
+    });
+    prismaMock.taskComment.create.mockResolvedValueOnce({
+      id: "comment-ambiguous",
+      content: "Can @alice check this?",
+      createdAt: new Date("2026-04-19T11:45:00.000Z"),
+      author: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+    });
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "Can @alice check this?",
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(201);
+    expect(prismaMock.notification.createMany).not.toHaveBeenCalled();
+  });
+
+  test("POST resolves selected display-only comment mentions without persisting discriminators", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      title: "Selected mention task",
+      projectId: "project-1",
+    });
+    prismaMock.project.findUnique.mockResolvedValueOnce({
+      id: "project-1",
+      name: "Test project",
+      owner: {
+        id: "owner-1",
+        name: "Alice Owner",
+        email: "owner@example.com",
+        username: "alice",
+        usernameDiscriminator: "0001",
+      },
+      memberships: [
+        {
+          userId: "member-1",
+          user: {
+            id: "member-1",
+            name: "Alice Member",
+            email: "alice@example.com",
+            username: "alice",
+            usernameDiscriminator: "0002",
+          },
+        },
+      ],
+    });
+    prismaMock.taskComment.create.mockResolvedValueOnce({
+      id: "comment-selected",
+      content: "Can @alice check this?",
+      createdAt: new Date("2026-04-19T12:00:00.000Z"),
+      author: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+    });
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "Can @alice check this?",
+            mentionSelections: [
+              {
+                userId: "member-1",
+                username: "alice",
+                discriminator: "0002",
+              },
+            ],
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(201);
+    expect(prismaMock.taskComment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          content: "Can @alice check this?",
+        }),
+      })
+    );
+    expect(prismaMock.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          recipientUserId: "member-1",
+          sourceType: "task_comment_mention",
+          sourceId: "comment-selected",
+          targetPath: "/projects/project-1/tasks/task-1",
+        }),
+      ],
+      skipDuplicates: true,
+    });
   });
 
   test("POST returns 400 for empty content", async () => {
     const response = await POST(
-      new Request("http://localhost/api/projects/project-1/tasks/task-1/comments", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          content: "   ",
-        }),
-      }) as never,
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "   ",
+          }),
+        }
+      ) as never,
       { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
     );
 

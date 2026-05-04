@@ -17,6 +17,9 @@ export function renderContentWithMentions(
   options?: {
     mentionHighlightClassName?: string;
     mentionUsers?: MentionDisplayUser[];
+    hideMentionDiscriminator?: boolean;
+    preserveMentionText?: boolean;
+    resolveDisplayUsers?: boolean;
   }
 ): React.ReactNode {
   const { mentions } = parseMentions(content);
@@ -33,6 +36,7 @@ export function renderContentWithMentions(
     "font-medium text-primary",
     "not-italic",
   ].join(" ");
+  const mentionUsers = options?.resolveDisplayUsers === false ? undefined : options?.mentionUsers;
 
   for (const mention of mentions) {
     // Add text before the mention using original content indices
@@ -40,7 +44,12 @@ export function renderContentWithMentions(
       segments.push(content.slice(lastIndex, mention.startIndex));
     }
 
-    // Add highlighted mention
+    const shouldHideDiscriminator =
+      options?.hideMentionDiscriminator && mention.discriminator;
+    const mentionContent = options?.preserveMentionText
+      ? mention.fullMatch
+      : `@${mention.username}`;
+
     segments.push(
       <MentionText
         key={`mention-${mention.startIndex}`}
@@ -48,12 +57,23 @@ export function renderContentWithMentions(
           username: mention.username,
           discriminator: mention.discriminator,
         }}
-        users={options?.mentionUsers}
+        users={mentionUsers}
         className={highlightClass}
       >
-        {mention.fullMatch}
+        {mentionContent}
       </MentionText>
     );
+    if (shouldHideDiscriminator) {
+      segments.push(
+        <span
+          key={`mention-layout-${mention.startIndex}`}
+          aria-hidden="true"
+          className="hidden"
+        >
+          #{mention.discriminator}
+        </span>
+      );
+    }
 
     lastIndex = mention.endIndex;
   }

@@ -14,6 +14,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:headed": "npm run build && playwright test --headed",
+    "worktree:create": "node create-worktree.mjs",
     "db:migrate": "prisma migrate deploy"
   },
   "dependencies": {

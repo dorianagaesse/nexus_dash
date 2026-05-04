@@ -9,6 +9,7 @@ import {
   buildEnhancedRichTextHtml,
   RichTextContent,
 } from "@/components/rich-text-content";
+import { renderContentWithMentions } from "@/lib/content-with-mentions";
 import {
   createRichTextCodeBlock,
   createRichTextTokenBlock,
@@ -81,10 +82,92 @@ describe("rich-text-content", () => {
 
   test("marks mentions for hover-card lookup", () => {
     const output = buildEnhancedRichTextHtml("<p>Hello @alice#1234</p>");
+    const template = document.createElement("template");
+    template.innerHTML = output;
+    const mention = template.content.querySelector("[data-rich-mention='true']");
 
     expect(output).toContain('data-rich-mention="true"');
     expect(output).toContain('data-mention-username="alice"');
     expect(output).toContain('data-mention-discriminator="1234"');
+    expect(mention?.textContent).toBe("@alice");
+  });
+
+  test("marks mentions in coerced task description text after edits", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "test @dorian2#6425 dedede\nedit 1",
+        mentionUsers: [
+          {
+            id: "user-dorian",
+            displayName: "Dorian Two",
+            usernameTag: "dorian2#6425",
+            avatarSeed: "user-dorian",
+          },
+        ],
+      })
+    );
+
+    const mention = container.querySelector<HTMLElement>("[data-rich-mention='true']");
+    expect(mention?.textContent).toBe("@dorian2");
+    expect(mention?.dataset.mentionDiscriminator).toBe("6425");
+    expect(container.textContent).not.toContain("@dorian2#6425");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("marks task description mentions split by invisible editor format characters", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "<p>mention 1 @\u200Bdorianagaesse\u200B#\u20602209 dd<br />mention 2 @dorianagaesse#2209</p>",
+        mentionUsers: [
+          {
+            id: "user-dorian",
+            displayName: "Dorian",
+            usernameTag: "dorianagaesse#2209",
+            avatarSeed: "user-dorian",
+          },
+        ],
+      })
+    );
+
+    const mentions = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-rich-mention='true']")
+    );
+    expect(mentions.map((mention) => mention.textContent)).toEqual([
+      "@dorianagaesse",
+      "@dorianagaesse",
+    ]);
+    expect(
+      mentions.map((mention) => mention.dataset.mentionDiscriminator)
+    ).toEqual(["2209", "2209"]);
+    expect(container.textContent).not.toContain("@dorianagaesse#2209");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("marks mentions in mixed root text created by later rich-text edits", () => {
+    const output = buildEnhancedRichTextHtml(
+      "First @alice#1234<div>Second @bob#5678</div>"
+    );
+    const template = document.createElement("template");
+    template.innerHTML = output;
+    const mentions = template.content.querySelectorAll("[data-rich-mention='true']");
+
+    expect(mentions).toHaveLength(2);
+    expect(mentions[0]?.textContent).toBe("@alice");
+    expect(mentions[0]?.getAttribute("data-mention-discriminator")).toBe("1234");
+    expect(mentions[1]?.textContent).toBe("@bob");
+    expect(mentions[1]?.getAttribute("data-mention-discriminator")).toBe("5678");
   });
 
   test("shows a user hover card for rich-text mentions", async () => {
@@ -113,6 +196,326 @@ describe("rich-text-content", () => {
 
     expect(document.body.textContent).toContain("Alice Example");
     expect(document.body.textContent).toContain("alice#1234");
+
+    await act(async () => {
+      container
+        .querySelector("div")
+        ?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    });
+
+    expect(document.body.textContent).not.toContain("Alice Example");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("hides a rich-text mention hover card when the pointer leaves the mention", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "<p>Hello @alice#1234</p>",
+        mentionUsers: [
+          {
+            id: "user-alice",
+            displayName: "Alice Example",
+            usernameTag: "alice#1234",
+            avatarSeed: "user-alice",
+          },
+        ],
+      })
+    );
+
+    const mention = container.querySelector<HTMLElement>("[data-rich-mention='true']");
+    expect(mention).not.toBeNull();
+    vi.spyOn(mention as HTMLElement, "getBoundingClientRect").mockReturnValue({
+      x: 10,
+      y: 10,
+      top: 10,
+      right: 110,
+      bottom: 30,
+      left: 10,
+      width: 100,
+      height: 20,
+      toJSON: () => ({}),
+    });
+
+    await act(async () => {
+      mention?.dispatchEvent(
+        new MouseEvent("mouseover", {
+          bubbles: true,
+          clientX: 20,
+          clientY: 20,
+        })
+      );
+    });
+
+    expect(document.body.textContent).toContain("Alice Example");
+
+    const activeMention = container.querySelector<HTMLElement>(
+      "[data-rich-mention='true']"
+    );
+    expect(activeMention).not.toBeNull();
+    vi.spyOn(activeMention as HTMLElement, "getBoundingClientRect").mockReturnValue({
+      x: 10,
+      y: 10,
+      top: 10,
+      right: 110,
+      bottom: 30,
+      left: 10,
+      width: 100,
+      height: 20,
+      toJSON: () => ({}),
+    });
+
+    await act(async () => {
+      activeMention?.dispatchEvent(
+        new MouseEvent("mousemove", {
+          bubbles: true,
+          clientX: 20,
+          clientY: 46,
+        })
+      );
+    });
+
+    expect(document.body.textContent).not.toContain("Alice Example");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("hides a rich-text mention hover card on document pointer movement outside the mention", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "<p>Hello @alice#1234</p>",
+        mentionUsers: [
+          {
+            id: "user-alice",
+            displayName: "Alice Example",
+            usernameTag: "alice#1234",
+            avatarSeed: "user-alice",
+          },
+        ],
+      })
+    );
+
+    const mention = container.querySelector<HTMLElement>("[data-rich-mention='true']");
+    expect(mention).not.toBeNull();
+    const mentionRect = {
+      x: 10,
+      y: 10,
+      top: 10,
+      right: 110,
+      bottom: 30,
+      left: 10,
+      width: 100,
+      height: 20,
+      toJSON: () => ({}),
+    } as DOMRect;
+    vi.spyOn(mention as HTMLElement, "getBoundingClientRect").mockReturnValue(
+      mentionRect
+    );
+    vi.spyOn(mention as HTMLElement, "getClientRects").mockReturnValue([
+      mentionRect,
+    ] as unknown as DOMRectList);
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => container),
+    });
+
+    await act(async () => {
+      mention?.dispatchEvent(
+        new MouseEvent("mouseover", {
+          bubbles: true,
+          clientX: 20,
+          clientY: 20,
+        })
+      );
+    });
+
+    expect(document.body.textContent).toContain("Alice Example");
+
+    await act(async () => {
+      document.dispatchEvent(
+        new MouseEvent("pointermove", {
+          bubbles: true,
+          clientX: 20,
+          clientY: 46,
+        })
+      );
+    });
+
+    expect(document.body.textContent).not.toContain("Alice Example");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("enhances mentions immediately after mounted rich text updates", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "<p>No mention yet</p>",
+        mentionUsers: [
+          {
+            id: "user-alice",
+            displayName: "Alice Example",
+            usernameTag: "alice#1234",
+            avatarSeed: "user-alice",
+          },
+        ],
+      })
+    );
+
+    expect(container.querySelector("[data-rich-mention='true']")).toBeNull();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "Hello @alice#1234 after edit",
+        mentionUsers: [
+          {
+            id: "user-alice",
+            displayName: "Alice Example",
+            usernameTag: "alice#1234",
+            avatarSeed: "user-alice",
+          },
+        ],
+      })
+    );
+
+    const mention = container.querySelector<HTMLElement>("[data-rich-mention='true']");
+    expect(mention?.textContent).toBe("@alice");
+    expect(mention?.dataset.mentionDiscriminator).toBe("1234");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("can preserve full mention text for transparent textarea mirrors", () => {
+    const { container, root } = createTestRenderer();
+
+    act(() => {
+      root.render(
+        React.createElement(
+          "div",
+          null,
+          renderContentWithMentions("@alice#1234 hello", {
+            preserveMentionText: true,
+            resolveDisplayUsers: false,
+          })
+        )
+      );
+    });
+
+    expect(container.textContent).toBe("@alice#1234 hello");
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  test("can hide mention discriminators from transparent textarea mirrors", () => {
+    const { container, root } = createTestRenderer();
+
+    act(() => {
+      root.render(
+        React.createElement(
+          "div",
+          null,
+          renderContentWithMentions("@alice#1234 hello", {
+            hideMentionDiscriminator: true,
+            resolveDisplayUsers: false,
+          })
+        )
+      );
+    });
+
+    const mention = container.querySelector("span:not([aria-hidden='true'])");
+    const hiddenDiscriminator = container.querySelector("[aria-hidden='true']");
+    expect(mention?.textContent).toBe("@alice");
+    expect(hiddenDiscriminator?.textContent).toBe("#1234");
+    expect(hiddenDiscriminator?.className).toContain("hidden");
+    expect(mention?.contains(hiddenDiscriminator)).toBe(false);
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  test("highlights every task-description mention after repeated edits", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: [
+          "<p>sdrefgtzf @dorian2#6425 fegrfer</p>",
+          "<p>another mention @dorian2#6425 dfzedez</p>",
+          "<p>fgfrez @dorian2#6425 dezdez</p>",
+        ].join(""),
+        mentionUsers: [
+          {
+            id: "user-dorian",
+            displayName: "Dorian Two",
+            usernameTag: "dorian2#6425",
+            avatarSeed: "user-dorian",
+          },
+        ],
+      })
+    );
+
+    const mentions = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-rich-mention='true']")
+    );
+    expect(mentions.map((mention) => mention.textContent)).toEqual([
+      "@dorian2",
+      "@dorian2",
+      "@dorian2",
+    ]);
+    expect(container.textContent).not.toContain("@dorian2#6425");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("rejoins mention text split by stripped editor artifacts before highlighting", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: '<p>sdrefgtzf @dorian2<span data-editor-mention="true"></span>#6425 fegrfer another mention @dorian2#6425 dfzedez</p>',
+        mentionUsers: [
+          {
+            id: "user-dorian",
+            displayName: "Dorian Two",
+            usernameTag: "dorian2#6425",
+            avatarSeed: "user-dorian",
+          },
+        ],
+      })
+    );
+
+    const mentions = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-rich-mention='true']")
+    );
+    expect(mentions.map((mention) => mention.textContent)).toEqual([
+      "@dorian2",
+      "@dorian2",
+    ]);
+    expect(container.textContent).not.toContain("@dorian2#6425");
 
     await act(async () => {
       root.unmount();

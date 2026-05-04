@@ -26,7 +26,12 @@ import {
   type MentionAutocompleteMember,
   type MentionAutocompleteState,
 } from "@/components/ui/mention-autocomplete";
-import { getActiveMentionTrigger } from "@/lib/mention";
+import {
+  getActiveMentionTrigger,
+  parseMentions,
+  stripMentionFormatCharacters,
+  type ParsedMention,
+} from "@/lib/mention";
 import {
   createRichTextCodeBlock,
   createRichTextTokenBlock,
@@ -46,19 +51,35 @@ interface RichTextEditorProps {
   mentionProjectId?: string;
 }
 
+const EDITOR_MENTION_CLASS =
+  "mr-0.5 rounded-md bg-primary/15 px-1 py-0.5 font-medium text-primary not-italic cursor-default";
+
 const MONOSPACE_FONT_FAMILY =
   "Consolas, 'Liberation Mono', Menlo, Monaco, monospace";
-const STRUCTURED_BLOCK_SELECTOR = "[data-rich-block], p, div, h1, h2, blockquote, li, pre";
-const BLOCK_BREAK_TAGS = new Set(["P", "DIV", "H1", "H2", "BLOCKQUOTE", "LI", "PRE"]);
+const STRUCTURED_BLOCK_SELECTOR =
+  "[data-rich-block], p, div, h1, h2, blockquote, li, pre";
+const BLOCK_BREAK_TAGS = new Set([
+  "P",
+  "DIV",
+  "H1",
+  "H2",
+  "BLOCKQUOTE",
+  "LI",
+  "PRE",
+]);
 const EDITOR_RICH_SHELL_TAG = "nd-rich-shell";
-const EDITOR_CARET_ANCHOR = "\u200B";
+const EDITOR_CARET_ANCHOR = "​";
+const EDITOR_MENTION_SEPARATOR = "\u00a0";
 const MAX_EDITOR_HISTORY = 100;
 const EDITOR_BLOCK_ROW_SELECTOR = "[data-editor-block-row='true']";
 const EDITOR_BLOCK_AFTER_ANCHOR_SELECTOR = "[data-editor-block-anchor='after']";
 const EDITOR_ACTIONS_SELECTOR = "[data-editor-actions='true']";
 const EDITOR_ACTION_BUTTON_SELECTOR = "button[data-editor-action]";
 const EDITOR_RICH_SHELL_SELECTOR = `${EDITOR_RICH_SHELL_TAG}[data-editor-shell]`;
-const EDITOR_BLOCK_ROW_CLASS = "grid grid-cols-[minmax(0,1fr)_minmax(0,0.75rem)] items-start";
+const EDITOR_MENTION_SELECTOR = "[data-editor-mention='true']";
+const EDITOR_CARET_MARKER_SELECTOR = "[data-editor-caret-marker='true']";
+const EDITOR_BLOCK_ROW_CLASS =
+  "grid grid-cols-[minmax(0,1fr)_minmax(0,0.75rem)] items-start";
 const EDITOR_BLOCK_AFTER_ANCHOR_CLASS = "my-2 block min-w-[0.75rem]";
 const EDITOR_BLOCK_SHELL_CLASS =
   "relative my-2 block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-border/70 bg-muted/35 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)]";
@@ -79,6 +100,170 @@ const EYE_ICON_SVG =
   '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M2.06 12.35a1 1 0 0 1 0-.7C3.98 7.33 7.7 4 12 4s8.02 3.33 9.94 7.65a1 1 0 0 1 0 .7C20.02 16.67 16.3 20 12 20s-8.02-3.33-9.94-7.65Z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
 const EYE_OFF_ICON_SVG =
   '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M10.58 10.58A3 3 0 0 0 12 15a3 3 0 0 0 2.42-4.42"></path><path d="M16.68 16.67A9.63 9.63 0 0 1 12 18c-4.3 0-8.02-3.33-9.94-7.65a1 1 0 0 1 0-.7 14.9 14.9 0 0 1 5.07-6.08"></path><path d="M14.12 5.11A9.53 9.53 0 0 1 12 5c4.3 0 8.02 3.33 9.94 7.65a1 1 0 0 1 0 .7 14.7 14.7 0 0 1-4.03 5.08"></path><path d="M2 2l20 20"></path></svg>';
+
+function unwrapEditorMentionElements(root: ParentNode) {
+  root
+    .querySelectorAll<HTMLElement>(EDITOR_MENTION_SELECTOR)
+    .forEach((mentionElement) => {
+      mentionElement.replaceWith(
+        document.createTextNode(
+          mentionElement.dataset.mentionRaw ?? mentionElement.textContent ?? ""
+        )
+      );
+    });
+}
+
+function normalizeEditorOnlyWhitespace(root: ParentNode) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode as Text;
+    if (
+      textNode.parentElement?.closest(
+        `pre, code, button, input, textarea, [data-editor-token-input], [data-rich-block]`
+      )
+    ) {
+      continue;
+    }
+
+    if (textNode.data.includes(EDITOR_MENTION_SEPARATOR)) {
+      textNodes.push(textNode);
+    }
+  }
+
+  for (const textNode of textNodes) {
+    textNode.data = textNode.data.replaceAll(EDITOR_MENTION_SEPARATOR, " ");
+  }
+}
+
+function normalizeEditorMentionLeadingSeparator(
+  value: string,
+  followsMention: boolean
+): string {
+  if (!followsMention || value.length === 0) {
+    return value;
+  }
+
+  const firstCharacter = value[0];
+  if (firstCharacter !== " " && firstCharacter !== EDITOR_MENTION_SEPARATOR) {
+    return value;
+  }
+
+  return `${EDITOR_MENTION_SEPARATOR}${value.slice(1)}`;
+}
+
+function restoreEditorSelectionFromMarker(
+  editor: HTMLDivElement,
+  marker: HTMLElement | null
+) {
+  if (!marker || !editor.contains(marker)) {
+    return;
+  }
+
+  const selection = window.getSelection();
+  const range = document.createRange();
+  range.setStartBefore(marker);
+  range.collapse(true);
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+  marker.remove();
+}
+
+function highlightMentionsInEditor(
+  editor: HTMLDivElement,
+  options?: {
+    activeMention?: EditorMentionTarget | null;
+    preserveSelection?: boolean;
+  }
+) {
+  if (typeof document === "undefined") return;
+
+  let caretMarker: HTMLElement | null = null;
+  if (options?.preserveSelection) {
+    const range = getSelectionRange(editor);
+    if (range?.collapsed) {
+      caretMarker = document.createElement("span");
+      caretMarker.dataset.editorCaretMarker = "true";
+      caretMarker.textContent = EDITOR_CARET_ANCHOR;
+      range.insertNode(caretMarker);
+    }
+  }
+
+  unwrapEditorMentionElements(editor);
+  editor.normalize();
+
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  const textNodes: Array<{ textNode: Text; mentions: ParsedMention[] }> = [];
+  const activeMention = options?.activeMention;
+
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode as Text;
+    const parentElement = textNode.parentElement;
+    if (
+      textNode === activeMention?.textNode ||
+      parentElement?.closest(
+        `pre, code, button, input, textarea, [data-editor-token-input], [data-rich-block], ${EDITOR_CARET_MARKER_SELECTOR}`
+      )
+    ) {
+      continue;
+    }
+
+    const { mentions } = parseMentions(textNode.data);
+    if (mentions.length > 0) {
+      textNodes.push({ textNode, mentions });
+    }
+  }
+
+  for (const { textNode, mentions } of textNodes) {
+    const fragment = document.createDocumentFragment();
+    let lastIndex = 0;
+    let previousNodeWasMention = false;
+
+    for (const mention of mentions) {
+      if (mention.startIndex > lastIndex) {
+        fragment.append(
+          document.createTextNode(
+            normalizeEditorMentionLeadingSeparator(
+              textNode.data.slice(lastIndex, mention.startIndex),
+              previousNodeWasMention
+            )
+          )
+        );
+        previousNodeWasMention = false;
+      }
+
+      const mentionElement = document.createElement("span");
+      mentionElement.className = EDITOR_MENTION_CLASS;
+      mentionElement.dataset.editorMention = "true";
+      mentionElement.dataset.mentionUsername = mention.username;
+      mentionElement.dataset.mentionRaw = mention.fullMatch;
+      mentionElement.setAttribute("contenteditable", "false");
+      if (mention.discriminator) {
+        mentionElement.dataset.mentionDiscriminator = mention.discriminator;
+      }
+      mentionElement.textContent = `@${mention.username}`;
+      fragment.append(mentionElement);
+      previousNodeWasMention = true;
+      lastIndex = mention.endIndex;
+    }
+
+    if (lastIndex < textNode.data.length) {
+      fragment.append(
+        document.createTextNode(
+          normalizeEditorMentionLeadingSeparator(
+            textNode.data.slice(lastIndex),
+            previousNodeWasMention
+          )
+        )
+      );
+    }
+
+    textNode.replaceWith(fragment);
+  }
+
+  restoreEditorSelectionFromMarker(editor, caretMarker);
+}
 
 type EditorSelectionSnapshot =
   | {
@@ -149,7 +334,10 @@ function isMentionAutocompleteNavigationKey(
 }
 
 function isUndoShortcut(
-  event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey">
+  event: Pick<
+    KeyboardEvent,
+    "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey"
+  >
 ): boolean {
   return (
     !event.altKey &&
@@ -160,18 +348,27 @@ function isUndoShortcut(
 }
 
 function isRedoShortcut(
-  event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey">
+  event: Pick<
+    KeyboardEvent,
+    "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey"
+  >
 ): boolean {
   if (event.altKey || !(event.ctrlKey || event.metaKey)) {
     return false;
   }
 
   const normalizedKey = event.key.toLowerCase();
-  return (event.shiftKey && normalizedKey === "z") || (!event.metaKey && !event.shiftKey && normalizedKey === "y");
+  return (
+    (event.shiftKey && normalizedKey === "z") ||
+    (!event.metaKey && !event.shiftKey && normalizedKey === "y")
+  );
 }
 
 function supportsClipboardApi(): boolean {
-  return typeof navigator !== "undefined" && typeof navigator.clipboard?.writeText === "function";
+  return (
+    typeof navigator !== "undefined" &&
+    typeof navigator.clipboard?.writeText === "function"
+  );
 }
 
 function preventToolbarMouseDown(event: MouseEvent<HTMLButtonElement>) {
@@ -188,7 +385,11 @@ function escapeHtml(value: string): string {
 }
 
 function normalizeBlockText(value: string): string {
-  return value.replace(/\u00a0/g, " ").replace(/\u200b/g, "").replace(/\n{3,}/g, "\n\n").trim();
+  return value
+    .replace(/\u00a0/g, " ")
+    .replace(/\u200b/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function setMonospaceFont(element: HTMLElement) {
@@ -234,12 +435,18 @@ function setEditorTokenVisibility(
   revealed: boolean
 ) {
   valueElement.dataset.editorTokenVisible = revealed ? "true" : "false";
-  valueElement.setAttribute("aria-label", revealed ? "Visible token value" : "Hidden token value");
+  valueElement.setAttribute(
+    "aria-label",
+    revealed ? "Visible token value" : "Hidden token value"
+  );
 
   if (valueElement instanceof HTMLInputElement) {
     valueElement.type = revealed ? "text" : "password";
   } else {
-    valueElement.style.setProperty("-webkit-text-security", revealed ? "none" : "disc");
+    valueElement.style.setProperty(
+      "-webkit-text-security",
+      revealed ? "none" : "disc"
+    );
   }
 
   toggleButton.setAttribute(
@@ -272,7 +479,10 @@ function extractNodeText(node: Node): string {
     return "";
   }
 
-  if (node.matches(EDITOR_ACTIONS_SELECTOR) || node.matches(EDITOR_ACTION_BUTTON_SELECTOR)) {
+  if (
+    node.matches(EDITOR_ACTIONS_SELECTOR) ||
+    node.matches(EDITOR_ACTION_BUTTON_SELECTOR)
+  ) {
     return "";
   }
 
@@ -282,15 +492,22 @@ function extractNodeText(node: Node): string {
 
   if (node.dataset.richBlock === RICH_TEXT_TOKEN_BLOCK) {
     const inputValue =
-      node.querySelector<HTMLInputElement>('input[data-editor-token-input="true"]')?.value ??
-      node.querySelector<HTMLInputElement>('input[data-editor-token-input="true"]')?.getAttribute(
-        "value"
-      );
+      node.querySelector<HTMLInputElement>(
+        'input[data-editor-token-input="true"]'
+      )?.value ??
+      node
+        .querySelector<HTMLInputElement>(
+          'input[data-editor-token-input="true"]'
+        )
+        ?.getAttribute("value");
 
     return inputValue ?? node.querySelector("code")?.textContent ?? "";
   }
 
-  if (node.dataset.richBlock === RICH_TEXT_CODE_BLOCK || node.tagName === "PRE") {
+  if (
+    node.dataset.richBlock === RICH_TEXT_CODE_BLOCK ||
+    node.tagName === "PRE"
+  ) {
     return node.textContent ?? "";
   }
 
@@ -319,7 +536,9 @@ function getSelectionRange(editor: HTMLDivElement | null): Range | null {
   return range;
 }
 
-function getCollapsedRangeViewportPosition(range: Range): { top: number; left: number } | null {
+function getCollapsedRangeViewportPosition(
+  range: Range
+): { top: number; left: number } | null {
   const firstRect = range.getClientRects()[0] ?? range.getBoundingClientRect();
   if (firstRect.width > 0 || firstRect.height > 0) {
     return {
@@ -347,9 +566,15 @@ function getCollapsedRangeViewportPosition(range: Range): { top: number; left: n
   };
 }
 
-function getActiveEditorMention(editor: HTMLDivElement): EditorMentionTarget | null {
+function getActiveEditorMention(
+  editor: HTMLDivElement
+): EditorMentionTarget | null {
   const range = getSelectionRange(editor);
-  if (!range || !range.collapsed || range.startContainer.nodeType !== Node.TEXT_NODE) {
+  if (
+    !range ||
+    !range.collapsed ||
+    range.startContainer.nodeType !== Node.TEXT_NODE
+  ) {
     return null;
   }
 
@@ -401,6 +626,184 @@ function moveCaretAfter(node: Node | null) {
 
   const range = document.createRange();
   range.setStartAfter(node);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function moveCaretBefore(node: Node | null) {
+  if (!node) {
+    return;
+  }
+
+  const selection = window.getSelection();
+  if (!selection) {
+    return;
+  }
+
+  const range = document.createRange();
+  range.setStartBefore(node);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function isEditorMentionElement(node: Node | null): node is HTMLElement {
+  return node instanceof HTMLElement && node.matches(EDITOR_MENTION_SELECTOR);
+}
+
+function isWhitespaceTextNode(node: Node | null): node is Text {
+  return (
+    node?.nodeType === Node.TEXT_NODE && /^\s*$/.test(node.textContent ?? "")
+  );
+}
+
+function getPreviousNonEmptySibling(node: Node | null): Node | null {
+  let sibling = node?.previousSibling ?? null;
+  while (
+    isWhitespaceTextNode(sibling) &&
+    (sibling.textContent ?? "").length === 0
+  ) {
+    sibling = sibling.previousSibling;
+  }
+  return sibling;
+}
+
+function getNextNonEmptySibling(node: Node | null): Node | null {
+  let sibling = node?.nextSibling ?? null;
+  while (
+    isWhitespaceTextNode(sibling) &&
+    (sibling.textContent ?? "").length === 0
+  ) {
+    sibling = sibling.nextSibling;
+  }
+  return sibling;
+}
+
+function getMentionBeforeCaret(range: Range): {
+  mentionElement: HTMLElement;
+  trailingTextNode: Text | null;
+  trailingTextOffset: number;
+} | null {
+  if (!range.collapsed) {
+    return null;
+  }
+
+  const startContainer = range.startContainer;
+
+  if (startContainer.nodeType === Node.TEXT_NODE) {
+    const textNode = startContainer as Text;
+    const textBeforeCaret = textNode.data.slice(0, range.startOffset);
+    if (/\S/.test(textBeforeCaret)) {
+      return null;
+    }
+
+    const previousSibling = getPreviousNonEmptySibling(textNode);
+    if (isEditorMentionElement(previousSibling)) {
+      return {
+        mentionElement: previousSibling,
+        trailingTextNode: textNode,
+        trailingTextOffset: range.startOffset,
+      };
+    }
+  }
+
+  if (startContainer instanceof Element) {
+    let candidate =
+      range.startOffset > 0
+        ? (startContainer.childNodes[range.startOffset - 1] ?? null)
+        : null;
+
+    while (isWhitespaceTextNode(candidate)) {
+      const previousSibling = candidate.previousSibling;
+      if (!previousSibling) {
+        break;
+      }
+      candidate = previousSibling;
+    }
+
+    if (isEditorMentionElement(candidate)) {
+      return {
+        mentionElement: candidate,
+        trailingTextNode: null,
+        trailingTextOffset: 0,
+      };
+    }
+  }
+
+  return null;
+}
+
+function getMentionAfterCaret(range: Range): HTMLElement | null {
+  if (!range.collapsed) {
+    return null;
+  }
+
+  const startContainer = range.startContainer;
+
+  if (startContainer.nodeType === Node.TEXT_NODE) {
+    const textNode = startContainer as Text;
+    const textAfterCaret = textNode.data.slice(range.startOffset);
+    if (/\S/.test(textAfterCaret)) {
+      return null;
+    }
+
+    const nextSibling = getNextNonEmptySibling(textNode);
+    return isEditorMentionElement(nextSibling) ? nextSibling : null;
+  }
+
+  if (startContainer instanceof Element) {
+    let candidate = startContainer.childNodes[range.startOffset] ?? null;
+
+    while (isWhitespaceTextNode(candidate)) {
+      const nextSibling = candidate.nextSibling;
+      if (!nextSibling) {
+        break;
+      }
+      candidate = nextSibling;
+    }
+
+    return isEditorMentionElement(candidate) ? candidate : null;
+  }
+
+  return null;
+}
+
+function ensureMentionTrailingSpace(mentionElement: HTMLElement): Text {
+  const nextSibling = mentionElement.nextSibling;
+  if (nextSibling?.nodeType === Node.TEXT_NODE) {
+    const textNode = nextSibling as Text;
+    if (textNode.data.startsWith(EDITOR_MENTION_SEPARATOR)) {
+      return textNode;
+    }
+    if (textNode.data.startsWith(" ")) {
+      textNode.replaceData(0, 1, EDITOR_MENTION_SEPARATOR);
+    } else {
+      textNode.insertData(0, EDITOR_MENTION_SEPARATOR);
+    }
+    return textNode;
+  }
+
+  const textNode = mentionElement.ownerDocument.createTextNode(
+    EDITOR_MENTION_SEPARATOR
+  );
+  mentionElement.after(textNode);
+  return textNode;
+}
+
+function moveCaretAfterMention(mentionElement: HTMLElement) {
+  const trailingTextNode = ensureMentionTrailingSpace(mentionElement);
+  selectTextPosition(trailingTextNode, 1);
+}
+
+function selectTextPosition(textNode: Text, offset: number) {
+  const selection = window.getSelection();
+  if (!selection) {
+    return;
+  }
+
+  const range = document.createRange();
+  range.setStart(textNode, Math.max(0, Math.min(offset, textNode.data.length)));
   range.collapse(true);
   selection.removeAllRanges();
   selection.addRange(range);
@@ -482,9 +885,14 @@ function clampOffsetForNode(node: Node, offset: number): number {
   return Math.min(offset, node.childNodes.length);
 }
 
-function captureEditorSelection(editor: HTMLDivElement): EditorSelectionSnapshot | null {
+function captureEditorSelection(
+  editor: HTMLDivElement
+): EditorSelectionSnapshot | null {
   const activeElement = document.activeElement;
-  if (activeElement instanceof HTMLInputElement && editor.contains(activeElement)) {
+  if (
+    activeElement instanceof HTMLInputElement &&
+    editor.contains(activeElement)
+  ) {
     const path = getNodePath(editor, activeElement);
     if (!path) {
       return null;
@@ -527,8 +935,14 @@ function restoreEditorSelection(
     const inputNode = resolveNodePath(editor, selectionSnapshot.path);
     if (inputNode instanceof HTMLInputElement) {
       inputNode.focus();
-      const selectionStart = Math.min(selectionSnapshot.selectionStart, inputNode.value.length);
-      const selectionEnd = Math.min(selectionSnapshot.selectionEnd, inputNode.value.length);
+      const selectionStart = Math.min(
+        selectionSnapshot.selectionStart,
+        inputNode.value.length
+      );
+      const selectionEnd = Math.min(
+        selectionSnapshot.selectionEnd,
+        inputNode.value.length
+      );
       inputNode.setSelectionRange(selectionStart, selectionEnd);
       return;
     }
@@ -541,8 +955,14 @@ function restoreEditorSelection(
 
     if (startNode && endNode && selection) {
       const range = document.createRange();
-      range.setStart(startNode, clampOffsetForNode(startNode, selectionSnapshot.startOffset));
-      range.setEnd(endNode, clampOffsetForNode(endNode, selectionSnapshot.endOffset));
+      range.setStart(
+        startNode,
+        clampOffsetForNode(startNode, selectionSnapshot.startOffset)
+      );
+      range.setEnd(
+        endNode,
+        clampOffsetForNode(endNode, selectionSnapshot.endOffset)
+      );
 
       editor.focus();
       selection.removeAllRanges();
@@ -553,7 +973,10 @@ function restoreEditorSelection(
 
   editor.focus();
 
-  if (editor.lastElementChild && isEmptyEditorParagraph(editor.lastElementChild)) {
+  if (
+    editor.lastElementChild &&
+    isEmptyEditorParagraph(editor.lastElementChild)
+  ) {
     moveCaretToStart(editor.lastElementChild);
     return;
   }
@@ -566,14 +989,19 @@ function restoreEditorSelection(
   moveCaretToStart(editor);
 }
 
-function createEditorHistorySnapshot(editor: HTMLDivElement): EditorHistorySnapshot {
+function createEditorHistorySnapshot(
+  editor: HTMLDivElement
+): EditorHistorySnapshot {
   return {
     value: serializeEditorRichTextHtml(editor.innerHTML),
     selection: captureEditorSelection(editor),
   };
 }
 
-function pushHistorySnapshot(stack: EditorHistorySnapshot[], snapshot: EditorHistorySnapshot) {
+function pushHistorySnapshot(
+  stack: EditorHistorySnapshot[],
+  snapshot: EditorHistorySnapshot
+) {
   const lastSnapshot = stack.at(-1);
   if (lastSnapshot?.value === snapshot.value) {
     return;
@@ -680,6 +1108,83 @@ function insertTextAtRange(range: Range, text: string) {
   selection.addRange(nextRange);
 }
 
+function ensureParagraphHasCaretTarget(paragraph: HTMLParagraphElement) {
+  if (paragraph.childNodes.length === 0) {
+    paragraph.append(
+      paragraph.ownerDocument.createTextNode(EDITOR_CARET_ANCHOR)
+    );
+  }
+}
+
+function moveSiblingsBeforeMarker(marker: HTMLElement, target: HTMLElement) {
+  const parent = marker.parentNode;
+  if (!parent) {
+    return;
+  }
+
+  const nodesToMove: ChildNode[] = [];
+  let node = parent.firstChild;
+  while (node && node !== marker) {
+    nodesToMove.push(node as ChildNode);
+    node = node.nextSibling;
+  }
+
+  target.append(...nodesToMove);
+}
+
+function moveSiblingsAfterMarker(marker: HTMLElement, target: HTMLElement) {
+  let node = marker.nextSibling;
+  while (node) {
+    const nextNode = node.nextSibling;
+    target.append(node);
+    node = nextNode;
+  }
+}
+
+function insertParagraphBreakAtRange(
+  editor: HTMLDivElement,
+  range: Range
+): boolean {
+  if (!range.collapsed) {
+    return false;
+  }
+
+  const documentRef = editor.ownerDocument;
+  const marker = documentRef.createElement("span");
+  marker.dataset.editorCaretMarker = "true";
+  marker.textContent = EDITOR_CARET_ANCHOR;
+  range.insertNode(marker);
+
+  const currentParagraph = marker.closest("p") as HTMLParagraphElement | null;
+  if (currentParagraph && editor.contains(currentParagraph)) {
+    const nextParagraph = documentRef.createElement("p");
+    moveSiblingsAfterMarker(marker, nextParagraph);
+    marker.remove();
+    ensureParagraphHasCaretTarget(nextParagraph);
+    currentParagraph.after(nextParagraph);
+    moveCaretToStart(nextParagraph);
+    return true;
+  }
+
+  if (marker.parentNode !== editor) {
+    marker.remove();
+    return false;
+  }
+
+  const previousParagraph = documentRef.createElement("p");
+  const nextParagraph = documentRef.createElement("p");
+  moveSiblingsBeforeMarker(marker, previousParagraph);
+  marker.remove();
+  while (editor.firstChild) {
+    nextParagraph.append(editor.firstChild);
+  }
+  ensureParagraphHasCaretTarget(previousParagraph);
+  ensureParagraphHasCaretTarget(nextParagraph);
+  editor.replaceChildren(previousParagraph, nextParagraph);
+  moveCaretToStart(nextParagraph);
+  return true;
+}
+
 function createParagraphHtmlFromText(value: string): string {
   const normalizedValue = value.replace(/\r\n/g, "\n").trim();
 
@@ -691,19 +1196,27 @@ function createParagraphHtmlFromText(value: string): string {
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean)
-    .map((paragraph) => `<p>${paragraph.split("\n").map(escapeHtml).join("<br />")}</p>`)
+    .map(
+      (paragraph) =>
+        `<p>${paragraph.split("\n").map(escapeHtml).join("<br />")}</p>`
+    )
     .join("");
 }
 
 function resolveStructuredBlockTarget(element: HTMLElement): HTMLElement {
   return (
     (element.closest(EDITOR_BLOCK_ROW_SELECTOR) as HTMLElement | null) ??
-    (element.closest(EDITOR_RICH_SHELL_SELECTOR) as HTMLElement | null) ?? element
+    (element.closest(EDITOR_RICH_SHELL_SELECTOR) as HTMLElement | null) ??
+    element
   );
 }
 
-function findStructuredBlockAfterAnchor(target: HTMLElement): HTMLSpanElement | null {
-  return target.querySelector(EDITOR_BLOCK_AFTER_ANCHOR_SELECTOR) as HTMLSpanElement | null;
+function findStructuredBlockAfterAnchor(
+  target: HTMLElement
+): HTMLSpanElement | null {
+  return target.querySelector(
+    EDITOR_BLOCK_AFTER_ANCHOR_SELECTOR
+  ) as HTMLSpanElement | null;
 }
 
 function findContainingStructuredBlock(
@@ -736,7 +1249,10 @@ function findActiveStructuredBlock(
   blockType?: string
 ): HTMLElement | null {
   const activeElement = document.activeElement;
-  if (!(activeElement instanceof HTMLElement) || !editor.contains(activeElement)) {
+  if (
+    !(activeElement instanceof HTMLElement) ||
+    !editor.contains(activeElement)
+  ) {
     return null;
   }
 
@@ -745,13 +1261,18 @@ function findActiveStructuredBlock(
   ) as HTMLElement | null;
 }
 
-function findTransformTarget(editor: HTMLDivElement, range: Range): HTMLElement {
+function findTransformTarget(
+  editor: HTMLDivElement,
+  range: Range
+): HTMLElement {
   const baseElement =
     range.startContainer instanceof HTMLElement
       ? range.startContainer
       : range.startContainer.parentElement;
 
-  const target = baseElement?.closest(STRUCTURED_BLOCK_SELECTOR) as HTMLElement | null;
+  const target = baseElement?.closest(
+    STRUCTURED_BLOCK_SELECTOR
+  ) as HTMLElement | null;
   if (target && target !== editor && editor.contains(target)) {
     return resolveStructuredBlockTarget(target);
   }
@@ -759,8 +1280,14 @@ function findTransformTarget(editor: HTMLDivElement, range: Range): HTMLElement 
   return editor;
 }
 
-function findDirectEditorTextNode(editor: HTMLDivElement, range: Range): Text | null {
-  if (range.startContainer.nodeType === Node.TEXT_NODE && range.startContainer.parentNode === editor) {
+function findDirectEditorTextNode(
+  editor: HTMLDivElement,
+  range: Range
+): Text | null {
+  if (
+    range.startContainer.nodeType === Node.TEXT_NODE &&
+    range.startContainer.parentNode === editor
+  ) {
     return range.startContainer as Text;
   }
 
@@ -781,7 +1308,9 @@ function findDirectEditorTextNode(editor: HTMLDivElement, range: Range): Text | 
   return null;
 }
 
-function isEmptyEditorParagraph(element: Element | null): element is HTMLParagraphElement {
+function isEmptyEditorParagraph(
+  element: Element | null
+): element is HTMLParagraphElement {
   return (
     element instanceof HTMLParagraphElement &&
     normalizeBlockText(extractNodeText(element)) === ""
@@ -799,7 +1328,10 @@ function ensureParagraphAfter(target: HTMLElement) {
   return paragraph;
 }
 
-function moveCaretBelowBlock(target: HTMLElement, editor?: HTMLDivElement | null) {
+function moveCaretBelowBlock(
+  target: HTMLElement,
+  editor?: HTMLDivElement | null
+) {
   const paragraph = ensureParagraphAfter(target);
 
   editor?.focus();
@@ -823,7 +1355,10 @@ function ensureParagraphBefore(target: HTMLElement) {
   };
 }
 
-function moveCaretAboveBlock(target: HTMLElement, editor?: HTMLDivElement | null) {
+function moveCaretAboveBlock(
+  target: HTMLElement,
+  editor?: HTMLDivElement | null
+) {
   const { paragraph, created } = ensureParagraphBefore(target);
 
   editor?.focus();
@@ -846,8 +1381,13 @@ function moveCaretToParagraphAboveStructuredBlock(
   return true;
 }
 
-function moveCaretToAfterStructuredBlock(target: HTMLElement, editor?: HTMLDivElement | null) {
-  const afterAnchor = findStructuredBlockAfterAnchor(resolveStructuredBlockTarget(target));
+function moveCaretToAfterStructuredBlock(
+  target: HTMLElement,
+  editor?: HTMLDivElement | null
+) {
+  const afterAnchor = findStructuredBlockAfterAnchor(
+    resolveStructuredBlockTarget(target)
+  );
   if (!afterAnchor) {
     return;
   }
@@ -861,7 +1401,9 @@ function findAdjacentEditorParagraph(
   direction: "previous" | "next"
 ): HTMLParagraphElement | null {
   let sibling =
-    direction === "previous" ? target.previousElementSibling : target.nextElementSibling;
+    direction === "previous"
+      ? target.previousElementSibling
+      : target.nextElementSibling;
 
   while (sibling) {
     if (sibling instanceof HTMLParagraphElement) {
@@ -869,7 +1411,9 @@ function findAdjacentEditorParagraph(
     }
 
     sibling =
-      direction === "previous" ? sibling.previousElementSibling : sibling.nextElementSibling;
+      direction === "previous"
+        ? sibling.previousElementSibling
+        : sibling.nextElementSibling;
   }
 
   return null;
@@ -893,7 +1437,9 @@ function removeStructuredBlock(target: HTMLElement, editor: HTMLDivElement) {
   }
 
   const fallbackParagraph =
-    nextParagraph ?? previousParagraph ?? createEmptyParagraph(editor.ownerDocument);
+    nextParagraph ??
+    previousParagraph ??
+    createEmptyParagraph(editor.ownerDocument);
 
   if (!fallbackParagraph.isConnected) {
     editor.append(fallbackParagraph);
@@ -914,7 +1460,10 @@ function removeStructuredBlock(target: HTMLElement, editor: HTMLDivElement) {
   moveCaretToStart(fallbackParagraph);
 }
 
-function findCurrentParagraph(editor: HTMLDivElement, range: Range): HTMLParagraphElement | null {
+function findCurrentParagraph(
+  editor: HTMLDivElement,
+  range: Range
+): HTMLParagraphElement | null {
   const baseElement =
     range.startContainer instanceof HTMLElement
       ? range.startContainer
@@ -1029,12 +1578,18 @@ function getElementTextContentWithBreaks(element: HTMLElement): string {
     .replace(/\u00a0/g, " ");
 }
 
-function getTextOffsetWithinElement(element: HTMLElement, range: Range): number {
+function getTextOffsetWithinElement(
+  element: HTMLElement,
+  range: Range
+): number {
   const measurementRange = document.createRange();
   measurementRange.selectNodeContents(element);
   measurementRange.setEnd(range.startContainer, range.startOffset);
 
-  return extractNodeText(measurementRange.cloneContents()).replace(/\u00a0/g, " ").length;
+  return extractNodeText(measurementRange.cloneContents()).replace(
+    /\u00a0/g,
+    " "
+  ).length;
 }
 
 function isRangeAtEndOfElement(element: HTMLElement, range: Range): boolean {
@@ -1054,7 +1609,10 @@ function isRangeAtStartOfElement(element: HTMLElement, range: Range): boolean {
   return getTextOffsetWithinElement(element, range) === 0;
 }
 
-function isRangeOnLastLineOfElement(element: HTMLElement, range: Range): boolean {
+function isRangeOnLastLineOfElement(
+  element: HTMLElement,
+  range: Range
+): boolean {
   if (!range.collapsed || !element.contains(range.startContainer)) {
     return false;
   }
@@ -1111,8 +1669,12 @@ export function buildEditorRichTextHtml(input: string): string {
     return input;
   }
 
-  const hasCodeBlocks = input.includes(`<pre data-rich-block="${RICH_TEXT_CODE_BLOCK}"`);
-  const hasTokenBlocks = input.includes(`data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"`);
+  const hasCodeBlocks = input.includes(
+    `<pre data-rich-block="${RICH_TEXT_CODE_BLOCK}"`
+  );
+  const hasTokenBlocks = input.includes(
+    `data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"`
+  );
 
   if (!hasCodeBlocks && !hasTokenBlocks) {
     return input;
@@ -1122,7 +1684,9 @@ export function buildEditorRichTextHtml(input: string): string {
   template.innerHTML = input;
 
   template.content
-    .querySelectorAll<HTMLElement>(`pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"]`)
+    .querySelectorAll<HTMLElement>(
+      `pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"]`
+    )
     .forEach((preElement) => {
       const shell = document.createElement(EDITOR_RICH_SHELL_TAG);
       const row = wrapStructuredShellInEditorRow(document, shell);
@@ -1155,7 +1719,9 @@ export function buildEditorRichTextHtml(input: string): string {
     });
 
   template.content
-    .querySelectorAll<HTMLElement>(`div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"]`)
+    .querySelectorAll<HTMLElement>(
+      `div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"]`
+    )
     .forEach((tokenElement) => {
       tokenElement.querySelector("p, h1, h2, strong")?.remove();
 
@@ -1169,7 +1735,10 @@ export function buildEditorRichTextHtml(input: string): string {
       tokenElement.setAttribute("contenteditable", "false");
 
       const tokenValue =
-        tokenElement.querySelector("code")?.textContent?.replace(/\u00a0/g, " ").trim() ?? "";
+        tokenElement
+          .querySelector("code")
+          ?.textContent?.replace(/\u00a0/g, " ")
+          .trim() ?? "";
       const inputElement = document.createElement("input");
       inputElement.type = "password";
       inputElement.className = EDITOR_TOKEN_INPUT_CLASS;
@@ -1214,7 +1783,8 @@ export function buildEditorRichTextHtml(input: string): string {
       shell.append(tokenElement, actions);
     });
 
-  const trailingElement = template.content.lastElementChild as HTMLElement | null;
+  const trailingElement = template.content
+    .lastElementChild as HTMLElement | null;
   if (
     trailingElement?.matches(EDITOR_RICH_SHELL_SELECTOR) ||
     trailingElement?.matches(EDITOR_BLOCK_ROW_SELECTOR)
@@ -1230,18 +1800,28 @@ export function serializeEditorRichTextHtml(input: string): string {
     return input;
   }
 
-  const cleanedInput = input.replace(/\u200b/g, "");
-  if (!cleanedInput.includes(`<${EDITOR_RICH_SHELL_TAG}`)) {
+  const cleanedInput = stripMentionFormatCharacters(input);
+  const hasEditorShells = cleanedInput.includes(`<${EDITOR_RICH_SHELL_TAG}`);
+  const hasEditorMentions = cleanedInput.includes("data-editor-mention");
+  if (!hasEditorShells && !hasEditorMentions) {
     return cleanedInput;
   }
 
   const template = document.createElement("template");
   template.innerHTML = cleanedInput;
+  unwrapEditorMentionElements(template.content);
+
+  if (!hasEditorShells) {
+    normalizeEditorOnlyWhitespace(template.content);
+    return stripMentionFormatCharacters(template.innerHTML);
+  }
 
   template.content
     .querySelectorAll<HTMLElement>(EDITOR_BLOCK_ROW_SELECTOR)
     .forEach((rowElement) => {
-      const shellElement = rowElement.querySelector<HTMLElement>(EDITOR_RICH_SHELL_SELECTOR);
+      const shellElement = rowElement.querySelector<HTMLElement>(
+        EDITOR_RICH_SHELL_SELECTOR
+      );
       if (!shellElement) {
         return;
       }
@@ -1249,7 +1829,9 @@ export function serializeEditorRichTextHtml(input: string): string {
       if (shellElement.dataset.editorShell === RICH_TEXT_CODE_BLOCK) {
         const codeText =
           shellElement
-            .querySelector(`pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code`)
+            .querySelector(
+              `pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code`
+            )
             ?.textContent?.replace(/\u00a0/g, " ")
             .trim() ?? "";
         const codeHtml = createRichTextCodeBlock(codeText);
@@ -1279,7 +1861,9 @@ export function serializeEditorRichTextHtml(input: string): string {
             ?.replace(/\u00a0/g, " ")
             .trim() ??
           shellElement
-            .querySelector(`div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"] code`)
+            .querySelector(
+              `div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"] code`
+            )
             ?.textContent?.replace(/\u00a0/g, " ")
             .trim() ??
           "";
@@ -1304,7 +1888,9 @@ export function serializeEditorRichTextHtml(input: string): string {
       if (shellElement.dataset.editorShell === RICH_TEXT_CODE_BLOCK) {
         const codeText =
           shellElement
-            .querySelector(`pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code`)
+            .querySelector(
+              `pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code`
+            )
             ?.textContent?.replace(/\u00a0/g, " ")
             .trim() ?? "";
         const codeHtml = createRichTextCodeBlock(codeText);
@@ -1334,7 +1920,9 @@ export function serializeEditorRichTextHtml(input: string): string {
             ?.replace(/\u00a0/g, " ")
             .trim() ??
           shellElement
-            .querySelector(`div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"] code`)
+            .querySelector(
+              `div[data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"] code`
+            )
             ?.textContent?.replace(/\u00a0/g, " ")
             .trim() ??
           "";
@@ -1349,7 +1937,10 @@ export function serializeEditorRichTextHtml(input: string): string {
       }
     });
 
-  return trimTrailingEmptyParagraphHtml(template.innerHTML.replace(/\u200b/g, ""));
+  normalizeEditorOnlyWhitespace(template.content);
+  return trimTrailingEmptyParagraphHtml(
+    stripMentionFormatCharacters(template.innerHTML)
+  );
 }
 
 function applyStructuredBlock(
@@ -1372,9 +1963,13 @@ function applyStructuredBlock(
   }
 
   if (containingStructuredBlock) {
-    const replacementTarget = resolveStructuredBlockTarget(containingStructuredBlock);
+    const replacementTarget = resolveStructuredBlockTarget(
+      containingStructuredBlock
+    );
     if (containingStructuredBlock.dataset.richBlock === blockType) {
-      const plainTextHtml = createParagraphHtmlFromText(extractNodeText(replacementTarget));
+      const plainTextHtml = createParagraphHtmlFromText(
+        extractNodeText(replacementTarget)
+      );
       replaceElementWithHtml(replacementTarget, plainTextHtml, "inside-end");
       return true;
     }
@@ -1389,7 +1984,10 @@ function applyStructuredBlock(
       return false;
     }
 
-    replaceElementWithHtml(replacementTarget, buildEditorRichTextHtml(blockHtml));
+    replaceElementWithHtml(
+      replacementTarget,
+      buildEditorRichTextHtml(blockHtml)
+    );
     return true;
   }
 
@@ -1410,7 +2008,9 @@ function applyStructuredBlock(
 
   const directEditorTextNode = findDirectEditorTextNode(editor, range);
   if (directEditorTextNode) {
-    const targetText = normalizeBlockText(directEditorTextNode.textContent ?? "");
+    const targetText = normalizeBlockText(
+      directEditorTextNode.textContent ?? ""
+    );
     if (!targetText) {
       return false;
     }
@@ -1420,7 +2020,10 @@ function applyStructuredBlock(
       return false;
     }
 
-    replaceNodeWithHtml(directEditorTextNode, buildEditorRichTextHtml(blockHtml));
+    replaceNodeWithHtml(
+      directEditorTextNode,
+      buildEditorRichTextHtml(blockHtml)
+    );
     return true;
   }
 
@@ -1473,12 +2076,20 @@ function applyStructuredBlock(
     return false;
   }
 
-  const beforeHtml = lineSplit.before ? createParagraphHtmlFromText(lineSplit.before) : "";
-  const afterHtml = lineSplit.after ? createParagraphHtmlFromText(lineSplit.after) : "";
+  const beforeHtml = lineSplit.before
+    ? createParagraphHtmlFromText(lineSplit.before)
+    : "";
+  const afterHtml = lineSplit.after
+    ? createParagraphHtmlFromText(lineSplit.after)
+    : "";
   const enhancedCurrentLineHtml = afterHtml
-    ? trimTrailingEmptyParagraphHtml(buildEditorRichTextHtml(currentLineBlockHtml))
+    ? trimTrailingEmptyParagraphHtml(
+        buildEditorRichTextHtml(currentLineBlockHtml)
+      )
     : buildEditorRichTextHtml(currentLineBlockHtml);
-  const nextHtml = [beforeHtml, enhancedCurrentLineHtml, afterHtml].filter(Boolean).join("");
+  const nextHtml = [beforeHtml, enhancedCurrentLineHtml, afterHtml]
+    .filter(Boolean)
+    .join("");
 
   if (target === editor) {
     editor.innerHTML = nextHtml;
@@ -1528,8 +2139,10 @@ export function RichTextEditor({
 
     const hasExternalValueChange = value !== latestValueRef.current;
     const nextHtml = buildEditorRichTextHtml(value);
+    let didUpdateEditorHtml = false;
     if (serializeEditorRichTextHtml(editorRef.current.innerHTML) !== value) {
       editorRef.current.innerHTML = nextHtml;
+      didUpdateEditorHtml = true;
     }
 
     if (hasExternalValueChange) {
@@ -1537,6 +2150,10 @@ export function RichTextEditor({
       historyRef.current.undo = [];
       historyRef.current.redo = [];
       pendingInputSnapshotRef.current = null;
+    }
+
+    if (didUpdateEditorHtml || hasExternalValueChange) {
+      highlightMentionsInEditor(editorRef.current);
     }
   }, [value]);
 
@@ -1577,7 +2194,9 @@ export function RichTextEditor({
       return;
     }
 
-    setMentionState(getActiveEditorMention(editor) ?? createInactiveEditorMentionState());
+    setMentionState(
+      getActiveEditorMention(editor) ?? createInactiveEditorMentionState()
+    );
   };
 
   const handleMentionSelect = (member: MentionAutocompleteMember) => {
@@ -1590,30 +2209,46 @@ export function RichTextEditor({
     }
 
     const beforeSnapshot = createEditorHistorySnapshot(editor);
-    const mentionText = `${buildMentionAutocompleteValue(member)} `;
+    const mentionValue = buildMentionAutocompleteValue(member);
+    if (!mentionValue) {
+      closeMentionAutocomplete();
+      return;
+    }
+
+    const documentRef = editor.ownerDocument;
+    const marker = documentRef.createElement("span");
+    marker.dataset.editorCaretMarker = "true";
+    marker.textContent = EDITOR_CARET_ANCHOR;
+
     const replacementRange = document.createRange();
+    const replacementEndOffset = /\s/.test(
+      targetMention.textNode.data[targetMention.endOffset] ?? ""
+    )
+      ? targetMention.endOffset + 1
+      : targetMention.endOffset;
     replacementRange.setStart(targetMention.textNode, targetMention.startIndex);
-    replacementRange.setEnd(targetMention.textNode, targetMention.endOffset);
+    replacementRange.setEnd(targetMention.textNode, replacementEndOffset);
     replacementRange.deleteContents();
 
-    const mentionTextNode = document.createTextNode(mentionText);
-    replacementRange.insertNode(mentionTextNode);
+    const fragment = documentRef.createDocumentFragment();
+    fragment.append(
+      documentRef.createTextNode(mentionValue),
+      documentRef.createTextNode(EDITOR_MENTION_SEPARATOR),
+      marker
+    );
+    replacementRange.insertNode(fragment);
 
-    const selection = window.getSelection();
-    if (selection) {
-      const nextRange = document.createRange();
-      nextRange.setStart(mentionTextNode, mentionText.length);
-      nextRange.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(nextRange);
-    }
+    highlightMentionsInEditor(editor);
+    restoreEditorSelectionFromMarker(editor, marker);
 
     recordHistoryFromSnapshot(beforeSnapshot);
     emitCurrentValue();
     closeMentionAutocomplete();
   };
 
-  const recordHistoryFromSnapshot = (beforeSnapshot: EditorHistorySnapshot | null) => {
+  const recordHistoryFromSnapshot = (
+    beforeSnapshot: EditorHistorySnapshot | null
+  ) => {
     const editor = editorRef.current;
     if (!editor || !beforeSnapshot) {
       return false;
@@ -1635,7 +2270,8 @@ export function RichTextEditor({
       return false;
     }
 
-    const sourceStack = direction === "undo" ? historyRef.current.undo : historyRef.current.redo;
+    const sourceStack =
+      direction === "undo" ? historyRef.current.undo : historyRef.current.redo;
     const targetSnapshot = sourceStack.pop();
     if (!targetSnapshot) {
       return false;
@@ -1668,7 +2304,13 @@ export function RichTextEditor({
       ? createEditorHistorySnapshot(editorRef.current)
       : null;
 
-    if (applyStructuredBlock(editorRef.current, RICH_TEXT_CODE_BLOCK, createRichTextCodeBlock)) {
+    if (
+      applyStructuredBlock(
+        editorRef.current,
+        RICH_TEXT_CODE_BLOCK,
+        createRichTextCodeBlock
+      )
+    ) {
       recordHistoryFromSnapshot(beforeSnapshot);
       emitCurrentValue();
     }
@@ -1680,7 +2322,11 @@ export function RichTextEditor({
       : null;
 
     if (
-      applyStructuredBlock(editorRef.current, RICH_TEXT_TOKEN_BLOCK, createRichTextTokenBlock)
+      applyStructuredBlock(
+        editorRef.current,
+        RICH_TEXT_TOKEN_BLOCK,
+        createRichTextTokenBlock
+      )
     ) {
       recordHistoryFromSnapshot(beforeSnapshot);
       emitCurrentValue();
@@ -1697,7 +2343,9 @@ export function RichTextEditor({
 
   const handleEditorClick = async (event: MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement | null;
-    const actionButton = target?.closest(EDITOR_ACTION_BUTTON_SELECTOR) as HTMLButtonElement | null;
+    const actionButton = target?.closest(
+      EDITOR_ACTION_BUTTON_SELECTOR
+    ) as HTMLButtonElement | null;
 
     if (!actionButton) {
       return;
@@ -1706,7 +2354,9 @@ export function RichTextEditor({
     event.preventDefault();
     event.stopPropagation();
 
-    const editorShell = actionButton.closest(EDITOR_RICH_SHELL_SELECTOR) as HTMLElement | null;
+    const editorShell = actionButton.closest(
+      EDITOR_RICH_SHELL_SELECTOR
+    ) as HTMLElement | null;
     if (!editorShell) {
       return;
     }
@@ -1740,7 +2390,7 @@ export function RichTextEditor({
     const copyText =
       copyTarget instanceof HTMLInputElement
         ? copyTarget.value.replace(/\u00a0/g, " ").trim()
-        : copyTarget?.textContent?.replace(/\u00a0/g, " ").trim() ?? "";
+        : (copyTarget?.textContent?.replace(/\u00a0/g, " ").trim() ?? "");
     if (!copyText || !supportsClipboardApi()) {
       setEditorCopyButtonState(actionButton, "unavailable");
       return;
@@ -1788,8 +2438,13 @@ export function RichTextEditor({
       return;
     }
 
-    if (target instanceof HTMLInputElement && target.dataset.editorTokenInput === "true") {
-      const tokenShell = target.closest(EDITOR_RICH_SHELL_SELECTOR) as HTMLElement | null;
+    if (
+      target instanceof HTMLInputElement &&
+      target.dataset.editorTokenInput === "true"
+    ) {
+      const tokenShell = target.closest(
+        EDITOR_RICH_SHELL_SELECTOR
+      ) as HTMLElement | null;
       if (!tokenShell) {
         return;
       }
@@ -1859,6 +2514,82 @@ export function RichTextEditor({
       return;
     }
 
+    const mentionBeforeCaret = getMentionBeforeCaret(range);
+    if (mentionBeforeCaret) {
+      if (isBackspaceKey(event)) {
+        event.preventDefault();
+        const beforeSnapshot = createEditorHistorySnapshot(editor);
+        if (
+          mentionBeforeCaret.trailingTextNode &&
+          mentionBeforeCaret.trailingTextOffset > 0
+        ) {
+          mentionBeforeCaret.trailingTextNode.deleteData(
+            0,
+            mentionBeforeCaret.trailingTextOffset
+          );
+          selectTextPosition(mentionBeforeCaret.trailingTextNode, 0);
+          recordHistoryFromSnapshot(beforeSnapshot);
+          emitCurrentValue();
+          return;
+        }
+
+        const marker = editor.ownerDocument.createElement("span");
+        marker.dataset.editorCaretMarker = "true";
+        marker.textContent = EDITOR_CARET_ANCHOR;
+
+        mentionBeforeCaret.mentionElement.before(marker);
+        mentionBeforeCaret.mentionElement.remove();
+        if (mentionBeforeCaret.trailingTextNode) {
+          mentionBeforeCaret.trailingTextNode.deleteData(
+            0,
+            mentionBeforeCaret.trailingTextOffset
+          );
+          if (mentionBeforeCaret.trailingTextNode.data.length === 0) {
+            mentionBeforeCaret.trailingTextNode.remove();
+          }
+        }
+
+        restoreEditorSelectionFromMarker(editor, marker);
+        recordHistoryFromSnapshot(beforeSnapshot);
+        emitCurrentValue();
+        return;
+      }
+
+      if (isArrowLeftKey(event)) {
+        event.preventDefault();
+        if (
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey &&
+          mentionBeforeCaret.trailingTextNode &&
+          mentionBeforeCaret.trailingTextOffset > 0
+        ) {
+          selectTextPosition(mentionBeforeCaret.trailingTextNode, 0);
+          return;
+        }
+
+        moveCaretBefore(mentionBeforeCaret.mentionElement);
+        return;
+      }
+
+      if (isEnterKey(event)) {
+        event.preventDefault();
+        const beforeSnapshot = createEditorHistorySnapshot(editor);
+        if (insertParagraphBreakAtRange(editor, range)) {
+          recordHistoryFromSnapshot(beforeSnapshot);
+          emitCurrentValue();
+        }
+        return;
+      }
+    }
+
+    const mentionAfterCaret = getMentionAfterCaret(range);
+    if (mentionAfterCaret && isArrowRightKey(event)) {
+      event.preventDefault();
+      moveCaretAfterMention(mentionAfterCaret);
+      return;
+    }
+
     const afterBlockAnchor = findAfterBlockAnchor(editor, range);
     if (afterBlockAnchor) {
       const blockTarget = resolveStructuredBlockTarget(afterBlockAnchor);
@@ -1881,22 +2612,33 @@ export function RichTextEditor({
     }
 
     const currentParagraph =
-      findCurrentParagraph(editor, range) ?? findRootSelectionParagraph(editor, range);
-    const previousElement = currentParagraph?.previousElementSibling as HTMLElement | null;
-    const nextElement = currentParagraph?.nextElementSibling as HTMLElement | null;
+      findCurrentParagraph(editor, range) ??
+      findRootSelectionParagraph(editor, range);
+    const previousElement =
+      currentParagraph?.previousElementSibling as HTMLElement | null;
+    const nextElement =
+      currentParagraph?.nextElementSibling as HTMLElement | null;
     const hasStructuredBlockBeforeParagraph =
       previousElement?.matches(EDITOR_RICH_SHELL_SELECTOR) === true ||
       previousElement?.matches(EDITOR_BLOCK_ROW_SELECTOR) === true;
     const hasStructuredBlockAfterParagraph =
       nextElement?.matches(EDITOR_RICH_SHELL_SELECTOR) === true ||
       nextElement?.matches(EDITOR_BLOCK_ROW_SELECTOR) === true;
-    if (isArrowUpKey(event) && currentParagraph && hasStructuredBlockBeforeParagraph) {
+    if (
+      isArrowUpKey(event) &&
+      currentParagraph &&
+      hasStructuredBlockBeforeParagraph
+    ) {
       event.preventDefault();
       moveCaretToEndOfStructuredBlock(previousElement as HTMLElement);
       return;
     }
 
-    if (isArrowDownKey(event) && currentParagraph && hasStructuredBlockAfterParagraph) {
+    if (
+      isArrowDownKey(event) &&
+      currentParagraph &&
+      hasStructuredBlockAfterParagraph
+    ) {
       event.preventDefault();
       moveCaretToStartOfStructuredBlock(nextElement as HTMLElement);
       return;
@@ -1913,27 +2655,42 @@ export function RichTextEditor({
       return;
     }
 
-    const codeBlock = findContainingStructuredBlock(editor, range, RICH_TEXT_CODE_BLOCK);
+    const codeBlock = findContainingStructuredBlock(
+      editor,
+      range,
+      RICH_TEXT_CODE_BLOCK
+    );
     if (codeBlock) {
       const codeShell = resolveStructuredBlockTarget(codeBlock);
-      const codeElement =
-        codeShell.querySelector(
-          `pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code`
-        ) as HTMLElement | null;
+      const codeElement = codeShell.querySelector(
+        `pre[data-rich-block="${RICH_TEXT_CODE_BLOCK}"] code`
+      ) as HTMLElement | null;
 
-      if (isArrowRightKey(event) && codeElement && isRangeAtEndOfElement(codeElement, range)) {
+      if (
+        isArrowRightKey(event) &&
+        codeElement &&
+        isRangeAtEndOfElement(codeElement, range)
+      ) {
         event.preventDefault();
         moveCaretToAfterStructuredBlock(codeShell, editor);
         return;
       }
 
-      if (isArrowDownKey(event) && codeElement && isRangeOnLastLineOfElement(codeElement, range)) {
+      if (
+        isArrowDownKey(event) &&
+        codeElement &&
+        isRangeOnLastLineOfElement(codeElement, range)
+      ) {
         event.preventDefault();
         moveCaretBelowBlock(codeShell, editor);
         return;
       }
 
-      if (isArrowUpKey(event) && codeElement && isRangeAtStartOfElement(codeElement, range)) {
+      if (
+        isArrowUpKey(event) &&
+        codeElement &&
+        isRangeAtStartOfElement(codeElement, range)
+      ) {
         if (moveCaretToParagraphAboveStructuredBlock(codeShell, editor)) {
           event.preventDefault();
           return;
@@ -1946,7 +2703,10 @@ export function RichTextEditor({
         return;
       }
 
-      if (isBackspaceKey(event) && normalizeBlockText(extractNodeText(codeShell)) === "") {
+      if (
+        isBackspaceKey(event) &&
+        normalizeBlockText(extractNodeText(codeShell)) === ""
+      ) {
         event.preventDefault();
         const beforeSnapshot = createEditorHistorySnapshot(editor);
         removeStructuredBlock(codeShell, editor);
@@ -1979,7 +2739,11 @@ export function RichTextEditor({
       return;
     }
 
-    const tokenBlock = findContainingStructuredBlock(editor, range, RICH_TEXT_TOKEN_BLOCK);
+    const tokenBlock = findContainingStructuredBlock(
+      editor,
+      range,
+      RICH_TEXT_TOKEN_BLOCK
+    );
     if (tokenBlock) {
       const tokenShell = resolveStructuredBlockTarget(tokenBlock);
 
@@ -1989,7 +2753,10 @@ export function RichTextEditor({
         return;
       }
 
-      if (isBackspaceKey(event) && normalizeBlockText(extractNodeText(tokenShell)) === "") {
+      if (
+        isBackspaceKey(event) &&
+        normalizeBlockText(extractNodeText(tokenShell)) === ""
+      ) {
         event.preventDefault();
         const beforeSnapshot = createEditorHistorySnapshot(editor);
         removeStructuredBlock(tokenShell, editor);
@@ -2010,12 +2777,17 @@ export function RichTextEditor({
       return;
     }
 
-    pendingInputSnapshotRef.current = createEditorHistorySnapshot(editorRef.current);
+    pendingInputSnapshotRef.current = createEditorHistorySnapshot(
+      editorRef.current
+    );
   };
 
   const handleEditorInput = (event: FormEvent<HTMLDivElement>) => {
     const currentEditor = event.currentTarget as HTMLDivElement;
     const target = event.target as HTMLElement | null;
+    const activeMention = mentionProjectId
+      ? getActiveEditorMention(currentEditor)
+      : null;
 
     if (
       target instanceof HTMLInputElement &&
@@ -2027,20 +2799,26 @@ export function RichTextEditor({
     const nextValue = serializeEditorRichTextHtml(currentEditor.innerHTML);
     if (nextValue === latestValueRef.current) {
       pendingInputSnapshotRef.current = null;
-      refreshMentionAutocomplete();
+      if (!activeMention) {
+        highlightMentionsInEditor(currentEditor, { preserveSelection: true });
+      }
+      setMentionState(activeMention ?? createInactiveEditorMentionState());
       return;
     }
 
-    const beforeSnapshot =
-      pendingInputSnapshotRef.current ?? {
-        value: latestValueRef.current,
-        selection: null,
-      };
+    const beforeSnapshot = pendingInputSnapshotRef.current ?? {
+      value: latestValueRef.current,
+      selection: null,
+    };
 
     pendingInputSnapshotRef.current = null;
+
     recordHistoryFromSnapshot(beforeSnapshot);
     emitValue(nextValue);
-    refreshMentionAutocomplete();
+    if (!activeMention) {
+      highlightMentionsInEditor(currentEditor, { preserveSelection: true });
+    }
+    setMentionState(activeMention ?? createInactiveEditorMentionState());
   };
 
   const handleEditorKeyUp = (event: KeyboardEvent<HTMLDivElement>) => {

@@ -12,6 +12,49 @@ import {
 
 interface TaskCommentCreateRequestBody {
   content?: unknown;
+  mentionSelections?: unknown;
+}
+
+function parseMentionSelections(
+  value: unknown
+): Array<{ userId: string; username: string; discriminator: string | null }> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const selections: Array<{
+    userId: string;
+    username: string;
+    discriminator: string | null;
+  }> = [];
+
+  for (const entry of value.slice(0, 50)) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+
+    const candidate = entry as Record<string, unknown>;
+    const userId =
+      typeof candidate.userId === "string" ? candidate.userId.trim() : "";
+    const username =
+      typeof candidate.username === "string" ? candidate.username.trim() : "";
+    const discriminator =
+      typeof candidate.discriminator === "string"
+        ? candidate.discriminator.trim()
+        : null;
+
+    if (!userId || !username) {
+      continue;
+    }
+
+    selections.push({
+      userId,
+      username,
+      discriminator: discriminator || null,
+    });
+  }
+
+  return selections;
 }
 
 export async function GET(
@@ -80,6 +123,7 @@ export async function POST(
     projectId: params.projectId,
     taskId: params.taskId,
     content: typeof payload.content === "string" ? payload.content : "",
+    mentionSelections: parseMentionSelections(payload.mentionSelections),
     agentAccess: getAgentProjectAccessContext(principalResult.principal),
   });
 

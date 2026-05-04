@@ -12,6 +12,26 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-05-04
+- Type: Execution
+- Summary: TASK-124 PR #211 follow-up fixed the remaining mention display regressions reported from task comments and edited task descriptions.
+- Evidence: Comment composer mention mirrors now hide discriminator text without extending the visible `@name` highlight or leaving a blank tail; task-description view rendering normalizes split text nodes before mention highlighting so earlier mentions remain highlighted after later edits add more mentions. Updated `lib/content-with-mentions.tsx`, `components/kanban/task-detail-modal.tsx`, `components/rich-text-content.tsx`, `tests/components/rich-text-content.test.ts`, `tests/components/rich-text-editor.test.ts`, and `tasks/current.md`.
+
+### 2026-05-04
+- Type: Validation
+- Summary: TASK-124 remaining mention regression fixes passed focused local validation.
+- Evidence: `npx -p node@20.19.0 node node_modules/vitest/vitest.mjs run tests/components/rich-text-content.test.ts tests/components/rich-text-editor.test.ts tests/lib/mention.test.ts tests/components/mention-autocomplete.test.ts`; `npm run lint`; build with Node `20.19.0` and test env values via `npx -p node@20.19.0 node node_modules/next/dist/bin/next build`.
+
+### 2026-05-03
+- Type: Execution
+- Summary: TASK-124 PR #211 follow-up fixed mention display regressions from task view mode and comment composer mirrors.
+- Evidence: Visible mentions now render as highlighted `@name` text without discriminators while retaining discriminator-backed lookup/storage where needed; updated `lib/content-with-mentions.tsx`, `components/kanban/task-detail-modal.tsx`, `components/rich-text-content.tsx`, `tests/components/rich-text-content.test.ts`, and `tasks/current.md`.
+
+### 2026-05-03
+- Type: Validation
+- Summary: TASK-124 mention display follow-up passed lint, focused mention/rich-text tests, and production build locally.
+- Evidence: `npm run lint`; `npm test -- tests/lib/mention.test.ts tests/components/mention-autocomplete.test.ts`; `npx -p node@20.19.0 node node_modules/vitest/vitest.mjs run tests/components/rich-text-content.test.ts tests/lib/mention.test.ts tests/components/mention-autocomplete.test.ts`; build with Node `20.19.0` and test env values via `npx -p node@20.19.0 node node_modules/next/dist/bin/next build`. Default workstation Node `20.17.0` still reproduces the known jsdom worker `ERR_REQUIRE_ESM` startup blocker for component tests.
+
 ### 2026-04-29
 - Type: Execution
 - Summary: TASK-123 Copilot review follow-up tightened notification durability and read-path efficiency before preview deployment.
@@ -1002,3 +1022,113 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-124 autocomplete follow-up passed focused mention/editor/comment validation plus production build with local placeholder environment values.
 - Evidence: `npm run lint`; `npm test -- --run tests/lib/mention.test.ts`; `npm test -- --run tests/components/rich-text-editor.test.ts`; `npm test -- --run tests/api/task-comments.route.test.ts tests/components/notification-center-list.test.ts tests/lib/mention.test.ts`; `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... npm run build`. `npx tsc --noEmit` remains blocked by pre-existing test typing drift around Next async route params and older service signatures, while the build TypeScript phase passes.
+
+### 2026-05-02
+- Type: Execution
+- Summary: TASK-124 PR #211 follow-up fixed mention caret and tooltip regressions across task descriptions and comments while documenting the required PR worktree workflow.
+- Evidence: Added the multi-agent dedicated worktree rule to `agent.md`; made rich-text editor mention spans non-editable so selection markers are not deleted during mention re-highlighting; consumed an existing following whitespace when replacing an active mention; aligned the comment composer mention highlight layer with textarea text metrics; added pointer-move hover checks so mention tooltips close when the pointer leaves the mention in any direction.
+
+### 2026-05-02
+- Type: Validation
+- Summary: TASK-124 follow-up passed focused mention/editor validation, full local test and coverage suites, production build, and task-modal Playwright smoke using the repo-compatible Node 20.19 runtime shim.
+- Evidence: Local default Node is `20.17.0`, so validation was run with `npx -y -p node@20.19.0 -p npm@10.8.2 ...`. Passed: `npm test -- --run tests/lib/mention.test.ts`; `npm test -- --run tests/components/rich-text-editor.test.ts`; `npm test -- --run tests/components/rich-text-content.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... npm run test:coverage`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build`; root `.env`-backed `npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "task lifecycle"` passed against the built app.
+
+### 2026-05-02
+- Type: Execution
+- Summary: TASK-124 second PR #211 follow-up aligned task-description edit-mode mention behavior with comments while adding whole-mention fast delete to both surfaces.
+- Evidence: Added reusable `removeMentionBeforeCursor` mention deletion logic for textareas; updated the rich-text editor so selected mentions create a real trailing space, caret movement can cross highlighted mention spans in both directions, and Backspace at a mention boundary removes the whole mention plus separator; wired comment input Backspace to the same fast-delete behavior; added regression coverage for mention selection spacing, whole-mention deletion, and Ctrl+Arrow navigation.
+
+### 2026-05-02
+- Type: Execution
+- Summary: Added cross-platform task worktree automation and clarified the multi-agent task workflow.
+- Evidence: Added `create-worktree.mjs` and `npm run worktree:create -- TASK-XXX <slug-or-branch>`; updated `agent.md` to require `1 issue = 1 task` and `1 task = 1 branch = 1 PR = 1 worktree`, with task worktrees created one directory above the root as `../nexus_dash_taskXXX`.
+
+### 2026-05-02
+- Type: Validation
+- Summary: TASK-124 second follow-up passed focused mention/editor suites, full local validation, the new worktree script smoke, and task-modal Playwright smoke using the repo-compatible Node 20.19 runtime shim.
+- Evidence: Passed: `npm test -- --run tests/lib/mention.test.ts`; `npm test -- --run tests/components/rich-text-editor.test.ts`; `npm run lint`; `npm run worktree:create -- TASK-124 comment-mentions` (reported the branch already checked out in the active PR worktree and the expected future `../nexus_dash_task124` path); `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... npm run test:coverage`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build`; root `.env`-backed `npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "task lifecycle"`.
+
+### 2026-05-02
+- Type: Execution
+- Summary: TASK-124 mention spacing follow-up fixed the remaining task-description edit-mode mismatch after Playwright confirmed the selected mention still rendered with a regular trailing space in the live editor.
+- Evidence: Root cause was the rich-text editor using a normal space after a non-editable mention span, which contenteditable can render as an invisible/unhelpful end-of-block separator; the comment textarea did not have that DOM boundary problem. The editor now uses an editor-only non-breaking separator after mention spans, normalizes it back to a regular space during serialization, and keeps loaded mention separators visible when descriptions re-enter edit mode.
+
+### 2026-05-02
+- Type: Validation
+- Summary: TASK-124 mention spacing follow-up passed focused editor/mention tests, lint, full local tests and coverage, production build, and browser smoke with a real task-description mention selection.
+- Evidence: Passed with Node `20.19.0` shim: `npm test -- --run tests/components/rich-text-editor.test.ts`; `npm test -- --run tests/lib/mention.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... npm run test:coverage`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build`; fresh-port root `.env`-backed `PORT=3012 npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "task lifecycle"` verified mention selection creates a non-breaking separator and allows typing after it.
+
+### 2026-05-03
+- Type: Execution
+- Summary: TASK-124 Return-key follow-up fixed task-description mention separators that ignored Enter after a selected mention.
+- Evidence: Root cause was native `contenteditable` handling at the boundary between a non-editable mention span and the editor-only non-breaking separator; comments use a textarea and do not hit that DOM boundary. Added an explicit paragraph-break path for Enter at a mention separator, including the root-level inline case created by selecting a mention in an empty description.
+
+### 2026-05-03
+- Type: Validation
+- Summary: TASK-124 Return-key follow-up passed focused mention/editor tests, lint, full local tests and coverage, production build, and browser smoke that presses Enter after selecting a task-description mention.
+- Evidence: Passed with Node `20.19.0` shim: `npm test -- --run tests/components/rich-text-editor.test.ts`; `npm test -- --run tests/lib/mention.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... npm run test:coverage`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build`; fresh-port root `.env`-backed `PORT=3013 npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "task lifecycle"`.
+
+### 2026-05-03
+- Type: Execution
+- Summary: TASK-124 separator-boundary follow-up aligned task-description ArrowLeft/Backspace behavior with plain comment text.
+- Evidence: Root cause was `getMentionBeforeCaret` treating the caret after the editor-only mention separator as already being at the mention boundary, so the first ArrowLeft/Backspace skipped across the mention span. The rich-text editor now first moves/deletes back to the separator boundary, then crosses/removes the mention on the next action; the textarea mention helper follows the same two-step deletion behavior.
+
+### 2026-05-03
+- Type: Validation
+- Summary: TASK-124 separator-boundary follow-up passed focused mention/editor tests, lint, full local tests and coverage, production build, and browser smoke.
+- Evidence: Passed with Node `20.19.0` shim: `npm test -- --run tests/components/rich-text-editor.test.ts`; `npm test -- --run tests/lib/mention.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... npm test`; `DATABASE_URL=... DIRECT_URL=... npm run test:coverage`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm run build`; fresh-port root `.env`-backed `PORT=3014 npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts --grep "task lifecycle"`.
+
+### 2026-05-03
+- Type: Execution
+- Summary: TASK-124 PR #211 Copilot review follow-up tightened mention identity resolution, notification metadata checks, and autocomplete layout behavior.
+- Evidence: Preserved full `username#discriminator` mention insertion from autocomplete; made discriminator-less notification resolution skip ambiguous shared usernames; extracted mention-member resolution and notification dispatch helpers from comment creation; cached parsed mention results in rich-text highlighting; added an invitation metadata sentinel guard; stabilized mention member search owner timestamps; debounced autocomplete resize layout; documented the username-only extraction helper limitation.
+
+### 2026-05-03
+- Type: Validation
+- Summary: TASK-124 Copilot review follow-up passed focused mention/comment validation and lint; broader local validation still needs the repo-compatible env/tooling baseline.
+- Evidence: Passed: `npx vitest run tests/components/mention-autocomplete.test.ts tests/api/task-comments.route.test.ts tests/lib/mention.test.ts`; `npm run lint`; `npm run build` with local placeholder `DATABASE_URL`, `DIRECT_URL`, `AGENT_TOKEN_SIGNING_SECRET`, `RESEND_API_KEY`, and `GOOGLE_TOKEN_ENCRYPTION_KEY` values. An unqualified `npm test` is blocked locally by missing `DATABASE_URL` imports in existing Prisma-backed suites and the current jsdom `html-encoding-sniffer` / `@exodus/bytes` CommonJS-ESM worker issue.
+
+### 2026-05-03
+- Type: Execution
+- Summary: TASK-124 mention regression follow-up fixed task-description tooltip dismissal, comment composer caret alignment, and post-edit description mention highlighting.
+- Evidence: Rich-text description hover now clears the tooltip when pointer coordinates leave the actual mention span; the comment textarea highlight mirror can preserve full discriminated mention text so the visible text aligns with the transparent textarea caret; `RichTextContent` now enhances mounted content updates synchronously so a saved plain-text description with `@username#tag` is immediately highlighted.
+
+### 2026-05-03
+- Type: Validation
+- Summary: TASK-124 mention regression follow-up passed focused mention/comment/rich-text validation, lint, and production build.
+- Evidence: Passed: `npx vitest run tests/lib/mention.test.ts tests/api/task-comments.route.test.ts`; Node 20.19 shim `npm exec -- vitest run tests/components/rich-text-content.test.ts`; `npm run lint`; `npm run build` with local placeholder `DATABASE_URL`, `DIRECT_URL`, `AGENT_TOKEN_SIGNING_SECRET`, `RESEND_API_KEY`, and `GOOGLE_TOKEN_ENCRYPTION_KEY` values.
+
+### 2026-05-03
+- Type: Execution
+- Summary: TASK-124 read-mode description follow-up fixed the still-reproducible vertical tooltip dismissal gap and added regression coverage for edited plain-text descriptions retaining highlighted discriminator mentions.
+- Evidence: Root cause was the read-only rich-text mention hover relying on task-description React mouse transitions, while inline mention boxes could keep stale hover state when the pointer left vertically without a reliable mention-to-container transition. Rich mentions now render as tight inline-block targets, track the active mention element, and clear via a document-level pointermove guard when the pointer is no longer over that exact mention. Added coverage for the screenshot-shaped description text `test @dorian2#6425 dedede\nedit 1`, plus editor serialization coverage proving an existing `@dorian2#6425` mention keeps its raw discriminator while later edits add another mention.
+
+### 2026-05-03
+- Type: Investigation
+- Summary: TASK-124 has required unusual back-and-forth because the PR grew from comment mention notifications into a cross-surface mention/editor overhaul with 27 commits and broad UI/API/test ownership.
+- Evidence: PR #211 currently has 27 commits. The branch touches comment creation and notification resolution, member search, mention parsing, autocomplete layout, comment textarea highlighting, task-description rich-text rendering, a custom contenteditable editor, E2E smoke coverage, and task/worktree docs. The highest-churn area is `components/rich-text-editor.tsx`, where browser-native `contenteditable` behavior around non-editable mention spans, hidden discriminators, separators, Backspace/Arrow/Enter navigation, and serialization produced several follow-up-only edge cases that comments did not hit because comments use a plain textarea.
+
+### 2026-05-03
+- Type: Validation
+- Summary: TASK-124 read-mode description follow-up passed focused mention/editor suites, lint, full tests, coverage, and production build.
+- Evidence: Passed with Node `20.19.0` shim: `npm exec -- vitest run tests/components/rich-text-content.test.ts`; `npm exec -- vitest run tests/components/rich-text-editor.test.ts`; `npm exec -- vitest run tests/lib/mention.test.ts tests/api/task-comments.route.test.ts tests/components/rich-text-content.test.ts tests/components/rich-text-editor.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... AGENT_TOKEN_SIGNING_SECRET=... RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... npm exec -- vitest run`; same env `npm exec -- vitest run --coverage`; same env `npm run build`.
+
+### 2026-05-04
+- Type: Execution
+- Summary: TASK-124 comment composer caret follow-up removed the hidden-discriminator model mismatch from comment input.
+- Evidence: Root cause was the plain textarea storing `@username#discriminator` while the overlay rendered only `@username`; the browser painted the native caret from the longer hidden value, so it appeared offset after visible text. Comment autocomplete now inserts display-only `@username` into the textarea, while selected-member metadata is submitted separately for unambiguous notification resolution.
+
+### 2026-05-04
+- Type: Validation
+- Summary: TASK-124 comment composer caret follow-up passed focused mention/comment validation, lint, and production build.
+- Evidence: Passed with Node `20.19.0` shim: `npx -p node@20.19.0 node node_modules/vitest/vitest.mjs run tests/components/mention-autocomplete.test.ts tests/api/task-comments.route.test.ts tests/components/rich-text-content.test.ts tests/components/rich-text-editor.test.ts tests/lib/mention.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... VERCEL_ENV=preview RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... AGENT_TOKEN_SIGNING_SECRET=... npx -p node@20.19.0 node node_modules/next/dist/bin/next build`.
+
+### 2026-05-04
+- Type: Execution
+- Summary: TASK-124 view-mode description follow-up made mention parsing resilient to invisible editor format characters.
+- Evidence: Root cause was a visually contiguous task-description mention being saved with an invisible contenteditable format/caret character inside the mention token, so view-mode text-node parsing saw raw `@username#discriminator` text but did not match it as one mention. Shared mention parsing now tolerates zero-width format characters around `@`, username, `#`, and discriminator text, while editor serialization strips those characters before persisting.
+
+### 2026-05-04
+- Type: Validation
+- Summary: TASK-124 view-mode description follow-up passed focused mention/rich-text validation, lint, and production build.
+- Evidence: Passed with Node `20.19.0` shim: `npx -p node@20.19.0 node node_modules/vitest/vitest.mjs run tests/lib/mention.test.ts tests/components/rich-text-content.test.ts tests/components/rich-text-editor.test.ts tests/api/task-comments.route.test.ts tests/components/mention-autocomplete.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... VERCEL_ENV=preview RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... AGENT_TOKEN_SIGNING_SECRET=... npx -p node@20.19.0 node node_modules/next/dist/bin/next build`.
