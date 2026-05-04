@@ -70,6 +70,7 @@ interface KanbanBoardProps {
   archivedDoneTasks?: KanbanTask[];
   epics: ProjectEpicOption[];
   collaborators: ProjectTaskCollaborator[];
+  initialSelectedTaskId?: string | null;
 }
 
 function createLocalUploadId(): string {
@@ -328,6 +329,18 @@ export function KanbanBoard({
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (!initialSelectedTaskId || selectedTask) {
+      return;
+    }
+
+    const allTasks = TASK_STATUSES.flatMap((status) => columns[status]).concat(archivedDoneTasks);
+    const taskToSelect = allTasks.find((task) => task.id === initialSelectedTaskId) ?? null;
+    if (taskToSelect) {
+      setSelectedTask(taskToSelect);
+    }
+  }, [archivedDoneTasks, columns, initialSelectedTaskId, selectedTask]);
 
   const selectedTaskId = selectedTask?.id ?? null;
   const selectedTaskCommentCount = selectedTask?.commentCount ?? 0;
