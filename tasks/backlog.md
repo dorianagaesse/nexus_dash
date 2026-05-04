@@ -4,6 +4,11 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-214
+  Title: Fix inconsistent focused border styling on task creation inputs
+  Status: In Review (PR #225)
+  Rationale: Make all task creation form inputs use consistent focus border styling. The title input (EmojiInputField) was missing the focus-visible ring that EpicSelect and AssigneeSelect had, causing inconsistent appearance when inputs were focused. Added focus-visible:outline-none and focus-visible:ring-2 focus-visible:ring-ring/50 to EmojiInputField and EmojiTextareaField.
+  Dependencies:
 - ID: TASK-131
   Title: Local validation baseline repair - reproducible container, database, and toolchain setup
   Status: Pending

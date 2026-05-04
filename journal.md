@@ -14,6 +14,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-05-04
 - Type: Execution
+- Summary: TASK-214 fixed inconsistent focus border styling on task creation inputs. Added focus-visible:outline-none and focus-visible:ring-2 focus-visible:ring-ring/50 to EmojiInputField and EmojiTextareaField to match EpicSelect and AssigneeSelect styling.
+- Evidence: PR #225; modified `components/ui/emoji-field.tsx`; lint passed.
+
+### 2026-05-04
+- Type: Execution
 - Summary: TASK-124 PR #211 follow-up fixed the remaining mention display regressions reported from task comments and edited task descriptions.
 - Evidence: Comment composer mention mirrors now hide discriminator text without extending the visible `@name` highlight or leaving a blank tail; task-description view rendering normalizes split text nodes before mention highlighting so earlier mentions remain highlighted after later edits add more mentions. Updated `lib/content-with-mentions.tsx`, `components/kanban/task-detail-modal.tsx`, `components/rich-text-content.tsx`, `tests/components/rich-text-content.test.ts`, `tests/components/rich-text-editor.test.ts`, and `tasks/current.md`.
 
