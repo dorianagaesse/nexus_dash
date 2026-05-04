@@ -2557,10 +2557,18 @@ export function RichTextEditor({
 
       if (isArrowLeftKey(event)) {
         event.preventDefault();
+
+        // Let the browser handle word-jump (Ctrl/Meta+ArrowLeft) naturally at
+        // mention boundaries - it correctly moves before the mention.
         if (
-          !event.ctrlKey &&
-          !event.metaKey &&
-          !event.altKey &&
+          (event.ctrlKey || event.metaKey || event.altKey) &&
+          mentionBeforeCaret.trailingTextNode &&
+          mentionBeforeCaret.trailingTextOffset > 0
+        ) {
+          return;
+        }
+
+        if (
           mentionBeforeCaret.trailingTextNode &&
           mentionBeforeCaret.trailingTextOffset > 0
         ) {
