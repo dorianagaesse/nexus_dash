@@ -382,7 +382,7 @@ export function CreateTaskDialog({
                   </Button>
                 </CardHeader>
                 <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleSubmit}>
-                  <CardContent className="min-h-0 flex-1 overflow-y-auto">
+                  <CardContent className="min-h-0 flex-1 overflow-y-auto [scrollbar-color:rgba(148,163,184,0.52)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]">
                     <div className="grid min-h-0 auto-rows-max gap-4 overflow-x-hidden pr-1">
                       <div className="grid gap-2">
                         <label htmlFor="task-title" className="text-sm font-medium">
