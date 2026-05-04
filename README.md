@@ -45,9 +45,11 @@ Implemented today:
 
 ### 1. Prerequisites
 
-- Node.js 20.19+ (v20), 22.12+ (v22), or 24+
+- Node.js 20.19+ (v20), 22.13+ (v22), or 24+
 - npm
-- PostgreSQL database (local or remote)
+- PostgreSQL database (local Docker Compose service or remote)
+
+The repo pins the local Node baseline in `.node-version` as `20.19.0`.
 
 ### 2. Environment
 
@@ -61,6 +63,13 @@ Set at minimum:
 
 - `DATABASE_URL`
 - `DIRECT_URL`
+
+For the repo-owned local Docker database, use:
+
+```bash
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public
+DIRECT_URL=postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public
+```
 
 ### 3. Install and run
 
@@ -184,10 +193,14 @@ docker compose up
 
 Notes:
 
+- Compose starts a local `postgres:16-alpine` service by default.
 - App binds to `${APP_PORT:-3000}` on host.
 - Container startup runs `npx prisma generate` then `npm run dev`.
 - Storage volume is mounted at `/app/storage`.
-- `DATABASE_URL` and `DIRECT_URL` are required by compose config.
+- App container database defaults target the Compose `postgres` service. Host
+  validation commands should use `127.0.0.1`.
+- Use `APP_DATABASE_URL` and `APP_DIRECT_URL` only when overriding the app
+  container database target.
 
 ## Scripts
 
@@ -201,7 +214,22 @@ npm run test:coverage
 npm run test:e2e
 npm run test:e2e:headed
 npm run db:migrate
+npm run db:local:up
+npm run db:local:down
+npm run db:local:reset
+npm run validate:local
 ```
+
+## Local Validation
+
+Full local baseline:
+
+```bash
+npm run validate:local
+```
+
+Manual sequence and troubleshooting details are in
+[`docs/runbooks/local-validation.md`](docs/runbooks/local-validation.md).
 
 ## Testing
 
