@@ -340,7 +340,7 @@ export function KanbanBoard({
     if (taskToSelect) {
       setSelectedTask(taskToSelect);
     }
-  }, [archivedDoneTasks, columns, initialSelectedTaskId, selectedTask]);
+  }, [archivedDoneTasks, columns, selectedTask]);
 
   const selectedTaskId = selectedTask?.id ?? null;
   const selectedTaskCommentCount = selectedTask?.commentCount ?? 0;
