@@ -433,7 +433,7 @@ export function CreateTaskDialog({
                               }}
                               maxLength={60}
                               wrapperClassName="min-w-[120px] flex-1 sm:min-w-[160px]"
-                              className="h-8 min-w-[120px] flex-1 bg-transparent px-1 text-sm outline-none sm:min-w-[160px]"
+                              className="h-8 min-w-[120px] flex-1 bg-transparent px-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 sm:min-w-[160px]"
                               placeholder={
                                 labels.length >= MAX_TASK_LABELS
                                   ? "Label limit reached"
