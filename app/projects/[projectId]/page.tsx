@@ -238,6 +238,7 @@ export default async function ProjectDashboardPage({
           actorUserId={actorUserId}
           canEdit={canEditProjectContent}
           storageProvider={storageProvider}
+          initialSelectedTaskId={readQueryValue(resolvedSearchParams?.taskId)}
         />
       </Suspense>
 
