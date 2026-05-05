@@ -2583,8 +2583,6 @@ export function RichTextEditor({
         moveCaretBefore(mentionBeforeCaret.mentionElement);
         return;
       }
-        return;
-      }
 
       if (isEnterKey(event)) {
         event.preventDefault();
