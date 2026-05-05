@@ -2558,17 +2558,21 @@ export function RichTextEditor({
       if (isArrowLeftKey(event)) {
         event.preventDefault();
 
-        // Let the browser handle word-jump (Ctrl/Meta+ArrowLeft) naturally at
-        // mention boundaries - it correctly moves before the mention.
+        // When modifier keys are active, jump to before the mention element
+        // (same as comment inputs: Ctrl+Left from after @mention lands before @)
         if (
           (event.ctrlKey || event.metaKey || event.altKey) &&
           mentionBeforeCaret.trailingTextNode &&
           mentionBeforeCaret.trailingTextOffset > 0
         ) {
+          moveCaretBefore(mentionBeforeCaret.mentionElement);
           return;
         }
 
         if (
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey &&
           mentionBeforeCaret.trailingTextNode &&
           mentionBeforeCaret.trailingTextOffset > 0
         ) {
@@ -2576,8 +2580,9 @@ export function RichTextEditor({
           return;
         }
 
-        // Ctrl/Meta/Alt+ArrowLeft: move to before the mention (same as comment input behavior)
         moveCaretBefore(mentionBeforeCaret.mentionElement);
+        return;
+      }
         return;
       }
 
