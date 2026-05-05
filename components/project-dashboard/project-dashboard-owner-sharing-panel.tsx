@@ -5,6 +5,7 @@ import { Check, Copy, Search, UserPlus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/ui/user-avatar";
 
 import {
   formatIdentity,
@@ -209,13 +210,21 @@ export function ProjectDashboardOwnerSharingPanel({
                 key={user.id}
                 className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3"
               >
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">{user.displayName}</p>
-                  {getSecondaryIdentity(user.displayName, formatIdentity(user)) ? (
-                    <p className="text-xs text-muted-foreground">
-                      {getSecondaryIdentity(user.displayName, formatIdentity(user))}
-                    </p>
-                  ) : null}
+                <div className="flex items-center gap-3">
+                  <UserAvatar
+                    avatarSeed={user.avatarSeed}
+                    displayName={user.displayName}
+                    className="h-10 w-10 border-border/70"
+                    decorative
+                  />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{user.displayName}</p>
+                    {getSecondaryIdentity(user.displayName, formatIdentity(user)) ? (
+                      <p className="text-xs text-muted-foreground">
+                        {getSecondaryIdentity(user.displayName, formatIdentity(user))}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
                 <Button
                   type="button"
