@@ -69,7 +69,7 @@
   }
 }
 
-.task-create-focus-field {
+.form-focus-border-field {
   outline: none;
   transition-property:
     color,
@@ -81,12 +81,12 @@
   transition-duration: 150ms;
 }
 
-.task-create-focus-field:focus,
-.task-create-focus-field:focus-visible {
+.form-focus-border-field:focus,
+.form-focus-border-field:focus-visible {
   border-color: hsl(var(--ring) / 0.6) !important;
 }
 
-.task-create-focus-shell {
+.form-focus-border-shell {
   transition-property:
     color,
     background-color,
@@ -97,10 +97,10 @@
   transition-duration: 150ms;
 }
 
-.task-create-focus-shell:focus-within {
+.form-focus-border-shell:focus-within {
   border-color: hsl(var(--ring) / 0.6) !important;
 }
 
-.task-create-focus-shell:has(:focus) {
+.form-focus-border-shell:has(:focus) {
   border-color: hsl(var(--ring) / 0.6) !important;
 }

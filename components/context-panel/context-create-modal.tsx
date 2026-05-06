@@ -8,6 +8,10 @@ import { RichTextEditor } from "@/components/rich-text-editor";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
 import { EmojiInputField } from "@/components/ui/emoji-field";
+import {
+  FORM_FOCUS_BORDER_CLASS,
+  FORM_FOCUS_BORDER_SHELL_CLASS,
+} from "@/components/ui/focus-border-styles";
 
 interface ContextCreateModalProps {
   isOpen: boolean;
@@ -78,7 +82,8 @@ export function ContextCreateModal({
             required
             minLength={2}
             maxLength={120}
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            wrapperClassName={`rounded-md border border-input bg-background ${FORM_FOCUS_BORDER_SHELL_CLASS}`}
+            className="h-10 rounded-md border-0 bg-transparent px-3 text-sm outline-none"
             placeholder="Sprint notes"
           />
         </div>
@@ -93,6 +98,7 @@ export function ContextCreateModal({
             onChange={onCreateContentChange}
             placeholder="Anything useful for this project..."
             ariaLabelledBy="context-create-content-label"
+            editorClassName={FORM_FOCUS_BORDER_CLASS}
           />
           <input type="hidden" name="content" value={createContent} />
         </div>
@@ -141,6 +147,8 @@ export function ContextCreateModal({
               onValueChange={onCreateLinkUrlChange}
               onSubmit={onStageCreateLink}
               isSubmitDisabled={!createLinkUrl.trim()}
+              className={`rounded-md border border-input bg-background ring-0 ${FORM_FOCUS_BORDER_SHELL_CLASS}`}
+              inputClassName="text-sm"
             />
           ) : null}
 

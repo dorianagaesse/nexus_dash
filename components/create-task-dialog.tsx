@@ -18,6 +18,10 @@ import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer
 import { AssigneeSelect } from "@/components/ui/assignee-select";
 import { Button } from "@/components/ui/button";
 import { EpicSelect } from "@/components/ui/epic-select";
+import {
+  FORM_FOCUS_BORDER_CLASS,
+  FORM_FOCUS_BORDER_SHELL_CLASS,
+} from "@/components/ui/focus-border-styles";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmojiInputField } from "@/components/ui/emoji-field";
 import {
@@ -50,10 +54,6 @@ interface PendingAttachmentLink {
 function createLocalId(): string {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
-
-const TASK_CREATE_FOCUS_BORDER_CLASS =
-  "task-create-focus-field focus-visible:ring-0";
-const TASK_CREATE_FOCUS_WITHIN_BORDER_CLASS = "task-create-focus-shell";
 
 export function CreateTaskDialog({
   projectId,
@@ -399,7 +399,7 @@ export function CreateTaskDialog({
                           minLength={2}
                           maxLength={120}
                           wrapperClassName={`rounded-md border border-input bg-background ${
-                            TASK_CREATE_FOCUS_WITHIN_BORDER_CLASS
+                            FORM_FOCUS_BORDER_SHELL_CLASS
                           }`}
                           className="h-10 rounded-md border-0 bg-transparent px-3 text-sm outline-none"
                           placeholder="Implement drag sorting"
@@ -412,7 +412,7 @@ export function CreateTaskDialog({
                         </label>
                         <div
                           className={`rounded-md border border-input bg-background p-2 ${
-                            TASK_CREATE_FOCUS_WITHIN_BORDER_CLASS
+                            FORM_FOCUS_BORDER_SHELL_CLASS
                           }`}
                         >
                           <div className="flex flex-wrap gap-2">
@@ -482,7 +482,7 @@ export function CreateTaskDialog({
                           onChange={setDescription}
                           placeholder="Optional implementation notes..."
                           mentionProjectId={projectId}
-                          editorClassName={TASK_CREATE_FOCUS_BORDER_CLASS}
+                          editorClassName={FORM_FOCUS_BORDER_CLASS}
                         />
                         <input type="hidden" name="description" value={description} />
                       </div>
@@ -495,7 +495,7 @@ export function CreateTaskDialog({
                         onChange={setDeadlineDate}
                         disabled={isSubmitting}
                         helperText="Optional. Near deadlines are highlighted automatically on the board."
-                        triggerClassName={TASK_CREATE_FOCUS_BORDER_CLASS}
+                        triggerClassName={FORM_FOCUS_BORDER_CLASS}
                       />
 
                       <div className="grid gap-2">
@@ -508,7 +508,7 @@ export function CreateTaskDialog({
                           value={epicId}
                           onChange={setEpicId}
                           options={availableEpics}
-                          className={TASK_CREATE_FOCUS_BORDER_CLASS}
+                          className={FORM_FOCUS_BORDER_CLASS}
                         />
                         <p className="text-xs text-muted-foreground">
                           Optional. Link this task to a broader initiative without turning the
@@ -526,7 +526,7 @@ export function CreateTaskDialog({
                           value={assigneeUserId}
                           onChange={setAssigneeUserId}
                           options={availableAssignees}
-                          className={TASK_CREATE_FOCUS_BORDER_CLASS}
+                          className={FORM_FOCUS_BORDER_CLASS}
                         />
                         <p className="text-xs text-muted-foreground">
                           Optional. Leave unassigned until ownership is clear.
@@ -551,7 +551,7 @@ export function CreateTaskDialog({
                               previous.filter((entry) => entry !== taskId)
                             );
                           }}
-                          inputClassName={TASK_CREATE_FOCUS_BORDER_CLASS}
+                          inputClassName={FORM_FOCUS_BORDER_CLASS}
                         />
                         <input
                           type="hidden"
@@ -613,7 +613,7 @@ export function CreateTaskDialog({
                             onSubmit={handleAddLink}
                             isSubmitDisabled={!linkUrl.trim()}
                             className={`rounded-md border border-input bg-background ring-0 ${
-                              TASK_CREATE_FOCUS_WITHIN_BORDER_CLASS
+                              FORM_FOCUS_BORDER_SHELL_CLASS
                             }`}
                             inputClassName="text-sm"
                           />

@@ -1192,3 +1192,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-214 passed local lint, unit/API tests, coverage, production build, and Playwright smoke validation.
 - Evidence: Node `v24.15.0`; `npm ci`; `npx prisma generate`; `npm run db:local:up`; `DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public DIRECT_URL=... npm run db:migrate`; `npm run lint`; same DB env `npm test` (92 files passed, 1 skipped; 718 passed, 1 skipped); same DB env `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); preview-style build env (`VERCEL_ENV=preview`, local `AGENT_TOKEN_SIGNING_SECRET`, `TRUSTED_ORIGINS`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`) `npm run build`; same env `npm run test:e2e` passed all 7 Playwright tests.
+
+### 2026-05-06
+- Type: Execution
+- Summary: TASK-214 follow-up generalized the focus-border treatment across task edit and context-card create/edit authoring surfaces.
+- Evidence: Replaced the task-create-only CSS hooks with shared opt-in `form-focus-border-*` hooks and reused them for task edit title, labels, description, deadline, epic, assignee, blocked follow-up entry, related-task search, and attachment-link entry. Context-card create/edit title, rich content, and attachment-link entry now use the same border-focused treatment.
+
+### 2026-05-06
+- Type: Validation
+- Summary: TASK-214 follow-up passed lint, unit/API tests, coverage, production build, and Playwright smoke validation.
+- Evidence: `npm run lint`; local DB env `npm test` (92 files passed, 1 skipped; 718 passed, 1 skipped); local DB env `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); preview-style env `npm run build`; preview-style env `npm run test:e2e` passed all 7 Playwright tests.
