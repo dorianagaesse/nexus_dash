@@ -68,3 +68,39 @@
     display: none;
   }
 }
+
+.form-focus-border-field {
+  outline: none;
+  transition-property:
+    color,
+    background-color,
+    border-color,
+    text-decoration-color,
+    fill,
+    stroke;
+  transition-duration: 150ms;
+}
+
+.form-focus-border-field:focus,
+.form-focus-border-field:focus-visible {
+  border-color: hsl(var(--ring) / 0.6) !important;
+}
+
+.form-focus-border-shell {
+  transition-property:
+    color,
+    background-color,
+    border-color,
+    text-decoration-color,
+    fill,
+    stroke;
+  transition-duration: 150ms;
+}
+
+.form-focus-border-shell:focus-within {
+  border-color: hsl(var(--ring) / 0.6) !important;
+}
+
+.form-focus-border-shell:has(:focus) {
+  border-color: hsl(var(--ring) / 0.6) !important;
+}

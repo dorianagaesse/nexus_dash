@@ -11,6 +11,7 @@ interface TaskDeadlineFieldProps {
   disabled?: boolean;
   name?: string;
   helperText?: string;
+  triggerClassName?: string;
 }
 
 export function TaskDeadlineField({
@@ -21,6 +22,7 @@ export function TaskDeadlineField({
   disabled = false,
   name,
   helperText = "Optional. Close deadlines are highlighted automatically on the board.",
+  triggerClassName,
 }: TaskDeadlineFieldProps) {
   return (
     <div className="grid gap-2">
@@ -47,6 +49,7 @@ export function TaskDeadlineField({
         onChange={onChange}
         includeTime={false}
         disabled={disabled}
+        triggerClassName={triggerClassName}
       />
       {name ? <input type="hidden" name={name} value={value} /> : null}
       <p className="text-xs text-muted-foreground">{helperText}</p>

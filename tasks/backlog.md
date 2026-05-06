@@ -4,11 +4,13 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-217
-  Title: Mention notification open route - fix stale task URL 404
-  Status: In Progress (GitHub issue #217)
-  Rationale: Mention notifications currently generate or retain `/projects/:projectId/tasks/:taskId` links even though task detail is a dashboard modal, so the notification center `Open` action can navigate recipients to a 404. The fix should generate a canonical dashboard task target, open the task context when available, and preserve stale notification compatibility.
-  Dependencies: TASK-123, TASK-124
+- ID: TASK-214
+  Title: Task and card focus border consistency
+  Status: PR update ready (issue #214)
+  Rationale: Align task and context-card create/edit form focus borders around
+    the title input's intended visual treatment, including the dark-theme
+    left-edge clipping fix, without changing authoring layout or behavior.
+  Dependencies: TASK-010, TASK-011
 - ID: TASK-131
   Title: Local validation baseline repair - reproducible container, database, and toolchain setup
   Status: Pending

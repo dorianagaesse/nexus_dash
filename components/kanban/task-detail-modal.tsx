@@ -54,6 +54,10 @@ import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field
 import { EmojiPickerButton } from "@/components/ui/emoji-picker-button";
 import { EpicSelect } from "@/components/ui/epic-select";
 import {
+  FORM_FOCUS_BORDER_CLASS,
+  FORM_FOCUS_BORDER_SHELL_CLASS,
+} from "@/components/ui/focus-border-styles";
+import {
   MentionAutocomplete,
   buildMentionAutocompleteDisplayValue,
   buildMentionAutocompleteValue,
@@ -335,8 +339,15 @@ export function TaskDetailModal({
             className="flex max-h-[100dvh] w-full max-w-2xl flex-col sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <CardHeader className="flex shrink-0 flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0 flex-1 space-y-2">
+            <CardHeader
+              className={cn(
+                "flex shrink-0 flex-col gap-3 space-y-0",
+                isEditing
+                  ? "relative"
+                  : "sm:flex-row sm:items-start sm:justify-between"
+              )}
+            >
+              <div className={cn("min-w-0 flex-1 space-y-2", isEditing && "w-full pr-1")}>
                 <Badge
                   variant="outline"
                   className={
@@ -371,11 +382,20 @@ export function TaskDetailModal({
                     aria-label="Task title"
                     value={editTitle}
                     onChange={(event) => onEditTitleChange(event.target.value)}
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    wrapperClassName={cn(
+                      "rounded-md border border-input bg-background",
+                      FORM_FOCUS_BORDER_SHELL_CLASS
+                    )}
+                    className="h-10 w-full rounded-md border-0 bg-transparent px-3 text-sm outline-none"
                   />
                 )}
               </div>
-              <div className="flex items-center gap-1 self-end sm:self-auto">
+              <div
+                className={cn(
+                  "flex items-center gap-1 self-end",
+                  isEditing ? "absolute right-4 top-4" : "sm:self-auto"
+                )}
+              >
                 {!isEditing && canEdit ? (
                   <TaskOptionsMenu
                     currentStatus={selectedTask.status}
@@ -1723,7 +1743,12 @@ function TaskEditContent({
           <label htmlFor="task-edit-label-input" className="text-sm font-medium">
             Labels
           </label>
-          <div className="rounded-md border border-input bg-background p-2">
+          <div
+            className={cn(
+              "rounded-md border border-input bg-background p-2",
+              FORM_FOCUS_BORDER_SHELL_CLASS
+            )}
+          >
             <div className="flex flex-wrap gap-2">
               {editLabels.map((label) => (
                 <span
@@ -1789,6 +1814,7 @@ function TaskEditContent({
             onChange={onEditDescriptionChange}
             placeholder="Task details..."
             mentionProjectId={projectId}
+            editorClassName={FORM_FOCUS_BORDER_CLASS}
           />
         </div>
 
@@ -1798,6 +1824,7 @@ function TaskEditContent({
           value={editDeadlineDate}
           onChange={onEditDeadlineDateChange}
           disabled={isUpdatingTask}
+          triggerClassName={FORM_FOCUS_BORDER_CLASS}
         />
 
         <div className="grid gap-2">
@@ -1810,6 +1837,7 @@ function TaskEditContent({
             onChange={onEditEpicIdChange}
             disabled={isUpdatingTask}
             options={availableEpicOptions}
+            className={FORM_FOCUS_BORDER_CLASS}
           />
         </div>
 
@@ -1823,6 +1851,7 @@ function TaskEditContent({
             onChange={onEditAssigneeUserIdChange}
             disabled={isUpdatingTask}
             options={availableAssignees}
+            className={FORM_FOCUS_BORDER_CLASS}
           />
         </div>
 
@@ -1867,7 +1896,10 @@ function TaskEditContent({
                 maxLength={1200}
                 placeholder="Add follow-up and press Enter"
                 wrapperClassName="flex-1"
-                className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                className={cn(
+                  "h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm",
+                  FORM_FOCUS_BORDER_CLASS
+                )}
                 disabled={isUpdatingTask}
               />
               <Button
@@ -2002,6 +2034,11 @@ function TaskEditContent({
               isSubmitDisabled={
                 isSubmittingAttachment || hasPendingAttachmentUploads || !linkUrl.trim()
               }
+              className={cn(
+                "rounded-md border border-input bg-background ring-0",
+                FORM_FOCUS_BORDER_SHELL_CLASS
+              )}
+              inputClassName="text-sm"
             />
           ) : null}
 
@@ -2021,6 +2058,7 @@ function TaskEditContent({
             onSearchChange={onRelatedTaskSearchChange}
             onAddTask={onAddRelatedTask}
             onRemoveTask={onRemoveRelatedTask}
+            inputClassName={FORM_FOCUS_BORDER_CLASS}
           />
         </div>
       </div>

@@ -36,6 +36,7 @@ export interface CalendarDateTimeFieldProps {
   onChange: (nextValue: string) => void;
   includeTime: boolean;
   disabled: boolean;
+  triggerClassName?: string;
 }
 
 export function CalendarDateTimeField({
@@ -44,6 +45,7 @@ export function CalendarDateTimeField({
   onChange,
   includeTime,
   disabled,
+  triggerClassName,
 }: CalendarDateTimeFieldProps) {
   const [isBrowserReady, setIsBrowserReady] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -332,7 +334,10 @@ export function CalendarDateTimeField({
         id={id}
         ref={triggerRef}
         type="button"
-        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-left text-sm transition hover:bg-muted/40"
+        className={cn(
+          "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-left text-sm transition hover:bg-muted/40",
+          triggerClassName
+        )}
         disabled={disabled}
         onClick={() => setIsOpen((previous) => !previous)}
       >

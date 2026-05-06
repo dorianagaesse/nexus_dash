@@ -1,32 +1,55 @@
-# Current Task: TASK-217 Mention Notification Open Route
+# Current Task: TASK-214 Task And Card Focus Border Consistency
 
 ## Task ID
-TASK-217
+TASK-214
 
 ## Status
-Validation green for GitHub issue #217 on branch `fix/task-217-mention-notification-open`.
+Implementation and local validation complete on
+`fix/issue-214-task-creation-focus-border`; PR update ready.
 
 ## Objective
-Fix the `Open` action for task comment mention notifications so recipients land on the relevant project dashboard task context instead of a 404 route.
+Resolve GitHub issue #214 by making task and context-card authoring inputs use
+a consistent focused border treatment, using the title input as the visual
+reference, and fixing dark-theme title focus border clipping.
 
-## Scope
-- Generate task comment mention notification targets using an app route that exists.
-- Open the referenced task from the project dashboard when a notification target includes a task id.
-- Preserve compatibility for existing mention notifications that already store the stale nested task path.
-- Keep other notification types and invitation actions unchanged.
+## Current Scope
+- Keep changes limited to task and context-card create/edit form focus styling.
+- Align title, label entry, description, deadline, epic, assignee, related-task
+  search, follow-up entry, and attachment-link entry focus states around the
+  same border-color treatment.
+- Avoid layout, validation, or authoring behavior changes.
+- Preserve existing design system tokens and component conventions.
 
 ## Acceptance Criteria
-1. Clicking `Open` on a task comment mention notification no longer lands on a 404.
-2. Mention notification targets route to the relevant project dashboard and open the mentioned task when it is present in the board data.
-3. Existing stale mention notification paths of the form `/projects/:projectId/tasks/:taskId` are handled when reasonably possible.
-4. Project invitation notifications and other existing notification actions keep their current behavior.
-5. Focused regression coverage proves the generated mention target and stale-path compatibility behavior.
-6. Required lint, test, coverage, and build checks pass or any environment blocker is recorded in `journal.md`.
+1. All visible task create/edit and context-card create/edit form input fields
+   use the same focused border style.
+2. The title input remains the visual reference for the focused state.
+3. Focused borders render correctly in light and dark themes.
+4. The dark-theme focused title input no longer appears cropped on the left
+   side.
+5. Task and context-card form layouts and input behavior are unchanged.
+6. Relevant lint, test, build, and UI validation checks pass or any environment
+   blocker is recorded.
 
 ## Definition Of Done
-- The root cause is fixed at mention notification target generation rather than only in notification list rendering.
-- The project dashboard supports opening the task modal from the canonical mention target.
-- Existing stale mention paths redirect to the canonical project task target.
-- Relevant tests are updated.
-- `journal.md` records implementation and validation evidence.
-- A PR is opened for issue #217 from `fix/task-217-mention-notification-open`.
+- TASK-214 has a dedicated branch and fresh worktree separate from the prior
+  closed PR/worktree attempt.
+- Focus styling fixes are implemented with minimal task and context-card form
+  scope.
+- Local validation evidence and any environment blockers are recorded in
+  `journal.md`.
+- A PR is opened for issue #214 once the branch is reviewable.
+
+## Out Of Scope
+- Redesigning task or context-card forms.
+- Changing input validation, submission, upload, or authoring behavior.
+- Refactoring unrelated form components or global form styling.
+
+## Validation Evidence
+- `npm run lint` passed on 2026-05-06.
+- `npm test` passed on 2026-05-06 with 93 files passed, 1 skipped; 719 tests
+  passed, 1 skipped.
+- `npm run test:coverage` passed on 2026-05-06 with 91.23% statements,
+  81.2% branches, 93.42% functions, and 91.75% lines.
+- `npm run build` passed on 2026-05-06 with local preview validation env vars.
+- `npm run test:e2e` passed on 2026-05-06 with all 7 Playwright tests passing.

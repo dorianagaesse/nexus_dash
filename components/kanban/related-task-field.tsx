@@ -29,6 +29,8 @@ interface RelatedTaskSelectorProps {
   onAddTask: (taskId: string) => void;
   onRemoveTask: (taskId: string) => void;
   disabled?: boolean;
+  className?: string;
+  inputClassName?: string;
 }
 
 export function RelatedTaskSelector({
@@ -39,6 +41,8 @@ export function RelatedTaskSelector({
   onAddTask,
   onRemoveTask,
   disabled = false,
+  className,
+  inputClassName,
 }: RelatedTaskSelectorProps) {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState<{
@@ -108,7 +112,12 @@ export function RelatedTaskSelector({
   }, [shouldShowSuggestions, suggestions.length]);
 
   return (
-    <div className="grid gap-2 rounded-md border border-border/60 bg-muted/10 p-2.5">
+    <div
+      className={cn(
+        "grid gap-2 rounded-md border border-border/60 bg-muted/10 p-2.5",
+        className
+      )}
+    >
       {selectedTasks.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {selectedTasks.map((task) => (
@@ -132,7 +141,10 @@ export function RelatedTaskSelector({
             window.setTimeout(() => setIsSearchFocused(false), 120);
           }}
           placeholder="Search active tasks"
-          className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
+          className={cn(
+            "h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm",
+            inputClassName
+          )}
           disabled={disabled}
         />
       </div>

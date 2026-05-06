@@ -1197,3 +1197,38 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-131 Copilot follow-up passed DB reset and full local validation from a fresh database volume.
 - Evidence: `node scripts/local-db-reset.mjs` removed only `nexus_dash_task131_postgres_data` and started a fresh healthy Postgres service. `npm run validate:local` then passed end to end, including reapplying all 31 migrations, lint, `npm test` (92 files passed, 1 skipped; 718 passed, 1 skipped), coverage (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines), production build, and all 7 Playwright E2E tests.
+
+### 2026-05-06
+- Type: Execution
+- Summary: TASK-214 fixed task creation focus-border inconsistency from a fresh worktree and branch.
+- Evidence: Created fresh worktree `../nexus_dash_issue214_codex` on `fix/issue-214-task-creation-focus-border` from `origin/main`, leaving the prior TASK-214 worktree/branch untouched. Root cause was the task creation form mixing native input focus paint, border-only rich text focus, ring-based custom selects, and mostly unstyled picker/search inputs inside overflow-constrained modal content. The title field now uses an internal wrapper border instead of native external focus paint, and the task creation fields share the scoped `task-create-focus-*` border treatment so focused borders stay inside the field box in light and dark themes.
+
+### 2026-05-06
+- Type: Validation
+- Summary: TASK-214 passed local lint, unit/API tests, coverage, production build, and Playwright smoke validation.
+- Evidence: Node `v24.15.0`; `npm ci`; `npx prisma generate`; `npm run db:local:up`; `DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public DIRECT_URL=... npm run db:migrate`; `npm run lint`; same DB env `npm test` (92 files passed, 1 skipped; 718 passed, 1 skipped); same DB env `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); preview-style build env (`VERCEL_ENV=preview`, local `AGENT_TOKEN_SIGNING_SECRET`, `TRUSTED_ORIGINS`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`) `npm run build`; same env `npm run test:e2e` passed all 7 Playwright tests.
+
+### 2026-05-06
+- Type: Execution
+- Summary: TASK-214 follow-up generalized the focus-border treatment across task edit and context-card create/edit authoring surfaces.
+- Evidence: Replaced the task-create-only CSS hooks with shared opt-in `form-focus-border-*` hooks and reused them for task edit title, labels, description, deadline, epic, assignee, blocked follow-up entry, related-task search, and attachment-link entry. Context-card create/edit title, rich content, and attachment-link entry now use the same border-focused treatment.
+
+### 2026-05-06
+- Type: Validation
+- Summary: TASK-214 follow-up passed lint, unit/API tests, coverage, production build, and Playwright smoke validation.
+- Evidence: `npm run lint`; local DB env `npm test` (92 files passed, 1 skipped; 718 passed, 1 skipped); local DB env `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); preview-style env `npm run build`; preview-style env `npm run test:e2e` passed all 7 Playwright tests.
+
+### 2026-05-06
+- Type: Validation
+- Summary: TASK-214 branch merged current `origin/main` without force-pushing and passed the full local validation suite again.
+- Evidence: Merged over `b60c983` (`TASK-217 Fix mention notification open route (#238)`) because branch rules disallow force-push. Passed `npm run lint`; local DB env `npm test` (93 files passed, 1 skipped; 719 passed, 1 skipped); local DB env `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); preview-style env `npm run build`; preview-style env `npm run test:e2e` passed all 7 Playwright tests.
+
+### 2026-05-06
+- Type: Execution
+- Summary: TASK-214 edit task modal follow-up restored full-width title input alignment.
+- Evidence: Root cause was edit mode rendering the title input in the horizontal modal header beside the close/action area, while Labels renders in the full-width modal body. Edit mode now uses a stacked full-width header layout with the close action positioned independently, so the title input receives the same content width as Labels.
+
+### 2026-05-06
+- Type: Validation
+- Summary: TASK-214 edit title alignment follow-up passed lint, unit/API tests, coverage, and production build; task lifecycle E2E passed, while the unrelated roadmap drag smoke timed out locally.
+- Evidence: `npm run lint`; local DB env `npm test` (93 files passed, 1 skipped; 719 passed, 1 skipped); local DB env `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); preview-style env `npm run build`; preview-style env `npm run test:e2e` passed 6 of 7 tests including `task lifecycle and attachment interaction flow`, then failed in `roadmap event-first milestone flow` waiting for `/roadmap/events/move` after Playwright dropped the roadmap card outside the drop area. Targeted rerun of that roadmap smoke reproduced the same drag/drop timeout; no task modal regression was observed.
