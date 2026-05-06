@@ -192,8 +192,6 @@ function KanbanColumn({
                     <p className="mt-1 text-xs text-muted-foreground">
                       {renderContentWithMentions(getDescriptionPreview(task.description, 90), {
                         mentionUsers,
-                        mentionHighlightClassName:
-                          "rounded-sm bg-primary/10 px-1 py-0.5 font-medium text-primary",
                       })}
                     </p>
                   ) : null}
@@ -292,8 +290,6 @@ function KanbanColumn({
                           <p className="break-words text-xs text-muted-foreground">
                             {renderContentWithMentions(getDescriptionPreview(task.description), {
                               mentionUsers,
-                              mentionHighlightClassName:
-                                "rounded-sm bg-primary/10 px-1 py-0.5 font-medium text-primary",
                             })}
                           </p>
                         ) : null}
