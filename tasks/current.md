@@ -1,109 +1,94 @@
-# Current Task: TASK-124 Comment Mentions
+# Current Task: TASK-131 Local Validation Baseline Repair
 
 ## Task ID
-TASK-124
+TASK-131
 
 ## Status
-In progress on PR #211.
+Local validation baseline green on `feature/task-131-local-validation-baseline`.
 
 ## Objective
-Stabilize project-member `@` mentions across task descriptions and task
-comments so autocomplete insertion, caret placement, highlighted rendering, and
-mention hover cards behave consistently across the task modal.
+Restore a reproducible local validation path for NexusDash so a contributor can
+start from a clean checkout and run the full baseline through install, Prisma
+client generation, migrations, unit/API tests, coverage, production build, and
+Playwright smoke tests without relying on undocumented machine state.
 
-## Current Follow-Up Scope
-- Fix the two remaining PR #211 regressions reproduced on 2026-05-04:
-  - while typing a task comment, an inserted mention visually shows the right
-    `@name` label but the highlight pill includes a blank tail where the hidden
-    discriminator is laid out
-  - after creating a task with a description mention, opening it, editing the
-    description, and adding another mention, the original description mention
-    can come back in view mode as raw `@name#discriminator` text without
-    highlight or tooltip behavior
-- Fix the 2026-05-04 follow-up where comment caret alignment stayed fixed but
-  the first saved task-description mention could again appear unformatted in
-  view mode after reopening edit mode, adding a second mention, and saving.
-  View-mode mention parsing must tolerate invisible contenteditable format
-  characters around `@`, username, `#`, or discriminator text.
-- Fix the PR #211 behavior reported from task view mode:
-  task-description mentions must render as highlighted `@name` text without the
-  discriminator, with hover cards available immediately after opening a task.
-- Fix comment composer mirrors so inserted mentions display as highlighted
-  `@name` without a highlighted or blank discriminator-width tail, and keep the
-  native textarea caret visually aligned immediately after the visible text.
-  The comment textarea value must match what is displayed; selected-member
-  metadata should carry any discriminator needed for submit-time resolution.
-- Keep added comments, task-card previews, task-description view mode, and
-  task-description edit mode on the same shared mention rendering contract:
-  visible mentions show no discriminator, remain highlighted, and resolve hover
-  cards from the project-member lookup when a matching user is available.
-- Ensure selecting a mention inserts a usable separator after the selected user.
-- Keep the rich-text editor caret outside highlighted mention spans so typing a
-  space or more text after a mention does not jump to the start of the editor.
-- Align task-description edit mode with comment composer behavior: auto-space
-  after mention selection, natural arrow/word navigation around highlighted
-  mentions, two-step separator movement/deletion, Return/Enter behavior at
-  mention separators, and fast whole-mention deletion when backspacing at the
-  mention boundary.
-- Keep comment composer highlighting visually aligned with the actual textarea
-  caret.
-- Add fast whole-mention deletion to comments while preserving normal character
-  deletion once text has been typed after the mention.
-- Make task-description mention hover cards dismiss reliably when the pointer
-  leaves the mention in any direction.
-- Preserve reusable mention parsing, autocomplete, rendering, and tooltip
-  components instead of one-off task-modal fixes.
+## Current Scope
+- Align the repository toolchain contract around a supported Node/npm baseline
+  for the current Next.js, Prisma, Vitest, jsdom, and Playwright dependencies.
+- Make local database bootstrap explicit and reproducible, preferably through a
+  Docker Compose Postgres service that matches the CI E2E database contract.
+- Ensure Prisma generate/migrate commands use the intended local connection
+  strings and do not require production-only secrets.
+- Define a single documented local validation workflow that covers:
+  - clean dependency install with `npm ci`
+  - `npx prisma generate`
+  - `npm run db:migrate`
+  - `npm run lint`
+  - `npm test`
+  - `npm run test:coverage`
+  - `npm run build`
+  - `npm run test:e2e`
+- Keep the app container path reproducible without assuming an external
+  database URL is already present in the developer shell.
+- Record validation evidence and any remaining local environment constraints in
+  `journal.md`.
+
+## Initial Findings
+- The current shell is on Node `v20.17.0`; `npm ci` fails at Prisma preinstall
+  because the current dependency tree requires Node `20.19+`, `22.13+`, or
+  `24+`.
+- `docker compose config` fails without shell-provided `DATABASE_URL` and
+  `DIRECT_URL`, and the current compose file has no Postgres service.
+- CI E2E already defines the desired local-style Postgres contract:
+  `postgres:16-alpine` with
+  `postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public`.
+- `npm run test:e2e` builds and launches `next start`, while Playwright helper
+  code seeds test users directly through Prisma. That means E2E needs a
+  migrated database and generated Prisma client before the browser run begins.
 
 ## Acceptance Criteria
-1. Selecting a mention in a task description inserts the mention plus one
-   trailing separator and leaves the caret after that separator.
-2. Pressing Space or typing regular text after a task-description mention keeps
-   the caret at the expected position and allows continued typing.
-3. Selecting a mention in a task comment inserts the mention plus one trailing
-   separator and leaves the textarea caret after that separator.
-4. Backspace at a mention boundary removes the whole mention consistently in
-   task-description edit mode and task comments.
-5. Arrow and Ctrl+Arrow navigation can move before and after task-description
-   mentions without trapping the caret.
-6. From one separator after a task-description mention, ArrowLeft or Backspace
-   first lands immediately after the mention instead of jumping before it.
-7. Pressing Enter from the separator after a task-description mention creates
-   the expected next editable line instead of doing nothing.
-8. Comment composer highlight rendering does not visually shift text away from
-   the real textarea caret.
-9. Task-description mention hover cards disappear when the pointer leaves the
-   mention, regardless of direction.
-10. Task-description view mode highlights mentions immediately after opening an
-    existing task and never displays the discriminator in the visible mention
-    text.
-11. Comment composer visible mention mirrors show `@name`, not
-    `@name#discriminator`, and do not show a blank discriminator-width gap
-    before following text.
-12. Comment composer highlight pills end at the visible `@name`; any hidden
-    discriminator must not be retained in the textarea value or mirror layout.
-13. A task description mention created with the task must remain highlighted,
-    discriminator-free, and tooltip-capable after later edits add more text and
-    more mentions to the same description.
-14. After selecting a mention in the comment composer, the native caret appears
-    directly after subsequently typed visible text instead of being offset by a
-    hidden discriminator.
-15. Existing mention parsing, notification, and rendering tests remain green.
-16. View-mode task descriptions highlight and tooltip every visually valid
-    `@name#discriminator` mention even if contenteditable previously saved an
-    invisible editor format character inside the mention token.
+1. A clean checkout exposes an explicit supported Node version contract through
+   repo-owned configuration or documentation.
+2. `npm ci` succeeds on the supported local Node baseline.
+3. A developer can start a local PostgreSQL database for validation using a
+   documented repo-owned command or compose profile.
+4. Local `DATABASE_URL` and `DIRECT_URL` values for validation are documented
+   and line up with the local database service.
+5. `npx prisma generate` and `npm run db:migrate` succeed against the documented
+   local validation database.
+6. `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`
+   succeed after the documented bootstrap.
+7. `npm run test:e2e` succeeds locally against the documented local database and
+   app startup path.
+8. Docker Compose can render its config and start the app/database baseline
+   without requiring undocumented external database variables.
+9. README or runbook documentation contains one copy-pasteable local validation
+   sequence and describes cleanup/reset behavior for the local database.
+10. `journal.md` records the commands run, observed failures, fixes, and final
+    validation evidence.
 
 ## Definition Of Done
-- `agent.md` documents the dedicated worktree expectation for multi-agent work,
-  and the root worktree script creates `../nexus_dash_taskXXX` directories for
-  task branches.
-- Root causes for the reported mention issues are fixed in shared mention/editor
-  paths where possible.
-- Focused mention/editor tests are updated for the changed behavior.
-- Local validation evidence and any environment blockers are recorded in
-  `journal.md`.
-- PR #211 remains the single review surface for TASK-124.
+- TASK-131 has a dedicated worktree and branch.
+- Toolchain, database, Docker/Compose, and test documentation changes are
+  committed in the TASK-131 branch.
+- The full local validation baseline has been run, or any remaining blocker is
+  documented with exact command output and next action.
+- `tasks/current.md`, `journal.md`, and any touched runbooks/README sections
+  agree on the final local validation workflow.
+- A PR is opened for TASK-131 once the branch is reviewable.
 
-## Notes
-- Local full validation currently depends on a repo-compatible Node runtime
-  (`20.19+`, `22.12+`, or `24+`) so Prisma, jsdom, Next build type generation,
-  and browser validation can run with the expected generated client.
+## Out Of Scope
+- Reworking production deploy secrets or Vercel preview workflows beyond keeping
+  local validation documentation consistent with existing runbooks.
+- Expanding Playwright coverage beyond the existing smoke suite unless required
+  to make the current suite reliable.
+
+## Validation Evidence
+- `npm run validate:local` passed on 2026-05-04 with Node `v24.15.0` and Docker
+  Desktop running.
+- The validation run started Docker Compose Postgres, ran `npm ci`, generated
+  Prisma Client, applied migrations, ran lint, unit/API tests, coverage,
+  production build, installed Playwright Chromium, and passed all Playwright E2E
+  tests.
+- `APP_PORT=3131 docker compose up --build -d app` started the app container,
+  and `/api/health/live` plus `/api/health/ready` both returned HTTP 200.

@@ -2,6 +2,10 @@
   "name": "nexusdash",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24.0.0",
+    "npm": ">=10"
+  },
   "scripts": {
     "dev": "npm run db:migrate && next dev",
     "build": "next build",
@@ -15,7 +19,11 @@
     "test:e2e": "npm run build && playwright test",
     "test:e2e:headed": "npm run build && playwright test --headed",
     "worktree:create": "node create-worktree.mjs",
-    "db:migrate": "prisma migrate deploy"
+    "db:migrate": "prisma migrate deploy",
+    "db:local:up": "docker compose up -d --wait postgres",
+    "db:local:down": "docker compose stop postgres",
+    "db:local:reset": "node scripts/local-db-reset.mjs",
+    "validate:local": "node scripts/local-validation.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1041.0",

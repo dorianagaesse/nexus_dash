@@ -1,9 +1,28 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nexusdash}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
     command: sh -c "npx prisma generate && npm run dev -- --hostname 0.0.0.0 --port 3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "${APP_PORT:-3000}:3000"
     volumes:
@@ -13,9 +32,13 @@ services:
     environment:
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: "true"
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
-      DIRECT_URL: ${DIRECT_URL:?DIRECT_URL must be set}
+      DATABASE_URL: ${APP_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/nexusdash?schema=public}
+      DIRECT_URL: ${APP_DIRECT_URL:-postgresql://postgres:postgres@postgres:5432/nexusdash?schema=public}
+      AGENT_TOKEN_SIGNING_SECRET: ${AGENT_TOKEN_SIGNING_SECRET:-local-placeholder-agent-token-signing-secret-0123456789}
+      RESEND_API_KEY: ${RESEND_API_KEY:-local-placeholder-resend-key}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
 
 volumes:
+  postgres_data:
   node_modules:
   storage_data:

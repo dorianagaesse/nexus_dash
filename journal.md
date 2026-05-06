@@ -1142,3 +1142,43 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-124 view-mode description follow-up passed focused mention/rich-text validation, lint, and production build.
 - Evidence: Passed with Node `20.19.0` shim: `npx -p node@20.19.0 node node_modules/vitest/vitest.mjs run tests/lib/mention.test.ts tests/components/rich-text-content.test.ts tests/components/rich-text-editor.test.ts tests/api/task-comments.route.test.ts tests/components/mention-autocomplete.test.ts`; `npm run lint`; `DATABASE_URL=... DIRECT_URL=... VERCEL_ENV=preview RESEND_API_KEY=... GOOGLE_TOKEN_ENCRYPTION_KEY=... AGENT_TOKEN_SIGNING_SECRET=... npx -p node@20.19.0 node node_modules/next/dist/bin/next build`.
+
+### 2026-05-04
+- Type: Investigation
+- Summary: TASK-131 local validation baseline repair started in dedicated worktree `../nexus_dash_task131` on branch `feature/task-131-local-validation-baseline`.
+- Evidence: Root checkout kept untouched despite unrelated TASK-124 local edits. `npm run worktree:create -- TASK-131 local-validation-baseline` created the task worktree from `origin/main`. Local shell reports Node `v20.17.0` and npm `10.8.2`; `npm ci` fails at Prisma preinstall because Prisma requires Node `20.19+`, `22.12+`, or `24+`. Docker is available (`28.4.0`, Compose `v2.39.4-desktop.1`), but `docker compose config` fails because `DATABASE_URL` and `DIRECT_URL` are required shell variables and the compose file does not provide a local Postgres service.
+
+### 2026-05-04
+- Type: Execution
+- Summary: TASK-131 added a repo-owned local validation baseline with a pinned Node contract, Docker Compose Postgres, local validation scripts, and documentation.
+- Evidence: Added `.node-version` (`20.19.0`), package `engines`, `db:local:*` scripts, `validate:local`, `scripts/local-validation.mjs`, a Compose `postgres:16-alpine` service, app-container DB defaults, Dockerfile Node pin, README updates, `.env.example` local DB hints, and `docs/runbooks/local-validation.md`. The supported Node contract is now `20.19+`, `22.13+`, or `24+` because the current dependency tree includes transitive packages that require `22.13+` on the Node 22 lane.
+
+### 2026-05-04
+- Type: Validation
+- Summary: TASK-131 local validation repair passed install/generate/lint/test/coverage/build checks under a Node `20.19.0` shim; full DB migration and Playwright smoke remain blocked until Docker Desktop is running.
+- Evidence: Passed: `docker compose config`; `npx -y -p node@20.19.0 -p npm@10 npm ci`; `npx -y -p node@20.19.0 -p npm@10 npx prisma generate`; placeholder-env `npm run lint`; placeholder-env `npm test` (92 files passed, 1 skipped; 718 passed, 1 skipped); placeholder-env `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); placeholder-env `npm run build`. Expected blockers: plain `npm run validate:local` fails early on global Node `20.17.0`; Node-shimmed `node scripts/local-validation.mjs` reaches `Start local PostgreSQL` and fails because Docker Desktop Linux engine pipe `//./pipe/dockerDesktopLinuxEngine` is unavailable.
+
+### 2026-05-04
+- Type: Validation
+- Summary: TASK-131 full local validation baseline passed after Node was upgraded to `v24.15.0` and Docker Desktop was running.
+- Evidence: `npm run validate:local` passed end to end: Docker Compose Postgres started and became healthy; `npm ci` installed dependencies; Prisma Client generated; `npm run db:migrate` applied or confirmed 31 migrations; `npm run lint` passed; `npm test` passed (92 files passed, 1 skipped; 718 passed, 1 skipped); `npm run test:coverage` passed with 91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines; `npm run build` passed; Playwright Chromium install completed; `npm run test:e2e` passed all 7 Playwright tests.
+
+### 2026-05-04
+- Type: Validation
+- Summary: TASK-131 Docker Compose app runtime path passed against the local Compose database.
+- Evidence: `APP_PORT=3131 docker compose up --build -d app` built the Node `20.19.0` app image, started app + Postgres containers, and `Invoke-WebRequest` checks returned HTTP 200 from `http://127.0.0.1:3131/api/health/live` and `http://127.0.0.1:3131/api/health/ready` with the database check reporting `ok`.
+
+### 2026-05-04
+- Type: Validation
+- Summary: TASK-131 full local validation baseline passed again after rebasing onto current `origin/main`.
+- Evidence: Rebased over `e7f513c` (`fix: show user avatars in project invitation search results`). `npm run validate:local` passed end to end again with Docker Compose Postgres healthy, no pending migrations, lint green, `npm test` green (92 files passed, 1 skipped; 718 passed, 1 skipped), coverage green (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines), production build green, and all 7 Playwright E2E tests passing.
+
+### 2026-05-04
+- Type: Execution
+- Summary: TASK-131 addressed Copilot PR #235 review comments on Compose health checks, DB reset scope, and Playwright dependency installation.
+- Evidence: Changed the Postgres healthcheck to use container `POSTGRES_USER`/`POSTGRES_DB`; changed `db:local:down` to stop only Postgres; added `scripts/local-db-reset.mjs` so `db:local:reset` removes only the Postgres container/volume and starts a fresh healthy DB; made the validation script install Playwright browser dependencies with `--with-deps` on Linux.
+
+### 2026-05-04
+- Type: Validation
+- Summary: TASK-131 Copilot follow-up passed DB reset and full local validation from a fresh database volume.
+- Evidence: `node scripts/local-db-reset.mjs` removed only `nexus_dash_task131_postgres_data` and started a fresh healthy Postgres service. `npm run validate:local` then passed end to end, including reapplying all 31 migrations, lint, `npm test` (92 files passed, 1 skipped; 718 passed, 1 skipped), coverage (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines), production build, and all 7 Playwright E2E tests.
