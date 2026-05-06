@@ -170,6 +170,7 @@ export function KanbanBoard({
   archivedDoneTasks: initialArchivedDoneTasks = [],
   epics,
   collaborators,
+  initialSelectedTaskId,
 }: KanbanBoardProps) {
   const router = useRouter();
   const initialColumns = useMemo(

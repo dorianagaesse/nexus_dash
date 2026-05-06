@@ -3,7 +3,10 @@ import { Bell, Check, ExternalLink, MailPlus, RotateCcw } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { NotificationSummary } from "@/lib/services/notification-service";
+import type {
+  NotificationSummary,
+  TaskCommentMentionNotificationMetadata,
+} from "@/lib/services/notification-service";
 
 interface NotificationCenterListProps {
   notifications: NotificationSummary[];
@@ -33,6 +36,22 @@ function getNotificationTypeLabel(notification: NotificationSummary): string {
   }
 
   return "Notification";
+}
+
+function isTaskCommentMentionMetadata(
+  metadata: unknown,
+): metadata is TaskCommentMentionNotificationMetadata {
+  return (
+    typeof metadata === "object" &&
+    metadata !== null &&
+    "taskId" in metadata
+  );
+}
+
+function buildMentionNotificationOpenPath(
+  metadata: TaskCommentMentionNotificationMetadata,
+): string {
+  return `/projects/${metadata.projectId}?taskId=${encodeURIComponent(metadata.taskId)}`;
 }
 
 function isProjectInvitationMetadata(
@@ -176,9 +195,16 @@ export function NotificationCenterList({
                       </>
                     ) : null}
 
-                    {notification.targetPath ? (
+                    {notification.targetPath || isTaskCommentMentionMetadata(notification.metadata) ? (
                       <Button asChild variant="ghost">
-                        <Link href={notification.targetPath}>
+                        <Link
+                          href={
+                            notification.type === "task_comment_mention" &&
+                            isTaskCommentMentionMetadata(notification.metadata)
+                              ? buildMentionNotificationOpenPath(notification.metadata)
+                              : notification.targetPath!
+                          }
+                        >
                           <ExternalLink className="h-4 w-4" />
                           Open
                         </Link>
