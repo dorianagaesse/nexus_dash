@@ -4,18 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-214
-  Title: Task and card focus border consistency
-  Status: PR update ready (issue #214)
-  Rationale: Align task and context-card create/edit form focus borders around
-    the title input's intended visual treatment, including the dark-theme
-    left-edge clipping fix, without changing authoring layout or behavior.
-  Dependencies: TASK-010, TASK-011
-- ID: TASK-131
-  Title: Local validation baseline repair - reproducible container, database, and toolchain setup
-  Status: Pending
-  Rationale: Restore a dependable local validation path by aligning the repo-required Node/npm/Prisma toolchain, making the containerized database/app bootstrap reproducible, and documenting one reliable workflow for `npm ci`, Prisma generate/migrate, Vitest, build, and Playwright smoke runs so routine development stops getting blocked by environment drift.
-  Dependencies: TASK-041, TASK-067
 - ID: TASK-127
   Title: API capability audit - confirm every shipped feature remains fully manageable through the API
   Status: Pending (promoted 2026-05-04)
@@ -23,7 +11,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-107, TASK-115, TASK-128
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
-  Status: In Progress (PR #224 / PR #225)
+  Status: Pending (promoted 2026-05-04; PR #224 partial fix merged)
   Rationale: Fix task UI regressions around the compact scrollbar affordance and task edit modal behavior so dense task surfaces stay usable, visually clean, and predictable during everyday task creation and editing workflows.
   Dependencies: TASK-076, TASK-113
 - ID: TASK-125
@@ -137,6 +125,26 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-214
+  Title: Task and card focus border consistency
+  Status: Done (2026-05-06, merged via PR #239)
+  Rationale: Aligned task creation, task edit, context-card creation, and context-card edit focus borders around the title-field treatment, keeping focus paint inside field boxes so dark-theme borders no longer appear clipped.
+  Dependencies: TASK-010, TASK-011
+- ID: TASK-217
+  Title: Mention notification open route
+  Status: Done (2026-05-06, merged via PR #238)
+  Rationale: Fixed mention notification `Open` links by targeting the project dashboard task modal with `taskId` and `commentId` query parameters, plus a redirect for stale nested task links.
+  Dependencies: TASK-124
+- ID: TASK-223
+  Title: Mention highlighting and keyboard navigation consistency
+  Status: Done (2026-05-06, merged via PR #236)
+  Rationale: Unified mention highlight styling across comments and task descriptions and aligned modified ArrowLeft navigation around highlighted task-description mentions with the comment input behavior.
+  Dependencies: TASK-124
+- ID: TASK-131
+  Title: Local validation baseline repair - reproducible container, database, and toolchain setup
+  Status: Done (2026-05-06, merged via PR #235)
+  Rationale: Added the repo-owned local validation baseline with a pinned Node contract, Docker Compose PostgreSQL, local DB helpers, `npm run validate:local`, and README/runbook documentation for install, Prisma, tests, coverage, build, Playwright, and app-container validation.
+  Dependencies: TASK-041, TASK-067
 - ID: TASK-124
   Title: Comment mentions - project-member @tagging with notification-center delivery
   Status: Done (2026-05-04, merged via PR #211)
