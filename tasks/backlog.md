@@ -4,6 +4,13 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-214
+  Title: Task creation focus border consistency
+  Status: Ready for PR (issue #214)
+  Rationale: Align task creation form focus borders around the title input's
+    intended visual treatment, including the dark-theme left-edge clipping fix,
+    without changing task creation layout or behavior.
+  Dependencies: TASK-010, TASK-011
 - ID: TASK-131
   Title: Local validation baseline repair - reproducible container, database, and toolchain setup
   Status: Pending

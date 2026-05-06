@@ -46,6 +46,7 @@ interface RichTextEditorProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  editorClassName?: string;
   ariaLabel?: string;
   ariaLabelledBy?: string;
   mentionProjectId?: string;
@@ -2113,6 +2114,7 @@ export function RichTextEditor({
   onChange,
   placeholder,
   className,
+  editorClassName,
   ariaLabel,
   ariaLabelledBy,
   mentionProjectId,
@@ -2945,7 +2947,8 @@ export function RichTextEditor({
             "[&_pre[data-rich-block='code']_code]:[font-family:Consolas,Monaco,'Liberation_Mono',Menlo,monospace]",
             "[&_div[data-rich-block='token']]:w-full [&_div[data-rich-block='token']]:min-w-0 [&_div[data-rich-block='token']]:max-w-full [&_div[data-rich-block='token']_code]:w-full [&_div[data-rich-block='token']_code]:max-w-full [&_div[data-rich-block='token']_code]:[font-family:Consolas,Monaco,'Liberation_Mono',Menlo,monospace]",
             "[&_div[data-rich-block='token']_code]:selection:bg-foreground/20 [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold",
-            "[&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
+            "[&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5",
+            editorClassName
           )}
           onMouseDown={handleEditorMouseDown}
           onClick={(event) => {
