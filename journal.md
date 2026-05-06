@@ -1222,3 +1222,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-214 branch merged current `origin/main` without force-pushing and passed the full local validation suite again.
 - Evidence: Merged over `b60c983` (`TASK-217 Fix mention notification open route (#238)`) because branch rules disallow force-push. Passed `npm run lint`; local DB env `npm test` (93 files passed, 1 skipped; 719 passed, 1 skipped); local DB env `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); preview-style env `npm run build`; preview-style env `npm run test:e2e` passed all 7 Playwright tests.
+
+### 2026-05-06
+- Type: Execution
+- Summary: TASK-214 edit task modal follow-up restored full-width title input alignment.
+- Evidence: Root cause was edit mode rendering the title input in the horizontal modal header beside the close/action area, while Labels renders in the full-width modal body. Edit mode now uses a stacked full-width header layout with the close action positioned independently, so the title input receives the same content width as Labels.
+
+### 2026-05-06
+- Type: Validation
+- Summary: TASK-214 edit title alignment follow-up passed lint, unit/API tests, coverage, and production build; task lifecycle E2E passed, while the unrelated roadmap drag smoke timed out locally.
+- Evidence: `npm run lint`; local DB env `npm test` (93 files passed, 1 skipped; 719 passed, 1 skipped); local DB env `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); preview-style env `npm run build`; preview-style env `npm run test:e2e` passed 6 of 7 tests including `task lifecycle and attachment interaction flow`, then failed in `roadmap event-first milestone flow` waiting for `/roadmap/events/move` after Playwright dropped the roadmap card outside the drop area. Targeted rerun of that roadmap smoke reproduced the same drag/drop timeout; no task modal regression was observed.

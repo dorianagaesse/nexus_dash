@@ -339,8 +339,15 @@ export function TaskDetailModal({
             className="flex max-h-[100dvh] w-full max-w-2xl flex-col sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <CardHeader className="flex shrink-0 flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0 flex-1 space-y-2">
+            <CardHeader
+              className={cn(
+                "flex shrink-0 flex-col gap-3 space-y-0",
+                isEditing
+                  ? "relative"
+                  : "sm:flex-row sm:items-start sm:justify-between"
+              )}
+            >
+              <div className={cn("min-w-0 flex-1 space-y-2", isEditing && "w-full pr-1")}>
                 <Badge
                   variant="outline"
                   className={
@@ -383,7 +390,12 @@ export function TaskDetailModal({
                   />
                 )}
               </div>
-              <div className="flex items-center gap-1 self-end sm:self-auto">
+              <div
+                className={cn(
+                  "flex items-center gap-1 self-end",
+                  isEditing ? "absolute right-4 top-4" : "sm:self-auto"
+                )}
+              >
                 {!isEditing && canEdit ? (
                   <TaskOptionsMenu
                     currentStatus={selectedTask.status}
