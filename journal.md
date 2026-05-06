@@ -1232,3 +1232,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-214 edit title alignment follow-up passed lint, unit/API tests, coverage, and production build; task lifecycle E2E passed, while the unrelated roadmap drag smoke timed out locally.
 - Evidence: `npm run lint`; local DB env `npm test` (93 files passed, 1 skipped; 719 passed, 1 skipped); local DB env `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); preview-style env `npm run build`; preview-style env `npm run test:e2e` passed 6 of 7 tests including `task lifecycle and attachment interaction flow`, then failed in `roadmap event-first milestone flow` waiting for `/roadmap/events/move` after Playwright dropped the roadmap card outside the drop area. Targeted rerun of that roadmap smoke reproduced the same drag/drop timeout; no task modal regression was observed.
+
+### 2026-05-07
+- Type: Execution
+- Summary: TASK-127 audited current app/API parity and implemented the missing session-user API routes for shipped app workflows that were still server-action-only.
+- Evidence: Added `tasks/task-127-api-capability-audit.md` with the parity matrix. Implemented `GET`/`POST /api/projects`; `GET`/`PATCH /api/account/profile`; `POST /api/account/profile/avatar`; `PATCH /api/account/password`; `GET`/`PATCH`/`DELETE /api/account/settings/google-calendar`; `GET`/`PATCH /api/account/notifications`; `POST /api/account/notifications/mark-all-read`; `GET /api/account/invitations`; and `POST /api/account/invitations/:invitationId/respond`. The new account/notification/invitation/settings routes intentionally remain session-user APIs and do not expand the project-scoped agent v1 OpenAPI contract.
+
+### 2026-05-07
+- Type: Validation
+- Summary: TASK-127 passed focused API tests, lint, full unit/API tests, coverage, production build, and Playwright E2E against the local PostgreSQL baseline.
+- Evidence: Focused route tests passed: `npm test -- --run tests/api/projects.route.test.ts tests/api/account-profile.route.test.ts tests/api/account-settings.route.test.ts tests/api/account-notifications.route.test.ts` (23 passed). `npm run lint` passed. With `DATABASE_URL`/`DIRECT_URL=postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public`, `npm test` passed (97 files passed, 1 skipped; 742 passed, 1 skipped) and `npm run test:coverage` passed (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines). `npm run build` passed after `npx prisma generate` and local runtime guard env. `npm run test:e2e` passed all 8 Playwright tests, including the new `tests/e2e/api-projects.spec.ts` API-backed project create/list parity flow.
