@@ -112,6 +112,7 @@ export default async function ProjectDashboardPage({
   const storageProvider = getStorageRuntimeConfig().provider;
   const status = readQueryValue(resolvedSearchParams?.status);
   const error = readQueryValue(resolvedSearchParams?.error);
+  const initialTaskId = readQueryValue(resolvedSearchParams?.taskId);
   const actorRole =
     project.ownerId === actorUserId ? "owner" : (project.memberships[0]?.role ?? "viewer");
   const canEditProjectContent = actorRole === "owner" || actorRole === "editor";
@@ -238,6 +239,7 @@ export default async function ProjectDashboardPage({
           actorUserId={actorUserId}
           canEdit={canEditProjectContent}
           storageProvider={storageProvider}
+          initialTaskId={initialTaskId}
         />
       </Suspense>
 

@@ -290,7 +290,10 @@ function buildPendingMentionNotifications(input: {
   projectName: string;
   mentionedUsers: MentionedProjectMember[];
 }): PendingMentionNotification[] {
-  const taskPath = `/projects/${input.projectId}/tasks/${input.taskId}`;
+  const taskPath =
+    `/projects/${encodeURIComponent(input.projectId)}` +
+    `?taskId=${encodeURIComponent(input.taskId)}` +
+    `&commentId=${encodeURIComponent(input.commentId)}`;
 
   return input.mentionedUsers
     .filter((mentionedUser) => mentionedUser.userId !== input.actorUserId)

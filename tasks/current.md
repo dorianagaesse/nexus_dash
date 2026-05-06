@@ -47,7 +47,7 @@ reference, and fixing dark-theme title focus border clipping.
 
 ## Validation Evidence
 - `npm run lint` passed on 2026-05-06.
-- `npm test` passed on 2026-05-06 with 92 files passed, 1 skipped; 718 tests
+- `npm test` passed on 2026-05-06 with 93 files passed, 1 skipped; 719 tests
   passed, 1 skipped.
 - `npm run test:coverage` passed on 2026-05-06 with 91.23% statements,
   81.2% branches, 93.42% functions, and 91.75% lines.

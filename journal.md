@@ -1103,6 +1103,21 @@ Low-value entries to avoid going forward:
 - Summary: TASK-124 mention regression follow-up fixed task-description tooltip dismissal, comment composer caret alignment, and post-edit description mention highlighting.
 - Evidence: Rich-text description hover now clears the tooltip when pointer coordinates leave the actual mention span; the comment textarea highlight mirror can preserve full discriminated mention text so the visible text aligns with the transparent textarea caret; `RichTextContent` now enhances mounted content updates synchronously so a saved plain-text description with `@username#tag` is immediately highlighted.
 
+### 2026-05-06
+- Type: Investigation
+- Summary: TASK-217 started from scratch in dedicated worktree `../nexus_dash_task217` on branch `fix/task-217-mention-notification-open`.
+- Evidence: GitHub issue #217 reports mention notification `Open` links landing on 404 pages. The old `../nexus_dash_issue217` worktree and old `fix/issue-217-*` branches were intentionally left untouched. Initial investigation found task comment mention notifications storing `/projects/:projectId/tasks/:taskId`, while the app only has a dashboard route at `/projects/:projectId` and task APIs under `/api/projects/:projectId/tasks/:taskId`.
+
+### 2026-05-06
+- Type: Execution
+- Summary: TASK-217 fixed mention notification navigation at the generated target and added stale-link compatibility.
+- Evidence: Task comment mention notifications now target `/projects/:projectId?taskId=:taskId&commentId=:commentId`; the project dashboard passes `taskId` into the Kanban board and opens the matching task modal once board data is loaded; `/projects/:projectId/tasks/:taskId` now redirects to the dashboard task target for existing notifications that already stored the stale nested route.
+
+### 2026-05-06
+- Type: Validation
+- Summary: TASK-217 passed focused regression tests, lint, full unit/API tests, coverage, build, migrations, and Playwright smoke validation.
+- Evidence: Passed: `npx vitest run tests/api/task-comments.route.test.ts tests/app/project-task-redirect-page.test.ts`; `npm run lint`; placeholder-env `npm test` (93 files passed, 1 skipped; 719 passed, 1 skipped); placeholder-env `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); placeholder-env `npm run build`; Compose Postgres `npm run db:local:up`; `npm run db:migrate` after using the documented local `postgres:postgres` connection; `NODE_ENV=test` `npm run test:e2e` (7 passed). A first plain `npm test` failed because the clean worktree had no `DATABASE_URL`; a first E2E retry without `NODE_ENV=test` failed because local password-reset smoke attempted real Resend delivery with a placeholder key.
+
 ### 2026-05-03
 - Type: Validation
 - Summary: TASK-124 mention regression follow-up passed focused mention/comment/rich-text validation, lint, and production build.
@@ -1202,3 +1217,8 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-214 follow-up passed lint, unit/API tests, coverage, production build, and Playwright smoke validation.
 - Evidence: `npm run lint`; local DB env `npm test` (92 files passed, 1 skipped; 718 passed, 1 skipped); local DB env `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); preview-style env `npm run build`; preview-style env `npm run test:e2e` passed all 7 Playwright tests.
+
+### 2026-05-06
+- Type: Validation
+- Summary: TASK-214 branch merged current `origin/main` without force-pushing and passed the full local validation suite again.
+- Evidence: Merged over `b60c983` (`TASK-217 Fix mention notification open route (#238)`) because branch rules disallow force-push. Passed `npm run lint`; local DB env `npm test` (93 files passed, 1 skipped; 719 passed, 1 skipped); local DB env `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); preview-style env `npm run build`; preview-style env `npm run test:e2e` passed all 7 Playwright tests.
