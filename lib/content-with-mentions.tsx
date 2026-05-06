@@ -9,6 +9,13 @@ import {
 import { parseMentions } from "@/lib/mention";
 
 /**
+ * Canonical highlight class for @username mentions.
+ * Used consistently across task descriptions, kanban cards, and comments.
+ */
+export const MENTION_HIGHLIGHT_CLASS =
+  "inline-block rounded-md bg-primary/15 px-1 py-0.5 align-baseline font-medium text-primary not-italic";
+
+/**
  * Renders content with @username mentions highlighted.
  * Splits content into segments and wraps mention patterns in styled spans.
  */
@@ -31,11 +38,8 @@ export function renderContentWithMentions(
   const segments: React.ReactNode[] = [];
   let lastIndex = 0;
 
-  const highlightClass = options?.mentionHighlightClassName ?? [
-    "rounded-md bg-primary/15 px-1 py-0.5",
-    "font-medium text-primary",
-    "not-italic",
-  ].join(" ");
+  const highlightClass =
+    options?.mentionHighlightClassName ?? MENTION_HIGHLIGHT_CLASS;
   const mentionUsers = options?.resolveDisplayUsers === false ? undefined : options?.mentionUsers;
 
   for (const mention of mentions) {

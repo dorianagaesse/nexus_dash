@@ -2557,6 +2557,18 @@ export function RichTextEditor({
 
       if (isArrowLeftKey(event)) {
         event.preventDefault();
+
+        // When modifier keys are active, jump to before the mention element
+        // (same as comment inputs: Ctrl+Left from after @mention lands before @)
+        if (
+          (event.ctrlKey || event.metaKey || event.altKey) &&
+          mentionBeforeCaret.trailingTextNode &&
+          mentionBeforeCaret.trailingTextOffset > 0
+        ) {
+          moveCaretBefore(mentionBeforeCaret.mentionElement);
+          return;
+        }
+
         if (
           !event.ctrlKey &&
           !event.metaKey &&

@@ -8,6 +8,7 @@ import {
   type MentionDisplayUser,
 } from "@/components/ui/mention-hover-card";
 import { parseMentions, type ParsedMention } from "@/lib/mention";
+import { MENTION_HIGHLIGHT_CLASS } from "@/lib/content-with-mentions";
 import { coerceRichTextHtml } from "@/lib/rich-text";
 import { cn } from "@/lib/utils";
 
@@ -31,8 +32,6 @@ const TOKEN_BLOCK_MARKERS = [
   "data-rich-block='token'",
 ];
 const HIDDEN_TOKEN_VALUE_MASK = "********";
-const RICH_TEXT_MENTION_CLASS =
-  "inline-block rounded-md bg-primary/15 px-1 py-0.5 align-baseline font-medium text-primary not-italic";
 const RICH_TEXT_MENTION_SELECTOR = "[data-rich-mention='true']";
 const COPY_ICON_SVG =
   '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
@@ -300,7 +299,7 @@ function highlightMentionTextNodes(
       }
 
       const mentionElement = document.createElement("span");
-      mentionElement.className = RICH_TEXT_MENTION_CLASS;
+      mentionElement.className = MENTION_HIGHLIGHT_CLASS;
       mentionElement.dataset.richMention = "true";
       mentionElement.dataset.mentionUsername = mention.username;
       if (mention.discriminator) {
