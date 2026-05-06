@@ -351,7 +351,8 @@ describe("task comments route", () => {
           recipientUserId: "owner-1",
           sourceType: "task_comment_mention",
           sourceId: "comment-mention",
-          targetPath: "/projects/project-1/tasks/task-1",
+          targetPath:
+            "/projects/project-1?taskId=task-1&commentId=comment-mention",
         }),
       ],
       skipDuplicates: true,
@@ -497,7 +498,8 @@ describe("task comments route", () => {
           recipientUserId: "member-1",
           sourceType: "task_comment_mention",
           sourceId: "comment-selected",
-          targetPath: "/projects/project-1/tasks/task-1",
+          targetPath:
+            "/projects/project-1?taskId=task-1&commentId=comment-selected",
         }),
       ],
       skipDuplicates: true,
