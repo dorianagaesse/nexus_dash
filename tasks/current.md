@@ -5,7 +5,8 @@ TASK-127
 
 ## Status
 Implementation and local validation complete on
-`feature/task-127-api-capability-audit`; PR preparation in progress.
+`feature/task-127-api-capability-audit`; PR #241 is open with Copilot review
+threads resolved and GitHub checks green on the implementation head.
 
 ## Objective
 Audit the shipped NexusDash product surface against the current API surface and

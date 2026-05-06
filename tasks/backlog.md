@@ -122,7 +122,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 ## Completed
 - ID: TASK-127
   Title: API capability audit - confirm every shipped feature remains fully manageable through the API
-  Status: Done (2026-05-07, PR pending)
+  Status: Done (2026-05-07, PR #241 open)
   Rationale: Audited shipped app features against API coverage, documented the parity matrix, and closed session-user API gaps for project list/create, account profile/security, Google Calendar target settings, notification read state, mark-all-read, pending invitations, and invitation responses while preserving the existing project-scoped agent API boundary.
   Dependencies: TASK-107, TASK-115, TASK-128
 - ID: TASK-214
