@@ -70,6 +70,7 @@ interface KanbanBoardProps {
   archivedDoneTasks?: KanbanTask[];
   epics: ProjectEpicOption[];
   collaborators: ProjectTaskCollaborator[];
+  initialTaskId?: string | null;
 }
 
 function createLocalUploadId(): string {
@@ -169,6 +170,7 @@ export function KanbanBoard({
   archivedDoneTasks: initialArchivedDoneTasks = [],
   epics,
   collaborators,
+  initialTaskId,
 }: KanbanBoardProps) {
   const router = useRouter();
   const initialColumns = useMemo(
@@ -189,6 +191,7 @@ export function KanbanBoard({
   const [isArchivingTask, setIsArchivingTask] = useState(false);
   const shouldOpenTaskInEditModeRef = useRef(false);
   const previousSelectedTaskIdRef = useRef<string | null>(null);
+  const openedInitialTaskIdRef = useRef<string | null>(null);
   const { pushToast } = useToast();
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
@@ -446,6 +449,28 @@ export function KanbanBoard({
     () => new Map(allTasks.map((task) => [task.id, task])),
     [allTasks]
   );
+
+  const normalizedInitialTaskId =
+    typeof initialTaskId === "string" ? initialTaskId.trim() : "";
+
+  useEffect(() => {
+    if (
+      !normalizedInitialTaskId ||
+      openedInitialTaskIdRef.current === normalizedInitialTaskId
+    ) {
+      return;
+    }
+
+    const initialTask = taskById.get(normalizedInitialTaskId);
+    openedInitialTaskIdRef.current = normalizedInitialTaskId;
+    if (!initialTask) {
+      return;
+    }
+
+    shouldOpenTaskInEditModeRef.current = false;
+    setSelectedTask(initialTask);
+    setIsExpanded(true);
+  }, [normalizedInitialTaskId, setIsExpanded, taskById]);
 
   const relatedTaskGraph = useMemo(() => createRelatedTaskMap(allTasks), [allTasks]);
 
