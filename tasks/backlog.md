@@ -9,33 +9,28 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Restore a dependable local validation path by aligning the repo-required Node/npm/Prisma toolchain, making the containerized database/app bootstrap reproducible, and documenting one reliable workflow for `npm ci`, Prisma generate/migrate, Vitest, build, and Playwright smoke runs so routine development stops getting blocked by environment drift.
   Dependencies: TASK-041, TASK-067
-- ID: TASK-124
-  Title: Comment mentions - project-member @tagging with notification-center delivery
-  Status: In Progress (PR #211 follow-up)
-  Rationale: Let collaborators tag project members directly in task comments with `@` mentions, including member autocomplete, highlighted mention rendering, and notification creation routed into the in-app notification center so task discussion can pull the right people in without external chat.
-  Dependencies: TASK-058, TASK-099, TASK-123
-- ID: TASK-126
-  Title: Comment reactions - lightweight emoji response system on task threads
-  Status: Done (2026-04-30)
-  Rationale: Added lightweight emoji reactions on task comments so collaborators can acknowledge, support, or quickly respond without posting extra text, with toggle semantics, grouped display with counts, and persisted database storage.
-  Dependencies: TASK-099
-
-### Deferred (Intentional)
 - ID: TASK-127
   Title: API capability audit - confirm every shipped feature remains fully manageable through the API
-  Status: Pending
+  Status: Pending (promoted 2026-05-04)
   Rationale: Run a focused audit across current product features to verify that core entities and workflows remain fully manageable through the public app API, identify any gaps where shipped UI features outpace the API, and align the API contract or feature boundaries accordingly so agent-facing capabilities stay trustworthy. Potential sub-task: if the audit reveals missing API functionalities, implement the gaps to bring the API back to full parity with the UI surface.
   Dependencies: TASK-107, TASK-115, TASK-128
+- ID: TASK-133
+  Title: Task UI bug fixing - mini scrollbar and edit modal polish
+  Status: In Progress (PR #224 / PR #225)
+  Rationale: Fix task UI regressions around the compact scrollbar affordance and task edit modal behavior so dense task surfaces stay usable, visually clean, and predictable during everyday task creation and editing workflows.
+  Dependencies: TASK-076, TASK-113
+- ID: TASK-125
+  Title: Outbound email foundation - reusable app-owned email delivery for invites and future notifications
+  Status: Pending (promoted 2026-05-04)
+  Rationale: Establish NexusDash-owned outbound email infrastructure so future invite delivery, notification emails, and other transactional sends can come from the product itself with explicit provider, sender identity, template, observability, and failure-handling decisions instead of being implemented piecemeal.
+  Dependencies: TASK-083
+
+### Deferred (Intentional)
 - ID: TASK-132
   Title: Version update system adjustments - align version metadata, automation, and release communication
   Status: Pending
   Rationale: Review and adjust the app's version update system so version metadata, dependency-update cadence, release notes, deployment visibility, and any user-facing update indicators stay consistent across automated maintenance, manual releases, and future API or agent-facing surfaces.
   Dependencies: TASK-041, TASK-042, TASK-116
-- ID: TASK-133
-  Title: Task UI bug fixing - mini scrollbar and edit modal polish
-  Status: Pending
-  Rationale: Fix task UI regressions around the compact scrollbar affordance and task edit modal behavior so dense task surfaces stay usable, visually clean, and predictable during everyday task creation and editing workflows.
-  Dependencies: TASK-076, TASK-113
 - ID: TASK-129
   Title: Login/home page UI polish - user-friendly, product-oriented entry experience
   Status: Pending
@@ -56,11 +51,6 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: After copy-link invite delivery is in place, add first-party email sending for collaboration invites so owners can trigger invite delivery directly from the app, building on the reusable outbound-email foundation instead of coupling provider/deliverability concerns into TASK-103 by default.
   Dependencies: TASK-103, TASK-083, TASK-125
-- ID: TASK-125
-  Title: Outbound email foundation - reusable app-owned email delivery for invites and future notifications
-  Status: Pending
-  Rationale: Establish NexusDash-owned outbound email infrastructure so future invite delivery, notification emails, and other transactional sends can come from the product itself with explicit provider, sender identity, template, observability, and failure-handling decisions instead of being implemented piecemeal.
-  Dependencies: TASK-083
 - ID: TASK-109
   Title: Todo list feature - lightweight checklist capture alongside project execution
   Status: Pending
@@ -81,11 +71,6 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Run a focused architecture and security audit after current auth/account milestones to validate boundary integrity, session/token lifecycle safety, tenancy controls, and deployment/secrets posture before broader feature expansion.
   Dependencies: TASK-084, TASK-085, TASK-086
-- ID: TASK-089
-  Title: Automatic avatar creation - generated identity avatar baseline
-  Status: Pending
-  Rationale: Improve account identity UX by introducing automatic avatar generation for users without uploaded photos, with implementation deferred until we choose generator style, determinism rules, and privacy/caching behavior.
-  Dependencies: TASK-047, TASK-082
 - ID: TASK-090
   Title: Internationalization baseline - FR/EN translation capabilities
   Status: Pending
@@ -97,7 +82,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Rationale: Run a broader refinement pass across the entire app so pages, panels, forms, and feedback patterns feel cohesive, intentional, and production-grade instead of evolving as isolated local improvements. Explicitly includes a sweep for inconsistent UI components (spacing, typography, color tokens, button/input variants, modal patterns) with the goal of uniformizing the visual design language across all surfaces.
   Dependencies: TASK-096, TASK-100
 - ID: TASK-134
-Title: Section help affordances - opt-in question-mark guidance across dashboard modules
+  Title: Section help affordances - opt-in question-mark guidance across dashboard modules
   Status: Pending
   Rationale: Replace persistent explanatory copy inside dashboard sections with lighter opt-in help affordances so users can click a question-mark entry point when they want extra context, keeping section layouts cleaner while creating a reusable explanation pattern for Roadmap and future modules.
   Dependencies: TASK-096, TASK-108
@@ -145,6 +130,16 @@ Title: Section help affordances - opt-in question-mark guidance across dashboard
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-124
+  Title: Comment mentions - project-member @tagging with notification-center delivery
+  Status: Done (2026-05-04, merged via PR #211)
+  Rationale: Added project-member `@` mention tagging in task comments with autocomplete, highlighted mention rendering, and notification-center delivery so task discussion can pull collaborators into the right thread from inside the product.
+  Dependencies: TASK-058, TASK-099, TASK-123
+- ID: TASK-126
+  Title: Comment reactions - lightweight emoji response system on task threads
+  Status: Done (2026-05-01, merged via PR #213)
+  Rationale: Added lightweight emoji reactions on task comments so collaborators can acknowledge, support, or quickly respond without posting extra text, with toggle semantics, grouped display with counts, and persisted database storage.
+  Dependencies: TASK-099
 - ID: TASK-123
   Title: Notification center - unified in-app inbox for invitations, mentions, and future activity
   Status: Done (2026-04-29)
@@ -175,6 +170,11 @@ Title: Section help affordances - opt-in question-mark guidance across dashboard
   Status: Done (2026-04-21, merged via PR #193 into PR #192)
   Rationale: Added task-level ownership/provenance across schema, services, APIs, and Kanban surfaces so collaborators can see who created a task, who is assigned, and who last updated it, with avatar-backed UI and durable attribution for future filtering and notification workflows.
   Dependencies: TASK-058, TASK-076, TASK-079
+- ID: TASK-089
+  Title: Automatic avatar creation - generated identity avatar baseline
+  Status: Done (2026-04-21, merged via PR #192)
+  Rationale: Added a generated avatar baseline with account regeneration support so users without uploaded photos still have a stable visual identity across collaboration and account surfaces.
+  Dependencies: TASK-047, TASK-082
 - ID: TASK-099
   Title: Task comments - project-scoped discussion thread on tasks
   Status: Done (2026-04-20, merged via PR #180)
