@@ -119,7 +119,25 @@ describe("account profile routes", () => {
     expect(profileServiceMock.getAccountProfile).toHaveBeenCalledWith("user-1");
   });
 
-  test("PATCH updates username and changed email, issuing verification", async () => {
+  test("PATCH rejects combined username and email updates", async () => {
+    const response = await updateProfile(
+      new NextRequest("http://localhost/api/account/profile", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          username: "newuser",
+          email: "new@example.com",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({ error: "one-field-only" });
+    expect(profileServiceMock.updateAccountUsername).not.toHaveBeenCalled();
+    expect(profileServiceMock.updateAccountEmail).not.toHaveBeenCalled();
+  });
+
+  test("PATCH updates username", async () => {
     profileServiceMock.updateAccountUsername.mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -130,6 +148,34 @@ describe("account profile routes", () => {
         discriminatorRegenerated: false,
       },
     });
+
+    const response = await updateProfile(
+      new NextRequest("http://localhost/api/account/profile", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          username: " newuser ",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({
+      username: {
+        username: "newuser",
+        usernameDiscriminator: "5678",
+        usernameTag: "newuser#5678",
+        discriminatorRegenerated: false,
+      },
+    });
+    expect(profileServiceMock.updateAccountUsername).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+      usernameRaw: " newuser ",
+    });
+    expect(profileServiceMock.updateAccountEmail).not.toHaveBeenCalled();
+  });
+
+  test("PATCH updates changed email and issues verification", async () => {
     profileServiceMock.updateAccountEmail.mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -154,7 +200,6 @@ describe("account profile routes", () => {
           origin: "https://app.example.com",
         },
         body: JSON.stringify({
-          username: " newuser ",
           email: " NEW@EXAMPLE.COM ",
         }),
       })
@@ -162,12 +207,6 @@ describe("account profile routes", () => {
 
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toEqual({
-      username: {
-        username: "newuser",
-        usernameDiscriminator: "5678",
-        usernameTag: "newuser#5678",
-        discriminatorRegenerated: false,
-      },
       email: {
         email: "new@example.com",
         emailChanged: true,
@@ -176,10 +215,7 @@ describe("account profile routes", () => {
         expiresAt: "2026-05-08T08:00:00.000Z",
       },
     });
-    expect(profileServiceMock.updateAccountUsername).toHaveBeenCalledWith({
-      actorUserId: "user-1",
-      usernameRaw: " newuser ",
-    });
+    expect(profileServiceMock.updateAccountUsername).not.toHaveBeenCalled();
     expect(profileServiceMock.updateAccountEmail).toHaveBeenCalledWith({
       actorUserId: "user-1",
       emailRaw: " NEW@EXAMPLE.COM ",

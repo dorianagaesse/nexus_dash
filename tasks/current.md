@@ -92,11 +92,12 @@ API routes with the same service-layer authorization and validation boundaries.
   feedback is addressed or explicitly resolved per `agent.md`.
 
 ## Validation Evidence
-- `npm test -- --run tests/api/projects.route.test.ts tests/api/account-profile.route.test.ts tests/api/account-settings.route.test.ts tests/api/account-notifications.route.test.ts` passed on 2026-05-07 with 23 tests passing.
+- `npm test -- --run tests/api/projects.route.test.ts tests/api/account-profile.route.test.ts tests/api/account-settings.route.test.ts tests/api/account-notifications.route.test.ts` passed on 2026-05-07 with 26 tests passing after Copilot review fixes.
 - `npm run lint` passed on 2026-05-07.
 - `npm test` passed on 2026-05-07 with local DB env: 97 files passed, 1 skipped; 742 tests passed, 1 skipped.
 - `npm run test:coverage` passed on 2026-05-07 with 91.23% statements, 81.2% branches, 93.42% functions, and 91.75% lines.
 - `npm run build` passed on 2026-05-07 after regenerating Prisma Client and setting local production guard env including `GOOGLE_TOKEN_ENCRYPTION_KEY`.
+- `npm run build` passed again on 2026-05-07 after Copilot review fixes.
 - `npm run test:e2e` passed on 2026-05-07 with 8 Playwright tests passing, including `tests/e2e/api-projects.spec.ts`.
 - Local database note: `npm run db:local:up` found port `5432` already allocated, but the PostgreSQL service at `127.0.0.1:5432` was reachable and `npm run db:migrate` reported all 31 migrations applied.
 

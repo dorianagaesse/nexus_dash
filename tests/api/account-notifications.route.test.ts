@@ -130,6 +130,21 @@ describe("account notification and invitation routes", () => {
     expect(notificationServiceMock.setNotificationReadState).not.toHaveBeenCalled();
   });
 
+  test("PATCH notification read state rejects invalid json payloads", async () => {
+    const response = await updateNotification(
+      new NextRequest("http://localhost/api/account/notifications", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: "{",
+      })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({ error: "invalid-json" });
+    expect(logServerWarningMock).toHaveBeenCalled();
+    expect(notificationServiceMock.setNotificationReadState).not.toHaveBeenCalled();
+  });
+
   test("PATCH notification read state forwards to service", async () => {
     notificationServiceMock.setNotificationReadState.mockResolvedValueOnce({
       ok: true,

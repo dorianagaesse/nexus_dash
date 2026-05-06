@@ -13,32 +13,32 @@ workflows that were still exposed only through server actions.
 
 ## Implemented Gaps
 
-| App capability | Previous API state | TASK-127 action |
-| --- | --- | --- |
-| Project list and project create from `/projects` | `/api/projects/:projectId` supported read/update/delete, but collection list/create was server-action-only | Added `GET /api/projects` and `POST /api/projects` for authenticated session users |
-| Account profile read/update from `/account` | Server-action-only | Added `GET /api/account/profile` and `PATCH /api/account/profile` |
-| Generated avatar regeneration | Server-action-only | Added `POST /api/account/profile/avatar` |
-| Password update | Server-action-only | Added `PATCH /api/account/password` with current-session token preservation |
-| Google Calendar target setting from `/account/settings` | Server-action-only | Added `GET`, `PATCH`, and `DELETE /api/account/settings/google-calendar` |
-| Notification inbox list/read state | Server-action-only from `/account/notifications` | Added `GET` and `PATCH /api/account/notifications`, plus `POST /api/account/notifications/mark-all-read` |
-| Pending project invitations and response actions | Server-action-only on account/invite flows | Added `GET /api/account/invitations` and `POST /api/account/invitations/:invitationId/respond` |
+App capability | Previous API state | TASK-127 action
+--- | --- | ---
+Project list and project create from `/projects` | `/api/projects/:projectId` supported read/update/delete, but collection list/create was server-action-only | Added `GET /api/projects` and `POST /api/projects` for authenticated session users
+Account profile read/update from `/account` | Server-action-only | Added `GET /api/account/profile` and single-field `PATCH /api/account/profile`
+Generated avatar regeneration | Server-action-only | Added `POST /api/account/profile/avatar`
+Password update | Server-action-only | Added `PATCH /api/account/password` with current-session token preservation
+Google Calendar target setting from `/account/settings` | Server-action-only | Added `GET`, `PATCH`, and `DELETE /api/account/settings/google-calendar`
+Notification inbox list/read state | Server-action-only from `/account/notifications` | Added `GET` and `PATCH /api/account/notifications`, plus `POST /api/account/notifications/mark-all-read`
+Pending project invitations and response actions | Server-action-only on account/invite flows | Added `GET /api/account/invitations` and `POST /api/account/invitations/:invitationId/respond`
 
 ## Verified Existing Coverage
 
-| App capability | Existing API coverage |
-| --- | --- |
-| Project detail, update, delete | `GET`, `PATCH`, `DELETE /api/projects/:projectId` |
-| Kanban task create/update/archive/reorder | `/api/projects/:projectId/tasks/**` |
-| Task comments and emoji reactions | `/api/projects/:projectId/tasks/:taskId/comments/**` |
-| Context cards | `/api/projects/:projectId/context-cards/**` |
-| Task and context-card attachments | `/api/projects/:projectId/**/attachments/**`, including local/R2 upload paths |
-| Roadmap phases/events and drag operations | `/api/projects/:projectId/roadmap/**` |
-| Project epics | `/api/projects/:projectId/epics/**` |
-| Project sharing owner workflows | `/api/projects/:projectId/sharing/**` |
-| Project member search and mention support | `/api/projects/:projectId/members/search` and sharing search route |
-| Google Calendar event CRUD | `/api/calendar/events/**` |
-| Agent credential management | `/api/projects/:projectId/agent-access/**` |
-| Health and operational probes | `/api/health/live`, `/api/health/ready` |
+App capability | Existing API coverage
+--- | ---
+Project detail, update, delete | `GET`, `PATCH`, `DELETE /api/projects/:projectId`
+Kanban task create/update/archive/reorder | `/api/projects/:projectId/tasks/**`
+Task comments and emoji reactions | `/api/projects/:projectId/tasks/:taskId/comments/**`
+Context cards | `/api/projects/:projectId/context-cards/**`
+Task and context-card attachments | `/api/projects/:projectId/**/attachments/**`, including local/R2 upload paths
+Roadmap phases/events and drag operations | `/api/projects/:projectId/roadmap/**`
+Project epics | `/api/projects/:projectId/epics/**`
+Project sharing owner workflows | `/api/projects/:projectId/sharing/**`
+Project member search and mention support | `/api/projects/:projectId/members/search` and sharing search route
+Google Calendar event CRUD | `/api/calendar/events/**`
+Agent credential management | `/api/projects/:projectId/agent-access/**`
+Health and operational probes | `/api/health/live`, `/api/health/ready`
 
 ## Intentional Boundaries
 

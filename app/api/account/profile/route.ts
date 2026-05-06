@@ -61,6 +61,9 @@ export async function PATCH(request: NextRequest) {
   if (!shouldUpdateUsername && !shouldUpdateEmail) {
     return NextResponse.json({ error: "invalid-payload" }, { status: 400 });
   }
+  if (shouldUpdateUsername && shouldUpdateEmail) {
+    return NextResponse.json({ error: "one-field-only" }, { status: 400 });
+  }
 
   const response: Record<string, unknown> = {};
 
