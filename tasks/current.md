@@ -125,6 +125,9 @@ and outbound-email observability foundation.
 - PR #245 required checks passed on 2026-05-07: `check-name`,
   `Quality Core (lint, test, coverage, build)`, `E2E Smoke (Playwright)`, and
   `Container Image (build + metadata artifact)`.
+- Follow-up requested on 2026-05-07 changed project invitation expiry to 24
+  hours. Focused validation passed:
+  `npm test -- tests/lib/project-collaboration-service.test.ts`.
 
 ## Out Of Scope
 - Background retry workers, bounce webhooks, suppression lists, digesting, and

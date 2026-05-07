@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
   $queryRaw: vi.fn(),
@@ -63,7 +63,14 @@ describe("project-collaboration-service", () => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   test("sends project invitation email after creating an invite", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-07T10:00:00.000Z"));
+
     prismaMock.project.findFirst.mockResolvedValueOnce({
       ownerId: "owner-1",
       memberships: [],
@@ -89,7 +96,7 @@ describe("project-collaboration-service", () => {
       invitedEmail: "invitee@example.com",
       role: "editor",
       createdAt: new Date("2026-05-07T10:00:00.000Z"),
-      expiresAt: new Date("2026-05-21T10:00:00.000Z"),
+      expiresAt: new Date("2026-05-08T10:00:00.000Z"),
       acceptedAt: null,
       revokedAt: null,
       replacedAt: null,
@@ -154,6 +161,13 @@ describe("project-collaboration-service", () => {
     expect(outboundEmailServiceMock.sendOutboundEmail.mock.calls[0][0].text).toContain(
       "https://nexusdash.test/invite/project/invite-1"
     );
+    expect(prismaMock.projectInvitation.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          expiresAt: new Date("2026-05-08T10:00:00.000Z"),
+        }),
+      })
+    );
   });
 
   test("keeps a created invite when project invitation email delivery fails", async () => {
@@ -182,7 +196,7 @@ describe("project-collaboration-service", () => {
       invitedEmail: "invitee@example.com",
       role: "viewer",
       createdAt: new Date("2026-05-07T10:00:00.000Z"),
-      expiresAt: new Date("2026-05-21T10:00:00.000Z"),
+      expiresAt: new Date("2026-05-08T10:00:00.000Z"),
       acceptedAt: null,
       revokedAt: null,
       replacedAt: null,
@@ -256,7 +270,7 @@ describe("project-collaboration-service", () => {
       invitedEmail: "invitee@example.com",
       role: "viewer",
       createdAt: new Date("2026-05-07T10:00:00.000Z"),
-      expiresAt: new Date("2026-05-21T10:00:00.000Z"),
+      expiresAt: new Date("2026-05-08T10:00:00.000Z"),
       acceptedAt: null,
       revokedAt: null,
       replacedAt: null,

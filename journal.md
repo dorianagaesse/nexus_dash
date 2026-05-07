@@ -29,6 +29,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-05-07
 - Type: Execution
+- Summary: TASK-104 follow-up changed project invitation expiry to 24 hours.
+- Evidence: Replaced the previous project invitation TTL constant with a 24-hour policy in `lib/services/project-collaboration-service.ts` and pinned service coverage to assert new invitations are created with `now + 24h`. Focused validation passed with `npm test -- tests/lib/project-collaboration-service.test.ts`.
+
+### 2026-05-07
+- Type: Execution
 - Summary: TASK-125 implemented the outbound email foundation with durable provider-aware delivery records.
 - Evidence: Added `OutboundEmailDelivery` schema/migration, `sendOutboundEmail`, typed auth/project-invitation/smoke template keys, Resend delivery-mode config through `lib/env.server.ts`, provider-safe structured logging, and refactored email verification/password reset sends onto the shared foundation while leaving owner-triggered invite email delivery for TASK-104.
 

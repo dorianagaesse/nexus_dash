@@ -23,7 +23,7 @@ import { buildProjectInvitationEmail } from "@/lib/services/outbound-email-templ
 import { withActorRlsContext, type DbClient } from "@/lib/services/rls-context";
 import { logServerWarning } from "@/lib/observability/logger";
 
-const PROJECT_INVITATION_TTL_DAYS = 14;
+const PROJECT_INVITATION_TTL_HOURS = 24;
 const INVITABLE_USER_SEARCH_LIMIT = 8;
 const PROJECT_INVITATION_PATH_PREFIX = "/invite/project";
 
@@ -306,7 +306,7 @@ function buildIdentitySummary(input: {
 
 function buildInvitationExpiry(): Date {
   return new Date(
-    Date.now() + PROJECT_INVITATION_TTL_DAYS * 24 * 60 * 60 * 1000
+    Date.now() + PROJECT_INVITATION_TTL_HOURS * 60 * 60 * 1000
   );
 }
 
