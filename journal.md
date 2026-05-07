@@ -22,6 +22,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Summary: TASK-125 passed local validation and a live outbound email smoke.
 - Evidence: `npm ci`; `npx prisma generate`; local migration deploy against the existing `127.0.0.1:5432` PostgreSQL service; focused `npm test -- --run tests/lib/outbound-email-service.test.ts tests/lib/email-verification-service.test.ts tests/lib/password-reset-service.test.ts tests/lib/env.server.test.ts`; `npm run lint`; local DB `NODE_ENV=test npm test`; local DB `NODE_ENV=test npm run test:coverage`; production-guarded `npm run build`; live smoke with `RUN_OUTBOUND_EMAIL_SMOKE=1`, `OUTBOUND_EMAIL_DELIVERY_MODE=live`, and `OUTBOUND_EMAIL_SMOKE_TO=dorian.agaesse@gmail.com`; `npm run test:e2e` rerun with trusted localhost origins passed all 8 Playwright tests after the first run exposed missing local `TRUSTED_ORIGINS`.
 
+### 2026-05-07
+- Type: Validation
+- Summary: TASK-125 PR #243 Copilot review feedback was addressed and required checks passed.
+- Evidence: Copilot produced three actionable comments; commit `925af2a` sanitized project-invitation email subject/text fields, made failed-delivery record updates non-throwing, and stored omitted delivery metadata as SQL NULL. Revalidated with focused outbound email tests, `npm run lint`, local DB `npm test`, local DB `npm run test:coverage`, and production-guarded `npm run build`. Replied to and resolved all three Copilot threads; PR checks passed after the follow-up: `check-name`, `Quality Core`, `E2E Smoke`, and `Container Image`.
+
 ### 2026-05-04
 - Type: Governance
 - Summary: Tightened the repository agent workflow contract for worktrees, branch prefixes, mandatory PRs, and final push parity.

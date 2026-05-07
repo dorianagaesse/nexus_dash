@@ -9,12 +9,6 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending (promoted 2026-05-04; PR #224 partial fix merged)
   Rationale: Fix task UI regressions around the compact scrollbar affordance and task edit modal behavior so dense task surfaces stay usable, visually clean, and predictable during everyday task creation and editing workflows.
   Dependencies: TASK-076, TASK-113
-- ID: TASK-125
-  Title: Outbound email foundation - reusable app-owned email delivery for invites and future notifications
-  Status: In Progress (implementation and local validation complete on 2026-05-07; PR follow-through pending)
-  Rationale: Establish NexusDash-owned outbound email infrastructure so future invite delivery, notification emails, and other transactional sends can come from the product itself with explicit provider, sender identity, template, observability, and failure-handling decisions instead of being implemented piecemeal.
-  Dependencies: TASK-083
-
 ### Deferred (Intentional)
 - ID: TASK-224
   Title: Agent roadmap access - scoped API contract for roadmap phases and events
@@ -125,6 +119,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-125
+  Title: Outbound email foundation - reusable app-owned email delivery for invites and future notifications
+  Status: Done (2026-05-07, PR #243 open with Copilot threads resolved and checks green)
+  Rationale: Established a reusable Resend-backed outbound email foundation with typed template keys, sender/delivery-mode env config, durable `OutboundEmailDelivery` observability records, provider-safe failure handling, verification/password-reset integration, future project-invitation template support, and live email smoke validation.
+  Dependencies: TASK-083
 - ID: TASK-127
   Title: API capability audit - confirm every shipped feature remains fully manageable through the API
   Status: Done (2026-05-07, PR #241 open)

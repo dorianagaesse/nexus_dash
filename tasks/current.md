@@ -4,9 +4,8 @@
 TASK-125
 
 ## Status
-Implementation and local validation complete on
-`feature/task-125-outbound-email-foundation`; PR publication and review
-follow-through are pending.
+Complete on `feature/task-125-outbound-email-foundation`; PR #243 is open,
+Copilot review threads are resolved, and required checks are green.
 
 ## Objective
 Establish a reusable NexusDash-owned outbound email foundation so transactional
@@ -83,6 +82,19 @@ failure handling.
   no trusted local request origin; rerunning with
   `TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000` passed on
   2026-05-07 with all 8 Playwright tests passing.
+- Copilot review on PR #243 produced three comments; follow-up commit
+  `925af2a` sanitized project-invitation subject/plain-text fields, made
+  failed-delivery status updates non-throwing, and changed omitted metadata to
+  SQL NULL via `Prisma.DbNull`.
+- Post-Copilot local validation passed on 2026-05-07:
+  `npm test -- --run tests/lib/outbound-email-service.test.ts tests/lib/outbound-email-templates.test.ts`,
+  `npm run lint`, local DB `NODE_ENV=test npm test`, local DB
+  `NODE_ENV=test npm run test:coverage`, and production-guarded
+  `npm run build`.
+- PR #243 checks passed on 2026-05-07 after the Copilot follow-up:
+  `check-name`, `Quality Core (lint, test, coverage, build)`,
+  `E2E Smoke (Playwright)`, and `Container Image (build + metadata artifact)`.
+- All three Copilot review threads were replied to and resolved on PR #243.
 - Local database note: the task worktree's Compose Postgres could not bind
   port `5432` because `nexus_dash_issue214_codex-postgres-1` was already
   running there. Validation used that reachable local PostgreSQL service and
