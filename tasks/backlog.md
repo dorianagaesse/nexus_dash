@@ -4,6 +4,21 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-104
+  Title: Invite email delivery - app-managed sending for project collaboration invites
+  Status: Pending (promoted after TASK-125 merged via PR #243)
+  Rationale: Add first-party email sending for collaboration invites so owners can trigger invite delivery directly from the app, building on the reusable outbound-email foundation instead of coupling provider/deliverability concerns into the project-sharing service.
+  Dependencies: TASK-103, TASK-083, TASK-125
+- ID: TASK-225
+  Title: Project notification email digests - grouped, rate-limited outbound summaries
+  Status: Pending (promoted after TASK-125 merged via PR #243)
+  Rationale: Extend the notification center with project-grouped outbound email digests so important in-app activity can reach users by email without sending one message per notification, especially when agents generate frequent task/comment activity. The first design should batch by recipient and project, collapse repetitive agent events, apply a controlled cadence, and preserve the in-app notification inbox as the source of truth.
+  Dependencies: TASK-123, TASK-125
+- ID: TASK-226
+  Title: Task due-date email reminders - 3-day deadline warning delivery
+  Status: Pending (promoted after TASK-125 merged via PR #243)
+  Rationale: Send task reminder emails when assigned or owned work is three days from its due date, with idempotent delivery tracking and anti-spam semantics so each reminder fires predictably once per task/user deadline window rather than repeating on every app visit.
+  Dependencies: TASK-101, TASK-125, TASK-063
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
   Status: Pending (promoted 2026-05-04; PR #224 partial fix merged)
@@ -35,11 +50,6 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Reduce maintenance pressure in the current project-collaboration service by separating owner invite management, membership mutation, and recipient invitation-response concerns into smaller modules with clearer ownership, narrower tests, and easier future extension for v2 invite flows.
   Dependencies: TASK-058
-- ID: TASK-104
-  Title: Invite email delivery - app-managed sending for project collaboration invites
-  Status: Pending
-  Rationale: After copy-link invite delivery is in place, add first-party email sending for collaboration invites so owners can trigger invite delivery directly from the app, building on the reusable outbound-email foundation instead of coupling provider/deliverability concerns into TASK-103 by default.
-  Dependencies: TASK-103, TASK-083, TASK-125
 - ID: TASK-109
   Title: Todo list feature - lightweight checklist capture alongside project execution
   Status: Pending
@@ -121,7 +131,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 ## Completed
 - ID: TASK-125
   Title: Outbound email foundation - reusable app-owned email delivery for invites and future notifications
-  Status: Done (2026-05-07, PR #243 open with Copilot threads resolved and checks green)
+  Status: Done (2026-05-07, merged via PR #243)
   Rationale: Established a reusable Resend-backed outbound email foundation with typed template keys, sender/delivery-mode env config, durable `OutboundEmailDelivery` observability records, provider-safe failure handling, verification/password-reset integration, future project-invitation template support, and live email smoke validation.
   Dependencies: TASK-083
 - ID: TASK-127
