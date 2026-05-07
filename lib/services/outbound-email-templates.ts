@@ -27,6 +27,10 @@ function escapeHtmlText(value: string): string {
     .replace(/>/g, "&gt;");
 }
 
+function sanitizePlainText(value: string): string {
+  return value.replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
 function formatExpiryLabel(tokenTtlSeconds: number): string {
   const ttlMinutes = Math.floor(tokenTtlSeconds / 60);
   if (ttlMinutes < 60) {
@@ -93,15 +97,18 @@ export function buildProjectInvitationEmail(input: {
   expiresAt: Date;
 }): OutboundEmailMessage {
   const safeInviteUrl = escapeHtmlAttribute(input.inviteUrl);
-  const safeProjectName = escapeHtmlText(input.projectName);
-  const safeInviterName = escapeHtmlText(input.invitedByDisplayName);
+  const plainProjectName = sanitizePlainText(input.projectName) || "a project";
+  const plainInviterName =
+    sanitizePlainText(input.invitedByDisplayName) || "Someone";
+  const safeProjectName = escapeHtmlText(plainProjectName);
+  const safeInviterName = escapeHtmlText(plainInviterName);
   const action = input.role === "viewer" ? "view" : "collaborate on";
   const expiresAtLabel = input.expiresAt.toUTCString();
 
   return {
-    subject: `Invitation to ${input.projectName} on NexusDash`,
+    subject: `Invitation to ${plainProjectName} on NexusDash`,
     text:
-      `${input.invitedByDisplayName} invited you to ${action} ${input.projectName} on NexusDash.\n\n` +
+      `${plainInviterName} invited you to ${action} ${plainProjectName} on NexusDash.\n\n` +
       `This invitation expires on ${expiresAtLabel}.\n\n` +
       `${input.inviteUrl}\n\n` +
       `If you were not expecting this invitation, you can ignore this email.`,

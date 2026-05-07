@@ -93,16 +93,24 @@ async function markDeliveryFailed(input: {
   errorMessage: string;
   providerStatus?: number;
 }): Promise<void> {
-  await prisma.outboundEmailDelivery.update({
-    where: { id: input.deliveryId },
-    data: {
-      status: "failed",
-      providerStatus: input.providerStatus,
+  try {
+    await prisma.outboundEmailDelivery.update({
+      where: { id: input.deliveryId },
+      data: {
+        status: "failed",
+        providerStatus: input.providerStatus,
+        errorCode: input.errorCode,
+        errorMessage: truncateErrorMessage(input.errorMessage),
+        completedAt: new Date(),
+      },
+    });
+  } catch (error) {
+    logServerError("sendOutboundEmail.markFailed", error, {
+      deliveryId: input.deliveryId,
       errorCode: input.errorCode,
-      errorMessage: truncateErrorMessage(input.errorMessage),
-      completedAt: new Date(),
-    },
-  });
+      providerStatus: input.providerStatus,
+    });
+  }
 }
 
 export async function sendOutboundEmail(
@@ -129,7 +137,7 @@ export async function sendOutboundEmail(
         recipientEmail,
         subject: input.subject,
         status: "pending",
-        metadata: input.metadata ?? Prisma.JsonNull,
+        metadata: input.metadata ?? Prisma.DbNull,
       },
       select: {
         id: true,

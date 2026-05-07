@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 
 const prismaMock = vi.hoisted(() => ({
   outboundEmailDelivery: {
@@ -96,6 +97,7 @@ describe("outbound-email-service", () => {
     });
     expect(prismaMock.outboundEmailDelivery.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
+        metadata: Prisma.DbNull,
         recipientEmail: "user@example.com",
         status: "pending",
         templateKey: "email_verification",
@@ -215,6 +217,36 @@ describe("outbound-email-service", () => {
         errorCode: "provider-unavailable",
       }),
     });
+  });
+
+  test("returns typed provider failure when failed-status update also fails", async () => {
+    envMock.getOutboundEmailRuntimeConfig.mockReturnValueOnce({
+      provider: "resend",
+      deliveryMode: "live",
+      apiKey: null,
+      fromEmail: "NexusDash <noreply@nexus-dash.app>",
+      shouldDeliver: true,
+    });
+    prismaMock.outboundEmailDelivery.update.mockRejectedValueOnce(
+      new Error("status update failed")
+    );
+
+    const result = await sendOutboundEmail(baseMessage);
+
+    expect(result).toEqual({
+      ok: false,
+      error: "provider-unavailable",
+      deliveryId: "email-1",
+      provider: "resend",
+    });
+    expect(loggerMock.logServerError).toHaveBeenCalledWith(
+      "sendOutboundEmail.markFailed",
+      expect.any(Error),
+      expect.objectContaining({
+        deliveryId: "email-1",
+        errorCode: "provider-unavailable",
+      })
+    );
   });
 
   test("fails closed when the initial delivery record cannot be created", async () => {
