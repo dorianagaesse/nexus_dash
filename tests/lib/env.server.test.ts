@@ -4,6 +4,7 @@ import {
   getAgentAccessTokenTtlSeconds,
   getAgentTokenRuntimeConfig,
   getDatabaseRuntimeConfig,
+  getOutboundEmailRuntimeConfig,
   getOptionalServerEnv,
   getPrismaPgRuntimeConnectionString,
   getRequiredServerEnv,
@@ -39,6 +40,7 @@ const ENV_KEYS_TO_RESET = [
   "AUTH_GITHUB_REDIRECT_URI",
   "AGENT_TOKEN_SIGNING_SECRET",
   "AGENT_ACCESS_TOKEN_TTL_SECONDS",
+  "OUTBOUND_EMAIL_DELIVERY_MODE",
   "RESEND_API_KEY",
   "RESEND_FROM_EMAIL",
   "STORAGE_PROVIDER",
@@ -522,7 +524,57 @@ describe("env.server", () => {
     vi.stubEnv("RESEND_API_KEY", "");
 
     expect(() => validateServerRuntimeConfig()).toThrow(
-      "RESEND_API_KEY is required in production for email verification delivery."
+      "RESEND_API_KEY is required when outbound email delivery is enabled."
+    );
+  });
+
+  test("resolves outbound email config in auto mode outside live production", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("RESEND_FROM_EMAIL", "");
+
+    expect(getOutboundEmailRuntimeConfig()).toEqual({
+      provider: "resend",
+      deliveryMode: "auto",
+      apiKey: "re_test_key",
+      fromEmail: "NexusDash <noreply@nexus-dash.app>",
+      shouldDeliver: false,
+    });
+  });
+
+  test("enables outbound email delivery when live mode is configured", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("OUTBOUND_EMAIL_DELIVERY_MODE", "live");
+    vi.stubEnv("RESEND_FROM_EMAIL", "NexusDash <mail@example.com>");
+
+    expect(getOutboundEmailRuntimeConfig()).toEqual({
+      provider: "resend",
+      deliveryMode: "live",
+      apiKey: "re_test_key",
+      fromEmail: "NexusDash <mail@example.com>",
+      shouldDeliver: true,
+    });
+  });
+
+  test("fails runtime validation when outbound email delivery mode is invalid", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("OUTBOUND_EMAIL_DELIVERY_MODE", "sometimes");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "OUTBOUND_EMAIL_DELIVERY_MODE must be one of: auto, disabled, live."
+    );
+  });
+
+  test("fails runtime validation when live outbound email mode has no resend key", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("OUTBOUND_EMAIL_DELIVERY_MODE", "live");
+    vi.stubEnv("RESEND_API_KEY", "");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "RESEND_API_KEY is required when OUTBOUND_EMAIL_DELIVERY_MODE is live."
     );
   });
 

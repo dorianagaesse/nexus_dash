@@ -24,6 +24,34 @@ Optional but bounded:
 
 - `AGENT_ACCESS_TOKEN_TTL_SECONDS` (`300-900`, default `600`)
 
+## Outbound Email
+
+Provider:
+
+- Resend is the app-owned outbound email provider.
+
+Required for live delivery:
+
+- `RESEND_API_KEY`
+
+Optional:
+
+- `RESEND_FROM_EMAIL` defaults to `NexusDash <noreply@nexus-dash.app>`.
+- `OUTBOUND_EMAIL_DELIVERY_MODE` defaults to `auto`.
+
+Delivery modes:
+
+- `auto`: send only from live production; development, test, and preview
+  deployments record the attempt and mark it skipped.
+- `disabled`: always record and skip delivery.
+- `live`: send from any environment when `RESEND_API_KEY` is present. Use this
+  only for explicit smoke tests or controlled diagnostics.
+
+TASK-125 records each delivery attempt in `OutboundEmailDelivery` before
+contacting the provider. The current foundation does not run background retry
+workers, bounce webhooks, suppression handling, or notification preferences;
+failed sends are recorded and returned to the caller synchronously.
+
 If Google OAuth is enabled:
 
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` must
@@ -35,6 +63,7 @@ If Google OAuth is enabled:
 
 Set as sensitive in Vercel (Preview + Production):
 
+- `RESEND_API_KEY`
 - `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_TOKEN_ENCRYPTION_KEY`
 - `AGENT_TOKEN_SIGNING_SECRET`

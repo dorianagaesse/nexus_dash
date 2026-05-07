@@ -1,135 +1,96 @@
-# Current Task: TASK-127 API Capability Audit And Parity
+# Current Task: TASK-125 Outbound Email Foundation
 
 ## Task ID
-TASK-127
+TASK-125
 
 ## Status
 Implementation and local validation complete on
-`feature/task-127-api-capability-audit`; PR #241 is open with Copilot review
-threads resolved and GitHub checks green on the implementation head.
+`feature/task-125-outbound-email-foundation`; PR publication and review
+follow-through are pending.
 
 ## Objective
-Audit the shipped NexusDash product surface against the current API surface and
-close concrete gaps so features available in the app are also manageable through
-API routes with the same service-layer authorization and validation boundaries.
+Establish a reusable NexusDash-owned outbound email foundation so transactional
+emails can be sent through one provider-aware service with explicit sender
+identity, template identity, durable delivery observability, and consistent
+failure handling.
 
-## Current Scope
-- Inventory implemented app features from `project.md`, `README.md`, app routes,
-  server actions, API routes, services, and route tests.
-- Identify UI-only server-action workflows that lack equivalent API coverage.
-- Implement missing API routes by reusing existing service-layer functions and
-  keeping API routes as thin transport adapters.
-- Preserve the existing agent-access boundary: agent bearer tokens are currently
-  scoped to project/task/context-card APIs; account-level settings, human auth,
-  and notification inbox actions remain session-user APIs unless explicitly
-  widened by an architecture decision.
-- Update API/OpenAPI documentation where agent-facing project capabilities are
-  added or corrected.
-- Add focused route tests and E2E/API validation for newly exposed capabilities.
-
-## Initial Findings
-- Project update/delete is exposed at `/api/projects/:projectId`, but project
-  list/create is still server-action-only from `/projects`.
-- Account profile/security actions, notification inbox state changes, invitation
-  responses, and Google Calendar target settings are app features currently
-  implemented through server actions rather than API routes.
-- Roadmap, epics, task comments, comment reactions, task/context attachments,
-  sharing owner controls, member search, calendar events, and agent credential
-  management already have route coverage and need verification rather than a
-  duplicate implementation.
-- Local validation is now expected to use the repo-owned baseline from
-  `docs/runbooks/local-validation.md`; Docker is available for the local
-  PostgreSQL-backed test path.
-- If deployed-preview validation becomes necessary, follow the preview
-  Playwright flow in `agent.md`/`README.md` with `PLAYWRIGHT_BASE_URL`.
-
-## Audit Result
-- Closed project collection parity with `GET /api/projects` and
-  `POST /api/projects`.
-- Closed account-management parity with profile read/update, avatar
-  regeneration, password update, and Google Calendar target setting routes.
-- Closed notification and invitation recipient parity with notification list,
-  read/unread, mark-all-read, pending invitation list, and invitation response
-  routes.
-- Verified that project dashboard features already had API coverage for project
-  detail/update/delete, task lifecycle, comments, reactions, context cards,
-  attachments, roadmap phases/events, epics, sharing, member search, calendar
-  event CRUD, agent credential management, and health probes.
-- Left agent v1 OpenAPI unchanged because this task did not expand
-  project-scoped agent bearer-token capabilities; the new routes are
-  authenticated session-user APIs.
-- Follow-up verification found two notification parity gaps in agent-authored
-  task actions. Agent mentions of the credential owner were being suppressed as
-  self-mentions, and task assignment had no notification producer. Both are now
-  fixed with task-comment mention handling for agents, a `task_assignment`
-  notification producer, reassignment resolution, and updated notification RLS.
-- The agent member-search smoke finding is also fixed: agent callers can now
-  discover the credential owner in `/api/projects/:projectId/members/search`,
-  while human autocomplete continues to hide the signed-in user.
-- Roadmap remains a session-user API because the existing roadmap route handlers
-  use `requireAuthenticatedApiUser` and the current agent v1 scope model has no
-  roadmap scopes. Agent roadmap access should be added as an explicit contract
-  expansion rather than folded into unrelated task/project scopes.
+## Scope
+- Keep Resend as the outbound email provider because the existing
+  verification/password-reset path already uses `RESEND_API_KEY` and
+  `RESEND_FROM_EMAIL`.
+- Replace the current narrow transactional email helper with an
+  app-owned outbound email service that records each delivery attempt.
+- Track provider, sender, recipient, template key, subject, status, provider
+  response id/status, error code/message, timestamps, and safe metadata in the
+  database.
+- Refactor email verification and password reset sends to use the shared
+  foundation without changing their token security or user-facing flows.
+- Add a future-ready project invitation template contract without enabling
+  owner-triggered invite email delivery yet.
+- Document provider/env behavior and the explicit no-background-retry decision.
+- Run a live email smoke to `dorian.agaesse@gmail.com` if a usable Resend API
+  key is locally available, without committing or logging secrets.
 
 ## Acceptance Criteria
-1. `tasks/current.md` records the TASK-127 scope, findings, acceptance
-   criteria, and validation evidence.
-2. The audit maps shipped app features to their current API route coverage and
-   records any intentional exclusions or remaining follow-ups.
-3. Missing project list/create capability is available through
-   `/api/projects` with authenticated session-user access and service-layer
-   validation.
-4. Missing account settings/profile/security APIs are available for authenticated
-   session users where equivalent app server actions already exist.
-5. Missing notification inbox and invitation-response APIs are available for
-   authenticated session users where equivalent app server actions already
-   exist.
-6. New routes use existing services, return consistent JSON error/status shapes,
-   and do not import Prisma outside `lib/services/**`.
-7. Focused API route tests cover success and authorization/error behavior for
-   newly added routes.
-8. At least one E2E or API-backed integration path proves a newly exposed
-   capability works against the local app/database baseline.
-9. `journal.md` records the audit findings, implementation decisions, and local
-   validation evidence.
-10. `tasks/backlog.md` marks TASK-127 complete only after implementation and
-    validation are done.
+1. `tasks/current.md` records TASK-125 scope, acceptance criteria, definition
+   of done, and validation evidence.
+2. Outbound email delivery has a single service entry point with typed template
+   keys and provider configuration resolved through `lib/env.server.ts`.
+3. Delivery attempts are durably recorded in Prisma/PostgreSQL with sent,
+   skipped, and failed outcomes.
+4. Email verification and password reset flows continue to create and clean up
+   tokens correctly when delivery succeeds, is skipped, or fails.
+5. The foundation includes a project-invitation template shape for TASK-104 but
+   does not add app-managed invite sending UX/API behavior.
+6. Provider failures return consistent typed errors and structured logs without
+   exposing secrets.
+7. Focused Vitest coverage exercises provider config, skipped delivery,
+   successful Resend delivery, provider rejection, delivery-record updates, and
+   auth email service integration.
+8. Docs/env examples describe the outbound email provider, sender identity, and
+   current retry/preview behavior.
+9. `journal.md` records implementation decisions and validation evidence.
+10. `tasks/backlog.md` marks TASK-125 complete only after implementation,
+    validation, PR checks, and Copilot review are handled.
 
 ## Definition Of Done
-- TASK-127 has a dedicated branch and PR.
-- API parity gaps identified in the audit are either implemented or explicitly
-  documented as intentional exclusions with rationale.
-- Focused route tests, full local validation, production build, and relevant
-  Playwright/API validation pass.
-- PR is opened, pushed, monitored for checks and Copilot review, and review
-  feedback is addressed or explicitly resolved per `agent.md`.
+- TASK-125 uses the dedicated branch/worktree required by `agent.md`.
+- The implementation keeps persistence inside `lib/services/**` and avoids
+  leaking secrets into logs, tests, docs, or commits.
+- Local validation passes: `npm run lint`, `npm test`,
+  `npm run test:coverage`, and `npm run build`.
+- A live email smoke to `dorian.agaesse@gmail.com` is attempted and the result
+  is recorded without exposing credentials.
+- The branch is pushed, a PR is opened, required checks are green, and Copilot
+  review feedback is addressed or explicitly resolved.
 
 ## Validation Evidence
-- `npm test -- --run tests/api/projects.route.test.ts tests/api/account-profile.route.test.ts tests/api/account-settings.route.test.ts tests/api/account-notifications.route.test.ts` passed on 2026-05-07 with 26 tests passing after Copilot review fixes.
+- `npx prisma generate` passed on 2026-05-07 after installing worktree
+  dependencies with `npm ci`.
+- Focused validation passed on 2026-05-07:
+  `npm test -- --run tests/lib/outbound-email-service.test.ts tests/lib/email-verification-service.test.ts tests/lib/password-reset-service.test.ts tests/lib/env.server.test.ts`
+  with 90 tests passing.
 - `npm run lint` passed on 2026-05-07.
-- `npm test` passed on 2026-05-07 with local DB env: 97 files passed, 1 skipped; 742 tests passed, 1 skipped.
-- `npm test` passed again on 2026-05-07 after the notification/member-search
-  follow-up with local DB env and `NODE_ENV=test`: 97 files passed, 1 skipped; 748 tests
-  passed, 1 skipped.
-- `npm run test:coverage` passed on 2026-05-07 with 91.23% statements, 81.2% branches, 93.42% functions, and 91.75% lines.
-- `npm run build` passed on 2026-05-07 after regenerating Prisma Client and setting local production guard env including `GOOGLE_TOKEN_ENCRYPTION_KEY`.
-- `npm run build` passed again on 2026-05-07 after Copilot review fixes.
-- `npm run build` passed again on 2026-05-07 after the notification follow-up
-  with local PostgreSQL env and production guard variables.
-- `npm run test:e2e` passed on 2026-05-07 with 8 Playwright tests passing, including `tests/e2e/api-projects.spec.ts`.
-- Notification follow-up E2E validation on 2026-05-07 passed the 7 non-email
-  Playwright smokes in `npm run test:e2e`; the first password-reset request
-  spec failed only because local production mode attempted Resend delivery with
-  a placeholder API key. Rerunning
-  `npx playwright test tests/e2e/password-recovery.spec.ts` with
-  `VERCEL_ENV=preview` passed both password recovery specs.
-- Local database note: `npm run db:local:up` found port `5432` already allocated, but the PostgreSQL service at `127.0.0.1:5432` was reachable and `npm run db:migrate` reported all 31 migrations applied.
+- `npm test` passed on 2026-05-07 with local DB env and `NODE_ENV=test`: 98
+  files passed, 2 skipped; 758 tests passed, 2 skipped.
+- `npm run test:coverage` passed on 2026-05-07 with 91.23% statements, 81.2%
+  branches, 93.42% functions, and 91.75% lines.
+- `npm run build` passed on 2026-05-07 with local PostgreSQL env and
+  production guard variables.
+- Live outbound email smoke passed on 2026-05-07:
+  `RUN_OUTBOUND_EMAIL_SMOKE=1 OUTBOUND_EMAIL_DELIVERY_MODE=live OUTBOUND_EMAIL_SMOKE_TO=dorian.agaesse@gmail.com npm test -- --run tests/lib/outbound-email-service.live.test.ts`.
+- `npm run test:e2e` first failed because production-mode password recovery had
+  no trusted local request origin; rerunning with
+  `TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000` passed on
+  2026-05-07 with all 8 Playwright tests passing.
+- Local database note: the task worktree's Compose Postgres could not bind
+  port `5432` because `nexus_dash_issue214_codex-postgres-1` was already
+  running there. Validation used that reachable local PostgreSQL service and
+  applied the TASK-125 migration successfully.
 
 ## Out Of Scope
-- Adding app-managed outbound email delivery; that remains TASK-125.
-- Adding calendar access to project-scoped agent bearer tokens without a new
-  architecture decision.
-- Adding binary attachment upload/download parity to the agent v1 contract
-  beyond existing human-session API routes.
-- Reworking auth provider onboarding or password recovery UX beyond exposing
-  existing account-management server-action capabilities as JSON APIs.
+- Owner-facing project invite email delivery; this remains TASK-104.
+- Background workers, automatic retry queues, bounce webhooks, suppression
+  lists, and notification-preference UI.
+- Changing auth token TTLs, verification/reset copy beyond shared template
+  plumbing, or widening agent/API scopes.

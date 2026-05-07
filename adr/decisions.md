@@ -16,6 +16,23 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-05-07 - Centralize outbound email delivery through durable provider records
+- Status: Accepted
+- Context: TASK-125 needed app-owned transactional email delivery for current
+  auth emails and future project-invite/notification sends instead of adding
+  provider calls piecemeal.
+- Decision: Keep Resend as the outbound provider, resolve provider/sender/live
+  delivery mode through `lib/env.server.ts`, route sends through
+  `sendOutboundEmail`, and create an `OutboundEmailDelivery` record before
+  each provider attempt with sent, skipped, and failed terminal states.
+- Consequences: Verification and password-reset sends now share one observable
+  foundation and future invite email delivery can attach a template key without
+  redefining provider behavior. The task intentionally keeps retries, bounce
+  webhooks, suppression lists, and notification preferences out of process
+  until a background-job/policy task designs them.
+- Links: `tasks/current.md`, `lib/services/outbound-email-service.ts`,
+  `prisma/migrations/20260507153000_task125_outbound_email_foundation/migration.sql`
+
 ## 2026-04-29 - Centralize in-app activity through durable per-user notifications
 - Status: Accepted
 - Context: `TASK-123` needed project invitations to move out of invitation-specific popups/account cards while providing a reusable delivery target for future task-comment mentions and other product activity.

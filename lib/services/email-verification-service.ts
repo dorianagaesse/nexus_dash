@@ -3,7 +3,8 @@ import { createHash, randomBytes } from "node:crypto";
 import { normalizeReturnToPath } from "@/lib/navigation/return-to";
 import { prisma } from "@/lib/prisma";
 import { normalizeEmail, validateEmail } from "@/lib/services/account-security-policy";
-import { sendTransactionalEmail } from "@/lib/services/transactional-email-service";
+import { sendOutboundEmail } from "@/lib/services/outbound-email-service";
+import { buildEmailVerificationEmail } from "@/lib/services/outbound-email-templates";
 
 export const EMAIL_VERIFICATION_CALLBACK_PATH = "/api/auth/verify-email";
 export const EMAIL_VERIFICATION_TOKEN_TTL_SECONDS = 60 * 60;
@@ -108,46 +109,6 @@ function buildVerificationUrl(
   return url.toString();
 }
 
-function escapeHtmlAttribute(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-function formatExpiryLabel(tokenTtlSeconds: number): string {
-  const ttlMinutes = Math.floor(tokenTtlSeconds / 60);
-  if (ttlMinutes < 60) {
-    return `${ttlMinutes} minute${ttlMinutes === 1 ? "" : "s"}`;
-  }
-
-  const ttlHours = Math.floor(ttlMinutes / 60);
-  return `${ttlHours} hour${ttlHours === 1 ? "" : "s"}`;
-}
-
-function buildVerificationEmail(input: {
-  verificationUrl: string;
-}): { subject: string; text: string; html: string } {
-  const expiryLabel = formatExpiryLabel(EMAIL_VERIFICATION_TOKEN_TTL_SECONDS);
-  const safeVerificationUrl = escapeHtmlAttribute(input.verificationUrl);
-
-  const subject = "Verify your NexusDash email";
-  const text =
-    `Verify your email to unlock your NexusDash workspace.\n\n` +
-    `This link expires in ${expiryLabel}.\n\n` +
-    `${input.verificationUrl}\n\n` +
-    `If you did not request this, you can ignore this email.`;
-
-  const html =
-    `<p>Verify your email to unlock your NexusDash workspace.</p>` +
-    `<p>This link expires in <strong>${expiryLabel}</strong>.</p>` +
-    `<p><a href="${safeVerificationUrl}">Verify email</a></p>` +
-    `<p>If you did not request this, you can ignore this email.</p>`;
-
-  return { subject, text, html };
-}
-
 export async function getEmailVerificationStatus(actorUserId: string): Promise<
   ServiceResult<{
     email: string | null;
@@ -228,7 +189,10 @@ export async function issueEmailVerificationForUser(
     rawToken,
     input.returnToPath
   );
-  const message = buildVerificationEmail({ verificationUrl });
+  const message = buildEmailVerificationEmail({
+    verificationUrl,
+    tokenTtlSeconds: EMAIL_VERIFICATION_TOKEN_TTL_SECONDS,
+  });
   const tokenCreationResult = await prisma.$transaction(async (tx) => {
     const [recentTokenCount, latestToken] = await Promise.all([
       tx.emailVerificationToken.count({
@@ -283,11 +247,16 @@ export async function issueEmailVerificationForUser(
     return tokenCreationResult;
   }
 
-  const deliveryResult = await sendTransactionalEmail({
+  const deliveryResult = await sendOutboundEmail({
+    templateKey: "email_verification",
     to: email,
     subject: message.subject,
     text: message.text,
     html: message.html,
+    metadata: {
+      userId: normalizedActorUserId,
+      tokenId: tokenCreationResult.data.tokenId,
+    },
   });
 
   if (!deliveryResult.ok) {

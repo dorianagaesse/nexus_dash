@@ -11,7 +11,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-076, TASK-113
 - ID: TASK-125
   Title: Outbound email foundation - reusable app-owned email delivery for invites and future notifications
-  Status: Pending (promoted 2026-05-04)
+  Status: In Progress (implementation and local validation complete on 2026-05-07; PR follow-through pending)
   Rationale: Establish NexusDash-owned outbound email infrastructure so future invite delivery, notification emails, and other transactional sends can come from the product itself with explicit provider, sender identity, template, observability, and failure-handling decisions instead of being implemented piecemeal.
   Dependencies: TASK-083
 

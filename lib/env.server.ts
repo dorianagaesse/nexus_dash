@@ -185,10 +185,22 @@ export interface AgentTokenRuntimeConfig {
   ttlSeconds: number;
 }
 
+export type OutboundEmailProvider = "resend";
+export type OutboundEmailDeliveryMode = "auto" | "disabled" | "live";
+
+export interface OutboundEmailRuntimeConfig {
+  provider: OutboundEmailProvider;
+  deliveryMode: OutboundEmailDeliveryMode;
+  apiKey: string | null;
+  fromEmail: string;
+  shouldDeliver: boolean;
+}
+
 const DEFAULT_AGENT_ACCESS_TOKEN_TTL_SECONDS = 600;
 const MIN_AGENT_ACCESS_TOKEN_TTL_SECONDS = 300;
 const MAX_AGENT_ACCESS_TOKEN_TTL_SECONDS = 900;
 const MIN_AGENT_TOKEN_SIGNING_SECRET_LENGTH = 32;
+const DEFAULT_RESEND_FROM_EMAIL = "NexusDash <noreply@nexus-dash.app>";
 
 function parsePositiveInteger(input: string | null): number | null {
   if (!input) {
@@ -261,6 +273,35 @@ export function getAgentAccessTokenTtlSeconds(): number {
   }
 
   return ttlSeconds;
+}
+
+export function getOutboundEmailRuntimeConfig(): OutboundEmailRuntimeConfig {
+  const deliveryModeRaw = getOptionalServerEnv("OUTBOUND_EMAIL_DELIVERY_MODE");
+  const deliveryMode: OutboundEmailDeliveryMode =
+    deliveryModeRaw === "disabled" || deliveryModeRaw === "live"
+      ? deliveryModeRaw
+      : "auto";
+
+  if (
+    deliveryModeRaw &&
+    deliveryModeRaw !== "auto" &&
+    deliveryModeRaw !== "disabled" &&
+    deliveryModeRaw !== "live"
+  ) {
+    throw new Error(
+      "OUTBOUND_EMAIL_DELIVERY_MODE must be one of: auto, disabled, live."
+    );
+  }
+
+  return {
+    provider: "resend",
+    deliveryMode,
+    apiKey: getOptionalServerEnv("RESEND_API_KEY"),
+    fromEmail: getOptionalServerEnv("RESEND_FROM_EMAIL") ?? DEFAULT_RESEND_FROM_EMAIL,
+    shouldDeliver:
+      deliveryMode === "live" ||
+      (deliveryMode === "auto" && isLiveProductionDeployment()),
+  };
 }
 
 function assertOptionalEnvironmentGroup(
@@ -552,14 +593,18 @@ export function validateServerRuntimeConfig(
     throw new Error("GOOGLE_CALENDAR_ID must be unset or set to 'primary'.");
   }
 
-  const resendFromEmail = getOptionalServerEnv("RESEND_FROM_EMAIL");
-  if (resendFromEmail) {
-    assertEmailAddressLike("RESEND_FROM_EMAIL", resendFromEmail);
+  const outboundEmailConfig = getOutboundEmailRuntimeConfig();
+  assertEmailAddressLike("RESEND_FROM_EMAIL", outboundEmailConfig.fromEmail);
+
+  if (outboundEmailConfig.deliveryMode === "live" && !outboundEmailConfig.apiKey) {
+    throw new Error(
+      "RESEND_API_KEY is required when OUTBOUND_EMAIL_DELIVERY_MODE is live."
+    );
   }
 
-  if (isLiveProductionDeployment() && !getOptionalServerEnv("RESEND_API_KEY")) {
+  if (outboundEmailConfig.shouldDeliver && !outboundEmailConfig.apiKey) {
     throw new Error(
-      "RESEND_API_KEY is required in production for email verification delivery."
+      "RESEND_API_KEY is required when outbound email delivery is enabled."
     );
   }
 

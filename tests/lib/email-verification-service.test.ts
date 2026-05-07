@@ -16,16 +16,16 @@ const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(),
 }));
 
-const transactionalEmailMock = vi.hoisted(() => ({
-  sendTransactionalEmail: vi.fn(),
+const outboundEmailMock = vi.hoisted(() => ({
+  sendOutboundEmail: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: prismaMock,
 }));
 
-vi.mock("@/lib/services/transactional-email-service", () => ({
-  sendTransactionalEmail: transactionalEmailMock.sendTransactionalEmail,
+vi.mock("@/lib/services/outbound-email-service", () => ({
+  sendOutboundEmail: outboundEmailMock.sendOutboundEmail,
 }));
 
 import {
@@ -42,7 +42,7 @@ describe("email-verification-service", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-02-27T10:00:00.000Z"));
 
-    transactionalEmailMock.sendTransactionalEmail.mockResolvedValue({
+    outboundEmailMock.sendOutboundEmail.mockResolvedValue({
       ok: true,
       delivery: "sent",
     });
@@ -94,7 +94,7 @@ describe("email-verification-service", () => {
       status: 409,
       error: "already-verified",
     });
-    expect(transactionalEmailMock.sendTransactionalEmail).not.toHaveBeenCalled();
+    expect(outboundEmailMock.sendOutboundEmail).not.toHaveBeenCalled();
   });
 
   test("returns email-unavailable when user email is missing or invalid", async () => {
@@ -200,7 +200,7 @@ describe("email-verification-service", () => {
         expiresAt: true,
       },
     });
-    expect(transactionalEmailMock.sendTransactionalEmail).toHaveBeenCalledWith(
+    expect(outboundEmailMock.sendOutboundEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "user@example.com",
         subject: expect.any(String),
@@ -221,7 +221,7 @@ describe("email-verification-service", () => {
       id: "evt_1",
       expiresAt: new Date("2026-02-27T11:00:00.000Z"),
     });
-    transactionalEmailMock.sendTransactionalEmail.mockResolvedValueOnce({
+    outboundEmailMock.sendOutboundEmail.mockResolvedValueOnce({
       ok: false,
       error: "provider-rejected",
     });

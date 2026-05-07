@@ -74,6 +74,37 @@ model PasswordResetToken {
   @@index([userId, expiresAt])
 }
 
+enum OutboundEmailDeliveryStatus {
+  pending
+  sent
+  skipped
+  failed
+}
+
+model OutboundEmailDelivery {
+  id                String                      @id @default(cuid())
+  templateKey       String                      @db.VarChar(80)
+  provider          String                      @db.VarChar(40)
+  fromEmail         String
+  recipientEmail    String
+  subject           String                      @db.VarChar(240)
+  status            OutboundEmailDeliveryStatus @default(pending)
+  providerMessageId String?                     @db.VarChar(128)
+  providerStatus    Int?
+  errorCode         String?                     @db.VarChar(80)
+  errorMessage      String?
+  metadata          Json?
+  lastAttemptAt     DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+
+  @@index([recipientEmail, createdAt])
+  @@index([templateKey, createdAt])
+  @@index([status, createdAt])
+  @@index([providerMessageId])
+}
+
 model Account {
   id                String   @id @default(cuid())
   userId            String
