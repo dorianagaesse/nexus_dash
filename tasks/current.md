@@ -4,8 +4,8 @@
 TASK-104
 
 ## Status
-Implemented locally on `feature/task-104-invite-email-delivery`; PR workflow
-pending.
+Complete on `feature/task-104-invite-email-delivery`; PR #245 is open with
+required checks green and Copilot review feedback resolved.
 
 ## Objective
 Add app-managed email delivery for project collaboration invitations so project
@@ -114,6 +114,17 @@ and outbound-email observability foundation.
   `dorian.agaesse@gmail.com` as a matched verified local account, and recorded
   two `project_invitation` outbound delivery rows with `sent` status and
   provider message ids present.
+- PR #245 was opened ready for review on 2026-05-07. Copilot's three
+  actionable review threads were addressed in commit `49ea2e4` by validating
+  invite URL origins, separating original inviter metadata from resend actor
+  metadata, and restoring jsdom globals in roadmap component tests.
+- Post-review focused validation passed on 2026-05-07:
+  `npm test -- tests/lib/project-collaboration-service.test.ts tests/components/project-roadmap-panel.test.tsx`,
+  `npm run lint`, and production-guarded
+  `OUTBOUND_EMAIL_DELIVERY_MODE=disabled npm run build`.
+- PR #245 required checks passed on 2026-05-07: `check-name`,
+  `Quality Core (lint, test, coverage, build)`, `E2E Smoke (Playwright)`, and
+  `Container Image (build + metadata artifact)`.
 
 ## Out Of Scope
 - Background retry workers, bounce webhooks, suppression lists, digesting, and

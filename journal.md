@@ -23,6 +23,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Evidence: `npm ci`; `npx prisma generate`; local migration deploy against the existing `127.0.0.1:5432` PostgreSQL service; focused invite-email tests passed (5 files, 23 tests); `npm run lint`; local DB `NODE_ENV=test npm test` passed (105 files passed, 2 skipped; 778 tests passed, 2 skipped); local DB `NODE_ENV=test npm run test:coverage` passed with 91.23% statements, 81.2% branches, 93.42% functions, and 91.75% lines; production-guarded `OUTBOUND_EMAIL_DELIVERY_MODE=disabled npm run build` passed after an initial expected local build guard failure without `RESEND_API_KEY`; `npm run test:e2e` passed all 8 Playwright tests. Manual live smoke created local project `cmovu31nw0000swsz9nhd1q80`, invited `galo.guccy@gmail.com` as an email-only recipient and `dorian.agaesse@gmail.com` as a matched verified local account, and recorded two sent `project_invitation` outbound delivery rows with provider message ids present.
 
 ### 2026-05-07
+- Type: Governance
+- Summary: TASK-104 PR #245 passed required checks and Copilot review follow-up.
+- Evidence: PR #245 was opened from `feature/task-104-invite-email-delivery`. Copilot's three actionable threads were addressed in commit `49ea2e4` by validating invite URL origins, separating original inviter metadata from resend actor metadata, and restoring jsdom globals in roadmap component tests. Post-review focused validation passed with `npm test -- tests/lib/project-collaboration-service.test.ts tests/components/project-roadmap-panel.test.tsx`, `npm run lint`, and production-guarded `OUTBOUND_EMAIL_DELIVERY_MODE=disabled npm run build`; GitHub checks passed for `check-name`, `Quality Core`, `E2E Smoke`, and `Container Image`.
+
+### 2026-05-07
 - Type: Execution
 - Summary: TASK-125 implemented the outbound email foundation with durable provider-aware delivery records.
 - Evidence: Added `OutboundEmailDelivery` schema/migration, `sendOutboundEmail`, typed auth/project-invitation/smoke template keys, Resend delivery-mode config through `lib/env.server.ts`, provider-safe structured logging, and refactored email verification/password reset sends onto the shared foundation while leaving owner-triggered invite email delivery for TASK-104.
