@@ -133,6 +133,7 @@ describe("project sharing route", () => {
       projectId: "project-1",
       invitedEmail: "user2@example.com",
       role: "viewer",
+      appOrigin: "http://localhost:3000",
     });
   });
 });

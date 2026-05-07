@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Mail } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/user-avatar";
 
 import {
+  formatInvitationEmailDelivery,
   formatIdentity,
+  type ProjectInvitationEmailDeliverySummary,
   type ProjectCollaboratorRole,
   type ProjectInvitationSummary,
   type ProjectMemberSummary,
@@ -21,9 +23,15 @@ interface ProjectDashboardOwnerAccessPanelProps {
   sharingSummary: ProjectSharingSummary | null;
   isMutatingMemberId: string | null;
   isMutatingInvitationId: string | null;
+  sendingInvitationEmailId: string | null;
+  invitationEmailDeliveries: Record<
+    string,
+    ProjectInvitationEmailDeliverySummary | undefined
+  >;
   onRoleChange: (member: ProjectMemberSummary, nextRole: ProjectCollaboratorRole) => void;
   onRemoveMember: (member: ProjectMemberSummary) => void;
   onCopyInvitationLink: (invitation: ProjectInvitationSummary) => Promise<boolean> | boolean;
+  onSendInvitationEmail: (invitation: ProjectInvitationSummary) => void;
   onRevokeInvitation: (invitation: ProjectInvitationSummary) => void;
 }
 
@@ -37,9 +45,12 @@ export function ProjectDashboardOwnerAccessPanel({
   sharingSummary,
   isMutatingMemberId,
   isMutatingInvitationId,
+  sendingInvitationEmailId,
+  invitationEmailDeliveries,
   onRoleChange,
   onRemoveMember,
   onCopyInvitationLink,
+  onSendInvitationEmail,
   onRevokeInvitation,
 }: ProjectDashboardOwnerAccessPanelProps) {
   const [copiedInvitationId, setCopiedInvitationId] = useState<string | null>(null);
@@ -183,6 +194,11 @@ export function ProjectDashboardOwnerAccessPanel({
                 );
                 const isEmailOnlyInvitation = !invitation.invitedUserDisplayName;
                 const isCopied = copiedInvitationId === invitation.invitationId;
+                const emailDeliveryMessage = formatInvitationEmailDelivery(
+                  invitationEmailDeliveries[invitation.invitationId]
+                );
+                const isSendingEmail =
+                  sendingInvitationEmailId === invitation.invitationId;
 
                 return (
                   <div
@@ -208,6 +224,11 @@ export function ProjectDashboardOwnerAccessPanel({
                       <p className="text-xs text-muted-foreground">
                         Expires {new Date(invitation.expiresAt).toLocaleDateString()}.
                       </p>
+                      {emailDeliveryMessage ? (
+                        <p className="text-xs text-muted-foreground">
+                          {emailDeliveryMessage}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       {isEmailOnlyInvitation ? (
@@ -243,6 +264,16 @@ export function ProjectDashboardOwnerAccessPanel({
                           Copy link
                         </Button>
                       )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onSendInvitationEmail(invitation)}
+                        disabled={isSendingEmail}
+                      >
+                        <Mail className="h-4 w-4" />
+                        {isSendingEmail ? "Sending..." : "Resend email"}
+                      </Button>
                       <Button
                         type="button"
                         variant="ghost"

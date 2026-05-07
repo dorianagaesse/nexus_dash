@@ -31,9 +31,12 @@ describe("project-dashboard-owner-access-panel", () => {
         },
         isMutatingMemberId: null,
         isMutatingInvitationId: null,
+        sendingInvitationEmailId: null,
+        invitationEmailDeliveries: {},
         onRoleChange: () => {},
         onRemoveMember: () => {},
         onCopyInvitationLink: () => true,
+        onSendInvitationEmail: () => {},
         onRevokeInvitation: () => {},
       })
     );
@@ -73,9 +76,21 @@ describe("project-dashboard-owner-access-panel", () => {
         },
         isMutatingMemberId: null,
         isMutatingInvitationId: null,
+        sendingInvitationEmailId: null,
+        invitationEmailDeliveries: {
+          "invite-1": {
+            status: "failed",
+            deliveryId: "delivery-1",
+            provider: "resend",
+            providerMessageId: null,
+            providerStatus: null,
+            error: "provider-unavailable",
+          },
+        },
         onRoleChange: () => {},
         onRemoveMember: () => {},
         onCopyInvitationLink: () => true,
+        onSendInvitationEmail: () => {},
         onRevokeInvitation: () => {},
       })
     );
@@ -84,6 +99,8 @@ describe("project-dashboard-owner-access-panel", () => {
     expect(result).toContain("Pending");
     expect(result).toContain('aria-label="Invite link for person@example.com"');
     expect(result).toContain('aria-label="Copy invite link for person@example.com"');
+    expect(result).toContain("Resend email");
+    expect(result).toContain("Email provider unavailable.");
     expect(result).toContain("/invite/project/invite-1");
   });
 });

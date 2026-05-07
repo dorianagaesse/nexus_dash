@@ -35,6 +35,29 @@ import { ProjectRoadmapPanel } from "@/components/project-roadmap-panel";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 vi.stubGlobal("fetch", fetchMock);
 
+function installMatchMediaMock(matches = true) {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
+class ResizeObserverMock {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+
 function createTestRenderer() {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -55,6 +78,8 @@ async function renderWithRoot(root: Root, ui: React.ReactElement) {
 describe("project-roadmap-panel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    installMatchMediaMock();
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
     projectSectionExpandedMock.isExpanded = false;
     fetchMock.mockReset();
   });

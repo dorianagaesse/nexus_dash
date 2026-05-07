@@ -48,9 +48,12 @@ Delivery modes:
   only for explicit smoke tests or controlled diagnostics.
 
 TASK-125 records each delivery attempt in `OutboundEmailDelivery` before
-contacting the provider. The current foundation does not run background retry
-workers, bounce webhooks, suppression handling, or notification preferences;
-failed sends are recorded and returned to the caller synchronously.
+contacting the provider. TASK-104 routes project invitation email sends through
+that same foundation, using absolute invite URLs derived from the trusted app
+origin and preserving copy-link fallback behavior when delivery is skipped or
+fails. The current foundation does not run background retry workers, bounce
+webhooks, suppression handling, or notification preferences; failed sends are
+recorded and returned to the caller synchronously.
 
 If Google OAuth is enabled:
 

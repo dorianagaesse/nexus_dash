@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
+import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
 import { logServerWarning } from "@/lib/observability/logger";
 import {
   getProjectSharingSummary,
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     invitedEmail:
       typeof payload.invitedEmail === "string" ? payload.invitedEmail : "",
     role: typeof payload.role === "string" ? payload.role : "",
+    appOrigin: resolveRequestOriginFromHeaders(request.headers),
   });
 
   if (!result.ok) {

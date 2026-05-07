@@ -1,108 +1,124 @@
-# Current Task: TASK-125 Outbound Email Foundation
+# Current Task: TASK-104 Invite Email Delivery
 
 ## Task ID
-TASK-125
+TASK-104
 
 ## Status
-Complete on `feature/task-125-outbound-email-foundation`; PR #243 is open,
-Copilot review threads are resolved, and required checks are green.
+Implemented locally on `feature/task-104-invite-email-delivery`; PR workflow
+pending.
 
 ## Objective
-Establish a reusable NexusDash-owned outbound email foundation so transactional
-emails can be sent through one provider-aware service with explicit sender
-identity, template identity, durable delivery observability, and consistent
-failure handling.
+Add app-managed email delivery for project collaboration invitations so project
+owners can send invite links directly from NexusDash while preserving the
+identity-bound invite model, copy-link fallback, notification-center behavior,
+and outbound-email observability foundation.
+
+## Context
+- TASK-103 shipped email-bound project invitations whose links are delivery
+  mechanisms only; acceptance still requires a verified signed-in account whose
+  email matches the invited address.
+- TASK-123 sends in-app notifications for verified invitees.
+- TASK-125 shipped `sendOutboundEmail`, durable `OutboundEmailDelivery` records,
+  delivery modes, and `buildProjectInvitationEmail`.
+- Current owner UI creates/copies invite links, but does not send email.
 
 ## Scope
-- Keep Resend as the outbound email provider because the existing
-  verification/password-reset path already uses `RESEND_API_KEY` and
-  `RESEND_FROM_EMAIL`.
-- Replace the current narrow transactional email helper with an
-  app-owned outbound email service that records each delivery attempt.
-- Track provider, sender, recipient, template key, subject, status, provider
-  response id/status, error code/message, timestamps, and safe metadata in the
-  database.
-- Refactor email verification and password reset sends to use the shared
-  foundation without changing their token security or user-facing flows.
-- Add a future-ready project invitation template contract without enabling
-  owner-triggered invite email delivery yet.
-- Document provider/env behavior and the explicit no-background-retry decision.
-- Run a live email smoke to `dorian.agaesse@gmail.com` if a usable Resend API
-  key is locally available, without committing or logging secrets.
+- Send project invitation emails through the shared outbound email foundation
+  using the `project_invitation` template key.
+- Resolve absolute invite URLs from the trusted request origin in the API route,
+  then keep email composition and delivery inside service-layer code.
+- Keep invitation creation authoritative in the collaboration service:
+  successful, skipped, or failed email delivery must not make the invite link an
+  anonymous bearer token or weaken email-bound acceptance.
+- Preserve copyable invite links as a fallback for every pending invitation.
+- Add owner-visible delivery feedback for newly created invites and pending
+  invite resend attempts, including skipped/failed states in development,
+  preview, disabled, or provider-failure cases.
+- Add a resend path for active pending invitations so owners can trigger email
+  delivery again without creating a replacement invite.
+- Record safe delivery metadata that ties outbound records to invitation,
+  project, role, and actor identifiers without storing secrets or raw provider
+  payloads.
+- Update docs/runbooks only where behavior or env expectations change.
 
 ## Acceptance Criteria
-1. `tasks/current.md` records TASK-125 scope, acceptance criteria, definition
-   of done, and validation evidence.
-2. Outbound email delivery has a single service entry point with typed template
-   keys and provider configuration resolved through `lib/env.server.ts`.
-3. Delivery attempts are durably recorded in Prisma/PostgreSQL with sent,
-   skipped, and failed outcomes.
-4. Email verification and password reset flows continue to create and clean up
-   tokens correctly when delivery succeeds, is skipped, or fails.
-5. The foundation includes a project-invitation template shape for TASK-104 but
-   does not add app-managed invite sending UX/API behavior.
-6. Provider failures return consistent typed errors and structured logs without
-   exposing secrets.
-7. Focused Vitest coverage exercises provider config, skipped delivery,
-   successful Resend delivery, provider rejection, delivery-record updates, and
-   auth email service integration.
-8. Docs/env examples describe the outbound email provider, sender identity, and
-   current retry/preview behavior.
-9. `journal.md` records implementation decisions and validation evidence.
-10. `tasks/backlog.md` marks TASK-125 complete only after implementation,
-    validation, PR checks, and Copilot review are handled.
+1. `tasks/current.md` records TASK-104 scope, acceptance criteria, definition of
+   done, and validation evidence.
+2. Owner-created project invites trigger app-managed invitation email delivery
+   through `sendOutboundEmail` when delivery mode permits, and record sent,
+   skipped, or failed outcomes in `OutboundEmailDelivery`.
+3. Owners can resend email for active pending invitations from the project
+   contributors/sharing surface without replacing the invitation link.
+4. Email delivery failure is visible to the owner, logged safely, and does not
+   silently revoke, accept, replace, or otherwise mutate the underlying invite.
+5. Invite emails use absolute trusted-origin URLs, sanitized project/inviter
+   fields, role-aware copy, and the existing expiration timestamp.
+6. Existing in-app notification behavior for verified invitees remains intact
+   and is not duplicated into a second notification system.
+7. Direct email-only invites and verified-user invites both keep copy-link
+   fallback behavior.
+8. API/service contracts stay thin and layered: Prisma access remains in
+   `lib/services/**`, provider access stays in the outbound email service, and
+   routes only parse request data, resolve request context, call services, and
+   map responses.
+9. Focused Vitest coverage exercises create-send success, skipped delivery,
+   provider failure, resend success/failure, inactive-invite resend rejection,
+   route payload/context forwarding, and relevant owner UI rendering states.
+10. `journal.md` records implementation decisions and validation evidence before
+    handoff.
 
 ## Definition Of Done
-- TASK-125 uses the dedicated branch/worktree required by `agent.md`.
-- The implementation keeps persistence inside `lib/services/**` and avoids
-  leaking secrets into logs, tests, docs, or commits.
+- TASK-104 uses the dedicated branch required by `agent.md`.
+- The implementation preserves TASK-103's verified-email acceptance boundary and
+  TASK-125's outbound email delivery-mode semantics.
 - Local validation passes: `npm run lint`, `npm test`,
   `npm run test:coverage`, and `npm run build`.
-- A live email smoke to `dorian.agaesse@gmail.com` is attempted and the result
-  is recorded without exposing credentials.
+- UI-affecting sharing changes are covered by focused component/API tests; run
+  `npm run test:e2e` if the implemented interaction requires browser-level
+  verification beyond static/component coverage.
+- A live invitation-email smoke is attempted only if a usable Resend API key and
+  safe recipient are locally available; otherwise the skipped/failure path is
+  documented in validation evidence without exposing secrets.
 - The branch is pushed, a PR is opened, required checks are green, and Copilot
   review feedback is addressed or explicitly resolved.
 
 ## Validation Evidence
-- `npx prisma generate` passed on 2026-05-07 after installing worktree
-  dependencies with `npm ci`.
+- `npm ci` passed on 2026-05-07 in the TASK-104 worktree.
+- `npx prisma generate` passed on 2026-05-07.
+- `npm run db:local:up` could not bind worktree Postgres to `5432` because an
+  existing NexusDash local PostgreSQL service already owned the port; the failed
+  task104 Compose container was removed with `docker compose down`.
+- `npm run db:migrate` passed on 2026-05-07 against
+  `postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public` with
+  no pending migrations.
 - Focused validation passed on 2026-05-07:
-  `npm test -- --run tests/lib/outbound-email-service.test.ts tests/lib/email-verification-service.test.ts tests/lib/password-reset-service.test.ts tests/lib/env.server.test.ts`
-  with 90 tests passing.
+  `npm test -- tests/components/project-dashboard-owner-sharing-panel.test.tsx tests/components/project-dashboard-owner-access-panel.test.tsx tests/lib/project-collaboration-service.test.ts tests/api/project-sharing.route.test.ts tests/api/project-sharing-invitation-email.route.test.ts`
+  with 5 files and 23 tests passing.
 - `npm run lint` passed on 2026-05-07.
-- `npm test` passed on 2026-05-07 with local DB env and `NODE_ENV=test`: 98
-  files passed, 2 skipped; 758 tests passed, 2 skipped.
-- `npm run test:coverage` passed on 2026-05-07 with 91.23% statements, 81.2%
-  branches, 93.42% functions, and 91.75% lines.
-- `npm run build` passed on 2026-05-07 with local PostgreSQL env and
-  production guard variables.
-- Live outbound email smoke passed on 2026-05-07:
-  `RUN_OUTBOUND_EMAIL_SMOKE=1 OUTBOUND_EMAIL_DELIVERY_MODE=live OUTBOUND_EMAIL_SMOKE_TO=dorian.agaesse@gmail.com npm test -- --run tests/lib/outbound-email-service.live.test.ts`.
-- `npm run test:e2e` first failed because production-mode password recovery had
-  no trusted local request origin; rerunning with
-  `TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000` passed on
-  2026-05-07 with all 8 Playwright tests passing.
-- Copilot review on PR #243 produced three comments; follow-up commit
-  `925af2a` sanitized project-invitation subject/plain-text fields, made
-  failed-delivery status updates non-throwing, and changed omitted metadata to
-  SQL NULL via `Prisma.DbNull`.
-- Post-Copilot local validation passed on 2026-05-07:
-  `npm test -- --run tests/lib/outbound-email-service.test.ts tests/lib/outbound-email-templates.test.ts`,
-  `npm run lint`, local DB `NODE_ENV=test npm test`, local DB
-  `NODE_ENV=test npm run test:coverage`, and production-guarded
-  `npm run build`.
-- PR #243 checks passed on 2026-05-07 after the Copilot follow-up:
-  `check-name`, `Quality Core (lint, test, coverage, build)`,
-  `E2E Smoke (Playwright)`, and `Container Image (build + metadata artifact)`.
-- All three Copilot review threads were replied to and resolved on PR #243.
-- Local database note: the task worktree's Compose Postgres could not bind
-  port `5432` because `nexus_dash_issue214_codex-postgres-1` was already
-  running there. Validation used that reachable local PostgreSQL service and
-  applied the TASK-125 migration successfully.
+- Full local DB `NODE_ENV=test npm test` passed on 2026-05-07 with 105 files
+  passed, 2 skipped; 778 tests passed, 2 skipped.
+- Full local DB `NODE_ENV=test npm run test:coverage` passed on 2026-05-07
+  with 91.23% statements, 81.2% branches, 93.42% functions, and 91.75% lines.
+- A first `npm run build` attempt failed because non-Vercel production build
+  validation treated outbound email `auto` as live and no local
+  `RESEND_API_KEY` was intentionally exposed to the build command.
+- Production-guarded `OUTBOUND_EMAIL_DELIVERY_MODE=disabled npm run build`
+  passed on 2026-05-07 with local PostgreSQL, trusted localhost origins, and a
+  local agent token signing secret.
+- `npm run test:e2e` passed on 2026-05-07 with local PostgreSQL,
+  `OUTBOUND_EMAIL_DELIVERY_MODE=disabled`, trusted localhost origins, and all 8
+  Playwright tests passing.
+- Manual live invite smoke passed on 2026-05-07 against the local app:
+  created project `cmovu31nw0000swsz9nhd1q80`, invited
+  `galo.guccy@gmail.com` as an email-only recipient and
+  `dorian.agaesse@gmail.com` as a matched verified local account, and recorded
+  two `project_invitation` outbound delivery rows with `sent` status and
+  provider message ids present.
 
 ## Out Of Scope
-- Owner-facing project invite email delivery; this remains TASK-104.
-- Background workers, automatic retry queues, bounce webhooks, suppression
-  lists, and notification-preference UI.
-- Changing auth token TTLs, verification/reset copy beyond shared template
-  plumbing, or widening agent/API scopes.
+- Background retry workers, bounce webhooks, suppression lists, digesting, and
+  notification preference UI.
+- Changing invite token/identity semantics or allowing anonymous link claiming.
+- App-managed outbound email for notification digests or due-date reminders;
+  those remain TASK-225 and TASK-226.
+- Calendar, attachment, and agent API scope changes.

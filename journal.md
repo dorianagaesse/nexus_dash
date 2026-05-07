@@ -14,6 +14,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-05-07
 - Type: Execution
+- Summary: TASK-104 implemented app-managed project invitation email delivery.
+- Evidence: Added trusted-origin invite email sending for owner-created invitations, a resend endpoint at `/api/projects/[projectId]/sharing/invitations/[invitationId]/email`, owner UI delivery feedback and resend controls, safe outbound metadata, and copy-link fallback preservation. Updated `lib/services/project-collaboration-service.ts`, sharing API routes, owner sharing/access panels, component/API/service tests, and the outbound email runbook.
+
+### 2026-05-07
+- Type: Validation
+- Summary: TASK-104 passed local validation and live invitation-email smoke testing.
+- Evidence: `npm ci`; `npx prisma generate`; local migration deploy against the existing `127.0.0.1:5432` PostgreSQL service; focused invite-email tests passed (5 files, 23 tests); `npm run lint`; local DB `NODE_ENV=test npm test` passed (105 files passed, 2 skipped; 778 tests passed, 2 skipped); local DB `NODE_ENV=test npm run test:coverage` passed with 91.23% statements, 81.2% branches, 93.42% functions, and 91.75% lines; production-guarded `OUTBOUND_EMAIL_DELIVERY_MODE=disabled npm run build` passed after an initial expected local build guard failure without `RESEND_API_KEY`; `npm run test:e2e` passed all 8 Playwright tests. Manual live smoke created local project `cmovu31nw0000swsz9nhd1q80`, invited `galo.guccy@gmail.com` as an email-only recipient and `dorian.agaesse@gmail.com` as a matched verified local account, and recorded two sent `project_invitation` outbound delivery rows with provider message ids present.
+
+### 2026-05-07
+- Type: Execution
 - Summary: TASK-125 implemented the outbound email foundation with durable provider-aware delivery records.
 - Evidence: Added `OutboundEmailDelivery` schema/migration, `sendOutboundEmail`, typed auth/project-invitation/smoke template keys, Resend delivery-mode config through `lib/env.server.ts`, provider-safe structured logging, and refactored email verification/password reset sends onto the shared foundation while leaving owner-triggered invite email delivery for TASK-104.
 

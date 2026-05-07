@@ -17,10 +17,12 @@ import { ProjectDashboardOwnerGeneralPanel } from "@/components/project-dashboar
 import { ProjectDashboardOwnerSharingPanel } from "@/components/project-dashboard/project-dashboard-owner-sharing-panel";
 import {
   type GeneratedProjectInvitationLink,
+  formatInvitationEmailDelivery,
   mapAgentAccessError,
   mapProjectMutationError,
   mapSharingError,
   type CollaboratorIdentitySummary,
+  type ProjectInvitationEmailDeliverySummary,
   type ProjectAgentAccessSummary,
   type ProjectAgentCredentialIssuedSecret,
   type ProjectAgentCredentialSummary,
@@ -88,6 +90,11 @@ export function ProjectDashboardOwnerActions({
   const [isInvitingUserId, setIsInvitingUserId] = useState<string | null>(null);
   const [isMutatingMemberId, setIsMutatingMemberId] = useState<string | null>(null);
   const [isMutatingInvitationId, setIsMutatingInvitationId] = useState<string | null>(null);
+  const [sendingInvitationEmailId, setSendingInvitationEmailId] =
+    useState<string | null>(null);
+  const [invitationEmailDeliveries, setInvitationEmailDeliveries] = useState<
+    Record<string, ProjectInvitationEmailDeliverySummary | undefined>
+  >({});
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
   const [generatedInvitationLink, setGeneratedInvitationLink] =
     useState<GeneratedProjectInvitationLink | null>(null);
@@ -116,7 +123,8 @@ export function ProjectDashboardOwnerActions({
       isSavingProject ||
       isDeletingProject ||
       isCreatingAgentCredential ||
-      mutatingAgentCredentialId
+      mutatingAgentCredentialId ||
+      sendingInvitationEmailId
     ) {
       return;
     }
@@ -365,6 +373,36 @@ export function ProjectDashboardOwnerActions({
     }
   };
 
+  const rememberInvitationEmailDelivery = (
+    invitationId: string,
+    delivery: ProjectInvitationEmailDeliverySummary | null | undefined
+  ) => {
+    if (!delivery) {
+      return;
+    }
+
+    setInvitationEmailDeliveries((current) => ({
+      ...current,
+      [invitationId]: delivery,
+    }));
+  };
+
+  const buildInvitationEmailDeliveryToast = (
+    delivery: ProjectInvitationEmailDeliverySummary | null | undefined,
+    fallback: string
+  ) => {
+    const message = formatInvitationEmailDelivery(delivery);
+    if (!message) {
+      return fallback;
+    }
+
+    if (delivery?.status === "sent") {
+      return message;
+    }
+
+    return `${fallback} ${message}`;
+  };
+
   const handleInviteEmail = async (
     invitedEmail: string,
     label: string,
@@ -392,6 +430,7 @@ export function ProjectDashboardOwnerActions({
         | {
             error?: string;
             invitation?: ProjectInvitationSummary;
+            emailDelivery?: ProjectInvitationEmailDeliverySummary;
           }
         | null;
 
@@ -400,25 +439,37 @@ export function ProjectDashboardOwnerActions({
       }
 
       const invitation = payload?.invitation ?? null;
+      const emailDelivery = payload?.emailDelivery ?? null;
 
       if (source === "email" && invitation) {
+        rememberInvitationEmailDelivery(invitation.invitationId, emailDelivery);
         setGeneratedInvitationLink({
           invitation,
           url: buildAbsoluteInvitationLink(invitation.inviteLinkPath, window.location.origin),
+          emailDelivery,
         });
         setSearchMessage(null);
         pushToast({
-          variant: "success",
-          message: `Invite link ready for ${invitedEmail}.`,
+          variant: emailDelivery?.status === "failed" ? "error" : "success",
+          message: buildInvitationEmailDeliveryToast(
+            emailDelivery,
+            `Invite link ready for ${invitedEmail}.`
+          ),
         });
       } else {
+        if (invitation) {
+          rememberInvitationEmailDelivery(invitation.invitationId, emailDelivery);
+        }
         setGeneratedInvitationLink(null);
         setInviteQuery("");
         setInviteResults([]);
         setSearchMessage(null);
         pushToast({
-          variant: "success",
-          message: `${label} invited as ${inviteRole}.`,
+          variant: emailDelivery?.status === "failed" ? "error" : "success",
+          message: buildInvitationEmailDeliveryToast(
+            emailDelivery,
+            `${label} invited as ${inviteRole}.`
+          ),
         });
       }
 
@@ -446,6 +497,58 @@ export function ProjectDashboardOwnerActions({
     }
 
     await handleInviteEmail(user.email, user.displayName, user.id, "user");
+  };
+
+  const handleSendInvitationEmail = async (
+    invitation: ProjectInvitationSummary
+  ) => {
+    if (sendingInvitationEmailId) {
+      return;
+    }
+
+    setSendingInvitationEmailId(invitation.invitationId);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/sharing/invitations/${invitation.invitationId}/email`,
+        {
+          method: "POST",
+        }
+      );
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            invitation?: ProjectInvitationSummary;
+            emailDelivery?: ProjectInvitationEmailDeliverySummary;
+            error?: string;
+          }
+        | null;
+
+      if (!response.ok || !payload?.emailDelivery) {
+        throw new Error(mapSharingError(payload?.error ?? "invite-email-failed"));
+      }
+
+      rememberInvitationEmailDelivery(
+        invitation.invitationId,
+        payload.emailDelivery
+      );
+      pushToast({
+        variant: payload.emailDelivery.status === "failed" ? "error" : "success",
+        message: buildInvitationEmailDeliveryToast(
+          payload.emailDelivery,
+          `Invite link remains ready for ${invitation.invitedEmail}.`
+        ),
+      });
+    } catch (error) {
+      pushToast({
+        variant: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Could not send the invitation email. Please retry.",
+      });
+    } finally {
+      setSendingInvitationEmailId(null);
+    }
   };
 
   const handleRoleChange = async (
@@ -947,11 +1050,16 @@ export function ProjectDashboardOwnerActions({
                       sharingSummary={sharingSummary}
                       isMutatingMemberId={isMutatingMemberId}
                       isMutatingInvitationId={isMutatingInvitationId}
+                      sendingInvitationEmailId={sendingInvitationEmailId}
+                      invitationEmailDeliveries={invitationEmailDeliveries}
                       onRoleChange={(member, nextRole) =>
                         void handleRoleChange(member, nextRole)
                       }
                       onRemoveMember={(member) => void handleRemoveMember(member)}
                       onCopyInvitationLink={handleCopyInvitationLink}
+                      onSendInvitationEmail={(invitation) =>
+                        void handleSendInvitationEmail(invitation)
+                      }
                       onRevokeInvitation={(invitation) =>
                         void handleRevokeInvitation(invitation)
                       }

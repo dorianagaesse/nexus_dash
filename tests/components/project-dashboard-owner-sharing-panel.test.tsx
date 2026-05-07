@@ -28,11 +28,19 @@ describe("project-dashboard-owner-sharing-panel", () => {
             invitedByEmail: "owner@example.com",
             role: "editor",
             createdAt: "2026-03-25T10:00:00.000Z",
-            expiresAt: "2026-04-08T10:00:00.000Z",
-            inviteLinkPath: "/invite/project/invite-1",
-          },
-          url: "https://nexusdash.test/invite/project/invite-1",
+          expiresAt: "2026-04-08T10:00:00.000Z",
+          inviteLinkPath: "/invite/project/invite-1",
         },
+        url: "https://nexusdash.test/invite/project/invite-1",
+        emailDelivery: {
+          status: "sent",
+          deliveryId: "delivery-1",
+          provider: "resend",
+          providerMessageId: "provider-1",
+          providerStatus: null,
+          error: null,
+        },
+      },
         isSearchingUsers: false,
         isInvitingUserId: null,
         searchMessage: null,
@@ -47,6 +55,7 @@ describe("project-dashboard-owner-sharing-panel", () => {
     expect(result).toContain("Share access");
     expect(result).toContain("Invite link ready");
     expect(result).toContain("Bound to person@example.com.");
+    expect(result).toContain("Invitation email sent.");
     expect(result).toContain("https://nexusdash.test/invite/project/invite-1");
     expect(result).toContain('aria-label="Copy invite link for person@example.com"');
   });

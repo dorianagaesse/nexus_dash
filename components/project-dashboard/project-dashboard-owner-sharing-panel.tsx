@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/user-avatar";
 
 import {
+  formatInvitationEmailDelivery,
   formatIdentity,
   type CollaboratorIdentitySummary,
   type GeneratedProjectInvitationLink,
@@ -61,6 +62,9 @@ export function ProjectDashboardOwnerSharingPanel({
     generatedInvitationLink?.invitation.invitedEmail === inviteEmailCandidate;
   const isGeneratedInvitationCopied =
     copiedInvitationId === generatedInvitationLink?.invitation.invitationId;
+  const generatedEmailDeliveryMessage = formatInvitationEmailDelivery(
+    generatedInvitationLink?.emailDelivery
+  );
 
   useEffect(() => {
     if (!copiedInvitationId) {
@@ -154,6 +158,11 @@ export function ProjectDashboardOwnerSharingPanel({
               <p className="text-xs text-muted-foreground">
                 Bound to {generatedInvitationLink.invitation.invitedEmail}.
               </p>
+              {generatedEmailDeliveryMessage ? (
+                <p className="text-xs text-muted-foreground">
+                  {generatedEmailDeliveryMessage}
+                </p>
+              ) : null}
               <div className="flex max-w-full items-center gap-2 md:max-w-[28rem]">
                 <input
                   readOnly

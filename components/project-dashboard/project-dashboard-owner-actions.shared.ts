@@ -43,6 +43,21 @@ export interface ProjectInvitationSummary {
   inviteLinkPath: string;
 }
 
+export interface ProjectInvitationEmailDeliverySummary {
+  status: "sent" | "skipped" | "failed";
+  deliveryId: string | null;
+  provider: "resend";
+  providerMessageId: string | null;
+  providerStatus: number | null;
+  error:
+    | "invalid-recipient"
+    | "delivery-record-failed"
+    | "provider-unavailable"
+    | "provider-rejected"
+    | "invite-url-unavailable"
+    | null;
+}
+
 export interface ProjectSharingSummary {
   projectId: string;
   members: ProjectMemberSummary[];
@@ -93,6 +108,7 @@ export interface ProjectAgentCredentialIssuedSecret {
 export interface GeneratedProjectInvitationLink {
   invitation: ProjectInvitationSummary;
   url: string;
+  emailDelivery: ProjectInvitationEmailDeliverySummary | null;
 }
 
 export const ROLE_COPY: Record<ProjectCollaboratorRole, string> = {
@@ -135,10 +151,41 @@ export function mapSharingError(errorCode: string): string {
       return "The owner cannot be removed from the project.";
     case "invitation-not-found":
       return "Invitation not found.";
+    case "invitation-not-active":
+      return "That invitation is no longer active.";
     case "forbidden":
       return "Only the project owner can manage sharing.";
     default:
       return "Could not update project sharing. Please retry.";
+  }
+}
+
+export function formatInvitationEmailDelivery(
+  delivery: ProjectInvitationEmailDeliverySummary | null | undefined
+): string | null {
+  if (!delivery) {
+    return null;
+  }
+
+  if (delivery.status === "sent") {
+    return "Invitation email sent.";
+  }
+
+  if (delivery.status === "skipped") {
+    return "Email delivery skipped in this environment.";
+  }
+
+  switch (delivery.error) {
+    case "provider-unavailable":
+      return "Email provider unavailable. Copy the invite link instead.";
+    case "provider-rejected":
+      return "Email provider rejected the invite. Copy the invite link instead.";
+    case "invalid-recipient":
+      return "Recipient email could not be used for delivery.";
+    case "invite-url-unavailable":
+      return "Could not build the invite email link. Copy the invite link instead.";
+    default:
+      return "Invitation email could not be sent. Copy the invite link instead.";
   }
 }
 

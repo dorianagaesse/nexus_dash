@@ -18,7 +18,10 @@ import {
   createProjectInvitationNotification,
   resolveProjectInvitationNotifications,
 } from "@/lib/services/notification-service";
+import { sendOutboundEmail } from "@/lib/services/outbound-email-service";
+import { buildProjectInvitationEmail } from "@/lib/services/outbound-email-templates";
 import { withActorRlsContext, type DbClient } from "@/lib/services/rls-context";
+import { logServerWarning } from "@/lib/observability/logger";
 
 const PROJECT_INVITATION_TTL_DAYS = 14;
 const INVITABLE_USER_SEARCH_LIMIT = 8;
@@ -70,6 +73,22 @@ export interface ProjectInvitationSummary {
   createdAt: string;
   expiresAt: string;
   inviteLinkPath: string;
+}
+
+export type ProjectInvitationEmailDeliveryError =
+  | "invalid-recipient"
+  | "delivery-record-failed"
+  | "provider-unavailable"
+  | "provider-rejected"
+  | "invite-url-unavailable";
+
+export interface ProjectInvitationEmailDeliverySummary {
+  status: "sent" | "skipped" | "failed";
+  deliveryId: string | null;
+  provider: "resend";
+  providerMessageId: string | null;
+  providerStatus: number | null;
+  error: ProjectInvitationEmailDeliveryError | null;
 }
 
 export interface ProjectSharingSummary {
@@ -296,6 +315,21 @@ function buildProjectInvitationPath(invitationId: string): string {
   return `${PROJECT_INVITATION_PATH_PREFIX}/${encodeURIComponent(normalizedInvitationId)}`;
 }
 
+function buildAbsoluteProjectInvitationUrl(
+  appOrigin: string | null | undefined,
+  invitation: ProjectInvitationSummary
+): string | null {
+  if (typeof appOrigin !== "string" || !appOrigin.trim()) {
+    return null;
+  }
+
+  try {
+    return new URL(invitation.inviteLinkPath, appOrigin).toString();
+  } catch {
+    return null;
+  }
+}
+
 export function buildProjectInvitationReturnToPath(
   invitationId: string
 ): string {
@@ -479,6 +513,78 @@ function buildProjectInvitationSummary(input: {
     expiresAt: input.invitation.expiresAt.toISOString(),
     inviteLinkPath: buildProjectInvitationPath(invitationId),
   } satisfies ProjectInvitationSummary;
+}
+
+async function sendProjectInvitationEmail(input: {
+  actorUserId: string;
+  appOrigin: string | null | undefined;
+  invitation: ProjectInvitationSummary;
+}): Promise<ProjectInvitationEmailDeliverySummary> {
+  const inviteUrl = buildAbsoluteProjectInvitationUrl(
+    input.appOrigin,
+    input.invitation
+  );
+  if (!inviteUrl) {
+    logServerWarning(
+      "sendProjectInvitationEmail",
+      "Could not resolve an absolute project invitation URL for email delivery.",
+      {
+        invitationId: input.invitation.invitationId,
+        projectId: input.invitation.projectId,
+      }
+    );
+
+    return {
+      status: "failed",
+      deliveryId: null,
+      provider: "resend",
+      providerMessageId: null,
+      providerStatus: null,
+      error: "invite-url-unavailable",
+    };
+  }
+
+  const message = buildProjectInvitationEmail({
+    inviteUrl,
+    projectName: input.invitation.projectName,
+    invitedByDisplayName: input.invitation.invitedByDisplayName,
+    role: input.invitation.role,
+    expiresAt: new Date(input.invitation.expiresAt),
+  });
+
+  const result = await sendOutboundEmail({
+    templateKey: "project_invitation",
+    to: input.invitation.invitedEmail,
+    subject: message.subject,
+    text: message.text,
+    html: message.html,
+    metadata: {
+      invitationId: input.invitation.invitationId,
+      projectId: input.invitation.projectId,
+      invitedByUserId: input.actorUserId,
+      role: input.invitation.role,
+    },
+  });
+
+  if (!result.ok) {
+    return {
+      status: "failed",
+      deliveryId: result.deliveryId,
+      provider: result.provider,
+      providerMessageId: null,
+      providerStatus: result.providerStatus ?? null,
+      error: result.error,
+    };
+  }
+
+  return {
+    status: result.delivery,
+    deliveryId: result.deliveryId,
+    provider: result.provider,
+    providerMessageId: result.providerMessageId,
+    providerStatus: null,
+    error: null,
+  };
 }
 
 async function findInvitationById(
@@ -682,7 +788,13 @@ export async function inviteUserToProject(input: {
   projectId: string;
   invitedEmail: string;
   role: string;
-}): Promise<ServiceResult<{ invitation: ProjectInvitationSummary }>> {
+  appOrigin?: string | null;
+}): Promise<
+  ServiceResult<{
+    invitation: ProjectInvitationSummary;
+    emailDelivery: ProjectInvitationEmailDeliverySummary;
+  }>
+> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   const invitedEmail = normalizeInvitationEmail(input.invitedEmail);
   if (!actorUserId) {
@@ -700,7 +812,7 @@ export async function inviteUserToProject(input: {
 
   const now = new Date();
 
-  return withActorRlsContext(actorUserId, async (db) => {
+  const invitationResult = await withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
       projectId: input.projectId,
@@ -883,6 +995,128 @@ export async function inviteUserToProject(input: {
 
       throw error;
     }
+  });
+
+  if (!invitationResult.ok) {
+    return invitationResult;
+  }
+
+  const emailDelivery = await sendProjectInvitationEmail({
+    actorUserId,
+    appOrigin: input.appOrigin,
+    invitation: invitationResult.data.invitation,
+  });
+
+  return createSuccess(invitationResult.status, {
+    invitation: invitationResult.data.invitation,
+    emailDelivery,
+  });
+}
+
+export async function sendProjectInvitationEmailForOwner(input: {
+  actorUserId: string;
+  projectId: string;
+  invitationId: string;
+  appOrigin?: string | null;
+}): Promise<
+  ServiceResult<{
+    invitation: ProjectInvitationSummary;
+    emailDelivery: ProjectInvitationEmailDeliverySummary;
+  }>
+> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  const invitationId = normalizeInvitationId(input.invitationId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  if (!invitationId) {
+    return createError(400, "invitation-required");
+  }
+
+  const now = new Date();
+
+  const invitationResult = await withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "owner",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
+
+    const invitation = await db.projectInvitation.findUnique({
+      where: { id: invitationId },
+      select: {
+        id: true,
+        projectId: true,
+        invitedEmail: true,
+        role: true,
+        createdAt: true,
+        expiresAt: true,
+        acceptedAt: true,
+        revokedAt: true,
+        replacedAt: true,
+        project: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        invitedByUser: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            username: true,
+            usernameDiscriminator: true,
+          },
+        },
+      },
+    });
+
+    if (!invitation || invitation.projectId !== input.projectId) {
+      return createError(404, "invitation-not-found");
+    }
+
+    if (
+      invitation.acceptedAt ||
+      invitation.revokedAt ||
+      invitation.replacedAt ||
+      invitation.expiresAt.getTime() <= now.getTime()
+    ) {
+      return createError(409, "invitation-not-active");
+    }
+
+    const matchedInvitees = await getVerifiedUsersByEmail(db, [
+      invitation.invitedEmail,
+    ]);
+    return createSuccess(200, {
+      invitation: buildProjectInvitationSummary({
+        invitation,
+        invitedBy: invitation.invitedByUser,
+        matchedInvitee:
+          matchedInvitees.get(normalizeInvitationEmail(invitation.invitedEmail)) ??
+          null,
+      }),
+    });
+  });
+
+  if (!invitationResult.ok) {
+    return invitationResult;
+  }
+
+  const emailDelivery = await sendProjectInvitationEmail({
+    actorUserId,
+    appOrigin: input.appOrigin,
+    invitation: invitationResult.data.invitation,
+  });
+
+  return createSuccess(200, {
+    invitation: invitationResult.data.invitation,
+    emailDelivery,
   });
 }
 
