@@ -323,11 +323,21 @@ function buildAbsoluteProjectInvitationUrl(
     return null;
   }
 
+  let safeOrigin: string;
   try {
-    return new URL(invitation.inviteLinkPath, appOrigin).toString();
+    const parsedOrigin = new URL(appOrigin);
+    if (
+      (parsedOrigin.protocol !== "http:" && parsedOrigin.protocol !== "https:") ||
+      parsedOrigin.origin === "null"
+    ) {
+      return null;
+    }
+    safeOrigin = parsedOrigin.origin;
   } catch {
     return null;
   }
+
+  return new URL(invitation.inviteLinkPath, safeOrigin).toString();
 }
 
 export function buildProjectInvitationReturnToPath(
@@ -517,6 +527,7 @@ function buildProjectInvitationSummary(input: {
 
 async function sendProjectInvitationEmail(input: {
   actorUserId: string;
+  invitedByUserId: string;
   appOrigin: string | null | undefined;
   invitation: ProjectInvitationSummary;
 }): Promise<ProjectInvitationEmailDeliverySummary> {
@@ -561,7 +572,8 @@ async function sendProjectInvitationEmail(input: {
     metadata: {
       invitationId: input.invitation.invitationId,
       projectId: input.invitation.projectId,
-      invitedByUserId: input.actorUserId,
+      invitedByUserId: input.invitedByUserId,
+      triggeredByUserId: input.actorUserId,
       role: input.invitation.role,
     },
   });
@@ -987,6 +999,7 @@ export async function inviteUserToProject(input: {
 
       return createSuccess(201, {
         invitation: invitationSummary,
+        invitedByUserId: invitation.invitedByUser.id,
       });
     } catch (error) {
       if (isUniqueConstraintError(error)) {
@@ -1003,6 +1016,7 @@ export async function inviteUserToProject(input: {
 
   const emailDelivery = await sendProjectInvitationEmail({
     actorUserId,
+    invitedByUserId: invitationResult.data.invitedByUserId,
     appOrigin: input.appOrigin,
     invitation: invitationResult.data.invitation,
   });
@@ -1101,6 +1115,7 @@ export async function sendProjectInvitationEmailForOwner(input: {
           matchedInvitees.get(normalizeInvitationEmail(invitation.invitedEmail)) ??
           null,
       }),
+      invitedByUserId: invitation.invitedByUser.id,
     });
   });
 
@@ -1110,6 +1125,7 @@ export async function sendProjectInvitationEmailForOwner(input: {
 
   const emailDelivery = await sendProjectInvitationEmail({
     actorUserId,
+    invitedByUserId: invitationResult.data.invitedByUserId,
     appOrigin: input.appOrigin,
     invitation: invitationResult.data.invitation,
   });

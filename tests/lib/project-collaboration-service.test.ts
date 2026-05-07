@@ -146,6 +146,7 @@ describe("project-collaboration-service", () => {
           invitationId: "invite-1",
           projectId: "project-1",
           invitedByUserId: "owner-1",
+          triggeredByUserId: "owner-1",
           role: "editor",
         },
       })
@@ -229,6 +230,74 @@ describe("project-collaboration-service", () => {
     expect(prismaMock.projectInvitation.create).toHaveBeenCalledTimes(1);
   });
 
+  test("rejects unsafe invite email origins without calling outbound provider", async () => {
+    prismaMock.project.findFirst.mockResolvedValueOnce({
+      ownerId: "owner-1",
+      memberships: [],
+    });
+    prismaMock.projectInvitation.updateMany.mockResolvedValueOnce({ count: 0 });
+    prismaMock.project.findUnique.mockResolvedValueOnce({
+      id: "project-1",
+      name: "Launch Plan",
+      owner: {
+        email: "owner@example.com",
+      },
+    });
+    prismaMock.user.findUnique
+      .mockResolvedValueOnce({
+        email: "owner@example.com",
+      })
+      .mockResolvedValueOnce(null);
+    prismaMock.projectMembership.findFirst.mockResolvedValueOnce(null);
+    prismaMock.projectInvitation.findMany.mockResolvedValueOnce([]);
+    prismaMock.projectInvitation.create.mockResolvedValueOnce({
+      id: "invite-unsafe-origin",
+      projectId: "project-1",
+      invitedEmail: "invitee@example.com",
+      role: "viewer",
+      createdAt: new Date("2026-05-07T10:00:00.000Z"),
+      expiresAt: new Date("2026-05-21T10:00:00.000Z"),
+      acceptedAt: null,
+      revokedAt: null,
+      replacedAt: null,
+      project: {
+        id: "project-1",
+        name: "Launch Plan",
+      },
+      invitedByUser: {
+        id: "owner-1",
+        email: "owner@example.com",
+        name: "Owner",
+        username: "owner",
+        usernameDiscriminator: "1234",
+      },
+    });
+
+    const result = await inviteUserToProject({
+      actorUserId: "owner-1",
+      projectId: "project-1",
+      invitedEmail: "invitee@example.com",
+      role: "viewer",
+      appOrigin: "javascript:alert(1)",
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 201,
+      data: {
+        invitation: {
+          invitationId: "invite-unsafe-origin",
+        },
+        emailDelivery: {
+          status: "failed",
+          deliveryId: null,
+          error: "invite-url-unavailable",
+        },
+      },
+    });
+    expect(outboundEmailServiceMock.sendOutboundEmail).not.toHaveBeenCalled();
+  });
+
   test("resends email for an active pending project invitation", async () => {
     prismaMock.project.findFirst.mockResolvedValueOnce({
       ownerId: "owner-1",
@@ -297,6 +366,17 @@ describe("project-collaboration-service", () => {
       },
     });
     expect(outboundEmailServiceMock.sendOutboundEmail).toHaveBeenCalledTimes(1);
+    expect(outboundEmailServiceMock.sendOutboundEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: {
+          invitationId: "invite-3",
+          projectId: "project-1",
+          invitedByUserId: "owner-1",
+          triggeredByUserId: "owner-1",
+          role: "editor",
+        },
+      })
+    );
   });
 
   test("rejects resend for inactive project invitations", async () => {

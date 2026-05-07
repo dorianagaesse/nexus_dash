@@ -33,13 +33,10 @@ vi.mock("@/lib/hooks/use-project-section-expanded", () => ({
 import { ProjectRoadmapPanel } from "@/components/project-roadmap-panel";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-vi.stubGlobal("fetch", fetchMock);
-
 function installMatchMediaMock(matches = true) {
-  Object.defineProperty(window, "matchMedia", {
-    configurable: true,
-    writable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn().mockImplementation((query: string) => ({
       matches,
       media: query,
       onchange: null,
@@ -48,8 +45,8 @@ function installMatchMediaMock(matches = true) {
       addListener: vi.fn(),
       removeListener: vi.fn(),
       dispatchEvent: vi.fn(),
-    })),
-  });
+    }))
+  );
 }
 
 class ResizeObserverMock {
@@ -78,6 +75,7 @@ async function renderWithRoot(root: Root, ui: React.ReactElement) {
 describe("project-roadmap-panel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal("fetch", fetchMock);
     installMatchMediaMock();
     vi.stubGlobal("ResizeObserver", ResizeObserverMock);
     projectSectionExpandedMock.isExpanded = false;
@@ -86,6 +84,7 @@ describe("project-roadmap-panel", () => {
 
   afterEach(() => {
     document.body.innerHTML = "";
+    vi.unstubAllGlobals();
   });
 
   test("expands the section before opening the create event flow", async () => {
