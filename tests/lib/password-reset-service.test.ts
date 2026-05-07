@@ -19,16 +19,16 @@ const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(),
 }));
 
-const transactionalEmailMock = vi.hoisted(() => ({
-  sendTransactionalEmail: vi.fn(),
+const outboundEmailMock = vi.hoisted(() => ({
+  sendOutboundEmail: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: prismaMock,
 }));
 
-vi.mock("@/lib/services/transactional-email-service", () => ({
-  sendTransactionalEmail: transactionalEmailMock.sendTransactionalEmail,
+vi.mock("@/lib/services/outbound-email-service", () => ({
+  sendOutboundEmail: outboundEmailMock.sendOutboundEmail,
 }));
 
 import {
@@ -45,7 +45,7 @@ describe("password-reset-service", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-02-27T12:00:00.000Z"));
 
-    transactionalEmailMock.sendTransactionalEmail.mockResolvedValue({
+    outboundEmailMock.sendOutboundEmail.mockResolvedValue({
       ok: true,
       delivery: "sent",
     });
@@ -105,7 +105,7 @@ describe("password-reset-service", () => {
         delivery: "skipped",
       },
     });
-    expect(transactionalEmailMock.sendTransactionalEmail).not.toHaveBeenCalled();
+    expect(outboundEmailMock.sendOutboundEmail).not.toHaveBeenCalled();
   });
 
   test("returns reset-cooldown when request is too soon", async () => {
@@ -156,7 +156,7 @@ describe("password-reset-service", () => {
       error: "reset-limit-reached",
     });
     expect(prismaMock.passwordResetToken.create).not.toHaveBeenCalled();
-    expect(transactionalEmailMock.sendTransactionalEmail).not.toHaveBeenCalled();
+    expect(outboundEmailMock.sendOutboundEmail).not.toHaveBeenCalled();
   });
 
   test("creates token and sends reset email for eligible request", async () => {
@@ -194,7 +194,7 @@ describe("password-reset-service", () => {
         id: true,
       },
     });
-    expect(transactionalEmailMock.sendTransactionalEmail).toHaveBeenCalledWith(
+    expect(outboundEmailMock.sendOutboundEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "user@example.com",
         subject: expect.any(String),
@@ -214,7 +214,7 @@ describe("password-reset-service", () => {
     prismaMock.passwordResetToken.create.mockResolvedValueOnce({
       id: "prt_1",
     });
-    transactionalEmailMock.sendTransactionalEmail.mockResolvedValueOnce({
+    outboundEmailMock.sendOutboundEmail.mockResolvedValueOnce({
       ok: false,
       error: "provider-rejected",
     });
@@ -258,7 +258,7 @@ describe("password-reset-service", () => {
         delivery: "sent",
       },
     });
-    expect(transactionalEmailMock.sendTransactionalEmail).toHaveBeenCalledWith(
+    expect(outboundEmailMock.sendOutboundEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         html: expect.stringContaining("http://localhost:3000/reset-password?token="),
       })

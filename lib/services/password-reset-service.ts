@@ -8,8 +8,9 @@ import {
   validatePasswordLength,
   validatePasswordRequirements,
 } from "@/lib/services/account-security-policy";
+import { sendOutboundEmail } from "@/lib/services/outbound-email-service";
+import { buildPasswordResetEmail } from "@/lib/services/outbound-email-templates";
 import { hashPassword } from "@/lib/services/password-service";
-import { sendTransactionalEmail } from "@/lib/services/transactional-email-service";
 
 export const PASSWORD_RESET_PATH = "/reset-password";
 export const PASSWORD_RESET_TOKEN_TTL_SECONDS = 60 * 60;
@@ -106,46 +107,6 @@ function buildPasswordResetUrl(requestOrigin: string, rawToken: string): string 
   const url = new URL(PASSWORD_RESET_PATH, appOrigin);
   url.searchParams.set("token", rawToken);
   return url.toString();
-}
-
-function escapeHtmlAttribute(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-function formatExpiryLabel(tokenTtlSeconds: number): string {
-  const ttlMinutes = Math.floor(tokenTtlSeconds / 60);
-  if (ttlMinutes < 60) {
-    return `${ttlMinutes} minute${ttlMinutes === 1 ? "" : "s"}`;
-  }
-
-  const ttlHours = Math.floor(ttlMinutes / 60);
-  return `${ttlHours} hour${ttlHours === 1 ? "" : "s"}`;
-}
-
-function buildPasswordResetEmail(input: {
-  resetUrl: string;
-}): { subject: string; text: string; html: string } {
-  const expiryLabel = formatExpiryLabel(PASSWORD_RESET_TOKEN_TTL_SECONDS);
-  const safeResetUrl = escapeHtmlAttribute(input.resetUrl);
-
-  const subject = "Reset your NexusDash password";
-  const text =
-    `A password reset was requested for your NexusDash account.\n\n` +
-    `This link expires in ${expiryLabel}.\n\n` +
-    `${input.resetUrl}\n\n` +
-    `If you did not request this, you can ignore this email.`;
-
-  const html =
-    `<p>A password reset was requested for your NexusDash account.</p>` +
-    `<p>This link expires in <strong>${expiryLabel}</strong>.</p>` +
-    `<p><a href="${safeResetUrl}">Reset password</a></p>` +
-    `<p>If you did not request this, you can ignore this email.</p>`;
-
-  return { subject, text, html };
 }
 
 function isTokenExpired(token: { consumedAt: Date | null; expiresAt: Date }): boolean {
@@ -264,12 +225,20 @@ export async function requestPasswordResetForEmail(
   }
 
   const resetUrl = buildPasswordResetUrl(input.requestOrigin, rawToken);
-  const message = buildPasswordResetEmail({ resetUrl });
-  const deliveryResult = await sendTransactionalEmail({
+  const message = buildPasswordResetEmail({
+    resetUrl,
+    tokenTtlSeconds: PASSWORD_RESET_TOKEN_TTL_SECONDS,
+  });
+  const deliveryResult = await sendOutboundEmail({
+    templateKey: "password_reset",
     to: email,
     subject: message.subject,
     text: message.text,
     html: message.html,
+    metadata: {
+      userId: user.id,
+      tokenId: tokenCreationResult.data.tokenId,
+    },
   });
 
   if (!deliveryResult.ok) {
