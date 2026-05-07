@@ -16,6 +16,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-083
 
 ### Deferred (Intentional)
+- ID: TASK-224
+  Title: Agent roadmap access - scoped API contract for roadmap phases and events
+  Status: Pending
+  Rationale: Make the project roadmap manageable by project-scoped agent tokens so agents can inspect, create, update, move, reorder, and delete roadmap phases/events when they are responsible for project planning. This should be a deliberate agent API contract expansion with dedicated roadmap scopes, OpenAPI/onboarding documentation, credential UI updates, route guard coverage, and smoke tests rather than implicitly folding roadmap permissions into existing project or task scopes.
+  Dependencies: TASK-127, TASK-130, TASK-059
 - ID: TASK-132
   Title: Version update system adjustments - align version metadata, automation, and release communication
   Status: Pending
