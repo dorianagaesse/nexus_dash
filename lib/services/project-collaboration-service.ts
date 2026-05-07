@@ -1764,7 +1764,7 @@ export async function searchProjectMembersForMention(input: {
 
     // Filter by query matching username, name, or email. Empty @ opens the member list.
     const filteredMembers = allMembers.filter((member) => {
-      if (member.userId === actorUserId) {
+      if (!input.agentAccess && member.userId === actorUserId) {
         return false;
       }
 

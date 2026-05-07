@@ -289,6 +289,7 @@ function buildPendingMentionNotifications(input: {
   projectId: string;
   projectName: string;
   mentionedUsers: MentionedProjectMember[];
+  allowActorNotification: boolean;
 }): PendingMentionNotification[] {
   const taskPath =
     `/projects/${encodeURIComponent(input.projectId)}` +
@@ -296,7 +297,11 @@ function buildPendingMentionNotifications(input: {
     `&commentId=${encodeURIComponent(input.commentId)}`;
 
   return input.mentionedUsers
-    .filter((mentionedUser) => mentionedUser.userId !== input.actorUserId)
+    .filter(
+      (mentionedUser) =>
+        input.allowActorNotification ||
+        mentionedUser.userId !== input.actorUserId
+    )
     .map((mentionedUser) => ({
       recipientUserId: mentionedUser.userId,
       notification: {
@@ -519,6 +524,7 @@ export async function createTaskCommentForProject(input: {
           projectId: input.projectId,
           projectName: mentionResolution.data.projectName,
           mentionedUsers: mentionResolution.data.mentionedUsers,
+          allowActorNotification: Boolean(input.agentAccess),
         });
 
         return {

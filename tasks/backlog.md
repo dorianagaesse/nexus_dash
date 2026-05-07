@@ -4,11 +4,6 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-127
-  Title: API capability audit - confirm every shipped feature remains fully manageable through the API
-  Status: Pending (promoted 2026-05-04)
-  Rationale: Run a focused audit across current product features to verify that core entities and workflows remain fully manageable through the public app API, identify any gaps where shipped UI features outpace the API, and align the API contract or feature boundaries accordingly so agent-facing capabilities stay trustworthy. Potential sub-task: if the audit reveals missing API functionalities, implement the gaps to bring the API back to full parity with the UI surface.
-  Dependencies: TASK-107, TASK-115, TASK-128
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
   Status: Pending (promoted 2026-05-04; PR #224 partial fix merged)
@@ -125,6 +120,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-127
+  Title: API capability audit - confirm every shipped feature remains fully manageable through the API
+  Status: Done (2026-05-07, PR #241 open)
+  Rationale: Audited shipped app features against API coverage, documented the parity matrix, and closed session-user API gaps for project list/create, account profile/security, Google Calendar target settings, notification read state, mark-all-read, pending invitations, and invitation responses while preserving the existing project-scoped agent API boundary.
+  Dependencies: TASK-107, TASK-115, TASK-128
 - ID: TASK-214
   Title: Task and card focus border consistency
   Status: Done (2026-05-06, merged via PR #239)
