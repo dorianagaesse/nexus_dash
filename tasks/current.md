@@ -58,6 +58,18 @@ API routes with the same service-layer authorization and validation boundaries.
 - Left agent v1 OpenAPI unchanged because this task did not expand
   project-scoped agent bearer-token capabilities; the new routes are
   authenticated session-user APIs.
+- Follow-up verification found two notification parity gaps in agent-authored
+  task actions. Agent mentions of the credential owner were being suppressed as
+  self-mentions, and task assignment had no notification producer. Both are now
+  fixed with task-comment mention handling for agents, a `task_assignment`
+  notification producer, reassignment resolution, and updated notification RLS.
+- The agent member-search smoke finding is also fixed: agent callers can now
+  discover the credential owner in `/api/projects/:projectId/members/search`,
+  while human autocomplete continues to hide the signed-in user.
+- Roadmap remains a session-user API because the existing roadmap route handlers
+  use `requireAuthenticatedApiUser` and the current agent v1 scope model has no
+  roadmap scopes. Agent roadmap access should be added as an explicit contract
+  expansion rather than folded into unrelated task/project scopes.
 
 ## Acceptance Criteria
 1. `tasks/current.md` records the TASK-127 scope, findings, acceptance
@@ -96,10 +108,21 @@ API routes with the same service-layer authorization and validation boundaries.
 - `npm test -- --run tests/api/projects.route.test.ts tests/api/account-profile.route.test.ts tests/api/account-settings.route.test.ts tests/api/account-notifications.route.test.ts` passed on 2026-05-07 with 26 tests passing after Copilot review fixes.
 - `npm run lint` passed on 2026-05-07.
 - `npm test` passed on 2026-05-07 with local DB env: 97 files passed, 1 skipped; 742 tests passed, 1 skipped.
+- `npm test` passed again on 2026-05-07 after the notification/member-search
+  follow-up with local DB env and `NODE_ENV=test`: 97 files passed, 1 skipped; 748 tests
+  passed, 1 skipped.
 - `npm run test:coverage` passed on 2026-05-07 with 91.23% statements, 81.2% branches, 93.42% functions, and 91.75% lines.
 - `npm run build` passed on 2026-05-07 after regenerating Prisma Client and setting local production guard env including `GOOGLE_TOKEN_ENCRYPTION_KEY`.
 - `npm run build` passed again on 2026-05-07 after Copilot review fixes.
+- `npm run build` passed again on 2026-05-07 after the notification follow-up
+  with local PostgreSQL env and production guard variables.
 - `npm run test:e2e` passed on 2026-05-07 with 8 Playwright tests passing, including `tests/e2e/api-projects.spec.ts`.
+- Notification follow-up E2E validation on 2026-05-07 passed the 7 non-email
+  Playwright smokes in `npm run test:e2e`; the first password-reset request
+  spec failed only because local production mode attempted Resend delivery with
+  a placeholder API key. Rerunning
+  `npx playwright test tests/e2e/password-recovery.spec.ts` with
+  `VERCEL_ENV=preview` passed both password recovery specs.
 - Local database note: `npm run db:local:up` found port `5432` already allocated, but the PostgreSQL service at `127.0.0.1:5432` was reachable and `npm run db:migrate` reported all 31 migrations applied.
 
 ## Out Of Scope

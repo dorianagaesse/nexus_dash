@@ -16,6 +16,10 @@ const prismaMock = vi.hoisted(() => ({
     create: vi.fn(),
     deleteMany: vi.fn(),
   },
+  project: {
+    findFirst: vi.fn(),
+    findUnique: vi.fn(),
+  },
 }));
 
 const notificationServiceMock = vi.hoisted(() => ({
@@ -39,11 +43,64 @@ import {
   getProjectInvitationRecipientView,
   listPendingProjectInvitationsForUser,
   respondToProjectInvitation,
+  searchProjectMembersForMention,
 } from "@/lib/services/project-collaboration-service";
 
 describe("project-collaboration-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  test("includes the actor in member search for agent callers", async () => {
+    prismaMock.project.findFirst.mockResolvedValueOnce({
+      ownerId: "owner-1",
+      memberships: [],
+    });
+    prismaMock.project.findUnique.mockResolvedValueOnce({
+      id: "project-1",
+      createdAt: new Date("2026-04-01T00:00:00.000Z"),
+      ownerId: "owner-1",
+      owner: {
+        id: "owner-1",
+        email: "owner@example.com",
+        name: "Dorian",
+        username: "dorianagaesse",
+        usernameDiscriminator: "4589",
+        avatarSeed: null,
+      },
+      memberships: [],
+    });
+
+    const result = await searchProjectMembersForMention({
+      actorUserId: "owner-1",
+      agentAccess: {
+        credentialId: "credential-1",
+        projectId: "project-1",
+        scopes: ["task:write"],
+      },
+      projectId: "project-1",
+      query: "dorianagaesse",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      status: 200,
+      data: {
+        members: [
+          {
+            id: "owner-1",
+            displayName: "dorianagaesse#4589",
+            usernameTag: "dorianagaesse#4589",
+            email: "owner@example.com",
+            avatarSeed: "owner-1",
+            membershipId: "",
+            role: "owner",
+            joinedAt: "2026-04-01T00:00:00.000Z",
+            isOwner: true,
+          },
+        ],
+      },
+    });
   });
 
   test("treats already accepted invitations as idempotent success", async () => {

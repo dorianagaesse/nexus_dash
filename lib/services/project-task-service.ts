@@ -30,6 +30,11 @@ import {
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
 import {
+  type TaskAssignmentNotificationInput,
+  createTaskAssignmentNotification,
+  resolveTaskAssignmentNotifications,
+} from "@/lib/services/notification-service";
+import {
   mapTaskPersonSummary,
   taskPersonSummarySelect,
   type TaskPersonSummary,
@@ -111,6 +116,11 @@ interface UpdatedTaskPayload {
     content: string;
     createdAt: Date;
   }[];
+}
+
+interface PendingTaskAssignmentNotification {
+  recipientUserId: string;
+  notification: TaskAssignmentNotificationInput;
 }
 
 function createError(status: number, error: string): ServiceErrorResult {
@@ -310,6 +320,100 @@ async function validateAssigneeUserId(input: {
       assigneeUserId,
     },
   };
+}
+
+function buildTaskPath(projectId: string, taskId: string): string {
+  return `/projects/${encodeURIComponent(projectId)}?taskId=${encodeURIComponent(taskId)}`;
+}
+
+function buildPersonDisplayName(input: {
+  name: string | null;
+  email: string | null;
+  username: string | null;
+}): string {
+  return input.name || input.email || input.username || "Someone";
+}
+
+function shouldNotifyAssignee(input: {
+  actorUserId: string;
+  assigneeUserId: string | null;
+  agentAccess?: AgentProjectAccessContext;
+}): input is {
+  actorUserId: string;
+  assigneeUserId: string;
+  agentAccess?: AgentProjectAccessContext;
+} {
+  if (!input.assigneeUserId) {
+    return false;
+  }
+
+  return Boolean(input.agentAccess) || input.assigneeUserId !== input.actorUserId;
+}
+
+async function buildTaskAssignmentNotification(input: {
+  db: DbClient;
+  projectId: string;
+  taskId: string;
+  actorUserId: string;
+  assigneeUserId: string;
+}): Promise<PendingTaskAssignmentNotification | null> {
+  const task = await input.db.task.findUnique({
+    where: { id: input.taskId },
+    select: {
+      id: true,
+      title: true,
+      projectId: true,
+      project: {
+        select: {
+          name: true,
+        },
+      },
+      assigneeUser: {
+        select: taskPersonSummarySelect,
+      },
+      updatedByUser: {
+        select: taskPersonSummarySelect,
+      },
+    },
+  });
+
+  if (
+    !task ||
+    task.projectId !== input.projectId ||
+    !task.assigneeUser ||
+    task.assigneeUser.id !== input.assigneeUserId
+  ) {
+    return null;
+  }
+
+  return {
+    recipientUserId: task.assigneeUser.id,
+    notification: {
+      taskId: task.id,
+      taskTitle: task.title,
+      projectId: task.projectId,
+      projectName: task.project.name,
+      assignedUserId: task.assigneeUser.id,
+      assignedUserDisplayName: buildPersonDisplayName(task.assigneeUser),
+      actorUserId: input.actorUserId,
+      actorDisplayName: buildPersonDisplayName(task.updatedByUser),
+      targetPath: buildTaskPath(task.projectId, task.id),
+    },
+  };
+}
+
+async function dispatchTaskAssignmentNotification(input: {
+  db: DbClient;
+  pendingNotification: PendingTaskAssignmentNotification | null;
+}): Promise<void> {
+  if (!input.pendingNotification) {
+    return;
+  }
+
+  await createTaskAssignmentNotification({
+    db: input.db,
+    ...input.pendingNotification,
+  });
 }
 
 async function validateEpicId(input: {
@@ -561,6 +665,27 @@ export async function createTaskForProject(
         files: input.attachmentFiles,
         db,
       });
+
+      const createdAssigneeUserId = assigneeValidation.data.assigneeUserId;
+      if (
+        createdAssigneeUserId &&
+        shouldNotifyAssignee({
+          actorUserId,
+          assigneeUserId: createdAssigneeUserId,
+          agentAccess: input.agentAccess,
+        })
+      ) {
+        await dispatchTaskAssignmentNotification({
+          db,
+          pendingNotification: await buildTaskAssignmentNotification({
+            db,
+            projectId: input.projectId,
+            taskId: createdTask.id,
+            actorUserId,
+            assigneeUserId: createdAssigneeUserId,
+          }),
+        });
+      }
 
       return {
         ok: true,
@@ -945,6 +1070,41 @@ export async function updateTaskForProject(
 
       if (!updatedTask) {
         return createError(404, "Task not found");
+      }
+
+      const updatedAssigneeUserId = assigneeValidation.data.assigneeUserId;
+      if (
+        assigneeProvided &&
+        existingTask.assigneeUserId &&
+        existingTask.assigneeUserId !== updatedAssigneeUserId
+      ) {
+        await resolveTaskAssignmentNotifications({
+          db,
+          taskIds: [taskId],
+          recipientUserId: existingTask.assigneeUserId,
+        });
+      }
+
+      if (
+        assigneeProvided &&
+        existingTask.assigneeUserId !== updatedAssigneeUserId &&
+        updatedAssigneeUserId &&
+        shouldNotifyAssignee({
+          actorUserId: normalizedActorUserId,
+          assigneeUserId: updatedAssigneeUserId,
+          agentAccess,
+        })
+      ) {
+        await dispatchTaskAssignmentNotification({
+          db,
+          pendingNotification: await buildTaskAssignmentNotification({
+            db,
+            projectId,
+            taskId,
+            actorUserId: normalizedActorUserId,
+            assigneeUserId: updatedAssigneeUserId,
+          }),
+        });
       }
 
       return {

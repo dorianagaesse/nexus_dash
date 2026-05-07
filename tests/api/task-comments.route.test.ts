@@ -359,6 +359,87 @@ describe("task comments route", () => {
     });
   });
 
+  test("POST notifies credential owner when an agent mentions them", async () => {
+    apiGuardMock.requireApiPrincipal.mockResolvedValueOnce({
+      ok: true,
+      principal: {
+        kind: "agent",
+        actorUserId: "owner-1",
+        ownerUserId: "owner-1",
+        credentialId: "credential-1",
+        projectId: "project-1",
+        scopes: ["task:write"],
+        tokenId: "token-1",
+        requestId: "request-1",
+      },
+    });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValueOnce({
+      credentialId: "credential-1",
+      projectId: "project-1",
+      scopes: ["task:write"],
+    });
+    prismaMock.project.findFirst.mockResolvedValueOnce({
+      ownerId: "owner-1",
+      memberships: [],
+    });
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      title: "Agent mention task",
+      projectId: "project-1",
+    });
+    prismaMock.project.findUnique.mockResolvedValueOnce({
+      id: "project-1",
+      name: "Test project",
+      owner: {
+        id: "owner-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "0001",
+      },
+      memberships: [],
+    });
+    prismaMock.taskComment.create.mockResolvedValueOnce({
+      id: "comment-agent-mention",
+      content: "I need @owner#0001 here.",
+      createdAt: new Date("2026-04-19T12:15:00.000Z"),
+      author: {
+        id: "owner-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "0001",
+        avatarSeed: null,
+      },
+    });
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "I need @owner#0001 here.",
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(201);
+    expect(prismaMock.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          recipientUserId: "owner-1",
+          sourceType: "task_comment_mention",
+          sourceId: "comment-agent-mention",
+        }),
+      ],
+      skipDuplicates: true,
+    });
+  });
+
   test("POST does not notify discriminator-less ambiguous username mentions", async () => {
     prismaMock.task.findUnique.mockResolvedValueOnce({
       id: "task-1",

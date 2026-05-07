@@ -45,6 +45,12 @@ Health and operational probes | `/api/health/live`, `/api/health/ready`
 - The new account, notification, invitation, settings, and project collection
   APIs are session-user APIs. They use `requireAuthenticatedApiUser`, not agent
   bearer-token access.
+- Roadmap routes are also session-user APIs today: every
+  `/api/projects/:projectId/roadmap/**` handler uses
+  `requireAuthenticatedApiUser`. The current agent v1 scope model only defines
+  `project:*`, `task:*`, and `context:*` scopes, so widening roadmap to agent
+  tokens should be a deliberate contract expansion with dedicated roadmap
+  scopes, OpenAPI docs, credential UI, route guards, and tests.
 - Agent v1 OpenAPI was left unchanged because TASK-127 did not expand the
   project-scoped agent contract. Calendar access, account settings, human
   notification inboxes, and credential/account security workflows remain outside
@@ -70,3 +76,19 @@ Health and operational probes | `/api/health/live`, `/api/health/ready`
 - Full local validation uses the TASK-131 baseline documented in
   `docs/runbooks/local-validation.md`: Docker-backed PostgreSQL, migrations,
   lint, unit/API tests, coverage, production build, and Playwright.
+
+## Follow-Up Fixes
+
+- Agent-authored task comments now notify the mentioned user even when the
+  mentioned user is the credential owner. Human-authored self-mentions remain
+  suppressed.
+- Agent member search now keeps the credential owner in results, so agents can
+  discover the user ids needed for assignment and mention payloads. Human
+  autocomplete still hides the signed-in user from their own mention list.
+- Task assignment now creates a `task_assignment` notification when a task is
+  assigned to another user. Reassigning the task resolves the previous
+  assignee's assignment notification, and agent-authored assignments can notify
+  the credential owner.
+- Notification RLS policies now allow project editors/owners to create or
+  refresh `task_assignment` notifications for project collaborators, and also
+  allow refreshing existing task-comment mention notifications.

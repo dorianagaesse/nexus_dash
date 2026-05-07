@@ -20,6 +20,11 @@ const prismaMock = vi.hoisted(() => ({
   taskBlockedFollowUp: {
     create: vi.fn(),
   },
+  notification: {
+    findMany: vi.fn(),
+    createMany: vi.fn(),
+    updateMany: vi.fn(),
+  },
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -58,6 +63,9 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     prismaMock.task.findMany.mockResolvedValue([]);
     prismaMock.taskRelation.deleteMany.mockResolvedValue({ count: 0 });
     prismaMock.taskRelation.createMany.mockResolvedValue({ count: 0 });
+    prismaMock.notification.findMany.mockResolvedValue([]);
+    prismaMock.notification.createMany.mockResolvedValue({ count: 1 });
+    prismaMock.notification.updateMany.mockResolvedValue({ count: 1 });
     attachmentStorageMock.deleteAttachmentFile.mockResolvedValue(undefined);
   });
 
@@ -648,6 +656,118 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     expect(updateCall?.data).not.toHaveProperty("labelsJson");
     expect(updateCall?.data).not.toHaveProperty("description");
     expect(prismaMock.taskRelation.deleteMany).not.toHaveBeenCalled();
+  });
+
+  test("creates assignment notification when assignee changes", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      status: "In Progress",
+      position: 2,
+      archivedAt: null,
+      epicId: null,
+      assigneeUserId: null,
+      outgoingRelations: [],
+      incomingRelations: [],
+    });
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      title: "Assign me",
+      label: null,
+      labelsJson: null,
+      description: null,
+      deadlineAt: null,
+      _count: {
+        comments: 0,
+      },
+      blockedNote: null,
+      status: "In Progress",
+      position: 2,
+      archivedAt: null,
+      epic: null,
+      createdAt: new Date("2026-04-18T08:00:00.000Z"),
+      updatedAt: new Date("2026-04-18T09:00:00.000Z"),
+      createdByUser: {
+        id: "user-1",
+        name: "Alice Example",
+        email: "alice@example.com",
+        username: "alice",
+        usernameDiscriminator: "1234",
+        avatarSeed: null,
+      },
+      updatedByUser: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+      assigneeUser: {
+        id: "user-2",
+        name: "Bob Example",
+        email: "bob@example.com",
+        username: "bob",
+        usernameDiscriminator: "2222",
+        avatarSeed: null,
+      },
+      outgoingRelations: [],
+      incomingRelations: [],
+      blockedFollowUps: [],
+    });
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      title: "Assign me",
+      projectId: "p1",
+      project: {
+        name: "Nexus",
+      },
+      assigneeUser: {
+        id: "user-2",
+        name: "Bob Example",
+        email: "bob@example.com",
+        username: "bob",
+        usernameDiscriminator: "2222",
+        avatarSeed: null,
+      },
+      updatedByUser: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        assigneeUserId: "user-2",
+      }),
+    });
+
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          recipientUserId: "user-2",
+          type: "task_assignment",
+          sourceType: "task_assignment",
+          sourceId: "t1",
+          targetPath: "/projects/p1?taskId=t1",
+          metadata: expect.objectContaining({
+            taskId: "t1",
+            assignedUserId: "user-2",
+            actorUserId: "test-user",
+          }),
+        }),
+      ],
+      skipDuplicates: true,
+    });
   });
 
   test("returns 400 when related tasks are invalid", async () => {
