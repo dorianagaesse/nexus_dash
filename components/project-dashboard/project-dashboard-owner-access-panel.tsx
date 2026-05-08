@@ -67,14 +67,6 @@ export function ProjectDashboardOwnerAccessPanel({
     return () => window.clearTimeout(timeoutId);
   }, [copiedInvitationId]);
 
-  const buildInvitationLink = (invitation: ProjectInvitationSummary) => {
-    if (typeof window === "undefined") {
-      return invitation.inviteLinkPath;
-    }
-
-    return new URL(invitation.inviteLinkPath, window.location.origin).toString();
-  };
-
   const handleCopyInvitation = async (invitation: ProjectInvitationSummary) => {
     const didCopy = await onCopyInvitationLink(invitation);
     if (didCopy) {
@@ -192,7 +184,6 @@ export function ProjectDashboardOwnerAccessPanel({
                   invitationLabel,
                   invitationIdentity
                 );
-                const isEmailOnlyInvitation = !invitation.invitedUserDisplayName;
                 const isCopied = copiedInvitationId === invitation.invitationId;
                 const emailDeliveryMessage = formatInvitationEmailDelivery(
                   invitationEmailDeliveries[invitation.invitationId]
@@ -231,39 +222,19 @@ export function ProjectDashboardOwnerAccessPanel({
                       ) : null}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      {isEmailOnlyInvitation ? (
-                        <div className="flex max-w-full items-center gap-2 md:max-w-[28rem]">
-                          <input
-                            readOnly
-                            value={buildInvitationLink(invitation)}
-                            aria-label={`Invite link for ${invitation.invitedEmail}`}
-                            className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2.5 text-xs text-muted-foreground outline-none sm:text-sm"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            aria-label={`Copy invite link for ${invitation.invitedEmail}`}
-                            className="h-9 w-9 shrink-0"
-                            onClick={() => void handleCopyInvitation(invitation)}
-                          >
-                            {isCopied ? (
-                              <Check className="h-4 w-4" />
-                            ) : (
-                              <Copy className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void handleCopyInvitation(invitation)}
-                        >
-                          Copy link
-                        </Button>
-                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleCopyInvitation(invitation)}
+                      >
+                        {isCopied ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                        Copy link
+                      </Button>
                       <Button
                         type="button"
                         variant="outline"

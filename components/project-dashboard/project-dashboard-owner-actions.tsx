@@ -253,7 +253,7 @@ export function ProjectDashboardOwnerActions({
           setSearchMessage(
             users.length === 0
               ? inviteEmailCandidate
-                ? "No verified account found yet. Create a link below."
+                ? "No verified account found yet. Send an invitation below."
                 : "No matching verified users found."
               : null
           );
@@ -453,7 +453,7 @@ export function ProjectDashboardOwnerActions({
           variant: emailDelivery?.status === "failed" ? "error" : "success",
           message: buildInvitationEmailDeliveryToast(
             emailDelivery,
-            `Invite link ready for ${invitedEmail}.`
+            `Invitation created for ${invitedEmail}.`
           ),
         });
       } else {

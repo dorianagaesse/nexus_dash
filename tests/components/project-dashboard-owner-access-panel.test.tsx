@@ -47,7 +47,7 @@ describe("project-dashboard-owner-access-panel", () => {
     expect(result).toContain("data:image/svg+xml");
   });
 
-  test("renders the inline copy control for pending email invitations", () => {
+  test("renders email resend and copy fallback for pending email invitations", () => {
     const result = renderToStaticMarkup(
       React.createElement(ProjectDashboardOwnerAccessPanel, {
         isLoadingSharing: false,
@@ -97,10 +97,10 @@ describe("project-dashboard-owner-access-panel", () => {
 
     expect(result).toContain("Contributors");
     expect(result).toContain("Pending");
-    expect(result).toContain('aria-label="Invite link for person@example.com"');
-    expect(result).toContain('aria-label="Copy invite link for person@example.com"');
+    expect(result).toContain("Copy link");
     expect(result).toContain("Resend email");
     expect(result).toContain("Email provider unavailable.");
-    expect(result).toContain("/invite/project/invite-1");
+    expect(result).not.toContain('aria-label="Invite link for person@example.com"');
+    expect(result).not.toContain("/invite/project/invite-1");
   });
 });

@@ -12,6 +12,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-05-08
+- Type: Execution
+- Summary: TASK-104 follow-up made email-only project invites email-first in the owner UI.
+- Evidence: Updated the sharing composer to show `Send invitation` for unmatched email addresses, show an invitation-sent state without exposing the raw link after successful delivery, keep copy-link fallback only for failed/skipped delivery and pending invitations, and reword owner feedback away from link creation. Focused validation passed with `npm test -- tests/components/project-dashboard-owner-sharing-panel.test.tsx tests/components/project-dashboard-owner-access-panel.test.tsx` and `npm run lint`.
+
 ### 2026-05-07
 - Type: Execution
 - Summary: TASK-104 implemented app-managed project invitation email delivery.
