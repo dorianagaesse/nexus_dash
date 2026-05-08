@@ -190,6 +190,11 @@ email foundation.
   Vercel Hobby rejects the `*/15` cron expression in `vercel.json`. Scheduler
   wiring was moved to GitHub Actions so branch previews can deploy on this
   account while preserving the 15-minute dispatch cadence.
+- Added a `postinstall` Prisma generation hook after live-email preview smoke
+  exposed that plain Vercel remote builds do not run the workflow's explicit
+  `npx prisma generate` step. The workflow still runs the explicit step before
+  prebuilt deploys; `postinstall` makes direct Vercel preview deploys
+  self-sufficient.
 - Pending: follow-up PR checks, branch preview deploy, and real preview email
   smoke to `dorian.agaesse@gmail.com`.
 

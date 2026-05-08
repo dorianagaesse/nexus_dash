@@ -1238,6 +1238,11 @@ Low-value entries to avoid going forward:
 - Summary: TASK-225 replaced Vercel Cron wiring with a GitHub Actions scheduler after preview deployment exposed the Vercel Hobby cron limit.
 - Evidence: Explicit-ref preview workflow run `25583050495` checked out `feature/task-225-project-notification-email-digests`, generated Prisma, applied migrations, and built the app, then failed during `vercel deploy` with Vercel's Hobby-plan error for the `*/15` cron in `vercel.json`. Removed `vercel.json` and added `.github/workflows/notification-email-dispatch.yml`, which calls the protected dispatch endpoint every 15 minutes using repository variable `NOTIFICATION_EMAIL_DISPATCH_URL` plus repository secret `NOTIFICATION_EMAIL_DISPATCH_SECRET` or `CRON_SECRET`.
 
+### 2026-05-08
+- Type: Execution
+- Summary: TASK-225 added Prisma generation to `postinstall` so direct Vercel preview deploys are self-sufficient.
+- Evidence: Workflow preview deploys run `npx prisma generate` explicitly before `vercel build`, but direct `vercel deploy` remote builds only ran install/build and failed because `@prisma/client` had not been generated. Added `postinstall: prisma generate` to align direct Vercel preview deploys with the workflow build path.
+
 ### 2026-05-04
 - Type: Validation
 - Summary: TASK-131 full local validation baseline passed after Node was upgraded to `v24.15.0` and Docker Desktop was running.
