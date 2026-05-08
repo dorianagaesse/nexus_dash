@@ -3,6 +3,8 @@ FROM node:20.19.0-bullseye AS base
 WORKDIR /app
 
 COPY package.json package-lock.json ./
+COPY prisma ./prisma
+COPY prisma.config.ts ./
 RUN npm ci \
   --fetch-retries=5 \
   --fetch-retry-factor=2 \

@@ -1243,6 +1243,11 @@ Low-value entries to avoid going forward:
 - Summary: TASK-225 added Prisma generation to `postinstall` so direct Vercel preview deploys are self-sufficient.
 - Evidence: Workflow preview deploys run `npx prisma generate` explicitly before `vercel build`, but direct `vercel deploy` remote builds only ran install/build and failed because `@prisma/client` had not been generated. Added `postinstall: prisma generate` to align direct Vercel preview deploys with the workflow build path.
 
+### 2026-05-08
+- Type: Execution
+- Summary: TASK-225 updated the Docker image build order for the Prisma `postinstall` hook.
+- Evidence: The container-image check showed `npm ci` running before `prisma/schema.prisma` was copied into `/app`, so the new `postinstall` hook could not find the Prisma schema. `Dockerfile` now copies `prisma/` and `prisma.config.ts` before `npm ci`, preserving the existing explicit `npx prisma generate` step after the full source copy.
+
 ### 2026-05-04
 - Type: Validation
 - Summary: TASK-131 full local validation baseline passed after Node was upgraded to `v24.15.0` and Docker Desktop was running.

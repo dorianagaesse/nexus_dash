@@ -195,6 +195,9 @@ email foundation.
   `npx prisma generate` step. The workflow still runs the explicit step before
   prebuilt deploys; `postinstall` makes direct Vercel preview deploys
   self-sufficient.
+- Updated `Dockerfile` to copy `prisma/` and `prisma.config.ts` before
+  `npm ci`, so the `postinstall` hook can find the schema during container
+  builds.
 - Pending: follow-up PR checks, branch preview deploy, and real preview email
   smoke to `dorian.agaesse@gmail.com`.
 
