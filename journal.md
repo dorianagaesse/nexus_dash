@@ -1248,6 +1248,16 @@ Low-value entries to avoid going forward:
 - Summary: TASK-225 updated the Docker image build order for the Prisma `postinstall` hook.
 - Evidence: The container-image check showed `npm ci` running before `prisma/schema.prisma` was copied into `/app`, so the new `postinstall` hook could not find the Prisma schema. `Dockerfile` now copies `prisma/` and `prisma.config.ts` before `npm ci`, preserving the existing explicit `npx prisma generate` step after the full source copy.
 
+### 2026-05-08
+- Type: Validation
+- Summary: TASK-225 PR checks and preview deployments passed after scheduler and Docker follow-ups.
+- Evidence: PR #246 final head `793a0ea` passed Check Branch Name, Quality Core, E2E Smoke, and Container Image. Explicit-ref workflow preview run `25583379928` checked out `feature/task-225-project-notification-email-digests` and deployed `https://nexus-dash-55krfi0nt-dorian-agaesses-projects.vercel.app`. A separate live-email smoke preview was deployed from the same branch with real Resend delivery mode at `https://nexus-dash-lpkmzden2-dorian-agaesses-projects.vercel.app`.
+
+### 2026-05-08
+- Type: Validation
+- Summary: TASK-225 real preview email smoke sent a project digest to `dorian.agaesse@gmail.com`.
+- Evidence: Agent API smoke against the live-email preview passed through Vercel protection using `vercel curl`, created a persistent TASK-225 smoke task, assigned it to the configured Dorian user, and added a mention comment. After the 30-minute quiet window elapsed, `GET /api/cron/notification-emails` returned `ok: true` with `usersScanned: 1`, `digestsAttempted: 1`, `digestsSent: 1`, `digestsSkipped: 0`, `digestsFailed: 0`, `invitationRemindersAttempted: 0`, and `errors: 0`. Invitation reminder behavior remains covered by local automated tests; no live 6-hour reminder was forced.
+
 ### 2026-05-04
 - Type: Validation
 - Summary: TASK-131 full local validation baseline passed after Node was upgraded to `v24.15.0` and Docker Desktop was running.

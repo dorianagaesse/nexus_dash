@@ -4,7 +4,8 @@
 TASK-225
 
 ## Status
-In progress on `feature/task-225-project-notification-email-digests`.
+Implemented on `feature/task-225-project-notification-email-digests`; PR #246 is
+open with GitHub checks green and preview email smoke validated.
 
 ## Objective
 Extend the notification center with project-grouped outbound email digests so
@@ -198,8 +199,22 @@ email foundation.
 - Updated `Dockerfile` to copy `prisma/` and `prisma.config.ts` before
   `npm ci`, so the `postinstall` hook can find the schema during container
   builds.
-- Pending: follow-up PR checks, branch preview deploy, and real preview email
-  smoke to `dorian.agaesse@gmail.com`.
+- Final PR checks passed on 2026-05-08 after the Dockerfile follow-up:
+  Quality Core, E2E Smoke, Container Image, and branch-name check.
+- Explicit-ref preview deployment via workflow run `25583379928` passed after
+  moving the scheduler off Vercel Cron. Artifact URL:
+  `https://nexus-dash-55krfi0nt-dorian-agaesses-projects.vercel.app`.
+- Live-email smoke preview deployment with real Resend delivery mode passed at
+  `https://nexus-dash-lpkmzden2-dorian-agaesses-projects.vercel.app`.
+  The agent API smoke passed through Vercel protection with `vercel curl`,
+  creating assignment and mention activity for the configured Dorian user.
+- Real dispatch smoke passed on 2026-05-08 after the 30-minute quiet window:
+  `GET /api/cron/notification-emails` returned `ok: true` with
+  `digestsAttempted: 1`, `digestsSent: 1`, `digestsFailed: 0`, and
+  `errors: 0`. This sent the project notification digest to
+  `dorian.agaesse@gmail.com`.
+- Invitation reminder behavior is covered by local service and endpoint tests;
+  no live 6-hour preview reminder was forced during this smoke.
 
 ## Out Of Scope
 - TASK-226 task due-date reminder emails.
