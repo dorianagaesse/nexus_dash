@@ -12,6 +12,31 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-05-08
+- Type: Execution
+- Summary: TASK-104 follow-up made email-only project invites email-first in the owner UI.
+- Evidence: Updated the sharing composer to show `Send invitation` for unmatched email addresses, show an invitation-sent state without exposing the raw link after successful delivery, keep copy-link fallback only for failed/skipped delivery and pending invitations, and reword owner feedback away from link creation. Focused validation passed with `npm test -- tests/components/project-dashboard-owner-sharing-panel.test.tsx tests/components/project-dashboard-owner-access-panel.test.tsx` and `npm run lint`.
+
+### 2026-05-07
+- Type: Execution
+- Summary: TASK-104 implemented app-managed project invitation email delivery.
+- Evidence: Added trusted-origin invite email sending for owner-created invitations, a resend endpoint at `/api/projects/[projectId]/sharing/invitations/[invitationId]/email`, owner UI delivery feedback and resend controls, safe outbound metadata, and copy-link fallback preservation. Updated `lib/services/project-collaboration-service.ts`, sharing API routes, owner sharing/access panels, component/API/service tests, and the outbound email runbook.
+
+### 2026-05-07
+- Type: Validation
+- Summary: TASK-104 passed local validation and live invitation-email smoke testing.
+- Evidence: `npm ci`; `npx prisma generate`; local migration deploy against the existing `127.0.0.1:5432` PostgreSQL service; focused invite-email tests passed (5 files, 23 tests); `npm run lint`; local DB `NODE_ENV=test npm test` passed (105 files passed, 2 skipped; 778 tests passed, 2 skipped); local DB `NODE_ENV=test npm run test:coverage` passed with 91.23% statements, 81.2% branches, 93.42% functions, and 91.75% lines; production-guarded `OUTBOUND_EMAIL_DELIVERY_MODE=disabled npm run build` passed after an initial expected local build guard failure without `RESEND_API_KEY`; `npm run test:e2e` passed all 8 Playwright tests. Manual live smoke created local project `cmovu31nw0000swsz9nhd1q80`, invited `galo.guccy@gmail.com` as an email-only recipient and `dorian.agaesse@gmail.com` as a matched verified local account, and recorded two sent `project_invitation` outbound delivery rows with provider message ids present.
+
+### 2026-05-07
+- Type: Governance
+- Summary: TASK-104 PR #245 passed required checks and Copilot review follow-up.
+- Evidence: PR #245 was opened from `feature/task-104-invite-email-delivery`. Copilot's three actionable threads were addressed in commit `49ea2e4` by validating invite URL origins, separating original inviter metadata from resend actor metadata, and restoring jsdom globals in roadmap component tests. Post-review focused validation passed with `npm test -- tests/lib/project-collaboration-service.test.ts tests/components/project-roadmap-panel.test.tsx`, `npm run lint`, and production-guarded `OUTBOUND_EMAIL_DELIVERY_MODE=disabled npm run build`; GitHub checks passed for `check-name`, `Quality Core`, `E2E Smoke`, and `Container Image`.
+
+### 2026-05-07
+- Type: Execution
+- Summary: TASK-104 follow-up changed project invitation expiry to 24 hours.
+- Evidence: Replaced the previous project invitation TTL constant with a 24-hour policy in `lib/services/project-collaboration-service.ts` and pinned service coverage to assert new invitations are created with `now + 24h`. Focused validation passed with `npm test -- tests/lib/project-collaboration-service.test.ts`.
+
 ### 2026-05-07
 - Type: Execution
 - Summary: TASK-125 implemented the outbound email foundation with durable provider-aware delivery records.

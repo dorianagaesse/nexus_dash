@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Copy, Search, UserPlus } from "lucide-react";
+import { Check, Copy, Mail, Search, UserPlus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/user-avatar";
 
 import {
+  formatInvitationEmailDelivery,
   formatIdentity,
   type CollaboratorIdentitySummary,
   type GeneratedProjectInvitationLink,
@@ -61,6 +62,13 @@ export function ProjectDashboardOwnerSharingPanel({
     generatedInvitationLink?.invitation.invitedEmail === inviteEmailCandidate;
   const isGeneratedInvitationCopied =
     copiedInvitationId === generatedInvitationLink?.invitation.invitationId;
+  const generatedEmailDeliveryMessage = formatInvitationEmailDelivery(
+    generatedInvitationLink?.emailDelivery
+  );
+  const isGeneratedInvitationEmailSent =
+    generatedInvitationLink?.emailDelivery?.status === "sent";
+  const shouldShowGeneratedInvitationLinkFallback =
+    Boolean(generatedInvitationLink) && !isGeneratedInvitationEmailSent;
 
   useEffect(() => {
     if (!copiedInvitationId) {
@@ -146,36 +154,49 @@ export function ProjectDashboardOwnerSharingPanel({
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3">
             <div className="min-w-0 flex-1 space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-medium">Invite link ready</p>
+                <p className="text-sm font-medium">
+                  {isGeneratedInvitationEmailSent
+                    ? "Invitation sent"
+                    : "Invitation ready"}
+                </p>
                 <Badge variant="secondary" className="capitalize">
                   {generatedInvitationLink.invitation.role}
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground">
-                Bound to {generatedInvitationLink.invitation.invitedEmail}.
+                {isGeneratedInvitationEmailSent
+                  ? `Sent to ${generatedInvitationLink.invitation.invitedEmail} with a link that expires in 24 hours.`
+                  : `Bound to ${generatedInvitationLink.invitation.invitedEmail}.`}
               </p>
-              <div className="flex max-w-full items-center gap-2 md:max-w-[28rem]">
-                <input
-                  readOnly
-                  value={generatedInvitationLink.url}
-                  aria-label={`Invite link for ${generatedInvitationLink.invitation.invitedEmail}`}
-                  className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2.5 text-xs text-muted-foreground outline-none sm:text-sm"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  aria-label={`Copy invite link for ${generatedInvitationLink.invitation.invitedEmail}`}
-                  className="h-9 w-9 shrink-0"
-                  onClick={() => void handleCopyGeneratedInvitationLink()}
-                >
-                  {isGeneratedInvitationCopied ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
+              {generatedEmailDeliveryMessage ? (
+                <p className="text-xs text-muted-foreground">
+                  {generatedEmailDeliveryMessage}
+                </p>
+              ) : null}
+              {shouldShowGeneratedInvitationLinkFallback ? (
+                <div className="flex max-w-full items-center gap-2 md:max-w-[28rem]">
+                  <input
+                    readOnly
+                    value={generatedInvitationLink.url}
+                    aria-label={`Invite link for ${generatedInvitationLink.invitation.invitedEmail}`}
+                    className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2.5 text-xs text-muted-foreground outline-none sm:text-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label={`Copy invite link for ${generatedInvitationLink.invitation.invitedEmail}`}
+                    className="h-9 w-9 shrink-0"
+                    onClick={() => void handleCopyGeneratedInvitationLink()}
+                  >
+                    {isGeneratedInvitationCopied ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -185,7 +206,7 @@ export function ProjectDashboardOwnerSharingPanel({
             <div className="space-y-1">
               <p className="text-sm font-medium">{inviteEmailCandidate}</p>
               <p className="text-xs text-muted-foreground">
-                Create a link and share it when you are ready.
+                Send an invitation email with a 24-hour link.
               </p>
             </div>
             <Button
@@ -194,7 +215,14 @@ export function ProjectDashboardOwnerSharingPanel({
               onClick={() => onInviteByEmail(inviteEmailCandidate)}
               disabled={isInvitingUserId === inviteEmailCandidate}
             >
-              {isInvitingUserId === inviteEmailCandidate ? "Creating..." : "Create link"}
+              {isInvitingUserId === inviteEmailCandidate ? (
+                "Sending..."
+              ) : (
+                <>
+                  <Mail className="h-4 w-4" />
+                  Send invitation
+                </>
+              )}
             </Button>
           </div>
         ) : null}

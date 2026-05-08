@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Mail } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/user-avatar";
 
 import {
+  formatInvitationEmailDelivery,
   formatIdentity,
+  type ProjectInvitationEmailDeliverySummary,
   type ProjectCollaboratorRole,
   type ProjectInvitationSummary,
   type ProjectMemberSummary,
@@ -21,9 +23,15 @@ interface ProjectDashboardOwnerAccessPanelProps {
   sharingSummary: ProjectSharingSummary | null;
   isMutatingMemberId: string | null;
   isMutatingInvitationId: string | null;
+  sendingInvitationEmailId: string | null;
+  invitationEmailDeliveries: Record<
+    string,
+    ProjectInvitationEmailDeliverySummary | undefined
+  >;
   onRoleChange: (member: ProjectMemberSummary, nextRole: ProjectCollaboratorRole) => void;
   onRemoveMember: (member: ProjectMemberSummary) => void;
   onCopyInvitationLink: (invitation: ProjectInvitationSummary) => Promise<boolean> | boolean;
+  onSendInvitationEmail: (invitation: ProjectInvitationSummary) => void;
   onRevokeInvitation: (invitation: ProjectInvitationSummary) => void;
 }
 
@@ -37,9 +45,12 @@ export function ProjectDashboardOwnerAccessPanel({
   sharingSummary,
   isMutatingMemberId,
   isMutatingInvitationId,
+  sendingInvitationEmailId,
+  invitationEmailDeliveries,
   onRoleChange,
   onRemoveMember,
   onCopyInvitationLink,
+  onSendInvitationEmail,
   onRevokeInvitation,
 }: ProjectDashboardOwnerAccessPanelProps) {
   const [copiedInvitationId, setCopiedInvitationId] = useState<string | null>(null);
@@ -55,14 +66,6 @@ export function ProjectDashboardOwnerAccessPanel({
 
     return () => window.clearTimeout(timeoutId);
   }, [copiedInvitationId]);
-
-  const buildInvitationLink = (invitation: ProjectInvitationSummary) => {
-    if (typeof window === "undefined") {
-      return invitation.inviteLinkPath;
-    }
-
-    return new URL(invitation.inviteLinkPath, window.location.origin).toString();
-  };
 
   const handleCopyInvitation = async (invitation: ProjectInvitationSummary) => {
     const didCopy = await onCopyInvitationLink(invitation);
@@ -181,8 +184,12 @@ export function ProjectDashboardOwnerAccessPanel({
                   invitationLabel,
                   invitationIdentity
                 );
-                const isEmailOnlyInvitation = !invitation.invitedUserDisplayName;
                 const isCopied = copiedInvitationId === invitation.invitationId;
+                const emailDeliveryMessage = formatInvitationEmailDelivery(
+                  invitationEmailDeliveries[invitation.invitationId]
+                );
+                const isSendingEmail =
+                  sendingInvitationEmailId === invitation.invitationId;
 
                 return (
                   <div
@@ -208,41 +215,36 @@ export function ProjectDashboardOwnerAccessPanel({
                       <p className="text-xs text-muted-foreground">
                         Expires {new Date(invitation.expiresAt).toLocaleDateString()}.
                       </p>
+                      {emailDeliveryMessage ? (
+                        <p className="text-xs text-muted-foreground">
+                          {emailDeliveryMessage}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      {isEmailOnlyInvitation ? (
-                        <div className="flex max-w-full items-center gap-2 md:max-w-[28rem]">
-                          <input
-                            readOnly
-                            value={buildInvitationLink(invitation)}
-                            aria-label={`Invite link for ${invitation.invitedEmail}`}
-                            className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2.5 text-xs text-muted-foreground outline-none sm:text-sm"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            aria-label={`Copy invite link for ${invitation.invitedEmail}`}
-                            className="h-9 w-9 shrink-0"
-                            onClick={() => void handleCopyInvitation(invitation)}
-                          >
-                            {isCopied ? (
-                              <Check className="h-4 w-4" />
-                            ) : (
-                              <Copy className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void handleCopyInvitation(invitation)}
-                        >
-                          Copy link
-                        </Button>
-                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleCopyInvitation(invitation)}
+                      >
+                        {isCopied ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                        Copy link
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onSendInvitationEmail(invitation)}
+                        disabled={isSendingEmail}
+                      >
+                        <Mail className="h-4 w-4" />
+                        {isSendingEmail ? "Sending..." : "Resend email"}
+                      </Button>
                       <Button
                         type="button"
                         variant="ghost"
