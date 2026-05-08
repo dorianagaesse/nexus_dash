@@ -61,13 +61,18 @@ recorded and returned to the caller synchronously.
 
 TASK-225 adds project notification email digests and delayed project invitation
 reminders. The dispatcher is exposed at `/api/cron/notification-emails`, expects
-`Authorization: Bearer <secret>`, and is scheduled in `vercel.json` every 15
-minutes for production deployments. It sends project activity digests only after
-the recipient/project group has been quiet for at least 30 minutes, and sends a
+`Authorization: Bearer <secret>`, and is called every 15 minutes by
+`.github/workflows/notification-email-dispatch.yml`. The repository scheduler is
+used because the current Vercel Hobby plan rejects sub-daily Vercel Cron
+schedules during deployment. Configure repository variable
+`NOTIFICATION_EMAIL_DISPATCH_URL` with the production app origin and repository
+secret `NOTIFICATION_EMAIL_DISPATCH_SECRET` or `CRON_SECRET` with the same value
+configured in the app runtime. It sends project activity digests only after the
+recipient/project group has been quiet for at least 30 minutes, and sends a
 single invitation reminder when an existing in-app invitation notification stays
-unresolved/unread for 6 hours. Preview deployments do not run Vercel Cron
-automatically; invoke the endpoint manually with the same bearer secret during
-preview validation.
+unresolved/unread for 6 hours. Preview deployments can be validated by running
+the workflow manually with `target_url=<preview-url>` or by invoking the
+endpoint directly with the same bearer secret.
 
 If Google OAuth is enabled:
 
@@ -128,6 +133,8 @@ Important:
   `AGENT_TOKEN_SIGNING_SECRET` only when the preview environment intentionally
   omits the real secret. Use a real stable secret in shared preview
   environments when agent access behavior needs to be validated end to end.
+- Preview email smoke tests need `OUTBOUND_EMAIL_DELIVERY_MODE=live` and a real
+  `RESEND_API_KEY`. The default `auto` mode records preview attempts as skipped.
 - Keep `GOOGLE_TOKEN_ENCRYPTION_KEY` stable per environment. Rotating it
   requires token re-authorization because existing encrypted tokens may become
   unreadable.

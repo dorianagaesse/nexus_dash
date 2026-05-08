@@ -59,9 +59,9 @@ email foundation.
   reminder idempotency.
 - Add a protected dispatch endpoint for scheduled execution. Protect it with a
   dedicated server-side secret and document the required runtime env contract.
-- Document the production dispatch path. If Vercel Cron is used, add the repo
-  cron config and note how preview/manual validation should invoke the same
-  service safely.
+- Document the production dispatch path. The current Vercel plan rejects
+  sub-daily Vercel Cron schedules, so the repo uses a scheduled GitHub Actions
+  workflow to call the protected endpoint every 15 minutes.
 - Keep notification reads/resolution user-driven; sending a digest or reminder
   must not mark notifications as read or resolved.
 
@@ -184,6 +184,12 @@ email foundation.
 - Post-Copilot production-guarded `npm run build` passed on 2026-05-08 with
   local PostgreSQL, disabled outbound delivery mode, localhost trusted origins,
   local agent signing secret, and local NextAuth secret.
+- The first explicit-ref preview deployment workflow run (`25583050495`) checked
+  out `feature/task-225-project-notification-email-digests`, generated Prisma,
+  applied migrations, and built the app, then failed at Vercel deploy because
+  Vercel Hobby rejects the `*/15` cron expression in `vercel.json`. Scheduler
+  wiring was moved to GitHub Actions so branch previews can deploy on this
+  account while preserving the 15-minute dispatch cadence.
 - Pending: follow-up PR checks, branch preview deploy, and real preview email
   smoke to `dorian.agaesse@gmail.com`.
 

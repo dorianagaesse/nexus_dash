@@ -288,9 +288,14 @@ latest eligible mention/assignment notification has been quiet for at least 30
 minutes, and sends one reminder for unresolved/unread project invitations after
 6 hours. Sending email never marks notifications read or resolved.
 
-`vercel.json` schedules the endpoint every 15 minutes in production. Preview
-deployments do not run Vercel Cron automatically; call the endpoint manually
-with the same bearer secret for preview validation.
+`.github/workflows/notification-email-dispatch.yml` calls the endpoint every 15
+minutes from GitHub Actions because the current Vercel plan does not support
+sub-daily Vercel Cron schedules. Configure repository variable
+`NOTIFICATION_EMAIL_DISPATCH_URL` with the production app origin, plus
+repository secret `NOTIFICATION_EMAIL_DISPATCH_SECRET` or `CRON_SECRET`.
+Preview deployments should be validated by running the same workflow manually
+with `target_url=<preview-url>` or by calling the endpoint directly with the
+same bearer secret.
 
 ## CI/CD
 
@@ -301,6 +306,7 @@ with the same bearer secret for preview validation.
 - `Container Image (build + metadata artifact)`
 - `Check Branch Name` (PR branch naming contract)
 - `Dependency Security` (scheduled + manual `npm audit` baseline with artifacts)
+- `Notification Email Dispatch` (scheduled + manual protected dispatch call)
 
 Branch-name note:
 - human-authored PR branches must use `feature/*`, `fix/*`, `refactor/*`,

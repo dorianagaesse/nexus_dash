@@ -1216,7 +1216,7 @@ Low-value entries to avoid going forward:
 ### 2026-05-08
 - Type: Execution
 - Summary: TASK-225 implemented project notification email digests and delayed invitation reminders from a dedicated worktree.
-- Evidence: Created worktree `../nexus_dash_task225` on `feature/task-225-project-notification-email-digests` from `origin/main`. Added durable `ProjectNotificationEmail` and `ProjectNotificationEmailItem` tracking tables; added `project_notification_digest` email template support; added a service-layer dispatcher that scans verified users, groups unread/unresolved mention and assignment notifications by recipient/project after a 30-minute quiet window, collapses repetitive task activity, sends via `sendOutboundEmail`, and leaves notification read/resolution state unchanged. Added a 6-hour unresolved/unread project invitation reminder path using the existing project invitation email foundation. Added protected `GET /api/cron/notification-emails`, `CRON_SECRET`/`NOTIFICATION_EMAIL_DISPATCH_SECRET` env handling, and `vercel.json` production cron schedule.
+- Evidence: Created worktree `../nexus_dash_task225` on `feature/task-225-project-notification-email-digests` from `origin/main`. Added durable `ProjectNotificationEmail` and `ProjectNotificationEmailItem` tracking tables; added `project_notification_digest` email template support; added a service-layer dispatcher that scans verified users, groups unread/unresolved mention and assignment notifications by recipient/project after a 30-minute quiet window, collapses repetitive task activity, sends via `sendOutboundEmail`, and leaves notification read/resolution state unchanged. Added a 6-hour unresolved/unread project invitation reminder path using the existing project invitation email foundation. Added protected `GET /api/cron/notification-emails` plus `CRON_SECRET`/`NOTIFICATION_EMAIL_DISPATCH_SECRET` env handling.
 
 ### 2026-05-08
 - Type: Validation
@@ -1232,6 +1232,11 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-225 Copilot follow-up passed focused tests, lint, full unit/API tests, coverage, and production build.
 - Evidence: Focused tests passed with `npm test -- --run tests/lib/project-notification-email-service.test.ts tests/api/notification-email-dispatch.route.test.ts tests/lib/outbound-email-templates.test.ts tests/lib/env.server.test.ts` (4 files, 77 tests); `npm run lint` passed; local DB `NODE_ENV=test npm test` passed (107 files passed, 2 skipped; 796 passed, 2 skipped); local DB `NODE_ENV=test npm run test:coverage` passed (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); production-guarded `npm run build` passed with local PostgreSQL, disabled outbound delivery mode, localhost trusted origins, local agent signing secret, and local NextAuth secret. Standalone `npx tsc --noEmit` still reports pre-existing test typing issues unrelated to TASK-225, so the repo's established lint/test/coverage/build validation path remains the authoritative gate.
+
+### 2026-05-08
+- Type: Execution
+- Summary: TASK-225 replaced Vercel Cron wiring with a GitHub Actions scheduler after preview deployment exposed the Vercel Hobby cron limit.
+- Evidence: Explicit-ref preview workflow run `25583050495` checked out `feature/task-225-project-notification-email-digests`, generated Prisma, applied migrations, and built the app, then failed during `vercel deploy` with Vercel's Hobby-plan error for the `*/15` cron in `vercel.json`. Removed `vercel.json` and added `.github/workflows/notification-email-dispatch.yml`, which calls the protected dispatch endpoint every 15 minutes using repository variable `NOTIFICATION_EMAIL_DISPATCH_URL` plus repository secret `NOTIFICATION_EMAIL_DISPATCH_SECRET` or `CRON_SECRET`.
 
 ### 2026-05-04
 - Type: Validation
