@@ -2,6 +2,7 @@ export type OutboundEmailTemplateKey =
   | "email_verification"
   | "password_reset"
   | "project_invitation"
+  | "project_notification_digest"
   | "operational_smoke";
 
 export interface OutboundEmailMessage {
@@ -11,6 +12,7 @@ export interface OutboundEmailMessage {
 }
 
 const DEFAULT_TOKEN_TTL_SECONDS = 60 * 60;
+const MAX_SUBJECT_LENGTH = 220;
 
 function escapeHtmlAttribute(value: string): string {
   return value
@@ -29,6 +31,12 @@ function escapeHtmlText(value: string): string {
 
 function sanitizePlainText(value: string): string {
   return value.replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function truncateSubject(value: string): string {
+  return value.length > MAX_SUBJECT_LENGTH
+    ? `${value.slice(0, MAX_SUBJECT_LENGTH - 3)}...`
+    : value;
 }
 
 function formatExpiryLabel(tokenTtlSeconds: number): string {
@@ -95,6 +103,7 @@ export function buildProjectInvitationEmail(input: {
   invitedByDisplayName: string;
   role: "editor" | "viewer";
   expiresAt: Date;
+  variant?: "initial" | "reminder";
 }): OutboundEmailMessage {
   const safeInviteUrl = escapeHtmlAttribute(input.inviteUrl);
   const plainProjectName = sanitizePlainText(input.projectName) || "a project";
@@ -104,18 +113,91 @@ export function buildProjectInvitationEmail(input: {
   const safeInviterName = escapeHtmlText(plainInviterName);
   const action = input.role === "viewer" ? "view" : "collaborate on";
   const expiresAtLabel = input.expiresAt.toUTCString();
+  const isReminder = input.variant === "reminder";
+  const introPrefix = isReminder ? "Reminder: " : "";
 
   return {
-    subject: `Invitation to ${plainProjectName} on NexusDash`,
+    subject: truncateSubject(
+      `${isReminder ? "Reminder: invitation" : "Invitation"} to ${plainProjectName} on NexusDash`
+    ),
     text:
-      `${plainInviterName} invited you to ${action} ${plainProjectName} on NexusDash.\n\n` +
+      `${introPrefix}${plainInviterName} invited you to ${action} ${plainProjectName} on NexusDash.\n\n` +
       `This invitation expires on ${expiresAtLabel}.\n\n` +
       `${input.inviteUrl}\n\n` +
       `If you were not expecting this invitation, you can ignore this email.`,
     html:
-      `<p>${safeInviterName} invited you to ${action} <strong>${safeProjectName}</strong> on NexusDash.</p>` +
+      `<p>${isReminder ? "<strong>Reminder:</strong> " : ""}${safeInviterName} invited you to ${action} <strong>${safeProjectName}</strong> on NexusDash.</p>` +
       `<p>This invitation expires on <strong>${escapeHtmlText(expiresAtLabel)}</strong>.</p>` +
       `<p><a href="${safeInviteUrl}">Open invitation</a></p>` +
       `<p>If you were not expecting this invitation, you can ignore this email.</p>`,
+  };
+}
+
+export interface ProjectNotificationDigestEmailItem {
+  label: string;
+  count: number;
+  targetUrl: string;
+}
+
+export function buildProjectNotificationDigestEmail(input: {
+  projectName: string;
+  notificationCount: number;
+  items: ProjectNotificationDigestEmailItem[];
+  projectUrl: string;
+  notificationsUrl: string;
+  omittedCount?: number;
+}): OutboundEmailMessage {
+  const plainProjectName = sanitizePlainText(input.projectName) || "a project";
+  const safeProjectName = escapeHtmlText(plainProjectName);
+  const safeProjectUrl = escapeHtmlAttribute(input.projectUrl);
+  const safeNotificationsUrl = escapeHtmlAttribute(input.notificationsUrl);
+  const notificationLabel =
+    input.notificationCount === 1 ? "update" : "updates";
+  const subject = truncateSubject(
+    `${input.notificationCount} ${notificationLabel} for ${plainProjectName} on NexusDash`
+  );
+  const digestItems = input.items.map((item) => {
+    const plainLabel = sanitizePlainText(item.label) || "Project update";
+    const prefix = item.count > 1 ? `${item.count}x ` : "";
+
+    return {
+      label: `${prefix}${plainLabel}`,
+      targetUrl: item.targetUrl,
+    };
+  });
+  const omittedCount = Math.max(0, input.omittedCount ?? 0);
+
+  const textLines = [
+    `You have ${input.notificationCount} unread ${notificationLabel} for ${plainProjectName}.`,
+    "",
+    ...digestItems.map((item) => `- ${item.label}: ${item.targetUrl}`),
+    ...(omittedCount > 0
+      ? [`- ${omittedCount} more ${omittedCount === 1 ? "update" : "updates"} in NexusDash.`]
+      : []),
+    "",
+    `Open project: ${input.projectUrl}`,
+    `Open notification center: ${input.notificationsUrl}`,
+  ];
+
+  const htmlItems = digestItems
+    .map((item) => {
+      const safeLabel = escapeHtmlText(item.label);
+      const safeTargetUrl = escapeHtmlAttribute(item.targetUrl);
+      return `<li><a href="${safeTargetUrl}">${safeLabel}</a></li>`;
+    })
+    .join("");
+  const omittedHtml =
+    omittedCount > 0
+      ? `<li>${omittedCount} more ${omittedCount === 1 ? "update" : "updates"} in NexusDash.</li>`
+      : "";
+
+  return {
+    subject,
+    text: textLines.join("\n"),
+    html:
+      `<p>You have <strong>${input.notificationCount}</strong> unread ${notificationLabel} for <strong>${safeProjectName}</strong>.</p>` +
+      `<ul>${htmlItems}${omittedHtml}</ul>` +
+      `<p><a href="${safeProjectUrl}">Open project</a></p>` +
+      `<p><a href="${safeNotificationsUrl}">Open notification center</a></p>`,
   };
 }

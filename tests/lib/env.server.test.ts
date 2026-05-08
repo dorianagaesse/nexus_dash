@@ -4,6 +4,7 @@ import {
   getAgentAccessTokenTtlSeconds,
   getAgentTokenRuntimeConfig,
   getDatabaseRuntimeConfig,
+  getNotificationEmailDispatchSecret,
   getOutboundEmailRuntimeConfig,
   getOptionalServerEnv,
   getPrismaPgRuntimeConnectionString,
@@ -40,6 +41,8 @@ const ENV_KEYS_TO_RESET = [
   "AUTH_GITHUB_REDIRECT_URI",
   "AGENT_TOKEN_SIGNING_SECRET",
   "AGENT_ACCESS_TOKEN_TTL_SECONDS",
+  "CRON_SECRET",
+  "NOTIFICATION_EMAIL_DISPATCH_SECRET",
   "OUTBOUND_EMAIL_DELIVERY_MODE",
   "RESEND_API_KEY",
   "RESEND_FROM_EMAIL",
@@ -616,6 +619,28 @@ describe("env.server", () => {
 
     expect(() => validateServerRuntimeConfig()).toThrow(
       "RESEND_FROM_EMAIL must look like a valid email identity."
+    );
+  });
+
+  test("reads notification email dispatch secret with dedicated env precedence", () => {
+    vi.stubEnv("CRON_SECRET", "cron-secret-0123456789abcdefghijkl");
+    vi.stubEnv(
+      "NOTIFICATION_EMAIL_DISPATCH_SECRET",
+      "notification-secret-0123456789abcdef"
+    );
+
+    expect(getNotificationEmailDispatchSecret()).toBe(
+      "notification-secret-0123456789abcdef"
+    );
+  });
+
+  test("fails runtime validation when notification email dispatch secret is too short", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://db-host:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://direct-host:5432/postgres");
+    vi.stubEnv("CRON_SECRET", "short");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "NOTIFICATION_EMAIL_DISPATCH_SECRET/CRON_SECRET must be at least 32 characters long when configured."
     );
   });
 

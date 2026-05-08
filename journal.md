@@ -1213,6 +1213,16 @@ Low-value entries to avoid going forward:
 - Summary: TASK-131 local validation repair passed install/generate/lint/test/coverage/build checks under a Node `20.19.0` shim; full DB migration and Playwright smoke remain blocked until Docker Desktop is running.
 - Evidence: Passed: `docker compose config`; `npx -y -p node@20.19.0 -p npm@10 npm ci`; `npx -y -p node@20.19.0 -p npm@10 npx prisma generate`; placeholder-env `npm run lint`; placeholder-env `npm test` (92 files passed, 1 skipped; 718 passed, 1 skipped); placeholder-env `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); placeholder-env `npm run build`. Expected blockers: plain `npm run validate:local` fails early on global Node `20.17.0`; Node-shimmed `node scripts/local-validation.mjs` reaches `Start local PostgreSQL` and fails because Docker Desktop Linux engine pipe `//./pipe/dockerDesktopLinuxEngine` is unavailable.
 
+### 2026-05-08
+- Type: Execution
+- Summary: TASK-225 implemented project notification email digests and delayed invitation reminders from a dedicated worktree.
+- Evidence: Created worktree `../nexus_dash_task225` on `feature/task-225-project-notification-email-digests` from `origin/main`. Added durable `ProjectNotificationEmail` and `ProjectNotificationEmailItem` tracking tables; added `project_notification_digest` email template support; added a service-layer dispatcher that scans verified users, groups unread/unresolved mention and assignment notifications by recipient/project after a 30-minute quiet window, collapses repetitive task activity, sends via `sendOutboundEmail`, and leaves notification read/resolution state unchanged. Added a 6-hour unresolved/unread project invitation reminder path using the existing project invitation email foundation. Added protected `GET /api/cron/notification-emails`, `CRON_SECRET`/`NOTIFICATION_EMAIL_DISPATCH_SECRET` env handling, and `vercel.json` production cron schedule.
+
+### 2026-05-08
+- Type: Validation
+- Summary: TASK-225 local validation passed through focused tests, lint, full unit/API tests, coverage, and production build.
+- Evidence: `npm ci`; `npx prisma generate`; `npm run db:local:up`; local PostgreSQL `npm run db:migrate` applied all 34 migrations including `20260508110000_task225_project_notification_email_digests`; focused tests passed with `npm test -- --run tests/lib/project-notification-email-service.test.ts tests/api/notification-email-dispatch.route.test.ts tests/lib/outbound-email-templates.test.ts tests/lib/env.server.test.ts` (4 files, 76 tests); `npm run lint` passed; local DB `NODE_ENV=test npm test` passed (107 files passed, 2 skipped; 795 passed, 2 skipped); local DB `NODE_ENV=test npm run test:coverage` passed (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); production-guarded `npm run build` passed with local PostgreSQL, disabled outbound delivery mode, localhost trusted origins, local agent signing secret, and local NextAuth secret. A prior build attempt failed because the local shell set `NEXTAUTH_URL` without `NEXTAUTH_SECRET`; rerunning with both configured passed.
+
 ### 2026-05-04
 - Type: Validation
 - Summary: TASK-131 full local validation baseline passed after Node was upgraded to `v24.15.0` and Docker Desktop was running.

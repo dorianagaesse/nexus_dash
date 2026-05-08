@@ -200,6 +200,7 @@ const DEFAULT_AGENT_ACCESS_TOKEN_TTL_SECONDS = 600;
 const MIN_AGENT_ACCESS_TOKEN_TTL_SECONDS = 300;
 const MAX_AGENT_ACCESS_TOKEN_TTL_SECONDS = 900;
 const MIN_AGENT_TOKEN_SIGNING_SECRET_LENGTH = 32;
+const MIN_NOTIFICATION_EMAIL_DISPATCH_SECRET_LENGTH = 32;
 const DEFAULT_RESEND_FROM_EMAIL = "NexusDash <noreply@nexus-dash.app>";
 
 function parsePositiveInteger(input: string | null): number | null {
@@ -302,6 +303,13 @@ export function getOutboundEmailRuntimeConfig(): OutboundEmailRuntimeConfig {
       deliveryMode === "live" ||
       (deliveryMode === "auto" && isLiveProductionDeployment()),
   };
+}
+
+export function getNotificationEmailDispatchSecret(): string | null {
+  return (
+    getOptionalServerEnv("NOTIFICATION_EMAIL_DISPATCH_SECRET") ??
+    getOptionalServerEnv("CRON_SECRET")
+  );
 }
 
 function assertOptionalEnvironmentGroup(
@@ -636,6 +644,17 @@ export function validateServerRuntimeConfig(
         `AGENT_ACCESS_TOKEN_TTL_SECONDS must be between ${MIN_AGENT_ACCESS_TOKEN_TTL_SECONDS} and ${MAX_AGENT_ACCESS_TOKEN_TTL_SECONDS}.`
       );
     }
+  }
+
+  const notificationEmailDispatchSecret = getNotificationEmailDispatchSecret();
+  if (
+    notificationEmailDispatchSecret &&
+    notificationEmailDispatchSecret.length <
+      MIN_NOTIFICATION_EMAIL_DISPATCH_SECRET_LENGTH
+  ) {
+    throw new Error(
+      `NOTIFICATION_EMAIL_DISPATCH_SECRET/CRON_SECRET must be at least ${MIN_NOTIFICATION_EMAIL_DISPATCH_SECRET_LENGTH} characters long when configured.`
+    );
   }
 
   assertOptionalEnvironmentGroup(

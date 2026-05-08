@@ -38,6 +38,10 @@ Optional:
 
 - `RESEND_FROM_EMAIL` defaults to `NexusDash <noreply@nexus-dash.app>`.
 - `OUTBOUND_EMAIL_DELIVERY_MODE` defaults to `auto`.
+- `CRON_SECRET` or `NOTIFICATION_EMAIL_DISPATCH_SECRET` protects the
+  notification digest/reminder dispatch endpoint. If both are configured,
+  `NOTIFICATION_EMAIL_DISPATCH_SECRET` takes precedence. Either value must be at
+  least 32 characters when set.
 
 Delivery modes:
 
@@ -55,6 +59,16 @@ fails. The current foundation does not run background retry workers, bounce
 webhooks, suppression handling, or notification preferences; failed sends are
 recorded and returned to the caller synchronously.
 
+TASK-225 adds project notification email digests and delayed project invitation
+reminders. The dispatcher is exposed at `/api/cron/notification-emails`, expects
+`Authorization: Bearer <secret>`, and is scheduled in `vercel.json` every 15
+minutes for production deployments. It sends project activity digests only after
+the recipient/project group has been quiet for at least 30 minutes, and sends a
+single invitation reminder when an existing in-app invitation notification stays
+unresolved/unread for 6 hours. Preview deployments do not run Vercel Cron
+automatically; invoke the endpoint manually with the same bearer secret during
+preview validation.
+
 If Google OAuth is enabled:
 
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` must
@@ -70,6 +84,8 @@ Set as sensitive in Vercel (Preview + Production):
 - `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_TOKEN_ENCRYPTION_KEY`
 - `AGENT_TOKEN_SIGNING_SECRET`
+- `CRON_SECRET`
+- `NOTIFICATION_EMAIL_DISPATCH_SECRET`
 - `NEXTAUTH_SECRET`
 - `DATABASE_URL`
 - `DIRECT_URL`
