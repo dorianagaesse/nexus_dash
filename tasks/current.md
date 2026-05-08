@@ -165,8 +165,27 @@ email foundation.
 - Production-guarded `npm run build` passed on 2026-05-08 with local
   PostgreSQL, `OUTBOUND_EMAIL_DELIVERY_MODE=disabled`, localhost trusted
   origins, local `AGENT_TOKEN_SIGNING_SECRET`, and local `NEXTAUTH_SECRET`.
-- Pending: PR checks, Copilot review, branch preview deploy, and real preview
-  email smoke to `dorian.agaesse@gmail.com`.
+- PR #246 opened on 2026-05-08 from
+  `feature/task-225-project-notification-email-digests`; initial GitHub checks
+  passed: Quality Core, E2E Smoke, Container Image, and branch-name check.
+- Copilot review feedback on PR #246 was addressed by making failed/stale
+  pending dispatch records retryable, limiting notification coverage to
+  sent/skipped/fresh pending email attempts, removing the fixed first-250-user
+  scan cap, and batching invitation lookups.
+- Post-Copilot focused validation passed on 2026-05-08:
+  `npm test -- --run tests/lib/project-notification-email-service.test.ts tests/api/notification-email-dispatch.route.test.ts tests/lib/outbound-email-templates.test.ts tests/lib/env.server.test.ts`
+  with 4 files and 77 tests passing.
+- Post-Copilot `npm run lint` passed on 2026-05-08.
+- Post-Copilot full local DB `NODE_ENV=test npm test` passed on 2026-05-08
+  with 107 files passed, 2 skipped; 796 tests passed, 2 skipped.
+- Post-Copilot full local DB `NODE_ENV=test npm run test:coverage` passed on
+  2026-05-08 with 91.23% statements, 81.2% branches, 93.42% functions, and
+  91.75% lines.
+- Post-Copilot production-guarded `npm run build` passed on 2026-05-08 with
+  local PostgreSQL, disabled outbound delivery mode, localhost trusted origins,
+  local agent signing secret, and local NextAuth secret.
+- Pending: follow-up PR checks, branch preview deploy, and real preview email
+  smoke to `dorian.agaesse@gmail.com`.
 
 ## Out Of Scope
 - TASK-226 task due-date reminder emails.

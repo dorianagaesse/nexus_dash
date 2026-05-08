@@ -8,6 +8,7 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
   },
   projectInvitation: {
+    findMany: vi.fn(),
     findUnique: vi.fn(),
   },
   projectNotificationEmail: {
@@ -150,6 +151,7 @@ describe("project-notification-email-service", () => {
     prismaMock.projectNotificationEmail.update.mockResolvedValue({
       id: "email-1",
     });
+    prismaMock.projectInvitation.findMany.mockResolvedValue([]);
     prismaMock.projectInvitation.findUnique.mockResolvedValue(null);
     outboundEmailMock.sendOutboundEmail.mockResolvedValue({
       ok: true,
@@ -245,7 +247,63 @@ describe("project-notification-email-service", () => {
     });
 
     expect(summary.digestsAttempted).toBe(0);
+    expect(prismaMock.projectNotificationEmailItem.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          email: expect.objectContaining({
+            kind: "project_digest",
+            OR: expect.arrayContaining([
+              expect.objectContaining({
+                status: {
+                  in: ["sent", "skipped"],
+                },
+              }),
+              expect.objectContaining({
+                status: "pending",
+              }),
+            ]),
+          }),
+        }),
+      })
+    );
     expect(outboundEmailMock.sendOutboundEmail).not.toHaveBeenCalled();
+  });
+
+  test("retries a failed digest tracking row instead of permanently covering notifications", async () => {
+    prismaMock.notification.findMany
+      .mockResolvedValueOnce([mentionNotification()])
+      .mockResolvedValueOnce([]);
+    prismaMock.projectNotificationEmail.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "email-failed",
+      });
+
+    const summary = await dispatchProjectNotificationEmails({
+      appOrigin: "https://preview.nexusdash.test",
+      now,
+    });
+
+    expect(summary.digestsSent).toBe(1);
+    expect(prismaMock.projectNotificationEmail.create).not.toHaveBeenCalled();
+    expect(prismaMock.projectNotificationEmail.update).toHaveBeenNthCalledWith(1, {
+      where: { id: "email-failed" },
+      data: {
+        status: "pending",
+        outboundEmailDeliveryId: null,
+        errorCode: null,
+        completedAt: null,
+      },
+    });
+    expect(prismaMock.projectNotificationEmail.update).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: { id: "email-failed" },
+        data: expect.objectContaining({
+          status: "sent",
+        }),
+      })
+    );
   });
 
   test("records provider failure on the digest tracking row", async () => {
@@ -280,7 +338,7 @@ describe("project-notification-email-service", () => {
     prismaMock.notification.findMany
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([invitationNotification()]);
-    prismaMock.projectInvitation.findUnique.mockResolvedValueOnce({
+    prismaMock.projectInvitation.findMany.mockResolvedValueOnce([{
       id: "invite-1",
       invitedEmail: "dorian.agaesse@gmail.com",
       role: "editor",
@@ -298,7 +356,7 @@ describe("project-notification-email-service", () => {
         username: null,
         usernameDiscriminator: null,
       },
-    });
+    }]);
 
     const summary = await dispatchProjectNotificationEmails({
       appOrigin: "https://preview.nexusdash.test",
@@ -328,6 +386,7 @@ describe("project-notification-email-service", () => {
         }),
       })
     );
+    expect(prismaMock.projectInvitation.findMany).toHaveBeenCalledTimes(1);
   });
 
   test("skips invitation reminders that already have tracking items", async () => {

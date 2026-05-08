@@ -19,7 +19,7 @@ const EMAIL_KIND_PROJECT_DIGEST = "project_digest";
 const EMAIL_KIND_PROJECT_INVITATION_REMINDER = "project_invitation_reminder";
 const QUIET_WINDOW_MS = 30 * 60 * 1000;
 const INVITATION_REMINDER_AFTER_MS = 6 * 60 * 60 * 1000;
-const MAX_USERS_PER_DISPATCH = 250;
+const PENDING_RETRY_GRACE_MS = 30 * 60 * 1000;
 const MAX_GROUPS_PER_DISPATCH = 100;
 const MAX_DIGEST_BODY_ITEMS = 12;
 
@@ -357,7 +357,6 @@ async function findVerifiedRecipients(): Promise<VerifiedRecipient[]> {
       },
     },
     orderBy: [{ createdAt: "asc" }],
-    take: MAX_USERS_PER_DISPATCH,
     select: {
       id: true,
       email: true,
@@ -377,12 +376,14 @@ async function findVerifiedRecipients(): Promise<VerifiedRecipient[]> {
 async function getAlreadyCoveredNotificationIds(
   db: DbClient,
   notificationIds: string[],
-  kind: typeof EMAIL_KIND_PROJECT_DIGEST | typeof EMAIL_KIND_PROJECT_INVITATION_REMINDER
+  kind: typeof EMAIL_KIND_PROJECT_DIGEST | typeof EMAIL_KIND_PROJECT_INVITATION_REMINDER,
+  now: Date
 ): Promise<Set<string>> {
   if (notificationIds.length === 0) {
     return new Set();
   }
 
+  const pendingRetryThreshold = new Date(now.getTime() - PENDING_RETRY_GRACE_MS);
   const rows = await db.projectNotificationEmailItem.findMany({
     where: {
       notificationId: {
@@ -390,6 +391,19 @@ async function getAlreadyCoveredNotificationIds(
       },
       email: {
         kind,
+        OR: [
+          {
+            status: {
+              in: ["sent", "skipped"],
+            },
+          },
+          {
+            status: "pending",
+            createdAt: {
+              gte: pendingRetryThreshold,
+            },
+          },
+        ],
       },
     },
     select: {
@@ -435,7 +449,8 @@ async function collectDigestGroupsForRecipient(input: {
     const coveredIds = await getAlreadyCoveredNotificationIds(
       db,
       notifications.map((notification) => notification.id),
-      EMAIL_KIND_PROJECT_DIGEST
+      EMAIL_KIND_PROJECT_DIGEST,
+      input.now
     );
     const candidates = notifications
       .filter((notification) => !coveredIds.has(notification.id))
@@ -513,45 +528,57 @@ async function collectInvitationRemindersForRecipient(input: {
     const coveredIds = await getAlreadyCoveredNotificationIds(
       db,
       notifications.map((notification) => notification.id),
-      EMAIL_KIND_PROJECT_INVITATION_REMINDER
+      EMAIL_KIND_PROJECT_INVITATION_REMINDER,
+      input.now
     );
     const candidates: InvitationReminderCandidate[] = [];
+    const notificationsByInvitationId = new Map(
+      notifications
+        .filter((notification) => !coveredIds.has(notification.id))
+        .map((notification) => [notification.sourceId, notification])
+    );
 
-    for (const notification of notifications) {
-      if (coveredIds.has(notification.id)) {
-        continue;
-      }
+    if (notificationsByInvitationId.size === 0) {
+      return candidates;
+    }
 
-      const invitation = await db.projectInvitation.findUnique({
-        where: { id: notification.sourceId },
-        select: {
-          id: true,
-          invitedEmail: true,
-          role: true,
-          expiresAt: true,
-          acceptedAt: true,
-          revokedAt: true,
-          replacedAt: true,
-          project: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          invitedByUser: {
-            select: {
-              email: true,
-              name: true,
-              username: true,
-              usernameDiscriminator: true,
-            },
+    const invitations = await db.projectInvitation.findMany({
+      where: {
+        id: {
+          in: Array.from(notificationsByInvitationId.keys()),
+        },
+      },
+      select: {
+        id: true,
+        invitedEmail: true,
+        role: true,
+        expiresAt: true,
+        acceptedAt: true,
+        revokedAt: true,
+        replacedAt: true,
+        project: {
+          select: {
+            id: true,
+            name: true,
           },
         },
-      });
+        invitedByUser: {
+          select: {
+            email: true,
+            name: true,
+            username: true,
+            usernameDiscriminator: true,
+          },
+        },
+      },
+    });
 
-      if (!invitation) {
+    for (const invitation of invitations) {
+      const notification = notificationsByInvitationId.get(invitation.id);
+      if (!notification) {
         continue;
       }
+
       const invitationRole = invitation.role;
       if (invitationRole !== "editor" && invitationRole !== "viewer") {
         continue;
@@ -599,6 +626,53 @@ async function hasRecentProjectEmail(input: {
   return Boolean(existing);
 }
 
+async function findRetryableEmailRecord(input: {
+  kind: typeof EMAIL_KIND_PROJECT_DIGEST | typeof EMAIL_KIND_PROJECT_INVITATION_REMINDER;
+  recipientUserId: string;
+  projectId: string;
+  sourceKey: string;
+  now: Date;
+}): Promise<{ id: string } | null> {
+  const pendingRetryThreshold = new Date(
+    input.now.getTime() - PENDING_RETRY_GRACE_MS
+  );
+
+  return prisma.projectNotificationEmail.findFirst({
+    where: {
+      kind: input.kind,
+      recipientUserId: input.recipientUserId,
+      projectId: input.projectId,
+      sourceKey: input.sourceKey,
+      OR: [
+        {
+          status: "failed",
+        },
+        {
+          status: "pending",
+          createdAt: {
+            lt: pendingRetryThreshold,
+          },
+        },
+      ],
+    },
+    select: {
+      id: true,
+    },
+  });
+}
+
+async function markEmailAttemptStarted(id: string): Promise<void> {
+  await prisma.projectNotificationEmail.update({
+    where: { id },
+    data: {
+      status: "pending",
+      outboundEmailDeliveryId: null,
+      errorCode: null,
+      completedAt: null,
+    },
+  });
+}
+
 async function markEmailComplete(input: {
   id: string;
   result: Awaited<ReturnType<typeof sendOutboundEmail>>;
@@ -640,33 +714,44 @@ async function sendDigestGroup(input: {
     return "rate-limited";
   }
 
-  let emailRecord: { id: string };
+  let emailRecord: { id: string } | null = await findRetryableEmailRecord({
+    kind: EMAIL_KIND_PROJECT_DIGEST,
+    recipientUserId: input.group.recipient.id,
+    projectId: input.group.projectId,
+    sourceKey,
+    now: input.now,
+  });
+
   try {
-    emailRecord = await prisma.projectNotificationEmail.create({
-      data: {
-        kind: EMAIL_KIND_PROJECT_DIGEST,
-        recipientUserId: input.group.recipient.id,
-        projectId: input.group.projectId,
-        sourceKey,
-        windowStartedAt: input.group.windowStartedAt,
-        windowEndedAt: input.group.windowEndedAt,
-        latestNotificationAt: input.group.latestNotificationAt,
-        notificationCount: input.group.candidates.length,
-        status: "pending",
-        metadata: {
-          notificationIds,
-          quietWindowMinutes: QUIET_WINDOW_MS / 60_000,
+    if (emailRecord) {
+      await markEmailAttemptStarted(emailRecord.id);
+    } else {
+      emailRecord = await prisma.projectNotificationEmail.create({
+        data: {
+          kind: EMAIL_KIND_PROJECT_DIGEST,
+          recipientUserId: input.group.recipient.id,
+          projectId: input.group.projectId,
+          sourceKey,
+          windowStartedAt: input.group.windowStartedAt,
+          windowEndedAt: input.group.windowEndedAt,
+          latestNotificationAt: input.group.latestNotificationAt,
+          notificationCount: input.group.candidates.length,
+          status: "pending",
+          metadata: {
+            notificationIds,
+            quietWindowMinutes: QUIET_WINDOW_MS / 60_000,
+          },
+          items: {
+            create: notificationIds.map((notificationId) => ({
+              notificationId,
+            })),
+          },
         },
-        items: {
-          create: notificationIds.map((notificationId) => ({
-            notificationId,
-          })),
+        select: {
+          id: true,
         },
-      },
-      select: {
-        id: true,
-      },
-    });
+      });
+    }
   } catch (error) {
     if (isUniqueConstraintFailure(error)) {
       return "duplicate";
@@ -723,35 +808,46 @@ async function sendInvitationReminder(input: {
     return "rate-limited";
   }
 
-  let emailRecord: { id: string };
+  let emailRecord: { id: string } | null = await findRetryableEmailRecord({
+    kind: EMAIL_KIND_PROJECT_INVITATION_REMINDER,
+    recipientUserId: input.candidate.recipient.id,
+    projectId: input.candidate.projectId,
+    sourceKey: input.candidate.invitationId,
+    now: input.now,
+  });
+
   try {
-    emailRecord = await prisma.projectNotificationEmail.create({
-      data: {
-        kind: EMAIL_KIND_PROJECT_INVITATION_REMINDER,
-        recipientUserId: input.candidate.recipient.id,
-        projectId: input.candidate.projectId,
-        sourceKey: input.candidate.invitationId,
-        windowStartedAt: input.candidate.createdAt,
-        windowEndedAt: input.candidate.createdAt,
-        latestNotificationAt: input.candidate.createdAt,
-        notificationCount: 1,
-        status: "pending",
-        metadata: {
-          invitationId: input.candidate.invitationId,
-          reminderAfterHours: INVITATION_REMINDER_AFTER_MS / 3_600_000,
+    if (emailRecord) {
+      await markEmailAttemptStarted(emailRecord.id);
+    } else {
+      emailRecord = await prisma.projectNotificationEmail.create({
+        data: {
+          kind: EMAIL_KIND_PROJECT_INVITATION_REMINDER,
+          recipientUserId: input.candidate.recipient.id,
+          projectId: input.candidate.projectId,
+          sourceKey: input.candidate.invitationId,
+          windowStartedAt: input.candidate.createdAt,
+          windowEndedAt: input.candidate.createdAt,
+          latestNotificationAt: input.candidate.createdAt,
+          notificationCount: 1,
+          status: "pending",
+          metadata: {
+            invitationId: input.candidate.invitationId,
+            reminderAfterHours: INVITATION_REMINDER_AFTER_MS / 3_600_000,
+          },
+          items: {
+            create: [
+              {
+                notificationId: input.candidate.notification.id,
+              },
+            ],
+          },
         },
-        items: {
-          create: [
-            {
-              notificationId: input.candidate.notification.id,
-            },
-          ],
+        select: {
+          id: true,
         },
-      },
-      select: {
-        id: true,
-      },
-    });
+      });
+    }
   } catch (error) {
     if (isUniqueConstraintFailure(error)) {
       return "duplicate";

@@ -1223,6 +1223,16 @@ Low-value entries to avoid going forward:
 - Summary: TASK-225 local validation passed through focused tests, lint, full unit/API tests, coverage, and production build.
 - Evidence: `npm ci`; `npx prisma generate`; `npm run db:local:up`; local PostgreSQL `npm run db:migrate` applied all 34 migrations including `20260508110000_task225_project_notification_email_digests`; focused tests passed with `npm test -- --run tests/lib/project-notification-email-service.test.ts tests/api/notification-email-dispatch.route.test.ts tests/lib/outbound-email-templates.test.ts tests/lib/env.server.test.ts` (4 files, 76 tests); `npm run lint` passed; local DB `NODE_ENV=test npm test` passed (107 files passed, 2 skipped; 795 passed, 2 skipped); local DB `NODE_ENV=test npm run test:coverage` passed (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); production-guarded `npm run build` passed with local PostgreSQL, disabled outbound delivery mode, localhost trusted origins, local agent signing secret, and local NextAuth secret. A prior build attempt failed because the local shell set `NEXTAUTH_URL` without `NEXTAUTH_SECRET`; rerunning with both configured passed.
 
+### 2026-05-08
+- Type: Execution
+- Summary: TASK-225 addressed Copilot PR #246 review comments before preview deployment.
+- Evidence: Made failed and stale pending project notification email attempts retryable instead of permanently covering notifications; changed coverage lookup so only sent/skipped/fresh pending attempts suppress future dispatch; removed the fixed first-250 verified-user scan cap; and batched project invitation reminder lookups with one `findMany` call per recipient.
+
+### 2026-05-08
+- Type: Validation
+- Summary: TASK-225 Copilot follow-up passed focused tests, lint, full unit/API tests, coverage, and production build.
+- Evidence: Focused tests passed with `npm test -- --run tests/lib/project-notification-email-service.test.ts tests/api/notification-email-dispatch.route.test.ts tests/lib/outbound-email-templates.test.ts tests/lib/env.server.test.ts` (4 files, 77 tests); `npm run lint` passed; local DB `NODE_ENV=test npm test` passed (107 files passed, 2 skipped; 796 passed, 2 skipped); local DB `NODE_ENV=test npm run test:coverage` passed (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); production-guarded `npm run build` passed with local PostgreSQL, disabled outbound delivery mode, localhost trusted origins, local agent signing secret, and local NextAuth secret. Standalone `npx tsc --noEmit` still reports pre-existing test typing issues unrelated to TASK-225, so the repo's established lint/test/coverage/build validation path remains the authoritative gate.
+
 ### 2026-05-04
 - Type: Validation
 - Summary: TASK-131 full local validation baseline passed after Node was upgraded to `v24.15.0` and Docker Desktop was running.
