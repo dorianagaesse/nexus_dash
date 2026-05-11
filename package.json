@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "npm run db:migrate && next dev",
     "build": "next build",
+    "postinstall": "prisma generate",
     "start": "npm run db:migrate && next start",
     "lint": "eslint .",
     "security:audit": "npm audit --omit=dev --audit-level=high",

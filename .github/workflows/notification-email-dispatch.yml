@@ -1,0 +1,50 @@
+name: Notification Email Dispatch
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: "Optional app origin override, for example a preview URL"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notification-email-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    name: Dispatch notification emails
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      DISPATCH_URL: ${{ inputs.target_url || vars.NOTIFICATION_EMAIL_DISPATCH_URL }}
+      DISPATCH_SECRET: ${{ secrets.NOTIFICATION_EMAIL_DISPATCH_SECRET || secrets.CRON_SECRET }}
+
+    steps:
+      - name: Validate dispatch configuration
+        run: |
+          missing=0
+          if [ -z "$DISPATCH_URL" ]; then
+            echo "::error::Missing repository variable NOTIFICATION_EMAIL_DISPATCH_URL."
+            missing=1
+          fi
+          if [ -z "$DISPATCH_SECRET" ]; then
+            echo "::error::Missing repository secret NOTIFICATION_EMAIL_DISPATCH_SECRET or CRON_SECRET."
+            missing=1
+          fi
+          if [ "$missing" -eq 1 ]; then
+            exit 1
+          fi
+
+      - name: Call notification email dispatcher
+        run: |
+          dispatch_origin="${DISPATCH_URL%/}"
+          curl --fail --silent --show-error --max-time 120 \
+            --header "Authorization: Bearer $DISPATCH_SECRET" \
+            "$dispatch_origin/api/cron/notification-emails"

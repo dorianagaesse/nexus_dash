@@ -38,6 +38,7 @@ model User {
   revokedApiCredentials      ApiCredential[]           @relation("ApiCredentialRevokedBy")
   authAuditEvents            AuthAuditEvent[]          @relation("AuthAuditEventActorUser")
   notifications              Notification[]            @relation("NotificationRecipient")
+  projectNotificationEmails  ProjectNotificationEmail[] @relation("ProjectNotificationEmailRecipient")
   taskCommentReactions       TaskCommentReaction[]
 
   @@unique([username, usernameDiscriminator])
@@ -98,6 +99,8 @@ model OutboundEmailDelivery {
   completedAt       DateTime?
   createdAt         DateTime                    @default(now())
   updatedAt         DateTime                    @updatedAt
+
+  projectNotificationEmails ProjectNotificationEmail[]
 
   @@index([recipientEmail, createdAt])
   @@index([templateKey, createdAt])
@@ -188,6 +191,7 @@ model Project {
   taskRelations  TaskRelation[]
   apiCredentials ApiCredential[]
   authAuditEvents AuthAuditEvent[]
+  notificationEmails ProjectNotificationEmail[]
 
   @@index([ownerId])
 }
@@ -244,12 +248,67 @@ model Notification {
   updatedAt       DateTime  @updatedAt
 
   recipient User @relation("NotificationRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+  emailItems ProjectNotificationEmailItem[]
 
   @@unique([recipientUserId, sourceType, sourceId])
   @@index([recipientUserId, createdAt])
   @@index([recipientUserId, readAt])
   @@index([recipientUserId, resolvedAt])
   @@index([type])
+}
+
+enum ProjectNotificationEmailKind {
+  project_digest
+  project_invitation_reminder
+}
+
+enum ProjectNotificationEmailStatus {
+  pending
+  sent
+  skipped
+  failed
+}
+
+model ProjectNotificationEmail {
+  id                      String                         @id @default(cuid())
+  kind                    ProjectNotificationEmailKind
+  recipientUserId         String
+  projectId               String
+  sourceKey               String                         @db.VarChar(128)
+  windowStartedAt         DateTime
+  windowEndedAt           DateTime
+  latestNotificationAt    DateTime
+  notificationCount       Int
+  status                  ProjectNotificationEmailStatus @default(pending)
+  outboundEmailDeliveryId String?
+  errorCode               String?                        @db.VarChar(80)
+  metadata                Json?
+  completedAt             DateTime?
+  createdAt               DateTime                       @default(now())
+  updatedAt               DateTime                       @updatedAt
+
+  recipient             User                   @relation("ProjectNotificationEmailRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+  project               Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  outboundEmailDelivery OutboundEmailDelivery? @relation(fields: [outboundEmailDeliveryId], references: [id], onDelete: SetNull)
+  items                 ProjectNotificationEmailItem[]
+
+  @@unique([kind, recipientUserId, projectId, sourceKey])
+  @@index([recipientUserId, projectId, createdAt])
+  @@index([kind, status, createdAt])
+  @@index([outboundEmailDeliveryId])
+}
+
+model ProjectNotificationEmailItem {
+  id             String   @id @default(cuid())
+  emailId        String
+  notificationId String
+  createdAt      DateTime @default(now())
+
+  email        ProjectNotificationEmail @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  notification Notification             @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([emailId, notificationId])
+  @@index([notificationId])
 }
 
 model Epic {

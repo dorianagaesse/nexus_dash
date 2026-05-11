@@ -21,6 +21,7 @@ Implemented today:
 - Project CRUD
 - Project sharing with owner-managed membership/invitation flows, including email-bound invite links
 - In-app notification center for durable unread/read notification review, starting with project invitations
+- Project notification email digests and delayed invitation reminders through the shared outbound email foundation
 - Project-scoped agent access with owner-managed API credentials, short-lived bearer-token exchange, and audit trail
 - Project dashboard with:
   - Context cards (CRUD + attachments)
@@ -153,6 +154,10 @@ Environment access/validation is centralized in `lib/env.server.ts` and executed
 - `GOOGLE_CALENDAR_ID` must be unset or `primary`.
 - `RESEND_FROM_EMAIL` defaults to `NexusDash <noreply@nexus-dash.app>` when unset.
 - `TRUSTED_ORIGINS` (optional) can restrict verification-link origins in production.
+- `CRON_SECRET` or `NOTIFICATION_EMAIL_DISPATCH_SECRET` protects the
+  notification email dispatch endpoint. If both are set,
+  `NOTIFICATION_EMAIL_DISPATCH_SECRET` takes precedence. Configured values must
+  be at least 32 characters.
 - `STORAGE_PROVIDER` must be `local` or `r2` (default `local`).
 
 Runbooks:
@@ -269,6 +274,29 @@ VERCEL_AUTOMATION_BYPASS_SECRET=<32-char-secret>
 The Playwright config forwards that secret through the Vercel preview-protection
 headers so smoke runs can target the deployed branch preview directly.
 
+### Notification Email Dispatch
+
+Digest/reminder dispatch endpoint:
+
+```bash
+GET /api/cron/notification-emails
+Authorization: Bearer <CRON_SECRET-or-NOTIFICATION_EMAIL_DISPATCH_SECRET>
+```
+
+The dispatcher scans verified users, sends one project digest only after the
+latest eligible mention/assignment notification has been quiet for at least 30
+minutes, and sends one reminder for unresolved/unread project invitations after
+6 hours. Sending email never marks notifications read or resolved.
+
+`.github/workflows/notification-email-dispatch.yml` calls the endpoint every 15
+minutes from GitHub Actions because the current Vercel plan does not support
+sub-daily Vercel Cron schedules. Configure repository variable
+`NOTIFICATION_EMAIL_DISPATCH_URL` with the production app origin, plus
+repository secret `NOTIFICATION_EMAIL_DISPATCH_SECRET` or `CRON_SECRET`.
+Preview deployments should be validated by running the same workflow manually
+with `target_url=<preview-url>` or by calling the endpoint directly with the
+same bearer secret.
+
 ## CI/CD
 
 ### CI workflows
@@ -278,6 +306,7 @@ headers so smoke runs can target the deployed branch preview directly.
 - `Container Image (build + metadata artifact)`
 - `Check Branch Name` (PR branch naming contract)
 - `Dependency Security` (scheduled + manual `npm audit` baseline with artifacts)
+- `Notification Email Dispatch` (scheduled + manual protected dispatch call)
 
 Branch-name note:
 - human-authored PR branches must use `feature/*`, `fix/*`, `refactor/*`,

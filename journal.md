@@ -1213,6 +1213,51 @@ Low-value entries to avoid going forward:
 - Summary: TASK-131 local validation repair passed install/generate/lint/test/coverage/build checks under a Node `20.19.0` shim; full DB migration and Playwright smoke remain blocked until Docker Desktop is running.
 - Evidence: Passed: `docker compose config`; `npx -y -p node@20.19.0 -p npm@10 npm ci`; `npx -y -p node@20.19.0 -p npm@10 npx prisma generate`; placeholder-env `npm run lint`; placeholder-env `npm test` (92 files passed, 1 skipped; 718 passed, 1 skipped); placeholder-env `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); placeholder-env `npm run build`. Expected blockers: plain `npm run validate:local` fails early on global Node `20.17.0`; Node-shimmed `node scripts/local-validation.mjs` reaches `Start local PostgreSQL` and fails because Docker Desktop Linux engine pipe `//./pipe/dockerDesktopLinuxEngine` is unavailable.
 
+### 2026-05-08
+- Type: Execution
+- Summary: TASK-225 implemented project notification email digests and delayed invitation reminders from a dedicated worktree.
+- Evidence: Created worktree `../nexus_dash_task225` on `feature/task-225-project-notification-email-digests` from `origin/main`. Added durable `ProjectNotificationEmail` and `ProjectNotificationEmailItem` tracking tables; added `project_notification_digest` email template support; added a service-layer dispatcher that scans verified users, groups unread/unresolved mention and assignment notifications by recipient/project after a 30-minute quiet window, collapses repetitive task activity, sends via `sendOutboundEmail`, and leaves notification read/resolution state unchanged. Added a 6-hour unresolved/unread project invitation reminder path using the existing project invitation email foundation. Added protected `GET /api/cron/notification-emails` plus `CRON_SECRET`/`NOTIFICATION_EMAIL_DISPATCH_SECRET` env handling.
+
+### 2026-05-08
+- Type: Validation
+- Summary: TASK-225 local validation passed through focused tests, lint, full unit/API tests, coverage, and production build.
+- Evidence: `npm ci`; `npx prisma generate`; `npm run db:local:up`; local PostgreSQL `npm run db:migrate` applied all 34 migrations including `20260508110000_task225_project_notification_email_digests`; focused tests passed with `npm test -- --run tests/lib/project-notification-email-service.test.ts tests/api/notification-email-dispatch.route.test.ts tests/lib/outbound-email-templates.test.ts tests/lib/env.server.test.ts` (4 files, 76 tests); `npm run lint` passed; local DB `NODE_ENV=test npm test` passed (107 files passed, 2 skipped; 795 passed, 2 skipped); local DB `NODE_ENV=test npm run test:coverage` passed (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); production-guarded `npm run build` passed with local PostgreSQL, disabled outbound delivery mode, localhost trusted origins, local agent signing secret, and local NextAuth secret. A prior build attempt failed because the local shell set `NEXTAUTH_URL` without `NEXTAUTH_SECRET`; rerunning with both configured passed.
+
+### 2026-05-08
+- Type: Execution
+- Summary: TASK-225 addressed Copilot PR #246 review comments before preview deployment.
+- Evidence: Made failed and stale pending project notification email attempts retryable instead of permanently covering notifications; changed coverage lookup so only sent/skipped/fresh pending attempts suppress future dispatch; removed the fixed first-250 verified-user scan cap; and batched project invitation reminder lookups with one `findMany` call per recipient.
+
+### 2026-05-08
+- Type: Validation
+- Summary: TASK-225 Copilot follow-up passed focused tests, lint, full unit/API tests, coverage, and production build.
+- Evidence: Focused tests passed with `npm test -- --run tests/lib/project-notification-email-service.test.ts tests/api/notification-email-dispatch.route.test.ts tests/lib/outbound-email-templates.test.ts tests/lib/env.server.test.ts` (4 files, 77 tests); `npm run lint` passed; local DB `NODE_ENV=test npm test` passed (107 files passed, 2 skipped; 796 passed, 2 skipped); local DB `NODE_ENV=test npm run test:coverage` passed (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); production-guarded `npm run build` passed with local PostgreSQL, disabled outbound delivery mode, localhost trusted origins, local agent signing secret, and local NextAuth secret. Standalone `npx tsc --noEmit` still reports pre-existing test typing issues unrelated to TASK-225, so the repo's established lint/test/coverage/build validation path remains the authoritative gate.
+
+### 2026-05-08
+- Type: Execution
+- Summary: TASK-225 replaced Vercel Cron wiring with a GitHub Actions scheduler after preview deployment exposed the Vercel Hobby cron limit.
+- Evidence: Explicit-ref preview workflow run `25583050495` checked out `feature/task-225-project-notification-email-digests`, generated Prisma, applied migrations, and built the app, then failed during `vercel deploy` with Vercel's Hobby-plan error for the `*/15` cron in `vercel.json`. Removed `vercel.json` and added `.github/workflows/notification-email-dispatch.yml`, which calls the protected dispatch endpoint every 15 minutes using repository variable `NOTIFICATION_EMAIL_DISPATCH_URL` plus repository secret `NOTIFICATION_EMAIL_DISPATCH_SECRET` or `CRON_SECRET`.
+
+### 2026-05-08
+- Type: Execution
+- Summary: TASK-225 added Prisma generation to `postinstall` so direct Vercel preview deploys are self-sufficient.
+- Evidence: Workflow preview deploys run `npx prisma generate` explicitly before `vercel build`, but direct `vercel deploy` remote builds only ran install/build and failed because `@prisma/client` had not been generated. Added `postinstall: prisma generate` to align direct Vercel preview deploys with the workflow build path.
+
+### 2026-05-08
+- Type: Execution
+- Summary: TASK-225 updated the Docker image build order for the Prisma `postinstall` hook.
+- Evidence: The container-image check showed `npm ci` running before `prisma/schema.prisma` was copied into `/app`, so the new `postinstall` hook could not find the Prisma schema. `Dockerfile` now copies `prisma/` and `prisma.config.ts` before `npm ci`, preserving the existing explicit `npx prisma generate` step after the full source copy.
+
+### 2026-05-08
+- Type: Validation
+- Summary: TASK-225 PR checks and preview deployments passed after scheduler and Docker follow-ups.
+- Evidence: PR #246 final head `793a0ea` passed Check Branch Name, Quality Core, E2E Smoke, and Container Image. Explicit-ref workflow preview run `25583379928` checked out `feature/task-225-project-notification-email-digests` and deployed `https://nexus-dash-55krfi0nt-dorian-agaesses-projects.vercel.app`. A separate live-email smoke preview was deployed from the same branch with real Resend delivery mode at `https://nexus-dash-lpkmzden2-dorian-agaesses-projects.vercel.app`.
+
+### 2026-05-08
+- Type: Validation
+- Summary: TASK-225 real preview email smoke sent a project digest to `dorian.agaesse@gmail.com`.
+- Evidence: Agent API smoke against the live-email preview passed through Vercel protection using `vercel curl`, created a persistent TASK-225 smoke task, assigned it to the configured Dorian user, and added a mention comment. After the 30-minute quiet window elapsed, `GET /api/cron/notification-emails` returned `ok: true` with `usersScanned: 1`, `digestsAttempted: 1`, `digestsSent: 1`, `digestsSkipped: 0`, `digestsFailed: 0`, `invitationRemindersAttempted: 0`, and `errors: 0`. Invitation reminder behavior remains covered by local automated tests; no live 6-hour reminder was forced.
+
 ### 2026-05-04
 - Type: Validation
 - Summary: TASK-131 full local validation baseline passed after Node was upgraded to `v24.15.0` and Docker Desktop was running.
