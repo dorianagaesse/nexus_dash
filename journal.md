@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-05-12
+- Type: Blocker
+- Summary: Investigated TASK-225 production notification dispatch failures after PR #246 merged.
+- Evidence: GitHub Actions runs for `Notification Email Dispatch` failed repeatedly on `main` before reaching the app. Run `25752062859` failed in `Validate dispatch configuration` with empty `DISPATCH_URL` and `DISPATCH_SECRET`, reporting missing `NOTIFICATION_EMAIL_DISPATCH_URL` and missing `NOTIFICATION_EMAIL_DISPATCH_SECRET`/`CRON_SECRET`. GitHub repo variables were empty, repo secrets lacked the notification secret, and the workflow did not bind the `production` environment, while existing deploy secrets live under that environment. Vercel Production also lacked `NOTIFICATION_EMAIL_DISPATCH_SECRET`/`CRON_SECRET`.
+
+### 2026-05-12
+- Type: Execution
+- Summary: Configured production notification dispatch secrets and hardened scheduler auth.
+- Evidence: Configured GitHub `NOTIFICATION_EMAIL_DISPATCH_URL`, configured shared GitHub/Vercel `NOTIFICATION_EMAIL_DISPATCH_SECRET`, and redeployed/promoted production via workflow runs `25753601331` and `25753746565` so Vercel could receive the new env snapshot. Added support for `x-notification-email-dispatch-secret` alongside bearer auth, updated the scheduler to run in the GitHub `production` environment and call the endpoint with the dedicated header plus `--fail-with-body`, and documented the production env/redeploy requirement and scheduler reliability caveat.
+
 ### 2026-05-08
 - Type: Execution
 - Summary: TASK-104 follow-up made email-only project invites email-first in the owner UI.

@@ -61,13 +61,19 @@ recorded and returned to the caller synchronously.
 
 TASK-225 adds project notification email digests and delayed project invitation
 reminders. The dispatcher is exposed at `/api/cron/notification-emails`, expects
+`x-notification-email-dispatch-secret: <secret>` or
 `Authorization: Bearer <secret>`, and is called every 15 minutes by
 `.github/workflows/notification-email-dispatch.yml`. The repository scheduler is
 used because the current Vercel Hobby plan rejects sub-daily Vercel Cron
-schedules during deployment. Configure repository variable
-`NOTIFICATION_EMAIL_DISPATCH_URL` with the production app origin and repository
-secret `NOTIFICATION_EMAIL_DISPATCH_SECRET` or `CRON_SECRET` with the same value
-configured in the app runtime. It sends project activity digests only after the
+schedules during deployment. Configure GitHub repository or `production`
+environment variable `NOTIFICATION_EMAIL_DISPATCH_URL` with the production app
+origin, and configure GitHub repository or `production` environment secret
+`NOTIFICATION_EMAIL_DISPATCH_SECRET` or `CRON_SECRET` with the same value
+configured in the app runtime. The workflow runs in the GitHub `production`
+environment so environment-scoped secrets can be used. After adding or rotating
+the app runtime secret in Vercel Production, redeploy production before testing
+the scheduled workflow; existing deployments keep the env snapshot they were
+created with. It sends project activity digests only after the
 recipient/project group has been quiet for at least 30 minutes, and sends a
 single invitation reminder when an existing in-app invitation notification stays
 unresolved/unread for 6 hours. Preview deployments can be validated by running
@@ -135,6 +141,12 @@ Important:
   environments when agent access behavior needs to be validated end to end.
 - Preview email smoke tests need `OUTBOUND_EMAIL_DELIVERY_MODE=live` and a real
   `RESEND_API_KEY`. The default `auto` mode records preview attempts as skipped.
+- GitHub Actions is an acceptable temporary scheduler for this Hobby-plan
+  deployment, but it is not a durable job system. It is tied to the default
+  branch, GitHub scheduling latency, repository Actions health, and GitHub
+  environment configuration. Prefer Vercel Cron on a plan that supports the
+  cadence, or a managed queue/workflow runner, before treating notification
+  dispatch as high-SLA infrastructure.
 - Keep `GOOGLE_TOKEN_ENCRYPTION_KEY` stable per environment. Rotating it
   requires token re-authorization because existing encrypted tokens may become
   unreadable.

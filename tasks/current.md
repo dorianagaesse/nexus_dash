@@ -4,8 +4,9 @@
 TASK-225
 
 ## Status
-Implemented on `feature/task-225-project-notification-email-digests`; PR #246 is
-open with GitHub checks green and preview email smoke validated.
+Follow-up remediation in progress on
+`fix/task-225-notification-dispatch-workflow` after PR #246 merged and the
+new scheduled notification dispatch workflow failed on `main`.
 
 ## Objective
 Extend the notification center with project-grouped outbound email digests so
@@ -141,6 +142,27 @@ email foundation.
 - A preview deploy is triggered from this branch via `deploy-vercel.yml` with an
   explicit `git_ref`, and preview validation sends real test email to
   `dorian.agaesse@gmail.com` without exposing credentials.
+
+## Follow-Up: Production Dispatch Workflow Remediation
+- Root cause: every scheduled run failed in `Validate dispatch configuration`
+  because `NOTIFICATION_EMAIL_DISPATCH_URL` and
+  `NOTIFICATION_EMAIL_DISPATCH_SECRET`/`CRON_SECRET` were not configured for the
+  workflow context. The workflow also did not attach the GitHub `production`
+  environment, so environment-scoped secrets would not have been visible.
+- Production config action taken on 2026-05-12: configured
+  `NOTIFICATION_EMAIL_DISPATCH_URL` in GitHub, configured a shared
+  `NOTIFICATION_EMAIL_DISPATCH_SECRET` in GitHub and Vercel Production, and
+  redeployed/promoted production so the runtime could receive the Vercel env
+  snapshot.
+- Additional hardening: the dispatch endpoint now accepts a dedicated
+  `x-notification-email-dispatch-secret` header in addition to the original
+  bearer token, and the GitHub scheduler uses that header with
+  `--fail-with-body` so endpoint failures produce useful diagnostics.
+- Operational assessment: GitHub Actions is acceptable as a temporary
+  Hobby-plan scheduler, but it is not the long-term prod-grade choice for
+  notification dispatch. The durable target should be Vercel Cron on a plan that
+  supports the cadence, or a managed queue/workflow runner with retries,
+  visibility, and dead-letter handling.
 
 ## Validation Evidence
 - `npm ci` passed on 2026-05-08 in the TASK-225 worktree.

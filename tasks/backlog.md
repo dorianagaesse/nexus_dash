@@ -6,7 +6,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 ### Execution Queue (Now / Next)
 - ID: TASK-225
   Title: Project notification email digests - grouped, rate-limited outbound summaries
-  Status: PR open / preview validated (`feature/task-225-project-notification-email-digests`, PR #246)
+  Status: PR #246 merged; production dispatch workflow remediation in progress on `fix/task-225-notification-dispatch-workflow`
   Rationale: Extend the notification center with project-grouped outbound email digests so important in-app activity can reach users by email without sending one message per notification, especially when agents generate frequent task/comment activity. The first design should batch by recipient and project, collapse repetitive agent events, apply a controlled cadence, and preserve the in-app notification inbox as the source of truth.
   Dependencies: TASK-123, TASK-125
 - ID: TASK-226

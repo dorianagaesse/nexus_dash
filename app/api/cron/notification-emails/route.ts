@@ -25,7 +25,13 @@ function timingSafeEquals(left: string, right: string): boolean {
 
 function isAuthorized(request: NextRequest, secret: string): boolean {
   const authorization = request.headers.get("authorization") ?? "";
-  return timingSafeEquals(authorization, `Bearer ${secret}`);
+  const dispatchSecret =
+    request.headers.get("x-notification-email-dispatch-secret") ?? "";
+
+  return (
+    timingSafeEquals(authorization, `Bearer ${secret}`) ||
+    timingSafeEquals(dispatchSecret, secret)
+  );
 }
 
 function resolveDispatchOrigin(request: NextRequest): string {

@@ -281,6 +281,7 @@ Digest/reminder dispatch endpoint:
 ```bash
 GET /api/cron/notification-emails
 Authorization: Bearer <CRON_SECRET-or-NOTIFICATION_EMAIL_DISPATCH_SECRET>
+x-notification-email-dispatch-secret: <CRON_SECRET-or-NOTIFICATION_EMAIL_DISPATCH_SECRET>
 ```
 
 The dispatcher scans verified users, sends one project digest only after the
@@ -292,10 +293,16 @@ minutes, and sends one reminder for unresolved/unread project invitations after
 minutes from GitHub Actions because the current Vercel plan does not support
 sub-daily Vercel Cron schedules. Configure repository variable
 `NOTIFICATION_EMAIL_DISPATCH_URL` with the production app origin, plus
-repository secret `NOTIFICATION_EMAIL_DISPATCH_SECRET` or `CRON_SECRET`.
+repository or `production` environment secret
+`NOTIFICATION_EMAIL_DISPATCH_SECRET` or `CRON_SECRET`. Configure the same
+secret value in Vercel Production as `NOTIFICATION_EMAIL_DISPATCH_SECRET` or
+`CRON_SECRET`, then redeploy production so the runtime can read it. The workflow
+runs in the GitHub `production` environment and uses the dedicated
+`x-notification-email-dispatch-secret` header to avoid platform auth-header
+handling conflicts.
 Preview deployments should be validated by running the same workflow manually
 with `target_url=<preview-url>` or by calling the endpoint directly with the
-same bearer secret.
+same dispatch secret.
 
 ## CI/CD
 
