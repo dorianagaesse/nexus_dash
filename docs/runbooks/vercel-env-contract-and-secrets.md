@@ -78,7 +78,8 @@ recipient/project group has been quiet for at least 30 minutes, and sends a
 single invitation reminder when an existing in-app invitation notification stays
 unresolved/unread for 6 hours. Preview deployments can be validated by running
 the workflow manually with `target_url=<preview-url>` or by invoking the
-endpoint directly with the same bearer secret.
+endpoint directly with the same dispatch secret; either the dedicated
+`x-notification-email-dispatch-secret` header or the bearer header is accepted.
 
 If Google OAuth is enabled:
 
