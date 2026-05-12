@@ -280,8 +280,18 @@ Digest/reminder dispatch endpoint:
 
 ```bash
 GET /api/cron/notification-emails
-Authorization: Bearer <CRON_SECRET-or-NOTIFICATION_EMAIL_DISPATCH_SECRET>
+```
+
+Authenticate with either the dedicated scheduler header:
+
+```bash
 x-notification-email-dispatch-secret: <CRON_SECRET-or-NOTIFICATION_EMAIL_DISPATCH_SECRET>
+```
+
+or the bearer fallback:
+
+```bash
+Authorization: Bearer <CRON_SECRET-or-NOTIFICATION_EMAIL_DISPATCH_SECRET>
 ```
 
 The dispatcher scans verified users, sends one project digest only after the
