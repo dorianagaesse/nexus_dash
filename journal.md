@@ -12,6 +12,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-05-13
+- Type: Planning
+- Summary: Added TASK-227 to clarify the production-grade notification email refactor.
+- Evidence: Added `tasks/task-227-production-grade-notification-email-orchestration.md` and queued TASK-227 in `tasks/backlog.md`. The task captures the product goal as grouped project notification email delivery with debounce and a hard maximum delay, separates TASK-226 due-date reminder business logic, and directs the next implementation away from GitHub Actions as the primary production scheduler.
+
 ### 2026-05-08
 - Type: Execution
 - Summary: TASK-104 follow-up made email-only project invites email-first in the owner UI.
