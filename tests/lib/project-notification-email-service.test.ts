@@ -1,23 +1,29 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
+  $queryRaw: vi.fn(),
   user: {
     findMany: vi.fn(),
+    findUnique: vi.fn(),
   },
   notification: {
     findMany: vi.fn(),
   },
   projectInvitation: {
-    findMany: vi.fn(),
-    findUnique: vi.fn(),
+    findFirst: vi.fn(),
   },
   projectNotificationEmail: {
     create: vi.fn(),
     findFirst: vi.fn(),
+    findMany: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
   },
   projectNotificationEmailItem: {
-    findMany: vi.fn(),
+    count: vi.fn(),
+    create: vi.fn(),
+    findFirst: vi.fn(),
+    update: vi.fn(),
   },
 }));
 
@@ -40,17 +46,20 @@ vi.mock("@/lib/services/outbound-email-service", () => ({
 
 vi.mock("@/lib/observability/logger", () => loggerMock);
 
-import { dispatchProjectNotificationEmails } from "@/lib/services/project-notification-email-service";
+import {
+  dispatchProjectNotificationEmails,
+  enqueueNotificationEmailForNotification,
+} from "@/lib/services/project-notification-email-service";
 
-const now = new Date("2026-05-08T12:00:00.000Z");
-const oldDate = new Date("2026-05-08T11:00:00.000Z");
-const recentDate = new Date("2026-05-08T11:45:00.000Z");
+const now = new Date("2026-05-13T12:00:00.000Z");
+const oldDate = new Date("2026-05-13T11:00:00.000Z");
 
 function mentionNotification(overrides: Record<string, unknown> = {}) {
   return {
     id: "notification-mention-1",
+    recipientUserId: "user-1",
     type: "task_comment_mention",
-    title: "Mentioned in: Ship digest",
+    title: "Mentioned in: Ship orchestration",
     body: "Agent mentioned you.",
     targetPath: "/projects/project-1?taskId=task-1&commentId=comment-1",
     sourceType: "task_comment_mention",
@@ -58,9 +67,9 @@ function mentionNotification(overrides: Record<string, unknown> = {}) {
     metadata: {
       commentId: "comment-1",
       taskId: "task-1",
-      taskTitle: "Ship digest",
+      taskTitle: "Ship orchestration",
       projectId: "project-1",
-      projectName: "Email Project",
+      projectName: "Alpha",
       mentionedUsername: "dorian",
       mentionedUserId: "user-1",
       mentionedUserDisplayName: "Dorian",
@@ -79,22 +88,23 @@ function mentionNotification(overrides: Record<string, unknown> = {}) {
 function assignmentNotification(overrides: Record<string, unknown> = {}) {
   return {
     id: "notification-assignment-1",
+    recipientUserId: "user-1",
     type: "task_assignment",
-    title: "Assigned: Review digest",
+    title: "Assigned: Review queue",
     body: "Owner assigned you.",
-    targetPath: "/projects/project-1?taskId=task-2",
+    targetPath: "/projects/project-2?taskId=task-2",
     sourceType: "task_assignment",
     sourceId: "task-2",
     metadata: {
       taskId: "task-2",
-      taskTitle: "Review digest",
-      projectId: "project-1",
-      projectName: "Email Project",
+      taskTitle: "Review queue",
+      projectId: "project-2",
+      projectName: "Beta",
       assignedUserId: "user-1",
       assignedUserDisplayName: "Dorian",
       actorUserId: "owner-1",
       actorDisplayName: "Owner",
-      targetPath: "/projects/project-1?taskId=task-2",
+      targetPath: "/projects/project-2?taskId=task-2",
     },
     readAt: null,
     resolvedAt: null,
@@ -107,8 +117,9 @@ function assignmentNotification(overrides: Record<string, unknown> = {}) {
 function invitationNotification(overrides: Record<string, unknown> = {}) {
   return {
     id: "notification-invite-1",
+    recipientUserId: "user-1",
     type: "project_invitation",
-    title: "Project invitation: Email Project",
+    title: "Project invitation: Alpha",
     body: "Owner invited you.",
     targetPath: "/invite/project/invite-1",
     sourceType: "project_invitation",
@@ -116,43 +127,89 @@ function invitationNotification(overrides: Record<string, unknown> = {}) {
     metadata: {
       invitationId: "invite-1",
       projectId: "project-1",
-      projectName: "Email Project",
+      projectName: "Alpha",
       invitedEmail: "dorian.agaesse@gmail.com",
       invitedByDisplayName: "Owner",
       invitedByEmail: "owner@example.com",
       role: "editor",
-      expiresAt: "2026-05-09T11:00:00.000Z",
+      expiresAt: "2026-05-14T11:00:00.000Z",
       inviteLinkPath: "/invite/project/invite-1",
     },
     readAt: null,
     resolvedAt: null,
-    createdAt: new Date("2026-05-08T05:00:00.000Z"),
-    updatedAt: new Date("2026-05-08T05:00:00.000Z"),
+    createdAt: new Date("2026-05-13T05:00:00.000Z"),
+    updatedAt: new Date("2026-05-13T05:00:00.000Z"),
     ...overrides,
+  };
+}
+
+function claimedGroup(input: {
+  id: string;
+  kind?: "project_digest" | "project_invitation_reminder";
+  projectId: string;
+  projectName: string;
+  notification: ReturnType<typeof mentionNotification>;
+}) {
+  return {
+    id: input.id,
+    kind: input.kind ?? "project_digest",
+    recipientUserId: "user-1",
+    projectId: input.projectId,
+    sourceKey: input.notification.id,
+    groupingKey: `${input.kind ?? "project_digest"}:user-1:${input.projectId}`,
+    firstPendingNotificationAt: input.notification.createdAt,
+    latestPendingNotificationAt: input.notification.updatedAt,
+    sendAfterAt: new Date("2026-05-13T11:30:00.000Z"),
+    maxSendAt: new Date("2026-05-13T12:00:00.000Z"),
+    windowStartedAt: input.notification.createdAt,
+    windowEndedAt: input.notification.updatedAt,
+    latestNotificationAt: input.notification.updatedAt,
+    notificationCount: 1,
+    recipient: {
+      id: "user-1",
+      email: "dorian.agaesse@gmail.com",
+      name: "Dorian",
+    },
+    project: {
+      id: input.projectId,
+      name: input.projectName,
+    },
+    items: [
+      {
+        id: `${input.id}-item`,
+        notificationId: input.notification.id,
+        notificationUpdatedAt: input.notification.updatedAt,
+        sourceFingerprint: `${input.notification.id}:${input.notification.updatedAt.toISOString()}`,
+        notification: input.notification,
+      },
+    ],
   };
 }
 
 describe("project-notification-email-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    prismaMock.user.findMany.mockResolvedValue([
-      {
-        id: "user-1",
-        email: "dorian.agaesse@gmail.com",
-        name: "Dorian",
-      },
-    ]);
+    prismaMock.user.findMany.mockResolvedValue([]);
+    prismaMock.user.findUnique.mockResolvedValue({
+      email: "dorian.agaesse@gmail.com",
+      emailVerified: new Date("2026-05-01T00:00:00.000Z"),
+    });
     prismaMock.notification.findMany.mockResolvedValue([]);
-    prismaMock.projectNotificationEmailItem.findMany.mockResolvedValue([]);
-    prismaMock.projectNotificationEmail.findFirst.mockResolvedValue(null);
+    prismaMock.projectInvitation.findFirst.mockResolvedValue({ id: "invite-1" });
     prismaMock.projectNotificationEmail.create.mockResolvedValue({
       id: "email-1",
     });
+    prismaMock.projectNotificationEmail.findFirst.mockResolvedValue(null);
+    prismaMock.projectNotificationEmail.findMany.mockResolvedValue([]);
     prismaMock.projectNotificationEmail.update.mockResolvedValue({
       id: "email-1",
     });
-    prismaMock.projectInvitation.findMany.mockResolvedValue([]);
-    prismaMock.projectInvitation.findUnique.mockResolvedValue(null);
+    prismaMock.projectNotificationEmail.updateMany.mockResolvedValue({
+      count: 0,
+    });
+    prismaMock.projectNotificationEmailItem.count.mockResolvedValue(1);
+    prismaMock.projectNotificationEmailItem.findFirst.mockResolvedValue(null);
+    prismaMock.$queryRaw.mockResolvedValue([]);
     outboundEmailMock.sendOutboundEmail.mockResolvedValue({
       ok: true,
       delivery: "sent",
@@ -162,21 +219,118 @@ describe("project-notification-email-service", () => {
     });
   });
 
-  test("sends a quiet-window digest for grouped project notifications", async () => {
-    prismaMock.notification.findMany
-      .mockResolvedValueOnce([
-        mentionNotification(),
-        mentionNotification({
-          id: "notification-mention-2",
-          sourceId: "comment-2",
-          metadata: {
-            ...mentionNotification().metadata,
-            commentId: "comment-2",
-          },
+  test("ingests a project activity notification into a debounced pending group", async () => {
+    await enqueueNotificationEmailForNotification({
+      db: prismaMock as never,
+      notification: mentionNotification(),
+    });
+
+    expect(prismaMock.projectNotificationEmail.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          kind: "project_digest",
+          recipientUserId: "user-1",
+          projectId: "project-1",
+          groupingKey: "project_digest:user-1:project-1",
+          firstPendingNotificationAt: oldDate,
+          latestPendingNotificationAt: oldDate,
+          sendAfterAt: new Date("2026-05-13T11:30:00.000Z"),
+          maxSendAt: new Date("2026-05-13T12:00:00.000Z"),
         }),
-        assignmentNotification(),
-      ])
-      .mockResolvedValueOnce([]);
+      })
+    );
+  });
+
+  test("extends the quiet window but caps send-after at the maximum delay", async () => {
+    prismaMock.projectNotificationEmail.findFirst.mockResolvedValueOnce({
+      id: "email-1",
+      firstPendingNotificationAt: new Date("2026-05-13T10:50:00.000Z"),
+      latestPendingNotificationAt: new Date("2026-05-13T10:50:00.000Z"),
+    });
+    prismaMock.projectNotificationEmailItem.count.mockResolvedValueOnce(2);
+
+    await enqueueNotificationEmailForNotification({
+      db: prismaMock as never,
+      notification: mentionNotification({
+        id: "notification-mention-2",
+        sourceId: "comment-2",
+        createdAt: new Date("2026-05-13T11:40:00.000Z"),
+        updatedAt: new Date("2026-05-13T11:40:00.000Z"),
+        metadata: {
+          ...mentionNotification().metadata,
+          commentId: "comment-2",
+        },
+      }),
+    });
+
+    expect(prismaMock.projectNotificationEmail.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "email-1" },
+        data: expect.objectContaining({
+          latestPendingNotificationAt: new Date("2026-05-13T11:40:00.000Z"),
+          sendAfterAt: new Date("2026-05-13T11:50:00.000Z"),
+          maxSendAt: new Date("2026-05-13T11:50:00.000Z"),
+          notificationCount: 2,
+        }),
+      })
+    );
+  });
+
+  test("does not enqueue a notification fingerprint already sent or skipped", async () => {
+    prismaMock.projectNotificationEmailItem.findFirst.mockResolvedValueOnce({
+      id: "item-1",
+    });
+
+    await enqueueNotificationEmailForNotification({
+      db: prismaMock as never,
+      notification: mentionNotification(),
+    });
+
+    expect(prismaMock.projectNotificationEmail.create).not.toHaveBeenCalled();
+  });
+
+  test("creates invitation reminder groups for the six-hour reminder window", async () => {
+    await enqueueNotificationEmailForNotification({
+      db: prismaMock as never,
+      notification: invitationNotification(),
+    });
+
+    expect(prismaMock.projectNotificationEmail.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          kind: "project_invitation_reminder",
+          sourceKey: "invite-1",
+          groupingKey: "project_invitation_reminder:user-1:project-1:invite-1",
+          sendAfterAt: new Date("2026-05-13T11:00:00.000Z"),
+          maxSendAt: new Date("2026-05-13T11:00:00.000Z"),
+        }),
+      })
+    );
+  });
+
+  test("batches multiple due project groups into one recipient email", async () => {
+    const mention = mentionNotification();
+    const assignment = assignmentNotification();
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      { id: "email-1" },
+      { id: "email-2" },
+    ]);
+    prismaMock.projectNotificationEmail.findMany
+      .mockResolvedValueOnce([{ recipientUserId: "user-1" }])
+      .mockResolvedValueOnce([
+        claimedGroup({
+          id: "email-1",
+          projectId: "project-1",
+          projectName: "Alpha",
+          notification: mention,
+        }),
+        claimedGroup({
+          id: "email-2",
+          projectId: "project-2",
+          projectName: "Beta",
+          notification: assignment,
+        }),
+      ]);
 
     const summary = await dispatchProjectNotificationEmails({
       appOrigin: "https://preview.nexusdash.test",
@@ -184,132 +338,37 @@ describe("project-notification-email-service", () => {
     });
 
     expect(summary).toMatchObject({
-      digestsAttempted: 1,
-      digestsSent: 1,
-      digestsFailed: 0,
+      groupsClaimed: 2,
+      recipientEmailsAttempted: 1,
+      recipientEmailsSent: 1,
+      groupsSent: 2,
     });
-    expect(prismaMock.projectNotificationEmail.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          kind: "project_digest",
-          recipientUserId: "user-1",
-          projectId: "project-1",
-          notificationCount: 3,
-        }),
-      })
-    );
     expect(outboundEmailMock.sendOutboundEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         templateKey: "project_notification_digest",
         to: "dorian.agaesse@gmail.com",
-        subject: "3 updates for Email Project on NexusDash",
-        text: expect.stringContaining("2x Agent mentioned you on Ship digest"),
+        subject: "2 updates across 2 projects on NexusDash",
+        text: expect.stringContaining("Alpha"),
         metadata: expect.objectContaining({
-          projectId: "project-1",
-          notificationCount: 3,
+          projectIds: ["project-1", "project-2"],
+          groupIds: ["email-1", "email-2"],
         }),
       })
     );
   });
 
-  test("does not send while the latest notification is still inside the quiet window", async () => {
-    prismaMock.notification.findMany
+  test("marks provider failures on all groups in the recipient batch", async () => {
+    prismaMock.$queryRaw.mockResolvedValueOnce([{ id: "email-1" }]);
+    prismaMock.projectNotificationEmail.findMany
+      .mockResolvedValueOnce([{ recipientUserId: "user-1" }])
       .mockResolvedValueOnce([
-        mentionNotification({
-          updatedAt: recentDate,
+        claimedGroup({
+          id: "email-1",
+          projectId: "project-1",
+          projectName: "Alpha",
+          notification: mentionNotification(),
         }),
-      ])
-      .mockResolvedValueOnce([]);
-
-    const summary = await dispatchProjectNotificationEmails({
-      appOrigin: "https://preview.nexusdash.test",
-      now,
-    });
-
-    expect(summary.digestsAttempted).toBe(0);
-    expect(prismaMock.projectNotificationEmail.create).not.toHaveBeenCalled();
-    expect(outboundEmailMock.sendOutboundEmail).not.toHaveBeenCalled();
-  });
-
-  test("does not resend notifications already covered by a digest", async () => {
-    prismaMock.notification.findMany
-      .mockResolvedValueOnce([mentionNotification()])
-      .mockResolvedValueOnce([]);
-    prismaMock.projectNotificationEmailItem.findMany.mockResolvedValueOnce([
-      {
-        notificationId: "notification-mention-1",
-      },
-    ]);
-
-    const summary = await dispatchProjectNotificationEmails({
-      appOrigin: "https://preview.nexusdash.test",
-      now,
-    });
-
-    expect(summary.digestsAttempted).toBe(0);
-    expect(prismaMock.projectNotificationEmailItem.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          email: expect.objectContaining({
-            kind: "project_digest",
-            OR: expect.arrayContaining([
-              expect.objectContaining({
-                status: {
-                  in: ["sent", "skipped"],
-                },
-              }),
-              expect.objectContaining({
-                status: "pending",
-              }),
-            ]),
-          }),
-        }),
-      })
-    );
-    expect(outboundEmailMock.sendOutboundEmail).not.toHaveBeenCalled();
-  });
-
-  test("retries a failed digest tracking row instead of permanently covering notifications", async () => {
-    prismaMock.notification.findMany
-      .mockResolvedValueOnce([mentionNotification()])
-      .mockResolvedValueOnce([]);
-    prismaMock.projectNotificationEmail.findFirst
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: "email-failed",
-      });
-
-    const summary = await dispatchProjectNotificationEmails({
-      appOrigin: "https://preview.nexusdash.test",
-      now,
-    });
-
-    expect(summary.digestsSent).toBe(1);
-    expect(prismaMock.projectNotificationEmail.create).not.toHaveBeenCalled();
-    expect(prismaMock.projectNotificationEmail.update).toHaveBeenNthCalledWith(1, {
-      where: { id: "email-failed" },
-      data: {
-        status: "pending",
-        outboundEmailDeliveryId: null,
-        errorCode: null,
-        completedAt: null,
-      },
-    });
-    expect(prismaMock.projectNotificationEmail.update).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        where: { id: "email-failed" },
-        data: expect.objectContaining({
-          status: "sent",
-        }),
-      })
-    );
-  });
-
-  test("records provider failure on the digest tracking row", async () => {
-    prismaMock.notification.findMany
-      .mockResolvedValueOnce([mentionNotification()])
-      .mockResolvedValueOnce([]);
+      ]);
     outboundEmailMock.sendOutboundEmail.mockResolvedValueOnce({
       ok: false,
       error: "provider-rejected",
@@ -323,90 +382,40 @@ describe("project-notification-email-service", () => {
       now,
     });
 
-    expect(summary.digestsFailed).toBe(1);
-    expect(prismaMock.projectNotificationEmail.update).toHaveBeenCalledWith({
-      where: { id: "email-1" },
-      data: expect.objectContaining({
-        status: "failed",
-        outboundEmailDeliveryId: "delivery-1",
-        errorCode: "provider-rejected",
-      }),
-    });
-  });
-
-  test("sends a six-hour invitation reminder once", async () => {
-    prismaMock.notification.findMany
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([invitationNotification()]);
-    prismaMock.projectInvitation.findMany.mockResolvedValueOnce([{
-      id: "invite-1",
-      invitedEmail: "dorian.agaesse@gmail.com",
-      role: "editor",
-      expiresAt: new Date("2026-05-09T11:00:00.000Z"),
-      acceptedAt: null,
-      revokedAt: null,
-      replacedAt: null,
-      project: {
-        id: "project-1",
-        name: "Email Project",
-      },
-      invitedByUser: {
-        email: "owner@example.com",
-        name: "Owner",
-        username: null,
-        usernameDiscriminator: null,
-      },
-    }]);
-
-    const summary = await dispatchProjectNotificationEmails({
-      appOrigin: "https://preview.nexusdash.test",
-      now,
-    });
-
-    expect(summary).toMatchObject({
-      invitationRemindersAttempted: 1,
-      invitationRemindersSent: 1,
-    });
-    expect(prismaMock.projectNotificationEmail.create).toHaveBeenCalledWith(
+    expect(summary.recipientEmailsFailed).toBe(1);
+    expect(summary.groupsFailed).toBe(1);
+    expect(prismaMock.projectNotificationEmail.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: { id: { in: ["email-1"] } },
         data: expect.objectContaining({
-          kind: "project_invitation_reminder",
-          sourceKey: "invite-1",
-          notificationCount: 1,
+          status: "failed",
+          outboundEmailDeliveryId: "delivery-1",
+          errorCode: "provider-rejected",
         }),
       })
     );
-    expect(outboundEmailMock.sendOutboundEmail).toHaveBeenCalledWith(
-      expect.objectContaining({
-        templateKey: "project_invitation",
-        to: "dorian.agaesse@gmail.com",
-        subject: "Reminder: invitation to Email Project on NexusDash",
-        metadata: expect.objectContaining({
-          deliveryReason: "six_hour_invitation_reminder",
-        }),
-      })
-    );
-    expect(prismaMock.projectInvitation.findMany).toHaveBeenCalledTimes(1);
   });
 
-  test("skips invitation reminders that already have tracking items", async () => {
-    prismaMock.notification.findMany
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([invitationNotification()]);
-    prismaMock.projectNotificationEmailItem.findMany
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([
-        {
-          notificationId: "notification-invite-1",
-        },
-      ]);
-
+  test("does not send when no groups are claimed, preserving repeated-call idempotency", async () => {
     const summary = await dispatchProjectNotificationEmails({
       appOrigin: "https://preview.nexusdash.test",
       now,
     });
 
-    expect(summary.invitationRemindersAttempted).toBe(0);
+    expect(summary.groupsClaimed).toBe(0);
     expect(outboundEmailMock.sendOutboundEmail).not.toHaveBeenCalled();
+  });
+
+  test("claims due groups with the database query used for concurrent dispatch safety", async () => {
+    await dispatchProjectNotificationEmails({
+      appOrigin: "https://preview.nexusdash.test",
+      now,
+    });
+
+    expect(
+      (prismaMock.$queryRaw.mock.calls[0][0] as { strings: string[] }).strings.join(
+        " "
+      )
+    ).toContain("FOR UPDATE SKIP LOCKED");
   });
 });

@@ -24,6 +24,9 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
   - unread/read state and resolved lifecycle
   - project invitation delivery, accept/decline actions, and notification-aware account menu counts
   - foundation for future mention and activity producers
+  - DB-backed notification email orchestration for project activity digests and
+    invitation reminders, with recipient/project grouping, debounce timing, and
+    outbound delivery records
 - Task comments:
   - project-scoped, append-only task discussion threads
   - chronological author-attributed comment history in the task detail modal
@@ -56,6 +59,9 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
 - Storage: `StorageProvider` abstraction (`local` or `r2`)
 - Testing: Vitest + Playwright
 - Runtime/deploy: Docker, GitHub Actions, Vercel CLI staged production deploy/promotion/rollback
+- Notification email scheduling: Vercel Cron when the Vercel plan supports
+  sub-hour cadence; otherwise a managed HTTP scheduler calls the same protected
+  endpoint. GitHub Actions dispatch is manual diagnostic tooling only.
 
 ## 4. Data Model Snapshot
 
@@ -68,6 +74,8 @@ Current schema includes:
 - Collaboration on tasks: `TaskComment`
 - Attachments: `TaskAttachment`, `ResourceAttachment` with `uploadedByUserId`
 - Calendar: `GoogleCalendarCredential` (one row per user)
+- Notification email orchestration: `ProjectNotificationEmail` and
+  `ProjectNotificationEmailItem`
 
 Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 

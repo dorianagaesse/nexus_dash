@@ -23,9 +23,29 @@ function timingSafeEquals(left: string, right: string): boolean {
   return crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
 
+function readBearerToken(request: NextRequest): string {
+  const authorization = request.headers.get("authorization")?.trim() ?? "";
+  if (!authorization) {
+    return "";
+  }
+
+  const [scheme, ...valueParts] = authorization.split(/\s+/);
+  if (scheme.toLowerCase() !== "bearer") {
+    return "";
+  }
+
+  return valueParts.join(" ").trim();
+}
+
 function isAuthorized(request: NextRequest, secret: string): boolean {
-  const authorization = request.headers.get("authorization") ?? "";
-  return timingSafeEquals(authorization, `Bearer ${secret}`);
+  const bearerToken = readBearerToken(request);
+  const dispatchSecret =
+    request.headers.get("x-notification-email-dispatch-secret")?.trim() ?? "";
+
+  return (
+    timingSafeEquals(bearerToken, secret) ||
+    timingSafeEquals(dispatchSecret, secret)
+  );
 }
 
 function resolveDispatchOrigin(request: NextRequest): string {

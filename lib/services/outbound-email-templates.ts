@@ -139,24 +139,48 @@ export interface ProjectNotificationDigestEmailItem {
   targetUrl: string;
 }
 
-export function buildProjectNotificationDigestEmail(input: {
+export interface ProjectNotificationDigestEmailSection {
   projectName: string;
   notificationCount: number;
   items: ProjectNotificationDigestEmailItem[];
   projectUrl: string;
-  notificationsUrl: string;
   omittedCount?: number;
-}): OutboundEmailMessage {
-  const plainProjectName = sanitizePlainText(input.projectName) || "a project";
-  const safeProjectName = escapeHtmlText(plainProjectName);
-  const safeProjectUrl = escapeHtmlAttribute(input.projectUrl);
-  const safeNotificationsUrl = escapeHtmlAttribute(input.notificationsUrl);
-  const notificationLabel =
-    input.notificationCount === 1 ? "update" : "updates";
-  const subject = truncateSubject(
-    `${input.notificationCount} ${notificationLabel} for ${plainProjectName} on NexusDash`
-  );
-  const digestItems = input.items.map((item) => {
+}
+
+type ProjectNotificationDigestEmailInput =
+  | {
+      sections: ProjectNotificationDigestEmailSection[];
+      notificationsUrl: string;
+    }
+  | {
+      projectName: string;
+      notificationCount: number;
+      items: ProjectNotificationDigestEmailItem[];
+      projectUrl: string;
+      notificationsUrl: string;
+      omittedCount?: number;
+    };
+
+function normalizeDigestSections(
+  input: ProjectNotificationDigestEmailInput
+): ProjectNotificationDigestEmailSection[] {
+  if ("sections" in input) {
+    return input.sections;
+  }
+
+  return [
+    {
+      projectName: input.projectName,
+      notificationCount: input.notificationCount,
+      items: input.items,
+      projectUrl: input.projectUrl,
+      omittedCount: input.omittedCount,
+    },
+  ];
+}
+
+function normalizeDigestItems(items: ProjectNotificationDigestEmailItem[]) {
+  return items.map((item) => {
     const plainLabel = sanitizePlainText(item.label) || "Project update";
     const prefix = item.count > 1 ? `${item.count}x ` : "";
 
@@ -165,39 +189,93 @@ export function buildProjectNotificationDigestEmail(input: {
       targetUrl: item.targetUrl,
     };
   });
-  const omittedCount = Math.max(0, input.omittedCount ?? 0);
+}
+
+export function buildProjectNotificationDigestEmail(
+  input: ProjectNotificationDigestEmailInput
+): OutboundEmailMessage {
+  const sections = normalizeDigestSections(input)
+    .map((section) => ({
+      ...section,
+      projectName: sanitizePlainText(section.projectName) || "a project",
+      notificationCount: Math.max(0, section.notificationCount),
+      omittedCount: Math.max(0, section.omittedCount ?? 0),
+    }))
+    .filter((section) => section.notificationCount > 0);
+  const totalNotifications = sections.reduce(
+    (total, section) => total + section.notificationCount,
+    0
+  );
+  const safeNotificationsUrl = escapeHtmlAttribute(input.notificationsUrl);
+  const notificationLabel =
+    totalNotifications === 1 ? "update" : "updates";
+  const subject =
+    sections.length === 1
+      ? truncateSubject(
+          `${totalNotifications} ${notificationLabel} for ${sections[0].projectName} on NexusDash`
+        )
+      : truncateSubject(
+          `${totalNotifications} ${notificationLabel} across ${sections.length} projects on NexusDash`
+        );
 
   const textLines = [
-    `You have ${input.notificationCount} unread ${notificationLabel} for ${plainProjectName}.`,
+    sections.length === 1
+      ? `You have ${totalNotifications} unread ${notificationLabel} for ${sections[0].projectName}.`
+      : `You have ${totalNotifications} unread ${notificationLabel} across ${sections.length} projects.`,
     "",
-    ...digestItems.map((item) => `- ${item.label}: ${item.targetUrl}`),
-    ...(omittedCount > 0
-      ? [`- ${omittedCount} more ${omittedCount === 1 ? "update" : "updates"} in NexusDash.`]
-      : []),
+    ...sections.flatMap((section) => {
+      const digestItems = normalizeDigestItems(section.items);
+      return [
+        section.projectName,
+        ...digestItems.map((item) => `- ${item.label}: ${item.targetUrl}`),
+        ...(section.omittedCount > 0
+          ? [
+              `- ${section.omittedCount} more ${section.omittedCount === 1 ? "update" : "updates"} in NexusDash.`,
+            ]
+          : []),
+        `Open project: ${section.projectUrl}`,
+        "",
+      ];
+    }),
     "",
-    `Open project: ${input.projectUrl}`,
     `Open notification center: ${input.notificationsUrl}`,
   ];
 
-  const htmlItems = digestItems
-    .map((item) => {
-      const safeLabel = escapeHtmlText(item.label);
-      const safeTargetUrl = escapeHtmlAttribute(item.targetUrl);
-      return `<li><a href="${safeTargetUrl}">${safeLabel}</a></li>`;
+  const htmlSections = sections
+    .map((section) => {
+      const digestItems = normalizeDigestItems(section.items);
+      const htmlItems = digestItems
+        .map((item) => {
+          const safeLabel = escapeHtmlText(item.label);
+          const safeTargetUrl = escapeHtmlAttribute(item.targetUrl);
+          return `<li><a href="${safeTargetUrl}">${safeLabel}</a></li>`;
+        })
+        .join("");
+      const omittedHtml =
+        section.omittedCount > 0
+          ? `<li>${section.omittedCount} more ${section.omittedCount === 1 ? "update" : "updates"} in NexusDash.</li>`
+          : "";
+      const safeProjectName = escapeHtmlText(section.projectName);
+      const safeProjectUrl = escapeHtmlAttribute(section.projectUrl);
+
+      return (
+        `<h2>${safeProjectName}</h2>` +
+        `<ul>${htmlItems}${omittedHtml}</ul>` +
+        `<p><a href="${safeProjectUrl}">Open project</a></p>`
+      );
     })
     .join("");
-  const omittedHtml =
-    omittedCount > 0
-      ? `<li>${omittedCount} more ${omittedCount === 1 ? "update" : "updates"} in NexusDash.</li>`
-      : "";
 
   return {
     subject,
     text: textLines.join("\n"),
     html:
-      `<p>You have <strong>${input.notificationCount}</strong> unread ${notificationLabel} for <strong>${safeProjectName}</strong>.</p>` +
-      `<ul>${htmlItems}${omittedHtml}</ul>` +
-      `<p><a href="${safeProjectUrl}">Open project</a></p>` +
+      `<p>You have <strong>${totalNotifications}</strong> unread ${notificationLabel}${
+        sections.length === 1
+          ? ""
+          : ` across <strong>${sections.length}</strong> projects`
+      }.</p>` +
+      htmlSections +
       `<p><a href="${safeNotificationsUrl}">Open notification center</a></p>`,
   };
 }

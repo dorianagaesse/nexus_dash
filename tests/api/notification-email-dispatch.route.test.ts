@@ -91,6 +91,53 @@ describe("notification email dispatch route", () => {
     expect(dispatchMock.dispatchProjectNotificationEmails).not.toHaveBeenCalled();
   });
 
+  test("rejects requests with the wrong dispatch secret header", async () => {
+    const response = await GET(
+      new NextRequest("https://nexus-dash.app/api/cron/notification-emails", {
+        headers: {
+          "x-notification-email-dispatch-secret": "wrong-secret",
+        },
+      })
+    );
+
+    expect(response.status).toBe(401);
+    await expect(readJson(response)).resolves.toEqual({ error: "unauthorized" });
+    expect(dispatchMock.dispatchProjectNotificationEmails).not.toHaveBeenCalled();
+  });
+
+  test("accepts bearer token auth with case-insensitive scheme and extra spaces", async () => {
+    const response = await GET(
+      new NextRequest("https://nexus-dash.app/api/cron/notification-emails", {
+        headers: {
+          authorization: "  bearer   dispatch-secret-0123456789abcdef  ",
+        },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toMatchObject({ ok: true });
+    expect(dispatchMock.dispatchProjectNotificationEmails).toHaveBeenCalledWith({
+      appOrigin: "https://nexus-dash.app",
+    });
+  });
+
+  test("dispatches notification emails with the dedicated dispatch secret header", async () => {
+    const response = await GET(
+      new NextRequest("https://nexus-dash.app/api/cron/notification-emails", {
+        headers: {
+          "x-notification-email-dispatch-secret":
+            " dispatch-secret-0123456789abcdef ",
+        },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toMatchObject({ ok: true });
+    expect(dispatchMock.dispatchProjectNotificationEmails).toHaveBeenCalledWith({
+      appOrigin: "https://nexus-dash.app",
+    });
+  });
+
   test("dispatches notification emails with the trusted app origin", async () => {
     const response = await GET(
       new NextRequest("https://nexus-dash.app/api/cron/notification-emails", {

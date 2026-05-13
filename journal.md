@@ -13,6 +13,31 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-05-13
+- Type: Execution
+- Summary: TASK-227 started from the required dedicated worktree and audited TASK-225/PR #246 plus PR #252.
+- Evidence: Reused existing worktree `../nexus_dash_task227`, switched it from deleted `docs/task-227-prod-notification-delivery` to `feature/task-227-production-grade-notification-email-orchestration` at `origin/main`, rewrote `tasks/current.md` for TASK-227, inspected PR #246 and PR #252, and checked recent `Notification Email Dispatch` runs. Run `25752062859` failed with empty dispatch URL/secret; run `25826658473` on `fix/task-225-notification-dispatch-workflow` reached Vercel deployment protection and returned 401 HTML; run `25826921991` on `main` still returned 401 through the bearer path.
+
+### 2026-05-13
+- Type: Execution
+- Summary: TASK-227 replaced scan-time notification email dispatch with durable debounce orchestration.
+- Evidence: Added TASK-227 migration `20260513120000_task227_notification_email_orchestration` for grouping keys, first/latest pending timestamps, send-after/max-send timestamps, claim state, attempt counters, and source fingerprints. Reworked `lib/services/project-notification-email-service.ts` so notification creation/refreshed paths enqueue pending recipient/project groups, dispatcher claims due groups with `FOR UPDATE SKIP LOCKED`, batches due groups by recipient, and records sent/skipped/failed outcomes against outbound delivery attempts. Wired ingestion from `lib/services/notification-service.ts`.
+
+### 2026-05-13
+- Type: Execution
+- Summary: TASK-227 demoted GitHub Actions scheduling and documented the production scheduler decision.
+- Evidence: `.github/workflows/notification-email-dispatch.yml` is now manual-only diagnostic tooling using `x-notification-email-dispatch-secret`. README/runbook guidance now states Vercel Cron is the preferred production path on a plan with sub-hour cadence, the current Hobby plan is blocked by daily-only cron, and a managed HTTP scheduler such as Upstash QStash Schedule is the Hobby-compatible production alternative. Preview validation remains manual endpoint invocation because Vercel Cron runs only on production deployments.
+
+### 2026-05-13
+- Type: Validation
+- Summary: TASK-227 focused orchestration validation passed during implementation.
+- Evidence: `npm ci`; `npx prisma validate`; `npm test -- --run tests/lib/project-notification-email-service.test.ts tests/api/notification-email-dispatch.route.test.ts tests/lib/outbound-email-templates.test.ts tests/lib/env.server.test.ts` passed with 4 files and 81 tests. Focused notification producer regression also passed with `npm test -- --run tests/lib/notification-service.test.ts tests/api/task-comments.route.test.ts tests/api/task-update.route.test.ts` (3 files, 41 tests).
+
+### 2026-05-13
+- Type: Validation
+- Summary: TASK-227 local validation baseline passed.
+- Evidence: `npm run lint`; local PostgreSQL `npm run db:migrate` applied `20260513120000_task227_notification_email_orchestration`; local DB `NODE_ENV=test npm test` passed (107 files passed, 2 skipped; 800 tests passed, 2 skipped); local DB `NODE_ENV=test npm run test:coverage` passed (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); production-guarded `npm run build` passed with local PostgreSQL, disabled outbound delivery mode, localhost trusted origins, local agent signing secret, local Google token key, and explicit `NEXTAUTH_URL`/`NEXTAUTH_SECRET`. `npm run db:local:up` was blocked by port 5432 already being allocated, so the existing local PostgreSQL service was used.
+
+### 2026-05-13
 - Type: Planning
 - Summary: Added TASK-227 to clarify the production-grade notification email refactor.
 - Evidence: Added `tasks/task-227-production-grade-notification-email-orchestration.md` and queued TASK-227 in `tasks/backlog.md`. The task captures the product goal as grouped project notification email delivery with debounce and a hard maximum delay, separates TASK-226 due-date reminder business logic, directs the next implementation away from GitHub Actions as the primary production scheduler, and updates TASK-225 tracking to reflect that PR #246 has merged.

@@ -1,8 +1,6 @@
-name: Notification Email Dispatch
+name: Notification Email Dispatch Diagnostic
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       target_url:
@@ -19,8 +17,9 @@ concurrency:
 
 jobs:
   dispatch:
-    name: Dispatch notification emails
+    name: Dispatch notification emails manually
     runs-on: ubuntu-latest
+    environment: production
     timeout-minutes: 5
     env:
       DISPATCH_URL: ${{ inputs.target_url || vars.NOTIFICATION_EMAIL_DISPATCH_URL }}
@@ -45,6 +44,6 @@ jobs:
       - name: Call notification email dispatcher
         run: |
           dispatch_origin="${DISPATCH_URL%/}"
-          curl --fail --silent --show-error --max-time 120 \
-            --header "Authorization: Bearer $DISPATCH_SECRET" \
+          curl --fail-with-body --silent --show-error --max-time 120 \
+            --header "x-notification-email-dispatch-secret: $DISPATCH_SECRET" \
             "$dispatch_origin/api/cron/notification-emails"

@@ -1,226 +1,166 @@
-# Current Task: TASK-225 Project Notification Email Digests
+# Current Task: TASK-227 Production-Grade Notification Email Orchestration
 
 ## Task ID
-TASK-225
+TASK-227
 
 ## Status
-Implemented on `feature/task-225-project-notification-email-digests` and merged
-via PR #246. Follow-up production scheduler remediation/refactor is tracked by
-TASK-227.
+In progress on dedicated worktree `../nexus_dash_task227` and branch
+`feature/task-227-production-grade-notification-email-orchestration`.
 
 ## Objective
-Extend the notification center with project-grouped outbound email digests so
-important unread in-app activity can reach users by email without sending one
-email per notification. The implementation should keep the in-app notification
-inbox as the source of truth, batch eligible notifications by recipient and
-project, collapse repetitive agent-heavy activity, and enforce a predictable
-quiet-window/rate-limit policy before sending through the TASK-125 outbound
-email foundation.
+Own the project notification email dispatch feature end to end and turn the
+TASK-225 digest/reminder work into production-grade notification email
+orchestration. Users should receive useful email about project activity without
+being spammed, especially when they belong to many projects or agent activity
+creates bursts of mentions and assignments.
 
-## Background
-- TASK-123 shipped the durable in-app notification center.
-- TASK-124 and later work added task comment mention notifications.
-- TASK-125 shipped the reusable outbound email service and delivery records.
-- TASK-104 shipped app-managed initial project invitation email delivery and
-  owner-triggered resend for active invitations.
-- Current notification types include project invitations, task comment
-  mentions, and task assignments.
-- The intended product behavior is debounce-style: avoid sending while a user
-  is still receiving clustered notifications, then send one grouped email after
-  the user's eligible notification activity has been quiet long enough.
-- There is no general background job runner in the app yet, so this task must
-  introduce a narrow, documented scheduled dispatch path instead of hiding
-  digest sends inside ordinary page loads.
+## Context And Audit Notes
+- TASK-123 shipped the in-app notification center, which remains the source of
+  truth. Email delivery must not mark notifications read or resolved.
+- TASK-125 shipped the reusable outbound email foundation and
+  `OutboundEmailDelivery` records.
+- TASK-225/PR #246 added useful digest/reminder service code, templates, tests,
+  and a protected endpoint, but its dispatcher scanned notifications at send
+  time, had no durable pending debounce queue, sent per project rather than
+  recipient-level project sections, and made GitHub Actions the primary
+  scheduler after Vercel Hobby rejected `*/15` cron.
+- PR #252 usefully identified production failure evidence and hardened endpoint
+  auth, but it still preserved GitHub Actions as the primary scheduler. Keep the
+  header-parsing lesson; do not keep the scheduler as the production design.
+- Recent run evidence:
+  - run `25752062859` failed before reaching the app because dispatch URL and
+    secret were empty in the workflow context.
+  - run `25826658473` on `fix/task-225-notification-dispatch-workflow` reached
+    Vercel deployment protection and returned 401 HTML.
+  - run `25826921991` on `main` still returned 401 through the bearer path.
+- Current Vercel docs confirm Hobby cron is daily only; a sub-hour scheduler
+  needs Vercel Pro Cron or an external managed scheduler. TASK-227 documents
+  this blocker and removes GitHub Actions as the production scheduler.
 
-## Scope
-- Add a project notification digest/reminder data model for per-recipient,
-  per-project delivery windows, idempotency, and rate limiting.
-- Add a digest selection service that reads unresolved, unread notification
-  records, groups them by recipient and project, and excludes notifications
-  that are already resolved, already read, or already covered by a sent/skipped
-  digest.
-- Add a digest template key and builder to
-  `lib/services/outbound-email-templates.ts` with plain text and HTML summaries
-  that link back to the relevant project or notification targets.
-- Send digests through `sendOutboundEmail`, recording safe metadata that
-  identifies digest window, recipient user id, project id, notification count,
-  and source notification ids without exposing secrets.
-- Collapse repetitive activity from the same project/task/source type so several
-  tags, comments, or assignments within a few minutes produce one grouped digest
-  section instead of one email or one noisy line per raw notification.
-- Enforce a quiet-window cadence: a project digest becomes eligible only when
-  the latest eligible notification for that recipient/project is at least 30
-  minutes old.
-- Keep an additional rate limit so repeated scheduled dispatches cannot send
-  more than one project digest per recipient/project inside the configured
-  cadence window.
-- Include a project-invitation reminder path for existing in-app invitation
-  notifications: if the invited verified user has not opened/accepted/declined
-  the invitation after 6 hours, send a reminder email. This reminder must reuse
-  the existing invitation email template/delivery foundation and add separate
-  reminder idempotency.
-- Add a protected dispatch endpoint for scheduled execution. Protect it with a
-  dedicated server-side secret and document the required runtime env contract.
-- Document the production dispatch path. The current Vercel plan rejects
-  sub-daily Vercel Cron schedules, so the repo uses a scheduled GitHub Actions
-  workflow to call the protected endpoint every 15 minutes.
-- Keep notification reads/resolution user-driven; sending a digest or reminder
-  must not mark notifications as read or resolved.
+## Product Behavior
+- Email-eligible project activity is grouped by recipient, project, and delivery
+  kind.
+- New eligible activity creates or refreshes a pending group instead of sending
+  immediately.
+- Project activity groups use debounce timing:
+  - quiet window: 30 minutes by default
+  - max delay: 60 minutes from the first unsent activity in the group
+  - `sendAfterAt = min(latestPendingNotificationAt + quietWindow,
+    firstPendingNotificationAt + maxDelay)`
+- If several project groups are due for a recipient in one dispatcher run, send
+  one recipient-level email with project sections.
+- Invitation reminders are due once an invited verified user has not opened,
+  accepted, declined, or otherwise resolved the invitation notification for 6
+  hours. Reminder idempotency is once per invitation/recipient reminder window.
+- TASK-226 owns task due-date reminder business logic. This task leaves a clean
+  extension point but does not implement due-date reminders.
 
-## Assumptions
-- First release uses a 30-minute quiet window after the latest eligible
-  recipient/project notification, plus a conservative scheduled dispatcher. This
-  is not a literal per-user timer; the scheduler periodically selects groups
-  whose latest activity is old enough.
-- Regular activity digests include active project-scoped notification types with
-  reliable `projectId` metadata: task comment mentions and task assignments.
-- Project invitations are included only as delayed reminders for verified users
-  who already have an in-app invitation notification and have not acted within 6
-  hours. Initial invite email delivery and owner manual resend remain TASK-104
-  behavior.
-- Users do not get notification preference UI in this task. The first release
-  uses verified account email addresses and global delivery-mode behavior from
-  TASK-125.
-- Digest dispatch failures should be recorded on outbound email delivery rows
-  and in digest/reminder state without retrying in a tight loop. Automatic
-  retry/backoff workers remain out of scope unless introduced by a later
-  background-jobs task.
+## Scheduler Decision
+- Preferred production scheduler: Vercel Cron on a plan that supports sub-hour
+  cadence, configured to invoke the protected endpoint on production only.
+- Current blocker: Vercel Hobby cron rejects sub-daily schedules, so the current
+  account cannot deploy the required cadence through Vercel Cron.
+- Production alternative when the account stays on Hobby: use a managed HTTP
+  scheduler with retries/visibility, such as Upstash QStash Schedule, to invoke
+  the same protected endpoint. GitHub Actions remains only as manual diagnostic
+  tooling, not the primary production scheduler.
+- Preview validation manually invokes the protected endpoint/service because
+  Vercel Cron runs only on production deployments.
 
 ## Acceptance Criteria
-1. `tasks/current.md` records TASK-225 scope, acceptance criteria, definition of
-   done, assumptions, and validation evidence.
-2. Prisma/PostgreSQL includes durable tracking that supports per-recipient,
-   per-project windowing, idempotency, status, notification membership, and
-   links to outbound email delivery attempts where available.
-3. A service-layer digest collector selects only eligible unresolved/unread
-   notifications for verified users, groups by recipient and project, and
-   preserves project access boundaries.
-4. A digest composer collapses repetitive notification activity and produces
-   deterministic plain text and HTML content with safe escaping/sanitization.
-5. The outbound email template contract includes a typed
-   `project_notification_digest` template key and tests for the generated email
-   shape.
-6. Digest dispatch uses the TASK-125 outbound email service and records sent,
-   skipped, and failed outcomes without logging secrets or raw provider
-   credentials.
-7. Quiet-window logic prevents sending a digest until the latest eligible
-   notification in that recipient/project group is at least 30 minutes old.
-8. Rate limiting prevents more than one digest or invitation reminder for the
-   same recipient/project/source window when dispatch is called repeatedly.
-9. Project invitation reminders are sent only for unresolved/unread existing
-   invitation notifications that are at least 6 hours old and have not already
-   produced a reminder for that invitation/recipient.
-10. Sending a digest or reminder does not mutate notification `readAt` or
-    `resolvedAt`; the notification center remains the source of truth.
-11. A protected operational endpoint exists for running digest dispatch, with
-    documented environment variables and safe local/preview invocation steps.
-12. Focused tests cover eligibility filtering, grouping, collapse semantics,
-    idempotency/rate limiting, successful sends, skipped delivery, provider
-    failure handling, delayed invitation reminders, and endpoint authorization.
-13. `README.md`, `docs/runbooks/vercel-env-contract-and-secrets.md`, and
-    `journal.md` are updated with digest behavior, env/cron assumptions,
-    validation outcomes, and any operational caveats.
+1. Durable DB-backed notification email state tracks grouping key, first pending
+   notification time, latest pending notification time, send-after time,
+   max-send time, status, source notification membership/idempotency, claim
+   state, and outbound delivery correlation.
+2. Email-eligible notification creation/refresh paths update the correct pending
+   group in the service layer.
+3. Normal project activity is delayed until quiet, but no later than about one
+   hour from the first unsent activity.
+4. Dispatcher safely claims due groups and is idempotent under repeated or
+   concurrent invocations.
+5. Due groups are batched into recipient-level emails with concise project
+   sections when multiple projects are ready together.
+6. Email content is deterministic, safely escaped, and concise for bursty
+   agent-generated activity.
+7. Provider sent/skipped/failed outcomes are recorded through TASK-125 outbound
+   delivery records and linked back to orchestration groups without logging
+   secrets.
+8. Invitation reminders are sent only after 6 hours of no user action and only
+   once per invitation/recipient reminder window.
+9. Sending email does not mutate notification `readAt` or `resolvedAt`.
+10. Runtime secrets flow through `lib/env.server.ts`; routes/cron endpoints stay
+    thin and persistence access stays in `lib/services/**`.
+11. GitHub Actions scheduled dispatch is demoted to manual diagnostics, and docs
+    explain the production scheduler decision.
+12. Focused tests cover debounce timing, max delay, grouping by project,
+    multi-project recipient batching, idempotency, concurrent claim behavior,
+    invitation reminders, provider failure, and endpoint authorization.
+13. README, env runbook, journal, backlog, and current task docs are updated
+    with behavior, ops, validation, and caveats.
 
 ## Definition Of Done
-- Work runs on the dedicated TASK-225 branch/worktree and follows
-  `1 task = 1 branch = 1 PR`.
-- Persistence access remains inside `lib/services/**`; routes stay thin
-  transport adapters.
-- Runtime secrets flow through `lib/env.server.ts` and are documented without
-  committing secret values.
-- Local validation passes: `npm run lint`, `npm test`, `npm run test:coverage`,
-  and `npm run build`.
-- Focused digest tests pass and are named in validation evidence.
-- The dispatch endpoint has an authorization-negative test and a safe manual
-  dispatch smoke recorded.
-- If UI-visible notification behavior changes, run the relevant Playwright smoke
-  flow. If preview validation is required, use `PLAYWRIGHT_BASE_URL=<preview-url>`
-  as documented in `agent.md` and `README.md`.
-- Branch is pushed, PR is opened ready for review, required checks are green,
-  Copilot review feedback is addressed or resolved, and the final handoff
-  includes the delivered commit SHA or SHAs.
-- A preview deploy is triggered from this branch via `deploy-vercel.yml` with an
-  explicit `git_ref`, and preview validation sends real test email to
-  `dorian.agaesse@gmail.com` without exposing credentials.
+- Work remains on
+  `feature/task-227-production-grade-notification-email-orchestration`.
+- Local validation passes: `npm run lint`, `npm test`,
+  `npm run test:coverage`, and `npm run build`.
+- Focused notification email orchestration tests pass and are named in
+  validation evidence.
+- Playwright is run only if UI-visible behavior changes.
+- A safe real-smoke plan for `dorian.agaesse@gmail.com` is documented without
+  exposing secrets.
+- Branch is pushed, a ready-for-review PR is opened, CI is monitored, Copilot
+  review feedback is inspected and addressed/resolved, and final handoff
+  includes PR URL, commit SHA(s), validation results, scheduler decision, and
+  operational caveats.
+
+## Validation Plan
+- Focused:
+  - `npm test -- --run tests/lib/project-notification-email-service.test.ts tests/api/notification-email-dispatch.route.test.ts tests/lib/outbound-email-templates.test.ts tests/lib/env.server.test.ts`
+- Baseline:
+  - `npm run lint`
+  - `npm test`
+  - `npm run test:coverage`
+  - `npm run build`
+- Preview/manual smoke:
+  - deploy preview with explicit `git_ref=<branch>` if live endpoint validation
+    is needed
+  - confirm workflow logs checked out the branch ref
+  - create mention/assignment activity for `dorian.agaesse@gmail.com`
+  - invoke the protected dispatch endpoint after the debounce window using a
+    secret supplied outside the repo
 
 ## Validation Evidence
-- `npm ci` passed on 2026-05-08 in the TASK-225 worktree.
-- `npx prisma generate` passed on 2026-05-08 after adding the TASK-225 digest
-  tracking models.
-- `npm run db:local:up` started a fresh local PostgreSQL container for the
-  TASK-225 worktree.
-- `npm run db:migrate` passed on 2026-05-08 against
+- `npm ci` passed and generated Prisma Client.
+- `npx prisma validate` passed.
+- Focused orchestration validation passed:
+  `npm test -- --run tests/lib/project-notification-email-service.test.ts tests/api/notification-email-dispatch.route.test.ts tests/lib/outbound-email-templates.test.ts tests/lib/env.server.test.ts`
+  with 4 files and 81 tests.
+- Focused notification producer regression passed:
+  `npm test -- --run tests/lib/notification-service.test.ts tests/api/task-comments.route.test.ts tests/api/task-update.route.test.ts`
+  with 3 files and 41 tests.
+- `npm run lint` passed.
+- First plain `npm test` failed because this shell lacked `DATABASE_URL`; reran
+  with documented local PostgreSQL env.
+- `npm run db:local:up` could not bind port `5432` because an existing local
+  PostgreSQL container was already using it; used the existing
+  `127.0.0.1:5432` service instead.
+- `npm run db:migrate` passed against
   `postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public`,
-  applying all 34 migrations including
-  `20260508110000_task225_project_notification_email_digests`.
-- Focused validation passed on 2026-05-08:
-  `npm test -- --run tests/lib/project-notification-email-service.test.ts tests/api/notification-email-dispatch.route.test.ts tests/lib/outbound-email-templates.test.ts tests/lib/env.server.test.ts`
-  with 4 files and 76 tests passing.
-- `npm run lint` passed on 2026-05-08.
-- Full local DB `NODE_ENV=test npm test` passed on 2026-05-08 with 107 files
-  passed, 2 skipped; 795 tests passed, 2 skipped.
-- Full local DB `NODE_ENV=test npm run test:coverage` passed on 2026-05-08
-  with 91.23% statements, 81.2% branches, 93.42% functions, and 91.75% lines.
-- A first `npm run build` attempt passed TypeScript after two TASK-225 type
-  fixes, then failed during page data collection because `NEXTAUTH_URL` was set
-  without `NEXTAUTH_SECRET` in the local build shell.
-- Production-guarded `npm run build` passed on 2026-05-08 with local
-  PostgreSQL, `OUTBOUND_EMAIL_DELIVERY_MODE=disabled`, localhost trusted
-  origins, local `AGENT_TOKEN_SIGNING_SECRET`, and local `NEXTAUTH_SECRET`.
-- PR #246 opened on 2026-05-08 from
-  `feature/task-225-project-notification-email-digests`; initial GitHub checks
-  passed: Quality Core, E2E Smoke, Container Image, and branch-name check.
-- Copilot review feedback on PR #246 was addressed by making failed/stale
-  pending dispatch records retryable, limiting notification coverage to
-  sent/skipped/fresh pending email attempts, removing the fixed first-250-user
-  scan cap, and batching invitation lookups.
-- Post-Copilot focused validation passed on 2026-05-08:
-  `npm test -- --run tests/lib/project-notification-email-service.test.ts tests/api/notification-email-dispatch.route.test.ts tests/lib/outbound-email-templates.test.ts tests/lib/env.server.test.ts`
-  with 4 files and 77 tests passing.
-- Post-Copilot `npm run lint` passed on 2026-05-08.
-- Post-Copilot full local DB `NODE_ENV=test npm test` passed on 2026-05-08
-  with 107 files passed, 2 skipped; 796 tests passed, 2 skipped.
-- Post-Copilot full local DB `NODE_ENV=test npm run test:coverage` passed on
-  2026-05-08 with 91.23% statements, 81.2% branches, 93.42% functions, and
-  91.75% lines.
-- Post-Copilot production-guarded `npm run build` passed on 2026-05-08 with
-  local PostgreSQL, disabled outbound delivery mode, localhost trusted origins,
-  local agent signing secret, and local NextAuth secret.
-- The first explicit-ref preview deployment workflow run (`25583050495`) checked
-  out `feature/task-225-project-notification-email-digests`, generated Prisma,
-  applied migrations, and built the app, then failed at Vercel deploy because
-  Vercel Hobby rejects the `*/15` cron expression in `vercel.json`. Scheduler
-  wiring was moved to GitHub Actions so branch previews can deploy on this
-  account while preserving the 15-minute dispatch cadence.
-- Added a `postinstall` Prisma generation hook after live-email preview smoke
-  exposed that plain Vercel remote builds do not run the workflow's explicit
-  `npx prisma generate` step. The workflow still runs the explicit step before
-  prebuilt deploys; `postinstall` makes direct Vercel preview deploys
-  self-sufficient.
-- Updated `Dockerfile` to copy `prisma/` and `prisma.config.ts` before
-  `npm ci`, so the `postinstall` hook can find the schema during container
-  builds.
-- Final PR checks passed on 2026-05-08 after the Dockerfile follow-up:
-  Quality Core, E2E Smoke, Container Image, and branch-name check.
-- Explicit-ref preview deployment via workflow run `25583379928` passed after
-  moving the scheduler off Vercel Cron. Artifact URL:
-  `https://nexus-dash-55krfi0nt-dorian-agaesses-projects.vercel.app`.
-- Live-email smoke preview deployment with real Resend delivery mode passed at
-  `https://nexus-dash-lpkmzden2-dorian-agaesses-projects.vercel.app`.
-  The agent API smoke passed through Vercel protection with `vercel curl`,
-  creating assignment and mention activity for the configured Dorian user.
-- Real dispatch smoke passed on 2026-05-08 after the 30-minute quiet window:
-  `GET /api/cron/notification-emails` returned `ok: true` with
-  `digestsAttempted: 1`, `digestsSent: 1`, `digestsFailed: 0`, and
-  `errors: 0`. This sent the project notification digest to
-  `dorian.agaesse@gmail.com`.
-- Invitation reminder behavior is covered by local service and endpoint tests;
-  no live 6-hour preview reminder was forced during this smoke.
+  applying `20260513120000_task227_notification_email_orchestration`.
+- Local DB `NODE_ENV=test npm test` passed with 107 files passed, 2 skipped;
+  800 tests passed, 2 skipped.
+- Local DB `NODE_ENV=test npm run test:coverage` passed with 91.23% statements,
+  81.2% branches, 93.42% functions, and 91.75% lines.
+- First `npm run build` attempt failed because the inherited shell had
+  `NEXTAUTH_URL` without an effective matching `NEXTAUTH_SECRET`; reran with
+  both explicitly set.
+- Production-guarded `npm run build` passed with local PostgreSQL, disabled
+  outbound delivery mode, localhost trusted origins, local agent signing secret,
+  local Google token key, and explicit `NEXTAUTH_URL`/`NEXTAUTH_SECRET`.
 
 ## Out Of Scope
-- TASK-226 task due-date reminder emails.
-- Per-user notification preference UI, unsubscribe management, bounce webhooks,
-  suppression lists, or provider webhook processing.
-- A general-purpose background job framework beyond the narrow digest dispatch
-  path needed for this task.
-- Marking notifications read/resolved as a side effect of email delivery.
+- TASK-226 task due-date reminder business rules.
+- User notification preference UI, unsubscribe management, bounce webhooks, and
+  suppression-list UX.
+- A broad background job framework unrelated to notification email dispatch.
+- Marking in-app notifications read/resolved as a side effect of email sending.

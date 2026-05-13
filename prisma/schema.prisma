@@ -20,26 +20,26 @@ model User {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  accounts                   Account[]
-  sessions                   Session[]
-  ownedProjects              Project[]                 @relation("ProjectOwner")
-  projectMemberships         ProjectMembership[]
-  projectInvitationsSent     ProjectInvitation[]       @relation("ProjectInvitationInviter")
-  taskAttachments            TaskAttachment[]          @relation("TaskAttachmentUploader")
-  taskComments               TaskComment[]             @relation("TaskCommentAuthor")
-  tasksCreated              Task[]                    @relation("TaskCreatedBy")
-  tasksUpdated              Task[]                    @relation("TaskUpdatedBy")
-  tasksAssigned             Task[]                    @relation("TaskAssignee")
-  resourceAttachments        ResourceAttachment[]      @relation("ResourceAttachmentUploader")
-  googleCalendarCredential   GoogleCalendarCredential?
-  emailVerificationTokens    EmailVerificationToken[]
-  passwordResetTokens        PasswordResetToken[]
-  createdApiCredentials      ApiCredential[]           @relation("ApiCredentialCreatedBy")
-  revokedApiCredentials      ApiCredential[]           @relation("ApiCredentialRevokedBy")
-  authAuditEvents            AuthAuditEvent[]          @relation("AuthAuditEventActorUser")
-  notifications              Notification[]            @relation("NotificationRecipient")
-  projectNotificationEmails  ProjectNotificationEmail[] @relation("ProjectNotificationEmailRecipient")
-  taskCommentReactions       TaskCommentReaction[]
+  accounts                  Account[]
+  sessions                  Session[]
+  ownedProjects             Project[]                  @relation("ProjectOwner")
+  projectMemberships        ProjectMembership[]
+  projectInvitationsSent    ProjectInvitation[]        @relation("ProjectInvitationInviter")
+  taskAttachments           TaskAttachment[]           @relation("TaskAttachmentUploader")
+  taskComments              TaskComment[]              @relation("TaskCommentAuthor")
+  tasksCreated              Task[]                     @relation("TaskCreatedBy")
+  tasksUpdated              Task[]                     @relation("TaskUpdatedBy")
+  tasksAssigned             Task[]                     @relation("TaskAssignee")
+  resourceAttachments       ResourceAttachment[]       @relation("ResourceAttachmentUploader")
+  googleCalendarCredential  GoogleCalendarCredential?
+  emailVerificationTokens   EmailVerificationToken[]
+  passwordResetTokens       PasswordResetToken[]
+  createdApiCredentials     ApiCredential[]            @relation("ApiCredentialCreatedBy")
+  revokedApiCredentials     ApiCredential[]            @relation("ApiCredentialRevokedBy")
+  authAuditEvents           AuthAuditEvent[]           @relation("AuthAuditEventActorUser")
+  notifications             Notification[]             @relation("NotificationRecipient")
+  projectNotificationEmails ProjectNotificationEmail[] @relation("ProjectNotificationEmailRecipient")
+  taskCommentReactions      TaskCommentReaction[]
 
   @@unique([username, usernameDiscriminator])
   @@index([username])
@@ -180,17 +180,17 @@ model Project {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  owner          User                 @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  tasks          Task[]
-  epics          Epic[]
-  roadmapPhases  RoadmapPhase[]
-  roadmapEvents  RoadmapEvent[]
-  resources      Resource[]
-  memberships    ProjectMembership[]
-  invitations    ProjectInvitation[]
-  taskRelations  TaskRelation[]
-  apiCredentials ApiCredential[]
-  authAuditEvents AuthAuditEvent[]
+  owner              User                       @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  tasks              Task[]
+  epics              Epic[]
+  roadmapPhases      RoadmapPhase[]
+  roadmapEvents      RoadmapEvent[]
+  resources          Resource[]
+  memberships        ProjectMembership[]
+  invitations        ProjectInvitation[]
+  taskRelations      TaskRelation[]
+  apiCredentials     ApiCredential[]
+  authAuditEvents    AuthAuditEvent[]
   notificationEmails ProjectNotificationEmail[]
 
   @@index([ownerId])
@@ -247,7 +247,7 @@ model Notification {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  recipient User @relation("NotificationRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+  recipient  User                           @relation("NotificationRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
   emailItems ProjectNotificationEmailItem[]
 
   @@unique([recipientUserId, sourceType, sourceId])
@@ -264,45 +264,59 @@ enum ProjectNotificationEmailKind {
 
 enum ProjectNotificationEmailStatus {
   pending
+  dispatching
   sent
   skipped
   failed
+  superseded
 }
 
 model ProjectNotificationEmail {
-  id                      String                         @id @default(cuid())
-  kind                    ProjectNotificationEmailKind
-  recipientUserId         String
-  projectId               String
-  sourceKey               String                         @db.VarChar(128)
-  windowStartedAt         DateTime
-  windowEndedAt           DateTime
-  latestNotificationAt    DateTime
-  notificationCount       Int
-  status                  ProjectNotificationEmailStatus @default(pending)
-  outboundEmailDeliveryId String?
-  errorCode               String?                        @db.VarChar(80)
-  metadata                Json?
-  completedAt             DateTime?
-  createdAt               DateTime                       @default(now())
-  updatedAt               DateTime                       @updatedAt
+  id                          String                         @id @default(cuid())
+  kind                        ProjectNotificationEmailKind
+  recipientUserId             String
+  projectId                   String
+  sourceKey                   String                         @db.VarChar(128)
+  groupingKey                 String                         @db.VarChar(191)
+  firstPendingNotificationAt  DateTime
+  latestPendingNotificationAt DateTime
+  sendAfterAt                 DateTime
+  maxSendAt                   DateTime
+  windowStartedAt             DateTime
+  windowEndedAt               DateTime
+  latestNotificationAt        DateTime
+  notificationCount           Int
+  status                      ProjectNotificationEmailStatus @default(pending)
+  claimToken                  String?                        @db.VarChar(64)
+  claimedAt                   DateTime?
+  attemptCount                Int                            @default(0)
+  lastAttemptAt               DateTime?
+  outboundEmailDeliveryId     String?
+  errorCode                   String?                        @db.VarChar(80)
+  metadata                    Json?
+  completedAt                 DateTime?
+  createdAt                   DateTime                       @default(now())
+  updatedAt                   DateTime                       @updatedAt
 
-  recipient             User                   @relation("ProjectNotificationEmailRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
-  project               Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  outboundEmailDelivery OutboundEmailDelivery? @relation(fields: [outboundEmailDeliveryId], references: [id], onDelete: SetNull)
+  recipient             User                           @relation("ProjectNotificationEmailRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+  project               Project                        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  outboundEmailDelivery OutboundEmailDelivery?         @relation(fields: [outboundEmailDeliveryId], references: [id], onDelete: SetNull)
   items                 ProjectNotificationEmailItem[]
 
   @@unique([kind, recipientUserId, projectId, sourceKey])
   @@index([recipientUserId, projectId, createdAt])
-  @@index([kind, status, createdAt])
+  @@index([kind, status, sendAfterAt])
+  @@index([groupingKey, status])
   @@index([outboundEmailDeliveryId])
 }
 
 model ProjectNotificationEmailItem {
-  id             String   @id @default(cuid())
-  emailId        String
-  notificationId String
-  createdAt      DateTime @default(now())
+  id                    String    @id @default(cuid())
+  emailId               String
+  notificationId        String
+  notificationUpdatedAt DateTime?
+  sourceFingerprint     String?   @db.VarChar(160)
+  createdAt             DateTime  @default(now())
 
   email        ProjectNotificationEmail @relation(fields: [emailId], references: [id], onDelete: Cascade)
   notification Notification             @relation(fields: [notificationId], references: [id], onDelete: Cascade)
@@ -336,7 +350,7 @@ model RoadmapPhase {
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   events  RoadmapEvent[]
 
   @@unique([id, projectId])
@@ -415,21 +429,21 @@ model TaskComment {
   content      String
   createdAt    DateTime @default(now())
 
-  reactions    TaskCommentReaction[]
+  reactions TaskCommentReaction[]
 
   @@index([taskId, createdAt])
   @@index([authorUserId])
 }
 
 model TaskCommentReaction {
-  id        String      @id @default(cuid())
+  id        String   @id @default(cuid())
   commentId String
   userId    String
   emoji     String
-  createdAt DateTime    @default(now())
+  createdAt DateTime @default(now())
 
-  comment   TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([commentId, userId, emoji])
   @@index([commentId])
@@ -563,20 +577,20 @@ enum AuthRateLimitScope {
 }
 
 model ApiCredential {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   projectId       String
   createdByUserId String
   revokedByUserId String?
-  label           String   @db.VarChar(80)
-  publicId        String   @unique @db.VarChar(64)
+  label           String    @db.VarChar(80)
+  publicId        String    @unique @db.VarChar(64)
   secretHash      String
   expiresAt       DateTime?
   lastUsedAt      DateTime?
   lastExchangedAt DateTime?
   lastRotatedAt   DateTime?
   revokedAt       DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   project       Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdByUser User                      @relation("ApiCredentialCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
@@ -601,21 +615,21 @@ model ApiCredentialScopeGrant {
 }
 
 model AuthAuditEvent {
-  id           String            @id @default(cuid())
+  id           String             @id @default(cuid())
   projectId    String
   credentialId String?
   actorUserId  String?
   actorKind    AuthAuditActorKind
   action       AuthAuditAction
-  requestId    String?           @db.VarChar(128)
-  ipAddress    String?           @db.VarChar(64)
-  userAgent    String?           @db.VarChar(512)
+  requestId    String?            @db.VarChar(128)
+  ipAddress    String?            @db.VarChar(64)
+  userAgent    String?            @db.VarChar(512)
   metadata     Json?
-  createdAt    DateTime          @default(now())
+  createdAt    DateTime           @default(now())
 
-  project    Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project    Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   credential ApiCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
-  actorUser  User?         @relation("AuthAuditEventActorUser", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorUser  User?          @relation("AuthAuditEventActorUser", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([projectId, createdAt])
   @@index([credentialId, createdAt])
@@ -624,12 +638,12 @@ model AuthAuditEvent {
 
 model AuthRateLimitBucket {
   scope        AuthRateLimitScope
-  key          String    @db.VarChar(191)
-  windowStart  DateTime  @db.Timestamptz(6)
-  attemptCount Int       @default(0)
-  blockedUntil DateTime? @db.Timestamptz(6)
-  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
-  updatedAt    DateTime  @updatedAt @db.Timestamptz(6)
+  key          String             @db.VarChar(191)
+  windowStart  DateTime           @db.Timestamptz(6)
+  attemptCount Int                @default(0)
+  blockedUntil DateTime?          @db.Timestamptz(6)
+  createdAt    DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime           @updatedAt @db.Timestamptz(6)
 
   @@id([scope, key, windowStart])
   @@index([scope, key, blockedUntil])
