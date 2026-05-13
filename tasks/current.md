@@ -4,8 +4,8 @@
 TASK-227
 
 ## Status
-In progress on dedicated worktree `../nexus_dash_task227` and branch
-`feature/task-227-production-grade-notification-email-orchestration`.
+Done via PR #254. Production scheduler activation for the non-upgraded Vercel
+Hobby plan is tracked separately as TASK-228.
 
 ## Objective
 Own the project notification email dispatch feature end to end and turn the

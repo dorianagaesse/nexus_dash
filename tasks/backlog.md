@@ -11,9 +11,14 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-123, TASK-125
 - ID: TASK-227
   Title: Production-grade notification email orchestration - debounce, grouping, and scheduler refactor
-  Status: In progress on `feature/task-227-production-grade-notification-email-orchestration`
+  Status: Done via PR #254; production scheduler activation tracked by TASK-228
   Rationale: Refactor the TASK-225 email notification dispatch into a production-grade app-owned delivery architecture that notifies users about important project activity without email spam. The design should group notifications by recipient and project, debounce clustered activity with a hard maximum notification delay, avoid relying on GitHub Actions as the primary production scheduler, and leave task due-date reminder production to TASK-226 while providing a clean extension point for it.
   Dependencies: TASK-123, TASK-125, TASK-225
+- ID: TASK-228
+  Title: QStash notification email scheduler activation - production cadence and smoke validation
+  Status: Pending
+  Rationale: Vercel will remain on the Hobby plan, so Vercel Cron cannot provide the sub-hour cadence required by TASK-227 notification email debounce/max-delay behavior. Provision an Upstash QStash Schedule, or an equivalent managed HTTP scheduler with retries and visibility, to invoke `POST /api/cron/notification-emails` every 5 minutes with the protected dispatch header. Document the scheduler ownership, redaction/retry settings, and run a production smoke for a verified recipient without exposing secrets.
+  Dependencies: TASK-125, TASK-227
 - ID: TASK-226
   Title: Task due-date email reminders - 3-day deadline warning delivery
   Status: Pending (promoted after TASK-125 merged via PR #243)
