@@ -34,7 +34,8 @@ type NotificationEmailStatus = "sent" | "skipped" | "failed";
 
 interface VerifiedRecipient {
   id: string;
-  email: string;
+  email: string | null;
+  emailVerified: Date | null;
   name: string | null;
 }
 
@@ -544,75 +545,72 @@ export async function enqueueNotificationEmailForNotification(input: {
   });
 }
 
-async function reconcilePendingNotificationEmailGroups(now: Date): Promise<number> {
-  const recipients = await prisma.user.findMany({
-    where: {
-      email: {
-        not: null,
-      },
-      emailVerified: {
-        not: null,
-      },
-    },
-    orderBy: [{ createdAt: "asc" }],
-    select: {
-      id: true,
-    },
-  });
+async function findUncoveredNotificationEmailCandidates(
+  limit: number
+): Promise<NotificationRecord[]> {
+  return prisma.$queryRaw<NotificationRecord[]>(Prisma.sql`
+    SELECT
+      notification."id",
+      notification."recipientUserId",
+      notification."type",
+      notification."title",
+      notification."body",
+      notification."targetPath",
+      notification."sourceType",
+      notification."sourceId",
+      notification."metadata",
+      notification."readAt",
+      notification."resolvedAt",
+      notification."createdAt",
+      notification."updatedAt"
+    FROM "Notification" notification
+    INNER JOIN "User" recipient
+      ON recipient."id" = notification."recipientUserId"
+    WHERE notification."readAt" IS NULL
+      AND notification."resolvedAt" IS NULL
+      AND notification."type" IN (
+        ${NOTIFICATION_TYPE_PROJECT_INVITATION},
+        ${NOTIFICATION_TYPE_TASK_COMMENT_MENTION},
+        ${NOTIFICATION_TYPE_TASK_ASSIGNMENT}
+      )
+      AND recipient."email" IS NOT NULL
+      AND recipient."emailVerified" IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1
+        FROM "ProjectNotificationEmailItem" item
+        INNER JOIN "ProjectNotificationEmail" email
+          ON email."id" = item."emailId"
+        WHERE item."notificationId" = notification."id"
+          AND item."sourceFingerprint" =
+            notification."id" || ':' ||
+            to_char(notification."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+          AND email."status" IN ('pending', 'dispatching', 'sent', 'skipped')
+      )
+    ORDER BY notification."updatedAt" ASC, notification."id" ASC
+    LIMIT ${limit}
+  `);
+}
 
+async function reconcilePendingNotificationEmailGroups(): Promise<number> {
+  const notifications = await findUncoveredNotificationEmailCandidates(
+    MAX_RECONCILE_NOTIFICATIONS
+  );
   let reconciled = 0;
-  for (const recipient of recipients) {
-    if (reconciled >= MAX_RECONCILE_NOTIFICATIONS) {
-      break;
-    }
 
-    await withActorRlsContext(recipient.id, async (db) => {
-      const notifications = await db.notification.findMany({
-        where: {
-          recipientUserId: recipient.id,
-          readAt: null,
-          resolvedAt: null,
-          type: {
-            in: [
-              NOTIFICATION_TYPE_PROJECT_INVITATION,
-              NOTIFICATION_TYPE_TASK_COMMENT_MENTION,
-              NOTIFICATION_TYPE_TASK_ASSIGNMENT,
-            ],
-          },
-        },
-        orderBy: [{ updatedAt: "asc" }],
-        take: MAX_RECONCILE_NOTIFICATIONS - reconciled,
-        select: {
-          id: true,
-          recipientUserId: true,
-          type: true,
-          title: true,
-          body: true,
-          targetPath: true,
-          sourceType: true,
-          sourceId: true,
-          metadata: true,
-          readAt: true,
-          resolvedAt: true,
-          createdAt: true,
-          updatedAt: true,
-        },
+  for (const notification of notifications) {
+    await withActorRlsContext(notification.recipientUserId, async (db) => {
+      await enqueueNotificationEmailForNotification({
+        db,
+        notification,
       });
-
-      for (const notification of notifications) {
-        await enqueueNotificationEmailForNotification({
-          db,
-          notification,
-        });
-        reconciled += 1;
-      }
     });
+    reconciled += 1;
   }
 
   return reconciled;
 }
 
-async function failStaleDispatchingGroups(now: Date): Promise<void> {
+async function releaseStaleDispatchingGroups(now: Date): Promise<void> {
   const staleBefore = new Date(now.getTime() - STALE_DISPATCHING_MS);
   await prisma.projectNotificationEmail.updateMany({
     where: {
@@ -622,10 +620,12 @@ async function failStaleDispatchingGroups(now: Date): Promise<void> {
       },
     },
     data: {
-      status: "failed",
+      status: "pending",
       errorCode: "dispatch-claim-stale",
       claimToken: null,
-      completedAt: now,
+      claimedAt: null,
+      completedAt: null,
+      sendAfterAt: now,
     },
   });
 }
@@ -692,6 +692,7 @@ async function loadClaimedGroupsForRecipient(input: {
           select: {
             id: true,
             email: true,
+            emailVerified: true,
             name: true,
           },
         },
@@ -730,9 +731,7 @@ async function loadClaimedGroupsForRecipient(input: {
       },
     });
 
-    return groups.filter((group): group is ClaimedEmailGroup =>
-      Boolean(group.recipient.email)
-    );
+    return groups;
   });
 }
 
@@ -997,6 +996,25 @@ async function dispatchRecipientBatch(input: {
   }
 
   const notificationIds = sections.flatMap((section) => section.notificationIds);
+  if (!input.recipient.email || !input.recipient.emailVerified) {
+    await markGroupsComplete({
+      groupIds: sections.map((section) => section.groupId),
+      status: "skipped",
+      now: input.now,
+      errorCode: "recipient-email-not-verified",
+    });
+    return {
+      status: "skipped",
+      attempted: false,
+      sentGroupIds: [],
+      skippedGroupIds: [
+        ...skippedGroupIds,
+        ...sections.map((section) => section.groupId),
+      ],
+      failedGroupIds: [],
+    };
+  }
+
   const message = buildProjectNotificationDigestEmail({
     sections: sections.map((section) => section.section),
     notificationsUrl: buildAbsoluteUrl(input.appOrigin, "/account/notifications"),
@@ -1085,13 +1103,13 @@ export async function dispatchProjectNotificationEmails(input: {
 
   try {
     summary.notificationsReconciled =
-      await reconcilePendingNotificationEmailGroups(now);
+      await reconcilePendingNotificationEmailGroups();
   } catch (error) {
     summary.errors += 1;
     logServerError("dispatchProjectNotificationEmails.reconcile", error);
   }
 
-  await failStaleDispatchingGroups(now);
+  await releaseStaleDispatchingGroups(now);
 
   const claimedGroupIds = await claimDueGroups({
     now,

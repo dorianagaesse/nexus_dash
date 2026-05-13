@@ -14,6 +14,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-05-13
 - Type: Execution
+- Summary: TASK-227 addressed Copilot PR #254 review feedback on migration backfills, retryability, reconciliation scale, dispatch-time verification, and env docs.
+- Evidence: Changed the TASK-227 migration to backfill runtime-compatible grouping keys and ISO source fingerprints, merge duplicate pending project digest rows before adding the active grouping-key index, and declare the source fingerprint index in Prisma. Reconciliation now queries uncovered notification candidates directly instead of scanning all verified users or repeatedly consuming the cap on covered notifications. Stale claimed groups are released back to `pending` for retry. Dispatch reloads and rechecks `emailVerified` before sending. `.env.example` now matches the manual diagnostic workflow and preferred dispatch header.
+
+### 2026-05-13
+- Type: Validation
+- Summary: TASK-227 Copilot follow-up passed focused, migration, lint, full test, coverage, and build validation.
+- Evidence: Focused orchestration suite passed after review fixes with 4 files and 83 tests. A fresh temporary local database `nexusdash_task227_migration_check` applied all 35 migrations successfully via `npm run db:migrate`, then was dropped. `npm run lint` passed. Local PostgreSQL `NODE_ENV=test npm test` passed (107 files passed, 2 skipped; 802 tests passed, 2 skipped). Local PostgreSQL `NODE_ENV=test npm run test:coverage` passed (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines). Production-guarded `npm run build` passed with local PostgreSQL, disabled outbound delivery mode, localhost trusted origins, local agent signing secret, local Google token key, and explicit `NEXTAUTH_URL`/`NEXTAUTH_SECRET`.
+
+### 2026-05-13
+- Type: Execution
 - Summary: TASK-227 started from the required dedicated worktree and audited TASK-225/PR #246 plus PR #252.
 - Evidence: Reused existing worktree `../nexus_dash_task227`, switched it from deleted `docs/task-227-prod-notification-delivery` to `feature/task-227-production-grade-notification-email-orchestration` at `origin/main`, rewrote `tasks/current.md` for TASK-227, inspected PR #246 and PR #252, and checked recent `Notification Email Dispatch` runs. Run `25752062859` failed with empty dispatch URL/secret; run `25826658473` on `fix/task-225-notification-dispatch-workflow` reached Vercel deployment protection and returned 401 HTML; run `25826921991` on `main` still returned 401 through the bearer path.
 

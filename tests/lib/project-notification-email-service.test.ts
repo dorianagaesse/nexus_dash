@@ -168,6 +168,7 @@ function claimedGroup(input: {
     recipient: {
       id: "user-1",
       email: "dorian.agaesse@gmail.com",
+      emailVerified: new Date("2026-05-01T00:00:00.000Z"),
       name: "Dorian",
     },
     project: {
@@ -311,10 +312,12 @@ describe("project-notification-email-service", () => {
   test("batches multiple due project groups into one recipient email", async () => {
     const mention = mentionNotification();
     const assignment = assignmentNotification();
-    prismaMock.$queryRaw.mockResolvedValueOnce([
-      { id: "email-1" },
-      { id: "email-2" },
-    ]);
+    prismaMock.$queryRaw
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { id: "email-1" },
+        { id: "email-2" },
+      ]);
     prismaMock.projectNotificationEmail.findMany
       .mockResolvedValueOnce([{ recipientUserId: "user-1" }])
       .mockResolvedValueOnce([
@@ -358,7 +361,9 @@ describe("project-notification-email-service", () => {
   });
 
   test("marks provider failures on all groups in the recipient batch", async () => {
-    prismaMock.$queryRaw.mockResolvedValueOnce([{ id: "email-1" }]);
+    prismaMock.$queryRaw
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: "email-1" }]);
     prismaMock.projectNotificationEmail.findMany
       .mockResolvedValueOnce([{ recipientUserId: "user-1" }])
       .mockResolvedValueOnce([
@@ -406,6 +411,64 @@ describe("project-notification-email-service", () => {
     expect(outboundEmailMock.sendOutboundEmail).not.toHaveBeenCalled();
   });
 
+  test("releases stale dispatching groups back to pending for retry", async () => {
+    await dispatchProjectNotificationEmails({
+      appOrigin: "https://preview.nexusdash.test",
+      now,
+    });
+
+    expect(prismaMock.projectNotificationEmail.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: "dispatching",
+          claimedAt: {
+            lt: new Date("2026-05-13T11:30:00.000Z"),
+          },
+        }),
+        data: expect.objectContaining({
+          status: "pending",
+          errorCode: "dispatch-claim-stale",
+          claimToken: null,
+          claimedAt: null,
+          completedAt: null,
+          sendAfterAt: now,
+        }),
+      })
+    );
+  });
+
+  test("skips dispatch if the recipient email is no longer verified", async () => {
+    const group = claimedGroup({
+      id: "email-1",
+      projectId: "project-1",
+      projectName: "Alpha",
+      notification: mentionNotification(),
+    });
+    prismaMock.$queryRaw
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: "email-1" }]);
+    prismaMock.projectNotificationEmail.findMany
+      .mockResolvedValueOnce([{ recipientUserId: "user-1" }])
+      .mockResolvedValueOnce([
+        {
+          ...group,
+          recipient: {
+            ...group.recipient,
+            emailVerified: null,
+          },
+        },
+      ]);
+
+    const summary = await dispatchProjectNotificationEmails({
+      appOrigin: "https://preview.nexusdash.test",
+      now,
+    });
+
+    expect(summary.groupsClaimed).toBe(1);
+    expect(summary.recipientEmailsAttempted).toBe(0);
+    expect(outboundEmailMock.sendOutboundEmail).not.toHaveBeenCalled();
+  });
+
   test("claims due groups with the database query used for concurrent dispatch safety", async () => {
     await dispatchProjectNotificationEmails({
       appOrigin: "https://preview.nexusdash.test",
@@ -413,9 +476,11 @@ describe("project-notification-email-service", () => {
     });
 
     expect(
-      (prismaMock.$queryRaw.mock.calls[0][0] as { strings: string[] }).strings.join(
-        " "
+      prismaMock.$queryRaw.mock.calls.some((call) =>
+        (call[0] as { strings: string[] }).strings
+          .join(" ")
+          .includes("FOR UPDATE SKIP LOCKED")
       )
-    ).toContain("FOR UPDATE SKIP LOCKED");
+    ).toBe(true);
   });
 });

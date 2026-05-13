@@ -134,7 +134,8 @@ creates bursts of mentions and assignments.
 - `npx prisma validate` passed.
 - Focused orchestration validation passed:
   `npm test -- --run tests/lib/project-notification-email-service.test.ts tests/api/notification-email-dispatch.route.test.ts tests/lib/outbound-email-templates.test.ts tests/lib/env.server.test.ts`
-  with 4 files and 81 tests.
+  with 4 files and 81 tests initially, then 83 tests after Copilot review
+  fixes.
 - Focused notification producer regression passed:
   `npm test -- --run tests/lib/notification-service.test.ts tests/api/task-comments.route.test.ts tests/api/task-update.route.test.ts`
   with 3 files and 41 tests.
@@ -148,7 +149,8 @@ creates bursts of mentions and assignments.
   `postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public`,
   applying `20260513120000_task227_notification_email_orchestration`.
 - Local DB `NODE_ENV=test npm test` passed with 107 files passed, 2 skipped;
-  800 tests passed, 2 skipped.
+  800 tests passed, 2 skipped initially, then 802 tests passed, 2 skipped after
+  Copilot review fixes.
 - Local DB `NODE_ENV=test npm run test:coverage` passed with 91.23% statements,
   81.2% branches, 93.42% functions, and 91.75% lines.
 - First `npm run build` attempt failed because the inherited shell had
@@ -157,6 +159,9 @@ creates bursts of mentions and assignments.
 - Production-guarded `npm run build` passed with local PostgreSQL, disabled
   outbound delivery mode, localhost trusted origins, local agent signing secret,
   local Google token key, and explicit `NEXTAUTH_URL`/`NEXTAUTH_SECRET`.
+- Copilot review fixes replayed all migrations against a fresh temporary local
+  database `nexusdash_task227_migration_check`; `npm run db:migrate` applied
+  all 35 migrations successfully, then the temporary database was dropped.
 
 ## Out Of Scope
 - TASK-226 task due-date reminder business rules.
