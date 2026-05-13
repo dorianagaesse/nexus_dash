@@ -12,6 +12,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-05-14
+- Type: Planning
+- Summary: Added TASK-228 for QStash production scheduler activation after PR #254 merged.
+- Evidence: PR #254 merged as `e83dfa73b9ede02775bdd3d8a467c4b521fe8f7b`. TASK-227 delivered the durable notification email orchestration and protected endpoint, but QStash itself is not provisioned in code. Because the Vercel plan will not be upgraded and Hobby cron cannot run sub-hour schedules, TASK-228 now tracks activation of an Upstash QStash Schedule or equivalent managed HTTP scheduler, including the 5-minute cadence, protected header, retries/visibility, redaction, and production smoke validation.
+
 ### 2026-05-13
 - Type: Execution
 - Summary: TASK-227 addressed Copilot PR #254 review feedback on migration backfills, retryability, reconciliation scale, dispatch-time verification, and env docs.
