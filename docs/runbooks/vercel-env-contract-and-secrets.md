@@ -59,20 +59,33 @@ fails. The current foundation does not run background retry workers, bounce
 webhooks, suppression handling, or notification preferences; failed sends are
 recorded and returned to the caller synchronously.
 
-TASK-225 adds project notification email digests and delayed project invitation
-reminders. The dispatcher is exposed at `/api/cron/notification-emails`, expects
-`Authorization: Bearer <secret>`, and is called every 15 minutes by
-`.github/workflows/notification-email-dispatch.yml`. The repository scheduler is
-used because the current Vercel Hobby plan rejects sub-daily Vercel Cron
-schedules during deployment. Configure repository variable
-`NOTIFICATION_EMAIL_DISPATCH_URL` with the production app origin and repository
-secret `NOTIFICATION_EMAIL_DISPATCH_SECRET` or `CRON_SECRET` with the same value
-configured in the app runtime. It sends project activity digests only after the
-recipient/project group has been quiet for at least 30 minutes, and sends a
-single invitation reminder when an existing in-app invitation notification stays
-unresolved/unread for 6 hours. Preview deployments can be validated by running
-the workflow manually with `target_url=<preview-url>` or by invoking the
-endpoint directly with the same bearer secret.
+TASK-227 owns production-grade project notification email orchestration. The
+dispatcher is exposed at `/api/cron/notification-emails` and accepts either
+`x-notification-email-dispatch-secret: <secret>` or
+`Authorization: Bearer <secret>`. Notification creation/refreshed paths enqueue
+durable recipient/project groups. Project activity waits for a 30-minute quiet
+window, but the first unsent activity in a group is capped at a 60-minute max
+delay. Due groups are claimed safely by the dispatcher and batched by recipient
+with project sections. Invitation reminders send once after 6 hours when a
+verified invited user has not opened, accepted, declined, or otherwise resolved
+the invitation notification.
+
+Scheduler decision:
+
+- Preferred production path: Vercel Cron every 10-15 minutes on a plan that
+  supports sub-hour cron cadence. Vercel Cron invokes production deployments
+  only; it does not run on preview deployments.
+- Current blocker: the present Hobby-plan deployment cannot use the required
+  Vercel Cron cadence because Hobby cron is daily-only.
+- Production alternative while staying on Hobby: configure a managed HTTP
+  scheduler with retries/visibility, such as Upstash QStash Schedule, to call
+  the same endpoint with `x-notification-email-dispatch-secret`.
+- GitHub Actions dispatch is manual diagnostic tooling only; it must not be the
+  primary production scheduler for notification email delivery.
+
+Preview deployments can be validated by invoking the endpoint directly with the
+same dispatch secret. A live email smoke additionally needs
+`OUTBOUND_EMAIL_DELIVERY_MODE=live` and a real `RESEND_API_KEY`.
 
 If Google OAuth is enabled:
 
@@ -135,6 +148,9 @@ Important:
   environments when agent access behavior needs to be validated end to end.
 - Preview email smoke tests need `OUTBOUND_EMAIL_DELIVERY_MODE=live` and a real
   `RESEND_API_KEY`. The default `auto` mode records preview attempts as skipped.
+- Vercel Cron schedule changes are production-deployment behavior. Preview
+  validation should call the protected endpoint manually and should not be used
+  as evidence that Vercel Cron itself ran.
 - Keep `GOOGLE_TOKEN_ENCRYPTION_KEY` stable per environment. Rotating it
   requires token re-authorization because existing encrypted tokens may become
   unreadable.

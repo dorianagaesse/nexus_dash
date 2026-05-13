@@ -6,9 +6,9 @@ import { logServerError, logServerInfo } from "@/lib/observability/logger";
 import { prisma } from "@/lib/prisma";
 import { sendOutboundEmail } from "@/lib/services/outbound-email-service";
 import {
-  buildProjectInvitationEmail,
   buildProjectNotificationDigestEmail,
   type ProjectNotificationDigestEmailItem,
+  type ProjectNotificationDigestEmailSection,
 } from "@/lib/services/outbound-email-templates";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 
@@ -17,20 +17,31 @@ const NOTIFICATION_TYPE_TASK_COMMENT_MENTION = "task_comment_mention";
 const NOTIFICATION_TYPE_TASK_ASSIGNMENT = "task_assignment";
 const EMAIL_KIND_PROJECT_DIGEST = "project_digest";
 const EMAIL_KIND_PROJECT_INVITATION_REMINDER = "project_invitation_reminder";
+
 const QUIET_WINDOW_MS = 30 * 60 * 1000;
+const MAX_ACTIVITY_DELAY_MS = 60 * 60 * 1000;
 const INVITATION_REMINDER_AFTER_MS = 6 * 60 * 60 * 1000;
-const PENDING_RETRY_GRACE_MS = 30 * 60 * 1000;
+const STALE_DISPATCHING_MS = 30 * 60 * 1000;
 const MAX_GROUPS_PER_DISPATCH = 100;
-const MAX_DIGEST_BODY_ITEMS = 12;
+const MAX_RECONCILE_NOTIFICATIONS = 500;
+const MAX_DIGEST_BODY_ITEMS_PER_PROJECT = 12;
+
+type NotificationEmailKind =
+  | typeof EMAIL_KIND_PROJECT_DIGEST
+  | typeof EMAIL_KIND_PROJECT_INVITATION_REMINDER;
+
+type NotificationEmailStatus = "sent" | "skipped" | "failed";
 
 interface VerifiedRecipient {
   id: string;
-  email: string;
+  email: string | null;
+  emailVerified: Date | null;
   name: string | null;
 }
 
 interface NotificationRecord {
   id: string;
+  recipientUserId: string;
   type: string;
   title: string;
   body: string | null;
@@ -38,55 +49,74 @@ interface NotificationRecord {
   sourceType: string;
   sourceId: string;
   metadata: Prisma.JsonValue | null;
+  readAt: Date | null;
+  resolvedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
-interface DigestCandidate {
-  notification: NotificationRecord;
+interface QueueDetails {
+  kind: NotificationEmailKind;
   projectId: string;
   projectName: string;
-  taskId: string;
-  taskTitle: string;
-  actorDisplayName: string;
-  targetPath: string;
-  activityKind: "mention" | "assignment";
-  activityAt: Date;
+  sourceKey: string;
+  groupingKey: string;
+  firstPendingNotificationAt: Date;
+  latestPendingNotificationAt: Date;
+  sendAfterAt: Date;
+  maxSendAt: Date;
+  sourceFingerprint: string;
+  metadata: Prisma.InputJsonObject;
 }
 
-interface DigestGroup {
-  recipient: VerifiedRecipient;
+interface ClaimedNotificationItem {
+  id: string;
+  notificationId: string;
+  notificationUpdatedAt: Date | null;
+  sourceFingerprint: string | null;
+  notification: NotificationRecord;
+}
+
+interface ClaimedEmailGroup {
+  id: string;
+  kind: NotificationEmailKind;
+  recipientUserId: string;
   projectId: string;
-  projectName: string;
-  candidates: DigestCandidate[];
+  sourceKey: string;
+  groupingKey: string;
+  firstPendingNotificationAt: Date;
+  latestPendingNotificationAt: Date;
+  sendAfterAt: Date;
+  maxSendAt: Date;
   windowStartedAt: Date;
   windowEndedAt: Date;
   latestNotificationAt: Date;
+  notificationCount: number;
+  recipient: VerifiedRecipient;
+  project: {
+    id: string;
+    name: string;
+  };
+  items: ClaimedNotificationItem[];
 }
 
-interface InvitationReminderCandidate {
-  recipient: VerifiedRecipient;
-  notification: NotificationRecord;
-  invitationId: string;
+interface PreparedSection {
+  groupId: string;
   projectId: string;
-  projectName: string;
-  invitedByDisplayName: string;
-  role: "editor" | "viewer";
-  expiresAt: Date;
-  targetPath: string;
-  createdAt: Date;
+  section: ProjectNotificationDigestEmailSection;
+  notificationIds: string[];
 }
 
 export interface DispatchProjectNotificationEmailsSummary {
-  usersScanned: number;
-  digestsAttempted: number;
-  digestsSent: number;
-  digestsSkipped: number;
-  digestsFailed: number;
-  invitationRemindersAttempted: number;
-  invitationRemindersSent: number;
-  invitationRemindersSkipped: number;
-  invitationRemindersFailed: number;
+  notificationsReconciled: number;
+  groupsClaimed: number;
+  recipientEmailsAttempted: number;
+  recipientEmailsSent: number;
+  recipientEmailsSkipped: number;
+  recipientEmailsFailed: number;
+  groupsSent: number;
+  groupsSkipped: number;
+  groupsFailed: number;
   errors: number;
 }
 
@@ -144,24 +174,31 @@ function normalizeAppOrigin(appOrigin: string | null | undefined): string {
   return "http://localhost:3000";
 }
 
-function createSourceKey(notificationIds: string[]): string {
-  return crypto
-    .createHash("sha256")
-    .update(notificationIds.slice().sort().join("\n"))
-    .digest("hex");
+function createClaimToken(): string {
+  return crypto.randomBytes(16).toString("hex");
 }
 
-function isUniqueConstraintFailure(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === "P2002"
-  );
+function createSourceFingerprint(notification: {
+  id: string;
+  updatedAt: Date;
+}): string {
+  return `${notification.id}:${notification.updatedAt.toISOString()}`;
 }
 
-function mapDeliveryStatus(result: Awaited<ReturnType<typeof sendOutboundEmail>>) {
+function createSourceKeyFromFingerprint(sourceFingerprint: string): string {
+  return crypto.createHash("sha256").update(sourceFingerprint).digest("hex");
+}
+
+function mapDeliveryStatus(
+  result: Awaited<ReturnType<typeof sendOutboundEmail>>
+): {
+  status: NotificationEmailStatus;
+  deliveryId: string | null;
+  errorCode: string | null;
+} {
   if (!result.ok) {
     return {
-      status: "failed" as const,
+      status: "failed",
       deliveryId: result.deliveryId,
       errorCode: result.error,
     };
@@ -174,448 +211,157 @@ function mapDeliveryStatus(result: Awaited<ReturnType<typeof sendOutboundEmail>>
   };
 }
 
-function getDigestCandidate(notification: NotificationRecord): DigestCandidate | null {
+function calculateActivitySchedule(input: {
+  firstPendingNotificationAt: Date;
+  latestPendingNotificationAt: Date;
+}) {
+  const quietSendAfterAt = new Date(
+    input.latestPendingNotificationAt.getTime() + QUIET_WINDOW_MS
+  );
+  const maxSendAt = new Date(
+    input.firstPendingNotificationAt.getTime() + MAX_ACTIVITY_DELAY_MS
+  );
+
+  return {
+    sendAfterAt: minDate(quietSendAfterAt, maxSendAt),
+    maxSendAt,
+  };
+}
+
+function createActivityGroupingKey(input: {
+  recipientUserId: string;
+  projectId: string;
+}): string {
+  return [
+    EMAIL_KIND_PROJECT_DIGEST,
+    input.recipientUserId,
+    input.projectId,
+  ].join(":");
+}
+
+function createInvitationGroupingKey(input: {
+  recipientUserId: string;
+  projectId: string;
+  invitationId: string;
+}): string {
+  return [
+    EMAIL_KIND_PROJECT_INVITATION_REMINDER,
+    input.recipientUserId,
+    input.projectId,
+    input.invitationId,
+  ].join(":");
+}
+
+function getQueueDetails(notification: NotificationRecord): QueueDetails | null {
   if (!isJsonObject(notification.metadata)) {
     return null;
   }
 
   const projectId = readString(notification.metadata, "projectId");
   const projectName = readString(notification.metadata, "projectName");
-  const taskId = readString(notification.metadata, "taskId");
-  const taskTitle = readString(notification.metadata, "taskTitle");
-  const targetPath = readString(notification.metadata, "targetPath");
-
-  if (!projectId || !projectName || !taskId || !taskTitle || !targetPath) {
+  if (!projectId || !projectName) {
     return null;
   }
 
-  if (notification.type === NOTIFICATION_TYPE_TASK_COMMENT_MENTION) {
-    const actorDisplayName = readString(notification.metadata, "authorDisplayName");
-    if (!actorDisplayName) {
-      return null;
-    }
+  const sourceFingerprint = createSourceFingerprint(notification);
+  const activityAt = maxDate(notification.createdAt, notification.updatedAt);
+
+  if (
+    notification.type === NOTIFICATION_TYPE_TASK_COMMENT_MENTION ||
+    notification.type === NOTIFICATION_TYPE_TASK_ASSIGNMENT
+  ) {
+    const schedule = calculateActivitySchedule({
+      firstPendingNotificationAt: activityAt,
+      latestPendingNotificationAt: activityAt,
+    });
 
     return {
-      notification,
+      kind: EMAIL_KIND_PROJECT_DIGEST,
       projectId,
       projectName,
-      taskId,
-      taskTitle,
-      actorDisplayName,
-      targetPath,
-      activityKind: "mention",
-      activityAt: maxDate(notification.createdAt, notification.updatedAt),
+      sourceKey: createSourceKeyFromFingerprint(sourceFingerprint),
+      groupingKey: createActivityGroupingKey({
+        recipientUserId: notification.recipientUserId,
+        projectId,
+      }),
+      firstPendingNotificationAt: activityAt,
+      latestPendingNotificationAt: activityAt,
+      sendAfterAt: schedule.sendAfterAt,
+      maxSendAt: schedule.maxSendAt,
+      sourceFingerprint,
+      metadata: {
+        projectId,
+        projectName,
+        quietWindowMinutes: QUIET_WINDOW_MS / 60_000,
+        maxDelayMinutes: MAX_ACTIVITY_DELAY_MS / 60_000,
+      },
     };
   }
 
-  if (notification.type === NOTIFICATION_TYPE_TASK_ASSIGNMENT) {
-    const actorDisplayName = readString(notification.metadata, "actorDisplayName");
-    if (!actorDisplayName) {
+  if (notification.type === NOTIFICATION_TYPE_PROJECT_INVITATION) {
+    const invitationId = readString(notification.metadata, "invitationId");
+    if (!invitationId) {
       return null;
     }
 
+    const sendAfterAt = new Date(
+      notification.createdAt.getTime() + INVITATION_REMINDER_AFTER_MS
+    );
+
     return {
-      notification,
+      kind: EMAIL_KIND_PROJECT_INVITATION_REMINDER,
       projectId,
       projectName,
-      taskId,
-      taskTitle,
-      actorDisplayName,
-      targetPath,
-      activityKind: "assignment",
-      activityAt: maxDate(notification.createdAt, notification.updatedAt),
+      sourceKey: invitationId,
+      groupingKey: createInvitationGroupingKey({
+        recipientUserId: notification.recipientUserId,
+        projectId,
+        invitationId,
+      }),
+      firstPendingNotificationAt: notification.createdAt,
+      latestPendingNotificationAt: notification.createdAt,
+      sendAfterAt,
+      maxSendAt: sendAfterAt,
+      sourceFingerprint,
+      metadata: {
+        invitationId,
+        projectId,
+        projectName,
+        reminderAfterHours: INVITATION_REMINDER_AFTER_MS / 3_600_000,
+      },
     };
   }
 
   return null;
 }
 
-function getInvitationReminderCandidate(input: {
-  recipient: VerifiedRecipient;
-  notification: NotificationRecord;
-  invitation: {
-    id: string;
-    invitedEmail: string;
-    role: "editor" | "viewer";
-    expiresAt: Date;
-    acceptedAt: Date | null;
-    revokedAt: Date | null;
-    replacedAt: Date | null;
-    project: {
-      id: string;
-      name: string;
-    };
-    invitedByUser: {
-      email: string | null;
-      name: string | null;
-      username: string | null;
-      usernameDiscriminator: string | null;
-    };
-  };
-  now: Date;
-}): InvitationReminderCandidate | null {
-  if (
-    input.invitation.acceptedAt ||
-    input.invitation.revokedAt ||
-    input.invitation.replacedAt ||
-    input.invitation.expiresAt <= input.now ||
-    input.invitation.invitedEmail.toLowerCase() !==
-      input.recipient.email.toLowerCase()
-  ) {
-    return null;
-  }
-
-  const metadata = isJsonObject(input.notification.metadata)
-    ? input.notification.metadata
-    : null;
-  const targetPath =
-    metadata ? readString(metadata, "inviteLinkPath") : null;
-  const displayName =
-    input.invitation.invitedByUser.username &&
-    input.invitation.invitedByUser.usernameDiscriminator
-      ? `${input.invitation.invitedByUser.username}#${input.invitation.invitedByUser.usernameDiscriminator}`
-      : input.invitation.invitedByUser.name ||
-        input.invitation.invitedByUser.email ||
-        "Someone";
-
-  return {
-    recipient: input.recipient,
-    notification: input.notification,
-    invitationId: input.invitation.id,
-    projectId: input.invitation.project.id,
-    projectName: input.invitation.project.name,
-    invitedByDisplayName: displayName,
-    role: input.invitation.role,
-    expiresAt: input.invitation.expiresAt,
-    targetPath:
-      targetPath ?? `/invite/project/${encodeURIComponent(input.invitation.id)}`,
-    createdAt: input.notification.createdAt,
-  };
-}
-
-function summarizeDigestGroup(
-  group: DigestGroup,
-  appOrigin: string
-): {
-  items: ProjectNotificationDigestEmailItem[];
-  omittedCount: number;
-} {
-  const collapsed = new Map<
-    string,
-    {
-      label: string;
-      count: number;
-      targetPath: string;
-    }
-  >();
-
-  for (const candidate of group.candidates) {
-    const key = [
-      candidate.activityKind,
-      candidate.taskId,
-      candidate.actorDisplayName,
-    ].join(":");
-    const existing = collapsed.get(key);
-
-    if (existing) {
-      existing.count += 1;
-      continue;
-    }
-
-    const label =
-      candidate.activityKind === "mention"
-        ? `${candidate.actorDisplayName} mentioned you on ${candidate.taskTitle}`
-        : `${candidate.actorDisplayName} assigned you to ${candidate.taskTitle}`;
-
-    collapsed.set(key, {
-      label,
-      count: 1,
-      targetPath: candidate.targetPath,
-    });
-  }
-
-  const allItems = Array.from(collapsed.values()).map((item) => ({
-    label: item.label,
-    count: item.count,
-    targetUrl: buildAbsoluteUrl(appOrigin, item.targetPath),
-  }));
-
-  return {
-    items: allItems.slice(0, MAX_DIGEST_BODY_ITEMS),
-    omittedCount: Math.max(0, allItems.length - MAX_DIGEST_BODY_ITEMS),
-  };
-}
-
-async function findVerifiedRecipients(): Promise<VerifiedRecipient[]> {
-  const users = await prisma.user.findMany({
-    where: {
-      email: {
-        not: null,
-      },
-      emailVerified: {
-        not: null,
-      },
-    },
-    orderBy: [{ createdAt: "asc" }],
+async function isRecipientVerified(db: DbClient, recipientUserId: string) {
+  const recipient = await db.user.findUnique({
+    where: { id: recipientUserId },
     select: {
-      id: true,
       email: true,
-      name: true,
+      emailVerified: true,
     },
   });
 
-  return users
-    .filter((user): user is VerifiedRecipient => Boolean(user.email))
-    .map((user) => ({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-    }));
+  return Boolean(recipient?.email && recipient.emailVerified);
 }
 
-async function getAlreadyCoveredNotificationIds(
-  db: DbClient,
-  notificationIds: string[],
-  kind: typeof EMAIL_KIND_PROJECT_DIGEST | typeof EMAIL_KIND_PROJECT_INVITATION_REMINDER,
-  now: Date
-): Promise<Set<string>> {
-  if (notificationIds.length === 0) {
-    return new Set();
-  }
-
-  const pendingRetryThreshold = new Date(now.getTime() - PENDING_RETRY_GRACE_MS);
-  const rows = await db.projectNotificationEmailItem.findMany({
-    where: {
-      notificationId: {
-        in: notificationIds,
-      },
-      email: {
-        kind,
-        OR: [
-          {
-            status: {
-              in: ["sent", "skipped"],
-            },
-          },
-          {
-            status: "pending",
-            createdAt: {
-              gte: pendingRetryThreshold,
-            },
-          },
-        ],
-      },
-    },
-    select: {
-      notificationId: true,
-    },
-  });
-
-  return new Set(rows.map((row) => row.notificationId));
-}
-
-async function collectDigestGroupsForRecipient(input: {
-  recipient: VerifiedRecipient;
-  now: Date;
-}): Promise<DigestGroup[]> {
-  return withActorRlsContext(input.recipient.id, async (db) => {
-    const notifications = await db.notification.findMany({
-      where: {
-        recipientUserId: input.recipient.id,
-        readAt: null,
-        resolvedAt: null,
-        type: {
-          in: [
-            NOTIFICATION_TYPE_TASK_COMMENT_MENTION,
-            NOTIFICATION_TYPE_TASK_ASSIGNMENT,
-          ],
-        },
-      },
-      orderBy: [{ createdAt: "asc" }],
-      select: {
-        id: true,
-        type: true,
-        title: true,
-        body: true,
-        targetPath: true,
-        sourceType: true,
-        sourceId: true,
-        metadata: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
-    const coveredIds = await getAlreadyCoveredNotificationIds(
-      db,
-      notifications.map((notification) => notification.id),
-      EMAIL_KIND_PROJECT_DIGEST,
-      input.now
-    );
-    const candidates = notifications
-      .filter((notification) => !coveredIds.has(notification.id))
-      .map(getDigestCandidate)
-      .filter((candidate): candidate is DigestCandidate => Boolean(candidate));
-
-    const groupsByProject = new Map<string, DigestGroup>();
-    for (const candidate of candidates) {
-      const existing = groupsByProject.get(candidate.projectId);
-      if (!existing) {
-        groupsByProject.set(candidate.projectId, {
-          recipient: input.recipient,
-          projectId: candidate.projectId,
-          projectName: candidate.projectName,
-          candidates: [candidate],
-          windowStartedAt: candidate.activityAt,
-          windowEndedAt: candidate.activityAt,
-          latestNotificationAt: candidate.activityAt,
-        });
-        continue;
-      }
-
-      existing.candidates.push(candidate);
-      existing.windowStartedAt = minDate(
-        existing.windowStartedAt,
-        candidate.activityAt
-      );
-      existing.windowEndedAt = maxDate(existing.windowEndedAt, candidate.activityAt);
-      existing.latestNotificationAt = maxDate(
-        existing.latestNotificationAt,
-        candidate.activityAt
-      );
-    }
-
-    const quietThreshold = new Date(input.now.getTime() - QUIET_WINDOW_MS);
-    return Array.from(groupsByProject.values()).filter(
-      (group) => group.latestNotificationAt <= quietThreshold
-    );
-  });
-}
-
-async function collectInvitationRemindersForRecipient(input: {
-  recipient: VerifiedRecipient;
-  now: Date;
-}): Promise<InvitationReminderCandidate[]> {
-  return withActorRlsContext(input.recipient.id, async (db) => {
-    const reminderThreshold = new Date(
-      input.now.getTime() - INVITATION_REMINDER_AFTER_MS
-    );
-    const notifications = await db.notification.findMany({
-      where: {
-        recipientUserId: input.recipient.id,
-        type: NOTIFICATION_TYPE_PROJECT_INVITATION,
-        readAt: null,
-        resolvedAt: null,
-        createdAt: {
-          lte: reminderThreshold,
-        },
-      },
-      orderBy: [{ createdAt: "asc" }],
-      select: {
-        id: true,
-        type: true,
-        title: true,
-        body: true,
-        targetPath: true,
-        sourceType: true,
-        sourceId: true,
-        metadata: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
-    const coveredIds = await getAlreadyCoveredNotificationIds(
-      db,
-      notifications.map((notification) => notification.id),
-      EMAIL_KIND_PROJECT_INVITATION_REMINDER,
-      input.now
-    );
-    const candidates: InvitationReminderCandidate[] = [];
-    const notificationsByInvitationId = new Map(
-      notifications
-        .filter((notification) => !coveredIds.has(notification.id))
-        .map((notification) => [notification.sourceId, notification])
-    );
-
-    if (notificationsByInvitationId.size === 0) {
-      return candidates;
-    }
-
-    const invitations = await db.projectInvitation.findMany({
-      where: {
-        id: {
-          in: Array.from(notificationsByInvitationId.keys()),
-        },
-      },
-      select: {
-        id: true,
-        invitedEmail: true,
-        role: true,
-        expiresAt: true,
-        acceptedAt: true,
-        revokedAt: true,
-        replacedAt: true,
-        project: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        invitedByUser: {
-          select: {
-            email: true,
-            name: true,
-            username: true,
-            usernameDiscriminator: true,
-          },
-        },
-      },
-    });
-
-    for (const invitation of invitations) {
-      const notification = notificationsByInvitationId.get(invitation.id);
-      if (!notification) {
-        continue;
-      }
-
-      const invitationRole = invitation.role;
-      if (invitationRole !== "editor" && invitationRole !== "viewer") {
-        continue;
-      }
-
-      const candidate = getInvitationReminderCandidate({
-        recipient: input.recipient,
-        notification,
-        invitation: {
-          ...invitation,
-          role: invitationRole,
-        },
-        now: input.now,
-      });
-
-      if (candidate) {
-        candidates.push(candidate);
-      }
-    }
-
-    return candidates;
-  });
-}
-
-async function hasRecentProjectEmail(input: {
-  kind: typeof EMAIL_KIND_PROJECT_DIGEST | typeof EMAIL_KIND_PROJECT_INVITATION_REMINDER;
-  recipientUserId: string;
-  projectId: string;
-  since: Date;
+async function isNotificationFingerprintCovered(input: {
+  db: DbClient;
+  notificationId: string;
+  sourceFingerprint: string;
+  kind: NotificationEmailKind;
 }): Promise<boolean> {
-  const existing = await prisma.projectNotificationEmail.findFirst({
+  const existing = await input.db.projectNotificationEmailItem.findFirst({
     where: {
-      kind: input.kind,
-      recipientUserId: input.recipientUserId,
-      projectId: input.projectId,
-      createdAt: {
-        gte: input.since,
+      notificationId: input.notificationId,
+      sourceFingerprint: input.sourceFingerprint,
+      email: {
+        kind: input.kind,
+        status: {
+          in: ["pending", "dispatching", "sent", "skipped"],
+        },
       },
     },
     select: {
@@ -626,288 +372,713 @@ async function hasRecentProjectEmail(input: {
   return Boolean(existing);
 }
 
-async function findRetryableEmailRecord(input: {
-  kind: typeof EMAIL_KIND_PROJECT_DIGEST | typeof EMAIL_KIND_PROJECT_INVITATION_REMINDER;
-  recipientUserId: string;
-  projectId: string;
-  sourceKey: string;
-  now: Date;
-}): Promise<{ id: string } | null> {
-  const pendingRetryThreshold = new Date(
-    input.now.getTime() - PENDING_RETRY_GRACE_MS
-  );
-
-  return prisma.projectNotificationEmail.findFirst({
+async function countGroupItems(db: DbClient, emailId: string): Promise<number> {
+  return db.projectNotificationEmailItem.count({
     where: {
-      kind: input.kind,
-      recipientUserId: input.recipientUserId,
-      projectId: input.projectId,
-      sourceKey: input.sourceKey,
-      OR: [
-        {
-          status: "failed",
-        },
-        {
-          status: "pending",
-          createdAt: {
-            lt: pendingRetryThreshold,
-          },
-        },
-      ],
+      emailId,
+    },
+  });
+}
+
+async function attachNotificationToGroup(input: {
+  db: DbClient;
+  emailId: string;
+  notification: NotificationRecord;
+  sourceFingerprint: string;
+}) {
+  const existingItem = await input.db.projectNotificationEmailItem.findFirst({
+    where: {
+      emailId: input.emailId,
+      notificationId: input.notification.id,
     },
     select: {
       id: true,
     },
   });
-}
 
-async function markEmailAttemptStarted(id: string): Promise<void> {
-  await prisma.projectNotificationEmail.update({
-    where: { id },
-    data: {
-      status: "pending",
-      outboundEmailDeliveryId: null,
-      errorCode: null,
-      completedAt: null,
-    },
-  });
-}
-
-async function markEmailComplete(input: {
-  id: string;
-  result: Awaited<ReturnType<typeof sendOutboundEmail>>;
-}): Promise<"sent" | "skipped" | "failed"> {
-  const mapped = mapDeliveryStatus(input.result);
-
-  await prisma.projectNotificationEmail.update({
-    where: { id: input.id },
-    data: {
-      status: mapped.status,
-      outboundEmailDeliveryId: mapped.deliveryId,
-      errorCode: mapped.errorCode,
-      completedAt: new Date(),
-    },
-  });
-
-  return mapped.status;
-}
-
-async function sendDigestGroup(input: {
-  group: DigestGroup;
-  appOrigin: string;
-  now: Date;
-}): Promise<"sent" | "skipped" | "failed" | "duplicate" | "rate-limited"> {
-  const notificationIds = input.group.candidates.map(
-    (candidate) => candidate.notification.id
-  );
-  const sourceKey = createSourceKey(notificationIds);
-  const recentThreshold = new Date(input.now.getTime() - QUIET_WINDOW_MS);
-
-  if (
-    await hasRecentProjectEmail({
-      kind: EMAIL_KIND_PROJECT_DIGEST,
-      recipientUserId: input.group.recipient.id,
-      projectId: input.group.projectId,
-      since: recentThreshold,
-    })
-  ) {
-    return "rate-limited";
+  if (existingItem) {
+    await input.db.projectNotificationEmailItem.update({
+      where: {
+        id: existingItem.id,
+      },
+      data: {
+        notificationUpdatedAt: input.notification.updatedAt,
+        sourceFingerprint: input.sourceFingerprint,
+      },
+    });
+    return;
   }
 
-  let emailRecord: { id: string } | null = await findRetryableEmailRecord({
-    kind: EMAIL_KIND_PROJECT_DIGEST,
-    recipientUserId: input.group.recipient.id,
-    projectId: input.group.projectId,
-    sourceKey,
-    now: input.now,
+  await input.db.projectNotificationEmailItem.create({
+    data: {
+      emailId: input.emailId,
+      notificationId: input.notification.id,
+      notificationUpdatedAt: input.notification.updatedAt,
+      sourceFingerprint: input.sourceFingerprint,
+    },
+  });
+}
+
+export async function enqueueNotificationEmailForNotification(input: {
+  db: DbClient;
+  notification: NotificationRecord;
+}): Promise<void> {
+  if (input.notification.readAt || input.notification.resolvedAt) {
+    return;
+  }
+
+  const details = getQueueDetails(input.notification);
+  if (!details) {
+    return;
+  }
+
+  if (!(await isRecipientVerified(input.db, input.notification.recipientUserId))) {
+    return;
+  }
+
+  if (
+    await isNotificationFingerprintCovered({
+      db: input.db,
+      notificationId: input.notification.id,
+      sourceFingerprint: details.sourceFingerprint,
+      kind: details.kind,
+    })
+  ) {
+    return;
+  }
+
+  const pendingGroup = await input.db.projectNotificationEmail.findFirst({
+    where: {
+      groupingKey: details.groupingKey,
+      status: "pending",
+    },
+    select: {
+      id: true,
+      firstPendingNotificationAt: true,
+      latestPendingNotificationAt: true,
+    },
   });
 
-  try {
-    if (emailRecord) {
-      await markEmailAttemptStarted(emailRecord.id);
-    } else {
-      emailRecord = await prisma.projectNotificationEmail.create({
+  if (!pendingGroup) {
+    try {
+      await input.db.projectNotificationEmail.create({
         data: {
-          kind: EMAIL_KIND_PROJECT_DIGEST,
-          recipientUserId: input.group.recipient.id,
-          projectId: input.group.projectId,
-          sourceKey,
-          windowStartedAt: input.group.windowStartedAt,
-          windowEndedAt: input.group.windowEndedAt,
-          latestNotificationAt: input.group.latestNotificationAt,
-          notificationCount: input.group.candidates.length,
+          kind: details.kind,
+          recipientUserId: input.notification.recipientUserId,
+          projectId: details.projectId,
+          sourceKey: details.sourceKey,
+          groupingKey: details.groupingKey,
+          firstPendingNotificationAt: details.firstPendingNotificationAt,
+          latestPendingNotificationAt: details.latestPendingNotificationAt,
+          sendAfterAt: details.sendAfterAt,
+          maxSendAt: details.maxSendAt,
+          windowStartedAt: details.firstPendingNotificationAt,
+          windowEndedAt: details.latestPendingNotificationAt,
+          latestNotificationAt: details.latestPendingNotificationAt,
+          notificationCount: 1,
           status: "pending",
-          metadata: {
-            notificationIds,
-            quietWindowMinutes: QUIET_WINDOW_MS / 60_000,
-          },
+          metadata: details.metadata,
           items: {
-            create: notificationIds.map((notificationId) => ({
-              notificationId,
-            })),
+            create: [
+              {
+                notificationId: input.notification.id,
+                notificationUpdatedAt: input.notification.updatedAt,
+                sourceFingerprint: details.sourceFingerprint,
+              },
+            ],
+          },
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  await attachNotificationToGroup({
+    db: input.db,
+    emailId: pendingGroup.id,
+    notification: input.notification,
+    sourceFingerprint: details.sourceFingerprint,
+  });
+
+  const firstPendingNotificationAt = minDate(
+    pendingGroup.firstPendingNotificationAt,
+    details.firstPendingNotificationAt
+  );
+  const latestPendingNotificationAt = maxDate(
+    pendingGroup.latestPendingNotificationAt,
+    details.latestPendingNotificationAt
+  );
+  const schedule =
+    details.kind === EMAIL_KIND_PROJECT_DIGEST
+      ? calculateActivitySchedule({
+          firstPendingNotificationAt,
+          latestPendingNotificationAt,
+        })
+      : {
+          sendAfterAt: details.sendAfterAt,
+          maxSendAt: details.maxSendAt,
+        };
+
+  await input.db.projectNotificationEmail.update({
+    where: {
+      id: pendingGroup.id,
+    },
+    data: {
+      firstPendingNotificationAt,
+      latestPendingNotificationAt,
+      sendAfterAt: schedule.sendAfterAt,
+      maxSendAt: schedule.maxSendAt,
+      windowStartedAt: firstPendingNotificationAt,
+      windowEndedAt: latestPendingNotificationAt,
+      latestNotificationAt: latestPendingNotificationAt,
+      notificationCount: await countGroupItems(input.db, pendingGroup.id),
+      metadata: details.metadata,
+    },
+  });
+}
+
+async function findUncoveredNotificationEmailCandidates(
+  limit: number
+): Promise<NotificationRecord[]> {
+  return prisma.$queryRaw<NotificationRecord[]>(Prisma.sql`
+    SELECT
+      notification."id",
+      notification."recipientUserId",
+      notification."type",
+      notification."title",
+      notification."body",
+      notification."targetPath",
+      notification."sourceType",
+      notification."sourceId",
+      notification."metadata",
+      notification."readAt",
+      notification."resolvedAt",
+      notification."createdAt",
+      notification."updatedAt"
+    FROM "Notification" notification
+    INNER JOIN "User" recipient
+      ON recipient."id" = notification."recipientUserId"
+    WHERE notification."readAt" IS NULL
+      AND notification."resolvedAt" IS NULL
+      AND notification."type" IN (
+        ${NOTIFICATION_TYPE_PROJECT_INVITATION},
+        ${NOTIFICATION_TYPE_TASK_COMMENT_MENTION},
+        ${NOTIFICATION_TYPE_TASK_ASSIGNMENT}
+      )
+      AND recipient."email" IS NOT NULL
+      AND recipient."emailVerified" IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1
+        FROM "ProjectNotificationEmailItem" item
+        INNER JOIN "ProjectNotificationEmail" email
+          ON email."id" = item."emailId"
+        WHERE item."notificationId" = notification."id"
+          AND item."sourceFingerprint" =
+            notification."id" || ':' ||
+            to_char(notification."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+          AND email."status" IN ('pending', 'dispatching', 'sent', 'skipped')
+      )
+    ORDER BY notification."updatedAt" ASC, notification."id" ASC
+    LIMIT ${limit}
+  `);
+}
+
+async function reconcilePendingNotificationEmailGroups(): Promise<number> {
+  const notifications = await findUncoveredNotificationEmailCandidates(
+    MAX_RECONCILE_NOTIFICATIONS
+  );
+  let reconciled = 0;
+
+  for (const notification of notifications) {
+    await withActorRlsContext(notification.recipientUserId, async (db) => {
+      await enqueueNotificationEmailForNotification({
+        db,
+        notification,
+      });
+    });
+    reconciled += 1;
+  }
+
+  return reconciled;
+}
+
+async function releaseStaleDispatchingGroups(now: Date): Promise<void> {
+  const staleBefore = new Date(now.getTime() - STALE_DISPATCHING_MS);
+  await prisma.projectNotificationEmail.updateMany({
+    where: {
+      status: "dispatching",
+      claimedAt: {
+        lt: staleBefore,
+      },
+    },
+    data: {
+      status: "pending",
+      errorCode: "dispatch-claim-stale",
+      claimToken: null,
+      claimedAt: null,
+      completedAt: null,
+      sendAfterAt: now,
+    },
+  });
+}
+
+async function claimDueGroups(input: {
+  now: Date;
+  limit: number;
+  claimToken: string;
+}): Promise<string[]> {
+  const rows = await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+    WITH due AS (
+      SELECT "id"
+      FROM "ProjectNotificationEmail"
+      WHERE "status" = 'pending'
+        AND "sendAfterAt" <= ${input.now}
+      ORDER BY "sendAfterAt" ASC, "createdAt" ASC
+      LIMIT ${input.limit}
+      FOR UPDATE SKIP LOCKED
+    )
+    UPDATE "ProjectNotificationEmail" AS email
+    SET
+      "status" = 'dispatching',
+      "claimToken" = ${input.claimToken},
+      "claimedAt" = ${input.now},
+      "attemptCount" = "attemptCount" + 1,
+      "lastAttemptAt" = ${input.now},
+      "updatedAt" = ${input.now}
+    FROM due
+    WHERE email."id" = due."id"
+    RETURNING email."id"
+  `);
+
+  return rows.map((row) => row.id);
+}
+
+async function loadClaimedGroupsForRecipient(input: {
+  recipientUserId: string;
+  claimToken: string;
+}): Promise<ClaimedEmailGroup[]> {
+  return withActorRlsContext(input.recipientUserId, async (db) => {
+    const groups = await db.projectNotificationEmail.findMany({
+      where: {
+        recipientUserId: input.recipientUserId,
+        status: "dispatching",
+        claimToken: input.claimToken,
+      },
+      orderBy: [{ sendAfterAt: "asc" }, { createdAt: "asc" }],
+      select: {
+        id: true,
+        kind: true,
+        recipientUserId: true,
+        projectId: true,
+        sourceKey: true,
+        groupingKey: true,
+        firstPendingNotificationAt: true,
+        latestPendingNotificationAt: true,
+        sendAfterAt: true,
+        maxSendAt: true,
+        windowStartedAt: true,
+        windowEndedAt: true,
+        latestNotificationAt: true,
+        notificationCount: true,
+        recipient: {
+          select: {
+            id: true,
+            email: true,
+            emailVerified: true,
+            name: true,
+          },
+        },
+        project: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        items: {
+          orderBy: [{ createdAt: "asc" }],
+          select: {
+            id: true,
+            notificationId: true,
+            notificationUpdatedAt: true,
+            sourceFingerprint: true,
+            notification: {
+              select: {
+                id: true,
+                recipientUserId: true,
+                type: true,
+                title: true,
+                body: true,
+                targetPath: true,
+                sourceType: true,
+                sourceId: true,
+                metadata: true,
+                readAt: true,
+                resolvedAt: true,
+                createdAt: true,
+                updatedAt: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return groups;
+  });
+}
+
+function buildActivityItems(input: {
+  group: ClaimedEmailGroup;
+  appOrigin: string;
+}): PreparedSection | null {
+  const collapsed = new Map<
+    string,
+    {
+      label: string;
+      count: number;
+      targetPath: string;
+    }
+  >();
+  const notificationIds: string[] = [];
+
+  for (const item of input.group.items) {
+    const notification = item.notification;
+    if (
+      notification.readAt ||
+      notification.resolvedAt ||
+      item.sourceFingerprint !== createSourceFingerprint(notification) ||
+      !isJsonObject(notification.metadata)
+    ) {
+      continue;
+    }
+
+    const taskId = readString(notification.metadata, "taskId");
+    const taskTitle = readString(notification.metadata, "taskTitle");
+    const targetPath = readString(notification.metadata, "targetPath");
+    if (!taskId || !taskTitle || !targetPath) {
+      continue;
+    }
+
+    const actorDisplayName =
+      notification.type === NOTIFICATION_TYPE_TASK_COMMENT_MENTION
+        ? readString(notification.metadata, "authorDisplayName")
+        : readString(notification.metadata, "actorDisplayName");
+    if (!actorDisplayName) {
+      continue;
+    }
+
+    const activityKind =
+      notification.type === NOTIFICATION_TYPE_TASK_COMMENT_MENTION
+        ? "mention"
+        : "assignment";
+    const key = [activityKind, taskId, actorDisplayName].join(":");
+    const existing = collapsed.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      collapsed.set(key, {
+        label:
+          activityKind === "mention"
+            ? `${actorDisplayName} mentioned you on ${taskTitle}`
+            : `${actorDisplayName} assigned you to ${taskTitle}`,
+        count: 1,
+        targetPath,
+      });
+    }
+    notificationIds.push(notification.id);
+  }
+
+  if (notificationIds.length === 0) {
+    return null;
+  }
+
+  const allItems: ProjectNotificationDigestEmailItem[] = Array.from(
+    collapsed.values()
+  ).map((item) => ({
+    label: item.label,
+    count: item.count,
+    targetUrl: buildAbsoluteUrl(input.appOrigin, item.targetPath),
+  }));
+
+  return {
+    groupId: input.group.id,
+    projectId: input.group.projectId,
+    notificationIds,
+    section: {
+      projectName: input.group.project.name,
+      projectUrl: buildProjectUrl(input.appOrigin, input.group.projectId),
+      notificationCount: notificationIds.length,
+      items: allItems.slice(0, MAX_DIGEST_BODY_ITEMS_PER_PROJECT),
+      omittedCount: Math.max(
+        0,
+        allItems.length - MAX_DIGEST_BODY_ITEMS_PER_PROJECT
+      ),
+    },
+  };
+}
+
+async function buildInvitationReminderItem(input: {
+  group: ClaimedEmailGroup;
+  appOrigin: string;
+  now: Date;
+}): Promise<PreparedSection | null> {
+  const item = input.group.items[0];
+  if (!item) {
+    return null;
+  }
+
+  const notification = item.notification;
+  if (
+    notification.readAt ||
+    notification.resolvedAt ||
+    item.sourceFingerprint !== createSourceFingerprint(notification) ||
+    !isJsonObject(notification.metadata)
+  ) {
+    return null;
+  }
+
+  const invitationId = readString(notification.metadata, "invitationId");
+  const role = readString(notification.metadata, "role");
+  const invitedByDisplayName = readString(
+    notification.metadata,
+    "invitedByDisplayName"
+  );
+  const inviteLinkPath = readString(notification.metadata, "inviteLinkPath");
+  if (
+    !invitationId ||
+    (role !== "editor" && role !== "viewer") ||
+    !invitedByDisplayName ||
+    !inviteLinkPath
+  ) {
+    return null;
+  }
+
+  const invitation = await withActorRlsContext(
+    input.group.recipientUserId,
+    async (db) =>
+      db.projectInvitation.findFirst({
+        where: {
+          id: invitationId,
+          acceptedAt: null,
+          revokedAt: null,
+          replacedAt: null,
+          expiresAt: {
+            gt: input.now,
           },
         },
         select: {
           id: true,
         },
-      });
-    }
-  } catch (error) {
-    if (isUniqueConstraintFailure(error)) {
-      return "duplicate";
-    }
-    throw error;
+      })
+  );
+
+  if (!invitation) {
+    return null;
   }
 
-  const summary = summarizeDigestGroup(input.group, input.appOrigin);
+  return {
+    groupId: input.group.id,
+    projectId: input.group.projectId,
+    notificationIds: [notification.id],
+    section: {
+      projectName: input.group.project.name,
+      projectUrl: buildProjectUrl(input.appOrigin, input.group.projectId),
+      notificationCount: 1,
+      items: [
+        {
+          label: `Reminder: ${invitedByDisplayName} invited you to ${
+            role === "viewer" ? "view" : "collaborate on"
+          } ${input.group.project.name}`,
+          count: 1,
+          targetUrl: buildAbsoluteUrl(input.appOrigin, inviteLinkPath),
+        },
+      ],
+      omittedCount: 0,
+    },
+  };
+}
+
+async function buildPreparedSection(input: {
+  group: ClaimedEmailGroup;
+  appOrigin: string;
+  now: Date;
+}): Promise<PreparedSection | null> {
+  if (input.group.kind === EMAIL_KIND_PROJECT_DIGEST) {
+    return buildActivityItems({
+      group: input.group,
+      appOrigin: input.appOrigin,
+    });
+  }
+
+  return buildInvitationReminderItem(input);
+}
+
+async function markGroupsComplete(input: {
+  groupIds: string[];
+  status: NotificationEmailStatus;
+  now: Date;
+  outboundEmailDeliveryId?: string | null;
+  errorCode?: string | null;
+}) {
+  if (input.groupIds.length === 0) {
+    return;
+  }
+
+  await prisma.projectNotificationEmail.updateMany({
+    where: {
+      id: {
+        in: input.groupIds,
+      },
+    },
+    data: {
+      status: input.status,
+      outboundEmailDeliveryId: input.outboundEmailDeliveryId ?? null,
+      errorCode: input.errorCode ?? null,
+      claimToken: null,
+      completedAt: input.now,
+    },
+  });
+}
+
+async function dispatchRecipientBatch(input: {
+  recipient: VerifiedRecipient;
+  groups: ClaimedEmailGroup[];
+  appOrigin: string;
+  now: Date;
+}): Promise<{
+  status: "sent" | "skipped" | "failed";
+  attempted: boolean;
+  sentGroupIds: string[];
+  skippedGroupIds: string[];
+  failedGroupIds: string[];
+}> {
+  const sections: PreparedSection[] = [];
+  for (const group of input.groups) {
+    const section = await buildPreparedSection({
+      group,
+      appOrigin: input.appOrigin,
+      now: input.now,
+    });
+
+    if (section) {
+      sections.push(section);
+    }
+  }
+
+  const sectionGroupIds = new Set(sections.map((section) => section.groupId));
+  const skippedGroupIds = input.groups
+    .filter((group) => !sectionGroupIds.has(group.id))
+    .map((group) => group.id);
+
+  await markGroupsComplete({
+    groupIds: skippedGroupIds,
+    status: "skipped",
+    now: input.now,
+    errorCode: "no-current-eligible-notifications",
+  });
+
+  if (sections.length === 0) {
+    return {
+      status: "skipped",
+      attempted: false,
+      sentGroupIds: [],
+      skippedGroupIds,
+      failedGroupIds: [],
+    };
+  }
+
+  const notificationIds = sections.flatMap((section) => section.notificationIds);
+  if (!input.recipient.email || !input.recipient.emailVerified) {
+    await markGroupsComplete({
+      groupIds: sections.map((section) => section.groupId),
+      status: "skipped",
+      now: input.now,
+      errorCode: "recipient-email-not-verified",
+    });
+    return {
+      status: "skipped",
+      attempted: false,
+      sentGroupIds: [],
+      skippedGroupIds: [
+        ...skippedGroupIds,
+        ...sections.map((section) => section.groupId),
+      ],
+      failedGroupIds: [],
+    };
+  }
+
   const message = buildProjectNotificationDigestEmail({
-    projectName: input.group.projectName,
-    notificationCount: input.group.candidates.length,
-    items: summary.items,
-    omittedCount: summary.omittedCount,
-    projectUrl: buildProjectUrl(input.appOrigin, input.group.projectId),
+    sections: sections.map((section) => section.section),
     notificationsUrl: buildAbsoluteUrl(input.appOrigin, "/account/notifications"),
   });
 
   const result = await sendOutboundEmail({
     templateKey: "project_notification_digest",
-    to: input.group.recipient.email,
+    to: input.recipient.email,
     subject: message.subject,
     text: message.text,
     html: message.html,
     metadata: {
-      projectId: input.group.projectId,
-      recipientUserId: input.group.recipient.id,
+      recipientUserId: input.recipient.id,
+      projectIds: sections.map((section) => section.projectId),
+      groupIds: sections.map((section) => section.groupId),
       notificationIds,
-      notificationCount: input.group.candidates.length,
-      windowStartedAt: input.group.windowStartedAt.toISOString(),
-      windowEndedAt: input.group.windowEndedAt.toISOString(),
+      notificationCount: notificationIds.length,
+      projectSectionCount: sections.length,
     },
   });
+  const mapped = mapDeliveryStatus(result);
+  const deliveredGroupIds = sections.map((section) => section.groupId);
 
-  return markEmailComplete({
-    id: emailRecord.id,
-    result,
-  });
-}
-
-async function sendInvitationReminder(input: {
-  candidate: InvitationReminderCandidate;
-  appOrigin: string;
-  now: Date;
-}): Promise<"sent" | "skipped" | "failed" | "duplicate" | "rate-limited"> {
-  const recentThreshold = new Date(input.now.getTime() - QUIET_WINDOW_MS);
-  if (
-    await hasRecentProjectEmail({
-      kind: EMAIL_KIND_PROJECT_INVITATION_REMINDER,
-      recipientUserId: input.candidate.recipient.id,
-      projectId: input.candidate.projectId,
-      since: recentThreshold,
-    })
-  ) {
-    return "rate-limited";
-  }
-
-  let emailRecord: { id: string } | null = await findRetryableEmailRecord({
-    kind: EMAIL_KIND_PROJECT_INVITATION_REMINDER,
-    recipientUserId: input.candidate.recipient.id,
-    projectId: input.candidate.projectId,
-    sourceKey: input.candidate.invitationId,
+  await markGroupsComplete({
+    groupIds: deliveredGroupIds,
+    status: mapped.status,
     now: input.now,
+    outboundEmailDeliveryId: mapped.deliveryId,
+    errorCode: mapped.errorCode,
   });
 
-  try {
-    if (emailRecord) {
-      await markEmailAttemptStarted(emailRecord.id);
-    } else {
-      emailRecord = await prisma.projectNotificationEmail.create({
-        data: {
-          kind: EMAIL_KIND_PROJECT_INVITATION_REMINDER,
-          recipientUserId: input.candidate.recipient.id,
-          projectId: input.candidate.projectId,
-          sourceKey: input.candidate.invitationId,
-          windowStartedAt: input.candidate.createdAt,
-          windowEndedAt: input.candidate.createdAt,
-          latestNotificationAt: input.candidate.createdAt,
-          notificationCount: 1,
-          status: "pending",
-          metadata: {
-            invitationId: input.candidate.invitationId,
-            reminderAfterHours: INVITATION_REMINDER_AFTER_MS / 3_600_000,
-          },
-          items: {
-            create: [
-              {
-                notificationId: input.candidate.notification.id,
-              },
-            ],
-          },
-        },
-        select: {
-          id: true,
-        },
-      });
-    }
-  } catch (error) {
-    if (isUniqueConstraintFailure(error)) {
-      return "duplicate";
-    }
-    throw error;
+  return {
+    status: mapped.status,
+    attempted: true,
+    sentGroupIds: mapped.status === "sent" ? deliveredGroupIds : [],
+    skippedGroupIds:
+      mapped.status === "skipped"
+        ? [...skippedGroupIds, ...deliveredGroupIds]
+        : skippedGroupIds,
+    failedGroupIds: mapped.status === "failed" ? deliveredGroupIds : [],
+  };
+}
+
+async function loadClaimedRecipientIds(input: {
+  groupIds: string[];
+}): Promise<string[]> {
+  if (input.groupIds.length === 0) {
+    return [];
   }
 
-  const inviteUrl = buildAbsoluteUrl(input.appOrigin, input.candidate.targetPath);
-  const message = buildProjectInvitationEmail({
-    inviteUrl,
-    projectName: input.candidate.projectName,
-    invitedByDisplayName: input.candidate.invitedByDisplayName,
-    role: input.candidate.role,
-    expiresAt: input.candidate.expiresAt,
-    variant: "reminder",
-  });
-
-  const result = await sendOutboundEmail({
-    templateKey: "project_invitation",
-    to: input.candidate.recipient.email,
-    subject: message.subject,
-    text: message.text,
-    html: message.html,
-    metadata: {
-      invitationId: input.candidate.invitationId,
-      projectId: input.candidate.projectId,
-      recipientUserId: input.candidate.recipient.id,
-      deliveryReason: "six_hour_invitation_reminder",
+  const rows = await prisma.projectNotificationEmail.findMany({
+    where: {
+      id: {
+        in: input.groupIds,
+      },
+    },
+    distinct: ["recipientUserId"],
+    orderBy: [{ recipientUserId: "asc" }],
+    select: {
+      recipientUserId: true,
     },
   });
 
-  return markEmailComplete({
-    id: emailRecord.id,
-    result,
-  });
-}
-
-function applyOutcome(
-  summary: DispatchProjectNotificationEmailsSummary,
-  kind: "digest" | "invitation-reminder",
-  outcome: "sent" | "skipped" | "failed" | "duplicate" | "rate-limited"
-) {
-  if (kind === "digest") {
-    if (outcome === "sent") {
-      summary.digestsSent += 1;
-    } else if (outcome === "failed") {
-      summary.digestsFailed += 1;
-    } else {
-      summary.digestsSkipped += 1;
-    }
-    return;
-  }
-
-  if (outcome === "sent") {
-    summary.invitationRemindersSent += 1;
-  } else if (outcome === "failed") {
-    summary.invitationRemindersFailed += 1;
-  } else {
-    summary.invitationRemindersSkipped += 1;
-  }
+  return rows.map((row) => row.recipientUserId);
 }
 
 export async function dispatchProjectNotificationEmails(input: {
@@ -916,69 +1087,78 @@ export async function dispatchProjectNotificationEmails(input: {
 } = {}): Promise<DispatchProjectNotificationEmailsSummary> {
   const appOrigin = normalizeAppOrigin(input.appOrigin);
   const now = input.now ?? new Date();
+  const claimToken = createClaimToken();
   const summary: DispatchProjectNotificationEmailsSummary = {
-    usersScanned: 0,
-    digestsAttempted: 0,
-    digestsSent: 0,
-    digestsSkipped: 0,
-    digestsFailed: 0,
-    invitationRemindersAttempted: 0,
-    invitationRemindersSent: 0,
-    invitationRemindersSkipped: 0,
-    invitationRemindersFailed: 0,
+    notificationsReconciled: 0,
+    groupsClaimed: 0,
+    recipientEmailsAttempted: 0,
+    recipientEmailsSent: 0,
+    recipientEmailsSkipped: 0,
+    recipientEmailsFailed: 0,
+    groupsSent: 0,
+    groupsSkipped: 0,
+    groupsFailed: 0,
     errors: 0,
   };
 
-  const recipients = await findVerifiedRecipients();
-  let groupAttempts = 0;
+  try {
+    summary.notificationsReconciled =
+      await reconcilePendingNotificationEmailGroups();
+  } catch (error) {
+    summary.errors += 1;
+    logServerError("dispatchProjectNotificationEmails.reconcile", error);
+  }
 
-  for (const recipient of recipients) {
-    summary.usersScanned += 1;
+  await releaseStaleDispatchingGroups(now);
 
+  const claimedGroupIds = await claimDueGroups({
+    now,
+    limit: MAX_GROUPS_PER_DISPATCH,
+    claimToken,
+  });
+  summary.groupsClaimed = claimedGroupIds.length;
+
+  const recipientIds = await loadClaimedRecipientIds({
+    groupIds: claimedGroupIds,
+  });
+
+  for (const recipientUserId of recipientIds) {
     try {
-      const digestGroups = await collectDigestGroupsForRecipient({
+      const groups = await loadClaimedGroupsForRecipient({
+        recipientUserId,
+        claimToken,
+      });
+      const recipient = groups[0]?.recipient;
+      if (!recipient || groups.length === 0) {
+        continue;
+      }
+
+      const outcome = await dispatchRecipientBatch({
         recipient,
+        groups,
+        appOrigin,
         now,
       });
 
-      for (const group of digestGroups) {
-        if (groupAttempts >= MAX_GROUPS_PER_DISPATCH) {
-          break;
-        }
-
-        groupAttempts += 1;
-        summary.digestsAttempted += 1;
-        const outcome = await sendDigestGroup({
-          group,
-          appOrigin,
-          now,
-        });
-        applyOutcome(summary, "digest", outcome);
+      if (outcome.attempted) {
+        summary.recipientEmailsAttempted += 1;
       }
 
-      const invitationReminders = await collectInvitationRemindersForRecipient({
-        recipient,
-        now,
-      });
-
-      for (const candidate of invitationReminders) {
-        if (groupAttempts >= MAX_GROUPS_PER_DISPATCH) {
-          break;
-        }
-
-        groupAttempts += 1;
-        summary.invitationRemindersAttempted += 1;
-        const outcome = await sendInvitationReminder({
-          candidate,
-          appOrigin,
-          now,
-        });
-        applyOutcome(summary, "invitation-reminder", outcome);
+      if (outcome.status === "sent") {
+        summary.recipientEmailsSent += 1;
+      } else if (outcome.status === "failed") {
+        summary.recipientEmailsFailed += 1;
+      } else {
+        summary.recipientEmailsSkipped += 1;
       }
+
+      summary.groupsSent += outcome.sentGroupIds.length;
+      summary.groupsSkipped += outcome.skippedGroupIds.length;
+      summary.groupsFailed += outcome.failedGroupIds.length;
     } catch (error) {
       summary.errors += 1;
       logServerError("dispatchProjectNotificationEmails.recipient", error, {
-        recipientUserId: recipient.id,
+        recipientUserId,
       });
     }
   }

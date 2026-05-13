@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { logServerError } from "@/lib/observability/logger";
+import { enqueueNotificationEmailForNotification } from "@/lib/services/project-notification-email-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 
 const NOTIFICATION_TYPE_PROJECT_INVITATION = "project_invitation";
@@ -285,6 +286,43 @@ function mapNotification(
   };
 }
 
+async function enqueueEmailForNotificationWhere(input: {
+  db: DbClient;
+  where: {
+    recipientUserId: string;
+    sourceType: string;
+    sourceId: string;
+  };
+}): Promise<void> {
+  const notification = await input.db.notification.findFirst({
+    where: input.where,
+    select: {
+      id: true,
+      recipientUserId: true,
+      type: true,
+      title: true,
+      body: true,
+      targetPath: true,
+      sourceType: true,
+      sourceId: true,
+      metadata: true,
+      readAt: true,
+      resolvedAt: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  if (!notification) {
+    return;
+  }
+
+  await enqueueNotificationEmailForNotification({
+    db: input.db,
+    notification,
+  });
+}
+
 function mapPendingInvitationRow(
   row: PendingInvitationMetadataRow
 ): ProjectInvitationNotificationInput {
@@ -369,6 +407,10 @@ async function createOrRefreshProjectInvitationNotification(input: {
       ],
       skipDuplicates: true,
     });
+    await enqueueEmailForNotificationWhere({
+      db: input.db,
+      where: notificationWhere,
+    });
     return;
   }
 
@@ -383,6 +425,10 @@ async function createOrRefreshProjectInvitationNotification(input: {
     existingNotification.resolvedAt === null;
 
   if (notificationUnchanged) {
+    await enqueueEmailForNotificationWhere({
+      db: input.db,
+      where: notificationWhere,
+    });
     return;
   }
 
@@ -396,6 +442,10 @@ async function createOrRefreshProjectInvitationNotification(input: {
       metadata,
       resolvedAt: null,
     },
+  });
+  await enqueueEmailForNotificationWhere({
+    db: input.db,
+    where: notificationWhere,
   });
 }
 
@@ -810,6 +860,10 @@ async function createOrRefreshTaskCommentMentionNotification(input: {
       ],
       skipDuplicates: true,
     });
+    await enqueueEmailForNotificationWhere({
+      db: input.db,
+      where: notificationWhere,
+    });
     return;
   }
 
@@ -824,6 +878,10 @@ async function createOrRefreshTaskCommentMentionNotification(input: {
     existingNotification.resolvedAt === null;
 
   if (notificationUnchanged) {
+    await enqueueEmailForNotificationWhere({
+      db: input.db,
+      where: notificationWhere,
+    });
     return;
   }
 
@@ -837,6 +895,10 @@ async function createOrRefreshTaskCommentMentionNotification(input: {
       metadata,
       resolvedAt: null,
     },
+  });
+  await enqueueEmailForNotificationWhere({
+    db: input.db,
+    where: notificationWhere,
   });
 }
 
@@ -1019,6 +1081,10 @@ async function createOrRefreshTaskAssignmentNotification(input: {
       ],
       skipDuplicates: true,
     });
+    await enqueueEmailForNotificationWhere({
+      db: input.db,
+      where: notificationWhere,
+    });
     return;
   }
 
@@ -1033,6 +1099,10 @@ async function createOrRefreshTaskAssignmentNotification(input: {
     existingNotification.resolvedAt === null;
 
   if (notificationUnchanged) {
+    await enqueueEmailForNotificationWhere({
+      db: input.db,
+      where: notificationWhere,
+    });
     return;
   }
 
@@ -1046,6 +1116,10 @@ async function createOrRefreshTaskAssignmentNotification(input: {
       metadata,
       resolvedAt: null,
     },
+  });
+  await enqueueEmailForNotificationWhere({
+    db: input.db,
+    where: notificationWhere,
   });
 }
 

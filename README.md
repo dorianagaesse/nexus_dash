@@ -280,22 +280,42 @@ Digest/reminder dispatch endpoint:
 
 ```bash
 GET /api/cron/notification-emails
+```
+
+Authenticate with the dedicated scheduler header:
+
+```bash
+x-notification-email-dispatch-secret: <CRON_SECRET-or-NOTIFICATION_EMAIL_DISPATCH_SECRET>
+```
+
+or the bearer fallback:
+
+```bash
 Authorization: Bearer <CRON_SECRET-or-NOTIFICATION_EMAIL_DISPATCH_SECRET>
 ```
 
-The dispatcher scans verified users, sends one project digest only after the
-latest eligible mention/assignment notification has been quiet for at least 30
-minutes, and sends one reminder for unresolved/unread project invitations after
-6 hours. Sending email never marks notifications read or resolved.
+Notification creation/refreshed paths enqueue durable recipient/project groups.
+Project activity waits for a 30-minute quiet window, but the first unsent
+activity in a group is capped at a 60-minute max delay. Due groups claimed in
+one dispatcher run are batched by recipient, with project sections in one email
+when several projects are ready together. Project invitation reminders are sent
+once after 6 hours when the verified invited user has not opened, accepted,
+declined, or otherwise resolved the invitation notification. Sending email never
+marks notifications read or resolved.
 
-`.github/workflows/notification-email-dispatch.yml` calls the endpoint every 15
-minutes from GitHub Actions because the current Vercel plan does not support
-sub-daily Vercel Cron schedules. Configure repository variable
-`NOTIFICATION_EMAIL_DISPATCH_URL` with the production app origin, plus
-repository secret `NOTIFICATION_EMAIL_DISPATCH_SECRET` or `CRON_SECRET`.
-Preview deployments should be validated by running the same workflow manually
-with `target_url=<preview-url>` or by calling the endpoint directly with the
-same bearer secret.
+Production scheduler decision:
+
+- Preferred: Vercel Cron invoking this endpoint every 10-15 minutes on a plan
+  that supports sub-hour cron cadence. Vercel Cron invokes production
+  deployments only; preview validation must invoke the endpoint manually.
+- Current Hobby-plan blocker: Vercel Hobby cron is limited to daily schedules,
+  so it cannot satisfy the 60-minute max-delay requirement.
+- Hobby-compatible production alternative: use a managed HTTP scheduler with
+  retries/visibility, such as Upstash QStash Schedule, to call the same endpoint
+  with `x-notification-email-dispatch-secret`.
+
+`.github/workflows/notification-email-dispatch.yml` is manual-only diagnostic
+tooling for operators. It is not the production scheduler.
 
 ## CI/CD
 
@@ -306,7 +326,7 @@ same bearer secret.
 - `Container Image (build + metadata artifact)`
 - `Check Branch Name` (PR branch naming contract)
 - `Dependency Security` (scheduled + manual `npm audit` baseline with artifacts)
-- `Notification Email Dispatch` (scheduled + manual protected dispatch call)
+- `Notification Email Dispatch Diagnostic` (manual protected dispatch call)
 
 Branch-name note:
 - human-authored PR branches must use `feature/*`, `fix/*`, `refactor/*`,
