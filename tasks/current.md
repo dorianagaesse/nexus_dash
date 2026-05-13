@@ -4,8 +4,9 @@
 TASK-225
 
 ## Status
-Implemented on `feature/task-225-project-notification-email-digests`; PR #246 is
-open with GitHub checks green and preview email smoke validated.
+Implemented on `feature/task-225-project-notification-email-digests` and merged
+via PR #246. Follow-up production scheduler remediation/refactor is tracked by
+TASK-227.
 
 ## Objective
 Extend the notification center with project-grouped outbound email digests so

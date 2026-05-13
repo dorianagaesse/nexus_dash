@@ -6,9 +6,14 @@ Use this file to capture tasks discovered during development. Each entry should 
 ### Execution Queue (Now / Next)
 - ID: TASK-225
   Title: Project notification email digests - grouped, rate-limited outbound summaries
-  Status: PR open / preview validated (`feature/task-225-project-notification-email-digests`, PR #246)
+  Status: Merged via PR #246; production scheduler remediation/refactor tracked by TASK-227
   Rationale: Extend the notification center with project-grouped outbound email digests so important in-app activity can reach users by email without sending one message per notification, especially when agents generate frequent task/comment activity. The first design should batch by recipient and project, collapse repetitive agent events, apply a controlled cadence, and preserve the in-app notification inbox as the source of truth.
   Dependencies: TASK-123, TASK-125
+- ID: TASK-227
+  Title: Production-grade notification email orchestration - debounce, grouping, and scheduler refactor
+  Status: Pending
+  Rationale: Refactor the TASK-225 email notification dispatch into a production-grade app-owned delivery architecture that notifies users about important project activity without email spam. The design should group notifications by recipient and project, debounce clustered activity with a hard maximum notification delay, avoid relying on GitHub Actions as the primary production scheduler, and leave task due-date reminder production to TASK-226 while providing a clean extension point for it.
+  Dependencies: TASK-123, TASK-125, TASK-225
 - ID: TASK-226
   Title: Task due-date email reminders - 3-day deadline warning delivery
   Status: Pending (promoted after TASK-125 merged via PR #243)
