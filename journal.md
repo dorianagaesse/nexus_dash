@@ -18,6 +18,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Evidence: Run `25861160816` failed because `deployment_id_or_url` contained the same Vercel deployment URL twice, producing a malformed `.apphttps://...` target. The deploy workflow now normalizes the promote/rollback target once, trims accidental whitespace, warns and uses the first URL if two `https://` deployment URLs are pasted together, and uses the normalized value for inspect, promote/rollback, and the job summary.
 
 ### 2026-05-14
+- Type: Validation
+- Summary: Production notification email dispatch endpoint smoke passed with the protected Vercel production secret.
+- Evidence: Pulled production Vercel env into ignored `tmp/vercel-production-smoke.env`, confirmed `https://nexus-dash.app/api/health/live` returned 200, and invoked `GET https://nexus-dash.app/api/cron/notification-emails` with `x-notification-email-dispatch-secret`. The endpoint returned 200 with `ok: true`, `groupsClaimed: 0`, `recipientEmailsAttempted: 0`, and `errors: 0`. A first `POST` probe returned 405, confirming QStash must call the documented `GET` method.
+
+### 2026-05-14
 - Type: Planning
 - Summary: Added TASK-228 for QStash production scheduler activation after PR #254 merged.
 - Evidence: PR #254 merged as `e83dfa73b9ede02775bdd3d8a467c4b521fe8f7b`. TASK-227 delivered the durable notification email orchestration and protected endpoint, but QStash itself is not provisioned in code. Because the Vercel plan will not be upgraded and Hobby cron cannot run sub-hour schedules, TASK-228 now tracks activation of an Upstash QStash Schedule or equivalent managed HTTP scheduler, including the 5-minute cadence, protected header, retries/visibility, redaction, and production smoke validation.
