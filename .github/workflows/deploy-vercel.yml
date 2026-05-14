@@ -336,8 +336,12 @@ jobs:
           fi
 
           if [[ "$target" == https://*https://* ]]; then
-            normalized_target="https://${target#https://}"
-            normalized_target="${normalized_target%%https://*}"
+            target_tail="${target#https://}"
+            normalized_target="https://${target_tail%%https://*}"
+            if [ "$normalized_target" = "https://" ]; then
+              echo "::error::deployment_id_or_url could not be normalized."
+              exit 1
+            fi
             echo "::warning::deployment_id_or_url contained more than one URL; using the first deployment URL."
             target="$normalized_target"
           fi
