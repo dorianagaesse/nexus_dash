@@ -17,7 +17,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 - ID: TASK-228
   Title: QStash notification email scheduler activation - production cadence and smoke validation
   Status: Pending
-  Rationale: Vercel will remain on the Hobby plan, so Vercel Cron cannot provide the sub-hour cadence required by TASK-227 notification email debounce/max-delay behavior. Provision an Upstash QStash Schedule, or an equivalent managed HTTP scheduler with retries and visibility, to invoke `POST /api/cron/notification-emails` every 5 minutes with the protected dispatch header. Document the scheduler ownership, redaction/retry settings, and run a production smoke for a verified recipient without exposing secrets.
+  Rationale: Vercel will remain on the Hobby plan, so Vercel Cron cannot provide the sub-hour cadence required by TASK-227 notification email debounce/max-delay behavior. Provision an Upstash QStash Schedule, or an equivalent managed HTTP scheduler with retries and visibility, to invoke `GET /api/cron/notification-emails` every 5 minutes with the protected dispatch header. Document the scheduler ownership, redaction/retry settings, and run a production smoke for a verified recipient without exposing secrets.
   Dependencies: TASK-125, TASK-227
 - ID: TASK-226
   Title: Task due-date email reminders - 3-day deadline warning delivery
