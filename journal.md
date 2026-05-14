@@ -13,6 +13,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-05-14
+- Type: Execution
+- Summary: Hardened manual Vercel promote/rollback target handling after a failed promote run.
+- Evidence: Run `25861160816` failed because `deployment_id_or_url` contained the same Vercel deployment URL twice, producing a malformed `.apphttps://...` target. The deploy workflow now normalizes the promote/rollback target once, trims accidental whitespace, warns and uses the first URL if two `https://` deployment URLs are pasted together, and uses the normalized value for inspect, promote/rollback, and the job summary.
+
+### 2026-05-14
 - Type: Validation
 - Summary: Production notification email dispatch endpoint smoke passed with the protected Vercel production secret.
 - Evidence: Pulled production Vercel env into ignored `tmp/vercel-production-smoke.env`, confirmed `https://nexus-dash.app/api/health/live` returned 200, and invoked `GET https://nexus-dash.app/api/cron/notification-emails` with `x-notification-email-dispatch-secret`. The endpoint returned 200 with `ok: true`, `groupsClaimed: 0`, `recipientEmailsAttempted: 0`, and `errors: 0`. A first `POST` probe returned 405, confirming QStash must call the documented `GET` method.

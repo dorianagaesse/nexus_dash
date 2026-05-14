@@ -321,17 +321,38 @@ jobs:
           echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
           echo "$deployment_url" > staged-production-deployment.txt
 
-      - name: Validate deployment target exists
+      - name: Normalize deployment target
         if: inputs.action == 'promote' || inputs.action == 'rollback'
+        env:
+          DEPLOYMENT_INPUT: ${{ inputs.deployment_id_or_url }}
         run: |
-          if [ -z "${{ inputs.deployment_id_or_url }}" ]; then
+          raw_target="$DEPLOYMENT_INPUT"
+          target=$(printf '%s' "$raw_target" | tr -d '[:space:]')
+
+          if [ -z "$target" ]; then
             echo "::error::deployment_id_or_url is required for promote/rollback."
             echo "::error::Use a deployment URL/ID from workflow artifacts or the Vercel dashboard."
             exit 1
           fi
 
-          if ! npx vercel@${VERCEL_CLI_VERSION} inspect "${{ inputs.deployment_id_or_url }}" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN" > /tmp/vercel-inspect.txt 2>&1; then
-            echo "::error::Deployment '${{ inputs.deployment_id_or_url }}' could not be validated for this project."
+          if [[ "$target" == https://*https://* ]]; then
+            target_tail="${target#https://}"
+            normalized_target="https://${target_tail%%https://*}"
+            if [ "$normalized_target" = "https://" ]; then
+              echo "::error::deployment_id_or_url could not be normalized."
+              exit 1
+            fi
+            echo "::warning::deployment_id_or_url contained more than one URL; using the first deployment URL."
+            target="$normalized_target"
+          fi
+
+          echo "DEPLOYMENT_TARGET=$target" >> "$GITHUB_ENV"
+
+      - name: Validate deployment target exists
+        if: inputs.action == 'promote' || inputs.action == 'rollback'
+        run: |
+          if ! npx vercel@${VERCEL_CLI_VERSION} inspect "$DEPLOYMENT_TARGET" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN" > /tmp/vercel-inspect.txt 2>&1; then
+            echo "::error::Deployment '$DEPLOYMENT_TARGET' could not be validated for this project."
             echo "::error::Use a valid deployment URL/ID from previous workflow artifacts or from the Vercel dashboard."
             cat /tmp/vercel-inspect.txt
             exit 1
@@ -340,12 +361,12 @@ jobs:
       - name: Promote deployment to production
         if: inputs.action == 'promote'
         run: |
-          npx vercel@${VERCEL_CLI_VERSION} promote "${{ inputs.deployment_id_or_url }}" --yes --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+          npx vercel@${VERCEL_CLI_VERSION} promote "$DEPLOYMENT_TARGET" --yes --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
       - name: Rollback production deployment
         if: inputs.action == 'rollback'
         run: |
-          npx vercel@${VERCEL_CLI_VERSION} rollback "${{ inputs.deployment_id_or_url }}" --yes --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+          npx vercel@${VERCEL_CLI_VERSION} rollback "$DEPLOYMENT_TARGET" --yes --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
       - name: Upload preview deployment artifact
         if: inputs.action == 'deploy-preview'
@@ -381,5 +402,6 @@ jobs:
             echo "- Next step: run with \`action=promote\`." >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "${{ inputs.action }}" = "promote" ] || [ "${{ inputs.action }}" = "rollback" ]; then
-            echo "- Deployment target: \`${{ inputs.deployment_id_or_url }}\`" >> "$GITHUB_STEP_SUMMARY"
+            target="${DEPLOYMENT_TARGET:-<not-normalized>}"
+            echo "- Deployment target: \`${target}\`" >> "$GITHUB_STEP_SUMMARY"
           fi
