@@ -4,9 +4,14 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-259
+  Title: Production DB project-ref guardrails - prevent runtime/database environment drift
+  Status: In progress (issue #260)
+  Rationale: Production was accidentally pointed at a valid but wrong Supabase database after a runtime `DATABASE_URL` secret rewrite. Add fail-fast validation and runbook guidance so `DATABASE_URL`, `DIRECT_URL`, and `SUPABASE_URL` cannot drift across Supabase project refs in production.
+  Dependencies: TASK-258
 - ID: TASK-258
   Title: Production DB session pool exhaustion - serverless-safe Supabase runtime pooling
-  Status: In progress (issue #258)
+  Status: Done via PR #259
   Rationale: Production authenticated navigation after notification email smoke hit `EMAXCONNSESSION` because runtime traffic was using the Supabase session pooler shape. Harden the runtime env contract and validation so Vercel/serverless runtime traffic uses the transaction pooler while direct migration/admin traffic stays on the direct endpoint.
   Dependencies: TASK-022, TASK-125, TASK-227
 - ID: TASK-225

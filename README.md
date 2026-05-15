@@ -116,13 +116,19 @@ Notes:
   - Supabase runtime traffic on the transaction pooler port `6543`; the
     session pooler port `5432` is rejected for `DATABASE_URL` because it can
     exhaust session clients under Vercel/serverless request bursts
+  - Supabase project-ref alignment between `DATABASE_URL`, `DIRECT_URL`, and
+    `SUPABASE_URL` so production cannot silently boot against a preview or
+    staging database
 
 For Supabase production/preview:
 
 - `DATABASE_URL`: transaction pooler URL, `*.pooler.supabase.com:6543`, with
-  TLS enabled.
+  TLS enabled. For the shared Supabase pooler, the username must include the
+  project ref, for example `postgres.<project-ref>`.
 - `DIRECT_URL`: direct database URL, `db.<project-ref>.supabase.co:5432`, with
   TLS enabled.
+- `SUPABASE_URL`: the matching client API URL,
+  `https://<project-ref>.supabase.co`.
 - Prisma runtime automatically adds the compatibility flags needed for the
   Supabase transaction pooler when constructing the `@prisma/adapter-pg`
   connection string.

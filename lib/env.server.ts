@@ -390,6 +390,7 @@ interface ParsedDatabaseConnectionString {
   rawValue: string;
   host: string;
   port: string;
+  supabaseProjectRef: string | null;
   isLocalHost: boolean;
   isPoolerHost: boolean;
   isSupabaseHost: boolean;
@@ -399,6 +400,41 @@ interface ParsedDatabaseConnectionString {
 
 function isLocalDatabaseHost(host: string): boolean {
   return LOCAL_DATABASE_HOSTS.has(host) || host.endsWith(".local");
+}
+
+function extractSupabaseDirectProjectRef(host: string): string | null {
+  const match = /^db\.([a-z0-9-]+)\.supabase\.co$/i.exec(host);
+  return match?.[1]?.toLowerCase() ?? null;
+}
+
+function extractSupabasePoolerProjectRef(username: string): string | null {
+  const separatorIndex = username.lastIndexOf(".");
+  if (separatorIndex <= 0 || separatorIndex === username.length - 1) {
+    return null;
+  }
+
+  return username.slice(separatorIndex + 1).toLowerCase();
+}
+
+function extractSupabaseClientProjectRef(value: string): string | null {
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(value);
+  } catch {
+    throw new Error("SUPABASE_URL must be a valid absolute URL.");
+  }
+
+  const host = parsedUrl.hostname.toLowerCase();
+  if (!host.endsWith(".supabase.co")) {
+    return null;
+  }
+
+  const [projectRef] = host.split(".");
+  if (!projectRef || projectRef === "db") {
+    return null;
+  }
+
+  return projectRef;
 }
 
 function parseDatabaseConnectionString(
@@ -424,11 +460,16 @@ function parseDatabaseConnectionString(
     host.endsWith(".supabase.co") || host.endsWith(".supabase.com");
   const isSupabasePoolerHost = host.endsWith(".pooler.supabase.com");
   const isPoolerHost = /(^|[.-])pooler([.-]|$)/.test(host);
+  const username = decodeURIComponent(parsedUrl.username);
+  const supabaseProjectRef = isSupabasePoolerHost
+    ? extractSupabasePoolerProjectRef(username)
+    : extractSupabaseDirectProjectRef(host);
 
   return {
     rawValue: value,
     host,
     port,
+    supabaseProjectRef,
     isLocalHost: isLocalDatabaseHost(host),
     isPoolerHost,
     isSupabaseHost,
@@ -437,10 +478,39 @@ function parseDatabaseConnectionString(
   };
 }
 
+function assertMatchingSupabaseProjectRefs(
+  databaseUrl: ParsedDatabaseConnectionString,
+  directUrl: ParsedDatabaseConnectionString,
+  supabaseClientProjectRef: string | null
+): void {
+  if (
+    databaseUrl.supabaseProjectRef &&
+    directUrl.supabaseProjectRef &&
+    databaseUrl.supabaseProjectRef !== directUrl.supabaseProjectRef
+  ) {
+    throw new Error(
+      "DATABASE_URL and DIRECT_URL must target the same Supabase project in production."
+    );
+  }
+
+  const databaseProjectRef =
+    databaseUrl.supabaseProjectRef ?? directUrl.supabaseProjectRef;
+  if (
+    databaseProjectRef &&
+    supabaseClientProjectRef &&
+    databaseProjectRef !== supabaseClientProjectRef
+  ) {
+    throw new Error(
+      "SUPABASE_URL must target the same Supabase project as DATABASE_URL and DIRECT_URL in production."
+    );
+  }
+}
+
 function assertProductionDatabaseConnectionHardening(
   databaseUrl: ParsedDatabaseConnectionString,
   directUrl: ParsedDatabaseConnectionString,
-  runtimeEnvironment: RuntimeEnvironment
+  runtimeEnvironment: RuntimeEnvironment,
+  supabaseClientProjectRef: string | null
 ): void {
   if (runtimeEnvironment !== "production") {
     return;
@@ -520,6 +590,12 @@ function assertProductionDatabaseConnectionHardening(
       "DIRECT_URL must use the Supabase direct host in production (for example db.<project-ref>.supabase.co), not the pooler host."
     );
   }
+
+  assertMatchingSupabaseProjectRefs(
+    databaseUrl,
+    directUrl,
+    supabaseClientProjectRef
+  );
 }
 
 export interface ServerRuntimeValidationOptions {
@@ -543,16 +619,21 @@ export function validateServerRuntimeConfig(
     "DIRECT_URL",
     database.directUrl
   );
+  const supabaseConfig = getSupabaseClientRuntimeConfig();
+  let supabaseClientProjectRef: string | null = null;
+  if (supabaseConfig) {
+    assertValidUrl("SUPABASE_URL", supabaseConfig.url);
+    supabaseClientProjectRef = extractSupabaseClientProjectRef(
+      supabaseConfig.url
+    );
+  }
+
   assertProductionDatabaseConnectionHardening(
     parsedDatabaseUrl,
     parsedDirectUrl,
-    runtimeEnvironment
+    runtimeEnvironment,
+    supabaseClientProjectRef
   );
-
-  const supabaseConfig = getSupabaseClientRuntimeConfig();
-  if (supabaseConfig) {
-    assertValidUrl("SUPABASE_URL", supabaseConfig.url);
-  }
 
   assertOptionalEnvironmentGroup(
     ["NEXTAUTH_URL", "NEXTAUTH_SECRET"],

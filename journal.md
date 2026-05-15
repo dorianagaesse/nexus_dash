@@ -14,6 +14,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-05-15
 - Type: Execution
+- Summary: TASK-259 added production Supabase project-ref guardrails after runtime DB drift incident.
+- Evidence: Opened issue #260 after production authenticated successfully but showed no projects, indicating `DATABASE_URL` had been overwritten to a valid but wrong Supabase database while `DIRECT_URL`/`MIGRATION_DATABASE_URL` were unchanged. Added validation to compare Supabase project refs extracted from shared pooler usernames, direct DB hosts, and `SUPABASE_URL`; updated README and DB/env runbooks with recovery guidance that agents must not rewrite production secrets without explicit operator authorization.
+
+### 2026-05-15
+- Type: Validation
+- Summary: TASK-259 local validation passed.
+- Evidence: `npm ci`; `npm test -- --run tests/lib/env.server.test.ts` passed with 70 tests; `npm run lint` passed; local PostgreSQL `npm run db:migrate` passed with no pending migrations; local DB `NODE_ENV=test npm test` passed (107 files passed, 2 skipped; 809 tests passed, 2 skipped); local DB `NODE_ENV=test npm run test:coverage` passed with 91.23% statements, 81.2% branches, 93.42% functions, and 91.75% lines; production build passed with local PostgreSQL and safe local runtime secrets.
+
+### 2026-05-15
+- Type: Execution
 - Summary: TASK-258 hardened production database pooling after `EMAXCONNSESSION` incident.
 - Evidence: Opened issue #258 after production logs showed `DriverAdapterError: (EMAXCONNSESSION) max clients reached in session mode` on `/account/notifications` and `/`. Masked env inspection found the ignored production runtime `DATABASE_URL` shape used the Supabase pooler on port `5432` (session mode). Runtime validation now rejects Supabase session-pooler `DATABASE_URL` in production, accepts transaction-pooler port `6543`, and normalizes Prisma runtime URLs with Supabase transaction-pooler compatibility flags. GitHub production `DATABASE_URL` and Vercel Production `DATABASE_URL` were updated to the derived transaction-pooler shape without printing secret values.
 

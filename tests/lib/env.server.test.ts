@@ -812,14 +812,50 @@ describe("env.server", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv(
       "DATABASE_URL",
-      "postgresql://runtime-user:pwd@project.pooler.supabase.com:6543/postgres?sslmode=require"
+      "postgresql://postgres.project-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
     );
     vi.stubEnv(
       "DIRECT_URL",
-      "postgresql://admin-user:pwd@db.project-ref.supabase.co:5432/postgres?sslmode=require"
+      "postgresql://postgres:pwd@db.project-ref.supabase.co:5432/postgres?sslmode=require"
     );
+    vi.stubEnv("SUPABASE_URL", "https://project-ref.supabase.co");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "pk_test_123");
 
     expect(() => validateServerRuntimeConfig()).not.toThrow();
+  });
+
+  test("fails runtime validation when supabase database and direct urls target different projects in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://postgres.preview-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://postgres:pwd@db.production-ref.supabase.co:5432/postgres?sslmode=require"
+    );
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "DATABASE_URL and DIRECT_URL must target the same Supabase project in production."
+    );
+  });
+
+  test("fails runtime validation when supabase client url targets a different project in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://postgres.production-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://postgres:pwd@db.production-ref.supabase.co:5432/postgres?sslmode=require"
+    );
+    vi.stubEnv("SUPABASE_URL", "https://preview-ref.supabase.co");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "pk_test_123");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "SUPABASE_URL must target the same Supabase project as DATABASE_URL and DIRECT_URL in production."
+    );
   });
 
   test("fails runtime validation when supabase direct url uses a non-direct port in production", () => {
