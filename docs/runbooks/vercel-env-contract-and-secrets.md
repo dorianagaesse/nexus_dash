@@ -24,6 +24,25 @@ Optional but bounded:
 
 - `AGENT_ACCESS_TOKEN_TTL_SECONDS` (`300-900`, default `600`)
 
+## Database Runtime
+
+Required for Vercel runtime/deployments:
+
+- `DATABASE_URL`
+- `DIRECT_URL`
+
+For Supabase-backed Vercel deployments:
+
+- `DATABASE_URL` must be the Supabase transaction pooler URL:
+  `*.pooler.supabase.com:6543`.
+- `DIRECT_URL` must be the Supabase direct database URL:
+  `db.<project-ref>.supabase.co:5432`.
+- Both values must enforce TLS, for example `?sslmode=require`.
+
+Do not configure `DATABASE_URL` with the Supabase session pooler on port `5432`.
+That shape can exhaust the session pool under normal Vercel/serverless request
+bursts and is rejected by runtime validation.
+
 ## Outbound Email
 
 Provider:

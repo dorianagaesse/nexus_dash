@@ -113,6 +113,19 @@ Notes:
   - different runtime/direct endpoints
   - TLS
   - Supabase pooler/direct host sanity rules (when Supabase hosts are used)
+  - Supabase runtime traffic on the transaction pooler port `6543`; the
+    session pooler port `5432` is rejected for `DATABASE_URL` because it can
+    exhaust session clients under Vercel/serverless request bursts
+
+For Supabase production/preview:
+
+- `DATABASE_URL`: transaction pooler URL, `*.pooler.supabase.com:6543`, with
+  TLS enabled.
+- `DIRECT_URL`: direct database URL, `db.<project-ref>.supabase.co:5432`, with
+  TLS enabled.
+- Prisma runtime automatically adds the compatibility flags needed for the
+  Supabase transaction pooler when constructing the `@prisma/adapter-pg`
+  connection string.
 
 ## Environment Contract (Server)
 
@@ -351,6 +364,8 @@ Required GitHub secrets:
 - `VERCEL_TOKEN`
 - `VERCEL_ORG_ID`
 - `VERCEL_PROJECT_ID`
+- `DATABASE_URL` (runtime connection; Supabase transaction pooler on port `6543`)
+- `DIRECT_URL` (direct database connection; Supabase direct host on port `5432`)
 - `MIGRATION_DATABASE_URL` (admin-capable migration connection; must not be the runtime `DATABASE_URL`)
 - `AGENT_TOKEN_SIGNING_SECRET` (required for production deploys; preview workflow falls back to a placeholder when intentionally unset)
 - Preview deployments still need `AGENT_TOKEN_SIGNING_SECRET` at runtime. GitHub Actions fallback values do not automatically populate Vercel's shared preview runtime unless the deployment explicitly passes them through.

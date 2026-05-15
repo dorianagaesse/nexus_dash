@@ -14,8 +14,16 @@ In production with remote hosts, these URLs must:
 - use TLS (for example `?sslmode=require`)
 
 For Supabase production:
-- `DATABASE_URL` should use `*.pooler.supabase.com`
-- `DIRECT_URL` should use `db.<project-ref>.supabase.co`
+- `DATABASE_URL` must use the Supabase transaction pooler:
+  `*.pooler.supabase.com:6543`
+- `DIRECT_URL` must use the direct database endpoint:
+  `db.<project-ref>.supabase.co:5432`
+
+Do not use the Supabase session pooler (`*.pooler.supabase.com:5432`) for
+`DATABASE_URL` in Vercel/serverless runtime. Session mode is capped by the
+pooler session `pool_size` and can return `EMAXCONNSESSION` during normal
+serverless bursts. Transaction mode on port `6543` is the intended path for
+short-lived/serverless application connections.
 
 ## Environment Baseline
 - Local development:
@@ -25,7 +33,7 @@ For Supabase production:
   - keep ephemeral/local endpoints where possible.
   - avoid production credentials in CI.
 - Production:
-  - pooled runtime URL in `DATABASE_URL`
+  - transaction-pooled runtime URL in `DATABASE_URL`
   - direct migration/admin URL in `DIRECT_URL`
   - TLS enabled on both URLs
 
@@ -47,5 +55,8 @@ For Supabase production:
 - `validateServerRuntimeConfig()` passes in the target environment.
 - `/api/health/ready` returns healthy status after deploy.
 - Prisma migrations run using `DIRECT_URL`.
-- Runtime traffic uses pooled connection path (`DATABASE_URL`).
+- Runtime traffic uses Supabase transaction pooling (`DATABASE_URL` on port
+  `6543`) when the database is Supabase.
+- Vercel logs do not show `EMAXCONNSESSION` during representative authenticated
+  request bursts.
 - No credentials appear in logs, errors, or build artifacts.

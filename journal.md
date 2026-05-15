@@ -12,6 +12,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-05-15
+- Type: Execution
+- Summary: TASK-258 hardened production database pooling after `EMAXCONNSESSION` incident.
+- Evidence: Opened issue #258 after production logs showed `DriverAdapterError: (EMAXCONNSESSION) max clients reached in session mode` on `/account/notifications` and `/`. Masked env inspection found the ignored production runtime `DATABASE_URL` shape used the Supabase pooler on port `5432` (session mode). Runtime validation now rejects Supabase session-pooler `DATABASE_URL` in production, accepts transaction-pooler port `6543`, and normalizes Prisma runtime URLs with Supabase transaction-pooler compatibility flags. GitHub production `DATABASE_URL` and Vercel Production `DATABASE_URL` were updated to the derived transaction-pooler shape without printing secret values.
+
+### 2026-05-15
+- Type: Validation
+- Summary: TASK-258 local validation passed.
+- Evidence: `npm ci`; `npm test -- --run tests/lib/env.server.test.ts` passed with 68 tests; `npm run lint` passed; `npm run db:local:up` could not bind port `5432` because another local PostgreSQL service was already using it; `npm run db:migrate` passed against the existing local `127.0.0.1:5432` database with no pending migrations; local DB `NODE_ENV=test npm test` passed (107 files passed, 2 skipped; 807 tests passed, 2 skipped); local DB `NODE_ENV=test npm run test:coverage` passed (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); production-guarded `npm run build` passed with local PostgreSQL and safe local runtime secrets.
+
 ### 2026-05-14
 - Type: Execution
 - Summary: Hardened manual Vercel promote/rollback target handling after a failed promote run.
