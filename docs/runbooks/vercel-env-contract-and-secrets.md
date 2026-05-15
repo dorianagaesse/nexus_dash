@@ -151,6 +151,10 @@ Important:
 
 - Preview builds run with production-like checks (`NODE_ENV=production` during
   build), so missing production-only guards can break preview deploys.
+- Production database secrets must come from the intended Supabase Production
+  project, not local `.env` snapshots or preview/staging files. The app rejects
+  production startup when Supabase project refs differ across `DATABASE_URL`,
+  `DIRECT_URL`, and `SUPABASE_URL`.
 - GitHub-managed preview deploys and Vercel-managed preview deployments do not
   get runtime secrets from the same place:
   - `deploy-vercel.yml` can inject preview fallback values into the specific
@@ -244,6 +248,10 @@ npx vercel env pull .env.production.local --environment=production --yes
 ```
 
 After diagnostics, delete pulled files if not needed.
+
+Do not use pulled production env files as an input source for secret rewrites.
+For production recovery, use the provider dashboards directly and compare only
+non-secret fingerprints such as the Supabase project ref and endpoint mode.
 
 ## PR Readiness Gate (Env-Aware)
 
