@@ -114,17 +114,31 @@ export function getPrismaPgRuntimeConnectionString(): string {
     return databaseUrl;
   }
 
+  const host = parsedUrl.hostname.toLowerCase();
+  const port = parsedUrl.port || DEFAULT_POSTGRES_PORT;
+  const isSupabaseTransactionPooler =
+    host.endsWith(".pooler.supabase.com") &&
+    port === SUPABASE_TRANSACTION_POOLER_PORT;
+  let changed = false;
+
+  if (
+    isSupabaseTransactionPooler &&
+    !parsedUrl.searchParams.has("pgbouncer")
+  ) {
+    parsedUrl.searchParams.set("pgbouncer", "true");
+    changed = true;
+  }
+
   const sslMode = (parsedUrl.searchParams.get("sslmode") ?? "").toLowerCase();
-  if (sslMode !== "require") {
-    return databaseUrl;
+  if (
+    sslMode === "require" &&
+    (parsedUrl.searchParams.get("uselibpqcompat") ?? "").length === 0
+  ) {
+    parsedUrl.searchParams.set("uselibpqcompat", "true");
+    changed = true;
   }
 
-  if ((parsedUrl.searchParams.get("uselibpqcompat") ?? "").length > 0) {
-    return parsedUrl.toString();
-  }
-
-  parsedUrl.searchParams.set("uselibpqcompat", "true");
-  return parsedUrl.toString();
+  return changed ? parsedUrl.toString() : databaseUrl;
 }
 
 export interface SupabaseClientRuntimeConfig {
@@ -369,6 +383,8 @@ function assertPostgresConnectionString(name: string, value: string): void {
 const LOCAL_DATABASE_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 const SECURE_SSL_MODES = new Set(["require", "verify-ca", "verify-full"]);
 const DEFAULT_POSTGRES_PORT = "5432";
+const SUPABASE_SESSION_POOLER_PORT = "5432";
+const SUPABASE_TRANSACTION_POOLER_PORT = "6543";
 
 interface ParsedDatabaseConnectionString {
   rawValue: string;
@@ -465,6 +481,25 @@ function assertProductionDatabaseConnectionHardening(
   if (directUrl.isPoolerHost) {
     throw new Error(
       "DIRECT_URL must target a direct database endpoint, not a pooler host."
+    );
+  }
+
+  if (
+    databaseUrl.isSupabasePoolerHost &&
+    databaseUrl.port !== SUPABASE_TRANSACTION_POOLER_PORT
+  ) {
+    throw new Error(
+      `DATABASE_URL must use the Supabase transaction pooler port ${SUPABASE_TRANSACTION_POOLER_PORT} in production; port ${SUPABASE_SESSION_POOLER_PORT} is session mode and can exhaust serverless clients.`
+    );
+  }
+
+  if (
+    directUrl.isSupabaseHost &&
+    !directUrl.isSupabasePoolerHost &&
+    directUrl.port !== DEFAULT_POSTGRES_PORT
+  ) {
+    throw new Error(
+      `DIRECT_URL must use the Supabase direct database port ${DEFAULT_POSTGRES_PORT} in production.`
     );
   }
 

@@ -198,6 +198,28 @@ describe("env.server", () => {
     );
   });
 
+  test("adds prisma pg compatibility flags for supabase transaction pooler runtime", () => {
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@project.pooler.supabase.com:6543/postgres?sslmode=require"
+    );
+
+    expect(getPrismaPgRuntimeConnectionString()).toBe(
+      "postgresql://runtime-user:pwd@project.pooler.supabase.com:6543/postgres?sslmode=require&pgbouncer=true&uselibpqcompat=true"
+    );
+  });
+
+  test("preserves existing prisma pg pgbouncer flag for supabase transaction pooler runtime", () => {
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@project.pooler.supabase.com:6543/postgres?sslmode=require&pgbouncer=true"
+    );
+
+    expect(getPrismaPgRuntimeConnectionString()).toBe(
+      "postgresql://runtime-user:pwd@project.pooler.supabase.com:6543/postgres?sslmode=require&pgbouncer=true&uselibpqcompat=true"
+    );
+  });
+
   test("returns null when supabase pair is fully empty/unset", () => {
     vi.stubEnv("SUPABASE_URL", "");
     vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "");
@@ -770,11 +792,57 @@ describe("env.server", () => {
     );
   });
 
-  test("allows mixed provider endpoints when database is Supabase and direct is non-Supabase", () => {
+  test("fails runtime validation when supabase database url uses session pooler port in production", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv(
       "DATABASE_URL",
       "postgresql://runtime-user:pwd@project.pooler.supabase.com:5432/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://admin-user:pwd@db.project-ref.supabase.co:5432/postgres?sslmode=require"
+    );
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "DATABASE_URL must use the Supabase transaction pooler port 6543 in production; port 5432 is session mode and can exhaust serverless clients."
+    );
+  });
+
+  test("passes runtime validation when supabase database url uses transaction pooler port in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@project.pooler.supabase.com:6543/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://admin-user:pwd@db.project-ref.supabase.co:5432/postgres?sslmode=require"
+    );
+
+    expect(() => validateServerRuntimeConfig()).not.toThrow();
+  });
+
+  test("fails runtime validation when supabase direct url uses a non-direct port in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@project.pooler.supabase.com:6543/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://admin-user:pwd@db.project-ref.supabase.co:6543/postgres?sslmode=require"
+    );
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "DIRECT_URL must use the Supabase direct database port 5432 in production."
+    );
+  });
+
+  test("allows mixed provider endpoints when database is Supabase and direct is non-Supabase", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@project.pooler.supabase.com:6543/postgres?sslmode=require"
     );
     vi.stubEnv(
       "DIRECT_URL",
