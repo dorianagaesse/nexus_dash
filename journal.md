@@ -13,6 +13,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-05-16
+- Type: Planning
+- Summary: TASK-263 captured realtime in-app notification updates as a dedicated follow-up related to TASK-118.
+- Evidence: PR #262 merged the email-only digest boundary and kept in-app notification surfaces atomic. Added a pending notification-specific realtime task for live notification-center rows, unread counts, and awareness banner updates without navigation/manual refresh, while requiring alignment with the broader TASK-118 realtime collaboration transport decision.
+
+### 2026-05-16
 - Type: Execution
 - Summary: TASK-260 kept in-app notification awareness atomic while preserving email digests.
 - Evidence: Production grouped-notification smoke showed the email digest layer works, but in-app awareness copy could read as a grouped notification (`+N more unread notifications`). Updated the notification awareness banner to show only the latest unread atomic notification and link to the notification center for the full list. Added component coverage proving the banner does not render grouped unread text while existing email-service coverage continues to prove recipient/project email batching.
