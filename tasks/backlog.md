@@ -4,9 +4,14 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-260
+  Title: Email-only notification digests - keep in-app notifications atomic
+  Status: In progress
+  Rationale: Production smoke confirmed email grouping works, but in-app notification awareness must not present several unread items as one grouped notification. Keep one in-app notification per action/artifact while leaving recipient/project email digest grouping, debounce, and max-delay behavior in the email orchestration layer.
+  Dependencies: TASK-123, TASK-125, TASK-227
 - ID: TASK-259
   Title: Production DB project-ref guardrails - prevent runtime/database environment drift
-  Status: In progress (issue #260)
+  Status: Done via PR #261
   Rationale: Production was accidentally pointed at a valid but wrong Supabase database after a runtime `DATABASE_URL` secret rewrite. Add fail-fast validation and runbook guidance so `DATABASE_URL`, `DIRECT_URL`, and `SUPABASE_URL` cannot drift across Supabase project refs in production.
   Dependencies: TASK-258
 - ID: TASK-258

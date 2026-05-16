@@ -30,7 +30,6 @@ interface PendingInvitationMetadataRow {
   projectId: string;
   projectName: string;
   invitedEmail: string;
-  invitedByUserId: string;
   invitedByEmail: string | null;
   invitedByName: string | null;
   invitedByUsername: string | null;
@@ -125,6 +124,10 @@ export interface NotificationSummary {
   resolvedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LatestUnreadNotificationSummary {
+  title: string;
 }
 
 function createError(status: number, error: string): ServiceErrorResult {
@@ -350,7 +353,6 @@ async function listPendingInvitationRowsForCurrentUser(
       project_id AS "projectId",
       project_name AS "projectName",
       invited_email AS "invitedEmail",
-      invited_by_user_id AS "invitedByUserId",
       invited_by_email AS "invitedByEmail",
       invited_by_name AS "invitedByName",
       invited_by_username AS "invitedByUsername",
@@ -643,6 +645,45 @@ export async function listNotificationsForUser(
     } catch (error) {
       logServerError("listNotificationsForUser", error);
       return createError(500, "notifications-list-failed");
+    }
+  });
+}
+
+export async function getLatestUnreadNotificationForUser(
+  actorUserId: string
+): Promise<
+  ServiceResult<{ notification: LatestUnreadNotificationSummary | null }>
+> {
+  const normalizedActorUserId = normalizeActorUserId(actorUserId);
+  if (!normalizedActorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    try {
+      await syncProjectInvitationNotificationsForUser(
+        db,
+        normalizedActorUserId
+      );
+
+      const notification = await db.notification.findFirst({
+        where: {
+          recipientUserId: normalizedActorUserId,
+          resolvedAt: null,
+          readAt: null,
+        },
+        orderBy: [{ createdAt: "desc" }],
+        select: {
+          title: true,
+        },
+      });
+
+      return createSuccess(200, {
+        notification: notification ? { title: notification.title } : null,
+      });
+    } catch (error) {
+      logServerError("getLatestUnreadNotificationForUser", error);
+      return createError(500, "notification-latest-unread-failed");
     }
   });
 }

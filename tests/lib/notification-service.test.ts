@@ -5,6 +5,7 @@ const prismaMock = vi.hoisted(() => ({
   notification: {
     count: vi.fn(),
     createMany: vi.fn(),
+    findFirst: vi.fn(),
     findMany: vi.fn(),
     updateMany: vi.fn(),
   },
@@ -22,6 +23,7 @@ vi.mock("@/lib/observability/logger", () => ({
 
 import {
   countUnreadNotificationsForUser,
+  getLatestUnreadNotificationForUser,
   listNotificationsForUser,
   markAllNotificationsReadForUser,
   resolveProjectInvitationNotifications,
@@ -33,6 +35,7 @@ describe("notification-service", () => {
     vi.clearAllMocks();
     prismaMock.notification.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.notification.createMany.mockResolvedValue({ count: 1 });
+    prismaMock.notification.findFirst.mockResolvedValue(null);
     prismaMock.notification.findMany.mockResolvedValue([]);
     prismaMock.notification.count.mockResolvedValue(0);
     prismaMock.$queryRaw.mockResolvedValue([]);
@@ -45,7 +48,6 @@ describe("notification-service", () => {
         projectId: "project-1",
         projectName: "Shared Project",
         invitedEmail: "invitee@example.com",
-        invitedByUserId: "owner-1",
         invitedByEmail: "owner@example.com",
         invitedByName: "Owner",
         invitedByUsername: "owner",
@@ -149,6 +151,35 @@ describe("notification-service", () => {
     });
   });
 
+  test("fetches only the latest unread unresolved notification for awareness", async () => {
+    prismaMock.notification.findFirst.mockResolvedValueOnce({
+      title: "Mentioned in: Task C",
+    });
+
+    const result = await getLatestUnreadNotificationForUser("user-1");
+
+    expect(result).toEqual({
+      ok: true,
+      status: 200,
+      data: {
+        notification: {
+          title: "Mentioned in: Task C",
+        },
+      },
+    });
+    expect(prismaMock.notification.findFirst).toHaveBeenCalledWith({
+      where: {
+        recipientUserId: "user-1",
+        resolvedAt: null,
+        readAt: null,
+      },
+      orderBy: [{ createdAt: "desc" }],
+      select: {
+        title: true,
+      },
+    });
+  });
+
   test("does not refresh existing active invitation notifications during count sync", async () => {
     prismaMock.$queryRaw.mockResolvedValueOnce([
       {
@@ -156,7 +187,6 @@ describe("notification-service", () => {
         projectId: "project-1",
         projectName: "Shared Project",
         invitedEmail: "invitee@example.com",
-        invitedByUserId: "owner-1",
         invitedByEmail: "owner@example.com",
         invitedByName: "Owner",
         invitedByUsername: "owner",

@@ -3,7 +3,7 @@ import { unstable_noStore as noStore } from "next/cache";
 
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { logServerError } from "@/lib/observability/logger";
-import { listNotificationsForUser } from "@/lib/services/notification-service";
+import { getLatestUnreadNotificationForUser } from "@/lib/services/notification-service";
 
 interface NotificationAwarenessBannerProps {
   actorUserId: string;
@@ -15,9 +15,12 @@ export async function NotificationAwarenessBanner({
   noStore();
   const result = await (async () => {
     try {
-      return await listNotificationsForUser(actorUserId);
+      return await getLatestUnreadNotificationForUser(actorUserId);
     } catch (error) {
-      logServerError("NotificationAwarenessBanner.listNotificationsForUser", error);
+      logServerError(
+        "NotificationAwarenessBanner.getLatestUnreadNotificationForUser",
+        error
+      );
       return null;
     }
   })();
@@ -26,25 +29,17 @@ export async function NotificationAwarenessBanner({
     return null;
   }
 
-  const unreadNotifications = result.data.notifications.filter(
-    (notification) => !notification.readAt
-  );
-  if (unreadNotifications.length === 0) {
+  if (!result.data.notification) {
     return null;
   }
 
-  const firstNotification = unreadNotifications[0];
-  const extraCount = unreadNotifications.length - 1;
-  const message =
-    extraCount > 0
-      ? `${firstNotification.title} +${extraCount} more unread notification${extraCount === 1 ? "" : "s"}.`
-      : firstNotification.title;
+  const latestNotification = result.data.notification;
 
   return (
     <AutoDismissingAlert
       message={
         <>
-          {message}{" "}
+          {latestNotification.title}{" "}
           <Link
             href="/account/notifications"
             className="font-medium underline underline-offset-4"
