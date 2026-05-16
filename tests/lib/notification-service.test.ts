@@ -5,6 +5,7 @@ const prismaMock = vi.hoisted(() => ({
   notification: {
     count: vi.fn(),
     createMany: vi.fn(),
+    findFirst: vi.fn(),
     findMany: vi.fn(),
     updateMany: vi.fn(),
   },
@@ -22,6 +23,7 @@ vi.mock("@/lib/observability/logger", () => ({
 
 import {
   countUnreadNotificationsForUser,
+  getLatestUnreadNotificationForUser,
   listNotificationsForUser,
   markAllNotificationsReadForUser,
   resolveProjectInvitationNotifications,
@@ -33,6 +35,7 @@ describe("notification-service", () => {
     vi.clearAllMocks();
     prismaMock.notification.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.notification.createMany.mockResolvedValue({ count: 1 });
+    prismaMock.notification.findFirst.mockResolvedValue(null);
     prismaMock.notification.findMany.mockResolvedValue([]);
     prismaMock.notification.count.mockResolvedValue(0);
     prismaMock.$queryRaw.mockResolvedValue([]);
@@ -146,6 +149,59 @@ describe("notification-service", () => {
         resolvedAt: null,
         readAt: null,
       },
+    });
+  });
+
+  test("fetches only the latest unread unresolved notification for awareness", async () => {
+    prismaMock.notification.findFirst.mockResolvedValueOnce({
+      id: "notification-latest",
+      type: "task_comment_mention",
+      title: "Mentioned in: Task C",
+      body: "Agent mentioned you in a comment on Task C.",
+      targetPath: "/projects/project-1?taskId=task-c",
+      sourceType: "task_comment_mention",
+      sourceId: "comment-c",
+      metadata: null,
+      readAt: null,
+      resolvedAt: null,
+      createdAt: new Date("2026-05-16T00:20:00.000Z"),
+      updatedAt: new Date("2026-05-16T00:20:00.000Z"),
+    });
+
+    const result = await getLatestUnreadNotificationForUser("user-1");
+
+    expect(result).toEqual({
+      ok: true,
+      status: 200,
+      data: {
+        notification: {
+          id: "notification-latest",
+          type: "task_comment_mention",
+          title: "Mentioned in: Task C",
+          body: "Agent mentioned you in a comment on Task C.",
+          targetPath: "/projects/project-1?taskId=task-c",
+          sourceType: "task_comment_mention",
+          sourceId: "comment-c",
+          metadata: null,
+          readAt: null,
+          resolvedAt: null,
+          createdAt: "2026-05-16T00:20:00.000Z",
+          updatedAt: "2026-05-16T00:20:00.000Z",
+        },
+      },
+    });
+    expect(prismaMock.notification.findFirst).toHaveBeenCalledWith({
+      where: {
+        recipientUserId: "user-1",
+        resolvedAt: null,
+        readAt: null,
+      },
+      orderBy: [{ createdAt: "desc" }],
+      select: expect.objectContaining({
+        id: true,
+        title: true,
+        readAt: true,
+      }),
     });
   });
 

@@ -60,7 +60,7 @@ digest channel with debounce, batching, and maximum-delay controls.
 
 ## Validation Plan
 - Focused:
-  - `npm test -- --run tests/components/notification-awareness-banner.test.tsx tests/lib/project-notification-email-service.test.ts`
+  - `npm test -- --run tests/components/notification-awareness-banner.test.tsx tests/lib/notification-service.test.ts tests/lib/project-notification-email-service.test.ts`
 - Baseline:
   - `npm run lint`
   - `npm test`

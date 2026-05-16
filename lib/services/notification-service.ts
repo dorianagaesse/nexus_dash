@@ -647,6 +647,54 @@ export async function listNotificationsForUser(
   });
 }
 
+export async function getLatestUnreadNotificationForUser(
+  actorUserId: string
+): Promise<ServiceResult<{ notification: NotificationSummary | null }>> {
+  const normalizedActorUserId = normalizeActorUserId(actorUserId);
+  if (!normalizedActorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    try {
+      await syncProjectInvitationNotificationsForUser(
+        db,
+        normalizedActorUserId
+      );
+
+      const notification = await db.notification.findFirst({
+        where: {
+          recipientUserId: normalizedActorUserId,
+          resolvedAt: null,
+          readAt: null,
+        },
+        orderBy: [{ createdAt: "desc" }],
+        select: {
+          id: true,
+          type: true,
+          title: true,
+          body: true,
+          targetPath: true,
+          sourceType: true,
+          sourceId: true,
+          metadata: true,
+          readAt: true,
+          resolvedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      return createSuccess(200, {
+        notification: notification ? mapNotification(notification) : null,
+      });
+    } catch (error) {
+      logServerError("getLatestUnreadNotificationForUser", error);
+      return createError(500, "notification-latest-unread-failed");
+    }
+  });
+}
+
 export async function countUnreadNotificationsForUser(
   actorUserId: string
 ): Promise<number> {
