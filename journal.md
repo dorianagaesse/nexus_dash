@@ -14,6 +14,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-05-16
 - Type: Planning
+- Summary: TASK-267 drafted dedicated handoff briefs for the next notification/email tasks.
+- Evidence: Added `tasks/task-228-qstash-notification-email-scheduler-activation.md`, `tasks/task-265-notification-actor-attribution-and-self-notification-rules.md`, and `tasks/task-226-task-due-date-email-reminders.md`; linked them from `tasks/backlog.md`; kept the change documentation-only so scheduler activation, actor attribution, and due-date reminder implementation remain separate PRs.
+
+### 2026-05-16
+- Type: Planning
 - Summary: TASK-264 cleaned the notification backlog path after production digest smoke.
 - Evidence: Production multi-notification smoke succeeded: two atomic assignment notifications produced one grouped digest email after manual dispatch, and repeat dispatch sent nothing. The same smoke showed QStash/managed scheduling is not live yet, so TASK-228 was promoted as the next scheduler task. Added TASK-265 for agent/human notification attribution and self-notification rules, and TASK-266 for the recurring production `pg@9` client query deprecation warning observed in Vercel logs.
 
