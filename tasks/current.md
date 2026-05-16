@@ -1,45 +1,49 @@
-# Current Task: TASK-264 Notification Backlog Cleanup
+# Current Task: TASK-267 Notification Task Briefs
 
 ## Task ID
-TASK-264
+TASK-267
 
 ## Status
-In progress on dedicated worktree `../nexus_dash_task264` and branch
-`feature/task-264-notification-backlog-cleanup`.
+In progress on dedicated worktree `../nexus_dash_task267` and branch
+`docs/task-267-notification-task-briefs`.
 
 ## Source
-- Post-smoke planning after PR #262 and PR #263 merged.
-- User feedback: `TASK-228` was hard to see from the active checkout, and the
-  backlog should make the next notification path explicit.
-- Production smoke result: grouped notification email delivery works when the
-  dispatcher runs, but QStash/managed scheduler activation is not live.
+- User request to draft dedicated task `.md` briefs for TASK-228, TASK-265, and
+  TASK-226 so a future agent session can take over cleanly.
+- Existing backlog sequence after PR #264: scheduler activation first, actor
+  attribution/self-notification next, then due-date reminders after scheduler
+  activation.
 
 ## Objective
-Clean the backlog so `main` clearly shows the next notification/email work:
-QStash scheduler activation, notification actor attribution/self-notification
-rules, due-date reminder sequencing, and the production `pg@9` deprecation
-warning follow-up.
+Create dedicated task handoff documents for the next notification/email work:
+QStash scheduler activation, notification actor attribution and
+self-notification rules, and task due-date email reminders.
 
 ## Acceptance Criteria
-1. Completed notification/deployment tasks are moved out of the active
-   execution queue.
-2. `TASK-228` is visible as the next scheduler activation task.
-3. A new task captures notification actor attribution and self-notification
-   rules.
-4. The due-date reminder task is sequenced after scheduler activation.
-5. The production `pg@9` warning observed during smoke validation is tracked.
+1. `tasks/task-228-qstash-notification-email-scheduler-activation.md` captures
+   scheduler intent, endpoint contract, acceptance criteria, and smoke plan.
+2. `tasks/task-265-notification-actor-attribution-and-self-notification-rules.md`
+   captures actor attribution and self-notification behavior in enough detail
+   for implementation.
+3. `tasks/task-226-task-due-date-email-reminders.md` captures due-date reminder
+   product rules, sequencing after scheduler activation, and validation plan.
+4. `tasks/backlog.md` links each backlog item to its dedicated task brief.
+5. `journal.md` records the documentation handoff.
 
 ## Definition Of Done
-- `tasks/backlog.md`, `tasks/current.md`, and `journal.md` are updated.
-- Validation is limited to Markdown/task consistency because this is a
-  docs-only cleanup.
-- A ready-for-review PR is opened and checks/Copilot review are monitored.
+- Work remains documentation-only.
+- The branch is pushed and a PR is opened for review.
+- Validation confirms Markdown/task consistency.
+- Copilot review and checks are monitored.
 
 ## Validation Plan
 - `git diff --check`
-- Review changed Markdown for duplicate task IDs and execution queue order.
+- Review the three task files for actionable startup context, acceptance
+  criteria, validation plans, and explicit out-of-scope boundaries.
+- Review `tasks/backlog.md` links to the new briefs.
 
 ## Out Of Scope
 - Implementing QStash.
 - Changing notification/email runtime behavior.
-- Fixing `pg@9` deprecation warnings.
+- Implementing actor attribution behavior.
+- Implementing due-date reminders.

@@ -9,16 +9,19 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Next
   Rationale: Production smoke proved notification email grouping works only when the protected dispatcher is invoked manually. Vercel will remain on the Hobby plan, so Vercel Cron cannot provide the sub-hour cadence required by TASK-227 notification email debounce/max-delay behavior. Provision an Upstash QStash Schedule, or an equivalent managed HTTP scheduler with retries and visibility, to invoke `GET /api/cron/notification-emails` every 5 minutes with the protected dispatch header. Document scheduler ownership, redaction/retry settings, and run a production smoke proving due groups are sent automatically without exposing secrets.
   Dependencies: TASK-125, TASK-227
+  Brief: `tasks/task-228-qstash-notification-email-scheduler-activation.md`
 - ID: TASK-265
   Title: Notification actor attribution and self-notification rules
   Status: Next
   Rationale: Production email smoke confirmed the digest shape, but agent-authored assignment/mention copy can read as if the human account performed the action (for example `dorian1 assigned you...`) because agent API actions currently reuse the credential owner's actor identity. Tighten notification metadata and email/in-app copy so agent activity is attributed to the agent/system, human activity is attributed to the human actor, and self-notifications are consistently suppressed for human self-assignment/self-mention while remaining allowed for genuine agent-to-user activity.
   Dependencies: TASK-123, TASK-124, TASK-127, TASK-227, TASK-260
+  Brief: `tasks/task-265-notification-actor-attribution-and-self-notification-rules.md`
 - ID: TASK-226
   Title: Task due-date email reminders - 3-day deadline warning delivery
   Status: Pending (after TASK-228 scheduler activation)
   Rationale: Send task reminder emails when assigned or owned work is three days from its due date, with idempotent delivery tracking and anti-spam semantics so each reminder fires predictably once per task/user deadline window rather than repeating on every app visit.
   Dependencies: TASK-101, TASK-125, TASK-063, TASK-228
+  Brief: `tasks/task-226-task-due-date-email-reminders.md`
 - ID: TASK-266
   Title: Production pg query deprecation warning cleanup
   Status: Pending
