@@ -48,7 +48,6 @@ describe("notification-service", () => {
         projectId: "project-1",
         projectName: "Shared Project",
         invitedEmail: "invitee@example.com",
-        invitedByUserId: "owner-1",
         invitedByEmail: "owner@example.com",
         invitedByName: "Owner",
         invitedByUsername: "owner",
@@ -154,18 +153,7 @@ describe("notification-service", () => {
 
   test("fetches only the latest unread unresolved notification for awareness", async () => {
     prismaMock.notification.findFirst.mockResolvedValueOnce({
-      id: "notification-latest",
-      type: "task_comment_mention",
       title: "Mentioned in: Task C",
-      body: "Agent mentioned you in a comment on Task C.",
-      targetPath: "/projects/project-1?taskId=task-c",
-      sourceType: "task_comment_mention",
-      sourceId: "comment-c",
-      metadata: null,
-      readAt: null,
-      resolvedAt: null,
-      createdAt: new Date("2026-05-16T00:20:00.000Z"),
-      updatedAt: new Date("2026-05-16T00:20:00.000Z"),
     });
 
     const result = await getLatestUnreadNotificationForUser("user-1");
@@ -175,18 +163,7 @@ describe("notification-service", () => {
       status: 200,
       data: {
         notification: {
-          id: "notification-latest",
-          type: "task_comment_mention",
           title: "Mentioned in: Task C",
-          body: "Agent mentioned you in a comment on Task C.",
-          targetPath: "/projects/project-1?taskId=task-c",
-          sourceType: "task_comment_mention",
-          sourceId: "comment-c",
-          metadata: null,
-          readAt: null,
-          resolvedAt: null,
-          createdAt: "2026-05-16T00:20:00.000Z",
-          updatedAt: "2026-05-16T00:20:00.000Z",
         },
       },
     });
@@ -197,11 +174,9 @@ describe("notification-service", () => {
         readAt: null,
       },
       orderBy: [{ createdAt: "desc" }],
-      select: expect.objectContaining({
-        id: true,
+      select: {
         title: true,
-        readAt: true,
-      }),
+      },
     });
   });
 
@@ -212,7 +187,6 @@ describe("notification-service", () => {
         projectId: "project-1",
         projectName: "Shared Project",
         invitedEmail: "invitee@example.com",
-        invitedByUserId: "owner-1",
         invitedByEmail: "owner@example.com",
         invitedByName: "Owner",
         invitedByUsername: "owner",

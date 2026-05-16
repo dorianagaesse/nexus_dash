@@ -30,7 +30,6 @@ interface PendingInvitationMetadataRow {
   projectId: string;
   projectName: string;
   invitedEmail: string;
-  invitedByUserId: string;
   invitedByEmail: string | null;
   invitedByName: string | null;
   invitedByUsername: string | null;
@@ -125,6 +124,10 @@ export interface NotificationSummary {
   resolvedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LatestUnreadNotificationSummary {
+  title: string;
 }
 
 function createError(status: number, error: string): ServiceErrorResult {
@@ -350,7 +353,6 @@ async function listPendingInvitationRowsForCurrentUser(
       project_id AS "projectId",
       project_name AS "projectName",
       invited_email AS "invitedEmail",
-      invited_by_user_id AS "invitedByUserId",
       invited_by_email AS "invitedByEmail",
       invited_by_name AS "invitedByName",
       invited_by_username AS "invitedByUsername",
@@ -649,7 +651,9 @@ export async function listNotificationsForUser(
 
 export async function getLatestUnreadNotificationForUser(
   actorUserId: string
-): Promise<ServiceResult<{ notification: NotificationSummary | null }>> {
+): Promise<
+  ServiceResult<{ notification: LatestUnreadNotificationSummary | null }>
+> {
   const normalizedActorUserId = normalizeActorUserId(actorUserId);
   if (!normalizedActorUserId) {
     return createError(401, "unauthorized");
@@ -670,23 +674,12 @@ export async function getLatestUnreadNotificationForUser(
         },
         orderBy: [{ createdAt: "desc" }],
         select: {
-          id: true,
-          type: true,
           title: true,
-          body: true,
-          targetPath: true,
-          sourceType: true,
-          sourceId: true,
-          metadata: true,
-          readAt: true,
-          resolvedAt: true,
-          createdAt: true,
-          updatedAt: true,
         },
       });
 
       return createSuccess(200, {
-        notification: notification ? mapNotification(notification) : null,
+        notification: notification ? { title: notification.title } : null,
       });
     } catch (error) {
       logServerError("getLatestUnreadNotificationForUser", error);
