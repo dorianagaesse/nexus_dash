@@ -14,6 +14,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-05-16
 - Type: Planning
+- Summary: TASK-264 cleaned the notification backlog path after production digest smoke.
+- Evidence: Production multi-notification smoke succeeded: two atomic assignment notifications produced one grouped digest email after manual dispatch, and repeat dispatch sent nothing. The same smoke showed QStash/managed scheduling is not live yet, so TASK-228 was promoted as the next scheduler task. Added TASK-265 for agent/human notification attribution and self-notification rules, and TASK-266 for the recurring production `pg@9` client query deprecation warning observed in Vercel logs.
+
+### 2026-05-16
+- Type: Planning
 - Summary: TASK-263 captured realtime in-app notification updates as a dedicated follow-up related to TASK-118.
 - Evidence: PR #262 merged the email-only digest boundary and kept in-app notification surfaces atomic. Added a pending notification-specific realtime task for live notification-center rows, unread counts, and awareness banner updates without navigation/manual refresh, while requiring alignment with the broader TASK-118 realtime collaboration transport decision.
 
