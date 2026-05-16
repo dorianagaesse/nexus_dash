@@ -4,41 +4,26 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-260
-  Title: Email-only notification digests - keep in-app notifications atomic
-  Status: Done via PR #262
-  Rationale: Production smoke confirmed email grouping works, but in-app notification awareness must not present several unread items as one grouped notification. Keep one in-app notification per action/artifact while leaving recipient/project email digest grouping, debounce, and max-delay behavior in the email orchestration layer.
-  Dependencies: TASK-123, TASK-125, TASK-227
-- ID: TASK-259
-  Title: Production DB project-ref guardrails - prevent runtime/database environment drift
-  Status: Done via PR #261
-  Rationale: Production was accidentally pointed at a valid but wrong Supabase database after a runtime `DATABASE_URL` secret rewrite. Add fail-fast validation and runbook guidance so `DATABASE_URL`, `DIRECT_URL`, and `SUPABASE_URL` cannot drift across Supabase project refs in production.
-  Dependencies: TASK-258
-- ID: TASK-258
-  Title: Production DB session pool exhaustion - serverless-safe Supabase runtime pooling
-  Status: Done via PR #259
-  Rationale: Production authenticated navigation after notification email smoke hit `EMAXCONNSESSION` because runtime traffic was using the Supabase session pooler shape. Harden the runtime env contract and validation so Vercel/serverless runtime traffic uses the transaction pooler while direct migration/admin traffic stays on the direct endpoint.
-  Dependencies: TASK-022, TASK-125, TASK-227
-- ID: TASK-225
-  Title: Project notification email digests - grouped, rate-limited outbound summaries
-  Status: Done via PR #246; production scheduler/orchestration remediation owned by TASK-227
-  Rationale: Extend the notification center with project-grouped outbound email digests so important in-app activity can reach users by email without sending one message per notification, especially when agents generate frequent task/comment activity. The first design should batch by recipient and project, collapse repetitive agent events, apply a controlled cadence, and preserve the in-app notification inbox as the source of truth.
-  Dependencies: TASK-123, TASK-125
-- ID: TASK-227
-  Title: Production-grade notification email orchestration - debounce, grouping, and scheduler refactor
-  Status: Done via PR #254; production scheduler activation tracked by TASK-228
-  Rationale: Refactor the TASK-225 email notification dispatch into a production-grade app-owned delivery architecture that notifies users about important project activity without email spam. The design should group notifications by recipient and project, debounce clustered activity with a hard maximum notification delay, avoid relying on GitHub Actions as the primary production scheduler, and leave task due-date reminder production to TASK-226 while providing a clean extension point for it.
-  Dependencies: TASK-123, TASK-125, TASK-225
 - ID: TASK-228
   Title: QStash notification email scheduler activation - production cadence and smoke validation
-  Status: Pending
-  Rationale: Vercel will remain on the Hobby plan, so Vercel Cron cannot provide the sub-hour cadence required by TASK-227 notification email debounce/max-delay behavior. Provision an Upstash QStash Schedule, or an equivalent managed HTTP scheduler with retries and visibility, to invoke `GET /api/cron/notification-emails` every 5 minutes with the protected dispatch header. Document the scheduler ownership, redaction/retry settings, and run a production smoke for a verified recipient without exposing secrets.
+  Status: Next
+  Rationale: Production smoke proved notification email grouping works only when the protected dispatcher is invoked manually. Vercel will remain on the Hobby plan, so Vercel Cron cannot provide the sub-hour cadence required by TASK-227 notification email debounce/max-delay behavior. Provision an Upstash QStash Schedule, or an equivalent managed HTTP scheduler with retries and visibility, to invoke `GET /api/cron/notification-emails` every 5 minutes with the protected dispatch header. Document scheduler ownership, redaction/retry settings, and run a production smoke proving due groups are sent automatically without exposing secrets.
   Dependencies: TASK-125, TASK-227
+- ID: TASK-265
+  Title: Notification actor attribution and self-notification rules
+  Status: Next
+  Rationale: Production email smoke confirmed the digest shape, but agent-authored assignment/mention copy can read as if the human account performed the action (for example `dorian1 assigned you...`) because agent API actions currently reuse the credential owner's actor identity. Tighten notification metadata and email/in-app copy so agent activity is attributed to the agent/system, human activity is attributed to the human actor, and self-notifications are consistently suppressed for human self-assignment/self-mention while remaining allowed for genuine agent-to-user activity.
+  Dependencies: TASK-123, TASK-124, TASK-127, TASK-227, TASK-260
 - ID: TASK-226
   Title: Task due-date email reminders - 3-day deadline warning delivery
-  Status: Pending (promoted after TASK-125 merged via PR #243)
+  Status: Pending (after TASK-228 scheduler activation)
   Rationale: Send task reminder emails when assigned or owned work is three days from its due date, with idempotent delivery tracking and anti-spam semantics so each reminder fires predictably once per task/user deadline window rather than repeating on every app visit.
-  Dependencies: TASK-101, TASK-125, TASK-063
+  Dependencies: TASK-101, TASK-125, TASK-063, TASK-228
+- ID: TASK-266
+  Title: Production pg query deprecation warning cleanup
+  Status: Pending
+  Rationale: Production smoke logs repeatedly show `Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0` on task creation and notification-email dispatch paths. Identify the Prisma/Postgres adapter or service flow causing overlapping client queries, fix it without weakening transaction/RLS behavior, and validate that production smoke no longer emits the warning.
+  Dependencies: TASK-258, TASK-259
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
   Status: Pending (promoted 2026-05-04; PR #224 partial fix merged)
@@ -154,6 +139,31 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-260
+  Title: Email-only notification digests - keep in-app notifications atomic
+  Status: Done (2026-05-16, merged via PR #262)
+  Rationale: Production smoke confirmed email grouping works, but in-app notification awareness must not present several unread items as one grouped notification. Kept one in-app notification per action/artifact while leaving recipient/project email digest grouping, debounce, and max-delay behavior in the email orchestration layer.
+  Dependencies: TASK-123, TASK-125, TASK-227
+- ID: TASK-259
+  Title: Production DB project-ref guardrails - prevent runtime/database environment drift
+  Status: Done (2026-05-16, merged via PR #261)
+  Rationale: Added fail-fast validation and runbook guidance so `DATABASE_URL`, `DIRECT_URL`, and `SUPABASE_URL` cannot silently drift across Supabase project refs in production after a runtime database target incident.
+  Dependencies: TASK-258
+- ID: TASK-258
+  Title: Production DB session pool exhaustion - serverless-safe Supabase runtime pooling
+  Status: Done (2026-05-15, merged via PR #259)
+  Rationale: Hardened the runtime env contract and validation so Vercel/serverless runtime traffic uses the Supabase transaction pooler while direct migration/admin traffic stays on the direct endpoint.
+  Dependencies: TASK-022, TASK-125, TASK-227
+- ID: TASK-227
+  Title: Production-grade notification email orchestration - debounce, grouping, and scheduler refactor
+  Status: Done (2026-05-14, merged via PR #254)
+  Rationale: Refactored project notification email dispatch into durable recipient/project grouped orchestration with debounce, max-delay, concurrency-safe claims, idempotent delivery recording, protected dispatch endpoint, and invitation reminder support. Production scheduler activation remains tracked by TASK-228.
+  Dependencies: TASK-123, TASK-125, TASK-225
+- ID: TASK-225
+  Title: Project notification email digests - grouped, rate-limited outbound summaries
+  Status: Done (2026-05-12, merged via PR #246)
+  Rationale: Extended the notification center foundation with project-grouped outbound email digest support; TASK-227 replaced the initial workaround-shaped scheduling/orchestration path with production-grade dispatch semantics.
+  Dependencies: TASK-123, TASK-125
 - ID: TASK-104
   Title: Invite email delivery - app-managed sending for project collaboration invites
   Status: Done (2026-05-07, PR #245 open)

@@ -1,52 +1,45 @@
-# Current Task: TASK-263 Real-Time Notification Updates
+# Current Task: TASK-264 Notification Backlog Cleanup
 
 ## Task ID
-TASK-263
+TASK-264
 
 ## Status
-Backlog captured on dedicated worktree `../nexus_dash_task263` and branch
-`feature/task-263-realtime-notification-updates`.
+In progress on dedicated worktree `../nexus_dash_task264` and branch
+`feature/task-264-notification-backlog-cleanup`.
 
 ## Source
-- Follow-up after PR #262 made in-app notifications atomic and kept grouped
-  digest behavior email-only.
-- User confirmed that instant push-style updates are a separate architecture
-  concern from the email digest feature.
-- Existing related task: TASK-118 covers broader realtime project refresh.
+- Post-smoke planning after PR #262 and PR #263 merged.
+- User feedback: `TASK-228` was hard to see from the active checkout, and the
+  backlog should make the next notification path explicit.
+- Production smoke result: grouped notification email delivery works when the
+  dispatcher runs, but QStash/managed scheduler activation is not live.
 
 ## Objective
-Capture a dedicated notification realtime task that can update the notification
-center, unread counts, and in-app awareness banner without navigation/manual
-refresh, while reusing or aligning with the broader TASK-118 realtime
-transport decision.
-
-## Product Decision
-In-app notifications should remain atomic rows: one notification per
-assignment, mention, invitation, or future notification-producing action.
-Realtime delivery, if implemented, changes how quickly those rows appear in
-the UI; it must not turn the in-app notification center into an email-style
-digest.
-
-Email remains the grouped/debounced channel.
+Clean the backlog so `main` clearly shows the next notification/email work:
+QStash scheduler activation, notification actor attribution/self-notification
+rules, due-date reminder sequencing, and the production `pg@9` deprecation
+warning follow-up.
 
 ## Acceptance Criteria
-1. `tasks/backlog.md` contains a notification-specific realtime task.
-2. The new task is explicitly related to TASK-118 so the app does not grow two
-   independent realtime architectures.
-3. TASK-260 is marked complete now that PR #262 has merged.
-4. The task scope distinguishes live in-app updates from email digest grouping.
+1. Completed notification/deployment tasks are moved out of the active
+   execution queue.
+2. `TASK-228` is visible as the next scheduler activation task.
+3. A new task captures notification actor attribution and self-notification
+   rules.
+4. The due-date reminder task is sequenced after scheduler activation.
+5. The production `pg@9` warning observed during smoke validation is tracked.
 
 ## Definition Of Done
 - `tasks/backlog.md`, `tasks/current.md`, and `journal.md` are updated.
-- Validation is limited to docs/task tracking inspection because no app code is
-  changed.
-- A ready-for-review PR is opened for the tracking update.
+- Validation is limited to Markdown/task consistency because this is a
+  docs-only cleanup.
+- A ready-for-review PR is opened and checks/Copilot review are monitored.
 
 ## Validation Plan
 - `git diff --check`
-- Review the changed Markdown for task consistency.
+- Review changed Markdown for duplicate task IDs and execution queue order.
 
 ## Out Of Scope
-- Implementing SSE/WebSocket/polling.
-- Changing notification or email digest runtime behavior.
-- Changing scheduler provisioning or smoke-test procedure.
+- Implementing QStash.
+- Changing notification/email runtime behavior.
+- Fixing `pg@9` deprecation warnings.
