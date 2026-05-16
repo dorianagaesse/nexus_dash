@@ -6,7 +6,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 ### Execution Queue (Now / Next)
 - ID: TASK-260
   Title: Email-only notification digests - keep in-app notifications atomic
-  Status: In progress
+  Status: Done via PR #262
   Rationale: Production smoke confirmed email grouping works, but in-app notification awareness must not present several unread items as one grouped notification. Keep one in-app notification per action/artifact while leaving recipient/project email digest grouping, debounce, and max-delay behavior in the email orchestration layer.
   Dependencies: TASK-123, TASK-125, TASK-227
 - ID: TASK-259
@@ -78,8 +78,13 @@ Use this file to capture tasks discovered during development. Each entry should 
 - ID: TASK-118
   Title: Real-time collaboration updates - live project refresh for multi-user work
   Status: Pending
-  Rationale: Reduce stale state and manual-refresh friction during shared project work by propagating task, context-card, and related project mutations live across active collaborators, with explicit decisions around subscriptions, optimistic UI, and conflict handling.
+  Rationale: Reduce stale state and manual-refresh friction during shared project work by propagating task, context-card, and related project mutations live across active collaborators, with explicit decisions around subscriptions, optimistic UI, and conflict handling. This should choose the app-wide realtime transport/pattern that notification-specific live updates can reuse.
   Dependencies: TASK-058, TASK-076, TASK-103
+- ID: TASK-263
+  Title: Real-time notification updates - live in-app inbox, counts, and awareness
+  Status: Pending
+  Rationale: Make notification-center rows, unread counts, and the in-app awareness banner update without requiring navigation or manual refresh when assignments, mentions, invitations, or future notification producers create new atomic `Notification` rows. Keep email digest batching fully separate: in-app remains one notification per action/artifact, while email remains the grouped/debounced channel. This task should reuse or align with the broader TASK-118 realtime transport decision rather than introduce a parallel realtime stack.
+  Dependencies: TASK-118, TASK-123, TASK-260
 - ID: TASK-119
   Title: Project collaboration presence UX - member avatars on project pages
   Status: Pending
