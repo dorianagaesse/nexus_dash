@@ -33,18 +33,13 @@ export async function NotificationAwarenessBanner({
     return null;
   }
 
-  const firstNotification = unreadNotifications[0];
-  const extraCount = unreadNotifications.length - 1;
-  const message =
-    extraCount > 0
-      ? `${firstNotification.title} +${extraCount} more unread notification${extraCount === 1 ? "" : "s"}.`
-      : firstNotification.title;
+  const latestNotification = unreadNotifications[0];
 
   return (
     <AutoDismissingAlert
       message={
         <>
-          {message}{" "}
+          {latestNotification.title}{" "}
           <Link
             href="/account/notifications"
             className="font-medium underline underline-offset-4"
