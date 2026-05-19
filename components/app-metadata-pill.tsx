@@ -36,7 +36,12 @@ export function AppMetadataPill() {
         <ArrowUpRight className="h-3 w-3" aria-hidden />
       </Link>
       <span className="rounded-full border border-border/70 bg-muted/70 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-        {metadata.versionLabel}
+        <span
+          title={metadata.diagnosticLabel}
+          aria-label={metadata.diagnosticLabel}
+        >
+          {metadata.versionLabel}
+        </span>
       </span>
     </div>
   );

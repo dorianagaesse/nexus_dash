@@ -24,6 +24,29 @@ Optional but bounded:
 
 - `AGENT_ACCESS_TOKEN_TTL_SECONDS` (`300-900`, default `600`)
 
+## App Metadata
+
+The app displays a clean product version such as `v0.2.0`. The commit SHA is
+not appended to that visible version; it is kept as diagnostic metadata for
+operators.
+
+Source of truth:
+
+- `package.json` is the canonical product-version source.
+- `APP_VERSION` is an environment override. GitHub/Vercel deploy workflows set
+  it from the checked-out `package.json` before deploy.
+- `COMMIT_SHA` identifies the deployed revision. GitHub/Vercel deploy workflows
+  set it from `git rev-parse HEAD`.
+- `APP_ENV` identifies the deployed app environment (`preview` or
+  `production` in the deploy workflow).
+- `APP_REPOSITORY_URL` points metadata links at the repository and is injected
+  by the deploy workflow.
+
+Operators normally do not need to configure these metadata variables manually
+in Vercel. If `APP_VERSION` is set by hand, it must match the intended release
+version from source control rather than a dependency-update or deployment
+attempt number.
+
 ## Database Runtime
 
 Required for Vercel runtime/deployments:

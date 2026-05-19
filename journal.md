@@ -12,6 +12,18 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-05-19
+- Type: Execution
+- Summary: TASK-132 implemented production-grade app version metadata.
+- Evidence: Bumped `package.json`/`package-lock.json` to `0.2.0`; changed
+  `lib/app-metadata.ts` so the visible app label is the clean product version
+  while revision/environment remain diagnostic metadata; updated
+  `components/app-metadata-pill.tsx`, Vercel deploy metadata injection,
+  `.env.example`, README, and the Vercel env runbook. Validation passed with
+  focused metadata tests, lint, full Vitest, coverage, production build, and
+  `git diff --check`; DB-backed tests used a temporary PostgreSQL 16 instance
+  on port `55432` because Docker was not running.
+
 ### 2026-05-16
 - Type: Planning
 - Summary: TASK-267 drafted dedicated handoff briefs for the next notification/email tasks.
