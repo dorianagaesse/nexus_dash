@@ -1,10 +1,14 @@
-name: Notification Email Dispatch Diagnostic
+name: Notification Email Dispatch Scheduler
 
 on:
+  schedule:
+    # Temporary production bridge while Vercel remains on Hobby and QStash is not
+    # in use. Run away from the top of the hour to reduce GitHub schedule delay.
+    - cron: "17 */3 * * *"
   workflow_dispatch:
     inputs:
       target_url:
-        description: "Optional app origin override, for example a preview URL"
+        description: "Optional app origin override, for example a preview URL. Scheduled runs default to production."
         required: false
         type: string
 
@@ -17,12 +21,12 @@ concurrency:
 
 jobs:
   dispatch:
-    name: Dispatch notification emails manually
+    name: Dispatch notification emails
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 5
     env:
-      DISPATCH_URL: ${{ inputs.target_url || vars.NOTIFICATION_EMAIL_DISPATCH_URL }}
+      DISPATCH_URL: ${{ github.event.inputs.target_url || vars.NOTIFICATION_EMAIL_DISPATCH_URL || 'https://nexus-dash.app' }}
       DISPATCH_SECRET: ${{ secrets.NOTIFICATION_EMAIL_DISPATCH_SECRET || secrets.CRON_SECRET }}
 
     steps:
@@ -30,11 +34,11 @@ jobs:
         run: |
           missing=0
           if [ -z "$DISPATCH_URL" ]; then
-            echo "::error::Missing repository variable NOTIFICATION_EMAIL_DISPATCH_URL."
+            echo "::error::Missing notification email dispatch target URL."
             missing=1
           fi
           if [ -z "$DISPATCH_SECRET" ]; then
-            echo "::error::Missing repository secret NOTIFICATION_EMAIL_DISPATCH_SECRET or CRON_SECRET."
+            echo "::error::Missing GitHub secret NOTIFICATION_EMAIL_DISPATCH_SECRET or CRON_SECRET."
             missing=1
           fi
           if [ "$missing" -eq 1 ]; then
@@ -44,6 +48,28 @@ jobs:
       - name: Call notification email dispatcher
         run: |
           dispatch_origin="${DISPATCH_URL%/}"
-          curl --fail-with-body --silent --show-error --max-time 120 \
+          set +e
+          response="$(curl --fail-with-body --silent --show-error --max-time 120 \
             --header "x-notification-email-dispatch-secret: $DISPATCH_SECRET" \
-            "$dispatch_origin/api/cron/notification-emails"
+            "$dispatch_origin/api/cron/notification-emails" 2>&1)"
+          curl_status=$?
+          set -e
+
+          echo "$response"
+          {
+            echo "## Notification Email Dispatch"
+            echo
+            echo "- Trigger: \`${{ github.event_name }}\`"
+            echo "- Target origin: \`$dispatch_origin\`"
+            echo "- Curl exit code: \`$curl_status\`"
+            echo "- Response/output:"
+            echo
+            echo '```text'
+            echo "$response"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$curl_status" -ne 0 ]; then
+            echo "::error::Notification email dispatch failed with curl exit code $curl_status."
+            exit "$curl_status"
+          fi

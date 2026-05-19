@@ -161,6 +161,6 @@ Manual smoke after production deploy:
 ## Out Of Scope
 
 - Adding instant push/SSE/WebSocket updates; that is TASK-263.
-- Changing scheduler activation; that is TASK-228.
+- Changing scheduler activation; that is TASK-268.
 - Implementing due-date reminder business logic; that is TASK-226.
 - Redesigning the notification center UI beyond copy required for attribution.

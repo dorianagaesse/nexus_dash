@@ -8,7 +8,7 @@ Branch: `feature/task-226-task-due-date-email-reminders`
 Implement task due-date reminder business logic so users receive a predictable
 email reminder when assigned or owned work is three days from its due date.
 
-This task should start only after TASK-228 has activated a production scheduler.
+This task should start only after TASK-268 has activated a production scheduler.
 The reminder logic should reuse the production-grade outbound email and
 notification email orchestration foundations instead of inventing a separate
 cron-only path.
@@ -34,7 +34,7 @@ Default product rule:
 - Existing task APIs expose `deadlineDate`.
 - TASK-227 added notification email orchestration with durable grouping,
   debounce, idempotent delivery recording, and a protected dispatcher.
-- TASK-228 owns the production scheduler needed to call the dispatcher
+- TASK-268 owns the production scheduler needed to call the dispatcher
   automatically.
 - The in-app notification center should remain the durable source of truth for
   notification email delivery unless this task deliberately documents and
@@ -111,7 +111,7 @@ Record the decisions in `tasks/current.md` and `journal.md` before coding.
 
 ## Implementation Guidance
 
-1. Start from TASK-228's scheduler reality. Do not build a second unrelated
+1. Start from TASK-268's scheduler reality. Do not build a second unrelated
    scheduler.
 2. Add task reminder notification type and metadata mapping in the service
    layer.
@@ -177,7 +177,7 @@ Production smoke after merge/deploy:
 
 ## Out Of Scope
 
-- Scheduler provisioning; that is TASK-228.
+- Scheduler provisioning; that is TASK-268.
 - Actor attribution/self-notification cleanup; that is TASK-265.
 - Instant in-app push delivery; that is TASK-263.
 - Reminder preference UI or unsubscribe/suppression preferences unless required

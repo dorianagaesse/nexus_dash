@@ -12,6 +12,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-05-19
+- Type: Planning
+- Summary: TASK-268 replaced the QStash scheduler path with a GitHub Actions production bridge.
+- Evidence: User validated moving on without QStash because Upstash account/token setup was too fragile for the current stage. Added TASK-268, superseded active TASK-228, scheduled `.github/workflows/notification-email-dispatch.yml` every 3 hours, and documented that this bridge preserves durable/idempotent dispatch but no longer promises one-hour notification email delivery.
+
 ### 2026-05-16
 - Type: Planning
 - Summary: TASK-267 drafted dedicated handoff briefs for the next notification/email tasks.
