@@ -91,16 +91,25 @@ the invitation notification.
 
 Scheduler decision:
 
-- Preferred production path: Vercel Cron every 10-15 minutes on a plan that
-  supports sub-hour cron cadence. Vercel Cron invokes production deployments
-  only; it does not run on preview deployments.
-- Current blocker: the present Hobby-plan deployment cannot use the required
-  Vercel Cron cadence because Hobby cron is daily-only.
-- Production alternative while staying on Hobby: configure a managed HTTP
-  scheduler with retries/visibility, such as Upstash QStash Schedule, to call
-  the same endpoint with `x-notification-email-dispatch-secret`.
-- GitHub Actions dispatch is manual diagnostic tooling only; it must not be the
-  primary production scheduler for notification email delivery.
+- Current production bridge: GitHub Actions invokes this endpoint every 3 hours
+  through `.github/workflows/notification-email-dispatch.yml`.
+- This bridge uses the existing durable app queue, protected endpoint, and
+  idempotent dispatcher. It intentionally does not satisfy the original
+  one-hour max-delay delivery target; expected delivery is periodic, usually
+  within one scheduler cadence plus GitHub Actions scheduling delay.
+- Manual GitHub Actions dispatch remains available for preview validation and
+  diagnostics by overriding the target URL.
+- Future preferred path: Vercel Cron or a managed HTTP scheduler with
+  retries/visibility on a cadence that satisfies the product delivery target.
+
+GitHub Actions dispatch requirements:
+
+- The workflow needs `NOTIFICATION_EMAIL_DISPATCH_SECRET` or legacy
+  `CRON_SECRET` as a GitHub secret.
+- `NOTIFICATION_EMAIL_DISPATCH_URL` is optional; when unset, scheduled runs
+  default to `https://nexus-dash.app`.
+- If the workflow uses the GitHub `production` environment for secrets, that
+  environment must allow scheduled jobs to run without manual approval.
 
 Preview deployments can be validated by invoking the endpoint directly with the
 same dispatch secret. A live email smoke additionally needs

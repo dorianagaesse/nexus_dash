@@ -1,49 +1,53 @@
-# Current Task: TASK-267 Notification Task Briefs
+# Current Task: TASK-268 GitHub Actions Notification Email Scheduler
 
 ## Task ID
-TASK-267
+TASK-268
 
 ## Status
-In progress on dedicated worktree `../nexus_dash_task267` and branch
-`docs/task-267-notification-task-briefs`.
+In progress on dedicated worktree `../nexus_dash_task268` and branch
+`feature/task-268-github-actions-notification-email-scheduler`.
 
 ## Source
-- User request to draft dedicated task `.md` briefs for TASK-228, TASK-265, and
-  TASK-226 so a future agent session can take over cleanly.
-- Existing backlog sequence after PR #264: scheduler activation first, actor
-  attribution/self-notification next, then due-date reminders after scheduler
-  activation.
+- User decision on 2026-05-19 to abandon QStash for now because the account and
+  token setup created too much operational friction.
+- Vercel remains on Hobby, so Vercel Cron cannot provide sub-day cadence.
+- Existing notification email dispatcher is durable, protected, idempotent, and
+  already production-smoked through manual invocation.
 
 ## Objective
-Create dedicated task handoff documents for the next notification/email work:
-QStash scheduler activation, notification actor attribution and
-self-notification rules, and task due-date email reminders.
+Replace the pending QStash scheduler path with a clean GitHub Actions scheduled
+dispatch bridge that invokes the production notification email dispatcher every
+3 hours and documents the delivery caveat honestly.
 
 ## Acceptance Criteria
-1. `tasks/task-228-qstash-notification-email-scheduler-activation.md` captures
-   scheduler intent, endpoint contract, acceptance criteria, and smoke plan.
-2. `tasks/task-265-notification-actor-attribution-and-self-notification-rules.md`
-   captures actor attribution and self-notification behavior in enough detail
-   for implementation.
-3. `tasks/task-226-task-due-date-email-reminders.md` captures due-date reminder
-   product rules, sequencing after scheduler activation, and validation plan.
-4. `tasks/backlog.md` links each backlog item to its dedicated task brief.
-5. `journal.md` records the documentation handoff.
+1. `.github/workflows/notification-email-dispatch.yml` has a scheduled trigger
+   running every 3 hours and retains manual dispatch.
+2. Scheduled runs default to `https://nexus-dash.app`; manual runs can override
+   the target URL.
+3. The workflow uses the existing protected header and does not log secret
+   values.
+4. `tasks/backlog.md` replaces active TASK-228 QStash work with TASK-268 and
+   keeps TASK-226 sequenced after scheduler activation.
+5. README, project docs, runbook, task briefs, and journal reflect GitHub
+   Actions as the accepted temporary production scheduler bridge.
+6. The documentation clearly states that the 3-hour cadence does not satisfy the
+   original one-hour maximum-delay goal.
 
 ## Definition Of Done
-- Work remains documentation-only.
+- Work remains focused on scheduler workflow and documentation cleanup.
 - The branch is pushed and a PR is opened for review.
-- Validation confirms Markdown/task consistency.
+- Validation confirms workflow/docs consistency.
 - Copilot review and checks are monitored.
 
 ## Validation Plan
 - `git diff --check`
-- Review the three task files for actionable startup context, acceptance
-  criteria, validation plans, and explicit out-of-scope boundaries.
-- Review `tasks/backlog.md` links to the new briefs.
+- Review `.github/workflows/notification-email-dispatch.yml` trigger, default
+  target, secret handling, and manual override behavior.
+- Review changed Markdown for stale active QStash instructions.
+- Let GitHub PR checks run.
 
 ## Out Of Scope
 - Implementing QStash.
-- Changing notification/email runtime behavior.
+- Changing notification grouping/debounce runtime behavior.
 - Implementing actor attribution behavior.
 - Implementing due-date reminders.

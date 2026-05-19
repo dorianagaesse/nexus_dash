@@ -4,12 +4,12 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-228
-  Title: QStash notification email scheduler activation - production cadence and smoke validation
+- ID: TASK-268
+  Title: GitHub Actions notification email scheduler - 3-hour production bridge
   Status: Next
-  Rationale: Production smoke proved notification email grouping works only when the protected dispatcher is invoked manually. Vercel will remain on the Hobby plan, so Vercel Cron cannot provide the sub-hour cadence required by TASK-227 notification email debounce/max-delay behavior. Provision an Upstash QStash Schedule, or an equivalent managed HTTP scheduler with retries and visibility, to invoke `GET /api/cron/notification-emails` every 5 minutes with the protected dispatch header. Document scheduler ownership, redaction/retry settings, and run a production smoke proving due groups are sent automatically without exposing secrets.
+  Rationale: QStash activation created too much operational friction for the current stage, and Vercel remains on Hobby where Vercel Cron is daily-only. Use the existing protected GitHub Actions dispatcher as a temporary production scheduler bridge every 3 hours, keeping the app-owned durable queue/idempotency guarantees while explicitly downgrading the email delivery promise from sub-hour to periodic digest delivery.
   Dependencies: TASK-125, TASK-227
-  Brief: `tasks/task-228-qstash-notification-email-scheduler-activation.md`
+  Brief: `tasks/task-268-github-actions-notification-email-scheduler.md`
 - ID: TASK-265
   Title: Notification actor attribution and self-notification rules
   Status: Next
@@ -18,9 +18,9 @@ Use this file to capture tasks discovered during development. Each entry should 
   Brief: `tasks/task-265-notification-actor-attribution-and-self-notification-rules.md`
 - ID: TASK-226
   Title: Task due-date email reminders - 3-day deadline warning delivery
-  Status: Pending (after TASK-228 scheduler activation)
+  Status: Pending (after TASK-268 scheduler activation)
   Rationale: Send task reminder emails when assigned or owned work is three days from its due date, with idempotent delivery tracking and anti-spam semantics so each reminder fires predictably once per task/user deadline window rather than repeating on every app visit.
-  Dependencies: TASK-101, TASK-125, TASK-063, TASK-228
+  Dependencies: TASK-101, TASK-125, TASK-063, TASK-268
   Brief: `tasks/task-226-task-due-date-email-reminders.md`
 - ID: TASK-266
   Title: Production pg query deprecation warning cleanup
@@ -142,6 +142,16 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-228
+  Title: QStash notification email scheduler activation - production cadence and smoke validation
+  Status: Superseded (2026-05-19, replaced by TASK-268)
+  Rationale: QStash stayed a valid managed-scheduler option, but the account/token setup created too much operational friction for the current stage. The active production scheduler path moved to the GitHub Actions 3-hour bridge in TASK-268.
+  Dependencies: TASK-125, TASK-227
+- ID: TASK-267
+  Title: Notification task handoff briefs
+  Status: Done (2026-05-17, merged via PR #265)
+  Rationale: Added dedicated handoff briefs for TASK-228, TASK-265, and TASK-226 so future sessions can start from explicit product intent, architecture boundaries, acceptance criteria, and validation plans.
+  Dependencies: TASK-228, TASK-265, TASK-226
 - ID: TASK-260
   Title: Email-only notification digests - keep in-app notifications atomic
   Status: Done (2026-05-16, merged via PR #262)
@@ -160,7 +170,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 - ID: TASK-227
   Title: Production-grade notification email orchestration - debounce, grouping, and scheduler refactor
   Status: Done (2026-05-14, merged via PR #254)
-  Rationale: Refactored project notification email dispatch into durable recipient/project grouped orchestration with debounce, max-delay, concurrency-safe claims, idempotent delivery recording, protected dispatch endpoint, and invitation reminder support. Production scheduler activation remains tracked by TASK-228.
+  Rationale: Refactored project notification email dispatch into durable recipient/project grouped orchestration with debounce, max-delay, concurrency-safe claims, idempotent delivery recording, protected dispatch endpoint, and invitation reminder support. Production scheduler activation is currently tracked by TASK-268 after TASK-228 was superseded.
   Dependencies: TASK-123, TASK-125, TASK-225
 - ID: TASK-225
   Title: Project notification email digests - grouped, rate-limited outbound summaries
