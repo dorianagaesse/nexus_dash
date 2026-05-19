@@ -333,17 +333,16 @@ marks notifications read or resolved.
 
 Production scheduler decision:
 
-- Preferred: Vercel Cron invoking this endpoint every 10-15 minutes on a plan
-  that supports sub-hour cron cadence. Vercel Cron invokes production
-  deployments only; preview validation must invoke the endpoint manually.
-- Current Hobby-plan blocker: Vercel Hobby cron is limited to daily schedules,
-  so it cannot satisfy the 60-minute max-delay requirement.
-- Hobby-compatible production alternative: use a managed HTTP scheduler with
-  retries/visibility, such as Upstash QStash Schedule, to call the same endpoint
-  with `x-notification-email-dispatch-secret`.
-
-`.github/workflows/notification-email-dispatch.yml` is manual-only diagnostic
-tooling for operators. It is not the production scheduler.
+- Current production bridge: GitHub Actions invokes this endpoint every 3 hours
+  through `.github/workflows/notification-email-dispatch.yml`.
+- This is an accepted early-production tradeoff while Vercel remains on Hobby
+  and no managed scheduler is in use. It preserves durable app-owned queueing
+  and idempotent dispatch, but it does not satisfy the original one-hour
+  max-delay delivery target.
+- Manual workflow dispatch remains available for preview validation and
+  diagnostics by overriding the target URL.
+- Future preferred path: Vercel Cron or a managed HTTP scheduler with
+  retries/visibility on a cadence that satisfies the product delivery target.
 
 ## CI/CD
 
@@ -354,7 +353,8 @@ tooling for operators. It is not the production scheduler.
 - `Container Image (build + metadata artifact)`
 - `Check Branch Name` (PR branch naming contract)
 - `Dependency Security` (scheduled + manual `npm audit` baseline with artifacts)
-- `Notification Email Dispatch Diagnostic` (manual protected dispatch call)
+- `Notification Email Dispatch Scheduler` (scheduled + manual protected
+  dispatch call)
 
 Branch-name note:
 - human-authored PR branches must use `feature/*`, `fix/*`, `refactor/*`,
@@ -403,6 +403,8 @@ Required GitHub secrets:
 - `VERCEL_TOKEN`
 - `VERCEL_ORG_ID`
 - `VERCEL_PROJECT_ID`
+- `NOTIFICATION_EMAIL_DISPATCH_SECRET` or `CRON_SECRET` for scheduled/manual
+  notification email dispatch
 - `DATABASE_URL` (runtime connection; Supabase transaction pooler on port `6543`)
 - `DIRECT_URL` (direct database connection; Supabase direct host on port `5432`)
 - `MIGRATION_DATABASE_URL` (admin-capable migration connection; must not be the runtime `DATABASE_URL`)

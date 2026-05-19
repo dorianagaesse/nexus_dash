@@ -4,8 +4,8 @@
 TASK-132
 
 ## Status
-Implemented locally on branch `feature/task-132-version-update-system`;
-PR #270 opened; preview deploy blocked by existing preview database env shape.
+Implemented on branch `feature/task-132-version-update-system`; PR #270 is open
+and refreshed after current `main` moved forward.
 
 ## Source
 - `tasks/backlog.md` pending entry:
@@ -31,18 +31,19 @@ deploys, and future API/agent-facing surfaces should have a documented source
 of truth for build and release metadata.
 
 ## Current Baseline
-- `package.json` is fixed at `0.1.0`; `lib/app-metadata.ts` falls back to that
-  value when `APP_VERSION` or `NEXT_PUBLIC_APP_VERSION` is absent.
-- Runtime revision labels come from `VERCEL_GIT_COMMIT_SHA`, `GITHUB_SHA`, or
+- `package.json` was fixed at `0.1.0`; `lib/app-metadata.ts` fell back to that
+  value when `APP_VERSION` or `NEXT_PUBLIC_APP_VERSION` was absent.
+- Runtime revision labels came from `VERCEL_GIT_COMMIT_SHA`, `GITHUB_SHA`, or
   `COMMIT_SHA`, shortened to seven characters.
-- The metadata pill always renders in top-right controls and links to the
-  repository, but README only documents `APP_VERSION` and `APP_REPOSITORY_URL`
-  in `.env.example`, not the release/version operating model.
-- Vercel deploy workflows do not explicitly inject `APP_VERSION` or
-  `COMMIT_SHA`; production and preview version labels therefore depend on
+- The metadata pill always rendered in top-right controls and linked to the
+  repository, but README only documented `APP_VERSION` and
+  `APP_REPOSITORY_URL` in `.env.example`, not the release/version operating
+  model.
+- Vercel deploy workflows did not explicitly inject `APP_VERSION` or
+  `COMMIT_SHA`; production and preview version labels therefore depended on
   ambient Vercel/GitHub variables and the unchanged package version.
 - Dependabot maintenance has a separate operating model, but dependency-update
-  cadence and release/version communication are not tied together in docs.
+  cadence and release/version communication were not tied together in docs.
 
 ## Scope
 - Audit the current metadata implementation and decide the source of truth for:
@@ -58,17 +59,6 @@ of truth for build and release metadata.
   product releases, and how to validate the running version after deploy.
 - Add or update tests around metadata normalization, fallback order, and any
   newly exposed metadata contract.
-
-## Likely Touchpoints
-- `lib/app-metadata.ts`
-- `components/app-metadata-pill.tsx`
-- `tests/lib/app-metadata.test.ts`
-- `.github/workflows/deploy-vercel.yml`
-- `.env.example`
-- `README.md`
-- `docs/runbooks/vercel-env-contract-and-secrets.md`
-- `tasks/backlog.md`
-- `journal.md`
 
 ## Acceptance Criteria
 1. Runtime metadata has an explicit source-of-truth order for version,
@@ -111,25 +101,36 @@ of truth for build and release metadata.
   runbook.
 
 ## Validation Plan
-- `npm test -- --run tests/lib/app-metadata.test.ts` - passed
-- `npm run lint` - passed
-- `npm test` - passed with local temporary PostgreSQL on port `55432`
-- `npm run test:coverage` - passed with local temporary PostgreSQL on port
-  `55432`
-- `npm run build` - passed after `npx prisma generate` refreshed the local
-  Prisma client
-- `git diff --check` - passed
-- Preview workflow run `26104594474` used the branch workflow ref
+- `npm test -- --run tests/lib/app-metadata.test.ts`
+- `npm run lint`
+- `npm test`
+- `npm run test:coverage`
+- `npm run build`
+- `git diff --check`
+- Preview workflow validation with explicit branch `git_ref` when environment
+  configuration allows preview build to complete.
+
+## Validation Evidence
+- 2026-05-19 refresh after merging current `origin/main`:
+  `npm test -- --run tests/lib/app-metadata.test.ts` passed (8 tests);
+  `npm run lint` passed; local PostgreSQL `NODE_ENV=test npm test` passed
+  (108 files passed, 2 skipped; 815 tests passed, 2 skipped);
+  `npm run test:coverage` passed with 91.23% statements, 81.2% branches,
+  93.42% functions, and 91.75% lines; `npm run build` passed with safe local
+  production-like env values; `git diff --check` passed.
+- Earlier PR #270 CI passed before `main` moved forward:
+  `check-name`, `Quality Core`, `E2E Smoke`, and `Container Image`.
+- Branch-scoped preview workflow run `26104594474` used workflow ref
   `feature/task-132-version-update-system` and checked out
   `origin/feature/task-132-version-update-system` at commit `f197129`.
-  Later commits only refresh validation/tracking documentation.
-- Run `26104594474` proved the new metadata resolution step produced
-  `APP_VERSION=0.2.0`, `APP_ENV=preview`, `COMMIT_SHA=f1971290c4909284e2a9f00fccb4dc52b816b892`,
-  and `APP_REPOSITORY_URL=https://github.com/dorianagaesse/nexus_dash`.
-- Preview deployment did not complete because the pulled Vercel preview
-  `DATABASE_URL` still uses the Supabase session-pooler port `5432`; the
-  existing production runtime guard correctly rejects that shape and requires
-  the transaction pooler port `6543`.
+- That run proved the new metadata resolution step produced
+  `APP_VERSION=0.2.0`, `APP_ENV=preview`,
+  `COMMIT_SHA=f1971290c4909284e2a9f00fccb4dc52b816b892`, and
+  `APP_REPOSITORY_URL=https://github.com/dorianagaesse/nexus_dash`.
+- Preview deployment did not complete because the pulled Vercel Preview
+  `DATABASE_URL` still used the Supabase session-pooler port `5432`; the
+  existing runtime guard correctly requires transaction-pooler port `6543`.
+  This is an environment configuration blocker, not a TASK-132 code change.
 
 ## Out Of Scope
 - Building a public changelog or release-notes product surface unless required
@@ -139,6 +140,8 @@ of truth for build and release metadata.
 - Introducing public API version negotiation beyond documenting how future
   API/agent surfaces should consume app/release metadata.
 - Changing the staged production promote/rollback strategy from TASK-042.
+- Changing Vercel Preview database secrets; operators must update those
+  directly when preview validation needs to run against Vercel Preview.
 
 ## Decisions
 - `package.json` is the canonical product-version source in git.

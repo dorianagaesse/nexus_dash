@@ -13,6 +13,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-05-19
+- Type: Validation
+- Summary: TASK-132 PR #270 branch refreshed against current `main` and
+  revalidated after PR #271 merged.
+- Evidence: Merged `origin/main` into
+  `feature/task-132-version-update-system`; resolved tracking-doc conflicts;
+  confirmed the preview failure was the Vercel Preview `DATABASE_URL` session
+  pooler on port `5432`, not a TASK-132 code regression; reran focused metadata
+  tests, lint, full Vitest, coverage, production build, and `git diff --check`.
+
+### 2026-05-19
 - Type: Execution
 - Summary: TASK-132 implemented production-grade app version metadata.
 - Evidence: Bumped `package.json`/`package-lock.json` to `0.2.0`; changed
@@ -37,6 +47,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
   deploy failed during Vercel preview build because the pulled preview
   `DATABASE_URL` still uses the Supabase session-pooler port `5432`; the
   existing runtime guard requires transaction-pooler port `6543`.
+
+### 2026-05-19
+- Type: Planning
+- Summary: TASK-268 replaced the QStash scheduler path with a GitHub Actions production bridge.
+- Evidence: User validated moving on without QStash because Upstash account/token setup was too fragile for the current stage. Added TASK-268, superseded active TASK-228, scheduled `.github/workflows/notification-email-dispatch.yml` every 3 hours, and documented that this bridge preserves durable/idempotent dispatch but no longer promises one-hour notification email delivery.
 
 ### 2026-05-16
 - Type: Planning
