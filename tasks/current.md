@@ -5,7 +5,7 @@ TASK-132
 
 ## Status
 Implemented locally on branch `feature/task-132-version-update-system`;
-preview/PR handoff pending.
+PR #270 opened; preview deploy blocked by existing preview database env shape.
 
 ## Source
 - `tasks/backlog.md` pending entry:
@@ -119,10 +119,16 @@ of truth for build and release metadata.
 - `npm run build` - passed after `npx prisma generate` refreshed the local
   Prisma client
 - `git diff --check` - passed
-- If deploy workflow behavior changes:
-  `gh workflow run deploy-vercel.yml -f action=deploy-preview -f git_ref=feature/task-132-version-update-system`,
-  then verify the workflow logs and preview metadata label match the active
-  branch/revision.
+- Preview workflow run `26104298738` used the branch workflow ref
+  `feature/task-132-version-update-system` and checked out
+  `origin/feature/task-132-version-update-system` at commit `282a133`.
+- Run `26104298738` proved the new metadata resolution step produced
+  `APP_VERSION=0.2.0`, `APP_ENV=preview`, `COMMIT_SHA=282a133b0ee986f1012ea4d7e66cbbe9fccf5e93`,
+  and `APP_REPOSITORY_URL=https://github.com/dorianagaesse/nexus_dash`.
+- Preview deployment did not complete because the pulled Vercel preview
+  `DATABASE_URL` still uses the Supabase session-pooler port `5432`; the
+  existing production runtime guard correctly rejects that shape and requires
+  the transaction pooler port `6543`.
 
 ## Out Of Scope
 - Building a public changelog or release-notes product surface unless required

@@ -24,6 +24,19 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `git diff --check`; DB-backed tests used a temporary PostgreSQL 16 instance
   on port `55432` because Docker was not running.
 
+### 2026-05-19
+- Type: Validation
+- Summary: TASK-132 branch-scoped preview workflow reached metadata resolution
+  but was blocked by preview database env configuration.
+- Evidence: Workflow run `26104298738` used workflow ref
+  `feature/task-132-version-update-system`, checked out
+  `origin/feature/task-132-version-update-system`, and resolved
+  `APP_VERSION=0.2.0`, `APP_ENV=preview`, `COMMIT_SHA=282a133b0ee986f1012ea4d7e66cbbe9fccf5e93`,
+  and `APP_REPOSITORY_URL=https://github.com/dorianagaesse/nexus_dash`. The
+  deploy failed during Vercel preview build because the pulled preview
+  `DATABASE_URL` still uses the Supabase session-pooler port `5432`; the
+  existing runtime guard requires transaction-pooler port `6543`.
+
 ### 2026-05-16
 - Type: Planning
 - Summary: TASK-267 drafted dedicated handoff briefs for the next notification/email tasks.

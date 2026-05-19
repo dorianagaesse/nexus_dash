@@ -40,7 +40,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-127, TASK-130, TASK-059
 - ID: TASK-132
   Title: Version update system adjustments - align version metadata, automation, and release communication
-  Status: In progress
+  Status: In review via PR #270
   Rationale: Review and adjust the app's version update system so version metadata, dependency-update cadence, release notes, deployment visibility, and any user-facing update indicators stay consistent across automated maintenance, manual releases, and future API or agent-facing surfaces.
   Dependencies: TASK-041, TASK-042, TASK-116
 - ID: TASK-129
