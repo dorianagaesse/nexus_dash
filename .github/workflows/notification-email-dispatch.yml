@@ -38,7 +38,7 @@ jobs:
             missing=1
           fi
           if [ -z "$DISPATCH_SECRET" ]; then
-            echo "::error::Missing repository secret NOTIFICATION_EMAIL_DISPATCH_SECRET or CRON_SECRET."
+            echo "::error::Missing GitHub secret NOTIFICATION_EMAIL_DISPATCH_SECRET or CRON_SECRET."
             missing=1
           fi
           if [ "$missing" -eq 1 ]; then
@@ -48,18 +48,28 @@ jobs:
       - name: Call notification email dispatcher
         run: |
           dispatch_origin="${DISPATCH_URL%/}"
+          set +e
           response="$(curl --fail-with-body --silent --show-error --max-time 120 \
             --header "x-notification-email-dispatch-secret: $DISPATCH_SECRET" \
-            "$dispatch_origin/api/cron/notification-emails")"
+            "$dispatch_origin/api/cron/notification-emails" 2>&1)"
+          curl_status=$?
+          set -e
+
           echo "$response"
           {
             echo "## Notification Email Dispatch"
             echo
             echo "- Trigger: \`${{ github.event_name }}\`"
             echo "- Target origin: \`$dispatch_origin\`"
-            echo "- Response:"
+            echo "- Curl exit code: \`$curl_status\`"
+            echo "- Response/output:"
             echo
-            echo '```json'
+            echo '```text'
             echo "$response"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$curl_status" -ne 0 ]; then
+            echo "::error::Notification email dispatch failed with curl exit code $curl_status."
+            exit "$curl_status"
+          fi
