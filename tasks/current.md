@@ -119,11 +119,11 @@ of truth for build and release metadata.
 - `npm run build` - passed after `npx prisma generate` refreshed the local
   Prisma client
 - `git diff --check` - passed
-- Preview workflow run `26104298738` used the branch workflow ref
+- Preview workflow run `26104594474` used the branch workflow ref
   `feature/task-132-version-update-system` and checked out
-  `origin/feature/task-132-version-update-system` at commit `282a133`.
-- Run `26104298738` proved the new metadata resolution step produced
-  `APP_VERSION=0.2.0`, `APP_ENV=preview`, `COMMIT_SHA=282a133b0ee986f1012ea4d7e66cbbe9fccf5e93`,
+  `origin/feature/task-132-version-update-system` at commit `f197129`.
+- Run `26104594474` proved the new metadata resolution step produced
+  `APP_VERSION=0.2.0`, `APP_ENV=preview`, `COMMIT_SHA=f1971290c4909284e2a9f00fccb4dc52b816b892`,
   and `APP_REPOSITORY_URL=https://github.com/dorianagaesse/nexus_dash`.
 - Preview deployment did not complete because the pulled Vercel preview
   `DATABASE_URL` still uses the Supabase session-pooler port `5432`; the
