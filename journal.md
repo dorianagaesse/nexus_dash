@@ -30,7 +30,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
   but was blocked by preview database env configuration.
 - Evidence: Workflow run `26104594474` used workflow ref
   `feature/task-132-version-update-system`, checked out
-  `origin/feature/task-132-version-update-system`, and resolved
+  `origin/feature/task-132-version-update-system` at commit `f197129`
+  before later documentation-only tracking updates, and resolved
   `APP_VERSION=0.2.0`, `APP_ENV=preview`, `COMMIT_SHA=f1971290c4909284e2a9f00fccb4dc52b816b892`,
   and `APP_REPOSITORY_URL=https://github.com/dorianagaesse/nexus_dash`. The
   deploy failed during Vercel preview build because the pulled preview

@@ -122,6 +122,7 @@ of truth for build and release metadata.
 - Preview workflow run `26104594474` used the branch workflow ref
   `feature/task-132-version-update-system` and checked out
   `origin/feature/task-132-version-update-system` at commit `f197129`.
+  Later commits only refresh validation/tracking documentation.
 - Run `26104594474` proved the new metadata resolution step produced
   `APP_VERSION=0.2.0`, `APP_ENV=preview`, `COMMIT_SHA=f1971290c4909284e2a9f00fccb4dc52b816b892`,
   and `APP_REPOSITORY_URL=https://github.com/dorianagaesse/nexus_dash`.
