@@ -68,6 +68,8 @@ describe("app-metadata", () => {
 
   test("strips build metadata from the visible version", () => {
     process.env.APP_VERSION = "v2.4.1+preview.5";
+    delete process.env.VERCEL_GIT_COMMIT_SHA;
+    delete process.env.GITHUB_SHA;
     process.env.COMMIT_SHA = "1234567890";
 
     const summary = getAppMetadataSummary();
