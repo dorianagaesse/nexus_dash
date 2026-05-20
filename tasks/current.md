@@ -68,8 +68,10 @@ operator-friendly failure modes.
 ## Validation Plan
 - `git diff --check`
 - `npm run lint` if workflow-adjacent scripts or docs linting are touched.
-- Use `gh workflow view` / `gh workflow run --dry-run` equivalents where
-  available, or validate YAML through normal PR checks.
+- Use `gh workflow view <workflow>` for workflow inspection and, when a manual
+  workflow must be exercised, dispatch it explicitly with `gh workflow run
+  <workflow> --ref <branch>` plus the required fields.
+- Validate YAML through normal PR checks.
 - Monitor PR checks for branch-name, quality gates, and any workflow-specific
   failures.
 
