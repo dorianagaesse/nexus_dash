@@ -143,8 +143,10 @@ GitHub Actions dispatch requirements:
 
 - The workflow needs `NOTIFICATION_EMAIL_DISPATCH_SECRET` or legacy
   `CRON_SECRET` as a GitHub secret.
-- `NOTIFICATION_EMAIL_DISPATCH_URL` is optional; when unset, scheduled runs
-  default to `https://nexus-dash.app`.
+- Scheduled runs always target `https://nexus-dash.app`. Do not rely on
+  `NOTIFICATION_EMAIL_DISPATCH_URL` to steer production scheduler traffic.
+- Manual workflow dispatch may override the target URL with the `target_url`
+  input for preview validation or diagnostics.
 - If the workflow uses the GitHub `production` environment for secrets, that
   environment must allow scheduled jobs to run without manual approval.
 

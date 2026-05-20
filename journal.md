@@ -13,6 +13,17 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-05-20
+- Type: Execution
+- Summary: Fixed notification email scheduler production target drift.
+- Evidence: Recent scheduled `Notification Email Dispatch Scheduler` runs were
+  calling a Vercel-protected deployment URL from
+  `NOTIFICATION_EMAIL_DISPATCH_URL` and failing with Vercel Authentication
+  `401` before reaching the app endpoint. Updated the GitHub repository and
+  production-environment variable to `https://nexus-dash.app`, then changed the
+  workflow so scheduled runs always default to production and only manual
+  dispatch can override the target URL.
+
+### 2026-05-20
 - Type: Planning
 - Summary: Added post-deploy operational and design assessment follow-ups.
 - Evidence: Updated `tasks/backlog.md` to move merged TASK-268 and TASK-132 to
