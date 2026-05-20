@@ -45,6 +45,16 @@ jobs:
             exit 1
           fi
 
+          dispatch_origin="${DISPATCH_URL%/}"
+          if [ "$dispatch_origin" != "https://nexus-dash.app" ] \
+            && [ "$dispatch_origin" != "https://nexus-dash-dorian-agaesses-projects.vercel.app" ] \
+            && [ "$dispatch_origin" != "https://nexus-dash-dorianagaesse-3732-dorian-agaesses-projects.vercel.app" ] \
+            && ! [[ "$dispatch_origin" =~ ^https://nexus-dash-[a-z0-9-]+-dorian-agaesses-projects\.vercel\.app$ ]]; then
+            echo "::error::Notification email dispatch target URL is not an allowed NexusDash origin."
+            echo "::error::Use https://nexus-dash.app or this project's Vercel deployment domains only."
+            exit 1
+          fi
+
       - name: Call notification email dispatcher
         run: |
           dispatch_origin="${DISPATCH_URL%/}"
