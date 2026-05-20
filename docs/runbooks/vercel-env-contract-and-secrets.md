@@ -147,6 +147,9 @@ GitHub Actions dispatch requirements:
   `NOTIFICATION_EMAIL_DISPATCH_URL` to steer production scheduler traffic.
 - Manual workflow dispatch may override the target URL with the `target_url`
   input for preview validation or diagnostics.
+- Manual override targets are allowlisted to the canonical production domain
+  and this project's Vercel deployment domains so the production dispatch
+  secret is never sent to an arbitrary host.
 - If the workflow uses the GitHub `production` environment for secrets, that
   environment must allow scheduled jobs to run without manual approval.
 
