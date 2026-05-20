@@ -23,6 +23,7 @@ const prismaMock = vi.hoisted(() => ({
     count: vi.fn(),
     create: vi.fn(),
     findFirst: vi.fn(),
+    findMany: vi.fn(),
     update: vi.fn(),
   },
 }));
@@ -210,6 +211,7 @@ describe("project-notification-email-service", () => {
     });
     prismaMock.projectNotificationEmailItem.count.mockResolvedValue(1);
     prismaMock.projectNotificationEmailItem.findFirst.mockResolvedValue(null);
+    prismaMock.projectNotificationEmailItem.findMany.mockResolvedValue([]);
     prismaMock.$queryRaw.mockResolvedValue([]);
     outboundEmailMock.sendOutboundEmail.mockResolvedValue({
       ok: true,
@@ -443,6 +445,49 @@ describe("project-notification-email-service", () => {
       "item.\"notificationUpdatedAt\" = notification.\"updatedAt\""
     );
     expect(sql).toContain("email.\"status\" IN ('pending', 'dispatching')");
+  });
+
+  test("skips stale pending groups whose notifications were already sent elsewhere", async () => {
+    prismaMock.$queryRaw
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: "email-1" }]);
+    prismaMock.projectNotificationEmail.findMany
+      .mockResolvedValueOnce([{ recipientUserId: "user-1" }])
+      .mockResolvedValueOnce([
+        claimedGroup({
+          id: "email-1",
+          projectId: "project-1",
+          projectName: "Alpha",
+          notification: mentionNotification(),
+        }),
+      ]);
+    prismaMock.projectNotificationEmailItem.findMany.mockResolvedValueOnce([
+      {
+        notificationId: "notification-mention-1",
+      },
+    ]);
+
+    const summary = await dispatchProjectNotificationEmails({
+      appOrigin: "https://preview.nexusdash.test",
+      now,
+    });
+
+    expect(summary).toMatchObject({
+      groupsClaimed: 1,
+      recipientEmailsAttempted: 0,
+      recipientEmailsSkipped: 1,
+      groupsSkipped: 1,
+    });
+    expect(outboundEmailMock.sendOutboundEmail).not.toHaveBeenCalled();
+    expect(prismaMock.projectNotificationEmail.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ["email-1"] } },
+        data: expect.objectContaining({
+          status: "skipped",
+          errorCode: "no-current-eligible-notifications",
+        }),
+      })
+    );
   });
 
   test("releases stale dispatching groups back to pending for retry", async () => {

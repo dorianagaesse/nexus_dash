@@ -37,7 +37,9 @@ debounce/grouping pipeline.
 2. Pending/dispatching items still require the current fingerprint or timestamp
    so pre-send notification refreshes can update the pending group.
 3. Future distinct notification rows remain eligible for email delivery.
-4. Focused service tests cover the sent-notification suppression behavior.
+4. Stale pending groups created before the fix are skipped at dispatch time if
+   their notification IDs were already sent by another group.
+5. Focused service tests cover the sent-notification suppression behavior.
 
 ## Definition Of Done
 - Service changes are minimal and scoped to notification email coverage logic.

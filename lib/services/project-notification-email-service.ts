@@ -938,11 +938,57 @@ async function buildInvitationReminderItem(input: {
   };
 }
 
+async function findSentCoveredNotificationIds(input: {
+  kind: NotificationEmailKind;
+  currentGroupId: string;
+  notificationIds: string[];
+}): Promise<Set<string>> {
+  const notificationIds = Array.from(new Set(input.notificationIds));
+  if (notificationIds.length === 0) {
+    return new Set();
+  }
+
+  const rows = await prisma.projectNotificationEmailItem.findMany({
+    where: {
+      notificationId: {
+        in: notificationIds,
+      },
+      emailId: {
+        not: input.currentGroupId,
+      },
+      email: {
+        kind: input.kind,
+        status: "sent",
+      },
+    },
+    select: {
+      notificationId: true,
+    },
+  });
+
+  return new Set(rows.map((row) => row.notificationId));
+}
+
 async function buildPreparedSection(input: {
   group: ClaimedEmailGroup;
   appOrigin: string;
   now: Date;
 }): Promise<PreparedSection | null> {
+  const sentCoveredNotificationIds = await findSentCoveredNotificationIds({
+    kind: input.group.kind,
+    currentGroupId: input.group.id,
+    notificationIds: input.group.items.map((item) => item.notificationId),
+  });
+
+  if (sentCoveredNotificationIds.size > 0) {
+    input.group = {
+      ...input.group,
+      items: input.group.items.filter(
+        (item) => !sentCoveredNotificationIds.has(item.notificationId)
+      ),
+    };
+  }
+
   if (input.group.kind === EMAIL_KIND_PROJECT_DIGEST) {
     return buildActivityItems({
       group: input.group,

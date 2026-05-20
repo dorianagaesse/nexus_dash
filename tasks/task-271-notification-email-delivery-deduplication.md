@@ -20,7 +20,9 @@ notifications remain unread.
    fingerprint so refreshes before delivery can be folded into the pending
    email.
 3. Future distinct notifications remain eligible for normal debounce/grouping.
-4. The behavior is covered by focused service tests.
+4. Stale pending groups that were created before the fix do not send if their
+   notifications have already been sent by another group.
+5. The behavior is covered by focused service tests.
 
 ## Definition Of Done
 - The service-level coverage logic distinguishes sent items from
