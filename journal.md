@@ -13,6 +13,17 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-05-20
+- Type: Planning
+- Summary: Added post-deploy operational and design assessment follow-ups.
+- Evidence: Updated `tasks/backlog.md` to move merged TASK-268 and TASK-132 to
+  completed, added TASK-269 for GitHub Actions workflow cleanup at the top of
+  the execution queue, and added TASK-270 as a product-wide UI/UX design
+  assessment that feeds existing refinement tasks instead of duplicating them.
+  Added dedicated briefs in
+  `tasks/task-269-github-actions-workflow-cleanup.md` and
+  `tasks/task-270-app-ui-ux-design-assessment.md`.
+
+### 2026-05-20
 - Type: Governance
 - Summary: Clarified Supabase runtime/admin connection policy after production
   credential repair.
