@@ -1,6 +1,14 @@
 import packageJson from "@/package.json";
 
 const DEFAULT_REPOSITORY_URL = "https://github.com/dorianagaesse/nexus_dash";
+const SEMVER_WITH_OPTIONAL_PRERELEASE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+
+export type AppRuntimeEnvironment =
+  | "production"
+  | "preview"
+  | "development"
+  | "test"
+  | "unknown";
 
 function readOptionalEnv(name: string): string | null {
   const value = process.env[name];
@@ -12,23 +20,34 @@ function readOptionalEnv(name: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function normalizeVersion(rawVersion: string): string {
+function normalizeVersion(rawVersion: string, fallbackVersion = "0.0.0"): string {
   const trimmed = rawVersion.trim();
   if (!trimmed) {
+    return normalizeVersion(fallbackVersion, "0.0.0");
+  }
+
+  const withoutPrefix = trimmed.startsWith("v") ? trimmed.slice(1) : trimmed;
+  const visibleVersion = withoutPrefix.split("+")[0] ?? "";
+  if (!SEMVER_WITH_OPTIONAL_PRERELEASE.test(visibleVersion)) {
+    if (fallbackVersion !== rawVersion) {
+      return normalizeVersion(fallbackVersion, "0.0.0");
+    }
+
     return "v0.0.0";
   }
 
-  return trimmed.startsWith("v") ? trimmed : `v${trimmed}`;
+  return `v${visibleVersion}`;
 }
 
 function readVersion(): string {
+  const packageVersion = packageJson.version ?? "0.0.0";
   const configuredVersion =
     readOptionalEnv("APP_VERSION") ?? readOptionalEnv("NEXT_PUBLIC_APP_VERSION");
   if (configuredVersion) {
-    return normalizeVersion(configuredVersion);
+    return normalizeVersion(configuredVersion, packageVersion);
   }
 
-  return normalizeVersion(packageJson.version ?? "0.0.0");
+  return normalizeVersion(packageVersion);
 }
 
 function readRevision(): string | null {
@@ -41,6 +60,31 @@ function readRevision(): string | null {
   }
 
   return revision.slice(0, 7);
+}
+
+function normalizeRuntimeEnvironment(rawEnvironment: string | null): AppRuntimeEnvironment {
+  switch (rawEnvironment?.toLowerCase()) {
+    case "production":
+      return "production";
+    case "preview":
+      return "preview";
+    case "development":
+    case "dev":
+      return "development";
+    case "test":
+      return "test";
+    default:
+      return "unknown";
+  }
+}
+
+function readRuntimeEnvironment(): AppRuntimeEnvironment {
+  return normalizeRuntimeEnvironment(
+    readOptionalEnv("APP_ENV") ??
+      readOptionalEnv("NEXT_PUBLIC_APP_ENV") ??
+      readOptionalEnv("VERCEL_ENV") ??
+      readOptionalEnv("NODE_ENV")
+  );
 }
 
 function normalizeRepositoryUrl(rawUrl: string | null): string {
@@ -77,16 +121,28 @@ export interface AppMetadataSummary {
   versionTag: string;
   versionLabel: string;
   revision: string | null;
+  revisionLabel: string | null;
+  environment: AppRuntimeEnvironment;
+  diagnosticLabel: string;
 }
 
 export function getAppMetadataSummary(): AppMetadataSummary {
   const versionTag = readVersion();
   const revision = readRevision();
+  const revisionLabel = revision ? `build ${revision}` : null;
+  const environment = readRuntimeEnvironment();
+  const diagnosticParts = [versionTag, environment];
+  if (revisionLabel) {
+    diagnosticParts.push(revisionLabel);
+  }
 
   return {
     repositoryUrl: readRepositoryUrl(),
     versionTag,
-    versionLabel: revision ? `${versionTag}+${revision}` : versionTag,
+    versionLabel: versionTag,
     revision,
+    revisionLabel,
+    environment,
+    diagnosticLabel: diagnosticParts.join(" | "),
   };
 }

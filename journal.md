@@ -13,6 +13,42 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-05-19
+- Type: Validation
+- Summary: TASK-132 PR #270 branch refreshed against current `main` and
+  revalidated after PR #271 merged.
+- Evidence: Merged `origin/main` into
+  `feature/task-132-version-update-system`; resolved tracking-doc conflicts;
+  confirmed the preview failure was the Vercel Preview `DATABASE_URL` session
+  pooler on port `5432`, not a TASK-132 code regression; reran focused metadata
+  tests, lint, full Vitest, coverage, production build, and `git diff --check`.
+
+### 2026-05-19
+- Type: Execution
+- Summary: TASK-132 implemented production-grade app version metadata.
+- Evidence: Bumped `package.json`/`package-lock.json` to `0.2.0`; changed
+  `lib/app-metadata.ts` so the visible app label is the clean product version
+  while revision/environment remain diagnostic metadata; updated
+  `components/app-metadata-pill.tsx`, Vercel deploy metadata injection,
+  `.env.example`, README, and the Vercel env runbook. Validation passed with
+  focused metadata tests, lint, full Vitest, coverage, production build, and
+  `git diff --check`; DB-backed tests used a temporary PostgreSQL 16 instance
+  on port `55432` because Docker was not running.
+
+### 2026-05-19
+- Type: Validation
+- Summary: TASK-132 branch-scoped preview workflow reached metadata resolution
+  but was blocked by preview database env configuration.
+- Evidence: Workflow run `26104594474` used workflow ref
+  `feature/task-132-version-update-system`, checked out
+  `origin/feature/task-132-version-update-system` at commit `f197129`
+  before later documentation-only tracking updates, and resolved
+  `APP_VERSION=0.2.0`, `APP_ENV=preview`, `COMMIT_SHA=f1971290c4909284e2a9f00fccb4dc52b816b892`,
+  and `APP_REPOSITORY_URL=https://github.com/dorianagaesse/nexus_dash`. The
+  deploy failed during Vercel preview build because the pulled preview
+  `DATABASE_URL` still uses the Supabase session-pooler port `5432`; the
+  existing runtime guard requires transaction-pooler port `6543`.
+
+### 2026-05-19
 - Type: Planning
 - Summary: TASK-268 replaced the QStash scheduler path with a GitHub Actions production bridge.
 - Evidence: User validated moving on without QStash because Upstash account/token setup was too fragile for the current stage. Added TASK-268, superseded active TASK-228, scheduled `.github/workflows/notification-email-dispatch.yml` every 3 hours, and documented that this bridge preserves durable/idempotent dispatch but no longer promises one-hour notification email delivery.

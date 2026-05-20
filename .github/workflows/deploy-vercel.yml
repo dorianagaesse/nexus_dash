@@ -121,6 +121,17 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Resolve app metadata
+        run: |
+          app_version="$(node -p "require('./package.json').version")"
+          commit_sha="$(git rev-parse HEAD)"
+          repository_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+
+          echo "APP_VERSION=$app_version" >> "$GITHUB_ENV"
+          echo "APP_ENV=production" >> "$GITHUB_ENV"
+          echo "COMMIT_SHA=$commit_sha" >> "$GITHUB_ENV"
+          echo "APP_REPOSITORY_URL=$repository_url" >> "$GITHUB_ENV"
+
       - name: Install dependencies
         run: npm ci
 
@@ -149,12 +160,28 @@ jobs:
         run: npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=production --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
       - name: Build prebuilt artifact (production)
-        run: npx vercel@${VERCEL_CLI_VERSION} build --prod --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+        run: |
+          APP_VERSION="$APP_VERSION" \
+          APP_ENV="$APP_ENV" \
+          COMMIT_SHA="$COMMIT_SHA" \
+          APP_REPOSITORY_URL="$APP_REPOSITORY_URL" \
+            npx vercel@${VERCEL_CLI_VERSION} build --prod --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
       - name: Deploy staged production build
         id: deploy_staged
         run: |
-          deployment_url=$(npx vercel@${VERCEL_CLI_VERSION} deploy --prebuilt --prod --skip-domain --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN")
+          deployment_url=$(
+            npx vercel@${VERCEL_CLI_VERSION} deploy \
+              --prebuilt \
+              --prod \
+              --skip-domain \
+              --scope="$VERCEL_SCOPE" \
+              --token="$VERCEL_TOKEN" \
+              -e "APP_VERSION=$APP_VERSION" \
+              -e "APP_ENV=$APP_ENV" \
+              -e "COMMIT_SHA=$COMMIT_SHA" \
+              -e "APP_REPOSITORY_URL=$APP_REPOSITORY_URL"
+          )
           echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
           echo "$deployment_url" > staged-production-deployment.txt
 
@@ -169,6 +196,8 @@ jobs:
         run: |
           echo "## Staged production deployment created" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- App version: \`$APP_VERSION\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- App revision: \`${COMMIT_SHA:0:7}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: \`${{ steps.deploy_staged.outputs.deployment_url }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Next step: run workflow dispatch with \`action=promote\` to promote this deployment." >> "$GITHUB_STEP_SUMMARY"
 
@@ -259,6 +288,22 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Resolve app metadata
+        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
+        run: |
+          app_version="$(node -p "require('./package.json').version")"
+          commit_sha="$(git rev-parse HEAD)"
+          repository_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+          app_env="production"
+          if [ "${{ inputs.action }}" = "deploy-preview" ]; then
+            app_env="preview"
+          fi
+
+          echo "APP_VERSION=$app_version" >> "$GITHUB_ENV"
+          echo "APP_ENV=$app_env" >> "$GITHUB_ENV"
+          echo "COMMIT_SHA=$commit_sha" >> "$GITHUB_ENV"
+          echo "APP_REPOSITORY_URL=$repository_url" >> "$GITHUB_ENV"
+
       - name: Install dependencies
         if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
         run: npm ci
@@ -306,8 +351,23 @@ jobs:
         id: deploy_preview
         run: |
           npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=preview --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
-          npx vercel@${VERCEL_CLI_VERSION} build --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
-          deployment_url=$(npx vercel@${VERCEL_CLI_VERSION} deploy --prebuilt --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN" -e "RESEND_API_KEY=$RESEND_API_KEY" -e "AGENT_TOKEN_SIGNING_SECRET=$AGENT_TOKEN_SIGNING_SECRET")
+          APP_VERSION="$APP_VERSION" \
+          APP_ENV="$APP_ENV" \
+          COMMIT_SHA="$COMMIT_SHA" \
+          APP_REPOSITORY_URL="$APP_REPOSITORY_URL" \
+            npx vercel@${VERCEL_CLI_VERSION} build --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+          deployment_url=$(
+            npx vercel@${VERCEL_CLI_VERSION} deploy \
+              --prebuilt \
+              --scope="$VERCEL_SCOPE" \
+              --token="$VERCEL_TOKEN" \
+              -e "RESEND_API_KEY=$RESEND_API_KEY" \
+              -e "AGENT_TOKEN_SIGNING_SECRET=$AGENT_TOKEN_SIGNING_SECRET" \
+              -e "APP_VERSION=$APP_VERSION" \
+              -e "APP_ENV=$APP_ENV" \
+              -e "COMMIT_SHA=$COMMIT_SHA" \
+              -e "APP_REPOSITORY_URL=$APP_REPOSITORY_URL"
+          )
           echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
           echo "$deployment_url" > preview-deployment.txt
 
@@ -316,8 +376,23 @@ jobs:
         id: deploy_prod_staged
         run: |
           npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=production --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
-          npx vercel@${VERCEL_CLI_VERSION} build --prod --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
-          deployment_url=$(npx vercel@${VERCEL_CLI_VERSION} deploy --prebuilt --prod --skip-domain --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN")
+          APP_VERSION="$APP_VERSION" \
+          APP_ENV="$APP_ENV" \
+          COMMIT_SHA="$COMMIT_SHA" \
+          APP_REPOSITORY_URL="$APP_REPOSITORY_URL" \
+            npx vercel@${VERCEL_CLI_VERSION} build --prod --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+          deployment_url=$(
+            npx vercel@${VERCEL_CLI_VERSION} deploy \
+              --prebuilt \
+              --prod \
+              --skip-domain \
+              --scope="$VERCEL_SCOPE" \
+              --token="$VERCEL_TOKEN" \
+              -e "APP_VERSION=$APP_VERSION" \
+              -e "APP_ENV=$APP_ENV" \
+              -e "COMMIT_SHA=$COMMIT_SHA" \
+              -e "APP_REPOSITORY_URL=$APP_REPOSITORY_URL"
+          )
           echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
           echo "$deployment_url" > staged-production-deployment.txt
 
@@ -390,6 +465,12 @@ jobs:
           echo "## Manual Vercel operation" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Action: \`${{ inputs.action }}\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "${APP_VERSION:-}" ]; then
+            echo "- App version: \`$APP_VERSION\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -n "${COMMIT_SHA:-}" ]; then
+            echo "- App revision: \`${COMMIT_SHA:0:7}\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
           if [ "${{ inputs.action }}" = "deploy-preview" ]; then
             if [ -n "${{ steps.deploy_preview.outputs.deployment_url }}" ]; then
               echo "- Preview URL: \`${{ steps.deploy_preview.outputs.deployment_url }}\`" >> "$GITHUB_STEP_SUMMARY"

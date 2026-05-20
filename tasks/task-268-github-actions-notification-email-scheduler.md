@@ -79,4 +79,3 @@ Actions scheduling delay.
 - Implementing due-date reminders; that remains TASK-226 after scheduler
   activation.
 - Changing actor attribution or self-notification rules; that remains TASK-265.
-

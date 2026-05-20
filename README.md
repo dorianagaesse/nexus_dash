@@ -168,6 +168,15 @@ Environment access/validation is centralized in `lib/env.server.ts` and executed
 
 ### Additional rules
 
+- `APP_VERSION` is optional locally and should normally be omitted. When unset,
+  the app reads the product version from `package.json`.
+- `APP_ENV` is optional locally and may be `development`, `preview`,
+  `production`, or `test`. Vercel deploy workflows inject it for preview and
+  production deploys.
+- `COMMIT_SHA` is optional locally and is used only as diagnostic build
+  metadata. The user-facing app version does not include the commit SHA.
+- `APP_REPOSITORY_URL` is optional and defaults to the NexusDash GitHub
+  repository.
 - In production, when Google OAuth is enabled, `GOOGLE_TOKEN_ENCRYPTION_KEY` is required.
 - `AGENT_ACCESS_TOKEN_TTL_SECONDS` is optional, defaults to `600`, and must stay between `300` and `900`.
 - `GOOGLE_CALENDAR_ID` must be unset or `primary`.
@@ -351,6 +360,30 @@ Branch-name note:
 - human-authored PR branches must use `feature/*`, `fix/*`, `refactor/*`,
   `docs/*`, or `chore/*`
 - Dependabot PR branches may use `dependabot/*`
+
+### Release version metadata
+
+`package.json` is the canonical product-version source. Release PRs that
+intentionally change the product version must update both `package.json` and
+`package-lock.json`; Dependabot maintenance PRs must not bump the product
+version by themselves.
+
+The running app displays only the clean product version, for example `v0.2.0`.
+Build revision and runtime environment are kept as diagnostic metadata so
+operators can identify the deployed commit without turning the user-facing
+version into `v0.2.0+<sha>`.
+
+The Vercel deploy workflow resolves metadata from the checked-out ref and
+injects:
+
+- `APP_VERSION`: product version from `package.json`
+- `APP_ENV`: `preview` for preview deploys, `production` for staged production
+- `COMMIT_SHA`: full git commit SHA for diagnostics
+- `APP_REPOSITORY_URL`: GitHub repository URL
+
+After a preview or staged-production deployment, check the workflow summary for
+the resolved app version and short revision. Promoted production keeps the same
+metadata as the staged deployment target.
 
 ### CD workflow
 
