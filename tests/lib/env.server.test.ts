@@ -760,20 +760,20 @@ describe("env.server", () => {
     );
   });
 
-  test("fails runtime validation when production direct url points to a pooler host", () => {
+  test("passes runtime validation when supabase direct url uses admin session-pooler fallback", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv(
       "DATABASE_URL",
-      "postgresql://runtime-user:pwd@pooler.supabase.com:5432/postgres?sslmode=require"
+      "postgresql://app_runtime.project-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
     );
     vi.stubEnv(
       "DIRECT_URL",
-      "postgresql://admin-user:pwd@project.pooler.supabase.com:5432/postgres?sslmode=require"
+      "postgresql://postgres.project-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require"
     );
+    vi.stubEnv("SUPABASE_URL", "https://project-ref.supabase.co");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "pk_test_123");
 
-    expect(() => validateServerRuntimeConfig()).toThrow(
-      "DIRECT_URL must target a direct database endpoint, not a pooler host."
-    );
+    expect(() => validateServerRuntimeConfig()).not.toThrow();
   });
 
   test("fails runtime validation when supabase database url is not a pooler host in production", () => {
@@ -812,7 +812,7 @@ describe("env.server", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv(
       "DATABASE_URL",
-      "postgresql://postgres.project-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
+      "postgresql://app_runtime.project-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
     );
     vi.stubEnv(
       "DIRECT_URL",
@@ -824,11 +824,27 @@ describe("env.server", () => {
     expect(() => validateServerRuntimeConfig()).not.toThrow();
   });
 
+  test("fails runtime validation when supabase database url uses admin role in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://postgres.project-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://postgres:pwd@db.project-ref.supabase.co:5432/postgres?sslmode=require"
+    );
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "DATABASE_URL must use the least-privilege app_runtime role for Supabase production runtime traffic."
+    );
+  });
+
   test("fails runtime validation when supabase database and direct urls target different projects in production", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv(
       "DATABASE_URL",
-      "postgresql://postgres.preview-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
+      "postgresql://app_runtime.preview-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
     );
     vi.stubEnv(
       "DIRECT_URL",
@@ -844,7 +860,7 @@ describe("env.server", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv(
       "DATABASE_URL",
-      "postgresql://postgres.production-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
+      "postgresql://app_runtime.production-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
     );
     vi.stubEnv(
       "DIRECT_URL",
@@ -862,7 +878,7 @@ describe("env.server", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv(
       "DATABASE_URL",
-      "postgresql://runtime-user:pwd@project.pooler.supabase.com:6543/postgres?sslmode=require"
+      "postgresql://app_runtime.project-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
     );
     vi.stubEnv(
       "DIRECT_URL",
@@ -874,11 +890,43 @@ describe("env.server", () => {
     );
   });
 
+  test("fails runtime validation when supabase direct url uses transaction-pooler fallback", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://app_runtime.project-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://postgres.project-ref:pwd@aws-0-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
+    );
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "DIRECT_URL may use the Supabase admin session-pooler fallback only on port 5432."
+    );
+  });
+
+  test("fails runtime validation when supabase direct url uses app runtime role", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://app_runtime.project-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://app_runtime.project-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require"
+    );
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "DIRECT_URL must use an admin-capable Supabase role, not app_runtime."
+    );
+  });
+
   test("allows mixed provider endpoints when database is Supabase and direct is non-Supabase", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv(
       "DATABASE_URL",
-      "postgresql://runtime-user:pwd@project.pooler.supabase.com:6543/postgres?sslmode=require"
+      "postgresql://app_runtime.project-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
     );
     vi.stubEnv(
       "DIRECT_URL",

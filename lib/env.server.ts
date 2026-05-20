@@ -390,6 +390,8 @@ interface ParsedDatabaseConnectionString {
   rawValue: string;
   host: string;
   port: string;
+  username: string;
+  usernameRole: string | null;
   supabaseProjectRef: string | null;
   isLocalHost: boolean;
   isPoolerHost: boolean;
@@ -414,6 +416,15 @@ function extractSupabasePoolerProjectRef(username: string): string | null {
   }
 
   return username.slice(separatorIndex + 1).toLowerCase();
+}
+
+function extractSupabasePoolerRoleName(username: string): string | null {
+  const separatorIndex = username.lastIndexOf(".");
+  if (separatorIndex <= 0) {
+    return null;
+  }
+
+  return username.slice(0, separatorIndex).toLowerCase();
 }
 
 function extractSupabaseClientProjectRef(value: string): string | null {
@@ -464,11 +475,16 @@ function parseDatabaseConnectionString(
   const supabaseProjectRef = isSupabasePoolerHost
     ? extractSupabasePoolerProjectRef(username)
     : extractSupabaseDirectProjectRef(host);
+  const usernameRole = isSupabasePoolerHost
+    ? extractSupabasePoolerRoleName(username)
+    : username.toLowerCase() || null;
 
   return {
     rawValue: value,
     host,
     port,
+    username,
+    usernameRole,
     supabaseProjectRef,
     isLocalHost: isLocalDatabaseHost(host),
     isPoolerHost,
@@ -548,18 +564,21 @@ function assertProductionDatabaseConnectionHardening(
     );
   }
 
-  if (directUrl.isPoolerHost) {
-    throw new Error(
-      "DIRECT_URL must target a direct database endpoint, not a pooler host."
-    );
-  }
-
   if (
     databaseUrl.isSupabasePoolerHost &&
     databaseUrl.port !== SUPABASE_TRANSACTION_POOLER_PORT
   ) {
     throw new Error(
       `DATABASE_URL must use the Supabase transaction pooler port ${SUPABASE_TRANSACTION_POOLER_PORT} in production; port ${SUPABASE_SESSION_POOLER_PORT} is session mode and can exhaust serverless clients.`
+    );
+  }
+
+  if (
+    databaseUrl.isSupabasePoolerHost &&
+    databaseUrl.usernameRole !== "app_runtime"
+  ) {
+    throw new Error(
+      "DATABASE_URL must use the least-privilege app_runtime role for Supabase production runtime traffic."
     );
   }
 
@@ -573,6 +592,24 @@ function assertProductionDatabaseConnectionHardening(
     );
   }
 
+  if (
+    directUrl.isSupabasePoolerHost &&
+    directUrl.port !== SUPABASE_SESSION_POOLER_PORT
+  ) {
+    throw new Error(
+      `DIRECT_URL may use the Supabase admin session-pooler fallback only on port ${SUPABASE_SESSION_POOLER_PORT}.`
+    );
+  }
+
+  if (
+    directUrl.isSupabasePoolerHost &&
+    directUrl.usernameRole === "app_runtime"
+  ) {
+    throw new Error(
+      "DIRECT_URL must use an admin-capable Supabase role, not app_runtime."
+    );
+  }
+
   const isSupabaseConnection =
     databaseUrl.isSupabaseHost && directUrl.isSupabaseHost;
   if (!isSupabaseConnection) {
@@ -582,12 +619,6 @@ function assertProductionDatabaseConnectionHardening(
   if (!databaseUrl.isSupabasePoolerHost) {
     throw new Error(
       "DATABASE_URL must use the Supabase pooler host in production (expected *.pooler.supabase.com)."
-    );
-  }
-
-  if (directUrl.isSupabasePoolerHost) {
-    throw new Error(
-      "DIRECT_URL must use the Supabase direct host in production (for example db.<project-ref>.supabase.co), not the pooler host."
     );
   }
 
