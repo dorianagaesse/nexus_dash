@@ -4,12 +4,12 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-268
-  Title: GitHub Actions notification email scheduler - 3-hour production bridge
+- ID: TASK-269
+  Title: GitHub Actions workflow cleanup - simplify CI/CD, scheduled jobs, and maintenance automation
   Status: Next
-  Rationale: QStash activation created too much operational friction for the current stage, and Vercel remains on Hobby where Vercel Cron is daily-only. Use the existing protected GitHub Actions dispatcher as a temporary production scheduler bridge every 3 hours, keeping the app-owned durable queue/idempotency guarantees while explicitly downgrading the email delivery promise from sub-hour to periodic digest delivery.
-  Dependencies: TASK-125, TASK-227
-  Brief: `tasks/task-268-github-actions-notification-email-scheduler.md`
+  Rationale: The repository now has several production-impacting workflows covering quality gates, staged Vercel deploys, notification email dispatch, dependency security, Dependabot triage, and Copilot repair. Recent production work exposed duplicated env handling, scheduler tradeoffs, and deploy/secrets coupling across these workflows. Run a focused cleanup so workflow responsibilities, permissions, env/secrets usage, dispatch inputs, summaries, and failure modes are easier to understand and operate without changing product behavior.
+  Dependencies: TASK-042, TASK-116, TASK-132, TASK-268
+  Brief: `tasks/task-269-github-actions-workflow-cleanup.md`
 - ID: TASK-265
   Title: Notification actor attribution and self-notification rules
   Status: Next
@@ -38,11 +38,6 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Make the project roadmap manageable by project-scoped agent tokens so agents can inspect, create, update, move, reorder, and delete roadmap phases/events when they are responsible for project planning. This should be a deliberate agent API contract expansion with dedicated roadmap scopes, OpenAPI/onboarding documentation, credential UI updates, route guard coverage, and smoke tests rather than implicitly folding roadmap permissions into existing project or task scopes.
   Dependencies: TASK-127, TASK-130, TASK-059
-- ID: TASK-132
-  Title: Version update system adjustments - align version metadata, automation, and release communication
-  Status: In review via PR #270
-  Rationale: Review and adjust the app's version update system so version metadata, dependency-update cadence, release notes, deployment visibility, and any user-facing update indicators stay consistent across automated maintenance, manual releases, and future API or agent-facing surfaces.
-  Dependencies: TASK-041, TASK-042, TASK-116
 - ID: TASK-129
   Title: Login/home page UI polish - user-friendly, product-oriented entry experience
   Status: Pending
@@ -88,6 +83,12 @@ Use this file to capture tasks discovered during development. Each entry should 
   Status: Pending
   Rationale: Enable bilingual product usage (French and English) with consistent UI copy, locale routing/state strategy, and fallback behavior; defer implementation until we confirm i18n architecture and translation workflow.
   Dependencies: TASK-047, TASK-060
+- ID: TASK-270
+  Title: App UI/UX design assessment - product-wide heuristic audit and refinement roadmap
+  Status: Pending
+  Rationale: Before another broad polish pass, assess the current app experience across core user journeys, responsive layouts, visual hierarchy, copy, interaction feedback, accessibility basics, and consistency with the intended product tone. The output should be a ranked, evidence-backed design assessment that decides which issues belong in existing UI tasks such as TASK-108/TASK-100/TASK-129 and which need new implementation tasks, instead of mixing assessment and redesign in one large patch.
+  Dependencies: TASK-091, TASK-096, TASK-100, TASK-108, TASK-129
+  Brief: `tasks/task-270-app-ui-ux-design-assessment.md`
 - ID: TASK-108
   Title: Whole-app UI/UX refinement - global interaction, visual, and information-design polish
   Status: Pending
@@ -142,6 +143,16 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-268
+  Title: GitHub Actions notification email scheduler - 3-hour production bridge
+  Status: Done (2026-05-19, merged via PR #271)
+  Rationale: QStash activation created too much operational friction for the current stage, and Vercel remains on Hobby where Vercel Cron is daily-only. Added the protected GitHub Actions dispatcher as a temporary production scheduler bridge every 3 hours, keeping the app-owned durable queue/idempotency guarantees while explicitly downgrading the email delivery promise from sub-hour to periodic digest delivery.
+  Dependencies: TASK-125, TASK-227
+- ID: TASK-132
+  Title: Version update system adjustments - align version metadata, automation, and release communication
+  Status: Done (2026-05-20, merged via PR #270)
+  Rationale: Aligned app version metadata, dependency-update cadence, deployment visibility, and user-facing version display by making `package.json` the canonical product-version source and passing deterministic build metadata through Vercel deploy workflows.
+  Dependencies: TASK-041, TASK-042, TASK-116
 - ID: TASK-228
   Title: QStash notification email scheduler activation - production cadence and smoke validation
   Status: Superseded (2026-05-19, replaced by TASK-268)

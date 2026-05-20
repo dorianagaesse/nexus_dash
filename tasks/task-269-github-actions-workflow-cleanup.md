@@ -1,19 +1,10 @@
-# Current Task: TASK-269 GitHub Actions Workflow Cleanup
+# TASK-269 GitHub Actions Workflow Cleanup
 
 ## Task ID
 TASK-269
 
 ## Status
-Queued
-
-## Source
-- User request after PR #270, PR #271, and PR #272 merged:
-  add GitHub Actions workflow cleanup to the top of the backlog.
-- `tasks/backlog.md` entry:
-  "GitHub Actions workflow cleanup - simplify CI/CD, scheduled jobs, and
-  maintenance automation."
-- Dedicated brief:
-  `tasks/task-269-github-actions-workflow-cleanup.md`.
+Pending
 
 ## Objective
 Audit and simplify the repository's GitHub Actions workflows so CI, staged
@@ -21,17 +12,14 @@ Vercel deployment, notification email scheduling, dependency security, and
 maintenance automation have clear ownership, minimal duplicated logic, and
 operator-friendly failure modes.
 
-## Current Baseline
-- Quality gates, branch-name checks, staged Vercel deploy/promote/rollback,
-  dependency security, Dependabot triage, Copilot repair, and notification
-  email dispatch are all active workflow concerns.
-- TASK-268 intentionally moved notification email scheduling to a GitHub
-  Actions 3-hour production bridge while QStash remains out of the current
-  production path.
-- TASK-132 added deterministic app version metadata injection to the Vercel
-  deploy workflow.
-- TASK-259/TASK-272 tightened database env validation and documentation around
-  Supabase runtime/admin connection shapes.
+## Rationale
+Recent production work touched several workflows and exposed recurring friction:
+environment variables are resolved in several places, scheduled notification
+dispatch is intentionally a temporary GitHub Actions bridge, staged deployment
+has production safety requirements, and dependency maintenance includes both
+deterministic automation and Copilot-assisted repair. The workflow set is
+powerful, but it needs a focused hygiene pass before more operational behavior
+is layered onto it.
 
 ## Scope
 - Inventory `.github/workflows/**` and document each workflow's owner,
@@ -62,8 +50,7 @@ operator-friendly failure modes.
   intentional cleanup fixes.
 - Documentation reflects the final workflow contract.
 - Relevant workflow syntax and local validation pass.
-- The branch is pushed, a PR is opened, Copilot/check feedback is monitored,
-  and the handoff includes the delivered commit SHA.
+- A PR is opened and CI/Copilot feedback is handled.
 
 ## Validation Plan
 - `git diff --check`
@@ -71,14 +58,6 @@ operator-friendly failure modes.
 - Use `gh workflow view <workflow>` for workflow inspection and, when a manual
   workflow must be exercised, dispatch it explicitly with `gh workflow run
   <workflow> --ref <branch>` plus the required fields.
-- Validate YAML through normal PR checks.
+- Validate YAML through the normal PR checks.
 - Monitor PR checks for branch-name, quality gates, and any workflow-specific
   failures.
-
-## Out Of Scope
-- Replacing the TASK-268 GitHub Actions scheduler bridge with QStash, Vercel
-  Cron, or another managed scheduler.
-- Changing product notification email delivery semantics.
-- Changing Vercel production/staging database credentials or secrets.
-- Redesigning Dependabot/Copilot repair policy unless stale workflow logic makes
-  that necessary.
