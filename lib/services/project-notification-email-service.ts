@@ -350,19 +350,42 @@ async function isRecipientVerified(db: DbClient, recipientUserId: string) {
 async function isNotificationFingerprintCovered(input: {
   db: DbClient;
   notificationId: string;
+  notificationUpdatedAt: Date;
   sourceFingerprint: string;
   kind: NotificationEmailKind;
 }): Promise<boolean> {
   const existing = await input.db.projectNotificationEmailItem.findFirst({
     where: {
       notificationId: input.notificationId,
-      sourceFingerprint: input.sourceFingerprint,
       email: {
         kind: input.kind,
-        status: {
-          in: ["pending", "dispatching", "sent", "skipped"],
-        },
       },
+      OR: [
+        {
+          email: {
+            kind: input.kind,
+            status: {
+              in: ["sent", "skipped"],
+            },
+          },
+        },
+        {
+          OR: [
+            {
+              notificationUpdatedAt: input.notificationUpdatedAt,
+            },
+            {
+              sourceFingerprint: input.sourceFingerprint,
+            },
+          ],
+          email: {
+            kind: input.kind,
+            status: {
+              in: ["pending", "dispatching"],
+            },
+          },
+        },
+      ],
     },
     select: {
       id: true,
@@ -440,6 +463,7 @@ export async function enqueueNotificationEmailForNotification(input: {
     await isNotificationFingerprintCovered({
       db: input.db,
       notificationId: input.notification.id,
+      notificationUpdatedAt: input.notification.updatedAt,
       sourceFingerprint: details.sourceFingerprint,
       kind: details.kind,
     })
@@ -581,10 +605,18 @@ async function findUncoveredNotificationEmailCandidates(
         INNER JOIN "ProjectNotificationEmail" email
           ON email."id" = item."emailId"
         WHERE item."notificationId" = notification."id"
-          AND item."sourceFingerprint" =
-            notification."id" || ':' ||
-            to_char(notification."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
-          AND email."status" IN ('pending', 'dispatching', 'sent', 'skipped')
+          AND (
+            email."status" IN ('sent', 'skipped')
+            OR (
+              email."status" IN ('pending', 'dispatching')
+              AND (
+                item."notificationUpdatedAt" = notification."updatedAt"
+                OR item."sourceFingerprint" =
+                  notification."id" || ':' ||
+                  to_char(notification."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+              )
+            )
+          )
       )
     ORDER BY notification."updatedAt" ASC, notification."id" ASC
     LIMIT ${limit}

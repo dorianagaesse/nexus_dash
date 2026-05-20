@@ -277,7 +277,7 @@ describe("project-notification-email-service", () => {
     );
   });
 
-  test("does not enqueue a notification fingerprint already sent or skipped", async () => {
+  test("does not enqueue a notification already sent or skipped even if it changed later", async () => {
     prismaMock.projectNotificationEmailItem.findFirst.mockResolvedValueOnce({
       id: "item-1",
     });
@@ -288,6 +288,22 @@ describe("project-notification-email-service", () => {
     });
 
     expect(prismaMock.projectNotificationEmail.create).not.toHaveBeenCalled();
+    expect(prismaMock.projectNotificationEmailItem.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          notificationId: "notification-mention-1",
+          OR: expect.arrayContaining([
+            expect.objectContaining({
+              email: expect.objectContaining({
+                status: {
+                  in: ["sent", "skipped"],
+                },
+              }),
+            }),
+          ]),
+        }),
+      })
+    );
   });
 
   test("creates invitation reminder groups for the six-hour reminder window", async () => {
@@ -409,6 +425,24 @@ describe("project-notification-email-service", () => {
 
     expect(summary.groupsClaimed).toBe(0);
     expect(outboundEmailMock.sendOutboundEmail).not.toHaveBeenCalled();
+  });
+
+  test("reconcile suppresses already-delivered notifications by id", async () => {
+    await dispatchProjectNotificationEmails({
+      appOrigin: "https://preview.nexusdash.test",
+      now,
+    });
+
+    const reconcileQuery = prismaMock.$queryRaw.mock.calls[0]?.[0] as
+      | { strings: string[] }
+      | undefined;
+    const sql = reconcileQuery?.strings.join(" ") ?? "";
+
+    expect(sql).toContain("email.\"status\" IN ('sent', 'skipped')");
+    expect(sql).toContain(
+      "item.\"notificationUpdatedAt\" = notification.\"updatedAt\""
+    );
+    expect(sql).toContain("email.\"status\" IN ('pending', 'dispatching')");
   });
 
   test("releases stale dispatching groups back to pending for retry", async () => {
