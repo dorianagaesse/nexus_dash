@@ -58,13 +58,27 @@ For Supabase-backed Vercel deployments:
 
 - `DATABASE_URL` must be the Supabase transaction pooler URL:
   `*.pooler.supabase.com:6543`.
-- `DIRECT_URL` must be the Supabase direct database URL:
-  `db.<project-ref>.supabase.co:5432`.
+- `DATABASE_URL` must use the least-privilege runtime role
+  (`app_runtime.<project-ref>` on the shared Supabase pooler).
+- `DIRECT_URL` / `MIGRATION_DATABASE_URL` must use an admin-capable role such
+  as `postgres`; they must not use `app_runtime`.
+- `DIRECT_URL` should be the Supabase direct database URL
+  (`db.<project-ref>.supabase.co:5432`) when the deployment environment can
+  reach Supabase direct hosts.
+- Supabase direct hosts are IPv6-only by default unless IPv4 support is enabled.
+  If GitHub Actions or Vercel cannot connect to the direct host, use the admin
+  session-pooler URL (`postgres.<project-ref>` on
+  `*.pooler.supabase.com:5432`) for `DIRECT_URL` and
+  `MIGRATION_DATABASE_URL`.
 - Both values must enforce TLS, for example `?sslmode=require`.
 
 Do not configure `DATABASE_URL` with the Supabase session pooler on port `5432`.
 That shape can exhaust the session pool under normal Vercel/serverless request
 bursts and is rejected by runtime validation.
+
+Do not configure `DATABASE_URL` with the admin `postgres` role. Runtime app
+traffic should stay on `app_runtime` so forced RLS remains meaningful even if a
+service query path regresses.
 
 ## Outbound Email
 
@@ -187,6 +201,10 @@ Important:
   project, not local `.env` snapshots or preview/staging files. The app rejects
   production startup when Supabase project refs differ across `DATABASE_URL`,
   `DIRECT_URL`, and `SUPABASE_URL`.
+- When Supabase direct-host connectivity is unavailable, `DIRECT_URL` may use
+  the admin session pooler on port `5432`. That is an admin/migration fallback,
+  not permission to use session pooling or admin credentials for
+  `DATABASE_URL`.
 - GitHub-managed preview deploys and Vercel-managed preview deployments do not
   get runtime secrets from the same place:
   - `deploy-vercel.yml` can inject preview fallback values into the specific

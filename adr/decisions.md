@@ -16,6 +16,27 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-05-20 - Use app runtime role for Supabase transaction-pooled app traffic
+- Status: Accepted
+- Context: Production and preview validation showed that runtime database
+  traffic must not use the admin `postgres` role, while Supabase direct
+  database hosts may be IPv6-only and therefore unreachable from some GitHub,
+  Vercel, or local execution environments.
+- Decision: Configure `DATABASE_URL` with the least-privilege
+  `app_runtime.<project-ref>` role through the Supabase transaction pooler on
+  port `6543`. Keep `DIRECT_URL` and `MIGRATION_DATABASE_URL` admin-capable and
+  separate from runtime traffic. Prefer Supabase's direct host for admin and
+  migration connections when reachable; use the admin
+  `postgres.<project-ref>` session-pooler URL on port `5432` as the operational
+  fallback when direct IPv6 connectivity is unavailable.
+- Consequences: Runtime traffic preserves forced-RLS defense in depth and avoids
+  serverless session-pool exhaustion. Migration/admin flows remain possible in
+  IPv4-only environments, but operators must treat admin session-pooler usage as
+  a fallback for `DIRECT_URL` / `MIGRATION_DATABASE_URL`, never as a valid
+  runtime `DATABASE_URL` shape.
+- Links: `docs/runbooks/database-connection-hardening.md`,
+  `docs/runbooks/vercel-env-contract-and-secrets.md`, `lib/env.server.ts`
+
 ## 2026-05-07 - Centralize outbound email delivery through durable provider records
 - Status: Accepted
 - Context: TASK-125 needed app-owned transactional email delivery for current
