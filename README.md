@@ -123,10 +123,15 @@ Notes:
 For Supabase production/preview:
 
 - `DATABASE_URL`: transaction pooler URL, `*.pooler.supabase.com:6543`, with
-  TLS enabled. For the shared Supabase pooler, the username must include the
-  project ref, for example `postgres.<project-ref>`.
-- `DIRECT_URL`: direct database URL, `db.<project-ref>.supabase.co:5432`, with
-  TLS enabled.
+  TLS enabled. For the shared Supabase pooler, use the least-privilege runtime
+  role and include the project ref in the username, for example
+  `app_runtime.<project-ref>`.
+- `DIRECT_URL` / `MIGRATION_DATABASE_URL`: admin-capable migration connection,
+  never `app_runtime`. Prefer the direct database URL
+  `db.<project-ref>.supabase.co:5432` when the environment can reach it.
+  Supabase direct hosts are IPv6-only by default; if GitHub Actions or Vercel
+  cannot connect to the direct host, use the admin `postgres.<project-ref>`
+  session-pooler URL on `*.pooler.supabase.com:5432`.
 - `SUPABASE_URL`: the matching client API URL,
   `https://<project-ref>.supabase.co`.
 - Prisma runtime automatically adds the compatibility flags needed for the
@@ -405,8 +410,10 @@ Required GitHub secrets:
 - `VERCEL_PROJECT_ID`
 - `NOTIFICATION_EMAIL_DISPATCH_SECRET` or `CRON_SECRET` for scheduled/manual
   notification email dispatch
-- `DATABASE_URL` (runtime connection; Supabase transaction pooler on port `6543`)
-- `DIRECT_URL` (direct database connection; Supabase direct host on port `5432`)
+- `DATABASE_URL` (runtime connection; Supabase `app_runtime` transaction pooler
+  on port `6543`)
+- `DIRECT_URL` (admin-capable migration connection; direct host preferred,
+  admin session-pooler fallback allowed when direct IPv6 is unavailable)
 - `MIGRATION_DATABASE_URL` (admin-capable migration connection; must not be the runtime `DATABASE_URL`)
 - `AGENT_TOKEN_SIGNING_SECRET` (required for production deploys; preview workflow falls back to a placeholder when intentionally unset)
 - Preview deployments still need `AGENT_TOKEN_SIGNING_SECRET` at runtime. GitHub Actions fallback values do not automatically populate Vercel's shared preview runtime unless the deployment explicitly passes them through.

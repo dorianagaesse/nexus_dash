@@ -12,6 +12,20 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-05-20
+- Type: Governance
+- Summary: Clarified Supabase runtime/admin connection policy after production
+  credential repair.
+- Evidence: Production and staging role checks confirmed `app_runtime` exists
+  with no superuser/create-role/create-db/RLS-bypass privileges, while
+  `postgres` remains admin-capable. The validated runtime shape is
+  `app_runtime.<project-ref>` through the transaction pooler on port `6543`.
+  Supabase direct-host DNS resolved IPv6-only from local diagnostics, so the
+  docs now allow an admin `postgres.<project-ref>` session-pooler fallback for
+  `DIRECT_URL` / `MIGRATION_DATABASE_URL` when direct connectivity is
+  unavailable, while keeping admin/session-pooler credentials forbidden for
+  `DATABASE_URL`.
+
 ### 2026-05-19
 - Type: Validation
 - Summary: TASK-132 PR #270 branch refreshed against current `main` and
