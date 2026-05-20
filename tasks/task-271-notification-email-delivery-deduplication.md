@@ -14,9 +14,8 @@ notifications remain unread.
   must not mark notifications read or resolved.
 
 ## Acceptance Criteria
-1. Once a project digest or invitation reminder is sent or skipped for a
-   notification, that notification ID is no longer eligible for a future email
-   dispatch.
+1. Once a project digest or invitation reminder is sent for a notification,
+   that notification ID is no longer eligible for a future email dispatch.
 2. Pending or currently dispatching groups still use the current notification
    fingerprint so refreshes before delivery can be folded into the pending
    email.
@@ -24,8 +23,8 @@ notifications remain unread.
 4. The behavior is covered by focused service tests.
 
 ## Definition Of Done
-- The service-level coverage logic distinguishes delivered/skipped items from
+- The service-level coverage logic distinguishes sent items from
   pending/dispatching items.
-- Tests prove delivered/skipped notification IDs are suppressed from future
-  dispatch while pending fingerprints remain current-sensitive.
+- Tests prove sent notification IDs are suppressed from future dispatch while
+  pending fingerprints remain current-sensitive.
 - Relevant validation is run and the branch is opened as a focused PR.

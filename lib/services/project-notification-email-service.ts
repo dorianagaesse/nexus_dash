@@ -365,7 +365,7 @@ async function isNotificationFingerprintCovered(input: {
           email: {
             kind: input.kind,
             status: {
-              in: ["sent", "skipped"],
+              in: ["sent"],
             },
           },
         },
@@ -606,7 +606,7 @@ async function findUncoveredNotificationEmailCandidates(
           ON email."id" = item."emailId"
         WHERE item."notificationId" = notification."id"
           AND (
-            email."status" IN ('sent', 'skipped')
+            email."status" = 'sent'
             OR (
               email."status" IN ('pending', 'dispatching')
               AND (

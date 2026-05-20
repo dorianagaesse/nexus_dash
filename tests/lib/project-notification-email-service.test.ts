@@ -277,7 +277,7 @@ describe("project-notification-email-service", () => {
     );
   });
 
-  test("does not enqueue a notification already sent or skipped even if it changed later", async () => {
+  test("does not enqueue a notification already sent even if it changed later", async () => {
     prismaMock.projectNotificationEmailItem.findFirst.mockResolvedValueOnce({
       id: "item-1",
     });
@@ -296,7 +296,7 @@ describe("project-notification-email-service", () => {
             expect.objectContaining({
               email: expect.objectContaining({
                 status: {
-                  in: ["sent", "skipped"],
+                  in: ["sent"],
                 },
               }),
             }),
@@ -438,7 +438,7 @@ describe("project-notification-email-service", () => {
       | undefined;
     const sql = reconcileQuery?.strings.join(" ") ?? "";
 
-    expect(sql).toContain("email.\"status\" IN ('sent', 'skipped')");
+    expect(sql).toContain("email.\"status\" = 'sent'");
     expect(sql).toContain(
       "item.\"notificationUpdatedAt\" = notification.\"updatedAt\""
     );

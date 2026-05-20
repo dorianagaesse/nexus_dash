@@ -20,9 +20,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   emails for notifications that had already been emailed but remained unread
   in-app. Created `fix/task-271-notification-email-no-repeat`, added
   `tasks/task-271-notification-email-delivery-deduplication.md`, and tightened
-  `lib/services/project-notification-email-service.ts` so sent/skipped email
-  items cover notification IDs permanently while pending/dispatching groups
-  still use current fingerprints for pre-delivery refreshes.
+  `lib/services/project-notification-email-service.ts` so sent email items
+  cover notification IDs permanently while pending/dispatching groups still use
+  current fingerprints for pre-delivery refreshes.
 
 ### 2026-05-20
 - Type: Execution

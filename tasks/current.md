@@ -23,8 +23,7 @@ debounce/grouping pipeline.
 - Email sending intentionally does not mark in-app notifications read or
   resolved.
 - The current coverage logic is fingerprint-sensitive, which is useful for
-  pending refreshes but too strict once an email has already been sent or
-  skipped.
+  pending refreshes but too strict once an email has already been sent.
 
 ## Scope
 - Tighten service-layer notification email coverage checks.
@@ -33,12 +32,12 @@ debounce/grouping pipeline.
 - Keep scheduler cadence and workflow behavior unchanged.
 
 ## Acceptance Criteria
-1. Sent/skipped notification email items suppress future email dispatch by
-   notification ID, even if the notification row is later updated.
+1. Sent notification email items suppress future email dispatch by notification
+   ID, even if the notification row is later updated.
 2. Pending/dispatching items still require the current fingerprint or timestamp
    so pre-send notification refreshes can update the pending group.
 3. Future distinct notification rows remain eligible for email delivery.
-4. Focused service tests cover the delivered/skipped suppression behavior.
+4. Focused service tests cover the sent-notification suppression behavior.
 
 ## Definition Of Done
 - Service changes are minimal and scoped to notification email coverage logic.
