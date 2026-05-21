@@ -378,6 +378,49 @@ describe("project-notification-email-service", () => {
     );
   });
 
+  test("uses mention actor display name over legacy author display name", async () => {
+    const mention = mentionNotification({
+      metadata: {
+        ...mentionNotification().metadata,
+        authorDisplayName: "Credential Owner",
+        actorDisplayName: "Build bot (agent)",
+      },
+    });
+    prismaMock.$queryRaw
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: "email-1" }]);
+    prismaMock.projectNotificationEmail.findMany
+      .mockResolvedValueOnce([{ recipientUserId: "user-1" }])
+      .mockResolvedValueOnce([
+        claimedGroup({
+          id: "email-1",
+          projectId: "project-1",
+          projectName: "Alpha",
+          notification: mention,
+        }),
+      ]);
+
+    await dispatchProjectNotificationEmails({
+      appOrigin: "https://preview.nexusdash.test",
+      now,
+    });
+
+    expect(outboundEmailMock.sendOutboundEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining(
+          "Build bot (agent) mentioned you on Ship orchestration"
+        ),
+      })
+    );
+    expect(outboundEmailMock.sendOutboundEmail).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining(
+          "Credential Owner mentioned you on Ship orchestration"
+        ),
+      })
+    );
+  });
+
   test("marks provider failures on all groups in the recipient batch", async () => {
     prismaMock.$queryRaw
       .mockResolvedValueOnce([])
