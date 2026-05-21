@@ -23,6 +23,7 @@ const prismaMock = vi.hoisted(() => ({
     count: vi.fn(),
     create: vi.fn(),
     findFirst: vi.fn(),
+    findMany: vi.fn(),
     update: vi.fn(),
   },
 }));
@@ -210,6 +211,7 @@ describe("project-notification-email-service", () => {
     });
     prismaMock.projectNotificationEmailItem.count.mockResolvedValue(1);
     prismaMock.projectNotificationEmailItem.findFirst.mockResolvedValue(null);
+    prismaMock.projectNotificationEmailItem.findMany.mockResolvedValue([]);
     prismaMock.$queryRaw.mockResolvedValue([]);
     outboundEmailMock.sendOutboundEmail.mockResolvedValue({
       ok: true,
@@ -277,7 +279,7 @@ describe("project-notification-email-service", () => {
     );
   });
 
-  test("does not enqueue a notification fingerprint already sent or skipped", async () => {
+  test("does not enqueue a notification already sent even if it changed later", async () => {
     prismaMock.projectNotificationEmailItem.findFirst.mockResolvedValueOnce({
       id: "item-1",
     });
@@ -288,6 +290,22 @@ describe("project-notification-email-service", () => {
     });
 
     expect(prismaMock.projectNotificationEmail.create).not.toHaveBeenCalled();
+    expect(prismaMock.projectNotificationEmailItem.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          notificationId: "notification-mention-1",
+          OR: expect.arrayContaining([
+            expect.objectContaining({
+              email: expect.objectContaining({
+                status: {
+                  in: ["sent"],
+                },
+              }),
+            }),
+          ]),
+        }),
+      })
+    );
   });
 
   test("creates invitation reminder groups for the six-hour reminder window", async () => {
@@ -409,6 +427,67 @@ describe("project-notification-email-service", () => {
 
     expect(summary.groupsClaimed).toBe(0);
     expect(outboundEmailMock.sendOutboundEmail).not.toHaveBeenCalled();
+  });
+
+  test("reconcile suppresses already-delivered notifications by id", async () => {
+    await dispatchProjectNotificationEmails({
+      appOrigin: "https://preview.nexusdash.test",
+      now,
+    });
+
+    const reconcileQuery = prismaMock.$queryRaw.mock.calls[0]?.[0] as
+      | { strings: string[] }
+      | undefined;
+    const sql = reconcileQuery?.strings.join(" ") ?? "";
+
+    expect(sql).toContain("email.\"status\" = 'sent'");
+    expect(sql).toContain(
+      "item.\"notificationUpdatedAt\" = notification.\"updatedAt\""
+    );
+    expect(sql).toContain("email.\"status\" IN ('pending', 'dispatching')");
+  });
+
+  test("skips stale pending groups whose notifications were already sent elsewhere", async () => {
+    prismaMock.$queryRaw
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: "email-1" }]);
+    prismaMock.projectNotificationEmail.findMany
+      .mockResolvedValueOnce([{ recipientUserId: "user-1" }])
+      .mockResolvedValueOnce([
+        claimedGroup({
+          id: "email-1",
+          projectId: "project-1",
+          projectName: "Alpha",
+          notification: mentionNotification(),
+        }),
+      ]);
+    prismaMock.projectNotificationEmailItem.findMany.mockResolvedValueOnce([
+      {
+        notificationId: "notification-mention-1",
+      },
+    ]);
+
+    const summary = await dispatchProjectNotificationEmails({
+      appOrigin: "https://preview.nexusdash.test",
+      now,
+    });
+
+    expect(summary).toMatchObject({
+      groupsClaimed: 1,
+      recipientEmailsAttempted: 0,
+      recipientEmailsSkipped: 1,
+      groupsSkipped: 1,
+    });
+    expect(outboundEmailMock.sendOutboundEmail).not.toHaveBeenCalled();
+    expect(prismaMock.projectNotificationEmail.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ["email-1"] } },
+        data: expect.objectContaining({
+          status: "skipped",
+          errorCode: "no-current-eligible-notifications",
+        }),
+      })
+    );
   });
 
   test("releases stale dispatching groups back to pending for retry", async () => {

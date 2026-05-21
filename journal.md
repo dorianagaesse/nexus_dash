@@ -12,6 +12,20 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-05-21
+- Type: Execution
+- Summary: Started TASK-271 to suppress repeated notification digest emails for
+  already-delivered notifications.
+- Evidence: User reported receiving repeated NexusDash notification reminder
+  emails for notifications that had already been emailed but remained unread
+  in-app. Created `fix/task-271-notification-email-no-repeat`, added
+  `tasks/task-271-notification-email-delivery-deduplication.md`, and tightened
+  `lib/services/project-notification-email-service.ts` so sent email items
+  cover notification IDs permanently while pending/dispatching groups still use
+  current fingerprints for pre-delivery refreshes. Added a dispatch-time guard
+  so stale pending groups created before the fix are skipped when another sent
+  group already covered their notification IDs.
+
 ### 2026-05-20
 - Type: Execution
 - Summary: Fixed notification email scheduler production target drift.

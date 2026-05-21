@@ -4,6 +4,12 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-271
+  Title: Notification email delivery deduplication - suppress already-emailed unread notifications
+  Status: Active
+  Rationale: Production showed that unread in-app notifications could produce repeated digest emails on later 3-hour scheduler runs. Email delivery should cover notification IDs once, while in-app read/resolved state remains independent and future distinct notifications remain eligible.
+  Dependencies: TASK-125, TASK-227, TASK-268
+  Brief: `tasks/task-271-notification-email-delivery-deduplication.md`
 - ID: TASK-269
   Title: GitHub Actions workflow cleanup - simplify CI/CD, scheduled jobs, and maintenance automation
   Status: Next
