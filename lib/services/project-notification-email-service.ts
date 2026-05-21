@@ -801,7 +801,8 @@ function buildActivityItems(input: {
 
     const actorDisplayName =
       notification.type === NOTIFICATION_TYPE_TASK_COMMENT_MENTION
-        ? readString(notification.metadata, "authorDisplayName")
+        ? readString(notification.metadata, "actorDisplayName") ||
+          readString(notification.metadata, "authorDisplayName")
         : readString(notification.metadata, "actorDisplayName");
     if (!actorDisplayName) {
       continue;

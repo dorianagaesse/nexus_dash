@@ -25,10 +25,23 @@ const prismaMock = vi.hoisted(() => ({
     createMany: vi.fn(),
     updateMany: vi.fn(),
   },
+  apiCredential: {
+    findFirst: vi.fn(),
+  },
+}));
+
+const apiGuardMock = vi.hoisted(() => ({
+  getAgentProjectAccessContext: vi.fn(),
+  requireApiPrincipal: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: prismaMock,
+}));
+
+vi.mock("@/lib/auth/api-guard", () => ({
+  getAgentProjectAccessContext: apiGuardMock.getAgentProjectAccessContext,
+  requireApiPrincipal: apiGuardMock.requireApiPrincipal,
 }));
 
 const attachmentStorageMock = vi.hoisted(() => ({
@@ -66,6 +79,16 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     prismaMock.notification.findMany.mockResolvedValue([]);
     prismaMock.notification.createMany.mockResolvedValue({ count: 1 });
     prismaMock.notification.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.apiCredential.findFirst.mockResolvedValue(null);
+    apiGuardMock.requireApiPrincipal.mockResolvedValue({
+      ok: true,
+      principal: {
+        kind: "human",
+        actorUserId: "test-user",
+        requestId: "request-1",
+      },
+    });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValue(undefined);
     attachmentStorageMock.deleteAttachmentFile.mockResolvedValue(undefined);
   });
 
@@ -770,6 +793,214 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     });
   });
 
+  test("does not create assignment notification for human self-assignment", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      status: "In Progress",
+      position: 2,
+      archivedAt: null,
+      epicId: null,
+      assigneeUserId: null,
+      outgoingRelations: [],
+      incomingRelations: [],
+    });
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      title: "Assign myself",
+      label: null,
+      labelsJson: null,
+      description: null,
+      deadlineAt: null,
+      _count: {
+        comments: 0,
+      },
+      blockedNote: null,
+      status: "In Progress",
+      position: 2,
+      archivedAt: null,
+      epic: null,
+      createdAt: new Date("2026-04-18T08:00:00.000Z"),
+      updatedAt: new Date("2026-04-18T09:00:00.000Z"),
+      createdByUser: {
+        id: "user-1",
+        name: "Alice Example",
+        email: "alice@example.com",
+        username: "alice",
+        usernameDiscriminator: "1234",
+        avatarSeed: null,
+      },
+      updatedByUser: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+      assigneeUser: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+      outgoingRelations: [],
+      incomingRelations: [],
+      blockedFollowUps: [],
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        assigneeUserId: "test-user",
+      }),
+    });
+
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.notification.createMany).not.toHaveBeenCalled();
+  });
+
+  test("attributes owner assignment notifications to agent credentials", async () => {
+    apiGuardMock.requireApiPrincipal.mockResolvedValueOnce({
+      ok: true,
+      principal: {
+        kind: "agent",
+        actorUserId: "owner-1",
+        ownerUserId: "owner-1",
+        credentialId: "credential-1",
+        projectId: "p1",
+        scopes: ["task:write"],
+        tokenId: "token-1",
+        requestId: "request-1",
+      },
+    });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValueOnce({
+      credentialId: "credential-1",
+      projectId: "p1",
+      scopes: ["task:write"],
+    });
+    prismaMock.project.findFirst.mockResolvedValueOnce({
+      ownerId: "owner-1",
+      memberships: [],
+    });
+    prismaMock.apiCredential.findFirst.mockResolvedValueOnce({
+      label: "Build bot",
+    });
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      status: "In Progress",
+      position: 2,
+      archivedAt: null,
+      epicId: null,
+      assigneeUserId: null,
+      outgoingRelations: [],
+      incomingRelations: [],
+    });
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      title: "Agent assigns owner",
+      label: null,
+      labelsJson: null,
+      description: null,
+      deadlineAt: null,
+      _count: {
+        comments: 0,
+      },
+      blockedNote: null,
+      status: "In Progress",
+      position: 2,
+      archivedAt: null,
+      epic: null,
+      createdAt: new Date("2026-04-18T08:00:00.000Z"),
+      updatedAt: new Date("2026-04-18T09:00:00.000Z"),
+      createdByUser: {
+        id: "owner-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "0001",
+        avatarSeed: null,
+      },
+      updatedByUser: {
+        id: "owner-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "0001",
+        avatarSeed: null,
+      },
+      assigneeUser: {
+        id: "owner-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "0001",
+        avatarSeed: null,
+      },
+      outgoingRelations: [],
+      incomingRelations: [],
+      blockedFollowUps: [],
+    });
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      title: "Agent assigns owner",
+      projectId: "p1",
+      project: {
+        name: "Nexus",
+      },
+      assigneeUser: {
+        id: "owner-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "0001",
+        avatarSeed: null,
+      },
+      updatedByUser: {
+        id: "owner-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "0001",
+        avatarSeed: null,
+      },
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        assigneeUserId: "owner-1",
+      }),
+    });
+
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          recipientUserId: "owner-1",
+          body: "Build bot (agent) assigned you to Agent assigns owner.",
+          metadata: expect.objectContaining({
+            actorKind: "agent",
+            actorUserId: "owner-1",
+            actorDisplayName: "Build bot (agent)",
+            actorCredentialId: "credential-1",
+            actorCredentialLabel: "Build bot",
+          }),
+        }),
+      ],
+      skipDuplicates: true,
+    });
+  });
+
   test("returns 400 when related tasks are invalid", async () => {
     prismaMock.task.findUnique.mockResolvedValueOnce({
       id: "t1",
@@ -1030,6 +1261,15 @@ describe("DELETE /api/projects/:projectId/tasks/:taskId", () => {
       ownerId: "test-user",
       memberships: [],
     });
+    apiGuardMock.requireApiPrincipal.mockResolvedValue({
+      ok: true,
+      principal: {
+        kind: "human",
+        actorUserId: "test-user",
+        requestId: "request-1",
+      },
+    });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValue(undefined);
     attachmentStorageMock.deleteAttachmentFile.mockResolvedValue(undefined);
   });
 
@@ -1122,6 +1362,15 @@ describe("POST /api/projects/:projectId/tasks/:taskId/archive", () => {
       ownerId: "test-user",
       memberships: [],
     });
+    apiGuardMock.requireApiPrincipal.mockResolvedValue({
+      ok: true,
+      principal: {
+        kind: "human",
+        actorUserId: "test-user",
+        requestId: "request-1",
+      },
+    });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValue(undefined);
   });
 
   test("archives a done task", async () => {
@@ -1209,6 +1458,15 @@ describe("DELETE /api/projects/:projectId/tasks/:taskId/archive", () => {
       ownerId: "test-user",
       memberships: [],
     });
+    apiGuardMock.requireApiPrincipal.mockResolvedValue({
+      ok: true,
+      principal: {
+        kind: "human",
+        actorUserId: "test-user",
+        requestId: "request-1",
+      },
+    });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValue(undefined);
   });
 
   test("unarchives an archived done task", async () => {

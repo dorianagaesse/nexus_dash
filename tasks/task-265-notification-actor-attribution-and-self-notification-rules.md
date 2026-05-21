@@ -1,7 +1,7 @@
 # TASK-265 Notification Actor Attribution And Self-Notification Rules
 
 Date: 2026-05-16
-Branch: `feature/task-265-notification-actor-attribution-self-notification`
+Branch: `feature/task-265-notification-actor-attribution`
 
 ## Summary
 

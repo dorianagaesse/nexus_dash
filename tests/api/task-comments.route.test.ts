@@ -19,6 +19,9 @@ const prismaMock = vi.hoisted(() => ({
     createMany: vi.fn(),
     updateMany: vi.fn(),
   },
+  apiCredential: {
+    findFirst: vi.fn(),
+  },
 }));
 
 const apiGuardMock = vi.hoisted(() => ({
@@ -66,6 +69,7 @@ describe("task comments route", () => {
     prismaMock.notification.findMany.mockResolvedValue([]);
     prismaMock.notification.createMany.mockResolvedValue({ count: 1 });
     prismaMock.notification.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.apiCredential.findFirst.mockResolvedValue(null);
   });
 
   test("GET returns chronological task comments", async () => {
@@ -382,6 +386,9 @@ describe("task comments route", () => {
       ownerId: "owner-1",
       memberships: [],
     });
+    prismaMock.apiCredential.findFirst.mockResolvedValueOnce({
+      label: "Build bot",
+    });
     prismaMock.task.findUnique.mockResolvedValueOnce({
       id: "task-1",
       title: "Agent mention task",
@@ -432,12 +439,72 @@ describe("task comments route", () => {
       data: [
         expect.objectContaining({
           recipientUserId: "owner-1",
+          body:
+            "Build bot (agent) mentioned you in a comment on Agent mention task.",
           sourceType: "task_comment_mention",
           sourceId: "comment-agent-mention",
+          metadata: expect.objectContaining({
+            authorDisplayName: "Owner",
+            actorKind: "agent",
+            actorUserId: "owner-1",
+            actorDisplayName: "Build bot (agent)",
+            actorCredentialId: "credential-1",
+            actorCredentialLabel: "Build bot",
+          }),
         }),
       ],
       skipDuplicates: true,
     });
+  });
+
+  test("POST does not notify humans when they mention themselves", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      title: "Self mention task",
+      projectId: "project-1",
+    });
+    prismaMock.project.findUnique.mockResolvedValueOnce({
+      id: "project-1",
+      name: "Test project",
+      owner: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+      },
+      memberships: [],
+    });
+    prismaMock.taskComment.create.mockResolvedValueOnce({
+      id: "comment-self-mention",
+      content: "Reminder for @reviewer#0007.",
+      createdAt: new Date("2026-04-19T12:30:00.000Z"),
+      author: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+    });
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "Reminder for @reviewer#0007.",
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(201);
+    expect(prismaMock.notification.createMany).not.toHaveBeenCalled();
   });
 
   test("POST does not notify discriminator-less ambiguous username mentions", async () => {

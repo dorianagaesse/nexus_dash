@@ -4,30 +4,18 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-272
-  Title: Release version cadence and tagging - pre-1.0 product version policy
+- ID: TASK-265
+  Title: Notification actor attribution and self-notification rules
   Status: Active
-  Rationale: TASK-132 fixed the misleading `0.1.0+<commit>` display by separating product version from build revision, but the app now stays on `v0.2.0` until a human explicitly bumps `package.json`. Define and implement a lightweight release policy so pre-1.0 versions move intentionally (`0.2.1`, `0.3.0`, etc.), production deployments can be tied to release notes/tags, and the team has clear criteria for when NexusDash becomes `1.0.0`.
-  Dependencies: TASK-042, TASK-116, TASK-132
-  Brief: `tasks/task-272-release-version-cadence-and-tagging.md`
-- ID: TASK-271
-  Title: Notification email delivery deduplication - suppress already-emailed unread notifications
-  Status: Active
-  Rationale: Production showed that unread in-app notifications could produce repeated digest emails on later 3-hour scheduler runs. Email delivery should cover notification IDs once, while in-app read/resolved state remains independent and future distinct notifications remain eligible.
-  Dependencies: TASK-125, TASK-227, TASK-268
-  Brief: `tasks/task-271-notification-email-delivery-deduplication.md`
+  Rationale: Production email smoke confirmed the digest shape, but agent-authored assignment/mention copy can read as if the human account performed the action (for example `dorian1 assigned you...`) because agent API actions currently reuse the credential owner's actor identity. Tighten notification metadata and email/in-app copy so agent activity is attributed to the agent/system, human activity is attributed to the human actor, and self-notifications are consistently suppressed for human self-assignment/self-mention while remaining allowed for genuine agent-to-user activity.
+  Dependencies: TASK-123, TASK-124, TASK-127, TASK-227, TASK-260
+  Brief: `tasks/task-265-notification-actor-attribution-and-self-notification-rules.md`
 - ID: TASK-269
   Title: GitHub Actions workflow cleanup - simplify CI/CD, scheduled jobs, and maintenance automation
   Status: Next
   Rationale: The repository now has several production-impacting workflows covering quality gates, staged Vercel deploys, notification email dispatch, dependency security, Dependabot triage, and Copilot repair. Recent production work exposed duplicated env handling, scheduler tradeoffs, and deploy/secrets coupling across these workflows. Run a focused cleanup so workflow responsibilities, permissions, env/secrets usage, dispatch inputs, summaries, and failure modes are easier to understand and operate without changing product behavior.
   Dependencies: TASK-042, TASK-116, TASK-132, TASK-268
   Brief: `tasks/task-269-github-actions-workflow-cleanup.md`
-- ID: TASK-265
-  Title: Notification actor attribution and self-notification rules
-  Status: Next
-  Rationale: Production email smoke confirmed the digest shape, but agent-authored assignment/mention copy can read as if the human account performed the action (for example `dorian1 assigned you...`) because agent API actions currently reuse the credential owner's actor identity. Tighten notification metadata and email/in-app copy so agent activity is attributed to the agent/system, human activity is attributed to the human actor, and self-notifications are consistently suppressed for human self-assignment/self-mention while remaining allowed for genuine agent-to-user activity.
-  Dependencies: TASK-123, TASK-124, TASK-127, TASK-227, TASK-260
-  Brief: `tasks/task-265-notification-actor-attribution-and-self-notification-rules.md`
 - ID: TASK-226
   Title: Task due-date email reminders - 3-day deadline warning delivery
   Status: Pending (after TASK-268 scheduler activation)
@@ -155,6 +143,16 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-272
+  Title: Release version cadence and tagging - pre-1.0 product version policy
+  Status: Done (2026-05-21, merged via PR #276)
+  Rationale: Defined the lightweight pre-1.0 release-version policy, release PR checklist, changelog convention, and helper script so product versions move intentionally while build/revision metadata remains separate.
+  Dependencies: TASK-042, TASK-116, TASK-132
+- ID: TASK-271
+  Title: Notification email delivery deduplication - suppress already-emailed unread notifications
+  Status: Done (2026-05-21, merged via PR #275)
+  Rationale: Suppressed repeated notification digest emails by making sent email items cover notification IDs permanently, while pending/dispatching groups still use current fingerprints for pre-delivery refreshes and future distinct notifications remain eligible.
+  Dependencies: TASK-125, TASK-227, TASK-268
 - ID: TASK-268
   Title: GitHub Actions notification email scheduler - 3-hour production bridge
   Status: Done (2026-05-19, merged via PR #271)

@@ -14,6 +14,31 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-05-22
 - Type: Execution
+- Summary: Implemented TASK-265 notification actor attribution and
+  self-notification rules.
+- Evidence: Added explicit actor metadata to task assignment and comment
+  mention notifications, including agent credential id/label and display copy
+  such as `<credential> (agent)` for agent-authored activity. Human
+  self-assignment and self-mention notifications are suppressed, while
+  agent-to-owner notifications remain eligible. Validation passed with
+  `git diff --check`, focused route/email tests, `npm run lint`, full
+  `npm test`, `npm run test:coverage`, and `npm run build` using the local
+  Postgres database and local-only build env.
+
+### 2026-05-22
+- Type: Planning
+- Summary: Started TASK-265 in a dedicated worktree and cleaned stale execution
+  queue entries.
+- Evidence: Fetched current `origin/main` at `522daeb`, created
+  `../nexus_dash_task265` on
+  `feature/task-265-notification-actor-attribution`, moved merged TASK-271
+  (PR #275) and TASK-272 (PR #276) from the execution queue to Completed in
+  `tasks/backlog.md`, promoted TASK-265 to Active, and redrafted
+  `tasks/current.md` with acceptance criteria, definition of done, local
+  prerequisites, validation plan, and review workflow.
+
+### 2026-05-22
+- Type: Execution
 - Summary: Started TASK-272 release version cadence and tagging policy.
 - Evidence: Added `tasks/task-272-release-version-cadence-and-tagging.md`,
   promoted TASK-272 to active in `tasks/backlog.md`, created

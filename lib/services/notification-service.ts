@@ -91,8 +91,15 @@ export interface TaskCommentMentionNotificationMetadata {
   mentionedUserDisplayName: string;
   authorUsername: string;
   authorDisplayName: string;
+  actorKind: NotificationActorKind;
+  actorUserId: string;
+  actorDisplayName: string;
+  actorCredentialId: string | null;
+  actorCredentialLabel: string | null;
   targetPath: string;
 }
+
+export type NotificationActorKind = "user" | "agent";
 
 export interface TaskAssignmentNotificationMetadata {
   taskId: string;
@@ -101,8 +108,11 @@ export interface TaskAssignmentNotificationMetadata {
   projectName: string;
   assignedUserId: string;
   assignedUserDisplayName: string;
+  actorKind: NotificationActorKind;
   actorUserId: string;
   actorDisplayName: string;
+  actorCredentialId: string | null;
+  actorCredentialLabel: string | null;
   targetPath: string;
 }
 
@@ -774,6 +784,11 @@ export interface TaskCommentMentionNotificationInput {
   mentionedUserDisplayName: string;
   authorUsername: string;
   authorDisplayName: string;
+  actorKind: NotificationActorKind;
+  actorUserId: string;
+  actorDisplayName: string;
+  actorCredentialId: string | null;
+  actorCredentialLabel: string | null;
   targetPath: string;
 }
 
@@ -782,7 +797,7 @@ function buildTaskCommentMentionNotificationContent(
 ) {
   return {
     title: `Mentioned in: ${input.taskTitle}`,
-    body: `${input.authorDisplayName} mentioned you in a comment on ${input.taskTitle}.`,
+    body: `${input.actorDisplayName} mentioned you in a comment on ${input.taskTitle}.`,
     targetPath: input.targetPath,
   };
 }
@@ -801,6 +816,11 @@ function buildTaskCommentMentionMetadata(
     mentionedUserDisplayName: input.mentionedUserDisplayName,
     authorUsername: input.authorUsername,
     authorDisplayName: input.authorDisplayName,
+    actorKind: input.actorKind,
+    actorUserId: input.actorUserId,
+    actorDisplayName: input.actorDisplayName,
+    actorCredentialId: input.actorCredentialId,
+    actorCredentialLabel: input.actorCredentialLabel,
     targetPath: input.targetPath,
   };
 }
@@ -838,6 +858,25 @@ function mapTaskCommentMentionMetadata(
     return null;
   }
 
+  const actorKind =
+    metadata.actorKind === "agent" || metadata.actorKind === "user"
+      ? metadata.actorKind
+      : "user";
+  const actorUserId =
+    typeof metadata.actorUserId === "string" ? metadata.actorUserId : "";
+  const actorDisplayName =
+    typeof metadata.actorDisplayName === "string"
+      ? metadata.actorDisplayName
+      : metadata.authorDisplayName;
+  const actorCredentialId =
+    typeof metadata.actorCredentialId === "string"
+      ? metadata.actorCredentialId
+      : null;
+  const actorCredentialLabel =
+    typeof metadata.actorCredentialLabel === "string"
+      ? metadata.actorCredentialLabel
+      : null;
+
   return {
     commentId: metadata.commentId,
     taskId: metadata.taskId,
@@ -849,6 +888,11 @@ function mapTaskCommentMentionMetadata(
     mentionedUserDisplayName: metadata.mentionedUserDisplayName,
     authorUsername: metadata.authorUsername,
     authorDisplayName: metadata.authorDisplayName,
+    actorKind,
+    actorUserId,
+    actorDisplayName,
+    actorCredentialId,
+    actorCredentialLabel,
     targetPath: metadata.targetPath,
   };
 }
@@ -1003,8 +1047,11 @@ export interface TaskAssignmentNotificationInput {
   projectName: string;
   assignedUserId: string;
   assignedUserDisplayName: string;
+  actorKind: NotificationActorKind;
   actorUserId: string;
   actorDisplayName: string;
+  actorCredentialId: string | null;
+  actorCredentialLabel: string | null;
   targetPath: string;
 }
 
@@ -1028,8 +1075,11 @@ function buildTaskAssignmentMetadata(
     projectName: input.projectName,
     assignedUserId: input.assignedUserId,
     assignedUserDisplayName: input.assignedUserDisplayName,
+    actorKind: input.actorKind,
     actorUserId: input.actorUserId,
     actorDisplayName: input.actorDisplayName,
+    actorCredentialId: input.actorCredentialId,
+    actorCredentialLabel: input.actorCredentialLabel,
     targetPath: input.targetPath,
   };
 }
@@ -1065,6 +1115,19 @@ function mapTaskAssignmentMetadata(
     return null;
   }
 
+  const actorKind =
+    metadata.actorKind === "agent" || metadata.actorKind === "user"
+      ? metadata.actorKind
+      : "user";
+  const actorCredentialId =
+    typeof metadata.actorCredentialId === "string"
+      ? metadata.actorCredentialId
+      : null;
+  const actorCredentialLabel =
+    typeof metadata.actorCredentialLabel === "string"
+      ? metadata.actorCredentialLabel
+      : null;
+
   return {
     taskId: metadata.taskId,
     taskTitle: metadata.taskTitle,
@@ -1072,8 +1135,11 @@ function mapTaskAssignmentMetadata(
     projectName: metadata.projectName,
     assignedUserId: metadata.assignedUserId,
     assignedUserDisplayName: metadata.assignedUserDisplayName,
+    actorKind,
     actorUserId: metadata.actorUserId,
     actorDisplayName: metadata.actorDisplayName,
+    actorCredentialId,
+    actorCredentialLabel,
     targetPath: metadata.targetPath,
   };
 }

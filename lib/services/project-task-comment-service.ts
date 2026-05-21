@@ -7,6 +7,7 @@ import {
 } from "@/lib/services/project-access-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 import {
+  type NotificationActorKind,
   type TaskCommentMentionNotificationInput,
   createTaskCommentMentionNotification,
 } from "@/lib/services/notification-service";
@@ -77,6 +78,32 @@ function normalizeActorUserId(actorUserId: string | null | undefined): string {
   }
 
   return actorUserId.trim();
+}
+
+function normalizeText(value: string | null | undefined): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function buildAgentDisplayName(label: string | null | undefined): string {
+  const normalizedLabel = normalizeText(label);
+  return normalizedLabel ? `${normalizedLabel} (agent)` : "Agent";
+}
+
+async function resolveAgentCredentialLabel(input: {
+  db: DbClient;
+  agentAccess: AgentProjectAccessContext;
+}): Promise<string | null> {
+  const credential = await input.db.apiCredential.findFirst({
+    where: {
+      id: input.agentAccess.credentialId,
+      projectId: input.agentAccess.projectId,
+    },
+    select: {
+      label: true,
+    },
+  });
+
+  return normalizeText(credential?.label) || null;
 }
 
 function mapTaskComment(input: {
@@ -283,13 +310,16 @@ function buildPendingMentionNotifications(input: {
   actorUserId: string;
   authorDisplayName: string;
   authorUsername: string | null;
+  actorKind: NotificationActorKind;
+  actorDisplayName: string;
+  actorCredentialId: string | null;
+  actorCredentialLabel: string | null;
   commentId: string;
   taskId: string;
   taskTitle: string;
   projectId: string;
   projectName: string;
   mentionedUsers: MentionedProjectMember[];
-  allowActorNotification: boolean;
 }): PendingMentionNotification[] {
   const taskPath =
     `/projects/${encodeURIComponent(input.projectId)}` +
@@ -299,7 +329,7 @@ function buildPendingMentionNotifications(input: {
   return input.mentionedUsers
     .filter(
       (mentionedUser) =>
-        input.allowActorNotification ||
+        input.actorKind === "agent" ||
         mentionedUser.userId !== input.actorUserId
     )
     .map((mentionedUser) => ({
@@ -315,6 +345,11 @@ function buildPendingMentionNotifications(input: {
         mentionedUserDisplayName: mentionedUser.displayName,
         authorUsername: input.authorUsername || "",
         authorDisplayName: input.authorDisplayName,
+        actorKind: input.actorKind,
+        actorUserId: input.actorUserId,
+        actorDisplayName: input.actorDisplayName,
+        actorCredentialId: input.actorCredentialId,
+        actorCredentialLabel: input.actorCredentialLabel,
         targetPath: taskPath,
       },
     }));
@@ -514,17 +549,35 @@ export async function createTaskCommentForProject(input: {
           comment.author.email ||
           comment.author.username ||
           "Someone";
+        let actorKind: NotificationActorKind = "user";
+        let actorDisplayName = authorDisplayName;
+        let actorCredentialId: string | null = null;
+        let actorCredentialLabel: string | null = null;
+
+        if (input.agentAccess) {
+          actorKind = "agent";
+          actorCredentialId = input.agentAccess.credentialId;
+          actorCredentialLabel = await resolveAgentCredentialLabel({
+            db,
+            agentAccess: input.agentAccess,
+          });
+          actorDisplayName = buildAgentDisplayName(actorCredentialLabel);
+        }
+
         const pendingNotifications = buildPendingMentionNotifications({
           actorUserId,
           authorDisplayName,
           authorUsername: comment.author.username,
+          actorKind,
+          actorDisplayName,
+          actorCredentialId,
+          actorCredentialLabel,
           commentId: comment.id,
           taskId: input.taskId,
           taskTitle: task.title,
           projectId: input.projectId,
           projectName: mentionResolution.data.projectName,
           mentionedUsers: mentionResolution.data.mentionedUsers,
-          allowActorNotification: Boolean(input.agentAccess),
         });
 
         return {
