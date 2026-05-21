@@ -82,11 +82,17 @@ function runNpmVersion(targetVersion) {
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
+const wantsHelp = args.includes("--help") || args.includes("-h");
 const positional = args.filter((arg) => arg !== "--dry-run");
 
-if (positional.length !== 1 || positional[0] === "--help" || positional[0] === "-h") {
+if (wantsHelp) {
   usage();
-  process.exit(positional[0] === "--help" || positional[0] === "-h" ? 0 : 1);
+  process.exit(0);
+}
+
+if (positional.length !== 1) {
+  usage();
+  process.exit(1);
 }
 
 try {
