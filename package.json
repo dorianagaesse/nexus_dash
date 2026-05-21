@@ -24,6 +24,7 @@
     "db:local:up": "docker compose up -d --wait postgres",
     "db:local:down": "docker compose stop postgres",
     "db:local:reset": "node scripts/local-db-reset.mjs",
+    "release:version": "node scripts/release-version.mjs",
     "validate:local": "node scripts/local-validation.mjs"
   },
   "dependencies": {
