@@ -12,6 +12,15 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-05-22
+- Type: Execution
+- Summary: Started TASK-272 release version cadence and tagging policy.
+- Evidence: Added `tasks/task-272-release-version-cadence-and-tagging.md`,
+  promoted TASK-272 to active in `tasks/backlog.md`, created
+  `docs/runbooks/release-versioning.md`, seeded `CHANGELOG.md`, and added the
+  `npm run release:version` helper for dry-run and intentional
+  `package.json`/`package-lock.json` product-version bumps.
+
 ### 2026-05-21
 - Type: Execution
 - Summary: Started TASK-271 to suppress repeated notification digest emails for

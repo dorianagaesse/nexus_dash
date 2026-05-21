@@ -47,6 +47,9 @@ in Vercel. If `APP_VERSION` is set by hand, it must match the intended release
 version from source control rather than a dependency-update or deployment
 attempt number.
 
+Release cadence, pre-1.0 bump rules, changelog expectations, and tag/promotion
+steps are documented in `docs/runbooks/release-versioning.md`.
+
 ## Database Runtime
 
 Required for Vercel runtime/deployments:

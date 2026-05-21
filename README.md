@@ -197,6 +197,7 @@ Runbooks:
 
 - `docs/runbooks/vercel-env-contract-and-secrets.md`
 - `docs/runbooks/database-connection-hardening.md`
+- `docs/runbooks/release-versioning.md`
 
 ## Attachments and Storage
 
@@ -255,6 +256,7 @@ npm run db:migrate
 npm run db:local:up
 npm run db:local:down
 npm run db:local:reset
+npm run release:version -- patch --dry-run
 npm run validate:local
 ```
 
@@ -372,6 +374,13 @@ Branch-name note:
 intentionally change the product version must update both `package.json` and
 `package-lock.json`; Dependabot maintenance PRs must not bump the product
 version by themselves.
+
+Product versions move through intentional release PRs, not every production
+deployment. While NexusDash is pre-1.0, use patch bumps such as `0.2.1` for
+bugfix and operational releases, minor bumps such as `0.3.0` for meaningful
+product capability milestones, and reserve `1.0.0` for the first stable product
+baseline. The detailed checklist lives in
+[`docs/runbooks/release-versioning.md`](docs/runbooks/release-versioning.md).
 
 The running app displays only the clean product version, for example `v0.2.0`.
 Build revision and runtime environment are kept as diagnostic metadata so

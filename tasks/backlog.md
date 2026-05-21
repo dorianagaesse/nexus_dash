@@ -4,6 +4,12 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-272
+  Title: Release version cadence and tagging - pre-1.0 product version policy
+  Status: Active
+  Rationale: TASK-132 fixed the misleading `0.1.0+<commit>` display by separating product version from build revision, but the app now stays on `v0.2.0` until a human explicitly bumps `package.json`. Define and implement a lightweight release policy so pre-1.0 versions move intentionally (`0.2.1`, `0.3.0`, etc.), production deployments can be tied to release notes/tags, and the team has clear criteria for when NexusDash becomes `1.0.0`.
+  Dependencies: TASK-042, TASK-116, TASK-132
+  Brief: `tasks/task-272-release-version-cadence-and-tagging.md`
 - ID: TASK-271
   Title: Notification email delivery deduplication - suppress already-emailed unread notifications
   Status: Active
