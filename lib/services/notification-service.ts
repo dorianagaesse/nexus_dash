@@ -1435,7 +1435,10 @@ export async function createTaskDueDateReminderNotification(input: {
     await createOrRefreshTaskDueDateReminderNotification({
       db: input.db,
       recipientUserId,
-      notification: input.notification,
+      notification: {
+        ...input.notification,
+        recipientUserId,
+      },
     });
   } catch (error) {
     logServerError("createTaskDueDateReminderNotification", error);

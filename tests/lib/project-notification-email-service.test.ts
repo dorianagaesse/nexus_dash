@@ -428,7 +428,7 @@ describe("project-notification-email-service", () => {
       | undefined;
     const sql = dueDateQuery?.strings.join(" ") ?? "";
 
-    expect(sql).toContain('task."deadlineAt" =');
+    expect(sql).toContain('task."deadlineAt" = CAST(');
     expect(sql).toContain('task."status" <> \'Done\'');
     expect(sql).toContain('task."archivedAt" IS NULL');
     expect(sql).toContain('"ProjectMembership" membership');

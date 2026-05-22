@@ -24,6 +24,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-05-22
 - Type: Execution
+- Summary: TASK-226 addressed Copilot review comments on PR #278.
+- Evidence: Changed the due-date reminder eligibility query to compare `deadlineAt` to a bound date-only string cast with `CAST(... AS date)`, avoiding timezone-sensitive timestamp comparison. Canonicalized `createTaskDueDateReminderNotification()` so the validated top-level recipient id overrides stale metadata/source input before create/update. Follow-up validation passed: focused notification/email service tests (2 files, 28 tests), `npm run lint`, local placeholder runtime env `npm run build`, and `git diff --check`.
+
+### 2026-05-22
+- Type: Execution
 - Summary: Started TASK-272 release version cadence and tagging policy.
 - Evidence: Added `tasks/task-272-release-version-cadence-and-tagging.md`,
   promoted TASK-272 to active in `tasks/backlog.md`, created

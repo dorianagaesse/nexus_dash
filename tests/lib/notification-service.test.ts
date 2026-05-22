@@ -431,7 +431,7 @@ describe("notification-service", () => {
         taskTitle: "Ship reminders",
         projectId: "project-1",
         projectName: "Alpha",
-        recipientUserId: "user-1",
+        recipientUserId: "stale-user",
         deadlineDate: "2026-05-25",
         daysUntilDue: 3,
         targetPath: "/projects/project-1?taskId=task-1",
@@ -446,6 +446,7 @@ describe("notification-service", () => {
           sourceType: "task_due_date_reminder",
           sourceId: "task-1:user-1:2026-05-25",
           metadata: expect.objectContaining({
+            recipientUserId: "user-1",
             deadlineDate: "2026-05-25",
             daysUntilDue: 3,
           }),

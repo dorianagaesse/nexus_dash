@@ -685,11 +685,8 @@ async function findTaskDueDateReminderCandidates(input: {
     todayDate,
     TASK_DEADLINE_SOON_DAYS
   );
-  const reminderDeadlineAt = reminderDate
-    ? parseTaskDeadlineDateForQuery(reminderDate)
-    : null;
 
-  if (!reminderDate || !reminderDeadlineAt) {
+  if (!reminderDate) {
     return [];
   }
 
@@ -708,7 +705,7 @@ async function findTaskDueDateReminderCandidates(input: {
       LEFT JOIN "ProjectMembership" membership
         ON membership."projectId" = task."projectId"
        AND membership."userId" = COALESCE(task."assigneeUserId", task."createdByUserId")
-      WHERE task."deadlineAt" = ${reminderDeadlineAt}
+      WHERE task."deadlineAt" = CAST(${reminderDate} AS date)
         AND task."status" <> 'Done'
         AND task."archivedAt" IS NULL
         AND (
@@ -737,15 +734,6 @@ async function findTaskDueDateReminderCandidates(input: {
     ORDER BY eligible_tasks."deadlineAt" ASC, eligible_tasks."taskId" ASC
     LIMIT ${input.limit}
   `);
-}
-
-function parseTaskDeadlineDateForQuery(dateOnly: string): Date | null {
-  const formatted = formatTaskDeadlineDate(dateOnly);
-  if (!formatted) {
-    return null;
-  }
-
-  return new Date(`${formatted}T00:00:00.000Z`);
 }
 
 async function createTaskDueDateReminderNotificationForCandidate(input: {
