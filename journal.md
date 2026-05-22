@@ -13,6 +13,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-05-22
+- Type: Execution
+- Summary: Started TASK-226 production RLS remediation after prod smoke found no due-date reminder candidates.
+- Evidence: Created branch `fix/task-226-due-reminder-rls` in `../nexus_dash_task226` from `origin/main`. Root cause analysis found due-date reminder discovery reading RLS-protected task rows without an actor context and reminder email queueing depending on a later global notification scan. Updated `tasks/current.md` and `tasks/backlog.md` for the focused production fix.
+
+### 2026-05-22
+- Type: Validation
+- Summary: TASK-226 production RLS remediation passed local validation.
+- Evidence: Due-date reminder reconciliation now scans verified recipients and runs task discovery under each recipient's RLS context, then creates/reuses the reminder notification and queues its email group immediately. Validation passed: focused `npm test -- --run tests/lib/project-notification-email-service.test.ts` (18 tests); `git diff --check`; `npm run lint`; local PostgreSQL env `npm test` (108 files passed, 832 tests passed, 2 skipped); local PostgreSQL env `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); preview-style env `npm run build`.
+
+### 2026-05-22
+- Type: Execution
+- Summary: TASK-226 addressed Copilot review feedback on verified-recipient scan scale.
+- Evidence: Copilot flagged that due-date reconciliation materialized every verified user before applying the reminder cap. Added paginated recipient scanning with a 100-user batch size, cursor continuation, and early stop once the reminder cap is reached. Follow-up validation passed: focused service tests (19 tests), `git diff --check`, `npm run lint`, local PostgreSQL `npm test` (108 files passed, 833 tests passed, 2 skipped), local PostgreSQL `npm run test:coverage`, and preview-style `npm run build`.
+
+### 2026-05-22
 - Type: Validation
 - Summary: Resolved PR #277 merge conflicts against current `origin/main`.
 - Evidence: Merged `origin/main` at `d5464d8` into

@@ -1,98 +1,84 @@
-# Current Task: TASK-226 Task Due-Date Email Reminders
+# Current Task: TASK-226 Due-Date Reminder Production RLS Fix
 
 ## Task ID
 TASK-226
 
 ## Status
-In Review
+Active
 
 ## Source
+- Production smoke after TASK-226/TASK-265 promotion created tasks due within
+  three days, but `GET /api/cron/notification-emails` returned
+  `dueDateRemindersReconciled: 0`.
 - Dedicated brief:
   `tasks/task-226-task-due-date-email-reminders.md`.
-- Scheduler dependency satisfied by TASK-268, which added the GitHub Actions
-  notification-email dispatcher bridge every 3 hours.
 
 ## Objective
-Create durable, idempotent task due-date reminder notifications and route them
-through the existing notification email orchestration so eligible users receive
-one reminder when work is three calendar days from its deadline.
+Restore production due-date reminder reconciliation so the scheduler can find
+eligible tasks under row-level security, create the durable reminder
+notification, and queue the notification email without depending on an
+unauthenticated global scan.
 
-## Implementation Decisions
-- Recipient: send to the task assignee when present; otherwise send to the task
-  creator as the task owner fallback.
-- Access: create no reminder unless that recipient is still the project owner or
-  an active project member.
-- Completion: exclude tasks in `Done` and archived tasks.
-- Deadline window: compare date-only task deadlines to the local calendar date
-  plus `TASK_DEADLINE_SOON_DAYS` (`3`) using the shared task-deadline helpers.
-- Idempotency: use durable notification source
-  `task_due_date_reminder` with source id
-  `<taskId>:<recipientUserId>:<deadlineDate>`, so repeated scheduler runs and
-  changing a deadline away and back to the same date do not create duplicate
-  reminders for the same task/recipient/deadline window.
-- Email path: queue the reminder notification into the existing
-  `ProjectNotificationEmail` project digest pipeline instead of adding a second
-  scheduler or email-only path.
+## Current Baseline
+- The merged TASK-226 implementation scans due tasks through a global raw SQL
+  query.
+- Production RLS hides task rows from that global scan, so due-date candidates
+  are not discovered.
+- The previous due-date reminder creation path also relied on the later global
+  notification reconciliation pass to queue email delivery.
 
 ## Scope
-- Add task due-date reminder notification metadata/content mapping.
-- Reconcile eligible deadline reminders during notification-email dispatch.
-- Include due-date reminder items in the grouped project notification digest
-  email copy.
-- Keep API routes and cron handlers thin.
-- Update docs and tests for the final behavior.
+- Run due-date candidate discovery per verified recipient under that
+  recipient's RLS context.
+- Queue the due-date reminder notification immediately in the same actor
+  context after creation.
+- Preserve existing idempotency: one reminder per task, recipient, and due-date
+  window, with pending/dispatching/sent email coverage suppressing repeats.
+- Add focused regression coverage for the production RLS-shaped behavior.
 
 ## Acceptance Criteria
-1. A task due in three days creates exactly one reminder per eligible recipient
-   for that task/deadline window.
-2. Repeated scheduler/dispatcher calls do not create duplicate reminders or
-   duplicate emails.
-3. Completed or archived tasks do not generate due-date reminders.
-4. Tasks without due dates do not generate due-date reminders.
-5. Users without project access do not receive reminders.
-6. Changing a task deadline is handled deterministically and covered by tests.
-7. Reminder emails use the shared outbound email foundation and existing email
-   delivery observability.
-8. Reminder notification read/unread state stays independent from email delivery
-   side effects.
-9. Tests cover eligibility, idempotency, date-window boundaries, completed task
-   exclusion, provider failure, and scheduler integration.
-10. README, `journal.md`, `tasks/backlog.md`, and this file are updated with the
-    final behavior.
+1. Production scheduler discovery no longer depends on reading RLS-protected
+   task rows without an actor context.
+2. A due task for a verified recipient creates or reuses the due-date reminder
+   notification and queues it into the shared email orchestration.
+3. Repeated scheduler calls do not duplicate pending, dispatching, or sent
+   reminder emails for the same task/recipient/deadline window.
+4. Completed, archived, undated, inaccessible, or unverified-recipient tasks
+   remain ineligible.
+5. Focused tests cover recipient-scoped discovery and immediate email queueing.
 
 ## Definition Of Done
-- Service changes stay inside `lib/services/**` except shared deadline helpers
-  and presentation labels.
-- The protected dispatch endpoint remains a thin adapter.
-- Focused unit/API tests pass for deadline helpers, notification service,
-  notification email orchestration, outbound templates, and the dispatch route.
-- Local validation runs:
-  - `npm run lint`
-  - `npm test`
-  - `npm run test:coverage`
-  - `npm run build`
-- A ready-for-review PR is opened, checks and Copilot review are monitored, and
-  the final handoff includes delivered commit SHA(s).
+- Service and test changes are scoped to TASK-226 reminder reconciliation.
+- `tasks/backlog.md`, `tasks/current.md`, and `journal.md` reflect the
+  production fix.
+- Validation passes or any blocker is documented.
+- A ready-for-review PR is opened, automated checks/review are monitored, and
+  the handoff includes delivered commit SHA(s).
 
 ## Validation Plan
-- `git diff --check`
-- `npm test -- --run tests/lib/task-deadline.test.ts tests/lib/notification-service.test.ts tests/lib/project-notification-email-service.test.ts tests/lib/outbound-email-templates.test.ts tests/api/notification-email-dispatch.route.test.ts`
+- `npm test -- --run tests/lib/project-notification-email-service.test.ts`
 - `npm run lint`
 - `npm test`
 - `npm run test:coverage`
 - `npm run build`
 
 ## Validation Evidence
+- `npm test -- --run tests/lib/project-notification-email-service.test.ts`
+  passed: 1 file, 19 tests.
 - `git diff --check` passed.
-- Focused reminder/email tests passed: 5 files, 45 tests.
 - `npm run lint` passed.
-- `npm test` passed with local PostgreSQL env after migrations: 108 files
-  passed, 827 tests passed, 2 skipped.
-- `npm run test:coverage` passed: 91.23% statements, 81.2% branches, 93.42%
-  functions, 91.75% lines.
-- `npm run build` passed with local runtime placeholder secrets.
+- With local PostgreSQL env, `npm test` passed: 108 files passed, 832 tests
+  passed, 2 skipped.
+- With local PostgreSQL env, `npm run test:coverage` passed: 91.23%
+  statements, 81.2% branches, 93.42% functions, 91.75% lines.
+- With local PostgreSQL and preview-style runtime env, `npm run build` passed.
+- After Copilot review, paginated verified recipient scanning was added.
+  Follow-up validation passed: focused test file, `git diff --check`,
+  `npm run lint`, local PostgreSQL `npm test` (108 files passed, 833 tests
+  passed, 2 skipped), local PostgreSQL `npm run test:coverage`, and
+  preview-style `npm run build`.
 
 ## Out Of Scope
-- Scheduler provisioning; TASK-268 owns the active production bridge.
-- Notification actor attribution/self-notification cleanup; TASK-265 owns that.
-- Reminder preference UI, unsubscribe controls, or instant push delivery.
+- Scheduler cadence or GitHub Actions workflow changes.
+- Actor attribution/self-notification changes from TASK-265.
+- Email preference or unsubscribe behavior.
