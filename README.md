@@ -21,7 +21,8 @@ Implemented today:
 - Project CRUD
 - Project sharing with owner-managed membership/invitation flows, including email-bound invite links
 - In-app notification center for durable unread/read notification review, starting with project invitations
-- Project notification email digests and delayed invitation reminders through the shared outbound email foundation
+- Project notification email digests, delayed invitation reminders, and
+  three-day task due-date reminders through the shared outbound email foundation
 - Project-scoped agent access with owner-managed API credentials, short-lived bearer-token exchange, and audit trail
 - Project dashboard with:
   - Context cards (CRUD + attachments)
@@ -197,6 +198,7 @@ Runbooks:
 
 - `docs/runbooks/vercel-env-contract-and-secrets.md`
 - `docs/runbooks/database-connection-hardening.md`
+- `docs/runbooks/notification-email-dispatch.md`
 - `docs/runbooks/release-versioning.md`
 
 ## Attachments and Storage
@@ -331,12 +333,18 @@ Authorization: Bearer <CRON_SECRET-or-NOTIFICATION_EMAIL_DISPATCH_SECRET>
 
 Notification creation/refreshed paths enqueue durable recipient/project groups.
 Project activity waits for a 30-minute quiet window, but the first unsent
-activity in a group is capped at a 60-minute max delay. Due groups claimed in
-one dispatcher run are batched by recipient, with project sections in one email
-when several projects are ready together. Project invitation reminders are sent
-once after 6 hours when the verified invited user has not opened, accepted,
-declined, or otherwise resolved the invitation notification. Sending email never
-marks notifications read or resolved.
+activity in a group is capped at a 60-minute max delay. Task due-date reminders
+are reconciled by the dispatcher when a task is exactly three local calendar
+days from its date-only deadline. Each reminder creates one durable in-app
+notification per task, recipient, and deadline date, then flows through the same
+recipient/project digest pipeline as other project activity. Reminders target
+the assignee when present, or the task creator when unassigned, and only while
+that recipient still has project access. `Done`, archived, and undated tasks are
+ignored. Due groups claimed in one dispatcher run are batched by recipient, with
+project sections in one email when several projects are ready together. Project
+invitation reminders are sent once after 6 hours when the verified invited user
+has not opened, accepted, declined, or otherwise resolved the invitation
+notification. Sending email never marks notifications read or resolved.
 
 Production scheduler decision:
 

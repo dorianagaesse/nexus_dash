@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { logServerError } from "@/lib/observability/logger";
 import { enqueueNotificationEmailForNotification } from "@/lib/services/project-notification-email-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
+import { formatTaskDeadlineForDisplay } from "@/lib/task-deadline";
 
 const NOTIFICATION_TYPE_PROJECT_INVITATION = "project_invitation";
 const NOTIFICATION_SOURCE_PROJECT_INVITATION = "project_invitation";
@@ -10,6 +11,8 @@ const NOTIFICATION_TYPE_TASK_COMMENT_MENTION = "task_comment_mention";
 const NOTIFICATION_SOURCE_TASK_COMMENT_MENTION = "task_comment_mention";
 const NOTIFICATION_TYPE_TASK_ASSIGNMENT = "task_assignment";
 const NOTIFICATION_SOURCE_TASK_ASSIGNMENT = "task_assignment";
+const NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER = "task_due_date_reminder";
+const NOTIFICATION_SOURCE_TASK_DUE_DATE_REMINDER = "task_due_date_reminder";
 
 interface ServiceErrorResult {
   ok: false;
@@ -106,10 +109,22 @@ export interface TaskAssignmentNotificationMetadata {
   targetPath: string;
 }
 
+export interface TaskDueDateReminderNotificationMetadata {
+  taskId: string;
+  taskTitle: string;
+  projectId: string;
+  projectName: string;
+  recipientUserId: string;
+  deadlineDate: string;
+  daysUntilDue: number;
+  targetPath: string;
+}
+
 export type NotificationMetadata =
   | ProjectInvitationNotificationMetadata
   | TaskCommentMentionNotificationMetadata
-  | TaskAssignmentNotificationMetadata;
+  | TaskAssignmentNotificationMetadata
+  | TaskDueDateReminderNotificationMetadata;
 
 export interface NotificationSummary {
   id: string;
@@ -211,6 +226,7 @@ function toJsonObject(
     | ProjectInvitationNotificationMetadata
     | TaskCommentMentionNotificationMetadata
     | TaskAssignmentNotificationMetadata
+    | TaskDueDateReminderNotificationMetadata
 ): Prisma.InputJsonObject {
   return metadata as unknown as Prisma.InputJsonObject;
 }
@@ -271,6 +287,8 @@ function mapNotification(
     metadata = mapTaskCommentMentionMetadata(notification.metadata);
   } else if (notification.type === NOTIFICATION_TYPE_TASK_ASSIGNMENT) {
     metadata = mapTaskAssignmentMetadata(notification.metadata);
+  } else if (notification.type === NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER) {
+    metadata = mapTaskDueDateReminderMetadata(notification.metadata);
   }
 
   return {
@@ -1214,6 +1232,216 @@ export async function resolveTaskAssignmentNotifications(input: {
     });
   } catch (error) {
     logServerError("resolveTaskAssignmentNotifications", error);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Task due-date reminder notifications
+// ---------------------------------------------------------------------------
+
+export interface TaskDueDateReminderNotificationInput {
+  taskId: string;
+  taskTitle: string;
+  projectId: string;
+  projectName: string;
+  recipientUserId: string;
+  deadlineDate: string;
+  daysUntilDue: number;
+  targetPath: string;
+}
+
+function buildTaskDueDateReminderSourceId(
+  input: Pick<
+    TaskDueDateReminderNotificationInput,
+    "taskId" | "recipientUserId" | "deadlineDate"
+  >
+): string {
+  return [input.taskId, input.recipientUserId, input.deadlineDate].join(":");
+}
+
+function buildTaskDueDateReminderNotificationContent(
+  input: TaskDueDateReminderNotificationInput
+) {
+  const dueLabel = formatTaskDeadlineForDisplay(input.deadlineDate, "en-US");
+  const dayLabel =
+    input.daysUntilDue === 1
+      ? "tomorrow"
+      : `in ${input.daysUntilDue} days`;
+
+  return {
+    title: `Due soon: ${input.taskTitle}`,
+    body: `${input.taskTitle} is due ${dayLabel} (${dueLabel}).`,
+    targetPath: input.targetPath,
+  };
+}
+
+function buildTaskDueDateReminderMetadata(
+  input: TaskDueDateReminderNotificationInput
+): TaskDueDateReminderNotificationMetadata {
+  return {
+    taskId: input.taskId,
+    taskTitle: input.taskTitle,
+    projectId: input.projectId,
+    projectName: input.projectName,
+    recipientUserId: input.recipientUserId,
+    deadlineDate: input.deadlineDate,
+    daysUntilDue: input.daysUntilDue,
+    targetPath: input.targetPath,
+  };
+}
+
+function isTaskDueDateReminderMetadata(value: Prisma.JsonValue | null): boolean {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      "deadlineDate" in (value as Record<string, unknown>) &&
+      "daysUntilDue" in (value as Record<string, unknown>)
+  );
+}
+
+function mapTaskDueDateReminderMetadata(
+  value: Prisma.JsonValue | null
+): TaskDueDateReminderNotificationMetadata | null {
+  if (!isTaskDueDateReminderMetadata(value)) {
+    return null;
+  }
+
+  const metadata = value as Record<string, unknown>;
+  if (
+    typeof metadata.taskId !== "string" ||
+    typeof metadata.taskTitle !== "string" ||
+    typeof metadata.projectId !== "string" ||
+    typeof metadata.projectName !== "string" ||
+    typeof metadata.recipientUserId !== "string" ||
+    typeof metadata.deadlineDate !== "string" ||
+    typeof metadata.daysUntilDue !== "number" ||
+    typeof metadata.targetPath !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    taskId: metadata.taskId,
+    taskTitle: metadata.taskTitle,
+    projectId: metadata.projectId,
+    projectName: metadata.projectName,
+    recipientUserId: metadata.recipientUserId,
+    deadlineDate: metadata.deadlineDate,
+    daysUntilDue: metadata.daysUntilDue,
+    targetPath: metadata.targetPath,
+  };
+}
+
+async function createOrRefreshTaskDueDateReminderNotification(input: {
+  db: DbClient;
+  recipientUserId: string;
+  notification: TaskDueDateReminderNotificationInput;
+}) {
+  const content = buildTaskDueDateReminderNotificationContent(input.notification);
+  const metadata = toJsonObject(
+    buildTaskDueDateReminderMetadata(input.notification)
+  );
+  const notificationWhere = {
+    recipientUserId: input.recipientUserId,
+    sourceType: NOTIFICATION_SOURCE_TASK_DUE_DATE_REMINDER,
+    sourceId: buildTaskDueDateReminderSourceId(input.notification),
+  };
+
+  const existingNotifications = await input.db.notification.findMany({
+    where: notificationWhere,
+    take: 1,
+    select: {
+      type: true,
+      title: true,
+      body: true,
+      targetPath: true,
+      metadata: true,
+      resolvedAt: true,
+    },
+  });
+
+  const existingNotification = existingNotifications[0];
+
+  if (!existingNotification) {
+    await input.db.notification.createMany({
+      data: [
+        {
+          recipientUserId: input.recipientUserId,
+          type: NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER,
+          title: content.title,
+          body: content.body,
+          targetPath: content.targetPath,
+          sourceType: NOTIFICATION_SOURCE_TASK_DUE_DATE_REMINDER,
+          sourceId: notificationWhere.sourceId,
+          metadata,
+        },
+      ],
+      skipDuplicates: true,
+    });
+    await enqueueEmailForNotificationWhere({
+      db: input.db,
+      where: notificationWhere,
+    });
+    return;
+  }
+
+  const metadataUnchanged =
+    JSON.stringify(existingNotification.metadata) === JSON.stringify(metadata);
+  const notificationUnchanged =
+    existingNotification.type === NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER &&
+    existingNotification.title === content.title &&
+    existingNotification.body === content.body &&
+    existingNotification.targetPath === content.targetPath &&
+    metadataUnchanged &&
+    existingNotification.resolvedAt === null;
+
+  if (notificationUnchanged) {
+    await enqueueEmailForNotificationWhere({
+      db: input.db,
+      where: notificationWhere,
+    });
+    return;
+  }
+
+  await input.db.notification.updateMany({
+    where: notificationWhere,
+    data: {
+      type: NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER,
+      title: content.title,
+      body: content.body,
+      targetPath: content.targetPath,
+      metadata,
+      resolvedAt: null,
+    },
+  });
+  await enqueueEmailForNotificationWhere({
+    db: input.db,
+    where: notificationWhere,
+  });
+}
+
+export async function createTaskDueDateReminderNotification(input: {
+  db: DbClient;
+  recipientUserId: string | null | undefined;
+  notification: TaskDueDateReminderNotificationInput;
+}): Promise<void> {
+  const recipientUserId = normalizeActorUserId(input.recipientUserId);
+  if (!recipientUserId) {
+    return;
+  }
+
+  try {
+    await createOrRefreshTaskDueDateReminderNotification({
+      db: input.db,
+      recipientUserId,
+      notification: {
+        ...input.notification,
+        recipientUserId,
+      },
+    });
+  } catch (error) {
+    logServerError("createTaskDueDateReminderNotification", error);
   }
 }
 

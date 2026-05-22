@@ -182,3 +182,16 @@ Production smoke after merge/deploy:
 - Instant in-app push delivery; that is TASK-263.
 - Reminder preference UI or unsubscribe/suppression preferences unless required
   by a legal/compliance decision.
+
+## Validation Evidence
+
+2026-05-22 implementation evidence:
+
+- `git diff --check`
+- focused reminder/email tests: 5 files, 45 tests
+- `npm run lint`
+- local PostgreSQL env `npm test`: 108 files passed, 827 tests passed, 2
+  skipped
+- `npm run test:coverage`: 91.23% statements, 81.2% branches, 93.42%
+  functions, 91.75% lines
+- local placeholder runtime env `npm run build`
