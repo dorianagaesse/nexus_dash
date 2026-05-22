@@ -13,6 +13,43 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-05-22
+- Type: Validation
+- Summary: Resolved PR #277 merge conflicts against current `origin/main`.
+- Evidence: Merged `origin/main` at `d5464d8` into
+  `feature/task-265-notification-actor-attribution`, preserved TASK-226
+  due-date reminder updates, retained TASK-265 actor-attribution evidence, and
+  adapted the email digest actor-precedence test to the new reminder
+  reconciliation query flow. Validation passed: `git diff --check`, focused
+  route/email tests (5 files, 71 tests), `npm run lint`, full `npm test` (108
+  files passed, 831 tests passed, 2 skipped), `npm run test:coverage`, and
+  `npm run build` with local placeholder runtime env.
+
+### 2026-05-22
+- Type: Execution
+- Summary: Implemented TASK-265 notification actor attribution and
+  self-notification rules.
+- Evidence: Added explicit actor metadata to task assignment and comment
+  mention notifications, including agent credential id/label and display copy
+  such as `<credential> (agent)` for agent-authored activity. Human
+  self-assignment and self-mention notifications are suppressed, while
+  agent-to-owner notifications remain eligible. Validation passed with
+  `git diff --check`, focused route/email tests, `npm run lint`, full
+  `npm test`, `npm run test:coverage`, and `npm run build` using the local
+  Postgres database and local-only build env.
+
+### 2026-05-22
+- Type: Planning
+- Summary: Started TASK-265 in a dedicated worktree and cleaned stale execution
+  queue entries.
+- Evidence: Fetched current `origin/main` at `522daeb`, created
+  `../nexus_dash_task265` on
+  `feature/task-265-notification-actor-attribution`, moved merged TASK-271
+  (PR #275) and TASK-272 (PR #276) from the execution queue to Completed in
+  `tasks/backlog.md`, promoted TASK-265 to Active, and redrafted
+  `tasks/current.md` with acceptance criteria, definition of done, local
+  prerequisites, validation plan, and review workflow.
+
+### 2026-05-22
 - Type: Execution
 - Summary: TASK-226 started from a dedicated worktree and branch with reminder recipient/idempotency decisions recorded before implementation.
 - Evidence: Created `../nexus_dash_task226` on `feature/task-226-task-due-date-email-reminders` from `origin/main`. Rewrote `tasks/current.md` for TASK-226 and marked the backlog entry active. Decisions: due-date reminders target the current assignee, or the task creator when unassigned; recipients must still have project access; `Done`/archived tasks are excluded; source identity is `task_due_date_reminder` plus `<taskId>:<recipientUserId>:<deadlineDate>`; reminder notifications will feed the existing project notification email digest pipeline.

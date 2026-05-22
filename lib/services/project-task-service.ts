@@ -30,6 +30,7 @@ import {
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
 import {
+  type NotificationActorKind,
   type TaskAssignmentNotificationInput,
   createTaskAssignmentNotification,
   resolveTaskAssignmentNotifications,
@@ -334,6 +335,28 @@ function buildPersonDisplayName(input: {
   return input.name || input.email || input.username || "Someone";
 }
 
+function buildAgentDisplayName(label: string | null | undefined): string {
+  const normalizedLabel = normalizeText(label);
+  return normalizedLabel ? `${normalizedLabel} (agent)` : "Agent";
+}
+
+async function resolveAgentCredentialLabel(input: {
+  db: DbClient;
+  agentAccess: AgentProjectAccessContext;
+}): Promise<string | null> {
+  const credential = await input.db.apiCredential.findFirst({
+    where: {
+      id: input.agentAccess.credentialId,
+      projectId: input.agentAccess.projectId,
+    },
+    select: {
+      label: true,
+    },
+  });
+
+  return normalizeText(credential?.label) || null;
+}
+
 function shouldNotifyAssignee(input: {
   actorUserId: string;
   assigneeUserId: string | null;
@@ -356,6 +379,7 @@ async function buildTaskAssignmentNotification(input: {
   taskId: string;
   actorUserId: string;
   assigneeUserId: string;
+  agentAccess?: AgentProjectAccessContext;
 }): Promise<PendingTaskAssignmentNotification | null> {
   const task = await input.db.task.findUnique({
     where: { id: input.taskId },
@@ -386,6 +410,21 @@ async function buildTaskAssignmentNotification(input: {
     return null;
   }
 
+  let actorKind: NotificationActorKind = "user";
+  let actorDisplayName = buildPersonDisplayName(task.updatedByUser);
+  let actorCredentialId: string | null = null;
+  let actorCredentialLabel: string | null = null;
+
+  if (input.agentAccess) {
+    actorKind = "agent";
+    actorCredentialId = input.agentAccess.credentialId;
+    actorCredentialLabel = await resolveAgentCredentialLabel({
+      db: input.db,
+      agentAccess: input.agentAccess,
+    });
+    actorDisplayName = buildAgentDisplayName(actorCredentialLabel);
+  }
+
   return {
     recipientUserId: task.assigneeUser.id,
     notification: {
@@ -395,8 +434,11 @@ async function buildTaskAssignmentNotification(input: {
       projectName: task.project.name,
       assignedUserId: task.assigneeUser.id,
       assignedUserDisplayName: buildPersonDisplayName(task.assigneeUser),
+      actorKind,
       actorUserId: input.actorUserId,
-      actorDisplayName: buildPersonDisplayName(task.updatedByUser),
+      actorDisplayName,
+      actorCredentialId,
+      actorCredentialLabel,
       targetPath: buildTaskPath(task.projectId, task.id),
     },
   };
@@ -683,6 +725,7 @@ export async function createTaskForProject(
             taskId: createdTask.id,
             actorUserId,
             assigneeUserId: createdAssigneeUserId,
+            agentAccess: input.agentAccess,
           }),
         });
       }
@@ -1103,6 +1146,7 @@ export async function updateTaskForProject(
             taskId,
             actorUserId: normalizedActorUserId,
             assigneeUserId: updatedAssigneeUserId,
+            agentAccess,
           }),
         });
       }
