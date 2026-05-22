@@ -64,7 +64,7 @@ unauthenticated global scan.
 
 ## Validation Evidence
 - `npm test -- --run tests/lib/project-notification-email-service.test.ts`
-  passed: 1 file, 18 tests.
+  passed: 1 file, 19 tests.
 - `git diff --check` passed.
 - `npm run lint` passed.
 - With local PostgreSQL env, `npm test` passed: 108 files passed, 832 tests
@@ -72,6 +72,11 @@ unauthenticated global scan.
 - With local PostgreSQL env, `npm run test:coverage` passed: 91.23%
   statements, 81.2% branches, 93.42% functions, 91.75% lines.
 - With local PostgreSQL and preview-style runtime env, `npm run build` passed.
+- After Copilot review, paginated verified recipient scanning was added.
+  Follow-up validation passed: focused test file, `git diff --check`,
+  `npm run lint`, local PostgreSQL `npm test` (108 files passed, 833 tests
+  passed, 2 skipped), local PostgreSQL `npm run test:coverage`, and
+  preview-style `npm run build`.
 
 ## Out Of Scope
 - Scheduler cadence or GitHub Actions workflow changes.

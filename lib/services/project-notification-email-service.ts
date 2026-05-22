@@ -34,6 +34,7 @@ const STALE_DISPATCHING_MS = 30 * 60 * 1000;
 const MAX_GROUPS_PER_DISPATCH = 100;
 const MAX_RECONCILE_NOTIFICATIONS = 500;
 const MAX_RECONCILE_DUE_DATE_REMINDERS = 500;
+const VERIFIED_RECIPIENT_SCAN_BATCH_SIZE = 100;
 const MAX_DIGEST_BODY_ITEMS_PER_PROJECT = 12;
 
 type NotificationEmailKind =
@@ -676,7 +677,10 @@ async function reconcilePendingNotificationEmailGroups(): Promise<number> {
   return reconciled;
 }
 
-async function findVerifiedTaskDueDateReminderRecipientIds(): Promise<string[]> {
+async function findVerifiedTaskDueDateReminderRecipientIds(input: {
+  cursorUserId?: string | null;
+  limit: number;
+}): Promise<string[]> {
   const users = await prisma.user.findMany({
     where: {
       email: {
@@ -687,6 +691,15 @@ async function findVerifiedTaskDueDateReminderRecipientIds(): Promise<string[]> 
       },
     },
     orderBy: [{ id: "asc" }],
+    take: input.limit,
+    ...(input.cursorUserId
+      ? {
+          cursor: {
+            id: input.cursorUserId,
+          },
+          skip: 1,
+        }
+      : {}),
     select: {
       id: true,
     },
@@ -851,30 +864,46 @@ async function createTaskDueDateReminderNotificationForCandidate(input: {
 async function reconcileTaskDueDateReminderNotifications(
   now: Date
 ): Promise<number> {
-  const recipientUserIds = await findVerifiedTaskDueDateReminderRecipientIds();
   let reconciled = 0;
+  let cursorUserId: string | null = null;
 
-  for (const recipientUserId of recipientUserIds) {
-    if (reconciled >= MAX_RECONCILE_DUE_DATE_REMINDERS) {
+  while (reconciled < MAX_RECONCILE_DUE_DATE_REMINDERS) {
+    const recipientUserIds = await findVerifiedTaskDueDateReminderRecipientIds({
+      cursorUserId,
+      limit: VERIFIED_RECIPIENT_SCAN_BATCH_SIZE,
+    });
+
+    if (recipientUserIds.length === 0) {
       break;
     }
 
-    await withActorRlsContext(recipientUserId, async (db) => {
-      const candidates = await findTaskDueDateReminderCandidates({
-        db,
-        now,
-        recipientUserId,
-        limit: MAX_RECONCILE_DUE_DATE_REMINDERS - reconciled,
-      });
-
-      for (const candidate of candidates) {
-        await createTaskDueDateReminderNotificationForCandidate({
-          db,
-          candidate,
-        });
-        reconciled += 1;
+    for (const recipientUserId of recipientUserIds) {
+      if (reconciled >= MAX_RECONCILE_DUE_DATE_REMINDERS) {
+        break;
       }
-    });
+
+      await withActorRlsContext(recipientUserId, async (db) => {
+        const candidates = await findTaskDueDateReminderCandidates({
+          db,
+          now,
+          recipientUserId,
+          limit: MAX_RECONCILE_DUE_DATE_REMINDERS - reconciled,
+        });
+
+        for (const candidate of candidates) {
+          await createTaskDueDateReminderNotificationForCandidate({
+            db,
+            candidate,
+          });
+          reconciled += 1;
+        }
+      });
+    }
+
+    cursorUserId = recipientUserIds[recipientUserIds.length - 1] ?? null;
+    if (recipientUserIds.length < VERIFIED_RECIPIENT_SCAN_BATCH_SIZE) {
+      break;
+    }
   }
 
   return reconciled;

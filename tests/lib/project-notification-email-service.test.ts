@@ -444,6 +444,7 @@ describe("project-notification-email-service", () => {
     expect(sql).toContain("email.\"status\" IN ('pending', 'dispatching', 'sent')");
     expect(prismaMock.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        take: 100,
         where: expect.objectContaining({
           email: { not: null },
           emailVerified: { not: null },
@@ -470,6 +471,36 @@ describe("project-notification-email-service", () => {
     expect(dueDateQueries).toHaveLength(2);
     expect(dueDateQueries.every((sql) => sql.includes('FROM "Task" task'))).toBe(
       true
+    );
+  });
+
+  test("paginates verified recipient scanning for due-date reminders", async () => {
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+      id: `user-${String(index).padStart(3, "0")}`,
+    }));
+    prismaMock.user.findMany
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce([]);
+
+    await dispatchProjectNotificationEmails({
+      appOrigin: "https://preview.nexusdash.test",
+      now,
+    });
+
+    expect(prismaMock.user.findMany).toHaveBeenCalledTimes(2);
+    expect(prismaMock.user.findMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        take: 100,
+      })
+    );
+    expect(prismaMock.user.findMany).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        cursor: { id: "user-099" },
+        skip: 1,
+        take: 100,
+      })
     );
   });
 
