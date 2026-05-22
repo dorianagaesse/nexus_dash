@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  addCalendarDaysToDateString,
   formatTaskDeadlineDate,
   formatTaskDeadlineForDisplay,
   getLocalCalendarDateString,
@@ -35,6 +36,11 @@ describe("task-deadline helpers", () => {
     expect(getTaskDeadlineDayDelta("2026-04-20", now)).toBe(0);
     expect(getTaskDeadlineDayDelta("2026-04-22", now)).toBe(2);
     expect(getTaskDeadlineDayDelta("2026-04-18", now)).toBe(-2);
+  });
+
+  test("adds calendar days to date-only strings across month boundaries", () => {
+    expect(addCalendarDaysToDateString("2026-05-29", 3)).toBe("2026-06-01");
+    expect(addCalendarDaysToDateString("2026-02-30", 3)).toBeNull();
   });
 
   test("classifies urgency for active tasks only", () => {

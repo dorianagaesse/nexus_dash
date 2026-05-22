@@ -18,7 +18,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Brief: `tasks/task-269-github-actions-workflow-cleanup.md`
 - ID: TASK-226
   Title: Task due-date email reminders - 3-day deadline warning delivery
-  Status: Pending (after TASK-268 scheduler activation)
+  Status: In Review
   Rationale: Send task reminder emails when assigned or owned work is three days from its due date, with idempotent delivery tracking and anti-spam semantics so each reminder fires predictably once per task/user deadline window rather than repeating on every app visit.
   Dependencies: TASK-101, TASK-125, TASK-063, TASK-268
   Brief: `tasks/task-226-task-due-date-email-reminders.md`

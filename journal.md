@@ -13,6 +13,18 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-05-22
+- Type: Validation
+- Summary: Resolved PR #277 merge conflicts against current `origin/main`.
+- Evidence: Merged `origin/main` at `d5464d8` into
+  `feature/task-265-notification-actor-attribution`, preserved TASK-226
+  due-date reminder updates, retained TASK-265 actor-attribution evidence, and
+  adapted the email digest actor-precedence test to the new reminder
+  reconciliation query flow. Validation passed: `git diff --check`, focused
+  route/email tests (5 files, 71 tests), `npm run lint`, full `npm test` (108
+  files passed, 831 tests passed, 2 skipped), `npm run test:coverage`, and
+  `npm run build` with local placeholder runtime env.
+
+### 2026-05-22
 - Type: Execution
 - Summary: Implemented TASK-265 notification actor attribution and
   self-notification rules.
@@ -36,6 +48,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `tasks/backlog.md`, promoted TASK-265 to Active, and redrafted
   `tasks/current.md` with acceptance criteria, definition of done, local
   prerequisites, validation plan, and review workflow.
+
+### 2026-05-22
+- Type: Execution
+- Summary: TASK-226 started from a dedicated worktree and branch with reminder recipient/idempotency decisions recorded before implementation.
+- Evidence: Created `../nexus_dash_task226` on `feature/task-226-task-due-date-email-reminders` from `origin/main`. Rewrote `tasks/current.md` for TASK-226 and marked the backlog entry active. Decisions: due-date reminders target the current assignee, or the task creator when unassigned; recipients must still have project access; `Done`/archived tasks are excluded; source identity is `task_due_date_reminder` plus `<taskId>:<recipientUserId>:<deadlineDate>`; reminder notifications will feed the existing project notification email digest pipeline.
+
+### 2026-05-22
+- Type: Validation
+- Summary: TASK-226 due-date reminder implementation passed local validation.
+- Evidence: Added `task_due_date_reminder` notification mapping, dispatcher reconciliation for tasks exactly three calendar days from `deadlineAt`, shared project digest email rendering for due-date reminder items, notification center labeling, and documentation/runbook updates. Validation passed: `git diff --check`; focused `npm test -- --run tests/lib/task-deadline.test.ts tests/lib/notification-service.test.ts tests/lib/project-notification-email-service.test.ts tests/lib/outbound-email-templates.test.ts tests/api/notification-email-dispatch.route.test.ts` (5 files, 45 tests); `npm run lint`; local PostgreSQL env `npm test` (108 files passed, 827 tests passed, 2 skipped); `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); local placeholder runtime env `npm run build`.
+
+### 2026-05-22
+- Type: Execution
+- Summary: TASK-226 addressed Copilot review comments on PR #278.
+- Evidence: Changed the due-date reminder eligibility query to compare `deadlineAt` to a bound date-only string cast with `CAST(... AS date)`, avoiding timezone-sensitive timestamp comparison. Canonicalized `createTaskDueDateReminderNotification()` so the validated top-level recipient id overrides stale metadata/source input before create/update. Follow-up validation passed: focused notification/email service tests (2 files, 28 tests), `npm run lint`, local placeholder runtime env `npm run build`, and `git diff --check`.
 
 ### 2026-05-22
 - Type: Execution

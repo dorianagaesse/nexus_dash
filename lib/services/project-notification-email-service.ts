@@ -11,10 +11,19 @@ import {
   type ProjectNotificationDigestEmailSection,
 } from "@/lib/services/outbound-email-templates";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
+import {
+  addCalendarDaysToDateString,
+  formatTaskDeadlineDate,
+  formatTaskDeadlineForDisplay,
+  getLocalCalendarDateString,
+  TASK_DEADLINE_SOON_DAYS,
+} from "@/lib/task-deadline";
 
 const NOTIFICATION_TYPE_PROJECT_INVITATION = "project_invitation";
 const NOTIFICATION_TYPE_TASK_COMMENT_MENTION = "task_comment_mention";
 const NOTIFICATION_TYPE_TASK_ASSIGNMENT = "task_assignment";
+const NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER = "task_due_date_reminder";
+const NOTIFICATION_SOURCE_TASK_DUE_DATE_REMINDER = "task_due_date_reminder";
 const EMAIL_KIND_PROJECT_DIGEST = "project_digest";
 const EMAIL_KIND_PROJECT_INVITATION_REMINDER = "project_invitation_reminder";
 
@@ -24,6 +33,7 @@ const INVITATION_REMINDER_AFTER_MS = 6 * 60 * 60 * 1000;
 const STALE_DISPATCHING_MS = 30 * 60 * 1000;
 const MAX_GROUPS_PER_DISPATCH = 100;
 const MAX_RECONCILE_NOTIFICATIONS = 500;
+const MAX_RECONCILE_DUE_DATE_REMINDERS = 500;
 const MAX_DIGEST_BODY_ITEMS_PER_PROJECT = 12;
 
 type NotificationEmailKind =
@@ -53,6 +63,15 @@ interface NotificationRecord {
   resolvedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+interface DueDateReminderCandidate {
+  taskId: string;
+  taskTitle: string;
+  projectId: string;
+  projectName: string;
+  recipientUserId: string;
+  deadlineAt: Date;
 }
 
 interface QueueDetails {
@@ -108,6 +127,7 @@ interface PreparedSection {
 }
 
 export interface DispatchProjectNotificationEmailsSummary {
+  dueDateRemindersReconciled: number;
   notificationsReconciled: number;
   groupsClaimed: number;
   recipientEmailsAttempted: number;
@@ -239,6 +259,18 @@ function createActivityGroupingKey(input: {
   ].join(":");
 }
 
+function buildTaskPath(projectId: string, taskId: string): string {
+  return `/projects/${encodeURIComponent(projectId)}?taskId=${encodeURIComponent(taskId)}`;
+}
+
+function createTaskDueDateReminderSourceId(input: {
+  taskId: string;
+  recipientUserId: string;
+  deadlineDate: string;
+}): string {
+  return [input.taskId, input.recipientUserId, input.deadlineDate].join(":");
+}
+
 function createInvitationGroupingKey(input: {
   recipientUserId: string;
   projectId: string;
@@ -268,7 +300,8 @@ function getQueueDetails(notification: NotificationRecord): QueueDetails | null 
 
   if (
     notification.type === NOTIFICATION_TYPE_TASK_COMMENT_MENTION ||
-    notification.type === NOTIFICATION_TYPE_TASK_ASSIGNMENT
+    notification.type === NOTIFICATION_TYPE_TASK_ASSIGNMENT ||
+    notification.type === NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER
   ) {
     const schedule = calculateActivitySchedule({
       firstPendingNotificationAt: activityAt,
@@ -595,7 +628,8 @@ async function findUncoveredNotificationEmailCandidates(
       AND notification."type" IN (
         ${NOTIFICATION_TYPE_PROJECT_INVITATION},
         ${NOTIFICATION_TYPE_TASK_COMMENT_MENTION},
-        ${NOTIFICATION_TYPE_TASK_ASSIGNMENT}
+        ${NOTIFICATION_TYPE_TASK_ASSIGNMENT},
+        ${NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER}
       )
       AND recipient."email" IS NOT NULL
       AND recipient."emailVerified" IS NOT NULL
@@ -634,6 +668,135 @@ async function reconcilePendingNotificationEmailGroups(): Promise<number> {
       await enqueueNotificationEmailForNotification({
         db,
         notification,
+      });
+    });
+    reconciled += 1;
+  }
+
+  return reconciled;
+}
+
+async function findTaskDueDateReminderCandidates(input: {
+  now: Date;
+  limit: number;
+}): Promise<DueDateReminderCandidate[]> {
+  const todayDate = getLocalCalendarDateString(input.now);
+  const reminderDate = addCalendarDaysToDateString(
+    todayDate,
+    TASK_DEADLINE_SOON_DAYS
+  );
+
+  if (!reminderDate) {
+    return [];
+  }
+
+  return prisma.$queryRaw<DueDateReminderCandidate[]>(Prisma.sql`
+    WITH eligible_tasks AS (
+      SELECT
+        task."id" AS "taskId",
+        task."title" AS "taskTitle",
+        task."projectId" AS "projectId",
+        project."name" AS "projectName",
+        COALESCE(task."assigneeUserId", task."createdByUserId") AS "recipientUserId",
+        task."deadlineAt" AS "deadlineAt"
+      FROM "Task" task
+      INNER JOIN "Project" project
+        ON project."id" = task."projectId"
+      LEFT JOIN "ProjectMembership" membership
+        ON membership."projectId" = task."projectId"
+       AND membership."userId" = COALESCE(task."assigneeUserId", task."createdByUserId")
+      WHERE task."deadlineAt" = CAST(${reminderDate} AS date)
+        AND task."status" <> 'Done'
+        AND task."archivedAt" IS NULL
+        AND (
+          project."ownerId" = COALESCE(task."assigneeUserId", task."createdByUserId")
+          OR membership."userId" IS NOT NULL
+        )
+    )
+    SELECT
+      eligible_tasks."taskId",
+      eligible_tasks."taskTitle",
+      eligible_tasks."projectId",
+      eligible_tasks."projectName",
+      eligible_tasks."recipientUserId",
+      eligible_tasks."deadlineAt"
+    FROM eligible_tasks
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM "Notification" notification
+      WHERE notification."recipientUserId" = eligible_tasks."recipientUserId"
+        AND notification."sourceType" = ${NOTIFICATION_SOURCE_TASK_DUE_DATE_REMINDER}
+        AND notification."sourceId" =
+          eligible_tasks."taskId" || ':' ||
+          eligible_tasks."recipientUserId" || ':' ||
+          ${reminderDate}
+    )
+    ORDER BY eligible_tasks."deadlineAt" ASC, eligible_tasks."taskId" ASC
+    LIMIT ${input.limit}
+  `);
+}
+
+async function createTaskDueDateReminderNotificationForCandidate(input: {
+  db: DbClient;
+  candidate: DueDateReminderCandidate;
+}): Promise<void> {
+  const deadlineDate = formatTaskDeadlineDate(input.candidate.deadlineAt);
+  if (!deadlineDate) {
+    return;
+  }
+
+  const sourceId = createTaskDueDateReminderSourceId({
+    taskId: input.candidate.taskId,
+    recipientUserId: input.candidate.recipientUserId,
+    deadlineDate,
+  });
+  const targetPath = buildTaskPath(
+    input.candidate.projectId,
+    input.candidate.taskId
+  );
+  const dueLabel = formatTaskDeadlineForDisplay(deadlineDate, "en-US");
+  const metadata = {
+    taskId: input.candidate.taskId,
+    taskTitle: input.candidate.taskTitle,
+    projectId: input.candidate.projectId,
+    projectName: input.candidate.projectName,
+    recipientUserId: input.candidate.recipientUserId,
+    deadlineDate,
+    daysUntilDue: TASK_DEADLINE_SOON_DAYS,
+    targetPath,
+  } satisfies Prisma.InputJsonObject;
+
+  await input.db.notification.createMany({
+    data: [
+      {
+        recipientUserId: input.candidate.recipientUserId,
+        type: NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER,
+        title: `Due soon: ${input.candidate.taskTitle}`,
+        body: `${input.candidate.taskTitle} is due in ${TASK_DEADLINE_SOON_DAYS} days (${dueLabel}).`,
+        targetPath,
+        sourceType: NOTIFICATION_SOURCE_TASK_DUE_DATE_REMINDER,
+        sourceId,
+        metadata,
+      },
+    ],
+    skipDuplicates: true,
+  });
+}
+
+async function reconcileTaskDueDateReminderNotifications(
+  now: Date
+): Promise<number> {
+  const candidates = await findTaskDueDateReminderCandidates({
+    now,
+    limit: MAX_RECONCILE_DUE_DATE_REMINDERS,
+  });
+  let reconciled = 0;
+
+  for (const candidate of candidates) {
+    await withActorRlsContext(candidate.recipientUserId, async (db) => {
+      await createTaskDueDateReminderNotificationForCandidate({
+        db,
+        candidate,
       });
     });
     reconciled += 1;
@@ -796,6 +959,31 @@ function buildActivityItems(input: {
     const taskTitle = readString(notification.metadata, "taskTitle");
     const targetPath = readString(notification.metadata, "targetPath");
     if (!taskId || !taskTitle || !targetPath) {
+      continue;
+    }
+
+    if (notification.type === NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER) {
+      const deadlineDate = readString(notification.metadata, "deadlineDate");
+      const daysUntilDue = notification.metadata.daysUntilDue;
+      if (!deadlineDate || typeof daysUntilDue !== "number") {
+        continue;
+      }
+
+      const dueLabel = formatTaskDeadlineForDisplay(deadlineDate, "en-US");
+      const dayLabel =
+        daysUntilDue === 1 ? "tomorrow" : `in ${daysUntilDue} days`;
+      const key = ["due-date", taskId, deadlineDate].join(":");
+      const existing = collapsed.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        collapsed.set(key, {
+          label: `Due ${dayLabel}: ${taskTitle} (${dueLabel})`,
+          count: 1,
+          targetPath,
+        });
+      }
+      notificationIds.push(notification.id);
       continue;
     }
 
@@ -1168,6 +1356,7 @@ export async function dispatchProjectNotificationEmails(input: {
   const now = input.now ?? new Date();
   const claimToken = createClaimToken();
   const summary: DispatchProjectNotificationEmailsSummary = {
+    dueDateRemindersReconciled: 0,
     notificationsReconciled: 0,
     groupsClaimed: 0,
     recipientEmailsAttempted: 0,
@@ -1179,6 +1368,14 @@ export async function dispatchProjectNotificationEmails(input: {
     groupsFailed: 0,
     errors: 0,
   };
+
+  try {
+    summary.dueDateRemindersReconciled =
+      await reconcileTaskDueDateReminderNotifications(now);
+  } catch (error) {
+    summary.errors += 1;
+    logServerError("dispatchProjectNotificationEmails.dueDateReminders", error);
+  }
 
   try {
     summary.notificationsReconciled =
