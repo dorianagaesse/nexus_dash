@@ -8,6 +8,7 @@ const prismaMock = vi.hoisted(() => ({
   },
   notification: {
     createMany: vi.fn(),
+    findFirst: vi.fn(),
     findMany: vi.fn(),
   },
   projectInvitation: {
@@ -220,12 +221,13 @@ function claimedGroup(input: {
 describe("project-notification-email-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    prismaMock.user.findMany.mockResolvedValue([]);
+    prismaMock.user.findMany.mockResolvedValue([{ id: "user-1" }]);
     prismaMock.user.findUnique.mockResolvedValue({
       email: "dorian.agaesse@gmail.com",
       emailVerified: new Date("2026-05-01T00:00:00.000Z"),
     });
     prismaMock.notification.createMany.mockResolvedValue({ count: 1 });
+    prismaMock.notification.findFirst.mockResolvedValue(dueDateReminderNotification());
     prismaMock.notification.findMany.mockResolvedValue([]);
     prismaMock.projectInvitation.findFirst.mockResolvedValue({ id: "invite-1" });
     prismaMock.projectNotificationEmail.create.mockResolvedValue({
@@ -431,12 +433,44 @@ describe("project-notification-email-service", () => {
     expect(sql).toContain('task."deadlineAt" = CAST(');
     expect(sql).toContain('task."status" <> \'Done\'');
     expect(sql).toContain('task."archivedAt" IS NULL');
-    expect(sql).toContain('"ProjectMembership" membership');
-    expect(sql).toContain(
-      'COALESCE(task."assigneeUserId", task."createdByUserId")'
-    );
+    expect(sql).toContain('task."assigneeUserId" =');
+    expect(sql).toContain('task."assigneeUserId" IS NULL');
+    expect(sql).toContain('task."createdByUserId" =');
     expect(sql).toContain('notification."sourceType" =');
     expect(sql).toContain('notification."sourceId"');
+    expect(sql).toContain('notification."readAt" IS NOT NULL');
+    expect(sql).toContain('notification."resolvedAt" IS NOT NULL');
+    expect(sql).toContain('"ProjectNotificationEmailItem" item');
+    expect(sql).toContain("email.\"status\" IN ('pending', 'dispatching', 'sent')");
+    expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          email: { not: null },
+          emailVerified: { not: null },
+        }),
+      })
+    );
+  });
+
+  test("discovers due-date reminders once per verified recipient under recipient context", async () => {
+    prismaMock.user.findMany.mockResolvedValueOnce([
+      { id: "user-1" },
+      { id: "user-2" },
+    ]);
+
+    await dispatchProjectNotificationEmails({
+      appOrigin: "https://preview.nexusdash.test",
+      now,
+    });
+
+    const dueDateQueries = prismaMock.$queryRaw.mock.calls
+      .slice(0, 2)
+      .map((call) => (call[0] as { strings: string[] }).strings.join(" "));
+
+    expect(dueDateQueries).toHaveLength(2);
+    expect(dueDateQueries.every((sql) => sql.includes('FROM "Task" task'))).toBe(
+      true
+    );
   });
 
   test("batches multiple due project groups into one recipient email", async () => {

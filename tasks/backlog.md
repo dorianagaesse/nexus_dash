@@ -4,24 +4,18 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-265
-  Title: Notification actor attribution and self-notification rules
+- ID: TASK-226
+  Title: Task due-date email reminders - production RLS reconciliation fix
   Status: Active
-  Rationale: Production email smoke confirmed the digest shape, but agent-authored assignment/mention copy can read as if the human account performed the action (for example `dorian1 assigned you...`) because agent API actions currently reuse the credential owner's actor identity. Tighten notification metadata and email/in-app copy so agent activity is attributed to the agent/system, human activity is attributed to the human actor, and self-notifications are consistently suppressed for human self-assignment/self-mention while remaining allowed for genuine agent-to-user activity.
-  Dependencies: TASK-123, TASK-124, TASK-127, TASK-227, TASK-260
-  Brief: `tasks/task-265-notification-actor-attribution-and-self-notification-rules.md`
+  Rationale: Production smoke after TASK-226 promotion created tasks due within three days, but the notification email dispatcher reported `dueDateRemindersReconciled: 0`. Fix reminder discovery and queueing so the scheduler works under production row-level security and still preserves one reminder per task/user/deadline window.
+  Dependencies: TASK-101, TASK-125, TASK-063, TASK-268
+  Brief: `tasks/task-226-task-due-date-email-reminders.md`
 - ID: TASK-269
   Title: GitHub Actions workflow cleanup - simplify CI/CD, scheduled jobs, and maintenance automation
   Status: Next
   Rationale: The repository now has several production-impacting workflows covering quality gates, staged Vercel deploys, notification email dispatch, dependency security, Dependabot triage, and Copilot repair. Recent production work exposed duplicated env handling, scheduler tradeoffs, and deploy/secrets coupling across these workflows. Run a focused cleanup so workflow responsibilities, permissions, env/secrets usage, dispatch inputs, summaries, and failure modes are easier to understand and operate without changing product behavior.
   Dependencies: TASK-042, TASK-116, TASK-132, TASK-268
   Brief: `tasks/task-269-github-actions-workflow-cleanup.md`
-- ID: TASK-226
-  Title: Task due-date email reminders - 3-day deadline warning delivery
-  Status: In Review
-  Rationale: Send task reminder emails when assigned or owned work is three days from its due date, with idempotent delivery tracking and anti-spam semantics so each reminder fires predictably once per task/user deadline window rather than repeating on every app visit.
-  Dependencies: TASK-101, TASK-125, TASK-063, TASK-268
-  Brief: `tasks/task-226-task-due-date-email-reminders.md`
 - ID: TASK-266
   Title: Production pg query deprecation warning cleanup
   Status: Pending
@@ -143,6 +137,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-265
+  Title: Notification actor attribution and self-notification rules
+  Status: Done (2026-05-22, merged via PR #277)
+  Rationale: Agent-authored assignment and mention notifications now carry agent-aware actor metadata and email/in-app copy so agent activity is not misattributed to the credential owner, while human self-notification suppression remains intact.
+  Dependencies: TASK-123, TASK-124, TASK-127, TASK-227, TASK-260
 - ID: TASK-272
   Title: Release version cadence and tagging - pre-1.0 product version policy
   Status: Done (2026-05-21, merged via PR #276)

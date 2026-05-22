@@ -676,9 +676,30 @@ async function reconcilePendingNotificationEmailGroups(): Promise<number> {
   return reconciled;
 }
 
+async function findVerifiedTaskDueDateReminderRecipientIds(): Promise<string[]> {
+  const users = await prisma.user.findMany({
+    where: {
+      email: {
+        not: null,
+      },
+      emailVerified: {
+        not: null,
+      },
+    },
+    orderBy: [{ id: "asc" }],
+    select: {
+      id: true,
+    },
+  });
+
+  return users.map((user) => user.id);
+}
+
 async function findTaskDueDateReminderCandidates(input: {
+  db: DbClient;
   now: Date;
   limit: number;
+  recipientUserId: string;
 }): Promise<DueDateReminderCandidate[]> {
   const todayDate = getLocalCalendarDateString(input.now);
   const reminderDate = addCalendarDaysToDateString(
@@ -690,27 +711,27 @@ async function findTaskDueDateReminderCandidates(input: {
     return [];
   }
 
-  return prisma.$queryRaw<DueDateReminderCandidate[]>(Prisma.sql`
+  return input.db.$queryRaw<DueDateReminderCandidate[]>(Prisma.sql`
     WITH eligible_tasks AS (
       SELECT
         task."id" AS "taskId",
         task."title" AS "taskTitle",
         task."projectId" AS "projectId",
         project."name" AS "projectName",
-        COALESCE(task."assigneeUserId", task."createdByUserId") AS "recipientUserId",
+        ${input.recipientUserId} AS "recipientUserId",
         task."deadlineAt" AS "deadlineAt"
       FROM "Task" task
       INNER JOIN "Project" project
         ON project."id" = task."projectId"
-      LEFT JOIN "ProjectMembership" membership
-        ON membership."projectId" = task."projectId"
-       AND membership."userId" = COALESCE(task."assigneeUserId", task."createdByUserId")
       WHERE task."deadlineAt" = CAST(${reminderDate} AS date)
         AND task."status" <> 'Done'
         AND task."archivedAt" IS NULL
         AND (
-          project."ownerId" = COALESCE(task."assigneeUserId", task."createdByUserId")
-          OR membership."userId" IS NOT NULL
+          task."assigneeUserId" = ${input.recipientUserId}
+          OR (
+            task."assigneeUserId" IS NULL
+            AND task."createdByUserId" = ${input.recipientUserId}
+          )
         )
     )
     SELECT
@@ -730,6 +751,18 @@ async function findTaskDueDateReminderCandidates(input: {
           eligible_tasks."taskId" || ':' ||
           eligible_tasks."recipientUserId" || ':' ||
           ${reminderDate}
+        AND (
+          notification."readAt" IS NOT NULL
+          OR notification."resolvedAt" IS NOT NULL
+          OR EXISTS (
+            SELECT 1
+            FROM "ProjectNotificationEmailItem" item
+            INNER JOIN "ProjectNotificationEmail" email
+              ON email."id" = item."emailId"
+            WHERE item."notificationId" = notification."id"
+              AND email."status" IN ('pending', 'dispatching', 'sent')
+          )
+        )
     )
     ORDER BY eligible_tasks."deadlineAt" ASC, eligible_tasks."taskId" ASC
     LIMIT ${input.limit}
@@ -781,25 +814,67 @@ async function createTaskDueDateReminderNotificationForCandidate(input: {
     ],
     skipDuplicates: true,
   });
+
+  const notification = await input.db.notification.findFirst({
+    where: {
+      recipientUserId: input.candidate.recipientUserId,
+      sourceType: NOTIFICATION_SOURCE_TASK_DUE_DATE_REMINDER,
+      sourceId,
+    },
+    select: {
+      id: true,
+      recipientUserId: true,
+      type: true,
+      title: true,
+      body: true,
+      targetPath: true,
+      sourceType: true,
+      sourceId: true,
+      metadata: true,
+      readAt: true,
+      resolvedAt: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  if (!notification) {
+    return;
+  }
+
+  await enqueueNotificationEmailForNotification({
+    db: input.db,
+    notification,
+  });
 }
 
 async function reconcileTaskDueDateReminderNotifications(
   now: Date
 ): Promise<number> {
-  const candidates = await findTaskDueDateReminderCandidates({
-    now,
-    limit: MAX_RECONCILE_DUE_DATE_REMINDERS,
-  });
+  const recipientUserIds = await findVerifiedTaskDueDateReminderRecipientIds();
   let reconciled = 0;
 
-  for (const candidate of candidates) {
-    await withActorRlsContext(candidate.recipientUserId, async (db) => {
-      await createTaskDueDateReminderNotificationForCandidate({
+  for (const recipientUserId of recipientUserIds) {
+    if (reconciled >= MAX_RECONCILE_DUE_DATE_REMINDERS) {
+      break;
+    }
+
+    await withActorRlsContext(recipientUserId, async (db) => {
+      const candidates = await findTaskDueDateReminderCandidates({
         db,
-        candidate,
+        now,
+        recipientUserId,
+        limit: MAX_RECONCILE_DUE_DATE_REMINDERS - reconciled,
       });
+
+      for (const candidate of candidates) {
+        await createTaskDueDateReminderNotificationForCandidate({
+          db,
+          candidate,
+        });
+        reconciled += 1;
+      }
     });
-    reconciled += 1;
   }
 
   return reconciled;
