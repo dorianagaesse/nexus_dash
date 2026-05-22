@@ -12,6 +12,7 @@ const prismaMock = vi.hoisted(() => ({
 }));
 
 const logServerErrorMock = vi.hoisted(() => vi.fn());
+const enqueueEmailMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/prisma", () => ({
   prisma: prismaMock,
@@ -21,8 +22,13 @@ vi.mock("@/lib/observability/logger", () => ({
   logServerError: logServerErrorMock,
 }));
 
+vi.mock("@/lib/services/project-notification-email-service", () => ({
+  enqueueNotificationEmailForNotification: enqueueEmailMock,
+}));
+
 import {
   countUnreadNotificationsForUser,
+  createTaskDueDateReminderNotification,
   getLatestUnreadNotificationForUser,
   listNotificationsForUser,
   markAllNotificationsReadForUser,
@@ -134,6 +140,49 @@ describe("notification-service", () => {
         skipDuplicates: true,
       })
     );
+  });
+
+  test("maps task due-date reminder notifications for the notification center", async () => {
+    prismaMock.notification.findMany
+      .mockResolvedValueOnce([
+        {
+          id: "notification-due-1",
+          type: "task_due_date_reminder",
+          title: "Due soon: Ship reminders",
+          body: "Ship reminders is due in 3 days (May 25, 2026).",
+          targetPath: "/projects/project-1?taskId=task-1",
+          sourceType: "task_due_date_reminder",
+          sourceId: "task-1:user-1:2026-05-25",
+          metadata: {
+            taskId: "task-1",
+            taskTitle: "Ship reminders",
+            projectId: "project-1",
+            projectName: "Alpha",
+            recipientUserId: "user-1",
+            deadlineDate: "2026-05-25",
+            daysUntilDue: 3,
+            targetPath: "/projects/project-1?taskId=task-1",
+          },
+          readAt: null,
+          resolvedAt: null,
+          createdAt: new Date("2026-05-22T08:00:00.000Z"),
+          updatedAt: new Date("2026-05-22T08:00:00.000Z"),
+        },
+      ]);
+
+    const result = await listNotificationsForUser("user-1");
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data.notifications[0]?.metadata : null).toEqual({
+      taskId: "task-1",
+      taskTitle: "Ship reminders",
+      projectId: "project-1",
+      projectName: "Alpha",
+      recipientUserId: "user-1",
+      deadlineDate: "2026-05-25",
+      daysUntilDue: 3,
+      targetPath: "/projects/project-1?taskId=task-1",
+    });
   });
 
   test("counts unread unresolved notifications after syncing invitations", async () => {
@@ -343,6 +392,70 @@ describe("notification-service", () => {
         resolvedAt: expect.any(Date),
         readAt: expect.any(Date),
       },
+    });
+  });
+
+  test("creates one due-date reminder notification for a task recipient deadline window", async () => {
+    const storedNotification = {
+      id: "notification-due-1",
+      recipientUserId: "user-1",
+      type: "task_due_date_reminder",
+      title: "Due soon: Ship reminders",
+      body: "Ship reminders is due in 3 days (May 25, 2026).",
+      targetPath: "/projects/project-1?taskId=task-1",
+      sourceType: "task_due_date_reminder",
+      sourceId: "task-1:user-1:2026-05-25",
+      metadata: {
+        taskId: "task-1",
+        taskTitle: "Ship reminders",
+        projectId: "project-1",
+        projectName: "Alpha",
+        recipientUserId: "user-1",
+        deadlineDate: "2026-05-25",
+        daysUntilDue: 3,
+        targetPath: "/projects/project-1?taskId=task-1",
+      },
+      readAt: null,
+      resolvedAt: null,
+      createdAt: new Date("2026-05-22T08:00:00.000Z"),
+      updatedAt: new Date("2026-05-22T08:00:00.000Z"),
+    };
+    prismaMock.notification.findMany.mockResolvedValueOnce([]);
+    prismaMock.notification.findFirst.mockResolvedValueOnce(storedNotification);
+
+    await createTaskDueDateReminderNotification({
+      db: prismaMock as never,
+      recipientUserId: "user-1",
+      notification: {
+        taskId: "task-1",
+        taskTitle: "Ship reminders",
+        projectId: "project-1",
+        projectName: "Alpha",
+        recipientUserId: "user-1",
+        deadlineDate: "2026-05-25",
+        daysUntilDue: 3,
+        targetPath: "/projects/project-1?taskId=task-1",
+      },
+    });
+
+    expect(prismaMock.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          recipientUserId: "user-1",
+          type: "task_due_date_reminder",
+          sourceType: "task_due_date_reminder",
+          sourceId: "task-1:user-1:2026-05-25",
+          metadata: expect.objectContaining({
+            deadlineDate: "2026-05-25",
+            daysUntilDue: 3,
+          }),
+        }),
+      ],
+      skipDuplicates: true,
+    });
+    expect(enqueueEmailMock).toHaveBeenCalledWith({
+      db: prismaMock,
+      notification: storedNotification,
     });
   });
 });

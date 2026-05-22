@@ -14,6 +14,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-05-22
 - Type: Execution
+- Summary: TASK-226 started from a dedicated worktree and branch with reminder recipient/idempotency decisions recorded before implementation.
+- Evidence: Created `../nexus_dash_task226` on `feature/task-226-task-due-date-email-reminders` from `origin/main`. Rewrote `tasks/current.md` for TASK-226 and marked the backlog entry active. Decisions: due-date reminders target the current assignee, or the task creator when unassigned; recipients must still have project access; `Done`/archived tasks are excluded; source identity is `task_due_date_reminder` plus `<taskId>:<recipientUserId>:<deadlineDate>`; reminder notifications will feed the existing project notification email digest pipeline.
+
+### 2026-05-22
+- Type: Validation
+- Summary: TASK-226 due-date reminder implementation passed local validation.
+- Evidence: Added `task_due_date_reminder` notification mapping, dispatcher reconciliation for tasks exactly three calendar days from `deadlineAt`, shared project digest email rendering for due-date reminder items, notification center labeling, and documentation/runbook updates. Validation passed: `git diff --check`; focused `npm test -- --run tests/lib/task-deadline.test.ts tests/lib/notification-service.test.ts tests/lib/project-notification-email-service.test.ts tests/lib/outbound-email-templates.test.ts tests/api/notification-email-dispatch.route.test.ts` (5 files, 45 tests); `npm run lint`; local PostgreSQL env `npm test` (108 files passed, 827 tests passed, 2 skipped); `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines); local placeholder runtime env `npm run build`.
+
+### 2026-05-22
+- Type: Execution
 - Summary: Started TASK-272 release version cadence and tagging policy.
 - Evidence: Added `tasks/task-272-release-version-cadence-and-tagging.md`,
   promoted TASK-272 to active in `tasks/backlog.md`, created

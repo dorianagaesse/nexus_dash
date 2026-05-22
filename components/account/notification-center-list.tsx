@@ -31,6 +31,12 @@ function getNotificationTypeLabel(notification: NotificationSummary): string {
   if (notification.type === "task_comment_mention") {
     return "Mentioned in comment";
   }
+  if (notification.type === "task_assignment") {
+    return "Task assignment";
+  }
+  if (notification.type === "task_due_date_reminder") {
+    return "Due-date reminder";
+  }
 
   return "Notification";
 }

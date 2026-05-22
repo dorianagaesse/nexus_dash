@@ -89,6 +89,19 @@ export function getLocalCalendarDateString(now: Date = new Date()): string {
   ].join("-");
 }
 
+export function addCalendarDaysToDateString(
+  dateOnly: string,
+  days: number
+): string | null {
+  const parsed = parseTaskDeadlineDate(dateOnly);
+  if (!parsed || !Number.isInteger(days)) {
+    return null;
+  }
+
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return formatTaskDeadlineDate(parsed);
+}
+
 function getDateOnlyUtcTimestamp(value: string): number | null {
   const parsed = parseTaskDeadlineDate(value);
   if (!parsed) {
