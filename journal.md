@@ -13,6 +13,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-05-22
+- Type: Planning
+- Summary: Created TASK-273 for cost-aware notification email scheduling improvements.
+- Evidence: Production smoke after TASK-226/TASK-265 confirmed the durable notification email pipeline can reconcile and send, but user discussion identified the current 3-hour GitHub Actions bridge as too coarse and predictably batched compared with common production notification systems. Added `tasks/task-273-cost-aware-notification-email-scheduling.md`, queued TASK-273 in `tasks/backlog.md`, updated `tasks/current.md`, marked TASK-226 complete after PR #279, and recorded a proposed architecture direction in `adr/decisions.md` to keep the app-owned durable email queue while improving scheduler cadence under cost constraints.
+
+### 2026-05-22
 - Type: Execution
 - Summary: Started TASK-226 production RLS remediation after prod smoke found no due-date reminder candidates.
 - Evidence: Created branch `fix/task-226-due-reminder-rls` in `../nexus_dash_task226` from `origin/main`. Root cause analysis found due-date reminder discovery reading RLS-protected task rows without an actor context and reminder email queueing depending on a later global notification scan. Updated `tasks/current.md` and `tasks/backlog.md` for the focused production fix.
