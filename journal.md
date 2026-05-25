@@ -12,6 +12,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-05-25
+- Type: Planning
+- Summary: Reviewed and refreshed the backlog after the TASK-273 planning merge.
+- Evidence: Updated `tasks/backlog.md` with a 2026-05-25 review stamp, clarified that TASK-273's strategy brief merged via PR #280 while implementation remains pending, queued TASK-269 after scheduler work unless deferred, labeled TASK-266/TASK-133 as follow-ups, and corrected stale completed PR statuses for TASK-104 and TASK-127.
+
 ### 2026-05-22
 - Type: Planning
 - Summary: Created TASK-273 for cost-aware notification email scheduling improvements.

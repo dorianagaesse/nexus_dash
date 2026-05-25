@@ -2,28 +2,30 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
+Last reviewed: 2026-05-25
+
 ## Pending
 ### Execution Queue (Now / Next)
 - ID: TASK-273
   Title: Cost-aware notification email scheduling - industry-aligned delivery cadence
-  Status: Active
-  Rationale: NexusDash now has durable notification email orchestration, but the current free GitHub Actions bridge runs every 3 hours, so emails arrive in coarse and predictable batches rather than near their per-notification `sendAfterAt`. Define and implement a cost-aware scheduling path that better matches common production notification systems without prematurely committing to a paid platform upgrade.
+  Status: Next (strategy brief merged via PR #280; implementation pending)
+  Rationale: NexusDash now has durable notification email orchestration, but the current free GitHub Actions bridge runs every 3 hours, so emails arrive in coarse and predictable batches rather than near their per-notification `sendAfterAt`. The merged strategy brief recommends a cost-aware implementation path that preserves the app-owned durable queue while improving scheduler cadence and observability without prematurely committing to a paid platform upgrade.
   Dependencies: TASK-125, TASK-227, TASK-268, TASK-271, TASK-226
   Brief: `tasks/task-273-cost-aware-notification-email-scheduling.md`
 - ID: TASK-269
   Title: GitHub Actions workflow cleanup - simplify CI/CD, scheduled jobs, and maintenance automation
-  Status: Next
-  Rationale: The repository now has several production-impacting workflows covering quality gates, staged Vercel deploys, notification email dispatch, dependency security, Dependabot triage, and Copilot repair. Recent production work exposed duplicated env handling, scheduler tradeoffs, and deploy/secrets coupling across these workflows. Run a focused cleanup so workflow responsibilities, permissions, env/secrets usage, dispatch inputs, summaries, and failure modes are easier to understand and operate without changing product behavior.
+  Status: Queued (after TASK-273 unless scheduler work is deferred)
+  Rationale: The repository now has several production-impacting workflows covering quality gates, staged Vercel deploys, notification email dispatch, dependency security, Dependabot triage, and Copilot repair. Recent production work exposed duplicated env handling, scheduler tradeoffs, production-target safeguards, and deploy/secrets coupling across these workflows. Run a focused cleanup so workflow responsibilities, permissions, env/secrets usage, dispatch inputs, summaries, and failure modes are easier to understand and operate without changing product behavior.
   Dependencies: TASK-042, TASK-116, TASK-132, TASK-268
   Brief: `tasks/task-269-github-actions-workflow-cleanup.md`
 - ID: TASK-266
   Title: Production pg query deprecation warning cleanup
-  Status: Pending
+  Status: Queued operational follow-up
   Rationale: Production smoke logs repeatedly show `Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0` on task creation and notification-email dispatch paths. Identify the Prisma/Postgres adapter or service flow causing overlapping client queries, fix it without weakening transaction/RLS behavior, and validate that production smoke no longer emits the warning.
   Dependencies: TASK-258, TASK-259
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
-  Status: Pending (promoted 2026-05-04; PR #224 partial fix merged)
+  Status: Deferred UI follow-up (promoted 2026-05-04; PR #224 partial fix merged)
   Rationale: Fix task UI regressions around the compact scrollbar affordance and task edit modal behavior so dense task surfaces stay usable, visually clean, and predictable during everyday task creation and editing workflows.
   Dependencies: TASK-076, TASK-113
 ### Deferred (Intentional)
@@ -170,7 +172,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 - ID: TASK-228
   Title: QStash notification email scheduler activation - production cadence and smoke validation
   Status: Superseded (2026-05-19, replaced by TASK-268)
-  Rationale: QStash stayed a valid managed-scheduler option, but the account/token setup created too much operational friction for the current stage. The active production scheduler path moved to the GitHub Actions 3-hour bridge in TASK-268.
+  Rationale: QStash stayed a valid managed-scheduler option, but the account/token setup created too much operational friction for the current stage. The active production scheduler path moved to the GitHub Actions 3-hour bridge in TASK-268; future cost-aware scheduler improvement is now tracked by TASK-273.
   Dependencies: TASK-125, TASK-227
 - ID: TASK-267
   Title: Notification task handoff briefs
@@ -195,7 +197,7 @@ Use this file to capture tasks discovered during development. Each entry should 
 - ID: TASK-227
   Title: Production-grade notification email orchestration - debounce, grouping, and scheduler refactor
   Status: Done (2026-05-14, merged via PR #254)
-  Rationale: Refactored project notification email dispatch into durable recipient/project grouped orchestration with debounce, max-delay, concurrency-safe claims, idempotent delivery recording, protected dispatch endpoint, and invitation reminder support. Production scheduler activation is currently tracked by TASK-268 after TASK-228 was superseded.
+  Rationale: Refactored project notification email dispatch into durable recipient/project grouped orchestration with debounce, max-delay, concurrency-safe claims, idempotent delivery recording, protected dispatch endpoint, and invitation reminder support. The current production trigger is the TASK-268 GitHub Actions bridge; cadence improvement is tracked by TASK-273.
   Dependencies: TASK-123, TASK-125, TASK-225
 - ID: TASK-225
   Title: Project notification email digests - grouped, rate-limited outbound summaries
@@ -204,7 +206,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-123, TASK-125
 - ID: TASK-104
   Title: Invite email delivery - app-managed sending for project collaboration invites
-  Status: Done (2026-05-07, PR #245 open)
+  Status: Done (2026-05-08, merged via PR #245)
   Rationale: Added app-managed project invitation email delivery on top of the reusable outbound email foundation, with owner-visible delivery feedback, active-invitation resend, copy-link fallback preservation, safe outbound metadata, trusted-origin invite URLs, live smoke validation for email-only and matched-account recipients, green PR checks, and resolved Copilot feedback.
   Dependencies: TASK-103, TASK-083, TASK-125
 - ID: TASK-125
@@ -214,7 +216,7 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-083
 - ID: TASK-127
   Title: API capability audit - confirm every shipped feature remains fully manageable through the API
-  Status: Done (2026-05-07, PR #241 open)
+  Status: Done (2026-05-07, merged via PR #241)
   Rationale: Audited shipped app features against API coverage, documented the parity matrix, and closed session-user API gaps for project list/create, account profile/security, Google Calendar target settings, notification read state, mark-all-read, pending invitations, and invitation responses while preserving the existing project-scoped agent API boundary.
   Dependencies: TASK-107, TASK-115, TASK-128
 - ID: TASK-214
