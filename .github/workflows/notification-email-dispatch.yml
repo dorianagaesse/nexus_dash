@@ -3,8 +3,8 @@ name: Notification Email Dispatch Scheduler
 on:
   schedule:
     # Temporary production bridge while Vercel remains on Hobby and QStash is not
-    # in use. Run away from the top and half hour to reduce GitHub schedule delay.
-    - cron: "17,47 * * * *"
+    # in use. Run away from the top of the hour to reduce GitHub schedule delay.
+    - cron: "17 */3 * * *"
   workflow_dispatch:
     inputs:
       target_url:
@@ -66,49 +66,12 @@ jobs:
           set -e
 
           echo "$response"
-          parsed_summary="$(RESPONSE_JSON="$response" node <<'NODE'
-          const raw = process.env.RESPONSE_JSON ?? "";
-          try {
-            const payload = JSON.parse(raw);
-            const summary = payload.summary ?? {};
-            const line = (label, key) => {
-              const value = Object.prototype.hasOwnProperty.call(summary, key)
-                ? summary[key]
-                : "n/a";
-              return `- ${label}: \`${value}\``;
-            };
-
-            console.log(line("Due-date reminders reconciled", "dueDateRemindersReconciled"));
-            console.log(line("Notifications reconciled", "notificationsReconciled"));
-            console.log(line("Groups claimed", "groupsClaimed"));
-            console.log(line("Scheduler lag groups measured", "schedulerLagGroupsMeasured"));
-            console.log(line("Max scheduler lag minutes", "schedulerLagMaxMinutes"));
-            console.log(line("Average scheduler lag minutes", "schedulerLagAverageMinutes"));
-            console.log(line("Recipient emails attempted", "recipientEmailsAttempted"));
-            console.log(line("Recipient emails sent", "recipientEmailsSent"));
-            console.log(line("Recipient emails skipped", "recipientEmailsSkipped"));
-            console.log(line("Recipient emails failed", "recipientEmailsFailed"));
-            console.log(line("Groups sent", "groupsSent"));
-            console.log(line("Groups skipped", "groupsSkipped"));
-            console.log(line("Groups failed", "groupsFailed"));
-            console.log(line("Errors", "errors"));
-          } catch {
-            console.log("- Parsed summary: `unavailable; dispatcher response was not JSON`");
-          }
-          NODE
-          )"
           {
             echo "## Notification Email Dispatch"
             echo
             echo "- Trigger: \`${{ github.event_name }}\`"
-            echo "- Scheduled cadence: \`30 minutes\`"
             echo "- Target origin: \`$dispatch_origin\`"
             echo "- Curl exit code: \`$curl_status\`"
-            echo
-            echo "### Parsed Summary"
-            echo
-            echo "$parsed_summary"
-            echo
             echo "- Response/output:"
             echo
             echo '```text'
