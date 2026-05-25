@@ -348,12 +348,17 @@ notification. Sending email never marks notifications read or resolved.
 
 Production scheduler decision:
 
-- Current production bridge: GitHub Actions invokes this endpoint every 3 hours
+- Current production bridge: GitHub Actions invokes this endpoint every 30 minutes
   through `.github/workflows/notification-email-dispatch.yml`.
 - This is an accepted early-production tradeoff while Vercel remains on Hobby
   and no managed scheduler is in use. It preserves durable app-owned queueing
-  and idempotent dispatch, but it does not satisfy the original one-hour
-  max-delay delivery target.
+  and idempotent dispatch. It improves the previous 3-hour bridge while still
+  depending on GitHub scheduled workflow reliability rather than a hard
+  real-time worker.
+- Expected project-activity email timing is the 30-minute quiet window plus at
+  most one 30-minute scheduler cadence and normal GitHub scheduling delay.
+  Dispatcher summaries include scheduler-lag metrics for claimed groups so
+  operators can see when due work waited beyond its `sendAfterAt`.
 - Manual workflow dispatch remains available for preview validation and
   diagnostics by overriding the target URL.
 - Future preferred path: Vercel Cron or a managed HTTP scheduler with

@@ -3,6 +3,8 @@
 Date: 2026-05-22
 Branch: `feature/task-273-notification-email-scheduling-strategy`
 
+Implementation branch: `feature/task-273-cost-aware-scheduler-review`
+
 ## Summary
 
 Improve NexusDash notification email scheduling so delivery is closer to common
@@ -30,6 +32,21 @@ Users expect notification emails to feel timely but not spammy:
 The current 3-hour bridge is acceptable as an early-production compromise, but
 it does not feel like the industry norm for app notifications.
 
+## Selected Implementation
+
+The first implementation phase keeps GitHub Actions as the no-new-cost trigger
+and reduces the production schedule to every 30 minutes. This is the
+conservative path because it materially reduces batching without introducing a
+new provider, paid Vercel plan, or queue-worker platform.
+
+The app-owned durable email queue remains the source of truth. The scheduler
+only decides when to call `GET /api/cron/notification-emails`; grouping,
+deduplication, due-date reconciliation, dispatch claims, and outbound delivery
+records stay in the application.
+
+Dispatcher summaries now include scheduler-lag metrics for claimed groups so
+operators can compare actual claim time with each group's `sendAfterAt`.
+
 ## Current Baseline
 
 - `Notification` stores durable in-app activity.
@@ -37,7 +54,8 @@ it does not feel like the industry norm for app notifications.
   grouped email work.
 - `OutboundEmailDelivery` records provider delivery attempts.
 - `GET /api/cron/notification-emails` reconciles and dispatches due groups.
-- GitHub Actions currently calls that endpoint every 3 hours.
+- Before TASK-273 implementation, GitHub Actions called that endpoint every 3
+  hours.
 - TASK-271 prevents already-sent notification IDs from being emailed again.
 - TASK-226 creates due-date reminder notifications and queues them into the
   shared project notification digest pipeline.

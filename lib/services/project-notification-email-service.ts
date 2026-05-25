@@ -131,6 +131,9 @@ export interface DispatchProjectNotificationEmailsSummary {
   dueDateRemindersReconciled: number;
   notificationsReconciled: number;
   groupsClaimed: number;
+  schedulerLagGroupsMeasured: number;
+  schedulerLagMaxMinutes: number;
+  schedulerLagAverageMinutes: number;
   recipientEmailsAttempted: number;
   recipientEmailsSent: number;
   recipientEmailsSkipped: number;
@@ -147,6 +150,17 @@ function maxDate(left: Date, right: Date): Date {
 
 function minDate(left: Date, right: Date): Date {
   return left.getTime() <= right.getTime() ? left : right;
+}
+
+function roundMetric(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function calculateSchedulerLagMinutes(input: {
+  now: Date;
+  sendAfterAt: Date;
+}): number {
+  return Math.max(0, input.now.getTime() - input.sendAfterAt.getTime()) / 60_000;
 }
 
 function isJsonObject(value: Prisma.JsonValue | null): value is Prisma.JsonObject {
@@ -1459,10 +1473,14 @@ export async function dispatchProjectNotificationEmails(input: {
   const appOrigin = normalizeAppOrigin(input.appOrigin);
   const now = input.now ?? new Date();
   const claimToken = createClaimToken();
+  let schedulerLagTotalMinutes = 0;
   const summary: DispatchProjectNotificationEmailsSummary = {
     dueDateRemindersReconciled: 0,
     notificationsReconciled: 0,
     groupsClaimed: 0,
+    schedulerLagGroupsMeasured: 0,
+    schedulerLagMaxMinutes: 0,
+    schedulerLagAverageMinutes: 0,
     recipientEmailsAttempted: 0,
     recipientEmailsSent: 0,
     recipientEmailsSkipped: 0,
@@ -1513,6 +1531,19 @@ export async function dispatchProjectNotificationEmails(input: {
         continue;
       }
 
+      for (const group of groups) {
+        const lagMinutes = calculateSchedulerLagMinutes({
+          now,
+          sendAfterAt: group.sendAfterAt,
+        });
+        schedulerLagTotalMinutes += lagMinutes;
+        summary.schedulerLagGroupsMeasured += 1;
+        summary.schedulerLagMaxMinutes = Math.max(
+          summary.schedulerLagMaxMinutes,
+          lagMinutes
+        );
+      }
+
       const outcome = await dispatchRecipientBatch({
         recipient,
         groups,
@@ -1541,6 +1572,13 @@ export async function dispatchProjectNotificationEmails(input: {
         recipientUserId,
       });
     }
+  }
+
+  if (summary.schedulerLagGroupsMeasured > 0) {
+    summary.schedulerLagMaxMinutes = roundMetric(summary.schedulerLagMaxMinutes);
+    summary.schedulerLagAverageMinutes = roundMetric(
+      schedulerLagTotalMinutes / summary.schedulerLagGroupsMeasured
+    );
   }
 
   logServerInfo(
