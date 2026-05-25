@@ -6,15 +6,9 @@ Last reviewed: 2026-05-25
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-273
-  Title: Cost-aware notification email scheduling - industry-aligned delivery cadence
-  Status: Next (strategy brief merged via PR #280; implementation pending)
-  Rationale: NexusDash now has durable notification email orchestration, but the current free GitHub Actions bridge runs every 3 hours, so emails arrive in coarse and predictable batches rather than near their per-notification `sendAfterAt`. The merged strategy brief recommends a cost-aware implementation path that preserves the app-owned durable queue while improving scheduler cadence and observability without prematurely committing to a paid platform upgrade.
-  Dependencies: TASK-125, TASK-227, TASK-268, TASK-271, TASK-226
-  Brief: `tasks/task-273-cost-aware-notification-email-scheduling.md`
 - ID: TASK-269
   Title: GitHub Actions workflow cleanup - simplify CI/CD, scheduled jobs, and maintenance automation
-  Status: Queued (after TASK-273 unless scheduler work is deferred)
+  Status: Next
   Rationale: The repository now has several production-impacting workflows covering quality gates, staged Vercel deploys, notification email dispatch, dependency security, Dependabot triage, and Copilot repair. Recent production work exposed duplicated env handling, scheduler tradeoffs, production-target safeguards, and deploy/secrets coupling across these workflows. Run a focused cleanup so workflow responsibilities, permissions, env/secrets usage, dispatch inputs, summaries, and failure modes are easier to understand and operate without changing product behavior.
   Dependencies: TASK-042, TASK-116, TASK-132, TASK-268
   Brief: `tasks/task-269-github-actions-workflow-cleanup.md`
@@ -139,6 +133,12 @@ Last reviewed: 2026-05-25
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-273
+  Title: Cost-aware notification email scheduling - industry-aligned delivery cadence
+  Status: Done (2026-05-25, PR #288)
+  Rationale: Kept the app-owned durable notification email queue and protected dispatcher, reduced the no-new-cost GitHub Actions production bridge from 3 hours to 30 minutes, added scheduler-lag metrics to dispatcher/workflow summaries, and updated runbooks/tracking docs with expected latency and residual GitHub scheduler limitations.
+  Dependencies: TASK-125, TASK-227, TASK-268, TASK-271, TASK-226
+  Brief: `tasks/task-273-cost-aware-notification-email-scheduling.md`
 - ID: TASK-226
   Title: Task due-date email reminders - production RLS reconciliation fix
   Status: Done (2026-05-22, merged via PR #279)
