@@ -13,6 +13,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 ## Recent Entries (Most Relevant)
 
 ### 2026-05-25
+- Type: Execution
+- Summary: Started TASK-273 cost-aware notification email scheduling implementation.
+- Evidence: Created `feature/task-273-cost-aware-scheduler` from `origin/main`, updated `tasks/current.md` from the planning-only contract to the implementation contract, selected the documented no-new-cost 30-minute GitHub Actions cadence, added dispatcher scheduler-lag metrics, and updated workflow/runbook/project documentation to describe the new cadence and residual GitHub scheduler limitation.
+
+### 2026-05-25
+- Type: Validation
+- Summary: TASK-273 local validation passed after using the explicit local PostgreSQL env.
+- Evidence: Focused notification email tests passed (`npm test -- --run tests/lib/project-notification-email-service.test.ts tests/api/notification-email-dispatch.route.test.ts`, 26 tests). `npm run lint` and `git diff --check` passed. Plain `npm test` and `npm run test:coverage` initially failed because Vitest does not load `.env` and `DATABASE_URL` was unset; Docker Compose local Postgres could not bind because port 5432 was already allocated, but the documented local PostgreSQL URL was reachable and `npm run db:migrate` showed no pending migrations. With explicit `DATABASE_URL`/`DIRECT_URL`, `npm test` passed (108 files passed, 2 skipped; 833 passed, 2 skipped), `npm run test:coverage` passed (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines), and `npm run build` passed with safe local placeholder runtime secrets.
+
+### 2026-05-25
 - Type: Planning
 - Summary: Reviewed and refreshed the backlog after the TASK-273 planning merge.
 - Evidence: Updated `tasks/backlog.md` with a 2026-05-25 review stamp, clarified that TASK-273's strategy brief merged via PR #280 while implementation remains pending, queued TASK-269 after scheduler work unless deferred, labeled TASK-266/TASK-133 as follow-ups, and corrected stale completed PR statuses for TASK-104 and TASK-127.

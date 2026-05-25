@@ -8,8 +8,8 @@ Last reviewed: 2026-05-25
 ### Execution Queue (Now / Next)
 - ID: TASK-273
   Title: Cost-aware notification email scheduling - industry-aligned delivery cadence
-  Status: Next (strategy brief merged via PR #280; implementation pending)
-  Rationale: NexusDash now has durable notification email orchestration, but the current free GitHub Actions bridge runs every 3 hours, so emails arrive in coarse and predictable batches rather than near their per-notification `sendAfterAt`. The merged strategy brief recommends a cost-aware implementation path that preserves the app-owned durable queue while improving scheduler cadence and observability without prematurely committing to a paid platform upgrade.
+  Status: Active implementation
+  Rationale: NexusDash now has durable notification email orchestration, but the previous free GitHub Actions bridge ran every 3 hours, so emails arrived in coarse and predictable batches rather than near their per-notification `sendAfterAt`. The active implementation keeps the app-owned durable queue and reduces the no-new-cost GitHub Actions bridge to a 30-minute cadence with scheduler-lag summary evidence, without prematurely committing to a paid platform upgrade.
   Dependencies: TASK-125, TASK-227, TASK-268, TASK-271, TASK-226
   Brief: `tasks/task-273-cost-aware-notification-email-scheduling.md`
 - ID: TASK-269
