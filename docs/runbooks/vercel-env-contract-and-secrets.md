@@ -131,16 +131,12 @@ the invitation notification.
 
 Scheduler decision:
 
-- Current production bridge: GitHub Actions invokes this endpoint every 30 minutes
+- Current production bridge: GitHub Actions invokes this endpoint every 3 hours
   through `.github/workflows/notification-email-dispatch.yml`.
 - This bridge uses the existing durable app queue, protected endpoint, and
-  idempotent dispatcher. It improves the previous 3-hour bridge without adding
-  a paid scheduler/provider. Expected project-activity email delivery is the
-  quiet window plus at most one 30-minute scheduler cadence and normal GitHub
-  Actions scheduling delay.
-- Dispatcher responses and workflow summaries include scheduler-lag metrics for
-  claimed groups so operators can see how long due work waited after
-  `sendAfterAt`.
+  idempotent dispatcher. It intentionally does not satisfy the original
+  one-hour max-delay delivery target; expected delivery is periodic, usually
+  within one scheduler cadence plus GitHub Actions scheduling delay.
 - Manual GitHub Actions dispatch remains available for preview validation and
   diagnostics by overriding the target URL.
 - Future preferred path: Vercel Cron or a managed HTTP scheduler with

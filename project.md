@@ -60,10 +60,9 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
 - Testing: Vitest + Playwright
 - Runtime/deploy: Docker, GitHub Actions, Vercel CLI staged production deploy/promotion/rollback
 - Notification email scheduling: GitHub Actions currently invokes the protected
-  dispatcher every 30 minutes as an early-production bridge while Vercel remains
+  dispatcher every 3 hours as an early-production bridge while Vercel remains
   on Hobby and no managed scheduler is in use. This keeps grouped email
-  delivery active with app-owned idempotency, while still depending on GitHub
-  scheduled workflow reliability rather than a hard real-time worker.
+  delivery active but does not provide the original sub-hour delivery target.
 
 ## 4. Data Model Snapshot
 

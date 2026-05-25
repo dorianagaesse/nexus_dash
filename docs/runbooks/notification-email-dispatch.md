@@ -10,35 +10,12 @@ current GitHub Actions production bridge.
 - Secret source: `NOTIFICATION_EMAIL_DISPATCH_SECRET`, falling back to
   `CRON_SECRET`
 - Production scheduler: `.github/workflows/notification-email-dispatch.yml`
-  every 30 minutes
+  every 3 hours
 - Manual workflow dispatch can target production or a preview URL
 
 The dispatcher reconciles eligible notification sources, queues project email
 groups, claims due groups, and sends recipient-level digest emails with project
 sections. Email delivery never marks in-app notifications read or resolved.
-Each successful dispatcher response includes scheduler-lag metrics for claimed
-groups so operators can compare actual claim time with each group's
-`sendAfterAt`.
-
-## Active Cadence
-
-The current no-new-cost production path is a 30-minute GitHub Actions schedule.
-It keeps NexusDash on the app-owned durable email queue while reducing the
-previous 3-hour batching effect.
-
-Expected timing:
-
-- project activity waits for the 30-minute quiet window, capped by the existing
-  60-minute max-delay window;
-- once a group is due, the scheduler should normally claim it within one
-  30-minute cadence plus normal GitHub scheduling delay;
-- task due-date reminders are reconciled on each dispatcher run, so they remain
-  reliable for same-day delivery without promising an exact minute.
-
-Residual limitation: GitHub scheduled workflows are still a best-effort trigger,
-not a hard real-time queue worker. If scheduler lag becomes unacceptable,
-TASK-273's future decision point is to move the trigger to QStash, Vercel Pro
-Cron, or another managed scheduler while keeping the same dispatcher.
 
 ## Due-Date Reminder Behavior
 
@@ -73,11 +50,9 @@ window.
    account is the task creator.
 3. Set the task due date to exactly 3 local calendar days from the smoke date.
 4. Run the notification email dispatch workflow manually, or wait for the next
-   30-minute scheduled run.
+   3-hour scheduled run.
 5. Confirm the dispatcher summary reports due-date reminder reconciliation and
-   that one in-app reminder notification exists. In the workflow summary, also
-   review `Scheduler lag groups measured`, `Max scheduler lag minutes`, and
-   `Average scheduler lag minutes`.
+   that one in-app reminder notification exists.
 6. Let the digest send through the existing email queue and confirm the email
    includes a concise due-date reminder item.
 7. Re-run the dispatcher for the same task/date and confirm no duplicate
