@@ -4,12 +4,12 @@ Use this file to capture tasks discovered during development. Each entry should 
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-226
-  Title: Task due-date email reminders - production RLS reconciliation fix
+- ID: TASK-273
+  Title: Cost-aware notification email scheduling - industry-aligned delivery cadence
   Status: Active
-  Rationale: Production smoke after TASK-226 promotion created tasks due within three days, but the notification email dispatcher reported `dueDateRemindersReconciled: 0`. Fix reminder discovery and queueing so the scheduler works under production row-level security and still preserves one reminder per task/user/deadline window.
-  Dependencies: TASK-101, TASK-125, TASK-063, TASK-268
-  Brief: `tasks/task-226-task-due-date-email-reminders.md`
+  Rationale: NexusDash now has durable notification email orchestration, but the current free GitHub Actions bridge runs every 3 hours, so emails arrive in coarse and predictable batches rather than near their per-notification `sendAfterAt`. Define and implement a cost-aware scheduling path that better matches common production notification systems without prematurely committing to a paid platform upgrade.
+  Dependencies: TASK-125, TASK-227, TASK-268, TASK-271, TASK-226
+  Brief: `tasks/task-273-cost-aware-notification-email-scheduling.md`
 - ID: TASK-269
   Title: GitHub Actions workflow cleanup - simplify CI/CD, scheduled jobs, and maintenance automation
   Status: Next
@@ -137,6 +137,11 @@ Use this file to capture tasks discovered during development. Each entry should 
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-226
+  Title: Task due-date email reminders - production RLS reconciliation fix
+  Status: Done (2026-05-22, merged via PR #279)
+  Rationale: Follow-up production validation showed due-date reminders reconcile correctly; the merged hardening keeps reminder discovery/queueing RLS-safe and paginates verified-recipient scanning so production reminder dispatch stays resilient as data grows.
+  Dependencies: TASK-101, TASK-125, TASK-063, TASK-268
 - ID: TASK-265
   Title: Notification actor attribution and self-notification rules
   Status: Done (2026-05-22, merged via PR #277)

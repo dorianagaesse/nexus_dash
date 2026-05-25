@@ -16,6 +16,30 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-05-22 - Keep notification email dispatch app-owned while improving scheduler cadence cost-consciously
+- Status: Proposed
+- Context: TASK-268 intentionally used a no-new-cost GitHub Actions scheduler
+  bridge every 3 hours after QStash setup created operational friction and
+  Vercel Hobby could not provide the desired high-frequency cron behavior.
+  Production smoke for TASK-226/TASK-265 showed the durable email pipeline can
+  reconcile and send, but the coarse scheduler cadence makes notification
+  emails arrive in predictable batches rather than near each group's intended
+  `sendAfterAt`.
+- Decision: Keep NexusDash's durable app-owned notification email queue,
+  idempotency, protected dispatcher, and Resend delivery foundation. Evaluate
+  scheduler improvements separately, starting with a no-new-cost GitHub Actions
+  cadence reduction and treating QStash, Vercel Pro Cron, or a cloud queue as
+  future trigger options rather than replacements for the app-owned queue.
+- Consequences: Near-term work can improve user-visible latency without
+  prematurely buying a platform upgrade or weakening delivery semantics.
+  Scheduler/provider changes should alter only when the dispatcher is invoked,
+  while the application continues owning grouping, duplicate suppression,
+  delivery records, and smoke validation.
+- Links: `tasks/task-273-cost-aware-notification-email-scheduling.md`,
+  `tasks/task-268-github-actions-notification-email-scheduler.md`,
+  `lib/services/project-notification-email-service.ts`,
+  `.github/workflows/notification-email-dispatch.yml`
+
 ## 2026-05-20 - Use app runtime role for Supabase transaction-pooled app traffic
 - Status: Accepted
 - Context: Production and preview validation showed that runtime database
