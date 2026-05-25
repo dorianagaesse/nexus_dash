@@ -95,7 +95,7 @@ jobs:
           } catch {
             console.log("- Parsed summary: `unavailable; dispatcher response was not JSON`");
           }
-NODE
+          NODE
           )"
           {
             echo "## Notification Email Dispatch"
