@@ -32,15 +32,55 @@ jobs:
         run: npm ci
 
       - name: Audit production dependencies
+        shell: bash
         run: |
           npm audit --omit=dev --audit-level=high --json > npm-audit-prod.json || true
-          node -e "const fs = require('fs'); const audit = JSON.parse(fs.readFileSync('npm-audit-prod.json', 'utf8')); const meta = audit.metadata?.vulnerabilities ?? {}; const highOrCritical = (meta.high ?? 0) + (meta.critical ?? 0); if (highOrCritical > 0) { console.error(`High/Critical production vulnerabilities detected: ${highOrCritical}`); process.exit(1); }"
+          node <<'NODE'
+          const fs = require("fs");
+          const audit = JSON.parse(fs.readFileSync("npm-audit-prod.json", "utf8"));
+          const meta = audit.metadata?.vulnerabilities ?? {};
+          const highOrCritical = (meta.high ?? 0) + (meta.critical ?? 0);
+
+          fs.appendFileSync(
+            process.env.GITHUB_STEP_SUMMARY,
+            [
+              "## Production Dependency Audit",
+              "",
+              `- Critical: \`${meta.critical ?? 0}\``,
+              `- High: \`${meta.high ?? 0}\``,
+              "",
+            ].join("\n")
+          );
+
+          if (highOrCritical > 0) {
+            console.error(
+              `High/Critical production vulnerabilities detected: ${highOrCritical}`
+            );
+            process.exit(1);
+          }
+          NODE
 
       - name: Audit full dependency tree
         if: always()
+        shell: bash
         run: |
           npm audit --json > npm-audit-full.json || true
-          node -e "const fs = require('fs'); const audit = JSON.parse(fs.readFileSync('npm-audit-full.json', 'utf8')); const meta = audit.metadata?.vulnerabilities ?? {}; const lines = [ '## Dependency Security Scan', '', `- Total: ${meta.total ?? 0}`, `- Critical: ${meta.critical ?? 0}`, `- High: ${meta.high ?? 0}`, `- Moderate: ${meta.moderate ?? 0}`, `- Low: ${meta.low ?? 0}` ]; fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\\n')}\\n`);"
+          node <<'NODE'
+          const fs = require("fs");
+          const audit = JSON.parse(fs.readFileSync("npm-audit-full.json", "utf8"));
+          const meta = audit.metadata?.vulnerabilities ?? {};
+          const lines = [
+            "## Full Dependency Security Scan",
+            "",
+            `- Total: \`${meta.total ?? 0}\``,
+            `- Critical: \`${meta.critical ?? 0}\``,
+            `- High: \`${meta.high ?? 0}\``,
+            `- Moderate: \`${meta.moderate ?? 0}\``,
+            `- Low: \`${meta.low ?? 0}\``,
+            "",
+          ];
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n"));
+          NODE
 
       - name: Upload audit artifacts
         if: always()

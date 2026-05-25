@@ -4,6 +4,8 @@ on:
     types: [opened, edited, synchronize]
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   check-name:
     runs-on: ubuntu-latest

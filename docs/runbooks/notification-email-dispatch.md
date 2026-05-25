@@ -3,6 +3,9 @@
 This runbook covers the protected notification email dispatcher used by the
 current GitHub Actions production bridge.
 
+For the full GitHub Actions workflow inventory and permissions contract, see
+`docs/runbooks/github-actions-workflows.md`.
+
 ## Dispatcher Contract
 
 - Endpoint: `GET /api/cron/notification-emails`

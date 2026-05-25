@@ -4,7 +4,9 @@
 TASK-269
 
 ## Status
-Pending
+Implementation complete - awaiting maintainer review
+
+Implementation branch: `chore/task-269-workflow-cleanup`
 
 ## Objective
 Audit and simplify the repository's GitHub Actions workflows so CI, staged
@@ -32,6 +34,19 @@ is layered onto it.
   failure output, and no accidental dependency on interactive environment
   approvals.
 - Keep product behavior unchanged unless a workflow bug is found and fixed.
+
+## Audit Outcome
+
+TASK-269 keeps all seven active workflows because each has distinct ownership:
+branch policy, quality gates, Vercel deploy/promote/rollback, notification
+email dispatch, dependency audit, safe Dependabot auto-triage, and Copilot
+repair. The cleanup target is least-privilege permissions plus a durable
+operator inventory, not workflow deletion.
+
+The audit also found a concrete `dependency-security.yml` bug: inline `node -e`
+snippets used JavaScript template literals inside shell double quotes, so Bash
+expanded backtick and `${...}` fragments before Node executed. The workflow now
+uses quoted heredocs for those summaries and failures.
 
 ## Acceptance Criteria
 1. Every active GitHub Actions workflow has a clear purpose, trigger set,

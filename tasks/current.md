@@ -1,90 +1,102 @@
-# Current Task: TASK-273 Cost-Aware Notification Email Scheduling
+# Current Task: TASK-269 GitHub Actions Workflow Cleanup
 
 ## Task ID
-TASK-273
+TASK-269
 
 ## Status
 Implementation complete - awaiting maintainer review
 
 ## Source
-- Production smoke and follow-up discussion after TASK-226/TASK-265 email
-  validation.
-- Strategy brief merged via PR #280:
-  `tasks/task-273-cost-aware-notification-email-scheduling.md`.
-- User direction on 2026-05-25: proceed with the conservative no-new-cost path
-  without further discussion.
+- Backlog entry:
+  `tasks/task-269-github-actions-workflow-cleanup.md`.
+- User direction on 2026-05-25: own TASK-269 end to end, decide whether the
+  current GitHub Actions workflows are all necessary, clean up what is needed,
+  and execute without waiting for more input.
 
 ## Objective
-Improve notification email delivery cadence while preserving the app-owned
-durable queue, idempotent dispatcher, and current cost posture.
+Audit and simplify the repository's GitHub Actions workflow surface so each
+workflow has a clear owner, trigger, permission boundary, secret/env contract,
+artifact output, and operator path.
 
-The selected near-term implementation is a GitHub Actions cadence reduction
-from the previous 3-hour bridge to every 30 minutes, plus scheduler-lag
-evidence in the dispatcher summary and workflow output. This should make
-activity emails arrive closer to each group's intended `sendAfterAt` without
-introducing QStash, Vercel Pro Cron, or a broader queue worker yet.
+The task should preserve shipped product behavior. Changes should focus on
+workflow hygiene: removing stale assumptions, reducing duplicated shell logic
+where it creates maintenance risk, making failures easier to interpret, and
+aligning README/runbook documentation with the current workflow contract.
 
 ## Current Baseline
-- TASK-125 provides durable outbound email delivery records.
-- TASK-227/TASK-271 provide durable notification email grouping, idempotency,
-  debounce windows, and duplicate suppression.
-- TASK-268 intentionally chose a no-new-cost GitHub Actions scheduler bridge
-  every 3 hours while Vercel remained on Hobby and QStash activation had
-  operational friction; TASK-273 now tightens that bridge to 30 minutes.
-- TASK-226 creates due-date reminder notifications and queues them into the
-  shared email orchestration.
-- TASK-273 PR #280 selected the cost-aware improvement path; this branch
-  implements the first phase.
-- This implementation branch delivers the 30-minute scheduler bridge and
-  scheduler-lag summary evidence for maintainer review before merge.
+- Active workflow files:
+  - `.github/workflows/check-branch-names.yml`
+  - `.github/workflows/quality-gates.yml`
+  - `.github/workflows/deploy-vercel.yml`
+  - `.github/workflows/notification-email-dispatch.yml`
+  - `.github/workflows/dependency-security.yml`
+  - `.github/workflows/dependabot-auto-triage.yml`
+  - `.github/workflows/dependabot-repair-agent.yml`
+- These workflows cover distinct responsibilities today: branch policy,
+  PR/main quality gates, staged Vercel deployment/promote/rollback, the
+  temporary notification email scheduler bridge, dependency audit artifacts,
+  safe Dependabot auto-triage/merge, and Copilot-assisted Dependabot repair.
+- TASK-273 tightened notification email dispatch to a 30-minute GitHub Actions
+  bridge while keeping the app-owned queue and protected dispatcher.
+- Deploy workflow logic currently repeats Vercel secret/env setup and several
+  validation snippets across automatic and manual jobs.
+- `gh workflow view` showed recent `Dependency Security` scheduled failures.
+  Log inspection identified a workflow quoting bug in its inline Node snippets,
+  in addition to any actual audit findings.
+- `npm audit --omit=dev --audit-level=high` still reports a high-severity
+  `next` advisory; the dependency update itself is tracked separately as
+  TASK-274.
 
 ## Scope
-- Change `.github/workflows/notification-email-dispatch.yml` to run the
-  protected dispatcher every 30 minutes.
-- Keep scheduled runs targeting `https://nexus-dash.app`; keep manual
-  `target_url` override behavior for previews and diagnostics.
-- Add scheduler-lag fields to the dispatcher summary for claimed due groups.
-- Make the GitHub Actions step summary show parsed dispatch metrics in addition
-  to the raw endpoint response.
-- Update README/runbooks/task docs so the active cadence, expected latency, and
-  residual limitations are accurate.
+- Inventory all active workflow files and decide whether each workflow remains
+  necessary.
+- Keep workflows with distinct operational ownership; remove or consolidate
+  only if there is clear duplication or dead behavior.
+- Tighten workflow permissions, env validation, summaries, and operator-facing
+  errors where safe.
+- Fix concrete workflow bugs discovered during the audit.
+- Reduce duplicated deploy-workflow shell logic when it lowers maintenance
+  risk without changing deploy/promote/rollback behavior.
+- Update README and runbooks with the final workflow inventory and contracts.
+- Update tracking docs and journal with the TASK-269 decision and validation.
 
 ## Acceptance Criteria
-1. The selected scheduler path is explicit: 30-minute GitHub Actions cadence,
-   no new paid provider, app-owned queue unchanged.
-2. Normal project activity emails are expected within the 30-minute quiet
-   window plus at most one 30-minute scheduler cadence and GitHub scheduling
-   delay under normal conditions.
-3. Due-date reminder reconciliation remains in the protected dispatcher and
-   still preserves one reminder per task, recipient, and deadline date.
-4. Duplicate email suppression from TASK-271 remains unchanged.
-5. Dispatcher summaries expose scheduler-lag evidence for claimed groups.
-6. Workflow summaries expose enough parsed metrics to inspect reconciliation,
-   claim/send outcomes, errors, and scheduler lag without reading raw JSON.
-7. Documentation explains the active cadence, cost/latency tradeoff, manual
-   smoke path, and future managed-scheduler decision point.
+1. Every active workflow has a documented purpose, trigger set, permission
+   boundary, required secrets/env, artifacts, and operator path.
+2. The audit explicitly answers whether each existing workflow is still
+   necessary.
+3. Any cleanup preserves functional coverage for quality gates, branch policy,
+   Vercel deploy/promote/rollback, notification email dispatch, dependency
+   security, Dependabot auto-triage, and Copilot repair.
+4. Workflow YAML has clear failure messages for missing required configuration
+   and emits useful summaries where operators need them.
+5. README/runbook references match the final workflow behavior.
 
 ## Definition Of Done
-- Scheduler cadence is updated to 30 minutes.
-- Dispatcher summary includes scheduler-lag metrics and tests cover them.
-- Relevant README/runbook/task tracking docs are updated.
-- Local focused notification email tests, lint, full tests/coverage, and build
-  pass or any blockers are recorded in `journal.md`.
-- The branch is pushed, a ready PR is opened, and Copilot/check feedback is
-  monitored according to `agent.md`; final merge remains a maintainer decision.
+- `tasks/current.md` is updated before implementation with this execution
+  contract.
+- Workflow YAML cleanup is minimal and behavior-preserving unless a concrete
+  workflow bug is found.
+- Documentation records the workflow inventory and any deliberate no-delete
+  decisions.
+- Local validation passes or any blocker is recorded in `journal.md`.
+- A ready PR is opened, GitHub checks are monitored, and Copilot review
+  feedback is handled; merge remains a maintainer decision.
 
 ## Validation Plan
 - `git diff --check`
-- `npm test -- --run tests/lib/project-notification-email-service.test.ts tests/api/notification-email-dispatch.route.test.ts`
+- Workflow syntax/shape inspection with `gh workflow view` for each active
+  workflow.
 - `npm run lint`
 - `npm test`
 - `npm run test:coverage`
 - `npm run build`
+- PR checks for branch-name, quality gates, and workflow-specific failures.
 
 ## Out Of Scope
-- Replacing Resend as the outbound provider.
-- Buying or configuring a paid scheduler/provider.
-- User notification preference UI.
-- Bounce/suppression webhook handling.
-- Realtime in-app notification delivery.
-- A broad background-job platform rewrite.
+- Product behavior changes.
+- Migrating notification scheduling away from GitHub Actions.
+- Replacing Vercel deployment strategy.
+- Changing Dependabot safe-lane policy beyond clarifying workflow ownership.
+- Upgrading framework/dependency versions to resolve current audit findings;
+  that is TASK-274.
