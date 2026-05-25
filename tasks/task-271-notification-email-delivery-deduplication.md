@@ -7,7 +7,9 @@ the covered notification IDs, not a recurring reminder while the in-app
 notifications remain unread.
 
 ## Context
-- The production scheduler currently runs every 3 hours.
+- At implementation time, the production scheduler ran every 3 hours. TASK-273
+  later tightened the bridge to 30 minutes without changing the duplicate
+  suppression contract.
 - Users should receive email for future eligible notifications, not repeated
   emails for the same unread notifications.
 - In-app notification read/resolved state remains independent: sending email

@@ -17,7 +17,7 @@ Keep UI-only or task-only notes in `journal.md`.
 ## Active Decisions
 
 ## 2026-05-22 - Keep notification email dispatch app-owned while improving scheduler cadence cost-consciously
-- Status: Proposed
+- Status: Accepted
 - Context: TASK-268 intentionally used a no-new-cost GitHub Actions scheduler
   bridge every 3 hours after QStash setup created operational friction and
   Vercel Hobby could not provide the desired high-frequency cron behavior.
@@ -26,13 +26,15 @@ Keep UI-only or task-only notes in `journal.md`.
   emails arrive in predictable batches rather than near each group's intended
   `sendAfterAt`.
 - Decision: Keep NexusDash's durable app-owned notification email queue,
-  idempotency, protected dispatcher, and Resend delivery foundation. Evaluate
-  scheduler improvements separately, starting with a no-new-cost GitHub Actions
-  cadence reduction and treating QStash, Vercel Pro Cron, or a cloud queue as
-  future trigger options rather than replacements for the app-owned queue.
+  idempotency, protected dispatcher, and Resend delivery foundation. Reduce the
+  GitHub Actions production bridge to a 30-minute cadence as the first
+  no-new-cost improvement, and treat QStash, Vercel Pro Cron, or a cloud queue
+  as future trigger options rather than replacements for the app-owned queue.
 - Consequences: Near-term work can improve user-visible latency without
-  prematurely buying a platform upgrade or weakening delivery semantics.
-  Scheduler/provider changes should alter only when the dispatcher is invoked,
+  prematurely buying a platform upgrade or weakening delivery semantics. The
+  app now reports scheduler-lag metrics for claimed groups, but GitHub
+  scheduled workflows remain best-effort rather than hard real-time. Future
+  scheduler/provider changes should alter only when the dispatcher is invoked,
   while the application continues owning grouping, duplicate suppression,
   delivery records, and smoke validation.
 - Links: `tasks/task-273-cost-aware-notification-email-scheduling.md`,

@@ -538,6 +538,9 @@ describe("project-notification-email-service", () => {
 
     expect(summary).toMatchObject({
       groupsClaimed: 2,
+      schedulerLagGroupsMeasured: 2,
+      schedulerLagMaxMinutes: 30,
+      schedulerLagAverageMinutes: 30,
       recipientEmailsAttempted: 1,
       recipientEmailsSent: 1,
       groupsSent: 2,
@@ -579,6 +582,9 @@ describe("project-notification-email-service", () => {
 
     expect(summary).toMatchObject({
       groupsClaimed: 1,
+      schedulerLagGroupsMeasured: 1,
+      schedulerLagMaxMinutes: 30,
+      schedulerLagAverageMinutes: 30,
       recipientEmailsSent: 1,
       groupsSent: 1,
     });
@@ -686,6 +692,9 @@ describe("project-notification-email-service", () => {
     });
 
     expect(summary.groupsClaimed).toBe(0);
+    expect(summary.schedulerLagGroupsMeasured).toBe(0);
+    expect(summary.schedulerLagMaxMinutes).toBe(0);
+    expect(summary.schedulerLagAverageMinutes).toBe(0);
     expect(outboundEmailMock.sendOutboundEmail).not.toHaveBeenCalled();
   });
 
