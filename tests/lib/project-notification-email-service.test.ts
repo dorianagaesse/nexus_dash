@@ -180,6 +180,7 @@ function claimedGroup(input: {
   projectId: string;
   projectName: string;
   notification: ReturnType<typeof mentionNotification>;
+  sendAfterAt?: Date;
 }) {
   return {
     id: input.id,
@@ -190,7 +191,7 @@ function claimedGroup(input: {
     groupingKey: `${input.kind ?? "project_digest"}:user-1:${input.projectId}`,
     firstPendingNotificationAt: input.notification.createdAt,
     latestPendingNotificationAt: input.notification.updatedAt,
-    sendAfterAt: new Date("2026-05-13T11:30:00.000Z"),
+    sendAfterAt: input.sendAfterAt ?? new Date("2026-05-13T11:30:00.000Z"),
     maxSendAt: new Date("2026-05-13T12:00:00.000Z"),
     windowStartedAt: input.notification.createdAt,
     windowEndedAt: input.notification.updatedAt,
@@ -557,6 +558,49 @@ describe("project-notification-email-service", () => {
         }),
       })
     );
+  });
+
+  test("rounds scheduler lag only after aggregating claimed groups", async () => {
+    const mention = mentionNotification();
+    const assignment = assignmentNotification();
+    prismaMock.$queryRaw
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { id: "email-1" },
+        { id: "email-2" },
+      ]);
+    prismaMock.projectNotificationEmail.findMany
+      .mockResolvedValueOnce([{ recipientUserId: "user-1" }])
+      .mockResolvedValueOnce([
+        claimedGroup({
+          id: "email-1",
+          projectId: "project-1",
+          projectName: "Alpha",
+          notification: mention,
+          sendAfterAt: new Date(now.getTime() - 240),
+        }),
+        claimedGroup({
+          id: "email-2",
+          projectId: "project-2",
+          projectName: "Beta",
+          notification: assignment,
+          sendAfterAt: new Date(now.getTime() - 300),
+        }),
+      ]);
+
+    const summary = await dispatchProjectNotificationEmails({
+      appOrigin: "https://preview.nexusdash.test",
+      now,
+    });
+
+    expect(summary).toMatchObject({
+      schedulerLagGroupsMeasured: 2,
+      schedulerLagMaxMinutes: 0.01,
+      schedulerLagAverageMinutes: 0,
+      recipientEmailsSent: 1,
+      groupsSent: 2,
+    });
   });
 
   test("renders due-date reminder items in recipient digest emails", async () => {

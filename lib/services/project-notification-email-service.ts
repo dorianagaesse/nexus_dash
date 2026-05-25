@@ -160,9 +160,7 @@ function calculateSchedulerLagMinutes(input: {
   now: Date;
   sendAfterAt: Date;
 }): number {
-  return roundMetric(
-    Math.max(0, input.now.getTime() - input.sendAfterAt.getTime()) / 60_000
-  );
+  return Math.max(0, input.now.getTime() - input.sendAfterAt.getTime()) / 60_000;
 }
 
 function isJsonObject(value: Prisma.JsonValue | null): value is Prisma.JsonObject {
@@ -1577,6 +1575,7 @@ export async function dispatchProjectNotificationEmails(input: {
   }
 
   if (summary.schedulerLagGroupsMeasured > 0) {
+    summary.schedulerLagMaxMinutes = roundMetric(summary.schedulerLagMaxMinutes);
     summary.schedulerLagAverageMinutes = roundMetric(
       schedulerLagTotalMinutes / summary.schedulerLagGroupsMeasured
     );

@@ -101,7 +101,6 @@ jobs:
             echo "## Notification Email Dispatch"
             echo
             echo "- Trigger: \`${{ github.event_name }}\`"
-            echo "- Scheduled cadence: \`30 minutes\`"
             echo "- Target origin: \`$dispatch_origin\`"
             echo "- Curl exit code: \`$curl_status\`"
             echo
