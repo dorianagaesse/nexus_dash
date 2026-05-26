@@ -37,6 +37,26 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ### 2026-05-25
 - Type: Execution
+- Summary: Started TASK-269 GitHub Actions workflow cleanup.
+- Evidence: Created `chore/task-269-workflow-cleanup` from `origin/main`, replaced `tasks/current.md` with the TASK-269 execution contract, audited the seven active workflows, and selected a conservative no-delete cleanup focused on least-privilege permissions plus a durable workflow inventory runbook.
+
+### 2026-05-25
+- Type: Execution
+- Summary: Fixed Dependency Security workflow shell quoting during TASK-269 audit.
+- Evidence: `gh workflow view dependency-security.yml` showed repeated scheduled failures. `gh run view 26391151111 --log-failed` showed Bash expanding JavaScript template literals in inline `node -e` snippets (`High/Critical: No such file or directory`, `${meta.total ?? 0}: bad substitution`). Replaced the snippets with quoted Node heredocs so summaries render and future failures reflect actual audit findings.
+
+### 2026-05-25
+- Type: Planning
+- Summary: Added TASK-274 for the current Next.js production audit finding.
+- Evidence: During TASK-269 validation, `npm audit --omit=dev --audit-level=high` failed on a high-severity `next` advisory. Added TASK-274 so the dependency/security update can be handled in a dedicated PR instead of mixing framework upgrades into workflow cleanup.
+
+### 2026-05-25
+- Type: Validation
+- Summary: TASK-269 local validation passed with one expected audit follow-up.
+- Evidence: Workflow YAML parsed with PyYAML for all seven active workflow files. `git diff --check`, `npm run lint`, local PostgreSQL `npm test` (108 files passed, 2 skipped; 834 passed, 2 skipped), local PostgreSQL `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines), and placeholder-env `npm run build` passed. `gh workflow view` succeeded for all seven workflows. `npm audit --omit=dev --audit-level=high` still fails on the current `next` advisory and is tracked as TASK-274.
+
+### 2026-05-25
+- Type: Execution
 - Summary: Reapplied TASK-273 cost-aware notification email scheduling implementation after rollback.
 - Evidence: Created `feature/task-273-cost-aware-scheduler-review` from the post-rollback `origin/main`, selected the documented no-new-cost 30-minute GitHub Actions cadence, added dispatcher scheduler-lag metrics, and updated workflow/runbook/project documentation to describe the new cadence and residual GitHub scheduler limitation.
 

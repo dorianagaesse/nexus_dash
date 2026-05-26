@@ -50,6 +50,10 @@ attempt number.
 Release cadence, pre-1.0 bump rules, changelog expectations, and tag/promotion
 steps are documented in `docs/runbooks/release-versioning.md`.
 
+The GitHub Actions workflow inventory, including deploy workflow triggers,
+permissions, artifacts, and operator paths, is documented in
+`docs/runbooks/github-actions-workflows.md`.
+
 ## Database Runtime
 
 Required for Vercel runtime/deployments:

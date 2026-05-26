@@ -8,7 +8,7 @@ Last reviewed: 2026-05-25
 ### Execution Queue (Now / Next)
 - ID: TASK-269
   Title: GitHub Actions workflow cleanup - simplify CI/CD, scheduled jobs, and maintenance automation
-  Status: Next
+  Status: Implementation complete - awaiting maintainer review
   Rationale: The repository now has several production-impacting workflows covering quality gates, staged Vercel deploys, notification email dispatch, dependency security, Dependabot triage, and Copilot repair. Recent production work exposed duplicated env handling, scheduler tradeoffs, production-target safeguards, and deploy/secrets coupling across these workflows. Run a focused cleanup so workflow responsibilities, permissions, env/secrets usage, dispatch inputs, summaries, and failure modes are easier to understand and operate without changing product behavior.
   Dependencies: TASK-042, TASK-116, TASK-132, TASK-268
   Brief: `tasks/task-269-github-actions-workflow-cleanup.md`
@@ -17,6 +17,11 @@ Last reviewed: 2026-05-25
   Status: Active
   Rationale: Production smoke logs repeatedly show `Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0` on task creation and notification-email dispatch paths. Identify the Prisma/Postgres adapter or service flow causing overlapping client queries, fix it without weakening transaction/RLS behavior, and validate that production smoke no longer emits the warning.
   Dependencies: TASK-258, TASK-259
+- ID: TASK-274
+  Title: Next.js dependency security update - restore green production audit
+  Status: Queued security follow-up
+  Rationale: TASK-269 workflow audit confirmed `npm audit --omit=dev --audit-level=high` currently fails because `next` has a high-severity advisory in the installed range. Handle the framework/security update in its own dependency PR so the workflow cleanup remains behavior-preserving.
+  Dependencies: TASK-116, TASK-132
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
   Status: Deferred UI follow-up (promoted 2026-05-04; PR #224 partial fix merged)
@@ -135,7 +140,7 @@ Last reviewed: 2026-05-25
 ## Completed
 - ID: TASK-273
   Title: Cost-aware notification email scheduling - industry-aligned delivery cadence
-  Status: Implementation complete - awaiting maintainer review
+  Status: Done (2026-05-25, merged via PR #291)
   Rationale: Kept the app-owned durable notification email queue and protected dispatcher, reduced the no-new-cost GitHub Actions production bridge from 3 hours to 30 minutes, added scheduler-lag metrics to dispatcher/workflow summaries, and updated runbooks/tracking docs with expected latency and residual GitHub scheduler limitations.
   Dependencies: TASK-125, TASK-227, TASK-268, TASK-271, TASK-226
   Brief: `tasks/task-273-cost-aware-notification-email-scheduling.md`

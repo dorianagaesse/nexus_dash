@@ -366,6 +366,10 @@ Production scheduler decision:
 
 ## CI/CD
 
+The workflow inventory, operator paths, permissions, artifacts, and no-delete
+audit decision are documented in
+[`docs/runbooks/github-actions-workflows.md`](docs/runbooks/github-actions-workflows.md).
+
 ### CI workflows
 
 - `Quality Core (lint, test, coverage, build)`
@@ -375,6 +379,9 @@ Production scheduler decision:
 - `Dependency Security` (scheduled + manual `npm audit` baseline with artifacts)
 - `Notification Email Dispatch Scheduler` (scheduled + manual protected
   dispatch call)
+- `Dependabot Auto Triage` (safe Dependabot lane labeling/approval/merge)
+- `Dependabot Repair Agent` (Copilot-assisted repair PRs for red Dependabot
+  updates)
 
 Branch-name note:
 - human-authored PR branches must use `feature/*`, `fix/*`, `refactor/*`,

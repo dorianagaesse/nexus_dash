@@ -10,6 +10,9 @@ Active
 - Backlog execution queue entry for TASK-266.
 - Production smoke evidence captured in `journal.md` on 2026-05-16 after
   notification digest validation.
+- User direction on 2026-05-26: own TASK-266 end to end from a dedicated
+  worktree, open a PR, handle Copilot review, deploy a branch preview, and test
+  the preview directly.
 
 ## Objective
 Remove the recurring production `pg` warning:
@@ -31,6 +34,8 @@ authorization boundaries, and transaction-scoped RLS behavior.
 - Production logs showed the deprecation warning on both task creation and
   notification-email dispatch paths, indicating overlapping queries are reaching
   a single `pg` client somewhere in the Prisma/adapter/service flow.
+- TASK-269 has since merged into `main`; this task branch is based on that
+  workflow cleanup and keeps TASK-266 as the active execution scope.
 
 ## Scope
 - Identify whether the warning comes from the Prisma pg adapter construction or
