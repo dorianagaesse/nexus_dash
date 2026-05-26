@@ -12,6 +12,29 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-05-26
+- Type: Execution
+- Summary: Started TASK-266 from a dedicated worktree and implemented a
+  transaction-client query serialization guard for Prisma's pg adapter path.
+- Evidence: Created/used `../nexus_dash_task266` on
+  `feature/task-266-pg-query-deprecation-cleanup`, rewrote
+  `tasks/current.md` for TASK-266 acceptance and preview validation, and updated
+  `lib/prisma.ts` to pass Prisma an external `pg.Pool` whose borrowed
+  transaction clients serialize `query()` calls before returning to the
+  adapter. Added focused coverage in
+  `tests/lib/pg-transaction-query-serialization.test.ts`.
+
+### 2026-05-26
+- Type: Validation
+- Summary: TASK-266 local validation passed for the transaction-client query
+  serialization change.
+- Evidence: `git diff --check`; focused
+  `npm test -- --run tests/lib/pg-transaction-query-serialization.test.ts tests/lib/project-notification-email-service.test.ts tests/api/notification-email-dispatch.route.test.ts`
+  (29 tests); `npm run lint`; local PostgreSQL env `npm test` (109 files
+  passed, 2 skipped; 836 passed, 2 skipped); local PostgreSQL env
+  `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42%
+  functions, 91.75% lines); preview-style env `npm run build`.
+
 ### 2026-05-25
 - Type: Execution
 - Summary: Reapplied TASK-273 cost-aware notification email scheduling implementation after rollback.
