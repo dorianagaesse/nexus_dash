@@ -38,11 +38,17 @@ export function serializePgQueryClient<TClient extends QueryableClient>(
 }
 
 export function installSerializedTransactionQueries(pool: Pool): Pool {
-  const originalConnect = pool.connect.bind(pool) as () => Promise<PoolClient>;
+  const originalConnect = pool.connect.bind(pool) as Pool["connect"];
 
-  pool.connect = (async () => {
-    const client = await originalConnect();
-    return serializePgQueryClient(client);
+  pool.connect = ((callback?: Parameters<Pool["connect"]>[0]) => {
+    if (typeof callback === "function") {
+      originalConnect((error, client, release) => {
+        callback(error, client ? serializePgQueryClient(client) : client, release);
+      });
+      return;
+    }
+
+    return originalConnect().then((client) => serializePgQueryClient(client));
   }) as Pool["connect"];
 
   return pool;

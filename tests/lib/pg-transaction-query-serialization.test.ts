@@ -1,6 +1,10 @@
 import { describe, expect, test, vi } from "vitest";
+import type { Pool, PoolClient } from "pg";
 
-import { serializePgQueryClient } from "@/lib/pg-transaction-query-serialization";
+import {
+  installSerializedTransactionQueries,
+  serializePgQueryClient,
+} from "@/lib/pg-transaction-query-serialization";
 
 function createDeferred<TValue>() {
   let resolve!: (value: TValue) => void;
@@ -72,5 +76,51 @@ describe("serializePgQueryClient", () => {
 
     queries.second.resolve("second-result");
     await expect(second).resolves.toBe("second-result");
+  });
+});
+
+describe("installSerializedTransactionQueries", () => {
+  test("preserves pg pool callback-style connect calls", async () => {
+    const firstQuery = createDeferred<string>();
+    const secondQuery = createDeferred<string>();
+    const startedQueries: string[] = [];
+    const client = {
+      query: vi.fn((name: string) => {
+        startedQueries.push(name);
+        return name === "first" ? firstQuery.promise : secondQuery.promise;
+      }),
+    } as unknown as PoolClient;
+    const release = vi.fn();
+    const pool = {
+      connect: vi.fn((callback) => {
+        callback(undefined, client, release);
+      }),
+    } as unknown as Pool;
+
+    installSerializedTransactionQueries(pool);
+
+    await new Promise<void>((resolve, reject) => {
+      pool.connect((error, connectedClient, done) => {
+        if (error || !connectedClient) {
+          reject(error ?? new Error("Expected connected client"));
+          return;
+        }
+
+        const first = connectedClient.query("first");
+        const second = connectedClient.query("second");
+
+        firstQuery.resolve("first-result");
+        secondQuery.resolve("second-result");
+
+        Promise.all([first, second])
+          .then(() => {
+            expect(done).toBe(release);
+            resolve();
+          })
+          .catch(reject);
+      });
+    });
+
+    expect(startedQueries).toEqual(["first", "second"]);
   });
 });
