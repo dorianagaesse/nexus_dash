@@ -4,7 +4,7 @@
 TASK-269
 
 ## Status
-Implementation complete - awaiting maintainer review
+Done (2026-05-26, merged via PR #292)
 
 Implementation branch: `chore/task-269-workflow-cleanup`
 

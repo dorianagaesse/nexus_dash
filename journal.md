@@ -1686,3 +1686,8 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-127 notification follow-up passed focused regression tests, lint, full unit/API tests, build, and local Playwright smoke coverage.
 - Evidence: `npm test -- tests/api/task-comments.route.test.ts tests/api/task-update.route.test.ts tests/lib/notification-service.test.ts` passed (41 tests); `npm test -- tests/lib/project-collaboration-service.test.ts tests/api/project-members-search.route.test.ts` passed (10 tests); `npm run lint` passed; local DB env with `NODE_ENV=test` `npm test` passed (97 files passed, 1 skipped; 748 passed, 1 skipped); local PostgreSQL env `npm run build` passed. Local Playwright with migrated DB passed 7 of 8 specs in the first `npm run test:e2e`; the only failure was password-reset email delivery because `NODE_ENV=production` without `VERCEL_ENV=preview` attempted Resend with a placeholder key. Rerunning `npx playwright test tests/e2e/password-recovery.spec.ts` with `VERCEL_ENV=preview` passed both password recovery specs.
+
+### 2026-05-26
+- Type: Planning
+- Summary: Refreshed backlog state after TASK-269 and TASK-266 were merged, and captured a new deferred performance investigation for app-wide slowness.
+- Evidence: Moved TASK-269 to Completed after PR #292 and TASK-266 to Completed after PR #293. Added TASK-275 as a deferred measurement-first performance investigation/report for slow creation, update, and refresh flows, including backend latency, database/query timing, route refresh behavior, hydration/bundle cost, cache invalidation, optimistic UI opportunities, and ranked implementation recommendations. Promoted TASK-270, TASK-118, and TASK-129 from Deferred into the execution queue after TASK-274 and TASK-133.

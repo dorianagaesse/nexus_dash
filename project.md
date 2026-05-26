@@ -1,6 +1,6 @@
 # NexusDash Project Blueprint (Current State)
 
-Last verified: 2026-05-25
+Last verified: 2026-05-26
 
 ## 1. Vision
 
@@ -107,10 +107,13 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 From `tasks/current.md` + `tasks/backlog.md`:
 
-1. TASK-269: GitHub Actions workflow cleanup and operating inventory
-2. TASK-266: production pg query deprecation warning cleanup
-3. TASK-133: task UI bug fixing - mini scrollbar and edit modal polish
-4. Deferred UX/product follow-ups remain sequenced in `tasks/backlog.md`
+1. TASK-274: Next.js dependency security update to restore the production audit
+2. TASK-133: task UI bug fixing - mini scrollbar and edit modal polish
+3. TASK-270: product-wide UI/UX design assessment
+4. TASK-118: real-time collaboration updates for live project refresh
+5. TASK-129: login/home page UI polish
+6. TASK-275: deferred performance investigation report for slow creation,
+   update, and refresh flows
 
 ## 8. Source-of-Truth Docs
 
