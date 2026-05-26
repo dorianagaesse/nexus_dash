@@ -14,7 +14,7 @@ Last reviewed: 2026-05-25
   Brief: `tasks/task-269-github-actions-workflow-cleanup.md`
 - ID: TASK-266
   Title: Production pg query deprecation warning cleanup
-  Status: Queued operational follow-up
+  Status: Active
   Rationale: Production smoke logs repeatedly show `Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0` on task creation and notification-email dispatch paths. Identify the Prisma/Postgres adapter or service flow causing overlapping client queries, fix it without weakening transaction/RLS behavior, and validate that production smoke no longer emits the warning.
   Dependencies: TASK-258, TASK-259
 - ID: TASK-274

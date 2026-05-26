@@ -12,6 +12,48 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 ## Recent Entries (Most Relevant)
 
+### 2026-05-26
+- Type: Execution
+- Summary: Started TASK-266 from a dedicated worktree and implemented a
+  transaction-client query serialization guard for Prisma's pg adapter path.
+- Evidence: Created/used `../nexus_dash_task266` on
+  `feature/task-266-pg-query-deprecation-cleanup`, rewrote
+  `tasks/current.md` for TASK-266 acceptance and preview validation, and updated
+  `lib/prisma.ts` to pass Prisma an external `pg.Pool` whose borrowed
+  transaction clients serialize `query()` calls before returning to the
+  adapter. Added focused coverage in
+  `tests/lib/pg-transaction-query-serialization.test.ts`.
+
+### 2026-05-26
+- Type: Validation
+- Summary: TASK-266 local validation passed for the transaction-client query
+  serialization change.
+- Evidence: `git diff --check`; focused
+  `npm test -- --run tests/lib/pg-transaction-query-serialization.test.ts tests/lib/project-notification-email-service.test.ts tests/api/notification-email-dispatch.route.test.ts`
+  (29 tests); `npm run lint`; local PostgreSQL env `npm test` (109 files
+  passed, 2 skipped; 836 passed, 2 skipped); local PostgreSQL env
+  `npm run test:coverage` (91.23% statements, 81.2% branches, 93.42%
+  functions, 91.75% lines); preview-style env `npm run build`.
+
+### 2026-05-26
+- Type: Blocker
+- Summary: TASK-266 remote automation and full preview smoke are blocked by
+  external runtime/dispatch constraints after PR #293 was opened.
+- Evidence: PR #293 is open and mergeable at head
+  `1d4ca2e79d32db1dd10f8df665400955934d9e4a`, but GitHub reported no PR
+  checks and repeated `gh workflow run` / Actions dispatch attempts for
+  `quality-gates.yml`, `check-branch-names.yml`, and `deploy-vercel.yml`
+  returned HTTP 500 `Failed to run workflow dispatch`. Direct Vercel preview
+  deploys from the TASK-266 worktree succeeded, including
+  `https://nexus-dash-8u5ltuc43-dorian-agaesses-projects.vercel.app`, but the
+  deployment using normal preview env reported `/api/health/ready`
+  `database-unreachable`, and the production env pulled from Vercel has empty
+  `DATABASE_URL` / `DIRECT_URL` because DB runtime secrets are injected by the
+  GitHub deploy workflow rather than stored in Vercel preview env. A protected
+  dispatch smoke with outbound delivery disabled therefore cannot be completed
+  until GitHub workflow dispatch recovers or the preview runtime receives the
+  required DB/dispatch secrets through the expected deploy workflow.
+
 ### 2026-05-25
 - Type: Execution
 - Summary: Started TASK-269 GitHub Actions workflow cleanup.

@@ -1,102 +1,96 @@
-# Current Task: TASK-269 GitHub Actions Workflow Cleanup
+# Current Task: TASK-266 Production pg Query Deprecation Warning Cleanup
 
 ## Task ID
-TASK-269
+TASK-266
 
 ## Status
-Implementation complete - awaiting maintainer review
+Active
 
 ## Source
-- Backlog entry:
-  `tasks/task-269-github-actions-workflow-cleanup.md`.
-- User direction on 2026-05-25: own TASK-269 end to end, decide whether the
-  current GitHub Actions workflows are all necessary, clean up what is needed,
-  and execute without waiting for more input.
+- Backlog execution queue entry for TASK-266.
+- Production smoke evidence captured in `journal.md` on 2026-05-16 after
+  notification digest validation.
+- User direction on 2026-05-26: own TASK-266 end to end from a dedicated
+  worktree, open a PR, handle Copilot review, deploy a branch preview, and test
+  the preview directly.
 
 ## Objective
-Audit and simplify the repository's GitHub Actions workflow surface so each
-workflow has a clear owner, trigger, permission boundary, secret/env contract,
-artifact output, and operator path.
+Remove the recurring production `pg` warning:
 
-The task should preserve shipped product behavior. Changes should focus on
-workflow hygiene: removing stale assumptions, reducing duplicated shell logic
-where it creates maintenance risk, making failures easier to interpret, and
-aligning README/runbook documentation with the current workflow contract.
+```text
+Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0
+```
+
+The fix must preserve the existing Prisma/PostgreSQL runtime contract, service
+authorization boundaries, and transaction-scoped RLS behavior.
 
 ## Current Baseline
-- Active workflow files:
-  - `.github/workflows/check-branch-names.yml`
-  - `.github/workflows/quality-gates.yml`
-  - `.github/workflows/deploy-vercel.yml`
-  - `.github/workflows/notification-email-dispatch.yml`
-  - `.github/workflows/dependency-security.yml`
-  - `.github/workflows/dependabot-auto-triage.yml`
-  - `.github/workflows/dependabot-repair-agent.yml`
-- These workflows cover distinct responsibilities today: branch policy,
-  PR/main quality gates, staged Vercel deployment/promote/rollback, the
-  temporary notification email scheduler bridge, dependency audit artifacts,
-  safe Dependabot auto-triage/merge, and Copilot-assisted Dependabot repair.
-- TASK-273 tightened notification email dispatch to a 30-minute GitHub Actions
-  bridge while keeping the app-owned queue and protected dispatcher.
-- Deploy workflow logic currently repeats Vercel secret/env setup and several
-  validation snippets across automatic and manual jobs.
-- `gh workflow view` showed recent `Dependency Security` scheduled failures.
-  Log inspection identified a workflow quoting bug in its inline Node snippets,
-  in addition to any actual audit findings.
-- `npm audit --omit=dev --audit-level=high` still reports a high-severity
-  `next` advisory; the dependency update itself is tracked separately as
-  TASK-274.
+- Prisma 7 uses `@prisma/adapter-pg` through `lib/prisma.ts`.
+- Runtime database traffic is expected to use the Supabase transaction pooler in
+  production and preview.
+- Project-scoped mutations run in service-layer RLS transactions via
+  `withActorRlsContext()`, which sets `app.user_id` with `set_config(..., true)`
+  before project data access.
+- Production logs showed the deprecation warning on both task creation and
+  notification-email dispatch paths, indicating overlapping queries are reaching
+  a single `pg` client somewhere in the Prisma/adapter/service flow.
+- TASK-269 has since merged into `main`; this task branch is based on that
+  workflow cleanup and keeps TASK-266 as the active execution scope.
 
 ## Scope
-- Inventory all active workflow files and decide whether each workflow remains
-  necessary.
-- Keep workflows with distinct operational ownership; remove or consolidate
-  only if there is clear duplication or dead behavior.
-- Tighten workflow permissions, env validation, summaries, and operator-facing
-  errors where safe.
-- Fix concrete workflow bugs discovered during the audit.
-- Reduce duplicated deploy-workflow shell logic when it lowers maintenance
-  risk without changing deploy/promote/rollback behavior.
-- Update README and runbooks with the final workflow inventory and contracts.
-- Update tracking docs and journal with the TASK-269 decision and validation.
+- Identify whether the warning comes from the Prisma pg adapter construction or
+  from service code issuing parallel queries on one transaction client.
+- Fix the root cause without weakening RLS, transaction, or authorization
+  guarantees.
+- Add regression coverage around the changed behavior where practical without
+  making the default unit suite depend on external production services.
+- Update task tracking docs and journal evidence.
+- Open a ready PR, monitor checks and Copilot review, and address actionable
+  feedback.
+- Deploy a Vercel preview from
+  `feature/task-266-pg-query-deprecation-cleanup` and validate the task creation
+  / notification dispatch path against that preview.
 
 ## Acceptance Criteria
-1. Every active workflow has a documented purpose, trigger set, permission
-   boundary, required secrets/env, artifacts, and operator path.
-2. The audit explicitly answers whether each existing workflow is still
-   necessary.
-3. Any cleanup preserves functional coverage for quality gates, branch policy,
-   Vercel deploy/promote/rollback, notification email dispatch, dependency
-   security, Dependabot auto-triage, and Copilot repair.
-4. Workflow YAML has clear failure messages for missing required configuration
-   and emits useful summaries where operators need them.
-5. README/runbook references match the final workflow behavior.
+1. Task creation no longer emits the `client.query()` overlap deprecation
+   warning during preview smoke validation.
+2. Notification-email dispatch no longer emits the same warning during preview
+   smoke validation.
+3. RLS context remains transaction-scoped and actor-bound for project data
+   reads/writes.
+4. The production/preview database connection contract remains aligned with the
+   existing Supabase transaction-pooler guardrails.
+5. Local validation passes for focused coverage, lint, full unit/API tests,
+   coverage, and build, or any environment blocker is recorded in `journal.md`.
+6. The PR remains unmerged for maintainer review.
 
 ## Definition Of Done
-- `tasks/current.md` is updated before implementation with this execution
-  contract.
-- Workflow YAML cleanup is minimal and behavior-preserving unless a concrete
-  workflow bug is found.
-- Documentation records the workflow inventory and any deliberate no-delete
-  decisions.
-- Local validation passes or any blocker is recorded in `journal.md`.
-- A ready PR is opened, GitHub checks are monitored, and Copilot review
-  feedback is handled; merge remains a maintainer decision.
+- Root cause is documented in the final PR description and `journal.md`.
+- Code and tests are committed on the TASK-266 branch.
+- Branch is pushed and a ready PR is open.
+- Automated checks and initial Copilot review are handled.
+- A branch-scoped preview deploy completes using explicit `git_ref` evidence.
+- Preview smoke evidence records the preview URL and the absence of the pg
+  warning on the exercised task creation and notification dispatch paths.
 
 ## Validation Plan
 - `git diff --check`
-- Workflow syntax/shape inspection with `gh workflow view` for each active
-  workflow.
+- Focused tests for the changed Prisma/service behavior.
 - `npm run lint`
 - `npm test`
 - `npm run test:coverage`
 - `npm run build`
-- PR checks for branch-name, quality gates, and workflow-specific failures.
+- Branch-scoped preview workflow:
+  `gh workflow run deploy-vercel.yml -f action=deploy-preview -f git_ref=feature/task-266-pg-query-deprecation-cleanup`
+- Preview smoke:
+  - `PLAYWRIGHT_BASE_URL=<preview-url> npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts`
+  - protected notification-email dispatch request against the same preview when
+    runtime secrets allow it
+  - runtime log inspection for the `client.query()` warning after smoke traffic
 
 ## Out Of Scope
-- Product behavior changes.
-- Migrating notification scheduling away from GitHub Actions.
-- Replacing Vercel deployment strategy.
-- Changing Dependabot safe-lane policy beyond clarifying workflow ownership.
-- Upgrading framework/dependency versions to resolve current audit findings;
-  that is TASK-274.
+- Replacing Prisma or PostgreSQL.
+- Changing the notification email scheduler cadence.
+- Weakening RLS policies or bypassing project authorization.
+- Broad notification-email redesign beyond what is needed to remove the pg
+  query overlap warning.
