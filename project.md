@@ -1,6 +1,6 @@
 # NexusDash Project Blueprint (Current State)
 
-Last verified: 2026-04-23
+Last verified: 2026-05-25
 
 ## 1. Vision
 
@@ -89,6 +89,8 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
   - `Quality Core`
   - `E2E Smoke`
   - `Container Image`
+- GitHub Actions workflow inventory is tracked in
+  `docs/runbooks/github-actions-workflows.md`.
 - CD workflow supports:
   - staged production deploy
   - manual preview deploy
@@ -105,10 +107,10 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 From `tasks/current.md` + `tasks/backlog.md`:
 
-1. TASK-124: comment mentions - project-member @tagging with notification-center delivery
-2. TASK-126: comment reactions - lightweight emoji response system on task threads
-3. TASK-127: API capability audit - confirm every shipped feature remains fully manageable through the API
-4. TASK-131: local validation baseline repair - reproducible container, database, and toolchain setup
+1. TASK-269: GitHub Actions workflow cleanup and operating inventory
+2. TASK-266: production pg query deprecation warning cleanup
+3. TASK-133: task UI bug fixing - mini scrollbar and edit modal polish
+4. Deferred UX/product follow-ups remain sequenced in `tasks/backlog.md`
 
 ## 8. Source-of-Truth Docs
 
