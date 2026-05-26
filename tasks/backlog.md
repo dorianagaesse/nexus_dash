@@ -2,21 +2,10 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-05-25
+Last reviewed: 2026-05-26
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-269
-  Title: GitHub Actions workflow cleanup - simplify CI/CD, scheduled jobs, and maintenance automation
-  Status: Implementation complete - awaiting maintainer review
-  Rationale: The repository now has several production-impacting workflows covering quality gates, staged Vercel deploys, notification email dispatch, dependency security, Dependabot triage, and Copilot repair. Recent production work exposed duplicated env handling, scheduler tradeoffs, production-target safeguards, and deploy/secrets coupling across these workflows. Run a focused cleanup so workflow responsibilities, permissions, env/secrets usage, dispatch inputs, summaries, and failure modes are easier to understand and operate without changing product behavior.
-  Dependencies: TASK-042, TASK-116, TASK-132, TASK-268
-  Brief: `tasks/task-269-github-actions-workflow-cleanup.md`
-- ID: TASK-266
-  Title: Production pg query deprecation warning cleanup
-  Status: Active
-  Rationale: Production smoke logs repeatedly show `Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0` on task creation and notification-email dispatch paths. Identify the Prisma/Postgres adapter or service flow causing overlapping client queries, fix it without weakening transaction/RLS behavior, and validate that production smoke no longer emits the warning.
-  Dependencies: TASK-258, TASK-259
 - ID: TASK-274
   Title: Next.js dependency security update - restore green production audit
   Status: Queued security follow-up
@@ -24,20 +13,31 @@ Last reviewed: 2026-05-25
   Dependencies: TASK-116, TASK-132
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
-  Status: Deferred UI follow-up (promoted 2026-05-04; PR #224 partial fix merged)
+  Status: Queued UI follow-up (promoted 2026-05-04; PR #224 partial fix merged)
   Rationale: Fix task UI regressions around the compact scrollbar affordance and task edit modal behavior so dense task surfaces stay usable, visually clean, and predictable during everyday task creation and editing workflows.
   Dependencies: TASK-076, TASK-113
+- ID: TASK-270
+  Title: App UI/UX design assessment - product-wide heuristic audit and refinement roadmap
+  Status: Promoted 2026-05-26
+  Rationale: Before another broad polish pass, assess the current app experience across core user journeys, responsive layouts, visual hierarchy, copy, interaction feedback, accessibility basics, and consistency with the intended product tone. The output should be a ranked, evidence-backed design assessment that decides which issues belong in existing UI tasks such as TASK-108/TASK-100/TASK-129 and which need new implementation tasks, instead of mixing assessment and redesign in one large patch.
+  Dependencies: TASK-091, TASK-096, TASK-100, TASK-108, TASK-129
+  Brief: `tasks/task-270-app-ui-ux-design-assessment.md`
+- ID: TASK-118
+  Title: Real-time collaboration updates - live project refresh for multi-user work
+  Status: Promoted 2026-05-26
+  Rationale: Reduce stale state and manual-refresh friction during shared project work by propagating task, context-card, and related project mutations live across active collaborators, with explicit decisions around subscriptions, optimistic UI, and conflict handling. This should choose the app-wide realtime transport/pattern that notification-specific live updates can reuse.
+  Dependencies: TASK-058, TASK-076, TASK-103
+- ID: TASK-129
+  Title: Login/home page UI polish - user-friendly, product-oriented entry experience
+  Status: Promoted 2026-05-26
+  Rationale: Redesign the login and home page so they feel like a polished product surface rather than a technical auth form: improve visual hierarchy, copy, branding presence, and call-to-action clarity so new visitors understand the product value at a glance and returning users get a frictionless sign-in experience.
+  Dependencies: TASK-045, TASK-059, TASK-083
 ### Deferred (Intentional)
 - ID: TASK-224
   Title: Agent roadmap access - scoped API contract for roadmap phases and events
   Status: Pending
   Rationale: Make the project roadmap manageable by project-scoped agent tokens so agents can inspect, create, update, move, reorder, and delete roadmap phases/events when they are responsible for project planning. This should be a deliberate agent API contract expansion with dedicated roadmap scopes, OpenAPI/onboarding documentation, credential UI updates, route guard coverage, and smoke tests rather than implicitly folding roadmap permissions into existing project or task scopes.
   Dependencies: TASK-127, TASK-130, TASK-059
-- ID: TASK-129
-  Title: Login/home page UI polish - user-friendly, product-oriented entry experience
-  Status: Pending
-  Rationale: Redesign the login and home page so they feel like a polished product surface rather than a technical auth form: improve visual hierarchy, copy, branding presence, and call-to-action clarity so new visitors understand the product value at a glance and returning users get a frictionless sign-in experience.
-  Dependencies: TASK-045, TASK-059, TASK-083
 - ID: TASK-098
   Title: Meeting notes manager - structured project meeting log with participants, topics, decisions, and follow-ups
   Status: Pending
@@ -53,11 +53,6 @@ Last reviewed: 2026-05-25
   Status: Pending
   Rationale: Add a lighter-weight todo list surface for quick checklist-style capture that does not require the full structure of Kanban tasks, giving teams a place for small actionable items, personal punch lists, or short operational checklists that may later connect to richer task flows.
   Dependencies: TASK-076, TASK-079
-- ID: TASK-118
-  Title: Real-time collaboration updates - live project refresh for multi-user work
-  Status: Pending
-  Rationale: Reduce stale state and manual-refresh friction during shared project work by propagating task, context-card, and related project mutations live across active collaborators, with explicit decisions around subscriptions, optimistic UI, and conflict handling. This should choose the app-wide realtime transport/pattern that notification-specific live updates can reuse.
-  Dependencies: TASK-058, TASK-076, TASK-103
 - ID: TASK-263
   Title: Real-time notification updates - live in-app inbox, counts, and awareness
   Status: Pending
@@ -78,12 +73,12 @@ Last reviewed: 2026-05-25
   Status: Pending
   Rationale: Enable bilingual product usage (French and English) with consistent UI copy, locale routing/state strategy, and fallback behavior; defer implementation until we confirm i18n architecture and translation workflow.
   Dependencies: TASK-047, TASK-060
-- ID: TASK-270
-  Title: App UI/UX design assessment - product-wide heuristic audit and refinement roadmap
+- ID: TASK-275
+  Title: App performance investigation report - creation, update, and refresh latency
   Status: Pending
-  Rationale: Before another broad polish pass, assess the current app experience across core user journeys, responsive layouts, visual hierarchy, copy, interaction feedback, accessibility basics, and consistency with the intended product tone. The output should be a ranked, evidence-backed design assessment that decides which issues belong in existing UI tasks such as TASK-108/TASK-100/TASK-129 and which need new implementation tasks, instead of mixing assessment and redesign in one large patch.
-  Dependencies: TASK-091, TASK-096, TASK-100, TASK-108, TASK-129
-  Brief: `tasks/task-270-app-ui-ux-design-assessment.md`
+  Rationale: User preview testing after TASK-266 confirmed the app works functionally, but creation, update, and refresh flows still feel slow across the product. Run a measurement-first performance investigation and produce a report with evidence, root-cause hypotheses, and ranked recommendations to bring the app closer to industry-standard responsiveness. The report should cover request latency, database/query timing, route refresh behavior, client bundle/hydration cost, cache invalidation, optimistic UI opportunities, loading-state ergonomics, and concrete implementation tasks for the highest-impact fixes.
+  Dependencies: TASK-043, TASK-073, TASK-074, TASK-266, TASK-270
+  Brief: `tasks/task-275-app-performance-investigation-report.md`
 - ID: TASK-108
   Title: Whole-app UI/UX refinement - global interaction, visual, and information-design polish
   Status: Pending
@@ -138,6 +133,17 @@ Last reviewed: 2026-05-25
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-266
+  Title: Production pg query deprecation warning cleanup
+  Status: Done (2026-05-26, merged via PR #293)
+  Rationale: Serialized Prisma pg transaction-client query calls while preserving pg pool callback and Promise connect overloads, eliminating the pg query-overlap deprecation warning risk without weakening transaction-scoped RLS. Preview testing from the branch confirmed the app still works, remote Quality Gates passed, and the PR was merged after maintainer review.
+  Dependencies: TASK-258, TASK-259
+- ID: TASK-269
+  Title: GitHub Actions workflow cleanup - simplify CI/CD, scheduled jobs, and maintenance automation
+  Status: Done (2026-05-26, merged via PR #292)
+  Rationale: Kept the workflow set intentionally scoped while cleaning contracts, permissions, documentation, and operator guidance for quality gates, Vercel deploys, notification email dispatch, dependency security, Dependabot triage, and Copilot repair.
+  Dependencies: TASK-042, TASK-116, TASK-132, TASK-268
+  Brief: `tasks/task-269-github-actions-workflow-cleanup.md`
 - ID: TASK-273
   Title: Cost-aware notification email scheduling - industry-aligned delivery cadence
   Status: Done (2026-05-25, merged via PR #291)
