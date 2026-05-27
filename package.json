@@ -57,7 +57,7 @@
     "@vitest/coverage-v8": "^4.1.2",
     "autoprefixer": "^10.5.0",
     "eslint": "^9.39.4",
-    "eslint-config-next": "^16.2.4",
+    "eslint-config-next": "^16.2.6",
     "jsdom": "^29.1.1",
     "postcss": "^8.5.15",
     "prisma": "^7.8.0",
