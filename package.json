@@ -32,7 +32,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1050.0",
     "@hello-pangea/dnd": "^18.0.1",
     "@prisma/adapter-pg": "^7.8.0",
-    "@prisma/client": "^7.6.0",
+    "@prisma/client": "^7.8.0",
     "@radix-ui/react-slot": "^1.2.3",
     "@types/pg": "^8.20.0",
     "class-variance-authority": "^0.7.1",
