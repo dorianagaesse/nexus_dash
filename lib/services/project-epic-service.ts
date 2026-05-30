@@ -6,6 +6,7 @@ import {
   type EpicTaskSummary,
 } from "@/lib/epic";
 import { logServerError } from "@/lib/observability/logger";
+import { touchProjectActivity } from "@/lib/services/project-activity-service";
 import {
   requireAgentProjectScopes,
   requireProjectRole,
@@ -315,6 +316,8 @@ export async function createProjectEpic(
         return createError(500, "epic-create-failed");
       }
 
+      await touchProjectActivity({ db, projectId: input.projectId });
+
       return {
         ok: true,
         data: {
@@ -415,6 +418,8 @@ export async function updateProjectEpic(
         return createError(404, "epic-not-found");
       }
 
+      await touchProjectActivity({ db, projectId: input.projectId });
+
       return {
         ok: true,
         data: {
@@ -486,6 +491,8 @@ export async function deleteProjectEpic(input: {
           id: epicId,
         },
       });
+
+      await touchProjectActivity({ db, projectId: input.projectId });
 
       return {
         ok: true,

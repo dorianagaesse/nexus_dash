@@ -59,6 +59,15 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     requiredScopes: ["project:read"],
   },
   {
+    tag: "Projects",
+    method: "GET",
+    path: "/api/projects/{projectId}/activity",
+    title: "Read project activity version",
+    description:
+      "Read the project activity timestamp used to detect newer dashboard content.",
+    requiredScopes: ["project:read"],
+  },
+  {
     tag: "Epics",
     method: "GET",
     path: "/api/projects/{projectId}/epics",

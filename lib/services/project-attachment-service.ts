@@ -27,6 +27,7 @@ import {
   requireProjectRole,
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
+import { touchProjectActivity } from "@/lib/services/project-activity-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
 import type { DbClient } from "@/lib/services/rls-context";
 
@@ -440,6 +441,7 @@ export async function createTaskAttachmentFromForm(input: {
         });
 
         await touchTaskActivity(db, input.taskId, actorUserId);
+        await touchProjectActivity({ db, projectId: input.projectId });
 
         return {
           ok: true,
@@ -514,6 +516,7 @@ export async function createTaskAttachmentFromForm(input: {
       });
 
       await touchTaskActivity(db, input.taskId, actorUserId);
+      await touchProjectActivity({ db, projectId: input.projectId });
 
       return {
         ok: true,
@@ -601,6 +604,8 @@ export async function createContextAttachmentFromForm(input: {
           },
         });
 
+        await touchProjectActivity({ db, projectId: input.projectId });
+
         return {
           ok: true,
           data: mapContextAttachmentResponse(
@@ -676,6 +681,8 @@ export async function createContextAttachmentFromForm(input: {
           sizeBytes: true,
         },
       });
+
+      await touchProjectActivity({ db, projectId: input.projectId });
 
       return {
         ok: true,
@@ -908,6 +915,7 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
       });
 
       await touchTaskActivity(db, input.taskId, actorUserId);
+      await touchProjectActivity({ db, projectId: input.projectId });
 
       return {
         ok: true,
@@ -1144,6 +1152,8 @@ export async function finalizeContextAttachmentDirectUpload(input: {
         },
       });
 
+      await touchProjectActivity({ db, projectId: input.projectId });
+
       return {
         ok: true,
         data: mapContextAttachmentResponse(input.projectId, input.cardId, attachment),
@@ -1378,6 +1388,7 @@ export async function deleteTaskAttachmentForProject(input: {
       });
 
       await touchTaskActivity(db, input.taskId, actorUserId);
+      await touchProjectActivity({ db, projectId: input.projectId });
 
       if (attachment.kind === ATTACHMENT_KIND_FILE && attachment.storageKey) {
         await deleteAttachmentFile(attachment.storageKey).catch((error) => {
@@ -1472,6 +1483,8 @@ export async function deleteContextAttachmentForProject(input: {
       await db.resourceAttachment.delete({
         where: { id: attachment.id },
       });
+
+      await touchProjectActivity({ db, projectId: input.projectId });
 
       if (attachment.kind === ATTACHMENT_KIND_FILE && attachment.storageKey) {
         await deleteAttachmentFile(attachment.storageKey).catch((error) => {
