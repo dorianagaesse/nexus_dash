@@ -45,6 +45,22 @@ Use it for important implementation milestones, blockers, validation runs, and r
   the submitted comment article.
 - The next E2E run reached a stale test variable after reopening the task; the
   assertion now checks the comment suffix used by the mention comment flow.
+- PR #307 checks are green on head
+  `987f1fe26f6e5311346801615b8d76f723063914`: branch-name, Quality Core, E2E
+  Smoke, and Container Image all passed.
+- Copilot review completed with one actionable stale-variable comment. The
+  thread was resolved after the current PR diff and green checks confirmed the
+  assertion now uses `taskCommentSuffix`.
+- Preview workflow run `26697364465` was dispatched with
+  `action=deploy-preview` and
+  `git_ref=fix/task-306-mention-cursor-spacing`. Logs show checkout of
+  `refs/remotes/origin/fix/task-306-mention-cursor-spacing` and deployed commit
+  `987f1fe26f6e5311346801615b8d76f723063914`; artifact URL:
+  `https://nexus-dash-as20alnt0-dorian-agaesses-projects.vercel.app`.
+- Playwright request validation against that preview passed using
+  `tmp/project-access-cred.env`: health, agent token exchange, temporary task
+  create, task comment create with `@dorianagaesse`, comment list verification,
+  and cleanup verification with no `task306-preview-mention-*` tasks remaining.
 
 ## Entry Format
 

@@ -8,7 +8,7 @@ Last reviewed: 2026-05-26
 ### Execution Queue (Now / Next)
 - ID: TASK-306
   Title: Task comment mention cursor spacing after mention autocomplete
-  Status: In progress
+  Status: Implemented - PR #307 validation green
   Rationale: GitHub issue #306 reports that selecting a mention in the task
     comment composer leaves the visible text, trailing space, and browser caret
     out of sync. Fix the task comment mention editor path without changing

@@ -4,7 +4,7 @@
 TASK-306
 
 ## Status
-Implemented locally - PR/preview validation pending
+Implemented - PR #307 validation green
 
 ## Source
 - GitHub issue #306: task comment mention cursor spacing after selecting a
@@ -76,7 +76,24 @@ highlighting/notification behavior intact.
   mention selection. The follow-up animation-frame stabilization now aborts if
   the user has already typed more text, preventing a delayed caret jump from
   splitting the following word.
-- Preview deployment and Playwright validation remain pending.
+- PR #307 is open and ready for review at head
+  `987f1fe26f6e5311346801615b8d76f723063914`.
+- GitHub Actions passed on PR #307: branch name, Quality Core, E2E Smoke, and
+  Container Image checks.
+- Copilot review completed with one actionable test-variable comment. The fix is
+  included in `987f1fe`, and the review thread is resolved.
+- Vercel preview workflow run `26697364465` was triggered with
+  `action=deploy-preview` and
+  `git_ref=fix/task-306-mention-cursor-spacing`.
+- The workflow logs show the job checked out
+  `refs/remotes/origin/fix/task-306-mention-cursor-spacing` and deployed commit
+  `987f1fe26f6e5311346801615b8d76f723063914`.
+- Preview URL:
+  `https://nexus-dash-as20alnt0-dorian-agaesses-projects.vercel.app`.
+- Playwright request validation against the preview URL passed: health endpoint,
+  agent token exchange, temporary task creation, comment creation with
+  `@dorianagaesse` from `tmp/project-access-cred.env`, comment listing, and
+  cleanup verification showing no `task306-preview-mention-*` tasks remain.
 
 ## Definition Of Done
 - A dedicated `fix/task-306-mention-cursor-spacing` branch contains the fix.
