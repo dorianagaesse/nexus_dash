@@ -38,6 +38,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Evidence: `npm run lint` passed. `DATABASE_URL=postgresql://nexus:nexus@localhost:5432/nexusdash DIRECT_URL=postgresql://nexus:nexus@localhost:5433/nexusdash npm test` passed (112 files passed, 2 skipped; 843 tests passed, 2 skipped). Same DB env `npm run test:coverage` passed (91.23% statements, 81.2% branches, 93.42% functions, 91.75% lines). Preview-style build env with distinct DB URLs plus `GOOGLE_TOKEN_ENCRYPTION_KEY` and `AGENT_TOKEN_SIGNING_SECRET` passed `npm run build`. `npx prisma validate` passed. `npm run db:local:up` failed because Docker Desktop's `dockerDesktopLinuxEngine` pipe is unavailable, so local Playwright E2E is blocked pending deploy-preview smoke.
 
 ### 2026-05-30
+- Type: Validation
+- Summary: TASK-118 PR #305 remote validation and preview deployment passed.
+- Evidence: PR #305 opened at `https://github.com/dorianagaesse/nexus_dash/pull/305` from commit `4cc1167`. Quality Gates run `26689822570` passed Quality Core, Playwright E2E smoke, and container image artifact jobs. Manual deploy workflow `26689831199` deployed preview `https://nexus-dash-3dlunbbgu-dorian-agaesses-projects.vercel.app`. Direct preview smoke from this shell is blocked by Vercel protection because no `VERCEL_AUTOMATION_BYPASS_SECRET` is available locally; unauthenticated `/` and `/api/health/live` return 401.
+
+### 2026-05-30
 - Type: Execution
 - Summary: Implemented TASK-274 production dependency audit remediation.
 - Evidence: Created `chore/task-274-production-audit` from `origin/main`.

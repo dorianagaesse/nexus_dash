@@ -4,7 +4,7 @@
 TASK-118
 
 ## Status
-Implemented locally - PR/preview validation pending
+Implemented - PR #305 open, review follow-up in progress
 
 ## Source
 - `tasks/backlog.md` execution queue, promoted on 2026-05-26 after TASK-274
@@ -108,10 +108,17 @@ service-layer authorization, and Vercel deployment constraints.
   `npm run build` passed and listed the new
   `/api/projects/[projectId]/activity` route.
 - `npx prisma validate` passed.
+- PR #305 Quality Gates passed remotely, including Quality Core, Playwright E2E
+  smoke, and container image build.
+- Manual deploy workflow `26689831199` successfully deployed the preview:
+  `https://nexus-dash-3dlunbbgu-dorian-agaesses-projects.vercel.app`.
+- Direct preview browser/API smoke from this shell is blocked by Vercel
+  protection because `VERCEL_AUTOMATION_BYPASS_SECRET` is not available locally;
+  `/api/health/live` and `/` both returned 401 without the bypass header.
 - `npm run db:local:up` is blocked in this workspace because Docker Desktop is
   not available (`dockerDesktopLinuxEngine` pipe missing), so local Playwright
-  E2E could not be run here. Preview two-session smoke remains pending after PR
-  creation/deployment.
+  E2E could not be run here. CI Playwright passed, and protected-preview
+  two-session smoke remains the remaining manual validation item.
 
 ## Acceptance Criteria
 1. A collaborator viewing an open project dashboard automatically sees task,

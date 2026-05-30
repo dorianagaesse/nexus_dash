@@ -2,7 +2,7 @@ CREATE OR REPLACE FUNCTION app.touch_project_activity(project_id TEXT, activity_
 RETURNS TIMESTAMPTZ
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, app
+SET search_path = pg_catalog, public
 AS $$
 DECLARE
   actor_user_id TEXT;

@@ -35,10 +35,13 @@ Keep UI-only or task-only notes in `journal.md`.
 - Consequences: This delivers low-risk live freshness on the existing stack and
   gives TASK-263 a reusable transport pattern for notification freshness, while
   accepting short polling latency and extra lightweight reads instead of true
-  push semantics. If NexusDash later needs presence, sub-second collaboration,
-  or server-originated fan-out at larger scale, the activity endpoint can be
-  swapped behind the client boundary for SSE, Supabase Realtime, or a managed
-  realtime provider without rewriting dashboard mutation services.
+  push semantics. The security-definer touch function must keep a hardened
+  search path and explicit membership checks because it deliberately bypasses
+  the owner-only project-row update policy for editor content mutations. If
+  NexusDash later needs presence, sub-second collaboration, or server-originated
+  fan-out at larger scale, the activity endpoint can be swapped behind the
+  client boundary for SSE, Supabase Realtime, or a managed realtime provider
+  without rewriting dashboard mutation services.
 - Links: `tasks/current.md`, `tasks/backlog.md`, `lib/services/project-service.ts`
 
 ## 2026-05-22 - Keep notification email dispatch app-owned while improving scheduler cadence cost-consciously

@@ -2144,7 +2144,6 @@ export function ProjectRoadmapPanel({
         Boolean(eventDialog) ||
         isSubmittingEvent ||
         Boolean(pendingDeleteEventId) ||
-        Boolean(selectedEventId) ||
         Boolean(statusMutationEventId)
           ? "true"
           : undefined

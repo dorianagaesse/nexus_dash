@@ -127,9 +127,11 @@ export function ProjectLiveRefresh({
 
         refreshDashboard(payload.version);
       } catch (error) {
-        if ((error as { name?: string }).name !== "AbortError") {
+        if ((error as { name?: string }).name === "AbortError") {
           return;
         }
+
+        console.warn("[ProjectLiveRefresh.pollActivity]", error);
       } finally {
         if (!cancelled) {
           timeoutId = setTimeout(pollActivity, pollIntervalMs);
