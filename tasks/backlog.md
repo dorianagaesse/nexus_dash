@@ -6,11 +6,6 @@ Last reviewed: 2026-05-26
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-274
-  Title: Next.js dependency security update - restore green production audit
-  Status: Implemented - PR validation in progress
-  Rationale: TASK-269 workflow audit confirmed `npm audit --omit=dev --audit-level=high` failed because `next` had a high-severity advisory in the installed range. On 2026-05-30 the high-severity advisory had cleared, but moderate production advisories remained through Next.js' bundled PostCSS and Prisma's Hono dev-server dependencies. Handle the dependency/security update in its own PR so the workflow cleanup remains behavior-preserving.
-  Dependencies: TASK-116, TASK-132
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
   Status: Queued UI follow-up (promoted 2026-05-04; PR #224 partial fix merged)
@@ -24,7 +19,7 @@ Last reviewed: 2026-05-26
   Brief: `tasks/task-270-app-ui-ux-design-assessment.md`
 - ID: TASK-118
   Title: Real-time collaboration updates - live project refresh for multi-user work
-  Status: Promoted 2026-05-26
+  Status: Implemented locally - PR/preview validation pending
   Rationale: Reduce stale state and manual-refresh friction during shared project work by propagating task, context-card, and related project mutations live across active collaborators, with explicit decisions around subscriptions, optimistic UI, and conflict handling. This should choose the app-wide realtime transport/pattern that notification-specific live updates can reuse.
   Dependencies: TASK-058, TASK-076, TASK-103
 - ID: TASK-129
@@ -133,6 +128,11 @@ Last reviewed: 2026-05-26
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-274
+  Title: Next.js dependency security update - restore green production audit
+  Status: Done (2026-05-30, merged via PR #304)
+  Rationale: Confirmed the high-severity Next.js advisory had cleared, then restored green production audit posture by pinning transitive production advisory fixes through npm overrides for Next/PostCSS and Prisma's Hono dev-server tree.
+  Dependencies: TASK-116, TASK-132
 - ID: TASK-266
   Title: Production pg query deprecation warning cleanup
   Status: Done (2026-05-26, merged via PR #293)

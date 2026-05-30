@@ -822,7 +822,19 @@ export function ProjectContextPanel({
   };
 
   return (
-    <Card className={PROJECT_SECTION_CARD_CLASS}>
+    <Card
+      className={PROJECT_SECTION_CARD_CLASS}
+      data-project-live-refresh-lock={
+        isCreateOpen ||
+        isCreatingCard ||
+        Boolean(editingCard) ||
+        isUpdatingCard ||
+        isSubmittingAttachment ||
+        Boolean(pendingDeleteCardId)
+          ? "true"
+          : undefined
+      }
+    >
       <CardHeader
         className={cn(
           `space-y-3 ${PROJECT_SECTION_HEADER_CLASS} px-5 pt-5`,

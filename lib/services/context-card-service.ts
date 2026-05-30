@@ -8,6 +8,7 @@ import {
   validateAttachmentFiles,
 } from "@/lib/services/attachment-input-service";
 import { logServerError } from "@/lib/observability/logger";
+import { touchProjectActivity } from "@/lib/services/project-activity-service";
 import { coerceRichTextHtml, richTextToPlainText } from "@/lib/rich-text";
 import {
   createContextAttachmentsFromDraft,
@@ -229,6 +230,8 @@ export async function createContextCardForProject(
         return createError(500, "context-create-failed");
       }
 
+      await touchProjectActivity({ db, projectId: input.projectId });
+
       return {
         ok: true,
         data: {
@@ -329,6 +332,8 @@ export async function updateContextCardForProject(
         },
       });
 
+      await touchProjectActivity({ db, projectId: input.projectId });
+
       return {
         ok: true,
         data: { ok: true },
@@ -391,6 +396,8 @@ export async function deleteContextCardForProject(
       await db.resource.delete({
         where: { id: cardId },
       });
+
+      await touchProjectActivity({ db, projectId: input.projectId });
 
       return {
         ok: true,

@@ -102,6 +102,7 @@ type ProjectSummaryRecord = Prisma.ProjectGetPayload<{
     name: true;
     description: true;
     ownerId: true;
+    updatedAt: true;
     memberships: {
       select: {
         role: true;
@@ -447,6 +448,7 @@ export async function getProjectSummaryById(
           name: true,
           description: true,
           ownerId: true,
+          updatedAt: true,
           memberships: {
             where: { userId: normalizedActorUserId },
             select: {

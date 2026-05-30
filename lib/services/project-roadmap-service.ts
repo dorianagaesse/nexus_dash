@@ -6,6 +6,7 @@ import {
   type ProjectRoadmapPhase,
   type RoadmapStatus,
 } from "@/lib/roadmap-milestone";
+import { touchProjectActivity } from "@/lib/services/project-activity-service";
 import { requireProjectRole } from "@/lib/services/project-access-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 import { parseTaskDeadlineDate } from "@/lib/task-deadline";
@@ -587,6 +588,8 @@ export async function createProjectRoadmapPhase(
         return createError(500, "roadmap-phase-create-failed");
       }
 
+      await touchProjectActivity({ db, projectId: input.projectId });
+
       return {
         ok: true,
         data: {
@@ -694,6 +697,8 @@ export async function updateProjectRoadmapPhase(
         return createError(404, "roadmap-phase-not-found");
       }
 
+      await touchProjectActivity({ db, projectId: input.projectId });
+
       return {
         ok: true,
         data: {
@@ -754,6 +759,8 @@ export async function deleteProjectRoadmapPhase(input: {
           id: phaseId,
         },
       });
+
+      await touchProjectActivity({ db, projectId: input.projectId });
 
       return {
         ok: true,
@@ -872,6 +879,8 @@ export async function createProjectRoadmapEvent(
         return createError(500, "roadmap-event-create-failed");
       }
 
+      await touchProjectActivity({ db, projectId: input.projectId });
+
       return {
         ok: true,
         data: {
@@ -987,6 +996,8 @@ export async function updateProjectRoadmapEvent(
         return createError(404, "roadmap-event-not-found");
       }
 
+      await touchProjectActivity({ db, projectId: input.projectId });
+
       return {
         ok: true,
         data: {
@@ -1049,6 +1060,8 @@ export async function deleteProjectRoadmapEvent(input: {
           id: eventId,
         },
       });
+
+      await touchProjectActivity({ db, projectId: input.projectId });
 
       return {
         ok: true,
@@ -1121,6 +1134,8 @@ export async function reorderProjectRoadmapPhases(
           })
         )
       );
+
+      await touchProjectActivity({ db, projectId: input.projectId });
 
       return {
         ok: true,
@@ -1200,6 +1215,8 @@ export async function reorderProjectRoadmapEvents(
           })
         )
       );
+
+      await touchProjectActivity({ db, projectId: input.projectId });
 
       return {
         ok: true,
@@ -1359,6 +1376,8 @@ export async function moveProjectRoadmapEvent(
           }
         });
       }
+
+      await touchProjectActivity({ db, projectId: input.projectId });
 
       return {
         ok: true,
