@@ -8,8 +8,8 @@ Last reviewed: 2026-05-26
 ### Execution Queue (Now / Next)
 - ID: TASK-274
   Title: Next.js dependency security update - restore green production audit
-  Status: Queued security follow-up
-  Rationale: TASK-269 workflow audit confirmed `npm audit --omit=dev --audit-level=high` currently fails because `next` has a high-severity advisory in the installed range. Handle the framework/security update in its own dependency PR so the workflow cleanup remains behavior-preserving.
+  Status: Implemented - PR validation in progress
+  Rationale: TASK-269 workflow audit confirmed `npm audit --omit=dev --audit-level=high` failed because `next` had a high-severity advisory in the installed range. On 2026-05-30 the high-severity advisory had cleared, but moderate production advisories remained through Next.js' bundled PostCSS and Prisma's Hono dev-server dependencies. Handle the dependency/security update in its own PR so the workflow cleanup remains behavior-preserving.
   Dependencies: TASK-116, TASK-132
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
