@@ -69,7 +69,10 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { getEpicColorFromName } from "@/lib/epic";
 import { cn } from "@/lib/utils";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
-import { renderContentWithMentions, MENTION_HIGHLIGHT_CLASS } from "@/lib/content-with-mentions";
+import {
+  renderContentWithMentions,
+  MENTION_TEXTAREA_MIRROR_HIGHLIGHT_CLASS,
+} from "@/lib/content-with-mentions";
 import {
   parseMentions,
   removeMentionBeforeCursor,
@@ -1489,7 +1492,8 @@ function TaskReadOnlyContent({
                         mentionUsers,
                         hideMentionDiscriminator: true,
                         resolveDisplayUsers: false,
-                        mentionHighlightClassName: MENTION_HIGHLIGHT_CLASS,
+                        mentionHighlightClassName:
+                          MENTION_TEXTAREA_MIRROR_HIGHLIGHT_CLASS,
                       })
                     : null}
                 </div>

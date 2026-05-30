@@ -6,6 +6,14 @@ Last reviewed: 2026-05-26
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-306
+  Title: Task comment mention cursor spacing after mention autocomplete
+  Status: In progress
+  Rationale: GitHub issue #306 reports that selecting a mention in the task
+    comment composer leaves the visible text, trailing space, and browser caret
+    out of sync. Fix the task comment mention editor path without changing
+    mention search or notification semantics.
+  Dependencies: TASK-076, TASK-123
 - ID: TASK-274
   Title: Next.js dependency security update - restore green production audit
   Status: Implemented - PR validation in progress

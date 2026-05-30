@@ -1,74 +1,84 @@
-# Current Task: TASK-274 Next.js Dependency Security Update
+# Current Task: TASK-306 Task Comment Mention Cursor Spacing
 
 ## Task ID
-TASK-274
+TASK-306
 
 ## Status
-Implemented - PR validation in progress
+Implemented locally - PR/preview validation pending
 
 ## Source
-- `tasks/backlog.md` execution queue, refreshed on 2026-05-26 after TASK-269
-  and TASK-266 were merged.
-- TASK-269 workflow audit finding: the production dependency audit previously
-  failed because the installed `next` range included a high-severity advisory.
-  On 2026-05-30, the high-severity advisory had cleared from the current npm
-  audit feed, but moderate production advisories remained through Next.js'
-  bundled PostCSS and Prisma's dev-server Hono dependencies.
+- GitHub issue #306: task comment mention cursor spacing after selecting a
+  mention.
+- User report and screenshot from 2026-05-31: after selecting a mention in the
+  task comment composer, the visible spacing and caret position become
+  desynchronized.
 
 ## Objective
-Restore a green production dependency audit by updating or overriding Next.js
-and any tightly coupled framework packages in a focused dependency PR, without
-mixing in product behavior changes.
+Fix the task detail comment composer so selecting a mention inserts a consistent
+trailing separator, preserves predictable caret positioning, and keeps mention
+highlighting/notification behavior intact.
 
-## Current Baseline
-- TASK-269 and TASK-266 are completed and merged.
-- The execution queue now starts with TASK-274, followed by TASK-133,
-  TASK-270, TASK-118, and TASK-129.
-- TASK-275 has been added to Deferred as a measurement-first performance
-  investigation/report for slow creation, update, and refresh flows.
-- `next@16.2.6`, `eslint-config-next@16.2.6`, and `prisma@7.8.0` are already
-  the latest stable versions available to npm on 2026-05-30.
-- The implemented fix uses targeted npm overrides for `next`'s PostCSS
-  dependency and Prisma's `@prisma/dev` Hono dependencies, then regenerates the
-  lockfile from the updated manifest.
+## Investigation Notes
+- The task comment composer uses a transparent textarea layered over a visible
+  rendered mirror from `renderContentWithMentions`.
+- The underlying textarea receives plain text such as `@username ` and owns the
+  actual browser caret.
+- The visible mirror currently reuses the standard mention chip styling, which
+  adds horizontal padding and medium font weight. That makes the visual mention
+  wider than the transparent textarea text, so following text and the caret no
+  longer line up after a selected mention.
 
 ## Scope
-- Confirm the current advisory and the minimum safe Next.js version from the
-  local audit output and package metadata.
-- Update or override Next.js and any required peer/tightly coupled framework
-  dependencies.
-- Regenerate lockfile state intentionally.
-- Run the repository validation baseline appropriate for a framework update.
-- Keep unrelated backlog, UI, and runtime behavior changes out of the dependency
-  PR.
-
-## Validation Notes
-- `npm audit --omit=dev --audit-level=high` passes.
-- `npm audit --omit=dev --audit-level=moderate` passes.
-- `git diff --check`, `npm run lint`, explicit-local-DB `npm test`,
-  explicit-local-DB `npm run test:coverage`, and placeholder-production-env
-  `npm run build` pass locally.
-- `npm run test:e2e` builds successfully but cannot complete Playwright tests
-  because no PostgreSQL server is reachable at `127.0.0.1:5432` and Docker
-  Desktop is unavailable on this machine. Chromium was installed with
-  `npx playwright install chromium`, so the remaining blocker is database
-  availability rather than browser setup.
-
-## Acceptance Criteria
-1. `npm audit --omit=dev --audit-level=high` passes or any remaining advisory is
-   documented as unrelated/unavoidable.
-2. Next.js and coupled framework packages are updated to a safe compatible
-   version.
-3. Lint, unit/API tests, coverage, build, and E2E smoke are green locally or any
-   environment blocker is recorded.
-4. The dependency PR clearly documents risk, validation, and rollback path.
-
-## Definition Of Done
-- Package and lockfile changes are committed on a dedicated TASK-274 branch.
-- Validation evidence is recorded in `journal.md`.
-- The PR is opened ready for review and automated feedback is handled.
+- Task detail modal comment composer mention mirror styling.
+- Mention selection/caret behavior after choosing an autocomplete result.
+- Focused regression tests for the mirror class and comment mention flow.
+- Preview validation against the deployed branch URL with Playwright.
 
 ## Out Of Scope
-- Product feature changes.
-- Broad UI polish.
-- Performance remediation beyond dependency-update fallout.
+- Mention search result behavior.
+- Mention notification service rules, except verifying they still work.
+- Task detail modal redesign.
+- Replacing the textarea/mirror composer with a rich text editor.
+
+## Acceptance Criteria
+1. After selecting a mention in a task comment, the trailing space is represented
+   consistently in the textarea value and visible mirror.
+2. Typing immediately after the mention appears at the same visual position as
+   the caret.
+3. The caret can reach the true end of the comment text with keyboard and mouse
+   navigation.
+4. Mention autocomplete still works in the task comment composer.
+5. Mention notifications still work when a selected mention comment is
+   submitted.
+6. Existing comment creation behavior remains unchanged outside the
+   cursor/spacing fix.
+7. Local validation and preview Playwright validation pass, or any environment
+   blocker is recorded.
+
+## Validation Notes
+- `git diff --check` passed.
+- `npm run lint` passed.
+- Focused tests passed:
+  `npm test -- tests/api/task-comments.route.test.ts tests/components/rich-text-content.test.ts tests/lib/mention.test.ts`.
+- Full test suite passed with documented local DB env:
+  `DATABASE_URL=postgresql://nexus:nexus@localhost:5432/nexusdash` and
+  `DIRECT_URL=postgresql://nexus:nexus@localhost:5433/nexusdash npm test`.
+- Coverage passed with the same DB env:
+  `npm run test:coverage` reported 91.23% statements, 81.2% branches, 93.42%
+  functions, and 91.75% lines.
+- Build passed with the same DB env plus placeholder production-only secrets.
+- Local E2E setup is blocked because Docker Desktop is not available
+  (`dockerDesktopLinuxEngine` pipe missing) when running
+  `npm run db:local:up`.
+- Preview deployment and Playwright validation remain pending.
+
+## Definition Of Done
+- A dedicated `fix/task-306-mention-cursor-spacing` branch contains the fix.
+- `tasks/current.md`, `tasks/backlog.md`, and `journal.md` are updated.
+- A ready-for-review PR is opened for issue #306.
+- Copilot review feedback and CI failures are handled.
+- A Vercel preview deployment is triggered with
+  `git_ref=fix/task-306-mention-cursor-spacing`.
+- Playwright is run against the preview URL, tagging the mention target from
+  `tmp/project-access-cred.env` in the manual flow or equivalent automated
+  setup.

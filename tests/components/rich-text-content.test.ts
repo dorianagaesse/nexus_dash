@@ -9,7 +9,10 @@ import {
   buildEnhancedRichTextHtml,
   RichTextContent,
 } from "@/components/rich-text-content";
-import { renderContentWithMentions } from "@/lib/content-with-mentions";
+import {
+  MENTION_TEXTAREA_MIRROR_HIGHLIGHT_CLASS,
+  renderContentWithMentions,
+} from "@/lib/content-with-mentions";
 import {
   createRichTextCodeBlock,
   createRichTextTokenBlock,
@@ -447,6 +450,36 @@ describe("rich-text-content", () => {
     expect(hiddenDiscriminator?.textContent).toBe("#1234");
     expect(hiddenDiscriminator?.className).toContain("hidden");
     expect(mention?.contains(hiddenDiscriminator)).toBe(false);
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  test("keeps transparent textarea mirror mention highlights text-metric neutral", () => {
+    const { container, root } = createTestRenderer();
+
+    act(() => {
+      root.render(
+        React.createElement(
+          "div",
+          null,
+          renderContentWithMentions("@alice hello", {
+            mentionHighlightClassName: MENTION_TEXTAREA_MIRROR_HIGHLIGHT_CLASS,
+            resolveDisplayUsers: false,
+          })
+        )
+      );
+    });
+
+    const mention = container.querySelector("span");
+    expect(mention?.textContent).toBe("@alice");
+    expect(container.textContent).toBe("@alice hello");
+    expect(mention?.className).toContain("px-0");
+    expect(mention?.className).toContain("py-0");
+    expect(mention?.className).toContain("font-normal");
+    expect(mention?.className).not.toContain("inline-block");
+    expect(mention?.className).not.toContain("font-medium");
 
     act(() => {
       root.unmount();

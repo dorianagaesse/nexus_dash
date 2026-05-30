@@ -16,6 +16,16 @@ export const MENTION_HIGHLIGHT_CLASS =
   "inline-block rounded-md bg-primary/15 px-1 py-0.5 align-baseline font-medium text-primary not-italic";
 
 /**
+ * Mention highlight class for transparent textarea mirrors.
+ *
+ * The browser caret belongs to the invisible textarea, so the visible mirror
+ * must keep the same inline metrics as plain textarea text. Avoid padding,
+ * inline-block, and font-weight changes here.
+ */
+export const MENTION_TEXTAREA_MIRROR_HIGHLIGHT_CLASS =
+  "rounded-sm bg-primary/15 px-0 py-0 font-normal text-primary not-italic";
+
+/**
  * Renders content with @username mentions highlighted.
  * Splits content into segments and wraps mention patterns in styled spans.
  */
