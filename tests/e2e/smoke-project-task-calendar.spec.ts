@@ -189,8 +189,12 @@ test.describe("critical UI smoke flows", () => {
     );
     await page.getByRole("button", { name: "Add comment" }).click();
     await createCommentRequest;
-    await expect(page.getByText(taskCommentSuffix)).toBeVisible();
-    await expect(page.getByText(`@${mentionUsername}`)).toBeVisible();
+    const submittedComment = page
+      .locator("article")
+      .filter({ hasText: taskCommentSuffix })
+      .last();
+    await expect(submittedComment).toBeVisible();
+    await expect(submittedComment.getByText(`@${mentionUsername}`)).toBeVisible();
     await expect(page.getByText("1 comment")).toBeVisible();
     await expect
       .poll(async () =>

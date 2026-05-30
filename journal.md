@@ -39,6 +39,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   after the first characters were typed. Guarded the frame callback so it only
   restores selection when the textarea still contains the untouched replacement
   value.
+- The follow-up E2E run passed the caret/value assertion and only failed on a
+  strict-mode locator because the same mention appeared in the task description,
+  card preview, and submitted comment. Scoped the rendered mention assertion to
+  the submitted comment article.
 
 ## Entry Format
 
