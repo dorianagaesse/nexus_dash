@@ -73,6 +73,13 @@
     "minimatch@^3.0.0": "3.1.5",
     "minimatch@^9.0.0": "9.0.9",
     "picomatch@^2.0.0": "2.3.2",
-    "picomatch@^4.0.0": "4.0.4"
+    "picomatch@^4.0.0": "4.0.4",
+    "next": {
+      "postcss": "8.5.15"
+    },
+    "@prisma/dev": {
+      "@hono/node-server": "1.19.14",
+      "hono": "4.12.23"
+    }
   }
 }
