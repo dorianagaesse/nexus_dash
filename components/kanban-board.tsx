@@ -1846,7 +1846,19 @@ export function KanbanBoard({
   }, [columns]);
 
   return (
-    <div className="space-y-4">
+    <div
+      className="space-y-4"
+      data-project-live-refresh-lock={
+        isSaving ||
+        isUpdatingTask ||
+        isSubmittingAttachment ||
+        isSubmittingTaskComment ||
+        Boolean(selectedTask) ||
+        Boolean(pendingDeleteTask)
+          ? "true"
+          : undefined
+      }
+    >
       <KanbanBoardHeader
         isExpanded={isExpanded}
         totalTaskCount={totalTaskCount}

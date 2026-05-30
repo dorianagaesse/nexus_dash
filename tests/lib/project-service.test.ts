@@ -94,6 +94,7 @@ describe("project-service", () => {
       id: "project-1",
       name: "Project 1",
       description: null,
+      updatedAt: new Date("2026-05-30T10:00:00.000Z"),
     });
     prismaMock.task.count
       .mockResolvedValueOnce(4)
@@ -132,6 +133,7 @@ describe("project-service", () => {
         name: true,
         description: true,
         ownerId: true,
+        updatedAt: true,
         memberships: {
           where: { userId: actorUserId },
           select: {

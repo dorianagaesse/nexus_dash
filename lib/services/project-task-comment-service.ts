@@ -5,6 +5,7 @@ import {
   requireProjectRole,
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
+import { touchProjectActivity } from "@/lib/services/project-activity-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 import {
   type NotificationActorKind,
@@ -543,6 +544,7 @@ export async function createTaskCommentForProject(input: {
         });
 
         await touchTaskActivity(db, input.taskId, actorUserId);
+        await touchProjectActivity({ db, projectId: input.projectId });
 
         const authorDisplayName =
           comment.author.name ||
@@ -795,6 +797,7 @@ export async function addTaskCommentReaction(input: {
       const sameEmoji = existing.find((r) => r.emoji === emoji);
       if (sameEmoji) {
         await db.taskCommentReaction.delete({ where: { id: sameEmoji.id } });
+        await touchProjectActivity({ db, projectId: input.projectId });
         const rawReactions = await db.taskCommentReaction.findMany({
           where: { commentId: input.commentId },
           orderBy: { createdAt: "asc" },
@@ -833,6 +836,8 @@ export async function addTaskCommentReaction(input: {
           data: { commentId: input.commentId, userId: actorUserId, emoji },
         });
       }
+
+      await touchProjectActivity({ db, projectId: input.projectId });
 
       const rawReactions = await db.taskCommentReaction.findMany({
         where: { commentId: input.commentId },
@@ -908,6 +913,7 @@ export async function removeTaskCommentReaction(input: {
 
     try {
       await db.taskCommentReaction.delete({ where: { id: input.reactionId } });
+      await touchProjectActivity({ db, projectId: input.projectId });
 
       const rawReactions = await db.taskCommentReaction.findMany({
         where: { commentId: reaction.commentId },

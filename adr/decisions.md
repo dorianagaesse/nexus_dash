@@ -16,6 +16,34 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-05-30 - Use project activity polling for near-term live collaboration refresh
+- Status: Accepted
+- Context: TASK-118 needs shared project dashboards to pick up task, context,
+  epic, and roadmap changes made by another collaborator without manual page
+  refresh. Prior TASK-105 architecture work kept PostgreSQL/Prisma as the
+  system of record and deferred any platform migration. The current Vercel
+  deployment shape does not provide a durable in-process WebSocket runtime, and
+  the app does not currently expose a Supabase Realtime client contract.
+- Decision: Use `Project.updatedAt` as the durable project activity version,
+  touch it after successful project-scoped dashboard mutations through a
+  narrow security-definer database function that validates owner/editor
+  membership, and let
+  authenticated project dashboards poll a membership-authorized activity
+  endpoint. Clients call `router.refresh()` when the activity version advances
+  and defer refresh behind an updates-available affordance while local edits,
+  submissions, or drag interactions are active.
+- Consequences: This delivers low-risk live freshness on the existing stack and
+  gives TASK-263 a reusable transport pattern for notification freshness, while
+  accepting short polling latency and extra lightweight reads instead of true
+  push semantics. The security-definer touch function must keep a hardened
+  search path and explicit membership checks because it deliberately bypasses
+  the owner-only project-row update policy for editor content mutations. If
+  NexusDash later needs presence, sub-second collaboration, or server-originated
+  fan-out at larger scale, the activity endpoint can be swapped behind the
+  client boundary for SSE, Supabase Realtime, or a managed realtime provider
+  without rewriting dashboard mutation services.
+- Links: `tasks/current.md`, `tasks/backlog.md`, `lib/services/project-service.ts`
+
 ## 2026-05-22 - Keep notification email dispatch app-owned while improving scheduler cadence cost-consciously
 - Status: Accepted
 - Context: TASK-268 intentionally used a no-new-cost GitHub Actions scheduler

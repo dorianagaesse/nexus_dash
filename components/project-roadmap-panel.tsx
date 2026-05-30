@@ -2137,7 +2137,18 @@ export function ProjectRoadmapPanel({
   ];
 
   return (
-    <Card className={PROJECT_SECTION_CARD_CLASS}>
+    <Card
+      className={PROJECT_SECTION_CARD_CLASS}
+      data-project-live-refresh-lock={
+        isDraggingEvent ||
+        Boolean(eventDialog) ||
+        isSubmittingEvent ||
+        Boolean(pendingDeleteEventId) ||
+        Boolean(statusMutationEventId)
+          ? "true"
+          : undefined
+      }
+    >
       <CardHeader className={PROJECT_SECTION_HEADER_CLASS}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <button

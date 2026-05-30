@@ -19,6 +19,7 @@ import {
   validateAttachmentFiles,
 } from "@/lib/services/attachment-input-service";
 import { logServerError } from "@/lib/observability/logger";
+import { touchProjectActivity } from "@/lib/services/project-activity-service";
 import { createTaskAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
 import {
   formatTaskDeadlineDate,
@@ -730,6 +731,8 @@ export async function createTaskForProject(
         });
       }
 
+      await touchProjectActivity({ db, projectId: input.projectId });
+
       return {
         ok: true,
         data: {
@@ -847,6 +850,7 @@ export async function reorderProjectTasks(
       );
 
       await Promise.all(updateOperations);
+      await touchProjectActivity({ db, projectId });
 
       return {
         ok: true,
@@ -1151,6 +1155,8 @@ export async function updateTaskForProject(
         });
       }
 
+      await touchProjectActivity({ db, projectId });
+
       return {
         ok: true,
         data: {
@@ -1264,6 +1270,8 @@ export async function archiveTaskForProject(
         return createError(500, "Failed to archive task");
       }
 
+      await touchProjectActivity({ db, projectId });
+
       return {
         ok: true,
         data: {
@@ -1349,6 +1357,8 @@ export async function unarchiveTaskForProject(
         },
       });
 
+      await touchProjectActivity({ db, projectId });
+
       return {
         ok: true,
         data: { ok: true },
@@ -1430,6 +1440,8 @@ export async function deleteTaskForProject(
           })
         )
       );
+
+      await touchProjectActivity({ db, projectId });
 
       return {
         ok: true,
