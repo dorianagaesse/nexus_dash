@@ -43,6 +43,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
   strict-mode locator because the same mention appeared in the task description,
   card preview, and submitted comment. Scoped the rendered mention assertion to
   the submitted comment article.
+- The next E2E run reached a stale test variable after reopening the task; the
+  assertion now checks the comment suffix used by the mention comment flow.
 
 ## Entry Format
 

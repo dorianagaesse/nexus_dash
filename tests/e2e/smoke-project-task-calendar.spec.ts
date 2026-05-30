@@ -229,7 +229,7 @@ test.describe("critical UI smoke flows", () => {
 
     await editedTaskCard.click();
     await expect(page.getByRole("button", { name: "Close task" })).toBeVisible();
-    await expect(page.getByText(taskComment)).toBeVisible();
+    await expect(page.getByText(taskCommentSuffix)).toBeVisible();
     await page.getByRole("button", { name: "Close task" }).click();
   });
 
