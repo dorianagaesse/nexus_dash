@@ -1271,6 +1271,9 @@ function TaskReadOnlyContent({
       if (!currentTextarea) {
         return;
       }
+      if (currentTextarea.value !== nextValue) {
+        return;
+      }
 
       currentTextarea.focus();
       currentTextarea.setSelectionRange(

@@ -73,7 +73,9 @@ highlighting/notification behavior intact.
 - PR E2E initially exposed an immediate-type race after autocomplete selection:
   Playwright could type before the next animation frame restored the caret. The
   component now synchronizes the textarea value and selection immediately during
-  mention selection, with the animation frame kept as stabilization.
+  mention selection. The follow-up animation-frame stabilization now aborts if
+  the user has already typed more text, preventing a delayed caret jump from
+  splitting the following word.
 - Preview deployment and Playwright validation remain pending.
 
 ## Definition Of Done

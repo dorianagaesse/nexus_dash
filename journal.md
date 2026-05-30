@@ -35,6 +35,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   restoration completed. Tightened the component by imperatively syncing the
   textarea value and selection during mention selection, while keeping the
   animation-frame selection pass as a stabilization step.
+- The next E2E run showed the stabilization frame could still jump the caret
+  after the first characters were typed. Guarded the frame callback so it only
+  restores selection when the textarea still contains the untouched replacement
+  value.
 
 ## Entry Format
 
