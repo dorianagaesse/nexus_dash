@@ -1246,8 +1246,16 @@ function TaskReadOnlyContent({
       replacement: mentionText,
     });
 
+    const textarea = commentInputRef.current;
     onNewTaskCommentChange(nextValue);
     setCommentCursorPosition(nextCursorPosition);
+    if (textarea) {
+      textarea.value = nextValue;
+      textarea.focus();
+      textarea.setSelectionRange(nextCursorPosition, nextCursorPosition);
+      syncCommentHighlightScroll(textarea);
+    }
+
     const selectedMention = buildCommentMentionSelection(member);
     if (selectedMention) {
       setCommentMentionSelections((previousSelections) =>
@@ -1259,13 +1267,16 @@ function TaskReadOnlyContent({
     }
 
     window.requestAnimationFrame(() => {
-      const textarea = commentInputRef.current;
-      if (!textarea) {
+      const currentTextarea = commentInputRef.current;
+      if (!currentTextarea) {
         return;
       }
 
-      textarea.focus();
-      textarea.setSelectionRange(nextCursorPosition, nextCursorPosition);
+      currentTextarea.focus();
+      currentTextarea.setSelectionRange(
+        nextCursorPosition,
+        nextCursorPosition
+      );
     });
   };
 

@@ -30,6 +30,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
   placeholder production-only secrets.
 - Local E2E bootstrap is blocked because Docker Desktop is unavailable:
   `npm run db:local:up` cannot connect to the `dockerDesktopLinuxEngine` pipe.
+- PR #307 E2E initially failed because the smoke test typed immediately after
+  clicking the autocomplete result, before the deferred animation-frame caret
+  restoration completed. Tightened the component by imperatively syncing the
+  textarea value and selection during mention selection, while keeping the
+  animation-frame selection pass as a stabilization step.
 
 ## Entry Format
 

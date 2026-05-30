@@ -70,6 +70,10 @@ highlighting/notification behavior intact.
 - Local E2E setup is blocked because Docker Desktop is not available
   (`dockerDesktopLinuxEngine` pipe missing) when running
   `npm run db:local:up`.
+- PR E2E initially exposed an immediate-type race after autocomplete selection:
+  Playwright could type before the next animation frame restored the caret. The
+  component now synchronizes the textarea value and selection immediately during
+  mention selection, with the animation frame kept as stabilization.
 - Preview deployment and Playwright validation remain pending.
 
 ## Definition Of Done
