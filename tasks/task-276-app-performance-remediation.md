@@ -17,20 +17,39 @@ evidence-led. Once TASK-275 identifies the dominant latency sources, this task
 owns the production fix set and validation needed to make everyday app actions
 feel responsive by modern SaaS standards.
 
+## TASK-275 Findings
+- Report: `docs/reports/task-275-performance-investigation.md`
+- Dominant cause: user-visible state changes are often gated on server
+  confirmation plus broad `router.refresh()` calls.
+- Local service timings did not show inherently multi-second mutation services:
+  task/comment/context mutations were 15-30 ms locally, while full-board reorder
+  was 113.9 ms for a 41-task board.
+- Preview agent API timing was blocked by an invalid API key in
+  `tmp/project-access-cred.env`; TASK-276 must capture preview/browser
+  before/after timings with refreshed access or signed-in browser validation.
+
 ## Scope
 - Implement the highest-impact fixes from the TASK-275 report.
-- Reduce blocking work in common flows:
-  - project creation and project-list refresh
-  - task creation, update, assignment, comment, and board refresh
-  - context-card creation/update and dashboard refresh
-  - roadmap/calendar interactions if TASK-275 identifies them as material
-- Prefer durable patterns over one-off patches:
-  - efficient service/query boundaries
-  - narrower payloads and refreshes
-  - optimistic or immediate local feedback where safe
-  - sensible cache invalidation/revalidation behavior
-  - loading states that communicate progress without blocking unrelated work
-  - lightweight production-safe timing/observability hooks when needed
+- Prioritize immediate local feedback for:
+  - task create
+  - task update/save
+  - quick task assignee and epic updates
+  - task comment create and comment count increment
+  - kanban drag/drop persistence
+  - context-card create/update/delete
+  - project create/update list feedback
+- Replace mutation-completion `router.refresh()` calls with local state/cache
+  updates plus debounced background reconciliation. Full route refresh should be
+  a fallback for consistency recovery, not the primary success path.
+- Return complete mutation payloads where needed. In particular, task creation
+  should return a board-ready task payload instead of only `taskId`.
+- Reduce kanban reorder work by sending and persisting only the moved task and
+  affected ordering window, or by detecting changed rows server-side before
+  issuing updates.
+- Move stale done-task archival out of `listProjectKanbanTasks()` into a
+  scheduled, explicit, or otherwise non-read-path maintenance workflow.
+- Add lightweight production-safe timing hooks for click-to-visible-update and
+  server mutation/refresh duration.
 - Preserve authorization, RLS, realtime collaboration, and notification
   semantics.
 
@@ -54,6 +73,16 @@ feel responsive by modern SaaS standards.
 7. The final handoff documents residual performance risks and any follow-up
    tasks.
 
+## Target Behaviors
+- Safe local UI feedback appears within 100 ms for create/update/comment/move
+  flows, with clear pending state while the server persists.
+- Persistence failures roll back or reconcile the affected item only and show an
+  actionable error.
+- Successful mutations do not visibly blank, reflow, or reload unrelated
+  dashboard sections.
+- Multi-user live refresh still surfaces remote changes without interrupting
+  active editing or causing avoidable full-dashboard churn.
+
 ## Definition Of Done
 - The TASK-275 report is complete and linked from this task.
 - The selected remediation scope is implemented on a dedicated feature branch.
@@ -65,10 +94,17 @@ feel responsive by modern SaaS standards.
   based on both automated checks and preview performance evidence.
 
 ## Validation Plan
-- Focused unit/API/component tests for touched behavior.
+- Focused unit/API/component tests for touched behavior, especially optimistic
+  success, rollback, and background reconciliation paths.
 - `npm run lint`
 - `npm test`
 - `npm run test:coverage`
 - `npm run build`
-- Relevant Playwright smoke or targeted preview automation.
+- Relevant Playwright smoke or targeted preview automation covering:
+  - create task: submit to card visible
+  - add comment: submit to comment visible and count incremented
+  - quick assignee/epic update: click to visible metadata update
+  - drag task between columns: mouse up to target-column visible update
+  - create context card: submit to card visible
+  - create/update project: submit to list visible/updated
 - Branch-ref Vercel preview validation with before/after timing comparison.

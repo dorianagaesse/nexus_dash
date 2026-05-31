@@ -8,13 +8,14 @@ Last reviewed: 2026-05-31
 ### Execution Queue (Now / Next)
 - ID: TASK-275
   Title: App performance investigation - action latency root-cause analysis
-  Status: Promoted 2026-05-31
+  Status: Investigation complete on branch; pending review
   Rationale: Everyday creation, update, and refresh actions currently take several seconds in production-like usage. Run a deep, measurement-first investigation across browser, API, database, cache/refresh, and perceived-latency layers so the remediation work is grounded in evidence rather than isolated guesses.
   Dependencies: TASK-043, TASK-073, TASK-074, TASK-118, TASK-266
   Brief: `tasks/task-275-app-performance-investigation-report.md`
+  Report: `docs/reports/task-275-performance-investigation.md`
 - ID: TASK-276
   Title: App performance remediation - production-grade action latency fixes
-  Status: Queued behind TASK-275
+  Status: Queued; scoped by TASK-275 findings
   Rationale: Implement durable, production-ready fixes for the root causes identified by TASK-275 so common app actions feel responsive by industry-standard SaaS expectations. The implementation should prioritize user-perceived speed, low-latency mutations, bounded refresh work, efficient data loading, and safe observability that keeps performance regressions detectable.
   Dependencies: TASK-275, TASK-043, TASK-073, TASK-074, TASK-118, TASK-266
   Brief: `tasks/task-276-app-performance-remediation.md`

@@ -3,6 +3,22 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-05-31 - TASK-275 performance investigation completed
+
+- Summary: Completed the app action-latency investigation and scoped TASK-276
+  remediation around immediate local feedback, bounded refresh work, and
+  before/after preview validation.
+- Evidence: Added `docs/reports/task-275-performance-investigation.md`. Local
+  Docker Postgres service probe showed core task/comment/context mutations in
+  the 15-30 ms range, while full-board reorder took 113.9 ms for a 41-task
+  board. Code review found common flows gated by server confirmation plus broad
+  `router.refresh()` calls; task creation, comments, task edits, context-card
+  mutations, and project Server Actions all rely on refresh/navigation for
+  visible completion. Preview agent API timing was blocked because the
+  credential in `tmp/project-access-cred.env` returned `invalid-api-key`, so
+  TASK-276 now requires refreshed preview or signed-in browser before/after
+  timings.
+
 # 2026-05-31 - TASK-275/TASK-276 performance task split
 
 - Summary: Split app performance work into investigation and implementation so

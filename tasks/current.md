@@ -4,7 +4,8 @@
 TASK-275
 
 ## Status
-Ready to start on `feature/task-275-performance-investigation`
+Investigation complete on `feature/task-275-performance-investigation`;
+awaiting PR review/merge.
 
 ## Source
 - User request on 2026-05-31:
@@ -43,14 +44,27 @@ execute.
 5. TASK-276 has a concrete implementation plan for the first remediation set.
 
 ## Definition Of Done
-- Measurement evidence is captured from preview, production-equivalent, or local
-  runs with clear environment notes.
-- The investigation report is committed.
-- TASK-276 is updated with implementation scope, validation targets, and risk
-  notes.
-- `journal.md` records findings and next steps.
-- `git diff --check` passes.
+- [x] Measurement evidence is captured from preview, production-equivalent, or
+  local runs with clear environment notes.
+- [x] The investigation report is committed.
+- [x] TASK-276 is updated with implementation scope, validation targets, and
+  risk notes.
+- [x] `journal.md` records findings and next steps.
+- [x] `git diff --check` passes.
+
+## Findings
+- Report: `docs/reports/task-275-performance-investigation.md`
+- Main cause: common actions are visibly gated by server confirmation and broad
+  `router.refresh()` calls, not a single obviously multi-second service method.
+- Local Docker Postgres probe showed task/comment/context mutation services in
+  the 15-30 ms range; full-board reorder was 113.9 ms for a 41-task board.
+- Preview agent API timing was blocked because the provided key now returns
+  `invalid-api-key`; TASK-276 needs refreshed preview access or signed-in
+  browser validation for before/after timing.
 
 ## Open Questions
 - Which deployment/environment should be treated as the primary performance
   baseline if preview and production differ materially?
+- Should TASK-276 use a small state/cache helper inside the current components
+  first, or introduce a broader client data layer such as SWR for mutation
+  reconciliation?
