@@ -3,6 +3,15 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-05-31 - Backlog cleanup after TASK-307 merge
+
+- Summary: Refreshed task tracking after the latest merged PRs so the backlog no
+  longer lists completed work as active or deferred.
+- Evidence: Moved TASK-307 to Completed after PR #309, updated TASK-306 as
+  merged via PR #307, moved TASK-118 to Completed after PR #305, reset
+  `tasks/current.md` to no active implementation task, and recorded TASK-307
+  post-merge preview smoke evidence in its task brief.
+
 # 2026-05-31 - TASK-307 agent comment credential identity
 
 - Created TASK-307 to track dedicated agent credential presentation for task
@@ -31,9 +40,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   interaction because localhost PostgreSQL ports 5432/5433 were not reachable;
   `npx prisma migrate deploy` against the same env failed with a schema engine
   connection error.
-- PR #308 remote Quality Gates passed on
-  `102fb63e1b57bbf75f60dede28862d65053b7150`: Quality Core, Playwright E2E
-  Smoke, and Container Image.
+- Superseded docs-branch PR #308 was closed after the implementation was moved
+  onto `feature/task-307-agent-comment-identity`; PR #309 merged the feature on
+  2026-05-31 after Quality Gates and Copilot review completed.
 
 # 2026-05-31 - TASK-306 task comment mention cursor spacing
 

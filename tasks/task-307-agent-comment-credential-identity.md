@@ -1,10 +1,12 @@
 # TASK-307 Agent Comment Credential Identity
 
 ## Status
-Implemented - PR #308 open, remote Quality Gates passed
+Done - merged via PR #309 on 2026-05-31
 
 ## Source
 - User request on 2026-05-31 after PR #307 merge.
+- Implementation merged through PR #309 after the superseded docs-branch PR #308
+  was closed.
 
 ## Objective
 Render agent-authored task comments with the project agent credential label plus
@@ -60,6 +62,14 @@ project-scoped agent access model.
 - Focused automated coverage passes for agent comment author presentation,
   human comment regression behavior, and legacy comment fallback behavior.
 - Tracking docs and any relevant API/onboarding documentation are updated.
+
+## Validation Evidence
+- PR #309 merged commit `c8c5c47f6ff0c56bff4b44255a6fc2d70cd2c431`
+  after remote Quality Gates passed on the implementation branch.
+- Post-merge preview smoke against the test project created three tasks, assigned
+  two to `dorianagaesse`, mentioned `@dorianagaesse#1987` in three
+  agent-authored comments, and verified comment reloads return
+  `codex_smoke (agent)` with `author.kind: agent`.
 
 ## Implementation Notes
 - Investigate whether to store credential id plus label snapshot on
