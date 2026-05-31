@@ -1,6 +1,6 @@
 # NexusDash Project Blueprint (Current State)
 
-Last verified: 2026-05-26
+Last verified: 2026-05-31
 
 ## 1. Vision
 
@@ -31,6 +31,8 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
   - project-scoped, append-only task discussion threads
   - chronological author-attributed comment history in the task detail modal
   - lazy-loaded thread reads with lightweight board-level comment counts
+  - agent-authored comments keep project credential attribution by displaying
+    the credential label with an `(agent)` suffix and a shared agent avatar
 - Project-scoped agent access:
   - owner-managed API credentials in project settings
   - one-time raw API key reveal with rotate/revoke lifecycle
@@ -73,7 +75,8 @@ Current schema includes:
 - Authorization boundaries: `Project.ownerId`, `ProjectMembership` (`owner|editor|viewer`)
 - Agent auth: `ApiCredential`, `ApiCredentialScopeGrant`, `AuthAuditEvent`
 - Domain: `Project`, `RoadmapPhase`, `RoadmapEvent`, `Epic`, `Task`, `Resource` (context cards), `TaskBlockedFollowUp`
-- Collaboration on tasks: `TaskComment`
+- Collaboration on tasks: `TaskComment` with optional agent credential
+  attribution metadata for agent-authored comments
 - Attachments: `TaskAttachment`, `ResourceAttachment` with `uploadedByUserId`
 - Calendar: `GoogleCalendarCredential` (one row per user)
 - Notification email orchestration: `ProjectNotificationEmail` and

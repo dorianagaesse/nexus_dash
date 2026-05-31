@@ -45,6 +45,7 @@ import { TaskDeadlineField } from "@/components/kanban/task-deadline-field";
 import { AttachmentPreviewModal } from "@/components/attachment-preview-modal";
 import { RichTextContent } from "@/components/rich-text-content";
 import { RichTextEditor } from "@/components/rich-text-editor";
+import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { Badge } from "@/components/ui/badge";
 import { AssigneeSelect } from "@/components/ui/assignee-select";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
@@ -1431,12 +1432,20 @@ function TaskReadOnlyContent({
                   className="rounded-xl border border-border/50 bg-background/80 px-3 py-2"
                 >
                   <div className="flex items-start gap-2.5">
-                    <UserAvatar
-                      avatarSeed={comment.author.avatarSeed}
-                      displayName={comment.author.displayName}
-                      className="mt-0.5 h-8 w-8 border-border/70"
-                      decorative
-                    />
+                    {isAgentCommentAuthor(comment.author) ? (
+                      <AgentAvatar
+                        displayName={comment.author.displayName}
+                        className="mt-0.5 h-8 w-8 border-border/70"
+                        decorative
+                      />
+                    ) : (
+                      <UserAvatar
+                        avatarSeed={comment.author.avatarSeed}
+                        displayName={comment.author.displayName}
+                        className="mt-0.5 h-8 w-8 border-border/70"
+                        decorative
+                      />
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <p className="text-sm font-medium">{comment.author.displayName}</p>
@@ -2089,9 +2098,22 @@ function formatTaskCommentTimestamp(createdAt: string): string {
 }
 
 function getCommentIdentityMeta(author: TaskComment["author"]): string | null {
+  if (isAgentCommentAuthor(author)) {
+    const owner = author.owner;
+    if (!owner) {
+      return null;
+    }
+
+    return `via ${owner.usernameTag ?? owner.displayName}`;
+  }
+
   if (!author.usernameTag || author.usernameTag === author.displayName) {
     return null;
   }
 
   return author.usernameTag;
+}
+
+function isAgentCommentAuthor(author: TaskComment["author"]): boolean {
+  return author.kind === "agent";
 }

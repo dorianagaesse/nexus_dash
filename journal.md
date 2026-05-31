@@ -17,6 +17,20 @@ Use it for important implementation milestones, blockers, validation runs, and r
   selected implementation approach is to keep `authorUserId` as the owner/RLS
   actor while adding durable nullable agent credential id and label snapshot
   metadata to comments.
+- Implemented TASK-307 locally by adding nullable `TaskComment` agent credential
+  metadata, storing a label snapshot on agent-created comments, returning
+  agent-aware comment authors through the comments API, rendering agent comments
+  with a shared local robot-head-like avatar, and updating the agent OpenAPI
+  schema/notes.
+- Focused validation passed: `npx prisma generate`, `npx prisma validate`,
+  task comment route tests, task detail comment rendering tests, agent
+  onboarding docs tests, and `npm run lint`.
+- Full local validation passed for `npm test`, `npm run test:coverage`, and
+  `npm run build` with documented local DB env plus placeholder build-only
+  secrets. Local `npm run test:e2e` rebuilt successfully but failed before app
+  interaction because localhost PostgreSQL ports 5432/5433 were not reachable;
+  `npx prisma migrate deploy` against the same env failed with a schema engine
+  connection error.
 
 # 2026-05-31 - TASK-306 task comment mention cursor spacing
 

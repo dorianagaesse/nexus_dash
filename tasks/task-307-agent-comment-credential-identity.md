@@ -1,7 +1,7 @@
 # TASK-307 Agent Comment Credential Identity
 
 ## Status
-Pending
+Implemented locally - PR/checks pending
 
 ## Source
 - User request on 2026-05-31 after PR #307 merge.

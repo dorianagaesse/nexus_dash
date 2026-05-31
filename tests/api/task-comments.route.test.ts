@@ -82,6 +82,8 @@ describe("task comments route", () => {
         id: "comment-1",
         content: "First update",
         createdAt: new Date("2026-04-19T09:00:00.000Z"),
+        authorAgentCredentialId: null,
+        authorAgentCredentialLabel: null,
         author: {
           id: "user-1",
           name: "Alice Example",
@@ -95,6 +97,8 @@ describe("task comments route", () => {
         id: "comment-2",
         content: "Second update",
         createdAt: new Date("2026-04-19T10:00:00.000Z"),
+        authorAgentCredentialId: null,
+        authorAgentCredentialLabel: null,
         author: {
           id: "user-2",
           name: null,
@@ -125,6 +129,10 @@ describe("task comments route", () => {
             displayName: "alice",
             usernameTag: "alice#1234",
             avatarSeed: "user-1",
+            kind: "user",
+            agentCredentialId: null,
+            agentCredentialLabel: null,
+            owner: null,
           },
         },
         {
@@ -136,6 +144,10 @@ describe("task comments route", () => {
             displayName: "bob",
             usernameTag: null,
             avatarSeed: "seed-222",
+            kind: "user",
+            agentCredentialId: null,
+            agentCredentialLabel: null,
+            owner: null,
           },
         },
       ],
@@ -149,6 +161,8 @@ describe("task comments route", () => {
         id: true,
         content: true,
         createdAt: true,
+        authorAgentCredentialId: true,
+        authorAgentCredentialLabel: true,
         author: {
           select: {
             id: true,
@@ -160,6 +174,63 @@ describe("task comments route", () => {
           },
         },
       },
+    });
+  });
+
+  test("GET returns persisted agent comment identity", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      projectId: "project-1",
+    });
+    prismaMock.taskComment.findMany.mockResolvedValueOnce([
+      {
+        id: "comment-agent",
+        content: "Agent update",
+        createdAt: new Date("2026-04-19T09:30:00.000Z"),
+        authorAgentCredentialId: null,
+        authorAgentCredentialLabel: "Build bot",
+        author: {
+          id: "owner-1",
+          name: "Credential Owner",
+          email: "owner@example.com",
+          username: "owner",
+          usernameDiscriminator: "0001",
+          avatarSeed: null,
+        },
+      },
+    ]);
+
+    const response = await GET(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments"
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({
+      comments: [
+        {
+          id: "comment-agent",
+          content: "Agent update",
+          createdAt: "2026-04-19T09:30:00.000Z",
+          author: {
+            id: "owner-1",
+            displayName: "Build bot (agent)",
+            usernameTag: null,
+            avatarSeed: "nexusdash-agent-comment-avatar",
+            kind: "agent",
+            agentCredentialId: null,
+            agentCredentialLabel: "Build bot",
+            owner: {
+              id: "owner-1",
+              displayName: "owner",
+              usernameTag: "owner#0001",
+              avatarSeed: "owner-1",
+            },
+          },
+        },
+      ],
     });
   });
 
@@ -211,6 +282,8 @@ describe("task comments route", () => {
       id: "comment-3",
       content: "Ready for review",
       createdAt: new Date("2026-04-19T11:00:00.000Z"),
+      authorAgentCredentialId: null,
+      authorAgentCredentialLabel: null,
       author: {
         id: "test-user",
         name: "Reviewer",
@@ -246,6 +319,10 @@ describe("task comments route", () => {
           displayName: "reviewer",
           usernameTag: "reviewer#0007",
           avatarSeed: "test-user",
+          kind: "user",
+          agentCredentialId: null,
+          agentCredentialLabel: null,
+          owner: null,
         },
       },
     });
@@ -253,12 +330,16 @@ describe("task comments route", () => {
       data: {
         taskId: "task-1",
         authorUserId: "test-user",
+        authorAgentCredentialId: null,
+        authorAgentCredentialLabel: null,
         content: "Ready for review",
       },
       select: {
         id: true,
         content: true,
         createdAt: true,
+        authorAgentCredentialId: true,
+        authorAgentCredentialLabel: true,
         author: {
           select: {
             id: true,
@@ -319,6 +400,8 @@ describe("task comments route", () => {
       id: "comment-mention",
       content: "Can you check this @owner#0001?",
       createdAt: new Date("2026-04-19T11:30:00.000Z"),
+      authorAgentCredentialId: null,
+      authorAgentCredentialLabel: null,
       author: {
         id: "test-user",
         name: "Reviewer",
@@ -410,6 +493,8 @@ describe("task comments route", () => {
       id: "comment-agent-mention",
       content: "I need @owner#0001 here.",
       createdAt: new Date("2026-04-19T12:15:00.000Z"),
+      authorAgentCredentialId: "credential-1",
+      authorAgentCredentialLabel: "Build bot",
       author: {
         id: "owner-1",
         name: "Owner",
@@ -435,6 +520,33 @@ describe("task comments route", () => {
     );
 
     expect(response.status).toBe(201);
+    await expect(readJson(response)).resolves.toMatchObject({
+      comment: {
+        author: {
+          id: "credential-1",
+          displayName: "Build bot (agent)",
+          usernameTag: null,
+          avatarSeed: "nexusdash-agent-comment-avatar",
+          kind: "agent",
+          agentCredentialId: "credential-1",
+          agentCredentialLabel: "Build bot",
+          owner: {
+            id: "owner-1",
+            displayName: "owner",
+            usernameTag: "owner#0001",
+            avatarSeed: "owner-1",
+          },
+        },
+      },
+    });
+    expect(prismaMock.taskComment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          authorAgentCredentialId: "credential-1",
+          authorAgentCredentialLabel: "Build bot",
+        }),
+      })
+    );
     expect(prismaMock.notification.createMany).toHaveBeenCalledWith({
       data: [
         expect.objectContaining({
@@ -479,6 +591,8 @@ describe("task comments route", () => {
       id: "comment-self-mention",
       content: "Reminder for @reviewer#0007.",
       createdAt: new Date("2026-04-19T12:30:00.000Z"),
+      authorAgentCredentialId: null,
+      authorAgentCredentialLabel: null,
       author: {
         id: "test-user",
         name: "Reviewer",
@@ -540,6 +654,8 @@ describe("task comments route", () => {
       id: "comment-ambiguous",
       content: "Can @alice check this?",
       createdAt: new Date("2026-04-19T11:45:00.000Z"),
+      authorAgentCredentialId: null,
+      authorAgentCredentialLabel: null,
       author: {
         id: "test-user",
         name: "Reviewer",
@@ -601,6 +717,8 @@ describe("task comments route", () => {
       id: "comment-selected",
       content: "Can @alice check this?",
       createdAt: new Date("2026-04-19T12:00:00.000Z"),
+      authorAgentCredentialId: null,
+      authorAgentCredentialLabel: null,
       author: {
         id: "test-user",
         name: "Reviewer",

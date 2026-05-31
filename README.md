@@ -29,6 +29,8 @@ Implemented today:
   - Roadmap event-first milestone lanes with grouped child events, drag-and-drop regrouping, and target-date planning
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`)
   - Calendar panel (Google Calendar list/create/update/delete)
+  - Task comments with agent-authored comment attribution through the project
+    credential label and a shared agent avatar
 - Per-user Google Calendar connection and calendar target setting (`/account/settings`)
 - Attachment storage abstraction:
   - `local` provider (filesystem)

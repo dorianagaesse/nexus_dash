@@ -4,7 +4,7 @@
 TASK-307
 
 ## Status
-Planning - ready for implementation
+Implemented locally - PR/checks pending
 
 ## Source
 - User request on 2026-05-31 after PR #307 merge:
@@ -76,6 +76,22 @@ credential owner's project membership and RLS principal.
 - Focused docs updates for the agent API/comment response shape if the public
   OpenAPI/onboarding schema changes.
 
+## Implementation Summary
+- Added nullable `TaskComment` agent-author metadata:
+  `authorAgentCredentialId` and `authorAgentCredentialLabel`.
+- Kept `authorUserId` as the credential owner's RLS/audit actor while storing a
+  credential label snapshot for agent-authored comments.
+- Updated task comment create/list mapping so agent comments return
+  `<credential label> (agent)`, a shared agent avatar seed, owner metadata, and
+  stable credential metadata after reload.
+- Added a local shared `AgentAvatar` component using the existing icon system,
+  and updated the task detail comment thread to use it for agent-authored
+  comments while keeping human comments on the existing generated avatar path.
+- Updated the agent OpenAPI/onboarding schema and route notes so clients can see
+  the optional agent author metadata on task comment responses.
+- Added route coverage for persisted agent identity and label-snapshot fallback,
+  plus component coverage for agent vs human comment rendering.
+
 ## Out Of Scope
 - Separate `User` rows or full account records for agents.
 - Per-agent custom avatars.
@@ -115,6 +131,27 @@ credential owner's project membership and RLS principal.
   `npm run test:coverage`, and `npm run build`.
 - PR is opened from a task branch, Copilot review feedback is handled, and the
   final handoff includes the delivered commit SHA.
+
+## Validation Evidence
+- `npx prisma generate` passed.
+- `npx prisma validate` passed.
+- `npx vitest run tests/api/task-comments.route.test.ts` passed.
+- `npx vitest run tests/components/task-detail-modal-comments.test.tsx` passed.
+- `npx vitest run tests/api/task-comments.route.test.ts tests/components/task-detail-modal-comments.test.tsx tests/components/agent-onboarding-guide.test.ts tests/app/agent-onboarding-pages.test.ts` passed.
+- `npm run lint` passed.
+- With local DB env (`DATABASE_URL=postgresql://nexus:nexus@localhost:5432/nexusdash`,
+  `DIRECT_URL=postgresql://nexus:nexus@localhost:5433/nexusdash`) `npm test`
+  passed: 113 files passed, 2 skipped; 847 tests passed, 2 skipped.
+- With the same DB env, `npm run test:coverage` passed: 91.43% statements,
+  81.54% branches, 93.42% functions, 91.95% lines.
+- With the same DB env plus placeholder production-only secrets,
+  `npm run build` passed.
+- `npm run test:e2e` rebuilt successfully, then failed before app interaction
+  because the local PostgreSQL ports required by the E2E Prisma helpers were not
+  reachable (`Test-NetConnection` failed for localhost ports 5432 and 5433);
+  `npx prisma migrate deploy` against the same local DB env also failed with a
+  schema engine connection error. Remote PR Quality Gates should provide the
+  Playwright smoke substitute unless a deploy-preview run is requested.
 
 ## Implementation Plan
 1. Create a feature branch from current `origin/main` after the planning/docs
