@@ -2,7 +2,7 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-05-26
+Last reviewed: 2026-05-31
 
 ## Pending
 ### Execution Queue (Now / Next)
@@ -28,6 +28,12 @@ Last reviewed: 2026-05-26
   Rationale: Redesign the login and home page so they feel like a polished product surface rather than a technical auth form: improve visual hierarchy, copy, branding presence, and call-to-action clarity so new visitors understand the product value at a glance and returning users get a frictionless sign-in experience.
   Dependencies: TASK-045, TASK-059, TASK-083
 ### Deferred (Intentional)
+- ID: TASK-307
+  Title: Agent comment credential identity - label and shared avatar
+  Status: Pending
+  Rationale: Agent-authored comments currently render with the credential owner's identity because task comment rows store the owner user id. Make agent comments visibly attributable to the project agent credential by showing `<credential label> (agent)` and a shared robot-head-like avatar for all agents.
+  Dependencies: TASK-059, TASK-127, TASK-265, TASK-306
+  Brief: `tasks/task-307-agent-comment-credential-identity.md`
 - ID: TASK-224
   Title: Agent roadmap access - scoped API contract for roadmap phases and events
   Status: Pending
