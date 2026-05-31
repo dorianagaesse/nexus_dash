@@ -68,3 +68,6 @@ safety affordance while editing or modal state could be disrupted.
   activity watcher from treating those local writes as unknown remote changes.
 - The current transport is intentionally still polling-based. A future realtime
   transport can reuse the same acknowledgement semantics.
+- Preview deployment run `26727186276` checked out
+  `feature/task-308-smart-live-refresh` and produced
+  `https://nexus-dash-q4cso7uob-dorian-agaesses-projects.vercel.app`.

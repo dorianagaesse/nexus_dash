@@ -1923,3 +1923,8 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-308 local validation passed after live-refresh implementation.
 - Evidence: `npm test -- --run tests/components/project-live-refresh.test.tsx` passed 5 tests covering idle auto-refresh, locked prompt behavior, local acknowledgement suppression, in-flight local mutation suppression, and automatic pending refresh after lock release. `npm run lint` passed. Local PostgreSQL env `npm test` passed (113 files passed, 2 skipped; 852 passed, 2 skipped). Local PostgreSQL env `npm run test:coverage` passed with 91.32% statements, 81.33% branches, 92.2% functions, and 91.83% lines. Preview-style env `npm run build` passed. Fresh-port local Playwright `npm run test:e2e` on `PORT=3120` passed all 8 E2E tests after the smoke test waited for canonical task creation before server-backed quick edits.
+
+### 2026-06-01
+- Type: Validation
+- Summary: TASK-308 PR checks and branch-ref preview deployment passed.
+- Evidence: PR #315 opened from `feature/task-308-smart-live-refresh` at `9d150a9`. GitHub checks passed: branch-name, Quality Core, E2E Smoke, and Container Image. Preview workflow run `26727186276` used `git_ref=feature/task-308-smart-live-refresh`; logs show checkout fetched and checked out `refs/remotes/origin/feature/task-308-smart-live-refresh`. Preview artifact URL: `https://nexus-dash-q4cso7uob-dorian-agaesses-projects.vercel.app`.
