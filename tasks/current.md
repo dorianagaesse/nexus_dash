@@ -47,11 +47,11 @@ timing evidence for deployed API hotspots.
 7. Preview validation records timing evidence for the targeted flows.
 
 ## Definition Of Done
-- [ ] Implementation is committed on the dedicated feature branch.
+- [x] Implementation is committed on the dedicated feature branch.
 - [x] Focused tests cover mutation payload/local update/reorder behavior.
 - [x] `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`
       pass.
-- [ ] A branch-ref preview deployment is created and validated with Playwright or
+- [x] A branch-ref preview deployment is created and validated with Playwright or
       direct API/browser timing evidence.
 - [x] `tasks/backlog.md`, `tasks/current.md`, and `journal.md` are updated.
 - [ ] A ready-for-review PR is opened, automated checks pass, and Copilot review
@@ -66,3 +66,12 @@ timing evidence for deployed API hotspots.
   `Server-Timing` on targeted API routes.
 - Residual deployed API sub-causes should be evaluated with the new timing
   headers and preview evidence instead of guesswork.
+- Preview deployment run `26718308463` checked out
+  `feature/task-276-performance-remediation` at commit `5bee1f0` and produced
+  `https://nexus-dash-7amtvjh4y-dorian-agaesses-projects.vercel.app`.
+- Preview validation used project-scoped agent credentials because the local
+  Playwright session seeding env did not match the deployed runtime database;
+  the browser smoke redirected to sign-in and was not counted as a pass.
+- Preview API smoke passed task/context create, update, comment/list, and cleanup
+  flows. Timing evidence is exposed through `x-nexusdash-server-timing`; Vercel
+  did not expose the standard `Server-Timing` header on the tested deployment.

@@ -8,7 +8,7 @@ Last reviewed: 2026-05-31
 ### Execution Queue (Now / Next)
 - ID: TASK-276
   Title: App performance remediation - production-grade action latency fixes
-  Status: In progress on `feature/task-276-performance-remediation`
+  Status: PR open (#314) on `feature/task-276-performance-remediation`
   Rationale: Implement durable, production-ready fixes for the root causes identified by TASK-275 so common app actions feel responsive by industry-standard SaaS expectations. The implementation should prioritize user-perceived speed, low-latency mutations, bounded refresh work, efficient data loading, and safe observability that keeps performance regressions detectable.
   Dependencies: TASK-275, TASK-043, TASK-073, TASK-074, TASK-118, TASK-266
   Brief: `tasks/task-276-app-performance-remediation.md`
