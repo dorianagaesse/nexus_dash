@@ -1,148 +1,185 @@
-# Current Task: TASK-118 Real-Time Collaboration Updates
+# Current Task: TASK-307 Agent Comment Credential Identity
 
 ## Task ID
-TASK-118
+TASK-307
 
 ## Status
-Implemented - PR #305 open, review follow-up in progress
+Implemented - PR #308 open, remote Quality Gates passed
 
 ## Source
-- `tasks/backlog.md` execution queue, promoted on 2026-05-26 after TASK-274
-  and TASK-133.
-- User report: when two users work on the same project, task movement or task
-  content changes made by one user are invisible to the other user until a
-  manual page refresh.
+- User request on 2026-05-31 after PR #307 merge:
+  agent-authored task comments should show the agent credential label with
+  ` (agent)` and all agents should share the closest available visual to a
+  robot-head avatar.
+- Backlog entry: `tasks/backlog.md`
+- Task brief: `tasks/task-307-agent-comment-credential-identity.md`
 
 ## Objective
-Reduce stale-state and manual-refresh friction during shared project work by
-propagating project activity changes to other open project dashboards
-automatically, while preserving the current Prisma/PostgreSQL architecture,
-service-layer authorization, and Vercel deployment constraints.
+Make task comments authored through project-scoped agent credentials visibly
+attributed to the agent credential, not only to the credential owner, while
+preserving the existing security model where agent requests execute under the
+credential owner's project membership and RLS principal.
 
 ## Investigation Summary
-- Project dashboard data is server-loaded in `app/projects/[projectId]/page.tsx`
-  and section components, then handed to client components such as
-  `KanbanBoard`, `ProjectContextPanel`, `ProjectEpicPanel`, and
-  `ProjectRoadmapPanel`.
-- Client panels keep local state for responsive editing and optimistic updates.
-  They already resync from fresh props when their own tab calls
-  `router.refresh()`.
-- Mutation paths are request/response route handlers. The initiating browser
-  calls `router.refresh()` after successful writes, but other browsers have no
-  subscription, polling, or invalidation signal.
-- Existing ADRs reject a Convex migration for now and require near-term
-  realtime needs to be solved on the current PostgreSQL/Prisma stack first.
-- Vercel/serverless constraints make durable in-process WebSockets a poor fit,
-  and the repo does not currently depend on Supabase Realtime client env.
+- `TaskComment` currently stores `authorUserId` only. The comment author is
+  serialized from the related `User`, so an agent-created comment displays as
+  the credential owner after creation and after reload.
+- Agent assignment and task comment mention notifications already resolve and
+  persist agent-aware actor metadata: `actorKind`, `actorCredentialId`,
+  `actorCredentialLabel`, and display copy like `Build bot (agent)`.
+- `createTaskCommentForProject` already receives `agentAccess` and resolves
+  the credential label for mention notification copy. This is the right place
+  to also persist comment author presentation metadata.
+- `listTaskCommentsForProject` and the comments route return only the human
+  `author` summary today. The UI type `TaskCommentAuthor` is currently a plain
+  `TaskPersonSummary`.
+- The task detail modal renders comments with `UserAvatar` and
+  `comment.author.displayName`, plus an optional username tag. It has no concept
+  of a non-human comment author.
+- Existing generated avatars are seed-based abstract pixel avatars. The request
+  asks for the closest thing available now to a robot head, so the implementation
+  should add a small local shared agent avatar component or data URI rather than
+  relying on a remote asset.
 
 ## Selected Approach
-- Use `Project.updatedAt` as the durable project activity version.
-- Because project RLS only allows owners to update the `Project` row directly,
-  editor/content mutations advance this version through a narrow
-  `app.touch_project_activity(project_id, activity_at)` security-definer
-  function that explicitly validates owner/editor membership before updating
-  `Project.updatedAt`.
-- Touch the project row after successful project-scoped mutations that affect
-  the shared dashboard: tasks, task comments, task attachments, context cards,
-  context attachments, epics, and roadmap phases/events/reorders.
-- Add an authorized project activity endpoint that returns the current activity
-  version for collaborators who can read the project.
-- Add a project dashboard live-refresh client boundary that polls the activity
-  endpoint at a short interval, detects newer activity from other requests, and
-  calls `router.refresh()` when the user is idle.
-- If a local edit dialog/form/drag operation is active, defer the refresh and
-  show a lightweight "updates available" control so remote changes are not
-  allowed to stomp in-progress edits.
-- Keep notification-specific realtime work in TASK-263 aligned with this
-  transport decision instead of adding a parallel realtime stack.
+- Add durable agent-author metadata to task comments while keeping
+  `authorUserId` as the owner/RLS actor:
+  - nullable `authorAgentCredentialId`
+  - nullable `authorAgentCredentialLabel`
+  - relation to `ApiCredential` with `onDelete: SetNull`
+- Store a normalized credential label snapshot when an agent creates a comment.
+  The snapshot keeps historical comment attribution stable if the credential is
+  renamed later. If the credential is later deleted, old comments can still
+  display the stored label.
+- Extend the task comment service summary with an author kind:
+  - human comments map to the current `TaskPersonSummary`.
+  - agent comments map to a dedicated agent author summary using
+    `<label> (agent)` or `Agent` if the label is unavailable.
+- Extend the comments API response and client types in a backward-compatible
+  way so existing comments without agent metadata continue to render as human
+  comments.
+- Render agent-authored comments in the task detail modal with:
+  - display name: `<credential label> (agent)`
+  - meta text pointing to the credential owner's human identity when useful
+  - a shared local robot-head-like avatar for every agent-authored comment
+- Keep mention and assignment notification behavior aligned with the existing
+  TASK-265 actor attribution work. This task should not change notification
+  semantics unless tests expose an inconsistency.
 
 ## Scope
-- Project dashboard live updates for shared project entities:
-  - Kanban tasks: create, update, reorder, archive/unarchive, delete, comments,
-    and attachments.
-  - Context cards: create, update, delete, attachments, and direct upload
-    finalization/cleanup where it changes visible card state.
-  - Epics: create, update, delete, and task rollup refresh after task changes.
-  - Roadmap phases/events: create, update, reorder, move, and delete.
-- A small reusable polling/refresh client layer for project pages.
-- Service-level activity version helpers and focused tests for activity writes
-  and endpoint authorization.
-- Documentation of the transport decision in `adr/decisions.md` because it
-  constrains future notification realtime work.
-
-## Out Of Scope
-- WebSocket infrastructure or a new paid realtime provider.
-- Full collaborative conflict resolution or CRDT-style concurrent editing.
-- Presence indicators, live cursors, or per-user active-edit awareness.
-- Google Calendar external event push; calendar panel can keep its existing
-  explicit refresh behavior.
-- Notification center live updates, which remain tracked by TASK-263.
+- Prisma schema and migration for task comment agent-author metadata.
+- Task comment create/list service mapping and tests.
+- Comments route serialization tests.
+- Client task comment author types.
+- Task detail comment thread rendering for agent vs human authors.
+- Shared local agent avatar visual used by all agent comments.
+- Focused docs updates for the agent API/comment response shape if the public
+  OpenAPI/onboarding schema changes.
 
 ## Implementation Summary
-- Added `GET /api/projects/[projectId]/activity`, authorized through the
-  existing API principal and project access services, returning `{ projectId,
-  version, serverTime }` with `Cache-Control: no-store`.
-- Added `ProjectLiveRefresh` to the project dashboard. It polls the activity
-  endpoint every five seconds, calls `router.refresh()` when the activity
-  version advances, and defers refresh behind a fixed "Project updates are
-  ready" action while a dashboard panel reports local editing/submitting/drag
-  activity.
-- Added live-refresh locks to Kanban, context cards, epics, and roadmap panels
-  so remote refreshes do not interrupt open task/card/epic/roadmap editing,
-  delete confirmations, attachment submissions, or roadmap drag operations.
-- Wired activity touching through task, task comment/reaction, task attachment,
-  context card/attachment, epic, and roadmap mutation services.
-- Added focused coverage for activity touch behavior, activity route
-  serialization/authorization failure handling, live-refresh auto refresh, and
-  deferred refresh.
+- Added nullable `TaskComment` agent-author metadata:
+  `authorAgentCredentialId` and `authorAgentCredentialLabel`.
+- Kept `authorUserId` as the credential owner's RLS/audit actor while storing a
+  credential label snapshot for agent-authored comments.
+- Updated task comment create/list mapping so agent comments return
+  `<credential label> (agent)`, a shared agent avatar seed, owner metadata, and
+  stable credential metadata after reload.
+- Added a local shared `AgentAvatar` component using the existing icon system,
+  and updated the task detail comment thread to use it for agent-authored
+  comments while keeping human comments on the existing generated avatar path.
+- Updated the agent OpenAPI/onboarding schema and route notes so clients can see
+  the optional agent author metadata on task comment responses.
+- Added route coverage for persisted agent identity and label-snapshot fallback,
+  plus component coverage for agent vs human comment rendering.
 
-## Validation Evidence
-- `npm run lint` passed.
-- `DATABASE_URL=postgresql://nexus:nexus@localhost:5432/nexusdash
-  DIRECT_URL=postgresql://nexus:nexus@localhost:5433/nexusdash npm test`
-  passed: 112 files passed, 2 skipped; 843 tests passed, 2 skipped.
-- Same DB env `npm run test:coverage` passed: 91.23% statements, 81.2%
-  branches, 93.42% functions, 91.75% lines.
-- Preview-style build env with distinct `DATABASE_URL`/`DIRECT_URL`,
-  `GOOGLE_TOKEN_ENCRYPTION_KEY`, and `AGENT_TOKEN_SIGNING_SECRET`
-  `npm run build` passed and listed the new
-  `/api/projects/[projectId]/activity` route.
-- `npx prisma validate` passed.
-- PR #305 Quality Gates passed remotely, including Quality Core, Playwright E2E
-  smoke, and container image build.
-- Manual deploy workflow `26689831199` successfully deployed the preview:
-  `https://nexus-dash-3dlunbbgu-dorian-agaesses-projects.vercel.app`.
-- Direct preview browser/API smoke from this shell is blocked by Vercel
-  protection because `VERCEL_AUTOMATION_BYPASS_SECRET` is not available locally;
-  `/api/health/live` and `/` both returned 401 without the bypass header.
-- `npm run db:local:up` is blocked in this workspace because Docker Desktop is
-  not available (`dockerDesktopLinuxEngine` pipe missing), so local Playwright
-  E2E could not be run here. CI Playwright passed, and protected-preview
-  two-session smoke remains the remaining manual validation item.
+## Out Of Scope
+- Separate `User` rows or full account records for agents.
+- Per-agent custom avatars.
+- Agent identity changes for task assignment fields, activity metadata, or
+  reactions unless required to keep comments internally consistent.
+- Any change to project membership, RLS, or agent scope enforcement.
+- Deploy preview validation unless the implementation PR or review explicitly
+  asks for browser verification beyond normal CI.
 
 ## Acceptance Criteria
-1. A collaborator viewing an open project dashboard automatically sees task,
-   context-card, epic, and roadmap changes made by another collaborator without
-   manually refreshing the browser.
-2. Live refresh is authorized by project membership and does not expose project
-   activity state to non-members.
-3. Local in-progress edits are protected: remote changes are deferred behind a
-   visible refresh affordance while the user is editing, dragging, or submitting
-   a local mutation.
-4. The implementation preserves optimistic local updates for the actor who made
-   the change.
-5. Tests cover activity version touching, activity endpoint authorization, and
-   live-refresh client behavior for auto-refresh and deferred-refresh cases.
-6. Local validation passes: `npm run lint`, `npm test`, `npm run test:coverage`,
-   `npm run build`, and an E2E or preview smoke for two-session dashboard
-   freshness, or any environment blocker is recorded.
+1. When a project-scoped agent credential creates a task comment, the returned
+   comment and subsequent list/reload response show the credential label
+   followed by ` (agent)`.
+2. All agent-authored comments use the same shared robot-head-like avatar.
+3. Human-authored comments continue to render the existing human display name,
+   username metadata, and generated avatar unchanged.
+4. Agent comment identity survives page refresh, API reload, credential rename,
+   and credential deletion where a label snapshot exists.
+5. Legacy comments without agent metadata remain readable and fall back to the
+   existing human author presentation.
+6. Agent mention notification copy remains consistent with the credential-label
+   attribution already introduced by TASK-265.
+7. Automated tests cover service persistence/mapping, route response shape, and
+   UI rendering for both human and agent comments.
 
 ## Definition Of Done
-- Implementation is committed on `feature/task-118-realtime-collaboration`.
-- `tasks/current.md`, `tasks/backlog.md`, `journal.md`, and
-  `adr/decisions.md` are updated with the selected transport and validation
-  evidence.
-- A ready-for-review PR is opened for TASK-118 and automated feedback is
-  handled.
-- Preview validation is run for the branch if the deploy workflow is available;
-  otherwise the blocker and the local/CI substitute evidence are recorded.
+- A migration and Prisma schema update are committed for task comment
+  agent-author metadata.
+- `createTaskCommentForProject` persists agent credential id/label snapshot
+  when `agentAccess` is present.
+- `listTaskCommentsForProject` returns stable agent author presentation data
+  for old and new comments.
+- The task detail comment thread renders agent comments with
+  `<credential label> (agent)` and the shared robot-head-like avatar.
+- Human comment behavior remains unchanged in tests.
+- Validation baseline passes: `npm run lint`, `npm test`,
+  `npm run test:coverage`, and `npm run build`.
+- PR is opened from a task branch, Copilot review feedback is handled, and the
+  final handoff includes the delivered commit SHA.
+
+## Validation Evidence
+- `npx prisma generate` passed.
+- `npx prisma validate` passed.
+- `npx vitest run tests/api/task-comments.route.test.ts` passed.
+- `npx vitest run tests/components/task-detail-modal-comments.test.tsx` passed.
+- `npx vitest run tests/api/task-comments.route.test.ts tests/components/task-detail-modal-comments.test.tsx tests/components/agent-onboarding-guide.test.ts tests/app/agent-onboarding-pages.test.ts` passed.
+- `npm run lint` passed.
+- With local DB env (`DATABASE_URL=postgresql://nexus:nexus@localhost:5432/nexusdash`,
+  `DIRECT_URL=postgresql://nexus:nexus@localhost:5433/nexusdash`) `npm test`
+  passed: 113 files passed, 2 skipped; 847 tests passed, 2 skipped.
+- With the same DB env, `npm run test:coverage` passed: 91.43% statements,
+  81.54% branches, 93.42% functions, 91.95% lines.
+- With the same DB env plus placeholder production-only secrets,
+  `npm run build` passed.
+- `npm run test:e2e` rebuilt successfully, then failed before app interaction
+  because the local PostgreSQL ports required by the E2E Prisma helpers were not
+  reachable (`Test-NetConnection` failed for localhost ports 5432 and 5433);
+  `npx prisma migrate deploy` against the same local DB env also failed with a
+  schema engine connection error. Remote PR Quality Gates should provide the
+  Playwright smoke substitute unless a deploy-preview run is requested.
+- PR #308 remote Quality Gates passed on commit
+  `102fb63e1b57bbf75f60dede28862d65053b7150`: Quality Core, Playwright E2E
+  Smoke, and Container Image.
+
+## Implementation Plan
+1. Create a feature branch from current `origin/main` after the planning/docs
+   PR is merged or retarget this work onto a feature branch if instructed.
+2. Add the Prisma fields and migration for nullable agent credential metadata on
+   `TaskComment`.
+3. Update task comment service mapping to resolve an explicit comment-author
+   union and store label snapshots during agent comment creation.
+4. Update the comments route, API tests, and any OpenAPI/onboarding schema that
+   documents task comment author shape.
+5. Update client comment types and task detail rendering with a shared
+   robot-head-like agent avatar.
+6. Add or extend component tests for agent comment rendering and route/service
+   tests for persistence, reload, credential rename/delete fallback, and human
+   regression behavior.
+7. Run the full validation baseline and open the implementation PR.
+
+## Open Questions
+- None blocking.
+
+## Assumptions
+- The displayed agent label should be a historical snapshot from comment
+  creation time, not a live credential lookup that changes old comments when a
+  credential is renamed.
+- The robot-head-like avatar can be a local UI component or generated SVG/data
+  URI committed in code, with the same visual for every agent.
+- It is acceptable for the comment's underlying `authorUserId` to remain the
+  credential owner's user id for authorization, audit continuity, and RLS.

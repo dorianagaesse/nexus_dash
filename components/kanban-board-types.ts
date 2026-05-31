@@ -7,6 +7,8 @@ export interface TaskPersonSummary {
   avatarSeed: string;
 }
 
+export type TaskCommentAuthorKind = "user" | "agent";
+
 export type ProjectTaskCollaboratorRole = "owner" | "editor" | "viewer";
 
 export interface TaskBlockedFollowUp {
@@ -33,7 +35,12 @@ export interface ProjectEpicOption extends TaskEpicSummary {
   taskCount: number;
 }
 
-export type TaskCommentAuthor = TaskPersonSummary;
+export interface TaskCommentAuthor extends TaskPersonSummary {
+  kind?: TaskCommentAuthorKind;
+  agentCredentialId?: string | null;
+  agentCredentialLabel?: string | null;
+  owner?: TaskPersonSummary | null;
+}
 
 export interface TaskCommentReaction {
   emoji: string;
