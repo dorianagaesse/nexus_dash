@@ -1,7 +1,7 @@
 # TASK-307 Agent Comment Credential Identity
 
 ## Status
-Implemented locally - PR/checks pending
+Implemented - PR #308 open, remote Quality Gates passed
 
 ## Source
 - User request on 2026-05-31 after PR #307 merge.

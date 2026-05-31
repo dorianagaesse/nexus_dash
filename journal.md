@@ -31,6 +31,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   interaction because localhost PostgreSQL ports 5432/5433 were not reachable;
   `npx prisma migrate deploy` against the same env failed with a schema engine
   connection error.
+- PR #308 remote Quality Gates passed on
+  `102fb63e1b57bbf75f60dede28862d65053b7150`: Quality Core, Playwright E2E
+  Smoke, and Container Image.
 
 # 2026-05-31 - TASK-306 task comment mention cursor spacing
 
