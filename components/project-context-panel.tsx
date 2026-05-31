@@ -46,6 +46,7 @@ import {
   uploadFileAttachmentDirect,
   uploadFilesDirectInBackground,
 } from "@/lib/direct-upload-client";
+import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -408,10 +409,14 @@ export function ProjectContextPanel({
 
     void (async () => {
       try {
-        const response = await fetch(`/api/projects/${projectId}/context-cards`, {
-          method: "POST",
-          body: formData,
-        });
+        const response = await fetchProjectActivityMutation(
+          projectId,
+          `/api/projects/${projectId}/context-cards`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
 
         const payload = (await response.json().catch(() => null)) as
           | {
@@ -576,7 +581,8 @@ export function ProjectContextPanel({
 
     void (async () => {
       try {
-        const response = await fetch(
+        const response = await fetchProjectActivityMutation(
+          projectId,
           `/api/projects/${projectId}/context-cards/${editingCardIdSnapshot}`,
           {
             method: "PATCH",
@@ -664,9 +670,13 @@ export function ProjectContextPanel({
       return next;
     });
     try {
-      const response = await fetch(`/api/projects/${projectId}/context-cards/${cardId}`, {
-        method: "DELETE",
-      });
+      const response = await fetchProjectActivityMutation(
+        projectId,
+        `/api/projects/${projectId}/context-cards/${cardId}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       const payload = (await response.json().catch(() => null)) as
         | { error?: string }
@@ -741,7 +751,8 @@ export function ProjectContextPanel({
       formData.append("name", "");
       formData.append("url", editLinkUrl.trim());
 
-      const response = await fetch(
+      const response = await fetchProjectActivityMutation(
+        projectId,
         `/api/projects/${projectId}/context-cards/${editingCard.id}/attachments`,
         {
           method: "POST",
@@ -809,7 +820,8 @@ export function ProjectContextPanel({
         formData.append("name", "");
         formData.append("file", selectedFile);
 
-        const response = await fetch(
+        const response = await fetchProjectActivityMutation(
+          projectId,
           `/api/projects/${projectId}/context-cards/${editingCard.id}/attachments`,
           {
             method: "POST",
@@ -859,7 +871,8 @@ export function ProjectContextPanel({
     setAttachmentError(null);
 
     try {
-      const response = await fetch(
+      const response = await fetchProjectActivityMutation(
+        projectId,
         `/api/projects/${projectId}/context-cards/${editingCard.id}/attachments/${attachmentId}`,
         {
           method: "DELETE",

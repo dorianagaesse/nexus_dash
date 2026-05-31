@@ -16,6 +16,26 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-06-01 - Use client-side activity acknowledgements for live project refresh
+- Status: Accepted
+- Context: TASK-276 made dashboard mutations local-first, but the existing
+  project activity poller still only knew that `Project.updatedAt` changed. That
+  meant the active tab could show the bottom-right refresh prompt for a mutation
+  it had just saved itself.
+- Decision: Keep the lightweight `/api/projects/:projectId/activity` polling
+  contract and add a client acknowledgement event backed by an app-owned
+  `x-nexusdash-project-version` mutation response header. The live refresh
+  controller advances its known version for local writes, auto-refreshes remote
+  changes when no edit lock is active, and keeps the manual prompt only as an
+  interruption-safety fallback while forms, dialogs, or contenteditable surfaces
+  are active.
+- Consequences: The current polling transport remains simple and compatible
+  with agents. Future realtime transports can emit the same version snapshots
+  and reuse the acknowledgement semantics without redesigning dashboard
+  mutation flows.
+- Links: `components/project-live-refresh.tsx`,
+  `lib/project-activity-client.ts`, `lib/project-activity-version.ts`
+
 ## 2026-05-30 - Use project activity polling for near-term live collaboration refresh
 - Status: Accepted
 - Context: TASK-118 needs shared project dashboards to pick up task, context,

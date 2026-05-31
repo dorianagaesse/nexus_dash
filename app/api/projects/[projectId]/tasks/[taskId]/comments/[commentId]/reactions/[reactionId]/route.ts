@@ -4,6 +4,7 @@ import {
   getAgentProjectAccessContext,
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { removeTaskCommentReaction } from "@/lib/services/project-task-comment-service";
 
 export async function DELETE(
@@ -31,5 +32,8 @@ export async function DELETE(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({ reactions: result.data.reactions });
+  return NextResponse.json(
+    { reactions: result.data.reactions },
+    { headers: withProjectActivityVersionHeader() }
+  );
 }

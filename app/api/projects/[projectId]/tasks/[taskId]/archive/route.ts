@@ -4,6 +4,7 @@ import {
   getAgentProjectAccessContext,
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   archiveTaskForProject,
   unarchiveTaskForProject,
@@ -35,10 +36,15 @@ export async function POST(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({
-    ok: true,
-    archivedAt: result.data.archivedAt.toISOString(),
-  });
+  return NextResponse.json(
+    {
+      ok: true,
+      archivedAt: result.data.archivedAt.toISOString(),
+    },
+    {
+      headers: withProjectActivityVersionHeader(),
+    }
+  );
 }
 
 export async function DELETE(
@@ -67,5 +73,10 @@ export async function DELETE(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(
+    { ok: true },
+    {
+      headers: withProjectActivityVersionHeader(),
+    }
+  );
 }

@@ -15,6 +15,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { ProjectLiveRefresh } from "@/components/project-live-refresh";
+import {
+  acknowledgeProjectActivity,
+  beginProjectActivityMutation,
+} from "@/lib/project-activity-client";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -118,6 +122,113 @@ describe("ProjectLiveRefresh", () => {
     });
 
     expect(routerRefreshMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("acknowledges local activity so the user's own mutation does not prompt", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+      })
+    );
+
+    await act(async () => {
+      acknowledgeProjectActivity("project-1", "2026-05-30T10:02:00.000Z");
+    });
+
+    mockActivityVersion("2026-05-30T10:02:00.000Z");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    expect(routerRefreshMock).not.toHaveBeenCalled();
+    expect(container.textContent).not.toContain("Project updates are ready.");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("does not refresh mid-flight while a local mutation is awaiting acknowledgement", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+      })
+    );
+
+    let finishMutation: (() => void) | null = null;
+    await act(async () => {
+      finishMutation = beginProjectActivityMutation("project-1");
+    });
+
+    mockActivityVersion("2026-05-30T10:02:00.000Z");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    expect(routerRefreshMock).not.toHaveBeenCalled();
+    expect(container.textContent).not.toContain("Project updates are ready.");
+
+    await act(async () => {
+      acknowledgeProjectActivity("project-1", "2026-05-30T10:02:00.000Z");
+      finishMutation?.();
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(routerRefreshMock).not.toHaveBeenCalled();
+    expect(container.textContent).not.toContain("Project updates are ready.");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("automatically applies a pending remote update when the edit lock clears", async () => {
+    const { container, root } = createTestRenderer();
+    const lock = document.createElement("div");
+    lock.setAttribute("data-project-live-refresh-lock", "true");
+    document.body.appendChild(lock);
+    mockActivityVersion("2026-05-30T10:03:00.000Z");
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    expect(routerRefreshMock).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("Project updates are ready.");
+
+    lock.remove();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(routerRefreshMock).toHaveBeenCalledTimes(1);
+    expect(container.textContent).not.toContain("Project updates are ready.");
 
     await act(async () => {
       root.unmount();

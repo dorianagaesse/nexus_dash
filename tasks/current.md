@@ -1,77 +1,70 @@
-# Current Task: TASK-276 App Performance Remediation
+# Current Task: TASK-308 Smart Live Project Refresh
 
 ## Task ID
-TASK-276
+TASK-308
 
 ## Status
-In progress on `feature/task-276-performance-remediation`.
+In progress on `feature/task-308-smart-live-refresh`.
 
 ## Source
-- User request on 2026-05-31:
-  common app actions currently take several seconds and need a durable,
-  production-ready implementation fix.
-- Investigation report: `docs/reports/task-275-performance-investigation.md`
-- Task brief: `tasks/task-276-app-performance-remediation.md`
+- User request on 2026-05-31 after TASK-276 / PR #314:
+  the bottom-right project refresh affordance should not become routine friction
+  for collaboration; remote updates should arrive automatically when safe, and
+  local/self-originated changes should not ask the user to refresh their own
+  work.
+- Backlog entry: `tasks/backlog.md` / TASK-308.
 
 ## Objective
-Implement the first evidence-backed performance remediation set from TASK-275 so
-high-frequency project, task, comment, context-card, and board movement actions
-give immediate local feedback, avoid avoidable full route refreshes, and expose
-timing evidence for deployed API hotspots.
+Improve the TASK-118 live project refresh layer so project dashboard
+collaboration feels automatic and interruption-aware: local mutations are
+acknowledged by the active tab, remote collaborator or agent updates refresh the
+dashboard when the user is idle, and the manual refresh prompt appears only as a
+safety affordance while editing or modal state could be disrupted.
 
 ## Scope
-- Return complete mutation payloads where the UI needs them, especially board-
-  ready task creation data.
-- Replace success-path `router.refresh()` calls in targeted task/context flows
-  with local state updates and bounded reconciliation.
-- Keep persistence failure handling explicit through rollback, error toasts, or
-  affected-item reconciliation.
-- Reduce kanban reorder persistence work by skipping unchanged rows server-side.
-- Add lightweight production-safe timing evidence for targeted mutation routes.
-- Validate locally and against a branch-ref preview with before/after timing
-  evidence.
+- Keep the existing lightweight activity endpoint and polling fallback.
+- Add a small client-side project activity acknowledgement contract for
+  successful local mutations.
+- Make the live refresh controller auto-apply deferred remote updates as soon as
+  the refresh lock clears, without requiring a focus change or manual click.
+- Wire acknowledgement into high-frequency project dashboard mutations covered
+  by TASK-276: task create/update/reorder/delete/archive, comment create,
+  context-card create/update/delete, and comparable local-first flows.
+- Preserve editing safety: dialogs, focused inputs, contenteditable surfaces, and
+  explicit project live-refresh locks still defer route refresh.
+- Add focused tests for local acknowledgement, automatic refresh, and deferred
+  refresh behavior.
 
 ## Acceptance Criteria
-1. Task create, task update/save, quick task assignment/epic changes, comments,
-   kanban drag/drop, and context-card create/update/delete no longer depend on a
-   visible full-dashboard refresh for their normal success feedback.
-2. Task creation returns enough API data for the board to render the new card
-   without waiting for a route refresh.
-3. Failed optimistic or local-first mutations roll back or surface a targeted
-   error without blanking unrelated dashboard sections.
-4. Reorder persistence skips unchanged task rows while preserving status,
-   position, completion, authorization, activity, and realtime semantics.
-5. Production-safe timing hooks make targeted API route latency measurable on
-   preview.
-6. Focused automated tests cover changed API/service/client behavior.
-7. Preview validation records timing evidence for the targeted flows.
+1. A successful local project mutation advances/acknowledges the live-refresh
+   version for the active tab so the bottom-right refresh prompt is not shown
+   for the user's own saved action.
+2. A remote activity version newer than the known local version triggers
+   `router.refresh()` automatically when no refresh lock is active.
+3. If a remote update arrives while a form, modal, contenteditable, or explicit
+   live-refresh lock is active, the prompt is shown as a safety affordance.
+4. Once that lock clears, the pending remote update is applied automatically
+   without requiring the user to switch tabs, focus the window, or click Refresh.
+5. The live-refresh contract remains compatible with project-scoped agent
+   polling via `/api/projects/:projectId/activity`.
+6. Focused automated tests cover the new acknowledgement and lock-release
+   behavior.
 
 ## Definition Of Done
 - [x] Implementation is committed on the dedicated feature branch.
-- [x] Focused tests cover mutation payload/local update/reorder behavior.
+- [x] Focused tests cover the live-refresh controller and client
+      acknowledgement behavior.
 - [x] `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`
       pass.
-- [x] A branch-ref preview deployment is created and validated with Playwright or
-      direct API/browser timing evidence.
+- [x] UI-impacting behavior is smoke-tested with Playwright locally or against a
+      branch preview.
 - [x] `tasks/backlog.md`, `tasks/current.md`, and `journal.md` are updated.
 - [ ] A ready-for-review PR is opened, automated checks pass, and Copilot review
       feedback is handled.
 
 ## Notes
-- TASK-275 proved local service calls are fast but deployed API calls and browser
-  route refreshes stack into several-second perceived waits.
-- This remediation batch improves perceived responsiveness first by removing
-  avoidable success-path route refreshes from targeted task/comment/context-card
-  dashboard flows, adding board-ready mutation payloads, and recording
-  `Server-Timing` on targeted API routes.
-- Residual deployed API sub-causes should be evaluated with the new timing
-  headers and preview evidence instead of guesswork.
-- Preview deployment run `26718308463` checked out
-  `feature/task-276-performance-remediation` at commit `5bee1f0` and produced
-  `https://nexus-dash-7amtvjh4y-dorian-agaesses-projects.vercel.app`.
-- Preview validation used project-scoped agent credentials because the local
-  Playwright session seeding env did not match the deployed runtime database;
-  the browser smoke redirected to sign-in and was not counted as a pass.
-- Preview API smoke passed task/context create, update, comment/list, and cleanup
-  flows. Timing evidence is exposed through `x-nexusdash-server-timing`; Vercel
-  did not expose the standard `Server-Timing` header on the tested deployment.
+- TASK-276 removed many success-path route refreshes and made local mutation
+  feedback immediate. TASK-308 builds on that by keeping the cross-tab/project
+  activity watcher from treating those local writes as unknown remote changes.
+- The current transport is intentionally still polling-based. A future realtime
+  transport can reuse the same acknowledgement semantics.

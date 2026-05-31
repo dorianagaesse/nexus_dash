@@ -5,6 +5,7 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   addTaskCommentReaction,
   listTaskCommentReactionsForComment,
@@ -39,7 +40,10 @@ export async function GET(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({ reactions: result.data.reactions });
+  return NextResponse.json(
+    { reactions: result.data.reactions },
+    { headers: withProjectActivityVersionHeader() }
+  );
 }
 
 export async function POST(

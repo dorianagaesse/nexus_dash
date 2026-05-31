@@ -74,6 +74,7 @@ import {
   renderContentWithMentions,
   MENTION_TEXTAREA_MIRROR_HIGHLIGHT_CLASS,
 } from "@/lib/content-with-mentions";
+import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
 import {
   parseMentions,
   removeMentionBeforeCursor,
@@ -290,7 +291,8 @@ export function TaskDetailModal({
   const toggleReaction = useCallback(
     async (commentId: string, emoji: string) => {
       try {
-        const response = await fetch(
+        const response = await fetchProjectActivityMutation(
+          projectId,
           `/api/projects/${projectId}/tasks/${selectedTaskId}/comments/${commentId}/reactions`,
           { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ emoji }) }
         );

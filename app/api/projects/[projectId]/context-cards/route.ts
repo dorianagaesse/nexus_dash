@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { createContextCardForProject } from "@/lib/services/context-card-service";
 import { mapContextAttachmentResponse } from "@/lib/services/project-attachment-service";
 import { listProjectContextResources } from "@/lib/services/project-service";
@@ -180,6 +181,6 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
 
   return NextResponse.json(
     { cardId: result.data.id, card: result.data.card },
-    { status: 201, headers: timing.headers() }
+    { status: 201, headers: withProjectActivityVersionHeader(timing.headers()) }
   );
 }

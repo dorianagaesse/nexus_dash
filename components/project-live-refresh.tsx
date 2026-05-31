@@ -5,8 +5,15 @@ import { RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import {
+  PROJECT_ACTIVITY_ACK_EVENT,
+  PROJECT_ACTIVITY_MUTATION_EVENT,
+  type ProjectActivityAcknowledgementDetail,
+  type ProjectActivityMutationDetail,
+} from "@/lib/project-activity-client";
 
 const DEFAULT_POLL_INTERVAL_MS = 5000;
+const PENDING_REFRESH_CHECK_INTERVAL_MS = 500;
 
 interface ProjectLiveRefreshProps {
   projectId: string;
@@ -23,6 +30,10 @@ interface ProjectActivityResponse {
 function parseVersion(value: string): number {
   const timestamp = Date.parse(value);
   return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function isNewerVersion(nextVersion: string, currentVersion: string): boolean {
+  return parseVersion(nextVersion) > parseVersion(currentVersion);
 }
 
 function hasRefreshLock(): boolean {
@@ -62,11 +73,15 @@ export function ProjectLiveRefresh({
   const [isRefreshing, startRefreshTransition] = useTransition();
   const knownVersionRef = useRef(initialVersion);
   const pendingVersionRef = useRef<string | null>(null);
+  const locallyDeferredVersionRef = useRef<string | null>(null);
+  const localMutationCountRef = useRef(0);
   const isRefreshingRef = useRef(false);
 
   useEffect(() => {
     knownVersionRef.current = initialVersion;
     pendingVersionRef.current = null;
+    locallyDeferredVersionRef.current = null;
+    localMutationCountRef.current = 0;
     setPendingVersion(null);
   }, [initialVersion]);
 
@@ -85,6 +100,108 @@ export function ProjectLiveRefresh({
     },
     [router]
   );
+
+  const acknowledgeVersion = useCallback((nextVersion: string) => {
+    if (!isNewerVersion(nextVersion, knownVersionRef.current)) {
+      return;
+    }
+
+    knownVersionRef.current = nextVersion;
+
+    const pending = pendingVersionRef.current;
+    if (pending && parseVersion(pending) <= parseVersion(nextVersion)) {
+      pendingVersionRef.current = null;
+      setPendingVersion(null);
+    }
+
+    const locallyDeferred = locallyDeferredVersionRef.current;
+    if (
+      locallyDeferred &&
+      parseVersion(locallyDeferred) <= parseVersion(nextVersion)
+    ) {
+      locallyDeferredVersionRef.current = null;
+    }
+  }, []);
+
+  const applyLocallyDeferredVersion = useCallback(() => {
+    const deferred = locallyDeferredVersionRef.current;
+    if (!deferred || !isNewerVersion(deferred, knownVersionRef.current)) {
+      locallyDeferredVersionRef.current = null;
+      return;
+    }
+
+    locallyDeferredVersionRef.current = null;
+
+    if (hasRefreshLock() || isRefreshingRef.current || document.hidden) {
+      pendingVersionRef.current = deferred;
+      setPendingVersion(deferred);
+      return;
+    }
+
+    refreshDashboard(deferred);
+  }, [refreshDashboard]);
+
+  useEffect(() => {
+    function handleProjectActivityAcknowledgement(event: Event) {
+      const detail = (event as CustomEvent<ProjectActivityAcknowledgementDetail>)
+        .detail;
+      if (detail?.projectId !== projectId || typeof detail.version !== "string") {
+        return;
+      }
+
+      acknowledgeVersion(detail.version);
+    }
+
+    window.addEventListener(
+      PROJECT_ACTIVITY_ACK_EVENT,
+      handleProjectActivityAcknowledgement
+    );
+
+    return () => {
+      window.removeEventListener(
+        PROJECT_ACTIVITY_ACK_EVENT,
+        handleProjectActivityAcknowledgement
+      );
+    };
+  }, [acknowledgeVersion, projectId]);
+
+  useEffect(() => {
+    function handleProjectActivityMutation(event: Event) {
+      const detail = (event as CustomEvent<ProjectActivityMutationDetail>).detail;
+      if (
+        detail?.projectId !== projectId ||
+        (detail.phase !== "start" && detail.phase !== "finish")
+      ) {
+        return;
+      }
+
+      if (detail.phase === "start") {
+        localMutationCountRef.current += 1;
+        return;
+      }
+
+      localMutationCountRef.current = Math.max(
+        0,
+        localMutationCountRef.current - 1
+      );
+
+      if (localMutationCountRef.current === 0) {
+        applyLocallyDeferredVersion();
+      }
+    }
+
+    window.addEventListener(
+      PROJECT_ACTIVITY_MUTATION_EVENT,
+      handleProjectActivityMutation
+    );
+
+    return () => {
+      window.removeEventListener(
+        PROJECT_ACTIVITY_MUTATION_EVENT,
+        handleProjectActivityMutation
+      );
+    };
+  }, [applyLocallyDeferredVersion, projectId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,9 +230,18 @@ export function ProjectLiveRefresh({
           return;
         }
 
-        const nextVersionMs = parseVersion(payload.version);
-        const knownVersionMs = parseVersion(knownVersionRef.current);
-        if (nextVersionMs <= knownVersionMs) {
+        if (!isNewerVersion(payload.version, knownVersionRef.current)) {
+          return;
+        }
+
+        if (localMutationCountRef.current > 0) {
+          const locallyDeferredVersion = locallyDeferredVersionRef.current;
+          if (
+            !locallyDeferredVersion ||
+            isNewerVersion(payload.version, locallyDeferredVersion)
+          ) {
+            locallyDeferredVersionRef.current = payload.version;
+          }
           return;
         }
 
@@ -169,6 +295,25 @@ export function ProjectLiveRefresh({
     };
   }, [refreshDashboard]);
 
+  useEffect(() => {
+    if (!pendingVersion) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      const pending = pendingVersionRef.current;
+      if (!pending || document.hidden || hasRefreshLock() || isRefreshingRef.current) {
+        return;
+      }
+
+      refreshDashboard(pending);
+    }, PENDING_REFRESH_CHECK_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [pendingVersion, refreshDashboard]);
+
   if (!pendingVersion) {
     return null;
   }
@@ -194,5 +339,6 @@ export function ProjectLiveRefresh({
 
 export const projectLiveRefreshInternals = {
   hasRefreshLock,
+  isNewerVersion,
   parseVersion,
 };

@@ -60,7 +60,14 @@ test.describe("critical UI smoke flows", () => {
     await page.getByRole("button", { name: "Open attachment link input" }).click();
     await page.locator("input[placeholder='https://...']").fill("https://example.com");
     await page.locator("input[placeholder='https://...']").press("Enter");
+    const createTaskRequest = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        /\/tasks$/.test(response.url()) &&
+        response.ok()
+    );
     await page.getByRole("button", { name: "Create task" }).click();
+    await createTaskRequest;
 
     const createdTaskCard = page
       .getByRole("button", { name: new RegExp(createdTaskTitle) })
@@ -84,7 +91,11 @@ test.describe("critical UI smoke flows", () => {
         /\/tasks\/[^/]+$/.test(response.url()) &&
         response.ok()
     );
-    await epicOptionButtons.nth(1).click();
+    const epicOption = epicOptionsGroup.getByRole("button", {
+      name: new RegExp(epicName),
+    });
+    await expect(epicOption).toBeEnabled();
+    await epicOption.click();
     await quickEpicUpdateRequest;
     await expect(page.getByText(`Epic updated to ${epicName}.`)).toBeVisible();
 
@@ -195,7 +206,7 @@ test.describe("critical UI smoke flows", () => {
       .last();
     await expect(submittedComment).toBeVisible();
     await expect(submittedComment.getByText(`@${mentionUsername}`)).toBeVisible();
-    await expect(page.getByText("1 comment")).toBeVisible();
+    await expect(page.getByText("1 comment", { exact: true })).toBeVisible();
     await expect
       .poll(async () =>
         prisma.notification.count({

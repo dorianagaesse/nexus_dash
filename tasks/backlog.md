@@ -6,34 +6,38 @@ Last reviewed: 2026-05-31
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-276
-  Title: App performance remediation - production-grade action latency fixes
-  Status: PR open (#314) on `feature/task-276-performance-remediation`
-  Rationale: Implement durable, production-ready fixes for the root causes identified by TASK-275 so common app actions feel responsive by industry-standard SaaS expectations. The implementation should prioritize user-perceived speed, low-latency mutations, bounded refresh work, efficient data loading, and safe observability that keeps performance regressions detectable.
-  Dependencies: TASK-275, TASK-043, TASK-073, TASK-074, TASK-118, TASK-266
-  Brief: `tasks/task-276-app-performance-remediation.md`
+- ID: TASK-224
+  Title: Agent roadmap access - scoped API contract for roadmap phases and events
+  Status: Promoted 2026-05-31
+  Rationale: Make the project roadmap manageable by project-scoped agent tokens so agents can inspect, create, update, move, reorder, and delete roadmap phases/events when they are responsible for project planning. This should be a deliberate agent API contract expansion with dedicated roadmap scopes, OpenAPI/onboarding documentation, credential UI updates, route guard coverage, and smoke tests rather than implicitly folding roadmap permissions into existing project or task scopes.
+  Dependencies: TASK-127, TASK-130, TASK-059
+- ID: TASK-263
+  Title: Real-time notification updates - live in-app inbox, counts, and awareness
+  Status: Promoted 2026-05-31
+  Rationale: Make notification-center rows, unread counts, and the in-app awareness banner update without requiring navigation or manual refresh when assignments, mentions, invitations, or future notification producers create new atomic `Notification` rows. Keep email digest batching fully separate: in-app remains one notification per action/artifact, while email remains the grouped/debounced channel. This task should reuse or align with the broader TASK-118 realtime transport decision rather than introduce a parallel realtime stack.
+  Dependencies: TASK-118, TASK-123, TASK-260
+- ID: TASK-308
+  Title: Smart live project refresh - automatic collaboration updates without editing interruptions
+  Status: In progress on `feature/task-308-smart-live-refresh`
+  Rationale: Improve the TASK-118 live project refresh affordance so remote collaborator and agent updates apply automatically when safe, while local/self-originated mutations are acknowledged without showing the bottom-right "Project updates are ready" prompt. The current manual prompt is a useful safety net while a user is editing, but after TASK-276's optimistic/local mutation work it can appear for the user's own changes and feel like avoidable friction. The follow-up should distinguish local vs remote activity where possible, auto-refresh idle views, defer only when a form/dialog/contenteditable lock is active, and use targeted reconciliation instead of broad route refresh when practical.
+  Dependencies: TASK-118, TASK-276, TASK-263
+### Deferred (Intentional)
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
-  Status: Queued UI follow-up (promoted 2026-05-04; PR #224 partial fix merged)
+  Status: Deferred UI follow-up (moved from execution queue 2026-05-31; PR #224 partial fix merged)
   Rationale: Fix task UI regressions around the compact scrollbar affordance and task edit modal behavior so dense task surfaces stay usable, visually clean, and predictable during everyday task creation and editing workflows.
   Dependencies: TASK-076, TASK-113
 - ID: TASK-270
   Title: App UI/UX design assessment - product-wide heuristic audit and refinement roadmap
-  Status: Promoted 2026-05-26
+  Status: Deferred 2026-05-31
   Rationale: Before another broad polish pass, assess the current app experience across core user journeys, responsive layouts, visual hierarchy, copy, interaction feedback, accessibility basics, and consistency with the intended product tone. The output should be a ranked, evidence-backed design assessment that decides which issues belong in existing UI tasks such as TASK-108/TASK-100/TASK-129 and which need new implementation tasks, instead of mixing assessment and redesign in one large patch.
   Dependencies: TASK-091, TASK-096, TASK-100, TASK-108, TASK-129
   Brief: `tasks/task-270-app-ui-ux-design-assessment.md`
 - ID: TASK-129
   Title: Login/home page UI polish - user-friendly, product-oriented entry experience
-  Status: Promoted 2026-05-26
+  Status: Deferred 2026-05-31
   Rationale: Redesign the login and home page so they feel like a polished product surface rather than a technical auth form: improve visual hierarchy, copy, branding presence, and call-to-action clarity so new visitors understand the product value at a glance and returning users get a frictionless sign-in experience.
   Dependencies: TASK-045, TASK-059, TASK-083
-### Deferred (Intentional)
-- ID: TASK-224
-  Title: Agent roadmap access - scoped API contract for roadmap phases and events
-  Status: Pending
-  Rationale: Make the project roadmap manageable by project-scoped agent tokens so agents can inspect, create, update, move, reorder, and delete roadmap phases/events when they are responsible for project planning. This should be a deliberate agent API contract expansion with dedicated roadmap scopes, OpenAPI/onboarding documentation, credential UI updates, route guard coverage, and smoke tests rather than implicitly folding roadmap permissions into existing project or task scopes.
-  Dependencies: TASK-127, TASK-130, TASK-059
 - ID: TASK-098
   Title: Meeting notes manager - structured project meeting log with participants, topics, decisions, and follow-ups
   Status: Pending
@@ -49,11 +53,6 @@ Last reviewed: 2026-05-31
   Status: Pending
   Rationale: Add a lighter-weight todo list surface for quick checklist-style capture that does not require the full structure of Kanban tasks, giving teams a place for small actionable items, personal punch lists, or short operational checklists that may later connect to richer task flows.
   Dependencies: TASK-076, TASK-079
-- ID: TASK-263
-  Title: Real-time notification updates - live in-app inbox, counts, and awareness
-  Status: Pending
-  Rationale: Make notification-center rows, unread counts, and the in-app awareness banner update without requiring navigation or manual refresh when assignments, mentions, invitations, or future notification producers create new atomic `Notification` rows. Keep email digest batching fully separate: in-app remains one notification per action/artifact, while email remains the grouped/debounced channel. This task should reuse or align with the broader TASK-118 realtime transport decision rather than introduce a parallel realtime stack.
-  Dependencies: TASK-118, TASK-123, TASK-260
 - ID: TASK-119
   Title: Project collaboration presence UX - member avatars on project pages
   Status: Pending
@@ -123,6 +122,12 @@ Last reviewed: 2026-05-31
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-276
+  Title: App performance remediation - production-grade action latency fixes
+  Status: Done (2026-05-31, merged via PR #314)
+  Rationale: Implemented the first evidence-backed performance remediation batch from TASK-275: board-ready task mutation payloads, optimistic/local reconciliation for targeted task/comment/context-card flows, reduced reorder write amplification, deployed timing headers, preview API smoke validation, and green Quality Gates before merge.
+  Dependencies: TASK-275, TASK-043, TASK-073, TASK-074, TASK-118, TASK-266
+  Brief: `tasks/task-276-app-performance-remediation.md`
 - ID: TASK-275
   Title: App performance investigation - action latency root-cause analysis
   Status: Done (2026-05-31, merged via PR #311)

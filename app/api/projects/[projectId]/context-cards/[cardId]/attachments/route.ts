@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { createContextAttachmentFromForm } from "@/lib/services/project-attachment-service";
 
 export async function POST(
@@ -44,5 +45,8 @@ export async function POST(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({ attachment: result.data });
+  return NextResponse.json(
+    { attachment: result.data },
+    { headers: withProjectActivityVersionHeader() }
+  );
 }

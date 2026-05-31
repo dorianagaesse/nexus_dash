@@ -5,6 +5,7 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   isValidReorderPayload,
   reorderProjectTasks,
@@ -56,5 +57,8 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     );
   }
 
-  return NextResponse.json({ ok: true }, { headers: timing.headers() });
+  return NextResponse.json(
+    { ok: true },
+    { headers: withProjectActivityVersionHeader(timing.headers()) }
+  );
 }
