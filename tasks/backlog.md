@@ -17,23 +17,12 @@ Last reviewed: 2026-05-31
   Rationale: Before another broad polish pass, assess the current app experience across core user journeys, responsive layouts, visual hierarchy, copy, interaction feedback, accessibility basics, and consistency with the intended product tone. The output should be a ranked, evidence-backed design assessment that decides which issues belong in existing UI tasks such as TASK-108/TASK-100/TASK-129 and which need new implementation tasks, instead of mixing assessment and redesign in one large patch.
   Dependencies: TASK-091, TASK-096, TASK-100, TASK-108, TASK-129
   Brief: `tasks/task-270-app-ui-ux-design-assessment.md`
-- ID: TASK-118
-  Title: Real-time collaboration updates - live project refresh for multi-user work
-  Status: Implemented locally - PR/preview validation pending
-  Rationale: Reduce stale state and manual-refresh friction during shared project work by propagating task, context-card, and related project mutations live across active collaborators, with explicit decisions around subscriptions, optimistic UI, and conflict handling. This should choose the app-wide realtime transport/pattern that notification-specific live updates can reuse.
-  Dependencies: TASK-058, TASK-076, TASK-103
 - ID: TASK-129
   Title: Login/home page UI polish - user-friendly, product-oriented entry experience
   Status: Promoted 2026-05-26
   Rationale: Redesign the login and home page so they feel like a polished product surface rather than a technical auth form: improve visual hierarchy, copy, branding presence, and call-to-action clarity so new visitors understand the product value at a glance and returning users get a frictionless sign-in experience.
   Dependencies: TASK-045, TASK-059, TASK-083
 ### Deferred (Intentional)
-- ID: TASK-307
-  Title: Agent comment credential identity - label and shared avatar
-  Status: Implemented - PR #308 open, remote Quality Gates passed
-  Rationale: Agent-authored comments currently render with the credential owner's identity because task comment rows store the owner user id. Make agent comments visibly attributable to the project agent credential by showing `<credential label> (agent)` and a shared robot-head-like avatar for all agents.
-  Dependencies: TASK-059, TASK-127, TASK-265, TASK-306
-  Brief: `tasks/task-307-agent-comment-credential-identity.md`
 - ID: TASK-224
   Title: Agent roadmap access - scoped API contract for roadmap phases and events
   Status: Pending
@@ -134,15 +123,26 @@ Last reviewed: 2026-05-31
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-307
+  Title: Agent comment credential identity - label and shared avatar
+  Status: Done (2026-05-31, merged via PR #309)
+  Rationale: Agent-authored task comments now persist project agent credential metadata and render with `<credential label> (agent)` plus a shared robot-head-like avatar, while preserving the credential owner as the authorization principal. Post-merge preview smoke created three agent-authored comments, assigned two tasks to the validation user, mentioned that user in comments, and verified the deployed API reloads the agent author identity.
+  Dependencies: TASK-059, TASK-127, TASK-265, TASK-306
+  Brief: `tasks/task-307-agent-comment-credential-identity.md`
 - ID: TASK-306
   Title: Task comment mention cursor spacing after mention autocomplete
-  Status: Done (pending merge via PR #307)
+  Status: Done (2026-05-31, merged via PR #307)
   Rationale: Fixed the task comment composer mirror/caret mismatch after
     mention autocomplete by using metric-neutral mirror styling, stabilizing
     selection after mention insertion, and adding regression coverage for
     typing immediately after a selected mention plus mention notification
     creation.
   Dependencies: TASK-076, TASK-123
+- ID: TASK-118
+  Title: Real-time collaboration updates - live project refresh for multi-user work
+  Status: Done (2026-05-31, merged via PR #305)
+  Rationale: Added live project refresh for multi-user work so task, context-card, roadmap, and related dashboard mutations can be observed across active collaborators without manual page refreshes. Remote Quality Gates and branch preview deployment passed before merge.
+  Dependencies: TASK-058, TASK-076, TASK-103
 - ID: TASK-274
   Title: Next.js dependency security update - restore green production audit
   Status: Done (2026-05-30, merged via PR #304)
