@@ -12,17 +12,23 @@ user sees the final state.
 
 Local service timing against Docker Postgres showed task/comment/context
 mutations in the 15-30 ms range, with full-board reorder at 113.9 ms for a
-41-task board. Local Playwright browser timing against `next start` showed the
-same split from the user's perspective: task create took 4.7 seconds from submit
-to card visible even though direct service creation took 22.1 ms. That strongly
-points to server-confirmed UI, oversized refresh boundaries, and route refresh
-churn rather than a single slow CRUD query.
+41-task board. Protected preview API timing through `vercel curl` showed the
+same backend flows taking roughly 1.0-2.4 seconds once deployed. Local
+Playwright browser timing against `next start` showed task create taking 4.7
+seconds from submit to card visible even though direct service creation took
+22.1 ms.
 
-Preview API timing could not be completed with the current
-`tmp/project-access-cred.env` credential because `/api/auth/agent/token`
-returned `401 {"error":"invalid-api-key"}`. This report therefore treats local
-service timings as backend separation evidence and code-path review as the
-primary UX evidence.
+The performance problem is therefore layered:
+
+- local service logic is not inherently multi-second;
+- deployed preview API calls are already seconds-level;
+- browser UX adds more delay by waiting on server confirmation and broad route
+  refreshes before the user sees state changes.
+
+Direct unauthenticated `curl`/`fetch` calls to the preview initially returned
+`401 Authentication Required` from Vercel deployment protection, before the app
+route was reached. The credential itself exchanged successfully when the same
+request was made through Vercel-authenticated access.
 
 ## Evidence
 
@@ -70,6 +76,39 @@ then depends on `router.refresh()` to fetch/render the card. This is direct
 measured evidence that perceived latency is dominated by refresh/render
 orchestration for at least one high-traffic flow.
 
+### Protected Preview API Probe
+
+Environment: branch/main preview protected by Vercel authentication. Direct
+HTTP calls returned Vercel's `Authentication Required` page, so the probe used
+`vercel curl` and curl `time_total` to measure the protected preview request
+after Vercel-authenticated access. The probe exchanged the new agent credential,
+then exercised project read, activity read, task list/create/comment/update,
+context list/create/update, and full-board reorder.
+
+Warm repeat sample:
+
+| Flow | Preview API timing | Status |
+| --- | ---: | ---: |
+| `agent.token.exchange` | 1021.0 ms | 200 |
+| `project.get` | 1535.1 ms | 200 |
+| `activity.get` | 1079.5 ms | 200 |
+| `tasks.list.before` | 1898.1 ms | 200 |
+| `task.create` | 2442.1 ms | 201 |
+| `task.comment.create` | 1533.7 ms | 201 |
+| `task.update.patch` | 2152.4 ms | 200 |
+| `context.list.before` | 1012.8 ms | 200 |
+| `context.create` | 1279.7 ms | 201 |
+| `context.update.patch` | 1223.8 ms | 200 |
+| `tasks.list.after` | 1776.0 ms | 200 |
+| `task.reorder.full_board` | 1551.3 ms | 200 |
+
+The first successful protected-preview run was similar: task create 2622.0 ms,
+task update 2409.5 ms, task list 2213.8 ms, and token exchange 1439.1 ms.
+
+This materially changes remediation priority: TASK-276 should not only make UI
+updates optimistic; it should also instrument and reduce deployed API latency,
+especially task create/update/list paths.
+
 ### Client Mutation Paths
 
 - Task drag/drop is locally optimistic: `components/kanban-board.tsx` updates
@@ -109,9 +148,13 @@ orchestration for at least one high-traffic flow.
    the background.
 3. Full-board reorder payload and persistence. Dragging one task sends the whole
    board shape and updates all supplied rows, which grows with board size.
-4. Dashboard reads are relatively wide. A refresh reloads summary counts,
+4. Deployed preview API calls are seconds-level even for small payloads. Task
+   create/update/list timings are much higher on preview than local service
+   timings, so network/runtime/database/RLS/serverless overhead needs direct
+   instrumentation.
+5. Dashboard reads are relatively wide. A refresh reloads summary counts,
    context, epics, kanban metadata, and other Suspense sections.
-5. Live refresh is route-refresh based. TASK-118 fixed stale multi-user state,
+6. Live refresh is route-refresh based. TASK-118 fixed stale multi-user state,
    but the current transport invalidates by full dashboard refresh rather than
    applying scoped patches.
 
@@ -119,17 +162,18 @@ orchestration for at least one high-traffic flow.
 
 | Rank | Recommendation | Class | Impact | Complexity | Risk | Production durability | Evidence |
 | ---: | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Make task creation insert a board-ready local card immediately, with pending/error reconciliation. Return a full task payload from `POST /tasks` instead of only `taskId`. | Quick win with durable API shape | Very high | Medium | Medium | High | Browser task create was 4696.2 ms while service create was 22.1 ms. |
-| 2 | Replace mutation-completion `router.refresh()` calls in task update, quick assignment/epic update, comments, and context-card mutations with local state updates plus debounced background reconciliation. | Architectural cleanup, can ship flow-by-flow | Very high | Medium-high | Medium | High | Code paths call `router.refresh()` after narrow mutations; comments/context are already able to render returned payloads locally. |
-| 3 | Add click-to-visible client performance marks and server timing for mutation endpoints and route refreshes. | Quick win | High | Low | Low | High | Current evidence required temporary probes; TASK-276 needs preview before/after numbers and regression visibility. |
-| 4 | Reduce kanban reorder payload/persistence to changed rows or the affected ordering window. | Architectural cleanup | Medium-high | Medium | Medium | High | Full-board reorder updated 41 rows locally and took 113.9 ms; cost grows linearly with board size and remote latency. |
-| 5 | Bound dashboard refresh work by splitting or caching server-rendered data so a task/comment/context mutation does not reload unrelated sections. | Architectural cleanup | Medium-high | High | Medium-high | High | Current route refresh can re-run summary counts, context, epics, kanban metadata, roadmap/calendar sections, and live refresh. |
-| 6 | Move stale done-task archival out of `listProjectKanbanTasks()` and into scheduled or explicit maintenance. | Durability cleanup | Medium | Medium | Low-medium | High | Read paths currently perform maintenance writes before returning kanban data. |
+| 1 | Make task creation insert a board-ready local card immediately, with pending/error reconciliation. Return a full task payload from `POST /tasks` instead of only `taskId`. | Quick win with durable API shape | Very high | Medium | Medium | High | Browser task create was 4696.2 ms while local service create was 22.1 ms and preview API create was 2442.1 ms. |
+| 2 | Add production-safe server timing and request instrumentation around deployed API routes, DB/RLS work, and route refreshes. | Quick win / observability foundation | Very high | Low-medium | Low | High | Preview API timings are already 1.0-2.4 seconds; TASK-276 needs to distinguish network, serverless, query, RLS, and render costs. |
+| 3 | Replace mutation-completion `router.refresh()` calls in task update, quick assignment/epic update, comments, and context-card mutations with local state updates plus debounced background reconciliation. | Architectural cleanup, can ship flow-by-flow | Very high | Medium-high | Medium | High | Code paths call `router.refresh()` after narrow mutations; comments/context are already able to render returned payloads locally. |
+| 4 | Investigate and reduce deployed task API latency, starting with task create/update/list query paths and project activity touch/RLS overhead. | Backend performance cleanup | High | Medium-high | Medium | High | Preview task create was 2442.1 ms, update 2152.4 ms, and list 1776-1898 ms versus local service timings below 31 ms for create/update and 18.9 ms for list. |
+| 5 | Reduce kanban reorder payload/persistence to changed rows or the affected ordering window. | Architectural cleanup | Medium-high | Medium | Medium | High | Full-board reorder updated 41 rows locally in 113.9 ms and took 1551.3 ms on preview; cost grows with board size and remote latency. |
+| 6 | Bound dashboard refresh work by splitting or caching server-rendered data so a task/comment/context mutation does not reload unrelated sections. | Architectural cleanup | Medium-high | High | Medium-high | High | Current route refresh can re-run summary counts, context, epics, kanban metadata, roadmap/calendar sections, and live refresh. |
+| 7 | Move stale done-task archival out of `listProjectKanbanTasks()` and into scheduled or explicit maintenance. | Durability cleanup | Medium | Medium | Low-medium | High | Read paths currently perform maintenance writes before returning kanban data. |
 
-Recommended implementation order: ship ranks 1-3 first because they directly
-target the observed several-second task-create UX and create measurement
-guardrails. Then handle reorder and dashboard refresh architecture with the new
-instrumentation in place.
+Recommended implementation order: ship ranks 1-2 first so users see immediate
+feedback and the team has real timing visibility. Then reduce refreshes and
+deployed task API latency in parallel, because both contribute materially to the
+observed delay.
 
 ## Validation Targets
 
@@ -150,7 +194,9 @@ clear rollback/error states when persistence fails.
 
 ## Open Risk
 
-The invalid preview agent credential blocked production-like API timings. Before
-TASK-276 final validation, refresh the preview credential or validate with a
-signed-in browser session on the branch preview so before/after numbers cover
-real Vercel network, server rendering, and database behavior.
+The preview is protected by Vercel authentication. Direct unauthenticated agent
+API calls fail before reaching the app, so preview automation must use
+`vercel curl`, a Vercel protection bypass secret, or an authenticated browser
+session. TASK-276 should include one of those access paths in its validation
+plan so before/after timings cover real Vercel network, server rendering, and
+database behavior.

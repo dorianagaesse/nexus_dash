@@ -11,15 +11,18 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Evidence: Added `docs/reports/task-275-performance-investigation.md`. Local
   Docker Postgres service probe showed core task/comment/context mutations in
   the 15-30 ms range, while full-board reorder took 113.9 ms for a 41-task
-  board. Local Playwright timing against `next start` showed task creation at
-  4696.2 ms from submit to visible card, despite direct service creation
+  board. Protected preview API probing via `vercel curl` exchanged the new
+  credential successfully and measured task create at 2442.1 ms, task update at
+  2152.4 ms, task list at 1776-1898 ms, and full-board reorder at 1551.3 ms on a
+  warm repeat. Local Playwright timing against `next start` showed task creation
+  at 4696.2 ms from submit to visible card, despite direct service creation
   measuring 22.1 ms. Code review found common flows gated by server
   confirmation plus broad `router.refresh()` calls; task creation, comments,
   task edits, context-card mutations, and project Server Actions all rely on
-  refresh/navigation for visible completion. Preview agent API timing was
-  blocked because the credential in `tmp/project-access-cred.env` returned
-  `invalid-api-key`, so TASK-276 now requires refreshed preview or signed-in
-  browser before/after timings.
+  refresh/navigation for visible completion. Direct preview API calls were
+  blocked by Vercel deployment protection before reaching the app, so TASK-276
+  validation needs `vercel curl`, a Vercel bypass secret, or an authenticated
+  browser session.
 
 # 2026-05-31 - TASK-275/TASK-276 performance task split
 

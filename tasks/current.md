@@ -58,11 +58,14 @@ execute.
   `router.refresh()` calls, not a single obviously multi-second service method.
 - Local Docker Postgres probe showed task/comment/context mutation services in
   the 15-30 ms range; full-board reorder was 113.9 ms for a 41-task board.
+- Protected preview API probe via `vercel curl` showed task create at 2442.1 ms,
+  task update at 2152.4 ms, task list at 1776-1898 ms, and full-board reorder
+  at 1551.3 ms on a warm repeat.
 - Local Playwright browser probe showed task creation at 4696.2 ms from submit
   to visible card, compared with 22.1 ms for direct service creation.
-- Preview agent API timing was blocked because the provided key now returns
-  `invalid-api-key`; TASK-276 needs refreshed preview access or signed-in
-  browser validation for before/after timing.
+- Direct preview API calls were blocked by Vercel deployment protection, not by
+  the agent credential. Vercel-authenticated access exchanged the credential
+  successfully.
 
 ## Open Questions
 - Which deployment/environment should be treated as the primary performance

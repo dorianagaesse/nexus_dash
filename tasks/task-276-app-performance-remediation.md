@@ -24,11 +24,15 @@ feel responsive by modern SaaS standards.
 - Local service timings did not show inherently multi-second mutation services:
   task/comment/context mutations were 15-30 ms locally, while full-board reorder
   was 113.9 ms for a 41-task board.
+- Protected preview API timings are materially slower: warm repeat timings were
+  2442.1 ms for task create, 2152.4 ms for task update, 1776-1898 ms for task
+  list, and 1551.3 ms for full-board reorder via `vercel curl`.
 - Local Playwright timing showed task creation at 4696.2 ms from submit to card
   visible, despite direct service creation measuring 22.1 ms.
-- Preview agent API timing was blocked by an invalid API key in
-  `tmp/project-access-cred.env`; TASK-276 must capture preview/browser
-  before/after timings with refreshed access or signed-in browser validation.
+- Direct unauthenticated preview API calls are blocked by Vercel deployment
+  protection before reaching the app. TASK-276 preview validation must use
+  `vercel curl`, a Vercel protection bypass secret, or an authenticated browser
+  session.
 
 ## Scope
 - Implement the highest-impact fixes from the TASK-275 report.
@@ -52,6 +56,9 @@ feel responsive by modern SaaS standards.
   scheduled, explicit, or otherwise non-read-path maintenance workflow.
 - Add lightweight production-safe timing hooks for click-to-visible-update and
   server mutation/refresh duration.
+- Investigate and reduce deployed API latency in the task create/update/list
+  paths, including query shape, RLS transaction overhead, project activity touch,
+  serverless/runtime behavior, and database connection path.
 - Preserve authorization, RLS, realtime collaboration, and notification
   semantics.
 
