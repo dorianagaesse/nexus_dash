@@ -6,6 +6,18 @@ Last reviewed: 2026-05-31
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-275
+  Title: App performance investigation - action latency root-cause analysis
+  Status: Promoted 2026-05-31
+  Rationale: Everyday creation, update, and refresh actions currently take several seconds in production-like usage. Run a deep, measurement-first investigation across browser, API, database, cache/refresh, and perceived-latency layers so the remediation work is grounded in evidence rather than isolated guesses.
+  Dependencies: TASK-043, TASK-073, TASK-074, TASK-118, TASK-266
+  Brief: `tasks/task-275-app-performance-investigation-report.md`
+- ID: TASK-276
+  Title: App performance remediation - production-grade action latency fixes
+  Status: Queued behind TASK-275
+  Rationale: Implement durable, production-ready fixes for the root causes identified by TASK-275 so common app actions feel responsive by industry-standard SaaS expectations. The implementation should prioritize user-perceived speed, low-latency mutations, bounded refresh work, efficient data loading, and safe observability that keeps performance regressions detectable.
+  Dependencies: TASK-275, TASK-043, TASK-073, TASK-074, TASK-118, TASK-266
+  Brief: `tasks/task-276-app-performance-remediation.md`
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
   Status: Queued UI follow-up (promoted 2026-05-04; PR #224 partial fix merged)
@@ -63,12 +75,6 @@ Last reviewed: 2026-05-31
   Status: Pending
   Rationale: Enable bilingual product usage (French and English) with consistent UI copy, locale routing/state strategy, and fallback behavior; defer implementation until we confirm i18n architecture and translation workflow.
   Dependencies: TASK-047, TASK-060
-- ID: TASK-275
-  Title: App performance investigation report - creation, update, and refresh latency
-  Status: Pending
-  Rationale: User preview testing after TASK-266 confirmed the app works functionally, but creation, update, and refresh flows still feel slow across the product. Run a measurement-first performance investigation and produce a report with evidence, root-cause hypotheses, and ranked recommendations to bring the app closer to industry-standard responsiveness. The report should cover request latency, database/query timing, route refresh behavior, client bundle/hydration cost, cache invalidation, optimistic UI opportunities, loading-state ergonomics, and concrete implementation tasks for the highest-impact fixes.
-  Dependencies: TASK-043, TASK-073, TASK-074, TASK-266, TASK-270
-  Brief: `tasks/task-275-app-performance-investigation-report.md`
 - ID: TASK-108
   Title: Whole-app UI/UX refinement - global interaction, visual, and information-design polish
   Status: Pending

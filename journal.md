@@ -3,6 +3,16 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-05-31 - TASK-275/TASK-276 performance task split
+
+- Summary: Split app performance work into investigation and implementation so
+  remediation can be evidence-led while still targeting durable production-grade
+  fixes for several-second action latency.
+- Evidence: Promoted TASK-275 to the top of the execution queue as the
+  measurement/root-cause investigation, created TASK-276 for implementation,
+  updated `tasks/current.md` for TASK-275, and created
+  `feature/task-275-performance-investigation` from current `origin/main`.
+
 # 2026-05-31 - Backlog cleanup after TASK-307 merge
 
 - Summary: Refreshed task tracking after the latest merged PRs so the backlog no
