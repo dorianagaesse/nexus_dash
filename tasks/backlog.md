@@ -128,6 +128,15 @@ Last reviewed: 2026-05-26
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-306
+  Title: Task comment mention cursor spacing after mention autocomplete
+  Status: Done (pending merge via PR #307)
+  Rationale: Fixed the task comment composer mirror/caret mismatch after
+    mention autocomplete by using metric-neutral mirror styling, stabilizing
+    selection after mention insertion, and adding regression coverage for
+    typing immediately after a selected mention plus mention notification
+    creation.
+  Dependencies: TASK-076, TASK-123
 - ID: TASK-274
   Title: Next.js dependency security update - restore green production audit
   Status: Done (2026-05-30, merged via PR #304)

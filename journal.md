@@ -3,6 +3,65 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-05-31 - TASK-306 task comment mention cursor spacing
+
+- Started TASK-306 from GitHub issue #306 on
+  `fix/task-306-mention-cursor-spacing`.
+- Read `agent.md`, `project.md`, `README.md`, and the issue body. The task
+  requires a matching backlog/current task entry, a focused fix branch, ready PR,
+  Copilot follow-up, branch-ref Vercel preview deploy, and Playwright validation
+  against the preview URL.
+- Initial investigation points to the task comment composer's transparent
+  textarea mirror: the visible mention highlight uses chip padding and medium
+  font weight while the actual caret is owned by the transparent textarea's
+  plain text. That layout mismatch explains why text after a selected mention
+  appears offset and the caret cannot visually reach the end.
+- Implemented a textarea-mirror-specific mention highlight class that removes
+  layout-affecting padding, inline-block display, and font-weight changes while
+  preserving mention highlighting. The read-only mention chip styling remains
+  unchanged.
+- Extended the Playwright smoke task lifecycle flow to select a comment mention,
+  type after it, assert the textarea value/caret end position, submit the
+  comment, and verify a `task_comment_mention` notification row for the
+  mentioned project member.
+- Validation passed: `git diff --check`, `npm run lint`, focused mention/comment
+  tests, full `npm test` with documented DB env, full `npm run test:coverage`
+  with documented DB env, and `npm run build` with documented DB env plus
+  placeholder production-only secrets.
+- Local E2E bootstrap is blocked because Docker Desktop is unavailable:
+  `npm run db:local:up` cannot connect to the `dockerDesktopLinuxEngine` pipe.
+- PR #307 E2E initially failed because the smoke test typed immediately after
+  clicking the autocomplete result, before the deferred animation-frame caret
+  restoration completed. Tightened the component by imperatively syncing the
+  textarea value and selection during mention selection, while keeping the
+  animation-frame selection pass as a stabilization step.
+- The next E2E run showed the stabilization frame could still jump the caret
+  after the first characters were typed. Guarded the frame callback so it only
+  restores selection when the textarea still contains the untouched replacement
+  value.
+- The follow-up E2E run passed the caret/value assertion and only failed on a
+  strict-mode locator because the same mention appeared in the task description,
+  card preview, and submitted comment. Scoped the rendered mention assertion to
+  the submitted comment article.
+- The next E2E run reached a stale test variable after reopening the task; the
+  assertion now checks the comment suffix used by the mention comment flow.
+- PR #307 checks are green on head
+  `987f1fe26f6e5311346801615b8d76f723063914`: branch-name, Quality Core, E2E
+  Smoke, and Container Image all passed.
+- Copilot review completed with one actionable stale-variable comment. The
+  thread was resolved after the current PR diff and green checks confirmed the
+  assertion now uses `taskCommentSuffix`.
+- Preview workflow run `26697364465` was dispatched with
+  `action=deploy-preview` and
+  `git_ref=fix/task-306-mention-cursor-spacing`. Logs show checkout of
+  `refs/remotes/origin/fix/task-306-mention-cursor-spacing` and deployed commit
+  `987f1fe26f6e5311346801615b8d76f723063914`; artifact URL:
+  `https://nexus-dash-as20alnt0-dorian-agaesses-projects.vercel.app`.
+- Playwright request validation against that preview passed using
+  `tmp/project-access-cred.env`: health, agent token exchange, temporary task
+  create, task comment create with `@dorianagaesse`, comment list verification,
+  and cleanup verification with no `task306-preview-mention-*` tasks remaining.
+
 ## Entry Format
 
 - `Date`

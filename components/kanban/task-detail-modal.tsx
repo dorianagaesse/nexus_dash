@@ -69,7 +69,10 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { getEpicColorFromName } from "@/lib/epic";
 import { cn } from "@/lib/utils";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
-import { renderContentWithMentions, MENTION_HIGHLIGHT_CLASS } from "@/lib/content-with-mentions";
+import {
+  renderContentWithMentions,
+  MENTION_TEXTAREA_MIRROR_HIGHLIGHT_CLASS,
+} from "@/lib/content-with-mentions";
 import {
   parseMentions,
   removeMentionBeforeCursor,
@@ -1243,8 +1246,16 @@ function TaskReadOnlyContent({
       replacement: mentionText,
     });
 
+    const textarea = commentInputRef.current;
     onNewTaskCommentChange(nextValue);
     setCommentCursorPosition(nextCursorPosition);
+    if (textarea) {
+      textarea.value = nextValue;
+      textarea.focus();
+      textarea.setSelectionRange(nextCursorPosition, nextCursorPosition);
+      syncCommentHighlightScroll(textarea);
+    }
+
     const selectedMention = buildCommentMentionSelection(member);
     if (selectedMention) {
       setCommentMentionSelections((previousSelections) =>
@@ -1256,13 +1267,19 @@ function TaskReadOnlyContent({
     }
 
     window.requestAnimationFrame(() => {
-      const textarea = commentInputRef.current;
-      if (!textarea) {
+      const currentTextarea = commentInputRef.current;
+      if (!currentTextarea) {
+        return;
+      }
+      if (currentTextarea.value !== nextValue) {
         return;
       }
 
-      textarea.focus();
-      textarea.setSelectionRange(nextCursorPosition, nextCursorPosition);
+      currentTextarea.focus();
+      currentTextarea.setSelectionRange(
+        nextCursorPosition,
+        nextCursorPosition
+      );
     });
   };
 
@@ -1489,7 +1506,8 @@ function TaskReadOnlyContent({
                         mentionUsers,
                         hideMentionDiscriminator: true,
                         resolveDisplayUsers: false,
-                        mentionHighlightClassName: MENTION_HIGHLIGHT_CLASS,
+                        mentionHighlightClassName:
+                          MENTION_TEXTAREA_MIRROR_HIGHLIGHT_CLASS,
                       })
                     : null}
                 </div>

@@ -30,7 +30,7 @@ test.describe("critical UI smoke flows", () => {
     const projectName = uniqueProjectName("smoke-task");
     const createdTaskTitle = uniqueProjectName("task");
     const editedTaskTitle = `${createdTaskTitle}-edited`;
-    const taskComment = `Comment ${uniqueProjectName("note")}`;
+    const taskCommentSuffix = `comment ${uniqueProjectName("note")}`;
     const epicName = uniqueProjectName("epic");
 
     await createProjectFromProjectsPage(page, projectName);
@@ -161,17 +161,51 @@ test.describe("critical UI smoke flows", () => {
     await expect(taskSavedToast).toBeVisible();
     await expect(taskSavedToast).not.toBeVisible({ timeout: 15000 });
 
+    const commentInput = page.getByLabel("Task comment");
+    await commentInput.click();
+    await page.keyboard.type(`@${mentionUsername.slice(0, 8)}`);
+    await expect(
+      page.getByRole("option", { name: new RegExp(mentionUsername) })
+    ).toBeVisible();
+    await page.getByRole("option", { name: new RegExp(mentionUsername) }).click();
+    await page.keyboard.type(taskCommentSuffix);
+
+    const expectedCommentText = `@${mentionUsername} ${taskCommentSuffix}`;
+    await expect(commentInput).toHaveValue(expectedCommentText);
+    await expect
+      .poll(() =>
+        commentInput.evaluate((element) => {
+          const textarea = element as HTMLTextAreaElement;
+          return textarea.selectionStart === textarea.value.length;
+        })
+      )
+      .toBe(true);
+
     const createCommentRequest = page.waitForResponse(
       (response) =>
         response.request().method() === "POST" &&
         /\/comments$/.test(response.url()) &&
         response.ok()
     );
-    await page.getByLabel("Task comment").fill(taskComment);
     await page.getByRole("button", { name: "Add comment" }).click();
     await createCommentRequest;
-    await expect(page.getByText(taskComment)).toBeVisible();
+    const submittedComment = page
+      .locator("article")
+      .filter({ hasText: taskCommentSuffix })
+      .last();
+    await expect(submittedComment).toBeVisible();
+    await expect(submittedComment.getByText(`@${mentionUsername}`)).toBeVisible();
     await expect(page.getByText("1 comment")).toBeVisible();
+    await expect
+      .poll(async () =>
+        prisma.notification.count({
+          where: {
+            recipientUserId: mentionableUser.id,
+            sourceType: "task_comment_mention",
+          },
+        })
+      )
+      .toBe(1);
 
     await page.getByRole("button", { name: "Task options" }).click();
     await page.getByRole("button", { name: /^Edit$/ }).click();
@@ -195,7 +229,7 @@ test.describe("critical UI smoke flows", () => {
 
     await editedTaskCard.click();
     await expect(page.getByRole("button", { name: "Close task" })).toBeVisible();
-    await expect(page.getByText(taskComment)).toBeVisible();
+    await expect(page.getByText(taskCommentSuffix)).toBeVisible();
     await page.getByRole("button", { name: "Close task" }).click();
   });
 
