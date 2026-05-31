@@ -11,13 +11,15 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Evidence: Added `docs/reports/task-275-performance-investigation.md`. Local
   Docker Postgres service probe showed core task/comment/context mutations in
   the 15-30 ms range, while full-board reorder took 113.9 ms for a 41-task
-  board. Code review found common flows gated by server confirmation plus broad
-  `router.refresh()` calls; task creation, comments, task edits, context-card
-  mutations, and project Server Actions all rely on refresh/navigation for
-  visible completion. Preview agent API timing was blocked because the
-  credential in `tmp/project-access-cred.env` returned `invalid-api-key`, so
-  TASK-276 now requires refreshed preview or signed-in browser before/after
-  timings.
+  board. Local Playwright timing against `next start` showed task creation at
+  4696.2 ms from submit to visible card, despite direct service creation
+  measuring 22.1 ms. Code review found common flows gated by server
+  confirmation plus broad `router.refresh()` calls; task creation, comments,
+  task edits, context-card mutations, and project Server Actions all rely on
+  refresh/navigation for visible completion. Preview agent API timing was
+  blocked because the credential in `tmp/project-access-cred.env` returned
+  `invalid-api-key`, so TASK-276 now requires refreshed preview or signed-in
+  browser before/after timings.
 
 # 2026-05-31 - TASK-275/TASK-276 performance task split
 

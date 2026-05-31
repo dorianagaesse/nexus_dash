@@ -24,6 +24,8 @@ feel responsive by modern SaaS standards.
 - Local service timings did not show inherently multi-second mutation services:
   task/comment/context mutations were 15-30 ms locally, while full-board reorder
   was 113.9 ms for a 41-task board.
+- Local Playwright timing showed task creation at 4696.2 ms from submit to card
+  visible, despite direct service creation measuring 22.1 ms.
 - Preview agent API timing was blocked by an invalid API key in
   `tmp/project-access-cred.env`; TASK-276 must capture preview/browser
   before/after timings with refreshed access or signed-in browser validation.

@@ -58,6 +58,8 @@ execute.
   `router.refresh()` calls, not a single obviously multi-second service method.
 - Local Docker Postgres probe showed task/comment/context mutation services in
   the 15-30 ms range; full-board reorder was 113.9 ms for a 41-task board.
+- Local Playwright browser probe showed task creation at 4696.2 ms from submit
+  to visible card, compared with 22.1 ms for direct service creation.
 - Preview agent API timing was blocked because the provided key now returns
   `invalid-api-key`; TASK-276 needs refreshed preview access or signed-in
   browser validation for before/after timing.

@@ -12,10 +12,11 @@ user sees the final state.
 
 Local service timing against Docker Postgres showed task/comment/context
 mutations in the 15-30 ms range, with full-board reorder at 113.9 ms for a
-41-task board. That does not model Vercel network, RSC render, browser work, or
-remote database latency, but it strongly suggests the several-second perceived
-delay is mostly caused by server-confirmed UI, oversized refresh boundaries, and
-route refresh churn rather than a single slow CRUD query.
+41-task board. Local Playwright browser timing against `next start` showed the
+same split from the user's perspective: task create took 4.7 seconds from submit
+to card visible even though direct service creation took 22.1 ms. That strongly
+points to server-confirmed UI, oversized refresh boundaries, and route refresh
+churn rather than a single slow CRUD query.
 
 Preview API timing could not be completed with the current
 `tmp/project-access-cred.env` credential because `/api/auth/agent/token`
@@ -45,6 +46,29 @@ Environment: local Docker Postgres, migrations applied with
 
 Raw sample was written to `.tmp/task-275-service-benchmark.json` during the
 investigation; `.tmp` is intentionally not committed.
+
+### Local Browser Probe
+
+Environment: Playwright Chromium against local `next start` and Docker Postgres
+after `npm run build`. This measures click/submit to visible UI completion.
+
+| Flow | Local browser timing |
+| --- | ---: |
+| `project.create.submit_to_visible` | 519.9 ms |
+| `dashboard.open.project_to_kanban_visible` | 414.7 ms |
+| `task.create.submit_to_card_visible` | 4696.2 ms |
+| `task.comment.submit_to_visible` | 226.8 ms |
+| `context.create.submit_to_card_visible` | 376.0 ms |
+
+Raw sample was written to `.tmp/task-275-browser-benchmark.json` during the
+investigation; `.tmp` is intentionally not committed.
+
+The standout is task creation: the browser waits almost 4.7 seconds to see the
+new card even though the local create-task service path measured 22.1 ms. The
+task create client closes the modal, posts the form, receives only `taskId`, and
+then depends on `router.refresh()` to fetch/render the card. This is direct
+measured evidence that perceived latency is dominated by refresh/render
+orchestration for at least one high-traffic flow.
 
 ### Client Mutation Paths
 
@@ -91,23 +115,21 @@ investigation; `.tmp` is intentionally not committed.
    but the current transport invalidates by full dashboard refresh rather than
    applying scoped patches.
 
-## Recommendations For TASK-276
+## Ranked Recommendations For TASK-276
 
-1. Make high-traffic mutations locally responsive first:
-   task create, task update, task assignment/epic update, comments, context card
-   create/update/delete, and project list create/update.
-2. Replace mutation-completion `router.refresh()` calls with local cache updates
-   plus debounced background reconciliation. Keep refresh as a fallback, not the
-   primary success path.
-3. Return complete mutation payloads where needed. Task create should return a
-   board-ready task payload, not only `taskId`.
-4. Change reorder persistence to send only the moved task and affected ordering
-   window, or at least update only rows whose status/position changed.
-5. Move stale done-task archival out of the kanban read path into a scheduled or
-   explicit maintenance path.
-6. Add lightweight observability before and after remediation: client
-   performance marks for click-to-visible-update and server timing for the
-   mutation and refresh endpoints.
+| Rank | Recommendation | Class | Impact | Complexity | Risk | Production durability | Evidence |
+| ---: | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Make task creation insert a board-ready local card immediately, with pending/error reconciliation. Return a full task payload from `POST /tasks` instead of only `taskId`. | Quick win with durable API shape | Very high | Medium | Medium | High | Browser task create was 4696.2 ms while service create was 22.1 ms. |
+| 2 | Replace mutation-completion `router.refresh()` calls in task update, quick assignment/epic update, comments, and context-card mutations with local state updates plus debounced background reconciliation. | Architectural cleanup, can ship flow-by-flow | Very high | Medium-high | Medium | High | Code paths call `router.refresh()` after narrow mutations; comments/context are already able to render returned payloads locally. |
+| 3 | Add click-to-visible client performance marks and server timing for mutation endpoints and route refreshes. | Quick win | High | Low | Low | High | Current evidence required temporary probes; TASK-276 needs preview before/after numbers and regression visibility. |
+| 4 | Reduce kanban reorder payload/persistence to changed rows or the affected ordering window. | Architectural cleanup | Medium-high | Medium | Medium | High | Full-board reorder updated 41 rows locally and took 113.9 ms; cost grows linearly with board size and remote latency. |
+| 5 | Bound dashboard refresh work by splitting or caching server-rendered data so a task/comment/context mutation does not reload unrelated sections. | Architectural cleanup | Medium-high | High | Medium-high | High | Current route refresh can re-run summary counts, context, epics, kanban metadata, roadmap/calendar sections, and live refresh. |
+| 6 | Move stale done-task archival out of `listProjectKanbanTasks()` and into scheduled or explicit maintenance. | Durability cleanup | Medium | Medium | Low-medium | High | Read paths currently perform maintenance writes before returning kanban data. |
+
+Recommended implementation order: ship ranks 1-3 first because they directly
+target the observed several-second task-create UX and create measurement
+guardrails. Then handle reorder and dashboard refresh architecture with the new
+instrumentation in place.
 
 ## Validation Targets
 
