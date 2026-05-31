@@ -11,8 +11,10 @@ export function startServerTiming(metricName: string) {
   return {
     headers(): HeadersInit {
       const durationMs = Math.max(0, performance.now() - startedAt);
+      const value = `${normalizedMetricName};dur=${durationMs.toFixed(1)}`;
       return {
-        "Server-Timing": `${normalizedMetricName};dur=${durationMs.toFixed(1)}`,
+        "Server-Timing": value,
+        "x-nexusdash-server-timing": value,
       };
     },
   };
