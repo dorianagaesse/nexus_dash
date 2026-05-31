@@ -3,6 +3,38 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-05-31 - TASK-275 performance investigation completed
+
+- Summary: Completed the app action-latency investigation and scoped TASK-276
+  remediation around immediate local feedback, bounded refresh work, and
+  before/after preview validation.
+- Evidence: Added `docs/reports/task-275-performance-investigation.md`. Local
+  Docker Postgres service probe showed core task/comment/context mutations in
+  the 15-30 ms range, while full-board reorder took 113.9 ms for a 41-task
+  board. Protected preview API probing via `vercel curl` exchanged the new
+  credential successfully and measured task create at 2442.1 ms, task update at
+  2152.4 ms, task list at 1776-1898 ms, and full-board reorder at 1551.3 ms on a
+  warm repeat. Local Playwright timing against `next start` showed task creation
+  at 4696.2 ms from submit to visible card, despite direct service creation
+  measuring 22.1 ms. Code review found common flows gated by server
+  confirmation plus broad `router.refresh()` calls; task creation, comments,
+  task edits, context-card mutations, and project Server Actions all rely on
+  refresh/navigation for visible completion. After Vercel deployment protection
+  was disabled, direct preview API timings remained seconds-level: task create
+  p50 2316.9 ms, task update p50 2029.4 ms, task list p50 1603.6 ms, and reorder
+  p50 1109.2 ms. The earlier direct 401 was Vercel protection, not the app
+  credential.
+
+# 2026-05-31 - TASK-275/TASK-276 performance task split
+
+- Summary: Split app performance work into investigation and implementation so
+  remediation can be evidence-led while still targeting durable production-grade
+  fixes for several-second action latency.
+- Evidence: Promoted TASK-275 to the top of the execution queue as the
+  measurement/root-cause investigation, created TASK-276 for implementation,
+  updated `tasks/current.md` for TASK-275, and created
+  `feature/task-275-performance-investigation` from current `origin/main`.
+
 # 2026-05-31 - Backlog cleanup after TASK-307 merge
 
 - Summary: Refreshed task tracking after the latest merged PRs so the backlog no

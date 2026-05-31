@@ -1,21 +1,21 @@
-# TASK-275 App Performance Investigation Report
+# TASK-275 App Performance Investigation
 
 ## Task ID
 TASK-275
 
 ## Status
-Pending
+Promoted 2026-05-31
 
 ## Objective
 Produce a measurement-backed performance report for the app's slow-feeling
-creation, update, navigation, and refresh flows, then convert the highest-impact
-findings into concrete implementation recommendations.
+creation, update, navigation, and refresh flows, then turn the findings into a
+concrete remediation plan for TASK-276.
 
 ## Rationale
-Manual preview validation after TASK-266 confirmed the branch works
-functionally, but the application still feels slow during everyday operations.
-The next performance step should be investigation-first so future work improves
-real user-perceived latency rather than guessing at isolated optimizations.
+Manual preview and production-like usage confirm the application works
+functionally, but common actions still take several seconds. The next step must
+be investigation-first so the durable remediation work improves real
+user-perceived latency rather than guessing at isolated optimizations.
 
 ## Scope
 - Measure representative flows:
@@ -34,23 +34,36 @@ real user-perceived latency rather than guessing at isolated optimizations.
 - Compare observed behavior against practical industry targets for interactive
   SaaS apps: fast local feedback, low-latency mutations, limited blocking
   refreshes, stable layout, and responsive loading states.
-- Produce ranked recommendations with expected impact, complexity, risk, and
-  suggested owning follow-up tasks.
+- Produce a ranked remediation plan for TASK-276 with expected impact,
+  complexity, risk, validation approach, and sequencing.
+
+## Out Of Scope
+- Broad product redesign unrelated to action latency.
+- Large behavior changes before the root causes are measured.
+- Bundling the full remediation implementation into this investigation task.
+- Introducing observability vendors or paid infrastructure without an explicit
+  decision.
 
 ## Acceptance Criteria
 1. A performance report exists in the repo with measured evidence for the
    highest-traffic creation, update, and refresh flows.
 2. The report distinguishes backend latency, database/query cost, frontend
    rendering/hydration cost, cache/refresh behavior, and perceived-latency UX.
-3. Recommendations are ranked by user impact and implementation complexity.
-4. At least the top three recommendations include concrete suggested
-   implementation tasks or links to existing backlog tasks.
-5. The report explicitly calls out any quick wins versus architectural changes.
+3. The investigation identifies whether several-second actions are dominated by
+   network, database, server rendering, cache invalidation, route refresh,
+   client hydration/rendering, missing optimistic UI, or loading-state
+   ergonomics.
+4. Recommendations are ranked by user impact, implementation complexity, risk,
+   and expected production durability.
+5. TASK-276 has a concrete implementation plan with the first fix set,
+   validation targets, and rollback/risk notes.
+6. The report explicitly calls out any quick wins versus architectural changes.
 
 ## Definition Of Done
 - The report is committed as documentation.
-- `tasks/backlog.md` is updated with any newly discovered implementation tasks
-  or sequencing changes.
+- TASK-276 is updated, if needed, with the implementation scope discovered by
+  the investigation.
+- `tasks/backlog.md` and `tasks/current.md` are updated with sequencing changes.
 - `journal.md` records the investigation outcome and recommended next steps.
 - The PR is opened for review; no product behavior changes are bundled unless a
   tiny measurement/instrumentation change is explicitly necessary.
@@ -59,4 +72,6 @@ real user-perceived latency rather than guessing at isolated optimizations.
 - Manual preview walkthrough with browser timing evidence.
 - Browser automation screenshots or traces where useful.
 - Server/runtime log review around measured flows.
+- API timing probes for representative project/task/context-card operations.
+- Database/query timing analysis where available.
 - `git diff --check`.
