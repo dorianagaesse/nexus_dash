@@ -40,10 +40,7 @@ export async function GET(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json(
-    { reactions: result.data.reactions },
-    { headers: withProjectActivityVersionHeader() }
-  );
+  return NextResponse.json({ reactions: result.data.reactions });
 }
 
 export async function POST(
@@ -84,5 +81,8 @@ export async function POST(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({ reactions: result.data.reactions });
+  return NextResponse.json(
+    { reactions: result.data.reactions },
+    { headers: withProjectActivityVersionHeader() }
+  );
 }
