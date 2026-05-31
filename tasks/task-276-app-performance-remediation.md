@@ -4,7 +4,7 @@
 TASK-276
 
 ## Status
-Queued behind TASK-275
+In progress on `feature/task-276-performance-remediation`
 
 ## Objective
 Implement durable, production-ready performance fixes for the several-second

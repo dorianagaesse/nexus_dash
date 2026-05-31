@@ -363,6 +363,25 @@ export function ProjectContextPanel({
     setCreateError(null);
 
     const formData = new FormData(event.currentTarget);
+    const optimisticCardId = `optimistic-context-${Date.now()}-${Math.random()
+      .toString(16)
+      .slice(2)}`;
+    const optimisticTitle =
+      formData.get("title")?.toString().trim() || "Untitled context";
+    const optimisticContent =
+      formData.get("content")?.toString().trim() || createContent;
+    const optimisticColor =
+      formData.get("color")?.toString().trim() || createColor;
+    const optimisticAttachments: ProjectContextAttachment[] =
+      createAttachmentLinks.map((link) => ({
+        id: `optimistic-context-link-${link.id}`,
+        kind: ATTACHMENT_KIND_LINK,
+        name: "",
+        url: link.url,
+        mimeType: null,
+        sizeBytes: null,
+        downloadUrl: null,
+      }));
     const filesForBackgroundUpload =
       storageProvider === "r2" ? [...createSelectedFiles] : [];
 
@@ -372,6 +391,20 @@ export function ProjectContextPanel({
 
     closeCreateModal();
     setIsCreatingCard(false);
+    setLocalCards((previous) => [
+      {
+        id: optimisticCardId,
+        title: optimisticTitle,
+        content: normalizeContextCardContentHtml(optimisticContent),
+        color: optimisticColor,
+        attachments: optimisticAttachments,
+      },
+      ...previous,
+    ]);
+    setCardAttachmentsById((previous) => ({
+      ...previous,
+      [optimisticCardId]: optimisticAttachments,
+    }));
 
     void (async () => {
       try {
@@ -402,6 +435,14 @@ export function ProjectContextPanel({
           if (!isMountedRef.current) {
             return;
           }
+          setLocalCards((previous) =>
+            previous.filter((card) => card.id !== optimisticCardId)
+          );
+          setCardAttachmentsById((previous) => {
+            const next = { ...previous };
+            delete next[optimisticCardId];
+            return next;
+          });
           setCreateError(message);
           pushToast({
             variant: "error",
@@ -425,10 +466,12 @@ export function ProjectContextPanel({
               ...createdCard,
               content: normalizeContextCardContentHtml(createdCard.content),
             },
-            ...previous,
+            ...previous.filter((card) => card.id !== optimisticCardId),
           ]);
           setCardAttachmentsById((previous) => ({
-            ...previous,
+            ...Object.fromEntries(
+              Object.entries(previous).filter(([cardId]) => cardId !== optimisticCardId)
+            ),
             [createdCard.id]: createdCard.attachments,
           }));
         }
@@ -437,7 +480,6 @@ export function ProjectContextPanel({
           variant: "success",
           message: "Context card created.",
         });
-        refreshProjectData();
 
         const canRunBackgroundUploads =
           storageProvider === "r2" &&
@@ -485,6 +527,14 @@ export function ProjectContextPanel({
         if (!isMountedRef.current) {
           return;
         }
+        setLocalCards((previous) =>
+          previous.filter((card) => card.id !== optimisticCardId)
+        );
+        setCardAttachmentsById((previous) => {
+          const next = { ...previous };
+          delete next[optimisticCardId];
+          return next;
+        });
         setCreateError(message);
         pushToast({
           variant: "error",
@@ -505,11 +555,24 @@ export function ProjectContextPanel({
 
     const formData = new FormData(event.currentTarget);
     const editingCardIdSnapshot = editingCard.id;
+    const previousEditingCard = editingCard;
     const nextTitle = formData.get("title")?.toString().trim() ?? editingCard.title;
     const nextContent = formData.get("content")?.toString().trim() ?? editingCard.content;
     const nextColor = formData.get("color")?.toString().trim() ?? editingCard.color;
     closeEditModal();
     setIsUpdatingCard(false);
+    setLocalCards((previous) =>
+      previous.map((card) =>
+        card.id === editingCardIdSnapshot
+          ? {
+              ...card,
+              title: nextTitle,
+              content: normalizeContextCardContentHtml(nextContent),
+              color: nextColor,
+            }
+          : card
+      )
+    );
 
     void (async () => {
       try {
@@ -533,6 +596,11 @@ export function ProjectContextPanel({
           if (!isMountedRef.current) {
             return;
           }
+          setLocalCards((previous) =>
+            previous.map((card) =>
+              card.id === editingCardIdSnapshot ? previousEditingCard : card
+            )
+          );
           setEditError(message);
           pushToast({
             variant: "error",
@@ -548,25 +616,17 @@ export function ProjectContextPanel({
           variant: "success",
           message: "Context card saved.",
         });
-        setLocalCards((previous) =>
-          previous.map((card) =>
-            card.id === editingCardIdSnapshot
-              ? {
-                  ...card,
-                  title: nextTitle,
-                  content: normalizeContextCardContentHtml(nextContent),
-                  color: nextColor,
-                }
-              : card
-          )
-        );
-        refreshProjectData();
       } catch (error) {
         console.error("[ProjectContextPanel.handleUpdateCardSubmit]", error);
         const message = "Could not update context card. Please retry.";
         if (!isMountedRef.current) {
           return;
         }
+        setLocalCards((previous) =>
+          previous.map((card) =>
+            card.id === editingCardIdSnapshot ? previousEditingCard : card
+          )
+        );
         setEditError(message);
         pushToast({
           variant: "error",
@@ -590,11 +650,19 @@ export function ProjectContextPanel({
     }
 
     const cardId = pendingDeleteCardId;
+    const cardToDelete = localCards.find((card) => card.id === cardId) ?? null;
+    const attachmentsToRestore = cardAttachmentsById[cardId] ?? cardToDelete?.attachments ?? [];
     if (deletingCardId) {
       return;
     }
 
     setDeletingCardId(cardId);
+    setLocalCards((previous) => previous.filter((card) => card.id !== cardId));
+    setCardAttachmentsById((previous) => {
+      const next = { ...previous };
+      delete next[cardId];
+      return next;
+    });
     try {
       const response = await fetch(`/api/projects/${projectId}/context-cards/${cardId}`, {
         method: "DELETE",
@@ -612,6 +680,13 @@ export function ProjectContextPanel({
         if (editingCardId === cardId) {
           setEditError(message);
         }
+        if (cardToDelete) {
+          setLocalCards((previous) => [cardToDelete, ...previous]);
+          setCardAttachmentsById((previous) => ({
+            ...previous,
+            [cardId]: attachmentsToRestore,
+          }));
+        }
         pushToast({
           variant: "error",
           message,
@@ -625,24 +700,22 @@ export function ProjectContextPanel({
       if (previewCardId === cardId) {
         setPreviewCardId(null);
       }
-
-      setLocalCards((previous) => previous.filter((card) => card.id !== cardId));
-      setCardAttachmentsById((previous) => {
-        const next = { ...previous };
-        delete next[cardId];
-        return next;
-      });
-
       pushToast({
         variant: "success",
         message: "Context card deleted.",
       });
-      refreshProjectData();
     } catch (error) {
       console.error("[ProjectContextPanel.handleDeleteCard]", error);
       const message = "Could not delete context card. Please retry.";
       if (editingCardId === cardId) {
         setEditError(message);
+      }
+      if (cardToDelete) {
+        setLocalCards((previous) => [cardToDelete, ...previous]);
+        setCardAttachmentsById((previous) => ({
+          ...previous,
+          [cardId]: attachmentsToRestore,
+        }));
       }
       pushToast({
         variant: "error",

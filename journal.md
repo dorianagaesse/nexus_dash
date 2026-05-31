@@ -1898,3 +1898,13 @@ Low-value entries to avoid going forward:
 - Type: Planning
 - Summary: Refreshed backlog state after TASK-269 and TASK-266 were merged, and captured a new deferred performance investigation for app-wide slowness.
 - Evidence: Moved TASK-269 to Completed after PR #292 and TASK-266 to Completed after PR #293. Added TASK-275 as a deferred measurement-first performance investigation/report for slow creation, update, and refresh flows, including backend latency, database/query timing, route refresh behavior, hydration/bundle cost, cache invalidation, optimistic UI opportunities, and ranked implementation recommendations. Promoted TASK-270, TASK-118, and TASK-129 from Deferred into the execution queue after TASK-274 and TASK-133.
+
+### 2026-05-31
+- Type: Execution
+- Summary: TASK-276 implemented the first performance remediation batch for project dashboard mutation flows.
+- Evidence: Task creation now returns a board-ready task payload; task create, task update/save, quick assignee/epic updates, comment create, context-card create/update/delete, archive/delete, and kanban movement paths update local state without normal success-path dashboard refreshes. Optimistic task/comment/context-card state now reconciles or rolls back locally, task creation preserves an opened optimistic task when the canonical server payload arrives, kanban reorder skips unchanged rows server-side, and targeted mutation/list routes emit production-safe `Server-Timing` headers.
+
+### 2026-05-31
+- Type: Validation
+- Summary: TASK-276 local validation passed after the performance remediation batch.
+- Evidence: `npm run lint` passed. Local PostgreSQL env `npm test` passed (113 files passed, 2 skipped; 849 passed, 2 skipped). Local PostgreSQL env `npm run test:coverage` passed with 91.32% statements, 81.33% branches, 92.2% functions, and 91.83% lines. Local-safe production build env `npm run build` passed. Patched build Playwright smoke `npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts` passed all 5 critical UI smoke flows on `PORT=3101`.

@@ -105,7 +105,13 @@ describe("POST /api/projects/:projectId/tasks/reorder", () => {
 
   test("returns 400 when tasks do not belong to the project", async () => {
     prismaMock.task.findMany.mockResolvedValueOnce([
-      { id: "task-1", status: "Backlog", completedAt: null },
+      {
+        id: "task-1",
+        status: "Backlog",
+        position: 0,
+        archivedAt: null,
+        completedAt: null,
+      },
     ]);
 
     const request = new Request("http://localhost/api/projects/p1/tasks/reorder", {
@@ -130,8 +136,20 @@ describe("POST /api/projects/:projectId/tasks/reorder", () => {
     const existingDoneDate = new Date("2026-02-01T12:00:00.000Z");
 
     prismaMock.task.findMany.mockResolvedValueOnce([
-      { id: "task-moved", status: "In Progress", completedAt: null },
-      { id: "task-done", status: "Done", completedAt: existingDoneDate },
+      {
+        id: "task-moved",
+        status: "In Progress",
+        position: 0,
+        archivedAt: null,
+        completedAt: null,
+      },
+      {
+        id: "task-done",
+        status: "Done",
+        position: 7,
+        archivedAt: null,
+        completedAt: existingDoneDate,
+      },
     ]);
     prismaMock.task.update.mockResolvedValue({});
 
@@ -174,9 +192,51 @@ describe("POST /api/projects/:projectId/tasks/reorder", () => {
     expect(secondUpdate.data.completedAt).toBe(existingDoneDate);
   });
 
+  test("skips unchanged task rows", async () => {
+    prismaMock.task.findMany.mockResolvedValueOnce([
+      {
+        id: "task-1",
+        status: "Backlog",
+        position: 0,
+        archivedAt: null,
+        completedAt: null,
+      },
+      {
+        id: "task-2",
+        status: "Backlog",
+        position: 1,
+        archivedAt: null,
+        completedAt: null,
+      },
+    ]);
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/reorder", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        columns: [{ status: "Backlog", taskIds: ["task-1", "task-2"] }],
+      }),
+    });
+
+    const response = await POST(request as never, {
+      params: { projectId: "p1" },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({ ok: true });
+    expect(prismaMock.task.update).not.toHaveBeenCalled();
+    expect(response.headers.get("Server-Timing")).toMatch(/^task-reorder;dur=/);
+  });
+
   test("returns 500 when transaction persistence fails", async () => {
     prismaMock.task.findMany.mockResolvedValueOnce([
-      { id: "task-1", status: "Backlog", completedAt: null },
+      {
+        id: "task-1",
+        status: "Backlog",
+        position: 1,
+        archivedAt: null,
+        completedAt: null,
+      },
     ]);
     prismaMock.task.update.mockRejectedValueOnce(new Error("db-failure"));
 

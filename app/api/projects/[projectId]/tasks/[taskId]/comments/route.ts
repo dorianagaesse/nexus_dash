@@ -5,6 +5,7 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { startServerTiming } from "@/lib/observability/server-timing";
 import {
   createTaskCommentForProject,
   listTaskCommentsForProject,
@@ -61,6 +62,7 @@ export async function GET(
   request: NextRequest,
   props: { params: Promise<{ projectId: string; taskId: string }> }
 ) {
+  const timing = startServerTiming("task.comments.list");
   const params = await props.params;
   if (!params.projectId || !params.taskId) {
     return NextResponse.json({ error: "Missing route parameters" }, { status: 400 });
@@ -79,23 +81,30 @@ export async function GET(
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status, headers: timing.headers() }
+    );
   }
 
-  return NextResponse.json({
-    comments: result.data.comments.map((comment) => ({
-      id: comment.id,
-      content: comment.content,
-      createdAt: comment.createdAt,
-      author: comment.author,
-    })),
-  });
+  return NextResponse.json(
+    {
+      comments: result.data.comments.map((comment) => ({
+        id: comment.id,
+        content: comment.content,
+        createdAt: comment.createdAt,
+        author: comment.author,
+      })),
+    },
+    { headers: timing.headers() }
+  );
 }
 
 export async function POST(
   request: NextRequest,
   props: { params: Promise<{ projectId: string; taskId: string }> }
 ) {
+  const timing = startServerTiming("task.comment.create");
   const params = await props.params;
   if (!params.projectId || !params.taskId) {
     return NextResponse.json({ error: "Missing route parameters" }, { status: 400 });
@@ -128,7 +137,10 @@ export async function POST(
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status, headers: timing.headers() }
+    );
   }
 
   return NextResponse.json(
@@ -140,6 +152,6 @@ export async function POST(
         author: result.data.comment.author,
       },
     },
-    { status: 201 }
+    { status: 201, headers: timing.headers() }
   );
 }

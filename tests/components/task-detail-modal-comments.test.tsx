@@ -42,6 +42,7 @@ const baseTask: KanbanTask = {
   labels: [],
   blockedFollowUps: [],
   status: "Backlog",
+  position: 0,
   archivedAt: null,
   attachments: [],
   relatedTasks: [],

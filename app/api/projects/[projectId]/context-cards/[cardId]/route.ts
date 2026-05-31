@@ -5,6 +5,7 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { startServerTiming } from "@/lib/observability/server-timing";
 import {
   deleteContextCardForProject,
   updateContextCardForProject,
@@ -32,6 +33,7 @@ export async function PATCH(
   request: NextRequest,
   props: { params: Promise<{ projectId: string; cardId: string }> }
 ) {
+  const timing = startServerTiming("context.update");
   const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
   if (!principalResult.ok) {
@@ -93,16 +95,20 @@ export async function PATCH(
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status, headers: timing.headers() }
+    );
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true }, { headers: timing.headers() });
 }
 
 export async function DELETE(
   request: NextRequest,
   props: { params: Promise<{ projectId: string; cardId: string }> }
 ) {
+  const timing = startServerTiming("context.delete");
   const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
   if (!principalResult.ok) {
@@ -123,8 +129,11 @@ export async function DELETE(
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status, headers: timing.headers() }
+    );
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true }, { headers: timing.headers() });
 }

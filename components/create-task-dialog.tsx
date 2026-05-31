@@ -11,6 +11,8 @@ import type {
   ProjectEpicOption,
   ProjectTaskCollaborator,
   TaskRelatedSummary,
+  TaskMutationResponseTask,
+  TaskCreateOptimisticDraft,
 } from "@/components/kanban-board-types";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { useToast } from "@/components/toast-provider";
@@ -44,6 +46,12 @@ interface CreateTaskDialogProps {
   availableTasks: RelatedTaskOption[];
   availableEpics: ProjectEpicOption[];
   availableAssignees: ProjectTaskCollaborator[];
+  onTaskCreateStarted?: (draft: TaskCreateOptimisticDraft) => string | null;
+  onTaskCreated?: (
+    task: TaskMutationResponseTask,
+    optimisticTaskId: string | null
+  ) => void;
+  onOptimisticTaskDiscard?: (optimisticTaskId: string | null) => void;
 }
 
 interface PendingAttachmentLink {
@@ -62,6 +70,9 @@ export function CreateTaskDialog({
   availableTasks,
   availableEpics,
   availableAssignees,
+  onTaskCreateStarted,
+  onTaskCreated,
+  onOptimisticTaskDiscard,
 }: CreateTaskDialogProps) {
   const isMountedRef = useRef(true);
   const router = useRouter();
@@ -170,6 +181,7 @@ export function CreateTaskDialog({
     setSubmitError(null);
 
     const formData = new FormData(event.currentTarget);
+    const title = formData.get("title")?.toString().trim() ?? "";
     const filesForBackgroundUpload =
       storageProvider === "r2" ? [...selectedFiles] : [];
 
@@ -179,6 +191,17 @@ export function CreateTaskDialog({
 
     closeDialog();
     setIsSubmitting(false);
+    const optimisticTaskId =
+      onTaskCreateStarted?.({
+        title,
+        labels,
+        description: description.trim() || null,
+        deadlineDate: deadlineDate.trim() || null,
+        epicId: epicId.trim() || null,
+        assigneeUserId: assigneeUserId.trim() || null,
+        relatedTaskIds,
+        attachmentLinks,
+      }) ?? null;
 
     void (async () => {
       try {
@@ -188,11 +211,16 @@ export function CreateTaskDialog({
         });
 
         const payload = (await response.json().catch(() => null)) as
-          | { error?: string; taskId?: string }
+          | {
+              error?: string;
+              taskId?: string;
+              task?: TaskMutationResponseTask;
+            }
           | null;
 
         if (!response.ok) {
           const message = mapCreateTaskError(payload?.error ?? "create-failed");
+          onOptimisticTaskDiscard?.(optimisticTaskId);
           if (!isMountedRef.current) {
             return;
           }
@@ -208,11 +236,16 @@ export function CreateTaskDialog({
         }
         const createdTaskId =
           payload && typeof payload.taskId === "string" ? payload.taskId : null;
+        if (payload?.task) {
+          onTaskCreated?.(payload.task, optimisticTaskId);
+        } else {
+          onOptimisticTaskDiscard?.(optimisticTaskId);
+          router.refresh();
+        }
         pushToast({
           variant: "success",
           message: "Task created.",
         });
-        window.setTimeout(() => router.refresh(), 0);
 
         const canRunBackgroundUploads =
           storageProvider === "r2" &&
@@ -256,6 +289,7 @@ export function CreateTaskDialog({
         }
       } catch (error) {
         console.error("[CreateTaskDialog.handleSubmit]", error);
+        onOptimisticTaskDiscard?.(optimisticTaskId);
         if (!isMountedRef.current) {
           return;
         }
