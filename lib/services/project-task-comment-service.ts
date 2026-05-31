@@ -18,6 +18,7 @@ import {
 } from "@/lib/task-person";
 
 const MAX_TASK_COMMENT_LENGTH = 4000;
+const AGENT_COMMENT_AVATAR_SEED = "nexusdash-agent-comment-avatar";
 
 interface ServiceErrorResult {
   ok: false;
@@ -32,7 +33,14 @@ interface ServiceSuccessResult<T> {
 
 type ServiceResult<T> = ServiceSuccessResult<T> | ServiceErrorResult;
 
-export type TaskCommentAuthorSummary = TaskPersonSummary;
+export type TaskCommentAuthorKind = "user" | "agent";
+
+export interface TaskCommentAuthorSummary extends TaskPersonSummary {
+  kind: TaskCommentAuthorKind;
+  agentCredentialId: string | null;
+  agentCredentialLabel: string | null;
+  owner: TaskPersonSummary | null;
+}
 
 export interface TaskCommentSummary {
   id: string;
@@ -111,6 +119,8 @@ function mapTaskComment(input: {
   id: string;
   content: string;
   createdAt: Date;
+  authorAgentCredentialId: string | null;
+  authorAgentCredentialLabel: string | null;
   author: {
     id: string;
     name: string | null;
@@ -120,11 +130,34 @@ function mapTaskComment(input: {
     avatarSeed: string | null;
   };
 }): TaskCommentSummary {
+  const owner = mapTaskPersonSummary(input.author)!;
+  const agentCredentialLabel = normalizeText(input.authorAgentCredentialLabel);
+  const isAgentComment = Boolean(
+    input.authorAgentCredentialId || agentCredentialLabel
+  );
+
   return {
     id: input.id,
     content: input.content,
     createdAt: input.createdAt,
-    author: mapTaskPersonSummary(input.author)!,
+    author: isAgentComment
+      ? {
+          id: input.authorAgentCredentialId ?? input.author.id,
+          kind: "agent",
+          displayName: buildAgentDisplayName(agentCredentialLabel),
+          usernameTag: null,
+          avatarSeed: AGENT_COMMENT_AVATAR_SEED,
+          agentCredentialId: input.authorAgentCredentialId,
+          agentCredentialLabel: agentCredentialLabel || null,
+          owner,
+        }
+      : {
+          ...owner,
+          kind: "user",
+          agentCredentialId: null,
+          agentCredentialLabel: null,
+          owner: null,
+        },
   };
 }
 
@@ -427,6 +460,8 @@ export async function listTaskCommentsForProject(input: {
           id: true,
           content: true,
           createdAt: true,
+          authorAgentCredentialId: true,
+          authorAgentCredentialLabel: true,
           author: {
             select: {
               id: true,
@@ -520,16 +555,33 @@ export async function createTaskCommentForProject(input: {
       }
 
       try {
+        let actorKind: NotificationActorKind = "user";
+        let actorCredentialId: string | null = null;
+        let actorCredentialLabel: string | null = null;
+
+        if (input.agentAccess) {
+          actorKind = "agent";
+          actorCredentialId = input.agentAccess.credentialId;
+          actorCredentialLabel = await resolveAgentCredentialLabel({
+            db,
+            agentAccess: input.agentAccess,
+          });
+        }
+
         const comment = await db.taskComment.create({
           data: {
             taskId: input.taskId,
             authorUserId: actorUserId,
+            authorAgentCredentialId: actorCredentialId,
+            authorAgentCredentialLabel: actorCredentialLabel,
             content,
           },
           select: {
             id: true,
             content: true,
             createdAt: true,
+            authorAgentCredentialId: true,
+            authorAgentCredentialLabel: true,
             author: {
               select: {
                 id: true,
@@ -551,18 +603,9 @@ export async function createTaskCommentForProject(input: {
           comment.author.email ||
           comment.author.username ||
           "Someone";
-        let actorKind: NotificationActorKind = "user";
         let actorDisplayName = authorDisplayName;
-        let actorCredentialId: string | null = null;
-        let actorCredentialLabel: string | null = null;
 
         if (input.agentAccess) {
-          actorKind = "agent";
-          actorCredentialId = input.agentAccess.credentialId;
-          actorCredentialLabel = await resolveAgentCredentialLabel({
-            db,
-            agentAccess: input.agentAccess,
-          });
           actorDisplayName = buildAgentDisplayName(actorCredentialLabel);
         }
 
@@ -615,7 +658,7 @@ export async function createTaskCommentForProject(input: {
 export interface TaskCommentReactionSummary {
   id: string;
   emoji: string;
-  user: TaskCommentAuthorSummary;
+  user: TaskPersonSummary;
   createdAt: Date;
 }
 

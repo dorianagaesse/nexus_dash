@@ -148,6 +148,9 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     title: "List task comments",
     description: "List the chronological comment thread for one task.",
     requiredScopes: ["task:read"],
+    notes: [
+      "Agent-authored comments include the credential label in author.displayName.",
+    ],
   },
   {
     tag: "Tasks",
@@ -157,7 +160,10 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     description: "Append a new plain-text comment to a task discussion thread.",
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
-    notes: ["Task comments are append-only in v1 and preserve line breaks."],
+    notes: [
+      "Task comments are append-only in v1 and preserve line breaks.",
+      "Agent-authored comments are attributed to the credential label with an (agent) suffix.",
+    ],
   },
   {
     tag: "Tasks",
@@ -1317,6 +1323,24 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             displayName: { type: "string" },
             usernameTag: { type: ["string", "null"] },
             avatarSeed: { type: "string" },
+            kind: { type: "string", enum: ["user", "agent"] },
+            agentCredentialId: { type: ["string", "null"] },
+            agentCredentialLabel: { type: ["string", "null"] },
+            owner: {
+              anyOf: [
+                {
+                  type: "object",
+                  required: ["id", "displayName", "usernameTag", "avatarSeed"],
+                  properties: {
+                    id: { type: "string" },
+                    displayName: { type: "string" },
+                    usernameTag: { type: ["string", "null"] },
+                    avatarSeed: { type: "string" },
+                  },
+                },
+                { type: "null" },
+              ],
+            },
           },
         },
         TaskCommentRecord: {

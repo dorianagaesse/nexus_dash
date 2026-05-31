@@ -30,7 +30,7 @@ Last reviewed: 2026-05-31
 ### Deferred (Intentional)
 - ID: TASK-307
   Title: Agent comment credential identity - label and shared avatar
-  Status: Pending
+  Status: Implemented locally - PR/checks pending
   Rationale: Agent-authored comments currently render with the credential owner's identity because task comment rows store the owner user id. Make agent comments visibly attributable to the project agent credential by showing `<credential label> (agent)` and a shared robot-head-like avatar for all agents.
   Dependencies: TASK-059, TASK-127, TASK-265, TASK-306
   Brief: `tasks/task-307-agent-comment-credential-identity.md`

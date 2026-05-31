@@ -422,18 +422,22 @@ model Task {
 }
 
 model TaskComment {
-  id           String   @id @default(cuid())
-  taskId       String
-  authorUserId String
-  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  author       User     @relation("TaskCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
-  content      String
-  createdAt    DateTime @default(now())
+  id                         String         @id @default(cuid())
+  taskId                     String
+  authorUserId               String
+  authorAgentCredentialId    String?
+  authorAgentCredentialLabel String?        @db.VarChar(80)
+  task                       Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author                     User           @relation("TaskCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  authorAgentCredential      ApiCredential? @relation("TaskCommentAgentAuthorCredential", fields: [authorAgentCredentialId], references: [id], onDelete: SetNull)
+  content                    String
+  createdAt                  DateTime       @default(now())
 
   reactions TaskCommentReaction[]
 
   @@index([taskId, createdAt])
   @@index([authorUserId])
+  @@index([authorAgentCredentialId])
 }
 
 model TaskCommentReaction {
@@ -598,6 +602,7 @@ model ApiCredential {
   revokedByUser User?                     @relation("ApiCredentialRevokedBy", fields: [revokedByUserId], references: [id], onDelete: SetNull)
   scopeGrants   ApiCredentialScopeGrant[]
   auditEvents   AuthAuditEvent[]
+  taskComments  TaskComment[]              @relation("TaskCommentAgentAuthorCredential")
 
   @@index([projectId])
   @@index([createdByUserId])
