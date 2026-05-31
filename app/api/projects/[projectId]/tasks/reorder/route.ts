@@ -9,8 +9,10 @@ import {
   isValidReorderPayload,
   reorderProjectTasks,
 } from "@/lib/services/project-task-service";
+import { startServerTiming } from "@/lib/observability/server-timing";
 
 export async function POST(request: NextRequest, props: { params: Promise<{ projectId: string }> }) {
+  const timing = startServerTiming("task.reorder");
   const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
   if (!principalResult.ok) {
@@ -48,8 +50,11 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     agentAccess
   );
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status, headers: timing.headers() }
+    );
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true }, { headers: timing.headers() });
 }

@@ -1,77 +1,77 @@
-# Current Task: TASK-275 App Performance Investigation
+# Current Task: TASK-276 App Performance Remediation
 
 ## Task ID
-TASK-275
+TASK-276
 
 ## Status
-Investigation complete on `feature/task-275-performance-investigation`;
-awaiting PR review/merge.
+In progress on `feature/task-276-performance-remediation`.
 
 ## Source
 - User request on 2026-05-31:
-  common app actions currently take several seconds and need a deep
-  investigation followed by durable, production-ready remediation.
-- Backlog entry: `tasks/backlog.md`
-- Task brief: `tasks/task-275-app-performance-investigation-report.md`
-- Follow-up implementation task: `tasks/task-276-app-performance-remediation.md`
+  common app actions currently take several seconds and need a durable,
+  production-ready implementation fix.
+- Investigation report: `docs/reports/task-275-performance-investigation.md`
+- Task brief: `tasks/task-276-app-performance-remediation.md`
 
 ## Objective
-Measure and explain the app's slow-feeling creation, update, navigation, and
-refresh flows, then produce the concrete implementation plan that TASK-276 will
-execute.
+Implement the first evidence-backed performance remediation set from TASK-275 so
+high-frequency project, task, comment, context-card, and board movement actions
+give immediate local feedback, avoid avoidable full route refreshes, and expose
+timing evidence for deployed API hotspots.
 
 ## Scope
-- Capture timing evidence across browser, API, database/query, server render,
-  cache/refresh, client hydration/rendering, and perceived-latency layers.
-- Focus on everyday flows where actions currently take several seconds:
-  project creation/list refresh, task creation/update/assignment/comment/board
-  refresh, context-card creation/update/dashboard refresh, and any roadmap or
-  calendar interactions that materially affect dashboard speed.
-- Identify whether the dominant causes are backend latency, database/RLS work,
-  network round trips, route refreshes, cache invalidation, oversized payloads,
-  client rendering/hydration, missing optimistic UI, or loading-state ergonomics.
-- Update TASK-276 with the evidence-backed remediation scope.
+- Return complete mutation payloads where the UI needs them, especially board-
+  ready task creation data.
+- Replace success-path `router.refresh()` calls in targeted task/context flows
+  with local state updates and bounded reconciliation.
+- Keep persistence failure handling explicit through rollback, error toasts, or
+  affected-item reconciliation.
+- Reduce kanban reorder persistence work by skipping unchanged rows server-side.
+- Add lightweight production-safe timing evidence for targeted mutation routes.
+- Validate locally and against a branch-ref preview with before/after timing
+  evidence.
 
 ## Acceptance Criteria
-1. A performance report exists in the repo with measured evidence for the
-   highest-traffic slow flows.
-2. The report separates backend/API, database/query, render/hydration,
-   cache/refresh, network, and perceived-UX costs.
-3. The investigation identifies the dominant root causes behind several-second
-   actions.
-4. Recommendations are ranked by impact, complexity, risk, and production
-   durability.
-5. TASK-276 has a concrete implementation plan for the first remediation set.
+1. Task create, task update/save, quick task assignment/epic changes, comments,
+   kanban drag/drop, and context-card create/update/delete no longer depend on a
+   visible full-dashboard refresh for their normal success feedback.
+2. Task creation returns enough API data for the board to render the new card
+   without waiting for a route refresh.
+3. Failed optimistic or local-first mutations roll back or surface a targeted
+   error without blanking unrelated dashboard sections.
+4. Reorder persistence skips unchanged task rows while preserving status,
+   position, completion, authorization, activity, and realtime semantics.
+5. Production-safe timing hooks make targeted API route latency measurable on
+   preview.
+6. Focused automated tests cover changed API/service/client behavior.
+7. Preview validation records timing evidence for the targeted flows.
 
 ## Definition Of Done
-- [x] Measurement evidence is captured from preview, production-equivalent, or
-  local runs with clear environment notes.
-- [x] The investigation report is committed.
-- [x] TASK-276 is updated with implementation scope, validation targets, and
-  risk notes.
-- [x] `journal.md` records findings and next steps.
-- [x] `git diff --check` passes.
+- [x] Implementation is committed on the dedicated feature branch.
+- [x] Focused tests cover mutation payload/local update/reorder behavior.
+- [x] `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`
+      pass.
+- [x] A branch-ref preview deployment is created and validated with Playwright or
+      direct API/browser timing evidence.
+- [x] `tasks/backlog.md`, `tasks/current.md`, and `journal.md` are updated.
+- [ ] A ready-for-review PR is opened, automated checks pass, and Copilot review
+      feedback is handled.
 
-## Findings
-- Report: `docs/reports/task-275-performance-investigation.md`
-- Main cause: common actions are visibly gated by server confirmation and broad
-  `router.refresh()` calls, not a single obviously multi-second service method.
-- Local Docker Postgres probe showed task/comment/context mutation services in
-  the 15-30 ms range; full-board reorder was 113.9 ms for a 41-task board.
-- Protected preview API probe via `vercel curl` showed task create at 2442.1 ms,
-  task update at 2152.4 ms, task list at 1776-1898 ms, and full-board reorder
-  at 1551.3 ms on a warm repeat.
-- Direct preview API after disabling Vercel deployment protection still showed
-  seconds-level timings: task create p50 2316.9 ms, task update p50 2029.4 ms,
-  task list p50 1603.6 ms, and reorder p50 1109.2 ms.
-- Local Playwright browser probe showed task creation at 4696.2 ms from submit
-  to visible card, compared with 22.1 ms for direct service creation.
-- The earlier direct 401 was Vercel deployment protection, not the agent
-  credential. After disabling protection, direct token exchange succeeded.
-
-## Open Questions
-- Which deployment/environment should be treated as the primary performance
-  baseline if preview and production differ materially?
-- Should TASK-276 use a small state/cache helper inside the current components
-  first, or introduce a broader client data layer such as SWR for mutation
-  reconciliation?
+## Notes
+- TASK-275 proved local service calls are fast but deployed API calls and browser
+  route refreshes stack into several-second perceived waits.
+- This remediation batch improves perceived responsiveness first by removing
+  avoidable success-path route refreshes from targeted task/comment/context-card
+  dashboard flows, adding board-ready mutation payloads, and recording
+  `Server-Timing` on targeted API routes.
+- Residual deployed API sub-causes should be evaluated with the new timing
+  headers and preview evidence instead of guesswork.
+- Preview deployment run `26718308463` checked out
+  `feature/task-276-performance-remediation` at commit `5bee1f0` and produced
+  `https://nexus-dash-7amtvjh4y-dorian-agaesses-projects.vercel.app`.
+- Preview validation used project-scoped agent credentials because the local
+  Playwright session seeding env did not match the deployed runtime database;
+  the browser smoke redirected to sign-in and was not counted as a pass.
+- Preview API smoke passed task/context create, update, comment/list, and cleanup
+  flows. Timing evidence is exposed through `x-nexusdash-server-timing`; Vercel
+  did not expose the standard `Server-Timing` header on the tested deployment.

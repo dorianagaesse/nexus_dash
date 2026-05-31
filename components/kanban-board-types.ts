@@ -81,6 +81,7 @@ export interface KanbanTask {
   labels: string[];
   blockedFollowUps: TaskBlockedFollowUp[];
   status: TaskStatus;
+  position: number;
   archivedAt: string | null;
   attachments: TaskAttachment[];
   relatedTasks: TaskRelatedSummary[];
@@ -92,10 +93,47 @@ export interface KanbanTask {
   updatedAt: string;
 }
 
+export interface TaskMutationResponseTask {
+  id: string;
+  title: string;
+  label: string | null;
+  labelsJson: string | null;
+  description: string | null;
+  deadlineDate: string | null;
+  commentCount: number;
+  blockedNote: string | null;
+  status: TaskStatus;
+  position: number;
+  archivedAt: string | null;
+  epic: TaskEpicSummary | null;
+  assignee: TaskPersonSummary | null;
+  createdBy: TaskPersonSummary;
+  updatedBy: TaskPersonSummary;
+  createdAt: string;
+  updatedAt: string;
+  relatedTasks: TaskRelatedSummary[];
+  blockedFollowUps: TaskBlockedFollowUp[];
+  attachments: TaskAttachment[];
+}
+
 export interface PendingAttachmentUpload {
   id: string;
   name: string;
   sizeBytes: number;
+}
+
+export interface TaskCreateOptimisticDraft {
+  title: string;
+  labels: string[];
+  description: string | null;
+  deadlineDate: string | null;
+  epicId: string | null;
+  assigneeUserId: string | null;
+  relatedTaskIds: string[];
+  attachmentLinks: {
+    id: string;
+    url: string;
+  }[];
 }
 
 export interface ProjectTaskCollaborator extends TaskPersonSummary {

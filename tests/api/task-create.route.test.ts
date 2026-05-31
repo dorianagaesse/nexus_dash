@@ -172,6 +172,84 @@ describe("POST /api/projects/:projectId/tasks", () => {
     });
   });
 
+  test("returns a board-ready task payload when the service provides one", async () => {
+    projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        task: {
+          id: "task-rich",
+          title: "Rich payload",
+          label: "frontend",
+          labelsJson: '["frontend"]',
+          description: "<p>Fast path.</p>",
+          deadlineDate: "2026-06-01",
+          commentCount: 0,
+          blockedNote: null,
+          status: "Backlog",
+          position: 3,
+          archivedAt: null,
+          epic: null,
+          assignee: null,
+          createdBy: {
+            id: "test-user",
+            displayName: "Test User",
+            usernameTag: null,
+            avatarSeed: "test-user",
+          },
+          updatedBy: {
+            id: "test-user",
+            displayName: "Test User",
+            usernameTag: null,
+            avatarSeed: "test-user",
+          },
+          createdAt: new Date("2026-05-31T10:00:00.000Z"),
+          updatedAt: new Date("2026-05-31T10:00:00.000Z"),
+          relatedTasks: [],
+          blockedFollowUps: [],
+          attachments: [
+            {
+              id: "att-1",
+              kind: "link",
+              name: "Spec",
+              url: "https://example.com",
+              mimeType: null,
+              sizeBytes: null,
+            },
+          ],
+        },
+      },
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        title: "Rich payload",
+      }),
+    });
+
+    const response = await POST(request as never, taskRouteParams("p1"));
+
+    expect(response.status).toBe(201);
+    await expect(readJson(response)).resolves.toMatchObject({
+      taskId: "task-rich",
+      task: {
+        id: "task-rich",
+        title: "Rich payload",
+        position: 3,
+        attachments: [
+          {
+            id: "att-1",
+            downloadUrl: null,
+          },
+        ],
+      },
+    });
+    expect(response.headers.get("Server-Timing")).toMatch(/^task-create;dur=/);
+  });
+
   test("returns 400 when json deadlineDate is not a string", async () => {
     const request = new Request("http://localhost/api/projects/p1/tasks", {
       method: "POST",

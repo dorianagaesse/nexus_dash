@@ -118,6 +118,14 @@ interface UpdatedTaskPayload {
     content: string;
     createdAt: Date;
   }[];
+  attachments: {
+    id: string;
+    kind: string;
+    name: string;
+    url: string | null;
+    mimeType: string | null;
+    sizeBytes: number | null;
+  }[];
 }
 
 interface PendingTaskAssignmentNotification {
@@ -234,6 +242,109 @@ function mergeRelatedTaskSummaries(task: {
   ];
 
   return relatedTasks.sort((left, right) => left.title.localeCompare(right.title));
+}
+
+async function loadTaskMutationPayload(
+  db: DbClient,
+  taskId: string
+): Promise<UpdatedTaskPayload | null> {
+  const task = await db.task.findUnique({
+    where: { id: taskId },
+    select: {
+      id: true,
+      title: true,
+      label: true,
+      labelsJson: true,
+      description: true,
+      deadlineAt: true,
+      _count: {
+        select: {
+          comments: true,
+        },
+      },
+      blockedNote: true,
+      status: true,
+      position: true,
+      archivedAt: true,
+      createdAt: true,
+      updatedAt: true,
+      attachments: {
+        orderBy: [{ createdAt: "desc" }],
+        select: {
+          id: true,
+          kind: true,
+          name: true,
+          url: true,
+          mimeType: true,
+          sizeBytes: true,
+        },
+      },
+      epic: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      createdByUser: {
+        select: taskPersonSummarySelect,
+      },
+      updatedByUser: {
+        select: taskPersonSummarySelect,
+      },
+      assigneeUser: {
+        select: taskPersonSummarySelect,
+      },
+      outgoingRelations: {
+        select: {
+          rightTask: {
+            select: relatedTaskSummarySelect,
+          },
+        },
+      },
+      incomingRelations: {
+        select: {
+          leftTask: {
+            select: relatedTaskSummarySelect,
+          },
+        },
+      },
+      blockedFollowUps: {
+        orderBy: [{ createdAt: "desc" }],
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+        },
+      },
+    },
+  });
+
+  if (!task) {
+    return null;
+  }
+
+  return {
+    id: task.id,
+    title: task.title,
+    label: task.label,
+    labelsJson: task.labelsJson,
+    description: task.description,
+    deadlineDate: formatTaskDeadlineDate(task.deadlineAt),
+    commentCount: task._count.comments,
+    blockedNote: task.blockedNote,
+    status: task.status,
+    position: task.position,
+    archivedAt: task.archivedAt,
+    epic: mapTaskEpicSummary(task.epic),
+    assignee: task.assigneeUser ? mapTaskPersonSummary(task.assigneeUser) : null,
+    createdBy: mapTaskPersonSummary(task.createdByUser)!,
+    updatedBy: mapTaskPersonSummary(task.updatedByUser)!,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+    relatedTasks: mergeRelatedTaskSummaries(task),
+    blockedFollowUps: task.blockedFollowUps,
+    attachments: task.attachments,
+  };
 }
 
 async function validateRelatedTaskIds(input: {
@@ -573,7 +684,7 @@ export function isValidReorderPayload(payload: unknown): payload is ReorderPaylo
 
 export async function createTaskForProject(
   input: CreateTaskForProjectInput
-): Promise<ServiceResult<{ id: string }>> {
+): Promise<ServiceResult<{ task: UpdatedTaskPayload }>> {
   const actorUserId = normalizeText(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
@@ -733,10 +844,15 @@ export async function createTaskForProject(
 
       await touchProjectActivity({ db, projectId: input.projectId });
 
+      const task = await loadTaskMutationPayload(db, createdTask.id);
+      if (!task) {
+        return createError(500, "create-failed");
+      }
+
       return {
         ok: true,
         data: {
-          id: createdTask.id,
+          task,
         },
       };
     } catch (error) {
@@ -815,7 +931,13 @@ export async function reorderProjectTasks(
             ],
           },
         },
-        select: { id: true, status: true, completedAt: true },
+        select: {
+          id: true,
+          status: true,
+          position: true,
+          archivedAt: true,
+          completedAt: true,
+        },
       });
 
       if (tasks.length !== taskIds.length) {
@@ -824,33 +946,50 @@ export async function reorderProjectTasks(
 
       const taskById = new Map(tasks.map((task) => [task.id, task]));
 
+      const now = new Date();
       const updateOperations = normalizedColumns.flatMap(
         (column: { status: TaskStatus; taskIds: string[] }) =>
-          column.taskIds.map((taskId, index) => {
+          column.taskIds.flatMap((taskId, index) => {
             const existingTask = taskById.get(taskId);
             const movedToDone =
               column.status === "Done" && existingTask?.status !== "Done";
+            const nextCompletedAt =
+              column.status === "Done"
+                ? movedToDone
+                  ? now
+                  : existingTask?.completedAt ?? now
+                : null;
 
-            return db.task.update({
-              where: { id: taskId },
-              data: {
-                status: column.status,
-                position: index,
-                archivedAt: null,
-                updatedByUserId: normalizedActorUserId,
-                completedAt:
-                  column.status === "Done"
-                    ? movedToDone
-                      ? new Date()
-                      : existingTask?.completedAt ?? new Date()
-                    : null,
-              },
-            });
+            if (
+              existingTask &&
+              existingTask.status === column.status &&
+              existingTask.position === index &&
+              existingTask.archivedAt === null &&
+              ((existingTask.completedAt === null && nextCompletedAt === null) ||
+                existingTask.completedAt?.getTime() === nextCompletedAt?.getTime())
+            ) {
+              return [];
+            }
+
+            return [
+              db.task.update({
+                where: { id: taskId },
+                data: {
+                  status: column.status,
+                  position: index,
+                  archivedAt: null,
+                  updatedByUserId: normalizedActorUserId,
+                  completedAt: nextCompletedAt,
+                },
+              }),
+            ];
           })
       );
 
       await Promise.all(updateOperations);
-      await touchProjectActivity({ db, projectId });
+      if (updateOperations.length > 0) {
+        await touchProjectActivity({ db, projectId });
+      }
 
       return {
         ok: true,
@@ -1052,65 +1191,7 @@ export async function updateTaskForProject(
           });
         }
 
-        return tx.task.findUnique({
-          where: { id: taskId },
-          select: {
-            id: true,
-            title: true,
-            label: true,
-            labelsJson: true,
-            description: true,
-            deadlineAt: true,
-            _count: {
-              select: {
-                comments: true,
-              },
-            },
-            blockedNote: true,
-            status: true,
-            position: true,
-            archivedAt: true,
-            createdAt: true,
-            updatedAt: true,
-            epic: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-            createdByUser: {
-              select: taskPersonSummarySelect,
-            },
-            updatedByUser: {
-              select: taskPersonSummarySelect,
-            },
-            assigneeUser: {
-              select: taskPersonSummarySelect,
-            },
-            outgoingRelations: {
-              select: {
-                rightTask: {
-                  select: relatedTaskSummarySelect,
-                },
-              },
-            },
-            incomingRelations: {
-              select: {
-                leftTask: {
-                  select: relatedTaskSummarySelect,
-                },
-              },
-            },
-            blockedFollowUps: {
-              orderBy: [{ createdAt: "desc" }],
-              select: {
-                id: true,
-                content: true,
-                createdAt: true,
-              },
-            },
-          },
-        });
+        return loadTaskMutationPayload(tx, taskId);
       };
 
       const updatedTask = await updateWithClient(db);
@@ -1160,29 +1241,7 @@ export async function updateTaskForProject(
       return {
         ok: true,
         data: {
-          task: {
-            id: updatedTask.id,
-            title: updatedTask.title,
-            label: updatedTask.label,
-            labelsJson: updatedTask.labelsJson,
-            description: updatedTask.description,
-            deadlineDate: formatTaskDeadlineDate(updatedTask.deadlineAt),
-            commentCount: updatedTask._count.comments,
-            blockedNote: updatedTask.blockedNote,
-            status: updatedTask.status,
-            position: updatedTask.position,
-            archivedAt: updatedTask.archivedAt,
-            epic: mapTaskEpicSummary(updatedTask.epic),
-            assignee: updatedTask.assigneeUser
-              ? mapTaskPersonSummary(updatedTask.assigneeUser)
-              : null,
-            createdBy: mapTaskPersonSummary(updatedTask.createdByUser)!,
-            updatedBy: mapTaskPersonSummary(updatedTask.updatedByUser)!,
-            createdAt: updatedTask.createdAt,
-            updatedAt: updatedTask.updatedAt,
-            relatedTasks: mergeRelatedTaskSummaries(updatedTask),
-            blockedFollowUps: updatedTask.blockedFollowUps,
-          },
+          task: updatedTask,
         },
       };
     } catch (error) {

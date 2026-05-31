@@ -9,7 +9,6 @@ import {
   useTransition,
 } from "react";
 import type { DropResult } from "@hello-pangea/dnd";
-import { useRouter } from "next/navigation";
 
 import type { RelatedTaskOption } from "@/components/kanban/related-task-field";
 import {
@@ -22,7 +21,8 @@ import {
   type TaskPersonSummary,
   type TaskAttachment,
   type TaskRelatedSummary,
-  type TaskEpicSummary,
+  type TaskMutationResponseTask,
+  type TaskCreateOptimisticDraft,
 } from "@/components/kanban-board-types";
 import { CreateTaskDialog } from "@/components/create-task-dialog";
 import { KanbanBoardHeader } from "@/components/kanban/kanban-board-header";
@@ -92,32 +92,6 @@ function stampTaskActivity(
   };
 }
 
-interface TaskMutationResponseTask {
-  id: string;
-  title: string;
-  label: string | null;
-  labelsJson: string | null;
-  description: string | null;
-  deadlineDate: string | null;
-  commentCount: number;
-  blockedNote: string | null;
-  status: TaskStatus;
-  position: number;
-  archivedAt: string | null;
-  epic: TaskEpicSummary | null;
-  assignee: TaskPersonSummary | null;
-  createdBy: TaskPersonSummary;
-  updatedBy: TaskPersonSummary;
-  createdAt: string;
-  updatedAt: string;
-  relatedTasks: TaskRelatedSummary[];
-  blockedFollowUps: {
-    id: string;
-    content: string;
-    createdAt: string;
-  }[];
-}
-
 function getTaskMutationErrorMessage(errorCode?: string): string {
   switch (errorCode) {
     case "related-tasks-invalid":
@@ -133,10 +107,7 @@ function getTaskMutationErrorMessage(errorCode?: string): string {
   }
 }
 
-function mapTaskMutationResponseTask(
-  task: TaskMutationResponseTask,
-  attachments: TaskAttachment[]
-): KanbanTask {
+function mapTaskMutationResponseTask(task: TaskMutationResponseTask): KanbanTask {
   return {
     id: task.id,
     title: task.title,
@@ -155,10 +126,41 @@ function mapTaskMutationResponseTask(
       createdAt: entry.createdAt,
     })),
     status: task.status,
+    position: task.position,
     archivedAt: task.archivedAt,
     relatedTasks: task.relatedTasks,
-    attachments,
+    attachments: task.attachments,
   };
+}
+
+function mergeFetchedTaskComments(
+  fetchedComments: TaskComment[],
+  currentComments: TaskComment[]
+): TaskComment[] {
+  const commentsById = new Map<string, TaskComment>();
+
+  fetchedComments.forEach((comment) => {
+    commentsById.set(comment.id, comment);
+  });
+
+  currentComments.forEach((comment) => {
+    if (!commentsById.has(comment.id)) {
+      commentsById.set(comment.id, comment);
+    }
+  });
+
+  return Array.from(commentsById.values()).sort(
+    (left, right) =>
+      new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+  );
+}
+
+function getAttachmentLinkName(url: string): string {
+  try {
+    return new URL(url).hostname || url;
+  } catch {
+    return url;
+  }
 }
 
 export function KanbanBoard({
@@ -172,7 +174,6 @@ export function KanbanBoard({
   collaborators,
   initialTaskId,
 }: KanbanBoardProps) {
-  const router = useRouter();
   const initialColumns = useMemo(
     () => mapTasksToColumns(initialTasks),
     [initialTasks]
@@ -372,7 +373,9 @@ export function KanbanBoard({
           comments: TaskComment[];
         };
 
-        setTaskComments(payload.comments);
+        setTaskComments((currentComments) =>
+          mergeFetchedTaskComments(payload.comments, currentComments)
+        );
       } catch (error) {
         if (abortController.signal.aborted) {
           return;
@@ -712,14 +715,13 @@ export function KanbanBoard({
       }
 
       setPersistError(null);
-      router.refresh();
     } catch (error) {
       console.error("[KanbanBoard.persistColumns]", error);
       setColumns(previousColumns);
       setPersistError("Could not save task movement. Board reverted.");
     }
   },
-    [projectId, router]
+    [projectId]
   );
 
   const onDragEnd = useCallback(
@@ -802,6 +804,9 @@ export function KanbanBoard({
 
   const handleSelectTask = useCallback((task: KanbanTask) => {
     shouldOpenTaskInEditModeRef.current = false;
+    setTaskComments([]);
+    setTaskCommentsError(null);
+    setNewTaskComment("");
     setSelectedTask(task);
   }, []);
 
@@ -811,6 +816,9 @@ export function KanbanBoard({
     }
 
     shouldOpenTaskInEditModeRef.current = true;
+    setTaskComments([]);
+    setTaskCommentsError(null);
+    setNewTaskComment("");
     setSelectedTask(task);
   }, [canEdit]);
 
@@ -822,6 +830,9 @@ export function KanbanBoard({
       }
 
       shouldOpenTaskInEditModeRef.current = false;
+      setTaskComments([]);
+      setTaskCommentsError(null);
+      setNewTaskComment("");
       setSelectedTask(relatedTask);
     },
     [taskById]
@@ -910,6 +921,249 @@ export function KanbanBoard({
     [syncRelatedTaskSummary]
   );
 
+  const insertCreatedTask = useCallback(
+    (createdTask: KanbanTask) => {
+      setColumns((previousColumns) => {
+        const nextColumns = cloneColumns(previousColumns);
+        const targetColumn = nextColumns[createdTask.status];
+        const existingIndex = targetColumn.findIndex(
+          (task) => task.id === createdTask.id
+        );
+
+        if (existingIndex >= 0) {
+          targetColumn[existingIndex] = createdTask;
+        } else {
+          targetColumn.push(createdTask);
+        }
+
+        targetColumn.sort((left, right) => left.position - right.position);
+
+        createdTask.relatedTasks.forEach((relatedTask) => {
+          if (!isTaskStatus(relatedTask.status)) {
+            return;
+          }
+
+          const relatedColumn = nextColumns[relatedTask.status];
+          const relatedIndex = relatedColumn.findIndex(
+            (task) => task.id === relatedTask.id
+          );
+          if (relatedIndex === -1) {
+            return;
+          }
+
+          const relatedColumnTask = relatedColumn[relatedIndex];
+          if (
+            relatedColumnTask.relatedTasks.some(
+              (task) => task.id === createdTask.id
+            )
+          ) {
+            return;
+          }
+
+          relatedColumn[relatedIndex] = {
+            ...relatedColumnTask,
+            relatedTasks: [
+              ...relatedColumnTask.relatedTasks,
+              {
+                id: createdTask.id,
+                title: createdTask.title,
+                status: createdTask.status,
+                archivedAt: createdTask.archivedAt,
+              },
+            ].sort((left, right) => left.title.localeCompare(right.title)),
+          };
+        });
+
+        return nextColumns;
+      });
+
+      setIsExpanded(true);
+      setPersistError(null);
+    },
+    [setIsExpanded]
+  );
+
+  const removeLocalTask = useCallback(
+    (taskId: string) => {
+      setColumns((previousColumns) => {
+        const nextColumns = createEmptyColumns<KanbanTask>();
+        TASK_STATUSES.forEach((status) => {
+          nextColumns[status] = previousColumns[status].filter(
+            (task) => task.id !== taskId
+          );
+        });
+        return nextColumns;
+      });
+      setArchivedDoneTasks((previousTasks) =>
+        previousTasks.filter((task) => task.id !== taskId)
+      );
+      setSelectedTask((previousTask) => {
+        if (!previousTask || previousTask.id !== taskId) {
+          return previousTask;
+        }
+        return null;
+      });
+      removeRelatedTaskReferences(taskId);
+    },
+    [removeRelatedTaskReferences]
+  );
+
+  const replaceOptimisticTaskWithCreatedTask = useCallback(
+    (optimisticTaskId: string, createdTask: KanbanTask) => {
+      const createdTaskSummary: TaskRelatedSummary = {
+        id: createdTask.id,
+        title: createdTask.title,
+        status: createdTask.status,
+        archivedAt: createdTask.archivedAt,
+      };
+      const createdRelatedTaskIds = new Set(
+        createdTask.relatedTasks.map((task) => task.id)
+      );
+      const replaceRelatedReferences = (task: KanbanTask): KanbanTask => {
+        const nextRelatedTasks = task.relatedTasks.filter(
+          (relatedTask) =>
+            relatedTask.id !== optimisticTaskId &&
+            relatedTask.id !== createdTask.id
+        );
+
+        if (createdRelatedTaskIds.has(task.id)) {
+          nextRelatedTasks.push(createdTaskSummary);
+        }
+
+        const sortedRelatedTasks = nextRelatedTasks.sort((left, right) =>
+          left.title.localeCompare(right.title)
+        );
+        const hasChanged =
+          sortedRelatedTasks.length !== task.relatedTasks.length ||
+          sortedRelatedTasks.some(
+            (relatedTask, index) =>
+              task.relatedTasks[index]?.id !== relatedTask.id ||
+              task.relatedTasks[index]?.title !== relatedTask.title ||
+              task.relatedTasks[index]?.status !== relatedTask.status ||
+              task.relatedTasks[index]?.archivedAt !== relatedTask.archivedAt
+          );
+
+        return hasChanged
+          ? {
+              ...task,
+              relatedTasks: sortedRelatedTasks,
+            }
+          : task;
+      };
+
+      setColumns((previousColumns) => {
+        const nextColumns = createEmptyColumns<KanbanTask>();
+
+        TASK_STATUSES.forEach((status) => {
+          nextColumns[status] = previousColumns[status]
+            .filter(
+              (task) =>
+                task.id !== optimisticTaskId && task.id !== createdTask.id
+            )
+            .map(replaceRelatedReferences);
+        });
+
+        nextColumns[createdTask.status].push(createdTask);
+        nextColumns[createdTask.status].sort(
+          (left, right) => left.position - right.position
+        );
+
+        return nextColumns;
+      });
+      setArchivedDoneTasks((previousTasks) =>
+        previousTasks
+          .filter(
+            (task) => task.id !== optimisticTaskId && task.id !== createdTask.id
+          )
+          .map(replaceRelatedReferences)
+      );
+      setSelectedTask((previousTask) => {
+        if (
+          !previousTask ||
+          (previousTask.id !== optimisticTaskId && previousTask.id !== createdTask.id)
+        ) {
+          return previousTask;
+        }
+
+        return createdTask;
+      });
+      setIsExpanded(true);
+      setPersistError(null);
+    },
+    [setIsExpanded]
+  );
+
+  const insertOptimisticTask = useCallback(
+    (draft: TaskCreateOptimisticDraft): string | null => {
+      if (!currentActorSummary) {
+        return null;
+      }
+
+      const now = new Date().toISOString();
+      const optimisticTaskId = `optimistic-task-${Date.now()}-${Math.random()
+        .toString(16)
+        .slice(2)}`;
+      const backlogPositions = columns.Backlog.map((task) => task.position);
+      const nextPosition =
+        backlogPositions.length > 0 ? Math.max(...backlogPositions) + 1 : 0;
+      const relatedTasks = draft.relatedTaskIds
+        .map((taskId) => taskById.get(taskId))
+        .filter((task): task is KanbanTask => Boolean(task))
+        .map((task) => ({
+          id: task.id,
+          title: task.title,
+          status: task.status,
+          archivedAt: task.archivedAt,
+        }))
+        .sort((left, right) => left.title.localeCompare(right.title));
+
+      const optimisticAttachments = draft.attachmentLinks.map((link) => ({
+        id: `optimistic-attachment-${link.id}`,
+        kind: ATTACHMENT_KIND_LINK,
+        name: getAttachmentLinkName(link.url),
+        url: link.url,
+        mimeType: null,
+        sizeBytes: null,
+        downloadUrl: null,
+      }));
+
+      insertCreatedTask({
+        id: optimisticTaskId,
+        title: draft.title,
+        labels: draft.labels,
+        description: draft.description,
+        deadlineDate: draft.deadlineDate,
+        commentCount: 0,
+        blockedFollowUps: [],
+        status: "Backlog",
+        position: nextPosition,
+        archivedAt: null,
+        attachments: optimisticAttachments,
+        relatedTasks,
+        epic:
+          availableEpicOptions.find((epic) => epic.id === draft.epicId) ?? null,
+        assignee:
+          availableAssignees.find(
+            (assignee) => assignee.id === draft.assigneeUserId
+          ) ?? null,
+        createdBy: currentActorSummary,
+        updatedBy: currentActorSummary,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      return optimisticTaskId;
+    },
+    [
+      availableAssignees,
+      availableEpicOptions,
+      columns.Backlog,
+      currentActorSummary,
+      insertCreatedTask,
+      taskById,
+    ]
+  );
+
   const patchSelectedTask = useCallback(
     async ({
       payload,
@@ -960,12 +1214,8 @@ export function KanbanBoard({
           throw new Error("Invalid task status returned by server");
         }
 
-        const updatedTask = mapTaskMutationResponseTask(
-          responsePayload.task,
-          selectedTask.attachments
-        );
+        const updatedTask = mapTaskMutationResponseTask(responsePayload.task);
         applyUpdatedTask(updatedTask);
-        router.refresh();
         pushToast({
           variant: "success",
           message: successMessage,
@@ -985,7 +1235,7 @@ export function KanbanBoard({
         setIsUpdatingTask(false);
       }
     },
-    [applyUpdatedTask, canEdit, projectId, pushToast, router, selectedTask]
+    [applyUpdatedTask, canEdit, projectId, pushToast, selectedTask]
   );
 
   const persistTaskChanges = useCallback(
@@ -1045,14 +1295,13 @@ export function KanbanBoard({
           throw new Error("Invalid task status returned by server");
         }
 
-        const updatedTask = mapTaskMutationResponseTask(payload.task, selectedTask.attachments);
+        const updatedTask = mapTaskMutationResponseTask(payload.task);
         applyUpdatedTask(updatedTask);
         setTaskModalError(null);
         if (options?.exitEditMode !== false) {
           setIsEditMode(false);
         }
         setNewBlockedFollowUpEntry("");
-        router.refresh();
         return true;
       } catch (error) {
         console.error("[KanbanBoard.handleTaskUpdate]", error);
@@ -1075,7 +1324,6 @@ export function KanbanBoard({
       editTitle,
       newBlockedFollowUpEntry,
       projectId,
-      router,
       selectedTask,
       applyUpdatedTask,
     ]
@@ -1264,7 +1512,6 @@ export function KanbanBoard({
         return null;
       });
       removeRelatedTaskReferences(pendingDeleteTask.id);
-      router.refresh();
 
       pushToast({
         variant: "success",
@@ -1280,7 +1527,7 @@ export function KanbanBoard({
       setPendingDeleteTask(null);
       setIsDeletingTask(false);
     }
-  }, [canEdit, isDeletingTask, pendingDeleteTask, projectId, pushToast, removeRelatedTaskReferences, router]);
+  }, [canEdit, isDeletingTask, pendingDeleteTask, projectId, pushToast, removeRelatedTaskReferences]);
 
   const handleArchiveTask = useCallback(async () => {
     if (!canEdit) {
@@ -1335,7 +1582,6 @@ export function KanbanBoard({
         archivedAt: payload.archivedAt,
       });
       closeTaskModal();
-      router.refresh();
       pushToast({
         variant: "success",
         message: "Task moved to archive.",
@@ -1356,7 +1602,6 @@ export function KanbanBoard({
     isArchivingTask,
     projectId,
     pushToast,
-    router,
     selectedTask,
     syncRelatedTaskSummary,
   ]);
@@ -1411,7 +1656,6 @@ export function KanbanBoard({
         status: taskToRestore.status,
         archivedAt: null,
       });
-      router.refresh();
       pushToast({
         variant: "success",
         message: "Task moved back to Done.",
@@ -1432,7 +1676,6 @@ export function KanbanBoard({
     isSelectedTaskArchived,
     projectId,
     pushToast,
-    router,
     selectedTask,
     syncRelatedTaskSummary,
   ]);
@@ -1511,6 +1754,38 @@ export function KanbanBoard({
 
     setIsSubmittingTaskComment(true);
     setTaskCommentsError(null);
+    const optimisticCommentId = `optimistic-comment-${Date.now()}-${Math.random()
+      .toString(16)
+      .slice(2)}`;
+    const optimisticComment: TaskComment | null = currentActorSummary
+      ? {
+          id: optimisticCommentId,
+          content,
+          createdAt: new Date().toISOString(),
+          author: {
+            ...currentActorSummary,
+            kind: "user",
+          },
+          reactions: [],
+        }
+      : null;
+
+    if (optimisticComment) {
+      setTaskComments((previousComments) => [
+        ...previousComments,
+        optimisticComment,
+      ]);
+      setNewTaskComment("");
+      applyTaskMutation(selectedTask.id, (task) =>
+        stampTaskActivity(
+          {
+            ...task,
+            commentCount: task.commentCount + 1,
+          },
+          currentActorSummary
+        )
+      );
+    }
 
     try {
       const response = await fetch(
@@ -1542,18 +1817,27 @@ export function KanbanBoard({
         comment: TaskComment;
       };
 
-      setTaskComments((previousComments) => [...previousComments, payload.comment]);
-      setNewTaskComment("");
-      applyTaskMutation(selectedTask.id, (task) =>
-        stampTaskActivity(
-          {
-            ...task,
-            commentCount: task.commentCount + 1,
-          },
-          currentActorSummary
-        )
+      setTaskComments((previousComments) =>
+        optimisticComment
+          ? previousComments.some((comment) => comment.id === optimisticCommentId)
+            ? previousComments.map((comment) =>
+                comment.id === optimisticCommentId ? payload.comment : comment
+              )
+            : [...previousComments, payload.comment]
+          : [...previousComments, payload.comment]
       );
-      router.refresh();
+      setNewTaskComment("");
+      if (!optimisticComment) {
+        applyTaskMutation(selectedTask.id, (task) =>
+          stampTaskActivity(
+            {
+              ...task,
+              commentCount: task.commentCount + 1,
+            },
+            currentActorSummary
+          )
+        );
+      }
       pushToast({
         variant: "success",
         message: "Comment added.",
@@ -1562,6 +1846,21 @@ export function KanbanBoard({
       console.error("[KanbanBoard.handleSubmitTaskComment]", error);
       const message =
         error instanceof Error ? error.message : "Could not add comment.";
+      if (optimisticComment) {
+        setTaskComments((previousComments) =>
+          previousComments.filter((comment) => comment.id !== optimisticCommentId)
+        );
+        applyTaskMutation(selectedTask.id, (task) =>
+          stampTaskActivity(
+            {
+              ...task,
+              commentCount: Math.max(0, task.commentCount - 1),
+            },
+            currentActorSummary
+          )
+        );
+        setNewTaskComment(content);
+      }
       setTaskCommentsError(message);
       pushToast({
         variant: "error",
@@ -1577,7 +1876,6 @@ export function KanbanBoard({
     newTaskComment,
     projectId,
     pushToast,
-    router,
     selectedTask,
   ]);
 
@@ -1873,6 +2171,24 @@ export function KanbanBoard({
             availableTasks={createDialogAvailableTasks}
             availableEpics={availableEpicOptions}
             availableAssignees={availableAssignees}
+            onTaskCreateStarted={insertOptimisticTask}
+            onOptimisticTaskDiscard={(optimisticTaskId) => {
+              if (optimisticTaskId) {
+                removeLocalTask(optimisticTaskId);
+              }
+            }}
+            onTaskCreated={(task, optimisticTaskId) => {
+              const createdTask = mapTaskMutationResponseTask(task);
+              if (optimisticTaskId) {
+                replaceOptimisticTaskWithCreatedTask(
+                  optimisticTaskId,
+                  createdTask
+                );
+                return;
+              }
+
+              insertCreatedTask(createdTask);
+            }}
           />
         ) : null}
         onToggleExpanded={() => setIsExpanded((previous) => !previous)}

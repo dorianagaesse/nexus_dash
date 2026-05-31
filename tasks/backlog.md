@@ -6,16 +6,9 @@ Last reviewed: 2026-05-31
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-275
-  Title: App performance investigation - action latency root-cause analysis
-  Status: Investigation complete on branch; pending review
-  Rationale: Everyday creation, update, and refresh actions currently take several seconds in production-like usage. Run a deep, measurement-first investigation across browser, API, database, cache/refresh, and perceived-latency layers so the remediation work is grounded in evidence rather than isolated guesses.
-  Dependencies: TASK-043, TASK-073, TASK-074, TASK-118, TASK-266
-  Brief: `tasks/task-275-app-performance-investigation-report.md`
-  Report: `docs/reports/task-275-performance-investigation.md`
 - ID: TASK-276
   Title: App performance remediation - production-grade action latency fixes
-  Status: Queued; scoped by TASK-275 findings
+  Status: PR open (#314) on `feature/task-276-performance-remediation`
   Rationale: Implement durable, production-ready fixes for the root causes identified by TASK-275 so common app actions feel responsive by industry-standard SaaS expectations. The implementation should prioritize user-perceived speed, low-latency mutations, bounded refresh work, efficient data loading, and safe observability that keeps performance regressions detectable.
   Dependencies: TASK-275, TASK-043, TASK-073, TASK-074, TASK-118, TASK-266
   Brief: `tasks/task-276-app-performance-remediation.md`
@@ -130,6 +123,13 @@ Last reviewed: 2026-05-31
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-275
+  Title: App performance investigation - action latency root-cause analysis
+  Status: Done (2026-05-31, merged via PR #311)
+  Rationale: Completed a measurement-first investigation across local service timings, local Playwright timing, deployed preview API timing, Vercel protection behavior, and browser refresh/perceived-latency paths. The report identified broad mutation-gated route refreshes and server-confirmation waits as the dominant user-visible cause, with direct deployed API timing retained as residual evidence for remediation.
+  Dependencies: TASK-043, TASK-073, TASK-074, TASK-118, TASK-266
+  Brief: `tasks/task-275-app-performance-investigation-report.md`
+  Report: `docs/reports/task-275-performance-investigation.md`
 - ID: TASK-307
   Title: Agent comment credential identity - label and shared avatar
   Status: Done (2026-05-31, merged via PR #309)

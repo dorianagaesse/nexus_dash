@@ -5,6 +5,8 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { startServerTiming } from "@/lib/observability/server-timing";
+import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-service";
 import {
   deleteTaskForProject,
   type UpdateTaskPayload,
@@ -15,6 +17,7 @@ export async function PATCH(
   request: NextRequest,
   props: { params: Promise<{ projectId: string; taskId: string }> }
 ) {
+  const timing = startServerTiming("task.update");
   const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
   if (!principalResult.ok) {
@@ -49,10 +52,24 @@ export async function PATCH(
     agentAccess
   );
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status, headers: timing.headers() }
+    );
   }
 
-  return NextResponse.json({ task: result.data.task });
+  const rawTask = result.data.task;
+  const task =
+    Array.isArray(rawTask.attachments)
+      ? {
+          ...rawTask,
+          attachments: rawTask.attachments.map((attachment) =>
+            mapTaskAttachmentResponse(projectId, taskId, attachment)
+          ),
+        }
+      : rawTask;
+
+  return NextResponse.json({ task }, { headers: timing.headers() });
 }
 
 export async function DELETE(

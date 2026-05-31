@@ -93,6 +93,7 @@ export async function KanbanBoardSection({
         ),
       ].sort((left, right) => left.title.localeCompare(right.title)),
       status: task.status,
+      position: task.position,
       attachments: task.attachments.map((attachment: TaskAttachment) => ({
         id: attachment.id,
         kind: attachment.kind,

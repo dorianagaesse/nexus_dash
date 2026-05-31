@@ -5,6 +5,7 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { startServerTiming } from "@/lib/observability/server-timing";
 import { createContextCardForProject } from "@/lib/services/context-card-service";
 import { mapContextAttachmentResponse } from "@/lib/services/project-attachment-service";
 import { listProjectContextResources } from "@/lib/services/project-service";
@@ -52,6 +53,7 @@ function serializeJsonField(value: unknown): string {
 }
 
 export async function GET(request: NextRequest, props: { params: Promise<{ projectId: string }> }) {
+  const timing = startServerTiming("context.list");
   const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
   if (!principalResult.ok) {
@@ -77,21 +79,25 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
     agentAccess
   );
 
-  return NextResponse.json({
-    cards: cards.map((card) => ({
-      id: card.id,
-      title: card.name,
-      content: card.content,
-      color: card.color,
-      createdAt: card.createdAt,
-      attachments: card.attachments.map((attachment: ContextCardAttachment) =>
-        mapContextAttachmentResponse(params.projectId, card.id, attachment)
-      ),
-    })),
-  });
+  return NextResponse.json(
+    {
+      cards: cards.map((card) => ({
+        id: card.id,
+        title: card.name,
+        content: card.content,
+        color: card.color,
+        createdAt: card.createdAt,
+        attachments: card.attachments.map((attachment: ContextCardAttachment) =>
+          mapContextAttachmentResponse(params.projectId, card.id, attachment)
+        ),
+      })),
+    },
+    { headers: timing.headers() }
+  );
 }
 
 export async function POST(request: NextRequest, props: { params: Promise<{ projectId: string }> }) {
+  const timing = startServerTiming("context.create");
   const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
   if (!principalResult.ok) {
@@ -166,11 +172,14 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status, headers: timing.headers() }
+    );
   }
 
   return NextResponse.json(
     { cardId: result.data.id, card: result.data.card },
-    { status: 201 }
+    { status: 201, headers: timing.headers() }
   );
 }

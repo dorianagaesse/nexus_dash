@@ -5,6 +5,7 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { startServerTiming } from "@/lib/observability/server-timing";
 import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-service";
 import { listProjectKanbanTasks } from "@/lib/services/project-service";
 import { createTaskForProject } from "@/lib/services/project-task-service";
@@ -82,6 +83,7 @@ function mapRelatedTasks(task: {
 }
 
 export async function GET(request: NextRequest, props: { params: Promise<{ projectId: string }> }) {
+  const timing = startServerTiming("tasks.list");
   const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
   if (!principalResult.ok) {
@@ -107,36 +109,40 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
     agentAccess
   );
 
-  return NextResponse.json({
-    tasks: tasks.map((task) => ({
-      id: task.id,
-      title: task.title,
-      description: task.description,
-      blockedNote: task.blockedNote,
-      deadlineDate: formatTaskDeadlineDate(task.deadlineAt),
-      commentCount: task._count.comments,
-      completedAt: task.completedAt,
-      archivedAt: task.archivedAt,
-      status: task.status,
-      position: task.position,
-      label: task.label,
-      labelsJson: task.labelsJson,
-      createdAt: task.createdAt,
-      updatedAt: task.updatedAt,
-      epic: mapTaskEpicSummary(task.epic),
-      assignee: mapTaskPersonSummary(task.assigneeUser),
-      createdBy: mapTaskPersonSummary(task.createdByUser),
-      updatedBy: mapTaskPersonSummary(task.updatedByUser),
-      attachments: task.attachments.map((attachment: TaskAttachment) =>
-        mapTaskAttachmentResponse(params.projectId, task.id, attachment)
-      ),
-      relatedTasks: mapRelatedTasks(task),
-      blockedFollowUps: task.blockedFollowUps,
-    })),
-  });
+  return NextResponse.json(
+    {
+      tasks: tasks.map((task) => ({
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        blockedNote: task.blockedNote,
+        deadlineDate: formatTaskDeadlineDate(task.deadlineAt),
+        commentCount: task._count.comments,
+        completedAt: task.completedAt,
+        archivedAt: task.archivedAt,
+        status: task.status,
+        position: task.position,
+        label: task.label,
+        labelsJson: task.labelsJson,
+        createdAt: task.createdAt,
+        updatedAt: task.updatedAt,
+        epic: mapTaskEpicSummary(task.epic),
+        assignee: mapTaskPersonSummary(task.assigneeUser),
+        createdBy: mapTaskPersonSummary(task.createdByUser),
+        updatedBy: mapTaskPersonSummary(task.updatedByUser),
+        attachments: task.attachments.map((attachment: TaskAttachment) =>
+          mapTaskAttachmentResponse(params.projectId, task.id, attachment)
+        ),
+        relatedTasks: mapRelatedTasks(task),
+        blockedFollowUps: task.blockedFollowUps,
+      })),
+    },
+    { headers: timing.headers() }
+  );
 }
 
 export async function POST(request: NextRequest, props: { params: Promise<{ projectId: string }> }) {
+  const timing = startServerTiming("task.create");
   const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
   if (!principalResult.ok) {
@@ -253,8 +259,35 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status, headers: timing.headers() }
+    );
   }
 
-  return NextResponse.json({ taskId: result.data.id }, { status: 201 });
+  const resultData = result.data as {
+    id?: string;
+    task?: typeof result.data.task;
+  };
+  const task = resultData.task ?? null;
+
+  if (!task) {
+    return NextResponse.json(
+      { taskId: resultData.id },
+      { status: 201, headers: timing.headers() }
+    );
+  }
+
+  return NextResponse.json(
+    {
+      taskId: task.id,
+      task: {
+        ...task,
+        attachments: task.attachments.map((attachment) =>
+          mapTaskAttachmentResponse(projectId, task.id, attachment)
+        ),
+      },
+    },
+    { status: 201, headers: timing.headers() }
+  );
 }
