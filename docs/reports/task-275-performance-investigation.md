@@ -12,11 +12,11 @@ user sees the final state.
 
 Local service timing against Docker Postgres showed task/comment/context
 mutations in the 15-30 ms range, with full-board reorder at 113.9 ms for a
-41-task board. Protected preview API timing through `vercel curl` showed the
-same backend flows taking roughly 1.0-2.4 seconds once deployed. Local
-Playwright browser timing against `next start` showed task create taking 4.7
-seconds from submit to card visible even though direct service creation took
-22.1 ms.
+41-task board. Direct preview API timing after disabling Vercel deployment
+protection showed the same backend flows taking roughly 0.9-2.3 seconds once
+deployed. Local Playwright browser timing against `next start` showed task
+create taking 4.7 seconds from submit to card visible even though direct service
+creation took 22.1 ms.
 
 The performance problem is therefore layered:
 
@@ -25,10 +25,11 @@ The performance problem is therefore layered:
 - browser UX adds more delay by waiting on server confirmation and broad route
   refreshes before the user sees state changes.
 
-Direct unauthenticated `curl`/`fetch` calls to the preview initially returned
+Earlier direct `curl`/`fetch` calls to the preview returned
 `401 Authentication Required` from Vercel deployment protection, before the app
-route was reached. The credential itself exchanged successfully when the same
-request was made through Vercel-authenticated access.
+route was reached. After protection was disabled, the same credential exchanged
+successfully through direct HTTP and the benchmark ran without Vercel CLI
+access.
 
 ## Evidence
 
@@ -109,6 +110,32 @@ This materially changes remediation priority: TASK-276 should not only make UI
 updates optimistic; it should also instrument and reduce deployed API latency,
 especially task create/update/list paths.
 
+### Direct Preview API Probe
+
+Environment: same preview after Vercel deployment protection was disabled. This
+probe used the agent API key directly from `tmp/project-access-cred.env` and
+sampled most routes five times.
+
+| Flow | Count | p50 | p95 | Status |
+| --- | ---: | ---: | ---: | ---: |
+| `health.live` | 1 | 590.9 ms | 590.9 ms | 200 |
+| `agent.token.exchange` | 1 | 986.0 ms | 986.0 ms | 200 |
+| `project.get` | 5 | 1412.5 ms | 1509.5 ms | 200 |
+| `activity.get` | 5 | 953.8 ms | 957.4 ms | 200 |
+| `tasks.list` | 5 | 1603.6 ms | 1604.2 ms | 200 |
+| `task.create` | 5 | 2316.9 ms | 2419.0 ms | 201 |
+| `task.comment.create` | 5 | 1496.3 ms | 1520.9 ms | 201 |
+| `task.update.patch` | 5 | 2029.4 ms | 2035.2 ms | 200 |
+| `task.reorder.move` | 5 | 1109.2 ms | 1126.4 ms | 200 |
+| `context.list` | 5 | 888.9 ms | 889.2 ms | 200 |
+| `context.create` | 5 | 1170.5 ms | 1175.8 ms | 201 |
+| `context.update.patch` | 5 | 1179.8 ms | 1182.4 ms | 200 |
+
+This confirms the deployed API layer remains seconds-level without Vercel
+deployment protection in front. The issue is not only browser refresh behavior:
+the preview runtime/database/request path also needs direct timing
+instrumentation and optimization.
+
 ### Client Mutation Paths
 
 - Task drag/drop is locally optimistic: `components/kanban-board.tsx` updates
@@ -162,11 +189,11 @@ especially task create/update/list paths.
 
 | Rank | Recommendation | Class | Impact | Complexity | Risk | Production durability | Evidence |
 | ---: | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Make task creation insert a board-ready local card immediately, with pending/error reconciliation. Return a full task payload from `POST /tasks` instead of only `taskId`. | Quick win with durable API shape | Very high | Medium | Medium | High | Browser task create was 4696.2 ms while local service create was 22.1 ms and preview API create was 2442.1 ms. |
-| 2 | Add production-safe server timing and request instrumentation around deployed API routes, DB/RLS work, and route refreshes. | Quick win / observability foundation | Very high | Low-medium | Low | High | Preview API timings are already 1.0-2.4 seconds; TASK-276 needs to distinguish network, serverless, query, RLS, and render costs. |
+| 1 | Make task creation insert a board-ready local card immediately, with pending/error reconciliation. Return a full task payload from `POST /tasks` instead of only `taskId`. | Quick win with durable API shape | Very high | Medium | Medium | High | Browser task create was 4696.2 ms while local service create was 22.1 ms and direct preview API create p50 was 2316.9 ms. |
+| 2 | Add production-safe server timing and request instrumentation around deployed API routes, DB/RLS work, and route refreshes. | Quick win / observability foundation | Very high | Low-medium | Low | High | Direct preview API timings are already 0.9-2.3 seconds; TASK-276 needs to distinguish network, serverless, query, RLS, and render costs. |
 | 3 | Replace mutation-completion `router.refresh()` calls in task update, quick assignment/epic update, comments, and context-card mutations with local state updates plus debounced background reconciliation. | Architectural cleanup, can ship flow-by-flow | Very high | Medium-high | Medium | High | Code paths call `router.refresh()` after narrow mutations; comments/context are already able to render returned payloads locally. |
-| 4 | Investigate and reduce deployed task API latency, starting with task create/update/list query paths and project activity touch/RLS overhead. | Backend performance cleanup | High | Medium-high | Medium | High | Preview task create was 2442.1 ms, update 2152.4 ms, and list 1776-1898 ms versus local service timings below 31 ms for create/update and 18.9 ms for list. |
-| 5 | Reduce kanban reorder payload/persistence to changed rows or the affected ordering window. | Architectural cleanup | Medium-high | Medium | Medium | High | Full-board reorder updated 41 rows locally in 113.9 ms and took 1551.3 ms on preview; cost grows with board size and remote latency. |
+| 4 | Investigate and reduce deployed task API latency, starting with task create/update/list query paths and project activity touch/RLS overhead. | Backend performance cleanup | High | Medium-high | Medium | High | Direct preview task create p50 was 2316.9 ms, update p50 was 2029.4 ms, and list p50 was 1603.6 ms versus local service timings below 31 ms for create/update and 18.9 ms for list. |
+| 5 | Reduce kanban reorder payload/persistence to changed rows or the affected ordering window. | Architectural cleanup | Medium-high | Medium | Medium | High | Full-board reorder updated 41 rows locally in 113.9 ms and direct preview reorder p50 was 1109.2 ms; cost grows with board size and remote latency. |
 | 6 | Bound dashboard refresh work by splitting or caching server-rendered data so a task/comment/context mutation does not reload unrelated sections. | Architectural cleanup | Medium-high | High | Medium-high | High | Current route refresh can re-run summary counts, context, epics, kanban metadata, roadmap/calendar sections, and live refresh. |
 | 7 | Move stale done-task archival out of `listProjectKanbanTasks()` and into scheduled or explicit maintenance. | Durability cleanup | Medium | Medium | Low-medium | High | Read paths currently perform maintenance writes before returning kanban data. |
 

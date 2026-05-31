@@ -19,10 +19,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
   measuring 22.1 ms. Code review found common flows gated by server
   confirmation plus broad `router.refresh()` calls; task creation, comments,
   task edits, context-card mutations, and project Server Actions all rely on
-  refresh/navigation for visible completion. Direct preview API calls were
-  blocked by Vercel deployment protection before reaching the app, so TASK-276
-  validation needs `vercel curl`, a Vercel bypass secret, or an authenticated
-  browser session.
+  refresh/navigation for visible completion. After Vercel deployment protection
+  was disabled, direct preview API timings remained seconds-level: task create
+  p50 2316.9 ms, task update p50 2029.4 ms, task list p50 1603.6 ms, and reorder
+  p50 1109.2 ms. The earlier direct 401 was Vercel protection, not the app
+  credential.
 
 # 2026-05-31 - TASK-275/TASK-276 performance task split
 

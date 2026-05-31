@@ -61,11 +61,13 @@ execute.
 - Protected preview API probe via `vercel curl` showed task create at 2442.1 ms,
   task update at 2152.4 ms, task list at 1776-1898 ms, and full-board reorder
   at 1551.3 ms on a warm repeat.
+- Direct preview API after disabling Vercel deployment protection still showed
+  seconds-level timings: task create p50 2316.9 ms, task update p50 2029.4 ms,
+  task list p50 1603.6 ms, and reorder p50 1109.2 ms.
 - Local Playwright browser probe showed task creation at 4696.2 ms from submit
   to visible card, compared with 22.1 ms for direct service creation.
-- Direct preview API calls were blocked by Vercel deployment protection, not by
-  the agent credential. Vercel-authenticated access exchanged the credential
-  successfully.
+- The earlier direct 401 was Vercel deployment protection, not the agent
+  credential. After disabling protection, direct token exchange succeeded.
 
 ## Open Questions
 - Which deployment/environment should be treated as the primary performance

@@ -27,12 +27,14 @@ feel responsive by modern SaaS standards.
 - Protected preview API timings are materially slower: warm repeat timings were
   2442.1 ms for task create, 2152.4 ms for task update, 1776-1898 ms for task
   list, and 1551.3 ms for full-board reorder via `vercel curl`.
+- Direct preview API timings after disabling Vercel deployment protection remain
+  seconds-level: p50 2316.9 ms for task create, 2029.4 ms for task update,
+  1603.6 ms for task list, and 1109.2 ms for reorder.
 - Local Playwright timing showed task creation at 4696.2 ms from submit to card
   visible, despite direct service creation measuring 22.1 ms.
-- Direct unauthenticated preview API calls are blocked by Vercel deployment
-  protection before reaching the app. TASK-276 preview validation must use
+- When Vercel deployment protection is enabled, preview validation must use
   `vercel curl`, a Vercel protection bypass secret, or an authenticated browser
-  session.
+  session; otherwise direct API calls hit Vercel auth before app code.
 
 ## Scope
 - Implement the highest-impact fixes from the TASK-275 report.
