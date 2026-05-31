@@ -3,6 +3,15 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-05-31 - TASK-307 agent comment credential identity
+
+- Created TASK-307 to track dedicated agent credential presentation for task
+  comments: display the credential label with ` (agent)` and use one shared
+  robot-head-like avatar for all agent-authored comments.
+- Added a task brief covering current behavior, scope, acceptance criteria,
+  definition of done, and implementation notes around preserving the existing
+  owner-principal authorization model while adding comment author metadata.
+
 # 2026-05-31 - TASK-306 task comment mention cursor spacing
 
 - Started TASK-306 from GitHub issue #306 on
