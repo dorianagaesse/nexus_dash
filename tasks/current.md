@@ -4,7 +4,7 @@
 TASK-307
 
 ## Status
-Implemented locally - PR/checks pending
+Implemented - PR #308 open, remote Quality Gates passed
 
 ## Source
 - User request on 2026-05-31 after PR #307 merge:
@@ -152,6 +152,9 @@ credential owner's project membership and RLS principal.
   `npx prisma migrate deploy` against the same local DB env also failed with a
   schema engine connection error. Remote PR Quality Gates should provide the
   Playwright smoke substitute unless a deploy-preview run is requested.
+- PR #308 remote Quality Gates passed on commit
+  `102fb63e1b57bbf75f60dede28862d65053b7150`: Quality Core, Playwright E2E
+  Smoke, and Container Image.
 
 ## Implementation Plan
 1. Create a feature branch from current `origin/main` after the planning/docs
