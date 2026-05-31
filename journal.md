@@ -11,6 +11,12 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Added a task brief covering current behavior, scope, acceptance criteria,
   definition of done, and implementation notes around preserving the existing
   owner-principal authorization model while adding comment author metadata.
+- Drafted `tasks/current.md` around TASK-307 after investigating the task
+  comment service, comments API route, Prisma `TaskComment` model, task detail
+  comment rendering, and existing agent-aware notification attribution. The
+  selected implementation approach is to keep `authorUserId` as the owner/RLS
+  actor while adding durable nullable agent credential id and label snapshot
+  metadata to comments.
 
 # 2026-05-31 - TASK-306 task comment mention cursor spacing
 
