@@ -25,6 +25,9 @@ safety affordance while editing or modal state could be disrupted.
 - Keep the existing lightweight activity endpoint and polling fallback.
 - Add a small client-side project activity acknowledgement contract for
   successful local mutations.
+- Use an adaptive activity polling cadence so active project dashboards check
+  for remote collaborator changes quickly, while background tabs back off and
+  focus/visibility changes wake the checker immediately.
 - Make the live refresh controller auto-apply deferred remote updates as soon as
   the refresh lock clears, without requiring a focus change or manual click.
 - Wire acknowledgement into high-frequency project dashboard mutations covered
@@ -41,14 +44,17 @@ safety affordance while editing or modal state could be disrupted.
    for the user's own saved action.
 2. A remote activity version newer than the known local version triggers
    `router.refresh()` automatically when no refresh lock is active.
-3. If a remote update arrives while a form, modal, contenteditable, or explicit
+3. Active visible project dashboards check for remote activity on a low-latency
+   cadence, and focus/visibility changes trigger an immediate check instead of
+   waiting for the next scheduled poll.
+4. If a remote update arrives while a form, modal, contenteditable, or explicit
    live-refresh lock is active, the prompt is shown as a safety affordance.
-4. Once that lock clears, the pending remote update is applied automatically
+5. Once that lock clears, the pending remote update is applied automatically
    without requiring the user to switch tabs, focus the window, or click Refresh.
-5. The live-refresh contract remains compatible with project-scoped agent
+6. The live-refresh contract remains compatible with project-scoped agent
    polling via `/api/projects/:projectId/activity`.
-6. Focused automated tests cover the new acknowledgement and lock-release
-   behavior.
+7. Focused automated tests cover acknowledgement, active polling cadence,
+   focus-triggered checks, and lock-release behavior.
 
 ## Definition Of Done
 - [x] Implementation is committed on the dedicated feature branch.
@@ -68,6 +74,8 @@ safety affordance while editing or modal state could be disrupted.
   activity watcher from treating those local writes as unknown remote changes.
 - The current transport is intentionally still polling-based. A future realtime
   transport can reuse the same acknowledgement semantics.
+- Active visible dashboards now poll the lightweight activity endpoint every
+  2 seconds by default; hidden tabs back off to reduce background traffic.
 - Preview deployment run `26727186276` checked out
   `feature/task-308-smart-live-refresh` and produced
   `https://nexus-dash-q4cso7uob-dorian-agaesses-projects.vercel.app`.

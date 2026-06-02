@@ -1928,3 +1928,18 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-308 PR checks and branch-ref preview deployment passed.
 - Evidence: PR #315 opened from `feature/task-308-smart-live-refresh` at `9d150a9`. GitHub checks passed: branch-name, Quality Core, E2E Smoke, and Container Image. Preview workflow run `26727186276` used `git_ref=feature/task-308-smart-live-refresh`; logs show checkout fetched and checked out `refs/remotes/origin/feature/task-308-smart-live-refresh`. Preview artifact URL: `https://nexus-dash-q4cso7uob-dorian-agaesses-projects.vercel.app`.
+
+### 2026-06-02
+- Type: Execution
+- Summary: TASK-308 follow-up tightened remote-collaborator latency after preview feedback.
+- Evidence: Replaced the fixed 5-second project activity poll with adaptive activity checks: active visible dashboards now use a 2-second default cadence, focus/visibility changes request an immediate check, and hidden tabs back off to reduce background traffic. Updated TASK-263 wording so live invitation visibility remains tracked as notification freshness rather than dashboard refresh.
+
+### 2026-06-02
+- Type: Validation
+- Summary: TASK-308 focused live-refresh controller tests passed after adaptive polling changes.
+- Evidence: `npm test -- --run tests/components/project-live-refresh.test.tsx` passed 7 tests covering idle auto-refresh, default active polling cadence, focus-triggered activity checks, locked prompt behavior, local acknowledgement suppression, in-flight local mutation suppression, and automatic pending refresh after lock release.
+
+### 2026-06-02
+- Type: Validation
+- Summary: TASK-308 adaptive polling follow-up passed the local quality baseline.
+- Evidence: `npm run lint` passed. Local PostgreSQL env `npm test` passed (113 files passed, 2 skipped; 854 passed, 2 skipped). Local PostgreSQL env `npm run test:coverage` passed with 91.32% statements, 81.33% branches, 92.2% functions, and 91.83% lines. Preview-style env `npm run build` passed after supplying the local-safe Google token encryption placeholder required by the current `.env` OAuth group. Local-safe preview env `npm run test:e2e` with `VERCEL_ENV=preview` passed all 8 Playwright specs; an earlier run without `VERCEL_ENV=preview` failed the password-reset smoke because the placeholder Resend key was treated as live delivery.

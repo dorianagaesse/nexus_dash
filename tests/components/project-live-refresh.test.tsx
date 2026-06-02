@@ -91,6 +91,62 @@ describe("ProjectLiveRefresh", () => {
     });
   });
 
+  test("uses the active-page default cadence for remote activity checks", async () => {
+    const { root } = createTestRenderer();
+    mockActivityVersion("2026-05-30T10:01:00.000Z");
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1999);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(routerRefreshMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("checks project activity immediately when the window regains focus", async () => {
+    const { root } = createTestRenderer();
+    mockActivityVersion("2026-05-30T10:01:00.000Z");
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 5000,
+      })
+    );
+
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(routerRefreshMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("defers refresh while local editing is active and exposes a refresh action", async () => {
     const { container, root } = createTestRenderer();
     const lock = document.createElement("div");

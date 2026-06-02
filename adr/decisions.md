@@ -26,13 +26,15 @@ Keep UI-only or task-only notes in `journal.md`.
   contract and add a client acknowledgement event backed by an app-owned
   `x-nexusdash-project-version` mutation response header. The live refresh
   controller advances its known version for local writes, auto-refreshes remote
-  changes when no edit lock is active, and keeps the manual prompt only as an
-  interruption-safety fallback while forms, dialogs, or contenteditable surfaces
-  are active.
+  changes when no edit lock is active, checks visible project dashboards on a
+  low-latency active cadence with immediate focus/visibility checks, backs off
+  hidden tabs, and keeps the manual prompt only as an interruption-safety
+  fallback while forms, dialogs, or contenteditable surfaces are active.
 - Consequences: The current polling transport remains simple and compatible
-  with agents. Future realtime transports can emit the same version snapshots
-  and reuse the acknowledgement semantics without redesigning dashboard
-  mutation flows.
+  with agents while reducing routine remote-collaborator wait time. Active
+  dashboards perform more lightweight reads than the original fixed poll, so
+  future realtime transports can emit the same version snapshots and reuse the
+  acknowledgement semantics without redesigning dashboard mutation flows.
 - Links: `components/project-live-refresh.tsx`,
   `lib/project-activity-client.ts`, `lib/project-activity-version.ts`
 

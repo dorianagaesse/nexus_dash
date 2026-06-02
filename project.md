@@ -19,9 +19,10 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`) with reorder, deadline/comment visibility, task epic links, and task detail modal
   - Project epics registry with dedicated epic CRUD, automatic status/progress, and linked-task rollups
   - Google Calendar panel (read/create/update/delete events when connected)
-  - Polling-backed live project refresh that auto-applies remote collaboration
-    updates when safe and acknowledges local dashboard mutations to avoid
-    self-refresh prompts
+  - Adaptive polling-backed live project refresh that auto-applies remote
+    collaboration updates when safe, checks active dashboards on a low-latency
+    cadence, backs off hidden tabs, and acknowledges local dashboard mutations
+    to avoid self-refresh prompts
 - Notification center:
   - durable per-user in-app inbox at `/account/notifications`
   - unread/read state and resolved lifecycle

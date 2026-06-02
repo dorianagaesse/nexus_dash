@@ -12,7 +12,8 @@ import {
   type ProjectActivityMutationDetail,
 } from "@/lib/project-activity-client";
 
-const DEFAULT_POLL_INTERVAL_MS = 5000;
+const DEFAULT_ACTIVE_POLL_INTERVAL_MS = 2000;
+const BACKGROUND_POLL_INTERVAL_MS = 15000;
 const PENDING_REFRESH_CHECK_INTERVAL_MS = 500;
 
 interface ProjectLiveRefreshProps {
@@ -34,6 +35,14 @@ function parseVersion(value: string): number {
 
 function isNewerVersion(nextVersion: string, currentVersion: string): boolean {
   return parseVersion(nextVersion) > parseVersion(currentVersion);
+}
+
+function resolveNextPollIntervalMs(activePollIntervalMs: number): number {
+  if (typeof document !== "undefined" && document.hidden) {
+    return Math.max(BACKGROUND_POLL_INTERVAL_MS, activePollIntervalMs * 4);
+  }
+
+  return activePollIntervalMs;
 }
 
 function hasRefreshLock(): boolean {
@@ -66,7 +75,7 @@ function hasRefreshLock(): boolean {
 export function ProjectLiveRefresh({
   projectId,
   initialVersion,
-  pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
+  pollIntervalMs = DEFAULT_ACTIVE_POLL_INTERVAL_MS,
 }: ProjectLiveRefreshProps) {
   const router = useRouter();
   const [pendingVersion, setPendingVersion] = useState<string | null>(null);
@@ -207,8 +216,39 @@ export function ProjectLiveRefresh({
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let controller: AbortController | null = null;
+    let isPolling = false;
+    let pollAgainAfterCurrent = false;
+
+    function clearScheduledPoll() {
+      if (!timeoutId) {
+        return;
+      }
+
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+
+    function schedulePoll(delayMs = resolveNextPollIntervalMs(pollIntervalMs)) {
+      clearScheduledPoll();
+      timeoutId = setTimeout(pollActivity, delayMs);
+    }
+
+    function requestImmediatePoll() {
+      if (typeof document !== "undefined" && document.hidden) {
+        return;
+      }
+
+      if (isPolling) {
+        pollAgainAfterCurrent = true;
+        return;
+      }
+
+      schedulePoll(0);
+    }
 
     async function pollActivity() {
+      timeoutId = null;
+      isPolling = true;
       controller?.abort();
       controller = new AbortController();
 
@@ -259,20 +299,28 @@ export function ProjectLiveRefresh({
 
         console.warn("[ProjectLiveRefresh.pollActivity]", error);
       } finally {
+        isPolling = false;
         if (!cancelled) {
-          timeoutId = setTimeout(pollActivity, pollIntervalMs);
+          if (pollAgainAfterCurrent) {
+            pollAgainAfterCurrent = false;
+            schedulePoll(0);
+          } else {
+            schedulePoll();
+          }
         }
       }
     }
 
-    timeoutId = setTimeout(pollActivity, pollIntervalMs);
+    schedulePoll();
+    document.addEventListener("visibilitychange", requestImmediatePoll);
+    window.addEventListener("focus", requestImmediatePoll);
 
     return () => {
       cancelled = true;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      clearScheduledPoll();
       controller?.abort();
+      document.removeEventListener("visibilitychange", requestImmediatePoll);
+      window.removeEventListener("focus", requestImmediatePoll);
     };
   }, [pollIntervalMs, projectId, refreshDashboard]);
 
@@ -341,4 +389,5 @@ export const projectLiveRefreshInternals = {
   hasRefreshLock,
   isNewerVersion,
   parseVersion,
+  resolveNextPollIntervalMs,
 };
