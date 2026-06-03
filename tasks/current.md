@@ -107,3 +107,8 @@ remaining issue to poll-backed activity propagation plus broad
   944 ms after mutation start. Observer marks showed
   `nexusdash.project-activity.received` followed by
   `nexusdash.project-activity.patched` 3 ms later, with no console errors.
+- After hardening event writes through `app.record_project_activity_event(...)`,
+  local production-mode probe on `127.0.0.1:3152` passed with task create API
+  54 ms, observer card visible 849 ms after API completion and 904 ms after
+  mutation start. The observer received a typed `task/created` remote event and
+  marked `received` then `patched`.

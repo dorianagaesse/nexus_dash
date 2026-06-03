@@ -92,6 +92,12 @@ function canCallRawProjectActivityTouch(db: DbClient): db is DbClient & {
   return typeof (db as { $queryRaw?: unknown }).$queryRaw === "function";
 }
 
+function canCallRawProjectActivityEvent(db: DbClient): db is DbClient & {
+  $queryRaw<T = unknown>(query: Prisma.Sql): Promise<T>;
+} {
+  return typeof (db as { $queryRaw?: unknown }).$queryRaw === "function";
+}
+
 function canCreateProjectActivityEvent(db: DbClient): db is DbClient & {
   projectActivityEvent: {
     create(input: {
@@ -157,6 +163,14 @@ function toJsonPayload(
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
+function toJsonPayloadString(value: unknown): string | null {
+  if (value == null) {
+    return null;
+  }
+
+  return JSON.stringify(value);
+}
+
 function mapProjectActivityEventRecord(
   event: RawProjectActivityEventRecord
 ): ProjectActivityEventRecord {
@@ -207,6 +221,27 @@ export async function recordProjectActivityEvent(
   if (!projectId || !actorUserId || !entityId) {
     await touchProjectActivity({ db: input.db, projectId, occurredAt: version });
     return null;
+  }
+
+  if (
+    process.env.NODE_ENV !== "test" &&
+    canCallRawProjectActivityEvent(input.db)
+  ) {
+    const rows = await input.db.$queryRaw<RawProjectActivityEventRecord[]>(
+      Prisma.sql`
+        SELECT *
+        FROM app.record_project_activity_event(
+          ${projectId},
+          ${actorUserId},
+          ${input.domain},
+          ${input.action},
+          ${entityId},
+          ${toJsonPayloadString(input.payload)}::jsonb,
+          ${version}
+        )
+      `
+    );
+    return rows[0] ? mapProjectActivityEventRecord(rows[0]) : null;
   }
 
   await touchProjectActivity({ db: input.db, projectId, occurredAt: version });
@@ -415,4 +450,5 @@ export async function recordProjectActivityEventAsActor(input: {
 export const projectActivityServiceInternals = {
   normalizeId,
   toJsonPayload,
+  toJsonPayloadString,
 };
