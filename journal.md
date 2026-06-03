@@ -1968,3 +1968,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-309 Copilot review fix passed focused and broad local validation.
 - Evidence: Copilot identified that `sleepWithAbort` removed no abort listener after normal timeout resolution. Fixed the listener cleanup and added `tests/lib/server-sent-events.test.ts`. Focused `npm test -- --run tests/lib/server-sent-events.test.ts tests/components/project-live-refresh.test.tsx tests/api/project-activity-stream.route.test.ts` passed 3 files / 14 tests. `npm run lint` passed. Local PostgreSQL env `npm test` passed (115 files passed, 2 skipped; 861 passed, 2 skipped).
+
+### 2026-06-04
+- Type: Investigation
+- Summary: TASK-310 started after TASK-309 / PR #316 was merged unexpectedly, with TASK-309 marked complete and a new full-stack performance investigation opened on `docs/task-310-performance-investigation`.
+- Evidence: Updated `tasks/backlog.md` and `tasks/current.md` so TASK-310 owns the report deliverable, covers browser interaction, React/route refresh behavior, API/service timing, database/runtime behavior, Vercel/serverless constraints, and realtime propagation, and explicitly requires a follow-up implementation task after the report PR is merged.
+
+### 2026-06-04
+- Type: Investigation
+- Summary: TASK-310 reproduced the remaining collaboration latency as an observer-side reconciliation problem rather than a local mutation problem.
+- Evidence: Local Docker Postgres was healthy and had no pending migrations. `npm run build` passed with preview-safe local env. A local `next start` server on `127.0.0.1:3150` showed seeded API reads in tens of milliseconds (`tasks-list;dur=25.4`, `context-list;dur=7.7`) and actor UI task creation visible in 140 ms (`task-create;dur=86.4`). A remote/API task create while an observer dashboard was open took 72 ms wall-clock (`task-create;dur=63.0`), but the observer saw the task after 4513 ms, isolating the remaining delay to realtime propagation plus full dashboard refresh. An instrumented EventSource probe showed a post-mutation activity event arriving about 836 ms after the mutation marker, consistent with the current 1000 ms stream-side DB poll.
