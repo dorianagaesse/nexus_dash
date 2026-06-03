@@ -8,7 +8,7 @@ Last reviewed: 2026-05-31
 ### Execution Queue (Now / Next)
 - ID: TASK-311
   Title: Product latency remediation - typed realtime events and targeted dashboard reconciliation
-  Status: Started on `feature/task-311-product-latency-remediation`
+  Status: Implemented and locally validated on `feature/task-311-product-latency-remediation`; PR workflow pending
   Rationale: Implement the top-ranked path from TASK-310 by replacing project-level "something changed" refresh behavior with typed project activity events that can update relevant dashboard client state immediately. Task create/update/move, task comment create, and context card create/update/delete should no longer force observers through a broad `router.refresh()` when the change can be safely reconciled locally. Keep the existing version-based live refresh as a safety fallback and add timing marks so actor and observer latency can be measured in local production mode and preview.
   Dependencies: TASK-310, TASK-309, TASK-308, TASK-276, TASK-263
 - ID: TASK-224

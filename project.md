@@ -19,9 +19,10 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`) with reorder, deadline/comment visibility, task epic links, and task detail modal
   - Project epics registry with dedicated epic CRUD, automatic status/progress, and linked-task rollups
   - Google Calendar panel (read/create/update/delete events when connected)
-  - Server-sent-events-backed live project refresh that auto-applies remote
-    collaboration updates when safe, keeps adaptive polling as a fallback,
-    and acknowledges local dashboard mutations to avoid self-refresh prompts
+  - Server-sent-events-backed live project refresh with typed activity events
+    for task, task-comment, and context-card mutations; dashboards apply safe
+    remote updates directly, keep adaptive polling and broad refresh as
+    fallbacks, and acknowledge local mutations to avoid self-refresh prompts
 - Notification center:
   - durable per-user in-app inbox at `/account/notifications`
   - unread/read state and resolved lifecycle
@@ -77,7 +78,8 @@ Current schema includes:
 - Auth/session: `User`, `Account`, `Session`, `VerificationToken`
 - Authorization boundaries: `Project.ownerId`, `ProjectMembership` (`owner|editor|viewer`)
 - Agent auth: `ApiCredential`, `ApiCredentialScopeGrant`, `AuthAuditEvent`
-- Domain: `Project`, `RoadmapPhase`, `RoadmapEvent`, `Epic`, `Task`, `Resource` (context cards), `TaskBlockedFollowUp`
+- Domain: `Project`, `ProjectActivityEvent`, `RoadmapPhase`, `RoadmapEvent`,
+  `Epic`, `Task`, `Resource` (context cards), `TaskBlockedFollowUp`
 - Collaboration on tasks: `TaskComment` with optional agent credential
   attribution metadata for agent-authored comments
 - Attachments: `TaskAttachment`, `ResourceAttachment` with `uploadedByUserId`

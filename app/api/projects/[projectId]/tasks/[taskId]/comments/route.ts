@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   createTaskCommentForProject,
@@ -144,15 +145,31 @@ export async function POST(
     );
   }
 
+  const comment = {
+    id: result.data.comment.id,
+    content: result.data.comment.content,
+    createdAt: result.data.comment.createdAt,
+    author: result.data.comment.author,
+  };
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: principalResult.principal.actorUserId,
+    projectId: params.projectId,
+    domain: "task-comment",
+    action: "created",
+    entityId: result.data.comment.id,
+    payload: {
+      taskId: params.taskId,
+      comment,
+    },
+  });
+
   return NextResponse.json(
     {
-      comment: {
-        id: result.data.comment.id,
-        content: result.data.comment.content,
-        createdAt: result.data.comment.createdAt,
-        author: result.data.comment.author,
-      },
+      comment,
     },
-    { status: 201, headers: withProjectActivityVersionHeader(timing.headers()) }
+    {
+      status: 201,
+      headers: withProjectActivityVersionHeader(timing.headers(), version),
+    }
   );
 }

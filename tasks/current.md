@@ -4,7 +4,8 @@
 TASK-311
 
 ## Status
-Started on `feature/task-311-product-latency-remediation`.
+Implementation validated locally on `feature/task-311-product-latency-remediation`;
+PR workflow in progress.
 
 ## Source
 - Follow-up implementation task created from TASK-310 after PR #317 merged on
@@ -77,15 +78,32 @@ remaining issue to poll-backed activity propagation plus broad
    event contract from the transport.
 
 ## Definition Of Done
-- [ ] Implementation is committed on `feature/task-311-product-latency-remediation`.
-- [ ] Focused tests cover event creation and client reconciliation.
-- [ ] Local production-mode browser/API probe records before/after observer
+- [x] Implementation is committed on `feature/task-311-product-latency-remediation`.
+- [x] Focused tests cover event creation and client reconciliation.
+- [x] Local production-mode browser/API probe records before/after observer
       latency.
-- [ ] `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`
+- [x] `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`
       pass.
 - [ ] A branch preview is deployed and validates at least one actor-side flow
       and one observer-side flow.
-- [ ] `tasks/backlog.md`, `tasks/current.md`, `journal.md`, and ADR docs are
+- [x] `tasks/backlog.md`, `tasks/current.md`, `journal.md`, and ADR docs are
       updated.
 - [ ] A ready PR is opened, checks pass, Copilot feedback is handled, and the
       PR is merged or ready for maintainer review depending on permissions.
+
+## Local Validation Evidence
+- `npm run lint` passed.
+- Local PostgreSQL env `npm test` passed: 115 files passed, 2 skipped; 864
+  tests passed, 2 skipped.
+- Local PostgreSQL env `npm run test:coverage` passed with 91.37% statements,
+  81.33% branches, 92.2% functions, and 91.88% lines.
+- Local-safe production env `npm run build` passed after providing the
+  required local `GOOGLE_TOKEN_ENCRYPTION_KEY` placeholder.
+- Local-safe `npm run test:e2e` passed all 8 Playwright specs with
+  `OUTBOUND_EMAIL_DELIVERY_MODE=disabled`; an earlier run with the placeholder
+  Resend key in live mode failed only the password-reset email send path.
+- Local production-mode two-user latency probe on `127.0.0.1:3150`: task
+  create API 119 ms, observer card visible 825 ms after API completion and
+  944 ms after mutation start. Observer marks showed
+  `nexusdash.project-activity.received` followed by
+  `nexusdash.project-activity.patched` 3 ms later, with no console errors.

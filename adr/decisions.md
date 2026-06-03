@@ -16,6 +16,25 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-06-04 - Use typed project activity events for targeted dashboard reconciliation
+- Status: Accepted
+- Context: TASK-310 showed that local mutation APIs were fast while observers
+  still waited about 4.5 seconds because the dashboard treated remote project
+  activity as a coarse invalidation and reconciled through broad route refresh.
+- Decision: Persist typed `ProjectActivityEvent` rows for supported project
+  mutations and stream those events through the existing project activity SSE
+  route. Dashboard clients first try targeted in-memory reconciliation for safe
+  task, task-comment, and context-card events, then fall back to the coarse
+  project version refresh path for unknown or unsafe changes.
+- Consequences: Remote collaborators see common dashboard updates without
+  waiting for a full RSC refresh, while older clients and unsupported events
+  remain protected by the durable `Project.updatedAt` marker. The event
+  contract is transport-independent so a managed realtime provider can replace
+  the current DB-polled SSE source later.
+- Links: `tasks/current.md`, `docs/reports/task-310-performance-investigation.md`,
+  `prisma/schema.prisma`, `components/project-live-refresh.tsx`,
+  `components/kanban-board.tsx`, `components/project-context-panel.tsx`
+
 ## 2026-06-03 - Prefer SSE as the first realtime transport for project activity
 - Status: Accepted
 - Context: TASK-308 made live collaboration safer but still relied on browser

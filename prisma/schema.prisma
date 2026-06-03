@@ -40,6 +40,7 @@ model User {
   notifications             Notification[]             @relation("NotificationRecipient")
   projectNotificationEmails ProjectNotificationEmail[] @relation("ProjectNotificationEmailRecipient")
   taskCommentReactions      TaskCommentReaction[]
+  projectActivityEvents     ProjectActivityEvent[]
 
   @@unique([username, usernameDiscriminator])
   @@index([username])
@@ -185,6 +186,7 @@ model Project {
   epics              Epic[]
   roadmapPhases      RoadmapPhase[]
   roadmapEvents      RoadmapEvent[]
+  activityEvents     ProjectActivityEvent[]
   resources          Resource[]
   memberships        ProjectMembership[]
   invitations        ProjectInvitation[]
@@ -194,6 +196,26 @@ model Project {
   notificationEmails ProjectNotificationEmail[]
 
   @@index([ownerId])
+}
+
+model ProjectActivityEvent {
+  id          String   @id @default(cuid())
+  projectId   String
+  actorUserId String?
+  domain      String   @db.VarChar(40)
+  action      String   @db.VarChar(40)
+  entityId    String   @db.VarChar(128)
+  version     DateTime @default(now())
+  payload     Json?
+  createdAt   DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor   User?   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, version])
+  @@index([projectId, createdAt])
+  @@index([domain, action])
+  @@index([actorUserId])
 }
 
 model ProjectMembership {

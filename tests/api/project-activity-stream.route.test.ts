@@ -11,6 +11,7 @@ const projectAccessServiceMock = vi.hoisted(() => ({
 
 const projectActivityServiceMock = vi.hoisted(() => ({
   getProjectActivitySnapshot: vi.fn(),
+  listProjectActivityEventsSince: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/api-guard", () => ({
@@ -24,9 +25,14 @@ vi.mock("@/lib/services/project-access-service", () => ({
 
 vi.mock("@/lib/services/project-activity-service", () => ({
   getProjectActivitySnapshot: projectActivityServiceMock.getProjectActivitySnapshot,
+  listProjectActivityEventsSince:
+    projectActivityServiceMock.listProjectActivityEventsSince,
 }));
 
-import { GET as streamProjectActivity } from "@/app/api/projects/[projectId]/activity/stream/route";
+import {
+  GET as streamProjectActivity,
+  projectActivityStreamRouteInternals,
+} from "@/app/api/projects/[projectId]/activity/stream/route";
 
 function projectParams(projectId: string) {
   return { params: Promise.resolve({ projectId }) };
@@ -56,6 +62,10 @@ describe("project activity stream route", () => {
     });
     apiGuardMock.getAgentProjectAccessContext.mockReturnValue(undefined);
     projectAccessServiceMock.requireAgentProjectScopes.mockReturnValue({ ok: true });
+    projectActivityServiceMock.listProjectActivityEventsSince.mockResolvedValue({
+      ok: true,
+      data: [],
+    });
   });
 
   test("streams the authorized project activity version as an SSE event", async () => {
@@ -85,6 +95,31 @@ describe("project activity stream route", () => {
     expect(projectActivityServiceMock.getProjectActivitySnapshot).toHaveBeenCalledWith({
       actorUserId: "user-1",
       projectId: "project-1",
+    });
+  });
+
+  test("serializes typed activity events for targeted client reconciliation", () => {
+    const payload = projectActivityStreamRouteInternals.createActivityEventPayload({
+      id: "event-1",
+      projectId: "project-1",
+      actorUserId: "user-2",
+      domain: "task",
+      action: "created",
+      entityId: "task-1",
+      version: new Date("2026-05-30T10:02:00.000Z"),
+      payload: { task: { id: "task-1", title: "Remote task" } },
+      createdAt: new Date("2026-05-30T10:02:00.000Z"),
+    });
+
+    expect(payload).toMatchObject({
+      eventId: "event-1",
+      projectId: "project-1",
+      version: "2026-05-30T10:02:00.000Z",
+      actorUserId: "user-2",
+      domain: "task",
+      action: "created",
+      entityId: "task-1",
+      payload: { task: { id: "task-1", title: "Remote task" } },
     });
   });
 

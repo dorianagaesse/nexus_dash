@@ -1983,3 +1983,13 @@ Low-value entries to avoid going forward:
 - Type: Planning
 - Summary: TASK-310 report PR #317 merged and TASK-311 started as the follow-up implementation task.
 - Evidence: PR #317 merged as `d8f2626` after Quality Core, E2E Smoke, Container Image, and branch-name checks passed; Copilot's two stale-status wording comments were addressed in `e3d92e0` and the review threads were resolved. Created `feature/task-311-product-latency-remediation`, moved TASK-310 and the stale TASK-308 queue entry to Completed, and drafted `tasks/current.md` around typed project activity events, targeted dashboard reconciliation, timing marks, and the TASK-310 observer-latency target.
+
+### 2026-06-04
+- Type: Execution
+- Summary: TASK-311 implemented typed project activity events and targeted dashboard reconciliation.
+- Evidence: Added `ProjectActivityEvent` with RLS policies, event recording helpers, and typed stream payloads. Task create/update/delete/reorder, task comment create, and context card create/update/delete now record typed project activity events. `ProjectLiveRefresh` dispatches typed remote events before falling back to full route refresh. The kanban board applies safe task/comment/reorder patches locally, and the project context panel applies safe context-card create/update/delete patches locally.
+
+### 2026-06-04
+- Type: Validation
+- Summary: TASK-311 local validation and observer-latency probe passed.
+- Evidence: `npm run lint` passed. Focused `npm test -- tests/api/project-activity-stream.route.test.ts tests/components/project-live-refresh.test.tsx tests/lib/project-activity-service.test.ts` passed 3 files / 16 tests. Local PostgreSQL env `npm test` passed 115 files with 864 tests passed and 2 skipped. Local-safe production env `npm run build` passed. Local-safe `npm run test:e2e` passed all 8 Playwright specs with `OUTBOUND_EMAIL_DELIVERY_MODE=disabled`; a previous run without that local email mode failed only because the placeholder Resend key produced a provider 401 during the password-reset smoke. A local production-mode two-user probe measured task create API 119 ms, observer visibility 825 ms after API completion and 944 ms after mutation start; observer marks showed `received` then `patched` 3 ms apart with no console errors.

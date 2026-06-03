@@ -8,7 +8,12 @@ import {
   encodeServerSentEvent,
   sleepWithAbort,
 } from "@/lib/realtime/server-sent-events";
-import { getProjectActivitySnapshot } from "@/lib/services/project-activity-service";
+import type { ProjectActivityEventPayload } from "@/lib/project-activity-event-types";
+import {
+  getProjectActivitySnapshot,
+  listProjectActivityEventsSince,
+  type ProjectActivityEventRecord,
+} from "@/lib/services/project-activity-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 
 export const dynamic = "force-dynamic";
@@ -21,12 +26,6 @@ const PROJECT_ACTIVITY_STREAM_POLL_INTERVAL_MS = 1_000;
 const PROJECT_ACTIVITY_STREAM_HEARTBEAT_INTERVAL_MS = 15_000;
 const PROJECT_ACTIVITY_STREAM_MAX_DURATION_MS = 280_000;
 
-interface ProjectActivityStreamPayload {
-  projectId: string;
-  version: string;
-  serverTime: string;
-}
-
 function isNewerVersion(nextVersion: string, currentVersion: string): boolean {
   return Date.parse(nextVersion) > Date.parse(currentVersion);
 }
@@ -34,11 +33,33 @@ function isNewerVersion(nextVersion: string, currentVersion: string): boolean {
 function createActivityPayload(input: {
   projectId: string;
   version: Date;
-}): ProjectActivityStreamPayload {
+}): ProjectActivityEventPayload {
   return {
+    eventId: null,
     projectId: input.projectId,
     version: input.version.toISOString(),
     serverTime: new Date().toISOString(),
+    actorUserId: null,
+    domain: null,
+    action: null,
+    entityId: null,
+    payload: null,
+  };
+}
+
+function createActivityEventPayload(
+  event: ProjectActivityEventRecord
+): ProjectActivityEventPayload {
+  return {
+    eventId: event.id,
+    projectId: event.projectId,
+    version: event.version.toISOString(),
+    serverTime: new Date().toISOString(),
+    actorUserId: event.actorUserId,
+    domain: event.domain,
+    action: event.action,
+    entityId: event.entityId,
+    payload: event.payload,
   };
 }
 
@@ -143,6 +164,41 @@ export async function GET(
           throw error;
         }
 
+        const events = await listProjectActivityEventsSince({
+          actorUserId: principalResult.principal.actorUserId,
+          projectId: params.projectId,
+          afterVersion: new Date(lastVersion),
+        });
+
+        if (!events.ok) {
+          enqueueEvent({
+            event: "error",
+            data: {
+              error: events.error,
+              status: events.status,
+            },
+          });
+          break;
+        }
+
+        if (events.data.length > 0) {
+          for (const activityEvent of events.data) {
+            const nextVersion = activityEvent.version.toISOString();
+            if (!isNewerVersion(nextVersion, lastVersion)) {
+              continue;
+            }
+
+            lastVersion = nextVersion;
+            lastHeartbeatAt = Date.now();
+            enqueueEvent({
+              event: PROJECT_ACTIVITY_STREAM_EVENT,
+              id: lastVersion,
+              data: createActivityEventPayload(activityEvent),
+            });
+          }
+          continue;
+        }
+
         const snapshot = await getProjectActivitySnapshot({
           actorUserId: principalResult.principal.actorUserId,
           projectId: params.projectId,
@@ -192,6 +248,7 @@ export async function GET(
 }
 
 export const projectActivityStreamRouteInternals = {
+  createActivityEventPayload,
   createActivityPayload,
   encodeServerSentEvent,
   isNewerVersion,

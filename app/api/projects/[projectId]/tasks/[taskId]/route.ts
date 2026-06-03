@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-service";
 import {
@@ -70,9 +71,18 @@ export async function PATCH(
         }
       : rawTask;
 
+  const version = await recordProjectActivityEventVersion({
+    actorUserId,
+    projectId,
+    domain: "task",
+    action: "updated",
+    entityId: taskId,
+    payload: { task },
+  });
+
   return NextResponse.json(
     { task },
-    { headers: withProjectActivityVersionHeader(timing.headers()) }
+    { headers: withProjectActivityVersionHeader(timing.headers(), version) }
   );
 }
 
@@ -103,9 +113,21 @@ export async function DELETE(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({
-    ok: true,
-  }, {
-    headers: withProjectActivityVersionHeader(),
+  const version = await recordProjectActivityEventVersion({
+    actorUserId,
+    projectId,
+    domain: "task",
+    action: "deleted",
+    entityId: taskId,
+    payload: { taskId },
   });
+
+  return NextResponse.json(
+    {
+      ok: true,
+    },
+    {
+      headers: withProjectActivityVersionHeader(undefined, version),
+    }
+  );
 }

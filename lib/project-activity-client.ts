@@ -1,10 +1,12 @@
 "use client";
 
+import type { ProjectActivityEventPayload } from "@/lib/project-activity-event-types";
 import { readProjectActivityVersionHeader } from "@/lib/project-activity-version";
 
 export const PROJECT_ACTIVITY_ACK_EVENT = "nexusdash:project-activity-ack";
 export const PROJECT_ACTIVITY_MUTATION_EVENT =
   "nexusdash:project-activity-mutation";
+export const PROJECT_ACTIVITY_REMOTE_EVENT = "nexusdash:project-activity-remote";
 
 export interface ProjectActivityAcknowledgementDetail {
   projectId: string;
@@ -14,6 +16,12 @@ export interface ProjectActivityAcknowledgementDetail {
 export interface ProjectActivityMutationDetail {
   projectId: string;
   phase: "start" | "finish";
+}
+
+export interface ProjectActivityRemoteEventDetail {
+  activity: ProjectActivityEventPayload;
+  handled: boolean;
+  markHandled: () => void;
 }
 
 function dispatchProjectActivityMutation(
@@ -81,6 +89,33 @@ export function acknowledgeProjectActivityFromResponse(
     projectId,
     readProjectActivityVersionHeader(response)
   );
+}
+
+export function dispatchProjectActivityRemoteEvent(
+  activity: ProjectActivityEventPayload
+): boolean {
+  if (typeof window === "undefined" || !activity.projectId) {
+    return false;
+  }
+
+  const detail: ProjectActivityRemoteEventDetail = {
+    activity,
+    handled: false,
+    markHandled() {
+      detail.handled = true;
+    },
+  };
+
+  window.dispatchEvent(
+    new CustomEvent<ProjectActivityRemoteEventDetail>(
+      PROJECT_ACTIVITY_REMOTE_EVENT,
+      {
+        detail,
+      }
+    )
+  );
+
+  return detail.handled;
 }
 
 export async function fetchProjectActivityMutation(

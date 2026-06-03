@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-service";
 import { listProjectKanbanTasks } from "@/lib/services/project-service";
@@ -273,22 +274,47 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
   const task = resultData.task ?? null;
 
   if (!task) {
+    const version = await recordProjectActivityEventVersion({
+      actorUserId,
+      projectId,
+      domain: "task",
+      action: "created",
+      entityId: resultData.id ?? projectId,
+      payload: { taskId: resultData.id },
+    });
+
     return NextResponse.json(
       { taskId: resultData.id },
-      { status: 201, headers: withProjectActivityVersionHeader(timing.headers()) }
+      {
+        status: 201,
+        headers: withProjectActivityVersionHeader(timing.headers(), version),
+      }
     );
   }
+
+  const responseTask = {
+    ...task,
+    attachments: task.attachments.map((attachment) =>
+      mapTaskAttachmentResponse(projectId, task.id, attachment)
+    ),
+  };
+  const version = await recordProjectActivityEventVersion({
+    actorUserId,
+    projectId,
+    domain: "task",
+    action: "created",
+    entityId: task.id,
+    payload: { task: responseTask },
+  });
 
   return NextResponse.json(
     {
       taskId: task.id,
-      task: {
-        ...task,
-        attachments: task.attachments.map((attachment) =>
-          mapTaskAttachmentResponse(projectId, task.id, attachment)
-        ),
-      },
+      task: responseTask,
     },
-    { status: 201, headers: withProjectActivityVersionHeader(timing.headers()) }
+    {
+      status: 201,
+      headers: withProjectActivityVersionHeader(timing.headers(), version),
+    }
   );
 }

@@ -48,7 +48,12 @@ import {
   MAX_ATTACHMENT_FILE_SIZE_LABEL,
 } from "@/lib/task-attachment";
 import { uploadFileAttachmentDirect } from "@/lib/direct-upload-client";
-import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
+import {
+  PROJECT_ACTIVITY_REMOTE_EVENT,
+  fetchProjectActivityMutation,
+  type ProjectActivityRemoteEventDetail,
+} from "@/lib/project-activity-client";
+import type { ProjectActivityEventPayload } from "@/lib/project-activity-event-types";
 import {
   getTaskDeadlineUrgency,
 } from "@/lib/task-deadline";
@@ -132,6 +137,81 @@ function mapTaskMutationResponseTask(task: TaskMutationResponseTask): KanbanTask
     relatedTasks: task.relatedTasks,
     attachments: task.attachments,
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function readRemoteTaskPayload(
+  activity: ProjectActivityEventPayload
+): KanbanTask | null {
+  if (!isRecord(activity.payload) || !isRecord(activity.payload.task)) {
+    return null;
+  }
+
+  const task = activity.payload.task as Partial<TaskMutationResponseTask>;
+  if (typeof task.id !== "string" || typeof task.status !== "string") {
+    return null;
+  }
+
+  if (!isTaskStatus(task.status)) {
+    return null;
+  }
+
+  return mapTaskMutationResponseTask(task as TaskMutationResponseTask);
+}
+
+function readRemoteTaskCommentPayload(
+  activity: ProjectActivityEventPayload
+): { taskId: string; comment: TaskComment | null } | null {
+  if (!isRecord(activity.payload) || typeof activity.payload.taskId !== "string") {
+    return null;
+  }
+
+  return {
+    taskId: activity.payload.taskId,
+    comment: isRecord(activity.payload.comment)
+      ? (activity.payload.comment as unknown as TaskComment)
+      : null,
+  };
+}
+
+function readRemoteReorderPayload(
+  activity: ProjectActivityEventPayload
+): Array<{ status: TaskStatus; taskIds: string[] }> | null {
+  if (!isRecord(activity.payload) || !isRecord(activity.payload.reorder)) {
+    return null;
+  }
+
+  const columns = activity.payload.reorder.columns;
+  if (!Array.isArray(columns)) {
+    return null;
+  }
+
+  const nextColumns: Array<{ status: TaskStatus; taskIds: string[] }> = [];
+  for (const column of columns) {
+    if (!isRecord(column) || typeof column.status !== "string") {
+      return null;
+    }
+
+    if (!isTaskStatus(column.status)) {
+      return null;
+    }
+
+    if (!Array.isArray(column.taskIds)) {
+      return null;
+    }
+
+    nextColumns.push({
+      status: column.status,
+      taskIds: column.taskIds.filter(
+        (taskId): taskId is string => typeof taskId === "string"
+      ),
+    });
+  }
+
+  return nextColumns;
 }
 
 function mergeFetchedTaskComments(
@@ -988,6 +1068,104 @@ export function KanbanBoard({
     [setIsExpanded]
   );
 
+  const upsertRemoteTask = useCallback(
+    (remoteTask: KanbanTask) => {
+      setColumns((previousColumns) => {
+        const nextColumns = createEmptyColumns<KanbanTask>();
+        TASK_STATUSES.forEach((status) => {
+          nextColumns[status] = previousColumns[status].filter(
+            (task) => task.id !== remoteTask.id
+          );
+        });
+
+        if (!remoteTask.archivedAt && isTaskStatus(remoteTask.status)) {
+          nextColumns[remoteTask.status] = [
+            ...nextColumns[remoteTask.status],
+            remoteTask,
+          ].sort((left, right) => left.position - right.position);
+        }
+
+        return nextColumns;
+      });
+
+      setArchivedDoneTasks((previousTasks) => {
+        const withoutRemoteTask = previousTasks.filter(
+          (task) => task.id !== remoteTask.id
+        );
+        if (remoteTask.status === "Done" && remoteTask.archivedAt) {
+          return [...withoutRemoteTask, remoteTask].sort(
+            (left, right) =>
+              Date.parse(right.updatedAt) - Date.parse(left.updatedAt)
+          );
+        }
+
+        return withoutRemoteTask;
+      });
+
+      setSelectedTask((previousTask) => {
+        if (!previousTask || previousTask.id !== remoteTask.id) {
+          return previousTask;
+        }
+        return remoteTask;
+      });
+
+      syncRelatedTaskSummary(remoteTask.id, {
+        title: remoteTask.title,
+        status: remoteTask.status,
+        archivedAt: remoteTask.archivedAt,
+      });
+      setIsExpanded(true);
+      setPersistError(null);
+    },
+    [setIsExpanded, syncRelatedTaskSummary]
+  );
+
+  const applyRemoteReorder = useCallback(
+    (reorderedColumns: Array<{ status: TaskStatus; taskIds: string[] }>) => {
+      setColumns((previousColumns) => {
+        const taskById = new Map<string, KanbanTask>();
+        TASK_STATUSES.forEach((status) => {
+          previousColumns[status].forEach((task) => {
+            taskById.set(task.id, task);
+          });
+        });
+
+        const nextColumns = createEmptyColumns<KanbanTask>();
+        const usedTaskIds = new Set<string>();
+        reorderedColumns.forEach((column) => {
+          column.taskIds.forEach((taskId, position) => {
+            const task = taskById.get(taskId);
+            if (!task) {
+              return;
+            }
+
+            usedTaskIds.add(taskId);
+            nextColumns[column.status].push({
+              ...task,
+              status: column.status,
+              position,
+              archivedAt: null,
+            });
+          });
+        });
+
+        TASK_STATUSES.forEach((status) => {
+          previousColumns[status].forEach((task) => {
+            if (!usedTaskIds.has(task.id)) {
+              nextColumns[status].push(task);
+            }
+          });
+          nextColumns[status].sort((left, right) => left.position - right.position);
+        });
+
+        return nextColumns;
+      });
+
+      setPersistError(null);
+    },
+    []
+  );
+
   const removeLocalTask = useCallback(
     (taskId: string) => {
       setColumns((previousColumns) => {
@@ -1747,6 +1925,87 @@ export function KanbanBoard({
     },
     []
   );
+
+  useEffect(() => {
+    function handleRemoteProjectActivity(event: Event) {
+      const detail = (event as CustomEvent<ProjectActivityRemoteEventDetail>)
+        .detail;
+      const activity = detail?.activity;
+      if (!activity || activity.projectId !== projectId) {
+        return;
+      }
+
+      if (activity.domain === "task") {
+        if (activity.action === "created" || activity.action === "updated") {
+          const remoteTask = readRemoteTaskPayload(activity);
+          if (!remoteTask) {
+            return;
+          }
+
+          upsertRemoteTask(remoteTask);
+          detail.markHandled();
+          return;
+        }
+
+        if (activity.action === "deleted" && activity.entityId) {
+          removeLocalTask(activity.entityId);
+          detail.markHandled();
+          return;
+        }
+
+        if (activity.action === "reordered") {
+          const reorderedColumns = readRemoteReorderPayload(activity);
+          if (!reorderedColumns) {
+            return;
+          }
+
+          applyRemoteReorder(reorderedColumns);
+          detail.markHandled();
+        }
+      }
+
+      if (activity.domain === "task-comment" && activity.action === "created") {
+        const commentPayload = readRemoteTaskCommentPayload(activity);
+        if (!commentPayload) {
+          return;
+        }
+
+        applyTaskMutation(commentPayload.taskId, (task) => ({
+          ...task,
+          commentCount: task.commentCount + 1,
+        }));
+
+        if (selectedTask?.id === commentPayload.taskId && commentPayload.comment) {
+          setTaskComments((previousComments) =>
+            previousComments.some((comment) => comment.id === commentPayload.comment?.id)
+              ? previousComments
+              : [...previousComments, commentPayload.comment as TaskComment]
+          );
+        }
+
+        detail.markHandled();
+      }
+    }
+
+    window.addEventListener(
+      PROJECT_ACTIVITY_REMOTE_EVENT,
+      handleRemoteProjectActivity
+    );
+
+    return () => {
+      window.removeEventListener(
+        PROJECT_ACTIVITY_REMOTE_EVENT,
+        handleRemoteProjectActivity
+      );
+    };
+  }, [
+    applyRemoteReorder,
+    applyTaskMutation,
+    projectId,
+    removeLocalTask,
+    selectedTask?.id,
+    upsertRemoteTask,
+  ]);
 
   const handleSubmitTaskComment = useCallback(async (
     mentionSelections?: TaskCommentMentionSelection[]

@@ -18,6 +18,7 @@ import { ProjectLiveRefresh } from "@/components/project-live-refresh";
 import {
   acknowledgeProjectActivity,
   beginProjectActivityMutation,
+  PROJECT_ACTIVITY_REMOTE_EVENT,
 } from "@/lib/project-activity-client";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -154,6 +155,57 @@ describe("ProjectLiveRefresh", () => {
     });
 
     expect(MockEventSource.instances[0]?.closed).toBe(true);
+  });
+
+  test("dispatches typed stream activity without refreshing when a listener handles it", async () => {
+    vi.stubGlobal("EventSource", MockEventSource);
+    const { root } = createTestRenderer();
+    const remoteActivityHandler = vi.fn((event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          markHandled: () => void;
+        }>
+      ).detail;
+      detail.markHandled();
+    });
+    window.addEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, remoteActivityHandler);
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+      })
+    );
+
+    await act(async () => {
+      MockEventSource.instances[0]?.open();
+      MockEventSource.instances[0]?.projectActivity({
+        eventId: "event-1",
+        projectId: "project-1",
+        version: "2026-05-30T10:01:00.000Z",
+        serverTime: "2026-05-30T10:01:00.000Z",
+        actorUserId: "user-2",
+        domain: "task",
+        action: "created",
+        entityId: "task-1",
+        payload: {
+          task: {
+            id: "task-1",
+            title: "Remote task",
+          },
+        },
+      });
+    });
+
+    expect(remoteActivityHandler).toHaveBeenCalledTimes(1);
+    expect(routerRefreshMock).not.toHaveBeenCalled();
+
+    window.removeEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, remoteActivityHandler);
+    await act(async () => {
+      root.unmount();
+    });
   });
 
   test("falls back to adaptive polling when the activity stream fails before opening", async () => {

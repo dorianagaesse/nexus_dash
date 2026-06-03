@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useCallback,
   useMemo,
   useRef,
   useState,
@@ -46,7 +47,12 @@ import {
   uploadFileAttachmentDirect,
   uploadFilesDirectInBackground,
 } from "@/lib/direct-upload-client";
-import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
+import {
+  PROJECT_ACTIVITY_REMOTE_EVENT,
+  fetchProjectActivityMutation,
+  type ProjectActivityRemoteEventDetail,
+} from "@/lib/project-activity-client";
+import type { ProjectActivityEventPayload } from "@/lib/project-activity-event-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -58,6 +64,54 @@ interface ProjectContextPanelProps {
   projectId: string;
   storageProvider: "local" | "r2";
   cards: ProjectContextCard[];
+}
+
+type RemoteContextCardPayload = Omit<Partial<ProjectContextCard>, "attachments"> & {
+  id: string;
+  attachments?: Omit<ProjectContextAttachment, "downloadUrl">[];
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function readRemoteContextCardPayload(
+  activity: ProjectActivityEventPayload
+): RemoteContextCardPayload | null {
+  if (!isRecord(activity.payload) || !isRecord(activity.payload.card)) {
+    return null;
+  }
+
+  const card = activity.payload.card;
+  if (typeof card.id !== "string") {
+    return null;
+  }
+
+  return card as RemoteContextCardPayload;
+}
+
+function readRemoteContextCardId(
+  activity: ProjectActivityEventPayload
+): string | null {
+  if (isRecord(activity.payload) && typeof activity.payload.cardId === "string") {
+    return activity.payload.cardId;
+  }
+
+  return readRemoteContextCardPayload(activity)?.id ?? null;
+}
+
+function hasContextCardAttachments(
+  card: RemoteContextCardPayload
+): card is Omit<ProjectContextCard, "attachments"> & {
+  attachments: Omit<ProjectContextAttachment, "downloadUrl">[];
+} {
+  return (
+    typeof card.id === "string" &&
+    typeof card.title === "string" &&
+    typeof card.content === "string" &&
+    typeof card.color === "string" &&
+    Array.isArray(card.attachments)
+  );
 }
 
 export function ProjectContextPanel({
@@ -205,7 +259,7 @@ export function ProjectContextPanel({
     });
   };
 
-  const withDownloadUrls = (
+  const withDownloadUrls = useCallback((
     card: Omit<ProjectContextCard, "attachments"> & {
       attachments: Omit<ProjectContextAttachment, "downloadUrl">[];
     }
@@ -218,7 +272,111 @@ export function ProjectContextPanel({
           ? `/api/projects/${projectId}/context-cards/${card.id}/attachments/${attachment.id}/download`
           : null,
     })),
-  });
+  }), [projectId]);
+
+  useEffect(() => {
+    const handleProjectActivity = (event: Event) => {
+      const { activity, markHandled } = (
+        event as CustomEvent<ProjectActivityRemoteEventDetail>
+      ).detail;
+
+      if (activity.projectId !== projectId || activity.domain !== "context-card") {
+        return;
+      }
+
+      if (activity.action === "deleted") {
+        const cardId = readRemoteContextCardId(activity);
+        if (!cardId) {
+          return;
+        }
+
+        setLocalCards((previous) => previous.filter((card) => card.id !== cardId));
+        setCardAttachmentsById((previous) => {
+          const next = { ...previous };
+          delete next[cardId];
+          return next;
+        });
+        setEditingCardId((current) => (current === cardId ? null : current));
+        setPreviewCardId((current) => (current === cardId ? null : current));
+        setPendingDeleteCardId((current) => (current === cardId ? null : current));
+        markHandled();
+        return;
+      }
+
+      const remoteCard = readRemoteContextCardPayload(activity);
+      if (!remoteCard?.id) {
+        return;
+      }
+
+      if (activity.action === "created") {
+        if (!hasContextCardAttachments(remoteCard)) {
+          return;
+        }
+
+        const nextCard = {
+          ...withDownloadUrls(remoteCard),
+          content: normalizeContextCardContentHtml(remoteCard.content),
+        };
+
+        setLocalCards((previous) => [
+          nextCard,
+          ...previous.filter((card) => card.id !== nextCard.id),
+        ]);
+        setCardAttachmentsById((previous) => ({
+          ...previous,
+          [nextCard.id]: nextCard.attachments,
+        }));
+        setIsExpanded(true);
+        markHandled();
+        return;
+      }
+
+      if (activity.action === "updated") {
+        const remoteCardId = remoteCard.id;
+        setLocalCards((previous) =>
+          previous.map((card) =>
+            card.id === remoteCardId
+              ? {
+                  ...card,
+                  title:
+                    typeof remoteCard.title === "string"
+                      ? remoteCard.title
+                      : card.title,
+                  content:
+                    typeof remoteCard.content === "string"
+                      ? normalizeContextCardContentHtml(remoteCard.content)
+                      : card.content,
+                  color:
+                    typeof remoteCard.color === "string"
+                      ? remoteCard.color
+                      : card.color,
+                }
+              : card
+          )
+        );
+        if (Array.isArray(remoteCard.attachments)) {
+          setCardAttachmentsById((previous) => ({
+            ...previous,
+            [remoteCardId]: withDownloadUrls(
+              remoteCard as Omit<ProjectContextCard, "attachments"> & {
+                attachments: Omit<ProjectContextAttachment, "downloadUrl">[];
+              }
+            ).attachments,
+          }));
+        }
+        markHandled();
+      }
+    };
+
+    window.addEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, handleProjectActivity);
+
+    return () => {
+      window.removeEventListener(
+        PROJECT_ACTIVITY_REMOTE_EVENT,
+        handleProjectActivity
+      );
+    };
+  }, [projectId, setIsExpanded, withDownloadUrls]);
 
   const resetCreateAttachmentDraft = () => {
     setCreateContent("");
