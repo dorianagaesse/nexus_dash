@@ -1978,3 +1978,8 @@ Low-value entries to avoid going forward:
 - Type: Investigation
 - Summary: TASK-310 reproduced the remaining collaboration latency as an observer-side reconciliation problem rather than a local mutation problem.
 - Evidence: Local Docker Postgres was healthy and had no pending migrations. `npm run build` passed with preview-safe local env. A local `next start` server on `127.0.0.1:3150` showed seeded API reads in tens of milliseconds (`tasks-list;dur=25.4`, `context-list;dur=7.7`) and actor UI task creation visible in 140 ms (`task-create;dur=86.4`). A remote/API task create while an observer dashboard was open took 72 ms wall-clock (`task-create;dur=63.0`), but the observer saw the task after 4513 ms, isolating the remaining delay to realtime propagation plus full dashboard refresh. An instrumented EventSource probe showed a post-mutation activity event arriving about 836 ms after the mutation marker, consistent with the current 1000 ms stream-side DB poll.
+
+### 2026-06-04
+- Type: Planning
+- Summary: TASK-310 report PR #317 merged and TASK-311 started as the follow-up implementation task.
+- Evidence: PR #317 merged as `d8f2626` after Quality Core, E2E Smoke, Container Image, and branch-name checks passed; Copilot's two stale-status wording comments were addressed in `e3d92e0` and the review threads were resolved. Created `feature/task-311-product-latency-remediation`, moved TASK-310 and the stale TASK-308 queue entry to Completed, and drafted `tasks/current.md` around typed project activity events, targeted dashboard reconciliation, timing marks, and the TASK-310 observer-latency target.
