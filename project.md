@@ -1,6 +1,6 @@
 # NexusDash Project Blueprint (Current State)
 
-Last verified: 2026-05-31
+Last verified: 2026-06-04
 
 ## 1. Vision
 
@@ -113,9 +113,9 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 From `tasks/current.md` + `tasks/backlog.md`:
 
-1. TASK-224: agent roadmap access for scoped roadmap phase/event APIs
-2. TASK-263: real-time notification updates for inbox/count awareness
-3. TASK-308: smart live project refresh without editing interruptions
+1. TASK-310: full-stack product performance investigation and implementation-task handoff
+2. TASK-224: agent roadmap access for scoped roadmap phase/event APIs
+3. TASK-263: real-time notification updates for inbox/count awareness
 
 ## 8. Source-of-Truth Docs
 

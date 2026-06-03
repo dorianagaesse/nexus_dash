@@ -1,91 +1,70 @@
-# Current Task: TASK-309 Realtime Event-Stream Foundation
+# Current Task: TASK-310 Full-Stack Product Performance Investigation
 
 ## Task ID
-TASK-309
+TASK-310
 
 ## Status
-In progress on `feature/task-309-realtime-event-stream`.
+Report drafted on `docs/task-310-performance-investigation`.
 
 ## Source
-- User request on 2026-06-03 after TASK-308 / PR #315:
-  decide whether polling is the right long-term solution, merge the current PR,
-  create the durable realtime task, choose the best solution for NexusDash, and
-  implement it in a new PR.
-- Backlog entry: `tasks/backlog.md` / TASK-309.
+- User request on 2026-06-04 after TASK-309 / PR #316 was merged:
+  spend serious time on performance because NexusDash still takes several
+  seconds for updates to appear and is not aligned with industry standards from
+  a user-perceived latency perspective.
+- Backlog entry: `tasks/backlog.md` / TASK-310.
 
 ## Objective
-Move project collaboration freshness toward a state-of-the-art realtime
-architecture by adding an authenticated server-sent events transport for project
-activity updates while preserving the TASK-308 activity-version contract and
-adaptive polling fallback.
-
-## Architecture Decision
-Use SSE as the first durable realtime transport for NexusDash project activity.
-
-Rationale:
-- Current collaboration freshness is server-to-client invalidation: the app
-  needs to tell open dashboards that project state changed.
-- WebSockets are more operationally complex and are better justified by
-  bidirectional features such as presence, live cursors, or collaborative text
-  editing.
-- Managed realtime providers such as Supabase Realtime, Ably, Pusher, or
-  Liveblocks remain the likely next step when fanout, presence, or vendor-backed
-  delivery guarantees become product requirements.
-- SSE fits the existing Next.js/Vercel route-handler model, preserves cookie
-  authentication, works with the current PostgreSQL source of truth, and can
-  reuse the same project activity version snapshots already emitted by
-  mutation acknowledgements.
+Produce an evidence-backed Markdown report that explains the real performance
+pain points across the stack and ranks the best remediation paths. The report
+must look beyond a frontend/backend split and include browser interaction,
+React rendering, route refresh behavior, API/service timing, database/runtime
+behavior, Vercel/serverless constraints, and realtime update propagation.
 
 ## Scope
-- Add a project activity SSE route under the existing project activity API
-  surface.
-- Stream structured `project-activity` events that contain the same
-  `{ projectId, version, serverTime }` shape as the polling endpoint.
-- Keep the current polling endpoint and adaptive client polling as a fallback
-  for unsupported browsers, stream failures, and agent/API clients.
-- Update `ProjectLiveRefresh` to prefer SSE when available, fall back to
-  polling when the stream cannot be established, and preserve the existing
-  local acknowledgement/edit-lock safety semantics.
-- Document the SSE-vs-managed-realtime decision and future provider swap path.
-- Add focused route and component tests for stream event formatting, fallback,
-  and refresh behavior.
+- Measure representative user-facing flows:
+  - project dashboard load
+  - task create/update/move/comment
+  - context card create/update
+  - remote collaborator update visibility
+  - notification/invitation visibility where relevant
+- Inspect server and client implementation paths for avoidable waits,
+  overbroad refreshes, heavy data payloads, database query cost, cold/warm
+  runtime effects, and realtime transport design limits.
+- Compare current behavior to reasonable modern SaaS expectations:
+  instant local feedback, sub-500ms local interaction acknowledgement, and
+  low-single-second remote collaboration propagation.
+- Identify root causes, not only symptoms.
+- Produce `docs/reports/task-310-performance-investigation.md`.
+- Create the next implementation task from the report findings after the report
+  PR is merged.
 
 ## Out Of Scope
-- Presence, typing indicators, cursors, or collaborative document editing.
-- External realtime vendor provisioning.
-- Notification-center realtime implementation. TASK-263 remains the dedicated
-  task for live notification rows/counts/banner behavior; this task should leave
-  a compatible transport pattern for it.
+- Implementing performance remediations in this task.
+- Adding a new managed realtime provider during the investigation.
+- Broad UI redesign unrelated to latency or perceived responsiveness.
 
 ## Acceptance Criteria
-1. Project dashboards prefer an authenticated SSE activity stream when
-   `EventSource` is available.
-2. SSE emits project activity versions in the same logical contract as
-   `/api/projects/:projectId/activity`.
-3. Remote stream events trigger the same safe auto-refresh behavior as polling:
-   idle dashboards refresh automatically, while edit/modal/contenteditable locks
-   defer with the manual affordance.
-4. Local mutation acknowledgements still suppress self-refresh prompts.
-5. If SSE is unavailable or fails before opening, the dashboard falls back to
-   adaptive polling.
-6. Agent/API consumers can continue using the polling activity endpoint without
-   behavioral change.
-7. Tests cover the SSE route and client stream/fallback behavior.
+1. The report includes measured evidence from local and/or deployed runtime
+   probes, not only static code review.
+2. The report separates user-perceived latency into local action feedback,
+   server mutation time, server-render/refresh time, database/runtime behavior,
+   and remote propagation time.
+3. The report identifies the highest-confidence root causes and explains why
+   TASK-309 SSE did not reduce visible latency enough.
+4. The report ranks remediation paths by expected user impact, engineering
+   effort, risk, and alignment with state-of-the-art product behavior.
+5. The report recommends a concrete next implementation task with acceptance
+   criteria.
 
 ## Definition Of Done
-- [x] Implementation is committed on the dedicated feature branch.
-- [x] Focused tests cover the realtime stream route and client stream/fallback
-      behavior.
-- [x] `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`
-      pass.
-- [x] UI-impacting behavior is smoke-tested locally or against a branch preview.
-- [x] `tasks/backlog.md`, `tasks/current.md`, `journal.md`, and
-      `adr/decisions.md` are updated.
-- [ ] A ready-for-review PR is opened, automated checks pass, Copilot review
-      feedback is handled, and preview evidence is recorded if deployed.
+- [x] `docs/reports/task-310-performance-investigation.md` exists and contains
+      evidence, findings, and ranked recommendations.
+- [x] `tasks/backlog.md`, `tasks/current.md`, and `journal.md` are updated.
+- [ ] A docs PR is opened, checks/Copilot review are handled, and the PR is
+      merged.
+- [ ] A follow-up implementation task is created from the report output.
+- [ ] The implementation task is started on its own branch after the report PR
+      merge.
 
-## Notes
-- PR #315 merged TASK-308 as `7ac91ad` before this branch started.
-- SSE is intentionally a transport upgrade, not a full collaboration-provider
-  migration. The client boundary should make a later managed provider swap
-  possible without rewriting mutation services.
+## Report
+- `docs/reports/task-310-performance-investigation.md`

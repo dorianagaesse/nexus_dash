@@ -6,11 +6,12 @@ Last reviewed: 2026-05-31
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-309
-  Title: Realtime event-stream foundation - SSE transport for collaboration freshness
-  Status: In progress on `feature/task-309-realtime-event-stream`
-  Rationale: Move NexusDash collaboration freshness beyond browser polling by introducing an authenticated server-sent events transport for project activity updates, while retaining adaptive polling as a fallback. SSE is the best near-term fit because the current product needs server-to-client invalidation events for project dashboards and notification freshness, not bidirectional presence or collaborative text editing. The implementation should preserve the existing activity-version contract from TASK-308, avoid an external vendor dependency until scale/presence requirements justify one, document the managed realtime tradeoff, and leave a clean path to swap the stream backend for Supabase Realtime, Ably, Pusher, or Liveblocks later.
-  Dependencies: TASK-118, TASK-263, TASK-308
+- ID: TASK-310
+  Title: Full-stack product performance investigation - user-perceived latency root cause report
+  Status: Report drafted on `docs/task-310-performance-investigation`
+  Rationale: Investigate why NexusDash still feels below industry standards for action/update response time from a user perspective, across the whole stack: browser interaction, React rendering, route refresh behavior, API/service latency, database/runtime behavior, Vercel/serverless deployment constraints, and realtime event propagation. The output should be a concrete Markdown report with measured evidence, root causes, ranked remediation paths, and an implementation task derived from the findings.
+  Dependencies: TASK-275, TASK-276, TASK-308, TASK-309
+  Report: `docs/reports/task-310-performance-investigation.md`
 - ID: TASK-224
   Title: Agent roadmap access - scoped API contract for roadmap phases and events
   Status: Promoted 2026-05-31
@@ -127,6 +128,11 @@ Last reviewed: 2026-05-31
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-309
+  Title: Realtime event-stream foundation - SSE transport for collaboration freshness
+  Status: Done (2026-06-03, merged via PR #316)
+  Rationale: Added an authenticated project activity SSE route, made dashboards prefer `EventSource` with adaptive polling fallback, preserved local mutation acknowledgement/edit-lock behavior, documented the SSE-first decision, and passed Copilot review plus Quality Gates before merge.
+  Dependencies: TASK-118, TASK-263, TASK-308
 - ID: TASK-276
   Title: App performance remediation - production-grade action latency fixes
   Status: Done (2026-05-31, merged via PR #314)
