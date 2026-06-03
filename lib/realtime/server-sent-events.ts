@@ -50,15 +50,16 @@ export function sleepWithAbort(
   }
 
   return new Promise((resolve, reject) => {
-    const timeoutId = setTimeout(resolve, delayMs);
+    function handleAbort() {
+      clearTimeout(timeoutId);
+      reject(new DOMException("Aborted", "AbortError"));
+    }
 
-    signal.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(timeoutId);
-        reject(new DOMException("Aborted", "AbortError"));
-      },
-      { once: true }
-    );
+    const timeoutId = setTimeout(() => {
+      signal.removeEventListener("abort", handleAbort);
+      resolve();
+    }, delayMs);
+
+    signal.addEventListener("abort", handleAbort, { once: true });
   });
 }

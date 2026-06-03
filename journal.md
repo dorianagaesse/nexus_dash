@@ -1963,3 +1963,8 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-309 local validation baseline passed.
 - Evidence: `npm run lint` passed. Local PostgreSQL env `npm test` passed (114 files passed, 2 skipped; 858 passed, 2 skipped). Local PostgreSQL env `npm run test:coverage` passed with 91.32% statements, 81.33% branches, 92.2% functions, and 91.83% lines. Preview-style env `npm run build` passed and included `/api/projects/[projectId]/activity/stream` in the route manifest. Local-safe preview env `npm run test:e2e` with `VERCEL_ENV=preview` passed all 8 Playwright specs.
+
+### 2026-06-03
+- Type: Validation
+- Summary: TASK-309 Copilot review fix passed focused and broad local validation.
+- Evidence: Copilot identified that `sleepWithAbort` removed no abort listener after normal timeout resolution. Fixed the listener cleanup and added `tests/lib/server-sent-events.test.ts`. Focused `npm test -- --run tests/lib/server-sent-events.test.ts tests/components/project-live-refresh.test.tsx tests/api/project-activity-stream.route.test.ts` passed 3 files / 14 tests. `npm run lint` passed. Local PostgreSQL env `npm test` passed (115 files passed, 2 skipped; 861 passed, 2 skipped).
