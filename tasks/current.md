@@ -1,81 +1,91 @@
-# Current Task: TASK-308 Smart Live Project Refresh
+# Current Task: TASK-309 Realtime Event-Stream Foundation
 
 ## Task ID
-TASK-308
+TASK-309
 
 ## Status
-In progress on `feature/task-308-smart-live-refresh`.
+In progress on `feature/task-309-realtime-event-stream`.
 
 ## Source
-- User request on 2026-05-31 after TASK-276 / PR #314:
-  the bottom-right project refresh affordance should not become routine friction
-  for collaboration; remote updates should arrive automatically when safe, and
-  local/self-originated changes should not ask the user to refresh their own
-  work.
-- Backlog entry: `tasks/backlog.md` / TASK-308.
+- User request on 2026-06-03 after TASK-308 / PR #315:
+  decide whether polling is the right long-term solution, merge the current PR,
+  create the durable realtime task, choose the best solution for NexusDash, and
+  implement it in a new PR.
+- Backlog entry: `tasks/backlog.md` / TASK-309.
 
 ## Objective
-Improve the TASK-118 live project refresh layer so project dashboard
-collaboration feels automatic and interruption-aware: local mutations are
-acknowledged by the active tab, remote collaborator or agent updates refresh the
-dashboard when the user is idle, and the manual refresh prompt appears only as a
-safety affordance while editing or modal state could be disrupted.
+Move project collaboration freshness toward a state-of-the-art realtime
+architecture by adding an authenticated server-sent events transport for project
+activity updates while preserving the TASK-308 activity-version contract and
+adaptive polling fallback.
+
+## Architecture Decision
+Use SSE as the first durable realtime transport for NexusDash project activity.
+
+Rationale:
+- Current collaboration freshness is server-to-client invalidation: the app
+  needs to tell open dashboards that project state changed.
+- WebSockets are more operationally complex and are better justified by
+  bidirectional features such as presence, live cursors, or collaborative text
+  editing.
+- Managed realtime providers such as Supabase Realtime, Ably, Pusher, or
+  Liveblocks remain the likely next step when fanout, presence, or vendor-backed
+  delivery guarantees become product requirements.
+- SSE fits the existing Next.js/Vercel route-handler model, preserves cookie
+  authentication, works with the current PostgreSQL source of truth, and can
+  reuse the same project activity version snapshots already emitted by
+  mutation acknowledgements.
 
 ## Scope
-- Keep the existing lightweight activity endpoint and polling fallback.
-- Add a small client-side project activity acknowledgement contract for
-  successful local mutations.
-- Use an adaptive activity polling cadence so active project dashboards check
-  for remote collaborator changes quickly, while background tabs back off and
-  focus/visibility changes wake the checker immediately.
-- Make the live refresh controller auto-apply deferred remote updates as soon as
-  the refresh lock clears, without requiring a focus change or manual click.
-- Wire acknowledgement into high-frequency project dashboard mutations covered
-  by TASK-276: task create/update/reorder/delete/archive, comment create,
-  context-card create/update/delete, and comparable local-first flows.
-- Preserve editing safety: dialogs, focused inputs, contenteditable surfaces, and
-  explicit project live-refresh locks still defer route refresh.
-- Add focused tests for local acknowledgement, automatic refresh, and deferred
-  refresh behavior.
+- Add a project activity SSE route under the existing project activity API
+  surface.
+- Stream structured `project-activity` events that contain the same
+  `{ projectId, version, serverTime }` shape as the polling endpoint.
+- Keep the current polling endpoint and adaptive client polling as a fallback
+  for unsupported browsers, stream failures, and agent/API clients.
+- Update `ProjectLiveRefresh` to prefer SSE when available, fall back to
+  polling when the stream cannot be established, and preserve the existing
+  local acknowledgement/edit-lock safety semantics.
+- Document the SSE-vs-managed-realtime decision and future provider swap path.
+- Add focused route and component tests for stream event formatting, fallback,
+  and refresh behavior.
+
+## Out Of Scope
+- Presence, typing indicators, cursors, or collaborative document editing.
+- External realtime vendor provisioning.
+- Notification-center realtime implementation. TASK-263 remains the dedicated
+  task for live notification rows/counts/banner behavior; this task should leave
+  a compatible transport pattern for it.
 
 ## Acceptance Criteria
-1. A successful local project mutation advances/acknowledges the live-refresh
-   version for the active tab so the bottom-right refresh prompt is not shown
-   for the user's own saved action.
-2. A remote activity version newer than the known local version triggers
-   `router.refresh()` automatically when no refresh lock is active.
-3. Active visible project dashboards check for remote activity on a low-latency
-   cadence, and focus/visibility changes trigger an immediate check instead of
-   waiting for the next scheduled poll.
-4. If a remote update arrives while a form, modal, contenteditable, or explicit
-   live-refresh lock is active, the prompt is shown as a safety affordance.
-5. Once that lock clears, the pending remote update is applied automatically
-   without requiring the user to switch tabs, focus the window, or click Refresh.
-6. The live-refresh contract remains compatible with project-scoped agent
-   polling via `/api/projects/:projectId/activity`.
-7. Focused automated tests cover acknowledgement, active polling cadence,
-   focus-triggered checks, and lock-release behavior.
+1. Project dashboards prefer an authenticated SSE activity stream when
+   `EventSource` is available.
+2. SSE emits project activity versions in the same logical contract as
+   `/api/projects/:projectId/activity`.
+3. Remote stream events trigger the same safe auto-refresh behavior as polling:
+   idle dashboards refresh automatically, while edit/modal/contenteditable locks
+   defer with the manual affordance.
+4. Local mutation acknowledgements still suppress self-refresh prompts.
+5. If SSE is unavailable or fails before opening, the dashboard falls back to
+   adaptive polling.
+6. Agent/API consumers can continue using the polling activity endpoint without
+   behavioral change.
+7. Tests cover the SSE route and client stream/fallback behavior.
 
 ## Definition Of Done
 - [x] Implementation is committed on the dedicated feature branch.
-- [x] Focused tests cover the live-refresh controller and client
-      acknowledgement behavior.
+- [x] Focused tests cover the realtime stream route and client stream/fallback
+      behavior.
 - [x] `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`
       pass.
-- [x] UI-impacting behavior is smoke-tested with Playwright locally or against a
-      branch preview.
-- [x] `tasks/backlog.md`, `tasks/current.md`, and `journal.md` are updated.
-- [ ] A ready-for-review PR is opened, automated checks pass, and Copilot review
-      feedback is handled.
+- [x] UI-impacting behavior is smoke-tested locally or against a branch preview.
+- [x] `tasks/backlog.md`, `tasks/current.md`, `journal.md`, and
+      `adr/decisions.md` are updated.
+- [ ] A ready-for-review PR is opened, automated checks pass, Copilot review
+      feedback is handled, and preview evidence is recorded if deployed.
 
 ## Notes
-- TASK-276 removed many success-path route refreshes and made local mutation
-  feedback immediate. TASK-308 builds on that by keeping the cross-tab/project
-  activity watcher from treating those local writes as unknown remote changes.
-- The current transport is intentionally still polling-based. A future realtime
-  transport can reuse the same acknowledgement semantics.
-- Active visible dashboards now poll the lightweight activity endpoint every
-  2 seconds by default; hidden tabs back off to reduce background traffic.
-- Preview deployment run `26727186276` checked out
-  `feature/task-308-smart-live-refresh` and produced
-  `https://nexus-dash-q4cso7uob-dorian-agaesses-projects.vercel.app`.
+- PR #315 merged TASK-308 as `7ac91ad` before this branch started.
+- SSE is intentionally a transport upgrade, not a full collaboration-provider
+  migration. The client boundary should make a later managed provider swap
+  possible without rewriting mutation services.

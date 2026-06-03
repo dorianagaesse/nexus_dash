@@ -16,6 +16,28 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-06-03 - Prefer SSE as the first realtime transport for project activity
+- Status: Accepted
+- Context: TASK-308 made live collaboration safer but still relied on browser
+  polling. NexusDash needs state-of-the-art collaboration freshness, but the
+  current product requirement is server-to-client invalidation for project
+  dashboards rather than bidirectional presence, cursors, or collaborative text
+  editing.
+- Decision: Add an authenticated server-sent events route for project activity
+  updates and make dashboards prefer it when `EventSource` is available. Keep
+  the existing activity endpoint and adaptive polling as the fallback for
+  unsupported browsers, stream establishment failures, and project-scoped agent
+  clients. Defer managed realtime providers until product requirements include
+  larger fanout, presence, or stronger provider-backed delivery guarantees.
+- Consequences: Open dashboards receive project activity versions through a
+  standard HTTP streaming transport while mutation services continue to use the
+  same durable `Project.updatedAt` version contract. The stream backend still
+  reads from PostgreSQL, so a future Supabase Realtime, Ably, Pusher, or
+  Liveblocks integration can replace the stream source without changing
+  dashboard mutation acknowledgements.
+- Links: `tasks/current.md`, `components/project-live-refresh.tsx`,
+  `app/api/projects/[projectId]/activity/stream/route.ts`
+
 ## 2026-06-01 - Use client-side activity acknowledgements for live project refresh
 - Status: Accepted
 - Context: TASK-276 made dashboard mutations local-first, but the existing

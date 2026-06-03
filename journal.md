@@ -1943,3 +1943,28 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-308 adaptive polling follow-up passed the local quality baseline.
 - Evidence: `npm run lint` passed. Local PostgreSQL env `npm test` passed (113 files passed, 2 skipped; 854 passed, 2 skipped). Local PostgreSQL env `npm run test:coverage` passed with 91.32% statements, 81.33% branches, 92.2% functions, and 91.83% lines. Preview-style env `npm run build` passed after supplying the local-safe Google token encryption placeholder required by the current `.env` OAuth group. Local-safe preview env `npm run test:e2e` with `VERCEL_ENV=preview` passed all 8 Playwright specs; an earlier run without `VERCEL_ENV=preview` failed the password-reset smoke because the placeholder Resend key was treated as live delivery.
+
+### 2026-06-03
+- Type: Execution
+- Summary: TASK-309 started after TASK-308 / PR #315 merged and chose SSE as the first durable realtime transport.
+- Evidence: PR #315 merged as `7ac91ad`. Created `feature/task-309-realtime-event-stream`, added TASK-309 to the execution queue, rewrote `tasks/current.md`, and recorded the architecture decision to prefer authenticated server-sent events for project activity while keeping adaptive polling for unsupported browsers, stream failures, and agent/API clients.
+
+### 2026-06-03
+- Type: Execution
+- Summary: TASK-309 implemented the project activity SSE foundation.
+- Evidence: Added `/api/projects/:projectId/activity/stream` with `text/event-stream` project-activity events carrying the existing `{ projectId, version, serverTime }` contract, heartbeat support, and bounded Vercel function duration. Updated `ProjectLiveRefresh` to prefer `EventSource`, retain local mutation acknowledgement/edit-lock behavior, and fall back to adaptive polling when the stream cannot open.
+
+### 2026-06-03
+- Type: Validation
+- Summary: TASK-309 focused realtime stream tests passed.
+- Evidence: `npm test -- --run tests/components/project-live-refresh.test.tsx tests/api/project-activity-stream.route.test.ts` passed 2 files / 11 tests covering stream selection, stream fallback, existing polling behavior, and SSE route formatting/authorization failure handling.
+
+### 2026-06-03
+- Type: Validation
+- Summary: TASK-309 local validation baseline passed.
+- Evidence: `npm run lint` passed. Local PostgreSQL env `npm test` passed (114 files passed, 2 skipped; 858 passed, 2 skipped). Local PostgreSQL env `npm run test:coverage` passed with 91.32% statements, 81.33% branches, 92.2% functions, and 91.83% lines. Preview-style env `npm run build` passed and included `/api/projects/[projectId]/activity/stream` in the route manifest. Local-safe preview env `npm run test:e2e` with `VERCEL_ENV=preview` passed all 8 Playwright specs.
+
+### 2026-06-03
+- Type: Validation
+- Summary: TASK-309 Copilot review fix passed focused and broad local validation.
+- Evidence: Copilot identified that `sleepWithAbort` removed no abort listener after normal timeout resolution. Fixed the listener cleanup and added `tests/lib/server-sent-events.test.ts`. Focused `npm test -- --run tests/lib/server-sent-events.test.ts tests/components/project-live-refresh.test.tsx tests/api/project-activity-stream.route.test.ts` passed 3 files / 14 tests. `npm run lint` passed. Local PostgreSQL env `npm test` passed (115 files passed, 2 skipped; 861 passed, 2 skipped).
