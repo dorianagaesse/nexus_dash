@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   deleteContextCardForProject,
   updateContextCardForProject,
@@ -101,7 +102,10 @@ export async function PATCH(
     );
   }
 
-  return NextResponse.json({ ok: true }, { headers: timing.headers() });
+  return NextResponse.json(
+    { ok: true },
+    { headers: withProjectActivityVersionHeader(timing.headers()) }
+  );
 }
 
 export async function DELETE(
@@ -135,5 +139,8 @@ export async function DELETE(
     );
   }
 
-  return NextResponse.json({ ok: true }, { headers: timing.headers() });
+  return NextResponse.json(
+    { ok: true },
+    { headers: withProjectActivityVersionHeader(timing.headers()) }
+  );
 }

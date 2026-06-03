@@ -38,6 +38,7 @@ import {
   MAX_ATTACHMENT_FILE_SIZE_LABEL,
 } from "@/lib/task-attachment";
 import { uploadFilesDirectInBackground } from "@/lib/direct-upload-client";
+import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
 
 interface CreateTaskDialogProps {
   projectId: string;
@@ -205,10 +206,14 @@ export function CreateTaskDialog({
 
     void (async () => {
       try {
-        const response = await fetch(`/api/projects/${projectId}/tasks`, {
-          method: "POST",
-          body: formData,
-        });
+        const response = await fetchProjectActivityMutation(
+          projectId,
+          `/api/projects/${projectId}/tasks`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
 
         const payload = (await response.json().catch(() => null)) as
           | {

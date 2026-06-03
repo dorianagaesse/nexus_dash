@@ -1913,3 +1913,33 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-276 branch-ref preview deployment and deployed API smoke passed.
 - Evidence: Workflow run `26718308463` deployed preview `https://nexus-dash-7amtvjh4y-dorian-agaesses-projects.vercel.app` from `feature/task-276-performance-remediation` at `5bee1f0`. Agent API smoke passed health, OpenAPI, token exchange, project read, member search, epic create/update/cleanup, task create/list/update/comment/list/cleanup, and context-card create/list/update/cleanup. Preview timing probe showed the app-owned timing header: task create `x-nexusdash-server-timing=task-create;dur=1896.6`, task update `task-update;dur=1774.5`, comment create `task-comment-create;dur=1156.7`, tasks list `tasks-list;dur=1354.3`, reorder no-op `task-reorder;dur=706.1`, context create `context-create;dur=939.5`, context update `context-update;dur=847.1`, and context list `context-list;dur=637.2`. The standard `Server-Timing` header was not exposed by the Vercel response path, so the app-owned header is retained for preview/prod evidence. Preview Playwright browser smoke was attempted but redirected to sign-in because local session seeding did not target the deployed runtime database; it was not counted as a valid pass.
+
+### 2026-06-01
+- Type: Execution
+- Summary: TASK-308 started from fresh `origin/main` on `feature/task-308-smart-live-refresh` and implemented source-aware live project refresh semantics.
+- Evidence: Added a project activity acknowledgement event and mutation response version header, wired high-frequency task/comment/context-card mutation surfaces to acknowledge local writes, and updated `ProjectLiveRefresh` so deferred remote updates auto-apply as soon as edit locks clear while the manual prompt remains available during active editing.
+
+### 2026-06-01
+- Type: Validation
+- Summary: TASK-308 local validation passed after live-refresh implementation.
+- Evidence: `npm test -- --run tests/components/project-live-refresh.test.tsx` passed 5 tests covering idle auto-refresh, locked prompt behavior, local acknowledgement suppression, in-flight local mutation suppression, and automatic pending refresh after lock release. `npm run lint` passed. Local PostgreSQL env `npm test` passed (113 files passed, 2 skipped; 852 passed, 2 skipped). Local PostgreSQL env `npm run test:coverage` passed with 91.32% statements, 81.33% branches, 92.2% functions, and 91.83% lines. Preview-style env `npm run build` passed. Fresh-port local Playwright `npm run test:e2e` on `PORT=3120` passed all 8 E2E tests after the smoke test waited for canonical task creation before server-backed quick edits.
+
+### 2026-06-01
+- Type: Validation
+- Summary: TASK-308 PR checks and branch-ref preview deployment passed.
+- Evidence: PR #315 opened from `feature/task-308-smart-live-refresh` at `9d150a9`. GitHub checks passed: branch-name, Quality Core, E2E Smoke, and Container Image. Preview workflow run `26727186276` used `git_ref=feature/task-308-smart-live-refresh`; logs show checkout fetched and checked out `refs/remotes/origin/feature/task-308-smart-live-refresh`. Preview artifact URL: `https://nexus-dash-q4cso7uob-dorian-agaesses-projects.vercel.app`.
+
+### 2026-06-02
+- Type: Execution
+- Summary: TASK-308 follow-up tightened remote-collaborator latency after preview feedback.
+- Evidence: Replaced the fixed 5-second project activity poll with adaptive activity checks: active visible dashboards now use a 2-second default cadence, focus/visibility changes request an immediate check, and hidden tabs back off to reduce background traffic. Updated TASK-263 wording so live invitation visibility remains tracked as notification freshness rather than dashboard refresh.
+
+### 2026-06-02
+- Type: Validation
+- Summary: TASK-308 focused live-refresh controller tests passed after adaptive polling changes.
+- Evidence: `npm test -- --run tests/components/project-live-refresh.test.tsx` passed 7 tests covering idle auto-refresh, default active polling cadence, focus-triggered activity checks, locked prompt behavior, local acknowledgement suppression, in-flight local mutation suppression, and automatic pending refresh after lock release.
+
+### 2026-06-02
+- Type: Validation
+- Summary: TASK-308 adaptive polling follow-up passed the local quality baseline.
+- Evidence: `npm run lint` passed. Local PostgreSQL env `npm test` passed (113 files passed, 2 skipped; 854 passed, 2 skipped). Local PostgreSQL env `npm run test:coverage` passed with 91.32% statements, 81.33% branches, 92.2% functions, and 91.83% lines. Preview-style env `npm run build` passed after supplying the local-safe Google token encryption placeholder required by the current `.env` OAuth group. Local-safe preview env `npm run test:e2e` with `VERCEL_ENV=preview` passed all 8 Playwright specs; an earlier run without `VERCEL_ENV=preview` failed the password-reset smoke because the placeholder Resend key was treated as live delivery.

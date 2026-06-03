@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-service";
 import {
   deleteTaskForProject,
@@ -69,7 +70,10 @@ export async function PATCH(
         }
       : rawTask;
 
-  return NextResponse.json({ task }, { headers: timing.headers() });
+  return NextResponse.json(
+    { task },
+    { headers: withProjectActivityVersionHeader(timing.headers()) }
+  );
 }
 
 export async function DELETE(
@@ -99,5 +103,9 @@ export async function DELETE(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+  }, {
+    headers: withProjectActivityVersionHeader(),
+  });
 }

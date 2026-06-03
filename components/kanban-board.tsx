@@ -48,6 +48,7 @@ import {
   MAX_ATTACHMENT_FILE_SIZE_LABEL,
 } from "@/lib/task-attachment";
 import { uploadFileAttachmentDirect } from "@/lib/direct-upload-client";
+import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
 import {
   getTaskDeadlineUrgency,
 } from "@/lib/task-deadline";
@@ -702,13 +703,17 @@ export function KanbanBoard({
       previousColumns: TaskColumns<KanbanTask>
     ) => {
       try {
-        const response = await fetch(`/api/projects/${projectId}/tasks/reorder`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(buildPersistPayload(nextColumns)),
-        });
+        const response = await fetchProjectActivityMutation(
+          projectId,
+          `/api/projects/${projectId}/tasks/reorder`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(buildPersistPayload(nextColumns)),
+          }
+        );
 
         if (!response.ok) {
           throw new Error("Persist request failed");
@@ -1182,20 +1187,24 @@ export function KanbanBoard({
       setTaskModalError(null);
 
       try {
-        const response = await fetch(`/api/projects/${projectId}/tasks/${selectedTask.id}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            title: selectedTask.title,
-            labels: selectedTask.labels,
-            description: selectedTask.description ?? "",
-            deadlineDate: selectedTask.deadlineDate ?? null,
-            relatedTaskIds: selectedTask.relatedTasks.map((task) => task.id),
-            ...payload,
-          }),
-        });
+        const response = await fetchProjectActivityMutation(
+          projectId,
+          `/api/projects/${projectId}/tasks/${selectedTask.id}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              title: selectedTask.title,
+              labels: selectedTask.labels,
+              description: selectedTask.description ?? "",
+              deadlineDate: selectedTask.deadlineDate ?? null,
+              relatedTaskIds: selectedTask.relatedTasks.map((task) => task.id),
+              ...payload,
+            }),
+          }
+        );
 
         if (!response.ok) {
           const responsePayload = (await response.json().catch(() => null)) as
@@ -1260,7 +1269,8 @@ export function KanbanBoard({
       setIsUpdatingTask(true);
 
       try {
-        const response = await fetch(
+        const response = await fetchProjectActivityMutation(
+          projectId,
           `/api/projects/${projectId}/tasks/${selectedTask.id}`,
           {
             method: "PATCH",
@@ -1482,7 +1492,8 @@ export function KanbanBoard({
     setIsDeletingTask(true);
 
     try {
-      const response = await fetch(
+      const response = await fetchProjectActivityMutation(
+        projectId,
         `/api/projects/${projectId}/tasks/${pendingDeleteTask.id}`,
         {
           method: "DELETE",
@@ -1541,7 +1552,8 @@ export function KanbanBoard({
     setIsArchivingTask(true);
 
     try {
-      const response = await fetch(
+      const response = await fetchProjectActivityMutation(
+        projectId,
         `/api/projects/${projectId}/tasks/${selectedTask.id}/archive`,
         {
           method: "POST",
@@ -1618,7 +1630,8 @@ export function KanbanBoard({
     setIsArchivingTask(true);
 
     try {
-      const response = await fetch(
+      const response = await fetchProjectActivityMutation(
+        projectId,
         `/api/projects/${projectId}/tasks/${selectedTask.id}/archive`,
         {
           method: "DELETE",
@@ -1788,7 +1801,8 @@ export function KanbanBoard({
     }
 
     try {
-      const response = await fetch(
+      const response = await fetchProjectActivityMutation(
+        projectId,
         `/api/projects/${projectId}/tasks/${selectedTask.id}/comments`,
         {
           method: "POST",
@@ -1897,7 +1911,8 @@ export function KanbanBoard({
       formData.append("name", "");
       formData.append("url", linkUrl.trim());
 
-      const response = await fetch(
+      const response = await fetchProjectActivityMutation(
+        projectId,
         `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments`,
         {
           method: "POST",
@@ -1995,7 +2010,8 @@ export function KanbanBoard({
           formData.append("name", "");
           formData.append("file", selectedFile);
 
-          const response = await fetch(
+          const response = await fetchProjectActivityMutation(
+            projectId,
             `/api/projects/${projectId}/tasks/${taskId}/attachments`,
             {
               method: "POST",
@@ -2072,7 +2088,8 @@ export function KanbanBoard({
       setAttachmentError(null);
 
       try {
-        const response = await fetch(
+        const response = await fetchProjectActivityMutation(
+          projectId,
           `/api/projects/${projectId}/tasks/${selectedTask.id}/attachments/${attachmentId}`,
           {
             method: "DELETE",

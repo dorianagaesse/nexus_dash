@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-service";
 import { listProjectKanbanTasks } from "@/lib/services/project-service";
 import { createTaskForProject } from "@/lib/services/project-task-service";
@@ -274,7 +275,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
   if (!task) {
     return NextResponse.json(
       { taskId: resultData.id },
-      { status: 201, headers: timing.headers() }
+      { status: 201, headers: withProjectActivityVersionHeader(timing.headers()) }
     );
   }
 
@@ -288,6 +289,6 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
         ),
       },
     },
-    { status: 201, headers: timing.headers() }
+    { status: 201, headers: withProjectActivityVersionHeader(timing.headers()) }
   );
 }

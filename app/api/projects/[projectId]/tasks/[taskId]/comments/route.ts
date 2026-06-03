@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   createTaskCommentForProject,
   listTaskCommentsForProject,
@@ -152,6 +153,6 @@ export async function POST(
         author: result.data.comment.author,
       },
     },
-    { status: 201, headers: timing.headers() }
+    { status: 201, headers: withProjectActivityVersionHeader(timing.headers()) }
   );
 }

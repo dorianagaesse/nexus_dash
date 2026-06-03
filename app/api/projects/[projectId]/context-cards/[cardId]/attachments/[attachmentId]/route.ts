@@ -4,6 +4,7 @@ import {
   getAgentProjectAccessContext,
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { deleteContextAttachmentForProject } from "@/lib/services/project-attachment-service";
 
 export async function DELETE(
@@ -37,5 +38,8 @@ export async function DELETE(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(
+    { ok: true },
+    { headers: withProjectActivityVersionHeader() }
+  );
 }
