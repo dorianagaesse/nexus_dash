@@ -50,10 +50,61 @@ function mockActivityVersion(version: string) {
   });
 }
 
+class MockEventSource {
+  static instances: MockEventSource[] = [];
+
+  readonly url: string;
+  closed = false;
+  private listeners = new Map<string, Set<EventListener>>();
+
+  constructor(url: string) {
+    this.url = url;
+    MockEventSource.instances.push(this);
+  }
+
+  addEventListener(type: string, listener: EventListener) {
+    const listeners = this.listeners.get(type) ?? new Set<EventListener>();
+    listeners.add(listener);
+    this.listeners.set(type, listeners);
+  }
+
+  removeEventListener(type: string, listener: EventListener) {
+    this.listeners.get(type)?.delete(listener);
+  }
+
+  close() {
+    this.closed = true;
+  }
+
+  emit(type: string, event: Event) {
+    for (const listener of this.listeners.get(type) ?? []) {
+      listener(event);
+    }
+  }
+
+  open() {
+    this.emit("open", new Event("open"));
+  }
+
+  error() {
+    this.emit("error", new Event("error"));
+  }
+
+  projectActivity(payload: unknown) {
+    this.emit(
+      "project-activity",
+      new MessageEvent("project-activity", {
+        data: JSON.stringify(payload),
+      }) as unknown as Event
+    );
+  }
+}
+
 describe("ProjectLiveRefresh", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    MockEventSource.instances = [];
     vi.stubGlobal("fetch", fetchMock);
   });
 
@@ -61,6 +112,81 @@ describe("ProjectLiveRefresh", () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
     document.body.innerHTML = "";
+  });
+
+  test("uses the project activity stream when EventSource is available", async () => {
+    vi.stubGlobal("EventSource", MockEventSource);
+    const { root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+      })
+    );
+
+    expect(MockEventSource.instances).toHaveLength(1);
+    expect(MockEventSource.instances[0]?.url).toBe(
+      "/api/projects/project-1/activity/stream"
+    );
+
+    await act(async () => {
+      MockEventSource.instances[0]?.open();
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      MockEventSource.instances[0]?.projectActivity({
+        projectId: "project-1",
+        version: "2026-05-30T10:01:00.000Z",
+        serverTime: "2026-05-30T10:01:00.000Z",
+      });
+    });
+
+    expect(routerRefreshMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+
+    expect(MockEventSource.instances[0]?.closed).toBe(true);
+  });
+
+  test("falls back to adaptive polling when the activity stream fails before opening", async () => {
+    vi.stubGlobal("EventSource", MockEventSource);
+    const { root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+      })
+    );
+
+    mockActivityVersion("2026-05-30T10:01:00.000Z");
+
+    await act(async () => {
+      MockEventSource.instances[0]?.error();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    expect(MockEventSource.instances[0]?.closed).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(routerRefreshMock).toHaveBeenCalled();
+
+    await act(async () => {
+      root.unmount();
+    });
   });
 
   test("refreshes the dashboard when project activity advances", async () => {
@@ -131,6 +257,7 @@ describe("ProjectLiveRefresh", () => {
         projectId: "project-1",
         initialVersion: "2026-05-30T10:00:00.000Z",
         pollIntervalMs: 5000,
+        streamEnabled: false,
       })
     );
 
@@ -139,7 +266,10 @@ describe("ProjectLiveRefresh", () => {
       await vi.advanceTimersByTimeAsync(0);
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith("/api/projects/project-1/activity", {
+      cache: "no-store",
+      signal: expect.any(AbortSignal),
+    });
     expect(routerRefreshMock).toHaveBeenCalledTimes(1);
 
     await act(async () => {

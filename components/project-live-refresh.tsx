@@ -20,6 +20,7 @@ interface ProjectLiveRefreshProps {
   projectId: string;
   initialVersion: string;
   pollIntervalMs?: number;
+  streamEnabled?: boolean;
 }
 
 interface ProjectActivityResponse {
@@ -43,6 +44,13 @@ function resolveNextPollIntervalMs(activePollIntervalMs: number): number {
   }
 
   return activePollIntervalMs;
+}
+
+function canUseActivityStream(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.EventSource === "function"
+  );
 }
 
 function hasRefreshLock(): boolean {
@@ -76,9 +84,13 @@ export function ProjectLiveRefresh({
   projectId,
   initialVersion,
   pollIntervalMs = DEFAULT_ACTIVE_POLL_INTERVAL_MS,
+  streamEnabled = true,
 }: ProjectLiveRefreshProps) {
   const router = useRouter();
   const [pendingVersion, setPendingVersion] = useState<string | null>(null);
+  const [isPollingFallbackActive, setIsPollingFallbackActive] = useState(
+    () => !streamEnabled || !canUseActivityStream()
+  );
   const [isRefreshing, startRefreshTransition] = useTransition();
   const knownVersionRef = useRef(initialVersion);
   const pendingVersionRef = useRef<string | null>(null);
@@ -150,6 +162,38 @@ export function ProjectLiveRefresh({
     refreshDashboard(deferred);
   }, [refreshDashboard]);
 
+  const handleActivitySnapshot = useCallback(
+    (payload: ProjectActivityResponse) => {
+      if (payload.projectId !== projectId || !payload.version) {
+        return;
+      }
+
+      if (!isNewerVersion(payload.version, knownVersionRef.current)) {
+        return;
+      }
+
+      if (localMutationCountRef.current > 0) {
+        const locallyDeferredVersion = locallyDeferredVersionRef.current;
+        if (
+          !locallyDeferredVersion ||
+          isNewerVersion(payload.version, locallyDeferredVersion)
+        ) {
+          locallyDeferredVersionRef.current = payload.version;
+        }
+        return;
+      }
+
+      if (hasRefreshLock() || isRefreshingRef.current) {
+        pendingVersionRef.current = payload.version;
+        setPendingVersion(payload.version);
+        return;
+      }
+
+      refreshDashboard(payload.version);
+    },
+    [projectId, refreshDashboard]
+  );
+
   useEffect(() => {
     function handleProjectActivityAcknowledgement(event: Event) {
       const detail = (event as CustomEvent<ProjectActivityAcknowledgementDetail>)
@@ -213,6 +257,64 @@ export function ProjectLiveRefresh({
   }, [applyLocallyDeferredVersion, projectId]);
 
   useEffect(() => {
+    setIsPollingFallbackActive(!streamEnabled || !canUseActivityStream());
+  }, [streamEnabled]);
+
+  useEffect(() => {
+    if (!streamEnabled || !canUseActivityStream()) {
+      return;
+    }
+
+    let opened = false;
+    const eventSource = new window.EventSource(
+      `/api/projects/${encodeURIComponent(projectId)}/activity/stream`
+    );
+
+    function handleOpen() {
+      opened = true;
+      setIsPollingFallbackActive(false);
+    }
+
+    function handleProjectActivity(event: MessageEvent<string>) {
+      try {
+        handleActivitySnapshot(JSON.parse(event.data) as ProjectActivityResponse);
+      } catch (error) {
+        console.warn("[ProjectLiveRefresh.streamActivity]", error);
+      }
+    }
+
+    function handleError() {
+      if (opened) {
+        return;
+      }
+
+      eventSource.close();
+      setIsPollingFallbackActive(true);
+    }
+
+    eventSource.addEventListener("open", handleOpen);
+    eventSource.addEventListener(
+      "project-activity",
+      handleProjectActivity as EventListener
+    );
+    eventSource.addEventListener("error", handleError);
+
+    return () => {
+      eventSource.removeEventListener("open", handleOpen);
+      eventSource.removeEventListener(
+        "project-activity",
+        handleProjectActivity as EventListener
+      );
+      eventSource.removeEventListener("error", handleError);
+      eventSource.close();
+    };
+  }, [handleActivitySnapshot, projectId, streamEnabled]);
+
+  useEffect(() => {
+    if (!isPollingFallbackActive) {
+      return;
+    }
+
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let controller: AbortController | null = null;
@@ -266,32 +368,7 @@ export function ProjectLiveRefresh({
         }
 
         const payload = (await response.json()) as ProjectActivityResponse;
-        if (payload.projectId !== projectId || !payload.version) {
-          return;
-        }
-
-        if (!isNewerVersion(payload.version, knownVersionRef.current)) {
-          return;
-        }
-
-        if (localMutationCountRef.current > 0) {
-          const locallyDeferredVersion = locallyDeferredVersionRef.current;
-          if (
-            !locallyDeferredVersion ||
-            isNewerVersion(payload.version, locallyDeferredVersion)
-          ) {
-            locallyDeferredVersionRef.current = payload.version;
-          }
-          return;
-        }
-
-        if (hasRefreshLock() || isRefreshingRef.current) {
-          pendingVersionRef.current = payload.version;
-          setPendingVersion(payload.version);
-          return;
-        }
-
-        refreshDashboard(payload.version);
+        handleActivitySnapshot(payload);
       } catch (error) {
         if ((error as { name?: string }).name === "AbortError") {
           return;
@@ -322,7 +399,7 @@ export function ProjectLiveRefresh({
       document.removeEventListener("visibilitychange", requestImmediatePoll);
       window.removeEventListener("focus", requestImmediatePoll);
     };
-  }, [pollIntervalMs, projectId, refreshDashboard]);
+  }, [handleActivitySnapshot, isPollingFallbackActive, pollIntervalMs, projectId]);
 
   useEffect(() => {
     function refreshWhenVisible() {
@@ -386,6 +463,7 @@ export function ProjectLiveRefresh({
 }
 
 export const projectLiveRefreshInternals = {
+  canUseActivityStream,
   hasRefreshLock,
   isNewerVersion,
   parseVersion,
