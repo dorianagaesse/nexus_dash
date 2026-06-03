@@ -4,7 +4,7 @@
 TASK-310
 
 ## Status
-Report drafted on `docs/task-310-performance-investigation`; PR workflow pending.
+Report drafted on `docs/task-310-performance-investigation`.
 
 ## Source
 - User request on 2026-06-04 after TASK-309 / PR #316 was merged:

@@ -8,7 +8,7 @@ Last reviewed: 2026-05-31
 ### Execution Queue (Now / Next)
 - ID: TASK-310
   Title: Full-stack product performance investigation - user-perceived latency root cause report
-  Status: Report drafted on `docs/task-310-performance-investigation`; PR workflow pending
+  Status: Report drafted on `docs/task-310-performance-investigation`
   Rationale: Investigate why NexusDash still feels below industry standards for action/update response time from a user perspective, across the whole stack: browser interaction, React rendering, route refresh behavior, API/service latency, database/runtime behavior, Vercel/serverless deployment constraints, and realtime event propagation. The output should be a concrete Markdown report with measured evidence, root causes, ranked remediation paths, and an implementation task derived from the findings.
   Dependencies: TASK-275, TASK-276, TASK-308, TASK-309
   Report: `docs/reports/task-310-performance-investigation.md`
