@@ -2013,3 +2013,8 @@ Low-value entries to avoid going forward:
 - Type: Execution
 - Summary: TASK-311 changed typed event persistence to the Prisma/RLS service path for runtime consistency.
 - Evidence: After runtime grants, preview still fell back without typed events, indicating the custom SECURITY DEFINER function path was not the right primary runtime contract. Updated `recordProjectActivityEvent` to touch the project activity marker and create `ProjectActivityEvent` through Prisma inside the existing actor RLS transaction, leaving the database function only as a fallback when the delegate is unavailable. Focused activity stream/service/response tests passed and `npm run lint` passed.
+
+### 2026-06-04
+- Type: Validation
+- Summary: TASK-311 final branch preview validated typed observer reconciliation on Vercel.
+- Evidence: Preview workflow run `26922436935` used `git_ref=feature/task-311-product-latency-remediation`, logs showed checkout of `refs/remotes/origin/feature/task-311-product-latency-remediation`, and deployed `https://nexus-dash-gztb6x1zo-dorian-agaesses-projects.vercel.app`. Browser probe created two preview accounts, created a project, invited/accepted the observer, opened the observer dashboard, and created a task as the actor. The task create API took 2691 ms, but observer visibility was 98 ms after API completion and 2789 ms after mutation start with a typed `task/created` event and `received` -> `patched` marks. This confirms the deployed 4-5s cross-user delay was the fallback refresh path; the remaining latency is now in the mutation/API path.

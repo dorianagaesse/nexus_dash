@@ -4,8 +4,8 @@
 TASK-311
 
 ## Status
-Implementation validated locally on `feature/task-311-product-latency-remediation`;
-PR workflow in progress.
+Implementation validated locally and on branch preview
+`feature/task-311-product-latency-remediation`; PR merge workflow in progress.
 
 ## Source
 - Follow-up implementation task created from TASK-310 after PR #317 merged on
@@ -84,7 +84,7 @@ remaining issue to poll-backed activity propagation plus broad
       latency.
 - [x] `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`
       pass.
-- [ ] A branch preview is deployed and validates at least one actor-side flow
+- [x] A branch preview is deployed and validates at least one actor-side flow
       and one observer-side flow.
 - [x] `tasks/backlog.md`, `tasks/current.md`, `journal.md`, and ADR docs are
       updated.
@@ -139,3 +139,15 @@ remaining issue to poll-backed activity propagation plus broad
   touch. The database function remains available as a fallback, but the primary
   runtime path now uses the same RLS/grant model as the rest of the service
   layer.
+- Final branch preview run `26922436935` deployed
+  `git_ref=feature/task-311-product-latency-remediation` to
+  `https://nexus-dash-gztb6x1zo-dorian-agaesses-projects.vercel.app`; workflow
+  logs show checkout of
+  `refs/remotes/origin/feature/task-311-product-latency-remediation`.
+- Preview browser probe created two accounts, created a project, invited and
+  accepted an observer member, opened the observer dashboard, and created a
+  task as the actor. Result: task create API 2691 ms, observer card visible 98
+  ms after API completion and 2789 ms after mutation start. Observer marks
+  showed `received` then `patched`, and the observer received a typed
+  `task/created` event. This confirms the previous 4-5s deployed
+  cross-user update delay was caused by fallback refresh, not by client patching.
