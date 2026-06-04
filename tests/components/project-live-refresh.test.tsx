@@ -329,7 +329,7 @@ describe("ProjectLiveRefresh", () => {
     });
   });
 
-  test("defers refresh while local editing is active and exposes a refresh action", async () => {
+  test("defers refresh invisibly while local editing is active", async () => {
     const { container, root } = createTestRenderer();
     const lock = document.createElement("div");
     lock.setAttribute("data-project-live-refresh-lock", "true");
@@ -350,16 +350,8 @@ describe("ProjectLiveRefresh", () => {
     });
 
     expect(routerRefreshMock).not.toHaveBeenCalled();
-    expect(container.textContent).toContain("Project updates are ready.");
-
-    const refreshButton = Array.from(container.querySelectorAll("button")).find((button) =>
-      button.textContent?.includes("Refresh")
-    );
-    await act(async () => {
-      refreshButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    expect(routerRefreshMock).toHaveBeenCalledTimes(1);
+    expect(container.textContent).not.toContain("Project updates are ready.");
+    expect(container.querySelector("button")).toBeNull();
 
     await act(async () => {
       root.unmount();
@@ -457,7 +449,7 @@ describe("ProjectLiveRefresh", () => {
     });
 
     expect(routerRefreshMock).not.toHaveBeenCalled();
-    expect(container.textContent).toContain("Project updates are ready.");
+    expect(container.textContent).not.toContain("Project updates are ready.");
 
     lock.remove();
 

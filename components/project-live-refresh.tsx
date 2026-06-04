@@ -1,10 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
 import {
   dispatchProjectActivityRemoteEvent,
   PROJECT_ACTIVITY_ACK_EVENT,
@@ -454,27 +452,7 @@ export function ProjectLiveRefresh({
     };
   }, [pendingVersion, refreshDashboard]);
 
-  if (!pendingVersion) {
-    return null;
-  }
-
-  return (
-    <div
-      aria-live="polite"
-      className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center justify-between gap-3 rounded-md border border-border bg-popover px-4 py-3 text-sm text-popover-foreground shadow-lg sm:left-auto sm:right-4 sm:w-auto sm:translate-x-0"
-    >
-      <span>Project updates are ready.</span>
-      <Button
-        type="button"
-        size="sm"
-        onClick={() => refreshDashboard(pendingVersion)}
-        disabled={isRefreshing}
-      >
-        <RefreshCw className="h-4 w-4" />
-        Refresh
-      </Button>
-    </div>
-  );
+  return null;
 }
 
 export const projectLiveRefreshInternals = {

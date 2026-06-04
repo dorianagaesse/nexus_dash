@@ -6,11 +6,6 @@ Last reviewed: 2026-05-31
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-311
-  Title: Product latency remediation - typed realtime events and targeted dashboard reconciliation
-  Status: Implemented and locally validated on `feature/task-311-product-latency-remediation`; PR workflow pending
-  Rationale: Implement the top-ranked path from TASK-310 by replacing project-level "something changed" refresh behavior with typed project activity events that can update relevant dashboard client state immediately. Task create/update/move, task comment create, and context card create/update/delete should no longer force observers through a broad `router.refresh()` when the change can be safely reconciled locally. Keep the existing version-based live refresh as a safety fallback and add timing marks so actor and observer latency can be measured in local production mode and preview.
-  Dependencies: TASK-310, TASK-309, TASK-308, TASK-276, TASK-263
 - ID: TASK-224
   Title: Agent roadmap access - scoped API contract for roadmap phases and events
   Status: Promoted 2026-05-31
@@ -122,6 +117,16 @@ Last reviewed: 2026-05-31
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-312
+  Title: Hidden project refresh reconciliation - remove user-facing refresh prompt
+  Status: Done (2026-06-04, PR pending)
+  Rationale: Removed the visible bottom-right project refresh prompt and manual refresh button while preserving hidden pending-version tracking and automatic refresh once active edit locks or hidden-tab constraints clear. This keeps realtime collaboration machinery out of the user's way.
+  Dependencies: TASK-311, TASK-308
+- ID: TASK-311
+  Title: Product latency remediation - typed realtime events and targeted dashboard reconciliation
+  Status: Done (2026-06-04, merged via PR #318)
+  Rationale: Implemented the top-ranked path from TASK-310 by adding typed project activity events and direct dashboard reconciliation for task, task-comment, and context-card mutations. Final preview validation showed the observer dashboard applying a remote task create 98 ms after API completion, eliminating the prior 4-5 second broad-refresh fallback delay for supported events.
+  Dependencies: TASK-310, TASK-309, TASK-308, TASK-276, TASK-263
 - ID: TASK-310
   Title: Full-stack product performance investigation - user-perceived latency root cause report
   Status: Done (2026-06-04, merged via PR #317)
