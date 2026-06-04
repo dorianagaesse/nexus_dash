@@ -27,6 +27,9 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
   - durable per-user in-app inbox at `/account/notifications`
   - unread/read state and resolved lifecycle
   - project invitation delivery, accept/decline actions, and notification-aware account menu counts
+  - account-scoped live notification snapshots over SSE with polling fallback
+    so unread counts, awareness banners, and notification-center rows update
+    without navigation
   - foundation for future mention and activity producers
   - DB-backed notification email orchestration for project activity digests,
     invitation reminders, and three-day task due-date reminders, with
@@ -115,9 +118,8 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 From `tasks/current.md` + `tasks/backlog.md`:
 
-1. TASK-312: hidden project refresh reconciliation
+1. TASK-263: real-time notification updates for inbox/count awareness
 2. TASK-224: agent roadmap access for scoped roadmap phase/event APIs
-3. TASK-263: real-time notification updates for inbox/count awareness
 
 ## 8. Source-of-Truth Docs
 

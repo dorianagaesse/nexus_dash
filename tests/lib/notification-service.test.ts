@@ -30,6 +30,7 @@ import {
   countUnreadNotificationsForUser,
   createTaskDueDateReminderNotification,
   getLatestUnreadNotificationForUser,
+  getNotificationRealtimeSnapshotForUser,
   listNotificationsForUser,
   markAllNotificationsReadForUser,
   resolveProjectInvitationNotifications,
@@ -227,6 +228,62 @@ describe("notification-service", () => {
         title: true,
       },
     });
+  });
+
+  test("builds a realtime notification snapshot after syncing invitations", async () => {
+    prismaMock.notification.findFirst
+      .mockResolvedValueOnce({
+        updatedAt: new Date("2026-06-04T10:00:00.000Z"),
+      })
+      .mockResolvedValueOnce({
+        title: "Project invitation: Alpha",
+      });
+    prismaMock.notification.count.mockResolvedValueOnce(3);
+
+    const result = await getNotificationRealtimeSnapshotForUser("user-1");
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : null).toMatchObject({
+      version: "2026-06-04T10:00:00.000Z",
+      unreadCount: 3,
+      latestUnreadNotification: {
+        title: "Project invitation: Alpha",
+      },
+    });
+    expect(prismaMock.notification.findFirst).toHaveBeenCalledWith({
+      where: {
+        recipientUserId: "user-1",
+      },
+      orderBy: [{ updatedAt: "desc" }],
+      select: {
+        updatedAt: true,
+      },
+    });
+    expect(prismaMock.notification.count).toHaveBeenCalledWith({
+      where: {
+        recipientUserId: "user-1",
+        resolvedAt: null,
+        readAt: null,
+      },
+    });
+  });
+
+  test("can build realtime notification snapshots without invitation sync", async () => {
+    prismaMock.notification.findFirst
+      .mockResolvedValueOnce({
+        updatedAt: new Date("2026-06-04T10:00:00.000Z"),
+      })
+      .mockResolvedValueOnce(null);
+    prismaMock.notification.count.mockResolvedValueOnce(0);
+
+    const result = await getNotificationRealtimeSnapshotForUser("user-1", {
+      syncProjectInvitations: false,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(prismaMock.$queryRaw).not.toHaveBeenCalled();
+    expect(prismaMock.notification.updateMany).not.toHaveBeenCalled();
+    expect(result.ok ? result.data.unreadCount : null).toBe(0);
   });
 
   test("does not refresh existing active invitation notifications during count sync", async () => {

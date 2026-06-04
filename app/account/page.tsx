@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Bell, Settings } from "lucide-react";
+import { ArrowLeft, Settings } from "lucide-react";
 
+import { AccountNotificationsLink } from "@/components/account-notifications-link";
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,8 @@ import {
   MAX_USERNAME_LENGTH,
   MIN_USERNAME_LENGTH,
 } from "@/lib/services/account-security-policy";
-import { countUnreadNotificationsForUser } from "@/lib/services/notification-service";
+import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
+import { getNotificationRealtimeSnapshotForUser } from "@/lib/services/notification-service";
 import { getAccountProfile } from "@/lib/services/account-profile-service";
 
 import {
@@ -93,9 +95,17 @@ export default async function AccountProfilePage({
     notFound();
   }
 
-  let unreadNotificationCount = 0;
+  let notificationSnapshot: NotificationRealtimeSnapshot = {
+    version: new Date(0).toISOString(),
+    unreadCount: 0,
+    latestUnreadNotification: null,
+    serverTime: new Date().toISOString(),
+  };
   try {
-    unreadNotificationCount = await countUnreadNotificationsForUser(actorUserId);
+    const result = await getNotificationRealtimeSnapshotForUser(actorUserId);
+    if (result.ok) {
+      notificationSnapshot = result.data;
+    }
   } catch {
     // Non-critical, ignore count fetch failure
   }
@@ -116,21 +126,7 @@ export default async function AccountProfilePage({
             </Link>
           </Button>
           <div className="flex items-center gap-2">
-            <Button
-              asChild
-              variant="outline"
-              className="relative rounded-full border-border/60 px-3 py-1.5 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
-            >
-              <Link href="/account/notifications">
-                <Bell className="h-4 w-4" />
-                Notifications
-                {unreadNotificationCount > 0 ? (
-                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
-                    {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
-                  </span>
-                ) : null}
-              </Link>
-            </Button>
+            <AccountNotificationsLink initialSnapshot={notificationSnapshot} />
             <Button
               asChild
               variant="outline"

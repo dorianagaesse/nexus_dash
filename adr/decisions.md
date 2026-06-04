@@ -16,6 +16,28 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-06-04 - Use account-scoped SSE snapshots for in-app notification freshness
+- Status: Accepted
+- Context: TASK-263 needs invitation, assignment, mention, and future
+  notification rows to appear in active sessions without navigation or manual
+  refresh, while email notification delivery must remain grouped and debounced.
+- Decision: Keep `Notification` as the source of truth and add an
+  authenticated account-scoped realtime snapshot contract containing version,
+  unread count, and latest unread title. A single client-side chrome component
+  prefers an SSE stream and falls back to adaptive polling; account menu counts,
+  account notification links, awareness banners, and the notification center
+  subscribe to that browser state. The notification center refetches full rows
+  through the existing account notifications API when the snapshot version
+  changes.
+- Consequences: The app gains live in-app notification freshness without adding
+  a second realtime provider or changing email digest behavior. Persistent SSE
+  connections mean E2E tests must wait for UI readiness rather than
+  `networkidle`. The stream reconciles project invitations on the initial
+  snapshot, then uses read-only snapshot polling for steady-state updates.
+- Links: `tasks/current.md`, `lib/services/notification-service.ts`,
+  `components/notification-live-updates.tsx`,
+  `app/api/account/notifications/stream/route.ts`
+
 ## 2026-06-04 - Use typed project activity events for targeted dashboard reconciliation
 - Status: Accepted
 - Context: TASK-310 showed that local mutation APIs were fast while observers

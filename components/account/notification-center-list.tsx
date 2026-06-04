@@ -1,12 +1,18 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { Bell, Check, ExternalLink, MailPlus, RotateCcw } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useNotificationRealtimeSnapshot } from "@/lib/notification-realtime-client";
+import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
 import type { NotificationSummary } from "@/lib/services/notification-service";
 
 interface NotificationCenterListProps {
   notifications: NotificationSummary[];
+  initialSnapshot: NotificationRealtimeSnapshot;
   onMarkRead: (formData: FormData) => void | Promise<void>;
   onMarkUnread: (formData: FormData) => void | Promise<void>;
   onMarkAllRead: () => void | Promise<void>;
@@ -53,13 +59,70 @@ function isProjectInvitationMetadata(
 
 export function NotificationCenterList({
   notifications,
+  initialSnapshot,
   onMarkRead,
   onMarkUnread,
   onMarkAllRead,
   onAcceptInvitation,
   onDeclineInvitation,
 }: NotificationCenterListProps) {
-  const unreadCount = notifications.filter((notification) => !notification.readAt).length;
+  const [visibleNotifications, setVisibleNotifications] =
+    useState(notifications);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const snapshot = useNotificationRealtimeSnapshot(initialSnapshot);
+  const lastLoadedVersionRef = useRef(initialSnapshot.version);
+  const unreadCount = visibleNotifications.filter(
+    (notification) => !notification.readAt
+  ).length;
+
+  useEffect(() => {
+    setVisibleNotifications(notifications);
+  }, [notifications]);
+
+  useEffect(() => {
+    if (snapshot.version === lastLoadedVersionRef.current) {
+      return;
+    }
+
+    const controller = new AbortController();
+    let isActive = true;
+    setIsRefreshing(true);
+    void (async () => {
+      try {
+        const response = await fetch("/api/account/notifications", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          notifications?: NotificationSummary[];
+        };
+        if (isActive) {
+          setVisibleNotifications(payload.notifications ?? []);
+          lastLoadedVersionRef.current = snapshot.version;
+        }
+      } catch (error) {
+        if ((error as { name?: string }).name === "AbortError") {
+          return;
+        }
+
+        console.warn("[NotificationCenterList.refresh]", error);
+      } finally {
+        if (isActive) {
+          setIsRefreshing(false);
+        }
+      }
+    })();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [snapshot.version]);
 
   return (
     <section className="space-y-4">
@@ -78,20 +141,24 @@ export function NotificationCenterList({
         </div>
 
         <form action={onMarkAllRead}>
-          <Button type="submit" variant="outline" disabled={unreadCount === 0}>
+          <Button
+            type="submit"
+            variant="outline"
+            disabled={unreadCount === 0 || isRefreshing}
+          >
             <Check className="h-4 w-4" />
             Mark all read
           </Button>
         </form>
       </div>
 
-      {notifications.length === 0 ? (
+      {visibleNotifications.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 px-5 py-8 text-sm text-muted-foreground">
           No active notifications.
         </div>
       ) : (
         <div className="space-y-3">
-          {notifications.map((notification) => {
+          {visibleNotifications.map((notification) => {
             const isUnread = !notification.readAt;
             const metadata = notification.metadata;
             const isInvitation = isProjectInvitationMetadata(metadata);

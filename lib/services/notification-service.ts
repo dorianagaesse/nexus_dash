@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { logServerError } from "@/lib/observability/logger";
 import { enqueueNotificationEmailForNotification } from "@/lib/services/project-notification-email-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
+import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
 import { formatTaskDeadlineForDisplay } from "@/lib/task-deadline";
 
 const NOTIFICATION_TYPE_PROJECT_INVITATION = "project_invitation";
@@ -153,6 +154,10 @@ export interface NotificationSummary {
 
 export interface LatestUnreadNotificationSummary {
   title: string;
+}
+
+interface NotificationRealtimeSnapshotOptions {
+  syncProjectInvitations?: boolean;
 }
 
 function createError(status: number, error: string): ServiceErrorResult {
@@ -741,6 +746,70 @@ export async function countUnreadNotificationsForUser(
     } catch (error) {
       logServerError("countUnreadNotificationsForUser", error);
       return 0;
+    }
+  });
+}
+
+export async function getNotificationRealtimeSnapshotForUser(
+  actorUserId: string,
+  options: NotificationRealtimeSnapshotOptions = {}
+): Promise<ServiceResult<NotificationRealtimeSnapshot>> {
+  const normalizedActorUserId = normalizeActorUserId(actorUserId);
+  if (!normalizedActorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    try {
+      if (options.syncProjectInvitations !== false) {
+        await syncProjectInvitationNotificationsForUser(
+          db,
+          normalizedActorUserId
+        );
+      }
+
+      const [latestNotification, unreadCount, latestUnreadNotification] =
+        await Promise.all([
+          db.notification.findFirst({
+            where: {
+              recipientUserId: normalizedActorUserId,
+            },
+            orderBy: [{ updatedAt: "desc" }],
+            select: {
+              updatedAt: true,
+            },
+          }),
+          db.notification.count({
+            where: {
+              recipientUserId: normalizedActorUserId,
+              resolvedAt: null,
+              readAt: null,
+            },
+          }),
+          db.notification.findFirst({
+            where: {
+              recipientUserId: normalizedActorUserId,
+              resolvedAt: null,
+              readAt: null,
+            },
+            orderBy: [{ createdAt: "desc" }],
+            select: {
+              title: true,
+            },
+          }),
+        ]);
+
+      return createSuccess(200, {
+        version: (latestNotification?.updatedAt ?? new Date(0)).toISOString(),
+        unreadCount,
+        latestUnreadNotification: latestUnreadNotification
+          ? { title: latestUnreadNotification.title }
+          : null,
+        serverTime: new Date().toISOString(),
+      });
+    } catch (error) {
+      logServerError("getNotificationRealtimeSnapshotForUser", error);
+      return createError(500, "notification-snapshot-failed");
     }
   });
 }

@@ -14,15 +14,15 @@ export async function createProjectFromProjectsPage(
   description = "Smoke test project"
 ): Promise<void> {
   await page.goto("/projects");
-  await page.waitForLoadState("networkidle");
 
   const createProjectButton = page.getByRole("button", { name: "Create project" }).first();
   const createNameField = page.locator("#create-name");
 
+  await expect(createProjectButton).toBeVisible();
   await createProjectButton.click();
 
   if (!(await createNameField.isVisible().catch(() => false))) {
-    await page.waitForLoadState("networkidle");
+    await expect(createProjectButton).toBeVisible();
     await createProjectButton.click();
   }
 

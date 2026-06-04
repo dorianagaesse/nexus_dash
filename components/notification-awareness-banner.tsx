@@ -1,51 +1,35 @@
-import Link from "next/link";
-import { unstable_noStore as noStore } from "next/cache";
+"use client";
 
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
-import { logServerError } from "@/lib/observability/logger";
-import { getLatestUnreadNotificationForUser } from "@/lib/services/notification-service";
+import { useNotificationRealtimeSnapshot } from "@/lib/notification-realtime-client";
+import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
 
 interface NotificationAwarenessBannerProps {
-  actorUserId: string;
+  initialSnapshot: NotificationRealtimeSnapshot;
 }
 
-export async function NotificationAwarenessBanner({
-  actorUserId,
+export function NotificationAwarenessBanner({
+  initialSnapshot,
 }: NotificationAwarenessBannerProps) {
-  noStore();
-  const result = await (async () => {
-    try {
-      return await getLatestUnreadNotificationForUser(actorUserId);
-    } catch (error) {
-      logServerError(
-        "NotificationAwarenessBanner.getLatestUnreadNotificationForUser",
-        error
-      );
-      return null;
-    }
-  })();
+  const snapshot = useNotificationRealtimeSnapshot(initialSnapshot);
+  const latestNotification = snapshot.latestUnreadNotification;
 
-  if (!result?.ok) {
+  if (!latestNotification || snapshot.unreadCount === 0) {
     return null;
   }
-
-  if (!result.data.notification) {
-    return null;
-  }
-
-  const latestNotification = result.data.notification;
 
   return (
     <AutoDismissingAlert
+      key={`${snapshot.version}:${latestNotification.title}`}
       message={
         <>
           {latestNotification.title}{" "}
-          <Link
+          <a
             href="/account/notifications"
             className="font-medium underline underline-offset-4"
           >
             Review notifications
-          </Link>
+          </a>
         </>
       }
       className="rounded-md border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-700 dark:text-sky-200"
