@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   deleteContextCardForProject,
@@ -102,9 +103,25 @@ export async function PATCH(
     );
   }
 
+  const version = await recordProjectActivityEventVersion({
+    actorUserId,
+    projectId,
+    domain: "context-card",
+    action: "updated",
+    entityId: cardId,
+    payload: {
+      card: {
+        id: cardId,
+        title,
+        content,
+        color,
+      },
+    },
+  });
+
   return NextResponse.json(
     { ok: true },
-    { headers: withProjectActivityVersionHeader(timing.headers()) }
+    { headers: withProjectActivityVersionHeader(timing.headers(), version) }
   );
 }
 
@@ -139,8 +156,17 @@ export async function DELETE(
     );
   }
 
+  const version = await recordProjectActivityEventVersion({
+    actorUserId,
+    projectId,
+    domain: "context-card",
+    action: "deleted",
+    entityId: cardId,
+    payload: { cardId },
+  });
+
   return NextResponse.json(
     { ok: true },
-    { headers: withProjectActivityVersionHeader(timing.headers()) }
+    { headers: withProjectActivityVersionHeader(timing.headers(), version) }
   );
 }

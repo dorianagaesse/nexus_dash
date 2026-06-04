@@ -6,11 +6,13 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
+  dispatchProjectActivityRemoteEvent,
   PROJECT_ACTIVITY_ACK_EVENT,
   PROJECT_ACTIVITY_MUTATION_EVENT,
   type ProjectActivityAcknowledgementDetail,
   type ProjectActivityMutationDetail,
 } from "@/lib/project-activity-client";
+import type { ProjectActivityEventPayload } from "@/lib/project-activity-event-types";
 
 const DEFAULT_ACTIVE_POLL_INTERVAL_MS = 2000;
 const BACKGROUND_POLL_INTERVAL_MS = 15000;
@@ -23,11 +25,7 @@ interface ProjectLiveRefreshProps {
   streamEnabled?: boolean;
 }
 
-interface ProjectActivityResponse {
-  projectId: string;
-  version: string;
-  serverTime: string;
-}
+type ProjectActivityResponse = ProjectActivityEventPayload;
 
 function parseVersion(value: string): number {
   const timestamp = Date.parse(value);
@@ -51,6 +49,14 @@ function canUseActivityStream(): boolean {
     typeof window !== "undefined" &&
     typeof window.EventSource === "function"
   );
+}
+
+function markProjectActivityTiming(name: string) {
+  if (typeof performance === "undefined" || typeof performance.mark !== "function") {
+    return;
+  }
+
+  performance.mark(`nexusdash.project-activity.${name}`);
 }
 
 function hasRefreshLock(): boolean {
@@ -183,15 +189,24 @@ export function ProjectLiveRefresh({
         return;
       }
 
+      markProjectActivityTiming("received");
+
       if (hasRefreshLock() || isRefreshingRef.current) {
         pendingVersionRef.current = payload.version;
         setPendingVersion(payload.version);
         return;
       }
 
+      if (payload.eventId && dispatchProjectActivityRemoteEvent(payload)) {
+        markProjectActivityTiming("patched");
+        acknowledgeVersion(payload.version);
+        return;
+      }
+
+      markProjectActivityTiming("fallback-refresh-start");
       refreshDashboard(payload.version);
     },
-    [projectId, refreshDashboard]
+    [acknowledgeVersion, projectId, refreshDashboard]
   );
 
   useEffect(() => {
@@ -466,6 +481,7 @@ export const projectLiveRefreshInternals = {
   canUseActivityStream,
   hasRefreshLock,
   isNewerVersion,
+  markProjectActivityTiming,
   parseVersion,
   resolveNextPollIntervalMs,
 };

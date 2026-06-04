@@ -6,12 +6,11 @@ Last reviewed: 2026-05-31
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-310
-  Title: Full-stack product performance investigation - user-perceived latency root cause report
-  Status: Report drafted on `docs/task-310-performance-investigation`
-  Rationale: Investigate why NexusDash still feels below industry standards for action/update response time from a user perspective, across the whole stack: browser interaction, React rendering, route refresh behavior, API/service latency, database/runtime behavior, Vercel/serverless deployment constraints, and realtime event propagation. The output should be a concrete Markdown report with measured evidence, root causes, ranked remediation paths, and an implementation task derived from the findings.
-  Dependencies: TASK-275, TASK-276, TASK-308, TASK-309
-  Report: `docs/reports/task-310-performance-investigation.md`
+- ID: TASK-311
+  Title: Product latency remediation - typed realtime events and targeted dashboard reconciliation
+  Status: Implemented and locally validated on `feature/task-311-product-latency-remediation`; PR workflow pending
+  Rationale: Implement the top-ranked path from TASK-310 by replacing project-level "something changed" refresh behavior with typed project activity events that can update relevant dashboard client state immediately. Task create/update/move, task comment create, and context card create/update/delete should no longer force observers through a broad `router.refresh()` when the change can be safely reconciled locally. Keep the existing version-based live refresh as a safety fallback and add timing marks so actor and observer latency can be measured in local production mode and preview.
+  Dependencies: TASK-310, TASK-309, TASK-308, TASK-276, TASK-263
 - ID: TASK-224
   Title: Agent roadmap access - scoped API contract for roadmap phases and events
   Status: Promoted 2026-05-31
@@ -22,11 +21,6 @@ Last reviewed: 2026-05-31
   Status: Promoted 2026-05-31
   Rationale: Make notification-center rows, unread counts, and the in-app awareness banner update without requiring navigation or manual refresh when assignments, mentions, project invitations, or future notification producers create new atomic `Notification` rows. Invitation recipients should see newly received invites and notification count/banner changes while already on the app, without needing a page reload. Keep email digest batching fully separate: in-app remains one notification per action/artifact, while email remains the grouped/debounced channel. This task should reuse or align with the broader TASK-118 realtime transport decision rather than introduce a parallel realtime stack.
   Dependencies: TASK-118, TASK-123, TASK-260
-- ID: TASK-308
-  Title: Smart live project refresh - automatic collaboration updates without editing interruptions
-  Status: In progress on `feature/task-308-smart-live-refresh`
-  Rationale: Improve the TASK-118 live project refresh affordance so remote collaborator and agent updates apply automatically when safe, while local/self-originated mutations are acknowledged without showing the bottom-right "Project updates are ready" prompt. Active visible project dashboards should check for remote changes on a low-latency cadence rather than leaving other collaborators waiting behind the old fixed 5-second poll, while hidden tabs back off. The current manual prompt is a useful safety net while a user is editing, but after TASK-276's optimistic/local mutation work it can appear for the user's own changes and feel like avoidable friction. The follow-up should distinguish local vs remote activity where possible, auto-refresh idle views, defer only when a form/dialog/contenteditable lock is active, and use targeted reconciliation instead of broad route refresh when practical.
-  Dependencies: TASK-118, TASK-276, TASK-263
 ### Deferred (Intentional)
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
@@ -128,11 +122,22 @@ Last reviewed: 2026-05-31
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-310
+  Title: Full-stack product performance investigation - user-perceived latency root cause report
+  Status: Done (2026-06-04, merged via PR #317)
+  Rationale: Completed a full-stack performance investigation report with local production-mode timing evidence, prior preview API timing evidence, root causes, and a ranked implementation path. The report identified remote observer latency as a poll-backed SSE plus broad route-refresh reconciliation problem, with deployed API/runtime latency as a compounding factor.
+  Dependencies: TASK-275, TASK-276, TASK-308, TASK-309
+  Report: `docs/reports/task-310-performance-investigation.md`
 - ID: TASK-309
   Title: Realtime event-stream foundation - SSE transport for collaboration freshness
   Status: Done (2026-06-03, merged via PR #316)
   Rationale: Added an authenticated project activity SSE route, made dashboards prefer `EventSource` with adaptive polling fallback, preserved local mutation acknowledgement/edit-lock behavior, documented the SSE-first decision, and passed Copilot review plus Quality Gates before merge.
   Dependencies: TASK-118, TASK-263, TASK-308
+- ID: TASK-308
+  Title: Smart live project refresh - automatic collaboration updates without editing interruptions
+  Status: Done (2026-06-02, merged via PR #315)
+  Rationale: Added source-aware live project refresh semantics so local mutations are acknowledged without self-refresh prompts, remote updates auto-apply when safe, editing locks defer updates behind the manual affordance, and active dashboards use a lower-latency freshness cadence with hidden-tab backoff.
+  Dependencies: TASK-118, TASK-276, TASK-263
 - ID: TASK-276
   Title: App performance remediation - production-grade action latency fixes
   Status: Done (2026-05-31, merged via PR #314)

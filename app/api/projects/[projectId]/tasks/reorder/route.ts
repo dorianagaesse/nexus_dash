@@ -5,6 +5,7 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   isValidReorderPayload,
@@ -57,8 +58,17 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     );
   }
 
+  const version = await recordProjectActivityEventVersion({
+    actorUserId,
+    projectId,
+    domain: "task",
+    action: "reordered",
+    entityId: projectId,
+    payload: { reorder: body },
+  });
+
   return NextResponse.json(
     { ok: true },
-    { headers: withProjectActivityVersionHeader(timing.headers()) }
+    { headers: withProjectActivityVersionHeader(timing.headers(), version) }
   );
 }

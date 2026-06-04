@@ -1978,3 +1978,43 @@ Low-value entries to avoid going forward:
 - Type: Investigation
 - Summary: TASK-310 reproduced the remaining collaboration latency as an observer-side reconciliation problem rather than a local mutation problem.
 - Evidence: Local Docker Postgres was healthy and had no pending migrations. `npm run build` passed with preview-safe local env. A local `next start` server on `127.0.0.1:3150` showed seeded API reads in tens of milliseconds (`tasks-list;dur=25.4`, `context-list;dur=7.7`) and actor UI task creation visible in 140 ms (`task-create;dur=86.4`). A remote/API task create while an observer dashboard was open took 72 ms wall-clock (`task-create;dur=63.0`), but the observer saw the task after 4513 ms, isolating the remaining delay to realtime propagation plus full dashboard refresh. An instrumented EventSource probe showed a post-mutation activity event arriving about 836 ms after the mutation marker, consistent with the current 1000 ms stream-side DB poll.
+
+### 2026-06-04
+- Type: Planning
+- Summary: TASK-310 report PR #317 merged and TASK-311 started as the follow-up implementation task.
+- Evidence: PR #317 merged as `d8f2626` after Quality Core, E2E Smoke, Container Image, and branch-name checks passed; Copilot's two stale-status wording comments were addressed in `e3d92e0` and the review threads were resolved. Created `feature/task-311-product-latency-remediation`, moved TASK-310 and the stale TASK-308 queue entry to Completed, and drafted `tasks/current.md` around typed project activity events, targeted dashboard reconciliation, timing marks, and the TASK-310 observer-latency target.
+
+### 2026-06-04
+- Type: Execution
+- Summary: TASK-311 implemented typed project activity events and targeted dashboard reconciliation.
+- Evidence: Added `ProjectActivityEvent` with RLS policies, event recording helpers, and typed stream payloads. Task create/update/delete/reorder, task comment create, and context card create/update/delete now record typed project activity events. `ProjectLiveRefresh` dispatches typed remote events before falling back to full route refresh. The kanban board applies safe task/comment/reorder patches locally, and the project context panel applies safe context-card create/update/delete patches locally.
+
+### 2026-06-04
+- Type: Validation
+- Summary: TASK-311 local validation and observer-latency probe passed.
+- Evidence: `npm run lint` passed. Focused `npm test -- tests/api/project-activity-stream.route.test.ts tests/components/project-live-refresh.test.tsx tests/lib/project-activity-service.test.ts` passed 3 files / 16 tests. Local PostgreSQL env `npm test` passed 115 files with 864 tests passed and 2 skipped. Local-safe production env `npm run build` passed. Local-safe `npm run test:e2e` passed all 8 Playwright specs with `OUTBOUND_EMAIL_DELIVERY_MODE=disabled`; a previous run without that local email mode failed only because the placeholder Resend key produced a provider 401 during the password-reset smoke. A local production-mode two-user probe measured task create API 119 ms, observer visibility 825 ms after API completion and 944 ms after mutation start; observer marks showed `received` then `patched` 3 ms apart with no console errors.
+
+### 2026-06-04
+- Type: Execution
+- Summary: TASK-311 hardened typed event recording for deployed runtime behavior.
+- Evidence: Preview browser smoke initially showed observer updates falling back to route refresh with no `nexusdash:project-activity-remote` events. Added `app.record_project_activity_event(...)` as a SECURITY DEFINER database function so typed event writes and the project activity marker update happen atomically inside the database, then corrected the function return casts for varchar columns. Direct local function call returned a typed event row, and the local production-mode two-user probe passed again with task create API 54 ms, observer visibility 849 ms after API completion and 904 ms after mutation start, plus a typed `task/created` remote event and `received` -> `patched` marks.
+
+### 2026-06-04
+- Type: Execution
+- Summary: TASK-311 addressed Copilot review feedback on stream cursor safety and fallback activity durability.
+- Evidence: Replaced timestamp-only event stream progress with a composite `version`/`createdAt`/`id` cursor, added a monotonic database event function replacement that advances per-project event versions under row lock, consolidated activity domain/action union types, and made event response fallback touch the durable project marker before falling back to an unpersisted timestamp. Validation passed with `npm run lint`, local PostgreSQL env `npm test` (116 files passed, 2 skipped; 866 tests passed, 2 skipped), `npm run test:coverage`, and local-safe `npm run test:e2e` (8/8 specs). Local production probe on `127.0.0.1:3154` measured task create API 66 ms, observer visibility 1345 ms after API completion and 1411 ms after mutation start with a typed `task/created` event and `received` -> `patched` marks.
+
+### 2026-06-04
+- Type: Debugging
+- Summary: TASK-311 preview validation isolated the deployed fallback path to split database role access for typed activity events.
+- Evidence: Branch preview run `26921567621` deployed from `git_ref=feature/task-311-product-latency-remediation` and applied `20260604020500_task311_monotonic_activity_events`, but browser validation on `https://nexus-dash-e5c4j5r6o-dorian-agaesses-projects.vercel.app` still measured task create API 2608 ms, observer visibility 2912 ms after API completion, `received` -> `fallback-refresh-start`, and no typed remote events. Added `20260604023000_task311_project_activity_event_runtime_grants` to grant `SELECT, INSERT` on `ProjectActivityEvent` to the runtime role while preserving RLS as the authorization boundary.
+
+### 2026-06-04
+- Type: Execution
+- Summary: TASK-311 changed typed event persistence to the Prisma/RLS service path for runtime consistency.
+- Evidence: After runtime grants, preview still fell back without typed events, indicating the custom SECURITY DEFINER function path was not the right primary runtime contract. Updated `recordProjectActivityEvent` to touch the project activity marker and create `ProjectActivityEvent` through Prisma inside the existing actor RLS transaction, leaving the database function only as a fallback when the delegate is unavailable. Focused activity stream/service/response tests passed and `npm run lint` passed.
+
+### 2026-06-04
+- Type: Validation
+- Summary: TASK-311 final branch preview validated typed observer reconciliation on Vercel.
+- Evidence: Preview workflow run `26922436935` used `git_ref=feature/task-311-product-latency-remediation`, logs showed checkout of `refs/remotes/origin/feature/task-311-product-latency-remediation`, and deployed `https://nexus-dash-gztb6x1zo-dorian-agaesses-projects.vercel.app`. Browser probe created two preview accounts, created a project, invited/accepted the observer, opened the observer dashboard, and created a task as the actor. The task create API took 2691 ms, but observer visibility was 98 ms after API completion and 2789 ms after mutation start with a typed `task/created` event and `received` -> `patched` marks. This confirms the deployed 4-5s cross-user delay was the fallback refresh path; the remaining latency is now in the mutation/API path.

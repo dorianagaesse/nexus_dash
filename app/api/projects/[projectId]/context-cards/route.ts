@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { createContextCardForProject } from "@/lib/services/context-card-service";
 import { mapContextAttachmentResponse } from "@/lib/services/project-attachment-service";
@@ -179,8 +180,20 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     );
   }
 
+  const version = await recordProjectActivityEventVersion({
+    actorUserId,
+    projectId,
+    domain: "context-card",
+    action: "created",
+    entityId: result.data.id,
+    payload: { card: result.data.card },
+  });
+
   return NextResponse.json(
     { cardId: result.data.id, card: result.data.card },
-    { status: 201, headers: withProjectActivityVersionHeader(timing.headers()) }
+    {
+      status: 201,
+      headers: withProjectActivityVersionHeader(timing.headers(), version),
+    }
   );
 }
