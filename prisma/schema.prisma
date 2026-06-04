@@ -213,6 +213,7 @@ model ProjectActivityEvent {
   actor   User?   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([projectId, version])
+  @@index([projectId, version, createdAt, id])
   @@index([projectId, createdAt])
   @@index([domain, action])
   @@index([actorUserId])

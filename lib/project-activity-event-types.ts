@@ -11,6 +11,9 @@ export type ProjectActivityAction =
   | "moved"
   | "reordered";
 
+export type ProjectActivityEventDomain = ProjectActivityDomain;
+export type ProjectActivityEventAction = ProjectActivityAction;
+
 export interface ProjectActivityEventPayload {
   eventId: string | null;
   projectId: string;

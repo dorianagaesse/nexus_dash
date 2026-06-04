@@ -112,3 +112,17 @@ remaining issue to poll-backed activity propagation plus broad
   54 ms, observer card visible 849 ms after API completion and 904 ms after
   mutation start. The observer received a typed `task/created` remote event and
   marked `received` then `patched`.
+- After Copilot review follow-up, event stream cursors use a composite
+  `version`/`createdAt`/`id` cursor and the database event function advances
+  project event versions monotonically under a project-row lock. Typed event
+  failures now fall back to a durable project activity touch before returning a
+  response header version.
+- Review-fix validation passed: `npm run lint`, local PostgreSQL env
+  `npm test` (116 files passed, 2 skipped; 866 tests passed, 2 skipped),
+  `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2%
+  functions, 91.88% lines), and local-safe `npm run test:e2e` (8/8 specs).
+- Local production-mode probe on `127.0.0.1:3154` after the review fixes
+  measured task create API 66 ms, observer card visible 1345 ms after API
+  completion and 1411 ms after mutation start. Observer marks showed
+  `received` then `patched`, and the observer received a typed `task/created`
+  event.

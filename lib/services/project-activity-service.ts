@@ -1,5 +1,9 @@
 import { Prisma } from "@prisma/client";
 
+import type {
+  ProjectActivityEventAction,
+  ProjectActivityEventDomain,
+} from "@/lib/project-activity-event-types";
 import {
   buildProjectPrincipalWhere,
   requireProjectRole,
@@ -30,19 +34,6 @@ interface ProjectActivitySnapshot {
   version: Date;
 }
 
-export type ProjectActivityEventDomain =
-  | "task"
-  | "task-comment"
-  | "context-card"
-  | "project";
-
-export type ProjectActivityEventAction =
-  | "created"
-  | "updated"
-  | "deleted"
-  | "moved"
-  | "reordered";
-
 export interface ProjectActivityEventRecord {
   id: string;
   projectId: string;
@@ -62,6 +53,12 @@ type RawProjectActivityEventRecord = Omit<
   domain: string;
   action: string;
 };
+
+export interface ProjectActivityEventCursor {
+  version: Date;
+  createdAt?: Date | null;
+  id?: string | null;
+}
 
 interface RecordProjectActivityEventInput {
   db: DbClient;
@@ -123,11 +120,8 @@ function canCreateProjectActivityEvent(db: DbClient): db is DbClient & {
 function canListProjectActivityEvents(db: DbClient): db is DbClient & {
   projectActivityEvent: {
     findMany(input: {
-      where: {
-        projectId: string;
-        version: { gt: Date };
-      };
-      orderBy: [{ version: "asc" }, { createdAt: "asc" }];
+      where: Prisma.ProjectActivityEventWhereInput;
+      orderBy: [{ version: "asc" }, { createdAt: "asc" }, { id: "asc" }];
       take: number;
       select: ProjectActivityEventSelect;
     }): Promise<RawProjectActivityEventRecord[]>;
@@ -178,6 +172,34 @@ function mapProjectActivityEventRecord(
     ...event,
     domain: event.domain as ProjectActivityEventDomain,
     action: event.action as ProjectActivityEventAction,
+  };
+}
+
+function buildProjectActivityEventCursorWhere(
+  projectId: string,
+  cursor: ProjectActivityEventCursor
+): Prisma.ProjectActivityEventWhereInput {
+  if (!cursor.createdAt || !cursor.id) {
+    return {
+      projectId,
+      version: { gt: cursor.version },
+    };
+  }
+
+  return {
+    projectId,
+    OR: [
+      { version: { gt: cursor.version } },
+      {
+        version: cursor.version,
+        createdAt: { gt: cursor.createdAt },
+      },
+      {
+        version: cursor.version,
+        createdAt: cursor.createdAt,
+        id: { gt: cursor.id },
+      },
+    ],
   };
 }
 
@@ -320,6 +342,7 @@ export async function listProjectActivityEventsSince(input: {
   actorUserId: string;
   projectId: string;
   afterVersion: Date;
+  afterCursor?: ProjectActivityEventCursor;
   take?: number;
 }): Promise<ServiceResult<ProjectActivityEventRecord[]>> {
   const actorUserId = normalizeId(input.actorUserId);
@@ -351,11 +374,11 @@ export async function listProjectActivityEventsSince(input: {
     }
 
     const events = await db.projectActivityEvent.findMany({
-      where: {
+      where: buildProjectActivityEventCursorWhere(
         projectId,
-        version: { gt: input.afterVersion },
-      },
-      orderBy: [{ version: "asc" }, { createdAt: "asc" }],
+        input.afterCursor ?? { version: input.afterVersion }
+      ),
+      orderBy: [{ version: "asc" }, { createdAt: "asc" }, { id: "asc" }],
       take: input.take ?? 50,
       select: projectActivityEventSelect,
     });
@@ -448,6 +471,7 @@ export async function recordProjectActivityEventAsActor(input: {
 }
 
 export const projectActivityServiceInternals = {
+  buildProjectActivityEventCursorWhere,
   normalizeId,
   toJsonPayload,
   toJsonPayloadString,

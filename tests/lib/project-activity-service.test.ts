@@ -6,6 +6,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import {
   recordProjectActivityEvent,
+  projectActivityServiceInternals,
   touchProjectActivity,
 } from "@/lib/services/project-activity-service";
 
@@ -104,6 +105,36 @@ describe("project-activity-service", () => {
         projectId: true,
         version: true,
       }),
+    });
+  });
+
+  test("builds a composite cursor query for same-version activity events", () => {
+    const version = new Date("2026-05-30T10:00:00.000Z");
+    const createdAt = new Date("2026-05-30T10:00:00.001Z");
+
+    expect(
+      projectActivityServiceInternals.buildProjectActivityEventCursorWhere(
+        "project-1",
+        {
+          version,
+          createdAt,
+          id: "event-1",
+        }
+      )
+    ).toEqual({
+      projectId: "project-1",
+      OR: [
+        { version: { gt: version } },
+        {
+          version,
+          createdAt: { gt: createdAt },
+        },
+        {
+          version,
+          createdAt,
+          id: { gt: "event-1" },
+        },
+      ],
     });
   });
 });
