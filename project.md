@@ -115,8 +115,9 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 From `tasks/current.md` + `tasks/backlog.md`:
 
-1. TASK-224: agent roadmap access for scoped roadmap phase/event APIs
-2. TASK-263: real-time notification updates for inbox/count awareness
+1. TASK-312: hidden project refresh reconciliation
+2. TASK-224: agent roadmap access for scoped roadmap phase/event APIs
+3. TASK-263: real-time notification updates for inbox/count awareness
 
 ## 8. Source-of-Truth Docs
 
