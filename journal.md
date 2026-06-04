@@ -32,6 +32,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
   persistent account SSE connection; the projects helper now waits for visible
   UI readiness instead.
 
+# 2026-06-04 - TASK-263 PR opened for maintainer review
+
+- Summary: Opened ready PR #320 from
+  `feature/task-263-live-notification-updates` and intentionally left it
+  unmerged for maintainer review.
+- Evidence: PR checks passed: `check-name`, `Quality Core (lint, test,
+  coverage, build)`, `E2E Smoke (Playwright)`, and `Container Image (build +
+  metadata artifact)`. Copilot review/comment polling found no actionable
+  comments.
+
 # 2026-06-04 - TASK-312 hidden project refresh reconciliation
 
 - Summary: Removed the user-facing project refresh prompt/button while keeping

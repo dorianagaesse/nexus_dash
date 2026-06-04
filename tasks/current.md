@@ -4,8 +4,9 @@
 TASK-263
 
 ## Status
-Implemented and locally validated on
-`feature/task-263-realtime-notification-updates`; PR workflow pending.
+Implemented and locally validated on `feature/task-263-live-notification-updates`.
+Ready PR #320 is open, checks are green, and the PR is intentionally left
+unmerged for maintainer review.
 
 ## Source
 - Execution queue task promoted on 2026-05-31.
@@ -92,8 +93,8 @@ does not meet the standard set by modern collaborative tools.
       `npm run test:e2e` pass.
 - [x] `tasks/backlog.md`, `tasks/current.md`, `journal.md`, `project.md`, and
       ADR docs are updated.
-- [ ] A ready PR is opened and Copilot feedback is handled.
-- [ ] The PR is left unmerged for maintainer review.
+- [x] A ready PR is opened and Copilot feedback is handled.
+- [x] The PR is left unmerged for maintainer review.
 
 ## Validation Evidence
 - Focused `npm test -- --run tests/lib/notification-service.test.ts
@@ -113,3 +114,7 @@ does not meet the standard set by modern collaborative tools.
 - Local-safe production env `npm run test:e2e` passed 8/8 Playwright specs
   after replacing the projects helper `networkidle` wait with UI-ready
   assertions because account-level SSE keeps a persistent connection open.
+- PR #320 checks passed: `check-name`, `Quality Core (lint, test, coverage,
+  build)`, `E2E Smoke (Playwright)`, and `Container Image (build + metadata
+  artifact)`.
+- Copilot review/comment polling found no actionable comments.
