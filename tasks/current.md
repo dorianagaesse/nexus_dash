@@ -126,3 +126,11 @@ remaining issue to poll-backed activity propagation plus broad
   completion and 1411 ms after mutation start. Observer marks showed
   `received` then `patched`, and the observer received a typed `task/created`
   event.
+- Final branch preview `26921567621` initially reproduced the deployed
+  fallback path: task create API 2608 ms, observer visible 2912 ms after API
+  completion, observer marks showed `received` then `fallback-refresh-start`,
+  and no typed remote events were received. Migrations had applied, so the
+  deployed gap was narrowed to runtime access to the new event table under the
+  split migration/runtime database roles.
+- Added an explicit `SELECT, INSERT` runtime grant for
+  `ProjectActivityEvent`; RLS policies remain the authorization boundary.
