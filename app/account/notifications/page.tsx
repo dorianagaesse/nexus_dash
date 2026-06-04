@@ -7,13 +7,13 @@ import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
+import { getInitialNotificationRealtimeSnapshotForUser } from "@/lib/notification-realtime-server";
+import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
 import { logServerError } from "@/lib/observability/logger";
 import {
-  getNotificationRealtimeSnapshotForUser,
   listNotificationsForUser,
   type NotificationSummary,
 } from "@/lib/services/notification-service";
-import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
 
 import {
   acceptNotificationInvitationAction,
@@ -86,7 +86,7 @@ export default async function AccountNotificationsPage({
   try {
     const [listResult, snapshotResult] = await Promise.all([
       listNotificationsForUser(actorUserId),
-      getNotificationRealtimeSnapshotForUser(actorUserId),
+      getInitialNotificationRealtimeSnapshotForUser(actorUserId),
     ]);
     if (listResult.ok) {
       notifications = listResult.data.notifications;
@@ -94,9 +94,7 @@ export default async function AccountNotificationsPage({
       listError = listResult.error;
     }
 
-    if (snapshotResult.ok) {
-      notificationSnapshot = snapshotResult.data;
-    }
+    notificationSnapshot = snapshotResult;
   } catch (loadError) {
     logServerError("AccountNotificationsPage.listNotificationsForUser", loadError);
     listError = "notifications-list-failed";

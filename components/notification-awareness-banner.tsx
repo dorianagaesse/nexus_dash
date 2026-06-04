@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { useNotificationRealtimeSnapshot } from "@/lib/notification-realtime-client";
 import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
@@ -24,12 +26,12 @@ export function NotificationAwarenessBanner({
       message={
         <>
           {latestNotification.title}{" "}
-          <a
+          <Link
             href="/account/notifications"
             className="font-medium underline underline-offset-4"
           >
             Review notifications
-          </a>
+          </Link>
         </>
       }
       className="rounded-md border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-700 dark:text-sky-200"

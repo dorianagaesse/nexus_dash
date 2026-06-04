@@ -103,10 +103,10 @@ does not meet the standard set by modern collaborative tools.
   tests/components/notification-center-list.test.ts
   tests/components/notification-awareness-banner.test.tsx
   tests/components/account-menu.test.ts
-  tests/components/account-notifications-link.test.tsx` passed 7 files / 41
+  tests/components/account-notifications-link.test.tsx` passed 7 files / 42
   tests.
 - `npm run lint` passed.
-- Local PostgreSQL env `npm test` passed: 118 files passed, 2 skipped; 879
+- Local PostgreSQL env `npm test` passed: 118 files passed, 2 skipped; 880
   tests passed, 2 skipped.
 - Local PostgreSQL env `npm run test:coverage` passed with 91.37% statements,
   81.33% branches, 92.2% functions, and 91.88% lines.
@@ -117,4 +117,6 @@ does not meet the standard set by modern collaborative tools.
 - PR #320 checks passed: `check-name`, `Quality Core (lint, test, coverage,
   build)`, `E2E Smoke (Playwright)`, and `Container Image (build + metadata
   artifact)`.
-- Copilot review/comment polling found no actionable comments.
+- Copilot review comments were addressed by adding no-store error headers to
+  the summary route, request-scoped cached server snapshot reads, and `Link`
+  navigation in the awareness banner.

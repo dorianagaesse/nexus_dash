@@ -5,10 +5,10 @@ import { AppMetadataPill } from "@/components/app-metadata-pill";
 import { NotificationLiveUpdates } from "@/components/notification-live-updates";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
+import { getInitialNotificationRealtimeSnapshotForUser } from "@/lib/notification-realtime-server";
+import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
 import { logServerError } from "@/lib/observability/logger";
 import { getAccountIdentitySummary } from "@/lib/services/account-identity-service";
-import { getNotificationRealtimeSnapshotForUser } from "@/lib/services/notification-service";
-import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
 
 export async function TopRightControls() {
   noStore();
@@ -22,10 +22,10 @@ export async function TopRightControls() {
   };
 
   if (actorUserId) {
-    const [accountIdentityResult, unreadNotificationCountResult] =
+    const [accountIdentityResult, notificationSnapshotResult] =
       await Promise.allSettled([
         getAccountIdentitySummary(actorUserId),
-        getNotificationRealtimeSnapshotForUser(actorUserId),
+        getInitialNotificationRealtimeSnapshotForUser(actorUserId),
       ]);
 
     if (accountIdentityResult.status === "fulfilled") {
@@ -37,20 +37,12 @@ export async function TopRightControls() {
       );
     }
 
-    if (unreadNotificationCountResult.status === "fulfilled") {
-      const result = unreadNotificationCountResult.value;
-      if (result.ok) {
-        notificationSnapshot = result.data;
-      } else {
-        logServerError(
-          "TopRightControls.getNotificationRealtimeSnapshotForUser",
-          new Error(result.error)
-        );
-      }
+    if (notificationSnapshotResult.status === "fulfilled") {
+      notificationSnapshot = notificationSnapshotResult.value;
     } else {
       logServerError(
-        "TopRightControls.getNotificationRealtimeSnapshotForUser",
-        unreadNotificationCountResult.reason
+        "TopRightControls.getInitialNotificationRealtimeSnapshotForUser",
+        notificationSnapshotResult.reason
       );
     }
   }

@@ -15,7 +15,15 @@ export async function GET(request: NextRequest) {
     authenticatedUser.userId
   );
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error },
+      {
+        status: result.status,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
   }
 
   return NextResponse.json(result.data, {

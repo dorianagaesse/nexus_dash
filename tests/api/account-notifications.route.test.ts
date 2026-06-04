@@ -248,6 +248,24 @@ describe("account notification and invitation routes", () => {
     ).toHaveBeenCalledWith("user-1");
   });
 
+  test("GET notification summary does not cache service errors", async () => {
+    notificationServiceMock.getNotificationRealtimeSnapshotForUser.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      error: "notification-snapshot-failed",
+    });
+
+    const response = await getNotificationSummary(
+      new NextRequest("http://localhost/api/account/notifications/summary")
+    );
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    await expect(readJson(response)).resolves.toEqual({
+      error: "notification-snapshot-failed",
+    });
+  });
+
   test("notification stream emits the authorized realtime snapshot", async () => {
     notificationServiceMock.getNotificationRealtimeSnapshotForUser.mockResolvedValueOnce({
       ok: true,

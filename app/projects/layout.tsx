@@ -1,8 +1,6 @@
 import { NotificationAwarenessBanner } from "@/components/notification-awareness-banner";
 import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
-import { logServerError } from "@/lib/observability/logger";
-import { getNotificationRealtimeSnapshotForUser } from "@/lib/services/notification-service";
-import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
+import { getInitialNotificationRealtimeSnapshotForUser } from "@/lib/notification-realtime-server";
 
 export const dynamic = "force-dynamic";
 
@@ -12,21 +10,8 @@ export default async function ProjectsLayout({
   children: React.ReactNode;
 }) {
   const actorUserId = await requireVerifiedSessionUserIdFromServer();
-  let notificationSnapshot: NotificationRealtimeSnapshot = {
-    version: new Date(0).toISOString(),
-    unreadCount: 0,
-    latestUnreadNotification: null,
-    serverTime: new Date().toISOString(),
-  };
-
-  try {
-    const result = await getNotificationRealtimeSnapshotForUser(actorUserId);
-    if (result.ok) {
-      notificationSnapshot = result.data;
-    }
-  } catch (error) {
-    logServerError("ProjectsLayout.getNotificationRealtimeSnapshotForUser", error);
-  }
+  const notificationSnapshot =
+    await getInitialNotificationRealtimeSnapshotForUser(actorUserId);
 
   return (
     <>

@@ -16,8 +16,7 @@ import {
   MAX_USERNAME_LENGTH,
   MIN_USERNAME_LENGTH,
 } from "@/lib/services/account-security-policy";
-import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
-import { getNotificationRealtimeSnapshotForUser } from "@/lib/services/notification-service";
+import { getInitialNotificationRealtimeSnapshotForUser } from "@/lib/notification-realtime-server";
 import { getAccountProfile } from "@/lib/services/account-profile-service";
 
 import {
@@ -95,20 +94,8 @@ export default async function AccountProfilePage({
     notFound();
   }
 
-  let notificationSnapshot: NotificationRealtimeSnapshot = {
-    version: new Date(0).toISOString(),
-    unreadCount: 0,
-    latestUnreadNotification: null,
-    serverTime: new Date().toISOString(),
-  };
-  try {
-    const result = await getNotificationRealtimeSnapshotForUser(actorUserId);
-    if (result.ok) {
-      notificationSnapshot = result.data;
-    }
-  } catch {
-    // Non-critical, ignore count fetch failure
-  }
+  const notificationSnapshot =
+    await getInitialNotificationRealtimeSnapshotForUser(actorUserId);
 
   const status = readQueryValue(resolvedSearchParams?.status);
   const error = readQueryValue(resolvedSearchParams?.error);
