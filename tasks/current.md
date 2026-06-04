@@ -1,153 +1,65 @@
-# Current Task: TASK-311 Product Latency Remediation
+# Current Task: TASK-312 Hidden Project Refresh Reconciliation
 
 ## Task ID
-TASK-311
+TASK-312
 
 ## Status
-Implementation validated locally and on branch preview
-`feature/task-311-product-latency-remediation`; PR merge workflow in progress.
+Implemented on `feature/task-312-hide-project-refresh-affordance`; PR workflow
+in progress.
 
 ## Source
-- Follow-up implementation task created from TASK-310 after PR #317 merged on
-  2026-06-04.
-- Report: `docs/reports/task-310-performance-investigation.md`.
+- User feedback after TASK-311: the bottom-right "Project updates are ready /
+  Refresh" button exposes internal synchronization machinery and adds
+  unnecessary product noise.
 
 ## Objective
-Make collaboration updates feel production-grade by replacing project-level
-"something changed" refresh behavior with typed project events that can update
-the relevant dashboard client state immediately, while preserving broad route
-refresh as a safe fallback.
+Keep the live project reconciliation safety fallback, but make it invisible to
+users. Remote updates may still be deferred while a user is actively editing or
+the tab is hidden, then auto-apply as soon as the dashboard is safe to refresh.
 
 ## Why This Matters
-TASK-310 reproduced the core latency gap locally: a remote/API task create took
-72 ms wall-clock and `task-create;dur=63.0`, but the already-open observer
-dashboard took 4513 ms to show the new card. That isolates the most urgent
-remaining issue to poll-backed activity propagation plus broad
-`router.refresh()` reconciliation.
+NexusDash should feel collaborative and automatic. A visible manual refresh
+control suggests the user must understand or operate the realtime system, even
+though the app already has enough state to apply pending updates safely once
+editing locks clear.
 
 ## Scope
-- Introduce a typed project activity event contract for supported mutations.
-- Emit typed events for:
-  - task create
-  - task update
-  - task reorder/move
-  - task comment create
-  - context card create/update/delete
-- Reconcile safe remote events directly in dashboard client state:
-  - add/update/move task cards when no edit lock conflicts;
-  - update comment counts and append detail-modal comments when possible;
-  - add/update/remove context cards;
-  - fall back to existing safe live refresh behavior for unknown or unsafe
-    events.
-- Add client timing marks for mutation completion, event receipt, local patch
-  application, and fallback refresh.
-- Add local production-mode measurement for observer-visible latency before and
-  after the implementation.
+- Remove the rendered project-refresh prompt and manual refresh button from
+  `ProjectLiveRefresh`.
+- Preserve hidden pending-version tracking and automatic refresh once locks,
+  hidden-tab state, or in-flight refresh state clear.
+- Update component tests so they assert silent deferral and automatic follow-up
+  refresh behavior.
+- Mark TASK-311 complete in backlog tracking now that PR #318 is merged.
 
 ## Out Of Scope
-- Provisioning a managed realtime provider in this task.
-- Replacing the app database as the source of truth.
-- Notification-center live updates; TASK-263 remains the dedicated task.
-- Presence, typing indicators, live cursors, or collaborative text editing.
-
-## Architecture Direction
-- Keep the existing project activity version as a coarse fallback.
-- Add typed domain events as the primary reconciliation signal.
-- Separate event creation, event publication/streaming, and client
-  reconciliation so a future managed realtime provider can replace the current
-  poll-backed SSE transport without rewriting dashboard state handling.
-- Prefer canonical mutation payloads for safe local patching; use targeted
-  background reads or full refresh only when the payload is incomplete or the
-  local state is unsafe to patch.
+- Changing the typed realtime event contract from TASK-311.
+- Replacing the SSE/fallback transport.
+- Notification-center realtime behavior; TASK-263 remains the dedicated task.
 
 ## Acceptance Criteria
-1. Mutations emit typed project activity events for task create/update/move,
-   task comment create, and context card create/update/delete.
-2. Remote task/context/comment events update an open dashboard without waiting
-   for full `router.refresh()` when the user is not editing the affected
-   entity.
-3. Unknown, unsafe, or schema-incompatible events still fall back to the current
-   safe refresh prompt/auto-refresh behavior.
-4. Observer-visible task create/move/update latency is measured locally and
-   reduced from the TASK-310 baseline of ~4.5 seconds to under 1.5 seconds,
-   with a stretch target under 500 ms after mutation completion in local
-   production mode.
-5. Client timing marks record mutation completion, event receipt, patch
-   application, and fallback refresh.
-6. The implementation keeps a clear path to managed realtime by separating the
-   event contract from the transport.
+1. Users never see the bottom-right project refresh prompt or refresh button.
+2. Remote updates that cannot be applied immediately remain pending internally.
+3. Pending updates still auto-refresh when the dashboard becomes safe.
+4. Existing typed-event patching and fallback-refresh behavior remain covered by
+   tests.
 
 ## Definition Of Done
-- [x] Implementation is committed on `feature/task-311-product-latency-remediation`.
-- [x] Focused tests cover event creation and client reconciliation.
-- [x] Local production-mode browser/API probe records before/after observer
-      latency.
-- [x] `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`
-      pass.
-- [x] A branch preview is deployed and validates at least one actor-side flow
-      and one observer-side flow.
-- [x] `tasks/backlog.md`, `tasks/current.md`, `journal.md`, and ADR docs are
-      updated.
-- [ ] A ready PR is opened, checks pass, Copilot feedback is handled, and the
-      PR is merged or ready for maintainer review depending on permissions.
+- [x] `ProjectLiveRefresh` no longer renders user-facing pending-refresh UI.
+- [x] Focused tests cover invisible deferral and automatic pending refresh.
+- [x] `tasks/backlog.md`, `tasks/current.md`, and `journal.md` are updated.
+- [ ] PR is opened, checks pass, Copilot feedback is handled, and the PR is
+      merged.
 
-## Local Validation Evidence
+## Validation Evidence
+- `npm test -- --run tests/components/project-live-refresh.test.tsx` passed 1
+  file / 10 tests.
 - `npm run lint` passed.
-- Local PostgreSQL env `npm test` passed: 115 files passed, 2 skipped; 864
+- Local PostgreSQL env `npm test` passed: 116 files passed, 2 skipped; 866
   tests passed, 2 skipped.
 - Local PostgreSQL env `npm run test:coverage` passed with 91.37% statements,
   81.33% branches, 92.2% functions, and 91.88% lines.
-- Local-safe production env `npm run build` passed after providing the
-  required local `GOOGLE_TOKEN_ENCRYPTION_KEY` placeholder.
-- Local-safe `npm run test:e2e` passed all 8 Playwright specs with
-  `OUTBOUND_EMAIL_DELIVERY_MODE=disabled`; an earlier run with the placeholder
-  Resend key in live mode failed only the password-reset email send path.
-- Local production-mode two-user latency probe on `127.0.0.1:3150`: task
-  create API 119 ms, observer card visible 825 ms after API completion and
-  944 ms after mutation start. Observer marks showed
-  `nexusdash.project-activity.received` followed by
-  `nexusdash.project-activity.patched` 3 ms later, with no console errors.
-- After hardening event writes through `app.record_project_activity_event(...)`,
-  local production-mode probe on `127.0.0.1:3152` passed with task create API
-  54 ms, observer card visible 849 ms after API completion and 904 ms after
-  mutation start. The observer received a typed `task/created` remote event and
-  marked `received` then `patched`.
-- After Copilot review follow-up, event stream cursors use a composite
-  `version`/`createdAt`/`id` cursor and the database event function advances
-  project event versions monotonically under a project-row lock. Typed event
-  failures now fall back to a durable project activity touch before returning a
-  response header version.
-- Review-fix validation passed: `npm run lint`, local PostgreSQL env
-  `npm test` (116 files passed, 2 skipped; 866 tests passed, 2 skipped),
-  `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2%
-  functions, 91.88% lines), and local-safe `npm run test:e2e` (8/8 specs).
-- Local production-mode probe on `127.0.0.1:3154` after the review fixes
-  measured task create API 66 ms, observer card visible 1345 ms after API
-  completion and 1411 ms after mutation start. Observer marks showed
-  `received` then `patched`, and the observer received a typed `task/created`
-  event.
-- Final branch preview `26921567621` initially reproduced the deployed
-  fallback path: task create API 2608 ms, observer visible 2912 ms after API
-  completion, observer marks showed `received` then `fallback-refresh-start`,
-  and no typed remote events were received. Migrations had applied, so the
-  deployed gap was narrowed to runtime access to the new event table under the
-  split migration/runtime database roles.
-- Added an explicit `SELECT, INSERT` runtime grant for
-  `ProjectActivityEvent`; RLS policies remain the authorization boundary.
-- Switched event recording to prefer the Prisma `projectActivityEvent.create`
-  path inside the existing actor RLS transaction after the durable activity
-  touch. The database function remains available as a fallback, but the primary
-  runtime path now uses the same RLS/grant model as the rest of the service
-  layer.
-- Final branch preview run `26922436935` deployed
-  `git_ref=feature/task-311-product-latency-remediation` to
-  `https://nexus-dash-gztb6x1zo-dorian-agaesses-projects.vercel.app`; workflow
-  logs show checkout of
-  `refs/remotes/origin/feature/task-311-product-latency-remediation`.
-- Preview browser probe created two accounts, created a project, invited and
-  accepted an observer member, opened the observer dashboard, and created a
-  task as the actor. Result: task create API 2691 ms, observer card visible 98
-  ms after API completion and 2789 ms after mutation start. Observer marks
-  showed `received` then `patched`, and the observer received a typed
-  `task/created` event. This confirms the previous 4-5s deployed
-  cross-user update delay was caused by fallback refresh, not by client patching.
+- Local-safe production env `npm run build` passed.
+- Local-safe production env `npm run test:e2e` passed 8/8 Playwright specs
+  after providing the expected `NEXTAUTH_URL`/`NEXTAUTH_SECRET` and trusted
+  local origins for the password-reset flow.

@@ -3,6 +3,19 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-06-04 - TASK-312 hidden project refresh reconciliation
+
+- Summary: Removed the user-facing project refresh prompt/button while keeping
+  the internal pending-refresh safety path for edit locks and hidden tabs.
+- Evidence: `ProjectLiveRefresh` now renders no UI for pending versions. Focused
+  component coverage was updated so locked remote updates stay invisible and
+  still auto-refresh once the lock clears. `npm test -- --run
+  tests/components/project-live-refresh.test.tsx`, `npm run lint`, local
+  PostgreSQL env `npm test`, local PostgreSQL env `npm run test:coverage`, and
+  local-safe `npm run build` passed. Local-safe `npm run test:e2e` passed 8/8
+  specs after adding the expected local auth origin env. TASK-311 was moved to
+  completed after PR #318 merged.
+
 # 2026-05-31 - TASK-275 performance investigation completed
 
 - Summary: Completed the app action-latency investigation and scoped TASK-276
