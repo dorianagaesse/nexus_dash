@@ -134,3 +134,8 @@ remaining issue to poll-backed activity propagation plus broad
   split migration/runtime database roles.
 - Added an explicit `SELECT, INSERT` runtime grant for
   `ProjectActivityEvent`; RLS policies remain the authorization boundary.
+- Switched event recording to prefer the Prisma `projectActivityEvent.create`
+  path inside the existing actor RLS transaction after the durable activity
+  touch. The database function remains available as a fallback, but the primary
+  runtime path now uses the same RLS/grant model as the rest of the service
+  layer.

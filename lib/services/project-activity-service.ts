@@ -245,6 +245,25 @@ export async function recordProjectActivityEvent(
     return null;
   }
 
+  await touchProjectActivity({ db: input.db, projectId, occurredAt: version });
+
+  if (canCreateProjectActivityEvent(input.db)) {
+    const event = await input.db.projectActivityEvent.create({
+      data: {
+        projectId,
+        actorUserId,
+        domain: input.domain,
+        action: input.action,
+        entityId,
+        version,
+        payload: toJsonPayload(input.payload),
+      },
+      select: projectActivityEventSelect,
+    });
+
+    return mapProjectActivityEventRecord(event);
+  }
+
   if (
     process.env.NODE_ENV !== "test" &&
     canCallRawProjectActivityEvent(input.db)
@@ -266,26 +285,7 @@ export async function recordProjectActivityEvent(
     return rows[0] ? mapProjectActivityEventRecord(rows[0]) : null;
   }
 
-  await touchProjectActivity({ db: input.db, projectId, occurredAt: version });
-
-  if (!canCreateProjectActivityEvent(input.db)) {
-    return null;
-  }
-
-  const event = await input.db.projectActivityEvent.create({
-    data: {
-      projectId,
-      actorUserId,
-      domain: input.domain,
-      action: input.action,
-      entityId,
-      version,
-      payload: toJsonPayload(input.payload),
-    },
-    select: projectActivityEventSelect,
-  });
-
-  return mapProjectActivityEventRecord(event);
+  return null;
 }
 
 export async function getProjectActivitySnapshot(input: {

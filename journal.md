@@ -2008,3 +2008,8 @@ Low-value entries to avoid going forward:
 - Type: Debugging
 - Summary: TASK-311 preview validation isolated the deployed fallback path to split database role access for typed activity events.
 - Evidence: Branch preview run `26921567621` deployed from `git_ref=feature/task-311-product-latency-remediation` and applied `20260604020500_task311_monotonic_activity_events`, but browser validation on `https://nexus-dash-e5c4j5r6o-dorian-agaesses-projects.vercel.app` still measured task create API 2608 ms, observer visibility 2912 ms after API completion, `received` -> `fallback-refresh-start`, and no typed remote events. Added `20260604023000_task311_project_activity_event_runtime_grants` to grant `SELECT, INSERT` on `ProjectActivityEvent` to the runtime role while preserving RLS as the authorization boundary.
+
+### 2026-06-04
+- Type: Execution
+- Summary: TASK-311 changed typed event persistence to the Prisma/RLS service path for runtime consistency.
+- Evidence: After runtime grants, preview still fell back without typed events, indicating the custom SECURITY DEFINER function path was not the right primary runtime contract. Updated `recordProjectActivityEvent` to touch the project activity marker and create `ProjectActivityEvent` through Prisma inside the existing actor RLS transaction, leaving the database function only as a fallback when the delegate is unavailable. Focused activity stream/service/response tests passed and `npm run lint` passed.
