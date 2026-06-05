@@ -19,7 +19,7 @@ const projectAccessServiceMock = vi.hoisted(() => ({
         input.agentAccess?.scopes.includes(scope)
       );
       if (!hasRequiredScopes) {
-        return { ok: false, status: 403, error: "agent-scope-forbidden" };
+        return { ok: false, status: 403, error: "forbidden" };
       }
 
       return { ok: true };
@@ -201,7 +201,7 @@ describe("project-roadmap-service", () => {
     expect(result).toEqual({
       ok: false,
       status: 403,
-      error: "agent-scope-forbidden",
+      error: "forbidden",
     });
     expect(dbMock.roadmapPhase.create).not.toHaveBeenCalled();
     expect(projectAccessServiceMock.requireProjectRole).not.toHaveBeenCalled();

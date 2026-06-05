@@ -40,7 +40,7 @@ const projectAccessServiceMock = vi.hoisted(() => ({
         input.agentAccess?.scopes.includes(scope)
       );
       if (!hasRequiredScopes) {
-        return { ok: false, status: 403, error: "agent-scope-forbidden" };
+        return { ok: false, status: 403, error: "forbidden" };
       }
 
       return { ok: true };
@@ -215,7 +215,7 @@ describe("project roadmap routes", () => {
 
     expect(response.status).toBe(403);
     await expect(readJson(response)).resolves.toEqual({
-      error: "agent-scope-forbidden",
+      error: "forbidden",
     });
     expect(roadmapServiceMock.listProjectRoadmapPhases).not.toHaveBeenCalled();
   });
@@ -402,7 +402,7 @@ describe("project roadmap routes", () => {
 
     expect(response.status).toBe(403);
     await expect(readJson(response)).resolves.toEqual({
-      error: "agent-scope-forbidden",
+      error: "forbidden",
     });
     expect(roadmapServiceMock.deleteProjectRoadmapPhase).not.toHaveBeenCalled();
   });
