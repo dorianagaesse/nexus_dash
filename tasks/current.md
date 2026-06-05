@@ -1,112 +1,68 @@
-# Current Task: TASK-224 Agent Roadmap Access
+# Current Task: TASK-313 App Version Governance
 
 ## Task ID
-TASK-224
+TASK-313
 
 ## Status
-Completed on 2026-06-06 via PR #326.
+Pending investigation and implementation.
 
 ## Source
-- Execution queue task promoted on 2026-05-31.
-- Agent access v1 currently supports project/task/context APIs, while roadmap
-  APIs remain human-session-only.
-- Roadmap v2 is now a core dashboard planning surface, so project planning
-  agents need explicit scoped access instead of borrowing task scopes.
+- User feedback on 2026-06-06: the app previously showed `0.1.<commit>` and
+  now constantly shows `0.2.0`; the version number has no visible logic and
+  should increment according to an industry-standard approach.
+- Existing completed tasks:
+  - TASK-087 exposed product metadata in the app.
+  - TASK-272 defined a release-version cadence and helper.
+  - TASK-132 made `package.json` the canonical product version and separated
+    user-facing version from commit SHA.
 
 ## Objective
-Expand the project-scoped agent API contract so trusted agents can inspect and
-manage project roadmap phases and events through dedicated roadmap scopes.
+Review and fix NexusDash app version governance so the product version follows
+SemVer-compatible release logic, increments predictably for production releases,
+and keeps build/revision metadata separate and useful for diagnostics.
 
-## Why This Matters
-NexusDash agents are meant to participate in planning work, not only task
-execution. Roadmap access must be explicit, least-privilege, auditable, and
-documented so owners can grant planning capability without accidentally granting
-task or context privileges.
+## Initial Position
+`v0.2.0` being stable is understandable technically because `package.json` is
+the canonical product version. The missing piece is process enforcement: no
+release/version decision is currently required after meaningful shipped work.
 
-## Current Behavior
-- `ApiCredentialScope` supports project, task, and context scopes only.
-- Agent token exchange validates and serializes only the current scope set.
-- Roadmap API routes call `requireAuthenticatedApiUser`, which rejects bearer
-  tokens and only accepts human sessions.
-- `project-roadmap-service` enforces human project roles through
-  `requireProjectRole`, with no `agentAccess` path.
-- Hosted agent docs and OpenAPI omit roadmap endpoints.
-
-## Architecture Direction
-- Add dedicated roadmap scopes:
-  - `roadmap:read` for roadmap phase/event listing.
-  - `roadmap:write` for phase/event create, update, reorder, and move.
-  - `roadmap:delete` for phase/event deletion.
-- Keep project-scoped bearer tokens as the authentication mechanism; no new
-  token type or unscoped agent surface.
-- Reuse the existing route pattern from task/context APIs:
-  `requireApiPrincipal`, `getAgentProjectAccessContext`, and
-  `requireAgentProjectScopes`.
-- Thread optional `agentAccess` into roadmap services so services continue to
-  enforce authorization, not only route adapters.
-- Keep roadmap mutations integrated with project activity version headers so
-  dashboards continue to reconcile changes.
-- Update credential UI, token exchange, onboarding copy, and OpenAPI in the
-  same PR so the contract is discoverable and testable.
+Going back to `0.1.<commit>` would also be wrong: commit SHA/build revision is
+not the same as product version. The right target is a clear product release
+version plus diagnostic revision metadata.
 
 ## Scope
-- Add roadmap scope values to schema, runtime scope definitions, DB mapping,
-  token validation, and credential UI.
-- Add a Prisma migration for the `ApiCredentialScope` enum expansion.
-- Convert roadmap API routes to accept human or agent principals.
-- Enforce roadmap scopes in routes and roadmap services.
-- Update hosted agent docs/OpenAPI with roadmap endpoints and schemas.
-- Add route, service, token, and docs tests for roadmap scopes and bearer-token
-  access.
-- Mark TASK-263 complete now that PR #320 is merged.
+- Review current versioning implementation, docs, workflows, and release helper.
+- Decide the release policy: per-production-merge patch bumps vs batched release
+  PRs, with explicit tradeoffs.
+- Implement the selected policy with automation and CI/release guardrails.
+- Ensure visible app metadata and diagnostic metadata match the policy.
+- Update docs/runbooks/changelog expectations.
+- Add tests for version metadata and any guard logic.
 
 ## Out Of Scope
-- Calendar agent access.
-- Attachment binary parity beyond already-supported task/context routes.
-- A separate managed realtime or MCP transport for agents.
-- Changing human roadmap UI behavior beyond preserving existing responses and
-  activity-version headers.
+- Changing dependency package versions for their own sake.
+- Reintroducing commit SHA as the primary user-facing product version.
+- A full public release-management platform beyond the lightweight process
+  NexusDash needs today.
 
 ## Acceptance Criteria
-1. Owners can create project agent credentials with `roadmap:read`,
-   `roadmap:write`, and `roadmap:delete` scopes.
-2. Agent bearer tokens preserve and validate the new roadmap scopes.
-3. Agents with `roadmap:read` can list roadmap phases/events for their project.
-4. Agents with `roadmap:write` can create/update phases and events, reorder
-   phases/events, and move events.
-5. Agents with `roadmap:delete` can delete phases/events; delete is not implied
-   by read or write.
-6. Agents without the required roadmap scope receive `403`, and agents scoped to
-   another project receive `404`.
-7. Human session behavior and existing roadmap UI/API responses remain
-   compatible.
-8. Hosted docs/OpenAPI advertise the roadmap contract and required scopes.
+1. A clear versioning policy exists and explains product version vs
+   build/revision metadata.
+2. The visible app version follows that policy and no longer stagnates
+   accidentally after meaningful production releases.
+3. Release tooling can increment `package.json` and `package-lock.json`
+   predictably.
+4. CI/release automation catches missing version decisions for production-bound
+   feature/fix work.
+5. Changelog/release-note expectations are tied to version increments.
+6. Preview and production build metadata remain deterministic and useful for
+   debugging.
+7. Tests cover the implemented version metadata and guard behavior.
 
 ## Definition Of Done
-- [x] Schema and migration include roadmap credential scopes.
-- [x] Runtime scope definitions, credential UI, token exchange, and audit
-      summaries handle the new scopes.
-- [x] Roadmap routes and services enforce agent project/scope access.
-- [x] Agent onboarding docs/OpenAPI include roadmap endpoints and examples.
-- [x] Focused tests cover roadmap bearer access and scope denial.
-- [x] `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`
-      pass.
-- [x] A ready PR is opened and Copilot feedback is handled.
-
-## Validation Evidence
-- `npx prisma generate` passed through `npm ci` postinstall.
-- Focused Vitest passed: 8 files / 40 tests.
-- `npm run lint` passed.
-- `npm test` passed with local validation env: 119 files passed, 2 skipped;
-  889 tests passed, 2 skipped.
-- `npm run test:coverage` passed with local validation env: 91.37%
-  statements, 81.33% branches.
-- `npm run build` passed with local validation env.
-- `npm run db:migrate` passed against fresh local PostgreSQL on host port
-  5433, applying the new enum migration successfully.
-- PR #326 merged as `3d497c77a790a14e32c9cb20a85349d2e448239e`.
-- Copilot review produced five test-contract comments; addressed in
-  `f1f800c41498966acadd55940906acb1b99a2677` and resolved.
-- GitHub checks passed after the review fix: `check-name`, `Quality Core
-  (lint, test, coverage, build)`, `E2E Smoke (Playwright)`, and `Container
-  Image (build + metadata artifact)`.
+- [ ] Existing TASK-272 and TASK-132 decisions are reviewed.
+- [ ] Policy and implementation path are documented.
+- [ ] Version increment automation or CI guardrails are implemented.
+- [ ] App metadata behavior remains tested.
+- [ ] Relevant validation passes.
+- [ ] PR workflow is completed according to `agent.md`.
