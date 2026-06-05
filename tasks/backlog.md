@@ -6,11 +6,6 @@ Last reviewed: 2026-05-31
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-224
-  Title: Agent roadmap access - scoped API contract for roadmap phases and events
-  Status: In progress on `feature/task-224-agent-roadmap-access`
-  Rationale: Make the project roadmap manageable by project-scoped agent tokens so agents can inspect, create, update, move, reorder, and delete roadmap phases/events when they are responsible for project planning. This should be a deliberate agent API contract expansion with dedicated roadmap scopes, OpenAPI/onboarding documentation, credential UI updates, route guard coverage, and smoke tests rather than implicitly folding roadmap permissions into existing project or task scopes.
-  Dependencies: TASK-127, TASK-130, TASK-059
 ### Deferred (Intentional)
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
@@ -112,6 +107,11 @@ Last reviewed: 2026-05-31
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-224
+  Title: Agent roadmap access - scoped API contract for roadmap phases and events
+  Status: Done (2026-06-06, merged via PR #326)
+  Rationale: Added dedicated roadmap agent scopes, token/credential mappings, route and service authorization, hosted onboarding/OpenAPI coverage, and focused tests so project-scoped agents can inspect, create, update, move, reorder, and delete roadmap phases/events without borrowing task permissions.
+  Dependencies: TASK-127, TASK-130, TASK-059
 - ID: TASK-263
   Title: Real-time notification updates - live in-app inbox, counts, and awareness
   Status: Done (2026-06-06, merged via PR #320)
