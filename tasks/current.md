@@ -4,7 +4,7 @@
 TASK-224
 
 ## Status
-Implemented locally on `feature/task-224-agent-roadmap-access`; PR workflow pending.
+Completed on 2026-06-06 via PR #326.
 
 ## Source
 - Execution queue task promoted on 2026-05-31.
@@ -91,7 +91,7 @@ task or context privileges.
 - [x] Focused tests cover roadmap bearer access and scope denial.
 - [x] `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`
       pass.
-- [ ] A ready PR is opened and Copilot feedback is handled.
+- [x] A ready PR is opened and Copilot feedback is handled.
 
 ## Validation Evidence
 - `npx prisma generate` passed through `npm ci` postinstall.
@@ -104,3 +104,9 @@ task or context privileges.
 - `npm run build` passed with local validation env.
 - `npm run db:migrate` passed against fresh local PostgreSQL on host port
   5433, applying the new enum migration successfully.
+- PR #326 merged as `3d497c77a790a14e32c9cb20a85349d2e448239e`.
+- Copilot review produced five test-contract comments; addressed in
+  `f1f800c41498966acadd55940906acb1b99a2677` and resolved.
+- GitHub checks passed after the review fix: `check-name`, `Quality Core
+  (lint, test, coverage, build)`, `E2E Smoke (Playwright)`, and `Container
+  Image (build + metadata artifact)`.

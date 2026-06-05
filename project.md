@@ -118,7 +118,7 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 From `tasks/current.md` + `tasks/backlog.md`:
 
-1. TASK-224: agent roadmap access for scoped roadmap phase/event APIs
+1. No active task selected after TASK-224 completion.
 
 ## 8. Source-of-Truth Docs
 

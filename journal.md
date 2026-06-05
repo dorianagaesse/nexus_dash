@@ -26,6 +26,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
   migrations, including `20260606090000_task224_agent_roadmap_scopes`, against
   a fresh local PostgreSQL on host port 5433.
 
+# 2026-06-06 - TASK-224 PR merged
+
+- Summary: Merged TASK-224 through PR #326 after handling Copilot's five
+  test-contract comments about the `forbidden` agent-scope error.
+- Evidence: PR #326 merged as
+  `3d497c77a790a14e32c9cb20a85349d2e448239e`; follow-up review fix
+  `f1f800c41498966acadd55940906acb1b99a2677`; GitHub checks passed:
+  `check-name`, `Quality Core (lint, test, coverage, build)`, `E2E Smoke
+  (Playwright)`, and `Container Image (build + metadata artifact)`.
+
 # 2026-06-04 - TASK-263 realtime notification updates started
 
 - Summary: Drafted the implementation brief for live in-app notification
