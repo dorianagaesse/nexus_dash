@@ -101,7 +101,10 @@ describe("exchangeAgentApiKeyForAccessToken", () => {
       createdByUserId: "owner-1",
       expiresAt: null,
       revokedAt: null,
-      scopeGrants: [{ scope: ApiCredentialScope.task_read }],
+      scopeGrants: [
+        { scope: ApiCredentialScope.roadmap_write },
+        { scope: ApiCredentialScope.task_read },
+      ],
     });
 
     const result = await exchangeAgentApiKeyForAccessToken({
@@ -120,7 +123,7 @@ describe("exchangeAgentApiKeyForAccessToken", () => {
         expiresAt: "2026-03-31T10:10:00.000Z",
         expiresInSeconds: 600,
         projectId: "project-1",
-        scopes: ["task:read"],
+        scopes: ["roadmap:write", "task:read"],
       },
     });
     expect(passwordServiceMock.verifySecret).toHaveBeenCalledWith(
@@ -131,7 +134,7 @@ describe("exchangeAgentApiKeyForAccessToken", () => {
       credentialId: "credential-1",
       projectId: "project-1",
       ownerUserId: "owner-1",
-      scopes: ["task:read"],
+      scopes: ["roadmap:write", "task:read"],
     });
     expect(prismaMock.apiCredential.findUnique).toHaveBeenCalledWith({
       where: {

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
+import {
+  getAgentProjectAccessContext,
+  requireApiPrincipal,
+} from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 import { createProjectRoadmapEvent } from "@/lib/services/project-roadmap-service";
 
 interface RoadmapEventRequestBody {
@@ -16,9 +20,22 @@ export async function POST(
   props: { params: Promise<{ projectId: string; phaseId: string }> }
 ) {
   const params = await props.params;
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
-  if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+  const principalResult = await requireApiPrincipal(request);
+  if (!principalResult.ok) {
+    return principalResult.response;
+  }
+
+  const agentAccess = getAgentProjectAccessContext(principalResult.principal);
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess,
+    projectId: params.projectId,
+    requiredScopes: ["roadmap:write"],
+  });
+  if (!agentScopeAccess.ok) {
+    return NextResponse.json(
+      { error: agentScopeAccess.error },
+      { status: agentScopeAccess.status }
+    );
   }
 
   let payload: RoadmapEventRequestBody;
@@ -34,9 +51,10 @@ export async function POST(
   }
 
   const result = await createProjectRoadmapEvent({
-    actorUserId: authenticatedUser.userId,
+    actorUserId: principalResult.principal.actorUserId,
     projectId: params.projectId,
     phaseId: params.phaseId,
+    agentAccess,
     title: typeof payload.title === "string" ? payload.title : "",
     description: typeof payload.description === "string" ? payload.description : null,
     targetDate: typeof payload.targetDate === "string" ? payload.targetDate : null,

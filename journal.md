@@ -3,6 +3,29 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-06-06 - TASK-224 agent roadmap access started
+
+- Summary: Started TASK-224 on
+  `feature/task-224-agent-roadmap-access`, moved TASK-263 to completed after PR
+  #320 merged, and drafted the active task brief.
+- Decision: Add dedicated `roadmap:read`, `roadmap:write`, and
+  `roadmap:delete` scopes instead of folding roadmap access into task scopes.
+  Roadmap routes will use the same `requireApiPrincipal` and
+  `AgentProjectAccessContext` pattern as task/context agent APIs, while
+  roadmap services remain the authorization boundary.
+
+# 2026-06-06 - TASK-224 agent roadmap access implemented
+
+- Summary: Added dedicated roadmap credential scopes, Prisma enum migration,
+  runtime scope mappings, agent-aware roadmap route handlers, service-level
+  scope enforcement, hosted onboarding copy, and OpenAPI schemas/paths for
+  roadmap phases, events, reorder, move, and delete operations.
+- Evidence: Focused Vitest passed 8 files / 40 tests. `npm run lint`, local
+  validation env `npm test`, local validation env `npm run test:coverage`, and
+  local validation env `npm run build` passed. `npm run db:migrate` applied all
+  migrations, including `20260606090000_task224_agent_roadmap_scopes`, against
+  a fresh local PostgreSQL on host port 5433.
+
 # 2026-06-04 - TASK-263 realtime notification updates started
 
 - Summary: Drafted the implementation brief for live in-app notification

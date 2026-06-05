@@ -1,6 +1,30 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const projectAccessServiceMock = vi.hoisted(() => ({
+  requireAgentProjectScopes: vi.fn(
+    (input: {
+      agentAccess?: { projectId: string; scopes: string[] };
+      projectId: string;
+      requiredScopes: string[];
+    }) => {
+      if (!input.agentAccess) {
+        return { ok: true };
+      }
+
+      if (input.agentAccess.projectId !== input.projectId) {
+        return { ok: false, status: 404, error: "project-not-found" };
+      }
+
+      const hasRequiredScopes = input.requiredScopes.every((scope) =>
+        input.agentAccess?.scopes.includes(scope)
+      );
+      if (!hasRequiredScopes) {
+        return { ok: false, status: 403, error: "forbidden" };
+      }
+
+      return { ok: true };
+    }
+  ),
   requireProjectRole: vi.fn(),
 }));
 
@@ -33,6 +57,7 @@ const dbMock = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/services/project-access-service", () => ({
+  requireAgentProjectScopes: projectAccessServiceMock.requireAgentProjectScopes,
   requireProjectRole: projectAccessServiceMock.requireProjectRole,
 }));
 
@@ -134,6 +159,75 @@ describe("project-roadmap-service", () => {
       minimumRole: "viewer",
       db: dbMock,
     });
+  });
+
+  test("lists roadmap phases for agents with roadmap read without human role lookup", async () => {
+    dbMock.roadmapPhase.findMany.mockResolvedValueOnce([]);
+
+    const result = await listProjectRoadmapPhases("project-1", "owner-1", {
+      projectId: "project-1",
+      credentialId: "credential-1",
+      credentialLabel: "Build bot",
+      ownerUserId: "owner-1",
+      scopes: ["roadmap:read"],
+    });
+
+    expect(result).toEqual([]);
+    expect(projectAccessServiceMock.requireProjectRole).not.toHaveBeenCalled();
+    expect(projectAccessServiceMock.requireAgentProjectScopes).toHaveBeenCalledWith({
+      agentAccess: expect.objectContaining({
+        credentialId: "credential-1",
+        scopes: ["roadmap:read"],
+      }),
+      projectId: "project-1",
+      requiredScopes: ["roadmap:read"],
+    });
+  });
+
+  test("blocks agents that lack roadmap write before creating phases", async () => {
+    const result = await createProjectRoadmapPhase({
+      actorUserId: "owner-1",
+      projectId: "project-1",
+      agentAccess: {
+        projectId: "project-1",
+        credentialId: "credential-1",
+        credentialLabel: "Build bot",
+        ownerUserId: "owner-1",
+        scopes: ["roadmap:read"],
+      },
+      title: "Public launch",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 403,
+      error: "forbidden",
+    });
+    expect(dbMock.roadmapPhase.create).not.toHaveBeenCalled();
+    expect(projectAccessServiceMock.requireProjectRole).not.toHaveBeenCalled();
+  });
+
+  test("returns project not found for cross-project roadmap agents", async () => {
+    const result = await createProjectRoadmapPhase({
+      actorUserId: "owner-1",
+      projectId: "project-1",
+      agentAccess: {
+        projectId: "project-2",
+        credentialId: "credential-1",
+        credentialLabel: "Build bot",
+        ownerUserId: "owner-1",
+        scopes: ["roadmap:write"],
+      },
+      title: "Public launch",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 404,
+      error: "project-not-found",
+    });
+    expect(dbMock.roadmapPhase.create).not.toHaveBeenCalled();
+    expect(projectAccessServiceMock.requireProjectRole).not.toHaveBeenCalled();
   });
 
   test("creates roadmap phase with sequential position", async () => {

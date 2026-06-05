@@ -1,6 +1,7 @@
 import { AGENT_SCOPE_DEFINITIONS, type AgentScope } from "@/lib/agent-access";
 import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
 import { EPIC_STATUSES } from "@/lib/epic";
+import { ROADMAP_STATUSES } from "@/lib/roadmap-milestone";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 
 export const AGENT_API_VERSION = "v1";
@@ -12,7 +13,7 @@ export const AGENT_API_KEY_PLACEHOLDER = "nda_public.secret";
 export const AGENT_BEARER_TOKEN_ENV_NAME = "NEXUSDASH_AGENT_BEARER_TOKEN";
 export const AGENT_ATTACHMENT_MAX_FILE_SIZE_LABEL = "25MB";
 
-type AgentApiTag = "Auth" | "Projects" | "Epics" | "Tasks" | "Context";
+type AgentApiTag = "Auth" | "Projects" | "Epics" | "Roadmap" | "Tasks" | "Context";
 type AgentHttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
 type AgentRequestContentType = "application/json" | "multipart/form-data";
 
@@ -107,6 +108,99 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     description: "Delete an epic and clear the epic link from its tasks.",
     requiredScopes: ["task:write"],
     notes: ["Deleting an epic does not delete its tasks."],
+  },
+  {
+    tag: "Roadmap",
+    method: "GET",
+    path: "/api/projects/{projectId}/roadmap",
+    title: "List roadmap phases",
+    description: "List project roadmap phases with nested roadmap events.",
+    requiredScopes: ["roadmap:read"],
+  },
+  {
+    tag: "Roadmap",
+    method: "POST",
+    path: "/api/projects/{projectId}/roadmap",
+    title: "Create roadmap phase",
+    description: "Create a new roadmap phase.",
+    requiredScopes: ["roadmap:write"],
+    requestContentType: "application/json",
+    notes: [`status must be one of: ${ROADMAP_STATUSES.join(", ")}.`],
+  },
+  {
+    tag: "Roadmap",
+    method: "PATCH",
+    path: "/api/projects/{projectId}/roadmap/phases/{phaseId}",
+    title: "Update roadmap phase",
+    description: "Update an existing roadmap phase.",
+    requiredScopes: ["roadmap:write"],
+    requestContentType: "application/json",
+    notes: ["Set targetDate to null or an empty string to clear it."],
+  },
+  {
+    tag: "Roadmap",
+    method: "DELETE",
+    path: "/api/projects/{projectId}/roadmap/phases/{phaseId}",
+    title: "Delete roadmap phase",
+    description: "Delete a roadmap phase and its nested events.",
+    requiredScopes: ["roadmap:delete"],
+    notes: ["Delete scope does not imply read or write."],
+  },
+  {
+    tag: "Roadmap",
+    method: "POST",
+    path: "/api/projects/{projectId}/roadmap/phases/{phaseId}/events",
+    title: "Create roadmap event",
+    description: "Create a roadmap event inside a phase.",
+    requiredScopes: ["roadmap:write"],
+    requestContentType: "application/json",
+    notes: [`status defaults to the phase status and must be one of: ${ROADMAP_STATUSES.join(", ")}.`],
+  },
+  {
+    tag: "Roadmap",
+    method: "PATCH",
+    path: "/api/projects/{projectId}/roadmap/events/{eventId}",
+    title: "Update roadmap event",
+    description: "Update an existing roadmap event.",
+    requiredScopes: ["roadmap:write"],
+    requestContentType: "application/json",
+    notes: ["Set targetDate to null or an empty string to clear it."],
+  },
+  {
+    tag: "Roadmap",
+    method: "DELETE",
+    path: "/api/projects/{projectId}/roadmap/events/{eventId}",
+    title: "Delete roadmap event",
+    description: "Delete a roadmap event from the project.",
+    requiredScopes: ["roadmap:delete"],
+    notes: ["Delete scope does not imply read or write."],
+  },
+  {
+    tag: "Roadmap",
+    method: "POST",
+    path: "/api/projects/{projectId}/roadmap/phases/reorder",
+    title: "Reorder roadmap phases",
+    description: "Persist roadmap phase ordering.",
+    requiredScopes: ["roadmap:write"],
+    requestContentType: "application/json",
+  },
+  {
+    tag: "Roadmap",
+    method: "POST",
+    path: "/api/projects/{projectId}/roadmap/events/reorder",
+    title: "Reorder roadmap events",
+    description: "Persist roadmap event ordering inside one phase.",
+    requiredScopes: ["roadmap:write"],
+    requestContentType: "application/json",
+  },
+  {
+    tag: "Roadmap",
+    method: "POST",
+    path: "/api/projects/{projectId}/roadmap/events/move",
+    title: "Move roadmap event",
+    description: "Move a roadmap event to another phase and index.",
+    requiredScopes: ["roadmap:write"],
+    requestContentType: "application/json",
   },
   {
     tag: "Tasks",
@@ -357,6 +451,7 @@ export const AGENT_LIMITATIONS: readonly string[] = [
   "Binary files and images use the direct-upload attachment routes; non-file writes should not rely on multipart/form-data.",
   "attachmentLinks must be arrays of { name, url } objects. Plain string URL arrays are not the canonical v1 format.",
   "Epic status and progress are automatic. Agents should not try to set them directly.",
+  "Roadmap delete scope is separate from roadmap read/write. Grant it only when the agent should remove phases or events.",
   "Task status changes happen through POST /api/projects/{projectId}/tasks/reorder, not PATCH /api/projects/{projectId}/tasks/{taskId}.",
   "Rich HTML is sanitized. Inline <img> content should not be treated as a supported image-delivery path; use attachments instead.",
   "Preview deployments may still be protected by Vercel. If a preview returns Vercel's auth wall, make the preview reachable or use an approved bypass before testing the agent flow.",
@@ -449,6 +544,22 @@ export function buildAgentTaskCreateExample(): string {
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
     "  -d '{\"title\":\"Draft release notes\",\"description\":\"<p>Summarize this week''s changes.</p>\",\"deadlineDate\":\"2026-04-24\",\"epicId\":\"epic_456\",\"assigneeUserId\":\"user_456\",\"labels\":[\"release\",\"docs\"],\"attachmentLinks\":[{\"name\":\"Spec\",\"url\":\"https://example.com/spec\"}]}'",
+  ].join("\n");
+}
+
+export function buildAgentRoadmapCreateExample(): string {
+  return [
+    '# Create a roadmap phase with roadmap:write',
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/roadmap" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    '  -d \'{"title":"Public beta","description":"Coordinate beta readiness.","targetDate":"2026-05-15","status":"planned"}\'',
+    "",
+    '# Create an event inside that phase with roadmap:write',
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/roadmap/phases/$PHASE_ID/events" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    '  -d \'{"title":"Invite first cohort","description":"Ship invite flow and monitor feedback.","status":"active"}\'',
   ].join("\n");
 }
 
@@ -789,6 +900,11 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           "Create, read, update, and delete project epics with automatic status and progress.",
       },
       {
+        name: "Roadmap",
+        description:
+          "Create, read, update, reorder, move, and delete project roadmap phases and events.",
+      },
+      {
         name: "Tasks",
         description:
           "Create, read, update, reorder, archive, delete, and attach files to project tasks.",
@@ -1069,6 +1185,203 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           properties: {
             epic: {
               $ref: "#/components/schemas/ProjectEpicRecord",
+            },
+          },
+        },
+        RoadmapEventRecord: {
+          type: "object",
+          required: [
+            "id",
+            "phaseId",
+            "title",
+            "description",
+            "targetDate",
+            "status",
+            "position",
+            "createdAt",
+            "updatedAt",
+          ],
+          properties: {
+            id: { type: "string" },
+            phaseId: { type: "string" },
+            title: { type: "string" },
+            description: { type: ["string", "null"] },
+            targetDate: { type: ["string", "null"], format: "date" },
+            status: {
+              type: "string",
+              enum: ROADMAP_STATUSES,
+            },
+            position: { type: "integer" },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        RoadmapPhaseRecord: {
+          type: "object",
+          required: [
+            "id",
+            "title",
+            "description",
+            "targetDate",
+            "status",
+            "position",
+            "createdAt",
+            "updatedAt",
+            "events",
+          ],
+          properties: {
+            id: { type: "string" },
+            title: { type: "string" },
+            description: { type: ["string", "null"] },
+            targetDate: { type: ["string", "null"], format: "date" },
+            status: {
+              type: "string",
+              enum: ROADMAP_STATUSES,
+            },
+            position: { type: "integer" },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+            events: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/RoadmapEventRecord",
+              },
+            },
+          },
+        },
+        RoadmapPhaseListResponse: {
+          type: "object",
+          required: ["phases"],
+          properties: {
+            phases: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/RoadmapPhaseRecord",
+              },
+            },
+          },
+        },
+        RoadmapPhaseCreateRequest: {
+          type: "object",
+          required: ["title"],
+          properties: {
+            title: { type: "string" },
+            description: { type: ["string", "null"] },
+            targetDate: { type: ["string", "null"], format: "date" },
+            status: {
+              type: ["string", "null"],
+              enum: [...ROADMAP_STATUSES, null],
+            },
+          },
+        },
+        RoadmapPhaseCreateResponse: {
+          type: "object",
+          required: ["phase"],
+          properties: {
+            phase: {
+              $ref: "#/components/schemas/RoadmapPhaseRecord",
+            },
+          },
+        },
+        RoadmapPhaseUpdateRequest: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            description: { type: ["string", "null"] },
+            targetDate: { type: ["string", "null"], format: "date" },
+            status: {
+              type: ["string", "null"],
+              enum: [...ROADMAP_STATUSES, null],
+            },
+          },
+        },
+        RoadmapPhaseUpdateResponse: {
+          type: "object",
+          required: ["phase"],
+          properties: {
+            phase: {
+              $ref: "#/components/schemas/RoadmapPhaseRecord",
+            },
+          },
+        },
+        RoadmapEventCreateRequest: {
+          type: "object",
+          required: ["title"],
+          properties: {
+            title: { type: "string" },
+            description: { type: ["string", "null"] },
+            targetDate: { type: ["string", "null"], format: "date" },
+            status: {
+              type: ["string", "null"],
+              enum: [...ROADMAP_STATUSES, null],
+            },
+          },
+        },
+        RoadmapEventMutationResponse: {
+          type: "object",
+          required: ["event", "phase"],
+          properties: {
+            event: {
+              $ref: "#/components/schemas/RoadmapEventRecord",
+            },
+            phase: {
+              $ref: "#/components/schemas/RoadmapPhaseRecord",
+            },
+          },
+        },
+        RoadmapEventUpdateRequest: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            description: { type: ["string", "null"] },
+            targetDate: { type: ["string", "null"], format: "date" },
+            status: {
+              type: ["string", "null"],
+              enum: [...ROADMAP_STATUSES, null],
+            },
+          },
+        },
+        RoadmapEventDeleteResponse: {
+          type: "object",
+          required: ["ok", "phaseId"],
+          properties: {
+            ok: {
+              type: "boolean",
+              enum: [true],
+            },
+            phaseId: { type: "string" },
+          },
+        },
+        RoadmapPhaseReorderRequest: {
+          type: "object",
+          required: ["phaseIds"],
+          properties: {
+            phaseIds: {
+              type: "array",
+              items: { type: "string" },
+            },
+          },
+        },
+        RoadmapEventReorderRequest: {
+          type: "object",
+          required: ["phaseId", "eventIds"],
+          properties: {
+            phaseId: { type: "string" },
+            eventIds: {
+              type: "array",
+              items: { type: "string" },
+            },
+          },
+        },
+        RoadmapEventMoveRequest: {
+          type: "object",
+          required: ["eventId", "targetPhaseId", "targetIndex"],
+          properties: {
+            eventId: { type: "string" },
+            targetPhaseId: { type: "string" },
+            targetIndex: {
+              type: "integer",
+              minimum: 0,
             },
           },
         },
@@ -1618,6 +1931,22 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             type: "string",
           },
         },
+        PhaseId: {
+          name: "phaseId",
+          in: "path",
+          required: true,
+          schema: {
+            type: "string",
+          },
+        },
+        EventId: {
+          name: "eventId",
+          in: "path",
+          required: true,
+          schema: {
+            type: "string",
+          },
+        },
         TaskId: {
           name: "taskId",
           in: "path",
@@ -1856,6 +2185,306 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           responses: {
             200: {
               description: "Epic deleted",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/OkResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/roadmap": {
+        get: {
+          ...buildOperationMetadata("GET", "/api/projects/{projectId}/roadmap"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }],
+          responses: {
+            200: {
+              description: "Roadmap phases returned",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/RoadmapPhaseListResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+        post: {
+          ...buildOperationMetadata("POST", "/api/projects/{projectId}/roadmap"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/RoadmapPhaseCreateRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: "Roadmap phase created",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/RoadmapPhaseCreateResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/roadmap/phases/{phaseId}": {
+        patch: {
+          ...buildOperationMetadata(
+            "PATCH",
+            "/api/projects/{projectId}/roadmap/phases/{phaseId}"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/PhaseId" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/RoadmapPhaseUpdateRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Roadmap phase updated",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/RoadmapPhaseUpdateResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+        delete: {
+          ...buildOperationMetadata(
+            "DELETE",
+            "/api/projects/{projectId}/roadmap/phases/{phaseId}"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/PhaseId" },
+          ],
+          responses: {
+            200: {
+              description: "Roadmap phase deleted",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/OkResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/roadmap/phases/{phaseId}/events": {
+        post: {
+          ...buildOperationMetadata(
+            "POST",
+            "/api/projects/{projectId}/roadmap/phases/{phaseId}/events"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/PhaseId" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/RoadmapEventCreateRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: "Roadmap event created",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/RoadmapEventMutationResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/roadmap/events/{eventId}": {
+        patch: {
+          ...buildOperationMetadata(
+            "PATCH",
+            "/api/projects/{projectId}/roadmap/events/{eventId}"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/EventId" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/RoadmapEventUpdateRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Roadmap event updated",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/RoadmapEventMutationResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+        delete: {
+          ...buildOperationMetadata(
+            "DELETE",
+            "/api/projects/{projectId}/roadmap/events/{eventId}"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/EventId" },
+          ],
+          responses: {
+            200: {
+              description: "Roadmap event deleted",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/RoadmapEventDeleteResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/roadmap/phases/reorder": {
+        post: {
+          ...buildOperationMetadata(
+            "POST",
+            "/api/projects/{projectId}/roadmap/phases/reorder"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/RoadmapPhaseReorderRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Roadmap phase ordering persisted",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/OkResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/roadmap/events/reorder": {
+        post: {
+          ...buildOperationMetadata(
+            "POST",
+            "/api/projects/{projectId}/roadmap/events/reorder"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/RoadmapEventReorderRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Roadmap event ordering persisted",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/OkResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/roadmap/events/move": {
+        post: {
+          ...buildOperationMetadata("POST", "/api/projects/{projectId}/roadmap/events/move"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/RoadmapEventMoveRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Roadmap event moved",
               content: {
                 "application/json": {
                   schema: {

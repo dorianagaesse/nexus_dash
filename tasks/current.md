@@ -1,122 +1,106 @@
-# Current Task: TASK-263 Real-Time Notification Updates
+# Current Task: TASK-224 Agent Roadmap Access
 
 ## Task ID
-TASK-263
+TASK-224
 
 ## Status
-Implemented and locally validated on `feature/task-263-live-notification-updates`.
-Ready PR #320 is open, checks are green, and the PR is intentionally left
-unmerged for maintainer review.
+Implemented locally on `feature/task-224-agent-roadmap-access`; PR workflow pending.
 
 ## Source
 - Execution queue task promoted on 2026-05-31.
-- User feedback after multi-account testing: invitation recipients still needed
-  a page reload to see new invitations/notifications.
-- Existing realtime foundation: TASK-309 project activity SSE transport and
-  TASK-311 typed project event reconciliation.
+- Agent access v1 currently supports project/task/context APIs, while roadmap
+  APIs remain human-session-only.
+- Roadmap v2 is now a core dashboard planning surface, so project planning
+  agents need explicit scoped access instead of borrowing task scopes.
 
 ## Objective
-Make in-app notifications feel live across authenticated sessions. Newly
-created or updated `Notification` rows should update the account menu unread
-indicator, notification awareness banner, and notification center list without
-requiring navigation or manual refresh.
+Expand the project-scoped agent API contract so trusted agents can inspect and
+manage project roadmap phases and events through dedicated roadmap scopes.
 
 ## Why This Matters
-Invitations, assignments, mentions, and future notification producers are
-collaboration signals. If recipients must reload to discover them, the product
-does not meet the standard set by modern collaborative tools.
+NexusDash agents are meant to participate in planning work, not only task
+execution. Roadmap access must be explicit, least-privilege, auditable, and
+documented so owners can grant planning capability without accidentally granting
+task or context privileges.
 
 ## Current Behavior
-- `TopRightControls` server-renders the unread count once by calling
-  `countUnreadNotificationsForUser`.
-- `NotificationAwarenessBanner` server-renders the latest unread title once.
-- `/account/notifications` server-renders the inbox by calling
-  `listNotificationsForUser`.
-- Notification read actions refresh through server actions or API writes, but
-  other open tabs/sessions do not update until navigation or reload.
-- Project invitation notification rows are reconciled lazily during notification
-  service reads, so live checks must keep that reconciliation path.
+- `ApiCredentialScope` supports project, task, and context scopes only.
+- Agent token exchange validates and serializes only the current scope set.
+- Roadmap API routes call `requireAuthenticatedApiUser`, which rejects bearer
+  tokens and only accepts human sessions.
+- `project-roadmap-service` enforces human project roles through
+  `requireProjectRole`, with no `agentAccess` path.
+- Hosted agent docs and OpenAPI omit roadmap endpoints.
 
 ## Architecture Direction
-- Reuse the existing SSE-first realtime pattern from project activity rather
-  than introducing WebSockets or a second realtime provider.
-- Scope the stream to the authenticated account, not to a project.
-- Keep `Notification` as the source of truth. The realtime stream publishes a
-  compact recipient snapshot: version, unread count, and latest unread title.
-- Mount a single authenticated client stream in the app chrome, then let account
-  menu, awareness banner, and notification-center clients subscribe to that
-  browser event/state.
-- Let the notification center refetch its full list via
-  `/api/account/notifications` when the snapshot version changes.
-- Preserve email digest batching exactly as-is; realtime only changes in-app
-  freshness.
+- Add dedicated roadmap scopes:
+  - `roadmap:read` for roadmap phase/event listing.
+  - `roadmap:write` for phase/event create, update, reorder, and move.
+  - `roadmap:delete` for phase/event deletion.
+- Keep project-scoped bearer tokens as the authentication mechanism; no new
+  token type or unscoped agent surface.
+- Reuse the existing route pattern from task/context APIs:
+  `requireApiPrincipal`, `getAgentProjectAccessContext`, and
+  `requireAgentProjectScopes`.
+- Thread optional `agentAccess` into roadmap services so services continue to
+  enforce authorization, not only route adapters.
+- Keep roadmap mutations integrated with project activity version headers so
+  dashboards continue to reconcile changes.
+- Update credential UI, token exchange, onboarding copy, and OpenAPI in the
+  same PR so the contract is discoverable and testable.
 
 ## Scope
-- Add notification snapshot service support with durable version semantics.
-- Add authenticated account notification snapshot and SSE stream API routes.
-- Add a client live-notification source that prefers `EventSource` and falls
-  back to adaptive polling.
-- Update the account menu unread indicator from live snapshots.
-- Replace the server-only awareness banner with a live client banner that can
-  appear/disappear as unread state changes.
-- Update the notification center list so it can refresh rows in place when the
-  live snapshot changes.
-- Cover service, route, and component behavior with tests.
+- Add roadmap scope values to schema, runtime scope definitions, DB mapping,
+  token validation, and credential UI.
+- Add a Prisma migration for the `ApiCredentialScope` enum expansion.
+- Convert roadmap API routes to accept human or agent principals.
+- Enforce roadmap scopes in routes and roadmap services.
+- Update hosted agent docs/OpenAPI with roadmap endpoints and schemas.
+- Add route, service, token, and docs tests for roadmap scopes and bearer-token
+  access.
+- Mark TASK-263 complete now that PR #320 is merged.
 
 ## Out Of Scope
-- Managed realtime provider provisioning.
-- Email digest timing/grouping changes.
-- Push/browser notifications, presence, or mobile OS notification delivery.
-- Changing notification producers beyond preserving their current row writes.
+- Calendar agent access.
+- Attachment binary parity beyond already-supported task/context routes.
+- A separate managed realtime or MCP transport for agents.
+- Changing human roadmap UI behavior beyond preserving existing responses and
+  activity-version headers.
 
 ## Acceptance Criteria
-1. A user with an open authenticated app session sees unread notification count
-   changes without navigation when a notification row is created, read, unread,
-   or resolved.
-2. The in-app awareness banner appears for the latest unread notification and
-   disappears when no unread unresolved notification remains.
-3. `/account/notifications` updates its list in place when notification state
-   changes in another tab/session.
-4. Project invitation recipients can see newly received invitations through the
-   live notification path without reloading.
-5. The implementation reuses the app's SSE-first realtime pattern and keeps a
-   polling fallback.
-6. Email notification digest batching remains separate and unchanged.
+1. Owners can create project agent credentials with `roadmap:read`,
+   `roadmap:write`, and `roadmap:delete` scopes.
+2. Agent bearer tokens preserve and validate the new roadmap scopes.
+3. Agents with `roadmap:read` can list roadmap phases/events for their project.
+4. Agents with `roadmap:write` can create/update phases and events, reorder
+   phases/events, and move events.
+5. Agents with `roadmap:delete` can delete phases/events; delete is not implied
+   by read or write.
+6. Agents without the required roadmap scope receive `403`, and agents scoped to
+   another project receive `404`.
+7. Human session behavior and existing roadmap UI/API responses remain
+   compatible.
+8. Hosted docs/OpenAPI advertise the roadmap contract and required scopes.
 
 ## Definition Of Done
-- [x] Notification snapshot service, API route, and SSE stream are implemented.
-- [x] Account menu, awareness banner, and notification center consume live
-      notification snapshots.
-- [x] Tests cover service snapshots, stream formatting/auth failure, polling
-      fallback, count/banner/list updates, and notification-center refetch.
-- [x] `npm run lint`, `npm test`, `npm run test:coverage`, `npm run build`, and
-      `npm run test:e2e` pass.
-- [x] `tasks/backlog.md`, `tasks/current.md`, `journal.md`, `project.md`, and
-      ADR docs are updated.
-- [x] A ready PR is opened and Copilot feedback is handled.
-- [x] The PR is left unmerged for maintainer review.
+- [x] Schema and migration include roadmap credential scopes.
+- [x] Runtime scope definitions, credential UI, token exchange, and audit
+      summaries handle the new scopes.
+- [x] Roadmap routes and services enforce agent project/scope access.
+- [x] Agent onboarding docs/OpenAPI include roadmap endpoints and examples.
+- [x] Focused tests cover roadmap bearer access and scope denial.
+- [x] `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`
+      pass.
+- [ ] A ready PR is opened and Copilot feedback is handled.
 
 ## Validation Evidence
-- Focused `npm test -- --run tests/lib/notification-service.test.ts
-  tests/api/account-notifications.route.test.ts
-  tests/components/notification-live-updates.test.tsx
-  tests/components/notification-center-list.test.ts
-  tests/components/notification-awareness-banner.test.tsx
-  tests/components/account-menu.test.ts
-  tests/components/account-notifications-link.test.tsx` passed 7 files / 42
-  tests.
+- `npx prisma generate` passed through `npm ci` postinstall.
+- Focused Vitest passed: 8 files / 40 tests.
 - `npm run lint` passed.
-- Local PostgreSQL env `npm test` passed: 118 files passed, 2 skipped; 880
-  tests passed, 2 skipped.
-- Local PostgreSQL env `npm run test:coverage` passed with 91.37% statements,
-  81.33% branches, 92.2% functions, and 91.88% lines.
-- Local-safe production env `npm run build` passed.
-- Local-safe production env `npm run test:e2e` passed 8/8 Playwright specs
-  after replacing the projects helper `networkidle` wait with UI-ready
-  assertions because account-level SSE keeps a persistent connection open.
-- PR #320 checks passed: `check-name`, `Quality Core (lint, test, coverage,
-  build)`, `E2E Smoke (Playwright)`, and `Container Image (build + metadata
-  artifact)`.
-- Copilot review comments were addressed by adding no-store error headers to
-  the summary route, request-scoped cached server snapshot reads, and `Link`
-  navigation in the awareness banner.
+- `npm test` passed with local validation env: 119 files passed, 2 skipped;
+  889 tests passed, 2 skipped.
+- `npm run test:coverage` passed with local validation env: 91.37%
+  statements, 81.33% branches.
+- `npm run build` passed with local validation env.
+- `npm run db:migrate` passed against fresh local PostgreSQL on host port
+  5433, applying the new enum migration successfully.

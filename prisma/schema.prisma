@@ -580,6 +580,9 @@ enum ApiCredentialScope {
   context_read
   context_write
   context_delete
+  roadmap_read
+  roadmap_write
+  roadmap_delete
 }
 
 enum AuthAuditActorKind {

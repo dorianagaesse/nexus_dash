@@ -395,7 +395,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
               <p>
                 Send <code>Authorization: ApiKey &lt;key&gt;</code> to{" "}
                 <code>/api/auth/agent/token</code>, then use the returned bearer token on project,
-                task, and context endpoints allowed by this credential&apos;s scopes.
+                roadmap, task, and context endpoints allowed by this credential&apos;s scopes.
               </p>
             </div>
           </section>
@@ -538,8 +538,8 @@ export function ProjectDashboardOwnerAgentAccessPanel({
               then send the returned bearer token to the scoped project routes.
             </p>
             <p>
-              This project ships agent-ready support for project read, task routes,
-              context-card routes, and documented attachment upload/download flows.
+              This project ships agent-ready support for project read, roadmap routes, task
+              routes, context-card routes, and documented attachment upload/download flows.
             </p>
           </div>
         </section>

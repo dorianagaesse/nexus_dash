@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const apiGuardMock = vi.hoisted(() => ({
-  requireAuthenticatedApiUser: vi.fn(),
+  getAgentProjectAccessContext: vi.fn(),
+  requireApiPrincipal: vi.fn(),
 }));
 
 const roadmapServiceMock = vi.hoisted(() => ({
@@ -20,8 +21,40 @@ const roadmapServiceMock = vi.hoisted(() => ({
   isValidRoadmapEventMovePayload: vi.fn(),
 }));
 
+const projectAccessServiceMock = vi.hoisted(() => ({
+  requireAgentProjectScopes: vi.fn(
+    (input: {
+      agentAccess?: { projectId: string; scopes: string[] };
+      projectId: string;
+      requiredScopes: string[];
+    }) => {
+      if (!input.agentAccess) {
+        return { ok: true };
+      }
+
+      if (input.agentAccess.projectId !== input.projectId) {
+        return { ok: false, status: 404, error: "project-not-found" };
+      }
+
+      const hasRequiredScopes = input.requiredScopes.every((scope) =>
+        input.agentAccess?.scopes.includes(scope)
+      );
+      if (!hasRequiredScopes) {
+        return { ok: false, status: 403, error: "forbidden" };
+      }
+
+      return { ok: true };
+    }
+  ),
+}));
+
 vi.mock("@/lib/auth/api-guard", () => ({
-  requireAuthenticatedApiUser: apiGuardMock.requireAuthenticatedApiUser,
+  getAgentProjectAccessContext: apiGuardMock.getAgentProjectAccessContext,
+  requireApiPrincipal: apiGuardMock.requireApiPrincipal,
+}));
+
+vi.mock("@/lib/services/project-access-service", () => ({
+  requireAgentProjectScopes: projectAccessServiceMock.requireAgentProjectScopes,
 }));
 
 vi.mock("@/lib/services/project-roadmap-service", () => ({
@@ -76,13 +109,41 @@ function eventParams(projectId: string, eventId: string) {
 describe("project roadmap routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    apiGuardMock.requireAuthenticatedApiUser.mockResolvedValue({
+    apiGuardMock.requireApiPrincipal.mockResolvedValue({
       ok: true,
-      userId: "user-1",
+      principal: {
+        kind: "human",
+        actorUserId: "user-1",
+        requestId: "request-1",
+      },
     });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValue(undefined);
     roadmapServiceMock.isValidRoadmapPhaseReorderPayload.mockReturnValue(true);
+    roadmapServiceMock.isValidRoadmapEventReorderPayload.mockReturnValue(true);
     roadmapServiceMock.isValidRoadmapEventMovePayload.mockReturnValue(true);
   });
+
+  function mockAgentAccess(scopes: string[] = ["roadmap:read", "roadmap:write", "roadmap:delete"]) {
+    const agentAccess = {
+      projectId: "p1",
+      credentialId: "credential-1",
+      credentialLabel: "Build bot",
+      ownerUserId: "owner-1",
+      scopes,
+    };
+
+    apiGuardMock.requireApiPrincipal.mockResolvedValueOnce({
+      ok: true,
+      principal: {
+        kind: "agent",
+        actorUserId: "owner-1",
+        requestId: "request-agent-1",
+      },
+    });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValueOnce(agentAccess);
+
+    return agentAccess;
+  }
 
   test("GET /api/projects/:projectId/roadmap returns serialized phases", async () => {
     roadmapServiceMock.listProjectRoadmapPhases.mockResolvedValueOnce([
@@ -120,7 +181,59 @@ describe("project roadmap routes", () => {
         },
       ],
     });
-    expect(roadmapServiceMock.listProjectRoadmapPhases).toHaveBeenCalledWith("p1", "user-1");
+    expect(roadmapServiceMock.listProjectRoadmapPhases).toHaveBeenCalledWith(
+      "p1",
+      "user-1",
+      undefined
+    );
+  });
+
+  test("GET /api/projects/:projectId/roadmap passes scoped agent access", async () => {
+    const agentAccess = mockAgentAccess(["roadmap:read"]);
+    roadmapServiceMock.listProjectRoadmapPhases.mockResolvedValueOnce([]);
+
+    const response = await getRoadmap(
+      new Request("http://localhost/api/projects/p1/roadmap") as never,
+      projectParams("p1")
+    );
+
+    expect(response.status).toBe(200);
+    expect(roadmapServiceMock.listProjectRoadmapPhases).toHaveBeenCalledWith(
+      "p1",
+      "owner-1",
+      agentAccess
+    );
+  });
+
+  test("GET /api/projects/:projectId/roadmap rejects agents without roadmap read", async () => {
+    mockAgentAccess(["roadmap:write"]);
+
+    const response = await getRoadmap(
+      new Request("http://localhost/api/projects/p1/roadmap") as never,
+      projectParams("p1")
+    );
+
+    expect(response.status).toBe(403);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "forbidden",
+    });
+    expect(roadmapServiceMock.listProjectRoadmapPhases).not.toHaveBeenCalled();
+  });
+
+  test("GET /api/projects/:projectId/roadmap rejects cross-project agent access", async () => {
+    const agentAccess = mockAgentAccess(["roadmap:read"]);
+    agentAccess.projectId = "other-project";
+
+    const response = await getRoadmap(
+      new Request("http://localhost/api/projects/p1/roadmap") as never,
+      projectParams("p1")
+    );
+
+    expect(response.status).toBe(404);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "project-not-found",
+    });
+    expect(roadmapServiceMock.listProjectRoadmapPhases).not.toHaveBeenCalled();
   });
 
   test("POST /api/projects/:projectId/roadmap returns 400 for invalid json", async () => {
@@ -190,6 +303,47 @@ describe("project roadmap routes", () => {
     });
   });
 
+  test("POST /api/projects/:projectId/roadmap passes roadmap write agent access", async () => {
+    const agentAccess = mockAgentAccess(["roadmap:write"]);
+    roadmapServiceMock.createProjectRoadmapPhase.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        phase: {
+          id: "phase-agent",
+          title: "Agent phase",
+          description: null,
+          targetDate: null,
+          status: "planned",
+          position: 0,
+          createdAt: "2026-04-23T08:00:00.000Z",
+          updatedAt: "2026-04-23T08:00:00.000Z",
+          events: [],
+        },
+      },
+    });
+
+    const response = await createRoadmapPhase(
+      new Request("http://localhost/api/projects/p1/roadmap", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ title: "Agent phase" }),
+      }) as never,
+      projectParams("p1")
+    );
+
+    expect(response.status).toBe(201);
+    expect(roadmapServiceMock.createProjectRoadmapPhase).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId: "owner-1",
+        projectId: "p1",
+        agentAccess,
+        title: "Agent phase",
+      })
+    );
+  });
+
   test("PATCH /api/projects/:projectId/roadmap/phases/:phaseId rejects invalid field types", async () => {
     const response = await updateRoadmapPhase(
       new Request("http://localhost/api/projects/p1/roadmap/phases/phase-1", {
@@ -228,6 +382,29 @@ describe("project roadmap routes", () => {
 
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toEqual({ ok: true });
+    expect(roadmapServiceMock.deleteProjectRoadmapPhase).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+      projectId: "p1",
+      phaseId: "phase-1",
+      agentAccess: undefined,
+    });
+  });
+
+  test("DELETE /api/projects/:projectId/roadmap/phases/:phaseId requires roadmap delete for agents", async () => {
+    mockAgentAccess(["roadmap:write"]);
+
+    const response = await deleteRoadmapPhase(
+      new Request("http://localhost/api/projects/p1/roadmap/phases/phase-1", {
+        method: "DELETE",
+      }) as never,
+      phaseParams("p1", "phase-1")
+    );
+
+    expect(response.status).toBe(403);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "forbidden",
+    });
+    expect(roadmapServiceMock.deleteProjectRoadmapPhase).not.toHaveBeenCalled();
   });
 
   test("POST /api/projects/:projectId/roadmap/phases/:phaseId/events creates an event", async () => {
@@ -392,6 +569,7 @@ describe("project roadmap routes", () => {
     expect(roadmapServiceMock.reorderProjectRoadmapPhases).toHaveBeenCalledWith({
       actorUserId: "user-1",
       projectId: "p1",
+      agentAccess: undefined,
       phaseIds: ["phase-2", "phase-1"],
     });
   });
@@ -424,6 +602,7 @@ describe("project roadmap routes", () => {
     expect(roadmapServiceMock.reorderProjectRoadmapEvents).toHaveBeenCalledWith({
       actorUserId: "user-1",
       projectId: "p1",
+      agentAccess: undefined,
       phaseId: "phase-1",
       eventIds: ["event-2", "event-1"],
     });
@@ -457,6 +636,7 @@ describe("project roadmap routes", () => {
     expect(roadmapServiceMock.moveProjectRoadmapEvent).toHaveBeenCalledWith({
       actorUserId: "user-1",
       projectId: "p1",
+      agentAccess: undefined,
       eventId: "event-1",
       targetPhaseId: "phase-2",
       targetIndex: 1,

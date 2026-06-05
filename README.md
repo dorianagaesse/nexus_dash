@@ -98,7 +98,7 @@ Open `http://localhost:3000`.
 - Logout endpoint: `POST /api/auth/logout`.
 - Agent access is project-scoped and owner-managed from the project settings surface.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
-- Agent v1 is limited to project/task/context APIs and does not include calendar or binary attachment parity.
+- Agent v1 is limited to project/roadmap/task/context APIs and does not include calendar access.
 
 ## Database and Migrations
 

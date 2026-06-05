@@ -1,6 +1,6 @@
 # NexusDash Project Blueprint (Current State)
 
-Last verified: 2026-06-04
+Last verified: 2026-06-06
 
 ## 1. Vision
 
@@ -43,7 +43,7 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
 - Project-scoped agent access:
   - owner-managed API credentials in project settings
   - one-time raw API key reveal with rotate/revoke lifecycle
-  - short-lived bearer token exchange for supported project/task/context APIs
+  - short-lived bearer token exchange for supported project/roadmap/task/context APIs
   - audit trail for credential lifecycle and request use
   - hosted agent onboarding at `/docs/agent/v1` with account-level developer entry and OpenAPI JSON contract
 - Attachment system for tasks and context cards:
@@ -110,7 +110,7 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 ## 6. Known Gaps (Intentionally Pending)
 
-- Agent v1 intentionally excludes calendar access, binary attachment upload/download parity, and MCP-based tool transport.
+- Agent v1 intentionally excludes calendar access and MCP-based tool transport.
 - App-managed invite email delivery is not implemented yet.
 - Broader security hardening and verification phases remain pending.
 
@@ -118,8 +118,7 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 From `tasks/current.md` + `tasks/backlog.md`:
 
-1. TASK-263: real-time notification updates for inbox/count awareness
-2. TASK-224: agent roadmap access for scoped roadmap phase/event APIs
+1. TASK-224: agent roadmap access for scoped roadmap phase/event APIs
 
 ## 8. Source-of-Truth Docs
 

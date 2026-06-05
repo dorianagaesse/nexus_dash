@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
+import {
+  getAgentProjectAccessContext,
+  requireApiPrincipal,
+} from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 import {
   deleteProjectRoadmapPhase,
   updateProjectRoadmapPhase,
@@ -23,9 +27,22 @@ export async function PATCH(
   props: { params: Promise<{ projectId: string; phaseId: string }> }
 ) {
   const params = await props.params;
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
-  if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+  const principalResult = await requireApiPrincipal(request);
+  if (!principalResult.ok) {
+    return principalResult.response;
+  }
+
+  const agentAccess = getAgentProjectAccessContext(principalResult.principal);
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess,
+    projectId: params.projectId,
+    requiredScopes: ["roadmap:write"],
+  });
+  if (!agentScopeAccess.ok) {
+    return NextResponse.json(
+      { error: agentScopeAccess.error },
+      { status: agentScopeAccess.status }
+    );
   }
 
   let payload: RoadmapPhaseRequestBody;
@@ -66,9 +83,10 @@ export async function PATCH(
   }
 
   const result = await updateProjectRoadmapPhase({
-    actorUserId: authenticatedUser.userId,
+    actorUserId: principalResult.principal.actorUserId,
     projectId: params.projectId,
     phaseId: params.phaseId,
+    agentAccess,
     ...(hasOwn(payload, "title") ? { title: payload.title as string } : {}),
     ...(hasOwn(payload, "description")
       ? { description: (payload.description ?? null) as string | null }
@@ -95,15 +113,29 @@ export async function DELETE(
   props: { params: Promise<{ projectId: string; phaseId: string }> }
 ) {
   const params = await props.params;
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
-  if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+  const principalResult = await requireApiPrincipal(request);
+  if (!principalResult.ok) {
+    return principalResult.response;
+  }
+
+  const agentAccess = getAgentProjectAccessContext(principalResult.principal);
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess,
+    projectId: params.projectId,
+    requiredScopes: ["roadmap:delete"],
+  });
+  if (!agentScopeAccess.ok) {
+    return NextResponse.json(
+      { error: agentScopeAccess.error },
+      { status: agentScopeAccess.status }
+    );
   }
 
   const result = await deleteProjectRoadmapPhase({
-    actorUserId: authenticatedUser.userId,
+    actorUserId: principalResult.principal.actorUserId,
     projectId: params.projectId,
     phaseId: params.phaseId,
+    agentAccess,
   });
 
   if (!result.ok) {

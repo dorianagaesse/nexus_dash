@@ -8,14 +8,9 @@ Last reviewed: 2026-05-31
 ### Execution Queue (Now / Next)
 - ID: TASK-224
   Title: Agent roadmap access - scoped API contract for roadmap phases and events
-  Status: Promoted 2026-05-31
+  Status: In progress on `feature/task-224-agent-roadmap-access`
   Rationale: Make the project roadmap manageable by project-scoped agent tokens so agents can inspect, create, update, move, reorder, and delete roadmap phases/events when they are responsible for project planning. This should be a deliberate agent API contract expansion with dedicated roadmap scopes, OpenAPI/onboarding documentation, credential UI updates, route guard coverage, and smoke tests rather than implicitly folding roadmap permissions into existing project or task scopes.
   Dependencies: TASK-127, TASK-130, TASK-059
-- ID: TASK-263
-  Title: Real-time notification updates - live in-app inbox, counts, and awareness
-  Status: Implemented and locally validated on `feature/task-263-live-notification-updates`; PR #320 open for maintainer review
-  Rationale: Make notification-center rows, unread counts, and the in-app awareness banner update without requiring navigation or manual refresh when assignments, mentions, project invitations, or future notification producers create new atomic `Notification` rows. Invitation recipients should see newly received invites and notification count/banner changes while already on the app, without needing a page reload. Keep email digest batching fully separate: in-app remains one notification per action/artifact, while email remains the grouped/debounced channel. This task should reuse or align with the broader TASK-118 realtime transport decision rather than introduce a parallel realtime stack.
-  Dependencies: TASK-118, TASK-123, TASK-260
 ### Deferred (Intentional)
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
@@ -117,6 +112,11 @@ Last reviewed: 2026-05-31
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-263
+  Title: Real-time notification updates - live in-app inbox, counts, and awareness
+  Status: Done (2026-06-06, merged via PR #320)
+  Rationale: Added account-scoped live notification snapshots with SSE-first transport and polling fallback so notification-center rows, unread counts, and awareness banners update without navigation. The implementation keeps in-app notifications atomic, preserves grouped/debounced email delivery, and updates route/component/service/docs coverage.
+  Dependencies: TASK-118, TASK-123, TASK-260
 - ID: TASK-312
   Title: Hidden project refresh reconciliation - remove user-facing refresh prompt
   Status: Done (2026-06-04, merged via PR #319)

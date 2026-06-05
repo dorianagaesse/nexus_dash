@@ -101,6 +101,9 @@ const AGENT_SCOPE_TO_DB_SCOPE: Record<AgentScope, ApiCredentialScope> = {
   "context:read": ApiCredentialScope.context_read,
   "context:write": ApiCredentialScope.context_write,
   "context:delete": ApiCredentialScope.context_delete,
+  "roadmap:read": ApiCredentialScope.roadmap_read,
+  "roadmap:write": ApiCredentialScope.roadmap_write,
+  "roadmap:delete": ApiCredentialScope.roadmap_delete,
 };
 
 const DB_SCOPE_TO_AGENT_SCOPE: Record<ApiCredentialScope, AgentScope> = {
@@ -111,6 +114,9 @@ const DB_SCOPE_TO_AGENT_SCOPE: Record<ApiCredentialScope, AgentScope> = {
   [ApiCredentialScope.context_read]: "context:read",
   [ApiCredentialScope.context_write]: "context:write",
   [ApiCredentialScope.context_delete]: "context:delete",
+  [ApiCredentialScope.roadmap_read]: "roadmap:read",
+  [ApiCredentialScope.roadmap_write]: "roadmap:write",
+  [ApiCredentialScope.roadmap_delete]: "roadmap:delete",
 };
 
 function createError(status: number, error: string): ServiceError {

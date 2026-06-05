@@ -7,7 +7,11 @@ import {
   type RoadmapStatus,
 } from "@/lib/roadmap-milestone";
 import { touchProjectActivity } from "@/lib/services/project-activity-service";
-import { requireProjectRole } from "@/lib/services/project-access-service";
+import {
+  type AgentProjectAccessContext,
+  requireAgentProjectScopes,
+  requireProjectRole,
+} from "@/lib/services/project-access-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 import { parseTaskDeadlineDate } from "@/lib/task-deadline";
 
@@ -31,6 +35,7 @@ type ServiceResult<T> = ServiceSuccessResult<T> | ServiceErrorResult;
 interface CreateRoadmapPhaseInput {
   actorUserId: string;
   projectId: string;
+  agentAccess?: AgentProjectAccessContext;
   title: string;
   description?: string | null;
   targetDate?: string | null;
@@ -40,6 +45,7 @@ interface CreateRoadmapPhaseInput {
 interface UpdateRoadmapPhaseInput {
   actorUserId: string;
   projectId: string;
+  agentAccess?: AgentProjectAccessContext;
   phaseId: string;
   title?: string;
   description?: string | null;
@@ -50,6 +56,7 @@ interface UpdateRoadmapPhaseInput {
 interface CreateRoadmapEventInput {
   actorUserId: string;
   projectId: string;
+  agentAccess?: AgentProjectAccessContext;
   phaseId: string;
   title: string;
   description?: string | null;
@@ -60,6 +67,7 @@ interface CreateRoadmapEventInput {
 interface UpdateRoadmapEventInput {
   actorUserId: string;
   projectId: string;
+  agentAccess?: AgentProjectAccessContext;
   eventId: string;
   title?: string;
   description?: string | null;
@@ -70,12 +78,14 @@ interface UpdateRoadmapEventInput {
 interface ReorderRoadmapPhasesInput {
   actorUserId: string;
   projectId: string;
+  agentAccess?: AgentProjectAccessContext;
   phaseIds: string[];
 }
 
 interface ReorderRoadmapEventsInput {
   actorUserId: string;
   projectId: string;
+  agentAccess?: AgentProjectAccessContext;
   phaseId: string;
   eventIds: string[];
 }
@@ -83,6 +93,7 @@ interface ReorderRoadmapEventsInput {
 interface MoveRoadmapEventInput {
   actorUserId: string;
   projectId: string;
+  agentAccess?: AgentProjectAccessContext;
   eventId: string;
   targetPhaseId: string;
   targetIndex: number;
@@ -334,15 +345,34 @@ async function readRoadmapEventById(input: {
   return event ? mapRoadmapEvent(event) : null;
 }
 
-async function requireRoadmapEditor(input: {
+async function requireRoadmapAccess(input: {
   actorUserId: string;
   projectId: string;
   db: DbClient;
+  agentAccess?: AgentProjectAccessContext;
+  minimumRole: "viewer" | "editor";
+  requiredAgentScopes: ["roadmap:read"] | ["roadmap:write"] | ["roadmap:delete"];
 }): Promise<ServiceResult<{ ok: true }>> {
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: input.requiredAgentScopes,
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
+  }
+
+  if (input.agentAccess) {
+    return {
+      ok: true,
+      data: { ok: true },
+    };
+  }
+
   const access = await requireProjectRole({
     actorUserId: input.actorUserId,
     projectId: input.projectId,
-    minimumRole: "editor",
+    minimumRole: input.minimumRole,
     db: input.db,
   });
 
@@ -489,7 +519,8 @@ export function isValidRoadmapEventMovePayload(
 
 export async function listProjectRoadmapPhases(
   projectId: string,
-  actorUserId: string
+  actorUserId: string,
+  agentAccess?: AgentProjectAccessContext
 ): Promise<ProjectRoadmapPhase[]> {
   const normalizedActorUserId = normalizeText(actorUserId);
   if (!normalizedActorUserId) {
@@ -497,11 +528,13 @@ export async function listProjectRoadmapPhases(
   }
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
-    const access = await requireProjectRole({
+    const access = await requireRoadmapAccess({
       actorUserId: normalizedActorUserId,
       projectId,
-      minimumRole: "viewer",
       db,
+      agentAccess,
+      minimumRole: "viewer",
+      requiredAgentScopes: ["roadmap:read"],
     });
     if (!access.ok) {
       return [];
@@ -546,10 +579,13 @@ export async function createProjectRoadmapPhase(
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
-    const editorCheck = await requireRoadmapEditor({
+    const editorCheck = await requireRoadmapAccess({
       actorUserId,
       projectId: input.projectId,
       db,
+      agentAccess: input.agentAccess,
+      minimumRole: "editor",
+      requiredAgentScopes: ["roadmap:write"],
     });
     if (!editorCheck.ok) {
       return editorCheck;
@@ -643,10 +679,13 @@ export async function updateProjectRoadmapPhase(
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
-    const editorCheck = await requireRoadmapEditor({
+    const editorCheck = await requireRoadmapAccess({
       actorUserId,
       projectId: input.projectId,
       db,
+      agentAccess: input.agentAccess,
+      minimumRole: "editor",
+      requiredAgentScopes: ["roadmap:write"],
     });
     if (!editorCheck.ok) {
       return editorCheck;
@@ -719,6 +758,7 @@ export async function updateProjectRoadmapPhase(
 export async function deleteProjectRoadmapPhase(input: {
   actorUserId: string;
   projectId: string;
+  agentAccess?: AgentProjectAccessContext;
   phaseId: string;
 }): Promise<ServiceResult<{ ok: true }>> {
   const actorUserId = normalizeText(input.actorUserId);
@@ -731,10 +771,13 @@ export async function deleteProjectRoadmapPhase(input: {
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
-    const editorCheck = await requireRoadmapEditor({
+    const editorCheck = await requireRoadmapAccess({
       actorUserId,
       projectId: input.projectId,
       db,
+      agentAccess: input.agentAccess,
+      minimumRole: "editor",
+      requiredAgentScopes: ["roadmap:delete"],
     });
     if (!editorCheck.ok) {
       return editorCheck;
@@ -810,10 +853,13 @@ export async function createProjectRoadmapEvent(
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
-    const editorCheck = await requireRoadmapEditor({
+    const editorCheck = await requireRoadmapAccess({
       actorUserId,
       projectId: input.projectId,
       db,
+      agentAccess: input.agentAccess,
+      minimumRole: "editor",
+      requiredAgentScopes: ["roadmap:write"],
     });
     if (!editorCheck.ok) {
       return editorCheck;
@@ -936,10 +982,13 @@ export async function updateProjectRoadmapEvent(
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
-    const editorCheck = await requireRoadmapEditor({
+    const editorCheck = await requireRoadmapAccess({
       actorUserId,
       projectId: input.projectId,
       db,
+      agentAccess: input.agentAccess,
+      minimumRole: "editor",
+      requiredAgentScopes: ["roadmap:write"],
     });
     if (!editorCheck.ok) {
       return editorCheck;
@@ -1019,6 +1068,7 @@ export async function updateProjectRoadmapEvent(
 export async function deleteProjectRoadmapEvent(input: {
   actorUserId: string;
   projectId: string;
+  agentAccess?: AgentProjectAccessContext;
   eventId: string;
 }): Promise<ServiceResult<{ ok: true; phaseId: string }>> {
   const actorUserId = normalizeText(input.actorUserId);
@@ -1031,10 +1081,13 @@ export async function deleteProjectRoadmapEvent(input: {
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
-    const editorCheck = await requireRoadmapEditor({
+    const editorCheck = await requireRoadmapAccess({
       actorUserId,
       projectId: input.projectId,
       db,
+      agentAccess: input.agentAccess,
+      minimumRole: "editor",
+      requiredAgentScopes: ["roadmap:delete"],
     });
     if (!editorCheck.ok) {
       return editorCheck;
@@ -1097,10 +1150,13 @@ export async function reorderProjectRoadmapPhases(
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
-    const editorCheck = await requireRoadmapEditor({
+    const editorCheck = await requireRoadmapAccess({
       actorUserId,
       projectId: input.projectId,
       db,
+      agentAccess: input.agentAccess,
+      minimumRole: "editor",
+      requiredAgentScopes: ["roadmap:write"],
     });
     if (!editorCheck.ok) {
       return editorCheck;
@@ -1164,10 +1220,13 @@ export async function reorderProjectRoadmapEvents(
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
-    const editorCheck = await requireRoadmapEditor({
+    const editorCheck = await requireRoadmapAccess({
       actorUserId,
       projectId: input.projectId,
       db,
+      agentAccess: input.agentAccess,
+      minimumRole: "editor",
+      requiredAgentScopes: ["roadmap:write"],
     });
     if (!editorCheck.ok) {
       return editorCheck;
@@ -1254,10 +1313,13 @@ export async function moveProjectRoadmapEvent(
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
-    const editorCheck = await requireRoadmapEditor({
+    const editorCheck = await requireRoadmapAccess({
       actorUserId,
       projectId: input.projectId,
       db,
+      agentAccess: input.agentAccess,
+      minimumRole: "editor",
+      requiredAgentScopes: ["roadmap:write"],
     });
     if (!editorCheck.ok) {
       return editorCheck;
