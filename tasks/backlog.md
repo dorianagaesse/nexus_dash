@@ -6,6 +6,11 @@ Last reviewed: 2026-05-31
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-313
+  Title: App version governance - semantic release increments and build metadata clarity
+  Status: Pending
+  Rationale: The app currently displays a stable `v0.2.0` because prior work made `package.json` the canonical product version, but the release process does not yet force intentional increments after meaningful shipped work. Define and implement an industry-standard versioning flow where product versions follow SemVer, production releases increment predictably, build/revision metadata remains distinct from the product version, and CI/release tooling prevents accidental stagnant versions.
+  Dependencies: TASK-087, TASK-132, TASK-272
 ### Deferred (Intentional)
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish

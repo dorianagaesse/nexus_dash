@@ -3,6 +3,18 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-06-06 - TASK-313 app version governance created
+
+- Summary: Created TASK-313 after reviewing the existing versioning history:
+  TASK-087 exposed the running version, TASK-272 defined a release-version
+  policy/helper, and TASK-132 made `package.json` the canonical product version
+  at `0.2.0`.
+- Decision: Treat the current stagnant `v0.2.0` as a release-governance gap.
+  The follow-up task should align NexusDash with SemVer-oriented product
+  releases, keep commit/build metadata separate from the product version, and
+  add automation/guards so production releases cannot silently ship forever
+  under the same version.
+
 # 2026-06-06 - TASK-224 agent roadmap access started
 
 - Summary: Started TASK-224 on
