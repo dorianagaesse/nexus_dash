@@ -1,19 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Bell, CircleUserRound, LogOut, Settings } from "lucide-react";
 
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { Button } from "@/components/ui/button";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
+import { useNotificationRealtimeSnapshot } from "@/lib/notification-realtime-client";
 
 interface AccountMenuProps {
   isAuthenticated: boolean;
   displayName: string | null;
   usernameTag: string | null;
   avatarSeed: string | null;
-  unreadNotificationCount: number;
+  initialUnreadNotificationCount: number;
 }
 
 export function AccountMenu({
@@ -21,10 +22,23 @@ export function AccountMenu({
   displayName,
   usernameTag,
   avatarSeed,
-  unreadNotificationCount,
+  initialUnreadNotificationCount,
 }: AccountMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useDismissibleMenu<HTMLDivElement>(isOpen, () => setIsOpen(false));
+  const initialNotificationSnapshot = useMemo(
+    () => ({
+      version: new Date(0).toISOString(),
+      unreadCount: initialUnreadNotificationCount,
+      latestUnreadNotification: null,
+      serverTime: new Date().toISOString(),
+    }),
+    [initialUnreadNotificationCount]
+  );
+  const notificationSnapshot = useNotificationRealtimeSnapshot(
+    initialNotificationSnapshot
+  );
+  const unreadNotificationCount = notificationSnapshot.unreadCount;
 
   if (!isAuthenticated) {
     return null;

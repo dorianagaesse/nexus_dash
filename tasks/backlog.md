@@ -13,7 +13,7 @@ Last reviewed: 2026-05-31
   Dependencies: TASK-127, TASK-130, TASK-059
 - ID: TASK-263
   Title: Real-time notification updates - live in-app inbox, counts, and awareness
-  Status: Promoted 2026-05-31
+  Status: Implemented and locally validated on `feature/task-263-live-notification-updates`; PR #320 open for maintainer review
   Rationale: Make notification-center rows, unread counts, and the in-app awareness banner update without requiring navigation or manual refresh when assignments, mentions, project invitations, or future notification producers create new atomic `Notification` rows. Invitation recipients should see newly received invites and notification count/banner changes while already on the app, without needing a page reload. Keep email digest batching fully separate: in-app remains one notification per action/artifact, while email remains the grouped/debounced channel. This task should reuse or align with the broader TASK-118 realtime transport decision rather than introduce a parallel realtime stack.
   Dependencies: TASK-118, TASK-123, TASK-260
 ### Deferred (Intentional)
@@ -119,7 +119,7 @@ Last reviewed: 2026-05-31
 ## Completed
 - ID: TASK-312
   Title: Hidden project refresh reconciliation - remove user-facing refresh prompt
-  Status: Done (2026-06-04, PR pending)
+  Status: Done (2026-06-04, merged via PR #319)
   Rationale: Removed the visible bottom-right project refresh prompt and manual refresh button while preserving hidden pending-version tracking and automatic refresh once active edit locks or hidden-tab constraints clear. This keeps realtime collaboration machinery out of the user's way.
   Dependencies: TASK-311, TASK-308
 - ID: TASK-311

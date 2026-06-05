@@ -6,6 +6,7 @@ const apiGuardMock = vi.hoisted(() => ({
 }));
 
 const notificationServiceMock = vi.hoisted(() => ({
+  getNotificationRealtimeSnapshotForUser: vi.fn(),
   listNotificationsForUser: vi.fn(),
   markAllNotificationsReadForUser: vi.fn(),
   setNotificationReadState: vi.fn(),
@@ -27,6 +28,8 @@ vi.mock("@/lib/observability/logger", () => ({
 }));
 
 vi.mock("@/lib/services/notification-service", () => ({
+  getNotificationRealtimeSnapshotForUser:
+    notificationServiceMock.getNotificationRealtimeSnapshotForUser,
   listNotificationsForUser: notificationServiceMock.listNotificationsForUser,
   markAllNotificationsReadForUser:
     notificationServiceMock.markAllNotificationsReadForUser,
@@ -44,6 +47,11 @@ import {
   PATCH as updateNotification,
 } from "@/app/api/account/notifications/route";
 import { POST as markAllRead } from "@/app/api/account/notifications/mark-all-read/route";
+import { GET as getNotificationSummary } from "@/app/api/account/notifications/summary/route";
+import {
+  GET as streamNotifications,
+  notificationStreamRouteInternals,
+} from "@/app/api/account/notifications/stream/route";
 import { GET as listInvitations } from "@/app/api/account/invitations/route";
 import { POST as respondToInvitation } from "@/app/api/account/invitations/[invitationId]/respond/route";
 
@@ -53,6 +61,17 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
 
 function invitationParams(invitationId: string) {
   return { params: Promise.resolve({ invitationId }) };
+}
+
+async function readFirstChunk(response: Response): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error("missing-response-body");
+  }
+
+  const { value } = await reader.read();
+  await reader.cancel();
+  return new TextDecoder().decode(value);
 }
 
 describe("account notification and invitation routes", () => {
@@ -198,6 +217,100 @@ describe("account notification and invitation routes", () => {
     expect(
       notificationServiceMock.markAllNotificationsReadForUser
     ).toHaveBeenCalledWith("user-1");
+  });
+
+  test("GET notification summary returns realtime snapshot data", async () => {
+    notificationServiceMock.getNotificationRealtimeSnapshotForUser.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      data: {
+        version: "2026-06-04T10:00:00.000Z",
+        unreadCount: 2,
+        latestUnreadNotification: { title: "Assigned: Ship realtime" },
+        serverTime: "2026-06-04T10:00:00.000Z",
+      },
+    });
+
+    const response = await getNotificationSummary(
+      new NextRequest("http://localhost/api/account/notifications/summary")
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    await expect(readJson(response)).resolves.toEqual({
+      version: "2026-06-04T10:00:00.000Z",
+      unreadCount: 2,
+      latestUnreadNotification: { title: "Assigned: Ship realtime" },
+      serverTime: "2026-06-04T10:00:00.000Z",
+    });
+    expect(
+      notificationServiceMock.getNotificationRealtimeSnapshotForUser
+    ).toHaveBeenCalledWith("user-1");
+  });
+
+  test("GET notification summary does not cache service errors", async () => {
+    notificationServiceMock.getNotificationRealtimeSnapshotForUser.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      error: "notification-snapshot-failed",
+    });
+
+    const response = await getNotificationSummary(
+      new NextRequest("http://localhost/api/account/notifications/summary")
+    );
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    await expect(readJson(response)).resolves.toEqual({
+      error: "notification-snapshot-failed",
+    });
+  });
+
+  test("notification stream emits the authorized realtime snapshot", async () => {
+    notificationServiceMock.getNotificationRealtimeSnapshotForUser.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      data: {
+        version: "2026-06-04T10:00:00.000Z",
+        unreadCount: 1,
+        latestUnreadNotification: { title: "Project invitation: Alpha" },
+        serverTime: "2026-06-04T10:00:00.000Z",
+      },
+    });
+
+    const response = await streamNotifications(
+      new NextRequest("http://localhost/api/account/notifications/stream")
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    expect(response.headers.get("cache-control")).toBe("no-store, no-transform");
+
+    const chunk = await readFirstChunk(response);
+    expect(chunk).toContain("retry: 2000");
+    expect(chunk).toContain("id: 2026-06-04T10:00:00.000Z");
+    expect(chunk).toContain("event: notification-snapshot");
+    expect(chunk).toContain('"unreadCount":1');
+    expect(chunk).toContain('"Project invitation: Alpha"');
+  });
+
+  test("notification stream reports changed snapshots", () => {
+    expect(
+      notificationStreamRouteInternals.isSnapshotChanged(
+        {
+          version: "2026-06-04T10:01:00.000Z",
+          unreadCount: 1,
+          latestUnreadNotification: { title: "A" },
+          serverTime: "2026-06-04T10:01:00.000Z",
+        },
+        {
+          version: "2026-06-04T10:00:00.000Z",
+          unreadCount: 1,
+          latestUnreadNotification: { title: "A" },
+          serverTime: "2026-06-04T10:00:00.000Z",
+        }
+      )
+    ).toBe(true);
   });
 
   test("GET invitations returns pending invitations", async () => {

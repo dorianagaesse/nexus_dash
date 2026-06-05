@@ -7,6 +7,8 @@ import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
+import { getInitialNotificationRealtimeSnapshotForUser } from "@/lib/notification-realtime-server";
+import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
 import { logServerError } from "@/lib/observability/logger";
 import {
   listNotificationsForUser,
@@ -74,14 +76,25 @@ export default async function AccountNotificationsPage({
   const error = readQueryValue(resolvedSearchParams?.error);
 
   let notifications: NotificationSummary[] = [];
+  let notificationSnapshot: NotificationRealtimeSnapshot = {
+    version: new Date(0).toISOString(),
+    unreadCount: 0,
+    latestUnreadNotification: null,
+    serverTime: new Date().toISOString(),
+  };
   let listError: string | null = null;
   try {
-    const result = await listNotificationsForUser(actorUserId);
-    if (result.ok) {
-      notifications = result.data.notifications;
+    const [listResult, snapshotResult] = await Promise.all([
+      listNotificationsForUser(actorUserId),
+      getInitialNotificationRealtimeSnapshotForUser(actorUserId),
+    ]);
+    if (listResult.ok) {
+      notifications = listResult.data.notifications;
     } else {
-      listError = result.error;
+      listError = listResult.error;
     }
+
+    notificationSnapshot = snapshotResult;
   } catch (loadError) {
     logServerError("AccountNotificationsPage.listNotificationsForUser", loadError);
     listError = "notifications-list-failed";
@@ -124,6 +137,7 @@ export default async function AccountNotificationsPage({
 
         <NotificationCenterList
           notifications={notifications}
+          initialSnapshot={notificationSnapshot}
           onMarkRead={markNotificationReadAction}
           onMarkUnread={markNotificationUnreadAction}
           onMarkAllRead={markAllNotificationsReadAction}

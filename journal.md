@@ -3,6 +3,56 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-06-04 - TASK-263 realtime notification updates started
+
+- Summary: Drafted the implementation brief for live in-app notification
+  updates after inspecting notification services, account menu count rendering,
+  awareness banner rendering, notification center list behavior, and the
+  existing project activity SSE transport.
+- Decision: Reuse the SSE-first realtime pattern for an authenticated
+  account-scoped notification snapshot stream. `Notification` remains the
+  source of truth; the stream publishes compact unread/version/latest-title
+  state and the notification center refetches full rows when that version
+  changes. Email digest batching remains separate.
+
+# 2026-06-04 - TASK-263 account notification realtime implemented
+
+- Summary: Implemented account-scoped live notification snapshots with SSE-first
+  transport and polling fallback. Account menu badges, account notification
+  links, awareness banners, and the notification center now consume live
+  snapshots; the notification center refetches full rows when the snapshot
+  version changes.
+- Evidence: Added `/api/account/notifications/summary` and
+  `/api/account/notifications/stream`, `NotificationLiveUpdates`, shared
+  notification realtime client state, and service snapshot support. Focused
+  notification tests passed 7 files / 41 tests. `npm run lint`, local
+  PostgreSQL env `npm test`, local PostgreSQL env `npm run test:coverage`,
+  local-safe `npm run build`, and local-safe `npm run test:e2e` passed. The
+  first E2E run exposed that `networkidle` waits are incompatible with the new
+  persistent account SSE connection; the projects helper now waits for visible
+  UI readiness instead.
+
+# 2026-06-04 - TASK-263 PR opened for maintainer review
+
+- Summary: Opened ready PR #320 from
+  `feature/task-263-live-notification-updates` and intentionally left it
+  unmerged for maintainer review.
+- Evidence: PR checks passed: `check-name`, `Quality Core (lint, test,
+  coverage, build)`, `E2E Smoke (Playwright)`, and `Container Image (build +
+  metadata artifact)`.
+
+# 2026-06-04 - TASK-263 Copilot review handled
+
+- Summary: Addressed all four Copilot comments by adding no-store headers to
+  summary-route error responses, introducing a request-scoped cached server
+  helper for initial notification snapshots, reusing that helper across chrome
+  and notification-aware pages/layouts, and restoring `Link` navigation in the
+  awareness banner.
+- Evidence: Focused notification tests passed 7 files / 42 tests. `npm run
+  lint`, local PostgreSQL env `npm test` (118 files passed, 2 skipped; 880 tests
+  passed, 2 skipped), local PostgreSQL env `npm run test:coverage`, and
+  local-safe `npm run test:e2e` passed 8/8 Playwright specs.
+
 # 2026-06-04 - TASK-312 hidden project refresh reconciliation
 
 - Summary: Removed the user-facing project refresh prompt/button while keeping
