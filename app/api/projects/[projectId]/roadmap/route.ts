@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
+import {
+  getAgentProjectAccessContext,
+  requireApiPrincipal,
+} from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 import {
   createProjectRoadmapPhase,
   listProjectRoadmapPhases,
@@ -19,12 +23,29 @@ export async function GET(
   props: { params: Promise<{ projectId: string }> }
 ) {
   const params = await props.params;
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
-  if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+  const principalResult = await requireApiPrincipal(request);
+  if (!principalResult.ok) {
+    return principalResult.response;
   }
 
-  const phases = await listProjectRoadmapPhases(params.projectId, authenticatedUser.userId);
+  const agentAccess = getAgentProjectAccessContext(principalResult.principal);
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess,
+    projectId: params.projectId,
+    requiredScopes: ["roadmap:read"],
+  });
+  if (!agentScopeAccess.ok) {
+    return NextResponse.json(
+      { error: agentScopeAccess.error },
+      { status: agentScopeAccess.status }
+    );
+  }
+
+  const phases = await listProjectRoadmapPhases(
+    params.projectId,
+    principalResult.principal.actorUserId,
+    agentAccess
+  );
 
   return NextResponse.json({
     phases,
@@ -36,9 +57,22 @@ export async function POST(
   props: { params: Promise<{ projectId: string }> }
 ) {
   const params = await props.params;
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
-  if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+  const principalResult = await requireApiPrincipal(request);
+  if (!principalResult.ok) {
+    return principalResult.response;
+  }
+
+  const agentAccess = getAgentProjectAccessContext(principalResult.principal);
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess,
+    projectId: params.projectId,
+    requiredScopes: ["roadmap:write"],
+  });
+  if (!agentScopeAccess.ok) {
+    return NextResponse.json(
+      { error: agentScopeAccess.error },
+      { status: agentScopeAccess.status }
+    );
   }
 
   let payload: RoadmapPhaseRequestBody;
@@ -52,8 +86,9 @@ export async function POST(
   }
 
   const result = await createProjectRoadmapPhase({
-    actorUserId: authenticatedUser.userId,
+    actorUserId: principalResult.principal.actorUserId,
     projectId: params.projectId,
+    agentAccess,
     title: typeof payload.title === "string" ? payload.title : "",
     description: typeof payload.description === "string" ? payload.description : null,
     targetDate: typeof payload.targetDate === "string" ? payload.targetDate : null,

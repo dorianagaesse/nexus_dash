@@ -22,6 +22,7 @@ import {
   buildAgentContextUpdateExample,
   buildAgentTokenExchangeExample,
   buildAgentProjectReadExample,
+  buildAgentRoadmapCreateExample,
   buildAgentSmokeTestExample,
   buildAgentTaskArchiveExample,
   buildAgentTaskCommentExample,
@@ -116,9 +117,9 @@ export function AgentOnboardingGuide({
               <CardTitle className="text-base">Call only the stable surface</CardTitle>
             </div>
             <CardDescription>
-              This v1 guide covers the supported agent routes only: project read, task routes,
-              context-card routes, and the documented attachment upload flow already validated in
-              preview-like environments.
+              This v1 guide covers the supported agent routes only: project read, epics,
+              roadmap phases and events, task routes, context-card routes, and the documented
+              attachment upload flow already validated in preview-like environments.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -165,7 +166,7 @@ export function AgentOnboardingGuide({
             </div>
             <CardDescription>
               Exchange once per runtime session, then send the bearer token on each project,
-              task, or context-card request.
+              roadmap, task, or context-card request.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -294,6 +295,7 @@ export function AgentOnboardingGuide({
           </CardHeader>
           <CardContent className="space-y-4">
             <CodeBlock value={buildAgentTaskCreateExample()} />
+            <CodeBlock value={buildAgentRoadmapCreateExample()} />
             <CodeBlock value={buildAgentContextCreateExample()} />
           </CardContent>
         </Card>

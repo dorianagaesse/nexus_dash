@@ -34,7 +34,7 @@ describe("agent-token-service", () => {
       credentialId: "credential-1",
       projectId: "project-1",
       ownerUserId: "owner-1",
-      scopes: ["task:read", "task:write"],
+      scopes: ["roadmap:read", "roadmap:write", "task:read", "task:write"],
     });
 
     const verifiedToken = verifyAgentAccessToken(issuedToken.accessToken);
@@ -47,7 +47,12 @@ describe("agent-token-service", () => {
     expect(verifiedToken.data.credentialId).toBe("credential-1");
     expect(verifiedToken.data.projectId).toBe("project-1");
     expect(verifiedToken.data.ownerUserId).toBe("owner-1");
-    expect(verifiedToken.data.scopes).toEqual(["task:read", "task:write"]);
+    expect(verifiedToken.data.scopes).toEqual([
+      "task:read",
+      "task:write",
+      "roadmap:read",
+      "roadmap:write",
+    ]);
     expect(verifiedToken.data.tokenId).toBe(issuedToken.tokenId);
     expect(Math.floor(verifiedToken.data.expiresAt.getTime() / 1000)).toBe(
       Math.floor(issuedToken.expiresAt.getTime() / 1000)

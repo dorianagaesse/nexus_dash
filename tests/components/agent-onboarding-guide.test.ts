@@ -20,6 +20,9 @@ describe("agent-onboarding-guide", () => {
     expect(result).toContain("Authentication flow");
     expect(result).toContain("Supported endpoints");
     expect(result).toContain("/api/projects/{projectId}/epics");
+    expect(result).toContain("/api/projects/{projectId}/roadmap");
+    expect(result).toContain("/api/projects/{projectId}/roadmap/events/move");
+    expect(result).toContain("roadmap:delete");
     expect(result).toContain("/api/projects/{projectId}/tasks");
     expect(result).toContain("/api/projects/{projectId}/tasks/{taskId}/comments");
     expect(result).toContain("application/json");
