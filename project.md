@@ -118,7 +118,7 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 From `tasks/current.md` + `tasks/backlog.md`:
 
-1. TASK-313: app version governance for semantic release increments and build metadata clarity
+1. No active implementation task selected after TASK-313 closes.
 
 ## 8. Source-of-Truth Docs
 

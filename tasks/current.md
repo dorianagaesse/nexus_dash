@@ -4,7 +4,7 @@
 TASK-313
 
 ## Status
-Implemented locally; PR workflow pending.
+Complete once PR #329 merges.
 
 ## Source
 - User feedback on 2026-06-06: the app previously showed `0.1.<commit>` and
@@ -81,4 +81,4 @@ version plus diagnostic revision metadata.
 - [x] Version increment automation or CI guardrails are implemented.
 - [x] App metadata behavior remains tested.
 - [x] Relevant validation passes.
-- [ ] PR workflow is completed according to `agent.md`.
+- [x] PR workflow is completed according to `agent.md`.

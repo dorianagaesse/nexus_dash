@@ -21,6 +21,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `npm run build` passed. Local full test initially exposed a stale generated
   Prisma Client missing roadmap enum values; `npx prisma generate` restored the
   expected local generated client before the green run.
+- PR: Opened PR #329, fixed Copilot's changelog-enforcement gap for
+  non-production-bound version bumps, resolved the review thread, and verified
+  GitHub checks passed: branch name, Quality Core, E2E Smoke, and Container
+  Image.
 
 # 2026-06-06 - TASK-313 app version governance created
 

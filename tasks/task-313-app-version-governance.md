@@ -1,7 +1,7 @@
 # TASK-313 App Version Governance
 
 ## Status
-Implemented locally; PR workflow pending.
+Complete once PR #329 merges.
 
 ## Source
 - User feedback on 2026-06-06: the app used to show `0.1.<commit>` and now
@@ -70,7 +70,7 @@ Create a durable versioning system where NexusDash:
 - [x] App metadata tests cover product version and build metadata behavior.
 - [x] `npm run release:version -- feature --dry-run` passes.
 - [x] `npm run lint`, relevant tests, and `npm run build` pass.
-- [ ] A PR is opened, Copilot feedback is handled, and the task is marked
+- [x] A PR is opened, Copilot feedback is handled, and the task is marked
       complete only after merge.
 
 ## Initial Implementation Notes
