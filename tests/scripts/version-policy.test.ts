@@ -182,4 +182,18 @@ describe("version policy guard", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("No production-bound version bump required");
   });
+
+  test("rejects docs branch version bumps without release notes", () => {
+    const cwd = createRepo();
+    repos.push(cwd);
+    git(cwd, ["checkout", "-b", "docs/task-313-brief"]);
+    writePackageFiles(cwd, "0.2.1");
+    writeText(cwd, "docs/versioning.md", "Versioning note.\n");
+    commitAll(cwd, "docs");
+
+    const result = runPolicy(cwd, "docs/task-313-brief");
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Version bumps must update CHANGELOG.md");
+  });
 });

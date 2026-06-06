@@ -212,6 +212,21 @@ function hasNoReleaseImpactDecision(labels) {
   return [...labels].some((label) => NO_RELEASE_IMPACT_LABELS.has(label));
 }
 
+function assertChangelogEntry({ changedFiles, headRef, version }) {
+  if (!changedFiles.includes("CHANGELOG.md")) {
+    fail("Version bumps must update CHANGELOG.md with release notes.");
+  }
+
+  const changelog =
+    headRef === "HEAD"
+      ? readFileSync("CHANGELOG.md", "utf8")
+      : runGit(["show", `${headRef}:CHANGELOG.md`]);
+  const heading = `## v${formatVersion(version)}`;
+  if (!changelog.includes(heading)) {
+    fail(`CHANGELOG.md must include a ${heading} entry.`);
+  }
+}
+
 function parseArgs(argv) {
   const options = {
     baseRef: process.env.VERSION_POLICY_BASE_REF ?? "origin/main",
@@ -306,6 +321,14 @@ try {
       fail("Version metadata changed, but the target version is not greater than base.");
     }
 
+    if (versionChanged) {
+      assertChangelogEntry({
+        changedFiles,
+        headRef: options.headRef,
+        version: headVersion,
+      });
+    }
+
     info("No production-bound version bump required for this branch.");
     process.exit(0);
   }
@@ -329,18 +352,11 @@ try {
     );
   }
 
-  if (!changedFiles.includes("CHANGELOG.md")) {
-    fail("Version bumps must update CHANGELOG.md with release notes.");
-  }
-
-  const changelog =
-    options.headRef === "HEAD"
-      ? readFileSync("CHANGELOG.md", "utf8")
-      : runGit(["show", `${options.headRef}:CHANGELOG.md`]);
-  const heading = `## v${formatVersion(headVersion)}`;
-  if (!changelog.includes(heading)) {
-    fail(`CHANGELOG.md must include a ${heading} entry.`);
-  }
+  assertChangelogEntry({
+    changedFiles,
+    headRef: options.headRef,
+    version: headVersion,
+  });
 
   info("Product version policy check passed.");
 } catch (error) {
