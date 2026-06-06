@@ -45,7 +45,7 @@ jobs:
           VERSION_POLICY_BASE_REF: origin/${{ github.base_ref }}
           VERSION_POLICY_BRANCH_NAME: ${{ github.head_ref }}
         run: |
-          git fetch --no-tags --prune origin "${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
+          git fetch --no-tags --prune origin "+refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
           npm run release:check
 
       - name: Install dependencies
