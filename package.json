@@ -1,6 +1,6 @@
 {
   "name": "nexusdash",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "engines": {
     "node": "^20.19.0 || ^22.13.0 || >=24.0.0",
@@ -25,6 +25,7 @@
     "db:local:down": "docker compose stop postgres",
     "db:local:reset": "node scripts/local-db-reset.mjs",
     "release:version": "node scripts/release-version.mjs",
+    "release:check": "node scripts/check-version-policy.mjs",
     "validate:local": "node scripts/local-validation.mjs"
   },
   "dependencies": {

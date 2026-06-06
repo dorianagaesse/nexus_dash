@@ -3,6 +3,25 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-06-06 - TASK-313 app version governance implemented
+
+- Summary: Implemented branch-based product version governance. `feature/*`
+  PRs now require a minor bump/reset patch, release-impacting `fix/*`,
+  `refactor/*`, and `chore/*` PRs require patch bumps, and docs/dependabot/
+  task-tracking work can hold steady unless explicitly released. Commit count
+  remains diagnostic/build metadata, not part of the visible SemVer product
+  version.
+- Evidence: Added `npm run release:check`, CI guard wiring in Quality Core,
+  release helper branch-type aliases, guard tests, changelog enforcement, and
+  bumped the product version from `0.2.0` to `0.3.0` for this feature PR.
+- Validation: `npm run release:check -- --base origin/main --branch
+  feature/task-313-version-governance`, focused Vitest for metadata/version
+  guard tests, `npm run release:version -- feature --dry-run`, `npm run lint`,
+  CI-shaped `npm test`, CI-shaped `npm run test:coverage`, and full-env
+  `npm run build` passed. Local full test initially exposed a stale generated
+  Prisma Client missing roadmap enum values; `npx prisma generate` restored the
+  expected local generated client before the green run.
+
 # 2026-06-06 - TASK-313 app version governance created
 
 - Summary: Created TASK-313 after reviewing the existing versioning history:

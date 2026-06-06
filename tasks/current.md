@@ -4,7 +4,7 @@
 TASK-313
 
 ## Status
-Pending investigation and implementation.
+Implemented locally; PR workflow pending.
 
 ## Source
 - User feedback on 2026-06-06: the app previously showed `0.1.<commit>` and
@@ -30,14 +30,30 @@ Going back to `0.1.<commit>` would also be wrong: commit SHA/build revision is
 not the same as product version. The right target is a clear product release
 version plus diagnostic revision metadata.
 
-## Scope
-- Review current versioning implementation, docs, workflows, and release helper.
-- Decide the release policy: per-production-merge patch bumps vs batched release
-  PRs, with explicit tradeoffs.
-- Implement the selected policy with automation and CI/release guardrails.
-- Ensure visible app metadata and diagnostic metadata match the policy.
-- Update docs/runbooks/changelog expectations.
-- Add tests for version metadata and any guard logic.
+## Selected Policy
+- Keep `package.json` as the canonical product version.
+- Keep commit SHA/build metadata separate from the visible product version.
+- Do not use commit count in SemVer; it is repository/build metadata, not
+  release intent.
+- `feature/*` PRs that ship meaningful product work bump minor and reset patch,
+  for example `0.2.0` to `0.3.0`.
+- Release-impacting `fix/*`, `refactor/*`, and `chore/*` PRs bump patch, for
+  example `0.3.0` to `0.3.1`.
+- `docs/*`, Dependabot, routine CI cleanup, and task-tracking-only work hold
+  steady unless explicitly converted into a product release.
+- `1.0.0` remains reserved for the first stable product baseline.
+
+## Implementation Summary
+- Added `scripts/check-version-policy.mjs` and `npm run release:check`.
+- Wired the version policy guard into the PR Quality Core workflow.
+- Extended `scripts/release-version.mjs` with branch-type aliases:
+  `feature`, `fix`, `refactor`, and `chore`.
+- Bumped the app product version from `0.2.0` to `0.3.0` for this
+  `feature/*` implementation PR.
+- Updated release/version docs, README metadata guidance, changelog, and app
+  metadata tests.
+- Added guard tests that exercise feature minor bumps, fix patch requirements,
+  changelog enforcement, and docs-only no-bump behavior.
 
 ## Out Of Scope
 - Changing dependency package versions for their own sake.
@@ -60,9 +76,9 @@ version plus diagnostic revision metadata.
 7. Tests cover the implemented version metadata and guard behavior.
 
 ## Definition Of Done
-- [ ] Existing TASK-272 and TASK-132 decisions are reviewed.
-- [ ] Policy and implementation path are documented.
-- [ ] Version increment automation or CI guardrails are implemented.
-- [ ] App metadata behavior remains tested.
-- [ ] Relevant validation passes.
+- [x] Existing TASK-272 and TASK-132 decisions are reviewed.
+- [x] Policy and implementation path are documented.
+- [x] Version increment automation or CI guardrails are implemented.
+- [x] App metadata behavior remains tested.
+- [x] Relevant validation passes.
 - [ ] PR workflow is completed according to `agent.md`.
