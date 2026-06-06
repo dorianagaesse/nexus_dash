@@ -4,13 +4,22 @@ import { readFileSync } from "node:fs";
 import process from "node:process";
 
 const VERSION_PATTERN = /^v?(\d+)\.(\d+)\.(\d+)$/;
-const BUMP_TYPES = new Set(["patch", "minor", "major"]);
+const BUMP_ALIASES = new Map([
+  ["patch", "patch"],
+  ["fix", "patch"],
+  ["refactor", "patch"],
+  ["chore", "patch"],
+  ["minor", "minor"],
+  ["feature", "minor"],
+  ["major", "major"],
+]);
 
 function usage() {
   console.log(`Usage:
-  npm run release:version -- <patch|minor|major|x.y.z> [--dry-run]
+  npm run release:version -- <feature|fix|refactor|chore|patch|minor|major|x.y.z> [--dry-run]
 
 Examples:
+  npm run release:version -- feature --dry-run
   npm run release:version -- patch --dry-run
   npm run release:version -- minor
   npm run release:version -- 1.0.0`);
@@ -61,12 +70,12 @@ function bumpVersion(current, bumpType) {
 }
 
 function runNpmVersion(targetVersion) {
-  const command = process.platform === "win32" ? "npm.cmd" : "npm";
-  const result = spawnSync(command, [
-    "version",
-    targetVersion,
-    "--no-git-tag-version",
-  ], {
+  const command = process.platform === "win32" ? "cmd.exe" : "npm";
+  const args =
+    process.platform === "win32"
+      ? ["/d", "/s", "/c", `npm version ${targetVersion} --no-git-tag-version`]
+      : ["version", targetVersion, "--no-git-tag-version"];
+  const result = spawnSync(command, args, {
     stdio: "inherit",
   });
 
@@ -97,8 +106,11 @@ if (positional.length !== 1) {
 
 try {
   const requested = positional[0];
-  if (!BUMP_TYPES.has(requested) && !VERSION_PATTERN.test(requested)) {
-    throw new Error(`Expected patch, minor, major, or x.y.z; received ${requested}.`);
+  const resolvedRequest = BUMP_ALIASES.get(requested) ?? requested;
+  if (!BUMP_ALIASES.has(requested) && !VERSION_PATTERN.test(requested)) {
+    throw new Error(
+      `Expected feature, fix, refactor, chore, patch, minor, major, or x.y.z; received ${requested}.`
+    );
   }
 
   const packageJson = readJson("package.json");
@@ -116,7 +128,7 @@ try {
     );
   }
 
-  const target = bumpVersion(current, requested);
+  const target = bumpVersion(current, resolvedRequest);
   if (compareVersions(target, current) <= 0) {
     throw new Error(
       `Target version ${formatVersion(target)} must be greater than current version ${formatVersion(current)}.`

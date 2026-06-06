@@ -6,24 +6,52 @@ is captured, and when the app should graduate from `0.x.y` to `1.0.0`.
 ## Principles
 
 - `package.json` is the canonical product-version source.
-- `package-lock.json` must match `package.json` for every release PR.
+- `package-lock.json` must match `package.json` for every product version bump.
 - The app displays the clean product version, for example `v0.2.1`.
 - Commit SHA, deployment URL, workflow run, and environment are build/revision
   evidence. Do not append them to the user-facing version label.
-- Routine task, dependency, workflow, or documentation PRs do not automatically
-  bump the product version. Version bumps happen in intentional release PRs.
+- Commit count is not part of the product version. A large PR and a small PR
+  may both be one product release; commit SHA remains the exact build identity.
+- Product-impacting PRs carry their version decision in the same PR so the
+  production app cannot silently ship meaningful work forever under the same
+  version.
 
 ## Pre-1.0 Bump Rules
 
 Use `0.x.y` while NexusDash is still before its first stable product baseline.
 
-- Patch: bump `0.2.0` to `0.2.1` for bug fixes, operational corrections,
-  small copy/UI polish, and low-risk improvements.
-- Minor: bump `0.2.1` to `0.3.0` for meaningful user-facing capabilities,
-  workflow changes, or a planned batch of feature work.
+- Minor: bump `0.2.0` to `0.3.0` for `feature/*` PRs that ship meaningful
+  user-facing capabilities, workflow changes, or milestone-level product work.
+- Patch: bump `0.3.0` to `0.3.1` for `fix/*`, `refactor/*`, and
+  production-impacting `chore/*` PRs that ship bug fixes, operational
+  corrections, performance work, small copy/UI polish, or low-risk
+  improvements.
 - Hold steady: do not bump for Dependabot PRs, routine CI cleanup, runbook-only
   clarifications, or task-tracking updates unless they are part of a release.
+  If a production-bound branch is intentionally no-release-impact, label the PR
+  `no-release-impact` or `release:none`.
 - Major: reserve `1.0.0` for the first stable product baseline.
+
+## PR Version Decision Rules
+
+Every product-impacting PR must make exactly one version decision:
+
+- `feature/*`: bump minor and reset patch, for example `0.2.0` to `0.3.0`.
+- `fix/*`: bump patch, for example `0.3.0` to `0.3.1`.
+- `refactor/*`: bump patch when the refactor ships production behavior or
+  runtime risk.
+- `chore/*`: bump patch only when product/runtime files change.
+- `docs/*`: normally hold steady.
+- `dependabot/*`: hold steady unless a human explicitly converts the update
+  into a product release.
+
+The CI `release:check` guard validates these rules for PRs:
+
+- `package.json` and `package-lock.json` must agree.
+- The expected SemVer bump must match the branch type.
+- Version bumps must include a matching `CHANGELOG.md` entry.
+- A production-bound PR without a version bump must carry an explicit
+  `no-release-impact` or `release:none` label.
 
 ## 1.0.0 Readiness
 
@@ -38,38 +66,40 @@ Move to `1.0.0` when the team is ready to preserve the core product contract:
 - Known breaking workflow or schema changes are either resolved or explicitly
   accepted as post-1.0 migration work.
 
-## Release PR Checklist
+## Version Checklist
 
 1. Decide the next product version using the bump rules above.
 2. Run the helper in dry-run mode:
 
    ```bash
-   npm run release:version -- patch --dry-run
+   npm run release:version -- feature --dry-run
    ```
 
 3. Apply the selected bump:
 
    ```bash
-   npm run release:version -- patch
+   npm run release:version -- feature
    ```
 
-   Use `minor`, `major`, or an explicit version such as `0.3.0` when needed.
+   Use `fix`, `refactor`, `chore`, `patch`, `minor`, `major`, or an explicit
+   version such as `0.3.0` when needed.
 
 4. Add or update the matching entry in `CHANGELOG.md`.
-5. Keep the release PR focused on release metadata, release notes, and any
-   small release-only documentation updates.
+5. Keep the version/changelog change in the same product-impacting PR unless
+   the PR is explicitly no-release-impact.
 6. Validate:
 
    ```bash
    git diff --check
+   npm run release:check -- --base origin/main --branch <branch-name>
    npm run lint
    ```
 
 7. After the PR merges, create the matching git tag, for example:
 
    ```bash
-   git tag v0.2.1
-   git push origin v0.2.1
+   git tag v0.3.0
+   git push origin v0.3.0
    ```
 
 8. Confirm the staged-production deployment summary reports the intended
@@ -82,12 +112,13 @@ Move to `1.0.0` when the team is ready to preserve the core product contract:
 Each production release should be traceable to:
 
 - product version, for example `v0.2.1`
-- release PR
+- product-impacting PR
 - git tag
 - merge commit SHA
 - staged-production deployment URL or ID
 - workflow run that produced the deployment
 - promotion or rollback decision
 
-This evidence can live in the release PR, `CHANGELOG.md`, or a dated file under
-`docs/releases/` if a release needs more detail than the changelog entry.
+This evidence can live in the product-impacting PR, `CHANGELOG.md`, or a dated
+file under `docs/releases/` if a release needs more detail than the changelog
+entry.

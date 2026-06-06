@@ -6,7 +6,18 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 ## Unreleased
 
-- Define each release entry before the release PR is merged.
+- Define each release entry before the product-impacting PR is merged.
+
+## v0.3.0 - 2026-06-06
+
+- Added product version governance so feature branches bump minor versions,
+  release-impacting fix/refactor/chore branches bump patch versions, and
+  commit/build details remain diagnostic metadata instead of visible product
+  version components.
+- Added a CI guard that validates package version consistency, branch-based
+  SemVer bumps, and matching changelog entries for production-bound PRs.
+- Improved the release helper with branch-type aliases such as `feature`,
+  `fix`, `refactor`, and `chore`.
 
 ## v0.2.0 - 2026-05-20
 

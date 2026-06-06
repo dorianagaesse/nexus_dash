@@ -392,22 +392,23 @@ Branch-name note:
 
 ### Release version metadata
 
-`package.json` is the canonical product-version source. Release PRs that
-intentionally change the product version must update both `package.json` and
+`package.json` is the canonical product-version source. Product-impacting PRs
+that change the product version must update both `package.json` and
 `package-lock.json`; Dependabot maintenance PRs must not bump the product
 version by themselves.
 
-Product versions move through intentional release PRs, not every production
-deployment. While NexusDash is pre-1.0, use patch bumps such as `0.2.1` for
-bugfix and operational releases, minor bumps such as `0.3.0` for meaningful
-product capability milestones, and reserve `1.0.0` for the first stable product
-baseline. The detailed checklist lives in
+Product versions move through branch-based release decisions, not commit counts
+or every production deployment. While NexusDash is pre-1.0, `feature/*` PRs bump
+minor and reset patch, for example `0.2.0` to `0.3.0`; release-impacting
+`fix/*`, `refactor/*`, and `chore/*` PRs bump patch, for example `0.3.0` to
+`0.3.1`; `1.0.0` remains reserved for the first stable product baseline. The
+detailed checklist lives in
 [`docs/runbooks/release-versioning.md`](docs/runbooks/release-versioning.md).
 
-The running app displays only the clean product version, for example `v0.2.0`.
+The running app displays only the clean product version, for example `v0.3.0`.
 Build revision and runtime environment are kept as diagnostic metadata so
 operators can identify the deployed commit without turning the user-facing
-version into `v0.2.0+<sha>`.
+version into `v0.3.0+<sha>`.
 
 The Vercel deploy workflow resolves metadata from the checked-out ref and
 injects:

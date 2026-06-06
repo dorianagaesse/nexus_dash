@@ -1,7 +1,7 @@
 # TASK-313 App Version Governance
 
 ## Status
-Pending.
+Complete once PR #329 merges.
 
 ## Source
 - User feedback on 2026-06-06: the app used to show `0.1.<commit>` and now
@@ -32,24 +32,21 @@ Create a durable versioning system where NexusDash:
 - makes the visible app version logical to users;
 - gives maintainers a low-friction release process and CI guardrails.
 
-## Proposed Direction
+## Selected Direction
 - Keep `package.json` as the canonical product version.
-- Preserve clean user-facing product display such as `v0.2.1`.
+- Preserve clean user-facing product display such as `v0.3.0`.
 - Preserve diagnostic metadata separately, for example `revision`, commit SHA,
   deployment environment, and build date where available.
+- Do not use commit count as part of SemVer. Commit count can describe build
+  shape, but not product release intent.
 - Define pre-1.0 semantics explicitly:
   - `major`: reserved for the `1.0.0` milestone or breaking public API/contract
     decisions.
-  - `minor`: meaningful product capability bundles or visible milestone
-    releases.
-  - `patch`: fixes, focused improvements, documentation/contract corrections,
-    and small shipped changes.
-- Add automation so release PRs can bump versions predictably and CI can detect
-  when production-bound feature/fix work did not include an intentional version
-  decision.
-- Decide whether every merged production PR should bump at least patch, or
-  whether several PRs may accumulate under a single release PR. The chosen
-  policy must be explicit and enforced.
+  - `minor`: meaningful `feature/*` product capabilities; reset patch to `0`.
+  - `patch`: release-impacting `fix/*`, `refactor/*`, and `chore/*` work.
+- Add automation so production-bound feature/fix/refactor/chore work cannot
+  merge without an intentional version decision, matching package-lock
+  metadata, and release notes.
 
 ## Acceptance Criteria
 1. A clear versioning policy exists in the repo and explains product version vs
@@ -66,14 +63,14 @@ Create a durable versioning system where NexusDash:
 7. Tests cover version metadata formatting and any new release/version guard.
 
 ## Definition Of Done
-- [ ] Existing TASK-272/TASK-132 decisions are reviewed and either preserved,
+- [x] Existing TASK-272/TASK-132 decisions are reviewed and either preserved,
       amended, or superseded with a documented rationale.
-- [ ] Versioning policy and runbook updates are merged.
-- [ ] Release/version automation or CI guardrails are implemented.
-- [ ] App metadata tests cover product version and build metadata behavior.
-- [ ] `npm run release:version -- patch --dry-run` or equivalent passes.
-- [ ] `npm run lint`, relevant tests, and `npm run build` pass.
-- [ ] A PR is opened, Copilot feedback is handled, and the task is marked
+- [x] Versioning policy and runbook updates are ready for review.
+- [x] Release/version automation or CI guardrails are implemented.
+- [x] App metadata tests cover product version and build metadata behavior.
+- [x] `npm run release:version -- feature --dry-run` passes.
+- [x] `npm run lint`, relevant tests, and `npm run build` pass.
+- [x] A PR is opened, Copilot feedback is handled, and the task is marked
       complete only after merge.
 
 ## Initial Implementation Notes
