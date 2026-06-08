@@ -28,7 +28,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
-import { PROJECT_ACTIVITY_REMOTE_EVENT } from "@/lib/project-activity-client";
+import {
+  fetchProjectActivityMutation,
+  PROJECT_ACTIVITY_REMOTE_EVENT,
+  type ProjectActivityRemoteEventDetail,
+} from "@/lib/project-activity-client";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import { cn } from "@/lib/utils";
 
@@ -297,11 +301,12 @@ export function ProjectMeetingNotesPanel({
 
   useEffect(() => {
     const handleProjectActivity = (event: Event) => {
-      const detail = (event as CustomEvent<{ activity?: { projectId?: string; domain?: string } }>).detail;
+      const detail = (event as CustomEvent<ProjectActivityRemoteEventDetail>).detail;
       if (
         detail?.activity?.projectId === projectId &&
         detail.activity.domain === "meeting-note"
       ) {
+        detail.markHandled();
         window.location.reload();
       }
     };
@@ -430,7 +435,8 @@ export function ProjectMeetingNotesPanel({
     setDraftError(null);
 
     try {
-      const response = await fetch(
+      const response = await fetchProjectActivityMutation(
+        projectId,
         editorMode === "create"
           ? `/api/projects/${projectId}/meeting-notes`
           : `/api/projects/${projectId}/meeting-notes/${editingNote?.id}`,
@@ -483,7 +489,8 @@ export function ProjectMeetingNotesPanel({
     setIsDeleting(true);
 
     try {
-      const response = await fetch(
+      const response = await fetchProjectActivityMutation(
+        projectId,
         `/api/projects/${projectId}/meeting-notes/${pendingDeleteNote.id}`,
         {
           method: "DELETE",
@@ -552,7 +559,8 @@ export function ProjectMeetingNotesPanel({
     );
 
     try {
-      const response = await fetch(
+      const response = await fetchProjectActivityMutation(
+        projectId,
         `/api/projects/${projectId}/meeting-notes/${selectedNote.id}`,
         {
           method: "PATCH",

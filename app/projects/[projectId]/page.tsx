@@ -202,7 +202,7 @@ export default async function ProjectDashboardPage({
             />
             <DashboardStatCard
               icon={ClipboardList}
-              label="Meetings"
+              label="Meeting notes"
               value={project.stats.meetingNotes}
               className="lg:col-span-2"
             />
