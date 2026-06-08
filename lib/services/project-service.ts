@@ -116,6 +116,7 @@ interface ProjectSummaryStats {
   openTasks: number;
   completedTasks: number;
   contextCards: number;
+  meetingNotes: number;
   attachmentCount: number;
   isCalendarConnected: boolean;
 }
@@ -434,6 +435,7 @@ export async function getProjectSummaryById(
       openTasks,
       completedTasks,
       contextCards,
+      meetingNotes,
       taskAttachmentCount,
       contextAttachmentCount,
       calendarCredential,
@@ -488,6 +490,12 @@ export async function getProjectSummaryById(
           type: RESOURCE_TYPE_CONTEXT_CARD,
         },
       }),
+      db.projectMeetingNote.count({
+        where: {
+          projectId,
+          project: principalWhere,
+        },
+      }),
       db.taskAttachment.count({
         where: {
           task: {
@@ -524,6 +532,7 @@ export async function getProjectSummaryById(
         openTasks,
         completedTasks,
         contextCards,
+        meetingNotes,
         attachmentCount: taskAttachmentCount + contextAttachmentCount,
         isCalendarConnected: calendarCredential?.revokedAt == null && Boolean(calendarCredential),
       },

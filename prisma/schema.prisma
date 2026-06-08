@@ -20,27 +20,29 @@ model User {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  accounts                  Account[]
-  sessions                  Session[]
-  ownedProjects             Project[]                  @relation("ProjectOwner")
-  projectMemberships        ProjectMembership[]
-  projectInvitationsSent    ProjectInvitation[]        @relation("ProjectInvitationInviter")
-  taskAttachments           TaskAttachment[]           @relation("TaskAttachmentUploader")
-  taskComments              TaskComment[]              @relation("TaskCommentAuthor")
-  tasksCreated              Task[]                     @relation("TaskCreatedBy")
-  tasksUpdated              Task[]                     @relation("TaskUpdatedBy")
-  tasksAssigned             Task[]                     @relation("TaskAssignee")
-  resourceAttachments       ResourceAttachment[]       @relation("ResourceAttachmentUploader")
-  googleCalendarCredential  GoogleCalendarCredential?
-  emailVerificationTokens   EmailVerificationToken[]
-  passwordResetTokens       PasswordResetToken[]
-  createdApiCredentials     ApiCredential[]            @relation("ApiCredentialCreatedBy")
-  revokedApiCredentials     ApiCredential[]            @relation("ApiCredentialRevokedBy")
-  authAuditEvents           AuthAuditEvent[]           @relation("AuthAuditEventActorUser")
-  notifications             Notification[]             @relation("NotificationRecipient")
-  projectNotificationEmails ProjectNotificationEmail[] @relation("ProjectNotificationEmailRecipient")
-  taskCommentReactions      TaskCommentReaction[]
-  projectActivityEvents     ProjectActivityEvent[]
+  accounts                   Account[]
+  sessions                   Session[]
+  ownedProjects              Project[]                  @relation("ProjectOwner")
+  projectMemberships         ProjectMembership[]
+  projectInvitationsSent     ProjectInvitation[]        @relation("ProjectInvitationInviter")
+  taskAttachments            TaskAttachment[]           @relation("TaskAttachmentUploader")
+  taskComments               TaskComment[]              @relation("TaskCommentAuthor")
+  tasksCreated               Task[]                     @relation("TaskCreatedBy")
+  tasksUpdated               Task[]                     @relation("TaskUpdatedBy")
+  tasksAssigned              Task[]                     @relation("TaskAssignee")
+  resourceAttachments        ResourceAttachment[]       @relation("ResourceAttachmentUploader")
+  googleCalendarCredential   GoogleCalendarCredential?
+  emailVerificationTokens    EmailVerificationToken[]
+  passwordResetTokens        PasswordResetToken[]
+  createdApiCredentials      ApiCredential[]            @relation("ApiCredentialCreatedBy")
+  revokedApiCredentials      ApiCredential[]            @relation("ApiCredentialRevokedBy")
+  authAuditEvents            AuthAuditEvent[]           @relation("AuthAuditEventActorUser")
+  notifications              Notification[]             @relation("NotificationRecipient")
+  projectNotificationEmails  ProjectNotificationEmail[] @relation("ProjectNotificationEmailRecipient")
+  taskCommentReactions       TaskCommentReaction[]
+  projectActivityEvents      ProjectActivityEvent[]
+  projectMeetingNotesCreated ProjectMeetingNote[]       @relation("ProjectMeetingNoteCreatedBy")
+  projectMeetingNotesUpdated ProjectMeetingNote[]       @relation("ProjectMeetingNoteUpdatedBy")
 
   @@unique([username, usernameDiscriminator])
   @@index([username])
@@ -194,8 +196,49 @@ model Project {
   apiCredentials     ApiCredential[]
   authAuditEvents    AuthAuditEvent[]
   notificationEmails ProjectNotificationEmail[]
+  meetingNotes       ProjectMeetingNote[]
 
   @@index([ownerId])
+}
+
+model ProjectMeetingNote {
+  id              String    @id @default(cuid())
+  projectId       String
+  title           String    @db.VarChar(140)
+  scheduledAt     DateTime?
+  participants    String[]
+  inputNotes      String    @default("")
+  outputNotes     String    @default("")
+  decisions       String    @default("")
+  createdByUserId String
+  updatedByUserId String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  project       Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdByUser User                       @relation("ProjectMeetingNoteCreatedBy", fields: [createdByUserId], references: [id])
+  updatedByUser User                       @relation("ProjectMeetingNoteUpdatedBy", fields: [updatedByUserId], references: [id])
+  actions       ProjectMeetingNoteAction[]
+
+  @@index([projectId, scheduledAt])
+  @@index([projectId, updatedAt])
+  @@index([createdByUserId])
+  @@index([updatedByUserId])
+}
+
+model ProjectMeetingNoteAction {
+  id            String    @id @default(cuid())
+  meetingNoteId String
+  content       String    @db.VarChar(240)
+  completedAt   DateTime?
+  position      Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  meetingNote ProjectMeetingNote @relation(fields: [meetingNoteId], references: [id], onDelete: Cascade)
+
+  @@index([meetingNoteId, position])
+  @@index([meetingNoteId, completedAt])
 }
 
 model ProjectActivityEvent {
@@ -628,7 +671,7 @@ model ApiCredential {
   revokedByUser User?                     @relation("ApiCredentialRevokedBy", fields: [revokedByUserId], references: [id], onDelete: SetNull)
   scopeGrants   ApiCredentialScopeGrant[]
   auditEvents   AuthAuditEvent[]
-  taskComments  TaskComment[]              @relation("TaskCommentAgentAuthorCredential")
+  taskComments  TaskComment[]             @relation("TaskCommentAgentAuthorCredential")
 
   @@index([projectId])
   @@index([createdByUserId])

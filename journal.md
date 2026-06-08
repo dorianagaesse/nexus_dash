@@ -3,6 +3,28 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-06-08 - TASK-098 meeting notes manager implemented
+
+- Summary: Implemented a dedicated project dashboard Meeting Notes area with
+  searchable meeting history, structured participants, preparation inputs,
+  after-meeting outputs, decisions, and personal follow-up actions.
+- Decision: Added first-class `ProjectMeetingNote` and
+  `ProjectMeetingNoteAction` records rather than reusing context cards, with
+  owner/editor mutation access, viewer read access, session-user-only APIs, and
+  project activity headers for dashboard freshness.
+- Evidence: Added RLS-backed Prisma schema and migration
+  `20260608170000_task098_meeting_notes`, service/API adapters, dashboard
+  section/component, meeting count stat, product docs, changelog entry, and
+  Playwright coverage for create/edit/search/action completion.
+- Validation: Focused meeting-note service/API/project summary tests passed
+  (19 tests). `npm run lint` passed. Local PostgreSQL `npm test` passed
+  (122 files passed, 2 skipped; 905 passed, 2 skipped). `npm run
+  test:coverage` passed with 91.37% statements and 81.33% branches. Preview
+  env `npm run build` passed and listed `/api/projects/[projectId]/meeting-notes`
+  and `/api/projects/[projectId]/meeting-notes/[noteId]`. Local Playwright
+  `npm run test:e2e` passed 9/9 specs after tightening the new meeting action
+  textbox locator.
+
 # 2026-06-08 - Version history reconciliation
 
 - Summary: Audited merged PR history from TASK-132/#270 (`v0.2.0`) through

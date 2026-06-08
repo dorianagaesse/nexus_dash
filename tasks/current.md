@@ -1,84 +1,76 @@
-# Current Task: TASK-313 App Version Governance
+# Current Task: TASK-098 Meeting Notes Manager
 
 ## Task ID
-TASK-313
+TASK-098
 
 ## Status
-Complete once PR #329 merges.
+Implemented locally; PR, Copilot review, branch-ref preview deploy, and
+preview Playwright validation still in progress.
 
 ## Source
-- User feedback on 2026-06-06: the app previously showed `0.1.<commit>` and
-  now constantly shows `0.2.0`; the version number has no visible logic and
-  should increment according to an industry-standard approach.
-- Existing completed tasks:
-  - TASK-087 exposed product metadata in the app.
-  - TASK-272 defined a release-version cadence and helper.
-  - TASK-132 made `package.json` the canonical product version and separated
-    user-facing version from commit SHA.
+- `tasks/backlog.md`: "Meeting notes manager - structured project meeting log
+  with participants, topics, decisions, and follow-ups."
+- User request on 2026-06-08: add a dedicated Meeting Notes area alongside
+  project context, roadmap, Kanban, and similar dashboard surfaces. Meeting
+  preparation uses an `inputs` section before the meeting and an `output`
+  section after the meeting, with participants and personal action items
+  captured explicitly. Previous notes must be easy to find, with search as a
+  must-have.
 
 ## Objective
-Review and fix NexusDash app version governance so the product version follows
-SemVer-compatible release logic, increments predictably for production releases,
-and keeps build/revision metadata separate and useful for diagnostics.
+Ship a project-scoped Meeting Notes manager that feels native to the existing
+NexusDash dashboard: structured enough for meeting preparation and follow-up,
+fast to scan chronologically, searchable, and protected by the same
+project-membership authorization and service-layer boundaries as the rest of
+the project workspace.
 
-## Initial Position
-`v0.2.0` being stable is understandable technically because `package.json` is
-the canonical product version. The missing piece is process enforcement: no
-release/version decision is currently required after meaningful shipped work.
-
-Going back to `0.1.<commit>` would also be wrong: commit SHA/build revision is
-not the same as product version. The right target is a clear product release
-version plus diagnostic revision metadata.
-
-## Selected Policy
-- Keep `package.json` as the canonical product version.
-- Keep commit SHA/build metadata separate from the visible product version.
-- Do not use commit count in SemVer; it is repository/build metadata, not
-  release intent.
-- `feature/*` PRs that ship meaningful product work bump minor and reset patch,
-  for example `0.2.0` to `0.3.0`.
-- Release-impacting `fix/*`, `refactor/*`, and `chore/*` PRs bump patch, for
-  example `0.3.0` to `0.3.1`.
-- `docs/*`, Dependabot, routine CI cleanup, and task-tracking-only work hold
-  steady unless explicitly converted into a product release.
-- `1.0.0` remains reserved for the first stable product baseline.
-
-## Implementation Summary
-- Added `scripts/check-version-policy.mjs` and `npm run release:check`.
-- Wired the version policy guard into the PR Quality Core workflow.
-- Extended `scripts/release-version.mjs` with branch-type aliases:
-  `feature`, `fix`, `refactor`, and `chore`.
-- Bumped the app product version from `0.2.0` to `0.3.0` for this
-  `feature/*` implementation PR.
-- Updated release/version docs, README metadata guidance, changelog, and app
-  metadata tests.
-- Added guard tests that exercise feature minor bumps, fix patch requirements,
-  changelog enforcement, and docs-only no-bump behavior.
-
-## Out Of Scope
-- Changing dependency package versions for their own sake.
-- Reintroducing commit SHA as the primary user-facing product version.
-- A full public release-management platform beyond the lightweight process
-  NexusDash needs today.
+## Implementation Plan
+1. Add persistence for project meeting notes and follow-up actions, including
+   title, scheduled date/time, participants, input notes, output notes,
+   decisions, and action items.
+2. Add service-layer create/read/update/delete/search operations with owner and
+   editor write access and viewer read access.
+3. Add project API routes that keep transport concerns thin and delegate
+   authorization to services.
+4. Add a dedicated dashboard Meeting Notes panel with search, list/detail
+   navigation, structured editor sections, action-item tracking, empty states,
+   loading/error states, and responsive layout.
+5. Integrate the panel into the project dashboard navigation and live project
+   activity refresh model where appropriate.
+6. Cover the service/API/UI behavior with focused tests and add Playwright
+   coverage for the main meeting-notes workflow.
+7. Complete repository workflow: branch/worktree, PR, Copilot review handling,
+   explicit branch-ref preview deployment, and Playwright against preview.
 
 ## Acceptance Criteria
-1. A clear versioning policy exists and explains product version vs
-   build/revision metadata.
-2. The visible app version follows that policy and no longer stagnates
-   accidentally after meaningful production releases.
-3. Release tooling can increment `package.json` and `package-lock.json`
-   predictably.
-4. CI/release automation catches missing version decisions for production-bound
-   feature/fix work.
-5. Changelog/release-note expectations are tied to version increments.
-6. Preview and production build metadata remain deterministic and useful for
-   debugging.
-7. Tests cover the implemented version metadata and guard behavior.
+1. Project members can open a dedicated Meeting Notes area from the project
+   dashboard without leaving the workspace flow.
+2. Users can create, view, edit, and delete meeting notes with title, meeting
+   time, participants, inputs, outputs, decisions, and personal follow-up
+   actions.
+3. Search filters previous meeting notes across title, participants, inputs,
+   outputs, decisions, and actions.
+4. The list is readable for past-note lookup, ordered by meeting time, and
+   provides useful scan-time metadata such as participants and action status.
+5. Authorization follows project roles: owner/editor can mutate notes, viewer
+   can read but not mutate.
+6. Persistence and route code respect existing architecture boundaries:
+   Prisma access stays in `lib/services/**`, and API routes stay as thin
+   adapters.
+7. Automated tests cover the new service/API behavior and the core UI workflow.
+8. Documentation/tracking files are updated consistently.
 
 ## Definition Of Done
-- [x] Existing TASK-272 and TASK-132 decisions are reviewed.
-- [x] Policy and implementation path are documented.
-- [x] Version increment automation or CI guardrails are implemented.
-- [x] App metadata behavior remains tested.
-- [x] Relevant validation passes.
-- [x] PR workflow is completed according to `agent.md`.
+- [x] Dedicated feature branch/worktree is used for TASK-098.
+- [ ] `tasks/current.md` and `journal.md` record the task plan,
+      implementation, validation, PR, preview, and Playwright outcomes.
+- [x] Schema/migration, service, API, UI, and tests are implemented.
+- [x] `npm run lint`, `npm test`, `npm run test:coverage`, `npm run build`,
+      and relevant Playwright tests pass.
+- [ ] PR is opened ready for review and Copilot review feedback is monitored
+      and addressed or explicitly dispositioned.
+- [ ] Preview deploy workflow is triggered with
+      `git_ref=feature/task-98-meeting-notes-manager`; logs confirm that branch
+      ref was checked out.
+- [ ] Playwright runs against the deployed preview with
+      `PLAYWRIGHT_BASE_URL=<preview-url>`.

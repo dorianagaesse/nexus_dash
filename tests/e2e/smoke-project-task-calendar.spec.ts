@@ -266,6 +266,66 @@ test.describe("critical UI smoke flows", () => {
     await page.getByRole("button", { name: "Close context preview" }).click();
   });
 
+  test("meeting notes preparation, output, and search flow", async ({ page }) => {
+    const projectName = uniqueProjectName("smoke-meeting");
+    const meetingTitle = uniqueProjectName("meeting-note");
+
+    await createProjectFromProjectsPage(page, projectName);
+    await openNewestProjectDashboard(page, projectName);
+
+    await expect(page.getByRole("heading", { name: "Meeting notes" })).toBeVisible();
+
+    await page.getByRole("button", { name: "New note" }).click();
+    await page.locator("#meeting-title").fill(meetingTitle);
+    await page.locator("#meeting-scheduled-at").fill("2026-06-08T09:30");
+    await page.locator("#meeting-participants").fill("Dorian\nCamille");
+    await page.locator("#meeting-inputs").fill("Review TASK-098 scope and risks.");
+    await page.getByRole("button", { name: "Add action" }).click();
+    await page
+      .getByRole("textbox", { name: "Follow-up action 1" })
+      .fill("Send recap to stakeholders");
+
+    const createMeetingRequest = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        /\/meeting-notes$/.test(response.url()) &&
+        response.ok()
+    );
+    await page.getByRole("button", { name: "Save note" }).click();
+    await createMeetingRequest;
+
+    await expect(page.getByRole("heading", { name: meetingTitle })).toBeVisible();
+    await expect(page.getByText("Review TASK-098 scope and risks.")).toBeVisible();
+    await expect(page.getByText("No outputs captured yet.")).toBeVisible();
+
+    await page.getByRole("button", { name: new RegExp(`Edit meeting note ${meetingTitle}`) }).click();
+    await page.locator("#meeting-outputs").fill("Backend alignment confirmed.");
+    await page.locator("#meeting-decisions").fill("Keep meeting notes as a first-class project area.");
+
+    const updateMeetingRequest = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        /\/meeting-notes\/[^/]+$/.test(response.url()) &&
+        response.ok()
+    );
+    await page.getByRole("button", { name: "Save note" }).click();
+    await updateMeetingRequest;
+
+    await expect(page.getByText("Backend alignment confirmed.")).toBeVisible();
+    await expect(
+      page.getByText("Keep meeting notes as a first-class project area.")
+    ).toBeVisible();
+
+    await page.getByLabel("Search meeting notes").fill("stakeholders");
+    await expect(page.getByRole("heading", { name: meetingTitle })).toBeVisible();
+
+    await page.getByText("Send recap to stakeholders").click();
+    await expect(page.getByText("1/1")).toBeVisible();
+
+    await page.getByLabel("Search meeting notes").fill("not-a-real-meeting");
+    await expect(page.getByText("No matching meeting notes.")).toBeVisible();
+  });
+
   test("roadmap event-first milestone flow", async ({ page }) => {
     const projectName = uniqueProjectName("smoke-roadmap");
     const firstEventTitle = uniqueProjectName("roadmap-event-1");

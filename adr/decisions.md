@@ -16,6 +16,25 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-06-08 - Store meeting notes as first-class project records
+- Status: Accepted
+- Context: TASK-098 needs meeting preparation inputs, after-meeting outputs,
+  participants, decisions, personal follow-up actions, chronological browsing,
+  and search. Reusing generic context cards would bury meeting-specific fields
+  and make action tracking/search semantics ambiguous.
+- Decision: Add `ProjectMeetingNote` and `ProjectMeetingNoteAction` as
+  project-scoped RLS-protected records, expose session-user project APIs, and
+  render a dedicated Meeting Notes dashboard panel. Owner/editor users can
+  mutate notes and actions; viewers can read them through the existing project
+  membership boundary. Agent v1 access is not expanded because meeting notes
+  are outside the current agent scope contract.
+- Consequences: Meeting notes become searchable and structured without
+  overloading context cards. Future task linkage can attach to the dedicated
+  meeting/action records instead of reverse-engineering note content.
+- Links: `tasks/current.md`, `prisma/schema.prisma`,
+  `lib/services/project-meeting-note-service.ts`,
+  `components/project-meeting-notes-panel.tsx`
+
 ## 2026-06-04 - Use account-scoped SSE snapshots for in-app notification freshness
 - Status: Accepted
 - Context: TASK-263 needs invitation, assignment, mention, and future

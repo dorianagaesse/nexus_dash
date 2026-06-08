@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   FileStack,
   PanelsTopLeft,
+  ClipboardList,
   TimerReset,
 } from "lucide-react";
 import { Suspense } from "react";
@@ -34,6 +35,10 @@ import {
   ProjectEpicPanelSection,
   ProjectEpicPanelSkeleton,
 } from "./project-epic-panel-section";
+import {
+  ProjectMeetingNotesPanelSection,
+  ProjectMeetingNotesPanelSkeleton,
+} from "./project-meeting-notes-panel-section";
 import {
   ProjectRoadmapPanelSection,
   ProjectRoadmapPanelSkeleton,
@@ -196,14 +201,20 @@ export default async function ProjectDashboardPage({
               className="lg:col-span-2"
             />
             <DashboardStatCard
+              icon={ClipboardList}
+              label="Meetings"
+              value={project.stats.meetingNotes}
+              className="lg:col-span-2"
+            />
+            <DashboardStatCard
               icon={FileStack}
               label="Attachments"
               value={project.stats.attachmentCount}
-              className="lg:col-span-2"
+              className="lg:col-span-1"
             />
             <CalendarSummaryStatCard
               isConnected={project.stats.isCalendarConnected}
-              className="col-span-2 lg:col-span-2"
+              className="col-span-2 lg:col-span-1"
             />
           </div>
         </div>
@@ -228,6 +239,14 @@ export default async function ProjectDashboardPage({
           actorUserId={actorUserId}
           canEdit={canEditProjectContent}
           storageProvider={storageProvider}
+        />
+      </Suspense>
+
+      <Suspense fallback={<ProjectMeetingNotesPanelSkeleton />}>
+        <ProjectMeetingNotesPanelSection
+          projectId={project.id}
+          actorUserId={actorUserId}
+          canEdit={canEditProjectContent}
         />
       </Suspense>
 

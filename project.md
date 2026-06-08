@@ -15,6 +15,9 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
 - Project sharing v2 with owner-managed invites, role-based membership, email-bound invitation flows, and resumable invite acceptance.
 - Project dashboard with core panels:
   - Context cards (create/edit/delete + attachments)
+  - Meeting notes with searchable project-scoped history, structured
+    participants, preparation inputs, meeting outputs, decisions, and personal
+    follow-up action tracking
   - Roadmap event-first milestone lanes with grouped child events, drag-and-drop regrouping, and target-date planning
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`) with reorder, deadline/comment visibility, task epic links, and task detail modal
   - Project epics registry with dedicated epic CRUD, automatic status/progress, and linked-task rollups
@@ -82,7 +85,8 @@ Current schema includes:
 - Authorization boundaries: `Project.ownerId`, `ProjectMembership` (`owner|editor|viewer`)
 - Agent auth: `ApiCredential`, `ApiCredentialScopeGrant`, `AuthAuditEvent`
 - Domain: `Project`, `ProjectActivityEvent`, `RoadmapPhase`, `RoadmapEvent`,
-  `Epic`, `Task`, `Resource` (context cards), `TaskBlockedFollowUp`
+  `Epic`, `Task`, `Resource` (context cards), `ProjectMeetingNote`,
+  `ProjectMeetingNoteAction`, `TaskBlockedFollowUp`
 - Collaboration on tasks: `TaskComment` with optional agent credential
   attribution metadata for agent-authored comments
 - Attachments: `TaskAttachment`, `ResourceAttachment` with `uploadedByUserId`
