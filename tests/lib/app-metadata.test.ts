@@ -60,10 +60,10 @@ describe("app-metadata", () => {
 
     const summary = getAppMetadataSummary();
 
-    expect(summary.versionTag).toBe("v0.3.0");
+    expect(summary.versionTag).toBe("v0.18.0");
     expect(summary.revision).toBeNull();
     expect(summary.revisionLabel).toBeNull();
-    expect(summary.versionLabel).toBe("v0.3.0");
+    expect(summary.versionLabel).toBe("v0.18.0");
   });
 
   test("strips build metadata from the visible version", () => {
@@ -84,8 +84,8 @@ describe("app-metadata", () => {
 
     const summary = getAppMetadataSummary();
 
-    expect(summary.versionTag).toBe("v0.3.0");
-    expect(summary.versionLabel).toBe("v0.3.0");
+    expect(summary.versionTag).toBe("v0.18.0");
+    expect(summary.versionLabel).toBe("v0.18.0");
   });
 
   test("uses optional repository override when present", () => {

@@ -26,7 +26,7 @@ Optional but bounded:
 
 ## App Metadata
 
-The app displays a clean product version such as `v0.3.0`. The commit SHA is
+The app displays a clean product version such as `v0.18.0`. The commit SHA is
 not appended to that visible version; it is kept as diagnostic metadata for
 operators.
 

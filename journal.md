@@ -3,6 +3,17 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-06-08 - Version history reconciliation
+
+- Summary: Audited merged PR history from TASK-132/#270 (`v0.2.0`) through
+  TASK-313/#329 and corrected the current app version to `v0.18.0`.
+- Decision: Count non-doc `feature/*` PRs as minor releases, count
+  release-impacting `fix/*` PRs as patch releases until the next minor, and
+  ignore docs-only/task-tracking/dependency/investigation-report PRs. Commit
+  count remains diagnostic metadata and does not influence SemVer.
+- Evidence: Added `docs/releases/version-reconciliation-2026-06-08.md` with
+  the PR-by-PR release path.
+
 # 2026-06-06 - TASK-313 app version governance implemented
 
 - Summary: Implemented branch-based product version governance. `feature/*`

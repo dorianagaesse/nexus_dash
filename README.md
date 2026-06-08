@@ -405,10 +405,10 @@ minor and reset patch, for example `0.2.0` to `0.3.0`; release-impacting
 detailed checklist lives in
 [`docs/runbooks/release-versioning.md`](docs/runbooks/release-versioning.md).
 
-The running app displays only the clean product version, for example `v0.3.0`.
+The running app displays only the clean product version, for example `v0.18.0`.
 Build revision and runtime environment are kept as diagnostic metadata so
 operators can identify the deployed commit without turning the user-facing
-version into `v0.3.0+<sha>`.
+version into `v0.18.0+<sha>`.
 
 The Vercel deploy workflow resolves metadata from the checked-out ref and
 injects:
