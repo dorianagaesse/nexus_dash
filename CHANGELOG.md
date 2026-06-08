@@ -8,6 +8,16 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.18.0 - 2026-06-08
+
+- Corrected the app product version after auditing the merge history from
+  TASK-132/#270 (`v0.2.0`) through TASK-313/#329.
+- Backfilled the branch-based SemVer policy across shipped non-doc feature
+  work so the current app version reflects the product capabilities already
+  delivered instead of only the version-governance PR.
+- Recorded the reconciliation basis in
+  `docs/releases/version-reconciliation-2026-06-08.md`.
+
 ## v0.3.0 - 2026-06-06
 
 - Added product version governance so feature branches bump minor versions,
