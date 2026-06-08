@@ -4,8 +4,8 @@
 TASK-098
 
 ## Status
-Implemented locally; PR, Copilot review, branch-ref preview deploy, and
-preview Playwright validation still in progress.
+Implemented, validated, and open for review in PR #331. Branch-ref preview
+deployment and preview Playwright validation passed on 2026-06-08.
 
 ## Source
 - `tasks/backlog.md`: "Meeting notes manager - structured project meeting log
@@ -62,15 +62,36 @@ the project workspace.
 
 ## Definition Of Done
 - [x] Dedicated feature branch/worktree is used for TASK-098.
-- [ ] `tasks/current.md` and `journal.md` record the task plan,
+- [x] `tasks/current.md` and `journal.md` record the task plan,
       implementation, validation, PR, preview, and Playwright outcomes.
 - [x] Schema/migration, service, API, UI, and tests are implemented.
 - [x] `npm run lint`, `npm test`, `npm run test:coverage`, `npm run build`,
       and relevant Playwright tests pass.
-- [ ] PR is opened ready for review and Copilot review feedback is monitored
+- [x] PR is opened ready for review and Copilot review feedback is monitored
       and addressed or explicitly dispositioned.
-- [ ] Preview deploy workflow is triggered with
+- [x] Preview deploy workflow is triggered with
       `git_ref=feature/task-98-meeting-notes-manager`; logs confirm that branch
       ref was checked out.
-- [ ] Playwright runs against the deployed preview with
+- [x] Playwright runs against the deployed preview with
       `PLAYWRIGHT_BASE_URL=<preview-url>`.
+
+## Outcome
+- PR: #331 (`TASK-098 Add meeting notes manager`) on
+  `feature/task-98-meeting-notes-manager`.
+- Latest implementation commit validated by preview:
+  `5547655731e5e371cc4edcbe79670644d1075e6d`.
+- Copilot review generated three actionable comments. Addressed them in
+  `5547655` by acknowledging meeting-note remote events before reload, routing
+  meeting-note mutations through `fetchProjectActivityMutation`, and renaming
+  the stat label to `Meeting notes`; the original review threads became
+  outdated.
+- Branch-ref preview workflow run `27170848710` deployed
+  `https://nexus-dash-3bk1wylcj-dorian-agaesses-projects.vercel.app`; logs show
+  `ref: feature/task-98-meeting-notes-manager`, checkout of
+  `refs/remotes/origin/feature/task-98-meeting-notes-manager`, and
+  `git log -1 --format=%H` =
+  `5547655731e5e371cc4edcbe79670644d1075e6d`.
+- Preview Playwright:
+  `PLAYWRIGHT_BASE_URL=https://nexus-dash-3bk1wylcj-dorian-agaesses-projects.vercel.app npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts`
+  passed 6/6 specs, including the meeting-notes preparation, output, action,
+  and search flow.
