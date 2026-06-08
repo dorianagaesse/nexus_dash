@@ -53,6 +53,14 @@ The CI `release:check` guard validates these rules for PRs:
 - A production-bound PR without a version bump must carry an explicit
   `no-release-impact` or `release:none` label.
 
+Historical reconciliation is the one version-only exception: when maintainers
+discover that the current product version is already behind shipped history, use
+a `chore/*` PR with an explicit target version, matching package-lock metadata,
+a changelog entry, and a reconciliation note under `docs/releases/`. Because
+that PR changes release metadata rather than shipping new product runtime files,
+`release:check` validates that the target is greater than the base version and
+that release notes exist, without forcing the normal patch/minor branch mapping.
+
 ## 1.0.0 Readiness
 
 Move to `1.0.0` when the team is ready to preserve the core product contract:
