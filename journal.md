@@ -2202,3 +2202,8 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-098 feedback pass passed local validation.
 - Evidence: Applied the new migration to local PostgreSQL with `npx prisma migrate deploy`. `npm run lint` passed. Focused meeting-note/API/calendar tests passed (3 files / 16 tests). Full local PostgreSQL `npm test` passed (122 files passed, 2 skipped; 905 passed, 2 skipped). `npm run test:coverage` passed with 91.37% statements, 81.33% branches, 92.2% functions, and 91.88% lines. Preview-style `npm run build` passed. Targeted meeting-note Playwright passed. Full local Playwright `npm run test:e2e` passed 9/9 after setting local production-mode `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, and `TRUSTED_ORIGINS`; an earlier full e2e run without those trusted-origin values failed only in the password-recovery smoke while the meeting-note smoke passed.
+
+### 2026-06-09
+- Type: Validation
+- Summary: TASK-098 feedback pass passed branch-ref preview deployment and preview Playwright.
+- Evidence: Pushed feedback commit `c7ac74164f41077d97ce244b1c76cebeb2b8a97f` to `feature/task-98-meeting-notes-manager`. Preview workflow run `27204436282` was dispatched with `git_ref=feature/task-98-meeting-notes-manager`, logs showed checkout of `refs/remotes/origin/feature/task-98-meeting-notes-manager` and `git log -1 --format=%H` = `c7ac74164f41077d97ce244b1c76cebeb2b8a97f`, and deployed `https://nexus-dash-4ansd69jm-dorian-agaesses-projects.vercel.app`. Preview Playwright passed with `PLAYWRIGHT_BASE_URL=https://nexus-dash-4ansd69jm-dorian-agaesses-projects.vercel.app npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts` (6/6), including the modal meeting preparation, output/todo capture, archive, and search flow.

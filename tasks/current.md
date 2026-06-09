@@ -4,8 +4,8 @@
 TASK-098
 
 ## Status
-Feedback pass implemented locally on 2026-06-09. PR #331 remains open for
-review; a fresh branch-ref preview is pending after this follow-up commit.
+Feedback pass implemented, pushed, preview-deployed, and Playwright-validated on
+2026-06-09. PR #331 remains open for review.
 
 ## Source
 - `tasks/backlog.md`: "Meeting notes manager - structured project meeting log
@@ -115,3 +115,14 @@ the project workspace.
   local Playwright `npm run test:e2e` passed 9/9 after setting local
   `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, and `TRUSTED_ORIGINS` for production-mode
   password-reset origin checks.
+- Feedback pass commit `c7ac74164f41077d97ce244b1c76cebeb2b8a97f` was deployed
+  by branch-ref preview workflow run `27204436282` to
+  `https://nexus-dash-4ansd69jm-dorian-agaesses-projects.vercel.app`; logs show
+  `ref: feature/task-98-meeting-notes-manager`, checkout of
+  `refs/remotes/origin/feature/task-98-meeting-notes-manager`, and
+  `git log -1 --format=%H` =
+  `c7ac74164f41077d97ce244b1c76cebeb2b8a97f`.
+- Feedback pass preview Playwright:
+  `PLAYWRIGHT_BASE_URL=https://nexus-dash-4ansd69jm-dorian-agaesses-projects.vercel.app npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts`
+  passed 6/6 specs, including the modal-based meeting preparation, outputs,
+  todos, archive, and search flow.
