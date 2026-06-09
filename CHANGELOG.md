@@ -11,10 +11,11 @@ SHA, deployment URL, and workflow run belong in release evidence.
 ## v0.19.0 - 2026-06-08
 
 - Added a project-scoped Meeting Notes workspace with structured preparation
-  inputs, after-meeting outputs, decisions, participants, and personal
-  follow-up actions.
+  inputs, task-style labels, participants, after-meeting outputs, and personal
+  todos.
 - Added searchable meeting-note history on the project dashboard so previous
-  discussions can be found by title, participant, notes, decisions, or actions.
+  discussions can be found by title, participant, label, notes, or todos, with
+  done notes shown in a separate archived list.
 - Added meeting-note persistence, RLS-protected project APIs, dashboard stats,
   and Playwright coverage for the core meeting-notes workflow.
 

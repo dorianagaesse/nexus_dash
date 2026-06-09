@@ -5,6 +5,11 @@ import {
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
+import {
+  normalizeTaskLabels,
+  parseTaskLabelsJson,
+  serializeTaskLabels,
+} from "@/lib/task-label";
 
 const MIN_TITLE_LENGTH = 2;
 const MAX_TITLE_LENGTH = 140;
@@ -13,6 +18,16 @@ const MAX_PARTICIPANT_LENGTH = 80;
 const MAX_SECTION_LENGTH = 10000;
 const MAX_ACTIONS = 40;
 const MAX_ACTION_LENGTH = 240;
+
+export const MEETING_NOTE_STATUSES = [
+  "prepared",
+  "actions_in_progress",
+  "done",
+] as const;
+
+export type MeetingNoteStatus = (typeof MEETING_NOTE_STATUSES)[number];
+
+const DEFAULT_MEETING_NOTE_STATUS: MeetingNoteStatus = "prepared";
 
 interface ServiceErrorResult {
   ok: false;
@@ -39,6 +54,8 @@ export interface MeetingNoteMutationInput {
   title: string;
   scheduledAt?: Date | string | null;
   participants?: string[];
+  labels?: string[];
+  status?: string | null;
   inputNotes?: string;
   outputNotes?: string;
   decisions?: string;
@@ -56,6 +73,8 @@ export interface ProjectMeetingNoteSummary {
   title: string;
   scheduledAt: Date | null;
   participants: string[];
+  labels: string[];
+  status: MeetingNoteStatus;
   inputNotes: string;
   outputNotes: string;
   decisions: string;
@@ -77,6 +96,8 @@ type MeetingNoteRecord = {
   title: string;
   scheduledAt: Date | null;
   participants: string[];
+  labelsJson: string | null;
+  status: string;
   inputNotes: string;
   outputNotes: string;
   decisions: string;
@@ -132,6 +153,16 @@ function normalizeParticipants(value: string[] | undefined): string[] {
   return participants;
 }
 
+function normalizeStatus(value: string | null | undefined): MeetingNoteStatus {
+  if (!value) {
+    return DEFAULT_MEETING_NOTE_STATUS;
+  }
+
+  return MEETING_NOTE_STATUSES.includes(value as MeetingNoteStatus)
+    ? (value as MeetingNoteStatus)
+    : DEFAULT_MEETING_NOTE_STATUS;
+}
+
 function normalizeScheduledAt(value: Date | string | null | undefined): Date | null {
   if (value == null || value === "") {
     return null;
@@ -169,6 +200,8 @@ function validateMeetingNoteDraft(input: {
   scheduledAtRaw: Date | string | null | undefined;
   scheduledAt: Date | null;
   participants: string[];
+  labels: string[];
+  status: MeetingNoteStatus;
   inputNotes: string;
   outputNotes: string;
   decisions: string;
@@ -228,6 +261,8 @@ function mapMeetingNote(note: MeetingNoteRecord): ProjectMeetingNoteSummary {
     title: note.title,
     scheduledAt: note.scheduledAt,
     participants: note.participants,
+    labels: parseTaskLabelsJson(note.labelsJson ?? ""),
+    status: normalizeStatus(note.status),
     inputNotes: note.inputNotes,
     outputNotes: note.outputNotes,
     decisions: note.decisions,
@@ -253,9 +288,10 @@ function noteMatchesSearch(note: ProjectMeetingNoteSummary, query: string): bool
   const haystack = [
     note.title,
     ...note.participants,
+    ...note.labels,
+    note.status,
     note.inputNotes,
     note.outputNotes,
-    note.decisions,
     ...note.actions.map((action) => action.content),
   ]
     .join(" ")
@@ -288,6 +324,8 @@ function buildDraft(input: MeetingNoteMutationInput) {
   const title = normalizeText(input.title);
   const scheduledAt = normalizeScheduledAt(input.scheduledAt ?? null);
   const participants = normalizeParticipants(input.participants);
+  const labels = normalizeTaskLabels(input.labels ?? []);
+  const status = normalizeStatus(input.status);
   const inputNotes = normalizeLongText(input.inputNotes);
   const outputNotes = normalizeLongText(input.outputNotes);
   const decisions = normalizeLongText(input.decisions);
@@ -297,6 +335,8 @@ function buildDraft(input: MeetingNoteMutationInput) {
     title,
     scheduledAt,
     participants,
+    labels,
+    status,
     inputNotes,
     outputNotes,
     decisions,
@@ -378,6 +418,8 @@ export async function createProjectMeetingNote(
           title: draft.title,
           scheduledAt: draft.scheduledAt,
           participants: draft.participants,
+          labelsJson: serializeTaskLabels(draft.labels),
+          status: draft.status,
           inputNotes: draft.inputNotes,
           outputNotes: draft.outputNotes,
           decisions: draft.decisions,
@@ -466,6 +508,8 @@ export async function updateProjectMeetingNote(
           title: draft.title,
           scheduledAt: draft.scheduledAt,
           participants: draft.participants,
+          labelsJson: serializeTaskLabels(draft.labels),
+          status: draft.status,
           inputNotes: draft.inputNotes,
           outputNotes: draft.outputNotes,
           decisions: draft.decisions,

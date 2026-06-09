@@ -275,15 +275,15 @@ test.describe("critical UI smoke flows", () => {
 
     await expect(page.getByRole("heading", { name: "Meeting notes" })).toBeVisible();
 
-    await page.getByRole("button", { name: "New note" }).click();
+    await page.getByRole("button", { name: "Prepare meeting" }).click();
     await page.locator("#meeting-title").fill(meetingTitle);
-    await page.locator("#meeting-scheduled-at").fill("2026-06-08T09:30");
-    await page.locator("#meeting-participants").fill("Dorian\nCamille");
+    await page.locator("#meeting-participants").fill("Dorian");
+    await page.locator("#meeting-participants").press(",");
+    await page.locator("#meeting-participants").fill("Camille");
+    await page.locator("#meeting-participants").press("Enter");
+    await page.locator("#meeting-labels").fill("sync");
+    await page.locator("#meeting-labels").press("Enter");
     await page.locator("#meeting-inputs").fill("Review TASK-098 scope and risks.");
-    await page.getByRole("button", { name: "Add action" }).click();
-    await page
-      .getByRole("textbox", { name: "Follow-up action 1" })
-      .fill("Send recap to stakeholders");
 
     const createMeetingRequest = page.waitForResponse(
       (response) =>
@@ -291,16 +291,27 @@ test.describe("critical UI smoke flows", () => {
         /\/meeting-notes$/.test(response.url()) &&
         response.ok()
     );
-    await page.getByRole("button", { name: "Save note" }).click();
+    await page.getByRole("button", { name: "Save preparation" }).click();
     await createMeetingRequest;
 
-    await expect(page.getByRole("heading", { name: meetingTitle })).toBeVisible();
-    await expect(page.getByText("Review TASK-098 scope and risks.")).toBeVisible();
-    await expect(page.getByText("No outputs captured yet.")).toBeVisible();
+    const meetingCard = page.getByRole("button", { name: new RegExp(meetingTitle) });
+    await expect(meetingCard).toBeVisible();
+    await expect(meetingCard.getByText("sync")).toBeVisible();
+    await expect(meetingCard.getByText("Prepared")).toBeVisible();
 
-    await page.getByRole("button", { name: new RegExp(`Edit meeting note ${meetingTitle}`) }).click();
+    await meetingCard.click();
+    const meetingDialog = page.getByRole("dialog");
+    await expect(meetingDialog).toBeVisible();
+    await expect(
+      meetingDialog.getByText("Review TASK-098 scope and risks.")
+    ).toBeVisible();
     await page.locator("#meeting-outputs").fill("Backend alignment confirmed.");
-    await page.locator("#meeting-decisions").fill("Keep meeting notes as a first-class project area.");
+    await meetingDialog.getByRole("button", { name: "Add", exact: true }).click();
+    await meetingDialog
+      .getByRole("textbox", { name: "Todo 1" })
+      .fill("Send recap to stakeholders");
+    await page.getByLabel("Complete todo 1").click();
+    await page.locator("#meeting-status").selectOption("done");
 
     const updateMeetingRequest = page.waitForResponse(
       (response) =>
@@ -308,19 +319,19 @@ test.describe("critical UI smoke flows", () => {
         /\/meeting-notes\/[^/]+$/.test(response.url()) &&
         response.ok()
     );
-    await page.getByRole("button", { name: "Save note" }).click();
+    await page.getByRole("button", { name: "Save notes" }).click();
     await updateMeetingRequest;
 
-    await expect(page.getByText("Backend alignment confirmed.")).toBeVisible();
-    await expect(
-      page.getByText("Keep meeting notes as a first-class project area.")
-    ).toBeVisible();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await expect(page.getByText("Archived (1)")).toBeVisible();
+    const archivedMeetingCard = page.getByRole("button", {
+      name: new RegExp(meetingTitle),
+    });
+    await expect(archivedMeetingCard.getByText("Done")).toBeVisible();
+    await expect(archivedMeetingCard.getByText("1/1")).toBeVisible();
 
     await page.getByLabel("Search meeting notes").fill("stakeholders");
-    await expect(page.getByRole("heading", { name: meetingTitle })).toBeVisible();
-
-    await page.getByText("Send recap to stakeholders").click();
-    await expect(page.getByText("1/1")).toBeVisible();
+    await expect(page.getByText(meetingTitle)).toBeVisible();
 
     await page.getByLabel("Search meeting notes").fill("not-a-real-meeting");
     await expect(page.getByText("No matching meeting notes.")).toBeVisible();

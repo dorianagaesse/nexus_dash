@@ -19,15 +19,18 @@ Keep UI-only or task-only notes in `journal.md`.
 ## 2026-06-08 - Store meeting notes as first-class project records
 - Status: Accepted
 - Context: TASK-098 needs meeting preparation inputs, after-meeting outputs,
-  participants, decisions, personal follow-up actions, chronological browsing,
-  and search. Reusing generic context cards would bury meeting-specific fields
-  and make action tracking/search semantics ambiguous.
+  participants, task-style labels, personal follow-up actions, simple lifecycle
+  state, archived done-note browsing, and search. Reusing generic context cards
+  would bury meeting-specific fields and make action tracking/search semantics
+  ambiguous.
 - Decision: Add `ProjectMeetingNote` and `ProjectMeetingNoteAction` as
   project-scoped RLS-protected records, expose session-user project APIs, and
-  render a dedicated Meeting Notes dashboard panel. Owner/editor users can
-  mutate notes and actions; viewers can read them through the existing project
-  membership boundary. Agent v1 access is not expanded because meeting notes
-  are outside the current agent scope contract.
+  render a dedicated Meeting Notes dashboard panel. Store meeting labels in the
+  same normalized JSON style as task labels, and store a small string state
+  (`prepared`, `actions_in_progress`, `done`) where `done` drives the archived
+  list. Owner/editor users can mutate notes and actions; viewers can read them
+  through the existing project membership boundary. Agent v1 access is not
+  expanded because meeting notes are outside the current agent scope contract.
 - Consequences: Meeting notes become searchable and structured without
   overloading context cards. Future task linkage can attach to the dedicated
   meeting/action records instead of reverse-engineering note content.

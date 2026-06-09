@@ -15,6 +15,8 @@ interface MeetingNoteRequestBody {
   title?: unknown;
   scheduledAt?: unknown;
   participants?: unknown;
+  labels?: unknown;
+  status?: unknown;
   inputNotes?: unknown;
   outputNotes?: unknown;
   decisions?: unknown;
@@ -129,6 +131,8 @@ export async function POST(
     title: readString(payload.title),
     scheduledAt: readOptionalString(payload.scheduledAt),
     participants: readStringArray(payload.participants),
+    labels: readStringArray(payload.labels),
+    status: readOptionalString(payload.status),
     inputNotes: readString(payload.inputNotes),
     outputNotes: readString(payload.outputNotes),
     decisions: readString(payload.decisions),

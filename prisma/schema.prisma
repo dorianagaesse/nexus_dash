@@ -207,6 +207,8 @@ model ProjectMeetingNote {
   title           String    @db.VarChar(140)
   scheduledAt     DateTime?
   participants    String[]
+  status          String    @default("prepared") @db.VarChar(40)
+  labelsJson      String?
   inputNotes      String    @default("")
   outputNotes     String    @default("")
   decisions       String    @default("")
@@ -221,6 +223,7 @@ model ProjectMeetingNote {
   actions       ProjectMeetingNoteAction[]
 
   @@index([projectId, scheduledAt])
+  @@index([projectId, status, scheduledAt])
   @@index([projectId, updatedAt])
   @@index([createdByUserId])
   @@index([updatedByUserId])

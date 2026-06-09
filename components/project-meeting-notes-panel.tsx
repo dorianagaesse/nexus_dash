@@ -1,22 +1,27 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
+  Archive,
   CalendarClock,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   ClipboardList,
   Circle,
+  ListTodo,
   Pencil,
   PlusSquare,
   Search,
+  Tag,
   Trash2,
   Users,
   X,
 } from "lucide-react";
 
+import { CalendarDateTimeField } from "@/components/calendar-date-time-field";
 import {
   PROJECT_SECTION_CARD_CLASS,
   PROJECT_SECTION_CONTENT_CLASS,
@@ -28,13 +33,23 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
+import { TokenInput } from "@/components/ui/token-input";
+import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import {
   fetchProjectActivityMutation,
   PROJECT_ACTIVITY_REMOTE_EVENT,
   type ProjectActivityRemoteEventDetail,
 } from "@/lib/project-activity-client";
-import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
+import {
+  getTaskLabelColor,
+  MAX_TASK_LABELS,
+  normalizeTaskLabel,
+} from "@/lib/task-label";
 import { cn } from "@/lib/utils";
+
+type MeetingNoteStatus = "prepared" | "actions_in_progress" | "done";
+type MeetingListView = "active" | "archived";
+type PrepareDialogMode = "create" | "edit";
 
 export interface ProjectMeetingNotePanelAction {
   id: string;
@@ -49,9 +64,11 @@ export interface ProjectMeetingNotePanelNote {
   title: string;
   scheduledAt: string | null;
   participants: string[];
+  labels: string[];
+  status: MeetingNoteStatus;
   inputNotes: string;
   outputNotes: string;
-  decisions: string;
+  decisions?: string;
   actions: ProjectMeetingNotePanelAction[];
   createdAt: string;
   updatedAt: string;
@@ -69,26 +86,56 @@ interface DraftAction {
   completedAt: string | null;
 }
 
-type EditorMode = "create" | "edit";
-
-interface MeetingNoteDraft {
+interface PrepareDraft {
   title: string;
   scheduledAtLocal: string;
-  participantsText: string;
+  participants: string[];
+  participantInput: string;
+  labels: string[];
+  labelInput: string;
   inputNotes: string;
+}
+
+interface NotesDraft {
   outputNotes: string;
-  decisions: string;
+  status: MeetingNoteStatus;
   actions: DraftAction[];
 }
 
-const EMPTY_DRAFT: MeetingNoteDraft = {
+interface PrepareDialogState {
+  mode: PrepareDialogMode;
+  noteId: string | null;
+}
+
+const EMPTY_PREPARE_DRAFT: PrepareDraft = {
   title: "",
   scheduledAtLocal: "",
-  participantsText: "",
+  participants: [],
+  participantInput: "",
+  labels: [],
+  labelInput: "",
   inputNotes: "",
+};
+
+const EMPTY_NOTES_DRAFT: NotesDraft = {
   outputNotes: "",
-  decisions: "",
+  status: "actions_in_progress",
   actions: [],
+};
+
+const STATUS_LABELS: Record<MeetingNoteStatus, string> = {
+  prepared: "Prepared",
+  actions_in_progress: "Actions in progress",
+  done: "Done",
+};
+
+const STATUS_BADGE_CLASS: Record<MeetingNoteStatus, string> = {
+  prepared:
+    "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-200",
+  actions_in_progress:
+    "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200",
+  done:
+    "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200",
 };
 
 function createLocalId(prefix: string): string {
@@ -153,56 +200,6 @@ function fromDateTimeLocal(value: string): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-function splitParticipants(value: string): string[] {
-  return value
-    .split(/[\n,]/)
-    .map((participant) => participant.trim())
-    .filter(Boolean);
-}
-
-function buildDraftFromNote(note: ProjectMeetingNotePanelNote): MeetingNoteDraft {
-  return {
-    title: note.title,
-    scheduledAtLocal: toDateTimeLocal(note.scheduledAt),
-    participantsText: note.participants.join("\n"),
-    inputNotes: note.inputNotes,
-    outputNotes: note.outputNotes,
-    decisions: note.decisions,
-    actions: note.actions.map((action) => ({
-      id: action.id,
-      content: action.content,
-      completedAt: action.completedAt,
-    })),
-  };
-}
-
-function mapMeetingNoteError(errorCode: string): string {
-  switch (errorCode) {
-    case "meeting-note-title-too-short":
-      return "Meeting title must be at least 2 characters.";
-    case "meeting-note-title-too-long":
-      return "Meeting title must be 140 characters or fewer.";
-    case "meeting-note-scheduled-at-invalid":
-      return "Meeting time is not valid.";
-    case "meeting-note-too-many-participants":
-      return "Keep participants to 40 people or fewer.";
-    case "meeting-note-participant-too-long":
-      return "Participant names must be 80 characters or fewer.";
-    case "meeting-note-section-too-long":
-      return "Meeting sections are too long.";
-    case "meeting-note-too-many-actions":
-      return "Keep follow-up actions to 40 items or fewer.";
-    case "meeting-note-action-too-long":
-      return "Follow-up actions must be 240 characters or fewer.";
-    case "meeting-note-not-found":
-      return "Meeting note not found.";
-    case "forbidden":
-      return "You do not have permission to change meeting notes.";
-    default:
-      return "Could not save meeting notes. Please retry.";
-  }
-}
-
 function actionCounts(note: ProjectMeetingNotePanelNote) {
   const completed = note.actions.filter((action) => action.completedAt != null).length;
   return {
@@ -233,15 +230,93 @@ function noteMatchesQuery(note: ProjectMeetingNotePanelNote, query: string): boo
   const searchable = [
     note.title,
     ...note.participants,
+    ...note.labels,
+    STATUS_LABELS[note.status],
     note.inputNotes,
     note.outputNotes,
-    note.decisions,
     ...note.actions.map((action) => action.content),
   ]
     .join(" ")
     .toLocaleLowerCase();
 
   return searchable.includes(normalizedQuery);
+}
+
+function buildPrepareDraftFromNote(note: ProjectMeetingNotePanelNote): PrepareDraft {
+  return {
+    title: note.title,
+    scheduledAtLocal: toDateTimeLocal(note.scheduledAt),
+    participants: note.participants,
+    participantInput: "",
+    labels: note.labels,
+    labelInput: "",
+    inputNotes: note.inputNotes,
+  };
+}
+
+function buildNotesDraftFromNote(note: ProjectMeetingNotePanelNote): NotesDraft {
+  return {
+    outputNotes: note.outputNotes,
+    status: note.status === "prepared" ? "actions_in_progress" : note.status,
+    actions: note.actions.map((action) => ({
+      id: action.id,
+      content: action.content,
+      completedAt: action.completedAt,
+    })),
+  };
+}
+
+function buildBasePayload(note: ProjectMeetingNotePanelNote) {
+  return {
+    title: note.title,
+    scheduledAt: note.scheduledAt,
+    participants: note.participants,
+    labels: note.labels,
+    status: note.status,
+    inputNotes: note.inputNotes,
+    outputNotes: note.outputNotes,
+    decisions: "",
+    actions: note.actions,
+  };
+}
+
+function mapMeetingNoteError(errorCode: string): string {
+  switch (errorCode) {
+    case "meeting-note-title-too-short":
+      return "Meeting title must be at least 2 characters.";
+    case "meeting-note-title-too-long":
+      return "Meeting title must be 140 characters or fewer.";
+    case "meeting-note-scheduled-at-invalid":
+      return "Meeting time is not valid.";
+    case "meeting-note-too-many-participants":
+      return "Keep participants to 40 people or fewer.";
+    case "meeting-note-participant-too-long":
+      return "Participant names must be 80 characters or fewer.";
+    case "meeting-note-section-too-long":
+      return "Meeting sections are too long.";
+    case "meeting-note-too-many-actions":
+      return "Keep follow-up actions to 40 items or fewer.";
+    case "meeting-note-action-too-long":
+      return "Follow-up actions must be 240 characters or fewer.";
+    case "meeting-note-not-found":
+      return "Meeting note not found.";
+    case "forbidden":
+      return "You do not have permission to change meeting notes.";
+    default:
+      return "Could not save meeting notes. Please retry.";
+  }
+}
+
+function LabelPill({ label }: { label: string }) {
+  return (
+    <span
+      className="inline-flex max-w-full items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-slate-950"
+      style={{ backgroundColor: getTaskLabelColor(label) }}
+    >
+      <Tag className="h-3 w-3 shrink-0" />
+      <span className="truncate">{label}</span>
+    </span>
+  );
 }
 
 function SectionBlock({
@@ -261,6 +336,80 @@ function SectionBlock({
   );
 }
 
+function MeetingDialogShell({
+  title,
+  subtitle,
+  onClose,
+  children,
+  footer,
+  maxWidthClassName = "max-w-2xl",
+}: {
+  title: string;
+  subtitle?: string;
+  onClose: () => void;
+  children: ReactNode;
+  footer?: ReactNode;
+  maxWidthClassName?: string;
+}) {
+  const content = (
+    <div
+      data-calendar-popover-scope="true"
+      className="fixed inset-0 z-[90] flex min-h-dvh w-screen items-end justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-0 sm:items-center sm:p-4"
+    >
+      <div aria-hidden="true" className="absolute inset-0" onMouseDown={onClose} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="meeting-dialog-title"
+        className={cn(
+          "relative z-10 flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-border/70 bg-background shadow-[0_40px_120px_-44px_rgba(15,23,42,0.7)] sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl",
+          maxWidthClassName
+        )}
+      >
+        <div className="border-b border-border/60 px-5 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <h3 id="meeting-dialog-title" className="text-lg font-semibold text-foreground">
+                {title}
+              </h3>
+              {subtitle ? (
+                <p className="text-sm leading-6 text-muted-foreground">{subtitle}</p>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full"
+              onClick={onClose}
+              aria-label={`Close ${title}`}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+          {children}
+        </div>
+        {footer ? (
+          <div
+            data-calendar-popover-footer-boundary="true"
+            className="border-t border-border/60 px-5 py-4 sm:px-6"
+          >
+            {footer}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+
+  if (typeof document === "undefined") {
+    return content;
+  }
+
+  return createPortal(content, document.body);
+}
+
 export function ProjectMeetingNotesPanel({
   projectId,
   canEdit,
@@ -277,11 +426,12 @@ export function ProjectMeetingNotesPanel({
     sortNotes(notes)
   );
   const [query, setQuery] = useState("");
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
-    notes[0]?.id ?? null
-  );
-  const [editorMode, setEditorMode] = useState<EditorMode | null>(null);
-  const [draft, setDraft] = useState<MeetingNoteDraft>(EMPTY_DRAFT);
+  const [listView, setListView] = useState<MeetingListView>("active");
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [prepareDialog, setPrepareDialog] = useState<PrepareDialogState | null>(null);
+  const [prepareDraft, setPrepareDraft] =
+    useState<PrepareDraft>(EMPTY_PREPARE_DRAFT);
+  const [notesDraft, setNotesDraft] = useState<NotesDraft>(EMPTY_NOTES_DRAFT);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState<string | null>(null);
@@ -290,13 +440,9 @@ export function ProjectMeetingNotesPanel({
   useEffect(() => {
     const sortedNotes = sortNotes(notes);
     setLocalNotes(sortedNotes);
-    setSelectedNoteId((current) => {
-      if (current && sortedNotes.some((note) => note.id === current)) {
-        return current;
-      }
-
-      return sortedNotes[0]?.id ?? null;
-    });
+    setSelectedNoteId((current) =>
+      current && sortedNotes.some((note) => note.id === current) ? current : null
+    );
   }, [notes]);
 
   useEffect(() => {
@@ -317,117 +463,132 @@ export function ProjectMeetingNotesPanel({
     };
   }, [projectId]);
 
+  const activeNotes = useMemo(
+    () => localNotes.filter((note) => note.status !== "done"),
+    [localNotes]
+  );
+  const archivedNotes = useMemo(
+    () => localNotes.filter((note) => note.status === "done"),
+    [localNotes]
+  );
+  const visibleSourceNotes = listView === "active" ? activeNotes : archivedNotes;
   const filteredNotes = useMemo(
-    () => localNotes.filter((note) => noteMatchesQuery(note, query)),
-    [localNotes, query]
+    () => visibleSourceNotes.filter((note) => noteMatchesQuery(note, query)),
+    [visibleSourceNotes, query]
   );
 
   const selectedNote = useMemo(
     () => localNotes.find((note) => note.id === selectedNoteId) ?? null,
     [localNotes, selectedNoteId]
   );
-
+  const prepareNote = useMemo(
+    () =>
+      prepareDialog?.noteId
+        ? localNotes.find((note) => note.id === prepareDialog.noteId) ?? null
+        : null,
+    [localNotes, prepareDialog]
+  );
   const pendingDeleteNote = useMemo(
     () => localNotes.find((note) => note.id === pendingDeleteNoteId) ?? null,
     [localNotes, pendingDeleteNoteId]
   );
+  const existingLabels = useMemo(() => {
+    const labels = new Set<string>();
+    localNotes.forEach((note) => note.labels.forEach((label) => labels.add(label)));
+    return Array.from(labels).sort((left, right) => left.localeCompare(right));
+  }, [localNotes]);
+  const labelSuggestions = useMemo(() => {
+    const queryValue = prepareDraft.labelInput.trim().toLocaleLowerCase();
+    if (!queryValue) {
+      return [];
+    }
 
-  const resetDraft = () => {
-    setDraft(EMPTY_DRAFT);
+    const selected = new Set(
+      prepareDraft.labels.map((label) => label.toLocaleLowerCase())
+    );
+    return existingLabels
+      .filter((label) => label.toLocaleLowerCase().startsWith(queryValue))
+      .filter((label) => !selected.has(label.toLocaleLowerCase()))
+      .slice(0, 6);
+  }, [existingLabels, prepareDraft.labelInput, prepareDraft.labels]);
+
+  const resetPrepareDraft = () => {
+    setPrepareDraft(EMPTY_PREPARE_DRAFT);
     setDraftError(null);
   };
 
-  const startCreate = () => {
+  const openPrepareCreate = () => {
     if (!canEdit) {
       return;
     }
 
-    resetDraft();
-    setEditorMode("create");
+    resetPrepareDraft();
+    setPrepareDialog({ mode: "create", noteId: null });
     setIsExpanded(true);
   };
 
-  const startEdit = (note: ProjectMeetingNotePanelNote) => {
+  const openPrepareEdit = (note: ProjectMeetingNotePanelNote) => {
     if (!canEdit) {
       return;
     }
 
-    setSelectedNoteId(note.id);
-    setDraft(buildDraftFromNote(note));
+    setPrepareDraft(buildPrepareDraftFromNote(note));
     setDraftError(null);
-    setEditorMode("edit");
-    setIsExpanded(true);
+    setPrepareDialog({ mode: "edit", noteId: note.id });
+    setSelectedNoteId(null);
   };
 
-  const closeEditor = () => {
+  const closePrepareDialog = () => {
     if (isSaving) {
       return;
     }
 
-    setEditorMode(null);
-    resetDraft();
+    setPrepareDialog(null);
+    resetPrepareDraft();
   };
 
-  const updateDraftAction = (actionId: string, content: string) => {
-    setDraft((current) => ({
-      ...current,
-      actions: current.actions.map((action) =>
-        action.id === actionId ? { ...action, content } : action
-      ),
-    }));
-  };
-
-  const addDraftAction = () => {
-    setDraft((current) => ({
-      ...current,
-      actions: [
-        ...current.actions,
-        {
-          id: createLocalId("meeting-action"),
-          content: "",
-          completedAt: null,
-        },
-      ],
-    }));
-  };
-
-  const removeDraftAction = (actionId: string) => {
-    setDraft((current) => ({
-      ...current,
-      actions: current.actions.filter((action) => action.id !== actionId),
-    }));
-  };
-
-  const buildPayload = (sourceDraft: MeetingNoteDraft) => ({
-    title: sourceDraft.title.trim(),
-    scheduledAt: fromDateTimeLocal(sourceDraft.scheduledAtLocal),
-    participants: splitParticipants(sourceDraft.participantsText),
-    inputNotes: sourceDraft.inputNotes.trim(),
-    outputNotes: sourceDraft.outputNotes.trim(),
-    decisions: sourceDraft.decisions.trim(),
-    actions: sourceDraft.actions
-      .map((action) => ({
-        id: action.id,
-        content: action.content.trim(),
-        completedAt: action.completedAt,
-      }))
-      .filter((action) => action.content.length > 0),
-  });
-
-  const handleSave = async () => {
-    if (!editorMode || isSaving) {
+  const openNoteDialog = (note: ProjectMeetingNotePanelNote) => {
+    if (selectedNoteId === note.id) {
+      setSelectedNoteId(null);
+      setNotesDraft(EMPTY_NOTES_DRAFT);
       return;
     }
 
-    const payload = buildPayload(draft);
+    setSelectedNoteId(note.id);
+    setNotesDraft(buildNotesDraftFromNote(note));
+    setDraftError(null);
+  };
+
+  const closeNoteDialog = () => {
+    if (isSaving) {
+      return;
+    }
+
+    setSelectedNoteId(null);
+    setNotesDraft(EMPTY_NOTES_DRAFT);
+    setDraftError(null);
+  };
+
+  const savePrepareDialog = async () => {
+    if (!prepareDialog || isSaving) {
+      return;
+    }
+
+    const payload = {
+      ...(prepareNote ? buildBasePayload(prepareNote) : {}),
+      title: prepareDraft.title.trim(),
+      scheduledAt: fromDateTimeLocal(prepareDraft.scheduledAtLocal),
+      participants: prepareDraft.participants,
+      labels: prepareDraft.labels,
+      status: prepareNote?.status ?? "prepared",
+      inputNotes: prepareDraft.inputNotes.trim(),
+      outputNotes: prepareNote?.outputNotes ?? "",
+      decisions: "",
+      actions: prepareNote?.actions ?? [],
+    };
+
     if (!payload.title) {
       setDraftError("Meeting title is required.");
-      return;
-    }
-
-    const editingNote = editorMode === "edit" ? selectedNote : null;
-    if (editorMode === "edit" && !editingNote) {
-      setDraftError("Meeting note not found.");
       return;
     }
 
@@ -437,11 +598,11 @@ export function ProjectMeetingNotesPanel({
     try {
       const response = await fetchProjectActivityMutation(
         projectId,
-        editorMode === "create"
+        prepareDialog.mode === "create"
           ? `/api/projects/${projectId}/meeting-notes`
-          : `/api/projects/${projectId}/meeting-notes/${editingNote?.id}`,
+          : `/api/projects/${projectId}/meeting-notes/${prepareDialog.noteId}`,
         {
-          method: editorMode === "create" ? "POST" : "PATCH",
+          method: prepareDialog.mode === "create" ? "POST" : "PATCH",
           headers: {
             "Content-Type": "application/json",
           },
@@ -460,21 +621,134 @@ export function ProjectMeetingNotesPanel({
       const savedNote = responsePayload.note;
       setLocalNotes((current) =>
         sortNotes(
-          editorMode === "create"
+          prepareDialog.mode === "create"
             ? [savedNote, ...current]
             : current.map((note) => (note.id === savedNote.id ? savedNote : note))
         )
       );
-      setSelectedNoteId(savedNote.id);
-      setEditorMode(null);
-      resetDraft();
+      setPrepareDialog(null);
+      resetPrepareDraft();
+      setSelectedNoteId(null);
       pushToast({
         variant: "success",
-        message: editorMode === "create" ? "Meeting note created." : "Meeting note saved.",
+        message:
+          prepareDialog.mode === "create"
+            ? "Meeting prepared."
+            : "Meeting preparation saved.",
       });
     } catch (error) {
       setDraftError(
         error instanceof Error ? error.message : "Could not save meeting note."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const updateDraftAction = (actionId: string, content: string) => {
+    setNotesDraft((current) => ({
+      ...current,
+      actions: current.actions.map((action) =>
+        action.id === actionId ? { ...action, content } : action
+      ),
+    }));
+  };
+
+  const addDraftAction = () => {
+    setNotesDraft((current) => ({
+      ...current,
+      actions: [
+        ...current.actions,
+        {
+          id: createLocalId("meeting-action"),
+          content: "",
+          completedAt: null,
+        },
+      ],
+    }));
+  };
+
+  const removeDraftAction = (actionId: string) => {
+    setNotesDraft((current) => ({
+      ...current,
+      actions: current.actions.filter((action) => action.id !== actionId),
+    }));
+  };
+
+  const toggleDraftAction = (actionId: string) => {
+    setNotesDraft((current) => ({
+      ...current,
+      actions: current.actions.map((action) =>
+        action.id === actionId
+          ? {
+              ...action,
+              completedAt: action.completedAt ? null : new Date().toISOString(),
+            }
+          : action
+      ),
+    }));
+  };
+
+  const saveNotesDialog = async () => {
+    if (!selectedNote || isSaving) {
+      return;
+    }
+
+    const payload = {
+      ...buildBasePayload(selectedNote),
+      outputNotes: notesDraft.outputNotes.trim(),
+      status: notesDraft.status,
+      decisions: "",
+      actions: notesDraft.actions
+        .map((action) => ({
+          id: action.id,
+          content: action.content.trim(),
+          completedAt: action.completedAt,
+        }))
+        .filter((action) => action.content.length > 0),
+    };
+
+    setIsSaving(true);
+    setDraftError(null);
+
+    try {
+      const response = await fetchProjectActivityMutation(
+        projectId,
+        `/api/projects/${projectId}/meeting-notes/${selectedNote.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const responsePayload = (await response.json().catch(() => null)) as
+        | { error?: string; note?: ProjectMeetingNotePanelNote }
+        | null;
+
+      if (!response.ok || !responsePayload?.note) {
+        throw new Error(mapMeetingNoteError(responsePayload?.error ?? "unknown"));
+      }
+
+      const savedNote = responsePayload.note;
+      setLocalNotes((current) =>
+        sortNotes(current.map((note) => (note.id === savedNote.id ? savedNote : note)))
+      );
+      setSelectedNoteId(null);
+      setNotesDraft(EMPTY_NOTES_DRAFT);
+      setDraftError(null);
+      if (savedNote.status === "done") {
+        setListView("archived");
+      }
+      pushToast({
+        variant: "success",
+        message: savedNote.status === "done" ? "Meeting note archived." : "Meeting note saved.",
+      });
+    } catch (error) {
+      setDraftError(
+        error instanceof Error ? error.message : "Could not save meeting notes."
       );
     } finally {
       setIsSaving(false);
@@ -510,7 +784,7 @@ export function ProjectMeetingNotesPanel({
       );
       setLocalNotes(remainingNotes);
       setSelectedNoteId((current) =>
-        current === pendingDeleteNote.id ? remainingNotes[0]?.id ?? null : current
+        current === pendingDeleteNote.id ? null : current
       );
       setPendingDeleteNoteId(null);
       pushToast({
@@ -528,76 +802,9 @@ export function ProjectMeetingNotesPanel({
     }
   };
 
-  const toggleAction = async (actionId: string) => {
-    if (!selectedNote || !canEdit) {
-      return;
-    }
-
-    const nextActions = selectedNote.actions.map((action) =>
-      action.id === actionId
-        ? {
-            ...action,
-            completedAt: action.completedAt ? null : new Date().toISOString(),
-          }
-        : action
-    );
-
-    const payload = {
-      title: selectedNote.title,
-      scheduledAt: selectedNote.scheduledAt,
-      participants: selectedNote.participants,
-      inputNotes: selectedNote.inputNotes,
-      outputNotes: selectedNote.outputNotes,
-      decisions: selectedNote.decisions,
-      actions: nextActions,
-    };
-
-    setLocalNotes((current) =>
-      current.map((note) =>
-        note.id === selectedNote.id ? { ...note, actions: nextActions } : note
-      )
-    );
-
-    try {
-      const response = await fetchProjectActivityMutation(
-        projectId,
-        `/api/projects/${projectId}/meeting-notes/${selectedNote.id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      const responsePayload = (await response.json().catch(() => null)) as
-        | { error?: string; note?: ProjectMeetingNotePanelNote }
-        | null;
-
-      if (!response.ok || !responsePayload?.note) {
-        throw new Error(mapMeetingNoteError(responsePayload?.error ?? "unknown"));
-      }
-
-      const savedNote = responsePayload.note;
-      setLocalNotes((current) =>
-        current.map((note) => (note.id === savedNote.id ? savedNote : note))
-      );
-    } catch (error) {
-      setLocalNotes((current) =>
-        current.map((note) => (note.id === selectedNote.id ? selectedNote : note))
-      );
-      pushToast({
-        variant: "error",
-        message:
-          error instanceof Error ? error.message : "Could not update follow-up.",
-      });
-    }
-  };
-
-  const visibleNote = editorMode ? null : selectedNote;
   const isLocked =
-    Boolean(editorMode) ||
+    Boolean(prepareDialog) ||
+    Boolean(selectedNoteId) ||
     isSaving ||
     Boolean(pendingDeleteNoteId) ||
     isDeleting;
@@ -627,7 +834,7 @@ export function ProjectMeetingNotesPanel({
               </CardTitle>
             </div>
             <span className="rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground">
-              {localNotes.length} note{localNotes.length === 1 ? "" : "s"}
+              {activeNotes.length} active
             </span>
           </button>
 
@@ -636,10 +843,10 @@ export function ProjectMeetingNotesPanel({
               type="button"
               size="sm"
               className="w-full sm:w-auto"
-              onClick={startCreate}
+              onClick={openPrepareCreate}
             >
               <PlusSquare className="h-4 w-4" />
-              New note
+              Prepare meeting
             </Button>
           ) : null}
         </div>
@@ -647,430 +854,555 @@ export function ProjectMeetingNotesPanel({
 
       {isExpanded ? (
         <CardContent className={cn("space-y-4", PROJECT_SECTION_CONTENT_CLASS)}>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              className="h-11 w-full rounded-md border border-input bg-background pl-9 pr-10 text-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
-              placeholder="Search titles, participants, inputs, outputs, decisions, actions"
-              aria-label="Search meeting notes"
-            />
-            {query ? (
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="h-11 w-full rounded-md border border-input bg-background pl-9 pr-10 text-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
+                placeholder="Search titles, participants, labels, inputs, outputs, actions"
+                aria-label="Search meeting notes"
+              />
+              {query ? (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="absolute right-2 top-1/2 rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  aria-label="Clear meeting notes search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+            <div className="grid grid-cols-2 rounded-md border border-border/70 bg-muted/20 p-1">
               <button
                 type="button"
-                onClick={() => setQuery("")}
-                className="absolute right-2 top-1/2 rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                aria-label="Clear meeting notes search"
+                onClick={() => {
+                  setListView("active");
+                  setSelectedNoteId(null);
+                }}
+                className={cn(
+                  "rounded px-3 py-2 text-sm font-medium transition",
+                  listView === "active"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
               >
-                <X className="h-4 w-4" />
+                Active ({activeNotes.length})
               </button>
-            ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  setListView("archived");
+                  setSelectedNoteId(null);
+                }}
+                className={cn(
+                  "rounded px-3 py-2 text-sm font-medium transition",
+                  listView === "archived"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Archived ({archivedNotes.length})
+              </button>
+            </div>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-[minmax(260px,0.85fr),minmax(0,1.65fr)]">
-            <aside className="space-y-2">
-              {filteredNotes.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-5 py-8 text-center">
-                  <p className="text-sm font-medium text-foreground">
-                    {query ? "No matching meeting notes." : "No meeting notes yet."}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {query
-                      ? "Try a participant, decision, output, or follow-up action."
-                      : "Create one to prepare the next discussion and keep the output nearby."}
-                  </p>
-                </div>
-              ) : (
-                filteredNotes.map((note) => {
-                  const counts = actionCounts(note);
-                  const isSelected = selectedNoteId === note.id && !editorMode;
+          {filteredNotes.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-5 py-10 text-center">
+              <p className="text-sm font-medium text-foreground">
+                {query
+                  ? "No matching meeting notes."
+                  : listView === "archived"
+                    ? "No archived meeting notes."
+                    : "No active meeting notes yet."}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {query
+                  ? "Try a participant, label, output, or follow-up action."
+                  : listView === "archived"
+                    ? "Done meeting notes will land here."
+                    : "Prepare one before the next discussion."}
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {filteredNotes.map((note) => {
+                const counts = actionCounts(note);
+                const isSelected = selectedNoteId === note.id;
 
-                  return (
-                    <button
-                      key={note.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedNoteId(note.id);
-                        setEditorMode(null);
-                        resetDraft();
-                      }}
-                      className={cn(
-                        "w-full rounded-2xl border p-3 text-left transition hover:border-primary/30 hover:bg-muted/30",
-                        isSelected
-                          ? "border-primary/40 bg-primary/5"
-                          : "border-border/70 bg-background/70"
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 space-y-1">
-                          <p className="truncate text-sm font-semibold text-foreground">
-                            {note.title}
-                          </p>
-                          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <CalendarClock className="h-3.5 w-3.5" />
-                            {formatShortDate(note.scheduledAt)}
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="shrink-0 text-[11px]">
-                          {counts.completed}/{counts.total}
-                        </Badge>
-                      </div>
-                      {note.participants.length > 0 ? (
-                        <p className="mt-2 line-clamp-1 text-xs text-muted-foreground">
-                          {note.participants.join(", ")}
+                return (
+                  <button
+                    key={note.id}
+                    type="button"
+                    onClick={() => openNoteDialog(note)}
+                    className={cn(
+                      "flex min-h-[168px] w-full flex-col rounded-2xl border p-4 text-left transition hover:border-primary/30 hover:bg-muted/30",
+                      isSelected
+                        ? "border-primary/40 bg-primary/5"
+                        : "border-border/70 bg-background/70"
+                    )}
+                    aria-pressed={isSelected}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 space-y-1">
+                        <p className="line-clamp-2 text-sm font-semibold text-foreground">
+                          {note.title}
                         </p>
-                      ) : null}
-                    </button>
-                  );
-                })
-              )}
-            </aside>
-
-            <section className="min-w-0">
-              {editorMode ? (
-                <div className="space-y-4 rounded-2xl border border-border/70 bg-background/75 p-4">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <h3 className="text-base font-semibold">
-                        {editorMode === "create" ? "Prepare meeting" : "Edit meeting note"}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        Capture the prep before the meeting and the output after it.
-                      </p>
+                        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <CalendarClock className="h-3.5 w-3.5" />
+                          {formatShortDate(note.scheduledAt)}
+                        </p>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={cn("shrink-0 text-[11px]", STATUS_BADGE_CLASS[note.status])}
+                      >
+                        {STATUS_LABELS[note.status]}
+                      </Badge>
                     </div>
-                    <Button
+
+                    {note.labels.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {note.labels.slice(0, 3).map((label) => (
+                          <LabelPill key={label} label={label} />
+                        ))}
+                        {note.labels.length > 3 ? (
+                          <span className="rounded-full border border-border/70 px-2.5 py-1 text-xs text-muted-foreground">
+                            +{note.labels.length - 3}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    <p className="mt-3 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                      {note.inputNotes || "No preparation inputs captured."}
+                    </p>
+
+                    <div className="mt-auto flex flex-wrap items-center gap-2 pt-4 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5" />
+                        {note.participants.length}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <ListTodo className="h-3.5 w-3.5" />
+                        {counts.completed}/{counts.total}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      ) : null}
+
+      {prepareDialog ? (
+        <MeetingDialogShell
+          title={prepareDialog.mode === "create" ? "Prepare meeting" : "Edit preparation"}
+          subtitle="Set the meeting frame first. Outputs and todos are captured after opening the note."
+          onClose={closePrepareDialog}
+          footer={
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={closePrepareDialog}
+                disabled={isSaving}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void savePrepareDialog()}
+                disabled={isSaving}
+              >
+                {isSaving ? "Saving..." : "Save preparation"}
+              </Button>
+            </div>
+          }
+        >
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <label htmlFor="meeting-title" className="text-sm font-medium">
+                Title
+              </label>
+              <EmojiInputField
+                id="meeting-title"
+                value={prepareDraft.title}
+                onChange={(event) =>
+                  setPrepareDraft((current) => ({
+                    ...current,
+                    title: event.target.value,
+                  }))
+                }
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                placeholder="Weekly execution review"
+                maxLength={140}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor="meeting-scheduled-at" className="text-sm font-medium">
+                  Meeting time
+                </label>
+                {prepareDraft.scheduledAtLocal ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto px-2 py-1 text-xs"
+                    onClick={() =>
+                      setPrepareDraft((current) => ({
+                        ...current,
+                        scheduledAtLocal: "",
+                      }))
+                    }
+                  >
+                    Clear
+                  </Button>
+                ) : null}
+              </div>
+              <CalendarDateTimeField
+                id="meeting-scheduled-at"
+                value={prepareDraft.scheduledAtLocal}
+                onChange={(value) =>
+                  setPrepareDraft((current) => ({
+                    ...current,
+                    scheduledAtLocal: value,
+                  }))
+                }
+                includeTime
+                disabled={isSaving}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label htmlFor="meeting-participants" className="text-sm font-medium">
+                Participants
+              </label>
+              <TokenInput
+                id="meeting-participants"
+                value={prepareDraft.participants}
+                inputValue={prepareDraft.participantInput}
+                onInputValueChange={(value) =>
+                  setPrepareDraft((current) => ({
+                    ...current,
+                    participantInput: value,
+                  }))
+                }
+                onChange={(participants) =>
+                  setPrepareDraft((current) => ({
+                    ...current,
+                    participants,
+                  }))
+                }
+                delimiters={["Enter", ",", " "]}
+                maxItems={40}
+                placeholder="Type a name, then Enter, comma, or space"
+                disabled={isSaving}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label htmlFor="meeting-labels" className="text-sm font-medium">
+                Labels
+              </label>
+              <TokenInput
+                id="meeting-labels"
+                value={prepareDraft.labels}
+                inputValue={prepareDraft.labelInput}
+                onInputValueChange={(value) =>
+                  setPrepareDraft((current) => ({
+                    ...current,
+                    labelInput: value,
+                  }))
+                }
+                onChange={(labels) =>
+                  setPrepareDraft((current) => ({
+                    ...current,
+                    labels,
+                  }))
+                }
+                normalizeToken={normalizeTaskLabel}
+                delimiters={["Enter", ","]}
+                maxItems={MAX_TASK_LABELS}
+                maxInputLength={60}
+                placeholder="Type label and press Enter"
+                tokenClassName="border-transparent text-slate-950"
+                getTokenStyle={(label) => ({ backgroundColor: getTaskLabelColor(label) })}
+                disabled={isSaving}
+              />
+              {labelSuggestions.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {labelSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
                       type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={closeEditor}
-                      disabled={isSaving}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="grid gap-2 sm:col-span-2">
-                      <label htmlFor="meeting-title" className="text-sm font-medium">
-                        Title
-                      </label>
-                      <EmojiInputField
-                        id="meeting-title"
-                        value={draft.title}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            title: event.target.value,
-                          }))
-                        }
-                        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                        placeholder="Weekly execution review"
-                        maxLength={140}
-                      />
-                    </div>
-
-                    <div className="grid gap-2">
-                      <label htmlFor="meeting-scheduled-at" className="text-sm font-medium">
-                        Meeting time
-                      </label>
-                      <input
-                        id="meeting-scheduled-at"
-                        type="datetime-local"
-                        value={draft.scheduledAtLocal}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            scheduledAtLocal: event.target.value,
-                          }))
-                        }
-                        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                      />
-                    </div>
-
-                    <div className="grid gap-2">
-                      <label htmlFor="meeting-participants" className="text-sm font-medium">
-                        Participants
-                      </label>
-                      <EmojiTextareaField
-                        id="meeting-participants"
-                        value={draft.participantsText}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            participantsText: event.target.value,
-                          }))
-                        }
-                        className="min-h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        placeholder="Alex, Camille, Priya"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 lg:grid-cols-2">
-                    <div className="grid gap-2">
-                      <label htmlFor="meeting-inputs" className="text-sm font-medium">
-                        Inputs
-                      </label>
-                      <EmojiTextareaField
-                        id="meeting-inputs"
-                        value={draft.inputNotes}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            inputNotes: event.target.value,
-                          }))
-                        }
-                        className="min-h-36 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        placeholder="Agenda, questions, links, context to bring in."
-                      />
-                    </div>
-
-                    <div className="grid gap-2">
-                      <label htmlFor="meeting-outputs" className="text-sm font-medium">
-                        Outputs
-                      </label>
-                      <EmojiTextareaField
-                        id="meeting-outputs"
-                        value={draft.outputNotes}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            outputNotes: event.target.value,
-                          }))
-                        }
-                        className="min-h-36 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        placeholder="What changed, what was clarified, what was agreed."
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <label htmlFor="meeting-decisions" className="text-sm font-medium">
-                      Decisions
-                    </label>
-                    <EmojiTextareaField
-                      id="meeting-decisions"
-                      value={draft.decisions}
-                      onChange={(event) =>
-                        setDraft((current) => ({
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() =>
+                        setPrepareDraft((current) => ({
                           ...current,
-                          decisions: event.target.value,
+                          labels: current.labels.some(
+                            (label) =>
+                              label.toLocaleLowerCase() ===
+                              suggestion.toLocaleLowerCase()
+                          )
+                            ? current.labels
+                            : [...current.labels, suggestion],
+                          labelInput: "",
                         }))
                       }
-                      className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      placeholder="Final decisions and explicit tradeoffs."
-                    />
-                  </div>
+                      className="rounded-full border border-border/70 bg-background px-2 py-1 text-xs text-foreground hover:bg-muted"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <label className="text-sm font-medium">Actions for me</label>
+            <div className="grid gap-2">
+              <label htmlFor="meeting-inputs" className="text-sm font-medium">
+                Inputs
+              </label>
+              <EmojiTextareaField
+                id="meeting-inputs"
+                value={prepareDraft.inputNotes}
+                onChange={(event) =>
+                  setPrepareDraft((current) => ({
+                    ...current,
+                    inputNotes: event.target.value,
+                  }))
+                }
+                className="min-h-40 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="Agenda, questions, links, context to bring in."
+              />
+            </div>
+
+            {draftError ? (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {draftError}
+              </div>
+            ) : null}
+          </div>
+        </MeetingDialogShell>
+      ) : null}
+
+      {selectedNote ? (
+        <MeetingDialogShell
+          title={selectedNote.title}
+          subtitle={formatMeetingTime(selectedNote.scheduledAt)}
+          onClose={closeNoteDialog}
+          maxWidthClassName="max-w-4xl"
+          footer={
+            canEdit ? (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => openPrepareEdit(selectedNote)}
+                    disabled={isSaving}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit prep
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setPendingDeleteNoteId(selectedNote.id)}
+                    disabled={isSaving}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </Button>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => void saveNotesDialog()}
+                  disabled={isSaving}
+                >
+                  {isSaving ? "Saving..." : "Save notes"}
+                </Button>
+              </div>
+            ) : null
+          }
+        >
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Badge
+                variant="outline"
+                className={cn("text-xs", STATUS_BADGE_CLASS[notesDraft.status])}
+              >
+                {STATUS_LABELS[notesDraft.status]}
+              </Badge>
+              <Badge variant="outline" className="text-xs">
+                <Users className="h-3.5 w-3.5" />
+                {selectedNote.participants.length} participant
+                {selectedNote.participants.length === 1 ? "" : "s"}
+              </Badge>
+              {selectedNote.status === "done" ? (
+                <Badge variant="outline" className="text-xs">
+                  <Archive className="h-3.5 w-3.5" />
+                  Archived
+                </Badge>
+              ) : null}
+            </div>
+
+            {selectedNote.labels.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {selectedNote.labels.map((label) => (
+                  <LabelPill key={label} label={label} />
+                ))}
+              </div>
+            ) : null}
+
+            {selectedNote.participants.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {selectedNote.participants.map((participant) => (
+                  <span
+                    key={participant}
+                    className="rounded-full border border-border/70 bg-muted/30 px-2.5 py-1 text-xs font-semibold text-foreground"
+                  >
+                    {participant}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
+            <SectionBlock title="Inputs">
+              <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                {selectedNote.inputNotes || "No inputs captured."}
+              </p>
+            </SectionBlock>
+
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),320px]">
+              <div className="grid gap-2">
+                <label htmlFor="meeting-outputs" className="text-sm font-medium">
+                  Outputs
+                </label>
+                <EmojiTextareaField
+                  id="meeting-outputs"
+                  value={notesDraft.outputNotes}
+                  onChange={(event) =>
+                    setNotesDraft((current) => ({
+                      ...current,
+                      outputNotes: event.target.value,
+                    }))
+                  }
+                  className="min-h-56 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  placeholder="What changed, what was clarified, what needs to happen next."
+                  disabled={!canEdit || isSaving}
+                />
+              </div>
+
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <label htmlFor="meeting-status" className="text-sm font-medium">
+                    State
+                  </label>
+                  <select
+                    id="meeting-status"
+                    value={notesDraft.status}
+                    onChange={(event) =>
+                      setNotesDraft((current) => ({
+                        ...current,
+                        status: event.target.value as MeetingNoteStatus,
+                      }))
+                    }
+                    disabled={!canEdit || isSaving}
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="prepared">Prepared</option>
+                    <option value="actions_in_progress">Actions in progress</option>
+                    <option value="done">Done</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="text-sm font-medium">Todos for me</label>
+                    {canEdit ? (
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         onClick={addDraftAction}
+                        disabled={isSaving}
                       >
                         <PlusSquare className="h-4 w-4" />
-                        Add action
+                        Add
                       </Button>
-                    </div>
-                    <div className="space-y-2">
-                      {draft.actions.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-border/70 px-4 py-4 text-sm text-muted-foreground">
-                          No follow-up actions yet.
-                        </div>
-                      ) : (
-                        draft.actions.map((action, index) => (
+                    ) : null}
+                  </div>
+                  <div className="space-y-2">
+                    {notesDraft.actions.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-border/70 px-4 py-4 text-sm text-muted-foreground">
+                        No todos yet.
+                      </div>
+                    ) : (
+                      notesDraft.actions.map((action, index) => {
+                        const isComplete = action.completedAt != null;
+                        return (
                           <div key={action.id} className="flex items-center gap-2">
-                            <span className="w-6 text-center text-xs text-muted-foreground">
-                              {index + 1}
-                            </span>
+                            <button
+                              type="button"
+                              disabled={!canEdit || isSaving}
+                              onClick={() => toggleDraftAction(action.id)}
+                              className="rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-default disabled:hover:bg-transparent"
+                              aria-label={`${isComplete ? "Reopen" : "Complete"} todo ${index + 1}`}
+                            >
+                              {isComplete ? (
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                              ) : (
+                                <Circle className="h-4 w-4" />
+                              )}
+                            </button>
                             <EmojiInputField
                               value={action.content}
                               onChange={(event) =>
                                 updateDraftAction(action.id, event.target.value)
                               }
-                              className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                              className={cn(
+                                "h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm",
+                                isComplete ? "text-muted-foreground line-through" : ""
+                              )}
                               placeholder="Send recap to stakeholders"
                               maxLength={240}
-                              aria-label={`Follow-up action ${index + 1}`}
+                              aria-label={`Todo ${index + 1}`}
+                              disabled={!canEdit || isSaving}
                             />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeDraftAction(action.id)}
-                              aria-label={`Remove follow-up action ${index + 1}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  {draftError ? (
-                    <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                      {draftError}
-                    </div>
-                  ) : null}
-
-                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={closeEditor}
-                      disabled={isSaving}
-                      className="w-full sm:w-auto"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => void handleSave()}
-                      disabled={isSaving}
-                      className="w-full sm:w-auto"
-                    >
-                      {isSaving ? "Saving..." : "Save note"}
-                    </Button>
-                  </div>
-                </div>
-              ) : visibleNote ? (
-                <article className="space-y-4 rounded-2xl border border-border/70 bg-background/75 p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0 space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge
-                          variant="outline"
-                          className="border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-200"
-                        >
-                          <CalendarClock className="h-3.5 w-3.5" />
-                          {formatMeetingTime(visibleNote.scheduledAt)}
-                        </Badge>
-                        <Badge variant="outline">
-                          <Users className="h-3.5 w-3.5" />
-                          {visibleNote.participants.length} participant
-                          {visibleNote.participants.length === 1 ? "" : "s"}
-                        </Badge>
-                      </div>
-                      <h3 className="text-xl font-semibold tracking-tight">
-                        {visibleNote.title}
-                      </h3>
-                    </div>
-
-                    {canEdit ? (
-                      <div className="flex items-center gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => startEdit(visibleNote)}
-                          aria-label={`Edit meeting note ${visibleNote.title}`}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setPendingDeleteNoteId(visibleNote.id)}
-                          aria-label={`Delete meeting note ${visibleNote.title}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {visibleNote.participants.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {visibleNote.participants.map((participant) => (
-                        <span
-                          key={participant}
-                          className="rounded-full border border-border/60 bg-muted/30 px-2.5 py-1 text-xs text-muted-foreground"
-                        >
-                          {participant}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  <div className="grid gap-3 lg:grid-cols-2">
-                    <SectionBlock title="Inputs">
-                      <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                        {visibleNote.inputNotes || "No inputs captured."}
-                      </p>
-                    </SectionBlock>
-                    <SectionBlock title="Outputs">
-                      <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                        {visibleNote.outputNotes || "No outputs captured yet."}
-                      </p>
-                    </SectionBlock>
-                  </div>
-
-                  <SectionBlock title="Decisions">
-                    <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                      {visibleNote.decisions || "No decisions captured."}
-                    </p>
-                  </SectionBlock>
-
-                  <SectionBlock title="Actions for me">
-                    {visibleNote.actions.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        No follow-up actions captured.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {visibleNote.actions.map((action) => {
-                          const isComplete = action.completedAt != null;
-                          return (
-                            <button
-                              key={action.id}
-                              type="button"
-                              disabled={!canEdit}
-                              onClick={() => void toggleAction(action.id)}
-                              className={cn(
-                                "flex w-full items-start gap-3 rounded-xl border border-border/60 bg-background/80 px-3 py-2 text-left text-sm transition",
-                                canEdit ? "hover:bg-muted/40" : "cursor-default",
-                                isComplete ? "text-muted-foreground" : "text-foreground"
-                              )}
-                            >
-                              {isComplete ? (
-                                <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />
-                              ) : (
-                                <Circle className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                              )}
-                              <span
-                                className={cn(
-                                  "min-w-0 flex-1",
-                                  isComplete ? "line-through decoration-muted-foreground/60" : ""
-                                )}
+                            {canEdit ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeDraftAction(action.id)}
+                                aria-label={`Remove todo ${index + 1}`}
+                                disabled={isSaving}
                               >
-                                {action.content}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            ) : null}
+                          </div>
+                        );
+                      })
                     )}
-                  </SectionBlock>
-                </article>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-5 py-10 text-center">
-                  <p className="text-sm font-medium text-foreground">
-                    Select a meeting note.
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Search or choose a previous meeting from the list.
-                  </p>
+                  </div>
                 </div>
-              )}
-            </section>
+              </div>
+            </div>
+
+            {draftError ? (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {draftError}
+              </div>
+            ) : null}
           </div>
-        </CardContent>
+        </MeetingDialogShell>
       ) : null}
 
       <ConfirmDialog
@@ -1078,7 +1410,7 @@ export function ProjectMeetingNotesPanel({
         title="Delete meeting note?"
         description={
           pendingDeleteNote
-            ? `Delete "${pendingDeleteNote.title}" and its follow-up actions?`
+            ? `Delete "${pendingDeleteNote.title}" and its todos?`
             : ""
         }
         confirmLabel={isDeleting ? "Deleting..." : "Delete note"}

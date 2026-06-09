@@ -24,9 +24,9 @@ Last reviewed: 2026-05-31
   Rationale: Redesign the login and home page so they feel like a polished product surface rather than a technical auth form: improve visual hierarchy, copy, branding presence, and call-to-action clarity so new visitors understand the product value at a glance and returning users get a frictionless sign-in experience.
   Dependencies: TASK-045, TASK-059, TASK-083
 - ID: TASK-098
-  Title: Meeting notes manager - structured project meeting log with participants, topics, decisions, and follow-ups
+  Title: Meeting notes manager - structured project meeting log with participants, labels, outputs, and todos
   Status: In Review (PR #331, feature/task-98-meeting-notes-manager)
-  Rationale: Add a dedicated project-scoped meeting-notes surface so discussions are not buried in generic context cards; each entry should capture meeting date/time, participants, topics discussed, key decisions, and follow-up actions, with future-friendly room for chronological browsing, search/filtering, and task linkage when implementation begins.
+  Rationale: Add a dedicated project-scoped meeting-notes surface so discussions are not buried in generic context cards; each entry should separate meeting preparation from after-meeting notes, capture meeting date/time, participants, task-style labels, preparation inputs, outputs, personal todos, and lifecycle state, and keep done notes in an archived list while preserving search/filtering and future room for task linkage.
   Dependencies: TASK-076, TASK-079
 - ID: TASK-102
   Title: Collaboration service modularization - split invite, membership, and recipient flows into smaller service units
