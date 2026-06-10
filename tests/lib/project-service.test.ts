@@ -28,6 +28,9 @@ const prismaMock = vi.hoisted(() => ({
   resourceAttachment: {
     count: vi.fn(),
   },
+  projectMeetingNote: {
+    count: vi.fn(),
+  },
   googleCalendarCredential: {
     findUnique: vi.fn(),
   },
@@ -101,6 +104,7 @@ describe("project-service", () => {
       .mockResolvedValueOnce(1)
       .mockResolvedValueOnce(1);
     prismaMock.resource.count.mockResolvedValueOnce(1);
+    prismaMock.projectMeetingNote.count.mockResolvedValueOnce(2);
     prismaMock.taskAttachment.count.mockResolvedValueOnce(3);
     prismaMock.resourceAttachment.count.mockResolvedValueOnce(3);
     prismaMock.googleCalendarCredential.findUnique.mockResolvedValueOnce({
@@ -116,6 +120,7 @@ describe("project-service", () => {
         openTasks: 1,
         completedTasks: 1,
         contextCards: 1,
+        meetingNotes: 2,
         attachmentCount: 6,
         isCalendarConnected: true,
       },
@@ -191,6 +196,17 @@ describe("project-service", () => {
           ],
         },
         type: RESOURCE_TYPE_CONTEXT_CARD,
+      },
+    });
+    expect(prismaMock.projectMeetingNote.count).toHaveBeenCalledWith({
+      where: {
+        projectId: "project-1",
+        project: {
+          OR: [
+            { ownerId: actorUserId },
+            { memberships: { some: { userId: actorUserId } } },
+          ],
+        },
       },
     });
     expect(prismaMock.taskAttachment.count).toHaveBeenCalledWith({

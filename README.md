@@ -26,6 +26,9 @@ Implemented today:
 - Project-scoped agent access with owner-managed API credentials, short-lived bearer-token exchange, and audit trail
 - Project dashboard with:
   - Context cards (CRUD + attachments)
+  - Meeting notes with searchable preparation inputs, label filters,
+    participants, after-meeting outputs, todo tracking, overdue highlights,
+    state, and archived history
   - Roadmap event-first milestone lanes with grouped child events, drag-and-drop regrouping, and target-date planning
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`)
   - Calendar panel (Google Calendar list/create/update/delete)

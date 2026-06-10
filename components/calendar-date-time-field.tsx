@@ -342,7 +342,7 @@ export function CalendarDateTimeField({
         onClick={() => setIsOpen((previous) => !previous)}
       >
         <span className="truncate">{formatPickerFieldValue(value, includeTime)}</span>
-        <CalendarDays className="h-4 w-4 text-muted-foreground" />
+        <CalendarDays className="h-4 w-4 text-slate-500 transition-colors dark:text-slate-300" />
       </button>
       {pickerPopover}
     </div>

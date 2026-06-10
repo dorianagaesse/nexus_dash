@@ -8,6 +8,17 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.19.0 - 2026-06-08
+
+- Added a project-scoped Meeting Notes workspace with structured preparation
+  inputs, task-style labels, explicit label filtering, participants,
+  after-meeting outputs, personal todos, and overdue todo highlighting.
+- Added searchable meeting-note history on the project dashboard so previous
+  discussions can be found by title, participant, label, notes, or todos, with
+  done notes shown in a separate archived list.
+- Added meeting-note persistence, RLS-protected project APIs, dashboard stats,
+  and Playwright coverage for the core meeting-notes workflow.
+
 ## v0.18.0 - 2026-06-08
 
 - Corrected the app product version after auditing the merge history from

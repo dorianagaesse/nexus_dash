@@ -1,84 +1,160 @@
-# Current Task: TASK-313 App Version Governance
+# Current Task: TASK-098 Meeting Notes Manager
 
 ## Task ID
-TASK-313
+TASK-098
 
 ## Status
-Complete once PR #329 merges.
+Feedback pass implemented, pushed, preview-deployed, and Playwright-validated on
+2026-06-09. PR #331 remains open for review.
 
 ## Source
-- User feedback on 2026-06-06: the app previously showed `0.1.<commit>` and
-  now constantly shows `0.2.0`; the version number has no visible logic and
-  should increment according to an industry-standard approach.
-- Existing completed tasks:
-  - TASK-087 exposed product metadata in the app.
-  - TASK-272 defined a release-version cadence and helper.
-  - TASK-132 made `package.json` the canonical product version and separated
-    user-facing version from commit SHA.
+- `tasks/backlog.md`: "Meeting notes manager - structured project meeting log
+  with participants, labels, outputs, and todos."
+- User request on 2026-06-08: add a dedicated Meeting Notes area alongside
+  project context, roadmap, Kanban, and similar dashboard surfaces. Meeting
+  preparation uses an `inputs` section before the meeting and an `output`
+  section after the meeting, with participants and personal action items
+  captured explicitly. Previous notes must be easy to find, with search as a
+  must-have.
 
 ## Objective
-Review and fix NexusDash app version governance so the product version follows
-SemVer-compatible release logic, increments predictably for production releases,
-and keeps build/revision metadata separate and useful for diagnostics.
+Ship a project-scoped Meeting Notes manager that feels native to the existing
+NexusDash dashboard: structured enough for meeting preparation and follow-up,
+fast to scan chronologically, searchable, and protected by the same
+project-membership authorization and service-layer boundaries as the rest of
+the project workspace.
 
-## Initial Position
-`v0.2.0` being stable is understandable technically because `package.json` is
-the canonical product version. The missing piece is process enforcement: no
-release/version decision is currently required after meaningful shipped work.
+## 2026-06-09 Feedback Pass
+- Add task-style labels to each meeting note.
+- Use modal workflows instead of raw inline editing.
+- Separate meeting preparation from after-meeting note taking: preparation
+  captures title, participants, labels, date/time, and inputs; opening the note
+  later captures outputs and todos.
+- Add note state: `prepared`, `actions_in_progress`, and `done`; show `done`
+  notes in a separate Archived list.
+- Do not auto-select a meeting note; clicking the selected note closes it.
+- Use the shared task date picker, with a theme-aware calendar icon.
+- Remove the Decisions section from the meeting note UI.
+- Add participant chips from Enter, comma, or space.
 
-Going back to `0.1.<commit>` would also be wrong: commit SHA/build revision is
-not the same as product version. The right target is a clear product release
-version plus diagnostic revision metadata.
+## 2026-06-10 Feedback Pass
+- Replace the browser-native State dropdown with an app-styled popover select.
+- Make label filtering explicit with a visible "Filter by label" chip row.
+- Highlight meeting notes with open todos that are overdue seven days after the
+  meeting date, including a section-level overdue summary.
+- Track durable overdue reminder email delivery as TASK-314.
+- Track the project-wide open meeting-todo side panel as TASK-315.
 
-## Selected Policy
-- Keep `package.json` as the canonical product version.
-- Keep commit SHA/build metadata separate from the visible product version.
-- Do not use commit count in SemVer; it is repository/build metadata, not
-  release intent.
-- `feature/*` PRs that ship meaningful product work bump minor and reset patch,
-  for example `0.2.0` to `0.3.0`.
-- Release-impacting `fix/*`, `refactor/*`, and `chore/*` PRs bump patch, for
-  example `0.3.0` to `0.3.1`.
-- `docs/*`, Dependabot, routine CI cleanup, and task-tracking-only work hold
-  steady unless explicitly converted into a product release.
-- `1.0.0` remains reserved for the first stable product baseline.
-
-## Implementation Summary
-- Added `scripts/check-version-policy.mjs` and `npm run release:check`.
-- Wired the version policy guard into the PR Quality Core workflow.
-- Extended `scripts/release-version.mjs` with branch-type aliases:
-  `feature`, `fix`, `refactor`, and `chore`.
-- Bumped the app product version from `0.2.0` to `0.3.0` for this
-  `feature/*` implementation PR.
-- Updated release/version docs, README metadata guidance, changelog, and app
-  metadata tests.
-- Added guard tests that exercise feature minor bumps, fix patch requirements,
-  changelog enforcement, and docs-only no-bump behavior.
-
-## Out Of Scope
-- Changing dependency package versions for their own sake.
-- Reintroducing commit SHA as the primary user-facing product version.
-- A full public release-management platform beyond the lightweight process
-  NexusDash needs today.
+## Implementation Plan
+1. Add persistence for project meeting notes and follow-up actions, including
+   title, scheduled date/time, participants, labels, state, input notes, output
+   notes, and action items.
+2. Add service-layer create/read/update/delete/search operations with owner and
+   editor write access and viewer read access.
+3. Add project API routes that keep transport concerns thin and delegate
+   authorization to services.
+4. Add a dedicated dashboard Meeting Notes panel with search, list/detail
+   navigation, preparation/note-taking modals, action-item tracking, empty states,
+   loading/error states, and responsive layout.
+5. Integrate the panel into the project dashboard navigation and live project
+   activity refresh model where appropriate.
+6. Cover the service/API/UI behavior with focused tests and add Playwright
+   coverage for the main meeting-notes workflow.
+7. Complete repository workflow: branch/worktree, PR, Copilot review handling,
+   explicit branch-ref preview deployment, and Playwright against preview.
 
 ## Acceptance Criteria
-1. A clear versioning policy exists and explains product version vs
-   build/revision metadata.
-2. The visible app version follows that policy and no longer stagnates
-   accidentally after meaningful production releases.
-3. Release tooling can increment `package.json` and `package-lock.json`
-   predictably.
-4. CI/release automation catches missing version decisions for production-bound
-   feature/fix work.
-5. Changelog/release-note expectations are tied to version increments.
-6. Preview and production build metadata remain deterministic and useful for
-   debugging.
-7. Tests cover the implemented version metadata and guard behavior.
+1. Project members can open a dedicated Meeting Notes area from the project
+   dashboard without leaving the workspace flow.
+2. Users can prepare a meeting with title, meeting time, participants, labels,
+   and inputs, then open that note later to capture outputs and personal todos.
+3. Search filters previous meeting notes across title, participants, labels,
+   inputs, outputs, and actions.
+4. Users can filter meeting notes explicitly by label.
+5. The list is readable for past-note lookup, ordered by meeting time, and
+   provides useful scan-time metadata such as participants, labels, action
+   status, note state, overdue todo status, and active/archived grouping.
+6. Authorization follows project roles: owner/editor can mutate notes, viewer
+   can read but not mutate.
+7. Persistence and route code respect existing architecture boundaries:
+   Prisma access stays in `lib/services/**`, and API routes stay as thin
+   adapters.
+8. Automated tests cover the new service/API behavior and the core UI workflow.
+9. Documentation/tracking files are updated consistently.
 
 ## Definition Of Done
-- [x] Existing TASK-272 and TASK-132 decisions are reviewed.
-- [x] Policy and implementation path are documented.
-- [x] Version increment automation or CI guardrails are implemented.
-- [x] App metadata behavior remains tested.
-- [x] Relevant validation passes.
-- [x] PR workflow is completed according to `agent.md`.
+- [x] Dedicated feature branch/worktree is used for TASK-098.
+- [x] `tasks/current.md` and `journal.md` record the task plan,
+      implementation, validation, PR, preview, and Playwright outcomes.
+- [x] Schema/migration, service, API, UI, and tests are implemented.
+- [x] `npm run lint`, `npm test`, `npm run test:coverage`, `npm run build`,
+      and relevant Playwright tests pass.
+- [x] PR is opened ready for review and Copilot review feedback is monitored
+      and addressed or explicitly dispositioned.
+- [x] Preview deploy workflow is triggered with
+      `git_ref=feature/task-98-meeting-notes-manager`; logs confirm that branch
+      ref was checked out.
+- [x] Playwright runs against the deployed preview with
+      `PLAYWRIGHT_BASE_URL=<preview-url>`.
+
+## Outcome
+- PR: #331 (`TASK-098 Add meeting notes manager`) on
+  `feature/task-98-meeting-notes-manager`.
+- Latest implementation commit validated by preview before the feedback pass:
+  `5547655731e5e371cc4edcbe79670644d1075e6d`.
+- Copilot review generated three actionable comments. Addressed them in
+  `5547655` by acknowledging meeting-note remote events before reload, routing
+  meeting-note mutations through `fetchProjectActivityMutation`, and renaming
+  the stat label to `Meeting notes`; the original review threads became
+  outdated.
+- Branch-ref preview workflow run `27170848710` deployed
+  `https://nexus-dash-3bk1wylcj-dorian-agaesses-projects.vercel.app`; logs show
+  `ref: feature/task-98-meeting-notes-manager`, checkout of
+  `refs/remotes/origin/feature/task-98-meeting-notes-manager`, and
+  `git log -1 --format=%H` =
+  `5547655731e5e371cc4edcbe79670644d1075e6d`.
+- Preview Playwright:
+  `PLAYWRIGHT_BASE_URL=https://nexus-dash-3bk1wylcj-dorian-agaesses-projects.vercel.app npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts`
+  passed 6/6 specs, including the meeting-notes preparation, output, action,
+  and search flow.
+- 2026-06-09 feedback pass local validation: `npm run lint` passed;
+  `npm test` passed (122 files passed, 2 skipped; 905 passed, 2 skipped);
+  `npm run test:coverage` passed at 91.37% statements, 81.33% branches, 92.2%
+  functions, and 91.88% lines; preview-style `npm run build` passed; full
+  local Playwright `npm run test:e2e` passed 9/9 after setting local
+  `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, and `TRUSTED_ORIGINS` for production-mode
+  password-reset origin checks.
+- Feedback pass commit `c7ac74164f41077d97ce244b1c76cebeb2b8a97f` was deployed
+  by branch-ref preview workflow run `27204436282` to
+  `https://nexus-dash-4ansd69jm-dorian-agaesses-projects.vercel.app`; logs show
+  `ref: feature/task-98-meeting-notes-manager`, checkout of
+  `refs/remotes/origin/feature/task-98-meeting-notes-manager`, and
+  `git log -1 --format=%H` =
+  `c7ac74164f41077d97ce244b1c76cebeb2b8a97f`.
+- Feedback pass preview Playwright:
+  `PLAYWRIGHT_BASE_URL=https://nexus-dash-4ansd69jm-dorian-agaesses-projects.vercel.app npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts`
+  passed 6/6 specs, including the modal-based meeting preparation, outputs,
+  todos, archive, and search flow.
+- 2026-06-10 feedback pass added explicit label filters, app-styled state
+  selection, overdue meeting-todo highlights, and follow-up tasks TASK-314 and
+  TASK-315 for reminder email dispatch and the project-wide open-todo side
+  panel.
+- 2026-06-10 feedback pass local validation: `npm run lint` passed; focused
+  meeting-note/API/calendar tests passed (3 files / 16 tests); `npm test`
+  passed (122 files passed, 2 skipped; 905 passed, 2 skipped);
+  `npm run test:coverage` passed at 91.37% statements, 81.33% branches, 92.2%
+  functions, and 91.88% lines; targeted meeting-note Playwright passed; full
+  local Playwright `npm run test:e2e` passed 9/9 with local production-mode
+  auth origin env.
+- Feedback pass commit `7bcdae7c2c82b2e3066bde42a0703591094817d6` was deployed
+  by branch-ref preview workflow run `27280585844` to
+  `https://nexus-dash-eb4r57ftj-dorian-agaesses-projects.vercel.app`; logs show
+  `ref: feature/task-98-meeting-notes-manager`, checkout of
+  `refs/remotes/origin/feature/task-98-meeting-notes-manager`, and
+  `git log -1 --format=%H` =
+  `7bcdae7c2c82b2e3066bde42a0703591094817d6`.
+- Feedback pass preview Playwright:
+  `PLAYWRIGHT_BASE_URL=https://nexus-dash-eb4r57ftj-dorian-agaesses-projects.vercel.app npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts`
+  passed 6/6 specs on rerun. The first preview attempt passed 4/6 and failed
+  twice in the shared project-creation helper before reaching the changed
+  meeting-note UI; the rerun completed successfully.

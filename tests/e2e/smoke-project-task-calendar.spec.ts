@@ -266,6 +266,122 @@ test.describe("critical UI smoke flows", () => {
     await page.getByRole("button", { name: "Close context preview" }).click();
   });
 
+  test("meeting notes preparation, output, and search flow", async ({ page }) => {
+    const projectName = uniqueProjectName("smoke-meeting");
+    const meetingTitle = uniqueProjectName("meeting-note");
+    const overdueMeetingTitle = uniqueProjectName("overdue-meeting");
+
+    await createProjectFromProjectsPage(page, projectName);
+    await openNewestProjectDashboard(page, projectName);
+
+    const projectId = page.url().match(/\/projects\/([^/?#]+)/)?.[1];
+    expect(projectId).toBeTruthy();
+    const projectIdValue = projectId as string;
+
+    await expect(page.getByRole("heading", { name: "Meeting notes" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Prepare meeting" }).click();
+    await page.locator("#meeting-title").fill(meetingTitle);
+    await page.locator("#meeting-participants").fill("Dorian");
+    await page.locator("#meeting-participants").press(",");
+    await page.locator("#meeting-participants").fill("Camille");
+    await page.locator("#meeting-participants").press("Enter");
+    await page.locator("#meeting-labels").fill("sync");
+    await page.locator("#meeting-labels").press("Enter");
+    await page.locator("#meeting-inputs").fill("Review TASK-098 scope and risks.");
+
+    const createMeetingRequest = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        /\/meeting-notes$/.test(response.url()) &&
+        response.ok()
+    );
+    await page.getByRole("button", { name: "Save preparation" }).click();
+    await createMeetingRequest;
+
+    const meetingCard = page.getByRole("button", { name: new RegExp(meetingTitle) });
+    await expect(meetingCard).toBeVisible();
+    await expect(meetingCard.getByText("sync")).toBeVisible();
+    await expect(meetingCard.getByText("Prepared")).toBeVisible();
+
+    const overdueMeetingResponse = await page.request.post(
+      `/api/projects/${projectIdValue}/meeting-notes`,
+      {
+        data: {
+          title: overdueMeetingTitle,
+          scheduledAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+          participants: ["Dorian"],
+          labels: ["risk"],
+          status: "actions_in_progress",
+          inputNotes: "Follow-up is overdue by design for smoke coverage.",
+          outputNotes: "",
+          actions: [
+            {
+              content: "Finalize delayed recap",
+              completedAt: null,
+            },
+          ],
+        },
+      }
+    );
+    expect(overdueMeetingResponse.ok()).toBeTruthy();
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Meeting notes" })).toBeVisible();
+
+    await expect(
+      page.getByRole("button", { name: /Meeting notes.*1 overdue/ })
+    ).toBeVisible();
+    const overdueMeetingCard = page.getByRole("button", {
+      name: new RegExp(overdueMeetingTitle),
+    });
+    await expect(overdueMeetingCard.getByText("1 overdue todo")).toBeVisible();
+
+    await page
+      .getByRole("button", { name: "Filter meeting notes by label sync" })
+      .click();
+    await expect(page.getByRole("button", { name: new RegExp(meetingTitle) })).toBeVisible();
+    await expect(page.getByText(overdueMeetingTitle)).toBeHidden();
+    await page.getByRole("button", { name: "Clear labels" }).click();
+
+    await page.getByRole("button", { name: new RegExp(meetingTitle) }).click();
+    const meetingDialog = page.getByRole("dialog");
+    await expect(meetingDialog).toBeVisible();
+    await expect(
+      meetingDialog.getByText("Review TASK-098 scope and risks.")
+    ).toBeVisible();
+    await page.locator("#meeting-outputs").fill("Backend alignment confirmed.");
+    await meetingDialog.getByRole("button", { name: "Add", exact: true }).click();
+    await meetingDialog
+      .getByRole("textbox", { name: "Todo 1" })
+      .fill("Send recap to stakeholders");
+    await page.getByLabel("Complete todo 1").click();
+    await meetingDialog.getByRole("button", { name: "Meeting state" }).click();
+    await page.getByRole("option", { name: /Done/ }).click();
+
+    const updateMeetingRequest = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        /\/meeting-notes\/[^/]+$/.test(response.url()) &&
+        response.ok()
+    );
+    await page.getByRole("button", { name: "Save notes" }).click();
+    await updateMeetingRequest;
+
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await expect(page.getByText("Archived (1)")).toBeVisible();
+    const archivedMeetingCard = page.getByRole("button", {
+      name: new RegExp(meetingTitle),
+    });
+    await expect(archivedMeetingCard.getByText("Done")).toBeVisible();
+    await expect(archivedMeetingCard.getByText("1/1")).toBeVisible();
+
+    await page.getByLabel("Search meeting notes").fill("stakeholders");
+    await expect(page.getByText(meetingTitle)).toBeVisible();
+
+    await page.getByLabel("Search meeting notes").fill("not-a-real-meeting");
+    await expect(page.getByText("No matching meeting notes.")).toBeVisible();
+  });
+
   test("roadmap event-first milestone flow", async ({ page }) => {
     const projectName = uniqueProjectName("smoke-roadmap");
     const firstEventTitle = uniqueProjectName("roadmap-event-1");

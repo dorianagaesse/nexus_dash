@@ -2,6 +2,7 @@ export type ProjectActivityDomain =
   | "task"
   | "task-comment"
   | "context-card"
+  | "meeting-note"
   | "project";
 
 export type ProjectActivityAction =
