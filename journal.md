@@ -2217,3 +2217,8 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-098 follow-up UX corrections passed local validation.
 - Evidence: `npm run lint` passed. Focused meeting-note/API/calendar tests passed (3 files / 16 tests). Full local PostgreSQL `npm test` passed (122 files passed, 2 skipped; 905 passed, 2 skipped). `npm run test:coverage` passed with 91.37% statements, 81.33% branches, 92.2% functions, and 91.88% lines. Targeted meeting-note Playwright passed after scoping the overdue assertion to the Meeting Notes header. Full local Playwright `npm run test:e2e` passed 9/9 with local production-mode `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, and `TRUSTED_ORIGINS`.
+
+### 2026-06-10
+- Type: Validation
+- Summary: TASK-098 follow-up UX corrections passed branch-ref preview deployment and preview Playwright.
+- Evidence: Pushed commit `7bcdae7c2c82b2e3066bde42a0703591094817d6` to `feature/task-98-meeting-notes-manager`. Preview workflow run `27280585844` was dispatched with `git_ref=feature/task-98-meeting-notes-manager`, logs showed checkout of `refs/remotes/origin/feature/task-98-meeting-notes-manager` and `git log -1 --format=%H` = `7bcdae7c2c82b2e3066bde42a0703591094817d6`, and deployed `https://nexus-dash-eb4r57ftj-dorian-agaesses-projects.vercel.app`. Preview Playwright first passed 4/6 and failed twice in the shared project-creation helper before reaching the changed meeting-note UI; rerunning `PLAYWRIGHT_BASE_URL=https://nexus-dash-eb4r57ftj-dorian-agaesses-projects.vercel.app npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts` passed 6/6, including label filtering, overdue todo highlighting, and the app-styled State picker flow.

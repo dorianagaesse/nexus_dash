@@ -146,3 +146,15 @@ the project workspace.
   functions, and 91.88% lines; targeted meeting-note Playwright passed; full
   local Playwright `npm run test:e2e` passed 9/9 with local production-mode
   auth origin env.
+- Feedback pass commit `7bcdae7c2c82b2e3066bde42a0703591094817d6` was deployed
+  by branch-ref preview workflow run `27280585844` to
+  `https://nexus-dash-eb4r57ftj-dorian-agaesses-projects.vercel.app`; logs show
+  `ref: feature/task-98-meeting-notes-manager`, checkout of
+  `refs/remotes/origin/feature/task-98-meeting-notes-manager`, and
+  `git log -1 --format=%H` =
+  `7bcdae7c2c82b2e3066bde42a0703591094817d6`.
+- Feedback pass preview Playwright:
+  `PLAYWRIGHT_BASE_URL=https://nexus-dash-eb4r57ftj-dorian-agaesses-projects.vercel.app npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts`
+  passed 6/6 specs on rerun. The first preview attempt passed 4/6 and failed
+  twice in the shared project-creation helper before reaching the changed
+  meeting-note UI; the rerun completed successfully.
