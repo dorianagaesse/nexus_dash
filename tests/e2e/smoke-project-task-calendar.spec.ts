@@ -269,9 +269,14 @@ test.describe("critical UI smoke flows", () => {
   test("meeting notes preparation, output, and search flow", async ({ page }) => {
     const projectName = uniqueProjectName("smoke-meeting");
     const meetingTitle = uniqueProjectName("meeting-note");
+    const overdueMeetingTitle = uniqueProjectName("overdue-meeting");
 
     await createProjectFromProjectsPage(page, projectName);
     await openNewestProjectDashboard(page, projectName);
+
+    const projectId = page.url().match(/\/projects\/([^/?#]+)/)?.[1];
+    expect(projectId).toBeTruthy();
+    const projectIdValue = projectId as string;
 
     await expect(page.getByRole("heading", { name: "Meeting notes" })).toBeVisible();
 
@@ -299,7 +304,46 @@ test.describe("critical UI smoke flows", () => {
     await expect(meetingCard.getByText("sync")).toBeVisible();
     await expect(meetingCard.getByText("Prepared")).toBeVisible();
 
-    await meetingCard.click();
+    const overdueMeetingResponse = await page.request.post(
+      `/api/projects/${projectIdValue}/meeting-notes`,
+      {
+        data: {
+          title: overdueMeetingTitle,
+          scheduledAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+          participants: ["Dorian"],
+          labels: ["risk"],
+          status: "actions_in_progress",
+          inputNotes: "Follow-up is overdue by design for smoke coverage.",
+          outputNotes: "",
+          actions: [
+            {
+              content: "Finalize delayed recap",
+              completedAt: null,
+            },
+          ],
+        },
+      }
+    );
+    expect(overdueMeetingResponse.ok()).toBeTruthy();
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Meeting notes" })).toBeVisible();
+
+    await expect(
+      page.getByRole("button", { name: /Meeting notes.*1 overdue/ })
+    ).toBeVisible();
+    const overdueMeetingCard = page.getByRole("button", {
+      name: new RegExp(overdueMeetingTitle),
+    });
+    await expect(overdueMeetingCard.getByText("1 overdue todo")).toBeVisible();
+
+    await page
+      .getByRole("button", { name: "Filter meeting notes by label sync" })
+      .click();
+    await expect(page.getByRole("button", { name: new RegExp(meetingTitle) })).toBeVisible();
+    await expect(page.getByText(overdueMeetingTitle)).toBeHidden();
+    await page.getByRole("button", { name: "Clear labels" }).click();
+
+    await page.getByRole("button", { name: new RegExp(meetingTitle) }).click();
     const meetingDialog = page.getByRole("dialog");
     await expect(meetingDialog).toBeVisible();
     await expect(
@@ -311,7 +355,8 @@ test.describe("critical UI smoke flows", () => {
       .getByRole("textbox", { name: "Todo 1" })
       .fill("Send recap to stakeholders");
     await page.getByLabel("Complete todo 1").click();
-    await page.locator("#meeting-status").selectOption("done");
+    await meetingDialog.getByRole("button", { name: "Meeting state" }).click();
+    await page.getByRole("option", { name: /Done/ }).click();
 
     const updateMeetingRequest = page.waitForResponse(
       (response) =>

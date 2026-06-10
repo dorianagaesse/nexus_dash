@@ -37,6 +37,14 @@ the project workspace.
 - Remove the Decisions section from the meeting note UI.
 - Add participant chips from Enter, comma, or space.
 
+## 2026-06-10 Feedback Pass
+- Replace the browser-native State dropdown with an app-styled popover select.
+- Make label filtering explicit with a visible "Filter by label" chip row.
+- Highlight meeting notes with open todos that are overdue seven days after the
+  meeting date, including a section-level overdue summary.
+- Track durable overdue reminder email delivery as TASK-314.
+- Track the project-wide open meeting-todo side panel as TASK-315.
+
 ## Implementation Plan
 1. Add persistence for project meeting notes and follow-up actions, including
    title, scheduled date/time, participants, labels, state, input notes, output
@@ -62,16 +70,17 @@ the project workspace.
    and inputs, then open that note later to capture outputs and personal todos.
 3. Search filters previous meeting notes across title, participants, labels,
    inputs, outputs, and actions.
-4. The list is readable for past-note lookup, ordered by meeting time, and
+4. Users can filter meeting notes explicitly by label.
+5. The list is readable for past-note lookup, ordered by meeting time, and
    provides useful scan-time metadata such as participants, labels, action
-   status, note state, and active/archived grouping.
-5. Authorization follows project roles: owner/editor can mutate notes, viewer
+   status, note state, overdue todo status, and active/archived grouping.
+6. Authorization follows project roles: owner/editor can mutate notes, viewer
    can read but not mutate.
-6. Persistence and route code respect existing architecture boundaries:
+7. Persistence and route code respect existing architecture boundaries:
    Prisma access stays in `lib/services/**`, and API routes stay as thin
    adapters.
-7. Automated tests cover the new service/API behavior and the core UI workflow.
-8. Documentation/tracking files are updated consistently.
+8. Automated tests cover the new service/API behavior and the core UI workflow.
+9. Documentation/tracking files are updated consistently.
 
 ## Definition Of Done
 - [x] Dedicated feature branch/worktree is used for TASK-098.
@@ -126,3 +135,14 @@ the project workspace.
   `PLAYWRIGHT_BASE_URL=https://nexus-dash-4ansd69jm-dorian-agaesses-projects.vercel.app npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts`
   passed 6/6 specs, including the modal-based meeting preparation, outputs,
   todos, archive, and search flow.
+- 2026-06-10 feedback pass added explicit label filters, app-styled state
+  selection, overdue meeting-todo highlights, and follow-up tasks TASK-314 and
+  TASK-315 for reminder email dispatch and the project-wide open-todo side
+  panel.
+- 2026-06-10 feedback pass local validation: `npm run lint` passed; focused
+  meeting-note/API/calendar tests passed (3 files / 16 tests); `npm test`
+  passed (122 files passed, 2 skipped; 905 passed, 2 skipped);
+  `npm run test:coverage` passed at 91.37% statements, 81.33% branches, 92.2%
+  functions, and 91.88% lines; targeted meeting-note Playwright passed; full
+  local Playwright `npm run test:e2e` passed 9/9 with local production-mode
+  auth origin env.

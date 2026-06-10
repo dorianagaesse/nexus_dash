@@ -2207,3 +2207,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-098 feedback pass passed branch-ref preview deployment and preview Playwright.
 - Evidence: Pushed feedback commit `c7ac74164f41077d97ce244b1c76cebeb2b8a97f` to `feature/task-98-meeting-notes-manager`. Preview workflow run `27204436282` was dispatched with `git_ref=feature/task-98-meeting-notes-manager`, logs showed checkout of `refs/remotes/origin/feature/task-98-meeting-notes-manager` and `git log -1 --format=%H` = `c7ac74164f41077d97ce244b1c76cebeb2b8a97f`, and deployed `https://nexus-dash-4ansd69jm-dorian-agaesses-projects.vercel.app`. Preview Playwright passed with `PLAYWRIGHT_BASE_URL=https://nexus-dash-4ansd69jm-dorian-agaesses-projects.vercel.app npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts` (6/6), including the modal meeting preparation, output/todo capture, archive, and search flow.
+
+### 2026-06-10
+- Type: Execution
+- Summary: TASK-098 incorporated follow-up UX corrections for state selection, label filtering, and overdue todos.
+- Evidence: Replaced the native meeting State select with an app-styled popover listbox, added explicit meeting-label filter chips, and added seven-day overdue todo highlighting at the Meeting Notes section and note-card level. Added TASK-314 for durable overdue reminder notifications/email and TASK-315 for a project-side panel aggregating open meeting todos.
+
+### 2026-06-10
+- Type: Validation
+- Summary: TASK-098 follow-up UX corrections passed local validation.
+- Evidence: `npm run lint` passed. Focused meeting-note/API/calendar tests passed (3 files / 16 tests). Full local PostgreSQL `npm test` passed (122 files passed, 2 skipped; 905 passed, 2 skipped). `npm run test:coverage` passed with 91.37% statements, 81.33% branches, 92.2% functions, and 91.88% lines. Targeted meeting-note Playwright passed after scoping the overdue assertion to the Meeting Notes header. Full local Playwright `npm run test:e2e` passed 9/9 with local production-mode `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, and `TRUSTED_ORIGINS`.

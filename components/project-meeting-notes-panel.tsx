@@ -1,11 +1,13 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
+  AlertTriangle,
   Archive,
   CalendarClock,
+  Check,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -138,6 +140,32 @@ const STATUS_BADGE_CLASS: Record<MeetingNoteStatus, string> = {
     "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200",
 };
 
+const STATUS_OPTIONS: Array<{
+  value: MeetingNoteStatus;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "prepared",
+    label: STATUS_LABELS.prepared,
+    description: "Prepared before the meeting; notes can be added later.",
+  },
+  {
+    value: "actions_in_progress",
+    label: STATUS_LABELS.actions_in_progress,
+    description: "Outputs are captured and follow-up work is still open.",
+  },
+  {
+    value: "done",
+    label: STATUS_LABELS.done,
+    description: "Archive the meeting note once follow-up is complete.",
+  },
+];
+
+const OVERDUE_TODO_GRACE_DAYS = 7;
+const OVERDUE_TODO_GRACE_MS =
+  OVERDUE_TODO_GRACE_DAYS * 24 * 60 * 60 * 1000;
+
 function createLocalId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -208,6 +236,26 @@ function actionCounts(note: ProjectMeetingNotePanelNote) {
   };
 }
 
+function getOverdueTodoCount(
+  note: ProjectMeetingNotePanelNote,
+  referenceNowMs: number
+): number {
+  if (note.status === "done" || !note.scheduledAt) {
+    return 0;
+  }
+
+  const scheduledAtMs = new Date(note.scheduledAt).getTime();
+  if (Number.isNaN(scheduledAtMs)) {
+    return 0;
+  }
+
+  if (referenceNowMs - scheduledAtMs < OVERDUE_TODO_GRACE_MS) {
+    return 0;
+  }
+
+  return note.actions.filter((action) => action.completedAt == null).length;
+}
+
 function sortNotes(notes: ProjectMeetingNotePanelNote[]): ProjectMeetingNotePanelNote[] {
   return notes.slice().sort((left, right) => {
     const leftTime = left.scheduledAt
@@ -240,6 +288,18 @@ function noteMatchesQuery(note: ProjectMeetingNotePanelNote, query: string): boo
     .toLocaleLowerCase();
 
   return searchable.includes(normalizedQuery);
+}
+
+function noteMatchesLabelFilters(
+  note: ProjectMeetingNotePanelNote,
+  labelFilters: string[]
+): boolean {
+  if (labelFilters.length === 0) {
+    return true;
+  }
+
+  const noteLabels = new Set(note.labels.map((label) => label.toLocaleLowerCase()));
+  return labelFilters.every((label) => noteLabels.has(label.toLocaleLowerCase()));
 }
 
 function buildPrepareDraftFromNote(note: ProjectMeetingNotePanelNote): PrepareDraft {
@@ -336,6 +396,204 @@ function SectionBlock({
   );
 }
 
+function MeetingStatusSelect({
+  id,
+  value,
+  disabled = false,
+  onChange,
+}: {
+  id: string;
+  value: MeetingNoteStatus;
+  disabled?: boolean;
+  onChange: (value: MeetingNoteStatus) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const selectedOption =
+    STATUS_OPTIONS.find((option) => option.value === value) ?? STATUS_OPTIONS[0];
+
+  useEffect(() => {
+    if (!isOpen) {
+      setDropdownPosition(null);
+      return undefined;
+    }
+
+    const updateDropdownPosition = () => {
+      const trigger = triggerRef.current;
+      if (!trigger) {
+        return;
+      }
+
+      const rect = trigger.getBoundingClientRect();
+      const viewportPadding = 12;
+      const estimatedHeight = Math.min(78 * STATUS_OPTIONS.length, 300);
+      const availableBelow = window.innerHeight - rect.bottom - viewportPadding;
+      const availableAbove = rect.top - viewportPadding;
+      const shouldOpenAbove =
+        availableBelow < estimatedHeight && availableAbove > availableBelow;
+      const maxHeight = Math.max(
+        160,
+        shouldOpenAbove ? availableAbove - 8 : availableBelow - 8
+      );
+      const width = Math.min(
+        Math.max(rect.width, 280),
+        window.innerWidth - viewportPadding * 2
+      );
+      const maxLeft = window.innerWidth - viewportPadding - width;
+
+      setDropdownPosition({
+        top: shouldOpenAbove
+          ? Math.max(viewportPadding, rect.top - Math.min(estimatedHeight, maxHeight) - 8)
+          : rect.bottom + 8,
+        left: Math.min(rect.left, Math.max(viewportPadding, maxLeft)),
+        width,
+        maxHeight,
+      });
+    };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) {
+        return;
+      }
+
+      if (triggerRef.current?.contains(target) || dropdownRef.current?.contains(target)) {
+        return;
+      }
+
+      setIsOpen(false);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
+    updateDropdownPosition();
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+    window.addEventListener("resize", updateDropdownPosition);
+    window.addEventListener("scroll", updateDropdownPosition, true);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("resize", updateDropdownPosition);
+      window.removeEventListener("scroll", updateDropdownPosition, true);
+    };
+  }, [isOpen]);
+
+  return (
+    <div className="relative">
+      <button
+        ref={triggerRef}
+        id={id}
+        type="button"
+        disabled={disabled}
+        aria-label="Meeting state"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        className={cn(
+          "flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-border/70 bg-background px-3 py-2 text-left transition-colors",
+          "shadow-[0_14px_36px_-30px_rgba(15,23,42,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+          "disabled:cursor-not-allowed disabled:opacity-60"
+        )}
+        onClick={() => {
+          if (disabled) {
+            return;
+          }
+
+          setIsOpen((previous) => !previous);
+        }}
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge
+              variant="outline"
+              className={cn("shrink-0 text-[11px]", STATUS_BADGE_CLASS[value])}
+            >
+              {selectedOption.label}
+            </Badge>
+          </div>
+          <p className="truncate text-xs text-muted-foreground">
+            {selectedOption.description}
+          </p>
+        </div>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+            isOpen && "rotate-180"
+          )}
+        />
+      </button>
+
+      {isOpen && dropdownPosition && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              ref={dropdownRef}
+              role="listbox"
+              className="z-[140] overflow-hidden rounded-2xl border border-border/70 bg-popover p-1.5 shadow-[0_24px_70px_-32px_rgba(15,23,42,0.58)]"
+              style={{
+                position: "fixed",
+                top: dropdownPosition.top,
+                left: dropdownPosition.left,
+                width: dropdownPosition.width,
+                maxHeight: dropdownPosition.maxHeight,
+              }}
+            >
+              <div className="scrollbar-hidden space-y-1 overflow-y-auto p-0.5">
+                {STATUS_OPTIONS.map((option) => {
+                  const isSelected = option.value === value;
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-muted"
+                      onClick={() => {
+                        onChange(option.value);
+                        setIsOpen(false);
+                      }}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "shrink-0 text-[11px]",
+                              STATUS_BADGE_CLASS[option.value]
+                            )}
+                          >
+                            {option.label}
+                          </Badge>
+                        </div>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {option.description}
+                        </p>
+                      </div>
+                      {isSelected ? <Check className="h-4 w-4 text-foreground" /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
+    </div>
+  );
+}
+
 function MeetingDialogShell({
   title,
   subtitle,
@@ -425,7 +683,9 @@ export function ProjectMeetingNotesPanel({
   const [localNotes, setLocalNotes] = useState<ProjectMeetingNotePanelNote[]>(() =>
     sortNotes(notes)
   );
+  const [referenceNowMs] = useState(() => Date.now());
   const [query, setQuery] = useState("");
+  const [selectedLabelFilters, setSelectedLabelFilters] = useState<string[]>([]);
   const [listView, setListView] = useState<MeetingListView>("active");
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [prepareDialog, setPrepareDialog] = useState<PrepareDialogState | null>(null);
@@ -471,10 +731,32 @@ export function ProjectMeetingNotesPanel({
     () => localNotes.filter((note) => note.status === "done"),
     [localNotes]
   );
+  const overdueTodoCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    localNotes.forEach((note) => {
+      counts.set(note.id, getOverdueTodoCount(note, referenceNowMs));
+    });
+    return counts;
+  }, [localNotes, referenceNowMs]);
+  const overdueTodoTotal = useMemo(
+    () =>
+      Array.from(overdueTodoCounts.values()).reduce(
+        (total, count) => total + count,
+        0
+      ),
+    [overdueTodoCounts]
+  );
+  const overdueMeetingCount = useMemo(
+    () => Array.from(overdueTodoCounts.values()).filter((count) => count > 0).length,
+    [overdueTodoCounts]
+  );
   const visibleSourceNotes = listView === "active" ? activeNotes : archivedNotes;
   const filteredNotes = useMemo(
-    () => visibleSourceNotes.filter((note) => noteMatchesQuery(note, query)),
-    [visibleSourceNotes, query]
+    () =>
+      visibleSourceNotes
+        .filter((note) => noteMatchesQuery(note, query))
+        .filter((note) => noteMatchesLabelFilters(note, selectedLabelFilters)),
+    [visibleSourceNotes, query, selectedLabelFilters]
   );
 
   const selectedNote = useMemo(
@@ -497,6 +779,15 @@ export function ProjectMeetingNotesPanel({
     localNotes.forEach((note) => note.labels.forEach((label) => labels.add(label)));
     return Array.from(labels).sort((left, right) => left.localeCompare(right));
   }, [localNotes]);
+  useEffect(() => {
+    const availableLabels = new Set(
+      existingLabels.map((label) => label.toLocaleLowerCase())
+    );
+    setSelectedLabelFilters((current) =>
+      current.filter((label) => availableLabels.has(label.toLocaleLowerCase()))
+    );
+  }, [existingLabels]);
+  const hasActiveFilters = query.trim() !== "" || selectedLabelFilters.length > 0;
   const labelSuggestions = useMemo(() => {
     const queryValue = prepareDraft.labelInput.trim().toLocaleLowerCase();
     if (!queryValue) {
@@ -511,6 +802,21 @@ export function ProjectMeetingNotesPanel({
       .filter((label) => !selected.has(label.toLocaleLowerCase()))
       .slice(0, 6);
   }, [existingLabels, prepareDraft.labelInput, prepareDraft.labels]);
+
+  const toggleLabelFilter = (label: string) => {
+    setSelectedLabelFilters((current) =>
+      current.some(
+        (selectedLabel) =>
+          selectedLabel.toLocaleLowerCase() === label.toLocaleLowerCase()
+      )
+        ? current.filter(
+            (selectedLabel) =>
+              selectedLabel.toLocaleLowerCase() !== label.toLocaleLowerCase()
+          )
+        : [...current, label]
+    );
+    setSelectedNoteId(null);
+  };
 
   const resetPrepareDraft = () => {
     setPrepareDraft(EMPTY_PREPARE_DRAFT);
@@ -836,6 +1142,11 @@ export function ProjectMeetingNotesPanel({
             <span className="rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground">
               {activeNotes.length} active
             </span>
+            {overdueTodoTotal > 0 ? (
+              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-200">
+                {overdueTodoTotal} overdue
+              </span>
+            ) : null}
           </button>
 
           {canEdit ? (
@@ -909,18 +1220,84 @@ export function ProjectMeetingNotesPanel({
             </div>
           </div>
 
+          {existingLabels.length > 0 ? (
+            <div className="space-y-2 rounded-2xl border border-border/60 bg-muted/15 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  <Tag className="h-3.5 w-3.5" />
+                  Filter by label
+                </div>
+                {selectedLabelFilters.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLabelFilters([])}
+                    className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  >
+                    Clear labels
+                  </button>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {existingLabels.map((label) => {
+                  const isSelected = selectedLabelFilters.some(
+                    (selectedLabel) =>
+                      selectedLabel.toLocaleLowerCase() === label.toLocaleLowerCase()
+                  );
+
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => toggleLabelFilter(label)}
+                      aria-pressed={isSelected}
+                      aria-label={`Filter meeting notes by label ${label}`}
+                      className={cn(
+                        "inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition",
+                        isSelected
+                          ? "border-slate-950/20 text-slate-950 shadow-sm ring-2 ring-ring/20 dark:border-white/20"
+                          : "border-border/70 text-slate-950 opacity-80 hover:opacity-100"
+                      )}
+                      style={{ backgroundColor: getTaskLabelColor(label) }}
+                    >
+                      {isSelected ? <Check className="h-3 w-3 shrink-0" /> : null}
+                      <span className="truncate">{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {overdueTodoTotal > 0 ? (
+            <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-100">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="font-semibold">
+                    {overdueTodoTotal} overdue todo
+                    {overdueTodoTotal === 1 ? "" : "s"} across {overdueMeetingCount} meeting
+                    {overdueMeetingCount === 1 ? "" : "s"}.
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-amber-800/80 dark:text-amber-100/80">
+                    Open todos are marked overdue seven days after the meeting date.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           {filteredNotes.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-5 py-10 text-center">
               <p className="text-sm font-medium text-foreground">
-                {query
+                {hasActiveFilters
                   ? "No matching meeting notes."
                   : listView === "archived"
                     ? "No archived meeting notes."
                     : "No active meeting notes yet."}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {query
-                  ? "Try a participant, label, output, or follow-up action."
+                {hasActiveFilters
+                  ? "Try another search or clear the selected labels."
                   : listView === "archived"
                     ? "Done meeting notes will land here."
                     : "Prepare one before the next discussion."}
@@ -931,6 +1308,8 @@ export function ProjectMeetingNotesPanel({
               {filteredNotes.map((note) => {
                 const counts = actionCounts(note);
                 const isSelected = selectedNoteId === note.id;
+                const overdueCount = overdueTodoCounts.get(note.id) ?? 0;
+                const isOverdue = overdueCount > 0;
 
                 return (
                   <button
@@ -939,7 +1318,9 @@ export function ProjectMeetingNotesPanel({
                     onClick={() => openNoteDialog(note)}
                     className={cn(
                       "flex min-h-[168px] w-full flex-col rounded-2xl border p-4 text-left transition hover:border-primary/30 hover:bg-muted/30",
-                      isSelected
+                      isOverdue
+                        ? "border-amber-500/40 bg-amber-500/10 shadow-[0_18px_50px_-36px_rgba(245,158,11,0.9)]"
+                        : isSelected
                         ? "border-primary/40 bg-primary/5"
                         : "border-border/70 bg-background/70"
                     )}
@@ -962,6 +1343,14 @@ export function ProjectMeetingNotesPanel({
                         {STATUS_LABELS[note.status]}
                       </Badge>
                     </div>
+
+                    {isOverdue ? (
+                      <div className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-full border border-amber-500/30 bg-background/70 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-200">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        {overdueCount} overdue todo
+                        {overdueCount === 1 ? "" : "s"}
+                      </div>
+                    ) : null}
 
                     {note.labels.length > 0 ? (
                       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -1250,6 +1639,15 @@ export function ProjectMeetingNotesPanel({
                   Archived
                 </Badge>
               ) : null}
+              {(overdueTodoCounts.get(selectedNote.id) ?? 0) > 0 ? (
+                <Badge
+                  variant="outline"
+                  className="border-amber-500/30 bg-amber-500/10 text-xs text-amber-700 dark:text-amber-200"
+                >
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {overdueTodoCounts.get(selectedNote.id)} overdue
+                </Badge>
+              ) : null}
             </div>
 
             {selectedNote.labels.length > 0 ? (
@@ -1304,22 +1702,17 @@ export function ProjectMeetingNotesPanel({
                   <label htmlFor="meeting-status" className="text-sm font-medium">
                     State
                   </label>
-                  <select
+                  <MeetingStatusSelect
                     id="meeting-status"
                     value={notesDraft.status}
-                    onChange={(event) =>
+                    onChange={(status) =>
                       setNotesDraft((current) => ({
                         ...current,
-                        status: event.target.value as MeetingNoteStatus,
+                        status,
                       }))
                     }
                     disabled={!canEdit || isSaving}
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    <option value="prepared">Prepared</option>
-                    <option value="actions_in_progress">Actions in progress</option>
-                    <option value="done">Done</option>
-                  </select>
+                  />
                 </div>
 
                 <div className="space-y-2">
