@@ -4,7 +4,7 @@
 TASK-315
 
 ## Status
-In Progress
+Complete once PR #333 merges.
 
 ## Source
 - GitHub issue #313: Investigate active agent credential returning
@@ -42,4 +42,4 @@ protected previews with the correct authentication schemes.
 - [x] Existing agent preview validation and README references are updated.
 - [x] Task tracking and journal evidence are current.
 - [x] Documentation checks pass.
-- [ ] A ready-for-review PR is open and Copilot feedback is handled.
+- [x] A ready-for-review PR is open and Copilot feedback is handled.

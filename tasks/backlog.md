@@ -8,7 +8,7 @@ Last reviewed: 2026-05-31
 ### Execution Queue (Now / Next)
 - ID: TASK-315
   Title: Protected preview agent-access diagnostics
-  Status: In Progress
+  Status: Complete once PR #333 merges
   Rationale: Resolve GitHub issue #313 by documenting how Vercel deployment
     protection can intercept token exchange before NexusDash, how to use the
     correct raw-key and bearer-token schemes, and how to distinguish platform

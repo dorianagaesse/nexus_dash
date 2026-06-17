@@ -19,6 +19,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `npm run release:check -- --base origin/main --branch
   docs/task-315-protected-preview-agent-diagnostics` with no product version
   bump required.
+- GitHub evidence: PR #333 passed branch-name, Quality Core, E2E Smoke, and
+  Container Image checks. Copilot reviewed all changed files and produced no
+  comments or unresolved threads.
 
 # 2026-06-08 - Version history reconciliation
 
