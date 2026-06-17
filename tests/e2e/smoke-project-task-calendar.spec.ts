@@ -297,7 +297,29 @@ test.describe("critical UI smoke flows", () => {
         response.ok()
     );
     await page.getByRole("button", { name: "Save preparation" }).click();
-    await createMeetingRequest;
+    const createMeetingResponse = await createMeetingRequest;
+    const createdMeetingPayload = (await createMeetingResponse.json()) as {
+      note: { id: string };
+    };
+    const createdMeetingId = createdMeetingPayload.note.id;
+
+    const legacyDecisions = "Legacy decision retained after the Decisions UI was removed.";
+    const seedLegacyDecisionResponse = await page.request.patch(
+      `/api/projects/${projectIdValue}/meeting-notes/${createdMeetingId}`,
+      {
+        data: {
+          title: meetingTitle,
+          participants: ["Dorian", "Camille"],
+          labels: ["sync"],
+          status: "prepared",
+          inputNotes: "Review TASK-098 scope and risks.",
+          outputNotes: "",
+          decisions: legacyDecisions,
+          actions: [],
+        },
+      }
+    );
+    expect(seedLegacyDecisionResponse.ok()).toBeTruthy();
 
     const meetingCard = page.getByRole("button", { name: new RegExp(meetingTitle) });
     await expect(meetingCard).toBeVisible();
@@ -346,6 +368,30 @@ test.describe("critical UI smoke flows", () => {
     await page.getByRole("button", { name: new RegExp(meetingTitle) }).click();
     const meetingDialog = page.getByRole("dialog");
     await expect(meetingDialog).toBeVisible();
+    await meetingDialog.getByRole("button", { name: "Edit prep" }).click();
+    const savePreparationRequest = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        response.url().endsWith(`/meeting-notes/${createdMeetingId}`) &&
+        response.ok()
+    );
+    await page.getByRole("button", { name: "Save preparation" }).click();
+    await savePreparationRequest;
+
+    const afterPreparationResponse = await page.request.get(
+      `/api/projects/${projectIdValue}/meeting-notes`
+    );
+    expect(afterPreparationResponse.ok()).toBeTruthy();
+    const afterPreparationPayload = (await afterPreparationResponse.json()) as {
+      notes: Array<{ id: string; decisions: string }>;
+    };
+    expect(
+      afterPreparationPayload.notes.find((note) => note.id === createdMeetingId)
+        ?.decisions
+    ).toBe(legacyDecisions);
+
+    await page.getByRole("button", { name: new RegExp(meetingTitle) }).click();
+    await expect(meetingDialog).toBeVisible();
     await expect(
       meetingDialog.getByText("Review TASK-098 scope and risks.")
     ).toBeVisible();
@@ -366,6 +412,17 @@ test.describe("critical UI smoke flows", () => {
     );
     await page.getByRole("button", { name: "Save notes" }).click();
     await updateMeetingRequest;
+
+    const afterNotesResponse = await page.request.get(
+      `/api/projects/${projectIdValue}/meeting-notes`
+    );
+    expect(afterNotesResponse.ok()).toBeTruthy();
+    const afterNotesPayload = (await afterNotesResponse.json()) as {
+      notes: Array<{ id: string; decisions: string }>;
+    };
+    expect(
+      afterNotesPayload.notes.find((note) => note.id === createdMeetingId)?.decisions
+    ).toBe(legacyDecisions);
 
     await expect(page.getByRole("dialog")).toBeHidden();
     await expect(page.getByText("Archived (1)")).toBeVisible();

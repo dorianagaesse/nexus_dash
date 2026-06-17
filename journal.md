@@ -2222,3 +2222,8 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-098 follow-up UX corrections passed branch-ref preview deployment and preview Playwright.
 - Evidence: Pushed commit `7bcdae7c2c82b2e3066bde42a0703591094817d6` to `feature/task-98-meeting-notes-manager`. Preview workflow run `27280585844` was dispatched with `git_ref=feature/task-98-meeting-notes-manager`, logs showed checkout of `refs/remotes/origin/feature/task-98-meeting-notes-manager` and `git log -1 --format=%H` = `7bcdae7c2c82b2e3066bde42a0703591094817d6`, and deployed `https://nexus-dash-eb4r57ftj-dorian-agaesses-projects.vercel.app`. Preview Playwright first passed 4/6 and failed twice in the shared project-creation helper before reaching the changed meeting-note UI; rerunning `PLAYWRIGHT_BASE_URL=https://nexus-dash-eb4r57ftj-dorian-agaesses-projects.vercel.app npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts` passed 6/6, including label filtering, overdue todo highlighting, and the app-styled State picker flow.
+
+### 2026-06-18
+- Type: Review
+- Summary: TASK-098 addressed the refreshed Copilot review's legacy data-preservation finding.
+- Evidence: Copilot found that meeting preparation and note-taking updates sent `decisions: ""`, erasing values created before the Decisions UI was removed. Updated the shared payload and preparation save path to retain the stored `decisions` value, and extended the meeting-notes Playwright flow to seed legacy data and verify it survives both update paths. `npm run lint` and the Playwright-triggered `npm run build` passed. Local PostgreSQL-backed tests were blocked because Docker Desktop's Linux engine returned HTTP 500; branch-preview Playwright is required before handoff.

@@ -45,6 +45,12 @@ the project workspace.
 - Track durable overdue reminder email delivery as TASK-314.
 - Track the project-wide open meeting-todo side panel as TASK-315.
 
+## 2026-06-18 Copilot Review Refresh
+- Preserve the legacy `decisions` value on every meeting-note update even
+  though Decisions is no longer exposed in the UI.
+- Cover preparation and after-meeting save paths with a browser regression that
+  seeds a legacy decision and verifies it remains unchanged.
+
 ## Implementation Plan
 1. Add persistence for project meeting notes and follow-up actions, including
    title, scheduled date/time, participants, labels, state, input notes, output
@@ -158,3 +164,11 @@ the project workspace.
   passed 6/6 specs on rerun. The first preview attempt passed 4/6 and failed
   twice in the shared project-creation helper before reaching the changed
   meeting-note UI; the rerun completed successfully.
+- Copilot's 2026-06-18 refreshed review identified that preparation and notes
+  saves replaced legacy `decisions` data with an empty string after the field
+  was removed from the UI. The update payloads now preserve the stored value,
+  and the meeting-notes Playwright flow covers both save paths.
+- Review-refresh validation: `npm run lint` and `npm run build` passed.
+  Local PostgreSQL-backed validation could not start because Docker Desktop's
+  Linux engine returned HTTP 500; the regression is therefore also validated
+  against the branch preview before handoff.

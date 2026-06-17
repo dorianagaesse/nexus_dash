@@ -335,7 +335,7 @@ function buildBasePayload(note: ProjectMeetingNotePanelNote) {
     status: note.status,
     inputNotes: note.inputNotes,
     outputNotes: note.outputNotes,
-    decisions: "",
+    decisions: note.decisions ?? "",
     actions: note.actions,
   };
 }
@@ -889,7 +889,7 @@ export function ProjectMeetingNotesPanel({
       status: prepareNote?.status ?? "prepared",
       inputNotes: prepareDraft.inputNotes.trim(),
       outputNotes: prepareNote?.outputNotes ?? "",
-      decisions: "",
+      decisions: prepareNote?.decisions ?? "",
       actions: prepareNote?.actions ?? [],
     };
 
@@ -1004,7 +1004,6 @@ export function ProjectMeetingNotesPanel({
       ...buildBasePayload(selectedNote),
       outputNotes: notesDraft.outputNotes.trim(),
       status: notesDraft.status,
-      decisions: "",
       actions: notesDraft.actions
         .map((action) => ({
           id: action.id,
