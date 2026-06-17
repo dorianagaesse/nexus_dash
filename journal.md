@@ -3,6 +3,23 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-06-18 - TASK-315 protected preview agent diagnostics
+
+- Summary: Reconciled GitHub issue #313 with the confirmed reproduction: the
+  active credential was valid, while Vercel deployment protection returned an
+  HTML `401 Authentication Required` response before NexusDash received the
+  direct request.
+- Decision: Added a dedicated diagnostic runbook that separates Vercel preview
+  access from NexusDash key validation, documents `ApiKey` for raw-key exchange
+  versus `Bearer` for returned access tokens, and defines secret-safe response,
+  audit, rotation, and revocation evidence.
+- Validation: Confirmed the documented command shape against Vercel CLI
+  `54.14.2` help, verified runbook links and authentication wording with `rg`,
+  passed `git diff --check`, and passed
+  `npm run release:check -- --base origin/main --branch
+  docs/task-315-protected-preview-agent-diagnostics` with no product version
+  bump required.
+
 # 2026-06-08 - Version history reconciliation
 
 - Summary: Audited merged PR history from TASK-132/#270 (`v0.2.0`) through

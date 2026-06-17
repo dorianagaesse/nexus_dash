@@ -13,6 +13,10 @@ are recorded, and rotation/revocation take effect immediately for new exchanges.
 
 - Target preview deployment is live for `feature/task-059-agent-access`.
 - If preview protection is enabled, use `vercel curl` for scripted checks.
+- Read
+  [`protected-preview-agent-access.md`](protected-preview-agent-access.md)
+  before interpreting a preview `401`; Vercel HTML interception and NexusDash
+  JSON `invalid-api-key` are different failures.
 - Use a disposable project owned by a disposable verified user, or a dedicated
   non-production owner account.
 - Keep validation data isolated and delete it after the run.
@@ -31,8 +35,11 @@ are recorded, and rotation/revocation take effect immediately for new exchanges.
    - Owner summary lists the new credential as `active`.
 
 3. Token exchange
-   - `POST /api/auth/agent/token` with the raw API key returns `200`.
+   - `POST /api/auth/agent/token` with
+     `Authorization: ApiKey <raw-agent-api-key>` returns `200`.
    - Response includes bearer token, `projectId`, `expiresAt`, and scopes.
+   - The returned token, not the raw API key, is sent as
+     `Authorization: Bearer <access-token>` on scoped routes.
 
 4. Project read scope
    - `GET /api/projects/:projectId` with the bearer token returns `200`.
@@ -95,6 +102,12 @@ are recorded, and rotation/revocation take effect immediately for new exchanges.
 npx vercel curl /api/health/live --deployment <preview-url>
 ```
 
+- A direct `401` with an HTML `Authentication Required` body is Vercel
+  deployment protection, not an agent-key verdict. An app-owned invalid key
+  response is JSON: `{"error":"invalid-api-key"}`.
+- The project env block does not bypass preview protection. Use Vercel CLI
+  authentication or the `--protection-bypass` option with
+  `VERCEL_AUTOMATION_BYPASS_SECRET` in non-interactive automation.
 - For JSON routes, send request bodies with `curl --data-binary @file.json` to
   avoid shell escaping mistakes.
 
