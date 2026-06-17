@@ -169,6 +169,14 @@ the project workspace.
   was removed from the UI. The update payloads now preserve the stored value,
   and the meeting-notes Playwright flow covers both save paths.
 - Review-refresh validation: `npm run lint` and `npm run build` passed.
+  Focused meeting-note API/service tests passed (2 files / 10 tests).
   Local PostgreSQL-backed validation could not start because Docker Desktop's
-  Linux engine returned HTTP 500; the regression is therefore also validated
-  against the branch preview before handoff.
+  Linux engine returned HTTP 500.
+- Review-fix commit `13f2d63ccfee484e3c57bcec18e708fb56edf75d`
+  was deployed by branch-ref preview workflow run `27726221721` to
+  `https://nexus-dash-39lkz815n-dorian-agaesses-projects.vercel.app`; the run
+  used `git_ref=feature/task-98-meeting-notes-manager`, checked out the feature
+  branch, and reported the same head SHA.
+- Preview Playwright passed 6/6 specs against that URL. The meeting-notes flow
+  seeded a legacy decision, saved preparation, saved after-meeting notes, and
+  verified the legacy value remained intact after both updates.
