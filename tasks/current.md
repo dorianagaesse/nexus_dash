@@ -4,7 +4,7 @@
 TASK-314
 
 ## Status
-In Progress
+Complete once PR #332 merges.
 
 ## Source
 - GitHub issue #312: Fix agent access settings credential load delay and
@@ -37,9 +37,9 @@ values render.
    validation pass.
 
 ## Definition Of Done
-- [ ] Agent-access summary prefetch and loading UI are implemented.
-- [ ] Modal and panel width containment is implemented.
-- [ ] Regression tests cover loading and overflow-sensitive rendering.
-- [ ] Product version and changelog follow the release policy.
-- [ ] Required local and preview validation passes.
-- [ ] A ready-for-review PR is open and Copilot feedback is handled.
+- [x] Agent-access summary prefetch and loading UI are implemented.
+- [x] Modal and panel width containment is implemented.
+- [x] Regression tests cover loading and overflow-sensitive rendering.
+- [x] Product version and changelog follow the release policy.
+- [x] Required local and preview validation passes.
+- [x] A ready-for-review PR is open and Copilot feedback is handled.

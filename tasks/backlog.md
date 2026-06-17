@@ -8,7 +8,7 @@ Last reviewed: 2026-05-31
 ### Execution Queue (Now / Next)
 - ID: TASK-314
   Title: Agent access settings loading and overflow containment
-  Status: In Progress
+  Status: Complete once PR #332 merges
   Rationale: Resolve GitHub issue #312 by prefetching project agent credentials
     when settings opens, showing an immediate loading state, and containing long
     credential/quickstart/audit values inside the modal.

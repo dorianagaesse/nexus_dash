@@ -23,6 +23,23 @@ Use it for important implementation milestones, blockers, validation runs, and r
   were blocked before app interaction because PostgreSQL was unavailable at
   `127.0.0.1:5432`; Docker Desktop was not running, so branch-preview browser
   validation is required for final sign-off.
+- Preview validation: Workflow run `27725759573` used
+  `git_ref=fix/task-314-agent-access-settings`; logs show checkout of
+  `refs/remotes/origin/fix/task-314-agent-access-settings`. The preview URL was
+  `https://nexus-dash-7bk6fxnb8-dorian-agaesses-projects.vercel.app`.
+- Browser evidence: At a 1280x900 viewport, a fresh settings/Agent access open
+  showed `Loading credentials...` within 79.8 ms. The deployed agent-access
+  request measured about 2171 ms and had already completed before the tab was
+  selected in the prefetch check. A credential with a deliberately long label,
+  the long raw-key/quickstart values, and the internally scrollable quickstart
+  block left both page and body `scrollWidth` at 1280 px, with no modal/page
+  horizontal overflow. Credential create, rotate, and revoke succeeded; the
+  revoked state disabled rotation. The disposable validation project and its
+  credential were deleted afterward.
+- GitHub evidence: PR #332 passed branch-name, Quality Core, E2E Smoke, and
+  Container Image checks. Copilot completed its initial review with no inline
+  comments. Its top-level date note was answered with the Europe/Paris
+  execution-time rationale.
 
 # 2026-06-08 - Version history reconciliation
 
