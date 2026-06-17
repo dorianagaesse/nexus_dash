@@ -7,6 +7,30 @@ import { ProjectDashboardOwnerAgentAccessPanel } from "@/components/project-dash
 (globalThis as { React?: typeof React }).React = React;
 
 describe("project-dashboard-owner-agent-access-panel", () => {
+  test("renders an immediate loading state with width-contained panel layout", () => {
+    const result = renderToStaticMarkup(
+      React.createElement(ProjectDashboardOwnerAgentAccessPanel, {
+        projectId: "project-with-an-extremely-long-identifier-that-must-not-widen-the-modal",
+        accessSummary: null,
+        isLoadingAccessSummary: true,
+        accessError: null,
+        isCreatingCredential: false,
+        mutatingCredentialId: null,
+        latestIssuedSecret: null,
+        onCreateCredential: () => {},
+        onRotateCredential: () => {},
+        onRevokeCredential: () => {},
+        onDismissLatestSecret: () => {},
+      })
+    );
+
+    expect(result).toContain('role="status"');
+    expect(result).toContain("Loading credentials...");
+    expect(result).toContain("grid min-w-0 max-w-full");
+    expect(result).toContain("min-w-0 max-w-full overflow-x-auto");
+    expect(result).toContain("break-all");
+  });
+
   test("renders one-time key reveal, credential metadata, and audit events", () => {
     const result = renderToStaticMarkup(
       React.createElement(ProjectDashboardOwnerAgentAccessPanel, {

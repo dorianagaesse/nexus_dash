@@ -3,6 +3,27 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-06-18 - TASK-314 agent access settings remediation
+
+- Summary: Started GitHub issue #312 as TASK-314 on
+  `fix/task-314-agent-access-settings`. Project settings now starts the
+  agent-access summary request as soon as the modal opens, the credentials
+  section presents an explicit initial loading state, and nested panel/code
+  content uses width containment so long IDs, paths, and env values cannot
+  create a modal-level horizontal scrollbar.
+- Scope: Credential lifecycle, scopes, authorization, and audit semantics are
+  unchanged.
+- Validation: Focused agent-access panel tests passed (3 tests), `npm run lint`
+  passed, the full unit/API suite passed (120 files passed, 2 skipped; 896 tests
+  passed, 2 skipped), coverage passed at 91.37% statements / 81.33% branches /
+  92.2% functions / 91.88% lines, `npm run build` passed, and
+  `npm run release:check -- --base origin/main --branch
+  fix/task-314-agent-access-settings` passed.
+- Local E2E note: `npm run test:e2e` built successfully but all browser specs
+  were blocked before app interaction because PostgreSQL was unavailable at
+  `127.0.0.1:5432`; Docker Desktop was not running, so branch-preview browser
+  validation is required for final sign-off.
+
 # 2026-06-08 - Version history reconciliation
 
 - Summary: Audited merged PR history from TASK-132/#270 (`v0.2.0`) through

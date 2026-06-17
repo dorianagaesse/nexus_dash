@@ -221,9 +221,9 @@ export function ProjectDashboardOwnerAgentAccessPanel({
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-      <div className="space-y-6">
-        <section className="space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
+    <div className="grid min-w-0 max-w-full gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+      <div className="min-w-0 space-y-6">
+        <section className="min-w-0 space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -401,7 +401,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
           </section>
         ) : null}
 
-        <section className="space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
+        <section className="min-w-0 space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-1">
               <h3 className="text-base font-semibold">Credentials</h3>
@@ -410,10 +410,32 @@ export function ProjectDashboardOwnerAgentAccessPanel({
                 trust.
               </p>
             </div>
-            {isLoadingAccessSummary ? (
+            {isLoadingAccessSummary && accessSummary ? (
               <p className="text-xs text-muted-foreground">Refreshing...</p>
             ) : null}
           </div>
+
+          {isLoadingAccessSummary && !accessSummary ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="space-y-3"
+            >
+              <p className="text-sm text-muted-foreground">Loading credentials...</p>
+              <div className="space-y-3" aria-hidden="true">
+                {[0, 1].map((index) => (
+                  <div
+                    key={index}
+                    className="animate-pulse space-y-3 rounded-xl border border-border/60 bg-card p-4"
+                  >
+                    <div className="h-4 w-2/5 rounded bg-muted" />
+                    <div className="h-3 w-3/5 rounded bg-muted" />
+                    <div className="h-3 w-full rounded bg-muted" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {!isLoadingAccessSummary &&
           accessSummary &&
@@ -436,7 +458,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
                     className="space-y-4 rounded-xl border border-border/60 bg-card p-4"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="space-y-1">
+                      <div className="min-w-0 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-sm font-medium">{credential.label}</p>
                           <Badge
@@ -446,8 +468,8 @@ export function ProjectDashboardOwnerAgentAccessPanel({
                             {formatAgentCredentialStatus(credential.status)}
                           </Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          Public id: <code>{credential.publicId}</code>
+                        <p className="min-w-0 text-xs text-muted-foreground">
+                          Public id: <code className="break-all">{credential.publicId}</code>
                         </p>
                       </div>
 
@@ -498,8 +520,8 @@ export function ProjectDashboardOwnerAgentAccessPanel({
         </section>
       </div>
 
-      <div className="space-y-6">
-        <section className="space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
+      <div className="min-w-0 space-y-6">
+        <section className="min-w-0 space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <BookOpenText className="h-4 w-4 text-muted-foreground" />
@@ -511,8 +533,8 @@ export function ProjectDashboardOwnerAgentAccessPanel({
             </p>
           </div>
 
-          <div className="rounded-xl border border-border/60 bg-card/70 px-4 py-3 text-sm">
-            Project id: <code>{projectId}</code>
+          <div className="min-w-0 rounded-xl border border-border/60 bg-card/70 px-4 py-3 text-sm">
+            Project id: <code className="break-all">{projectId}</code>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -528,7 +550,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
             </Button>
           </div>
 
-          <pre className="overflow-x-auto rounded-xl border border-border/70 bg-slate-950 px-4 py-3 text-xs leading-6 text-slate-50">
+          <pre className="min-w-0 max-w-full overflow-x-auto rounded-xl border border-border/70 bg-slate-950 px-4 py-3 text-xs leading-6 text-slate-50">
             <code>{quickstartEnvBlock}</code>
           </pre>
 
@@ -544,7 +566,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
           </div>
         </section>
 
-        <section className="space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
+        <section className="min-w-0 space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
           <div className="space-y-1">
             <h3 className="text-base font-semibold">Recent audit trail</h3>
             <p className="text-sm text-muted-foreground">
@@ -583,7 +605,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
                     {event.httpMethod && event.path ? (
                       <p>
                         Request:{" "}
-                        <code>
+                        <code className="break-all">
                           {event.httpMethod} {event.path}
                         </code>
                       </p>

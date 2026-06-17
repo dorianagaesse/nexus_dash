@@ -6,6 +6,13 @@ Last reviewed: 2026-05-31
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-314
+  Title: Agent access settings loading and overflow containment
+  Status: In Progress
+  Rationale: Resolve GitHub issue #312 by prefetching project agent credentials
+    when settings opens, showing an immediate loading state, and containing long
+    credential/quickstart/audit values inside the modal.
+  Dependencies: TASK-059, TASK-115
 ### Deferred (Intentional)
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
