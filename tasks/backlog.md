@@ -129,7 +129,7 @@ Last reviewed: 2026-05-31
 ## Completed
 - ID: TASK-088
   Title: Architecture Audit
-  Status: Complete (PR pending)
+  Status: Complete (PR #334)
   Rationale: Review architecture for adherence to boundaries and best practices.
 - ID: TASK-313
   Title: App version governance - semantic release increments and build metadata clarity

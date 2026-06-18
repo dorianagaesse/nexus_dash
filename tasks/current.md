@@ -4,7 +4,7 @@
 TASK-088
 
 ## Status
-Complete once PR is merged.
+Complete once PR #334 is merged.
 
 ## Source
 - User request
