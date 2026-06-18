@@ -1,182 +1,45 @@
-# Current Task: TASK-098 Meeting Notes Manager
+# Current Task: TASK-315 Protected Preview Agent Diagnostics
 
 ## Task ID
-TASK-098
+TASK-315
 
 ## Status
-Feedback pass implemented, pushed, preview-deployed, and Playwright-validated on
-2026-06-09. PR #331 remains open for review.
+Complete once PR #333 merges.
 
 ## Source
-- `tasks/backlog.md`: "Meeting notes manager - structured project meeting log
-  with participants, labels, outputs, and todos."
-- User request on 2026-06-08: add a dedicated Meeting Notes area alongside
-  project context, roadmap, Kanban, and similar dashboard surfaces. Meeting
-  preparation uses an `inputs` section before the meeting and an `output`
-  section after the meeting, with participants and personal action items
-  captured explicitly. Previous notes must be easy to find, with search as a
-  must-have.
+- GitHub issue #313: Investigate active agent credential returning
+  `invalid-api-key` on preview token exchange.
+- Follow-up reproduction confirmed the credential was valid and Vercel
+  deployment protection intercepted direct requests before the app route.
 
 ## Objective
-Ship a project-scoped Meeting Notes manager that feels native to the existing
-NexusDash dashboard: structured enough for meeting preparation and follow-up,
-fast to scan chronologically, searchable, and protected by the same
-project-membership authorization and service-layer boundaries as the rest of
-the project workspace.
+Document a deterministic, secret-safe way to distinguish Vercel preview
+protection from NexusDash agent-key rejection and validate agent access against
+protected previews with the correct authentication schemes.
 
-## 2026-06-09 Feedback Pass
-- Add task-style labels to each meeting note.
-- Use modal workflows instead of raw inline editing.
-- Separate meeting preparation from after-meeting note taking: preparation
-  captures title, participants, labels, date/time, and inputs; opening the note
-  later captures outputs and todos.
-- Add note state: `prepared`, `actions_in_progress`, and `done`; show `done`
-  notes in a separate Archived list.
-- Do not auto-select a meeting note; clicking the selected note closes it.
-- Use the shared task date picker, with a theme-aware calendar icon.
-- Remove the Decisions section from the meeting note UI.
-- Add participant chips from Enter, comma, or space.
-
-## 2026-06-10 Feedback Pass
-- Replace the browser-native State dropdown with an app-styled popover select.
-- Make label filtering explicit with a visible "Filter by label" chip row.
-- Highlight meeting notes with open todos that are overdue seven days after the
-  meeting date, including a section-level overdue summary.
-- Track durable overdue reminder email delivery as TASK-314.
-- Track the project-wide open meeting-todo side panel as TASK-315.
-
-## 2026-06-18 Copilot Review Refresh
-- Preserve the legacy `decisions` value on every meeting-note update even
-  though Decisions is no longer exposed in the UI.
-- Cover preparation and after-meeting save paths with a browser regression that
-  seeds a legacy decision and verifies it remains unchanged.
-
-## Implementation Plan
-1. Add persistence for project meeting notes and follow-up actions, including
-   title, scheduled date/time, participants, labels, state, input notes, output
-   notes, and action items.
-2. Add service-layer create/read/update/delete/search operations with owner and
-   editor write access and viewer read access.
-3. Add project API routes that keep transport concerns thin and delegate
-   authorization to services.
-4. Add a dedicated dashboard Meeting Notes panel with search, list/detail
-   navigation, preparation/note-taking modals, action-item tracking, empty states,
-   loading/error states, and responsive layout.
-5. Integrate the panel into the project dashboard navigation and live project
-   activity refresh model where appropriate.
-6. Cover the service/API/UI behavior with focused tests and add Playwright
-   coverage for the main meeting-notes workflow.
-7. Complete repository workflow: branch/worktree, PR, Copilot review handling,
-   explicit branch-ref preview deployment, and Playwright against preview.
+## Root Cause
+- A direct request to a protected preview can receive Vercel's HTML
+  `401 Authentication Required` response before NexusDash handles the request.
+- The raw agent API key must use `Authorization: ApiKey <key>`, the
+  `x-agent-api-key` compatibility header, or the JSON body. `Bearer` is reserved
+  for the short-lived token returned by a successful exchange.
+- The copied agent env block configures NexusDash values; it does not bypass
+  deployment-level Vercel protection.
 
 ## Acceptance Criteria
-1. Project members can open a dedicated Meeting Notes area from the project
-   dashboard without leaving the workspace flow.
-2. Users can prepare a meeting with title, meeting time, participants, labels,
-   and inputs, then open that note later to capture outputs and personal todos.
-3. Search filters previous meeting notes across title, participants, labels,
-   inputs, outputs, and actions.
-4. Users can filter meeting notes explicitly by label.
-5. The list is readable for past-note lookup, ordered by meeting time, and
-   provides useful scan-time metadata such as participants, labels, action
-   status, note state, overdue todo status, and active/archived grouping.
-6. Authorization follows project roles: owner/editor can mutate notes, viewer
-   can read but not mutate.
-7. Persistence and route code respect existing architecture boundaries:
-   Prisma access stays in `lib/services/**`, and API routes stay as thin
-   adapters.
-8. Automated tests cover the new service/API behavior and the core UI workflow.
-9. Documentation/tracking files are updated consistently.
+1. Preview validation docs explain how to identify a Vercel interception versus
+   an app-owned JSON `invalid-api-key` response.
+2. Protected-preview commands use `vercel curl` or an explicit protection
+   bypass secret without exposing agent keys.
+3. The raw-key exchange and returned bearer-token schemes are unambiguous.
+4. Rotation/revocation validation still expects stale keys to fail with the
+   app-owned JSON error.
+5. The runbook includes audit/log signals and a concise troubleshooting
+   decision tree.
 
 ## Definition Of Done
-- [x] Dedicated feature branch/worktree is used for TASK-098.
-- [x] `tasks/current.md` and `journal.md` record the task plan,
-      implementation, validation, PR, preview, and Playwright outcomes.
-- [x] Schema/migration, service, API, UI, and tests are implemented.
-- [x] `npm run lint`, `npm test`, `npm run test:coverage`, `npm run build`,
-      and relevant Playwright tests pass.
-- [x] PR is opened ready for review and Copilot review feedback is monitored
-      and addressed or explicitly dispositioned.
-- [x] Preview deploy workflow is triggered with
-      `git_ref=feature/task-98-meeting-notes-manager`; logs confirm that branch
-      ref was checked out.
-- [x] Playwright runs against the deployed preview with
-      `PLAYWRIGHT_BASE_URL=<preview-url>`.
-
-## Outcome
-- PR: #331 (`TASK-098 Add meeting notes manager`) on
-  `feature/task-98-meeting-notes-manager`.
-- Latest implementation commit validated by preview before the feedback pass:
-  `5547655731e5e371cc4edcbe79670644d1075e6d`.
-- Copilot review generated three actionable comments. Addressed them in
-  `5547655` by acknowledging meeting-note remote events before reload, routing
-  meeting-note mutations through `fetchProjectActivityMutation`, and renaming
-  the stat label to `Meeting notes`; the original review threads became
-  outdated.
-- Branch-ref preview workflow run `27170848710` deployed
-  `https://nexus-dash-3bk1wylcj-dorian-agaesses-projects.vercel.app`; logs show
-  `ref: feature/task-98-meeting-notes-manager`, checkout of
-  `refs/remotes/origin/feature/task-98-meeting-notes-manager`, and
-  `git log -1 --format=%H` =
-  `5547655731e5e371cc4edcbe79670644d1075e6d`.
-- Preview Playwright:
-  `PLAYWRIGHT_BASE_URL=https://nexus-dash-3bk1wylcj-dorian-agaesses-projects.vercel.app npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts`
-  passed 6/6 specs, including the meeting-notes preparation, output, action,
-  and search flow.
-- 2026-06-09 feedback pass local validation: `npm run lint` passed;
-  `npm test` passed (122 files passed, 2 skipped; 905 passed, 2 skipped);
-  `npm run test:coverage` passed at 91.37% statements, 81.33% branches, 92.2%
-  functions, and 91.88% lines; preview-style `npm run build` passed; full
-  local Playwright `npm run test:e2e` passed 9/9 after setting local
-  `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, and `TRUSTED_ORIGINS` for production-mode
-  password-reset origin checks.
-- Feedback pass commit `c7ac74164f41077d97ce244b1c76cebeb2b8a97f` was deployed
-  by branch-ref preview workflow run `27204436282` to
-  `https://nexus-dash-4ansd69jm-dorian-agaesses-projects.vercel.app`; logs show
-  `ref: feature/task-98-meeting-notes-manager`, checkout of
-  `refs/remotes/origin/feature/task-98-meeting-notes-manager`, and
-  `git log -1 --format=%H` =
-  `c7ac74164f41077d97ce244b1c76cebeb2b8a97f`.
-- Feedback pass preview Playwright:
-  `PLAYWRIGHT_BASE_URL=https://nexus-dash-4ansd69jm-dorian-agaesses-projects.vercel.app npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts`
-  passed 6/6 specs, including the modal-based meeting preparation, outputs,
-  todos, archive, and search flow.
-- 2026-06-10 feedback pass added explicit label filters, app-styled state
-  selection, overdue meeting-todo highlights, and follow-up tasks TASK-314 and
-  TASK-315 for reminder email dispatch and the project-wide open-todo side
-  panel.
-- 2026-06-10 feedback pass local validation: `npm run lint` passed; focused
-  meeting-note/API/calendar tests passed (3 files / 16 tests); `npm test`
-  passed (122 files passed, 2 skipped; 905 passed, 2 skipped);
-  `npm run test:coverage` passed at 91.37% statements, 81.33% branches, 92.2%
-  functions, and 91.88% lines; targeted meeting-note Playwright passed; full
-  local Playwright `npm run test:e2e` passed 9/9 with local production-mode
-  auth origin env.
-- Feedback pass commit `7bcdae7c2c82b2e3066bde42a0703591094817d6` was deployed
-  by branch-ref preview workflow run `27280585844` to
-  `https://nexus-dash-eb4r57ftj-dorian-agaesses-projects.vercel.app`; logs show
-  `ref: feature/task-98-meeting-notes-manager`, checkout of
-  `refs/remotes/origin/feature/task-98-meeting-notes-manager`, and
-  `git log -1 --format=%H` =
-  `7bcdae7c2c82b2e3066bde42a0703591094817d6`.
-- Feedback pass preview Playwright:
-  `PLAYWRIGHT_BASE_URL=https://nexus-dash-eb4r57ftj-dorian-agaesses-projects.vercel.app npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts`
-  passed 6/6 specs on rerun. The first preview attempt passed 4/6 and failed
-  twice in the shared project-creation helper before reaching the changed
-  meeting-note UI; the rerun completed successfully.
-- Copilot's 2026-06-18 refreshed review identified that preparation and notes
-  saves replaced legacy `decisions` data with an empty string after the field
-  was removed from the UI. The update payloads now preserve the stored value,
-  and the meeting-notes Playwright flow covers both save paths.
-- Review-refresh validation: `npm run lint` and `npm run build` passed.
-  Focused meeting-note API/service tests passed (2 files / 10 tests).
-  Local PostgreSQL-backed validation could not start because Docker Desktop's
-  Linux engine returned HTTP 500.
-- Review-fix commit `13f2d63ccfee484e3c57bcec18e708fb56edf75d`
-  was deployed by branch-ref preview workflow run `27726221721` to
-  `https://nexus-dash-39lkz815n-dorian-agaesses-projects.vercel.app`; the run
-  used `git_ref=feature/task-98-meeting-notes-manager`, checked out the feature
-  branch, and reported the same head SHA.
-- Preview Playwright passed 6/6 specs against that URL. The meeting-notes flow
-  seeded a legacy decision, saved preparation, saved after-meeting notes, and
-  verified the legacy value remained intact after both updates.
+- [x] A dedicated protected-preview diagnostic runbook is added.
+- [x] Existing agent preview validation and README references are updated.
+- [x] Task tracking and journal evidence are current.
+- [x] Documentation checks pass.
+- [x] A ready-for-review PR is open and Copilot feedback is handled.

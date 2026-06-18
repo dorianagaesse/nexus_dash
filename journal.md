@@ -3,27 +3,25 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
-# 2026-06-08 - TASK-098 meeting notes manager implemented
+# 2026-06-18 - TASK-315 protected preview agent diagnostics
 
-- Summary: Implemented a dedicated project dashboard Meeting Notes area with
-  searchable meeting history, structured participants, preparation inputs,
-  after-meeting outputs, decisions, and personal follow-up actions.
-- Decision: Added first-class `ProjectMeetingNote` and
-  `ProjectMeetingNoteAction` records rather than reusing context cards, with
-  owner/editor mutation access, viewer read access, session-user-only APIs, and
-  project activity headers for dashboard freshness.
-- Evidence: Added RLS-backed Prisma schema and migration
-  `20260608170000_task098_meeting_notes`, service/API adapters, dashboard
-  section/component, meeting count stat, product docs, changelog entry, and
-  Playwright coverage for create/edit/search/action completion.
-- Validation: Focused meeting-note service/API/project summary tests passed
-  (19 tests). `npm run lint` passed. Local PostgreSQL `npm test` passed
-  (122 files passed, 2 skipped; 905 passed, 2 skipped). `npm run
-  test:coverage` passed with 91.37% statements and 81.33% branches. Preview
-  env `npm run build` passed and listed `/api/projects/[projectId]/meeting-notes`
-  and `/api/projects/[projectId]/meeting-notes/[noteId]`. Local Playwright
-  `npm run test:e2e` passed 9/9 specs after tightening the new meeting action
-  textbox locator.
+- Summary: Reconciled GitHub issue #313 with the confirmed reproduction: the
+  active credential was valid, while Vercel deployment protection returned an
+  HTML `401 Authentication Required` response before NexusDash received the
+  direct request.
+- Decision: Added a dedicated diagnostic runbook that separates Vercel preview
+  access from NexusDash key validation, documents `ApiKey` for raw-key exchange
+  versus `Bearer` for returned access tokens, and defines secret-safe response,
+  audit, rotation, and revocation evidence.
+- Validation: Confirmed the documented command shape against Vercel CLI
+  `54.14.2` help, verified runbook links and authentication wording with `rg`,
+  passed `git diff --check`, and passed
+  `npm run release:check -- --base origin/main --branch
+  docs/task-315-protected-preview-agent-diagnostics` with no product version
+  bump required.
+- GitHub evidence: PR #333 passed branch-name, Quality Core, E2E Smoke, and
+  Container Image checks. Copilot reviewed all changed files and produced no
+  comments or unresolved threads.
 
 # 2026-06-08 - Version history reconciliation
 
@@ -2211,7 +2209,7 @@ Low-value entries to avoid going forward:
 ### 2026-06-10
 - Type: Execution
 - Summary: TASK-098 incorporated follow-up UX corrections for state selection, label filtering, and overdue todos.
-- Evidence: Replaced the native meeting State select with an app-styled popover listbox, added explicit meeting-label filter chips, and added seven-day overdue todo highlighting at the Meeting Notes section and note-card level. Added TASK-314 for durable overdue reminder notifications/email and TASK-315 for a project-side panel aggregating open meeting todos.
+- Evidence: Replaced the native meeting State select with an app-styled popover listbox, added explicit meeting-label filter chips, and added seven-day overdue todo highlighting at the Meeting Notes section and note-card level. Added TASK-314 for durable overdue reminder notifications/email and TASK-316 for a project-side panel aggregating open meeting todos.
 
 ### 2026-06-10
 - Type: Validation

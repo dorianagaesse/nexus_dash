@@ -6,6 +6,14 @@ Last reviewed: 2026-05-31
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-315
+  Title: Protected preview agent-access diagnostics
+  Status: Complete once PR #333 merges
+  Rationale: Resolve GitHub issue #313 by documenting how Vercel deployment
+    protection can intercept token exchange before NexusDash, how to use the
+    correct raw-key and bearer-token schemes, and how to distinguish platform
+    HTML failures from app-owned JSON key rejection.
+  Dependencies: TASK-059, TASK-115
 ### Deferred (Intentional)
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
@@ -34,12 +42,12 @@ Last reviewed: 2026-05-31
   Rationale: Send the meeting-note owner a notification email and in-app reminder when a personal meeting todo remains open seven days after the meeting date, using the existing notification email delivery conventions and scheduler/dispatcher architecture instead of mixing background delivery concerns into the TASK-098 UI rollout.
   Dependencies: TASK-098, TASK-227, TASK-268
   Brief: `tasks/task-314-meeting-todo-overdue-reminders.md`
-- ID: TASK-315
+- ID: TASK-316
   Title: Meeting todo side panel - project-wide open follow-up list
   Status: Pending
   Rationale: Externalize open todos from all meeting notes into a project-side panel so users can review and close meeting follow-ups without opening each historical note, while preserving links back to the source meeting and future compatibility with TASK-314 overdue reminders.
   Dependencies: TASK-098
-  Brief: `tasks/task-315-meeting-todo-side-panel.md`
+  Brief: `tasks/task-316-meeting-todo-side-panel.md`
 - ID: TASK-102
   Title: Collaboration service modularization - split invite, membership, and recipient flows into smaller service units
   Status: Pending
