@@ -8,6 +8,14 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.19.1 - 2026-06-18
+
+- Prefetched project agent credentials when the settings modal opens so the
+  Agent access tab no longer waits to begin its first load.
+- Added an explicit initial credential loading state and contained long
+  credential IDs, audit request paths, project IDs, and quickstart values
+  within the settings modal.
+
 ## v0.19.0 - 2026-06-08
 
 - Added a project-scoped Meeting Notes workspace with structured preparation
