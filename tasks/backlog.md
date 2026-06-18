@@ -6,6 +6,14 @@ Last reviewed: 2026-05-31
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-315
+  Title: Protected preview agent-access diagnostics
+  Status: Complete once PR #333 merges
+  Rationale: Resolve GitHub issue #313 by documenting how Vercel deployment
+    protection can intercept token exchange before NexusDash, how to use the
+    correct raw-key and bearer-token schemes, and how to distinguish platform
+    HTML failures from app-owned JSON key rejection.
+  Dependencies: TASK-059, TASK-115
 ### Deferred (Intentional)
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish

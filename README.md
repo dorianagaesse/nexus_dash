@@ -202,6 +202,7 @@ Runbooks:
 - `docs/runbooks/database-connection-hardening.md`
 - `docs/runbooks/notification-email-dispatch.md`
 - `docs/runbooks/release-versioning.md`
+- `docs/runbooks/protected-preview-agent-access.md`
 
 ## Attachments and Storage
 
@@ -312,6 +313,13 @@ VERCEL_AUTOMATION_BYPASS_SECRET=<32-char-secret>
 
 The Playwright config forwards that secret through the Vercel preview-protection
 headers so smoke runs can target the deployed branch preview directly.
+
+For manual agent API checks, the NexusDash raw key does not bypass Vercel
+deployment protection. Use `vercel curl` (optionally with
+`--protection-bypass`) and exchange the raw key with
+`Authorization: ApiKey <key>`. Reserve `Authorization: Bearer` for the
+short-lived token returned by the exchange. See
+[`docs/runbooks/protected-preview-agent-access.md`](docs/runbooks/protected-preview-agent-access.md).
 
 ### Notification Email Dispatch
 

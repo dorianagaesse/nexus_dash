@@ -1,84 +1,45 @@
-# Current Task: TASK-313 App Version Governance
+# Current Task: TASK-315 Protected Preview Agent Diagnostics
 
 ## Task ID
-TASK-313
+TASK-315
 
 ## Status
-Complete once PR #329 merges.
+Complete once PR #333 merges.
 
 ## Source
-- User feedback on 2026-06-06: the app previously showed `0.1.<commit>` and
-  now constantly shows `0.2.0`; the version number has no visible logic and
-  should increment according to an industry-standard approach.
-- Existing completed tasks:
-  - TASK-087 exposed product metadata in the app.
-  - TASK-272 defined a release-version cadence and helper.
-  - TASK-132 made `package.json` the canonical product version and separated
-    user-facing version from commit SHA.
+- GitHub issue #313: Investigate active agent credential returning
+  `invalid-api-key` on preview token exchange.
+- Follow-up reproduction confirmed the credential was valid and Vercel
+  deployment protection intercepted direct requests before the app route.
 
 ## Objective
-Review and fix NexusDash app version governance so the product version follows
-SemVer-compatible release logic, increments predictably for production releases,
-and keeps build/revision metadata separate and useful for diagnostics.
+Document a deterministic, secret-safe way to distinguish Vercel preview
+protection from NexusDash agent-key rejection and validate agent access against
+protected previews with the correct authentication schemes.
 
-## Initial Position
-`v0.2.0` being stable is understandable technically because `package.json` is
-the canonical product version. The missing piece is process enforcement: no
-release/version decision is currently required after meaningful shipped work.
-
-Going back to `0.1.<commit>` would also be wrong: commit SHA/build revision is
-not the same as product version. The right target is a clear product release
-version plus diagnostic revision metadata.
-
-## Selected Policy
-- Keep `package.json` as the canonical product version.
-- Keep commit SHA/build metadata separate from the visible product version.
-- Do not use commit count in SemVer; it is repository/build metadata, not
-  release intent.
-- `feature/*` PRs that ship meaningful product work bump minor and reset patch,
-  for example `0.2.0` to `0.3.0`.
-- Release-impacting `fix/*`, `refactor/*`, and `chore/*` PRs bump patch, for
-  example `0.3.0` to `0.3.1`.
-- `docs/*`, Dependabot, routine CI cleanup, and task-tracking-only work hold
-  steady unless explicitly converted into a product release.
-- `1.0.0` remains reserved for the first stable product baseline.
-
-## Implementation Summary
-- Added `scripts/check-version-policy.mjs` and `npm run release:check`.
-- Wired the version policy guard into the PR Quality Core workflow.
-- Extended `scripts/release-version.mjs` with branch-type aliases:
-  `feature`, `fix`, `refactor`, and `chore`.
-- Bumped the app product version from `0.2.0` to `0.3.0` for this
-  `feature/*` implementation PR.
-- Updated release/version docs, README metadata guidance, changelog, and app
-  metadata tests.
-- Added guard tests that exercise feature minor bumps, fix patch requirements,
-  changelog enforcement, and docs-only no-bump behavior.
-
-## Out Of Scope
-- Changing dependency package versions for their own sake.
-- Reintroducing commit SHA as the primary user-facing product version.
-- A full public release-management platform beyond the lightweight process
-  NexusDash needs today.
+## Root Cause
+- A direct request to a protected preview can receive Vercel's HTML
+  `401 Authentication Required` response before NexusDash handles the request.
+- The raw agent API key must use `Authorization: ApiKey <key>`, the
+  `x-agent-api-key` compatibility header, or the JSON body. `Bearer` is reserved
+  for the short-lived token returned by a successful exchange.
+- The copied agent env block configures NexusDash values; it does not bypass
+  deployment-level Vercel protection.
 
 ## Acceptance Criteria
-1. A clear versioning policy exists and explains product version vs
-   build/revision metadata.
-2. The visible app version follows that policy and no longer stagnates
-   accidentally after meaningful production releases.
-3. Release tooling can increment `package.json` and `package-lock.json`
-   predictably.
-4. CI/release automation catches missing version decisions for production-bound
-   feature/fix work.
-5. Changelog/release-note expectations are tied to version increments.
-6. Preview and production build metadata remain deterministic and useful for
-   debugging.
-7. Tests cover the implemented version metadata and guard behavior.
+1. Preview validation docs explain how to identify a Vercel interception versus
+   an app-owned JSON `invalid-api-key` response.
+2. Protected-preview commands use `vercel curl` or an explicit protection
+   bypass secret without exposing agent keys.
+3. The raw-key exchange and returned bearer-token schemes are unambiguous.
+4. Rotation/revocation validation still expects stale keys to fail with the
+   app-owned JSON error.
+5. The runbook includes audit/log signals and a concise troubleshooting
+   decision tree.
 
 ## Definition Of Done
-- [x] Existing TASK-272 and TASK-132 decisions are reviewed.
-- [x] Policy and implementation path are documented.
-- [x] Version increment automation or CI guardrails are implemented.
-- [x] App metadata behavior remains tested.
-- [x] Relevant validation passes.
-- [x] PR workflow is completed according to `agent.md`.
+- [x] A dedicated protected-preview diagnostic runbook is added.
+- [x] Existing agent preview validation and README references are updated.
+- [x] Task tracking and journal evidence are current.
+- [x] Documentation checks pass.
+- [x] A ready-for-review PR is open and Copilot feedback is handled.
