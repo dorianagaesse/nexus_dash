@@ -27,7 +27,7 @@ NexusDash implements a modern Next.js 16 (App Router) architecture with a strict
   - Employs a custom, DB-backed session architecture rather than relying on black-box providers. Session cookies are HTTP-only and properly handled.
   - Supports Project-scoped Agent API credentials exchanged for short-lived bearer tokens. Token validation records usage metadata and binds to specific `AgentScope` arrays.
   - Supports Google OAuth solely for user-scoped Calendar interactions.
-- **Authorization Guard:** `requireApiPrincipal` cleanly multiplexes Human (Session) and Agent (****** principals.
+- **Authorization Guard:** `requireApiPrincipal` cleanly multiplexes Human (Session) and Agent (Token) principals.
 - **Abuse Control:** Email verification is enforced.
 
 ## 4. Environment & Secrets Management
