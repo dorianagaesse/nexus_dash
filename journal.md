@@ -2180,3 +2180,48 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-311 final branch preview validated typed observer reconciliation on Vercel.
 - Evidence: Preview workflow run `26922436935` used `git_ref=feature/task-311-product-latency-remediation`, logs showed checkout of `refs/remotes/origin/feature/task-311-product-latency-remediation`, and deployed `https://nexus-dash-gztb6x1zo-dorian-agaesses-projects.vercel.app`. Browser probe created two preview accounts, created a project, invited/accepted the observer, opened the observer dashboard, and created a task as the actor. The task create API took 2691 ms, but observer visibility was 98 ms after API completion and 2789 ms after mutation start with a typed `task/created` event and `received` -> `patched` marks. This confirms the deployed 4-5s cross-user delay was the fallback refresh path; the remaining latency is now in the mutation/API path.
+
+### 2026-06-08
+- Type: Execution
+- Summary: TASK-098 delivered a first-class Meeting Notes manager for project dashboards.
+- Evidence: Created worktree `nexus_dash_task98` on `feature/task-98-meeting-notes-manager` and opened PR #331. Added `ProjectMeetingNote` and `ProjectMeetingNoteAction` persistence with project-scoped RLS, service-layer CRUD/search, session-user API routes, a dashboard Meeting Notes panel with search/list/detail/editor states, participant/input/output/decision/action fields, project summary counts, activity typing, docs, changelog, and tests. Bumped the product version to `0.19.0`.
+
+### 2026-06-08
+- Type: Validation
+- Summary: TASK-098 passed local validation, CI, Copilot review handling, and branch-ref preview validation.
+- Evidence: Local validation passed with `npm run lint`, local PostgreSQL `npm test` (122 passed, 2 skipped; 905 passed, 2 skipped), `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2% functions, 91.88% lines), preview-env `npm run build`, and local `npm run test:e2e` (9/9). Copilot reviewed PR #331 and generated three actionable comments; commit `5547655` acknowledged meeting-note remote events before reload, switched meeting-note mutations to `fetchProjectActivityMutation`, and renamed the dashboard stat to `Meeting notes`, making the review threads outdated. GitHub checks passed on `5547655731e5e371cc4edcbe79670644d1075e6d` (branch name, Quality Core, E2E Smoke, Container Image). Preview workflow run `27170848710` was dispatched with `git_ref=feature/task-98-meeting-notes-manager`, logs showed checkout of `refs/remotes/origin/feature/task-98-meeting-notes-manager` and `git log -1 --format=%H` = `5547655731e5e371cc4edcbe79670644d1075e6d`, and deployed `https://nexus-dash-3bk1wylcj-dorian-agaesses-projects.vercel.app`. Preview Playwright passed with `PLAYWRIGHT_BASE_URL=https://nexus-dash-3bk1wylcj-dorian-agaesses-projects.vercel.app npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts` (6/6), including the meeting-notes preparation, output, follow-up action, and search flow.
+
+### 2026-06-09
+- Type: Execution
+- Summary: TASK-098 feedback pass reshaped Meeting Notes around preparation first, note-taking later.
+- Evidence: Added meeting-note `labelsJson` and `status` via migration `20260609100000_task098_meeting_note_feedback`, reusing the task label normalization/color model. Replaced inline editing with modal flows: a Prepare meeting modal captures title, shared date picker value, participant chips, labels, and inputs; opening a note later captures outputs, todos, and state. Done notes are shown only in the Archived list, no note is selected by default, clicking the selected note closes it, and the Decisions UI was removed. Added a reusable `TokenInput` for participant/label chips and updated the shared calendar icon to use theme-aware coloring.
+
+### 2026-06-09
+- Type: Validation
+- Summary: TASK-098 feedback pass passed local validation.
+- Evidence: Applied the new migration to local PostgreSQL with `npx prisma migrate deploy`. `npm run lint` passed. Focused meeting-note/API/calendar tests passed (3 files / 16 tests). Full local PostgreSQL `npm test` passed (122 files passed, 2 skipped; 905 passed, 2 skipped). `npm run test:coverage` passed with 91.37% statements, 81.33% branches, 92.2% functions, and 91.88% lines. Preview-style `npm run build` passed. Targeted meeting-note Playwright passed. Full local Playwright `npm run test:e2e` passed 9/9 after setting local production-mode `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, and `TRUSTED_ORIGINS`; an earlier full e2e run without those trusted-origin values failed only in the password-recovery smoke while the meeting-note smoke passed.
+
+### 2026-06-09
+- Type: Validation
+- Summary: TASK-098 feedback pass passed branch-ref preview deployment and preview Playwright.
+- Evidence: Pushed feedback commit `c7ac74164f41077d97ce244b1c76cebeb2b8a97f` to `feature/task-98-meeting-notes-manager`. Preview workflow run `27204436282` was dispatched with `git_ref=feature/task-98-meeting-notes-manager`, logs showed checkout of `refs/remotes/origin/feature/task-98-meeting-notes-manager` and `git log -1 --format=%H` = `c7ac74164f41077d97ce244b1c76cebeb2b8a97f`, and deployed `https://nexus-dash-4ansd69jm-dorian-agaesses-projects.vercel.app`. Preview Playwright passed with `PLAYWRIGHT_BASE_URL=https://nexus-dash-4ansd69jm-dorian-agaesses-projects.vercel.app npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts` (6/6), including the modal meeting preparation, output/todo capture, archive, and search flow.
+
+### 2026-06-10
+- Type: Execution
+- Summary: TASK-098 incorporated follow-up UX corrections for state selection, label filtering, and overdue todos.
+- Evidence: Replaced the native meeting State select with an app-styled popover listbox, added explicit meeting-label filter chips, and added seven-day overdue todo highlighting at the Meeting Notes section and note-card level. Added TASK-314 for durable overdue reminder notifications/email and TASK-316 for a project-side panel aggregating open meeting todos.
+
+### 2026-06-10
+- Type: Validation
+- Summary: TASK-098 follow-up UX corrections passed local validation.
+- Evidence: `npm run lint` passed. Focused meeting-note/API/calendar tests passed (3 files / 16 tests). Full local PostgreSQL `npm test` passed (122 files passed, 2 skipped; 905 passed, 2 skipped). `npm run test:coverage` passed with 91.37% statements, 81.33% branches, 92.2% functions, and 91.88% lines. Targeted meeting-note Playwright passed after scoping the overdue assertion to the Meeting Notes header. Full local Playwright `npm run test:e2e` passed 9/9 with local production-mode `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, and `TRUSTED_ORIGINS`.
+
+### 2026-06-10
+- Type: Validation
+- Summary: TASK-098 follow-up UX corrections passed branch-ref preview deployment and preview Playwright.
+- Evidence: Pushed commit `7bcdae7c2c82b2e3066bde42a0703591094817d6` to `feature/task-98-meeting-notes-manager`. Preview workflow run `27280585844` was dispatched with `git_ref=feature/task-98-meeting-notes-manager`, logs showed checkout of `refs/remotes/origin/feature/task-98-meeting-notes-manager` and `git log -1 --format=%H` = `7bcdae7c2c82b2e3066bde42a0703591094817d6`, and deployed `https://nexus-dash-eb4r57ftj-dorian-agaesses-projects.vercel.app`. Preview Playwright first passed 4/6 and failed twice in the shared project-creation helper before reaching the changed meeting-note UI; rerunning `PLAYWRIGHT_BASE_URL=https://nexus-dash-eb4r57ftj-dorian-agaesses-projects.vercel.app npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts` passed 6/6, including label filtering, overdue todo highlighting, and the app-styled State picker flow.
+
+### 2026-06-18
+- Type: Review
+- Summary: TASK-098 addressed the refreshed Copilot review's legacy data-preservation finding.
+- Evidence: Copilot found that meeting preparation and note-taking updates sent `decisions: ""`, erasing values created before the Decisions UI was removed. Updated the shared payload and preparation save path to retain the stored `decisions` value, and extended the meeting-notes Playwright flow to seed legacy data and verify it survives both update paths. `npm run lint`, the Playwright-triggered `npm run build`, and focused meeting-note API/service tests (2 files / 10 tests) passed. Local PostgreSQL-backed validation was blocked because Docker Desktop's Linux engine returned HTTP 500. Commit `13f2d63ccfee484e3c57bcec18e708fb56edf75d` was deployed by branch-ref preview workflow run `27726221721` with `git_ref=feature/task-98-meeting-notes-manager` to `https://nexus-dash-39lkz815n-dorian-agaesses-projects.vercel.app`; preview Playwright passed all 6 project smoke specs, including preservation of a seeded legacy decision after preparation and note-taking saves.

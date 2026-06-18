@@ -32,10 +32,22 @@ Last reviewed: 2026-05-31
   Rationale: Redesign the login and home page so they feel like a polished product surface rather than a technical auth form: improve visual hierarchy, copy, branding presence, and call-to-action clarity so new visitors understand the product value at a glance and returning users get a frictionless sign-in experience.
   Dependencies: TASK-045, TASK-059, TASK-083
 - ID: TASK-098
-  Title: Meeting notes manager - structured project meeting log with participants, topics, decisions, and follow-ups
-  Status: Pending
-  Rationale: Add a dedicated project-scoped meeting-notes surface so discussions are not buried in generic context cards; each entry should capture meeting date/time, participants, topics discussed, key decisions, and follow-up actions, with future-friendly room for chronological browsing, search/filtering, and task linkage when implementation begins.
+  Title: Meeting notes manager - structured project meeting log with participants, labels, outputs, and todos
+  Status: In Review (PR #331, feature/task-98-meeting-notes-manager)
+  Rationale: Add a dedicated project-scoped meeting-notes surface so discussions are not buried in generic context cards; each entry should separate meeting preparation from after-meeting notes, capture meeting date/time, participants, task-style labels, preparation inputs, outputs, personal todos, and lifecycle state, and keep done notes in an archived list while preserving search/filtering and future room for task linkage.
   Dependencies: TASK-076, TASK-079
+- ID: TASK-314
+  Title: Meeting todo overdue reminders - notification email and in-app reminder dispatch
+  Status: Pending
+  Rationale: Send the meeting-note owner a notification email and in-app reminder when a personal meeting todo remains open seven days after the meeting date, using the existing notification email delivery conventions and scheduler/dispatcher architecture instead of mixing background delivery concerns into the TASK-098 UI rollout.
+  Dependencies: TASK-098, TASK-227, TASK-268
+  Brief: `tasks/task-314-meeting-todo-overdue-reminders.md`
+- ID: TASK-316
+  Title: Meeting todo side panel - project-wide open follow-up list
+  Status: Pending
+  Rationale: Externalize open todos from all meeting notes into a project-side panel so users can review and close meeting follow-ups without opening each historical note, while preserving links back to the source meeting and future compatibility with TASK-314 overdue reminders.
+  Dependencies: TASK-098
+  Brief: `tasks/task-316-meeting-todo-side-panel.md`
 - ID: TASK-102
   Title: Collaboration service modularization - split invite, membership, and recipient flows into smaller service units
   Status: Pending
