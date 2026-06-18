@@ -208,12 +208,23 @@ export function ProjectDashboardOwnerActions({
   }, [activeTab, isOpen, loadSharingSummary]);
 
   useEffect(() => {
-    if (!isOpen || activeTab !== "agents") {
+    if (
+      !isOpen ||
+      agentAccessSummary ||
+      agentAccessError ||
+      isLoadingAgentAccess
+    ) {
       return;
     }
 
     void loadAgentAccessSummary();
-  }, [activeTab, isOpen, loadAgentAccessSummary]);
+  }, [
+    agentAccessError,
+    agentAccessSummary,
+    isLoadingAgentAccess,
+    isOpen,
+    loadAgentAccessSummary,
+  ]);
 
   useEffect(() => {
     if (!isOpen || activeTab !== "sharing") {
@@ -943,7 +954,7 @@ export function ProjectDashboardOwnerActions({
               }}
             >
               <Card
-                className="flex max-h-[100dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
+                className="flex max-h-[100dvh] min-w-0 w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
                 onMouseDown={(event) => event.stopPropagation()}
               >
                 <CardHeader className="flex flex-col gap-4 space-y-0 border-b border-border/60 sm:flex-row sm:items-start sm:justify-between">
@@ -974,7 +985,7 @@ export function ProjectDashboardOwnerActions({
                   </Button>
                 </CardHeader>
 
-                <CardContent className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6">
+                <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-x-hidden overflow-y-auto overscroll-contain p-4 sm:p-6">
                   <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"

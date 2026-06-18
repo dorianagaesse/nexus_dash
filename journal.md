@@ -3,6 +3,44 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-06-18 - TASK-317 agent access settings remediation
+
+- Summary: Started GitHub issue #312 as TASK-314, then renumbered it to
+  TASK-317 after merged PR #331 independently assigned TASK-314 to meeting-todo
+  overdue reminders. Project settings now starts the agent-access summary
+  request as soon as the modal opens, presents an explicit initial credential
+  loading state, and contains long IDs, paths, and env values within the modal.
+- Scope: Credential lifecycle, scopes, authorization, and audit semantics are
+  unchanged.
+- Validation after rebasing onto PR #333 and PR #331: focused agent-access and
+  app-metadata tests passed (3 files / 11 tests), `npm run lint` passed, the
+  full unit/API suite passed (122 files passed, 2 skipped; 906 tests passed,
+  2 skipped), coverage passed at 91.37% statements / 81.33% branches / 92.2%
+  functions / 91.88% lines, `npm run build` passed, and
+  `npm run release:check -- --base origin/main --branch
+  fix/task-317-agent-access-settings` passed for `v0.19.1`.
+- Local E2E note: `npm run test:e2e` built successfully but all browser specs
+  were blocked before app interaction because PostgreSQL was unavailable at
+  `127.0.0.1:5432`; Docker Desktop was not running. GitHub E2E subsequently
+  passed with its PostgreSQL service.
+- Preview validation: Workflow run `27725759573` used the original
+  `git_ref=fix/task-314-agent-access-settings`; logs confirmed checkout of that
+  branch. The preview URL was
+  `https://nexus-dash-7bk6fxnb8-dorian-agaesses-projects.vercel.app`.
+- Browser evidence: At a 1280x900 viewport, a fresh settings/Agent access open
+  showed `Loading credentials...` within 79.8 ms. The deployed agent-access
+  request measured about 2171 ms and had already completed before the tab was
+  selected in the prefetch check. A credential with a deliberately long label,
+  the long raw-key/quickstart values, and the internally scrollable quickstart
+  block left both page and body `scrollWidth` at 1280 px, with no modal/page
+  horizontal overflow. Credential create, rotate, and revoke succeeded; the
+  revoked state disabled rotation. The disposable validation project and its
+  credential were deleted afterward.
+- GitHub evidence: PR #332 passed branch-name, Quality Core, E2E Smoke, and
+  Container Image checks before rebasing. Copilot's only finding concerned the
+  June 18 date relative to GitHub's June 17 UTC timestamp; the date is correct
+  in the repository operator's Europe/Paris timezone.
+
 # 2026-06-18 - TASK-315 protected preview agent diagnostics
 
 - Summary: Reconciled GitHub issue #313 with the confirmed reproduction: the

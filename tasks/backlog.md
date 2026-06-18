@@ -6,13 +6,12 @@ Last reviewed: 2026-05-31
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-315
-  Title: Protected preview agent-access diagnostics
-  Status: Complete once PR #333 merges
-  Rationale: Resolve GitHub issue #313 by documenting how Vercel deployment
-    protection can intercept token exchange before NexusDash, how to use the
-    correct raw-key and bearer-token schemes, and how to distinguish platform
-    HTML failures from app-owned JSON key rejection.
+- ID: TASK-317
+  Title: Agent access settings loading and overflow containment
+  Status: Complete once PR #332 merges
+  Rationale: Resolve GitHub issue #312 by prefetching project agent credentials
+    when settings opens, showing an immediate loading state, and containing long
+    credential/quickstart/audit values inside the modal.
   Dependencies: TASK-059, TASK-115
 ### Deferred (Intentional)
 - ID: TASK-133
@@ -127,6 +126,13 @@ Last reviewed: 2026-05-31
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-315
+  Title: Protected preview agent-access diagnostics
+  Status: Done (2026-06-18, merged via PR #333)
+  Rationale: Documented how Vercel deployment protection can intercept token
+    exchange before NexusDash, clarified raw-key `ApiKey` versus access-token
+    `Bearer` authentication, and added secret-safe protected-preview diagnostics.
+  Dependencies: TASK-059, TASK-115
 - ID: TASK-313
   Title: App version governance - semantic release increments and build metadata clarity
   Status: Done (2026-06-06, merged via PR #329)
