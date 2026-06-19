@@ -2,10 +2,22 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-05-31
+Last reviewed: 2026-06-19
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-319
+  Title: Prisma tooling dependency advisory remediation - restore green security audit
+  Status: Pending (security maintenance; address near-term without freezing feature delivery)
+  Rationale: TASK-088 validation found that `npm run security:audit` currently fails on high-severity Hono advisories in Prisma's `@prisma/dev` tooling chain. The affected packages are marked dev-optional and are not imported by the deployed NexusDash request runtime, but the repository's production-audit command is red and the prior TASK-274 baseline has regressed. Triage the dependency path, update Prisma or apply a safe patched override, and restore a green audit without a breaking downgrade.
+  Dependencies: TASK-061, TASK-274, TASK-088
+  Brief: `tasks/task-319-prisma-tooling-dependency-advisory-remediation.md`
+- ID: TASK-318
+  Title: RLS coverage inventory and tenant-isolation CI guardrail
+  Status: Pending (high-priority architecture guardrail; does not block normal feature delivery)
+  Rationale: Close the verification gap identified by TASK-088 by classifying every Prisma model as RLS-protected or intentionally exempt, reviewing project-derived tables that currently rely on service authorization, and adding real PostgreSQL isolation tests that run as the least-privilege non-BYPASSRLS runtime role instead of the CI superuser. This creates a durable guardrail against tenant-boundary drift as new project-scoped models are added.
+  Dependencies: TASK-085, TASK-088
+  Brief: `tasks/task-318-rls-coverage-tenant-isolation-guardrail.md`
 - ID: TASK-317
   Title: Agent access settings loading and overflow containment
   Status: Complete once PR #332 merges
@@ -62,11 +74,6 @@ Last reviewed: 2026-05-31
   Status: Pending
   Rationale: Improve shared-project awareness by showing collaborator avatars and identity affordances directly on project pages so users can quickly understand who has access and who is participating, with sensible fallback behavior for accounts without uploaded photos.
   Dependencies: TASK-058, TASK-082, TASK-089
-- ID: TASK-088
-  Title: Milestone architecture and security audit - post-auth/account hardening review
-  Status: Pending
-  Rationale: Run a focused architecture and security audit after current auth/account milestones to validate boundary integrity, session/token lifecycle safety, tenancy controls, and deployment/secrets posture before broader feature expansion.
-  Dependencies: TASK-084, TASK-085, TASK-086
 - ID: TASK-090
   Title: Internationalization baseline - FR/EN translation capabilities
   Status: Pending
@@ -126,6 +133,12 @@ Last reviewed: 2026-05-31
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-088
+  Title: Milestone architecture and security audit - post-auth/account hardening review
+  Status: Complete once the replacement audit PR merges
+  Rationale: Audited service and transport boundaries, authentication and agent-token controls, tenancy enforcement, environment and deployment safeguards, storage abstraction, scheduler trade-offs, caching, dependency posture, CI, and observability. The architecture remains sound enough for normal feature delivery; TASK-318 captures the RLS verification gap and TASK-319 owns the newly regressed Prisma/Hono tooling audit.
+  Dependencies: TASK-084, TASK-085, TASK-086
+  Report: `tasks/task-088-architecture-audit.md`
 - ID: TASK-315
   Title: Protected preview agent-access diagnostics
   Status: Done (2026-06-18, merged via PR #333)
