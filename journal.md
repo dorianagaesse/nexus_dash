@@ -30,7 +30,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - E2E note: local Playwright validation could not start because Docker Desktop
   was not running and the PostgreSQL test service was unavailable. The remote
   PR Quality Gates remain responsible for the PostgreSQL-backed E2E run.
-- GitHub: Draft PR #341 replaces the diverged Copilot draft PR #334.
+- GitHub: PR #341 replaces the diverged Copilot draft PR #334.
 
 # 2026-06-18 - TASK-317 agent access settings remediation
 
