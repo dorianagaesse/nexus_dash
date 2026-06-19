@@ -1,48 +1,44 @@
-# Current Task: TASK-088 Architecture And Security Audit
+# Current Task: TASK-319 Prisma Tooling Dependency Advisory Remediation
 
 ## Task ID
-TASK-088
+TASK-319
 
 ## Status
-Complete once PR #341 merges.
+Ready to start.
 
 ## Source
-- Existing milestone audit item in `tasks/backlog.md`.
-- Replacement for the incomplete and overconfident audit in draft PR #334.
+- TASK-088 architecture and security audit.
+- `npm run security:audit` currently reports high-severity Hono advisories
+  through Prisma's development-tooling dependency chain.
 
 ## Objective
-Determine whether NexusDash should pause feature delivery for architectural
-remediation or continue shipping, based on repository evidence rather than
-architecture claims alone.
+Restore a green dependency-security audit using a supported, non-breaking
+Prisma or transitive dependency resolution, while documenting why the current
+advisory is or is not reachable in the deployed application.
 
 ## Scope
-- Review transport/service/database boundaries.
-- Review sessions, social authentication, agent credentials, authorization,
-  abuse controls, and secrets.
-- Review PostgreSQL RLS scope and how tenant isolation is exercised in CI.
-- Review storage, deployment, scheduler, caching, observability, and quality
-  gates.
-- Identify existing backlog coverage and create only non-duplicate follow-up
-  work.
+- Trace the exact `prisma -> @prisma/dev -> @hono/node-server` and `hono`
+  dependency relationship.
+- Prefer a supported Prisma patch/minor update or compatible patched override.
+- Avoid `npm audit fix --force` and major downgrades.
+- Remove stale dependency overrides where safe.
+- Revalidate Prisma generation, migrations, tests, build, E2E, and the
+  production security audit.
+- Record deployed-runtime reachability and any bounded exception if upstream
+  remediation is unavailable.
 
 ## Acceptance Criteria
-1. The report cites concrete repository evidence for each major conclusion.
-2. Verified controls, assumptions, and residual risks are clearly separated.
-3. The report gives an explicit pause-or-continue recommendation.
-4. Existing scheduler and rate-limiting tasks are referenced instead of
-   duplicated.
-5. Any new task has bounded scope, priority, and acceptance criteria.
-6. Task tracking contains one canonical TASK-088 entry.
+1. `npm run security:audit` exits successfully, or a time-bounded documented
+   exception has an explicit upstream/removal condition.
+2. No breaking Prisma downgrade is used as an audit workaround.
+3. Clean install and Prisma generation succeed.
+4. Database migration commands remain operational.
+5. Lint, tests, coverage, build, and E2E pass.
+6. Remaining overrides are justified and documented.
 
 ## Definition Of Done
-- [x] Evidence-backed architecture audit is written.
-- [x] Project-wide pause decision is documented.
-- [x] TASK-318 captures the RLS verification follow-up.
-- [x] TASK-319 captures the Prisma/Hono tooling advisory follow-up.
-- [x] TASK-063 and TASK-064 are retained as the existing scheduler/rate-limit
-      follow-ups.
-- [x] Backlog and journal tracking are updated without duplicate TASK-088
-      entries.
-- [x] Documentation, lint, test, build, and release-policy checks pass.
-- [x] Security-audit failure is traced and captured in TASK-319.
-- [x] Replacement draft PR #341 supersedes PR #334.
+- [ ] Advisory path and runtime reachability are documented.
+- [ ] Supported dependency remediation is applied.
+- [ ] Production security audit is green or a bounded exception is recorded.
+- [ ] Full repository validation passes.
+- [ ] A ready-for-review PR is open and review feedback is resolved.
