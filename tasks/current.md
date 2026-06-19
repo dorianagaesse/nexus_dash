@@ -4,7 +4,7 @@
 TASK-088
 
 ## Status
-Complete once the replacement audit PR merges.
+Complete once PR #341 merges.
 
 ## Source
 - Existing milestone audit item in `tasks/backlog.md`.
@@ -45,4 +45,4 @@ architecture claims alone.
       entries.
 - [x] Documentation, lint, test, build, and release-policy checks pass.
 - [x] Security-audit failure is traced and captured in TASK-319.
-- [ ] A replacement draft PR supersedes PR #334.
+- [x] Replacement draft PR #341 supersedes PR #334.

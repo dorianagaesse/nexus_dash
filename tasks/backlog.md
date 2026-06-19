@@ -135,7 +135,7 @@ Last reviewed: 2026-06-19
 ## Completed
 - ID: TASK-088
   Title: Milestone architecture and security audit - post-auth/account hardening review
-  Status: Complete once the replacement audit PR merges
+  Status: Complete once PR #341 merges
   Rationale: Audited service and transport boundaries, authentication and agent-token controls, tenancy enforcement, environment and deployment safeguards, storage abstraction, scheduler trade-offs, caching, dependency posture, CI, and observability. The architecture remains sound enough for normal feature delivery; TASK-318 captures the RLS verification gap and TASK-319 owns the newly regressed Prisma/Hono tooling audit.
   Dependencies: TASK-084, TASK-085, TASK-086
   Report: `tasks/task-088-architecture-audit.md`
