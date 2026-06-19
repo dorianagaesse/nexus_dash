@@ -8,23 +8,33 @@ Last reviewed: 2026-06-19
 ### Execution Queue (Now / Next)
 - ID: TASK-319
   Title: Prisma tooling dependency advisory remediation - restore green security audit
-  Status: Pending (security maintenance; address near-term without freezing feature delivery)
+  Status: Next 1 - current task
   Rationale: TASK-088 validation found that `npm run security:audit` currently fails on high-severity Hono advisories in Prisma's `@prisma/dev` tooling chain. The affected packages are marked dev-optional and are not imported by the deployed NexusDash request runtime, but the repository's production-audit command is red and the prior TASK-274 baseline has regressed. Triage the dependency path, update Prisma or apply a safe patched override, and restore a green audit without a breaking downgrade.
   Dependencies: TASK-061, TASK-274, TASK-088
   Brief: `tasks/task-319-prisma-tooling-dependency-advisory-remediation.md`
 - ID: TASK-318
   Title: RLS coverage inventory and tenant-isolation CI guardrail
-  Status: Pending (high-priority architecture guardrail; does not block normal feature delivery)
+  Status: Next 2 - high-priority architecture guardrail
   Rationale: Close the verification gap identified by TASK-088 by classifying every Prisma model as RLS-protected or intentionally exempt, reviewing project-derived tables that currently rely on service authorization, and adding real PostgreSQL isolation tests that run as the least-privilege non-BYPASSRLS runtime role instead of the CI superuser. This creates a durable guardrail against tenant-boundary drift as new project-scoped models are added.
   Dependencies: TASK-085, TASK-088
   Brief: `tasks/task-318-rls-coverage-tenant-isolation-guardrail.md`
-- ID: TASK-317
-  Title: Agent access settings loading and overflow containment
-  Status: Complete once PR #332 merges
-  Rationale: Resolve GitHub issue #312 by prefetching project agent credentials
-    when settings opens, showing an immediate loading state, and containing long
-    credential/quickstart/audit values inside the modal.
-  Dependencies: TASK-059, TASK-115
+- ID: TASK-316
+  Title: Meeting todo side panel - project-wide open follow-up list
+  Status: Next 3 - next user-facing feature
+  Rationale: Externalize open todos from all meeting notes into a project-side panel so users can review and close meeting follow-ups without opening each historical note, while preserving links back to the source meeting and future compatibility with TASK-314 overdue reminders.
+  Dependencies: TASK-098
+  Brief: `tasks/task-316-meeting-todo-side-panel.md`
+- ID: TASK-314
+  Title: Meeting todo overdue reminders - notification email and in-app reminder dispatch
+  Status: Next 4 - meeting workflow completion
+  Rationale: Send the meeting-note owner a notification email and in-app reminder when a personal meeting todo remains open seven days after the meeting date, using the existing notification email delivery conventions and scheduler/dispatcher architecture instead of mixing background delivery concerns into the TASK-098 UI rollout.
+  Dependencies: TASK-098, TASK-227, TASK-268, TASK-316
+  Brief: `tasks/task-314-meeting-todo-overdue-reminders.md`
+- ID: TASK-119
+  Title: Project collaboration presence UX - member avatars on project pages
+  Status: Next 5 - bounded collaboration UX improvement
+  Rationale: Improve shared-project awareness by showing collaborator avatars and identity affordances directly on project pages so users can quickly understand who has access and who is participating, with sensible fallback behavior for accounts without uploaded photos.
+  Dependencies: TASK-058, TASK-082, TASK-089
 ### Deferred (Intentional)
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
@@ -42,23 +52,6 @@ Last reviewed: 2026-06-19
   Status: Deferred 2026-05-31
   Rationale: Redesign the login and home page so they feel like a polished product surface rather than a technical auth form: improve visual hierarchy, copy, branding presence, and call-to-action clarity so new visitors understand the product value at a glance and returning users get a frictionless sign-in experience.
   Dependencies: TASK-045, TASK-059, TASK-083
-- ID: TASK-098
-  Title: Meeting notes manager - structured project meeting log with participants, labels, outputs, and todos
-  Status: In Review (PR #331, feature/task-98-meeting-notes-manager)
-  Rationale: Add a dedicated project-scoped meeting-notes surface so discussions are not buried in generic context cards; each entry should separate meeting preparation from after-meeting notes, capture meeting date/time, participants, task-style labels, preparation inputs, outputs, personal todos, and lifecycle state, and keep done notes in an archived list while preserving search/filtering and future room for task linkage.
-  Dependencies: TASK-076, TASK-079
-- ID: TASK-314
-  Title: Meeting todo overdue reminders - notification email and in-app reminder dispatch
-  Status: Pending
-  Rationale: Send the meeting-note owner a notification email and in-app reminder when a personal meeting todo remains open seven days after the meeting date, using the existing notification email delivery conventions and scheduler/dispatcher architecture instead of mixing background delivery concerns into the TASK-098 UI rollout.
-  Dependencies: TASK-098, TASK-227, TASK-268
-  Brief: `tasks/task-314-meeting-todo-overdue-reminders.md`
-- ID: TASK-316
-  Title: Meeting todo side panel - project-wide open follow-up list
-  Status: Pending
-  Rationale: Externalize open todos from all meeting notes into a project-side panel so users can review and close meeting follow-ups without opening each historical note, while preserving links back to the source meeting and future compatibility with TASK-314 overdue reminders.
-  Dependencies: TASK-098
-  Brief: `tasks/task-316-meeting-todo-side-panel.md`
 - ID: TASK-102
   Title: Collaboration service modularization - split invite, membership, and recipient flows into smaller service units
   Status: Pending
@@ -69,11 +62,6 @@ Last reviewed: 2026-06-19
   Status: Pending
   Rationale: Add a lighter-weight todo list surface for quick checklist-style capture that does not require the full structure of Kanban tasks, giving teams a place for small actionable items, personal punch lists, or short operational checklists that may later connect to richer task flows.
   Dependencies: TASK-076, TASK-079
-- ID: TASK-119
-  Title: Project collaboration presence UX - member avatars on project pages
-  Status: Pending
-  Rationale: Improve shared-project awareness by showing collaborator avatars and identity affordances directly on project pages so users can quickly understand who has access and who is participating, with sensible fallback behavior for accounts without uploaded photos.
-  Dependencies: TASK-058, TASK-082, TASK-089
 - ID: TASK-090
   Title: Internationalization baseline - FR/EN translation capabilities
   Status: Pending
@@ -133,9 +121,19 @@ Last reviewed: 2026-06-19
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-317
+  Title: Agent access settings loading and overflow containment
+  Status: Done (2026-06-18, merged via PR #332)
+  Rationale: Resolved GitHub issue #312 by prefetching project agent credentials when settings opens, showing an immediate loading state, and containing long credential, quickstart, and audit values inside the settings modal.
+  Dependencies: TASK-059, TASK-115
+- ID: TASK-098
+  Title: Meeting notes manager - structured project meeting log with participants, labels, outputs, and todos
+  Status: Done (2026-06-18, merged via PR #331)
+  Rationale: Added project-scoped meeting preparation and notes with participants, labels, outputs, personal todos, lifecycle state, archive/search behavior, API/service coverage, and project dashboard integration.
+  Dependencies: TASK-076, TASK-079
 - ID: TASK-088
   Title: Milestone architecture and security audit - post-auth/account hardening review
-  Status: Complete once PR #341 merges
+  Status: Done (2026-06-19, merged via PR #341)
   Rationale: Audited service and transport boundaries, authentication and agent-token controls, tenancy enforcement, environment and deployment safeguards, storage abstraction, scheduler trade-offs, caching, dependency posture, CI, and observability. The architecture remains sound enough for normal feature delivery; TASK-318 captures the RLS verification gap and TASK-319 owns the newly regressed Prisma/Hono tooling audit.
   Dependencies: TASK-084, TASK-085, TASK-086
   Report: `tasks/task-088-architecture-audit.md`
