@@ -336,7 +336,8 @@ baseline currently red
 Evidence:
 
 - `npm run security:audit` reports high-severity Hono advisories through
-  `prisma -> @prisma/dev -> @hono/node-server/hono`;
+  `prisma -> @prisma/dev`, where `@prisma/dev` depends on
+  `@hono/node-server` and its separate `hono` peer/dependency package;
 - the affected lockfile entries are marked `devOptional`;
 - NexusDash application code does not import Hono or expose the Prisma
   development server;

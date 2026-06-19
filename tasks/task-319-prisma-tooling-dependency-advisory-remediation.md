@@ -13,7 +13,8 @@ TASK-088 architecture audit validation.
 `npm run security:audit` currently fails with high-severity Hono advisories
 through this dependency path:
 
-`@prisma/client -> prisma -> @prisma/dev -> @hono/node-server/hono`
+`@prisma/client -> prisma -> @prisma/dev`, with `@prisma/dev` depending on
+`@hono/node-server` and `hono` as separate packages
 
 The Hono and Prisma development packages are marked `devOptional` in the
 lockfile, and NexusDash does not import Hono or expose the Prisma development

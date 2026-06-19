@@ -20,10 +20,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Brief: `tasks/task-318-rls-coverage-tenant-isolation-guardrail.md`
 - Brief: `tasks/task-319-prisma-tooling-dependency-advisory-remediation.md`
 - Validation: `git diff --check`, backlog task-ID uniqueness, route/Prisma
-  boundary scan, `npm run lint`, `npm test` (122 passed, 2 skipped; 906 passed,
-  2 skipped), `npm run test:coverage` (91.37% statements, 81.33% branches,
-  92.2% functions, 91.88% lines), production build, and release-policy check
-  passed.
+  boundary scan, `npm run lint`, `npm test` (122 test files passed, 2 skipped;
+  906 tests passed, 2 skipped), `npm run test:coverage` (91.37% statements,
+  81.33% branches, 92.2% functions, 91.88% lines), production build, and
+  release-policy check passed.
 - Security validation: `npm run security:audit` reported the Prisma
   dev-tooling Hono advisory now tracked by TASK-319. The dependency tree marks
   the affected chain dev-optional; no NexusDash runtime import was found.
