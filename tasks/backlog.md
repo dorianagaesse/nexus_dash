@@ -12,12 +12,6 @@ Last reviewed: 2026-06-19
   Rationale: TASK-088 validation found that `npm run security:audit` currently fails on high-severity Hono advisories in Prisma's `@prisma/dev` tooling chain. The affected packages are marked dev-optional and are not imported by the deployed NexusDash request runtime, but the repository's production-audit command is red and the prior TASK-274 baseline has regressed. Triage the dependency path, update Prisma or apply a safe patched override, and restore a green audit without a breaking downgrade.
   Dependencies: TASK-061, TASK-274, TASK-088
   Brief: `tasks/task-319-prisma-tooling-dependency-advisory-remediation.md`
-- ID: TASK-318
-  Title: RLS coverage inventory and tenant-isolation CI guardrail
-  Status: In progress
-  Rationale: Close the verification gap identified by TASK-088 by classifying every Prisma model as RLS-protected or intentionally exempt, reviewing project-derived tables that currently rely on service authorization, and adding real PostgreSQL isolation tests that run as the least-privilege non-BYPASSRLS runtime role instead of the CI superuser. This creates a durable guardrail against tenant-boundary drift as new project-scoped models are added.
-  Dependencies: TASK-085, TASK-088
-  Brief: `tasks/task-318-rls-coverage-tenant-isolation-guardrail.md`
 - ID: TASK-316
   Title: Meeting todo side panel - project-wide open follow-up list
   Status: Next 3 - next user-facing feature
@@ -121,6 +115,12 @@ Last reviewed: 2026-06-19
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-318
+  Title: RLS coverage inventory and tenant-isolation CI guardrail
+  Status: Done (2026-06-19, PR #344 open)
+  Rationale: Classified all 33 Prisma models, extended forced RLS to previously unclassified project-derived tables, replaced broad pre-authentication credential reads with a narrow security-definer lookup, and added a non-superuser `NOBYPASSRLS` PostgreSQL isolation matrix to CI.
+  Dependencies: TASK-085, TASK-088
+  Brief: `tasks/task-318-rls-coverage-tenant-isolation-guardrail.md`
 - ID: TASK-317
   Title: Agent access settings loading and overflow containment
   Status: Done (2026-06-18, merged via PR #332)

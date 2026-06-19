@@ -2314,3 +2314,8 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-318 local real-PostgreSQL validation was deferred to the new branch CI lane because the workstation Docker Desktop Linux engine was unavailable.
 - Evidence: Docker Desktop returned HTTP 500 for engine API requests, `127.0.0.1:5432` refused connections, and no local PostgreSQL service was installed. The repository now provisions a non-superuser `NOBYPASSRLS` role in the `Tenant Isolation (PostgreSQL RLS)` GitHub Actions job, keeps migration and runtime URLs separate, and runs the cross-project CRUD/role/child-row/credential matrix there.
+
+### 2026-06-19
+- Type: Review
+- Summary: TASK-318 opened ready-for-review PR #344 and completed CI plus Copilot review without findings.
+- Evidence: Commit `4f4b58696fb36f892990595b87054231a3a43712` was pushed to `feature/task-318-rls-coverage-tenant-isolation`. Quality Gates run `27850744706` passed Quality Core, the new PostgreSQL Tenant Isolation job, E2E Smoke, and Container Image. Copilot reviewed 22 of 23 changed files and generated no comments or unresolved review threads.
