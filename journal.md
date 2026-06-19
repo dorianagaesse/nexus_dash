@@ -3,6 +3,35 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-06-19 - TASK-088 architecture audit correction
+
+- Summary: Replaced the draft TASK-088 audit with an evidence-backed review of
+  application boundaries, authentication, authorization, tenancy, persistence,
+  storage, deployment, scheduling, caching, observability, and CI.
+- Decision: Continue normal feature delivery. No broad refactor or project-wide
+  pause is justified by the repository evidence.
+- Follow-up: Added TASK-318 as a high-priority, bounded guardrail for complete
+  RLS model classification and real least-privilege tenant-isolation testing.
+  Added TASK-319 after the repository security audit exposed current
+  high-severity Hono advisories in Prisma's dev-tooling chain. Existing TASK-063
+  and TASK-064 continue to own background-work extraction and general API rate
+  limiting.
+- Report: `tasks/task-088-architecture-audit.md`
+- Brief: `tasks/task-318-rls-coverage-tenant-isolation-guardrail.md`
+- Brief: `tasks/task-319-prisma-tooling-dependency-advisory-remediation.md`
+- Validation: `git diff --check`, backlog task-ID uniqueness, route/Prisma
+  boundary scan, `npm run lint`, `npm test` (122 test files passed, 2 skipped;
+  906 tests passed, 2 skipped), `npm run test:coverage` (91.37% statements,
+  81.33% branches, 92.2% functions, 91.88% lines), production build, and
+  release-policy check passed.
+- Security validation: `npm run security:audit` reported the Prisma
+  dev-tooling Hono advisory now tracked by TASK-319. The dependency tree marks
+  the affected chain dev-optional; no NexusDash runtime import was found.
+- E2E note: local Playwright validation could not start because Docker Desktop
+  was not running and the PostgreSQL test service was unavailable. The remote
+  PR Quality Gates remain responsible for the PostgreSQL-backed E2E run.
+- GitHub: PR #341 replaces the diverged Copilot draft PR #334.
+
 # 2026-06-18 - TASK-317 agent access settings remediation
 
 - Summary: Started GitHub issue #312 as TASK-314, then renumbered it to
