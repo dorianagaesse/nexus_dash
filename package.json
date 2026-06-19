@@ -1,6 +1,6 @@
 {
   "name": "nexusdash",
-  "version": "0.19.1",
+  "version": "0.19.2",
   "private": true,
   "engines": {
     "node": "^20.19.0 || ^22.13.0 || >=24.0.0",
@@ -80,7 +80,7 @@
     },
     "@prisma/dev": {
       "@hono/node-server": "1.19.14",
-      "hono": "4.12.23"
+      "hono": "4.12.26"
     }
   }
 }

@@ -4,7 +4,8 @@
 TASK-319
 
 ## Status
-Ready to start.
+Implementation and local non-database validation complete. PostgreSQL-backed
+migration/E2E validation and PR review are pending in GitHub Actions.
 
 ## Source
 - TASK-088 architecture and security audit.
