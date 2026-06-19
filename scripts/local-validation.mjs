@@ -11,6 +11,14 @@ const MIN_NODE_RANGES = [
 const DEFAULT_DATABASE_URL =
   process.env.LOCAL_DATABASE_URL ||
   `postgresql://postgres:postgres@127.0.0.1:${process.env.POSTGRES_PORT || "5432"}/nexusdash?schema=public`;
+const DEFAULT_RLS_ADMIN_DATABASE_URL = DEFAULT_DATABASE_URL.replace(
+  /\?schema=public$/,
+  ""
+);
+const DEFAULT_RLS_RUNTIME_DATABASE_URL =
+  `postgresql://nexusdash_rls_test:nexusdash_rls_test@127.0.0.1:${
+    process.env.POSTGRES_PORT || "5432"
+  }/nexusdash`;
 
 const commonEnv = {
   ...process.env,
@@ -21,6 +29,10 @@ const commonEnv = {
     "local-placeholder-agent-token-signing-secret-0123456789",
   RESEND_API_KEY: process.env.RESEND_API_KEY || "local-placeholder-resend-key",
   STORAGE_PROVIDER: process.env.STORAGE_PROVIDER || "local",
+  RLS_TEST_ADMIN_DATABASE_URL:
+    process.env.RLS_TEST_ADMIN_DATABASE_URL || DEFAULT_RLS_ADMIN_DATABASE_URL,
+  RLS_TEST_RUNTIME_DATABASE_URL:
+    process.env.RLS_TEST_RUNTIME_DATABASE_URL || DEFAULT_RLS_RUNTIME_DATABASE_URL,
 };
 
 function commandName(baseName) {
@@ -87,6 +99,9 @@ try {
   run("Install dependencies", commandName("npm"), ["ci"]);
   run("Generate Prisma client", commandName("npx"), ["prisma", "generate"]);
   run("Apply Prisma migrations", commandName("npm"), ["run", "db:migrate"]);
+  run("Check RLS model inventory", commandName("npm"), ["run", "rls:check"]);
+  run("Provision RLS test role", commandName("npm"), ["run", "test:rls:setup"]);
+  run("PostgreSQL tenant isolation", commandName("npm"), ["run", "test:rls"]);
   run("Lint", commandName("npm"), ["run", "lint"]);
   run("Unit/API tests", commandName("npm"), ["test"]);
   run("Coverage", commandName("npm"), ["run", "test:coverage"]);

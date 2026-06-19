@@ -203,6 +203,7 @@ Runbooks:
 
 - `docs/runbooks/vercel-env-contract-and-secrets.md`
 - `docs/runbooks/database-connection-hardening.md`
+- `docs/runbooks/rls-tenant-isolation.md`
 - `docs/runbooks/notification-email-dispatch.md`
 - `docs/runbooks/release-versioning.md`
 - `docs/runbooks/protected-preview-agent-access.md`
@@ -256,8 +257,11 @@ npm run dev
 npm run build
 npm run start
 npm run lint
+npm run rls:check
 npm test
 npm run test:coverage
+npm run test:rls:setup
+npm run test:rls
 npm run test:e2e
 npm run test:e2e:headed
 npm run db:migrate
@@ -287,6 +291,20 @@ Manual sequence and troubleshooting details are in
 npm test
 npm run test:coverage
 ```
+
+### PostgreSQL tenant isolation
+
+`npm run rls:check` verifies that every Prisma model has an explicit committed
+RLS or exemption decision. The real PostgreSQL matrix runs with separate admin
+and non-superuser `NOBYPASSRLS` runtime URLs:
+
+```bash
+npm run test:rls:setup
+npm run test:rls
+```
+
+See [`docs/runbooks/rls-tenant-isolation.md`](docs/runbooks/rls-tenant-isolation.md)
+for environment variables, policy conventions, and troubleshooting.
 
 ### E2E (Playwright)
 
@@ -386,6 +404,7 @@ audit decision are documented in
 ### CI workflows
 
 - `Quality Core (lint, test, coverage, build)`
+- `Tenant Isolation (PostgreSQL RLS)`
 - `E2E Smoke (Playwright)`
 - `Container Image (build + metadata artifact)`
 - `Check Branch Name` (PR branch naming contract)

@@ -14,7 +14,7 @@ Last reviewed: 2026-06-19
   Brief: `tasks/task-319-prisma-tooling-dependency-advisory-remediation.md`
 - ID: TASK-318
   Title: RLS coverage inventory and tenant-isolation CI guardrail
-  Status: Next 2 - high-priority architecture guardrail
+  Status: In progress
   Rationale: Close the verification gap identified by TASK-088 by classifying every Prisma model as RLS-protected or intentionally exempt, reviewing project-derived tables that currently rely on service authorization, and adding real PostgreSQL isolation tests that run as the least-privilege non-BYPASSRLS runtime role instead of the CI superuser. This creates a durable guardrail against tenant-boundary drift as new project-scoped models are added.
   Dependencies: TASK-085, TASK-088
   Brief: `tasks/task-318-rls-coverage-tenant-isolation-guardrail.md`

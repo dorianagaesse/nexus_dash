@@ -9,7 +9,7 @@ because each owns a distinct operational lane.
 | Workflow | File | Purpose | Triggers | Permissions | Secrets / env | Artifacts / outputs |
 | --- | --- | --- | --- | --- | --- | --- |
 | Check Branch Name | `.github/workflows/check-branch-names.yml` | Enforce branch naming for human and Dependabot PRs. | `pull_request`, `workflow_dispatch` | none | none | check result only |
-| Quality Gates | `.github/workflows/quality-gates.yml` | Run lint, unit/API tests, coverage, build, Playwright smoke, and container-image build. | `pull_request`, `push` to `main`, `workflow_dispatch` | `contents: read` | local CI placeholders for DB/email/agent signing | Playwright report on failure; container image metadata |
+| Quality Gates | `.github/workflows/quality-gates.yml` | Run RLS inventory validation, lint, unit/API tests, coverage, build, a least-privilege PostgreSQL tenant-isolation matrix, Playwright smoke, and container-image build. | `pull_request`, `push` to `main`, `workflow_dispatch` | `contents: read` | local CI placeholders for DB/email/agent signing; separate admin/runtime PostgreSQL URLs in the isolation job | Playwright report on failure; container image metadata |
 | Deploy Vercel (CD + Rollback) | `.github/workflows/deploy-vercel.yml` | Create staged production deployments after green `main`, and run manual preview deploy, staged deploy, promote, or rollback. | successful `Quality Gates` workflow on `main`, `workflow_dispatch` | `contents: read` | Vercel project/token secrets, database/migration URLs, production runtime secrets, OAuth/R2/email/agent secrets as needed | preview/staged deployment URL artifacts and job summaries |
 | Notification Email Dispatch Scheduler | `.github/workflows/notification-email-dispatch.yml` | Call the protected notification email dispatcher on the active no-new-cost production cadence. | schedule every 30 minutes, `workflow_dispatch` | none | `NOTIFICATION_EMAIL_DISPATCH_SECRET` or legacy `CRON_SECRET` | dispatcher response and parsed summary in job summary |
 | Dependency Security | `.github/workflows/dependency-security.yml` | Run the scheduled/manual npm audit baseline and persist audit JSON. | weekly schedule, `workflow_dispatch` | `contents: read` | none | production/full npm audit JSON |
@@ -48,7 +48,8 @@ quoted heredocs so future failures represent the audit result itself.
 
 1. Open a non-draft PR from an allowed branch prefix.
 2. Confirm `Check Branch Name` passes.
-3. Confirm `Quality Core`, `E2E Smoke`, and `Container Image` pass.
+3. Confirm `Quality Core`, `Tenant Isolation`, `E2E Smoke`, and
+   `Container Image` pass.
 4. Review any uploaded Playwright report if E2E fails.
 
 ### Preview Deploy

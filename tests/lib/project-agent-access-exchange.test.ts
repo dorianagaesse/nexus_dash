@@ -2,9 +2,8 @@ import { ApiCredentialScope } from "@prisma/client";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
-  $transaction: vi.fn(),
+  $queryRaw: vi.fn(),
   apiCredential: {
-    findUnique: vi.fn(),
     update: vi.fn(),
   },
   authAuditEvent: {
@@ -77,7 +76,8 @@ describe("exchangeAgentApiKeyForAccessToken", () => {
     prismaMock.authAuditEvent.create.mockReturnValue({
       __mock: "authAuditEvent.create",
     });
-    prismaMock.$transaction.mockResolvedValue([]);
+    prismaMock.apiCredential.update.mockResolvedValue({});
+    prismaMock.authAuditEvent.create.mockResolvedValue({});
     abuseControlServiceMock.checkAuthAbuseControls.mockResolvedValue({ ok: true });
     abuseControlServiceMock.registerAuthAbuseFailure.mockResolvedValue({ ok: true });
     abuseControlServiceMock.clearAuthAbuseControls.mockResolvedValue(undefined);
@@ -92,20 +92,20 @@ describe("exchangeAgentApiKeyForAccessToken", () => {
   });
 
   test("uses createdByUserId as the owner identity when issuing tokens", async () => {
-    prismaMock.apiCredential.findUnique.mockResolvedValueOnce({
+    prismaMock.$queryRaw.mockResolvedValueOnce([{
       id: "credential-1",
       label: "Preview validation bot",
-      secretHash: "hashed-secret",
-      publicId: "nda_public",
-      projectId: "project-1",
-      createdByUserId: "owner-1",
-      expiresAt: null,
-      revokedAt: null,
-      scopeGrants: [
-        { scope: ApiCredentialScope.roadmap_write },
-        { scope: ApiCredentialScope.task_read },
+      secret_hash: "hashed-secret",
+      public_id: "nda_public",
+      project_id: "project-1",
+      created_by_user_id: "owner-1",
+      expires_at: null,
+      revoked_at: null,
+      scopes: [
+        ApiCredentialScope.roadmap_write,
+        ApiCredentialScope.task_read,
       ],
-    });
+    }]);
 
     const result = await exchangeAgentApiKeyForAccessToken({
       apiKey: "nda_public.secret-value",
@@ -136,27 +136,7 @@ describe("exchangeAgentApiKeyForAccessToken", () => {
       ownerUserId: "owner-1",
       scopes: ["roadmap:write", "task:read"],
     });
-    expect(prismaMock.apiCredential.findUnique).toHaveBeenCalledWith({
-      where: {
-        publicId: "nda_public",
-      },
-      select: {
-        id: true,
-        label: true,
-        secretHash: true,
-        publicId: true,
-        projectId: true,
-        createdByUserId: true,
-        expiresAt: true,
-        revokedAt: true,
-        scopeGrants: {
-          orderBy: [{ scope: "asc" }],
-          select: {
-            scope: true,
-          },
-        },
-      },
-    });
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
   });
 
   test("returns too-many-attempts when abuse controls are already active", async () => {
@@ -164,6 +144,7 @@ describe("exchangeAgentApiKeyForAccessToken", () => {
       ok: false,
       retryAfterSeconds: 600,
     });
+    prismaMock.$queryRaw.mockResolvedValueOnce([]);
 
     const result = await exchangeAgentApiKeyForAccessToken({
       apiKey: "nda_public.secret-value",
@@ -180,17 +161,17 @@ describe("exchangeAgentApiKeyForAccessToken", () => {
   });
 
   test("still issues a token when abuse-control cleanup fails after a valid exchange", async () => {
-    prismaMock.apiCredential.findUnique.mockResolvedValueOnce({
+    prismaMock.$queryRaw.mockResolvedValueOnce([{
       id: "credential-1",
       label: "Preview validation bot",
-      secretHash: "hashed-secret",
-      publicId: "nda_public",
-      projectId: "project-1",
-      createdByUserId: "owner-1",
-      expiresAt: null,
-      revokedAt: null,
-      scopeGrants: [{ scope: ApiCredentialScope.task_read }],
-    });
+      secret_hash: "hashed-secret",
+      public_id: "nda_public",
+      project_id: "project-1",
+      created_by_user_id: "owner-1",
+      expires_at: null,
+      revoked_at: null,
+      scopes: [ApiCredentialScope.task_read],
+    }]);
     abuseControlServiceMock.clearAuthAbuseControls.mockRejectedValueOnce(
       new Error("cleanup-down")
     );

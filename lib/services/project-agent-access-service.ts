@@ -119,12 +119,67 @@ const DB_SCOPE_TO_AGENT_SCOPE: Record<ApiCredentialScope, AgentScope> = {
   [ApiCredentialScope.roadmap_delete]: "roadmap:delete",
 };
 
+interface AgentCredentialExchangeRow {
+  id: string;
+  label: string;
+  secret_hash: string;
+  public_id: string;
+  project_id: string;
+  created_by_user_id: string;
+  expires_at: Date | null;
+  revoked_at: Date | null;
+  scopes: string[];
+}
+
+interface AgentCredentialExchangeRecord {
+  id: string;
+  label: string;
+  secretHash: string;
+  publicId: string;
+  projectId: string;
+  createdByUserId: string;
+  expiresAt: Date | null;
+  revokedAt: Date | null;
+  scopeGrants: Array<{ scope: ApiCredentialScope }>;
+}
+
 function createError(status: number, error: string): ServiceError {
   return { ok: false, status, error };
 }
 
 function createSuccess<T>(status: number, data: T): ServiceSuccess<T> {
   return { ok: true, status, data };
+}
+
+function isApiCredentialScope(value: string): value is ApiCredentialScope {
+  return Object.prototype.hasOwnProperty.call(DB_SCOPE_TO_AGENT_SCOPE, value);
+}
+
+async function findAgentCredentialForExchange(
+  publicId: string
+): Promise<AgentCredentialExchangeRecord | null> {
+  const rows = await prisma.$queryRaw<AgentCredentialExchangeRow[]>`
+    SELECT *
+    FROM app.get_agent_credential_for_exchange(${publicId})
+  `;
+  const row = rows[0];
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    label: row.label,
+    secretHash: row.secret_hash,
+    publicId: row.public_id,
+    projectId: row.project_id,
+    createdByUserId: row.created_by_user_id,
+    expiresAt: row.expires_at,
+    revokedAt: row.revoked_at,
+    scopeGrants: row.scopes
+      .filter(isApiCredentialScope)
+      .map((scope) => ({ scope })),
+  };
 }
 
 function normalizeActorUserId(value: string | null | undefined): string {
@@ -412,28 +467,31 @@ async function recordFailedAgentTokenExchange(input: {
   if (!input.credential) {
     return;
   }
+  const credential = input.credential;
 
   try {
-    await prisma.authAuditEvent.create({
-      data: {
-        projectId: input.credential.projectId,
-        credentialId: input.credential.id,
-        actorUserId: input.credential.createdByUserId,
-        actorKind: "agent",
-        action: "token_exchange_failed",
-        requestId: normalizeTrimmedString(input.requestId ?? null),
-        ipAddress: normalizeBoundedString(input.ipAddress ?? null, MAX_IP_ADDRESS_LENGTH),
-        userAgent: normalizeBoundedString(input.userAgent ?? null, MAX_USER_AGENT_LENGTH),
-        metadata: buildAuditMetadata({
-          scopes: input.credential.scopeGrants.map((grant) =>
-            mapDbScopeToAgentScope(grant.scope)
-          ),
-          publicId: input.credential.publicId,
-          expiresAt: input.credential.expiresAt,
-          failureReason: input.reason,
-        }),
-      },
-    });
+    await withActorRlsContext(credential.createdByUserId, (db) =>
+      db.authAuditEvent.create({
+        data: {
+          projectId: credential.projectId,
+          credentialId: credential.id,
+          actorUserId: credential.createdByUserId,
+          actorKind: "agent",
+          action: "token_exchange_failed",
+          requestId: normalizeTrimmedString(input.requestId ?? null),
+          ipAddress: normalizeBoundedString(input.ipAddress ?? null, MAX_IP_ADDRESS_LENGTH),
+          userAgent: normalizeBoundedString(input.userAgent ?? null, MAX_USER_AGENT_LENGTH),
+          metadata: buildAuditMetadata({
+            scopes: credential.scopeGrants.map((grant) =>
+              mapDbScopeToAgentScope(grant.scope)
+            ),
+            publicId: credential.publicId,
+            expiresAt: credential.expiresAt,
+            failureReason: input.reason,
+          }),
+        },
+      })
+    );
   } catch (error) {
     logServerWarning(
       "projectAgentAccess.tokenExchangeFailedAudit",
@@ -976,24 +1034,7 @@ export async function exchangeAgentApiKeyForAccessToken(input: {
   });
   if (!abuseCheck.ok) {
     const throttledCredential = parsedApiKey
-      ? await prisma.apiCredential.findUnique({
-          where: {
-            publicId: parsedApiKey.publicId,
-          },
-          select: {
-            id: true,
-            projectId: true,
-            createdByUserId: true,
-            publicId: true,
-            expiresAt: true,
-            scopeGrants: {
-              orderBy: [{ scope: "asc" }],
-              select: {
-                scope: true,
-              },
-            },
-          },
-        })
+      ? await findAgentCredentialForExchange(parsedApiKey.publicId)
       : null;
 
     await recordFailedAgentTokenExchange({
@@ -1021,27 +1062,7 @@ export async function exchangeAgentApiKeyForAccessToken(input: {
     return createError(failureResult.ok ? 401 : 429, failureResult.ok ? "invalid-api-key" : "too-many-attempts");
   }
 
-  const credential = await prisma.apiCredential.findUnique({
-    where: {
-      publicId: parsedApiKey.publicId,
-    },
-    select: {
-      id: true,
-      label: true,
-      secretHash: true,
-      publicId: true,
-      projectId: true,
-      createdByUserId: true,
-      expiresAt: true,
-      revokedAt: true,
-      scopeGrants: {
-        orderBy: [{ scope: "asc" }],
-        select: {
-          scope: true,
-        },
-      },
-    },
-  });
+  const credential = await findAgentCredentialForExchange(parsedApiKey.publicId);
 
   if (!credential) {
     const failureResult = await registerAuthAbuseFailure({
@@ -1122,14 +1143,14 @@ export async function exchangeAgentApiKeyForAccessToken(input: {
     scopes,
   });
 
-  await prisma.$transaction([
-    prisma.apiCredential.update({
+  await withActorRlsContext(credential.createdByUserId, async (db) => {
+    await db.apiCredential.update({
       where: { id: credential.id },
       data: {
         lastExchangedAt: issuedToken.issuedAt,
       },
-    }),
-    prisma.authAuditEvent.create({
+    });
+    await db.authAuditEvent.create({
       data: {
         projectId: credential.projectId,
         credentialId: credential.id,
@@ -1146,8 +1167,8 @@ export async function exchangeAgentApiKeyForAccessToken(input: {
           tokenId: issuedToken.tokenId,
         }),
       },
-    }),
-  ]);
+    });
+  });
 
   return createSuccess(200, {
     accessToken: issuedToken.accessToken,
@@ -1179,8 +1200,8 @@ export async function recordAgentRequestUsage(input: {
 
   const requestTimestamp = new Date();
   try {
-    const authorizedUpdate = await prisma.$transaction(async (tx) => {
-      const updateResult = await tx.apiCredential.updateMany({
+    const authorizedUpdate = await withActorRlsContext(ownerUserId, async (db) => {
+      const updateResult = await db.apiCredential.updateMany({
         where: {
           id: credentialId,
           projectId: input.projectId,
@@ -1207,7 +1228,7 @@ export async function recordAgentRequestUsage(input: {
         return false;
       }
 
-      await tx.authAuditEvent.create({
+      await db.authAuditEvent.create({
         data: {
           projectId: input.projectId,
           credentialId,

@@ -85,6 +85,7 @@ npm run db:local:up
 npm ci
 npx prisma generate
 npm run db:migrate
+npm run rls:check
 npm run lint
 npm test
 npm run test:coverage
@@ -94,6 +95,18 @@ $env:NODE_ENV = "test"
 npm run test:e2e
 Remove-Item Env:\NODE_ENV
 ```
+
+Run the real PostgreSQL tenant-isolation matrix after migrations:
+
+```pwsh
+$env:RLS_TEST_ADMIN_DATABASE_URL = "postgresql://postgres:postgres@127.0.0.1:5432/nexusdash"
+$env:RLS_TEST_RUNTIME_DATABASE_URL = "postgresql://nexusdash_rls_test:nexusdash_rls_test@127.0.0.1:5432/nexusdash"
+npm run test:rls:setup
+npm run test:rls
+```
+
+The migration/admin URL and runtime URL must remain separate. See
+[`rls-tenant-isolation.md`](./rls-tenant-isolation.md).
 
 ## App + Database Through Docker Compose
 

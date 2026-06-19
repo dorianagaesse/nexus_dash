@@ -1,44 +1,46 @@
-# Current Task: TASK-319 Prisma Tooling Dependency Advisory Remediation
+# Current Task: TASK-318 RLS Coverage and Tenant-Isolation CI Guardrail
 
 ## Task ID
-TASK-319
+TASK-318
 
 ## Status
-Ready to start.
+In progress.
 
 ## Source
 - TASK-088 architecture and security audit.
-- `npm run security:audit` currently reports high-severity Hono advisories
-  through Prisma's development-tooling dependency chain.
+- `tasks/task-318-rls-coverage-tenant-isolation-guardrail.md`
 
 ## Objective
-Restore a green dependency-security audit using a supported, non-breaking
-Prisma or transitive dependency resolution, while documenting why the current
-advisory is or is not reachable in the deployed application.
+Make tenant isolation explicit, reviewable, and continuously verified whenever
+the Prisma schema or RLS migrations change.
 
 ## Scope
-- Trace the exact `prisma -> @prisma/dev -> @hono/node-server` and `hono`
-  dependency relationship.
-- Prefer a supported Prisma patch/minor update or compatible patched override.
-- Avoid `npm audit fix --force` and major downgrades.
-- Remove stale dependency overrides where safe.
-- Revalidate Prisma generation, migrations, tests, build, E2E, and the
-  production security audit.
-- Record deployed-runtime reachability and any bounded exception if upstream
-  remediation is unavailable.
+- Classify every Prisma model as directly RLS-protected, intentionally exempt,
+  or indirectly project-derived with a documented enforcement decision.
+- Add or adjust policies where database-level isolation is appropriate.
+- Provision a non-superuser, `NOBYPASSRLS` runtime role for local and CI tests.
+- Run real PostgreSQL isolation scenarios without the unit-test RLS shortcut.
+- Add a schema-change guardrail requiring every new model to declare its RLS
+  classification.
+- Document local reproduction, policy extension, and troubleshooting.
 
 ## Acceptance Criteria
-1. `npm run security:audit` exits successfully, or a time-bounded documented
-   exception has an explicit upstream/removal condition.
-2. No breaking Prisma downgrade is used as an audit workaround.
-3. Clean install and Prisma generation succeed.
-4. Database migration commands remain operational.
-5. Lint, tests, coverage, build, and E2E pass.
-6. Remaining overrides are justified and documented.
+1. Every Prisma model appears in a committed RLS/exemption inventory.
+2. Every project-derived model has an explicit database-enforcement decision.
+3. CI creates and tests with a least-privilege `NOBYPASSRLS` runtime role.
+4. Cross-project SELECT/INSERT/UPDATE/DELETE tests pass against real PostgreSQL
+   policies.
+5. Tests fail demonstrably if actor context is absent or references a user
+   without membership.
+6. Privileged migrations remain separated from runtime queries.
+7. New schema models cannot be added without an explicit RLS classification.
+8. Runbooks explain local reproduction and policy troubleshooting.
 
 ## Definition Of Done
-- [ ] Advisory path and runtime reachability are documented.
-- [ ] Supported dependency remediation is applied.
-- [ ] Production security audit is green or a bounded exception is recorded.
-- [ ] Full repository validation passes.
-- [ ] A ready-for-review PR is open and review feedback is resolved.
+- [ ] Model inventory is complete and machine checked.
+- [ ] Required policy migrations are implemented.
+- [ ] Least-privilege runtime role exists in local and CI setup.
+- [ ] Real-database tenant-isolation tests cover the acceptance matrix.
+- [ ] Schema-change guardrail and developer documentation are active.
+- [ ] Lint, tests, coverage, build, and E2E validation pass.
+- [ ] A ready-for-review PR is open and Copilot feedback is handled.
