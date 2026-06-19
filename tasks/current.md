@@ -4,8 +4,8 @@
 TASK-319
 
 ## Status
-Implementation and local non-database validation complete. PostgreSQL-backed
-migration/E2E validation and PR review are pending in GitHub Actions.
+Complete on PR #343. Local validation, PostgreSQL-backed GitHub migration/E2E
+validation, and Copilot review handling are complete.
 
 ## Source
 - TASK-088 architecture and security audit.

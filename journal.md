@@ -10,11 +10,14 @@ Use it for important implementation milestones, blockers, validation runs, and r
   4.12.23 to 4.12.26, retained `@hono/node-server` 1.19.14 because removing it
   restores `GHSA-92pp-h63x-v22m`, and refreshed compatible lockfile transitives
   (`js-yaml` 4.2.0, `undici` 7.28.0, Vite 8.0.16).
-- Decision: Rejected an `@prisma/dev` 0.24.14 override because its
-  `@prisma/streams-local` dependency declares Node 22+, which would weaken the
-  repository's Node 20.19 support contract. The Hono path remains confined to
-  Prisma CLI tooling; no NexusDash runtime source imports Hono or exposes the
-  Prisma development server.
+- Decision: Rejected an `@prisma/dev` 0.24.14 override because replacing
+  Prisma's pinned internal package would update several unrelated local-tooling
+  dependencies when a one-package Hono patch is sufficient. The current
+  0.24.3 subtree already includes an `@prisma/streams-local` package with a
+  declared Node 22 engine, so that declaration was not treated as a new
+  0.24.14 constraint. The Hono path remains confined to Prisma CLI tooling; no
+  NexusDash runtime source imports Hono or exposes the Prisma development
+  server.
 - Validation: Clean `npm ci` and postinstall Prisma generation passed.
   `npm run security:audit`, moderate-threshold production audit, and
   `npm run security:audit:full` all reported zero vulnerabilities.
@@ -26,8 +29,13 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Local database note: Docker Desktop's Linux engine returned HTTP 500 and
   localhost PostgreSQL ports 5432/5433 were unavailable. The local E2E command
   built successfully, then all nine specs stopped during database setup.
-  GitHub's PostgreSQL-backed migration and E2E jobs remain required before
-  final handoff.
+  GitHub Quality Gates run `27850400507` subsequently passed Prisma migration
+  deployment, all nine Playwright specs, Quality Core, and the container image
+  build.
+- Review: Copilot generated one documentation comment about the
+  `@prisma/dev` 0.24.14 rejection rationale. Rephrased the decision to separate
+  the pre-existing Node engine declaration from the actual concern: expanding
+  the override scope and tooling delta beyond the narrow Hono remediation.
 
 # 2026-06-19 - Post-TASK-088 repository and backlog reset
 
