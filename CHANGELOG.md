@@ -8,6 +8,16 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.19.2 - 2026-06-19
+
+- Restored the green production dependency-security audit by updating the
+  Prisma development-tooling Hono override to a patched release.
+- Refreshed patchable development-tooling transitive dependencies so the full
+  npm audit also reports zero vulnerabilities.
+- Preserved Prisma 7.8 and the Node 20.19 runtime baseline while documenting
+  that the affected Hono packages are confined to Prisma CLI tooling and are
+  not imported by the deployed NexusDash request runtime.
+
 ## v0.19.1 - 2026-06-18
 
 - Prefetched project agent credentials when the settings modal opens so the

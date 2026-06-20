@@ -4,7 +4,8 @@
 TASK-319
 
 ## Status
-Ready to start.
+Complete on PR #343. Local validation, PostgreSQL-backed GitHub migration/E2E
+validation, and Copilot review handling are complete.
 
 ## Source
 - TASK-088 architecture and security audit.
