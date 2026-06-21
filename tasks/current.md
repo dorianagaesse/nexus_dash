@@ -4,7 +4,7 @@
 TASK-316
 
 ## Status
-Ready to start.
+Implementation complete; PR, Copilot review, and branch preview pending.
 
 ## Source
 - User feedback on TASK-098 on 2026-06-10.
@@ -38,10 +38,10 @@ notes without requiring users to open each historical note.
    workflow.
 
 ## Definition Of Done
-- [ ] UI design is integrated with project dashboard patterns and avoids nested
+- [x] UI design is integrated with project dashboard patterns and avoids nested
       cards.
-- [ ] Service/API support reuses existing meeting-note authorization and
+- [x] Service/API support reuses existing meeting-note authorization and
       activity mutation behavior.
-- [ ] Open-todo counts stay in sync after create/update/delete/complete flows.
-- [ ] Local validation and relevant Playwright coverage pass.
+- [x] Open-todo counts stay in sync after create/update/delete/complete flows.
+- [x] Local validation and relevant Playwright coverage pass.
 - [ ] Preview validation confirms the side panel works on the deployed branch.

@@ -1,7 +1,7 @@
 # TASK-316 Meeting Todo Side Panel
 
 ## Status
-Pending.
+Implementation complete; delivery validation in progress.
 
 ## Source
 - User feedback on TASK-098 on 2026-06-10: add a side panel with open todos

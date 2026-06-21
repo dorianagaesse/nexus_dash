@@ -2358,3 +2358,13 @@ Low-value entries to avoid going forward:
 - Type: Integration
 - Summary: TASK-318 resolved its merge conflict against TASK-319 and reconciled post-merge task tracking.
 - Evidence: Merged `origin/main` at `401fef055d914002154c478492e23ce17ceb3d7d`, preserved TASK-319's patched Hono `4.12.26` dependency resolution and `v0.19.2` changelog entry, retained TASK-318's `v0.20.0` feature release, moved TASK-319 and TASK-318 to one completed backlog entry each, and advanced TASK-316 to the current queue position. `npm ci`, `npm run security:audit`, `npm run rls:check`, feature version-policy validation, `npm run lint`, the full unit suite (123 files passed, 2 skipped; 909 tests passed, 2 skipped), and `npm run build` passed after resolution.
+
+### 2026-06-21
+- Type: Implementation
+- Summary: TASK-316 added a project-wide Meeting Todos side panel and focused todo mutation boundary.
+- Evidence: Added a responsive right-side drawer that aggregates open meeting todos overdue-first, includes source meeting dates and labels, keeps completed items available for reopening, and opens the source meeting note directly. Added an atomic action-completion API/service path with editor authorization and activity updates so todo toggles do not replace every action in the meeting note; reopening a todo from an archived meeting returns the note to `actions_in_progress`. Bumped the feature release to `v0.21.0`.
+
+### 2026-06-21
+- Type: Validation
+- Summary: TASK-316 passed the available non-Docker local validation baseline.
+- Evidence: Docker was intentionally not used because the workstation WSL engine is unavailable. `npm run lint`, the full Vitest suite (124 files passed, 2 skipped; 917 tests passed, 2 skipped), `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2% functions, 91.88% lines), `npm run security:audit`, `npm run rls:check`, and a production Next.js build with local-safe placeholder connection/secrets passed. Playwright passed all 9 repository E2E flows against the branch dev server, including the new meeting-todo aggregation, complete, reopen, overdue metadata, and source-meeting navigation workflow.

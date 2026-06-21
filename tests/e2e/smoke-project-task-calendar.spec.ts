@@ -358,6 +358,55 @@ test.describe("critical UI smoke flows", () => {
     });
     await expect(overdueMeetingCard.getByText("1 overdue todo")).toBeVisible();
 
+    await page.getByRole("button", { name: /Todos\s+1/ }).click();
+    const meetingTodoPanel = page.getByRole("dialog", { name: "Meeting todos" });
+    await expect(meetingTodoPanel).toBeVisible();
+    await expect(meetingTodoPanel.getByText("Finalize delayed recap")).toBeVisible();
+    await expect(meetingTodoPanel.getByText(overdueMeetingTitle)).toBeVisible();
+    await expect(meetingTodoPanel.getByText("risk")).toBeVisible();
+    await expect(
+      meetingTodoPanel.getByText("Overdue", { exact: true })
+    ).toBeVisible();
+
+    const completeTodoRequest = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        /\/meeting-notes\/[^/]+\/actions\/[^/]+$/.test(response.url()) &&
+        response.ok()
+    );
+    await meetingTodoPanel
+      .getByRole("button", { name: "Complete todo: Finalize delayed recap" })
+      .click();
+    await completeTodoRequest;
+    await expect(meetingTodoPanel.getByText("All caught up.")).toBeVisible();
+    await expect(meetingTodoPanel.getByText("Recently completed")).toBeVisible();
+
+    const reopenTodoRequest = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        /\/meeting-notes\/[^/]+\/actions\/[^/]+$/.test(response.url()) &&
+        response.ok()
+    );
+    await meetingTodoPanel
+      .getByRole("button", { name: "Reopen todo: Finalize delayed recap" })
+      .click();
+    await reopenTodoRequest;
+    await expect(
+      meetingTodoPanel.getByRole("button", {
+        name: "Complete todo: Finalize delayed recap",
+      })
+    ).toBeVisible();
+
+    await meetingTodoPanel.getByText(overdueMeetingTitle).click();
+    const sourceMeetingDialog = page.getByRole("dialog");
+    await expect(sourceMeetingDialog).toBeVisible();
+    await expect(
+      sourceMeetingDialog.getByRole("heading", { name: overdueMeetingTitle })
+    ).toBeVisible();
+    await sourceMeetingDialog
+      .getByRole("button", { name: `Close ${overdueMeetingTitle}` })
+      .click();
+
     await page
       .getByRole("button", { name: "Filter meeting notes by label sync" })
       .click();

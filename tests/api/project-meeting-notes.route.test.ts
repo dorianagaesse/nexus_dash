@@ -9,6 +9,7 @@ const meetingNoteServiceMock = vi.hoisted(() => ({
   listProjectMeetingNotes: vi.fn(),
   createProjectMeetingNote: vi.fn(),
   updateProjectMeetingNote: vi.fn(),
+  setProjectMeetingNoteActionCompletion: vi.fn(),
   deleteProjectMeetingNote: vi.fn(),
 }));
 
@@ -24,6 +25,8 @@ vi.mock("@/lib/services/project-meeting-note-service", () => ({
   listProjectMeetingNotes: meetingNoteServiceMock.listProjectMeetingNotes,
   createProjectMeetingNote: meetingNoteServiceMock.createProjectMeetingNote,
   updateProjectMeetingNote: meetingNoteServiceMock.updateProjectMeetingNote,
+  setProjectMeetingNoteActionCompletion:
+    meetingNoteServiceMock.setProjectMeetingNoteActionCompletion,
   deleteProjectMeetingNote: meetingNoteServiceMock.deleteProjectMeetingNote,
 }));
 
@@ -40,6 +43,7 @@ import {
   DELETE as deleteMeetingNote,
   PATCH as updateMeetingNote,
 } from "@/app/api/projects/[projectId]/meeting-notes/[noteId]/route";
+import { PATCH as updateMeetingTodo } from "@/app/api/projects/[projectId]/meeting-notes/[noteId]/actions/[actionId]/route";
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
@@ -51,6 +55,10 @@ function projectParams(projectId: string) {
 
 function noteParams(projectId: string, noteId: string) {
   return { params: Promise.resolve({ projectId, noteId }) };
+}
+
+function actionParams(projectId: string, noteId: string, actionId: string) {
+  return { params: Promise.resolve({ projectId, noteId, actionId }) };
 }
 
 function sampleNote() {
@@ -266,6 +274,79 @@ describe("project meeting notes routes", () => {
       entityId: "note-1",
       payload: { noteId: "note-1" },
     });
+  });
+
+  test("PATCH updates one meeting todo completion state", async () => {
+    meetingNoteServiceMock.setProjectMeetingNoteActionCompletion.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        note: {
+          ...sampleNote(),
+          actions: [
+            {
+              ...sampleNote().actions[0],
+              completedAt: new Date("2026-06-08T16:00:00.000Z"),
+            },
+          ],
+        },
+      },
+    });
+
+    const response = await updateMeetingTodo(
+      new NextRequest(
+        "http://localhost/api/projects/project-1/meeting-notes/note-1/actions/action-1",
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ completed: true }),
+        }
+      ),
+      actionParams("project-1", "note-1", "action-1")
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      meetingNoteServiceMock.setProjectMeetingNoteActionCompletion
+    ).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      noteId: "note-1",
+      actionId: "action-1",
+      completed: true,
+    });
+    expect(activityEventResponseMock.recordProjectActivityEventVersion).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      domain: "meeting-note",
+      action: "updated",
+      entityId: "note-1",
+      payload: {
+        noteId: "note-1",
+        actionId: "action-1",
+      },
+    });
+  });
+
+  test("PATCH rejects an invalid todo completion payload", async () => {
+    const response = await updateMeetingTodo(
+      new NextRequest(
+        "http://localhost/api/projects/project-1/meeting-notes/note-1/actions/action-1",
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ completed: "yes" }),
+        }
+      ),
+      actionParams("project-1", "note-1", "action-1")
+    );
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "meeting-note-action-completed-invalid",
+    });
+    expect(
+      meetingNoteServiceMock.setProjectMeetingNoteActionCompletion
+    ).not.toHaveBeenCalled();
   });
 
   test("POST returns 400 for invalid json", async () => {
