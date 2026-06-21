@@ -4,7 +4,7 @@
 TASK-316
 
 ## Status
-Implementation complete; PR, Copilot review, and branch preview pending.
+Done. Delivered in PR #345.
 
 ## Source
 - User feedback on TASK-098 on 2026-06-10.
@@ -44,4 +44,4 @@ notes without requiring users to open each historical note.
       activity mutation behavior.
 - [x] Open-todo counts stay in sync after create/update/delete/complete flows.
 - [x] Local validation and relevant Playwright coverage pass.
-- [ ] Preview validation confirms the side panel works on the deployed branch.
+- [x] Preview validation confirms the side panel works on the deployed branch.

@@ -2368,3 +2368,13 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-316 passed the available non-Docker local validation baseline.
 - Evidence: Docker was intentionally not used because the workstation WSL engine is unavailable. `npm run lint`, the full Vitest suite (124 files passed, 2 skipped; 917 tests passed, 2 skipped), `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2% functions, 91.88% lines), `npm run security:audit`, `npm run rls:check`, and a production Next.js build with local-safe placeholder connection/secrets passed. Playwright passed all 9 repository E2E flows against the branch dev server, including the new meeting-todo aggregation, complete, reopen, overdue metadata, and source-meeting navigation workflow.
+
+### 2026-06-21
+- Type: Review
+- Summary: TASK-316 completed CI and Copilot review handling on PR #345.
+- Evidence: Initial commit `9902fe8b90d83a72b6216ab540a7ca8ad6968c8e` opened the ready-for-review PR. Quality Core caught stale `v0.20.0` expectations in the app-metadata fallback tests; commit `088adda11f408cc925039250df8aa6bda62d40c9` aligned them with the `v0.21.0` feature release. Refreshed Quality Core, E2E Smoke, Tenant Isolation, Container Image, and branch-name checks passed. Copilot reviewed 16 of 17 files and generated no comments or unresolved threads.
+
+### 2026-06-21
+- Type: Validation
+- Summary: TASK-316 passed final branch-ref preview deployment and preview Playwright.
+- Evidence: Manual preview workflow run `27918545154` used `git_ref=feature/task-316-meeting-todo-side-panel`; logs showed checkout of `refs/remotes/origin/feature/task-316-meeting-todo-side-panel`, commit `088adda11f408cc925039250df8aa6bda62d40c9`, and app version `0.21.0`. The workflow deployed `https://nexus-dash-4bzwscs5j-dorian-agaesses-projects.vercel.app`, where the targeted meeting-notes Playwright flow passed, including todo aggregation, overdue metadata, complete/reopen, and source-meeting navigation.
