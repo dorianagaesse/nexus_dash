@@ -3,6 +3,40 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-06-19 - TASK-319 Prisma tooling advisory remediation
+
+- Summary: Restored clean production and full npm audits without changing the
+  Prisma 7.8 line. Updated the Prisma development-tooling Hono override from
+  4.12.23 to 4.12.26, retained `@hono/node-server` 1.19.14 because removing it
+  restores `GHSA-92pp-h63x-v22m`, and refreshed compatible lockfile transitives
+  (`js-yaml` 4.2.0, `undici` 7.28.0, Vite 8.0.16).
+- Decision: Rejected an `@prisma/dev` 0.24.14 override because replacing
+  Prisma's pinned internal package would update several unrelated local-tooling
+  dependencies when a one-package Hono patch is sufficient. The current
+  0.24.3 subtree already includes an `@prisma/streams-local` package with a
+  declared Node 22 engine, so that declaration was not treated as a new
+  0.24.14 constraint. The Hono path remains confined to Prisma CLI tooling; no
+  NexusDash runtime source imports Hono or exposes the Prisma development
+  server.
+- Validation: Clean `npm ci` and postinstall Prisma generation passed.
+  `npm run security:audit`, moderate-threshold production audit, and
+  `npm run security:audit:full` all reported zero vulnerabilities.
+  `npx prisma --version`, `npx prisma generate`, `npx prisma validate`,
+  release-policy validation for `v0.19.2`, `git diff --check`, `npm run lint`,
+  `npm test` (122 files passed, 2 skipped; 906 tests passed, 2 skipped),
+  `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2%
+  functions, 91.88% lines), and the preview-style production build passed.
+- Local database note: Docker Desktop's Linux engine returned HTTP 500 and
+  localhost PostgreSQL ports 5432/5433 were unavailable. The local E2E command
+  built successfully, then all nine specs stopped during database setup.
+  GitHub Quality Gates run `27850400507` subsequently passed Prisma migration
+  deployment, all nine Playwright specs, Quality Core, and the container image
+  build.
+- Review: Copilot generated one documentation comment about the
+  `@prisma/dev` 0.24.14 rejection rationale. Rephrased the decision to separate
+  the pre-existing Node engine declaration from the actual concern: expanding
+  the override scope and tooling delta beyond the narrow Hono remediation.
+
 # 2026-06-19 - Post-TASK-088 repository and backlog reset
 
 - Merged PR #341 and closed TASK-088 as complete.
@@ -2319,3 +2353,8 @@ Low-value entries to avoid going forward:
 - Type: Review
 - Summary: TASK-318 opened ready-for-review PR #344 and completed CI plus Copilot review without findings.
 - Evidence: Commit `4f4b58696fb36f892990595b87054231a3a43712` was pushed to `feature/task-318-rls-coverage-tenant-isolation`. Quality Gates run `27850744706` passed Quality Core, the new PostgreSQL Tenant Isolation job, E2E Smoke, and Container Image. Copilot reviewed 22 of 23 changed files and generated no comments or unresolved review threads.
+
+### 2026-06-21
+- Type: Integration
+- Summary: TASK-318 resolved its merge conflict against TASK-319 and reconciled post-merge task tracking.
+- Evidence: Merged `origin/main` at `401fef055d914002154c478492e23ce17ceb3d7d`, preserved TASK-319's patched Hono `4.12.26` dependency resolution and `v0.19.2` changelog entry, retained TASK-318's `v0.20.0` feature release, moved TASK-319 and TASK-318 to one completed backlog entry each, and advanced TASK-316 to the current queue position. `npm ci`, `npm run security:audit`, `npm run rls:check`, feature version-policy validation, `npm run lint`, the full unit suite (123 files passed, 2 skipped; 909 tests passed, 2 skipped), and `npm run build` passed after resolution.
