@@ -54,6 +54,9 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
+      - name: Check RLS model inventory
+        run: npm run rls:check
+
       - name: Lint
         run: npm run lint
 
@@ -129,12 +132,62 @@ jobs:
             test-results
           if-no-files-found: ignore
 
+  tenant-isolation:
+    name: Tenant Isolation (PostgreSQL RLS)
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nexusdash
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nexusdash"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public
+      RLS_TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexusdash
+      RLS_TEST_RUNTIME_DATABASE_URL: postgresql://nexusdash_rls_test:nexusdash_rls_test@127.0.0.1:5432/nexusdash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply Prisma migrations with admin connection
+        run: npm run db:migrate
+
+      - name: Provision least-privilege runtime role
+        run: npm run test:rls:setup
+
+      - name: Run tenant-isolation matrix as runtime role
+        run: npm run test:rls
+
   container-image:
     name: Container Image (build + metadata artifact)
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     needs:
       - quality-core
       - e2e-smoke
+      - tenant-isolation
     runs-on: ubuntu-latest
     timeout-minutes: 20
 

@@ -8,6 +8,17 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.20.0 - 2026-06-19
+
+- Added a machine-checked RLS inventory that classifies every Prisma model and
+  blocks unclassified schema additions.
+- Extended forced PostgreSQL RLS to task comment reactions and project agent
+  credential, scope-grant, and audit records, with a narrow pre-authentication
+  credential lookup for raw-key exchange.
+- Added a CI tenant-isolation matrix that provisions a non-superuser
+  `NOBYPASSRLS` role and verifies cross-project CRUD denial, role differences,
+  revoked membership, child rows, and agent credential visibility.
+
 ## v0.19.2 - 2026-06-19
 
 - Restored the green production dependency-security audit by updating the

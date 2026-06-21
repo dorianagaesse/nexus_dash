@@ -2,37 +2,25 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-06-19
+Last reviewed: 2026-06-21
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-319
-  Title: Prisma tooling dependency advisory remediation - restore green security audit
-  Status: Next 1 - current task
-  Rationale: TASK-088 validation found that `npm run security:audit` currently fails on high-severity Hono advisories in Prisma's `@prisma/dev` tooling chain. The affected packages are marked dev-optional and are not imported by the deployed NexusDash request runtime, but the repository's production-audit command is red and the prior TASK-274 baseline has regressed. Triage the dependency path, update Prisma or apply a safe patched override, and restore a green audit without a breaking downgrade.
-  Dependencies: TASK-061, TASK-274, TASK-088
-  Brief: `tasks/task-319-prisma-tooling-dependency-advisory-remediation.md`
-- ID: TASK-318
-  Title: RLS coverage inventory and tenant-isolation CI guardrail
-  Status: Next 2 - high-priority architecture guardrail
-  Rationale: Close the verification gap identified by TASK-088 by classifying every Prisma model as RLS-protected or intentionally exempt, reviewing project-derived tables that currently rely on service authorization, and adding real PostgreSQL isolation tests that run as the least-privilege non-BYPASSRLS runtime role instead of the CI superuser. This creates a durable guardrail against tenant-boundary drift as new project-scoped models are added.
-  Dependencies: TASK-085, TASK-088
-  Brief: `tasks/task-318-rls-coverage-tenant-isolation-guardrail.md`
 - ID: TASK-316
   Title: Meeting todo side panel - project-wide open follow-up list
-  Status: Next 3 - next user-facing feature
+  Status: Next 1 - current task
   Rationale: Externalize open todos from all meeting notes into a project-side panel so users can review and close meeting follow-ups without opening each historical note, while preserving links back to the source meeting and future compatibility with TASK-314 overdue reminders.
   Dependencies: TASK-098
   Brief: `tasks/task-316-meeting-todo-side-panel.md`
 - ID: TASK-314
   Title: Meeting todo overdue reminders - notification email and in-app reminder dispatch
-  Status: Next 4 - meeting workflow completion
+  Status: Next 2 - meeting workflow completion
   Rationale: Send the meeting-note owner a notification email and in-app reminder when a personal meeting todo remains open seven days after the meeting date, using the existing notification email delivery conventions and scheduler/dispatcher architecture instead of mixing background delivery concerns into the TASK-098 UI rollout.
   Dependencies: TASK-098, TASK-227, TASK-268, TASK-316
   Brief: `tasks/task-314-meeting-todo-overdue-reminders.md`
 - ID: TASK-119
   Title: Project collaboration presence UX - member avatars on project pages
-  Status: Next 5 - bounded collaboration UX improvement
+  Status: Next 3 - bounded collaboration UX improvement
   Rationale: Improve shared-project awareness by showing collaborator avatars and identity affordances directly on project pages so users can quickly understand who has access and who is participating, with sensible fallback behavior for accounts without uploaded photos.
   Dependencies: TASK-058, TASK-082, TASK-089
 ### Deferred (Intentional)
@@ -121,6 +109,18 @@ Last reviewed: 2026-06-19
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-319
+  Title: Prisma tooling dependency advisory remediation - restore green security audit
+  Status: Done (2026-06-21, merged via PR #343)
+  Rationale: Updated the Prisma tooling Hono override to patched release 4.12.26, refreshed compatible transitive tooling dependencies, restored green production/full security audits, and documented that the advisory path is not imported by the deployed request runtime.
+  Dependencies: TASK-061, TASK-274, TASK-088
+  Brief: `tasks/task-319-prisma-tooling-dependency-advisory-remediation.md`
+- ID: TASK-318
+  Title: RLS coverage inventory and tenant-isolation CI guardrail
+  Status: Done (2026-06-21, completed via PR #344)
+  Rationale: Classified all 33 Prisma models, extended forced RLS to previously unclassified project-derived tables, replaced broad pre-authentication credential reads with a narrow security-definer lookup, and added a non-superuser `NOBYPASSRLS` PostgreSQL isolation matrix to CI.
+  Dependencies: TASK-085, TASK-088
+  Brief: `tasks/task-318-rls-coverage-tenant-isolation-guardrail.md`
 - ID: TASK-317
   Title: Agent access settings loading and overflow containment
   Status: Done (2026-06-18, merged via PR #332)

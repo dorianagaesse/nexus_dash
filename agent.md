@@ -115,9 +115,19 @@ Run before handoff (unless task is docs-only):
 
 ```bash
 npm run lint
+npm run rls:check
 npm test
 npm run test:coverage
 npm run build
+```
+
+When Prisma models, RLS migrations, tenant ownership, or runtime database roles
+change, also run the real PostgreSQL matrix from
+`docs/runbooks/rls-tenant-isolation.md`:
+
+```bash
+npm run test:rls:setup
+npm run test:rls
 ```
 
 Use `npm run test:e2e` when UI flows, auth flows, calendar flows, or upload flows are touched.

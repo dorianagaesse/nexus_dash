@@ -2339,3 +2339,22 @@ Low-value entries to avoid going forward:
 - Type: Review
 - Summary: TASK-098 addressed the refreshed Copilot review's legacy data-preservation finding.
 - Evidence: Copilot found that meeting preparation and note-taking updates sent `decisions: ""`, erasing values created before the Decisions UI was removed. Updated the shared payload and preparation save path to retain the stored `decisions` value, and extended the meeting-notes Playwright flow to seed legacy data and verify it survives both update paths. `npm run lint`, the Playwright-triggered `npm run build`, and focused meeting-note API/service tests (2 files / 10 tests) passed. Local PostgreSQL-backed validation was blocked because Docker Desktop's Linux engine returned HTTP 500. Commit `13f2d63ccfee484e3c57bcec18e708fb56edf75d` was deployed by branch-ref preview workflow run `27726221721` with `git_ref=feature/task-98-meeting-notes-manager` to `https://nexus-dash-39lkz815n-dorian-agaesses-projects.vercel.app`; preview Playwright passed all 6 project smoke specs, including preservation of a seeded legacy decision after preparation and note-taking saves.
+### 2026-06-19
+- Type: Implementation
+- Summary: TASK-318 added a complete Prisma RLS inventory, forced policy coverage for previously unclassified project-derived tables, and a least-privilege PostgreSQL tenant-isolation CI lane.
+- Evidence: `prisma/rls-inventory.json` classifies all 33 Prisma models with an enforcement owner and rationale. Migration `20260619120000_task318_rls_coverage` enables and forces RLS for `TaskCommentReaction`, `ApiCredential`, `ApiCredentialScopeGrant`, and `AuthAuditEvent`, and replaces pre-authentication credential table reads with an exact-public-ID security-definer function. `npm run rls:check`, focused agent-access/inventory tests, the full 911-test unit suite, lint, version policy, Prisma validation, and the production build passed locally.
+
+### 2026-06-19
+- Type: Validation
+- Summary: TASK-318 local real-PostgreSQL validation was deferred to the new branch CI lane because the workstation Docker Desktop Linux engine was unavailable.
+- Evidence: Docker Desktop returned HTTP 500 for engine API requests, `127.0.0.1:5432` refused connections, and no local PostgreSQL service was installed. The repository now provisions a non-superuser `NOBYPASSRLS` role in the `Tenant Isolation (PostgreSQL RLS)` GitHub Actions job, keeps migration and runtime URLs separate, and runs the cross-project CRUD/role/child-row/credential matrix there.
+
+### 2026-06-19
+- Type: Review
+- Summary: TASK-318 opened ready-for-review PR #344 and completed CI plus Copilot review without findings.
+- Evidence: Commit `4f4b58696fb36f892990595b87054231a3a43712` was pushed to `feature/task-318-rls-coverage-tenant-isolation`. Quality Gates run `27850744706` passed Quality Core, the new PostgreSQL Tenant Isolation job, E2E Smoke, and Container Image. Copilot reviewed 22 of 23 changed files and generated no comments or unresolved review threads.
+
+### 2026-06-21
+- Type: Integration
+- Summary: TASK-318 resolved its merge conflict against TASK-319 and reconciled post-merge task tracking.
+- Evidence: Merged `origin/main` at `401fef055d914002154c478492e23ce17ceb3d7d`, preserved TASK-319's patched Hono `4.12.26` dependency resolution and `v0.19.2` changelog entry, retained TASK-318's `v0.20.0` feature release, moved TASK-319 and TASK-318 to one completed backlog entry each, and advanced TASK-316 to the current queue position. `npm ci`, `npm run security:audit`, `npm run rls:check`, feature version-policy validation, `npm run lint`, the full unit suite (123 files passed, 2 skipped; 909 tests passed, 2 skipped), and `npm run build` passed after resolution.

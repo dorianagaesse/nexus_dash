@@ -1,45 +1,47 @@
-# Current Task: TASK-319 Prisma Tooling Dependency Advisory Remediation
+# Current Task: TASK-316 Meeting Todo Side Panel
 
 ## Task ID
-TASK-319
+TASK-316
 
 ## Status
-Complete on PR #343. Local validation, PostgreSQL-backed GitHub migration/E2E
-validation, and Copilot review handling are complete.
+Ready to start.
 
 ## Source
-- TASK-088 architecture and security audit.
-- `npm run security:audit` currently reports high-severity Hono advisories
-  through Prisma's development-tooling dependency chain.
+- User feedback on TASK-098 on 2026-06-10.
+- `tasks/task-316-meeting-todo-side-panel.md`
 
 ## Objective
-Restore a green dependency-security audit using a supported, non-breaking
-Prisma or transitive dependency resolution, while documenting why the current
-advisory is or is not reachable in the deployed application.
+Add a project-side panel that aggregates open meeting todos across all meeting
+notes without requiring users to open each historical note.
 
 ## Scope
-- Trace the exact `prisma -> @prisma/dev -> @hono/node-server` and `hono`
-  dependency relationship.
-- Prefer a supported Prisma patch/minor update or compatible patched override.
-- Avoid `npm audit fix --force` and major downgrades.
-- Remove stale dependency overrides where safe.
-- Revalidate Prisma generation, migrations, tests, build, E2E, and the
-  production security audit.
-- Record deployed-runtime reachability and any bounded exception if upstream
-  remediation is unavailable.
+- Show project-wide open meeting todos grouped or sorted by urgency and meeting
+  date.
+- Include source meeting title, date, labels, and overdue state.
+- Let owner/editor users complete or reopen todos from the panel.
+- Keep viewer access read-only.
+- Open the source meeting context when a todo or meeting link is selected.
+- Preserve responsive dashboard behavior on mobile.
 
 ## Acceptance Criteria
-1. `npm run security:audit` exits successfully, or a time-bounded documented
-   exception has an explicit upstream/removal condition.
-2. No breaking Prisma downgrade is used as an audit workaround.
-3. Clean install and Prisma generation succeed.
-4. Database migration commands remain operational.
-5. Lint, tests, coverage, build, and E2E pass.
-6. Remaining overrides are justified and documented.
+1. Project members can open a side panel showing open todos from all meeting
+   notes in the project.
+2. Todos show the source meeting title, meeting date, labels, and overdue state
+   where applicable.
+3. Owner/editor users can complete or reopen todos from the panel without
+   opening the meeting note modal.
+4. Clicking a todo or source meeting opens the relevant meeting note context.
+5. Viewer users can inspect open todos but cannot mutate them.
+6. The panel remains responsive on mobile and does not crowd the existing
+   project dashboard layout.
+7. Tests cover aggregation, mutations, permissions, and the primary browser
+   workflow.
 
 ## Definition Of Done
-- [ ] Advisory path and runtime reachability are documented.
-- [ ] Supported dependency remediation is applied.
-- [ ] Production security audit is green or a bounded exception is recorded.
-- [ ] Full repository validation passes.
-- [ ] A ready-for-review PR is open and review feedback is resolved.
+- [ ] UI design is integrated with project dashboard patterns and avoids nested
+      cards.
+- [ ] Service/API support reuses existing meeting-note authorization and
+      activity mutation behavior.
+- [ ] Open-todo counts stay in sync after create/update/delete/complete flows.
+- [ ] Local validation and relevant Playwright coverage pass.
+- [ ] Preview validation confirms the side panel works on the deployed branch.

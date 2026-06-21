@@ -1,0 +1,236 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "model": "User",
+      "classification": "system-operational-exempt",
+      "enforcement": "service",
+      "owner": "authentication and account services",
+      "rationale": "Authentication must resolve users by email before an actor context exists; account services enforce subject ownership."
+    },
+    {
+      "model": "EmailVerificationToken",
+      "classification": "system-operational-exempt",
+      "enforcement": "service",
+      "owner": "email verification service",
+      "rationale": "Opaque token validation occurs before a trusted actor context exists."
+    },
+    {
+      "model": "PasswordResetToken",
+      "classification": "system-operational-exempt",
+      "enforcement": "service",
+      "owner": "password reset service",
+      "rationale": "Opaque token validation occurs before a trusted actor context exists."
+    },
+    {
+      "model": "OutboundEmailDelivery",
+      "classification": "system-operational-exempt",
+      "enforcement": "service",
+      "owner": "outbound email service",
+      "rationale": "Provider delivery records are system-owned operational data processed across recipients."
+    },
+    {
+      "model": "Account",
+      "classification": "system-operational-exempt",
+      "enforcement": "service",
+      "owner": "authentication services",
+      "rationale": "OAuth account resolution is part of pre-session authentication."
+    },
+    {
+      "model": "Session",
+      "classification": "system-operational-exempt",
+      "enforcement": "service",
+      "owner": "session service",
+      "rationale": "Session lookup authenticates the request before an actor context can be established."
+    },
+    {
+      "model": "VerificationToken",
+      "classification": "system-operational-exempt",
+      "enforcement": "service",
+      "owner": "authentication services",
+      "rationale": "Compatibility verification tokens are resolved before authentication."
+    },
+    {
+      "model": "SystemGuard",
+      "classification": "system-operational-exempt",
+      "enforcement": "operational",
+      "owner": "database operations",
+      "rationale": "Singleton deployment-safety configuration is not tenant data and is administered through privileged operations."
+    },
+    {
+      "model": "Project",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "project service",
+      "rationale": "The project owner and memberships define the tenant boundary."
+    },
+    {
+      "model": "ProjectMeetingNote",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "project meeting note service",
+      "rationale": "Rows carry projectId and follow project membership read/write rules."
+    },
+    {
+      "model": "ProjectMeetingNoteAction",
+      "classification": "indirect-project-derived",
+      "enforcement": "rls",
+      "owner": "project meeting note service",
+      "rationale": "Tenant ownership is inherited through ProjectMeetingNote."
+    },
+    {
+      "model": "ProjectActivityEvent",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "project activity service",
+      "rationale": "Rows carry projectId and are visible only to project members."
+    },
+    {
+      "model": "ProjectMembership",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "project collaboration service",
+      "rationale": "Membership rows are part of the project authorization boundary."
+    },
+    {
+      "model": "ProjectInvitation",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "project collaboration service",
+      "rationale": "Policies cover project owners and the email-bound invited user."
+    },
+    {
+      "model": "Notification",
+      "classification": "user-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "notification service",
+      "rationale": "Rows are recipient-owned with narrowly scoped producer policies."
+    },
+    {
+      "model": "ProjectNotificationEmail",
+      "classification": "indirect-project-derived",
+      "enforcement": "operational",
+      "owner": "project notification email service",
+      "rationale": "The authenticated scheduler must claim and reconcile groups across recipients; recipient and project constraints remain service-owned."
+    },
+    {
+      "model": "ProjectNotificationEmailItem",
+      "classification": "indirect-project-derived",
+      "enforcement": "operational",
+      "owner": "project notification email service",
+      "rationale": "Queue items inherit ownership from an operational email group and notification and are processed across recipients."
+    },
+    {
+      "model": "Epic",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "project epic service",
+      "rationale": "Rows carry projectId and follow project membership rules."
+    },
+    {
+      "model": "RoadmapPhase",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "project roadmap service",
+      "rationale": "Rows carry projectId and follow project membership rules."
+    },
+    {
+      "model": "RoadmapEvent",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "project roadmap service",
+      "rationale": "Rows carry projectId and follow project membership rules."
+    },
+    {
+      "model": "Task",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "project task service",
+      "rationale": "Rows carry projectId and enforce project role differences."
+    },
+    {
+      "model": "TaskComment",
+      "classification": "indirect-project-derived",
+      "enforcement": "rls",
+      "owner": "project task comment service",
+      "rationale": "Tenant ownership is inherited through Task."
+    },
+    {
+      "model": "TaskCommentReaction",
+      "classification": "indirect-project-derived",
+      "enforcement": "rls",
+      "owner": "project task comment service",
+      "rationale": "Tenant ownership is inherited through TaskComment and mutations are limited to the reacting user."
+    },
+    {
+      "model": "TaskRelation",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "project task service",
+      "rationale": "Rows carry projectId and both task IDs must remain inside that project."
+    },
+    {
+      "model": "Resource",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "context card service",
+      "rationale": "Rows carry projectId and follow project role differences."
+    },
+    {
+      "model": "TaskAttachment",
+      "classification": "indirect-project-derived",
+      "enforcement": "rls",
+      "owner": "project attachment service",
+      "rationale": "Tenant ownership is inherited through Task."
+    },
+    {
+      "model": "ResourceAttachment",
+      "classification": "indirect-project-derived",
+      "enforcement": "rls",
+      "owner": "project attachment service",
+      "rationale": "Tenant ownership is inherited through Resource."
+    },
+    {
+      "model": "TaskBlockedFollowUp",
+      "classification": "indirect-project-derived",
+      "enforcement": "rls",
+      "owner": "project task service",
+      "rationale": "Tenant ownership is inherited through Task."
+    },
+    {
+      "model": "GoogleCalendarCredential",
+      "classification": "user-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "Google Calendar credential service",
+      "rationale": "Each row is accessible only to its userId."
+    },
+    {
+      "model": "ApiCredential",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "project agent access service",
+      "rationale": "Credential management is owner-only; unauthenticated key exchange uses a single exact-public-id security-definer lookup."
+    },
+    {
+      "model": "ApiCredentialScopeGrant",
+      "classification": "indirect-project-derived",
+      "enforcement": "rls",
+      "owner": "project agent access service",
+      "rationale": "Tenant ownership is inherited through ApiCredential."
+    },
+    {
+      "model": "AuthAuditEvent",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "project agent access service",
+      "rationale": "Project owners can read events while owner-attributed human and agent flows can append audit rows."
+    },
+    {
+      "model": "AuthRateLimitBucket",
+      "classification": "system-operational-exempt",
+      "enforcement": "operational",
+      "owner": "authentication abuse-control service",
+      "rationale": "Rate-limit buckets are cross-request security state keyed by hashed signals, not tenant content."
+    }
+  ]
+}

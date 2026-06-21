@@ -69,7 +69,7 @@ describe("project-agent-access-service", () => {
   });
 
   test("returns a stable 500 when usage persistence fails unexpectedly", async () => {
-    prismaMock.$transaction.mockRejectedValueOnce(new Error("db-down"));
+    prismaMock.apiCredential.updateMany.mockRejectedValueOnce(new Error("db-down"));
 
     const result = await recordAgentRequestUsage({
       credentialId: "credential-1",

@@ -1,6 +1,6 @@
 {
   "name": "nexusdash",
-  "version": "0.19.2",
+  "version": "0.20.0",
   "private": true,
   "engines": {
     "node": "^20.19.0 || ^22.13.0 || >=24.0.0",
@@ -12,6 +12,9 @@
     "postinstall": "prisma generate",
     "start": "npm run db:migrate && next start",
     "lint": "eslint .",
+    "rls:check": "node scripts/check-rls-inventory.mjs",
+    "test:rls:setup": "node scripts/setup-rls-test-role.mjs",
+    "test:rls": "node scripts/test-rls-isolation.mjs",
     "security:audit": "npm audit --omit=dev --audit-level=high",
     "security:audit:full": "npm audit --json",
     "test": "vitest run",
