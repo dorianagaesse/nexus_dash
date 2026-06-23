@@ -235,11 +235,11 @@ export function MeetingTodoSidePanel({
   onOpenMeeting,
   onSetCompleted,
 }: MeetingTodoSidePanelProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const todos = useMemo(
     () => buildProjectMeetingTodos(notes, referenceNowMs),
     [notes, referenceNowMs]
   );
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const overdueCount = todos.open.filter((todo) => todo.isOverdue).length;
 
   useEffect(() => {
@@ -255,6 +255,10 @@ export function MeetingTodoSidePanel({
       document.removeEventListener("keydown", handleEscape);
     };
   }, []);
+
+  if (todos.open.length === 0 && todos.completed.length === 0) {
+    return null;
+  }
 
   const content = (
     <aside
