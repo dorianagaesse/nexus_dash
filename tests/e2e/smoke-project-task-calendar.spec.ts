@@ -353,13 +353,13 @@ test.describe("critical UI smoke flows", () => {
     await expect(
       page.getByRole("button", { name: /Meeting notes.*1 overdue/ })
     ).toBeVisible();
-    const overdueMeetingCard = page.getByRole("button", {
-      name: new RegExp(overdueMeetingTitle),
-    });
+    const overdueMeetingCard = page
+      .locator("button")
+      .filter({ hasText: overdueMeetingTitle })
+      .filter({ hasText: "1 overdue todo" });
     await expect(overdueMeetingCard.getByText("1 overdue todo")).toBeVisible();
 
-    await page.getByRole("button", { name: /Todos\s+1/ }).click();
-    const meetingTodoPanel = page.getByRole("dialog", { name: "Meeting todos" });
+    const meetingTodoPanel = page.getByRole("region", { name: "Meeting todos" });
     await expect(meetingTodoPanel).toBeVisible();
     await expect(meetingTodoPanel.getByText("Finalize delayed recap")).toBeVisible();
     await expect(meetingTodoPanel.getByText(overdueMeetingTitle)).toBeVisible();
@@ -367,6 +367,14 @@ test.describe("critical UI smoke flows", () => {
     await expect(
       meetingTodoPanel.getByText("Overdue", { exact: true })
     ).toBeVisible();
+    await meetingTodoPanel
+      .getByRole("button", { name: "Collapse meeting todos" })
+      .click();
+    await expect(meetingTodoPanel.getByText("Finalize delayed recap")).toBeHidden();
+    await meetingTodoPanel
+      .getByRole("button", { name: /Meeting todos\s+1 open, 1 overdue/ })
+      .click();
+    await expect(meetingTodoPanel.getByText("Finalize delayed recap")).toBeVisible();
 
     const completeTodoRequest = page.waitForResponse(
       (response) =>
@@ -411,7 +419,7 @@ test.describe("critical UI smoke flows", () => {
       .getByRole("button", { name: "Filter meeting notes by label sync" })
       .click();
     await expect(page.getByRole("button", { name: new RegExp(meetingTitle) })).toBeVisible();
-    await expect(page.getByText(overdueMeetingTitle)).toBeHidden();
+    await expect(overdueMeetingCard).toBeHidden();
     await page.getByRole("button", { name: "Clear labels" }).click();
 
     await page.getByRole("button", { name: new RegExp(meetingTitle) }).click();
@@ -475,14 +483,16 @@ test.describe("critical UI smoke flows", () => {
 
     await expect(page.getByRole("dialog")).toBeHidden();
     await expect(page.getByText("Archived (1)")).toBeVisible();
-    const archivedMeetingCard = page.getByRole("button", {
-      name: new RegExp(meetingTitle),
-    });
+    const archivedMeetingCard = page
+      .locator("button")
+      .filter({ hasText: meetingTitle })
+      .filter({ hasText: "Done" })
+      .filter({ hasText: "1/1" });
     await expect(archivedMeetingCard.getByText("Done")).toBeVisible();
     await expect(archivedMeetingCard.getByText("1/1")).toBeVisible();
 
     await page.getByLabel("Search meeting notes").fill("stakeholders");
-    await expect(page.getByText(meetingTitle)).toBeVisible();
+    await expect(archivedMeetingCard).toBeVisible();
 
     await page.getByLabel("Search meeting notes").fill("not-a-real-meeting");
     await expect(page.getByText("No matching meeting notes.")).toBeVisible();

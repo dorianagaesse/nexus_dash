@@ -659,7 +659,6 @@ export function ProjectMeetingNotesPanel({
   const [isSaving, setIsSaving] = useState(false);
   const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isTodoPanelOpen, setIsTodoPanelOpen] = useState(false);
   const [pendingTodoActionId, setPendingTodoActionId] = useState<string | null>(
     null
   );
@@ -841,7 +840,6 @@ export function ProjectMeetingNotesPanel({
   };
 
   const openNoteFromTodoPanel = (note: ProjectMeetingNotePanelNote) => {
-    setIsTodoPanelOpen(false);
     setListView(note.status === "done" ? "archived" : "active");
     setIsExpanded(true);
     setSelectedNoteId(note.id);
@@ -1143,7 +1141,6 @@ export function ProjectMeetingNotesPanel({
   const isLocked =
     Boolean(prepareDialog) ||
     Boolean(selectedNoteId) ||
-    isTodoPanelOpen ||
     isSaving ||
     Boolean(pendingTodoActionId) ||
     Boolean(pendingDeleteNoteId) ||
@@ -1184,19 +1181,6 @@ export function ProjectMeetingNotesPanel({
           </button>
 
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={() => setIsTodoPanelOpen(true)}
-            >
-              <ListTodo className="h-4 w-4" />
-              Todos
-              <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">
-                {meetingTodos.open.length}
-              </Badge>
-            </Button>
             {canEdit ? (
               <Button
                 type="button"
@@ -1437,12 +1421,10 @@ export function ProjectMeetingNotesPanel({
       ) : null}
 
       <MeetingTodoSidePanel
-        isOpen={isTodoPanelOpen}
         notes={localNotes}
         canEdit={canEdit}
         referenceNowMs={referenceNowMs}
         pendingActionId={pendingTodoActionId}
-        onClose={() => setIsTodoPanelOpen(false)}
         onOpenMeeting={openNoteFromTodoPanel}
         onSetCompleted={(todo, completed) => {
           void setTodoCompleted(todo, completed);

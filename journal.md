@@ -2361,8 +2361,8 @@ Low-value entries to avoid going forward:
 
 ### 2026-06-21
 - Type: Implementation
-- Summary: TASK-316 added a project-wide Meeting Todos side panel and focused todo mutation boundary.
-- Evidence: Added a responsive right-side drawer that aggregates open meeting todos overdue-first, includes source meeting dates and labels, keeps completed items available for reopening, and opens the source meeting note directly. Added an atomic action-completion API/service path with editor authorization and activity updates so todo toggles do not replace every action in the meeting note; reopening a todo from an archived meeting returns the note to `actions_in_progress`. Bumped the feature release to `v0.21.0`.
+- Summary: TASK-316 added a project-wide floating Meeting Todos panel and focused todo mutation boundary.
+- Evidence: Added a responsive floating table that is visible across the project dashboard, can collapse to a compact control, aggregates open meeting todos overdue-first, includes source meeting dates and labels, keeps completed items available for reopening, and opens the source meeting note directly. Added an atomic action-completion API/service path with editor authorization and activity updates so todo toggles do not replace every action in the meeting note; reopening a todo from an archived meeting returns the note to `actions_in_progress`. Bumped the feature release to `v0.21.0`.
 
 ### 2026-06-21
 - Type: Validation
@@ -2378,3 +2378,8 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-316 passed final branch-ref preview deployment and preview Playwright.
 - Evidence: Manual preview workflow run `27918545154` used `git_ref=feature/task-316-meeting-todo-side-panel`; logs showed checkout of `refs/remotes/origin/feature/task-316-meeting-todo-side-panel`, commit `088adda11f408cc925039250df8aa6bda62d40c9`, and app version `0.21.0`. The workflow deployed `https://nexus-dash-4bzwscs5j-dorian-agaesses-projects.vercel.app`, where the targeted meeting-notes Playwright flow passed, including todo aggregation, overdue metadata, complete/reopen, and source-meeting navigation.
+
+### 2026-06-23
+- Type: Iteration
+- Summary: TASK-316 follow-up changed the todos surface from a meeting-notes-area launcher/drawer into a project-wide floating table.
+- Evidence: Removed the Meeting Notes header Todos button, kept the aggregation and atomic mutation boundary, and made the floating Meeting Todos panel visible across the project dashboard with a compact collapsed state. Updated the Playwright smoke flow to assert the floating region is visible without a launcher, collapses/expands, still completes/reopens todos, and still opens the source meeting note. `npm run lint`, full Vitest with `NODE_ENV=test` (124 files passed, 2 skipped; 917 tests passed, 2 skipped), `npm run test:coverage`, production `npm run build` with local-safe placeholder connection/secrets, and the targeted Playwright meeting-notes flow against `localhost:3016` passed. Docker remained intentionally unused because the workstation WSL engine is unavailable.

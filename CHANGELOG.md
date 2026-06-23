@@ -10,8 +10,9 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 ## v0.21.0 - 2026-06-21
 
-- Added a responsive project-wide Meeting Todos side panel with overdue-first
-  sorting, source meeting metadata, labels, and direct meeting-note navigation.
+- Added a responsive project-wide floating Meeting Todos table with overdue-first
+  sorting, source meeting metadata, labels, direct meeting-note navigation, and
+  a reducible compact state.
 - Added atomic todo completion and reopening for owners/editors while keeping
   viewer access read-only; reopening an archived todo reactivates its meeting.
 - Added service, route, aggregation, permission, and Playwright coverage for
