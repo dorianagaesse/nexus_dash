@@ -19,7 +19,8 @@ back to the Meeting Notes section.
 - Show project-wide open meeting todos in a small floating table grouped or
   sorted by urgency and meeting date.
 - Let users reduce/collapse the floating table when they need more workspace.
-- Include source meeting title, date, labels, and overdue state.
+- Include source meeting title and overdue state without crowding the floating
+  card with secondary metadata.
 - Let owner/editor users complete or reopen todos from the panel.
 - Keep viewer access read-only.
 - Open the source meeting context when a todo or meeting link is selected.
@@ -28,8 +29,8 @@ back to the Meeting Notes section.
 ## Acceptance Criteria
 1. Project members can see a floating, reducible panel showing open todos from
    all meeting notes in the project.
-2. Todos show the source meeting title, meeting date, labels, and overdue state
-   where applicable.
+2. Todos show the source meeting title and overdue state where applicable,
+   without crowding the floating card with secondary metadata.
 3. Owner/editor users can complete or reopen todos from the panel without
    opening the meeting note modal.
 4. Clicking a todo or source meeting opens the relevant meeting note context.

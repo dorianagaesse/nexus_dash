@@ -106,7 +106,7 @@ Last reviewed: 2026-06-21
 - ID: TASK-316
   Title: Meeting todo floating panel - project-wide open follow-up list
   Status: Done (2026-06-21, delivered via PR #345)
-  Rationale: Added a responsive project-wide floating Meeting Todos table with overdue-first aggregation, source meeting metadata and navigation, viewer-safe read access, a reducible compact state, and focused owner/editor completion and reopening without replacing the full meeting action list.
+  Rationale: Added a responsive project-wide floating Meeting Todos card with overdue-first aggregation, minimal source meeting context and navigation, viewer-safe read access, a reducible compact state, and focused owner/editor completion and reopening without replacing the full meeting action list.
   Dependencies: TASK-098
   Brief: `tasks/task-316-meeting-todo-side-panel.md`
 - ID: TASK-319

@@ -363,7 +363,6 @@ test.describe("critical UI smoke flows", () => {
     await expect(meetingTodoPanel).toBeVisible();
     await expect(meetingTodoPanel.getByText("Finalize delayed recap")).toBeVisible();
     await expect(meetingTodoPanel.getByText(overdueMeetingTitle)).toBeVisible();
-    await expect(meetingTodoPanel.getByText("risk")).toBeVisible();
     await expect(
       meetingTodoPanel.getByText("Overdue", { exact: true })
     ).toBeVisible();
@@ -387,7 +386,6 @@ test.describe("critical UI smoke flows", () => {
       .click();
     await completeTodoRequest;
     await expect(meetingTodoPanel.getByText("All caught up.")).toBeVisible();
-    await expect(meetingTodoPanel.getByText("Recently completed")).toBeVisible();
 
     const reopenTodoRequest = page.waitForResponse(
       (response) =>

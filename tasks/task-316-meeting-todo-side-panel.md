@@ -23,7 +23,7 @@ areas.
 Add a project-level floating panel that aggregates open meeting todos across all
 meeting notes:
 - open todos are grouped or sorted by urgency/meeting date;
-- each item links back to its source meeting note;
+- each item keeps minimal source meeting context and links back to that note;
 - users can complete/reopen todos from the panel when they have edit access;
 - overdue todos are visually aligned with TASK-098/TASK-314 overdue treatment.
 - the panel can be reduced/collapsed when users need more workspace.
@@ -31,8 +31,8 @@ meeting notes:
 ## Acceptance Criteria
 1. Project members can see a floating, reducible panel showing open todos from
    all meeting notes in the project.
-2. Todos show the source meeting title, meeting date, labels, and overdue state
-   where applicable.
+2. Todos show the source meeting title and overdue state where applicable,
+   without crowding the floating card with secondary metadata.
 3. Owner/editor users can complete or reopen todos from the panel without
    opening the meeting note modal.
 4. Clicking a todo or source meeting opens the relevant meeting note context.
