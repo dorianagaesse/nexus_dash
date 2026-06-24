@@ -99,7 +99,7 @@ notification email dispatcher and queue semantics.
 - [x] Tests cover service, API/scheduler, email grouping/rendering, skipped
       delivery, and tenancy behavior.
 - [x] Documentation explains local, preview, and production reminder behavior.
-- [ ] Preview validation proves the reminder path can run safely without sending
+- [x] Preview validation proves the reminder path can run safely without sending
       unintended external email.
 
 ## Validation Plan
@@ -116,3 +116,22 @@ notification email dispatcher and queue semantics.
   `git_ref=feature/task-314-meeting-todo-overdue-reminders`, confirm logs check
   out that ref, and capture the dispatcher summary plus safe outbound email
   outcome.
+
+## Evidence
+- Local validation passed with `npm run lint`, `npm run rls:check`, focused
+  notification/API tests, local PostgreSQL `npm test` (124 files passed, 2
+  skipped; 922 tests passed, 2 skipped), `npm run test:coverage` (91.37%
+  statements, 81.33% branches, 92.2% functions, 91.88% lines), preview-env
+  `npm run build`, and `git diff --check`.
+- PR #346 checks passed on commit
+  `39f80f2da44419fa37c3cb7ec9114f673879204b` for branch name, Quality Core,
+  E2E Smoke, Tenant Isolation, and Container Image.
+- Preview workflow run `28135528412` used
+  `git_ref=feature/task-314-meeting-todo-overdue-reminders`, checked out commit
+  `39f80f2da44419fa37c3cb7ec9114f673879204b`, deployed app version `0.22.0` to
+  `https://nexus-dash-hyp9z5w0q-dorian-agaesses-projects.vercel.app`, and
+  passed the secret-injection check for `NOTIFICATION_EMAIL_DISPATCH_SECRET`.
+- Notification dispatch workflow run `28135630372` against that preview returned
+  `ok: true` with `meetingTodoOverdueRemindersReconciled: 0`, all delivery
+  counts at `0`, and `errors: 0`, proving the guarded reminder path can run
+  safely without sending unintended external email.
