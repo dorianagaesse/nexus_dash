@@ -3,6 +3,47 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-06-25 - TASK-314 meeting todo overdue reminders started
+
+- Summary: Removed clean local task worktrees for TASK-316, TASK-318, and
+  TASK-319, leaving only the main checkout. Started
+  `feature/task-314-meeting-todo-overdue-reminders` from refreshed
+  `origin/main` and drafted `tasks/current.md` around TASK-314.
+- Grounding: Reviewed `agent.md`, `project.md`, `CLAUDE.md`, `README.md`, the
+  TASK-314 brief, current/backlog context, notification email dispatch runbook,
+  existing task due-date reminder reconciliation, notification metadata, and the
+  meeting-note action model.
+- Decision: Keep TASK-314 focused on durable in-app/email reminders through the
+  existing notification dispatcher. Treat per-action reminder persistence as the
+  primary implementation design question before coding begins.
+
+# 2026-06-25 - TASK-314 meeting todo overdue reminders implemented
+
+- Summary: Added overdue meeting-todo reminder reconciliation to the existing
+  protected notification email dispatcher. Incomplete meeting-note actions now
+  become eligible seven local calendar days after the meeting date, only for the
+  meeting-note creator while they still have project access and verified email.
+  The dispatcher creates durable `meeting_todo_overdue_reminder` notifications,
+  queues them through the shared project digest path, renders concise digest
+  items, exposes a `meetingTodoOverdueRemindersReconciled` summary count, and
+  surfaces that count in the scheduler workflow summary.
+- Decision: No new reminder-state table was added. The existing
+  `Notification` uniqueness key plus pending/dispatching/sent email item
+  coverage provides the durable idempotency record for
+  `<actionId>:<recipientUserId>:<scheduledDate>`, matching the task due-date
+  reminder pattern while keeping the schema unchanged.
+- Documentation: Extended the notification email dispatch runbook with
+  meeting-todo eligibility, idempotency, and smoke validation guidance.
+- Validation: Focused notification tests passed (47 tests). `npm run lint`,
+  `npm run rls:check`, `npm run release:check -- --base origin/main --branch
+  feature/task-314-meeting-todo-overdue-reminders`, full `npm test` with local
+  database env (124 files passed, 2 skipped; 922 tests passed, 2 skipped),
+  `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2%
+  functions, 91.88% lines), `git diff --check`, and `npm run build` with
+  local-safe placeholder secrets passed. An initial bare `npm test` failed
+  before assertions because `DATABASE_URL` was not set in the shell; rerunning
+  with local-safe `DATABASE_URL`/`DIRECT_URL` passed.
+
 # 2026-06-19 - TASK-319 Prisma tooling advisory remediation
 
 - Summary: Restored clean production and full npm audits without changing the

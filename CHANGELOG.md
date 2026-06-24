@@ -8,6 +8,16 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.22.0 - 2026-06-25
+
+- Added durable in-app reminders for meeting-note todos that remain open seven
+  or more days after the meeting date.
+- Queued overdue meeting todo reminders through the existing notification email
+  dispatcher so email delivery, skipped mode, grouping, and delivery logging use
+  the shared project digest path.
+- Added dispatcher summary, workflow-summary, runbook, and service coverage for
+  meeting-todo reminder eligibility, idempotency, and digest rendering.
+
 ## v0.21.0 - 2026-06-21
 
 - Added a responsive project-wide floating Meeting Todos card with overdue-first

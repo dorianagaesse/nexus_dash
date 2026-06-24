@@ -14,6 +14,8 @@ const NOTIFICATION_TYPE_TASK_ASSIGNMENT = "task_assignment";
 const NOTIFICATION_SOURCE_TASK_ASSIGNMENT = "task_assignment";
 const NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER = "task_due_date_reminder";
 const NOTIFICATION_SOURCE_TASK_DUE_DATE_REMINDER = "task_due_date_reminder";
+const NOTIFICATION_TYPE_MEETING_TODO_OVERDUE_REMINDER =
+  "meeting_todo_overdue_reminder";
 
 interface ServiceErrorResult {
   ok: false;
@@ -131,11 +133,26 @@ export interface TaskDueDateReminderNotificationMetadata {
   targetPath: string;
 }
 
+export interface MeetingTodoOverdueReminderNotificationMetadata {
+  actionId: string;
+  actionContent: string;
+  meetingNoteId: string;
+  meetingTitle: string;
+  projectId: string;
+  projectName: string;
+  recipientUserId: string;
+  scheduledDate: string;
+  overdueSinceDate: string;
+  overdueAfterDays: number;
+  targetPath: string;
+}
+
 export type NotificationMetadata =
   | ProjectInvitationNotificationMetadata
   | TaskCommentMentionNotificationMetadata
   | TaskAssignmentNotificationMetadata
-  | TaskDueDateReminderNotificationMetadata;
+  | TaskDueDateReminderNotificationMetadata
+  | MeetingTodoOverdueReminderNotificationMetadata;
 
 export interface NotificationSummary {
   id: string;
@@ -242,6 +259,7 @@ function toJsonObject(
     | TaskCommentMentionNotificationMetadata
     | TaskAssignmentNotificationMetadata
     | TaskDueDateReminderNotificationMetadata
+    | MeetingTodoOverdueReminderNotificationMetadata
 ): Prisma.InputJsonObject {
   return metadata as unknown as Prisma.InputJsonObject;
 }
@@ -304,6 +322,10 @@ function mapNotification(
     metadata = mapTaskAssignmentMetadata(notification.metadata);
   } else if (notification.type === NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER) {
     metadata = mapTaskDueDateReminderMetadata(notification.metadata);
+  } else if (
+    notification.type === NOTIFICATION_TYPE_MEETING_TODO_OVERDUE_REMINDER
+  ) {
+    metadata = mapMeetingTodoOverdueReminderMetadata(notification.metadata);
   }
 
   return {
@@ -1464,6 +1486,58 @@ function mapTaskDueDateReminderMetadata(
     recipientUserId: metadata.recipientUserId,
     deadlineDate: metadata.deadlineDate,
     daysUntilDue: metadata.daysUntilDue,
+    targetPath: metadata.targetPath,
+  };
+}
+
+function isMeetingTodoOverdueReminderMetadata(
+  value: Prisma.JsonValue | null
+): boolean {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      "actionId" in (value as Record<string, unknown>) &&
+      "meetingNoteId" in (value as Record<string, unknown>) &&
+      "overdueSinceDate" in (value as Record<string, unknown>)
+  );
+}
+
+function mapMeetingTodoOverdueReminderMetadata(
+  value: Prisma.JsonValue | null
+): MeetingTodoOverdueReminderNotificationMetadata | null {
+  if (!isMeetingTodoOverdueReminderMetadata(value)) {
+    return null;
+  }
+
+  const metadata = value as Record<string, unknown>;
+  if (
+    typeof metadata.actionId !== "string" ||
+    typeof metadata.actionContent !== "string" ||
+    typeof metadata.meetingNoteId !== "string" ||
+    typeof metadata.meetingTitle !== "string" ||
+    typeof metadata.projectId !== "string" ||
+    typeof metadata.projectName !== "string" ||
+    typeof metadata.recipientUserId !== "string" ||
+    typeof metadata.scheduledDate !== "string" ||
+    typeof metadata.overdueSinceDate !== "string" ||
+    typeof metadata.overdueAfterDays !== "number" ||
+    typeof metadata.targetPath !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    actionId: metadata.actionId,
+    actionContent: metadata.actionContent,
+    meetingNoteId: metadata.meetingNoteId,
+    meetingTitle: metadata.meetingTitle,
+    projectId: metadata.projectId,
+    projectName: metadata.projectName,
+    recipientUserId: metadata.recipientUserId,
+    scheduledDate: metadata.scheduledDate,
+    overdueSinceDate: metadata.overdueSinceDate,
+    overdueAfterDays: metadata.overdueAfterDays,
     targetPath: metadata.targetPath,
   };
 }
