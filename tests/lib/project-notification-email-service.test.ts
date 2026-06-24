@@ -254,6 +254,21 @@ function claimedGroup(input: {
   };
 }
 
+function queryRawSqlCalls(): string[] {
+  return prismaMock.$queryRaw.mock.calls.map((call) =>
+    (call[0] as { strings: string[] }).strings.join(" ")
+  );
+}
+
+function findQueryRawSql(fragment: string): string {
+  const sql = queryRawSqlCalls().find((candidate) =>
+    candidate.includes(fragment)
+  );
+
+  expect(sql).toBeDefined();
+  return sql ?? "";
+}
+
 describe("project-notification-email-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -530,10 +545,7 @@ describe("project-notification-email-service", () => {
       now,
     });
 
-    const dueDateQuery = prismaMock.$queryRaw.mock.calls[0]?.[0] as
-      | { strings: string[] }
-      | undefined;
-    const sql = dueDateQuery?.strings.join(" ") ?? "";
+    const sql = findQueryRawSql('FROM "Task" task');
 
     expect(sql).toContain('task."deadlineAt" = CAST(');
     expect(sql).toContain('task."status" <> \'Done\'');
@@ -564,10 +576,7 @@ describe("project-notification-email-service", () => {
       now,
     });
 
-    const meetingTodoQuery = prismaMock.$queryRaw.mock.calls[1]?.[0] as
-      | { strings: string[] }
-      | undefined;
-    const sql = meetingTodoQuery?.strings.join(" ") ?? "";
+    const sql = findQueryRawSql('FROM "ProjectMeetingNoteAction" action');
 
     expect(sql).toContain('FROM "ProjectMeetingNoteAction" action');
     expect(sql).toContain('action."completedAt" IS NULL');
@@ -596,9 +605,7 @@ describe("project-notification-email-service", () => {
       now,
     });
 
-    const dueDateQueries = prismaMock.$queryRaw.mock.calls
-      .slice(0, 4)
-      .map((call) => (call[0] as { strings: string[] }).strings.join(" "));
+    const dueDateQueries = queryRawSqlCalls().slice(0, 4);
 
     expect(dueDateQueries).toHaveLength(4);
     expect(
@@ -930,10 +937,7 @@ describe("project-notification-email-service", () => {
       now,
     });
 
-    const reconcileQuery = prismaMock.$queryRaw.mock.calls[2]?.[0] as
-      | { strings: string[] }
-      | undefined;
-    const sql = reconcileQuery?.strings.join(" ") ?? "";
+    const sql = findQueryRawSql("email.\"status\" = 'sent'");
 
     expect(sql).toContain("email.\"status\" = 'sent'");
     expect(sql).toContain(

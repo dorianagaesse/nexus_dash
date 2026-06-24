@@ -4,8 +4,7 @@
 TASK-314
 
 ## Status
-Implemented locally. Awaiting branch push, PR review, CI, and preview
-validation.
+Implemented in PR #346. Awaiting final review and merge.
 
 ## Branch
 `feature/task-314-meeting-todo-overdue-reminders`

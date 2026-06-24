@@ -43,6 +43,17 @@ Use it for important implementation milestones, blockers, validation runs, and r
   local-safe placeholder secrets passed. An initial bare `npm test` failed
   before assertions because `DATABASE_URL` was not set in the shell; rerunning
   with local-safe `DATABASE_URL`/`DIRECT_URL` passed.
+- Review/preview follow-up: Copilot flagged stale `tasks/current.md` status and
+  brittle `$queryRaw.mock.calls[index]` assertions; updated the task status and
+  switched SQL assertions to query-signature lookup. Branch preview workflow run
+  `28134979130` deployed
+  `https://nexus-dash-q9kwqqxs3-dorian-agaesses-projects.vercel.app` from
+  explicit `git_ref=feature/task-314-meeting-todo-overdue-reminders`, with logs
+  confirming checkout of commit `c6dae7fe5104f6fcb0ee9dc50802ba878e0a154f`.
+  A preview notification-dispatch smoke attempt, run `28135234472`, failed
+  safely with `503 notification-email-dispatch-secret-missing` before
+  dispatching work; fixed the deploy workflow to pass
+  `NOTIFICATION_EMAIL_DISPATCH_SECRET` into preview deployments.
 
 # 2026-06-19 - TASK-319 Prisma tooling advisory remediation
 
