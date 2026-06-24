@@ -2358,3 +2358,28 @@ Low-value entries to avoid going forward:
 - Type: Integration
 - Summary: TASK-318 resolved its merge conflict against TASK-319 and reconciled post-merge task tracking.
 - Evidence: Merged `origin/main` at `401fef055d914002154c478492e23ce17ceb3d7d`, preserved TASK-319's patched Hono `4.12.26` dependency resolution and `v0.19.2` changelog entry, retained TASK-318's `v0.20.0` feature release, moved TASK-319 and TASK-318 to one completed backlog entry each, and advanced TASK-316 to the current queue position. `npm ci`, `npm run security:audit`, `npm run rls:check`, feature version-policy validation, `npm run lint`, the full unit suite (123 files passed, 2 skipped; 909 tests passed, 2 skipped), and `npm run build` passed after resolution.
+
+### 2026-06-21
+- Type: Implementation
+- Summary: TASK-316 added a project-wide floating Meeting Todos panel and focused todo mutation boundary.
+- Evidence: Added a responsive floating table that is visible across the project dashboard, can collapse to a compact control, aggregates open meeting todos overdue-first, includes source meeting dates and labels, keeps completed items available for reopening, and opens the source meeting note directly. Added an atomic action-completion API/service path with editor authorization and activity updates so todo toggles do not replace every action in the meeting note; reopening a todo from an archived meeting returns the note to `actions_in_progress`. Bumped the feature release to `v0.21.0`.
+
+### 2026-06-21
+- Type: Validation
+- Summary: TASK-316 passed the available non-Docker local validation baseline.
+- Evidence: Docker was intentionally not used because the workstation WSL engine is unavailable. `npm run lint`, the full Vitest suite (124 files passed, 2 skipped; 917 tests passed, 2 skipped), `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2% functions, 91.88% lines), `npm run security:audit`, `npm run rls:check`, and a production Next.js build with local-safe placeholder connection/secrets passed. Playwright passed all 9 repository E2E flows against the branch dev server, including the new meeting-todo aggregation, complete, reopen, overdue metadata, and source-meeting navigation workflow.
+
+### 2026-06-21
+- Type: Review
+- Summary: TASK-316 completed CI and Copilot review handling on PR #345.
+- Evidence: Initial commit `9902fe8b90d83a72b6216ab540a7ca8ad6968c8e` opened the ready-for-review PR. Quality Core caught stale `v0.20.0` expectations in the app-metadata fallback tests; commit `088adda11f408cc925039250df8aa6bda62d40c9` aligned them with the `v0.21.0` feature release. Refreshed Quality Core, E2E Smoke, Tenant Isolation, Container Image, and branch-name checks passed. Copilot reviewed 16 of 17 files and generated no comments or unresolved threads.
+
+### 2026-06-21
+- Type: Validation
+- Summary: TASK-316 passed final branch-ref preview deployment and preview Playwright.
+- Evidence: Manual preview workflow run `27918545154` used `git_ref=feature/task-316-meeting-todo-side-panel`; logs showed checkout of `refs/remotes/origin/feature/task-316-meeting-todo-side-panel`, commit `088adda11f408cc925039250df8aa6bda62d40c9`, and app version `0.21.0`. The workflow deployed `https://nexus-dash-4bzwscs5j-dorian-agaesses-projects.vercel.app`, where the targeted meeting-notes Playwright flow passed, including todo aggregation, overdue metadata, complete/reopen, and source-meeting navigation.
+
+### 2026-06-23
+- Type: Iteration
+- Summary: TASK-316 follow-up changed the todos surface from a meeting-notes-area launcher/drawer into a project-wide floating table.
+- Evidence: Removed the Meeting Notes header Todos button, kept the aggregation and atomic mutation boundary, and made the floating Meeting Todos panel visible across the project dashboard with a compact collapsed state. The panel now sits mid-right, uses a smaller card layout, drops table headers, labels, dates, and explanatory copy, and keeps only todo text, source meeting context, overdue/count state, and completion/reopen controls. The panel stays out of the DOM when there are no open or recently completed meeting todos, avoiding empty-state overlap with unrelated dashboard interactions. Updated the Playwright smoke flow to assert the floating region is visible without a launcher, collapses/expands, still completes/reopens todos, and still opens the source meeting note. `npm run lint`, full Vitest with `NODE_ENV=test` (124 files passed, 2 skipped; 917 tests passed, 2 skipped), `npm run test:coverage`, production `npm run build` with local-safe placeholder connection/secrets, and targeted Playwright meeting-notes plus roadmap drag/drop flows against `localhost:3016` passed. Docker remained intentionally unused because the workstation WSL engine is unavailable.

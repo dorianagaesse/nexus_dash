@@ -7,8 +7,8 @@ import {
 } from "@/components/project-dashboard/project-section-chrome";
 import {
   ProjectMeetingNotesPanel,
-  type ProjectMeetingNotePanelNote,
 } from "@/components/project-meeting-notes-panel";
+import type { ProjectMeetingNotePanelNote } from "@/components/meeting-todos/meeting-note-types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listProjectMeetingNotes } from "@/lib/services/project-meeting-note-service";
 

@@ -24,6 +24,10 @@ const dbMock = vi.hoisted(() => ({
     update: vi.fn(),
     delete: vi.fn(),
   },
+  projectMeetingNoteAction: {
+    findFirst: vi.fn(),
+    update: vi.fn(),
+  },
 }));
 
 vi.mock("@/lib/services/project-access-service", () => ({
@@ -45,6 +49,7 @@ vi.mock("@/lib/observability/logger", () => ({
 import {
   createProjectMeetingNote,
   listProjectMeetingNotes,
+  setProjectMeetingNoteActionCompletion,
   updateProjectMeetingNote,
 } from "@/lib/services/project-meeting-note-service";
 
@@ -264,5 +269,99 @@ describe("project-meeting-note-service", () => {
       error: "meeting-note-title-too-short",
     });
     expect(rlsContextMock.withActorRlsContext).not.toHaveBeenCalled();
+  });
+
+  test("completes one meeting todo without replacing sibling actions", async () => {
+    dbMock.projectMeetingNoteAction.findFirst.mockResolvedValueOnce({
+      id: "action-1",
+      meetingNote: { status: "actions_in_progress" },
+    });
+    dbMock.projectMeetingNoteAction.update.mockResolvedValueOnce({ id: "action-1" });
+    dbMock.projectMeetingNote.update.mockResolvedValueOnce({ id: "note-1" });
+    dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
+      ...baseMeetingNoteRecord,
+      actions: [
+        {
+          ...baseMeetingNoteRecord.actions[0],
+          completedAt: new Date("2026-06-08T16:00:00.000Z"),
+        },
+      ],
+    });
+
+    const result = await setProjectMeetingNoteActionCompletion({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      noteId: "note-1",
+      actionId: "action-1",
+      completed: true,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(dbMock.projectMeetingNoteAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: { completedAt: expect.any(Date) },
+    });
+    expect(dbMock.projectMeetingNote.update).toHaveBeenCalledWith({
+      where: { id: "note-1" },
+      data: { updatedByUserId: "user-1" },
+    });
+    expect(projectActivityServiceMock.touchProjectActivity).toHaveBeenCalledWith({
+      db: dbMock,
+      projectId: "project-1",
+    });
+  });
+
+  test("reopens a todo and reactivates its archived meeting note", async () => {
+    dbMock.projectMeetingNoteAction.findFirst.mockResolvedValueOnce({
+      id: "action-1",
+      meetingNote: { status: "done" },
+    });
+    dbMock.projectMeetingNoteAction.update.mockResolvedValueOnce({ id: "action-1" });
+    dbMock.projectMeetingNote.update.mockResolvedValueOnce({ id: "note-1" });
+    dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
+      ...baseMeetingNoteRecord,
+      status: "actions_in_progress",
+      actions: [{ ...baseMeetingNoteRecord.actions[0], completedAt: null }],
+    });
+
+    const result = await setProjectMeetingNoteActionCompletion({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      noteId: "note-1",
+      actionId: "action-1",
+      completed: false,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(dbMock.projectMeetingNoteAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: { completedAt: null },
+    });
+    expect(dbMock.projectMeetingNote.update).toHaveBeenCalledWith({
+      where: { id: "note-1" },
+      data: {
+        status: "actions_in_progress",
+        updatedByUserId: "user-1",
+      },
+    });
+  });
+
+  test("rejects viewer todo mutations", async () => {
+    projectAccessServiceMock.requireProjectRole.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      error: "forbidden",
+    });
+
+    const result = await setProjectMeetingNoteActionCompletion({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      noteId: "note-1",
+      actionId: "action-1",
+      completed: true,
+    });
+
+    expect(result).toEqual({ ok: false, status: 403, error: "forbidden" });
+    expect(dbMock.projectMeetingNoteAction.update).not.toHaveBeenCalled();
   });
 });

@@ -6,21 +6,15 @@ Last reviewed: 2026-06-21
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-316
-  Title: Meeting todo side panel - project-wide open follow-up list
-  Status: Next 1 - current task
-  Rationale: Externalize open todos from all meeting notes into a project-side panel so users can review and close meeting follow-ups without opening each historical note, while preserving links back to the source meeting and future compatibility with TASK-314 overdue reminders.
-  Dependencies: TASK-098
-  Brief: `tasks/task-316-meeting-todo-side-panel.md`
 - ID: TASK-314
   Title: Meeting todo overdue reminders - notification email and in-app reminder dispatch
-  Status: Next 2 - meeting workflow completion
+  Status: Next 1 - meeting workflow completion
   Rationale: Send the meeting-note owner a notification email and in-app reminder when a personal meeting todo remains open seven days after the meeting date, using the existing notification email delivery conventions and scheduler/dispatcher architecture instead of mixing background delivery concerns into the TASK-098 UI rollout.
   Dependencies: TASK-098, TASK-227, TASK-268, TASK-316
   Brief: `tasks/task-314-meeting-todo-overdue-reminders.md`
 - ID: TASK-119
   Title: Project collaboration presence UX - member avatars on project pages
-  Status: Next 3 - bounded collaboration UX improvement
+  Status: Next 2 - bounded collaboration UX improvement
   Rationale: Improve shared-project awareness by showing collaborator avatars and identity affordances directly on project pages so users can quickly understand who has access and who is participating, with sensible fallback behavior for accounts without uploaded photos.
   Dependencies: TASK-058, TASK-082, TASK-089
 ### Deferred (Intentional)
@@ -109,6 +103,12 @@ Last reviewed: 2026-06-21
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-316
+  Title: Meeting todo floating panel - project-wide open follow-up list
+  Status: Done (2026-06-21, delivered via PR #345)
+  Rationale: Added a responsive project-wide floating Meeting Todos card with overdue-first aggregation, minimal source meeting context and navigation, viewer-safe read access, a reducible compact state, and focused owner/editor completion and reopening without replacing the full meeting action list.
+  Dependencies: TASK-098
+  Brief: `tasks/task-316-meeting-todo-side-panel.md`
 - ID: TASK-319
   Title: Prisma tooling dependency advisory remediation - restore green security audit
   Status: Done (2026-06-21, merged via PR #343)

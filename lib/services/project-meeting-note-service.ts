@@ -90,6 +90,15 @@ export interface ProjectMeetingNoteActionSummary {
   position: number;
 }
 
+export interface MeetingNoteActionCompletionInput {
+  actorUserId: string;
+  projectId: string;
+  noteId: string;
+  actionId: string;
+  completed: boolean;
+  agentAccess?: AgentProjectAccessContext;
+}
+
 type MeetingNoteRecord = {
   id: string;
   projectId: string;
@@ -543,6 +552,94 @@ export async function updateProjectMeetingNote(
     } catch (error) {
       logServerError("updateProjectMeetingNote", error);
       return createError(500, "meeting-note-update-failed");
+    }
+  });
+}
+
+export async function setProjectMeetingNoteActionCompletion(
+  input: MeetingNoteActionCompletionInput
+): Promise<ServiceResult<{ note: ProjectMeetingNoteSummary }>> {
+  const actorUserId = normalizeText(input.actorUserId);
+  const noteId = normalizeText(input.noteId);
+  const actionId = normalizeText(input.actionId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+  if (!noteId) {
+    return createError(400, "meeting-note-not-found");
+  }
+  if (!actionId) {
+    return createError(400, "meeting-note-action-not-found");
+  }
+
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "editor",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
+
+    const action = await db.projectMeetingNoteAction.findFirst({
+      where: {
+        id: actionId,
+        meetingNoteId: noteId,
+        meetingNote: {
+          projectId: input.projectId,
+        },
+      },
+      select: {
+        id: true,
+        meetingNote: {
+          select: {
+            status: true,
+          },
+        },
+      },
+    });
+    if (!action) {
+      return createError(404, "meeting-note-action-not-found");
+    }
+
+    try {
+      await db.projectMeetingNoteAction.update({
+        where: { id: actionId },
+        data: {
+          completedAt: input.completed ? new Date() : null,
+        },
+      });
+
+      await db.projectMeetingNote.update({
+        where: { id: noteId },
+        data: {
+          ...(!input.completed && action.meetingNote.status === "done"
+            ? { status: "actions_in_progress" }
+            : {}),
+          updatedByUserId: actorUserId,
+        },
+      });
+
+      const note = await readMeetingNoteById({
+        db,
+        projectId: input.projectId,
+        noteId,
+      });
+      if (!note) {
+        return createError(404, "meeting-note-not-found");
+      }
+
+      await touchProjectActivity({ db, projectId: input.projectId });
+
+      return {
+        ok: true,
+        data: { note },
+      };
+    } catch (error) {
+      logServerError("setProjectMeetingNoteActionCompletion", error);
+      return createError(500, "meeting-note-action-update-failed");
     }
   });
 }

@@ -8,6 +8,16 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.21.0 - 2026-06-21
+
+- Added a responsive project-wide floating Meeting Todos card with overdue-first
+  sorting, minimal source-meeting context, direct meeting-note navigation, and a
+  reducible compact state.
+- Added atomic todo completion and reopening for owners/editors while keeping
+  viewer access read-only; reopening an archived todo reactivates its meeting.
+- Added service, route, aggregation, permission, and Playwright coverage for
+  project-wide meeting follow-up workflows.
+
 ## v0.20.0 - 2026-06-19
 
 - Added a machine-checked RLS inventory that classifies every Prisma model and

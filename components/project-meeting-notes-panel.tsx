@@ -24,6 +24,12 @@ import {
 } from "lucide-react";
 
 import { CalendarDateTimeField } from "@/components/calendar-date-time-field";
+import type {
+  MeetingNoteStatus,
+  ProjectMeetingNotePanelAction,
+  ProjectMeetingNotePanelNote,
+} from "@/components/meeting-todos/meeting-note-types";
+import { MeetingTodoSidePanel } from "@/components/meeting-todos/meeting-todo-side-panel";
 import {
   PROJECT_SECTION_CARD_CLASS,
   PROJECT_SECTION_CONTENT_CLASS,
@@ -42,6 +48,7 @@ import {
   PROJECT_ACTIVITY_REMOTE_EVENT,
   type ProjectActivityRemoteEventDetail,
 } from "@/lib/project-activity-client";
+import { buildProjectMeetingTodos, type ProjectMeetingTodo } from "@/lib/meeting-todo";
 import {
   getTaskLabelColor,
   MAX_TASK_LABELS,
@@ -49,32 +56,8 @@ import {
 } from "@/lib/task-label";
 import { cn } from "@/lib/utils";
 
-type MeetingNoteStatus = "prepared" | "actions_in_progress" | "done";
 type MeetingListView = "active" | "archived";
 type PrepareDialogMode = "create" | "edit";
-
-export interface ProjectMeetingNotePanelAction {
-  id: string;
-  content: string;
-  completedAt: string | null;
-  position: number;
-}
-
-export interface ProjectMeetingNotePanelNote {
-  id: string;
-  projectId: string;
-  title: string;
-  scheduledAt: string | null;
-  participants: string[];
-  labels: string[];
-  status: MeetingNoteStatus;
-  inputNotes: string;
-  outputNotes: string;
-  decisions?: string;
-  actions: ProjectMeetingNotePanelAction[];
-  createdAt: string;
-  updatedAt: string;
-}
 
 interface ProjectMeetingNotesPanelProps {
   projectId: string;
@@ -162,10 +145,6 @@ const STATUS_OPTIONS: Array<{
   },
 ];
 
-const OVERDUE_TODO_GRACE_DAYS = 7;
-const OVERDUE_TODO_GRACE_MS =
-  OVERDUE_TODO_GRACE_DAYS * 24 * 60 * 60 * 1000;
-
 function createLocalId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -234,26 +213,6 @@ function actionCounts(note: ProjectMeetingNotePanelNote) {
     completed,
     total: note.actions.length,
   };
-}
-
-function getOverdueTodoCount(
-  note: ProjectMeetingNotePanelNote,
-  referenceNowMs: number
-): number {
-  if (note.status === "done" || !note.scheduledAt) {
-    return 0;
-  }
-
-  const scheduledAtMs = new Date(note.scheduledAt).getTime();
-  if (Number.isNaN(scheduledAtMs)) {
-    return 0;
-  }
-
-  if (referenceNowMs - scheduledAtMs < OVERDUE_TODO_GRACE_MS) {
-    return 0;
-  }
-
-  return note.actions.filter((action) => action.completedAt == null).length;
 }
 
 function sortNotes(notes: ProjectMeetingNotePanelNote[]): ProjectMeetingNotePanelNote[] {
@@ -358,6 +317,10 @@ function mapMeetingNoteError(errorCode: string): string {
       return "Keep follow-up actions to 40 items or fewer.";
     case "meeting-note-action-too-long":
       return "Follow-up actions must be 240 characters or fewer.";
+    case "meeting-note-action-not-found":
+      return "Meeting todo not found.";
+    case "meeting-note-action-update-failed":
+      return "Could not update the meeting todo. Please retry.";
     case "meeting-note-not-found":
       return "Meeting note not found.";
     case "forbidden":
@@ -696,6 +659,9 @@ export function ProjectMeetingNotesPanel({
   const [isSaving, setIsSaving] = useState(false);
   const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [pendingTodoActionId, setPendingTodoActionId] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     const sortedNotes = sortNotes(notes);
@@ -731,13 +697,21 @@ export function ProjectMeetingNotesPanel({
     () => localNotes.filter((note) => note.status === "done"),
     [localNotes]
   );
+  const meetingTodos = useMemo(
+    () => buildProjectMeetingTodos(localNotes, referenceNowMs),
+    [localNotes, referenceNowMs]
+  );
   const overdueTodoCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    localNotes.forEach((note) => {
-      counts.set(note.id, getOverdueTodoCount(note, referenceNowMs));
+    meetingTodos.open.forEach((todo) => {
+      if (!todo.isOverdue) {
+        return;
+      }
+
+      counts.set(todo.note.id, (counts.get(todo.note.id) ?? 0) + 1);
     });
     return counts;
-  }, [localNotes, referenceNowMs]);
+  }, [meetingTodos.open]);
   const overdueTodoTotal = useMemo(
     () =>
       Array.from(overdueTodoCounts.values()).reduce(
@@ -863,6 +837,63 @@ export function ProjectMeetingNotesPanel({
     setSelectedNoteId(note.id);
     setNotesDraft(buildNotesDraftFromNote(note));
     setDraftError(null);
+  };
+
+  const openNoteFromTodoPanel = (note: ProjectMeetingNotePanelNote) => {
+    setListView(note.status === "done" ? "archived" : "active");
+    setIsExpanded(true);
+    setSelectedNoteId(note.id);
+    setNotesDraft(buildNotesDraftFromNote(note));
+    setDraftError(null);
+  };
+
+  const setTodoCompleted = async (
+    todo: ProjectMeetingTodo,
+    completed: boolean
+  ) => {
+    if (!canEdit || pendingTodoActionId) {
+      return;
+    }
+
+    setPendingTodoActionId(todo.action.id);
+    try {
+      const response = await fetchProjectActivityMutation(
+        projectId,
+        `/api/projects/${projectId}/meeting-notes/${todo.note.id}/actions/${todo.action.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ completed }),
+        }
+      );
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string; note?: ProjectMeetingNotePanelNote }
+        | null;
+
+      if (!response.ok || !payload?.note) {
+        throw new Error(mapMeetingNoteError(payload?.error ?? "unknown"));
+      }
+
+      setLocalNotes((current) =>
+        sortNotes(
+          current.map((note) => (note.id === payload.note?.id ? payload.note : note))
+        )
+      );
+      pushToast({
+        variant: "success",
+        message: completed ? "Meeting todo completed." : "Meeting todo reopened.",
+      });
+    } catch (error) {
+      pushToast({
+        variant: "error",
+        message:
+          error instanceof Error ? error.message : "Could not update meeting todo.",
+      });
+    } finally {
+      setPendingTodoActionId(null);
+    }
   };
 
   const closeNoteDialog = () => {
@@ -1111,6 +1142,7 @@ export function ProjectMeetingNotesPanel({
     Boolean(prepareDialog) ||
     Boolean(selectedNoteId) ||
     isSaving ||
+    Boolean(pendingTodoActionId) ||
     Boolean(pendingDeleteNoteId) ||
     isDeleting;
 
@@ -1148,17 +1180,19 @@ export function ProjectMeetingNotesPanel({
             ) : null}
           </button>
 
-          {canEdit ? (
-            <Button
-              type="button"
-              size="sm"
-              className="w-full sm:w-auto"
-              onClick={openPrepareCreate}
-            >
-              <PlusSquare className="h-4 w-4" />
-              Prepare meeting
-            </Button>
-          ) : null}
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            {canEdit ? (
+              <Button
+                type="button"
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={openPrepareCreate}
+              >
+                <PlusSquare className="h-4 w-4" />
+                Prepare meeting
+              </Button>
+            ) : null}
+          </div>
         </div>
       </CardHeader>
 
@@ -1385,6 +1419,17 @@ export function ProjectMeetingNotesPanel({
           )}
         </CardContent>
       ) : null}
+
+      <MeetingTodoSidePanel
+        notes={localNotes}
+        canEdit={canEdit}
+        referenceNowMs={referenceNowMs}
+        pendingActionId={pendingTodoActionId}
+        onOpenMeeting={openNoteFromTodoPanel}
+        onSetCompleted={(todo, completed) => {
+          void setTodoCompleted(todo, completed);
+        }}
+      />
 
       {prepareDialog ? (
         <MeetingDialogShell
