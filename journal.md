@@ -3,6 +3,58 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-06-25 - TASK-314 meeting todo overdue reminders started
+
+- Summary: Removed clean local task worktrees for TASK-316, TASK-318, and
+  TASK-319, leaving only the main checkout. Started
+  `feature/task-314-meeting-todo-overdue-reminders` from refreshed
+  `origin/main` and drafted `tasks/current.md` around TASK-314.
+- Grounding: Reviewed `agent.md`, `project.md`, `CLAUDE.md`, `README.md`, the
+  TASK-314 brief, current/backlog context, notification email dispatch runbook,
+  existing task due-date reminder reconciliation, notification metadata, and the
+  meeting-note action model.
+- Decision: Keep TASK-314 focused on durable in-app/email reminders through the
+  existing notification dispatcher. Treat per-action reminder persistence as the
+  primary implementation design question before coding begins.
+
+# 2026-06-25 - TASK-314 meeting todo overdue reminders implemented
+
+- Summary: Added overdue meeting-todo reminder reconciliation to the existing
+  protected notification email dispatcher. Incomplete meeting-note actions now
+  become eligible seven local calendar days after the meeting date, only for the
+  meeting-note creator while they still have project access and verified email.
+  The dispatcher creates durable `meeting_todo_overdue_reminder` notifications,
+  queues them through the shared project digest path, renders concise digest
+  items, exposes a `meetingTodoOverdueRemindersReconciled` summary count, and
+  surfaces that count in the scheduler workflow summary.
+- Decision: No new reminder-state table was added. The existing
+  `Notification` uniqueness key plus pending/dispatching/sent email item
+  coverage provides the durable idempotency record for
+  `<actionId>:<recipientUserId>:<scheduledDate>`, matching the task due-date
+  reminder pattern while keeping the schema unchanged.
+- Documentation: Extended the notification email dispatch runbook with
+  meeting-todo eligibility, idempotency, and smoke validation guidance.
+- Validation: Focused notification tests passed (47 tests). `npm run lint`,
+  `npm run rls:check`, `npm run release:check -- --base origin/main --branch
+  feature/task-314-meeting-todo-overdue-reminders`, full `npm test` with local
+  database env (124 files passed, 2 skipped; 922 tests passed, 2 skipped),
+  `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2%
+  functions, 91.88% lines), `git diff --check`, and `npm run build` with
+  local-safe placeholder secrets passed. An initial bare `npm test` failed
+  before assertions because `DATABASE_URL` was not set in the shell; rerunning
+  with local-safe `DATABASE_URL`/`DIRECT_URL` passed.
+- Review/preview follow-up: Copilot flagged stale `tasks/current.md` status and
+  brittle `$queryRaw.mock.calls[index]` assertions; updated the task status and
+  switched SQL assertions to query-signature lookup. Branch preview workflow run
+  `28134979130` deployed
+  `https://nexus-dash-q9kwqqxs3-dorian-agaesses-projects.vercel.app` from
+  explicit `git_ref=feature/task-314-meeting-todo-overdue-reminders`, with logs
+  confirming checkout of commit `c6dae7fe5104f6fcb0ee9dc50802ba878e0a154f`.
+  A preview notification-dispatch smoke attempt, run `28135234472`, failed
+  safely with `503 notification-email-dispatch-secret-missing` before
+  dispatching work; fixed the deploy workflow to pass
+  `NOTIFICATION_EMAIL_DISPATCH_SECRET` into preview deployments.
+
 # 2026-06-19 - TASK-319 Prisma tooling advisory remediation
 
 - Summary: Restored clean production and full npm audits without changing the
@@ -2383,3 +2435,18 @@ Low-value entries to avoid going forward:
 - Type: Iteration
 - Summary: TASK-316 follow-up changed the todos surface from a meeting-notes-area launcher/drawer into a project-wide floating table.
 - Evidence: Removed the Meeting Notes header Todos button, kept the aggregation and atomic mutation boundary, and made the floating Meeting Todos panel visible across the project dashboard with a compact collapsed state. The panel now sits mid-right, uses a smaller card layout, drops table headers, labels, dates, and explanatory copy, and keeps only todo text, source meeting context, overdue/count state, and completion/reopen controls. The panel stays out of the DOM when there are no open or recently completed meeting todos, avoiding empty-state overlap with unrelated dashboard interactions. Updated the Playwright smoke flow to assert the floating region is visible without a launcher, collapses/expands, still completes/reopens todos, and still opens the source meeting note. `npm run lint`, full Vitest with `NODE_ENV=test` (124 files passed, 2 skipped; 917 tests passed, 2 skipped), `npm run test:coverage`, production `npm run build` with local-safe placeholder connection/secrets, and targeted Playwright meeting-notes plus roadmap drag/drop flows against `localhost:3016` passed. Docker remained intentionally unused because the workstation WSL engine is unavailable.
+
+### 2026-06-25
+- Type: Implementation
+- Summary: TASK-314 added durable meeting-todo overdue reminders to the existing notification dispatcher.
+- Evidence: Added `meeting_todo_overdue_reminder` notification metadata, email digest rendering, dispatcher reconciliation, idempotent source IDs, project-access checks, and workflow summary fields. The reminder scan selects incomplete `ProjectMeetingNoteAction` rows whose parent meeting note is at least seven local calendar days old, targets the meeting-note creator while they still own or belong to the project, and reuses the existing `Notification` uniqueness plus email item coverage for durable per-window idempotency. Updated the notification dispatch runbook, workflow summary parsing, `v0.22.0` changelog/version metadata, and focused service/API tests. Initial implementation commit: `c6dae7fe5104f6fcb0ee9dc50802ba878e0a154f`.
+
+### 2026-06-25
+- Type: Review
+- Summary: TASK-314 opened PR #346 and addressed Copilot review feedback.
+- Evidence: PR #346 (`https://github.com/dorianagaesse/nexus_dash/pull/346`) was opened from `feature/task-314-meeting-todo-overdue-reminders`. Copilot flagged stale current-task status and brittle `$queryRaw.mock.calls[index]` assertions. Commit `2dc291ef164f656b624f92b2d916e398f1035764` updated task status, replaced the brittle assertions with query-signature helpers, added the missing preview dispatch summary field coverage, and resolved all Copilot review threads. Commit `39f80f2da44419fa37c3cb7ec9114f673879204b` fixed the manual preview deploy environment so `NOTIFICATION_EMAIL_DISPATCH_SECRET` is injected for protected dispatch validation.
+
+### 2026-06-25
+- Type: Validation
+- Summary: TASK-314 passed local, CI, and guarded preview dispatcher validation.
+- Evidence: Local validation passed with `npm run lint`, `npm run rls:check`, focused notification/API tests, local PostgreSQL `npm test` (124 files passed, 2 skipped; 922 tests passed, 2 skipped), `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2% functions, 91.88% lines), preview-env `npm run build`, and `git diff --check`. PR #346 checks passed on `39f80f2da44419fa37c3cb7ec9114f673879204b` for branch name, Quality Core, E2E Smoke, Tenant Isolation, and Container Image. Preview workflow run `28135528412` checked out `feature/task-314-meeting-todo-overdue-reminders` at `39f80f2da44419fa37c3cb7ec9114f673879204b`, deployed app version `0.22.0` to `https://nexus-dash-hyp9z5w0q-dorian-agaesses-projects.vercel.app`, and showed `NOTIFICATION_EMAIL_DISPATCH_SECRET` available to the deploy. Notification dispatch workflow run `28135630372` against that preview succeeded with `ok: true`, `meetingTodoOverdueRemindersReconciled: 0`, all delivery counts at `0`, and `errors: 0`, proving the protected reminder path can run safely without sending unintended external email.

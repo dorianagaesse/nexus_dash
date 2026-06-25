@@ -186,6 +186,57 @@ describe("notification-service", () => {
     });
   });
 
+  test("maps meeting-todo overdue reminders for the notification center", async () => {
+    prismaMock.notification.findMany.mockResolvedValueOnce([
+      {
+        id: "notification-meeting-todo-1",
+        type: "meeting_todo_overdue_reminder",
+        title: "Overdue meeting todo: Send notes to finance",
+        body: "Send notes to finance from Budget review is still open seven days after the May 6, 2026 meeting.",
+        targetPath:
+          "/projects/project-1?meetingNoteId=meeting-1&meetingTodoId=action-1",
+        sourceType: "meeting_todo_overdue_reminder",
+        sourceId: "action-1:user-1:2026-05-06",
+        metadata: {
+          actionId: "action-1",
+          actionContent: "Send notes to finance",
+          meetingNoteId: "meeting-1",
+          meetingTitle: "Budget review",
+          projectId: "project-1",
+          projectName: "Alpha",
+          recipientUserId: "user-1",
+          scheduledDate: "2026-05-06",
+          overdueSinceDate: "2026-05-13",
+          overdueAfterDays: 7,
+          targetPath:
+            "/projects/project-1?meetingNoteId=meeting-1&meetingTodoId=action-1",
+        },
+        readAt: null,
+        resolvedAt: null,
+        createdAt: new Date("2026-05-13T08:00:00.000Z"),
+        updatedAt: new Date("2026-05-13T08:00:00.000Z"),
+      },
+    ]);
+
+    const result = await listNotificationsForUser("user-1");
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data.notifications[0]?.metadata : null).toEqual({
+      actionId: "action-1",
+      actionContent: "Send notes to finance",
+      meetingNoteId: "meeting-1",
+      meetingTitle: "Budget review",
+      projectId: "project-1",
+      projectName: "Alpha",
+      recipientUserId: "user-1",
+      scheduledDate: "2026-05-06",
+      overdueSinceDate: "2026-05-13",
+      overdueAfterDays: 7,
+      targetPath:
+        "/projects/project-1?meetingNoteId=meeting-1&meetingTodoId=action-1",
+    });
+  });
+
   test("counts unread unresolved notifications after syncing invitations", async () => {
     prismaMock.notification.count.mockResolvedValueOnce(2);
 

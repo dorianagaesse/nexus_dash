@@ -145,6 +145,41 @@ function dueDateReminderNotification(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function meetingTodoOverdueReminderNotification(
+  overrides: Record<string, unknown> = {}
+) {
+  return {
+    id: "notification-meeting-todo-1",
+    recipientUserId: "user-1",
+    type: "meeting_todo_overdue_reminder",
+    title: "Overdue meeting todo: Send notes to finance",
+    body: "Send notes to finance from Budget review is still open seven days after the May 6, 2026 meeting.",
+    targetPath:
+      "/projects/project-1?meetingNoteId=meeting-1&meetingTodoId=action-1",
+    sourceType: "meeting_todo_overdue_reminder",
+    sourceId: "action-1:user-1:2026-05-06",
+    metadata: {
+      actionId: "action-1",
+      actionContent: "Send notes to finance",
+      meetingNoteId: "meeting-1",
+      meetingTitle: "Budget review",
+      projectId: "project-1",
+      projectName: "Alpha",
+      recipientUserId: "user-1",
+      scheduledDate: "2026-05-06",
+      overdueSinceDate: "2026-05-13",
+      overdueAfterDays: 7,
+      targetPath:
+        "/projects/project-1?meetingNoteId=meeting-1&meetingTodoId=action-1",
+    },
+    readAt: null,
+    resolvedAt: null,
+    createdAt: oldDate,
+    updatedAt: oldDate,
+    ...overrides,
+  };
+}
+
 function invitationNotification(overrides: Record<string, unknown> = {}) {
   return {
     id: "notification-invite-1",
@@ -217,6 +252,21 @@ function claimedGroup(input: {
       },
     ],
   };
+}
+
+function queryRawSqlCalls(): string[] {
+  return prismaMock.$queryRaw.mock.calls.map((call) =>
+    (call[0] as { strings: string[] }).strings.join(" ")
+  );
+}
+
+function findQueryRawSql(fragment: string): string {
+  const sql = queryRawSqlCalls().find((candidate) =>
+    candidate.includes(fragment)
+  );
+
+  expect(sql).toBeDefined();
+  return sql ?? "";
 }
 
 describe("project-notification-email-service", () => {
@@ -380,6 +430,26 @@ describe("project-notification-email-service", () => {
     );
   });
 
+  test("ingests meeting-todo overdue reminders into the shared project digest queue", async () => {
+    await enqueueNotificationEmailForNotification({
+      db: prismaMock as never,
+      notification: meetingTodoOverdueReminderNotification(),
+    });
+
+    expect(prismaMock.projectNotificationEmail.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          kind: "project_digest",
+          recipientUserId: "user-1",
+          projectId: "project-1",
+          groupingKey: "project_digest:user-1:project-1",
+          firstPendingNotificationAt: oldDate,
+          latestPendingNotificationAt: oldDate,
+        }),
+      })
+    );
+  });
+
   test("reconciles tasks due in three days into durable reminder notifications", async () => {
     prismaMock.$queryRaw
       .mockResolvedValueOnce([
@@ -420,16 +490,62 @@ describe("project-notification-email-service", () => {
     });
   });
 
+  test("reconciles overdue meeting todos into durable reminder notifications", async () => {
+    prismaMock.$queryRaw
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          actionId: "action-1",
+          actionContent: "Send notes to finance",
+          meetingNoteId: "meeting-1",
+          meetingTitle: "Budget review",
+          projectId: "project-1",
+          projectName: "Alpha",
+          recipientUserId: "user-1",
+          scheduledAt: new Date("2026-05-06T09:00:00.000Z"),
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    prismaMock.notification.findFirst.mockResolvedValueOnce(
+      meetingTodoOverdueReminderNotification()
+    );
+
+    const summary = await dispatchProjectNotificationEmails({
+      appOrigin: "https://preview.nexusdash.test",
+      now,
+    });
+
+    expect(summary.meetingTodoOverdueRemindersReconciled).toBe(1);
+    expect(prismaMock.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          recipientUserId: "user-1",
+          type: "meeting_todo_overdue_reminder",
+          title: "Overdue meeting todo: Send notes to finance",
+          sourceType: "meeting_todo_overdue_reminder",
+          sourceId: "action-1:user-1:2026-05-06",
+          targetPath:
+            "/projects/project-1?meetingNoteId=meeting-1&meetingTodoId=action-1",
+          metadata: expect.objectContaining({
+            actionId: "action-1",
+            meetingNoteId: "meeting-1",
+            scheduledDate: "2026-05-06",
+            overdueSinceDate: "2026-05-13",
+            overdueAfterDays: 7,
+          }),
+        }),
+      ],
+      skipDuplicates: true,
+    });
+  });
+
   test("uses the eligibility query for due-date reminder access and idempotency", async () => {
     await dispatchProjectNotificationEmails({
       appOrigin: "https://preview.nexusdash.test",
       now,
     });
 
-    const dueDateQuery = prismaMock.$queryRaw.mock.calls[0]?.[0] as
-      | { strings: string[] }
-      | undefined;
-    const sql = dueDateQuery?.strings.join(" ") ?? "";
+    const sql = findQueryRawSql('FROM "Task" task');
 
     expect(sql).toContain('task."deadlineAt" = CAST(');
     expect(sql).toContain('task."status" <> \'Done\'');
@@ -454,7 +570,31 @@ describe("project-notification-email-service", () => {
     );
   });
 
-  test("discovers due-date reminders once per verified recipient under recipient context", async () => {
+  test("uses the eligibility query for meeting-todo overdue access and idempotency", async () => {
+    await dispatchProjectNotificationEmails({
+      appOrigin: "https://preview.nexusdash.test",
+      now,
+    });
+
+    const sql = findQueryRawSql('FROM "ProjectMeetingNoteAction" action');
+
+    expect(sql).toContain('FROM "ProjectMeetingNoteAction" action');
+    expect(sql).toContain('action."completedAt" IS NULL');
+    expect(sql).toContain('note."scheduledAt" IS NOT NULL');
+    expect(sql).toContain('note."scheduledAt" < CAST(');
+    expect(sql).toContain('note."status" <> \'done\'');
+    expect(sql).toContain('note."createdByUserId" =');
+    expect(sql).toContain('project."ownerId" =');
+    expect(sql).toContain('FROM "ProjectMembership" membership');
+    expect(sql).toContain('notification."sourceType" =');
+    expect(sql).toContain('notification."sourceId"');
+    expect(sql).toContain('notification."readAt" IS NOT NULL');
+    expect(sql).toContain('notification."resolvedAt" IS NOT NULL');
+    expect(sql).toContain('"ProjectNotificationEmailItem" item');
+    expect(sql).toContain("email.\"status\" IN ('pending', 'dispatching', 'sent')");
+  });
+
+  test("discovers scheduled reminders once per verified recipient under recipient context", async () => {
     prismaMock.user.findMany.mockResolvedValueOnce([
       { id: "user-1" },
       { id: "user-2" },
@@ -465,14 +605,17 @@ describe("project-notification-email-service", () => {
       now,
     });
 
-    const dueDateQueries = prismaMock.$queryRaw.mock.calls
-      .slice(0, 2)
-      .map((call) => (call[0] as { strings: string[] }).strings.join(" "));
+    const dueDateQueries = queryRawSqlCalls().slice(0, 4);
 
-    expect(dueDateQueries).toHaveLength(2);
-    expect(dueDateQueries.every((sql) => sql.includes('FROM "Task" task'))).toBe(
-      true
-    );
+    expect(dueDateQueries).toHaveLength(4);
+    expect(
+      dueDateQueries.filter((sql) => sql.includes('FROM "Task" task'))
+    ).toHaveLength(2);
+    expect(
+      dueDateQueries.filter((sql) =>
+        sql.includes('FROM "ProjectMeetingNoteAction" action')
+      )
+    ).toHaveLength(2);
   });
 
   test("paginates verified recipient scanning for due-date reminders", async () => {
@@ -509,6 +652,7 @@ describe("project-notification-email-service", () => {
     const mention = mentionNotification();
     const assignment = assignmentNotification();
     prismaMock.$queryRaw
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
@@ -566,6 +710,7 @@ describe("project-notification-email-service", () => {
     prismaMock.$queryRaw
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
         { id: "email-1" },
         { id: "email-2" },
@@ -607,6 +752,7 @@ describe("project-notification-email-service", () => {
     prismaMock.$queryRaw
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ id: "email-1" }]);
     prismaMock.projectNotificationEmail.findMany
       .mockResolvedValueOnce([{ recipientUserId: "user-1" }])
@@ -643,6 +789,47 @@ describe("project-notification-email-service", () => {
     );
   });
 
+  test("renders meeting-todo overdue reminders in recipient digest emails", async () => {
+    prismaMock.$queryRaw
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: "email-1" }]);
+    prismaMock.projectNotificationEmail.findMany
+      .mockResolvedValueOnce([{ recipientUserId: "user-1" }])
+      .mockResolvedValueOnce([
+        claimedGroup({
+          id: "email-1",
+          projectId: "project-1",
+          projectName: "Alpha",
+          notification: meetingTodoOverdueReminderNotification(),
+        }),
+      ]);
+
+    const summary = await dispatchProjectNotificationEmails({
+      appOrigin: "https://preview.nexusdash.test",
+      now,
+    });
+
+    expect(summary).toMatchObject({
+      groupsClaimed: 1,
+      schedulerLagGroupsMeasured: 1,
+      schedulerLagMaxMinutes: 30,
+      schedulerLagAverageMinutes: 30,
+      recipientEmailsSent: 1,
+      groupsSent: 1,
+    });
+    expect(outboundEmailMock.sendOutboundEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateKey: "project_notification_digest",
+        subject: "1 update for Alpha on NexusDash",
+        text: expect.stringContaining(
+          "Overdue meeting todo: Send notes to finance (Budget review, May 6, 2026)"
+        ),
+      })
+    );
+  });
+
   test("uses mention actor display name over legacy author display name", async () => {
     const mention = mentionNotification({
       metadata: {
@@ -652,6 +839,7 @@ describe("project-notification-email-service", () => {
       },
     });
     prismaMock.$queryRaw
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ id: "email-1" }]);
@@ -689,6 +877,7 @@ describe("project-notification-email-service", () => {
 
   test("marks provider failures on all groups in the recipient batch", async () => {
     prismaMock.$queryRaw
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ id: "email-1" }]);
@@ -748,10 +937,7 @@ describe("project-notification-email-service", () => {
       now,
     });
 
-    const reconcileQuery = prismaMock.$queryRaw.mock.calls[1]?.[0] as
-      | { strings: string[] }
-      | undefined;
-    const sql = reconcileQuery?.strings.join(" ") ?? "";
+    const sql = findQueryRawSql("email.\"status\" = 'sent'");
 
     expect(sql).toContain("email.\"status\" = 'sent'");
     expect(sql).toContain(
@@ -762,6 +948,7 @@ describe("project-notification-email-service", () => {
 
   test("skips stale pending groups whose notifications were already sent elsewhere", async () => {
     prismaMock.$queryRaw
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ id: "email-1" }]);
@@ -838,6 +1025,7 @@ describe("project-notification-email-service", () => {
       notification: mentionNotification(),
     });
     prismaMock.$queryRaw
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ id: "email-1" }]);

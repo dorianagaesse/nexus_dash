@@ -24,16 +24,22 @@ const NOTIFICATION_TYPE_TASK_COMMENT_MENTION = "task_comment_mention";
 const NOTIFICATION_TYPE_TASK_ASSIGNMENT = "task_assignment";
 const NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER = "task_due_date_reminder";
 const NOTIFICATION_SOURCE_TASK_DUE_DATE_REMINDER = "task_due_date_reminder";
+const NOTIFICATION_TYPE_MEETING_TODO_OVERDUE_REMINDER =
+  "meeting_todo_overdue_reminder";
+const NOTIFICATION_SOURCE_MEETING_TODO_OVERDUE_REMINDER =
+  "meeting_todo_overdue_reminder";
 const EMAIL_KIND_PROJECT_DIGEST = "project_digest";
 const EMAIL_KIND_PROJECT_INVITATION_REMINDER = "project_invitation_reminder";
 
 const QUIET_WINDOW_MS = 30 * 60 * 1000;
 const MAX_ACTIVITY_DELAY_MS = 60 * 60 * 1000;
 const INVITATION_REMINDER_AFTER_MS = 6 * 60 * 60 * 1000;
+const MEETING_TODO_OVERDUE_DAYS = 7;
 const STALE_DISPATCHING_MS = 30 * 60 * 1000;
 const MAX_GROUPS_PER_DISPATCH = 100;
 const MAX_RECONCILE_NOTIFICATIONS = 500;
 const MAX_RECONCILE_DUE_DATE_REMINDERS = 500;
+const MAX_RECONCILE_MEETING_TODO_OVERDUE_REMINDERS = 500;
 const VERIFIED_RECIPIENT_SCAN_BATCH_SIZE = 100;
 const MAX_DIGEST_BODY_ITEMS_PER_PROJECT = 12;
 
@@ -73,6 +79,17 @@ interface DueDateReminderCandidate {
   projectName: string;
   recipientUserId: string;
   deadlineAt: Date;
+}
+
+interface MeetingTodoOverdueReminderCandidate {
+  actionId: string;
+  actionContent: string;
+  meetingNoteId: string;
+  meetingTitle: string;
+  projectId: string;
+  projectName: string;
+  recipientUserId: string;
+  scheduledAt: Date;
 }
 
 interface QueueDetails {
@@ -129,6 +146,7 @@ interface PreparedSection {
 
 export interface DispatchProjectNotificationEmailsSummary {
   dueDateRemindersReconciled: number;
+  meetingTodoOverdueRemindersReconciled: number;
   notificationsReconciled: number;
   groupsClaimed: number;
   schedulerLagGroupsMeasured: number;
@@ -278,12 +296,33 @@ function buildTaskPath(projectId: string, taskId: string): string {
   return `/projects/${encodeURIComponent(projectId)}?taskId=${encodeURIComponent(taskId)}`;
 }
 
+function buildMeetingTodoPath(input: {
+  projectId: string;
+  meetingNoteId: string;
+  actionId: string;
+}): string {
+  const params = new URLSearchParams({
+    meetingNoteId: input.meetingNoteId,
+    meetingTodoId: input.actionId,
+  });
+
+  return `/projects/${encodeURIComponent(input.projectId)}?${params.toString()}`;
+}
+
 function createTaskDueDateReminderSourceId(input: {
   taskId: string;
   recipientUserId: string;
   deadlineDate: string;
 }): string {
   return [input.taskId, input.recipientUserId, input.deadlineDate].join(":");
+}
+
+function createMeetingTodoOverdueReminderSourceId(input: {
+  actionId: string;
+  recipientUserId: string;
+  scheduledDate: string;
+}): string {
+  return [input.actionId, input.recipientUserId, input.scheduledDate].join(":");
 }
 
 function createInvitationGroupingKey(input: {
@@ -316,7 +355,8 @@ function getQueueDetails(notification: NotificationRecord): QueueDetails | null 
   if (
     notification.type === NOTIFICATION_TYPE_TASK_COMMENT_MENTION ||
     notification.type === NOTIFICATION_TYPE_TASK_ASSIGNMENT ||
-    notification.type === NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER
+    notification.type === NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER ||
+    notification.type === NOTIFICATION_TYPE_MEETING_TODO_OVERDUE_REMINDER
   ) {
     const schedule = calculateActivitySchedule({
       firstPendingNotificationAt: activityAt,
@@ -644,7 +684,8 @@ async function findUncoveredNotificationEmailCandidates(
         ${NOTIFICATION_TYPE_PROJECT_INVITATION},
         ${NOTIFICATION_TYPE_TASK_COMMENT_MENTION},
         ${NOTIFICATION_TYPE_TASK_ASSIGNMENT},
-        ${NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER}
+        ${NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER},
+        ${NOTIFICATION_TYPE_MEETING_TODO_OVERDUE_REMINDER}
       )
       AND recipient."email" IS NOT NULL
       AND recipient."emailVerified" IS NOT NULL
@@ -691,7 +732,7 @@ async function reconcilePendingNotificationEmailGroups(): Promise<number> {
   return reconciled;
 }
 
-async function findVerifiedTaskDueDateReminderRecipientIds(input: {
+async function findVerifiedReminderRecipientIds(input: {
   cursorUserId?: string | null;
   limit: number;
 }): Promise<string[]> {
@@ -875,14 +916,199 @@ async function createTaskDueDateReminderNotificationForCandidate(input: {
   });
 }
 
-async function reconcileTaskDueDateReminderNotifications(
-  now: Date
-): Promise<number> {
-  let reconciled = 0;
+async function findMeetingTodoOverdueReminderCandidates(input: {
+  db: DbClient;
+  now: Date;
+  limit: number;
+  recipientUserId: string;
+}): Promise<MeetingTodoOverdueReminderCandidate[]> {
+  const todayDate = getLocalCalendarDateString(input.now);
+  const latestOverdueMeetingDate = addCalendarDaysToDateString(
+    todayDate,
+    -MEETING_TODO_OVERDUE_DAYS
+  );
+  const exclusiveScheduledBeforeDate = latestOverdueMeetingDate
+    ? addCalendarDaysToDateString(latestOverdueMeetingDate, 1)
+    : null;
+
+  if (!latestOverdueMeetingDate || !exclusiveScheduledBeforeDate) {
+    return [];
+  }
+
+  return input.db.$queryRaw<MeetingTodoOverdueReminderCandidate[]>(Prisma.sql`
+    WITH eligible_actions AS (
+      SELECT
+        action."id" AS "actionId",
+        action."content" AS "actionContent",
+        note."id" AS "meetingNoteId",
+        note."title" AS "meetingTitle",
+        note."scheduledAt" AS "scheduledAt",
+        project."id" AS "projectId",
+        project."name" AS "projectName",
+        note."createdByUserId" AS "recipientUserId",
+        to_char(note."scheduledAt", 'YYYY-MM-DD') AS "scheduledDate"
+      FROM "ProjectMeetingNoteAction" action
+      INNER JOIN "ProjectMeetingNote" note
+        ON note."id" = action."meetingNoteId"
+      INNER JOIN "Project" project
+        ON project."id" = note."projectId"
+      WHERE action."completedAt" IS NULL
+        AND note."scheduledAt" IS NOT NULL
+        AND note."scheduledAt" < CAST(${exclusiveScheduledBeforeDate} AS timestamp)
+        AND note."status" <> 'done'
+        AND note."createdByUserId" = ${input.recipientUserId}
+        AND (
+          project."ownerId" = ${input.recipientUserId}
+          OR EXISTS (
+            SELECT 1
+            FROM "ProjectMembership" membership
+            WHERE membership."projectId" = project."id"
+              AND membership."userId" = ${input.recipientUserId}
+          )
+        )
+    )
+    SELECT
+      eligible_actions."actionId",
+      eligible_actions."actionContent",
+      eligible_actions."meetingNoteId",
+      eligible_actions."meetingTitle",
+      eligible_actions."projectId",
+      eligible_actions."projectName",
+      eligible_actions."recipientUserId",
+      eligible_actions."scheduledAt"
+    FROM eligible_actions
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM "Notification" notification
+      WHERE notification."recipientUserId" = eligible_actions."recipientUserId"
+        AND notification."sourceType" = ${NOTIFICATION_SOURCE_MEETING_TODO_OVERDUE_REMINDER}
+        AND notification."sourceId" =
+          eligible_actions."actionId" || ':' ||
+          eligible_actions."recipientUserId" || ':' ||
+          eligible_actions."scheduledDate"
+        AND (
+          notification."readAt" IS NOT NULL
+          OR notification."resolvedAt" IS NOT NULL
+          OR EXISTS (
+            SELECT 1
+            FROM "ProjectNotificationEmailItem" item
+            INNER JOIN "ProjectNotificationEmail" email
+              ON email."id" = item."emailId"
+            WHERE item."notificationId" = notification."id"
+              AND email."status" IN ('pending', 'dispatching', 'sent')
+          )
+        )
+    )
+    ORDER BY eligible_actions."scheduledAt" ASC, eligible_actions."actionId" ASC
+    LIMIT ${input.limit}
+  `);
+}
+
+async function createMeetingTodoOverdueReminderNotificationForCandidate(input: {
+  db: DbClient;
+  candidate: MeetingTodoOverdueReminderCandidate;
+}): Promise<void> {
+  const scheduledDate = formatTaskDeadlineDate(input.candidate.scheduledAt);
+  if (!scheduledDate) {
+    return;
+  }
+
+  const overdueSinceDate = addCalendarDaysToDateString(
+    scheduledDate,
+    MEETING_TODO_OVERDUE_DAYS
+  );
+  if (!overdueSinceDate) {
+    return;
+  }
+
+  const sourceId = createMeetingTodoOverdueReminderSourceId({
+    actionId: input.candidate.actionId,
+    recipientUserId: input.candidate.recipientUserId,
+    scheduledDate,
+  });
+  const targetPath = buildMeetingTodoPath({
+    projectId: input.candidate.projectId,
+    meetingNoteId: input.candidate.meetingNoteId,
+    actionId: input.candidate.actionId,
+  });
+  const scheduledLabel = formatTaskDeadlineForDisplay(scheduledDate, "en-US");
+  const metadata = {
+    actionId: input.candidate.actionId,
+    actionContent: input.candidate.actionContent,
+    meetingNoteId: input.candidate.meetingNoteId,
+    meetingTitle: input.candidate.meetingTitle,
+    projectId: input.candidate.projectId,
+    projectName: input.candidate.projectName,
+    recipientUserId: input.candidate.recipientUserId,
+    scheduledDate,
+    overdueSinceDate,
+    overdueAfterDays: MEETING_TODO_OVERDUE_DAYS,
+    targetPath,
+  } satisfies Prisma.InputJsonObject;
+
+  await input.db.notification.createMany({
+    data: [
+      {
+        recipientUserId: input.candidate.recipientUserId,
+        type: NOTIFICATION_TYPE_MEETING_TODO_OVERDUE_REMINDER,
+        title: `Overdue meeting todo: ${input.candidate.actionContent}`,
+        body: `${input.candidate.actionContent} from ${input.candidate.meetingTitle} is still open seven days after the ${scheduledLabel} meeting.`,
+        targetPath,
+        sourceType: NOTIFICATION_SOURCE_MEETING_TODO_OVERDUE_REMINDER,
+        sourceId,
+        metadata,
+      },
+    ],
+    skipDuplicates: true,
+  });
+
+  const notification = await input.db.notification.findFirst({
+    where: {
+      recipientUserId: input.candidate.recipientUserId,
+      sourceType: NOTIFICATION_SOURCE_MEETING_TODO_OVERDUE_REMINDER,
+      sourceId,
+    },
+    select: {
+      id: true,
+      recipientUserId: true,
+      type: true,
+      title: true,
+      body: true,
+      targetPath: true,
+      sourceType: true,
+      sourceId: true,
+      metadata: true,
+      readAt: true,
+      resolvedAt: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  if (!notification) {
+    return;
+  }
+
+  await enqueueNotificationEmailForNotification({
+    db: input.db,
+    notification,
+  });
+}
+
+async function reconcileScheduledReminderNotifications(now: Date): Promise<{
+  dueDateRemindersReconciled: number;
+  meetingTodoOverdueRemindersReconciled: number;
+}> {
+  let dueDateRemindersReconciled = 0;
+  let meetingTodoOverdueRemindersReconciled = 0;
   let cursorUserId: string | null = null;
 
-  while (reconciled < MAX_RECONCILE_DUE_DATE_REMINDERS) {
-    const recipientUserIds = await findVerifiedTaskDueDateReminderRecipientIds({
+  while (
+    dueDateRemindersReconciled < MAX_RECONCILE_DUE_DATE_REMINDERS ||
+    meetingTodoOverdueRemindersReconciled <
+      MAX_RECONCILE_MEETING_TODO_OVERDUE_REMINDERS
+  ) {
+    const recipientUserIds = await findVerifiedReminderRecipientIds({
       cursorUserId,
       limit: VERIFIED_RECIPIENT_SCAN_BATCH_SIZE,
     });
@@ -892,24 +1118,53 @@ async function reconcileTaskDueDateReminderNotifications(
     }
 
     for (const recipientUserId of recipientUserIds) {
-      if (reconciled >= MAX_RECONCILE_DUE_DATE_REMINDERS) {
+      if (
+        dueDateRemindersReconciled >= MAX_RECONCILE_DUE_DATE_REMINDERS &&
+        meetingTodoOverdueRemindersReconciled >=
+          MAX_RECONCILE_MEETING_TODO_OVERDUE_REMINDERS
+      ) {
         break;
       }
 
       await withActorRlsContext(recipientUserId, async (db) => {
-        const candidates = await findTaskDueDateReminderCandidates({
-          db,
-          now,
-          recipientUserId,
-          limit: MAX_RECONCILE_DUE_DATE_REMINDERS - reconciled,
-        });
-
-        for (const candidate of candidates) {
-          await createTaskDueDateReminderNotificationForCandidate({
+        if (dueDateRemindersReconciled < MAX_RECONCILE_DUE_DATE_REMINDERS) {
+          const candidates = await findTaskDueDateReminderCandidates({
             db,
-            candidate,
+            now,
+            recipientUserId,
+            limit:
+              MAX_RECONCILE_DUE_DATE_REMINDERS - dueDateRemindersReconciled,
           });
-          reconciled += 1;
+
+          for (const candidate of candidates) {
+            await createTaskDueDateReminderNotificationForCandidate({
+              db,
+              candidate,
+            });
+            dueDateRemindersReconciled += 1;
+          }
+        }
+
+        if (
+          meetingTodoOverdueRemindersReconciled <
+          MAX_RECONCILE_MEETING_TODO_OVERDUE_REMINDERS
+        ) {
+          const candidates = await findMeetingTodoOverdueReminderCandidates({
+            db,
+            now,
+            recipientUserId,
+            limit:
+              MAX_RECONCILE_MEETING_TODO_OVERDUE_REMINDERS -
+              meetingTodoOverdueRemindersReconciled,
+          });
+
+          for (const candidate of candidates) {
+            await createMeetingTodoOverdueReminderNotificationForCandidate({
+              db,
+              candidate,
+            });
+            meetingTodoOverdueRemindersReconciled += 1;
+          }
         }
       });
     }
@@ -920,7 +1175,10 @@ async function reconcileTaskDueDateReminderNotifications(
     }
   }
 
-  return reconciled;
+  return {
+    dueDateRemindersReconciled,
+    meetingTodoOverdueRemindersReconciled,
+  };
 }
 
 async function releaseStaleDispatchingGroups(now: Date): Promise<void> {
@@ -1073,17 +1331,22 @@ function buildActivityItems(input: {
       continue;
     }
 
-    const taskId = readString(notification.metadata, "taskId");
-    const taskTitle = readString(notification.metadata, "taskTitle");
     const targetPath = readString(notification.metadata, "targetPath");
-    if (!taskId || !taskTitle || !targetPath) {
+    if (!targetPath) {
       continue;
     }
 
     if (notification.type === NOTIFICATION_TYPE_TASK_DUE_DATE_REMINDER) {
+      const taskId = readString(notification.metadata, "taskId");
+      const taskTitle = readString(notification.metadata, "taskTitle");
       const deadlineDate = readString(notification.metadata, "deadlineDate");
       const daysUntilDue = notification.metadata.daysUntilDue;
-      if (!deadlineDate || typeof daysUntilDue !== "number") {
+      if (
+        !taskId ||
+        !taskTitle ||
+        !deadlineDate ||
+        typeof daysUntilDue !== "number"
+      ) {
         continue;
       }
 
@@ -1102,6 +1365,42 @@ function buildActivityItems(input: {
         });
       }
       notificationIds.push(notification.id);
+      continue;
+    }
+
+    if (
+      notification.type === NOTIFICATION_TYPE_MEETING_TODO_OVERDUE_REMINDER
+    ) {
+      const actionId = readString(notification.metadata, "actionId");
+      const actionContent = readString(notification.metadata, "actionContent");
+      const meetingTitle = readString(notification.metadata, "meetingTitle");
+      const scheduledDate = readString(notification.metadata, "scheduledDate");
+      if (!actionId || !actionContent || !meetingTitle || !scheduledDate) {
+        continue;
+      }
+
+      const scheduledLabel = formatTaskDeadlineForDisplay(
+        scheduledDate,
+        "en-US"
+      );
+      const key = ["meeting-todo-overdue", actionId, scheduledDate].join(":");
+      const existing = collapsed.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        collapsed.set(key, {
+          label: `Overdue meeting todo: ${actionContent} (${meetingTitle}, ${scheduledLabel})`,
+          count: 1,
+          targetPath,
+        });
+      }
+      notificationIds.push(notification.id);
+      continue;
+    }
+
+    const taskId = readString(notification.metadata, "taskId");
+    const taskTitle = readString(notification.metadata, "taskTitle");
+    if (!taskId || !taskTitle) {
       continue;
     }
 
@@ -1476,6 +1775,7 @@ export async function dispatchProjectNotificationEmails(input: {
   let schedulerLagTotalMinutes = 0;
   const summary: DispatchProjectNotificationEmailsSummary = {
     dueDateRemindersReconciled: 0,
+    meetingTodoOverdueRemindersReconciled: 0,
     notificationsReconciled: 0,
     groupsClaimed: 0,
     schedulerLagGroupsMeasured: 0,
@@ -1492,11 +1792,14 @@ export async function dispatchProjectNotificationEmails(input: {
   };
 
   try {
+    const reminderSummary = await reconcileScheduledReminderNotifications(now);
     summary.dueDateRemindersReconciled =
-      await reconcileTaskDueDateReminderNotifications(now);
+      reminderSummary.dueDateRemindersReconciled;
+    summary.meetingTodoOverdueRemindersReconciled =
+      reminderSummary.meetingTodoOverdueRemindersReconciled;
   } catch (error) {
     summary.errors += 1;
-    logServerError("dispatchProjectNotificationEmails.dueDateReminders", error);
+    logServerError("dispatchProjectNotificationEmails.reminders", error);
   }
 
   try {

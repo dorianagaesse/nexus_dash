@@ -78,6 +78,7 @@ jobs:
             };
 
             console.log(line("Due-date reminders reconciled", "dueDateRemindersReconciled"));
+            console.log(line("Meeting todo overdue reminders reconciled", "meetingTodoOverdueRemindersReconciled"));
             console.log(line("Notifications reconciled", "notificationsReconciled"));
             console.log(line("Groups claimed", "groupsClaimed"));
             console.log(line("Scheduler lag groups measured", "schedulerLagGroupsMeasured"));
