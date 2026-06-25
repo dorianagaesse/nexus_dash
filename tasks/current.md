@@ -4,7 +4,7 @@
 TASK-119
 
 ## Status
-PR open. CI follow-up applied.
+PR open. Copilot review feedback addressed.
 
 ## Branch
 `feature/task-119-project-collaboration-presence-ux`
@@ -157,3 +157,12 @@ project membership authorization rules.
   `v0.22.0`; updated the tests to derive the fallback from `package.json`.
   Focused `tests/lib/app-metadata.test.ts`, full PostgreSQL-backed `npm test`,
   and `npm run lint` passed after the fix.
+- Copilot review feedback addressed by marking visual member rows
+  `aria-hidden` while keeping the full screen-reader collaborator summary, and
+  by passing the project-page collaborator payload into `KanbanBoardSection` to
+  avoid a second collaborator query in the same dashboard request.
+- Post-review validation passed:
+  - `npm test -- tests/components/project-collaboration-presence.test.tsx`
+  - `npm run lint`
+  - PostgreSQL-backed `npm test`
+  - `npm run build`

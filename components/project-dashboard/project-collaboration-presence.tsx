@@ -101,7 +101,10 @@ export function ProjectCollaborationPresence({
         ) : null}
       </div>
 
-      <ul className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+      <ul
+        aria-hidden="true"
+        className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2"
+      >
         {visibleRows.map((member) => {
           const isActor = member.id === actorUserId;
 

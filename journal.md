@@ -2465,3 +2465,8 @@ Low-value entries to avoid going forward:
 - Type: Review
 - Summary: TASK-119 opened PR #347 and fixed the first CI feedback.
 - Evidence: PR #347 (`https://github.com/dorianagaesse/nexus_dash/pull/347`) was opened from `feature/task-119-project-collaboration-presence-ux`. Quality Core initially failed because `tests/lib/app-metadata.test.ts` still hard-coded the previous `v0.22.0` fallback after the feature release bump to `v0.23.0`; updated those expectations to derive from `package.json`. Focused app-metadata tests passed (8/8), full local PostgreSQL `npm test` passed again (125 files passed, 2 skipped; 925 tests passed, 2 skipped), and `npm run lint` passed before pushing the follow-up.
+
+### 2026-06-25
+- Type: Review
+- Summary: TASK-119 addressed Copilot's accessibility and duplicate-query comments.
+- Evidence: Copilot flagged duplicate screen-reader announcements in the presence member rows and duplicate `listProjectCollaborators(...)` work between the page header and Kanban section. Marked the visual row list `aria-hidden` while preserving the full screen-reader-only collaborator summary, passed the already-fetched collaborator payload into `KanbanBoardSection`, and removed the second collaborator service call from that section. Focused presence tests passed (3/3), `npm run lint` passed, full local PostgreSQL `npm test` passed (125 files passed, 2 skipped; 925 tests passed, 2 skipped), and production `npm run build` passed with the existing Tailwind module-type warning.

@@ -48,6 +48,7 @@ describe("project-collaboration-presence", () => {
     expect(result).toContain("Editor (you)");
     expect(result).toContain("Owner");
     expect(result).toContain("data:image/svg+xml");
+    expect(result).toContain('<ul aria-hidden="true"');
   });
 
   test("limits visible members and reports overflow", () => {

@@ -282,6 +282,7 @@ export default async function ProjectDashboardPage({
           actorUserId={actorUserId}
           canEdit={canEditProjectContent}
           storageProvider={storageProvider}
+          collaborators={collaborators}
           initialTaskId={initialTaskId}
         />
       </Suspense>
