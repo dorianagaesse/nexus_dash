@@ -166,3 +166,9 @@ project membership authorization rules.
   - `npm run lint`
   - PostgreSQL-backed `npm test`
   - `npm run build`
+- Screenshot follow-up addressed:
+  - presence header now renders avatars only, with hover titles showing each
+    member's username tag or display name fallback
+  - dashboard stats use equal responsive columns so Attachments and Calendar no
+    longer collapse into narrow one-column cards
+  - verified at `1462x425` with `.tmp/task119-followup-desktop.png`

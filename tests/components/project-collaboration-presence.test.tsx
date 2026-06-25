@@ -22,7 +22,7 @@ function buildMember(
 }
 
 describe("project-collaboration-presence", () => {
-  test("renders member count, current actor role, and generated avatars", () => {
+  test("renders avatars with username hover titles", () => {
     const result = renderToStaticMarkup(
       React.createElement(ProjectCollaborationPresence, {
         actorUserId: "user-2",
@@ -35,6 +35,7 @@ describe("project-collaboration-presence", () => {
           buildMember({
             id: "user-2",
             displayName: "Editor",
+            usernameTag: "editor-handle",
             avatarSeed: "seed-editor",
             projectRole: "editor",
           }),
@@ -43,15 +44,14 @@ describe("project-collaboration-presence", () => {
     );
 
     expect(result).toContain("Project collaborators");
-    expect(result).toContain("2 members");
-    expect(result).toContain("You are editor");
-    expect(result).toContain("Editor (you)");
-    expect(result).toContain("Owner");
     expect(result).toContain("data:image/svg+xml");
-    expect(result).toContain('<ul aria-hidden="true"');
+    expect(result).toContain('title="editor-handle"');
+    expect(result).not.toContain("2 members");
+    expect(result).not.toContain("You are editor");
+    expect(result).not.toContain("<ul");
   });
 
-  test("limits visible members and reports overflow", () => {
+  test("keeps all member identities available without non-avatar overflow rows", () => {
     const result = renderToStaticMarkup(
       React.createElement(ProjectCollaborationPresence, {
         actorUserId: "user-1",
@@ -66,12 +66,11 @@ describe("project-collaboration-presence", () => {
       })
     );
 
-    expect(result).toContain("6 members");
-    expect(result).toContain("+1");
-    expect(result).toContain("+2 more");
+    expect(result).not.toContain("+1");
+    expect(result).not.toContain("+2 more");
     expect(result).toContain("user-1 (you)");
-    expect(result).not.toContain(">user-5<");
-    expect(result).not.toContain(">user-6<");
+    expect(result).toContain('title="user-5"');
+    expect(result).toContain('title="user-6"');
   });
 
   test("renders nothing when there are no visible members", () => {

@@ -2470,3 +2470,8 @@ Low-value entries to avoid going forward:
 - Type: Review
 - Summary: TASK-119 addressed Copilot's accessibility and duplicate-query comments.
 - Evidence: Copilot flagged duplicate screen-reader announcements in the presence member rows and duplicate `listProjectCollaborators(...)` work between the page header and Kanban section. Marked the visual row list `aria-hidden` while preserving the full screen-reader-only collaborator summary, passed the already-fetched collaborator payload into `KanbanBoardSection`, and removed the second collaborator service call from that section. Focused presence tests passed (3/3), `npm run lint` passed, full local PostgreSQL `npm test` passed (125 files passed, 2 skipped; 925 tests passed, 2 skipped), and production `npm run build` passed with the existing Tailwind module-type warning.
+
+### 2026-06-26
+- Type: Iteration
+- Summary: TASK-119 simplified the project presence header to avatars-only and fixed cramped dashboard stat cards.
+- Evidence: Removed the collaborator presence card chrome, labels, role rows, actor badge, and count text so the project header shows only member avatars. Avatar hover titles now expose each member's `usernameTag` with display-name fallback. Reworked the project dashboard stats from manual 12-column spans to equal responsive columns and made stat labels/values truncate instead of breaking words, fixing the Attachments/Calendar wrapping shown in the screenshot. Focused presence tests, `npm run lint`, local-safe production `npm run build`, `npm run rls:check`, and full local PostgreSQL `npm test` passed. Standalone Playwright verified `http://127.0.0.1:3000/projects/cmqte0tb30003foszy0hvzv58` at 1462x425 and saved `.tmp/task119-followup-desktop.png`.

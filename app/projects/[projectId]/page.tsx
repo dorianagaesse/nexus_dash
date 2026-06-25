@@ -169,7 +169,7 @@ export default async function ProjectDashboardPage({
               </div>
             </div>
 
-            <div className="flex w-full min-w-0 flex-col gap-3 xl:w-auto xl:max-w-[30rem]">
+            <div className="flex w-full min-w-0 flex-col items-end gap-3 xl:w-auto xl:max-w-[30rem]">
               <ProjectCollaborationPresence
                 members={collaborators}
                 actorUserId={actorUserId}
@@ -197,42 +197,36 @@ export default async function ProjectDashboardPage({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-12">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
             <DashboardStatCard
               icon={TimerReset}
               label="Open"
               value={project.stats.openTasks}
-              className="lg:col-span-3"
               valueClassName="text-sky-700 dark:text-sky-100"
             />
             <DashboardStatCard
               icon={CheckCheck}
               label="Completed"
               value={project.stats.completedTasks}
-              className="lg:col-span-3"
               valueClassName="text-emerald-700 dark:text-emerald-100"
             />
             <DashboardStatCard
               icon={PanelsTopLeft}
               label="Context"
               value={project.stats.contextCards}
-              className="lg:col-span-2"
             />
             <DashboardStatCard
               icon={ClipboardList}
               label="Meeting notes"
               value={project.stats.meetingNotes}
-              className="lg:col-span-2"
             />
             <DashboardStatCard
               icon={FileStack}
               label="Attachments"
               value={project.stats.attachmentCount}
-              className="lg:col-span-1"
             />
             <CalendarSummaryStatCard
               isConnected={project.stats.isCalendarConnected}
-              className="col-span-2 lg:col-span-1"
             />
           </div>
         </div>
