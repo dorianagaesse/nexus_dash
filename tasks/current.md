@@ -1,137 +1,155 @@
-# Current Task: TASK-314 Meeting Todo Overdue Reminders
+# Current Task: TASK-119 Project Collaboration Presence UX
 
 ## Task ID
-TASK-314
+TASK-119
 
 ## Status
-Implemented in PR #346. Awaiting final review and merge.
+Implemented locally. Ready for PR.
 
 ## Branch
-`feature/task-314-meeting-todo-overdue-reminders`
+`feature/task-119-project-collaboration-presence-ux`
 
 ## Source
-- User feedback on TASK-098 on 2026-06-10.
-- `tasks/task-314-meeting-todo-overdue-reminders.md`
+- `tasks/backlog.md`
+- Dependencies and existing implementation context from TASK-058, TASK-082, and
+  TASK-089.
 
 ## Objective
-Add durable in-app and email reminders for open meeting-note todos that remain
-incomplete seven or more days after the meeting date, using the existing
-notification email dispatcher and queue semantics.
+Add a compact collaborator presence experience to project pages so project
+members can quickly see who has access to the project, with avatar-backed
+identity affordances that reuse the existing generated avatar baseline and
+project membership authorization rules.
 
 ## Context
-- TASK-098 added `ProjectMeetingNote` and `ProjectMeetingNoteAction`, including
-  meeting dates, action completion state, labels, lifecycle state, and UI-level
-  overdue highlighting.
-- TASK-316 added a project-wide floating panel for open meeting todos and a
-  focused action-completion API path.
-- The notification email dispatcher already reconciles task due-date reminders
-  during `GET /api/cron/notification-emails`, creates durable `Notification`
-  rows, queues `ProjectNotificationEmail` groups, honors outbound email skip
-  modes, and records delivery outcomes.
-- Current scheduler bridge: `.github/workflows/notification-email-dispatch.yml`
-  calls the protected dispatcher every 30 minutes.
+- TASK-058 shipped project sharing, membership roles, owner-managed
+  invitations, and service-layer project authorization.
+- TASK-082 added user-facing account identity fields such as display names,
+  username tags, and account settings identity management.
+- TASK-089 added deterministic generated avatars through `User.avatarSeed`,
+  `resolveAvatarSeed(...)`, and `UserAvatar`.
+- Current project pages already derive the actor role from
+  `getProjectSummaryById(...)`, while the Kanban section loads collaborator
+  identities through `listProjectCollaborators(...)` for assignees and mentions.
+- Owner settings already fetch a full `ProjectSharingSummary`, but that path is
+  owner-only and should not become the general member-visible presence source.
 
 ## Scope
-- Identify incomplete `ProjectMeetingNoteAction` rows whose parent note has a
-  scheduled meeting date at least seven local calendar days in the past.
-- Send the reminder to the meeting-note owner/creator while they still have
-  access to the project.
-- Create one durable in-app notification per eligible meeting todo and reminder
-  window.
-- Queue the notification through the existing project notification email digest
-  path so delivery, skipped mode, grouping, and logging remain consistent.
-- Extend dispatcher summaries, runbooks, and tests so operators can distinguish
-  task due-date reminder reconciliation from meeting-todo overdue reconciliation.
-- Preserve existing meeting-note UI behavior; this task is about durable
-  reminders and delivery, not a redesign of the floating panel or note editor.
+- Add a member-visible project presence affordance near the project dashboard
+  header, using a compact avatar stack or similarly dense collaboration surface.
+- Show current project members with generated avatars, display names, roles, and
+  secondary identity where useful, while avoiding repeated or noisy identity
+  copy.
+- Include the signed-in actor in the presence data and clearly distinguish their
+  own role without implying live online/offline status.
+- Support owner, editor, and viewer access through a service-layer read path
+  that requires at least project viewer membership.
+- Preserve owner-only collaboration management in the existing settings panels;
+  this task is about awareness on the project page, not editing invitations or
+  roles.
+- Keep the UI responsive on mobile and desktop without overlapping the project
+  title, action buttons, or dashboard stats.
+- Reuse existing avatar, role-formatting, and collaborator identity helpers
+  where they fit; avoid introducing remote image dependencies or a separate
+  avatar system.
+
+## Out Of Scope
+- Real-time online presence, cursor presence, or active editing indicators.
+- New uploaded profile photo support.
+- Changes to invitation creation, role mutation, or member removal workflows.
+- Calendar/member availability semantics.
+- Agent credential avatars or agent presence on project pages.
 
 ## Implementation Notes
 - Start with:
-  - `lib/services/project-notification-email-service.ts`
-  - `lib/services/notification-service.ts`
-  - `lib/services/project-meeting-note-service.ts`
-  - `prisma/schema.prisma`
-  - `docs/runbooks/notification-email-dispatch.md`
-  - `tests/lib/project-notification-email-service.test.ts`
-  - `tests/lib/notification-service.test.ts`
-  - `tests/api/notification-email-dispatch.route.test.ts`
-- Prefer a durable per-action reminder state if notification/email history alone
-  cannot express "same todo, same seven-day window" clearly enough for
-  idempotency and future re-reminder decisions.
-- If adding persistence, include Prisma migration, RLS inventory/policy updates,
-  and indexes that support dispatcher scans without broad project reads.
-- Keep persistence access inside `lib/services/**`; the cron route should remain
-  a thin auth and response adapter.
-- Reuse the task due-date reminder source-id pattern, but use a distinct
-  notification `type` and `sourceType`, such as
-  `meeting_todo_overdue_reminder`.
-- The email digest item should be concise and actionable, with metadata that can
-  build a target URL back to the project/meeting context.
-- Preview validation must use disabled or safe outbound email behavior unless an
-  explicit test recipient is intentionally configured.
+  - `app/projects/[projectId]/page.tsx`
+  - `lib/services/project-service.ts`
+  - `components/ui/user-avatar.tsx`
+  - `components/project-dashboard/project-dashboard-owner-actions.shared.ts`
+  - `components/project-dashboard/project-dashboard-owner-access-panel.tsx`
+  - `components/kanban-board-types.ts`
+  - `tests/lib/project-service.test.ts`
+  - `tests/components/*project*`
+- Consider either extending `ProjectSummaryWithStatsRecord` with a small
+  `members` payload or adding a focused service such as
+  `listProjectPresenceMembers(projectId, actorUserId)`. Prefer the option that
+  avoids extra broad queries and keeps `getProjectSummaryById(...)` readable.
+- The general presence read path must not call the owner-only
+  `getProjectSharingSummary(...)`; that service should remain tied to project
+  settings management.
+- If the surface needs a hidden overflow list or popover for larger projects,
+  use stable dimensions and accessible labels so the avatar stack does not
+  resize the header unexpectedly.
+- Ensure fallback avatars come from `resolveAvatarSeed(user.avatarSeed, user.id)`
+  and existing `UserAvatar` rendering.
+- If project membership query shape changes, check RLS assumptions and update
+  RLS inventory only if new persistence or policy coverage is introduced.
 
 ## Acceptance Criteria
-1. A service can find meeting-note todos that are incomplete seven or more days
-   after the parent note's scheduled meeting date.
-2. Reminder dispatch is idempotent per todo and reminder window.
-3. The owning meeting-note user receives a durable in-app notification/reminder
-   record while they still have project access.
-4. The reminder is queued and sent/skipped through the existing notification
-   email dispatcher, outbound email mode controls, and delivery logging.
-5. Dispatcher responses and runbooks document how meeting-todo overdue
-   reminders are triggered manually and by the scheduler bridge.
-6. Tests cover overdue selection, idempotency, email payload shape, skipped
-   delivery behavior, and permission/tenancy boundaries.
+1. Project pages show a compact collaborator presence affordance for every actor
+   with at least viewer access to the project.
+2. The affordance renders generated avatars and identity labels for project
+   members, including accounts without uploaded photos.
+3. Roles are visible or discoverable for listed members, and the current actor's
+   own role remains clear.
+4. Owner-only management behavior remains unchanged; non-owners do not gain
+   access to invitation or member-management APIs.
+5. The UI works on narrow and wide viewports without text overlap, layout shift,
+   or clipped action controls.
+6. Tests cover service authorization/tenancy, member identity mapping, avatar
+   fallback behavior, and representative UI rendering.
 
 ## Definition Of Done
-- [x] Existing notification-email services, scheduler workflow, and runbook are
+- [x] Active project context, membership services, and avatar components are
       reviewed.
-- [x] Reminder eligibility is implemented in the service layer with project and
-      recipient access checks.
-- [x] Persistence changes, if needed, are added through Prisma migrations and
-      RLS inventory/policy updates. No new persistence table was needed; the
-      existing `Notification` unique key and email item coverage provide the
-      durable per-window idempotency record.
-- [x] In-app notification metadata and email digest rendering support
-      meeting-todo overdue reminders.
-- [x] API/cron dispatcher output includes meeting-todo reminder reconciliation
-      evidence.
-- [x] Tests cover service, API/scheduler, email grouping/rendering, skipped
-      delivery, and tenancy behavior.
-- [x] Documentation explains local, preview, and production reminder behavior.
-- [x] Preview validation proves the reminder path can run safely without sending
-      unintended external email.
+- [x] A member-visible project presence data path is implemented in
+      `lib/services/**` with viewer-or-higher authorization.
+- [x] Project dashboard header renders the presence affordance with accessible
+      avatar/name/role semantics.
+- [x] Existing owner settings sharing and access panels continue to work
+      unchanged.
+- [x] Unit/component coverage is added or updated for the new service/UI path.
+- [x] Local validation passes for the required baseline.
+- [x] `tasks/current.md` and `journal.md` are updated with implementation and
+      validation evidence before handoff.
 
 ## Validation Plan
-- [x] `npm run lint`
-- [x] `npm run rls:check`
-- [x] `npm test`
-- [x] `npm run test:coverage`
-- [x] `npm run build`
-- Run focused notification dispatcher and meeting-note tests during development.
-- If Prisma/RLS changes are introduced, also run:
-  - `npm run test:rls:setup`
-  - `npm run test:rls`
-- For preview validation, dispatch the notification email workflow with
-  `git_ref=feature/task-314-meeting-todo-overdue-reminders`, confirm logs check
-  out that ref, and capture the dispatcher summary plus safe outbound email
-  outcome.
+- Focused during development:
+  - `npm test -- tests/lib/project-service.test.ts`
+  - relevant component tests for the project dashboard/header or new presence
+    component
+- Before handoff:
+  - `npm run lint`
+  - `npm run rls:check`
+  - `npm test`
+  - `npm run test:coverage`
+  - `npm run build`
+- Run `npm run test:e2e` if the final implementation materially changes the
+  project dashboard layout or navigation behavior beyond the header affordance.
 
 ## Evidence
-- Local validation passed with `npm run lint`, `npm run rls:check`, focused
-  notification/API tests, local PostgreSQL `npm test` (124 files passed, 2
-  skipped; 922 tests passed, 2 skipped), `npm run test:coverage` (91.37%
-  statements, 81.33% branches, 92.2% functions, 91.88% lines), preview-env
-  `npm run build`, and `git diff --check`.
-- PR #346 checks passed on commit
-  `39f80f2da44419fa37c3cb7ec9114f673879204b` for branch name, Quality Core,
-  E2E Smoke, Tenant Isolation, and Container Image.
-- Preview workflow run `28135528412` used
-  `git_ref=feature/task-314-meeting-todo-overdue-reminders`, checked out commit
-  `39f80f2da44419fa37c3cb7ec9114f673879204b`, deployed app version `0.22.0` to
-  `https://nexus-dash-hyp9z5w0q-dorian-agaesses-projects.vercel.app`, and
-  passed the secret-injection check for `NOTIFICATION_EMAIL_DISPATCH_SECRET`.
-- Notification dispatch workflow run `28135630372` against that preview returned
-  `ok: true` with `meetingTodoOverdueRemindersReconciled: 0`, all delivery
-  counts at `0`, and `errors: 0`, proving the guarded reminder path can run
-  safely without sending unintended external email.
+- Implemented a server-rendered project collaborator presence block in the
+  dashboard header, powered by the existing `listProjectCollaborators(...)`
+  viewer-or-higher service path.
+- Reused generated `UserAvatar` rendering, added optional avatar `title`
+  support, included role/name rows plus screen-reader-only full member context,
+  and kept sharing/settings management owner-only.
+- Added responsive title wrapping with `overflow-wrap:anywhere` after visual
+  validation exposed long project names overflowing on mobile.
+- Added `tests/components/project-collaboration-presence.test.tsx` for member
+  count, actor role, avatar rendering, overflow, and empty rendering behavior.
+- Local dev server started at `http://127.0.0.1:3000`; standalone Playwright
+  visual checks captured `.tmp/task119-presence-desktop.png` and
+  `.tmp/task119-presence-mobile.png`, confirming the presence block and long
+  project title fit desktop and 390px mobile viewports. The probe also surfaced
+  an existing meeting-notes search input hydration warning unrelated to this
+  component.
+- Validation passed:
+  - `npm run lint`
+  - `npm run rls:check`
+  - `npm test` with local PostgreSQL env (125 files passed, 2 skipped; 925
+    tests passed, 2 skipped)
+  - `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2%
+    functions, 91.88% lines)
+  - `npm run build` with local-safe placeholder production secrets
+  - `PORT=3001 npm run test:e2e` with local PostgreSQL env and outbound email
+    disabled (9 passed)

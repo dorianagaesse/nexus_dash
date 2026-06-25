@@ -8,6 +8,7 @@ interface UserAvatarProps {
   displayName: string;
   className?: string;
   imageClassName?: string;
+  title?: string;
   decorative?: boolean;
 }
 
@@ -16,11 +17,13 @@ export function UserAvatar({
   displayName,
   className,
   imageClassName,
+  title,
   decorative = false,
 }: UserAvatarProps) {
   return (
     <span
       aria-hidden={decorative}
+      title={title}
       className={cn(
         "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-muted",
         className

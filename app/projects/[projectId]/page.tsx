@@ -11,6 +11,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
+import { ProjectCollaborationPresence } from "@/components/project-dashboard/project-collaboration-presence";
 import { ProjectDashboardOwnerActions } from "@/components/project-dashboard/project-dashboard-owner-actions";
 import { ProjectLiveRefresh } from "@/components/project-live-refresh";
 import { CalendarSummaryStatCard } from "@/components/project-dashboard/calendar-summary-stat-card";
@@ -19,7 +20,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { getStorageRuntimeConfig } from "@/lib/env.server";
-import { getProjectSummaryById } from "@/lib/services/project-service";
+import {
+  getProjectSummaryById,
+  listProjectCollaborators,
+} from "@/lib/services/project-service";
 import { MAX_ATTACHMENT_FILE_SIZE_LABEL } from "@/lib/task-attachment";
 
 import { KanbanBoardSection, KanbanBoardSkeleton } from "./kanban-board-section";
@@ -109,7 +113,10 @@ export default async function ProjectDashboardPage({
   const resolvedSearchParams = await searchParams;
   const actorUserId = await requireSessionUserIdFromServer();
 
-  const project = await getProjectSummaryById(resolvedParams.projectId, actorUserId);
+  const [project, collaborators] = await Promise.all([
+    getProjectSummaryById(resolvedParams.projectId, actorUserId),
+    listProjectCollaborators(resolvedParams.projectId, actorUserId),
+  ]);
 
   if (!project) {
     notFound();
@@ -133,8 +140,8 @@ export default async function ProjectDashboardPage({
       <section className="relative overflow-hidden rounded-3xl border border-border/70 bg-card/75 px-4 py-4 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.65)] backdrop-blur-sm sm:px-8 sm:py-6">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.18),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.12),transparent_36%)]" />
         <div className="relative space-y-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-2">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary" className="rounded-full px-3 py-1">
                   Project dashboard
@@ -151,7 +158,7 @@ export default async function ProjectDashboardPage({
                 </Badge>
               </div>
               <div className="space-y-1.5">
-                <h1 className="text-3xl font-semibold tracking-tight sm:text-[2.85rem]">
+                <h1 className="break-words text-3xl font-semibold tracking-tight [overflow-wrap:anywhere] sm:text-[2.85rem]">
                   {project.name}
                 </h1>
                 {project.description ? (
@@ -162,20 +169,31 @@ export default async function ProjectDashboardPage({
               </div>
             </div>
 
-            <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end lg:w-auto">
-              {actorRole === "owner" ? (
-                <ProjectDashboardOwnerActions
-                  projectId={project.id}
-                  projectName={project.name}
-                  projectDescription={project.description}
-                />
-              ) : null}
-              <Button asChild variant="outline" className="w-full rounded-full px-4 sm:w-auto">
-                <Link href="/projects">
-                  <ChevronLeft className="h-4 w-4" />
-                  Back to projects
-                </Link>
-              </Button>
+            <div className="flex w-full min-w-0 flex-col gap-3 xl:w-auto xl:max-w-[30rem]">
+              <ProjectCollaborationPresence
+                members={collaborators}
+                actorUserId={actorUserId}
+              />
+
+              <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                {actorRole === "owner" ? (
+                  <ProjectDashboardOwnerActions
+                    projectId={project.id}
+                    projectName={project.name}
+                    projectDescription={project.description}
+                  />
+                ) : null}
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full rounded-full px-4 sm:w-auto"
+                >
+                  <Link href="/projects">
+                    <ChevronLeft className="h-4 w-4" />
+                    Back to projects
+                  </Link>
+                </Button>
+              </div>
             </div>
           </div>
 

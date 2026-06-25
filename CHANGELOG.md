@@ -8,6 +8,15 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.23.0 - 2026-06-25
+
+- Added a compact collaborator presence block to project dashboards so members
+  can see who has access from the project header.
+- Reused generated user avatars and existing viewer-or-higher collaborator
+  identity data, keeping owner-only sharing management unchanged.
+- Improved project-title wrapping on narrow screens so long project names stay
+  contained beside the new presence affordance.
+
 ## v0.22.0 - 2026-06-25
 
 - Added durable in-app reminders for meeting-note todos that remain open seven
