@@ -4,7 +4,7 @@
 TASK-119
 
 ## Status
-Implemented locally. Ready for PR.
+PR open. CI follow-up applied.
 
 ## Branch
 `feature/task-119-project-collaboration-presence-ux`
@@ -153,3 +153,7 @@ project membership authorization rules.
   - `npm run build` with local-safe placeholder production secrets
   - `PORT=3001 npm run test:e2e` with local PostgreSQL env and outbound email
     disabled (9 passed)
+- PR #347 CI initially caught stale app-metadata fallback expectations pinned to
+  `v0.22.0`; updated the tests to derive the fallback from `package.json`.
+  Focused `tests/lib/app-metadata.test.ts`, full PostgreSQL-backed `npm test`,
+  and `npm run lint` passed after the fix.

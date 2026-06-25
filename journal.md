@@ -2460,3 +2460,8 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-119 passed local validation and visual dashboard checks.
 - Evidence: `npm run lint`, `npm run rls:check`, full local PostgreSQL `npm test` (125 files passed, 2 skipped; 925 tests passed, 2 skipped), `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2% functions, 91.88% lines), production `npm run build` with local-safe placeholder secrets, and `PORT=3001 npm run test:e2e` with outbound email disabled passed. Focused presence/project-service tests passed. Local dev server `http://127.0.0.1:3000` rendered a seeded three-member project dashboard; screenshots `.tmp/task119-presence-desktop.png` and `.tmp/task119-presence-mobile.png` confirmed desktop/mobile containment after the title-wrap fix. The visual probe also observed an existing meeting-notes search-input hydration warning unrelated to the new presence component.
+
+### 2026-06-25
+- Type: Review
+- Summary: TASK-119 opened PR #347 and fixed the first CI feedback.
+- Evidence: PR #347 (`https://github.com/dorianagaesse/nexus_dash/pull/347`) was opened from `feature/task-119-project-collaboration-presence-ux`. Quality Core initially failed because `tests/lib/app-metadata.test.ts` still hard-coded the previous `v0.22.0` fallback after the feature release bump to `v0.23.0`; updated those expectations to derive from `package.json`. Focused app-metadata tests passed (8/8), full local PostgreSQL `npm test` passed again (125 files passed, 2 skipped; 925 tests passed, 2 skipped), and `npm run lint` passed before pushing the follow-up.
