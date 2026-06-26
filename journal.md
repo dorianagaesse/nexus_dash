@@ -21,7 +21,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Validation: Focused membership activity tests passed (2 files / 19 tests),
   app metadata tests passed after deriving package fallback expectations from
   `package.json`, `npm run lint`, `npm run rls:check`, release-policy
-  validation for `v0.22.1`, local PostgreSQL `npm test` (124 files passed, 2
+  validation for `v0.23.1`, local PostgreSQL `npm test` (124 files passed, 2
   skipped; 924 tests passed, 2 skipped), `npm run db:migrate`,
   `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2%
   functions, 91.88% lines), local-safe `npm run build`, and

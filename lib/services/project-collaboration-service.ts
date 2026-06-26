@@ -1573,6 +1573,7 @@ export async function respondToProjectInvitation(input: {
 
     if (invitation.acceptedAt) {
       await resolveCurrentInvitationNotification();
+      await touchAcceptedMembershipActivity(invitation.acceptedAt);
       return createSuccess(200, { projectId: invitation.projectId });
     }
 
@@ -1714,6 +1715,7 @@ export async function respondToProjectInvitation(input: {
 
       if (latestInvitation?.acceptedAt) {
         await resolveCurrentInvitationNotification();
+        await touchAcceptedMembershipActivity(latestInvitation.acceptedAt);
         return createSuccess(200, { projectId: latestInvitation.projectId });
       }
 
