@@ -4,7 +4,7 @@
 TASK-320
 
 ## Status
-In progress.
+PR open. Copilot review feedback addressed.
 
 ## Branch
 `fix/task-320-project-membership-live-refresh`
@@ -68,8 +68,8 @@ refresh.
 - [x] Invitation acceptance calls the activity touch after successful accept.
 - [x] Focused service tests cover the regression.
 - [x] Local validation passes for the required baseline.
-- [ ] Branch is pushed and a ready-for-review PR is opened.
-- [ ] Copilot review/check feedback is monitored and handled.
+- [x] Branch is pushed and a ready-for-review PR is opened.
+- [x] Copilot review/check feedback is monitored and handled.
 
 ## Validation Plan
 - Focused during development:
@@ -115,3 +115,7 @@ refresh.
   Focused service/app-metadata tests, `npm run lint`, and
   `npx prisma db execute --file prisma/migrations/20260626090000_task320_project_membership_activity_touch/migration.sql`
   passed after the change.
+- PR #353 is open and ready for review. Copilot's monotonic timestamp comment
+  was addressed in commit `92e1048`, replied to, and resolved. Refreshed GitHub
+  checks passed for branch name, Quality Core, E2E Smoke, Tenant Isolation, and
+  Container Image.
