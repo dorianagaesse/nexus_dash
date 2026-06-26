@@ -2450,3 +2450,33 @@ Low-value entries to avoid going forward:
 - Type: Validation
 - Summary: TASK-314 passed local, CI, and guarded preview dispatcher validation.
 - Evidence: Local validation passed with `npm run lint`, `npm run rls:check`, focused notification/API tests, local PostgreSQL `npm test` (124 files passed, 2 skipped; 922 tests passed, 2 skipped), `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2% functions, 91.88% lines), preview-env `npm run build`, and `git diff --check`. PR #346 checks passed on `39f80f2da44419fa37c3cb7ec9114f673879204b` for branch name, Quality Core, E2E Smoke, Tenant Isolation, and Container Image. Preview workflow run `28135528412` checked out `feature/task-314-meeting-todo-overdue-reminders` at `39f80f2da44419fa37c3cb7ec9114f673879204b`, deployed app version `0.22.0` to `https://nexus-dash-hyp9z5w0q-dorian-agaesses-projects.vercel.app`, and showed `NOTIFICATION_EMAIL_DISPATCH_SECRET` available to the deploy. Notification dispatch workflow run `28135630372` against that preview succeeded with `ok: true`, `meetingTodoOverdueRemindersReconciled: 0`, all delivery counts at `0`, and `errors: 0`, proving the protected reminder path can run safely without sending unintended external email.
+
+### 2026-06-25
+- Type: Implementation
+- Summary: TASK-119 added project dashboard collaborator presence.
+- Evidence: Replaced the completed TASK-314 active brief with a TASK-119 brief, branched from `origin/main` as `feature/task-119-project-collaboration-presence-ux`, and implemented a server-rendered `ProjectCollaborationPresence` block in the project header. The block reuses the existing viewer-authorized `listProjectCollaborators(...)` service path, generated `UserAvatar` identities, role labels, screen-reader-only full member context, and compact overflow behavior while leaving owner-only sharing/settings management unchanged. Added optional `UserAvatar` title support and protected long project names on mobile with `overflow-wrap:anywhere`. Added `v0.23.0` release metadata and changelog notes for the user-facing collaboration feature.
+
+### 2026-06-25
+- Type: Validation
+- Summary: TASK-119 passed local validation and visual dashboard checks.
+- Evidence: `npm run lint`, `npm run rls:check`, full local PostgreSQL `npm test` (125 files passed, 2 skipped; 925 tests passed, 2 skipped), `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2% functions, 91.88% lines), production `npm run build` with local-safe placeholder secrets, and `PORT=3001 npm run test:e2e` with outbound email disabled passed. Focused presence/project-service tests passed. Local dev server `http://127.0.0.1:3000` rendered a seeded three-member project dashboard; screenshots `.tmp/task119-presence-desktop.png` and `.tmp/task119-presence-mobile.png` confirmed desktop/mobile containment after the title-wrap fix. The visual probe also observed an existing meeting-notes search-input hydration warning unrelated to the new presence component.
+
+### 2026-06-25
+- Type: Review
+- Summary: TASK-119 opened PR #347 and fixed the first CI feedback.
+- Evidence: PR #347 (`https://github.com/dorianagaesse/nexus_dash/pull/347`) was opened from `feature/task-119-project-collaboration-presence-ux`. Quality Core initially failed because `tests/lib/app-metadata.test.ts` still hard-coded the previous `v0.22.0` fallback after the feature release bump to `v0.23.0`; updated those expectations to derive from `package.json`. Focused app-metadata tests passed (8/8), full local PostgreSQL `npm test` passed again (125 files passed, 2 skipped; 925 tests passed, 2 skipped), and `npm run lint` passed before pushing the follow-up.
+
+### 2026-06-25
+- Type: Review
+- Summary: TASK-119 addressed Copilot's accessibility and duplicate-query comments.
+- Evidence: Copilot flagged duplicate screen-reader announcements in the presence member rows and duplicate `listProjectCollaborators(...)` work between the page header and Kanban section. Marked the visual row list `aria-hidden` while preserving the full screen-reader-only collaborator summary, passed the already-fetched collaborator payload into `KanbanBoardSection`, and removed the second collaborator service call from that section. Focused presence tests passed (3/3), `npm run lint` passed, full local PostgreSQL `npm test` passed (125 files passed, 2 skipped; 925 tests passed, 2 skipped), and production `npm run build` passed with the existing Tailwind module-type warning.
+
+### 2026-06-26
+- Type: Iteration
+- Summary: TASK-119 simplified the project presence header to avatars-only and fixed cramped dashboard stat cards.
+- Evidence: Removed the collaborator presence card chrome, labels, role rows, actor badge, and count text so the project header shows only member avatars. Avatar hover titles now expose each member's `usernameTag` with display-name fallback. Reworked the project dashboard stats from manual 12-column spans to equal responsive columns and made stat labels/values truncate instead of breaking words, fixing the Attachments/Calendar wrapping shown in the screenshot. Focused presence tests, `npm run lint`, local-safe production `npm run build`, `npm run rls:check`, and full local PostgreSQL `npm test` passed. Standalone Playwright verified `http://127.0.0.1:3000/projects/cmqte0tb30003foszy0hvzv58` at 1462x425 and saved `.tmp/task119-followup-desktop.png`.
+
+### 2026-06-26
+- Type: Iteration
+- Summary: TASK-119 highlighted the project owner inside the avatars-only presence stack.
+- Evidence: Added a thicker primary border to the member avatar whose project role is `owner`, while preserving borderless styling for other member avatars and username/display-name hover titles. Focused presence tests passed (4/4), `npm run lint` passed, and local-safe production `npm run build` passed with the existing Tailwind module-type warning.

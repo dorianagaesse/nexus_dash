@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, test } from "vitest";
 
 import { getAppMetadataSummary } from "@/lib/app-metadata";
+import packageJson from "@/package.json";
 
 describe("app-metadata", () => {
+  const packageVersionTag = `v${packageJson.version}`;
   const originalAppVersion = process.env.APP_VERSION;
   const originalPublicAppVersion = process.env.NEXT_PUBLIC_APP_VERSION;
   const originalVercelSha = process.env.VERCEL_GIT_COMMIT_SHA;
@@ -60,10 +62,10 @@ describe("app-metadata", () => {
 
     const summary = getAppMetadataSummary();
 
-    expect(summary.versionTag).toBe("v0.22.0");
+    expect(summary.versionTag).toBe(packageVersionTag);
     expect(summary.revision).toBeNull();
     expect(summary.revisionLabel).toBeNull();
-    expect(summary.versionLabel).toBe("v0.22.0");
+    expect(summary.versionLabel).toBe(packageVersionTag);
   });
 
   test("strips build metadata from the visible version", () => {
@@ -84,8 +86,8 @@ describe("app-metadata", () => {
 
     const summary = getAppMetadataSummary();
 
-    expect(summary.versionTag).toBe("v0.22.0");
-    expect(summary.versionLabel).toBe("v0.22.0");
+    expect(summary.versionTag).toBe(packageVersionTag);
+    expect(summary.versionLabel).toBe(packageVersionTag);
   });
 
   test("uses optional repository override when present", () => {

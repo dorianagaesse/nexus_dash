@@ -11,8 +11,8 @@ import {
 } from "@/components/project-dashboard/project-section-chrome";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  listProjectCollaborators,
   listProjectKanbanTasks,
+  type ProjectCollaboratorIdentitySummary,
 } from "@/lib/services/project-service";
 import { listProjectEpics } from "@/lib/services/project-epic-service";
 import { mapTaskEpicSummary } from "@/lib/epic";
@@ -35,6 +35,7 @@ interface KanbanBoardSectionProps {
   actorUserId: string;
   canEdit: boolean;
   storageProvider: "local" | "r2";
+  collaborators: ProjectCollaboratorIdentitySummary[];
   initialTaskId?: string | null;
 }
 
@@ -43,11 +44,11 @@ export async function KanbanBoardSection({
   actorUserId,
   canEdit,
   storageProvider,
+  collaborators,
   initialTaskId,
 }: KanbanBoardSectionProps) {
-  const [tasks, collaborators, epics] = await Promise.all([
+  const [tasks, epics] = await Promise.all([
     listProjectKanbanTasks(projectId, actorUserId),
-    listProjectCollaborators(projectId, actorUserId),
     listProjectEpics(projectId, actorUserId),
   ]);
   const kanbanTasks: KanbanTask[] = [];
