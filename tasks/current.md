@@ -172,3 +172,8 @@ project membership authorization rules.
   - dashboard stats use equal responsive columns so Attachments and Calendar no
     longer collapse into narrow one-column cards
   - verified at `1462x425` with `.tmp/task119-followup-desktop.png`
+- Owner highlight follow-up addressed:
+  - project owner avatar now receives a thicker primary border while other
+    member avatars remain borderless
+  - focused presence component test, `npm run lint`, and local-safe
+    `npm run build` passed

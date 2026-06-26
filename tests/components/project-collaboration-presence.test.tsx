@@ -51,6 +51,30 @@ describe("project-collaboration-presence", () => {
     expect(result).not.toContain("<ul");
   });
 
+  test("highlights the project owner avatar with a thicker border", () => {
+    const result = renderToStaticMarkup(
+      React.createElement(ProjectCollaborationPresence, {
+        actorUserId: "user-2",
+        members: [
+          buildMember({
+            id: "user-1",
+            displayName: "Owner",
+            projectRole: "owner",
+          }),
+          buildMember({
+            id: "user-2",
+            displayName: "Editor",
+            projectRole: "editor",
+          }),
+        ],
+      })
+    );
+
+    expect(result).toContain("border-2");
+    expect(result).toContain("border-primary");
+    expect(result).toContain('title="Owner"');
+  });
+
   test("keeps all member identities available without non-avatar overflow rows", () => {
     const result = renderToStaticMarkup(
       React.createElement(ProjectCollaborationPresence, {

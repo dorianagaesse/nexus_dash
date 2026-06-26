@@ -2475,3 +2475,8 @@ Low-value entries to avoid going forward:
 - Type: Iteration
 - Summary: TASK-119 simplified the project presence header to avatars-only and fixed cramped dashboard stat cards.
 - Evidence: Removed the collaborator presence card chrome, labels, role rows, actor badge, and count text so the project header shows only member avatars. Avatar hover titles now expose each member's `usernameTag` with display-name fallback. Reworked the project dashboard stats from manual 12-column spans to equal responsive columns and made stat labels/values truncate instead of breaking words, fixing the Attachments/Calendar wrapping shown in the screenshot. Focused presence tests, `npm run lint`, local-safe production `npm run build`, `npm run rls:check`, and full local PostgreSQL `npm test` passed. Standalone Playwright verified `http://127.0.0.1:3000/projects/cmqte0tb30003foszy0hvzv58` at 1462x425 and saved `.tmp/task119-followup-desktop.png`.
+
+### 2026-06-26
+- Type: Iteration
+- Summary: TASK-119 highlighted the project owner inside the avatars-only presence stack.
+- Evidence: Added a thicker primary border to the member avatar whose project role is `owner`, while preserving borderless styling for other member avatars and username/display-name hover titles. Focused presence tests passed (4/4), `npm run lint` passed, and local-safe production `npm run build` passed with the existing Tailwind module-type warning.

@@ -1,6 +1,7 @@
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
 import type { ProjectCollaboratorIdentitySummary } from "@/lib/services/project-service";
+import { cn } from "@/lib/utils";
 
 interface ProjectCollaborationPresenceProps {
   members: ProjectCollaboratorIdentitySummary[];
@@ -35,13 +36,20 @@ export function ProjectCollaborationPresence({
       </p>
       <div className="flex -space-x-2" aria-hidden="true">
         {members.map((member) => {
+          const isOwner = member.projectRole === "owner";
+
           return (
             <UserAvatar
               key={member.id}
               avatarSeed={member.avatarSeed}
               displayName={member.displayName}
               title={member.usernameTag ?? member.displayName}
-              className="h-8 w-8 border-0 shadow-sm"
+              className={cn(
+                "h-8 w-8 shadow-sm",
+                isOwner
+                  ? "relative z-10 border-2 border-primary"
+                  : "border-0"
+              )}
               decorative
             />
           );
