@@ -1,137 +1,110 @@
-# Current Task: TASK-314 Meeting Todo Overdue Reminders
+# Current Task: TASK-320 Project Membership Live Refresh
 
 ## Task ID
-TASK-314
+TASK-320
 
 ## Status
-Implemented in PR #346. Awaiting final review and merge.
+In progress.
 
 ## Branch
-`feature/task-314-meeting-todo-overdue-reminders`
+`fix/task-320-project-membership-live-refresh`
 
 ## Source
-- User feedback on TASK-098 on 2026-06-10.
-- `tasks/task-314-meeting-todo-overdue-reminders.md`
+- GitHub issue #352: Project page does not update when a member joins.
+- User report on 2026-06-26.
 
 ## Objective
-Add durable in-app and email reminders for open meeting-note todos that remain
-incomplete seven or more days after the meeting date, using the existing
-notification email dispatcher and queue semantics.
+Ensure already-open project pages update automatically after an invited user
+joins the project, so collaborator/member surfaces do not require a manual page
+refresh.
 
 ## Context
-- TASK-098 added `ProjectMeetingNote` and `ProjectMeetingNoteAction`, including
-  meeting dates, action completion state, labels, lifecycle state, and UI-level
-  overdue highlighting.
-- TASK-316 added a project-wide floating panel for open meeting todos and a
-  focused action-completion API path.
-- The notification email dispatcher already reconciles task due-date reminders
-  during `GET /api/cron/notification-emails`, creates durable `Notification`
-  rows, queues `ProjectNotificationEmail` groups, honors outbound email skip
-  modes, and records delivery outcomes.
-- Current scheduler bridge: `.github/workflows/notification-email-dispatch.yml`
-  calls the protected dispatcher every 30 minutes.
+- Project dashboards use `ProjectLiveRefresh` with an SSE-first activity stream
+  and polling fallback.
+- That refresh path observes `Project.updatedAt` as the project activity
+  version, and typed `ProjectActivityEvent` rows are used for targeted
+  reconciliation where available.
+- Invitation acceptance creates a `ProjectMembership` and marks the
+  `ProjectInvitation` accepted, but it did not advance the project activity
+  marker, so open dashboards had no freshness signal for membership changes.
+- The normal typed activity writer intentionally requires editor-or-owner
+  access. Invitees may accept viewer invitations, so membership acceptance needs
+  a narrower refresh-marker path rather than relaxing content mutation rules.
 
 ## Scope
-- Identify incomplete `ProjectMeetingNoteAction` rows whose parent note has a
-  scheduled meeting date at least seven local calendar days in the past.
-- Send the reminder to the meeting-note owner/creator while they still have
-  access to the project.
-- Create one durable in-app notification per eligible meeting todo and reminder
-  window.
-- Queue the notification through the existing project notification email digest
-  path so delivery, skipped mode, grouping, and logging remain consistent.
-- Extend dispatcher summaries, runbooks, and tests so operators can distinguish
-  task due-date reminder reconciliation from meeting-todo overdue reconciliation.
-- Preserve existing meeting-note UI behavior; this task is about durable
-  reminders and delivery, not a redesign of the floating panel or note editor.
+- Add a membership-specific project activity touch that is valid only after the
+  authenticated invitee has accepted the invitation and has a project
+  membership.
+- Call that touch after successful invitation acceptance so project SSE/polling
+  clients observe a newer project version and refresh.
+- Keep owner-only sharing management and editor-only content activity events
+  unchanged.
+- Add regression coverage for viewer invitation acceptance advancing the
+  project refresh marker.
+- Update task tracking and release metadata for the fix.
 
-## Implementation Notes
-- Start with:
-  - `lib/services/project-notification-email-service.ts`
-  - `lib/services/notification-service.ts`
-  - `lib/services/project-meeting-note-service.ts`
-  - `prisma/schema.prisma`
-  - `docs/runbooks/notification-email-dispatch.md`
-  - `tests/lib/project-notification-email-service.test.ts`
-  - `tests/lib/notification-service.test.ts`
-  - `tests/api/notification-email-dispatch.route.test.ts`
-- Prefer a durable per-action reminder state if notification/email history alone
-  cannot express "same todo, same seven-day window" clearly enough for
-  idempotency and future re-reminder decisions.
-- If adding persistence, include Prisma migration, RLS inventory/policy updates,
-  and indexes that support dispatcher scans without broad project reads.
-- Keep persistence access inside `lib/services/**`; the cron route should remain
-  a thin auth and response adapter.
-- Reuse the task due-date reminder source-id pattern, but use a distinct
-  notification `type` and `sourceType`, such as
-  `meeting_todo_overdue_reminder`.
-- The email digest item should be concise and actionable, with metadata that can
-  build a target URL back to the project/meeting context.
-- Preview validation must use disabled or safe outbound email behavior unless an
-  explicit test recipient is intentionally configured.
+## Out Of Scope
+- New UI for project membership or online presence.
+- Invitation creation, revocation, role mutation, or removal semantics.
+- Targeted client-side patching for membership rows; a full dashboard refresh is
+  acceptable for this membership-change event.
 
 ## Acceptance Criteria
-1. A service can find meeting-note todos that are incomplete seven or more days
-   after the parent note's scheduled meeting date.
-2. Reminder dispatch is idempotent per todo and reminder window.
-3. The owning meeting-note user receives a durable in-app notification/reminder
-   record while they still have project access.
-4. The reminder is queued and sent/skipped through the existing notification
-   email dispatcher, outbound email mode controls, and delivery logging.
-5. Dispatcher responses and runbooks document how meeting-todo overdue
-   reminders are triggered manually and by the scheduler bridge.
-6. Tests cover overdue selection, idempotency, email payload shape, skipped
-   delivery behavior, and permission/tenancy boundaries.
+1. Successful project invitation acceptance advances the project activity
+   version observed by the existing project live-refresh stream.
+2. Viewer invitees can trigger the membership-refresh marker only through the
+   accepted-invitation path; editor-only content activity behavior remains
+   unchanged.
+3. Owner-only collaboration management APIs and project authorization
+   boundaries remain unchanged.
+4. Tests cover the acceptance path and the membership activity touch behavior.
+5. The GitHub issue is linked from the PR and repository task tracking is
+   updated.
 
 ## Definition Of Done
-- [x] Existing notification-email services, scheduler workflow, and runbook are
-      reviewed.
-- [x] Reminder eligibility is implemented in the service layer with project and
-      recipient access checks.
-- [x] Persistence changes, if needed, are added through Prisma migrations and
-      RLS inventory/policy updates. No new persistence table was needed; the
-      existing `Notification` unique key and email item coverage provide the
-      durable per-window idempotency record.
-- [x] In-app notification metadata and email digest rendering support
-      meeting-todo overdue reminders.
-- [x] API/cron dispatcher output includes meeting-todo reminder reconciliation
-      evidence.
-- [x] Tests cover service, API/scheduler, email grouping/rendering, skipped
-      delivery, and tenancy behavior.
-- [x] Documentation explains local, preview, and production reminder behavior.
-- [x] Preview validation proves the reminder path can run safely without sending
-      unintended external email.
+- [x] Root cause is identified in the invitation acceptance and project activity
+      flow.
+- [x] A membership-specific activity touch is implemented.
+- [x] Invitation acceptance calls the activity touch after successful accept.
+- [x] Focused service tests cover the regression.
+- [x] Local validation passes for the required baseline.
+- [ ] Branch is pushed and a ready-for-review PR is opened.
+- [ ] Copilot review/check feedback is monitored and handled.
 
 ## Validation Plan
-- [x] `npm run lint`
-- [x] `npm run rls:check`
-- [x] `npm test`
-- [x] `npm run test:coverage`
-- [x] `npm run build`
-- Run focused notification dispatcher and meeting-note tests during development.
-- If Prisma/RLS changes are introduced, also run:
-  - `npm run test:rls:setup`
-  - `npm run test:rls`
-- For preview validation, dispatch the notification email workflow with
-  `git_ref=feature/task-314-meeting-todo-overdue-reminders`, confirm logs check
-  out that ref, and capture the dispatcher summary plus safe outbound email
-  outcome.
+- Focused during development:
+  - `npm test -- tests/lib/project-activity-service.test.ts tests/lib/project-collaboration-service.test.ts`
+- Before handoff:
+  - `npm run lint`
+  - `npm run rls:check`
+  - `npm test`
+  - `npm run test:coverage`
+  - `npm run build`
 
 ## Evidence
-- Local validation passed with `npm run lint`, `npm run rls:check`, focused
-  notification/API tests, local PostgreSQL `npm test` (124 files passed, 2
-  skipped; 922 tests passed, 2 skipped), `npm run test:coverage` (91.37%
-  statements, 81.33% branches, 92.2% functions, 91.88% lines), preview-env
-  `npm run build`, and `git diff --check`.
-- PR #346 checks passed on commit
-  `39f80f2da44419fa37c3cb7ec9114f673879204b` for branch name, Quality Core,
-  E2E Smoke, Tenant Isolation, and Container Image.
-- Preview workflow run `28135528412` used
-  `git_ref=feature/task-314-meeting-todo-overdue-reminders`, checked out commit
-  `39f80f2da44419fa37c3cb7ec9114f673879204b`, deployed app version `0.22.0` to
-  `https://nexus-dash-hyp9z5w0q-dorian-agaesses-projects.vercel.app`, and
-  passed the secret-injection check for `NOTIFICATION_EMAIL_DISPATCH_SECRET`.
-- Notification dispatch workflow run `28135630372` against that preview returned
-  `ok: true` with `meetingTodoOverdueRemindersReconciled: 0`, all delivery
-  counts at `0`, and `errors: 0`, proving the guarded reminder path can run
-  safely without sending unintended external email.
+- Root cause: invitation acceptance did not advance `Project.updatedAt` or
+  create a typed activity event, so existing SSE/polling clients had no newer
+  project activity version to observe after a member joined.
+- Added `app.touch_project_membership_activity(...)`, which validates the
+  authenticated invitee, accepted invitation, actor email, and resulting
+  membership before updating the project activity marker.
+- `respondToProjectInvitation(...)` now touches the membership activity marker
+  after successful acceptance, causing existing project activity SSE/polling
+  clients to observe a newer project version and refresh.
+- Validation passed:
+  - `npm test -- tests/lib/project-activity-service.test.ts tests/lib/project-collaboration-service.test.ts`
+  - `npm test -- tests/lib/app-metadata.test.ts`
+  - `npm run lint`
+  - `npm run rls:check`
+  - `npm run release:check -- --base origin/main --branch fix/task-320-project-membership-live-refresh`
+  - local PostgreSQL `npm test` (124 files passed, 2 skipped; 924 tests passed,
+    2 skipped)
+  - `npm run db:migrate`
+  - `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2%
+    functions, 91.88% lines)
+  - `npm run build` with local-safe placeholder production secrets
+  - `git diff --check`
+- Initial bare `npm test` failed because `DATABASE_URL` was not set in the
+  shell and stale app metadata assertions still expected `v0.22.0`; rerunning
+  with local database env after deriving those assertions from `package.json`
+  passed.

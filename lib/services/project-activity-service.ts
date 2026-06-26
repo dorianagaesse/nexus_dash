@@ -29,6 +29,11 @@ interface TouchProjectActivityInput {
   occurredAt?: Date;
 }
 
+interface TouchProjectMembershipActivityInput extends TouchProjectActivityInput {
+  actorUserId: string;
+  invitationId: string;
+}
+
 interface ProjectActivitySnapshot {
   projectId: string;
   version: Date;
@@ -84,6 +89,14 @@ function normalizeId(value: string | null | undefined): string {
 }
 
 function canCallRawProjectActivityTouch(db: DbClient): db is DbClient & {
+  $queryRaw<T = unknown>(query: Prisma.Sql): Promise<T>;
+} {
+  return typeof (db as { $queryRaw?: unknown }).$queryRaw === "function";
+}
+
+function canCallRawProjectMembershipActivityTouch(
+  db: DbClient
+): db is DbClient & {
   $queryRaw<T = unknown>(query: Prisma.Sql): Promise<T>;
 } {
   return typeof (db as { $queryRaw?: unknown }).$queryRaw === "function";
@@ -215,6 +228,41 @@ export async function touchProjectActivity(
   if (process.env.NODE_ENV !== "test" && canCallRawProjectActivityTouch(input.db)) {
     const rows = await input.db.$queryRaw<Array<{ updated_at: Date }>>(
       Prisma.sql`SELECT app.touch_project_activity(${projectId}, ${occurredAt}) AS updated_at`
+    );
+    return rows[0]?.updated_at ?? occurredAt;
+  }
+
+  const projectDelegate = (input.db as { project?: { update?: unknown } }).project;
+  if (typeof projectDelegate?.update !== "function") {
+    return occurredAt;
+  }
+
+  await input.db.project.update({
+    where: { id: projectId },
+    data: { updatedAt: occurredAt },
+    select: { id: true },
+  });
+
+  return occurredAt;
+}
+
+export async function touchProjectMembershipActivity(
+  input: TouchProjectMembershipActivityInput
+): Promise<Date> {
+  const projectId = normalizeId(input.projectId);
+  const actorUserId = normalizeId(input.actorUserId);
+  const invitationId = normalizeId(input.invitationId);
+  const occurredAt = input.occurredAt ?? new Date();
+  if (!projectId || !actorUserId || !invitationId) {
+    return occurredAt;
+  }
+
+  if (
+    process.env.NODE_ENV !== "test" &&
+    canCallRawProjectMembershipActivityTouch(input.db)
+  ) {
+    const rows = await input.db.$queryRaw<Array<{ updated_at: Date }>>(
+      Prisma.sql`SELECT app.touch_project_membership_activity(${projectId}, ${actorUserId}, ${invitationId}, ${occurredAt}) AS updated_at`
     );
     return rows[0]?.updated_at ?? occurredAt;
   }
