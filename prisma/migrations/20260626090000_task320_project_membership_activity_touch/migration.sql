@@ -11,6 +11,9 @@ SET search_path = pg_catalog, public
 AS $$
 DECLARE
   actor_user_id TEXT;
+  current_project_updated_at TIMESTAMP(3);
+  requested_version TIMESTAMP(3);
+  activity_version TIMESTAMP(3);
   touched_at TIMESTAMPTZ;
 BEGIN
   actor_user_id := app.current_user_id();
@@ -44,8 +47,30 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
+  SELECT p."updatedAt"
+  INTO current_project_updated_at
+  FROM "Project" p
+  WHERE p.id = project_id
+  FOR UPDATE;
+
+  IF current_project_updated_at IS NULL THEN
+    RAISE EXCEPTION 'project membership activity touch project not found'
+      USING ERRCODE = '42501';
+  END IF;
+
+  requested_version := LEAST(
+    activity_at::TIMESTAMP(3),
+    clock_timestamp()::TIMESTAMP(3)
+  );
+
+  IF current_project_updated_at >= requested_version THEN
+    activity_version := current_project_updated_at + INTERVAL '1 millisecond';
+  ELSE
+    activity_version := requested_version;
+  END IF;
+
   UPDATE "Project"
-  SET "updatedAt" = activity_at
+  SET "updatedAt" = activity_version
   WHERE id = project_id
   RETURNING "updatedAt" INTO touched_at;
 
