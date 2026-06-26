@@ -8,6 +8,16 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.23.1 - 2026-06-27
+
+- Fixed project dashboards so already-open pages refresh after an invited
+  member accepts a project invitation.
+- Added a membership-specific project activity marker touch that validates the
+  accepted invite and resulting membership without relaxing editor-only content
+  activity rules.
+- Added regression coverage for viewer invitation acceptance advancing the
+  project refresh marker.
+
 ## v0.23.0 - 2026-06-25
 
 - Added a compact collaborator presence block to project dashboards so members

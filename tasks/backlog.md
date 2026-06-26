@@ -6,6 +6,12 @@ Last reviewed: 2026-06-21
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-320
+  Title: Project membership live refresh - update project pages when invited members join
+  Status: In progress - GitHub issue #352
+  Rationale: Already-open project dashboards do not refresh when an invited user accepts a project invitation because invitation acceptance does not advance the project activity marker watched by the SSE/polling refresh path.
+  Dependencies: TASK-058, TASK-309, TASK-311, TASK-119
+  Brief: `tasks/task-320-project-membership-live-refresh.md`
 - ID: TASK-314
   Title: Meeting todo overdue reminders - notification email and in-app reminder dispatch
   Status: Next 1 - meeting workflow completion

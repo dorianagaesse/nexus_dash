@@ -8,6 +8,7 @@ import {
   recordProjectActivityEvent,
   projectActivityServiceInternals,
   touchProjectActivity,
+  touchProjectMembershipActivity,
 } from "@/lib/services/project-activity-service";
 
 describe("project-activity-service", () => {
@@ -49,6 +50,30 @@ describe("project-activity-service", () => {
 
     expect(result).toBe(occurredAt);
     expect(projectUpdate).not.toHaveBeenCalled();
+  });
+
+  test("touchProjectMembershipActivity advances the project marker for accepted membership changes", async () => {
+    const occurredAt = new Date("2026-06-26T08:00:00.000Z");
+    const projectUpdate = vi.fn().mockResolvedValue({ id: "project-1" });
+
+    const result = await touchProjectMembershipActivity({
+      db: {
+        project: {
+          update: projectUpdate,
+        },
+      } as never,
+      projectId: " project-1 ",
+      actorUserId: " user-1 ",
+      invitationId: " invite-1 ",
+      occurredAt,
+    });
+
+    expect(result).toBe(occurredAt);
+    expect(projectUpdate).toHaveBeenCalledWith({
+      where: { id: "project-1" },
+      data: { updatedAt: occurredAt },
+      select: { id: true },
+    });
   });
 
   test("recordProjectActivityEvent creates a typed event and advances project activity", async () => {

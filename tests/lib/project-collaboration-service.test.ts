@@ -21,6 +21,7 @@ const prismaMock = vi.hoisted(() => ({
   project: {
     findFirst: vi.fn(),
     findUnique: vi.fn(),
+    update: vi.fn(),
   },
 }));
 
@@ -488,7 +489,8 @@ describe("project-collaboration-service", () => {
     });
   });
 
-  test("treats already accepted invitations as idempotent success", async () => {
+  test("repairs project activity for already accepted invitations", async () => {
+    const acceptedAt = new Date("2026-03-20T01:00:00.000Z");
     prismaMock.user.findUnique.mockResolvedValueOnce({
       email: "invitee@example.com",
       emailVerified: new Date("2026-03-20T00:00:00.000Z"),
@@ -498,11 +500,12 @@ describe("project-collaboration-service", () => {
       projectId: "project-1",
       invitedEmail: "invitee@example.com",
       role: "editor",
-      acceptedAt: new Date("2026-03-20T01:00:00.000Z"),
+      acceptedAt,
       revokedAt: null,
       replacedAt: null,
       expiresAt: new Date("2099-03-21T00:00:00.000Z"),
     });
+    prismaMock.project.update.mockResolvedValueOnce({ id: "project-1" });
 
     const result = await respondToProjectInvitation({
       actorUserId: "user-1",
@@ -519,9 +522,15 @@ describe("project-collaboration-service", () => {
     });
     expect(prismaMock.projectMembership.create).not.toHaveBeenCalled();
     expect(prismaMock.projectInvitation.updateMany).not.toHaveBeenCalled();
+    expect(prismaMock.project.update).toHaveBeenCalledWith({
+      where: { id: "project-1" },
+      data: { updatedAt: acceptedAt },
+      select: { id: true },
+    });
   });
 
-  test("accepts invitation idempotently when membership creation loses a race", async () => {
+  test("repairs project activity when membership creation loses a race", async () => {
+    const acceptedAt = new Date("2026-03-20T02:00:00.000Z");
     prismaMock.user.findUnique.mockResolvedValueOnce({
       email: "invitee@example.com",
       emailVerified: new Date("2026-03-20T00:00:00.000Z"),
@@ -539,7 +548,7 @@ describe("project-collaboration-service", () => {
       })
       .mockResolvedValueOnce({
         projectId: "project-1",
-        acceptedAt: new Date("2026-03-20T02:00:00.000Z"),
+        acceptedAt,
         revokedAt: null,
         replacedAt: null,
         expiresAt: new Date("2099-03-21T00:00:00.000Z"),
@@ -547,6 +556,7 @@ describe("project-collaboration-service", () => {
     prismaMock.projectMembership.findUnique.mockResolvedValueOnce(null);
     prismaMock.projectMembership.create.mockRejectedValueOnce({ code: "P2002" });
     prismaMock.projectInvitation.updateMany.mockResolvedValueOnce({ count: 0 });
+    prismaMock.project.update.mockResolvedValueOnce({ id: "project-1" });
 
     const result = await respondToProjectInvitation({
       actorUserId: "user-1",
@@ -564,6 +574,63 @@ describe("project-collaboration-service", () => {
     expect(prismaMock.projectMembership.create).toHaveBeenCalledTimes(1);
     expect(prismaMock.projectInvitation.updateMany).toHaveBeenCalledTimes(1);
     expect(prismaMock.projectMembership.deleteMany).not.toHaveBeenCalled();
+    expect(prismaMock.project.update).toHaveBeenCalledWith({
+      where: { id: "project-1" },
+      data: { updatedAt: acceptedAt },
+      select: { id: true },
+    });
+  });
+
+  test("advances project activity when a viewer accepts an invitation", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-20T02:30:00.000Z"));
+
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      email: "invitee@example.com",
+      emailVerified: new Date("2026-03-20T00:00:00.000Z"),
+    });
+    prismaMock.projectInvitation.findUnique.mockResolvedValueOnce({
+      id: "invite-1",
+      projectId: "project-1",
+      invitedEmail: "invitee@example.com",
+      role: "viewer",
+      acceptedAt: null,
+      revokedAt: null,
+      replacedAt: null,
+      expiresAt: new Date("2099-03-21T00:00:00.000Z"),
+    });
+    prismaMock.projectMembership.findUnique.mockResolvedValueOnce(null);
+    prismaMock.projectMembership.create.mockResolvedValueOnce({
+      id: "membership-1",
+    });
+    prismaMock.projectInvitation.updateMany.mockResolvedValueOnce({ count: 1 });
+    prismaMock.project.update.mockResolvedValueOnce({ id: "project-1" });
+
+    const result = await respondToProjectInvitation({
+      actorUserId: "user-1",
+      invitationId: "invite-1",
+      decision: "accept",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      status: 200,
+      data: {
+        projectId: "project-1",
+      },
+    });
+    expect(prismaMock.projectMembership.create).toHaveBeenCalledWith({
+      data: {
+        projectId: "project-1",
+        userId: "user-1",
+        role: "viewer",
+      },
+    });
+    expect(prismaMock.project.update).toHaveBeenCalledWith({
+      where: { id: "project-1" },
+      data: { updatedAt: new Date("2026-03-20T02:30:00.000Z") },
+      select: { id: true },
+    });
   });
 
   test("removes a just-created membership when invitation acceptance loses to revocation", async () => {

@@ -14,6 +14,7 @@ import {
   hasRequiredRole,
   requireProjectRole,
 } from "@/lib/services/project-access-service";
+import { touchProjectMembershipActivity } from "@/lib/services/project-activity-service";
 import {
   createProjectInvitationNotification,
   resolveProjectInvitationNotifications,
@@ -1547,9 +1548,32 @@ export async function respondToProjectInvitation(input: {
         invitationIds: [invitation.id],
       });
     };
+    const touchAcceptedMembershipActivity = async (acceptedAt: Date) => {
+      try {
+        await touchProjectMembershipActivity({
+          db,
+          actorUserId,
+          projectId: invitation.projectId,
+          invitationId: invitation.id,
+          occurredAt: acceptedAt,
+        });
+      } catch (error) {
+        logServerWarning(
+          "respondToProjectInvitation.activityTouchFailed",
+          "Could not advance project activity after invitation acceptance",
+          {
+            actorUserId,
+            projectId: invitation.projectId,
+            invitationId: invitation.id,
+            error,
+          }
+        );
+      }
+    };
 
     if (invitation.acceptedAt) {
       await resolveCurrentInvitationNotification();
+      await touchAcceptedMembershipActivity(invitation.acceptedAt);
       return createSuccess(200, { projectId: invitation.projectId });
     }
 
@@ -1691,6 +1715,7 @@ export async function respondToProjectInvitation(input: {
 
       if (latestInvitation?.acceptedAt) {
         await resolveCurrentInvitationNotification();
+        await touchAcceptedMembershipActivity(latestInvitation.acceptedAt);
         return createSuccess(200, { projectId: latestInvitation.projectId });
       }
 
@@ -1732,6 +1757,7 @@ export async function respondToProjectInvitation(input: {
     }
 
     await resolveCurrentInvitationNotification();
+    await touchAcceptedMembershipActivity(acceptedAt);
     return createSuccess(200, { projectId: invitation.projectId });
   });
 }

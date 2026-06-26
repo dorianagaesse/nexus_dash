@@ -3,6 +3,38 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-06-26 - TASK-320 project membership live refresh started
+
+- Summary: Created GitHub issue #352 and worktree
+  `../nexus_dash_task320` on
+  `fix/task-320-project-membership-live-refresh`.
+- Root cause: `respondToProjectInvitation(...)` created the membership and
+  accepted the invitation but never advanced `Project.updatedAt` or recorded a
+  typed project activity event. Existing project dashboards subscribe to that
+  activity version through SSE/polling, so open pages had no signal that a new
+  member joined.
+- Decision: Added a membership-specific activity touch instead of relaxing the
+  editor-only typed activity writer. The database function validates the
+  authenticated invitee, accepted invitation, and resulting membership before
+  updating the project activity marker, so viewer invitations can refresh open
+  dashboards without changing content mutation authorization.
+- Validation: Focused membership activity tests passed (2 files / 19 tests),
+  app metadata tests passed after deriving package fallback expectations from
+  `package.json`, `npm run lint`, `npm run rls:check`, release-policy
+  validation for `v0.23.1`, local PostgreSQL `npm test` (124 files passed, 2
+  skipped; 924 tests passed, 2 skipped), `npm run db:migrate`,
+  `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2%
+  functions, 91.88% lines), local-safe `npm run build`, and
+  `git diff --check` passed. An initial bare `npm test` failed before
+  assertions in DB-backed suites because `DATABASE_URL` was not set in the
+  shell.
+- Review: Copilot flagged that the membership activity function could overwrite
+  `Project.updatedAt` with a non-monotonic app-supplied timestamp. Updated the
+  function to lock/read the current project version, cap the requested version
+  at database time, and advance by one millisecond when the current version is
+  already newer. Focused tests, lint, and local `prisma db execute` of the
+  patched function passed.
+
 # 2026-06-25 - TASK-314 meeting todo overdue reminders started
 
 - Summary: Removed clean local task worktrees for TASK-316, TASK-318, and
