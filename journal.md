@@ -28,6 +28,12 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `git diff --check` passed. An initial bare `npm test` failed before
   assertions in DB-backed suites because `DATABASE_URL` was not set in the
   shell.
+- Review: Copilot flagged that the membership activity function could overwrite
+  `Project.updatedAt` with a non-monotonic app-supplied timestamp. Updated the
+  function to lock/read the current project version, cap the requested version
+  at database time, and advance by one millisecond when the current version is
+  already newer. Focused tests, lint, and local `prisma db execute` of the
+  patched function passed.
 
 # 2026-06-25 - TASK-314 meeting todo overdue reminders started
 

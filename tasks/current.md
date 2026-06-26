@@ -108,3 +108,10 @@ refresh.
   shell and stale app metadata assertions still expected `v0.22.0`; rerunning
   with local database env after deriving those assertions from `package.json`
   passed.
+- Copilot review follow-up: changed
+  `app.touch_project_membership_activity(...)` to lock the current project row
+  and compute a monotonic activity version from database time, preventing
+  `updatedAt` from moving backward under clock skew or concurrent writes.
+  Focused service/app-metadata tests, `npm run lint`, and
+  `npx prisma db execute --file prisma/migrations/20260626090000_task320_project_membership_activity_touch/migration.sql`
+  passed after the change.
