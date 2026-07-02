@@ -40,14 +40,14 @@ the existing NexusDash notification-email architecture:
    delivery behavior, and permission/tenancy boundaries.
 
 ## Definition Of Done
-- [ ] Existing notification-email services and scheduler runbooks are reviewed.
-- [ ] Persistence changes, if needed, are added through Prisma migrations.
-- [ ] Reminder dispatch code is service-owned and route/scheduler adapters stay
+- [x] Existing notification-email services and scheduler runbooks are reviewed.
+- [x] Persistence changes, if needed, are added through Prisma migrations.
+- [x] Reminder dispatch code is service-owned and route/scheduler adapters stay
       thin.
-- [ ] Tests cover service, API/scheduler, and email behavior.
-- [ ] Documentation and runbooks explain local, preview, and production
+- [x] Tests cover service, API/scheduler, and email behavior.
+- [x] Documentation and runbooks explain local, preview, and production
       reminder behavior.
-- [ ] Preview validation proves the reminder path can run safely without
+- [x] Preview validation proves the reminder path can run safely without
       sending unintended external email.
 
 ## Initial Implementation Notes

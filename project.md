@@ -1,6 +1,6 @@
 # NexusDash Project Blueprint (Current State)
 
-Last verified: 2026-06-06
+Last verified: 2026-07-05
 
 ## 1. Vision
 
@@ -126,7 +126,8 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 From `tasks/current.md` + `tasks/backlog.md`:
 
-1. No active implementation task selected after TASK-313 closes.
+1. The prioritized UI/UX remediation sequence is TASK-321, TASK-322, TASK-100,
+   TASK-133, TASK-129, TASK-108, then the TASK-323 verification gate.
 
 ## 8. Source-of-Truth Docs
 
