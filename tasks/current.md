@@ -4,7 +4,7 @@
 TASK-270
 
 ## Status
-Done (2026-07-03)
+Done (2026-07-03); PR #356 open and ready for review
 
 ## Branch
 `feature/task-270-app-ui-ux-design-assessment`
@@ -30,7 +30,8 @@ into the assessment.
 - [x] Existing UI owners were clarified in the backlog.
 - [x] TASK-321 and TASK-322 were created as focused follow-ups.
 - [x] `tasks/backlog.md`, the TASK-270 brief, and `journal.md` were updated.
-- [ ] Documentation validation, commit, push, PR, and review monitoring complete.
+- [x] Documentation validation, commit, push, and ready-for-review PR complete.
+- [ ] Initial automated review/check monitoring complete.
 
 ## Evidence
 - Report: `docs/reports/task-270-ui-ux-assessment.md`
@@ -38,6 +39,7 @@ into the assessment.
 - Playwright capture: 2 tests passed against a local production build and
   migrated PostgreSQL database.
 - Build used for capture: `npm run build` passed with local-safe runtime values.
+- Pull request: `https://github.com/dorianagaesse/nexus_dash/pull/356`
 
 ## Validation Plan
 - `git diff --check`

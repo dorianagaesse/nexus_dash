@@ -25,6 +25,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   foundation and TASK-322 for the responsive authenticated app shell.
 - Report: `docs/reports/task-270-ui-ux-assessment.md` with evidence in
   `docs/reports/task-270-ui-ux-assets/`.
+- Delivery: Commit `1dfe373` was pushed and PR #356 opened ready for review.
 
 # 2026-06-26 - TASK-320 project membership live refresh started
 
