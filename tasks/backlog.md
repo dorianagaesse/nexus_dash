@@ -2,7 +2,7 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-06-21
+Last reviewed: 2026-07-03
 
 ## Pending
 ### Execution Queue (Now / Next)
@@ -23,23 +23,29 @@ Last reviewed: 2026-06-21
   Status: Next 2 - bounded collaboration UX improvement
   Rationale: Improve shared-project awareness by showing collaborator avatars and identity affordances directly on project pages so users can quickly understand who has access and who is participating, with sensible fallback behavior for accounts without uploaded photos.
   Dependencies: TASK-058, TASK-082, TASK-089
+- ID: TASK-321
+  Title: Accessible modal and sheet foundation - semantics, focus lifecycle, keyboard behavior, and responsive overlays
+  Status: Next UI foundation - high-priority accessibility defect identified by TASK-270
+  Rationale: Replace duplicated custom overlay behavior with shared accessible dialog/sheet primitives so task, context, project-settings, confirmation, meeting, roadmap, and attachment flows have correct modal semantics, named controls, focus containment/restoration, Escape handling, background isolation, and reduced-motion behavior.
+  Dependencies: TASK-270
+  Brief: `tasks/task-321-accessible-modal-sheet-foundation.md`
+- ID: TASK-322
+  Title: Responsive authenticated app shell - primary navigation, utility placement, and safe feedback layers
+  Status: Next UI foundation - focused product-navigation follow-up from TASK-270
+  Rationale: Replace floating utility-only authenticated chrome with a responsive shell that exposes primary destinations and current location, demotes diagnostic metadata, meets mobile touch requirements, and prevents navigation, toasts, menus, and overlays from competing for the same fixed screen space.
+  Dependencies: TASK-270
+  Brief: `tasks/task-322-responsive-authenticated-app-shell.md`
 ### Deferred (Intentional)
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and edit modal polish
   Status: Deferred UI follow-up (moved from execution queue 2026-05-31; PR #224 partial fix merged)
   Rationale: Fix task UI regressions around the compact scrollbar affordance and task edit modal behavior so dense task surfaces stay usable, visually clean, and predictable during everyday task creation and editing workflows.
   Dependencies: TASK-076, TASK-113
-- ID: TASK-270
-  Title: App UI/UX design assessment - product-wide heuristic audit and refinement roadmap
-  Status: Deferred 2026-05-31
-  Rationale: Before another broad polish pass, assess the current app experience across core user journeys, responsive layouts, visual hierarchy, copy, interaction feedback, accessibility basics, and consistency with the intended product tone. The output should be a ranked, evidence-backed design assessment that decides which issues belong in existing UI tasks such as TASK-108/TASK-100/TASK-129 and which need new implementation tasks, instead of mixing assessment and redesign in one large patch.
-  Dependencies: TASK-091, TASK-096, TASK-100, TASK-108, TASK-129
-  Brief: `tasks/task-270-app-ui-ux-design-assessment.md`
 - ID: TASK-129
   Title: Login/home page UI polish - user-friendly, product-oriented entry experience
   Status: Deferred 2026-05-31
-  Rationale: Redesign the login and home page so they feel like a polished product surface rather than a technical auth form: improve visual hierarchy, copy, branding presence, and call-to-action clarity so new visitors understand the product value at a glance and returning users get a frictionless sign-in experience.
-  Dependencies: TASK-045, TASK-059, TASK-083
+  Rationale: Redesign the login and home page so they feel like a polished product surface rather than a technical auth form: replace session/provider architecture language with user outcomes, reduce the very long mobile first-visit path, improve visual hierarchy and CTA clarity, and keep returning-user sign-in friction low. TASK-270 finding F5 is the design brief.
+  Dependencies: TASK-045, TASK-059, TASK-083, TASK-270
 - ID: TASK-102
   Title: Collaboration service modularization - split invite, membership, and recipient flows into smaller service units
   Status: Pending
@@ -58,8 +64,8 @@ Last reviewed: 2026-06-21
 - ID: TASK-108
   Title: Whole-app UI/UX refinement - global interaction, visual, and information-design polish
   Status: Pending
-  Rationale: Run a broader refinement pass across the entire app so pages, panels, forms, and feedback patterns feel cohesive, intentional, and production-grade instead of evolving as isolated local improvements. Explicitly includes a sweep for inconsistent UI components (spacing, typography, color tokens, button/input variants, modal patterns) with the goal of uniformizing the visual design language across all surfaces.
-  Dependencies: TASK-096, TASK-100
+  Rationale: Run a broader refinement pass across the entire app so pages, panels, forms, and feedback patterns feel cohesive, intentional, and production-grade instead of evolving as isolated local improvements. Use TASK-270 findings F6-F12 for the concrete sweep: module hierarchy, metric semantics, read-only affordances, type/spacing tokens, empty states, toast policy, and reduced motion. Dialog behavior and app-shell navigation are split into TASK-321/TASK-322 and should not be rediscovered here.
+  Dependencies: TASK-096, TASK-100, TASK-270, TASK-321, TASK-322
 - ID: TASK-134
   Title: Section help affordances - opt-in question-mark guidance across dashboard modules
   Status: Pending
@@ -68,8 +74,8 @@ Last reviewed: 2026-06-21
 - ID: TASK-100
   Title: Mobile UI/UX refinement - touch ergonomics, compact layouts, and small-screen polish
   Status: Pending
-  Rationale: After the baseline responsive pass, refine the mobile experience so it feels intentionally designed rather than merely supported by tightening spacing, improving touch targets, reducing modal friction, and smoothing small-screen navigation patterns across high-traffic flows. This refinement scope should explicitly include concrete mobile navigation bug fixing, plus Google Calendar behavior on mobile, especially event readability, interaction density, and create/edit usability on narrow viewports.
-  Dependencies: TASK-091, TASK-079, TASK-096
+  Rationale: After the baseline responsive pass, refine the mobile experience so it feels intentionally designed rather than merely supported. TASK-270 findings F2/F4/F8 make the scope concrete: re-prioritize the long dashboard sequence, replace four vertically stacked Kanban columns with an intentional status-switching pattern, enforce 44px touch targets and readable secondary text, reduce task-sheet friction, and retain the existing Google Calendar narrow-viewport scope.
+  Dependencies: TASK-091, TASK-079, TASK-096, TASK-270, TASK-321, TASK-322
 - ID: TASK-063
   Title: Background jobs phase 1 - maintenance workload extraction (deferred)
   Status: Pending
@@ -109,6 +115,13 @@ Last reviewed: 2026-06-21
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-270
+  Title: App UI/UX design assessment - product-wide heuristic audit and refinement roadmap
+  Status: Done (2026-07-03)
+  Rationale: Assessed core entry, project, dashboard, task, notification, account, sharing, and agent-access surfaces at desktop/mobile widths and in light/dark themes. The report ranks the current product at a credible early-production baseline, routes findings into TASK-100/TASK-108/TASK-129/TASK-133/TASK-134/TASK-110, and creates focused accessibility and app-shell follow-ups TASK-321/TASK-322.
+  Dependencies: TASK-091, TASK-096, TASK-100, TASK-108, TASK-129
+  Brief: `tasks/task-270-app-ui-ux-design-assessment.md`
+  Report: `docs/reports/task-270-ui-ux-assessment.md`
 - ID: TASK-316
   Title: Meeting todo floating panel - project-wide open follow-up list
   Status: Done (2026-06-21, delivered via PR #345)

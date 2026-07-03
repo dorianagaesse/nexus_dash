@@ -1,121 +1,45 @@
-# Current Task: TASK-320 Project Membership Live Refresh
+# Current Task: TASK-270 App UI/UX Design Assessment
 
 ## Task ID
-TASK-320
+TASK-270
 
 ## Status
-PR open. Copilot review feedback addressed.
+Done (2026-07-03)
 
 ## Branch
-`fix/task-320-project-membership-live-refresh`
-
-## Source
-- GitHub issue #352: Project page does not update when a member joins.
-- User report on 2026-06-26.
+`feature/task-270-app-ui-ux-design-assessment`
 
 ## Objective
-Ensure already-open project pages update automatically after an invited user
-joins the project, so collaborator/member surfaces do not require a manual page
-refresh.
-
-## Context
-- Project dashboards use `ProjectLiveRefresh` with an SSE-first activity stream
-  and polling fallback.
-- That refresh path observes `Project.updatedAt` as the project activity
-  version, and typed `ProjectActivityEvent` rows are used for targeted
-  reconciliation where available.
-- Invitation acceptance creates a `ProjectMembership` and marks the
-  `ProjectInvitation` accepted, but it did not advance the project activity
-  marker, so open dashboards had no freshness signal for membership changes.
-- The normal typed activity writer intentionally requires editor-or-owner
-  access. Invitees may accept viewer invitations, so membership acceptance needs
-  a narrower refresh-marker path rather than relaxing content mutation rules.
-
-## Scope
-- Add a membership-specific project activity touch that is valid only after the
-  authenticated invitee has accepted the invitation and has a project
-  membership.
-- Call that touch after successful invitation acceptance so project SSE/polling
-  clients observe a newer project version and refresh.
-- Keep owner-only sharing management and editor-only content activity events
-  unchanged.
-- Add regression coverage for viewer invitation acceptance advancing the
-  project refresh marker.
-- Update task tracking and release metadata for the fix.
-
-## Out Of Scope
-- New UI for project membership or online presence.
-- Invitation creation, revocation, role mutation, or removal semantics.
-- Targeted client-side patching for membership rows; a full dashboard refresh is
-  acceptable for this membership-change event.
+Produce a product-wide, evidence-backed UI/UX assessment and route each finding
+to a clear existing or new implementation task without mixing redesign code
+into the assessment.
 
 ## Acceptance Criteria
-1. Successful project invitation acceptance advances the project activity
-   version observed by the existing project live-refresh stream.
-2. Viewer invitees can trigger the membership-refresh marker only through the
-   accepted-invitation path; editor-only content activity behavior remains
-   unchanged.
-3. Owner-only collaboration management APIs and project authorization
-   boundaries remain unchanged.
-4. Tests cover the acceptance path and the membership activity touch behavior.
-5. The GitHub issue is linked from the PR and repository task tracking is
-   updated.
+1. A concise assessment document contains ranked findings, evidence, impact,
+   type, and owning task.
+2. Existing UI tasks are cross-referenced and refined instead of duplicated.
+3. Newly discovered standalone work is captured as focused backlog tasks.
+4. Product design, defects, accessibility, and responsive-layout findings are
+   distinguished.
+5. Desktop/mobile and light/dark screenshots support the high-priority findings.
 
 ## Definition Of Done
-- [x] Root cause is identified in the invitation acceptance and project activity
-      flow.
-- [x] A membership-specific activity touch is implemented.
-- [x] Invitation acceptance calls the activity touch after successful accept.
-- [x] Focused service tests cover the regression.
-- [x] Local validation passes for the required baseline.
-- [x] Branch is pushed and a ready-for-review PR is opened.
-- [x] Copilot review/check feedback is monitored and handled.
-
-## Validation Plan
-- Focused during development:
-  - `npm test -- tests/lib/project-activity-service.test.ts tests/lib/project-collaboration-service.test.ts`
-- Before handoff:
-  - `npm run lint`
-  - `npm run rls:check`
-  - `npm test`
-  - `npm run test:coverage`
-  - `npm run build`
+- [x] Core unauthenticated and authenticated flows were reviewed.
+- [x] Playwright screenshot evidence was captured at desktop and mobile widths.
+- [x] The assessment report and screenshot inventory were added.
+- [x] Existing UI owners were clarified in the backlog.
+- [x] TASK-321 and TASK-322 were created as focused follow-ups.
+- [x] `tasks/backlog.md`, the TASK-270 brief, and `journal.md` were updated.
+- [ ] Documentation validation, commit, push, PR, and review monitoring complete.
 
 ## Evidence
-- Root cause: invitation acceptance did not advance `Project.updatedAt` or
-  create a typed activity event, so existing SSE/polling clients had no newer
-  project activity version to observe after a member joined.
-- Added `app.touch_project_membership_activity(...)`, which validates the
-  authenticated invitee, accepted invitation, actor email, and resulting
-  membership before updating the project activity marker.
-- `respondToProjectInvitation(...)` now touches the membership activity marker
-  after successful acceptance, causing existing project activity SSE/polling
-  clients to observe a newer project version and refresh.
-- Validation passed:
-  - `npm test -- tests/lib/project-activity-service.test.ts tests/lib/project-collaboration-service.test.ts`
-  - `npm test -- tests/lib/app-metadata.test.ts`
-  - `npm run lint`
-  - `npm run rls:check`
-  - `npm run release:check -- --base origin/main --branch fix/task-320-project-membership-live-refresh`
-  - local PostgreSQL `npm test` (124 files passed, 2 skipped; 924 tests passed,
-    2 skipped)
-  - `npm run db:migrate`
-  - `npm run test:coverage` (91.37% statements, 81.33% branches, 92.2%
-    functions, 91.88% lines)
-  - `npm run build` with local-safe placeholder production secrets
-  - `git diff --check`
-- Initial bare `npm test` failed because `DATABASE_URL` was not set in the
-  shell and stale app metadata assertions still expected `v0.22.0`; rerunning
-  with local database env after deriving those assertions from `package.json`
-  passed.
-- Copilot review follow-up: changed
-  `app.touch_project_membership_activity(...)` to lock the current project row
-  and compute a monotonic activity version from database time, preventing
-  `updatedAt` from moving backward under clock skew or concurrent writes.
-  Focused service/app-metadata tests, `npm run lint`, and
-  `npx prisma db execute --file prisma/migrations/20260626090000_task320_project_membership_activity_touch/migration.sql`
-  passed after the change.
-- PR #353 is open and ready for review. Copilot's monotonic timestamp comment
-  was addressed in commit `92e1048`, replied to, and resolved. Refreshed GitHub
-  checks passed for branch name, Quality Core, E2E Smoke, Tenant Isolation, and
-  Container Image.
+- Report: `docs/reports/task-270-ui-ux-assessment.md`
+- Screenshots: `docs/reports/task-270-ui-ux-assets/`
+- Playwright capture: 2 tests passed against a local production build and
+  migrated PostgreSQL database.
+- Build used for capture: `npm run build` passed with local-safe runtime values.
+
+## Validation Plan
+- `git diff --check`
+- Verify all report links and task IDs.
+- Confirm the worktree contains documentation/evidence only.
