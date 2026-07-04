@@ -69,7 +69,7 @@ and [account settings](./task-270-ui-ux-assets/10-account-settings-desktop.png).
 | --- | --- | --- | --- | --- |
 | F1 | Accessibility defect | Custom create-task, task-detail, project-settings, confirmation, and attachment overlays do not share a semantic dialog contract. Several overlay roots have no `role="dialog"`/`aria-modal`, close icon buttons have no accessible name, and focus trapping/restoration is not centralized. | Keyboard and screen-reader users can lose context or interact with obscured content. Inconsistent one-off overlay code also increases regression risk. | **New TASK-321** |
 | F2 | Responsive-layout issue | At 390 px, dashboard modules form a very long linear page; Kanban renders four full-width columns in sequence, including large empty columns. Important work is separated by low-value empty space. [Mobile dashboard](./task-270-ui-ux-assets/12-project-dashboard-mobile.png) | Daily scanning and status movement require excessive scrolling; desktop information architecture is merely stacked rather than re-prioritized. | **TASK-100**, with long-term personalization in **TASK-110** |
-| F3 | Product design / navigation | Authenticated routes rely on fixed top-right repository/version, account, notification, and theme controls rather than a clear app shell. On small screens these utilities compete with page headings and feedback; primary destinations are discoverable mainly through the avatar menu. | Weak orientation and destination discovery; utility chrome receives more prominence than product navigation. | **New TASK-322** |
+| F3 | Navigation defect / product design | Authenticated routes rely on fixed top-right repository/version, account, notification, and theme controls rather than a clear app shell. Project-origin context is also discarded by hard-coded account links: Project -> Notifications -> “Back to account” -> “Back to projects” cannot return to the originating project or its task/query state. [Navigation context loss](./task-270-ui-ux-assets/17-notification-context-loss.png) | Weak orientation and destination discovery; visible “Back” controls behave as fixed hierarchy links rather than returning users to where they came from. | **TASK-322** |
 | F4 | Accessibility + mobile ergonomics | Many controls are 40 px or smaller (`h-10`, `h-9`, `h-8`), while dense metadata frequently uses 10–11 px text. These sizes are especially visible in mobile task/Kanban/calendar surfaces. | Missed taps and reduced readability; falls below the audit benchmark of 44 px touch targets and a comfortable mobile text floor. | **TASK-100** for mobile; token/component cleanup in **TASK-108** |
 | F5 | Product design / copy | The entry page is polished visually, but its copy foregrounds implementation details (“session model,” “authorization boundary,” provider configuration). On mobile the auth card is followed by a second, long marketing page, creating a 2,000+ px first visit. [Desktop entry](./task-270-ui-ux-assets/01-home-sign-in-desktop.png), [mobile sign-up](./task-270-ui-ux-assets/02-home-sign-up-mobile.png) | New users must translate technical language into product value; returning users carry unnecessary marketing weight. | **TASK-129** |
 
@@ -85,6 +85,31 @@ and [account settings](./task-270-ui-ux-assets/10-account-settings-desktop.png).
 | F11 | Empty-state UX | The notification center’s “No active notifications” state is technically clear but offers no explanation, project return path, or indication of what will appear there. [Notifications](./task-270-ui-ux-assets/09-notifications-empty-desktop.png) | The page is a dead end and undersells invitations, mentions, and activity. | **TASK-108** |
 | F12 | Motion accessibility | Animations and transitions are present, but no product-level `prefers-reduced-motion` treatment was found. | Users who request reduced motion do not receive a consistent experience. | **TASK-321** for overlay motion; **TASK-108** globally |
 
+## Focused navigation addendum
+
+The follow-up navigation pass confirms that the app loses route context across
+otherwise normal account detours. This is broader than one incorrect button.
+
+| Journey | Current behavior | Required behavior |
+| --- | --- | --- |
+| Project -> account menu -> Notifications | The menu links directly to `/account/notifications` without the project route. | Preserve the project URL as a safe internal origin, including `taskId`, hash, or other meaningful view state. |
+| Notifications -> “Back to account” | Always navigates to `/account`, even when Notifications was opened from a project. | Offer a contextual return such as “Back to [project]” while retaining global Account navigation separately. |
+| Account -> “Back to projects” | Always navigates to `/projects`, completing the loss of the originating project. | Return to the captured origin when valid; use Projects only as the direct-entry fallback. |
+| Project -> account menu -> Settings | Settings uses the same fixed account/projects chain. Native browser Back returns to the project, but the visible product controls do not. | Visible navigation must preserve context at least as well as browser history and must not label a fixed parent jump as historical “Back.” |
+| Project notification banner -> Review notifications | The banner also links directly to the global notification center without origin state. | Carry the source project route into the notification center. |
+| Notification center -> Open task/project | Notification `targetPath` correctly deep-links to the project and can open a task through `?taskId=...`, but the destination only offers “Back to projects.” | Carry a safe notification-center return route so users can inspect an item and continue triage without reconstructing their place. |
+| Direct link/email/auth entry | Auth and invitation flows already normalize safe internal `returnTo` paths. | Reuse this existing safe-path pattern; do not depend on an untrusted referrer or create an open redirect. |
+
+Design implication: Account, Notifications, Settings, and Projects should be
+top-level destinations in the authenticated shell, not represented as a chain
+of faux-history “Back” links. Contextual return is still valuable for temporary
+detours, but it should be explicit (“Back to Apollo launch”) and have a stable
+fallback when the page was opened directly.
+
+The focused Playwright check passed **2/2 tests**: the in-product chain was
+shown to end at `/projects`, while native browser Back from Settings restored
+the exact originating project URL.
+
 ## Task routing and recommended sequence
 
 The audit should not become a single redesign epic. Use this order:
@@ -92,7 +117,8 @@ The audit should not become a single redesign epic. Use this order:
 1. **TASK-321 — accessible modal and sheet foundation.** Correct the highest-risk
    cross-product defect first and eliminate duplicated overlay behavior.
 2. **TASK-322 — responsive authenticated app shell and primary navigation.**
-   Establish orientation, utility placement, and safe feedback layering.
+   Establish orientation, utility placement, safe feedback layering, and
+   context-preserving project/account/notification round trips.
 3. **TASK-100 — mobile UI/UX refinement.** Focus on dashboard prioritization,
    Kanban state switching, 44 px targets, dense forms, and calendar ergonomics.
 4. **TASK-129 — login/home polish.** Replace architecture copy with outcomes,
@@ -162,3 +188,4 @@ formal WCAG conformance audit or usability study.
   [agent access](./task-270-ui-ux-assets/08-project-settings-agent-desktop.png)
 - Account: [notifications](./task-270-ui-ux-assets/09-notifications-empty-desktop.png),
   [calendar settings](./task-270-ui-ux-assets/10-account-settings-desktop.png)
+- Navigation: [project context lost at notifications](./task-270-ui-ux-assets/17-notification-context-loss.png)

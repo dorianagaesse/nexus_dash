@@ -32,7 +32,7 @@ Last reviewed: 2026-07-03
 - ID: TASK-322
   Title: Responsive authenticated app shell - primary navigation, utility placement, and safe feedback layers
   Status: Next UI foundation - focused product-navigation follow-up from TASK-270
-  Rationale: Replace floating utility-only authenticated chrome with a responsive shell that exposes primary destinations and current location, demotes diagnostic metadata, meets mobile touch requirements, and prevents navigation, toasts, menus, and overlays from competing for the same fixed screen space.
+  Rationale: Replace floating utility-only authenticated chrome with a responsive shell that exposes primary destinations and current location, demotes diagnostic metadata, meets mobile touch requirements, and prevents navigation, toasts, menus, and overlays from competing for the same fixed screen space. Preserve safe project/task origin state across account and notification detours so Project -> Notifications -> Account does not strand the user at the generic Projects list.
   Dependencies: TASK-270
   Brief: `tasks/task-322-responsive-authenticated-app-shell.md`
 ### Deferred (Intentional)

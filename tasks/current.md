@@ -39,6 +39,9 @@ into the assessment.
 - Screenshots: `docs/reports/task-270-ui-ux-assets/`
 - Playwright capture: 2 tests passed against a local production build and
   migrated PostgreSQL database.
+- Focused navigation addendum: 2 Playwright tests passed, reproducing the
+  in-product project-context loss and confirming native browser Back preserves
+  the exact source project URL.
 - Build used for capture: `npm run build` passed with local-safe runtime values.
 - Pull request: `https://github.com/dorianagaesse/nexus_dash/pull/356`
 

@@ -3,6 +3,26 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-04 - TASK-270 navigation addendum
+
+- User-reported journey: Project -> account menu -> Notifications -> Back to
+  account -> Back to projects loses the originating project and any open task
+  or query state.
+- Finding: The account menu, awareness banner, notification center, Account,
+  and Settings use hard-coded parent destinations. Native browser Back correctly
+  restores the source project, proving that the visible in-product “Back” links
+  provide weaker context preservation than browser history and are labeled like
+  history while acting as hierarchy jumps.
+- Adjacent risk: Opening a notification target correctly deep-links to a project
+  or task, but the destination offers only Back to projects, so notification
+  triage context is lost in the reverse direction as well.
+- Routing: Expanded TASK-322 with safe internal `returnTo` propagation,
+  contextual project/task restoration, direct-entry fallbacks, notification
+  round trips, and explicit hierarchy-versus-history labeling requirements.
+- Evidence: Focused Playwright navigation audit passed 2/2 tests; screenshot
+  `docs/reports/task-270-ui-ux-assets/17-notification-context-loss.png` records
+  the notification-center dead end.
+
 # 2026-07-03 - TASK-270 product-wide UI/UX assessment completed
 
 - Scope: Reviewed the unauthenticated entry, projects, populated project
