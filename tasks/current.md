@@ -28,7 +28,8 @@ into the assessment.
 - [x] Playwright screenshot evidence was captured at desktop and mobile widths.
 - [x] The assessment report and screenshot inventory were added.
 - [x] Existing UI owners were clarified in the backlog.
-- [x] TASK-321 and TASK-322 were created as focused follow-ups.
+- [x] TASK-321, TASK-322, and TASK-323 were created as focused follow-ups.
+- [x] The remediation queue was prioritized by dependency and UX risk.
 - [x] `tasks/backlog.md`, the TASK-270 brief, and `journal.md` were updated.
 - [x] Documentation validation, commit, push, and ready-for-review PR complete.
 - [x] Initial automated review completed and its tracking consistency comment

@@ -68,3 +68,4 @@ feedback consistently discoverable without covering page content.
 
 ## Dependencies
 - TASK-270
+- TASK-321

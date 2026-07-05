@@ -121,17 +121,19 @@ The audit should not become a single redesign epic. Use this order:
    context-preserving project/account/notification round trips.
 3. **TASK-100 — mobile UI/UX refinement.** Focus on dashboard prioritization,
    Kanban state switching, 44 px targets, dense forms, and calendar ergonomics.
-4. **TASK-129 — login/home polish.** Replace architecture copy with outcomes,
-   shorten the mobile path, and make sign-in versus discovery intentional.
-5. **TASK-133 — task detail/edit polish.** Separate reading from editing and
+4. **TASK-133 — task detail/edit polish.** Separate reading from editing and
    remove the compact-scrollbar/modal regressions already assigned there.
+5. **TASK-129 — login/home polish.** Replace architecture copy with outcomes,
+   shorten the mobile path, and make sign-in versus discovery intentional.
 6. **TASK-108 — whole-app refinement.** After the foundations above, normalize
    type/spacing tokens, module elevation, empty states, metrics, read-only
    affordances, toast policy, and reduced motion without re-solving navigation
    or dialogs.
-7. **TASK-110 — dashboard personalization.** Treat configurable module order and
-   visibility as the long-term answer to different user priorities, not as the
-   first fix for mobile scanning.
+7. **TASK-323 — production-readiness UX verification.** Re-test the remediated
+   product across roles, critical journeys, accessibility modes, responsive
+   layouts, realistic data, and recovery states before assigning a launch-ready
+   UX verdict. TASK-110 remains an optional longer-term personalization epic,
+   not a prerequisite for this verification gate.
 
 TASK-134 remains useful after hierarchy work: help affordances should replace
 persistent explanatory copy only where the primary interaction is already

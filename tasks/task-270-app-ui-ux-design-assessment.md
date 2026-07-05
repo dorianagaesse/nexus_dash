@@ -61,8 +61,9 @@ not duplicate existing tasks.
 - Screenshot evidence: `docs/reports/task-270-ui-ux-assets/`
 - Existing owners refined: TASK-100, TASK-108, TASK-129, TASK-133,
   TASK-134, and TASK-110.
-- Focused follow-ups created: TASK-321 (accessible modal/sheet foundation)
-  and TASK-322 (responsive authenticated app shell).
+- Focused follow-ups created: TASK-321 (accessible modal/sheet foundation),
+  TASK-322 (responsive authenticated app shell), and TASK-323
+  (production-readiness UX verification after remediation).
 - Playwright capture walkthrough passed at 1440 x 1000 and 390 x 844 in
   light/dark themes (2 tests passed).
 

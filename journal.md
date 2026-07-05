@@ -3,6 +3,17 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-05 - TASK-270 remediation queue and verification gate
+
+- Added TASK-323 as a dedicated production-readiness UX verification gate after
+  the audit's implementation work, covering roles, navigation continuity,
+  accessibility, responsive layouts, realistic states, recovery, and usability.
+- Prioritized the UI/UX execution queue by dependency and user risk: TASK-321,
+  TASK-322, TASK-100, TASK-133, TASK-129, TASK-108, then TASK-323.
+- Reconciled completed TASK-320, TASK-119, and TASK-314 out of the pending queue.
+- Kept TASK-110 as an optional longer-term personalization epic rather than a
+  prerequisite for reaching the production-readiness verification gate.
+
 # 2026-07-04 - TASK-270 navigation addendum
 
 - User-reported journey: Project -> account menu -> Notifications -> Back to
