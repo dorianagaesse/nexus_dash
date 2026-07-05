@@ -3,6 +3,61 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-05 - TASK-270 remediation queue and verification gate
+
+- Added TASK-323 as a dedicated production-readiness UX verification gate after
+  the audit's implementation work, covering roles, navigation continuity,
+  accessibility, responsive layouts, realistic states, recovery, and usability.
+- Prioritized the UI/UX execution queue by dependency and user risk: TASK-321,
+  TASK-322, TASK-100, TASK-133, TASK-129, TASK-108, then TASK-323.
+- Reconciled completed TASK-320, TASK-119, and TASK-314 out of the pending queue.
+- Kept TASK-110 as an optional longer-term personalization epic rather than a
+  prerequisite for reaching the production-readiness verification gate.
+
+# 2026-07-04 - TASK-270 navigation addendum
+
+- User-reported journey: Project -> account menu -> Notifications -> Back to
+  account -> Back to projects loses the originating project and any open task
+  or query state.
+- Finding: The account menu, awareness banner, notification center, Account,
+  and Settings use hard-coded parent destinations. Native browser Back correctly
+  restores the source project, proving that the visible in-product “Back” links
+  provide weaker context preservation than browser history and are labeled like
+  history while acting as hierarchy jumps.
+- Adjacent risk: Opening a notification target correctly deep-links to a project
+  or task, but the destination offers only Back to projects, so notification
+  triage context is lost in the reverse direction as well.
+- Routing: Expanded TASK-322 with safe internal `returnTo` propagation,
+  contextual project/task restoration, direct-entry fallbacks, notification
+  round trips, and explicit hierarchy-versus-history labeling requirements.
+- Evidence: Focused Playwright navigation audit passed 2/2 tests; screenshot
+  `docs/reports/task-270-ui-ux-assets/17-notification-context-loss.png` records
+  the notification-center dead end.
+
+# 2026-07-03 - TASK-270 product-wide UI/UX assessment completed
+
+- Scope: Reviewed the unauthenticated entry, projects, populated project
+  dashboard, task create/detail, owner general/sharing/agent settings,
+  notifications, and account settings at 1440 x 1000 and 390 x 844 in light
+  and dark themes.
+- Method: Used the repository's Playwright production-build flow with existing
+  verified-user/project helpers and a migrated local PostgreSQL database.
+  Captured 16 evidence screenshots; the final capture walkthrough passed (2/2
+  tests).
+- Outcome: Rated the current experience 6.2/10, a credible early-production
+  SaaS baseline. Visual consistency, desktop composition, feedback, and dark
+  mode are strengths. The highest-impact gaps are inconsistent accessible
+  overlay behavior, mobile dashboard/Kanban information architecture, weak
+  authenticated navigation, small touch/micro-text sizing, and technical entry
+  copy.
+- Routing: Refined TASK-100, TASK-108, and TASK-129 with concrete audit scope;
+  retained TASK-133/TASK-134/TASK-110 as owners for task-modal, help, and
+  personalization follow-ups; created TASK-321 for the accessible modal/sheet
+  foundation and TASK-322 for the responsive authenticated app shell.
+- Report: `docs/reports/task-270-ui-ux-assessment.md` with evidence in
+  `docs/reports/task-270-ui-ux-assets/`.
+- Delivery: Commit `1dfe373` was pushed and PR #356 opened ready for review.
+
 # 2026-06-26 - TASK-320 project membership live refresh started
 
 - Summary: Created GitHub issue #352 and worktree

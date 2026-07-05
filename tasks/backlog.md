@@ -2,44 +2,49 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-06-21
+Last reviewed: 2026-07-05
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-320
-  Title: Project membership live refresh - update project pages when invited members join
-  Status: In progress - GitHub issue #352
-  Rationale: Already-open project dashboards do not refresh when an invited user accepts a project invitation because invitation acceptance does not advance the project activity marker watched by the SSE/polling refresh path.
-  Dependencies: TASK-058, TASK-309, TASK-311, TASK-119
-  Brief: `tasks/task-320-project-membership-live-refresh.md`
-- ID: TASK-314
-  Title: Meeting todo overdue reminders - notification email and in-app reminder dispatch
-  Status: Next 1 - meeting workflow completion
-  Rationale: Send the meeting-note owner a notification email and in-app reminder when a personal meeting todo remains open seven days after the meeting date, using the existing notification email delivery conventions and scheduler/dispatcher architecture instead of mixing background delivery concerns into the TASK-098 UI rollout.
-  Dependencies: TASK-098, TASK-227, TASK-268, TASK-316
-  Brief: `tasks/task-314-meeting-todo-overdue-reminders.md`
-- ID: TASK-119
-  Title: Project collaboration presence UX - member avatars on project pages
-  Status: Next 2 - bounded collaboration UX improvement
-  Rationale: Improve shared-project awareness by showing collaborator avatars and identity affordances directly on project pages so users can quickly understand who has access and who is participating, with sensible fallback behavior for accounts without uploaded photos.
-  Dependencies: TASK-058, TASK-082, TASK-089
-### Deferred (Intentional)
+- ID: TASK-321
+  Title: Accessible modal and sheet foundation - semantics, focus lifecycle, keyboard behavior, and responsive overlays
+  Status: Now 1 - production-grade UI foundation
+  Rationale: Replace duplicated custom overlay behavior with shared accessible dialog/sheet primitives so task, context, project-settings, confirmation, meeting, roadmap, and attachment flows have correct modal semantics, named controls, focus containment/restoration, Escape handling, background isolation, and reduced-motion behavior.
+  Dependencies: TASK-270
+  Brief: `tasks/task-321-accessible-modal-sheet-foundation.md`
+- ID: TASK-322
+  Title: Responsive authenticated app shell - primary navigation, utility placement, and safe feedback layers
+  Status: Next 2 - navigation and orientation foundation
+  Rationale: Replace floating utility-only authenticated chrome with a responsive shell that exposes primary destinations and current location, demotes diagnostic metadata, meets mobile touch requirements, and prevents navigation, toasts, menus, and overlays from competing for the same fixed screen space. Preserve safe project/task origin state across account and notification detours so Project -> Notifications -> Account does not strand the user at the generic Projects list.
+  Dependencies: TASK-270, TASK-321
+  Brief: `tasks/task-322-responsive-authenticated-app-shell.md`
+- ID: TASK-100
+  Title: Mobile UI/UX refinement - touch ergonomics, compact layouts, and small-screen polish
+  Status: Next 3 - mobile core-flow remediation
+  Rationale: Re-prioritize the long mobile dashboard sequence, replace four vertically stacked Kanban columns with an intentional status-switching pattern, enforce 44px touch targets and readable secondary text, reduce task-sheet friction, and retain the existing Google Calendar narrow-viewport scope identified by TASK-270.
+  Dependencies: TASK-091, TASK-079, TASK-096, TASK-270, TASK-321, TASK-322
 - ID: TASK-133
-  Title: Task UI bug fixing - mini scrollbar and edit modal polish
-  Status: Deferred UI follow-up (moved from execution queue 2026-05-31; PR #224 partial fix merged)
-  Rationale: Fix task UI regressions around the compact scrollbar affordance and task edit modal behavior so dense task surfaces stay usable, visually clean, and predictable during everyday task creation and editing workflows.
-  Dependencies: TASK-076, TASK-113
-- ID: TASK-270
-  Title: App UI/UX design assessment - product-wide heuristic audit and refinement roadmap
-  Status: Deferred 2026-05-31
-  Rationale: Before another broad polish pass, assess the current app experience across core user journeys, responsive layouts, visual hierarchy, copy, interaction feedback, accessibility basics, and consistency with the intended product tone. The output should be a ranked, evidence-backed design assessment that decides which issues belong in existing UI tasks such as TASK-108/TASK-100/TASK-129 and which need new implementation tasks, instead of mixing assessment and redesign in one large patch.
-  Dependencies: TASK-091, TASK-096, TASK-100, TASK-108, TASK-129
-  Brief: `tasks/task-270-app-ui-ux-design-assessment.md`
+  Title: Task UI bug fixing - mini scrollbar and detail/edit modal polish
+  Status: Next 4 - daily task-flow clarity
+  Rationale: Separate task reading from editing, remove ambiguous Save/Edit states, and fix compact scrollbar/modal regressions so the highest-frequency execution flow is visually clear and predictable after the shared overlay foundation lands.
+  Dependencies: TASK-076, TASK-113, TASK-270, TASK-321
 - ID: TASK-129
   Title: Login/home page UI polish - user-friendly, product-oriented entry experience
-  Status: Deferred 2026-05-31
-  Rationale: Redesign the login and home page so they feel like a polished product surface rather than a technical auth form: improve visual hierarchy, copy, branding presence, and call-to-action clarity so new visitors understand the product value at a glance and returning users get a frictionless sign-in experience.
-  Dependencies: TASK-045, TASK-059, TASK-083
+  Status: Next 5 - entry and product-voice refinement
+  Rationale: Replace session/provider architecture language with user outcomes, reduce the very long mobile first-visit path, improve visual hierarchy and CTA clarity, and keep returning-user sign-in friction low. TASK-270 finding F5 is the design brief.
+  Dependencies: TASK-045, TASK-059, TASK-083, TASK-270
+- ID: TASK-108
+  Title: Whole-app UI/UX refinement - global interaction, visual, and information-design polish
+  Status: Next 6 - cross-app convergence pass
+  Rationale: Use TASK-270 findings F6-F12 to normalize module hierarchy, metric semantics, read-only affordances, type/spacing tokens, empty states, toast policy, and reduced motion after the structural navigation, overlay, mobile, task, and entry work is complete.
+  Dependencies: TASK-096, TASK-100, TASK-129, TASK-133, TASK-270, TASK-321, TASK-322
+- ID: TASK-323
+  Title: Production-readiness UX verification - accessibility, navigation, responsive, role, and recovery sign-off
+  Status: Next 7 - blocked final verification gate
+  Rationale: Re-audit the remediated product rather than assuming implementation tasks achieved production quality. Verify WCAG AA fundamentals, keyboard/screen-reader operation, owner/editor/viewer/invitee journeys, navigation state preservation, realistic data density, loading/error/empty recovery, responsive layouts, themes, and critical usability flows; produce a residual-risk sign-off report and focused defects for anything still below production grade.
+  Dependencies: TASK-100, TASK-108, TASK-129, TASK-133, TASK-321, TASK-322
+  Brief: `tasks/task-323-production-readiness-ux-verification.md`
+### Deferred (Intentional)
 - ID: TASK-102
   Title: Collaboration service modularization - split invite, membership, and recipient flows into smaller service units
   Status: Pending
@@ -55,21 +60,11 @@ Last reviewed: 2026-06-21
   Status: Pending
   Rationale: Enable bilingual product usage (French and English) with consistent UI copy, locale routing/state strategy, and fallback behavior; defer implementation until we confirm i18n architecture and translation workflow.
   Dependencies: TASK-047, TASK-060
-- ID: TASK-108
-  Title: Whole-app UI/UX refinement - global interaction, visual, and information-design polish
-  Status: Pending
-  Rationale: Run a broader refinement pass across the entire app so pages, panels, forms, and feedback patterns feel cohesive, intentional, and production-grade instead of evolving as isolated local improvements. Explicitly includes a sweep for inconsistent UI components (spacing, typography, color tokens, button/input variants, modal patterns) with the goal of uniformizing the visual design language across all surfaces.
-  Dependencies: TASK-096, TASK-100
 - ID: TASK-134
   Title: Section help affordances - opt-in question-mark guidance across dashboard modules
   Status: Pending
   Rationale: Replace persistent explanatory copy inside dashboard sections with lighter opt-in help affordances so users can click a question-mark entry point when they want extra context, keeping section layouts cleaner while creating a reusable explanation pattern for Roadmap and future modules.
   Dependencies: TASK-096, TASK-108
-- ID: TASK-100
-  Title: Mobile UI/UX refinement - touch ergonomics, compact layouts, and small-screen polish
-  Status: Pending
-  Rationale: After the baseline responsive pass, refine the mobile experience so it feels intentionally designed rather than merely supported by tightening spacing, improving touch targets, reducing modal friction, and smoothing small-screen navigation patterns across high-traffic flows. This refinement scope should explicitly include concrete mobile navigation bug fixing, plus Google Calendar behavior on mobile, especially event readability, interaction density, and create/edit usability on narrow viewports.
-  Dependencies: TASK-091, TASK-079, TASK-096
 - ID: TASK-063
   Title: Background jobs phase 1 - maintenance workload extraction (deferred)
   Status: Pending
@@ -109,6 +104,30 @@ Last reviewed: 2026-06-21
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-270
+  Title: App UI/UX design assessment - product-wide heuristic audit and refinement roadmap
+  Status: Done (2026-07-03)
+  Rationale: Assessed core entry, project, dashboard, task, notification, account, sharing, and agent-access surfaces at desktop/mobile widths and in light/dark themes. The report ranks the current product at a credible early-production baseline, routes findings into TASK-100/TASK-108/TASK-129/TASK-133/TASK-134/TASK-110, creates focused accessibility and app-shell follow-ups TASK-321/TASK-322, and closes the remediation sequence with verification gate TASK-323.
+  Dependencies: TASK-091, TASK-096, TASK-100, TASK-108, TASK-129
+  Brief: `tasks/task-270-app-ui-ux-design-assessment.md`
+  Report: `docs/reports/task-270-ui-ux-assessment.md`
+- ID: TASK-320
+  Title: Project membership live refresh - update project pages when invited members join
+  Status: Done (2026-06-26, merged via PR #354; closes GitHub issue #352)
+  Rationale: Invitation acceptance now advances a membership-specific, monotonic project activity marker so already-open dashboards refresh when a viewer or editor joins without weakening owner-only sharing or editor-only content activity boundaries.
+  Dependencies: TASK-058, TASK-309, TASK-311, TASK-119
+  Brief: `tasks/task-320-project-membership-live-refresh.md`
+- ID: TASK-119
+  Title: Project collaboration presence UX - member avatars on project pages
+  Status: Done (2026-06-26, merged via PR #347)
+  Rationale: Added a compact, accessible collaborator presence block to project dashboard headers with avatar fallbacks, current-user context, member details, and bounded overflow behavior.
+  Dependencies: TASK-058, TASK-082, TASK-089
+- ID: TASK-314
+  Title: Meeting todo overdue reminders - notification email and in-app reminder dispatch
+  Status: Done (2026-06-25, merged via PR #346)
+  Rationale: Added idempotent overdue meeting-todo reconciliation to the existing notification dispatcher, producing durable in-app reminders and queued project-digest emails with scheduler metrics and operator documentation.
+  Dependencies: TASK-098, TASK-227, TASK-268, TASK-316
+  Brief: `tasks/task-314-meeting-todo-overdue-reminders.md`
 - ID: TASK-316
   Title: Meeting todo floating panel - project-wide open follow-up list
   Status: Done (2026-06-21, delivered via PR #345)

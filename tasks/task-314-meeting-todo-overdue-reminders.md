@@ -1,7 +1,7 @@
 # TASK-314 Meeting Todo Overdue Reminders
 
 ## Status
-Pending.
+Done (2026-06-25, merged via PR #346).
 
 ## Source
 - User feedback on TASK-098 on 2026-06-10: when a meeting todo is still open

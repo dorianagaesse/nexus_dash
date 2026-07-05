@@ -1,7 +1,7 @@
 # TASK-320 Project Membership Live Refresh
 
 ## Status
-In progress.
+Done (2026-06-26, merged via PR #354; closes GitHub issue #352).
 
 ## Source
 - GitHub issue #352: Project page does not update when a member joins.
