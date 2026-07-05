@@ -58,6 +58,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `docs/reports/task-270-ui-ux-assets/`.
 - Delivery: Commit `1dfe373` was pushed and PR #356 opened ready for review.
 
+# 2026-07-02 - Execution backlog reconciled
+
+- Summary: Audited the active execution queue against merged Git history and
+  GitHub PR state. TASK-314 (PR #346), TASK-119 (PR #347), and TASK-320
+  (PR #354) were all complete, merged, and green, so they were moved from the
+  execution queue to the completed ledger.
+- Tracking: Cleared the stale current-task brief, marked the TASK-314 and
+  TASK-320 briefs complete, and refreshed the project priority snapshot. No new
+  execution task was selected during this documentation-only reconciliation.
+
 # 2026-06-26 - TASK-320 project membership live refresh started
 
 - Summary: Created GitHub issue #352 and worktree
