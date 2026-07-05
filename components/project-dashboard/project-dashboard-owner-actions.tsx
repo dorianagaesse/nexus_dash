@@ -920,6 +920,13 @@ export function ProjectDashboardOwnerActions({
     }
   };
 
+  const isProjectSettingsDismissible =
+    !isSavingProject &&
+    !isDeletingProject &&
+    !isCreatingAgentCredential &&
+    !mutatingAgentCredentialId &&
+    !sendingInvitationEmailId;
+
   return (
     <>
       <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
@@ -952,13 +959,7 @@ export function ProjectDashboardOwnerActions({
         }}
       >
         <DialogContent
-          dismissible={
-            !isSavingProject &&
-            !isDeletingProject &&
-            !isCreatingAgentCredential &&
-            !mutatingAgentCredentialId &&
-            !sendingInvitationEmailId
-          }
+          dismissible={isProjectSettingsDismissible}
           className="z-[130] flex max-h-[100dvh] min-w-0 w-full max-w-4xl flex-col overflow-hidden sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl"
           overlayClassName="z-[120]"
         >
@@ -987,6 +988,7 @@ export function ProjectDashboardOwnerActions({
                     onClick={closeModal}
                     className="self-end sm:self-auto"
                     aria-label="Close project settings"
+                    disabled={!isProjectSettingsDismissible}
                   >
                     <X className="h-4 w-4" />
                   </Button>

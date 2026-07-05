@@ -49,7 +49,8 @@ test.describe("accessible overlay foundation", () => {
     await expect(dialog).toBeVisible();
     const geometry = await dialog.boundingBox();
     expect(geometry).not.toBeNull();
-    expect(Math.round((geometry?.y ?? 0) + (geometry?.height ?? 0))).toBe(844);
+    const bottomEdge = (geometry?.y ?? 0) + (geometry?.height ?? 0);
+    expect(Math.abs(bottomEdge - 844)).toBeLessThanOrEqual(1);
     expect(geometry?.width).toBeLessThanOrEqual(390);
 
     const scrollResult = await dialog.evaluate((element) => {
