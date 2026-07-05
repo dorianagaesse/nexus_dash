@@ -8,6 +8,17 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.24.0 - 2026-07-05
+
+- Added a shared accessible dialog and responsive-sheet foundation with named
+  modal semantics, focus containment/restoration, background isolation,
+  guarded Escape behavior, and reduced-motion support.
+- Migrated task, context, attachment, calendar, project-settings,
+  confirmation, meeting, roadmap, and project-creation overlays without
+  redesigning their content.
+- Added component and Playwright coverage for keyboard focus, nested controls,
+  desktop dialog behavior, and internally scrollable 390 px sheets.
+
 ## v0.23.1 - 2026-06-27
 
 - Fixed project dashboards so already-open pages refresh after an invited

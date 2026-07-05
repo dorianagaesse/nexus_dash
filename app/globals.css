@@ -104,3 +104,12 @@
 .form-focus-border-shell:has(:focus) {
   border-color: hsl(var(--ring) / 0.6) !important;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-overlay-content="true"],
+  [data-overlay-content="true"]::backdrop {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}

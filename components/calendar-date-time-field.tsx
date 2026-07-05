@@ -214,7 +214,8 @@ export function CalendarDateTimeField({
           <div
             ref={popoverRef}
             data-calendar-popover="true"
-            className="fixed z-[120] max-h-[calc(100vh-24px)] overflow-y-auto rounded-md border border-border/70 bg-popover p-3 shadow-xl"
+            data-overlay-popover="true"
+            className="pointer-events-auto fixed z-[120] max-h-[calc(100vh-24px)] overflow-y-auto rounded-md border border-border/70 bg-popover p-3 shadow-xl"
             style={popoverPosition}
           >
             <div className="mb-2 flex items-center justify-between">

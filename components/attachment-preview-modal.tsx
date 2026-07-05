@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { ExternalLink, X } from "lucide-react";
 import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   buildAttachmentInlineUrl,
   getAttachmentPreviewKind,
@@ -50,23 +50,25 @@ export function AttachmentPreviewModal({
     return null;
   }
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[110] flex min-h-dvh w-screen items-center justify-center overscroll-y-contain bg-black/75 p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
+  return (
+    <Dialog
+      open={Boolean(attachment)}
+      onOpenChange={(open) => {
+        if (!open) {
           onClose();
         }
       }}
     >
-      <Card
-        className="w-full max-w-4xl"
-        onMouseDown={(event) => event.stopPropagation()}
+      <DialogContent
+        aria-describedby={undefined}
+        presentation="centered"
+        className="z-[130] max-h-[calc(100dvh-2rem)] w-full max-w-4xl overflow-y-auto"
+        overlayClassName="z-[120] bg-black/75"
       >
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-          <CardTitle className="truncate text-base">
+          <DialogTitle className="truncate text-base">
             {attachment.name}
-          </CardTitle>
+          </DialogTitle>
           <div className="flex items-center gap-1">
             {previewUrl ? (
               <Button variant="ghost" size="sm" asChild>
@@ -81,7 +83,7 @@ export function AttachmentPreviewModal({
                 <a href={attachment.downloadUrl}>Download</a>
               </Button>
             ) : null}
-            <Button type="button" variant="ghost" size="icon" onClick={onClose}>
+            <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close attachment preview">
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -114,8 +116,7 @@ export function AttachmentPreviewModal({
             </p>
           ) : null}
         </CardContent>
-      </Card>
-    </div>,
-    document.body
+      </DialogContent>
+    </Dialog>
   );
 }

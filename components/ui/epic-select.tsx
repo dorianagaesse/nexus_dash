@@ -182,7 +182,8 @@ export function EpicSelect({
             <div
               ref={dropdownRef}
               role="listbox"
-              className="z-[140] overflow-hidden rounded-xl border border-border/70 bg-popover p-1 shadow-lg"
+              data-overlay-popover="true"
+              className="pointer-events-auto z-[140] overflow-hidden rounded-xl border border-border/70 bg-popover p-1 shadow-lg"
               style={{
                 position: "fixed",
                 top: dropdownPosition.top,

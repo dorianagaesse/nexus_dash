@@ -624,6 +624,9 @@ export function ProjectContextPanel({
             : null;
 
         if (createdCard) {
+          setPreviewCardId((current) =>
+            current === optimisticCardId ? createdCard.id : current
+          );
           setLocalCards((previous) => [
             {
               ...createdCard,

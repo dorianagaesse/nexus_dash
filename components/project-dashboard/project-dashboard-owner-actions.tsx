@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { Bot, Settings2, Share2, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -10,7 +9,8 @@ import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ProjectDashboardOwnerAgentAccessPanel } from "@/components/project-dashboard/project-dashboard-owner-agent-access-panel";
 import { ProjectDashboardOwnerAccessPanel } from "@/components/project-dashboard/project-dashboard-owner-access-panel";
 import { ProjectDashboardOwnerGeneralPanel } from "@/components/project-dashboard/project-dashboard-owner-general-panel";
@@ -943,20 +943,26 @@ export function ProjectDashboardOwnerActions({
         </Button>
       </div>
 
-      {isOpen && typeof document !== "undefined"
-        ? createPortal(
-            <div
-              className="fixed inset-0 z-[120] flex min-h-dvh w-screen items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4"
-              onMouseDown={(event) => {
-                if (event.target === event.currentTarget) {
-                  closeModal();
-                }
-              }}
-            >
-              <Card
-                className="flex max-h-[100dvh] min-w-0 w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
-                onMouseDown={(event) => event.stopPropagation()}
-              >
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeModal();
+          }
+        }}
+      >
+        <DialogContent
+          dismissible={
+            !isSavingProject &&
+            !isDeletingProject &&
+            !isCreatingAgentCredential &&
+            !mutatingAgentCredentialId &&
+            !sendingInvitationEmailId
+          }
+          className="z-[130] flex max-h-[100dvh] min-w-0 w-full max-w-4xl flex-col overflow-hidden sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl"
+          overlayClassName="z-[120]"
+        >
+                <DialogTitle className="sr-only">Project settings: {projectName}</DialogTitle>
                 <CardHeader className="flex flex-col gap-4 space-y-0 border-b border-border/60 sm:flex-row sm:items-start sm:justify-between">
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
@@ -969,9 +975,9 @@ export function ProjectDashboardOwnerActions({
                     </div>
                     <div className="space-y-1">
                       <CardTitle className="text-xl">{projectName}</CardTitle>
-                      <p className="text-sm text-muted-foreground">
+                      <DialogDescription>
                         Project details, invitations, contributors, and agent access.
-                      </p>
+                      </DialogDescription>
                     </div>
                   </div>
                   <Button
@@ -980,6 +986,7 @@ export function ProjectDashboardOwnerActions({
                     size="icon"
                     onClick={closeModal}
                     className="self-end sm:self-auto"
+                    aria-label="Close project settings"
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -1095,11 +1102,8 @@ export function ProjectDashboardOwnerActions({
                     />
                   )}
                 </CardContent>
-              </Card>
-            </div>,
-            document.body
-          )
-        : null}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         isOpen={isDeleteDialogOpen}

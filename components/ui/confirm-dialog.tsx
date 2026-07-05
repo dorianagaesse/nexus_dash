@@ -1,9 +1,16 @@
 "use client";
 
-import { createPortal } from "react-dom";
+import { useRef } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -24,28 +31,32 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  if (!isOpen || typeof document === "undefined") {
-    return null;
-  }
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[120] flex min-h-dvh w-screen items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !isConfirming) {
+  return (
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open && !isConfirming) {
           onCancel();
         }
       }}
     >
-      <Card
-        className="w-full max-w-md rounded-t-3xl sm:rounded-xl"
-        onMouseDown={(event) => event.stopPropagation()}
+      <DialogContent
+        role="alertdialog"
+        className="z-[150] w-full max-w-md"
+        dismissible={!isConfirming}
+        overlayClassName="z-[140]"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          cancelButtonRef.current?.focus();
+        }}
       >
         <CardHeader className="space-y-2">
-          <CardTitle className="text-lg">{title}</CardTitle>
+          <DialogTitle className="text-lg">{title}</DialogTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <DialogDescription>{description}</DialogDescription>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
             <Button
               type="button"
@@ -67,19 +78,20 @@ export function ConfirmDialog({
             >
               {isConfirming ? "Deleting..." : confirmLabel}
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={isConfirming}
-              className="w-full sm:w-auto"
-              onClick={onCancel}
-            >
-              Cancel
-            </Button>
+            <DialogClose asChild>
+              <Button
+                ref={cancelButtonRef}
+                type="button"
+                variant="ghost"
+                disabled={isConfirming}
+                className="w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+            </DialogClose>
           </div>
         </CardContent>
-      </Card>
-    </div>,
-    document.body
+      </DialogContent>
+    </Dialog>
   );
 }

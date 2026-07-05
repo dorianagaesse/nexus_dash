@@ -1,5 +1,4 @@
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   Archive,
   ArrowRightLeft,
@@ -50,7 +49,8 @@ import { Badge } from "@/components/ui/badge";
 import { AssigneeSelect } from "@/components/ui/assignee-select";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
 import { EmojiPickerButton } from "@/components/ui/emoji-picker-button";
 import { EpicSelect } from "@/components/ui/epic-select";
@@ -331,20 +331,23 @@ export function TaskDetailModal({
 
   return (
     <>
-      {createPortal(
-        <div
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open && !isUpdatingTask && !isArchivingTask) {
+            onClose();
+          }
+        }}
+      >
+        <DialogContent
+          aria-describedby={undefined}
           data-calendar-popover-scope="true"
-          className="fixed inset-0 z-[90] flex min-h-dvh w-screen items-end justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-0 sm:items-center sm:p-4"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              onClose();
-            }
-          }}
+          dismissible={!isUpdatingTask && !isArchivingTask}
+          className="flex max-h-[100dvh] w-full max-w-2xl flex-col overflow-hidden sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl"
         >
-          <Card
-            className="flex max-h-[100dvh] w-full max-w-2xl flex-col sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
+            <DialogTitle className="sr-only">
+              {isEditing ? `Edit ${selectedTask.title}` : selectedTask.title}
+            </DialogTitle>
             <CardHeader
               className={cn(
                 "flex shrink-0 flex-col gap-3 space-y-0",
@@ -426,6 +429,7 @@ export function TaskDetailModal({
                   size="icon"
                   onClick={onClose}
                   aria-label="Close task"
+                  disabled={isUpdatingTask || isArchivingTask}
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -534,10 +538,8 @@ export function TaskDetailModal({
                 </div>
               </div>
             </CardFooter>
-          </Card>
-        </div>,
-        document.body
-      )}
+        </DialogContent>
+      </Dialog>
       <AttachmentPreviewModal
         attachment={previewAttachment}
         onClose={() => onPreviewAttachmentChange(null)}

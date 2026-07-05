@@ -3,6 +3,25 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-05 - TASK-321 accessible modal and sheet foundation
+
+- Replaced duplicated custom overlay roots with a shared Radix-backed dialog
+  and responsive-sheet foundation that centralizes modal semantics, focus
+  containment/restoration, Escape and outside-dismiss behavior, body scroll
+  isolation, mobile internal scrolling, and reduced motion.
+- Migrated task create/detail, project creation/settings, confirmations,
+  context create/edit/preview, attachment preview, calendar event, meeting, and
+  roadmap overlays. Marked portaled date, emoji, mention, epic, assignee, and
+  related-task controls so they remain interactive above modal isolation.
+- Browser validation found and fixed two integration regressions: reduced-motion
+  sheets retained their initial slide transform, and an optimistic context card
+  preview lost its selected ID when the server response replaced the optimistic
+  card.
+- Validation: lint, RLS inventory, 930 unit tests, coverage thresholds, build,
+  and all 11 Playwright tests passed, including focused desktop/390 px overlay
+  checks and the task, context, meeting, roadmap, calendar, auth, and attachment
+  smoke journeys.
+
 # 2026-07-05 - TASK-270 remediation queue and verification gate
 
 - Added TASK-323 as a dedicated production-readiness UX verification gate after
