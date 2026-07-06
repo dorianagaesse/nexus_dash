@@ -1,10 +1,8 @@
-import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Settings } from "lucide-react";
 
-import { AccountNotificationsLink } from "@/components/account-notifications-link";
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
+import { ContextualReturnLink } from "@/components/contextual-return-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +14,6 @@ import {
   MAX_USERNAME_LENGTH,
   MIN_USERNAME_LENGTH,
 } from "@/lib/services/account-security-policy";
-import { getInitialNotificationRealtimeSnapshotForUser } from "@/lib/notification-realtime-server";
 import { getAccountProfile } from "@/lib/services/account-profile-service";
 
 import {
@@ -94,38 +91,19 @@ export default async function AccountProfilePage({
     notFound();
   }
 
-  const notificationSnapshot =
-    await getInitialNotificationRealtimeSnapshotForUser(actorUserId);
-
   const status = readQueryValue(resolvedSearchParams?.status);
   const error = readQueryValue(resolvedSearchParams?.error);
+  const returnTo = readQueryValue(resolvedSearchParams?.returnTo);
   const avatarDisplayName =
     profileResult.data.usernameTag || profileResult.data.username || "Account";
 
   return (
     <main className="container py-12">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <Button asChild variant="ghost" className="-ml-2 w-fit px-2 text-sm">
-            <Link href="/projects">
-              <ArrowLeft className="h-4 w-4" />
-              Back to projects
-            </Link>
-          </Button>
-          <div className="flex items-center gap-2">
-            <AccountNotificationsLink initialSnapshot={notificationSnapshot} />
-            <Button
-              asChild
-              variant="outline"
-              className="rounded-full border-border/60 px-3 py-1.5 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
-            >
-              <Link href="/account/settings" className="inline-flex items-center gap-2">
-                <Settings className="h-4 w-4" />
-                Settings
-              </Link>
-            </Button>
-          </div>
-        </div>
+        <ContextualReturnLink
+          returnTo={returnTo}
+          fallback={{ href: "/projects", label: "Projects" }}
+        />
         <Badge variant="secondary" className="w-fit">
           Account profile
         </Badge>

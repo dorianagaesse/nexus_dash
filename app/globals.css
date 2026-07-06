@@ -24,6 +24,16 @@
     --input: 240 5.9% 90%;
     --ring: 240 10% 3.9%;
     --radius: 0.75rem;
+    --layer-shell: 40;
+    --layer-menu: 50;
+    --layer-floating: 60;
+    --layer-toast: 80;
+    --layer-dialog-overlay: 90;
+    --layer-dialog: 100;
+    --layer-popover: 120;
+    --layer-nested-overlay: 140;
+    --layer-nested: 150;
+    --layer-skip-link: 160;
   }
 
   .dark {

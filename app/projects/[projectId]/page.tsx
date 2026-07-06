@@ -190,7 +190,7 @@ export default async function ProjectDashboardPage({
                 >
                   <Link href="/projects">
                     <ChevronLeft className="h-4 w-4" />
-                    Back to projects
+                    All projects
                   </Link>
                 </Button>
               </div>

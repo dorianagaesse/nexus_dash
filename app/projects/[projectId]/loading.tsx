@@ -19,7 +19,7 @@ export default function ProjectDashboardLoading() {
 
         <Button variant="ghost" disabled>
           <ChevronLeft className="h-4 w-4" />
-          Back to projects
+          All projects
         </Button>
       </div>
 

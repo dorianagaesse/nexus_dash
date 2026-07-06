@@ -36,6 +36,7 @@ describe("notification-center-list", () => {
       React.createElement(NotificationCenterList, {
         notifications: [],
         initialSnapshot,
+        notificationCenterPath: "/account/notifications?returnTo=%2Fprojects",
         onMarkRead: noopAction,
         onMarkUnread: noopAction,
         onMarkAllRead: noopAction,
@@ -84,6 +85,7 @@ describe("notification-center-list", () => {
             title: "Project invitation: Shared Project",
           },
         },
+        notificationCenterPath: "/account/notifications?returnTo=%2Fprojects",
         onMarkRead: noopAction,
         onMarkUnread: noopAction,
         onMarkAllRead: noopAction,
@@ -132,6 +134,7 @@ describe("notification-center-list", () => {
         React.createElement(NotificationCenterList, {
           notifications: [],
           initialSnapshot,
+          notificationCenterPath: "/account/notifications?returnTo=%2Fprojects",
           onMarkRead: noopAction,
           onMarkUnread: noopAction,
           onMarkAllRead: noopAction,

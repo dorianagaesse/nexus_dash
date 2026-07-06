@@ -16,9 +16,10 @@ function applyTheme(theme: Theme) {
 
 interface ThemeToggleProps {
   className?: string;
+  compact?: boolean;
 }
 
-export function ThemeToggle({ className }: ThemeToggleProps) {
+export function ThemeToggle({ className, compact = false }: ThemeToggleProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [theme, setTheme] = useState<Theme>("light");
 
@@ -47,13 +48,13 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
     <Button
       type="button"
       variant="outline"
-      size="sm"
-      className={cn(className)}
+      size={compact ? "icon" : "sm"}
+      className={cn("min-h-11 min-w-11", className)}
       onClick={handleToggle}
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
     >
       {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-      {theme === "dark" ? "Light" : "Dark"}
+      {compact ? null : theme === "dark" ? "Light" : "Dark"}
     </Button>
   );
 }
