@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { createPortal } from "react-dom";
 import { Link2, Paperclip, PlusSquare, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -24,7 +23,8 @@ import {
   FORM_FOCUS_BORDER_CLASS,
   FORM_FOCUS_BORDER_SHELL_CLASS,
 } from "@/components/ui/focus-border-styles";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { EmojiInputField } from "@/components/ui/emoji-field";
 import {
   MAX_TASK_LABELS,
@@ -394,33 +394,35 @@ export function CreateTaskDialog({
 
   return (
     <div className="space-y-2">
-      <Button
-        type="button"
-        size="sm"
-        className="h-10 w-full rounded-full px-4 sm:w-auto"
-        onClick={openDialog}
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            openDialog();
+          } else if (!isSubmitting) {
+            closeDialog();
+          }
+        }}
       >
-        <PlusSquare className="h-4 w-4" />
-        New task
-      </Button>
-      {isOpen && typeof document !== "undefined"
-        ? createPortal(
-            <div
-              data-calendar-popover-scope="true"
-              className="fixed inset-0 z-[90] flex min-h-dvh w-screen items-end justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-0 sm:items-center sm:p-4"
-              onMouseDown={(event) => {
-                if (event.target === event.currentTarget) {
-                  closeDialog();
-                }
-              }}
-            >
-              <Card
-                className="flex max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
-                onMouseDown={(event) => event.stopPropagation()}
-              >
+        <DialogTrigger asChild>
+          <Button
+            type="button"
+            size="sm"
+            className="h-10 w-full rounded-full px-4 sm:w-auto"
+          >
+            <PlusSquare className="h-4 w-4" />
+            New task
+          </Button>
+        </DialogTrigger>
+        <DialogContent
+          aria-describedby={undefined}
+          data-calendar-popover-scope="true"
+          dismissible={!isSubmitting}
+          className="flex max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl"
+        >
                 <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0">
-                  <CardTitle className="text-lg">Create task</CardTitle>
-                  <Button type="button" variant="ghost" size="icon" onClick={closeDialog}>
+                  <DialogTitle className="text-lg">Create task</DialogTitle>
+                  <Button type="button" variant="ghost" size="icon" onClick={closeDialog} aria-label="Close task creation" disabled={isSubmitting}>
                     <X className="h-4 w-4" />
                   </Button>
                 </CardHeader>
@@ -433,6 +435,7 @@ export function CreateTaskDialog({
                         </label>
                         <EmojiInputField
                           id="task-title"
+                          autoFocus
                           name="title"
                           required
                           minLength={2}
@@ -741,11 +744,8 @@ export function CreateTaskDialog({
                     </div>
                   </CardFooter>
                 </form>
-              </Card>
-            </div>,
-            document.body
-          )
-        : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

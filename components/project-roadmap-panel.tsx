@@ -40,6 +40,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
 import {
   formatRoadmapTargetDateForDisplay,
@@ -508,7 +509,8 @@ function RoadmapSelectField({
             <div
               ref={dropdownRef}
               role="listbox"
-              className="z-[140] overflow-hidden rounded-2xl border border-border/70 bg-popover p-1.5 shadow-[0_24px_70px_-32px_rgba(15,23,42,0.58)]"
+              data-overlay-popover="true"
+              className="pointer-events-auto z-[140] overflow-hidden rounded-2xl border border-border/70 bg-popover p-1.5 shadow-[0_24px_70px_-32px_rgba(15,23,42,0.58)]"
               style={{
                 position: "fixed",
                 top: dropdownPosition.top,
@@ -609,6 +611,7 @@ function RoadmapEntityForm({
         </label>
         <EmojiInputField
           id="roadmap-entity-title"
+          autoFocus
           value={draft.title}
           onChange={(event) =>
             onChange({
@@ -736,6 +739,7 @@ function RoadmapDialogShell({
   subtitle,
   headerBadge,
   isOpen,
+  dismissible = true,
   onClose,
   children,
 }: {
@@ -743,6 +747,7 @@ function RoadmapDialogShell({
   subtitle?: string;
   headerBadge?: ReactNode;
   isOpen: boolean;
+  dismissible?: boolean;
   onClose: () => void;
   children: ReactNode;
 }) {
@@ -750,27 +755,30 @@ function RoadmapDialogShell({
     return null;
   }
 
-  const content = (
-    <div className="fixed inset-0 z-[90] flex min-h-dvh items-end justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-0 sm:items-center sm:p-4">
-      <div aria-hidden="true" className="absolute inset-0" onMouseDown={onClose} />
-
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="roadmap-dialog-title"
-        className="relative z-10 flex max-h-[100dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-3xl border border-border/70 bg-background shadow-[0_40px_120px_-44px_rgba(15,23,42,0.7)] backdrop-blur sm:max-h-[calc(100vh-2rem)] sm:rounded-[2rem]"
+  return (
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open && dismissible) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent
+        dismissible={dismissible}
+        className="flex max-h-[100dvh] w-full max-w-3xl flex-col overflow-hidden border-border/70 bg-background shadow-[0_40px_120px_-44px_rgba(15,23,42,0.7)] backdrop-blur sm:max-h-[calc(100dvh-2rem)] sm:rounded-[2rem]"
       >
         <div className="border-b border-border/60 bg-background px-5 py-4 sm:px-6 sm:py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 id="roadmap-dialog-title" className="text-xl font-semibold text-foreground">
+                <DialogTitle className="text-xl font-semibold text-foreground">
                   {title}
-                </h3>
+                </DialogTitle>
                 {headerBadge}
               </div>
               {subtitle ? (
-                <p className="text-sm leading-6 text-muted-foreground">{subtitle}</p>
+                <DialogDescription className="leading-6">{subtitle}</DialogDescription>
               ) : null}
             </div>
 
@@ -781,6 +789,7 @@ function RoadmapDialogShell({
               className="h-9 w-9 rounded-full"
               onClick={onClose}
               aria-label={`Close ${title}`}
+              disabled={!dismissible}
             >
               <X className="h-4 w-4" />
             </Button>
@@ -788,15 +797,9 @@ function RoadmapDialogShell({
         </div>
 
         <div className="min-h-0 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">{children}</div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
-
-  if (typeof document === "undefined") {
-    return content;
-  }
-
-  return createPortal(content, document.body);
 }
 
 function RoadmapEventDetailModal({
@@ -2295,6 +2298,7 @@ export function ProjectRoadmapPanel({
           ) : null
         }
         isOpen={eventDialog !== null}
+        dismissible={!isSubmittingEvent}
         onClose={closeEventDialog}
       >
         <RoadmapEntityForm

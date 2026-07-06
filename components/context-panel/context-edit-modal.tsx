@@ -75,7 +75,11 @@ export function ContextEditModal({
   }
 
   return (
-    <ContextModalFrame title="Edit context card" onClose={onClose}>
+    <ContextModalFrame
+      title="Edit context card"
+      onClose={onClose}
+      dismissible={!isUpdatingCard && !isSubmittingAttachment}
+    >
       <form className="grid gap-4" onSubmit={(event) => void onSubmit(event)}>
         <input type="hidden" name="cardId" value={editingCard.id} />
         <div className="grid gap-2">

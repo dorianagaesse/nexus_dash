@@ -70,7 +70,11 @@ export function ContextCreateModal({
   );
 
   return (
-    <ContextModalFrame title="Add context card" onClose={onClose}>
+    <ContextModalFrame
+      title="Add context card"
+      onClose={onClose}
+      dismissible={!isCreatingCard}
+    >
       <form className="grid gap-4" onSubmit={(event) => void onSubmit(event)}>
         <div className="grid gap-2">
           <label htmlFor="context-create-title" className="text-sm font-medium">

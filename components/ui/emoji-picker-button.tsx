@@ -304,7 +304,8 @@ export function EmojiPickerButton({
         ? createPortal(
             <div
               ref={panelRef}
-              className="fixed z-[120] overflow-hidden rounded-2xl border border-border/70 bg-background/96 shadow-2xl backdrop-blur"
+              data-overlay-popover="true"
+              className="pointer-events-auto fixed z-[120] overflow-hidden rounded-2xl border border-border/70 bg-background/96 shadow-2xl backdrop-blur"
               style={{
                 left: panelLayout.left,
                 top: panelLayout.top,

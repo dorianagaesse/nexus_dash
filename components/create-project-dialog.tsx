@@ -4,7 +4,8 @@ import { useState } from "react";
 import { PlusSquare, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
 
 interface CreateProjectDialogProps {
@@ -15,28 +16,21 @@ export function CreateProjectDialog({ action }: CreateProjectDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <>
-      <Button type="button" onClick={() => setIsOpen(true)} className="w-full sm:w-auto">
-        <PlusSquare className="h-4 w-4" />
-        Create project
-      </Button>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button type="button" className="w-full sm:w-auto">
+          <PlusSquare className="h-4 w-4" />
+          Create project
+        </Button>
+      </DialogTrigger>
 
-      {isOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex min-h-dvh w-screen items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setIsOpen(false);
-            }
-          }}
-        >
-          <Card
-            className="flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl sm:max-h-[calc(100vh-2rem)] sm:rounded-xl"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
+      <DialogContent
+        aria-describedby={undefined}
+        className="flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden sm:max-h-[calc(100dvh-2rem)]"
+      >
             <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-lg">Create project</CardTitle>
-              <Button type="button" variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
+              <DialogTitle className="text-lg">Create project</DialogTitle>
+              <Button type="button" variant="ghost" size="icon" onClick={() => setIsOpen(false)} aria-label="Close create project">
                 <X className="h-4 w-4" />
               </Button>
             </CardHeader>
@@ -52,6 +46,7 @@ export function CreateProjectDialog({ action }: CreateProjectDialogProps) {
                   </label>
                   <EmojiInputField
                     id="create-name"
+                    autoFocus
                     name="name"
                     required
                     minLength={2}
@@ -90,9 +85,7 @@ export function CreateProjectDialog({ action }: CreateProjectDialogProps) {
                 </div>
               </form>
             </CardContent>
-          </Card>
-        </div>
-      ) : null}
-    </>
+      </DialogContent>
+    </Dialog>
   );
 }

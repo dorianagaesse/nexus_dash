@@ -1,6 +1,5 @@
 "use client";
 
-import { createPortal } from "react-dom";
 import { Paperclip, X } from "lucide-react";
 
 import type {
@@ -13,7 +12,8 @@ import {
   resolveAttachmentHref,
 } from "@/components/project-context-panel-utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ATTACHMENT_KIND_LINK, isAttachmentPreviewable } from "@/lib/task-attachment";
 
 interface ContextPreviewModalProps {
@@ -35,26 +35,24 @@ export function ContextPreviewModal({
   onEdit,
   onPreviewAttachment,
 }: ContextPreviewModalProps) {
-  if (!isOpen || !card || typeof document === "undefined") {
-    return null;
-  }
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[95] flex min-h-dvh w-screen items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <Card
-        className="flex max-h-[100dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
+  return (
+    <Dialog open={isOpen && card !== null}>
+      {card ? (
+      <DialogContent
+        aria-describedby={undefined}
+        className="flex max-h-[100dvh] w-full max-w-2xl flex-col overflow-hidden sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl"
         style={{ backgroundColor: card.color, borderColor: "rgb(15 23 42 / 0.2)" }}
-        onMouseDown={(event) => event.stopPropagation()}
+        onEscapeKeyDown={(event) => {
+          event.preventDefault();
+          onClose();
+        }}
+        onPointerDownOutside={(event) => {
+          event.preventDefault();
+          onClose();
+        }}
       >
         <CardHeader className="flex shrink-0 flex-row items-start justify-between gap-3 space-y-0">
-          <CardTitle
+          <DialogTitle
             className="text-xl text-slate-900"
             onDoubleClick={() => {
               if (!canEdit) {
@@ -65,7 +63,7 @@ export function ContextPreviewModal({
             }}
           >
             {card.title}
-          </CardTitle>
+          </DialogTitle>
           <Button
             type="button"
             variant="ghost"
@@ -144,8 +142,8 @@ export function ContextPreviewModal({
             </p>
           ) : null}
         </CardContent>
-      </Card>
-    </div>,
-    document.body
+      </DialogContent>
+      ) : null}
+    </Dialog>
   );
 }

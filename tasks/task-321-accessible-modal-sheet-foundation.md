@@ -4,7 +4,7 @@
 TASK-321
 
 ## Status
-Pending — high-priority accessibility defect from TASK-270
+Done (2026-07-05)
 
 ## Objective
 Create and adopt a shared accessible overlay foundation so dialogs, sheets, and
@@ -50,3 +50,14 @@ lifecycle, background isolation, and responsive presentation.
 
 ## Dependencies
 - TASK-270
+
+## Outcome
+- Added the Radix-backed shared primitives in `components/ui/dialog.tsx` and
+  documented their usage in `docs/ui/accessible-overlays.md`.
+- Migrated all scoped overlays and preserved portaled date, emoji, mention,
+  epic, assignee, and related-task controls through an explicit nested-popover
+  contract.
+- Added component coverage for semantics, focus isolation/restoration, Escape,
+  protected in-flight state, and nested controls, plus desktop and 390 px
+  Playwright coverage for focus looping, scroll isolation, internal sheet
+  scrolling, and reduced motion.

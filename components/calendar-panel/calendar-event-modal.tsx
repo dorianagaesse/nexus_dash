@@ -1,9 +1,9 @@
-import { createPortal } from "react-dom";
 import { Trash2, X } from "lucide-react";
 
 import { CalendarDateTimeField } from "@/components/calendar-date-time-field";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
 
 interface CalendarEventModalProps {
@@ -69,30 +69,32 @@ export function CalendarEventModal({
     return null;
   }
 
-  return createPortal(
-    <div
-      data-calendar-popover-scope="true"
-      className="fixed inset-0 z-50 flex min-h-dvh w-screen items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4"
-      onMouseDown={(mouseEvent) => {
-        if (mouseEvent.target === mouseEvent.currentTarget) {
+  return (
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open && !isEventMutationPending) {
           onClose();
         }
       }}
     >
-      <Card
-        className="flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl sm:max-h-[calc(100vh-2rem)] sm:rounded-xl"
-        onMouseDown={(mouseEvent) => mouseEvent.stopPropagation()}
+      <DialogContent
+        aria-describedby={undefined}
+        data-calendar-popover-scope="true"
+        dismissible={!isEventMutationPending}
+        className="flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden sm:max-h-[calc(100dvh-2rem)]"
       >
         <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-lg">
+          <DialogTitle className="text-lg">
             {eventModalMode === "create" ? "Create calendar event" : "Edit calendar event"}
-          </CardTitle>
+          </DialogTitle>
           <Button
             type="button"
             variant="ghost"
             size="icon"
             onClick={onClose}
             disabled={isEventMutationPending}
+            aria-label="Close calendar event"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -111,6 +113,7 @@ export function CalendarEventModal({
               </label>
               <EmojiInputField
                 id="calendar-event-summary"
+                autoFocus
                 value={eventSummary}
                 onChange={(event) => onEventSummaryChange(event.target.value)}
                 minLength={1}
@@ -275,8 +278,7 @@ export function CalendarEventModal({
             </div>
           </form>
         </CardContent>
-      </Card>
-    </div>,
-    document.body
+      </DialogContent>
+    </Dialog>
   );
 }

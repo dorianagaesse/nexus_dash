@@ -40,6 +40,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
 import { TokenInput } from "@/components/ui/token-input";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
@@ -503,7 +504,8 @@ function MeetingStatusSelect({
             <div
               ref={dropdownRef}
               role="listbox"
-              className="z-[140] overflow-hidden rounded-2xl border border-border/70 bg-popover p-1.5 shadow-[0_24px_70px_-32px_rgba(15,23,42,0.58)]"
+              data-overlay-popover="true"
+              className="pointer-events-auto z-[140] overflow-hidden rounded-2xl border border-border/70 bg-popover p-1.5 shadow-[0_24px_70px_-32px_rgba(15,23,42,0.58)]"
               style={{
                 position: "fixed",
                 top: dropdownPosition.top,
@@ -564,6 +566,7 @@ function MeetingDialogShell({
   children,
   footer,
   maxWidthClassName = "max-w-2xl",
+  dismissible = true,
 }: {
   title: string;
   subtitle?: string;
@@ -571,30 +574,33 @@ function MeetingDialogShell({
   children: ReactNode;
   footer?: ReactNode;
   maxWidthClassName?: string;
+  dismissible?: boolean;
 }) {
-  const content = (
-    <div
-      data-calendar-popover-scope="true"
-      className="fixed inset-0 z-[90] flex min-h-dvh w-screen items-end justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-0 sm:items-center sm:p-4"
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && dismissible) {
+          onClose();
+        }
+      }}
     >
-      <div aria-hidden="true" className="absolute inset-0" onMouseDown={onClose} />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="meeting-dialog-title"
+      <DialogContent
+        data-calendar-popover-scope="true"
+        dismissible={dismissible}
         className={cn(
-          "relative z-10 flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-border/70 bg-background shadow-[0_40px_120px_-44px_rgba(15,23,42,0.7)] sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl",
+          "flex max-h-[100dvh] w-full flex-col overflow-hidden border-border/70 bg-background shadow-[0_40px_120px_-44px_rgba(15,23,42,0.7)] sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl",
           maxWidthClassName
         )}
       >
         <div className="border-b border-border/60 px-5 py-4 sm:px-6">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
-              <h3 id="meeting-dialog-title" className="text-lg font-semibold text-foreground">
+              <DialogTitle className="text-lg font-semibold text-foreground">
                 {title}
-              </h3>
+              </DialogTitle>
               {subtitle ? (
-                <p className="text-sm leading-6 text-muted-foreground">{subtitle}</p>
+                <DialogDescription className="leading-6">{subtitle}</DialogDescription>
               ) : null}
             </div>
             <Button
@@ -604,6 +610,7 @@ function MeetingDialogShell({
               className="h-9 w-9 rounded-full"
               onClick={onClose}
               aria-label={`Close ${title}`}
+              disabled={!dismissible}
             >
               <X className="h-4 w-4" />
             </Button>
@@ -620,15 +627,9 @@ function MeetingDialogShell({
             {footer}
           </div>
         ) : null}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
-
-  if (typeof document === "undefined") {
-    return content;
-  }
-
-  return createPortal(content, document.body);
 }
 
 export function ProjectMeetingNotesPanel({
@@ -1436,6 +1437,7 @@ export function ProjectMeetingNotesPanel({
           title={prepareDialog.mode === "create" ? "Prepare meeting" : "Edit preparation"}
           subtitle="Set the meeting frame first. Outputs and todos are captured after opening the note."
           onClose={closePrepareDialog}
+          dismissible={!isSaving}
           footer={
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button
@@ -1463,6 +1465,7 @@ export function ProjectMeetingNotesPanel({
               </label>
               <EmojiInputField
                 id="meeting-title"
+                autoFocus
                 value={prepareDraft.title}
                 onChange={(event) =>
                   setPrepareDraft((current) => ({
@@ -1629,6 +1632,7 @@ export function ProjectMeetingNotesPanel({
           title={selectedNote.title}
           subtitle={formatMeetingTime(selectedNote.scheduledAt)}
           onClose={closeNoteDialog}
+          dismissible={!isSaving}
           maxWidthClassName="max-w-4xl"
           footer={
             canEdit ? (

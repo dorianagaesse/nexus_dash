@@ -1,46 +1,51 @@
-import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 interface ContextModalFrameProps {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  dismissible?: boolean;
 }
 
 export function ContextModalFrame({
   title,
   onClose,
   children,
+  dismissible = true,
 }: ContextModalFrameProps) {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[90] flex min-h-dvh w-screen items-end justify-center overflow-y-auto overscroll-y-contain bg-black/70 p-0 sm:items-center sm:p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && dismissible) {
           onClose();
         }
       }}
     >
-      <Card
-        className="flex max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl sm:max-h-[calc(100vh-2rem)] sm:rounded-2xl"
-        onMouseDown={(event) => event.stopPropagation()}
+      <DialogContent
+        aria-describedby={undefined}
+        dismissible={dismissible}
+        className="flex max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl"
       >
         <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-lg">{title}</CardTitle>
-          <Button type="button" variant="ghost" size="icon" onClick={onClose}>
+          <DialogTitle className="text-lg">{title}</DialogTitle>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            aria-label={`Close ${title}`}
+            disabled={!dismissible}
+          >
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
         <CardContent className="min-h-0 flex-1 overflow-y-auto">{children}</CardContent>
-      </Card>
-    </div>,
-    document.body
+      </DialogContent>
+    </Dialog>
   );
 }

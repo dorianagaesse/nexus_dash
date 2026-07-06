@@ -38,6 +38,15 @@ not recommended.
 | Responsive design | 5.5/10 | Layouts fit 390 px without horizontal page overflow, but mobile density and sequence are not sufficiently re-composed. |
 | Accessibility baseline | 4.5/10 | Visible labels and focus styles exist, but custom overlays lack a consistent dialog/focus contract and micro-text/touch sizes are risky. |
 
+### Remediation status
+
+- **F1 and overlay-specific F12 scope resolved by TASK-321 (2026-07-05):**
+  task, context, attachment, calendar, project-settings, confirmation, meeting,
+  roadmap, and project-creation overlays now use one accessible dialog/sheet
+  foundation with modal semantics, focus containment/restoration, guarded
+  Escape behavior, scroll isolation, nested-control support, and reduced-motion
+  handling. Whole-app motion outside overlays remains assigned to TASK-108.
+
 ## What is working
 
 1. **The interface has a recognizable visual language.** Lucide icons, neutral
