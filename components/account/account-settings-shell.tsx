@@ -1,10 +1,13 @@
 import Link from "next/link";
-import { ArrowLeft, BookOpenText, CalendarDays } from "lucide-react";
+import { BookOpenText, CalendarDays } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ContextualReturnLink } from "@/components/contextual-return-link";
+import { appendQueryToPath } from "@/lib/navigation/return-to";
+import { normalizeAuthenticatedReturnToPath } from "@/lib/navigation/authenticated-shell";
 
 type AccountSettingsTab = "calendar" | "developers";
 
@@ -20,6 +23,7 @@ interface AccountSettingsShellProps {
   description: string;
   identity: AccountSettingsIdentity;
   children: ReactNode;
+  returnTo?: string | null;
 }
 
 export function AccountSettingsShell({
@@ -28,16 +32,26 @@ export function AccountSettingsShell({
   description,
   identity,
   children,
+  returnTo,
 }: AccountSettingsShellProps) {
+  const preservedReturnTo = normalizeAuthenticatedReturnToPath(
+    returnTo,
+    "/projects"
+  );
+  const calendarHref = appendQueryToPath("/account/settings", {
+    returnTo: preservedReturnTo,
+  });
+  const developersHref = appendQueryToPath("/account/settings/developers", {
+    returnTo: preservedReturnTo,
+  });
+
   return (
     <main className="container py-16">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <Button asChild variant="ghost" className="-ml-2 w-fit px-2 text-sm">
-          <Link href="/account">
-            <ArrowLeft className="h-4 w-4" />
-            Back to account
-          </Link>
-        </Button>
+        <ContextualReturnLink
+          returnTo={returnTo}
+          fallback={{ href: "/account", label: "Account" }}
+        />
 
         <Badge variant="secondary" className="w-fit">
           Account settings
@@ -72,7 +86,7 @@ export function AccountSettingsShell({
             variant={activeTab === "calendar" ? "secondary" : "outline"}
             className="rounded-full px-4"
           >
-            <Link href="/account/settings">
+            <Link href={calendarHref}>
               <CalendarDays className="h-4 w-4" />
               Calendar
             </Link>
@@ -82,7 +96,7 @@ export function AccountSettingsShell({
             variant={activeTab === "developers" ? "secondary" : "outline"}
             className="rounded-full px-4"
           >
-            <Link href="/account/settings/developers">
+            <Link href={developersHref}>
               <BookOpenText className="h-4 w-4" />
               Developers
             </Link>

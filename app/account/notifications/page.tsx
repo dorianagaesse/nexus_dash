@@ -1,15 +1,15 @@
-import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
-import { ArrowLeft } from "lucide-react";
 
 import { NotificationCenterList } from "@/components/account/notification-center-list";
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
+import { ContextualReturnLink } from "@/components/contextual-return-link";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { getInitialNotificationRealtimeSnapshotForUser } from "@/lib/notification-realtime-server";
 import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
 import { logServerError } from "@/lib/observability/logger";
+import { appendQueryToPath } from "@/lib/navigation/return-to";
+import { normalizeAuthenticatedReturnToPath } from "@/lib/navigation/authenticated-shell";
 import {
   listNotificationsForUser,
   type NotificationSummary,
@@ -74,6 +74,10 @@ export default async function AccountNotificationsPage({
   const resolvedSearchParams = await searchParams;
   const status = readQueryValue(resolvedSearchParams?.status);
   const error = readQueryValue(resolvedSearchParams?.error);
+  const returnTo = readQueryValue(resolvedSearchParams?.returnTo);
+  const notificationCenterPath = appendQueryToPath("/account/notifications", {
+    returnTo: normalizeAuthenticatedReturnToPath(returnTo, "/projects"),
+  });
 
   let notifications: NotificationSummary[] = [];
   let notificationSnapshot: NotificationRealtimeSnapshot = {
@@ -105,12 +109,10 @@ export default async function AccountNotificationsPage({
   return (
     <main className="container py-12">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
-        <Button asChild variant="ghost" className="-ml-2 w-fit px-2 text-sm">
-          <Link href="/account">
-            <ArrowLeft className="h-4 w-4" />
-            Back to account
-          </Link>
-        </Button>
+        <ContextualReturnLink
+          returnTo={returnTo}
+          fallback={{ href: "/account", label: "Account" }}
+        />
 
         <Badge variant="secondary" className="w-fit">
           Notifications
@@ -138,6 +140,7 @@ export default async function AccountNotificationsPage({
         <NotificationCenterList
           notifications={notifications}
           initialSnapshot={notificationSnapshot}
+          notificationCenterPath={notificationCenterPath}
           onMarkRead={markNotificationReadAction}
           onMarkUnread={markNotificationUnreadAction}
           onMarkAllRead={markAllNotificationsReadAction}

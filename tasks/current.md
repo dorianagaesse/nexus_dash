@@ -2,62 +2,79 @@
 
 ## Task
 
-- ID: TASK-321
-- Title: Accessible modal and sheet foundation
-- Status: Complete (2026-07-05)
-- Branch: `feature/321-accessible-modal-sheet-foundation`
-- Brief: [`task-321-accessible-modal-sheet-foundation.md`](./task-321-accessible-modal-sheet-foundation.md)
+- ID: TASK-322
+- Title: Responsive authenticated app shell and primary navigation
+- Status: Complete (2026-07-06)
+- Branch: `feature/322-responsive-authenticated-app-shell`
+- Brief: [`task-322-responsive-authenticated-app-shell.md`](./task-322-responsive-authenticated-app-shell.md)
 
 ## Objective
 
-Create and adopt a shared accessible overlay foundation so dialogs, sheets, and
-confirmation flows have consistent semantics, keyboard behavior, focus
-lifecycle, background isolation, and responsive presentation.
+Replace the floating utility-only authenticated chrome with a responsive app
+shell that makes primary destinations, current location, account utilities, and
+feedback consistently discoverable without covering page content.
 
 ## Scope
 
-- Provide shared dialog/sheet primitives with correct dialog semantics,
-  accessible names, focus containment/restoration, Escape handling, background
-  isolation, responsive presentation, named close controls, and reduced-motion
-  support.
-- Migrate create task, task detail/edit, project settings, confirmation, context
-  preview/edit/create, attachment preview, meeting, and roadmap overlays.
-- Add focused keyboard and accessibility regression coverage at desktop and
-  mobile widths.
+- Define primary authenticated navigation for Projects, Notifications, Account,
+  and Settings with a visible and semantic current-location state.
+- Preserve safe internal project/task and notification-list origins across
+  account, notification, settings, and notification-target detours.
+- Provide coordinated desktop/mobile shell layouts, content insets, utility
+  placement, and shared layer ordering.
+- Move repository/version metadata to a secondary diagnostic location.
+- Cover keyboard access, accessible names, focus visibility, mobile touch
+  targets, responsive containment, and routing continuity with focused tests.
 
-## Out Of Scope
+## Runtime Assumptions
 
-- Visual redesign of overlay content.
-- Task-specific information architecture owned by TASK-133.
-- Whole-app typography or color changes owned by TASK-108.
+- Local PostgreSQL and the repository's documented `.env` contract are
+  available for authenticated Playwright validation.
+- Preview validation, if required by the review flow, will use the active branch
+  as the explicit `git_ref` per `agent.md`.
+- Safe navigation state is derived only from normalized internal URLs; external
+  referrers and unsafe redirect values are never trusted.
 
 ## Acceptance Criteria
 
-1. Every migrated overlay has an accessible name, correct modal semantics, and
-   a named close/cancel path.
-2. Keyboard focus cannot move into obscured page content while an overlay is
-   open and returns to the trigger after close.
-3. Escape closes non-destructive overlays and does not interrupt an in-flight
-   destructive action.
-4. Background scrolling is prevented without breaking internal sheet scrolling
-   at 390 px.
-5. Overlay motion respects `prefers-reduced-motion`.
-6. Automated coverage verifies semantics, focus containment/restoration,
-   Escape, and representative nested controls.
+1. A user can reach every primary authenticated destination without opening an
+   unlabeled or account-only overflow path.
+2. Current location is visible and announced semantically.
+3. At 375-390 px, navigation and utilities do not overlap headings, toasts,
+   dialogs, or primary actions.
+4. Desktop and mobile layouts reserve the correct content inset for persistent
+   shell elements.
+5. Repository/version diagnostics remain available without dominating primary
+   navigation.
+6. Keyboard navigation, focus visibility, touch targets, and layer ordering are
+   covered by focused tests.
+7. Project -> Notifications/Settings -> contextual return restores the exact
+   allowed project URL, including an open task query when present.
+8. Notification center -> task/project -> contextual return restores the
+   notification list so users can continue triage.
+9. Direct visits without an origin use predictable Account or Projects
+   fallbacks and cannot be used for an external redirect.
 
 ## Definition Of Done
 
-- Shared overlay primitives are implemented and documented.
-- In-scope overlays are migrated without behavior regressions.
-- Desktop/mobile keyboard checks and the required repository validation pass.
-- TASK-270 and TASK-321 tracking docs are updated.
+- The authenticated shell is adopted by projects and account routes.
+- Desktop, small-phone, and dark-mode walkthroughs pass.
+- Playwright covers project/account/notification round trips, browser Back,
+  direct-entry fallbacks, and rejected unsafe return paths.
+- No page-level horizontal overflow or fixed-layer collision remains in the
+  covered routes.
+- TASK-270 and TASK-322 tracking docs are updated.
+- Repository validation required by `agent.md` is green and the branch is
+  committed, pushed, and represented by a ready-for-review pull request.
 
 ## Outcome
 
-- Shared Radix-backed dialog and responsive-sheet primitives are implemented
-  and documented in `docs/ui/accessible-overlays.md`.
-- All scoped overlays now share modal semantics, focus lifecycle, guarded
-  dismissal, background isolation, nested-control support, and reduced-motion
-  behavior.
-- Validation passed: lint, RLS inventory, 930 unit tests, coverage thresholds,
-  production build, and 11 Playwright tests at desktop/mobile widths.
+- Shared authenticated navigation is active on all project and account routes
+  with desktop/mobile variants, current-location semantics, safe-area spacing,
+  and 44 px minimum shell targets.
+- Project/task origins and notification-list origins round-trip through account
+  detours without trusting external redirect input.
+- Repository/version diagnostics moved into the account utility and shared
+  fixed-layer tokens now coordinate shell, feedback, dialogs, and popovers.
+- Validation passed: lint, RLS inventory, 937 unit tests, coverage thresholds,
+  production build, release policy, and all 15 Playwright tests.

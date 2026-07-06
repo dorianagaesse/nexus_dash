@@ -8,8 +8,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
 import { getAccountIdentitySummary } from "@/lib/services/account-identity-service";
 
-export default async function AccountDeveloperSettingsPage() {
+type SearchParams = Record<string, string | string[] | undefined>;
+
+function readQueryValue(value: string | string[] | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
+export default async function AccountDeveloperSettingsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<SearchParams>;
+} = {}) {
   const actorUserId = await requireSessionUserIdFromServer();
+  const resolvedSearchParams = await searchParams;
   const identity = await getAccountIdentitySummary(actorUserId);
   const requestOrigin = resolveRequestOriginFromHeaders(await headers());
   if (!identity) {
@@ -22,6 +36,7 @@ export default async function AccountDeveloperSettingsPage() {
       title="Developer onboarding"
       description="Use hosted docs and project-scoped credentials to connect external agents to NexusDash."
       identity={identity}
+      returnTo={readQueryValue(resolvedSearchParams?.returnTo)}
     >
       <Card className="border-border/60 bg-background/70">
         <CardHeader>

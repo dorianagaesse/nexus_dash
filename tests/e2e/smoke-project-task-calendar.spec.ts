@@ -21,7 +21,7 @@ test.describe("critical UI smoke flows", () => {
 
     await expect(page.getByRole("heading", { name: projectName })).toBeVisible();
 
-    await page.getByRole("link", { name: "Back to projects" }).click();
+    await page.getByRole("link", { name: "All projects" }).click();
     await expect(page).toHaveURL(/\/projects(\?.*)?$/);
     await expect(page.getByRole("heading", { name: projectName })).toBeVisible();
   });

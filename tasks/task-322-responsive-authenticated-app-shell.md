@@ -4,7 +4,7 @@
 TASK-322
 
 ## Status
-Pending — focused product-navigation follow-up from TASK-270
+Complete (2026-07-06)
 
 ## Objective
 Replace the floating utility-only authenticated chrome with a responsive app
@@ -21,7 +21,7 @@ feedback consistently discoverable without covering page content.
   menu links, notification-awareness links, and notification target round trips;
   define a stable direct-entry fallback and never trust an external referrer.
 - Distinguish hierarchical navigation from history/context return. Do not label
-  a fixed jump to Account or Projects as “Back” when it cannot restore the
+  a fixed jump to Account or Projects as "Back" when it cannot restore the
   user's origin.
 - Create desktop and mobile shell variants with consistent content gutters and
   reserved space for fixed/sticky UI.
@@ -42,7 +42,7 @@ feedback consistently discoverable without covering page content.
 1. A user can reach every primary authenticated destination without opening an
    unlabeled or account-only overflow path.
 2. Current location is visible and announced semantically.
-3. At 375–390 px, navigation and utilities do not overlap headings, toasts,
+3. At 375-390 px, navigation and utilities do not overlap headings, toasts,
    dialogs, or primary actions.
 4. Desktop and mobile layouts reserve the correct content inset for any
    persistent shell element.
@@ -69,3 +69,19 @@ feedback consistently discoverable without covering page content.
 ## Dependencies
 - TASK-270
 - TASK-321
+
+## Outcome
+- Added one authenticated shell across project and account routes with a sticky
+  desktop header, four labeled primary destinations, and a 64 px mobile bottom
+  navigation with reserved safe-area content space.
+- Added semantic active-location state, skip navigation, visible focus, 44 px
+  utility targets, contextual return controls, and secondary account-menu
+  placement for repository/version diagnostics.
+- Added normalized project/task and notification-list round trips that preserve
+  query/hash state, reject unsafe origins, and use Account or Projects for
+  direct-entry fallbacks.
+- Defined and adopted shared shell, menu, floating-panel, toast, dialog,
+  popover, nested-overlay, and skip-link layers.
+- Validation passed: lint, RLS inventory, 937 unit tests, coverage thresholds,
+  production build, version policy, and all 15 Playwright tests including
+  desktop, 390 px, dark-mode, browser-history, and unsafe-return checks.

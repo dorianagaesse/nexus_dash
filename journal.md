@@ -3,6 +3,23 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-06 - TASK-322 responsive authenticated app shell
+
+- Replaced the root floating authenticated utility cluster with a shared shell
+  for project and account routes: sticky labeled desktop navigation, a compact
+  mobile utility header, and a four-destination 64 px bottom navigation.
+- Added semantic current-location state, skip navigation, visible focus,
+  touch-sized controls, reserved mobile safe-area space, and a documented layer
+  map for shell, menus, floating panels, toasts, dialogs, and popovers.
+- Reused and narrowed safe internal return-path normalization so project/task
+  query and hash state survives account detours, notification targets return to
+  triage, direct entries use stable fallbacks, and unsafe redirects are rejected.
+- Moved repository/version diagnostics into the account utility and bumped the
+  product release from v0.24.0 to v0.25.0.
+- Validation: lint, RLS inventory, release policy, 937 unit tests, coverage
+  thresholds, production build, 15 Playwright tests, plus desktop and 390 px
+  dark-mode visual walkthroughs all passed.
+
 # 2026-07-05 - TASK-321 accessible modal and sheet foundation
 
 - Replaced duplicated custom overlay roots with a shared Radix-backed dialog

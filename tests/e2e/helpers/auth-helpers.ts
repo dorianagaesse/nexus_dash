@@ -30,7 +30,7 @@ function resolveBaseUrl(): URL {
   return new URL(configuredBaseUrl || fallbackBaseUrl);
 }
 
-export async function signInAsVerifiedUser(page: Page): Promise<void> {
+export async function signInAsVerifiedUser(page: Page): Promise<string> {
   const suffix = uniqueSuffix();
   const usernameBase = toSafeUsernameBase(suffix);
   const usernameDiscriminator = toUsernameDiscriminator(suffix);
@@ -70,4 +70,6 @@ export async function signInAsVerifiedUser(page: Page): Promise<void> {
       expires: Math.floor(expiresAt.getTime() / 1000),
     },
   ]);
+
+  return user.id;
 }
