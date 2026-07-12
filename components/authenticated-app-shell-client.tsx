@@ -3,17 +3,13 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
-import {
-  Bell,
-  CircleUserRound,
-  FolderKanban,
-  Settings,
-} from "lucide-react";
+import { Bell, FolderKanban } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
 import { NotificationLiveUpdates } from "@/components/notification-live-updates";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { AppMetadataSummary } from "@/lib/app-metadata";
+import { useNotificationRealtimeSnapshot } from "@/lib/notification-realtime-client";
 import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
 import { useCurrentAppPath } from "@/lib/hooks/use-current-app-path";
 import {
@@ -30,10 +26,12 @@ const NAVIGATION_ITEMS: Array<{
   label: string;
   icon: typeof FolderKanban;
 }> = [
-  { href: AUTHENTICATED_DESTINATIONS[0], label: "Projects", icon: FolderKanban },
+  {
+    href: AUTHENTICATED_DESTINATIONS[0],
+    label: "Projects",
+    icon: FolderKanban,
+  },
   { href: AUTHENTICATED_DESTINATIONS[1], label: "Notifications", icon: Bell },
-  { href: AUTHENTICATED_DESTINATIONS[2], label: "Account", icon: CircleUserRound },
-  { href: AUTHENTICATED_DESTINATIONS[3], label: "Settings", icon: Settings },
 ];
 
 interface AuthenticatedAppShellClientProps {
@@ -62,6 +60,10 @@ export function AuthenticatedAppShellClient({
     searchParams.get("returnTo"),
     { href: "/projects", label: "Projects" }
   );
+  const notificationSnapshot = useNotificationRealtimeSnapshot(
+    initialNotificationSnapshot
+  );
+  const unreadNotificationCount = notificationSnapshot.unreadCount;
   const showContextualReturn =
     pathname.startsWith("/projects/") &&
     contextualReturn.href.startsWith("/account/notifications");
@@ -79,12 +81,19 @@ export function AuthenticatedAppShellClient({
             href={href}
             aria-current={isCurrent ? "page" : undefined}
             className={cn(
-              "inline-flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1 text-[11px] font-medium text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background md:min-h-11 md:min-w-11 md:flex-row md:gap-2 md:px-3 md:py-0 md:text-sm",
+              "relative inline-flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background md:min-h-11 md:min-w-11 md:flex-row md:gap-2 md:px-3 md:py-0 md:text-sm",
               isCurrent && "bg-accent text-foreground"
             )}
           >
             <Icon className="h-4 w-4 shrink-0" aria-hidden />
             <span>{item.label}</span>
+            {item.href === "/account/notifications" &&
+            unreadNotificationCount > 0 ? (
+              <span
+                className="absolute right-3 top-2 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background md:right-1.5 md:top-1.5"
+                aria-hidden="true"
+              />
+            ) : null}
           </Link>
         );
       })}
@@ -114,7 +123,10 @@ export function AuthenticatedAppShellClient({
             <span className="hidden sm:inline">NexusDash</span>
           </Link>
 
-          <nav aria-label="Primary navigation" className="ml-3 hidden items-center gap-1 md:flex">
+          <nav
+            aria-label="Primary navigation"
+            className="ml-3 hidden items-center gap-1 md:flex"
+          >
             {navigation}
           </nav>
 
@@ -125,7 +137,9 @@ export function AuthenticatedAppShellClient({
               displayName={displayName}
               usernameTag={usernameTag}
               avatarSeed={avatarSeed}
-              initialUnreadNotificationCount={initialNotificationSnapshot.unreadCount}
+              initialUnreadNotificationCount={
+                initialNotificationSnapshot.unreadCount
+              }
               currentPath={currentPath}
               appMetadata={appMetadata}
             />
@@ -153,7 +167,7 @@ export function AuthenticatedAppShellClient({
 
       <nav
         aria-label="Primary navigation"
-        className="fixed inset-x-0 bottom-0 z-[var(--layer-shell)] grid grid-cols-4 border-t border-border/70 bg-background/96 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_30px_-24px_rgba(15,23,42,0.65)] backdrop-blur md:hidden"
+        className="fixed inset-x-0 bottom-0 z-[var(--layer-shell)] grid grid-cols-2 border-t border-border/70 bg-background px-4 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_30px_-24px_rgba(15,23,42,0.65)] md:hidden"
       >
         {navigation}
       </nav>

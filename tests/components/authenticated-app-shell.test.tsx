@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/account/settings",
+  usePathname: () => "/account/notifications",
   useSearchParams: () =>
     new URLSearchParams("returnTo=%2Fprojects%2Fproject-1%3FtaskId%3Dtask-7"),
 }));
@@ -51,8 +51,9 @@ describe("authenticated app shell", () => {
     expect(result).toContain('aria-label="Primary navigation"');
     expect(result).toContain("Projects");
     expect(result).toContain("Notifications");
-    expect(result).toContain("Account");
-    expect(result).toContain("Settings");
+    expect(result).toContain("Account menu");
+    expect(result).not.toContain(">Account</a>");
+    expect(result).not.toContain(">Settings</a>");
     expect(result).toContain('aria-current="page"');
     expect(result).toContain("min-h-16");
     expect(result).toContain("z-[var(--layer-shell)]");

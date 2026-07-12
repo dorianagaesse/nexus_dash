@@ -4,7 +4,7 @@
 TASK-322
 
 ## Status
-Complete (2026-07-06)
+Complete (2026-07-12 rework)
 
 ## Objective
 Replace the floating utility-only authenticated chrome with a responsive app
@@ -12,8 +12,12 @@ shell that makes primary destinations, current location, account utilities, and
 feedback consistently discoverable without covering page content.
 
 ## Scope
-- Define primary authenticated navigation for Projects, Notifications, Account,
-  and Settings with a visible current-location state.
+- Define primary authenticated navigation for Projects and Notifications with a
+  visible current-location state.
+- Keep Account, Settings, diagnostics, and logout in the existing user avatar
+  menu instead of promoting personal utilities as global navigation peers.
+- Provide a mobile Kanban status switcher so users can move between Backlog,
+  Doing, Blocked, and Done without scrolling through every lane.
 - Preserve the originating project route when account, notification, or settings
   surfaces are opened as a detour, including meaningful query/hash state such
   as an open `taskId`.
@@ -72,16 +76,21 @@ feedback consistently discoverable without covering page content.
 
 ## Outcome
 - Added one authenticated shell across project and account routes with a sticky
-  desktop header, four labeled primary destinations, and a 64 px mobile bottom
-  navigation with reserved safe-area content space.
+  desktop header, Projects/Notifications primary destinations, and a reserved
+  mobile bottom navigation for workspace destinations.
 - Added semantic active-location state, skip navigation, visible focus, 44 px
   utility targets, contextual return controls, and secondary account-menu
   placement for repository/version diagnostics.
+- Retained the user avatar menu as the predictable home for Account, Settings,
+  Notifications, diagnostics, and logout.
+- Reworked mobile Kanban to show one lane at a time with a sticky status dock
+  above the app bottom navigation; desktop keeps the four-column board.
 - Added normalized project/task and notification-list round trips that preserve
   query/hash state, reject unsafe origins, and use Account or Projects for
   direct-entry fallbacks.
 - Defined and adopted shared shell, menu, floating-panel, toast, dialog,
   popover, nested-overlay, and skip-link layers.
-- Validation passed: lint, RLS inventory, 937 unit tests, coverage thresholds,
-  production build, version policy, and all 15 Playwright tests including
-  desktop, 390 px, dark-mode, browser-history, and unsafe-return checks.
+- Rework validation passed: focused shell/navigation unit tests and the
+  authenticated shell Playwright spec, including account-menu utility placement
+  and mobile Kanban status switching. Before/after screenshots were captured
+  under `.tmp/`.
