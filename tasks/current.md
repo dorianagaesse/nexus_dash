@@ -4,7 +4,7 @@
 
 - ID: TASK-322
 - Title: Responsive authenticated app shell and primary navigation
-- Status: Complete (2026-07-06)
+- Status: Complete (2026-07-12 rework)
 - Branch: `feature/322-responsive-authenticated-app-shell`
 - Brief: [`task-322-responsive-authenticated-app-shell.md`](./task-322-responsive-authenticated-app-shell.md)
 
@@ -16,8 +16,12 @@ feedback consistently discoverable without covering page content.
 
 ## Scope
 
-- Define primary authenticated navigation for Projects, Notifications, Account,
-  and Settings with a visible and semantic current-location state.
+- Define primary authenticated navigation for Projects and Notifications with a
+  visible and semantic current-location state.
+- Keep Account, Settings, diagnostics, and logout in the user avatar menu so
+  personal utilities do not compete with workspace destinations.
+- Add an in-context mobile Kanban status switcher so narrow screens do not
+  require scrolling through every board lane.
 - Preserve safe internal project/task and notification-list origins across
   account, notification, settings, and notification-target detours.
 - Provide coordinated desktop/mobile shell layouts, content insets, utility
@@ -70,11 +74,18 @@ feedback consistently discoverable without covering page content.
 ## Outcome
 
 - Shared authenticated navigation is active on all project and account routes
-  with desktop/mobile variants, current-location semantics, safe-area spacing,
-  and 44 px minimum shell targets.
+  with desktop/mobile variants, Projects/Notifications current-location
+  semantics, safe-area spacing, and 44 px minimum shell targets.
+- Account, Settings, diagnostics, Notifications, and logout remain reachable
+  from the retained user avatar menu; Account and Settings are no longer
+  promoted as global bottom-nav peers.
+- Mobile Kanban now shows one status lane at a time with a sticky Backlog /
+  Doing / Blocked / Done dock above the app bottom navigation, while desktop
+  keeps the four-column board.
 - Project/task origins and notification-list origins round-trip through account
   detours without trusting external redirect input.
 - Repository/version diagnostics moved into the account utility and shared
   fixed-layer tokens now coordinate shell, feedback, dialogs, and popovers.
-- Validation passed: lint, RLS inventory, 937 unit tests, coverage thresholds,
-  production build, release policy, and all 15 Playwright tests.
+- Rework validation passed: focused shell/navigation unit tests and the
+  authenticated shell Playwright spec, including the new mobile Kanban
+  status-dock flow. Before/after screenshots were captured under `.tmp/`.

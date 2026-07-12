@@ -46,11 +46,14 @@ not recommended.
   foundation with modal semantics, focus containment/restoration, guarded
   Escape behavior, scroll isolation, nested-control support, and reduced-motion
   handling. Whole-app motion outside overlays remains assigned to TASK-108.
-- **F3 and shell-specific F10 scope resolved by TASK-322 (2026-07-06):**
-  project and account routes now share responsive labeled navigation, semantic
-  current-location state, safe project/task and notification-list return paths,
-  secondary diagnostics, reserved mobile space, and coordinated fixed layers.
-  Broader toast policy remains assigned to TASK-108.
+- **F3 and shell-specific F10 scope resolved by TASK-322 rework
+  (2026-07-12):** project and account routes now share responsive labeled
+  navigation focused on Projects and Notifications, with Account/Settings kept
+  in the user avatar menu, semantic current-location state, safe project/task
+  and notification-list return paths, secondary diagnostics, reserved mobile
+  space, and coordinated fixed layers. The rework also adds a mobile Kanban
+  status dock so board lanes are switched in context rather than stacked as a
+  long scroll. Broader toast policy remains assigned to TASK-108.
 
 ## What is working
 
