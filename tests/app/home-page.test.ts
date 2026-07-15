@@ -129,6 +129,10 @@ describe("home page auth entry", () => {
     expect(serialized).toContain("Welcome back");
     expect(serialized).toContain("signin-email");
     expect(serialized).toContain("signin-password");
+    expect(serialized).toContain("Sign in to pick up where you left off.");
+    expect(serialized).toContain("Bring every project into focus.");
+    expect(serialized).not.toContain("session model");
+    expect(serialized).not.toContain("authorization boundary");
     expect(serialized).not.toContain("signup-email");
     expect(serialized).not.toContain("signup-password");
   });
@@ -146,7 +150,7 @@ describe("home page auth entry", () => {
     expect(serialized).toContain('"type":"[Function HomeSocialProviderButton]"');
     expect(serialized).toContain('"provider":"google"');
     expect(serialized).toContain('"provider":"github"');
-    expect(serialized).toContain("Or continue with email");
+    expect(serialized).toContain("Or use email");
   });
 
   test("prefills sign-in email from query string", async () => {
@@ -175,7 +179,7 @@ describe("home page auth entry", () => {
     const serialized = serializeReactTree(element);
 
     expect(redirectMock).not.toHaveBeenCalled();
-    expect(serialized).toContain("Create your account");
+    expect(serialized).toContain("Start your workspace");
     expect(serialized).toContain("Sign in");
     expect(serialized).toContain("Sign up");
     expect(serialized).toContain("signup-email");

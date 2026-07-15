@@ -3,6 +3,30 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-16 - TASK-129 login/home page UI polish started
+
+- Created dedicated worktree `nexus_dash_task129` from `origin/main` on
+  `feature/task-129-login-home-page-ui-polish`.
+- Captured the unchanged login UI with Playwright at 1440 px desktop and the
+  sign-up UI at 390 px mobile; the mobile document measured 1,993 px tall,
+  confirming TASK-270 finding F5.
+- Applied UI/UX Pro Max guidance for a flat, typography-led productivity SaaS
+  entry surface with restrained motion, visible labels/focus, semantic color,
+  and an auth-first mobile hierarchy.
+- Chose a desktop product/auth split and a compact mobile value summary while
+  preserving existing auth, provider, verification, recovery, validation, and
+  safe return-path behavior.
+- Completed the redesign and captured after screenshots at 1,440 px desktop,
+  390 px mobile sign-up, and 390 px mobile dark sign-in. The mobile sign-up
+  document is now 1,119 px tall with no horizontal overflow.
+- Validation passed: lint, RLS inventory, 930 unit tests, coverage (91.37%
+  statements), production build, 33 focused auth/home tests, and Playwright
+  coverage for desktop sign-in, compact mobile sign-up, tablet containment,
+  dark mode, and reduced motion.
+- The first build validation correctly rejected development remote database
+  URLs under production safeguards; the successful build used the documented
+  local/preview validation contract without changing runtime checks.
+
 # 2026-07-05 - TASK-321 accessible modal and sheet foundation
 
 - Replaced duplicated custom overlay roots with a shared Radix-backed dialog

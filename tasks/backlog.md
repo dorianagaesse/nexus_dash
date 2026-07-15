@@ -22,11 +22,6 @@ Last reviewed: 2026-07-05
   Status: Next 3 - daily task-flow clarity
   Rationale: Separate task reading from editing, remove ambiguous Save/Edit states, and fix compact scrollbar/modal regressions so the highest-frequency execution flow is visually clear and predictable after the shared overlay foundation lands.
   Dependencies: TASK-076, TASK-113, TASK-270, TASK-321
-- ID: TASK-129
-  Title: Login/home page UI polish - user-friendly, product-oriented entry experience
-  Status: Next 4 - entry and product-voice refinement
-  Rationale: Replace session/provider architecture language with user outcomes, reduce the very long mobile first-visit path, improve visual hierarchy and CTA clarity, and keep returning-user sign-in friction low. TASK-270 finding F5 is the design brief.
-  Dependencies: TASK-045, TASK-059, TASK-083, TASK-270
 - ID: TASK-108
   Title: Whole-app UI/UX refinement - global interaction, visual, and information-design polish
   Status: Next 5 - cross-app convergence pass
@@ -98,6 +93,12 @@ Last reviewed: 2026-07-05
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-129
+  Title: Login/home page UI polish - user-friendly, product-oriented entry experience
+  Status: Done (2026-07-16)
+  Rationale: Replaced architecture-led entry copy and the 1,993 px mobile first-visit path with an outcome-led desktop product/auth split and compact auth-first mobile experience. Preserved credentials, social-provider, recovery, validation, and safe return-path behavior while adding 48 px controls, clearer feedback, reduced-motion handling, and responsive regression coverage.
+  Dependencies: TASK-045, TASK-059, TASK-083, TASK-270
+  Brief: `tasks/task-129-login-home-page-ui-polish.md`
 - ID: TASK-321
   Title: Accessible modal and sheet foundation - semantics, focus lifecycle, keyboard behavior, and responsive overlays
   Status: Done (2026-07-05)
