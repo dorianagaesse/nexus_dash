@@ -2618,3 +2618,22 @@ Low-value entries to avoid going forward:
 - Type: Iteration
 - Summary: TASK-322 reworked the closed PR #361 app-shell UI after visual review found the first implementation regressed navigation hierarchy.
 - Evidence: Checked closed PR #361 (`feature/322-responsive-authenticated-app-shell`) and captured before screenshots under `.tmp/task322-before-pr361/`, showing Account and Settings promoted as bottom-nav peers while the avatar menu remained conceptually separate and Kanban still required status-by-status scrolling. Revised the shell so Projects and Notifications are the only primary workspace destinations, retained Account/Settings/diagnostics/logout in the user avatar menu, kept the normalized `returnTo` navigation contract, and added a mobile Kanban status dock that switches Backlog/Doing/Blocked/Done in context. Captured after screenshots under `.tmp/task322-after-redesign/` and `.tmp/task322-after-kanban-final2/`; the local Next.js dev overlay `nextjs-portal` was identified as the stray bottom-left `N` in screenshots and is not product UI. Validation passed with `npm run lint`, `npm run rls:check`, `npm test -- --run tests/components/authenticated-app-shell.test.tsx tests/components/account-menu.test.ts tests/lib/authenticated-shell-navigation.test.ts`, `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test authenticated-app-shell.spec.ts --project=chromium`, and `npm run build` with explicit local-safe production validation values.
+# 2026-07-16 - TASK-322 responsive shell redesign v3
+
+- Restarted TASK-322 from `origin/main` on
+  `feature/322-responsive-shell-redesign-v3` after PR #361 was closed for
+  insufficient UI quality.
+- Reframed the navigation hierarchy around an adaptive desktop sidebar,
+  Projects/Inbox mobile bottom navigation, and the retained user avatar menu
+  for personal utilities and diagnostics.
+- Kept Kanban navigation contextual: mobile shows one lane at a time with a
+  compact Backlog/Doing/Blocked/Done dock above the global navigation.
+- Preserved safe contextual return paths, notification triage continuity,
+  shared layers, keyboard focus, and 44 px touch targets from the functional
+  foundation.
+- Validation: lint, RLS inventory, 11 focused unit tests, and all 5 authenticated
+  shell Playwright scenarios passed against preview
+  `https://nexus-dash-i8gvlmwe0-dorian-agaesses-projects.vercel.app` deployed by
+  workflow run `29458290177` with explicit branch `git_ref`.
+- Captured desktop, mobile Kanban, and mobile account-menu screenshots under
+  `.tmp/task322-final-screenshots/` and opened PR #367.

@@ -4,7 +4,7 @@
 
 - ID: TASK-322
 - Title: Responsive authenticated app shell and primary navigation
-- Status: In Progress (2026-07-16 redesign)
+- Status: Complete (2026-07-16 redesign)
 - Branch: `feature/322-responsive-shell-redesign-v3`
 - Brief: [`task-322-responsive-authenticated-app-shell.md`](./task-322-responsive-authenticated-app-shell.md)
 
@@ -88,5 +88,7 @@ feedback consistently discoverable without covering page content.
 - Repository/version diagnostics moved into the account utility and shared
   fixed-layer tokens now coordinate shell, feedback, dialogs, and popovers.
 - Rework validation passed: focused shell/navigation unit tests and the
-  authenticated shell Playwright spec, including the new mobile Kanban
-  status-dock flow. Before/after screenshots were captured under `.tmp/`.
+  authenticated shell Playwright spec against the branch preview, including
+  contextual returns and the mobile Kanban status-dock flow. Desktop, mobile,
+  and retained account-menu screenshots were captured under
+  `.tmp/task322-final-screenshots/`.

@@ -94,8 +94,8 @@ Last reviewed: 2026-07-06
 ## Completed
 - ID: TASK-322
   Title: Responsive authenticated app shell - primary navigation, utility placement, and safe feedback layers
-  Status: Done (2026-07-12 reworked after closed PR #361)
-  Rationale: Replaced floating authenticated utilities with shared desktop/mobile navigation focused on Projects and Notifications, retained the user avatar menu for Account/Settings/diagnostics/logout, preserved normalized project/task and notification-list return paths, reserved mobile content space, added an in-context mobile Kanban status dock, and coordinated shell/toast/dialog layers.
+  Status: Done (2026-07-16 redesigned after closed PR #361)
+  Rationale: Replaced floating authenticated utilities with an adaptive desktop sidebar and mobile Projects/Inbox dock, retained the user avatar menu for Account/Settings/diagnostics/logout, preserved normalized project/task and notification-list return paths, and added a visually subordinate mobile Kanban lane dock that avoids scrolling across every status.
   Dependencies: TASK-270, TASK-321
   Brief: `tasks/task-322-responsive-authenticated-app-shell.md`
 - ID: TASK-321

@@ -4,7 +4,7 @@
 TASK-322
 
 ## Status
-In Progress (2026-07-16 redesign)
+Complete (2026-07-16 redesign)
 
 ## Objective
 Replace the floating utility-only authenticated chrome with a responsive app
@@ -91,6 +91,7 @@ feedback consistently discoverable without covering page content.
 - Defined and adopted shared shell, menu, floating-panel, toast, dialog,
   popover, nested-overlay, and skip-link layers.
 - Rework validation passed: focused shell/navigation unit tests and the
-  authenticated shell Playwright spec, including account-menu utility placement
-  and mobile Kanban status switching. Before/after screenshots were captured
-  under `.tmp/`.
+  authenticated shell Playwright spec against the branch preview, including
+  account-menu utility placement, contextual returns, and mobile Kanban status
+  switching. Final screenshots were captured under
+  `.tmp/task322-final-screenshots/`.
