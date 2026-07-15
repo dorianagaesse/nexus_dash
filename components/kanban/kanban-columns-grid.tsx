@@ -144,7 +144,7 @@ export function KanbanColumnsGrid({
         ))}
       </div>
       <nav
-        className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-[var(--layer-floating)] mt-4 rounded-2xl border border-border/70 bg-background p-1.5 shadow-[0_-14px_36px_-30px_rgba(15,23,42,0.7)] xl:hidden"
+        className="sticky bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-[var(--layer-floating)] mx-auto mt-4 w-full max-w-lg rounded-2xl border border-border/70 bg-background/95 p-1.5 shadow-[0_12px_36px_-12px_rgba(15,23,42,0.32)] backdrop-blur supports-[backdrop-filter]:bg-background/90 xl:hidden"
         aria-label="Kanban status navigation"
       >
         <div className="grid grid-cols-4 gap-1">
@@ -162,9 +162,9 @@ export function KanbanColumnsGrid({
                 aria-pressed={isActive}
                 aria-label={`${status}, ${taskCount} task${taskCount === 1 ? "" : "s"}`}
                 className={cn(
-                  "flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold text-muted-foreground transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  "relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold text-muted-foreground transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   isActive
-                    ? "bg-foreground text-background"
+                    ? "bg-primary/10 text-primary dark:bg-primary/15"
                     : "hover:bg-accent hover:text-foreground"
                 )}
                 onClick={() => setActiveMobileStatus(status)}
@@ -176,6 +176,12 @@ export function KanbanColumnsGrid({
                 <span className="max-w-full truncate">
                   {status === "In Progress" ? "Doing" : status}
                 </span>
+                {isActive ? (
+                  <span
+                    className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-primary"
+                    aria-hidden="true"
+                  />
+                ) : null}
               </button>
             );
           })}

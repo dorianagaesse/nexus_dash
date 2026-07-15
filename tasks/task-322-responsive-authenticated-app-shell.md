@@ -4,7 +4,7 @@
 TASK-322
 
 ## Status
-Complete (2026-07-12 rework)
+In Progress (2026-07-16 redesign)
 
 ## Objective
 Replace the floating utility-only authenticated chrome with a responsive app
@@ -12,7 +12,7 @@ shell that makes primary destinations, current location, account utilities, and
 feedback consistently discoverable without covering page content.
 
 ## Scope
-- Define primary authenticated navigation for Projects and Notifications with a
+- Define primary authenticated navigation for Projects and Inbox with a
   visible current-location state.
 - Keep Account, Settings, diagnostics, and logout in the existing user avatar
   menu instead of promoting personal utilities as global navigation peers.
@@ -75,15 +75,15 @@ feedback consistently discoverable without covering page content.
 - TASK-321
 
 ## Outcome
-- Added one authenticated shell across project and account routes with a sticky
-  desktop header, Projects/Notifications primary destinations, and a reserved
-  mobile bottom navigation for workspace destinations.
+- Added one authenticated shell across project and account routes with a stable
+  desktop sidebar, Projects/Inbox primary destinations, and a floating mobile
+  bottom navigation for workspace destinations.
 - Added semantic active-location state, skip navigation, visible focus, 44 px
   utility targets, contextual return controls, and secondary account-menu
   placement for repository/version diagnostics.
 - Retained the user avatar menu as the predictable home for Account, Settings,
   Notifications, diagnostics, and logout.
-- Reworked mobile Kanban to show one lane at a time with a sticky status dock
+- Reworked mobile Kanban to show one lane at a time with a floating status dock
   above the app bottom navigation; desktop keeps the four-column board.
 - Added normalized project/task and notification-list round trips that preserve
   query/hash state, reject unsafe origins, and use Account or Projects for

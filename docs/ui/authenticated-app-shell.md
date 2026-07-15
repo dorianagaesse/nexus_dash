@@ -1,7 +1,7 @@
 # Authenticated App Shell
 
 The shared shell wraps all `/projects/**` and `/account/**` routes. It provides
-the primary workspace destinations (Projects and Notifications), semantic
+the primary workspace destinations (Projects and Inbox), semantic
 current-location state, theme/account utilities, safe contextual returns, and
 reserved mobile space for fixed navigation. Account, Settings, logout, and
 diagnostics remain available from the user avatar menu instead of competing with
@@ -9,7 +9,8 @@ project navigation.
 
 ## Navigation contract
 
-- Desktop uses one sticky top navigation surface.
+- Desktop uses a stable left sidebar so navigation and account identity remain
+  visible without consuming the page's working height.
 - Mobile uses a compact top utility bar and a two-item bottom navigation for
   true workspace destinations.
 - The user avatar menu is retained as the predictable home for Account,
@@ -27,8 +28,9 @@ project navigation.
 ## Mobile Kanban Navigation
 
 The project Kanban board owns its own mobile status navigation. At narrow
-viewports the board shows one lane at a time and exposes a sticky status dock
-for Backlog, Doing, Blocked, and Done above the app bottom navigation. Desktop
+viewports the board shows one lane at a time and exposes a compact, floating
+status dock for Backlog, Doing, Blocked, and Done above the app bottom
+navigation. The active lane uses both color and a position indicator. Desktop
 keeps the four-column board.
 
 This keeps global navigation focused on destinations while letting daily task

@@ -93,14 +93,14 @@ test.describe("responsive authenticated app shell", () => {
     await page.goto(projectPath);
 
     const desktopNavigation = page.locator(
-      "header nav[aria-label='Primary navigation']"
+      "aside nav[aria-label='Primary navigation']"
     );
     await expect(
       desktopNavigation.getByRole("link", { name: "Projects" })
     ).toHaveAttribute("aria-current", "page");
 
     const notificationsHref = await desktopNavigation
-      .getByRole("link", { name: "Notifications" })
+      .getByRole("link", { name: "Inbox" })
       .getAttribute("href");
     expect(notificationsHref).toBeTruthy();
     await page.goto(notificationsHref!);
@@ -188,7 +188,7 @@ test.describe("responsive authenticated app shell", () => {
     await page.goto("/projects");
 
     const mobileNavigation = page.locator(
-      "body > div nav[aria-label='Primary navigation']:visible"
+      "nav[aria-label='Primary navigation']:visible"
     );
     await expect(mobileNavigation).toBeVisible();
     await expect(mobileNavigation.getByRole("link")).toHaveCount(2);

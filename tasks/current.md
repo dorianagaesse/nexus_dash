@@ -4,8 +4,8 @@
 
 - ID: TASK-322
 - Title: Responsive authenticated app shell and primary navigation
-- Status: Complete (2026-07-12 rework)
-- Branch: `feature/322-responsive-authenticated-app-shell`
+- Status: In Progress (2026-07-16 redesign)
+- Branch: `feature/322-responsive-shell-redesign-v3`
 - Brief: [`task-322-responsive-authenticated-app-shell.md`](./task-322-responsive-authenticated-app-shell.md)
 
 ## Objective
@@ -16,7 +16,7 @@ feedback consistently discoverable without covering page content.
 
 ## Scope
 
-- Define primary authenticated navigation for Projects and Notifications with a
+- Define primary authenticated navigation for Projects and Inbox with a
   visible and semantic current-location state.
 - Keep Account, Settings, diagnostics, and logout in the user avatar menu so
   personal utilities do not compete with workspace destinations.
@@ -74,12 +74,13 @@ feedback consistently discoverable without covering page content.
 ## Outcome
 
 - Shared authenticated navigation is active on all project and account routes
-  with desktop/mobile variants, Projects/Notifications current-location
+  with an adaptive desktop sidebar and mobile app bar/bottom navigation,
+  Projects/Inbox current-location
   semantics, safe-area spacing, and 44 px minimum shell targets.
 - Account, Settings, diagnostics, Notifications, and logout remain reachable
   from the retained user avatar menu; Account and Settings are no longer
   promoted as global bottom-nav peers.
-- Mobile Kanban now shows one status lane at a time with a sticky Backlog /
+- Mobile Kanban now shows one status lane at a time with a floating Backlog /
   Doing / Blocked / Done dock above the app bottom navigation, while desktop
   keeps the four-column board.
 - Project/task origins and notification-list origins round-trip through account

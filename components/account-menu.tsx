@@ -10,6 +10,7 @@ import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import { useNotificationRealtimeSnapshot } from "@/lib/notification-realtime-client";
 import type { AppMetadataSummary } from "@/lib/app-metadata";
 import { buildAuthenticatedDestinationHref } from "@/lib/navigation/authenticated-shell";
+import { cn } from "@/lib/utils";
 
 interface AccountMenuProps {
   isAuthenticated: boolean;
@@ -19,6 +20,7 @@ interface AccountMenuProps {
   initialUnreadNotificationCount: number;
   currentPath?: string;
   appMetadata?: AppMetadataSummary;
+  menuPlacement?: "top" | "bottom";
 }
 
 export function AccountMenu({
@@ -29,6 +31,7 @@ export function AccountMenu({
   initialUnreadNotificationCount,
   currentPath = "/projects",
   appMetadata,
+  menuPlacement = "bottom",
 }: AccountMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useDismissibleMenu<HTMLDivElement>(isOpen, () => setIsOpen(false));
@@ -89,7 +92,12 @@ export function AccountMenu({
         ) : null}
       </Button>
       {isOpen ? (
-        <div className="absolute right-0 z-[var(--layer-menu)] mt-2 w-64 rounded-xl border border-border/70 bg-background p-1.5 shadow-lg">
+        <div
+          className={cn(
+            "absolute right-0 z-[var(--layer-menu)] w-64 rounded-xl border border-border/70 bg-background p-1.5 shadow-lg",
+            menuPlacement === "top" ? "bottom-full mb-2" : "top-full mt-2"
+          )}
+        >
           {displayName ? (
             <div className="border-b border-border/70 px-3 py-2">
               <div className="flex items-center gap-3">

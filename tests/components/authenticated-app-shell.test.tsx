@@ -50,12 +50,12 @@ describe("authenticated app shell", () => {
 
     expect(result).toContain('aria-label="Primary navigation"');
     expect(result).toContain("Projects");
-    expect(result).toContain("Notifications");
+    expect(result).toContain("Inbox");
     expect(result).toContain("Account menu");
     expect(result).not.toContain(">Account</a>");
     expect(result).not.toContain(">Settings</a>");
     expect(result).toContain('aria-current="page"');
-    expect(result).toContain("min-h-16");
+    expect(result).toContain("lg:pl-64");
     expect(result).toContain("z-[var(--layer-shell)]");
     expect(result).toContain("Skip to main content");
     expect(result).toContain(
