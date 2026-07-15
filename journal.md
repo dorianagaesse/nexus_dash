@@ -26,6 +26,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - The first build validation correctly rejected development remote database
   URLs under production safeguards; the successful build used the documented
   local/preview validation contract without changing runtime checks.
+- CI release policy correctly required the product-changing `feature/*` branch
+  to carry a minor version decision. Prepared `v0.25.0` with matching package,
+  lockfile, and changelog metadata.
 
 # 2026-07-05 - TASK-321 accessible modal and sheet foundation
 

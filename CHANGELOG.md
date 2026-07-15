@@ -8,6 +8,15 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.25.0 - 2026-07-16
+
+- Redesigned the unauthenticated entry page around product outcomes with a
+  focused desktop product/auth split and an auth-first mobile layout.
+- Reduced the 390 px sign-up path from 1,993 px to 1,119 px while preserving
+  credentials, social providers, recovery, validation, and safe return paths.
+- Added 48 px authentication controls, clearer status and focus treatment,
+  deterministic reduced-motion behavior, and responsive Playwright coverage.
+
 ## v0.24.0 - 2026-07-05
 
 - Added a shared accessible dialog and responsive-sheet foundation with named
