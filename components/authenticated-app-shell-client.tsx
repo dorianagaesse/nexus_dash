@@ -151,6 +151,17 @@ export function AuthenticatedAppShellClient({
           {navigation()}
         </nav>
 
+        {showContextualReturn ? (
+          <div className="mx-3 mt-5 border-t border-border/70 pt-3">
+            <Link
+              href={contextualReturn.href}
+              className="flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-muted-foreground underline-offset-4 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {contextualReturn.label}
+            </Link>
+          </div>
+        ) : null}
+
         <div className="mt-auto border-t border-border/70 p-3">
           <div className="flex items-center gap-2 rounded-xl bg-muted/45 p-2">
             <AccountMenu

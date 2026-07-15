@@ -96,11 +96,11 @@ test.describe("responsive authenticated app shell", () => {
       "aside nav[aria-label='Primary navigation']"
     );
     await expect(
-      desktopNavigation.getByRole("link", { name: "Projects" })
+      desktopNavigation.locator("a", { hasText: "Projects" })
     ).toHaveAttribute("aria-current", "page");
 
     const notificationsHref = await desktopNavigation
-      .getByRole("link", { name: "Inbox" })
+      .locator("a", { hasText: "Inbox" })
       .getAttribute("href");
     expect(notificationsHref).toBeTruthy();
     await page.goto(notificationsHref!);
