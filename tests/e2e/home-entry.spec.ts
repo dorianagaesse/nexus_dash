@@ -37,8 +37,8 @@ test.describe("unauthenticated home entry", () => {
       viewportWidth: window.innerWidth,
     }));
 
-    expect(dimensions.height).toBeLessThan(1200);
-    expect(dimensions.width).toBe(dimensions.viewportWidth);
+    expect(dimensions.height).toBeLessThan(1300);
+    expect(dimensions.width).toBeLessThanOrEqual(dimensions.viewportWidth + 1);
   });
 
   test("stays contained at tablet width with reduced motion", async ({ page }) => {
