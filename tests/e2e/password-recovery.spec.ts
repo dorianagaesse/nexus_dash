@@ -152,11 +152,11 @@ test.describe("password recovery flow", () => {
 
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill(oldPassword);
-    await page.getByRole("button", { name: "Continue to dashboard" }).click();
+    await page.getByRole("button", { name: "Sign in to NexusDash" }).click();
     await expect(page.getByText("Incorrect email or password.")).toBeVisible();
 
     await page.getByLabel("Password").fill(newPassword);
-    await page.getByRole("button", { name: "Continue to dashboard" }).click();
+    await page.getByRole("button", { name: "Sign in to NexusDash" }).click();
     await expect(page).toHaveURL(/\/projects(\?.*)?$/);
   });
 });
