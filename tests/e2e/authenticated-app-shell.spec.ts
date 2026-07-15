@@ -110,7 +110,7 @@ test.describe("responsive authenticated app shell", () => {
     expect(currentUrl.searchParams.get("returnTo")).toBe(projectPath);
 
     await page.getByRole("button", { name: "Account menu" }).click();
-    await page.getByRole("link", { name: "Account" }).click();
+    await page.getByRole("menuitem", { name: "Account" }).click();
     await expect(page).toHaveURL(/\/account\?returnTo=/);
     currentUrl = new URL(page.url());
     expect(currentUrl.pathname).toBe("/account");
@@ -193,8 +193,8 @@ test.describe("responsive authenticated app shell", () => {
     await expect(mobileNavigation).toBeVisible();
     await expect(mobileNavigation.getByRole("link")).toHaveCount(2);
     await page.getByRole("button", { name: "Account menu" }).click();
-    await expect(page.getByRole("link", { name: "Account" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Account" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Settings" })).toBeVisible();
 
     const geometry = await mobileNavigation
       .getByRole("link")
