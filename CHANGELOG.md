@@ -10,9 +10,10 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 ## v0.25.0 - 2026-07-06
 
-- Added a responsive authenticated app shell with visible Projects,
-  Notifications, Account, and Settings destinations, semantic current-location
-  state, desktop sticky navigation, and a touch-sized mobile bottom bar.
+- Added a responsive authenticated app shell with Projects and Inbox as visible
+  workspace destinations, Account and Settings retained in the avatar menu,
+  semantic current-location state, an adaptive desktop sidebar, and a
+  touch-sized mobile bottom dock.
 - Preserved normalized project/task and notification-list origins through
   account detours and notification targets, including query and hash state,
   with safe direct-entry fallbacks and no external redirects.

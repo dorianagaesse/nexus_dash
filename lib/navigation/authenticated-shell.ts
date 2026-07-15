@@ -94,6 +94,10 @@ export function resolveContextualReturnDestination(
     return { href, label: "Return to project" };
   }
 
+  if (href === "/projects") {
+    return { href, label: "Projects" };
+  }
+
   return { href, label: fallback.label };
 }
 

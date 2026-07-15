@@ -93,6 +93,8 @@ export function AccountMenu({
       </Button>
       {isOpen ? (
         <div
+          role="menu"
+          aria-label="Account actions"
           className={cn(
             "absolute right-0 z-[var(--layer-menu)] w-64 rounded-xl border border-border/70 bg-background p-1.5 shadow-lg",
             menuPlacement === "top" ? "bottom-full mb-2" : "top-full mt-2"
@@ -120,19 +122,19 @@ export function AccountMenu({
             </div>
           ) : null}
           <Button type="button" variant="ghost" className="min-h-11 w-full justify-start" asChild>
-            <Link href={accountHref} onClick={() => setIsOpen(false)}>
+            <Link role="menuitem" href={accountHref} onClick={() => setIsOpen(false)}>
               <CircleUserRound className="h-4 w-4" />
               Account
             </Link>
           </Button>
           <Button type="button" variant="ghost" className="min-h-11 w-full justify-start" asChild>
-            <Link href={settingsHref} onClick={() => setIsOpen(false)}>
+            <Link role="menuitem" href={settingsHref} onClick={() => setIsOpen(false)}>
               <Settings className="h-4 w-4" />
               Settings
             </Link>
           </Button>
           <Button type="button" variant="ghost" className="min-h-11 w-full justify-start" asChild>
-            <Link href={notificationsHref} onClick={() => setIsOpen(false)}>
+            <Link role="menuitem" href={notificationsHref} onClick={() => setIsOpen(false)}>
               <Bell className="h-4 w-4" />
               Notifications
               {unreadNotificationCount > 0 ? (
@@ -149,6 +151,7 @@ export function AccountMenu({
                   {appMetadata.versionLabel}
                 </span>
                 <Link
+                  role="menuitem"
                   href={appMetadata.repositoryUrl}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -161,8 +164,8 @@ export function AccountMenu({
               </div>
             </div>
           ) : null}
-          <form action="/api/auth/logout" method="post">
-            <Button type="submit" variant="ghost" className="min-h-11 w-full justify-start">
+          <form action="/api/auth/logout" method="post" role="none">
+            <Button role="menuitem" type="submit" variant="ghost" className="min-h-11 w-full justify-start">
               <LogOut className="h-4 w-4" />
               Log out
             </Button>

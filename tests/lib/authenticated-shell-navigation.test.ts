@@ -79,6 +79,12 @@ describe("authenticated shell navigation", () => {
       href: "/account/notifications",
       label: "Return to notifications",
     });
+    expect(
+      resolveContextualReturnDestination("/projects", {
+        href: "/account",
+        label: "Account",
+      })
+    ).toEqual({ href: "/projects", label: "Projects" });
   });
 
   test("marks only the matching primary destination current", () => {
