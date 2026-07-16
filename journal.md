@@ -2643,3 +2643,11 @@ Low-value entries to avoid going forward:
   the project header, and reduced mobile header weight with compact actions and
   horizontally scrollable metrics. Added focused shell and menu anchoring
   coverage before refreshing the PR preview.
+- Follow-up validation: deployment workflow run `29519468456` checked out
+  commit `c2ea5669abcc7cd2607b537b11aa6e62ef7f9e22` and published
+  `https://nexus-dash-7tj1e2xpq-dorian-agaesses-projects.vercel.app`. All five
+  authenticated-shell Playwright scenarios passed against that preview, along
+  with lint and 8 focused component tests. Final desktop, open account-menu,
+  and 390 px mobile screenshots are stored under
+  `.tmp/task322-refinement/`; the visual pass also tightened desktop summary
+  typography so Meeting notes and Not connected remain readable at 1440 px.

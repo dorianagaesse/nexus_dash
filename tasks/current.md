@@ -92,8 +92,8 @@ feedback consistently discoverable without covering page content.
   detours without trusting external redirect input.
 - Repository/version diagnostics moved into the account utility and shared
   fixed-layer tokens now coordinate shell, feedback, dialogs, and popovers.
-- Rework validation passed: focused shell/navigation unit tests and the
-  authenticated shell Playwright spec against the branch preview, including
-  contextual returns and the mobile Kanban status-dock flow. Desktop, mobile,
-  and retained account-menu screenshots were captured under
-  `.tmp/task322-final-screenshots/`.
+- Rework validation passed: lint, 8 focused shell/menu component tests, and all
+  5 authenticated shell Playwright scenarios against the final branch preview,
+  including contextual returns and the mobile Kanban status-dock flow. Final
+  desktop, mobile, and retained account-menu screenshots were captured under
+  `.tmp/task322-refinement/`.
