@@ -99,7 +99,7 @@ test.describe("responsive authenticated app shell", () => {
       desktopNavigation.getByRole("link", { name: "Overview" })
     ).toHaveAttribute("aria-current", "page");
     await expect(
-      desktopNavigation.getByRole("link", { name: "All projects" })
+      desktopNavigation.locator("a", { hasText: "All projects" })
     ).not.toHaveAttribute("aria-current", "page");
 
     const notificationsHref = await desktopNavigation
