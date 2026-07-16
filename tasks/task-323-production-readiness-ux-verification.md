@@ -4,7 +4,7 @@
 TASK-323
 
 ## Status
-Blocked — final verification after TASK-321/322/100/133/129/108
+Blocked — final verification after TASK-321/322/324/100/133/129/108
 
 ## Objective
 Determine whether the remediated NexusDash experience meets a defensible
@@ -14,6 +14,7 @@ tasks for any remaining critical or high-severity gaps.
 ## Prerequisites
 - TASK-321 accessible modal and sheet foundation
 - TASK-322 responsive authenticated app shell and navigation
+- TASK-324 unified user hub and avatar-menu navigation rework
 - TASK-100 mobile UI/UX refinement
 - TASK-133 task detail/edit polish
 - TASK-129 login/home polish
@@ -70,3 +71,4 @@ tasks for any remaining critical or high-severity gaps.
 - TASK-133
 - TASK-321
 - TASK-322
+- TASK-324
