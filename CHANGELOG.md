@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.25.0 - 2026-07-16
+## v0.26.0 - 2026-07-16
 
 - Redesigned the unauthenticated entry page around product outcomes with a
   focused desktop product/auth split and an auth-first mobile layout.
@@ -16,6 +16,23 @@ SHA, deployment URL, and workflow run belong in release evidence.
   credentials, social providers, recovery, validation, and safe return paths.
 - Added 48 px authentication controls, clearer status and focus treatment,
   deterministic reduced-motion behavior, and responsive Playwright coverage.
+- Made project-scoped API agent access the lead capability, replaced generic
+  example work with the connected NexusDash context/planning/delivery/meeting
+  workflow, and unified the desktop split with motion-safe ambient gradients.
+
+## v0.25.0 - 2026-07-06
+
+- Added a responsive authenticated app shell with Projects and Inbox as visible
+  workspace destinations, Account and Settings retained in the avatar menu,
+  semantic current-location state, an adaptive desktop sidebar, and a
+  touch-sized mobile bottom dock.
+- Preserved normalized project/task and notification-list origins through
+  account detours and notification targets, including query and hash state,
+  with safe direct-entry fallbacks and no external redirects.
+- Moved repository/version diagnostics into the account utility, established a
+  shared shell/menu/toast/dialog layer map, and added focused component and
+  Playwright coverage for keyboard, responsive, dark-mode, and round-trip
+  navigation behavior.
 
 ## v0.24.0 - 2026-07-05
 

@@ -9,6 +9,11 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { NotificationAwarenessBanner } from "@/components/notification-awareness-banner";
 import { publishNotificationRealtimeSnapshot } from "@/lib/notification-realtime-client";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/projects/project-1",
+  useSearchParams: () => new URLSearchParams("taskId=task-1"),
+}));
+
 (globalThis as { React?: typeof React }).React = React;
 
 describe("notification-awareness-banner", () => {

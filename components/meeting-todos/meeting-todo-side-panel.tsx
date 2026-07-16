@@ -202,7 +202,7 @@ export function MeetingTodoSidePanel({
       role="region"
       aria-labelledby="meeting-todo-panel-title"
       className={cn(
-        "fixed right-4 top-1/2 z-[80] w-[calc(100vw-2rem)] max-w-[22rem] -translate-y-1/2 rounded-2xl border border-border/70 bg-background/95 shadow-[0_22px_70px_-34px_rgba(15,23,42,0.75)] backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:right-6",
+        "fixed right-4 top-1/2 z-[var(--layer-floating)] w-[calc(100vw-2rem)] max-w-[22rem] -translate-y-1/2 rounded-2xl border border-border/70 bg-background/95 shadow-[0_22px_70px_-34px_rgba(15,23,42,0.75)] backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:right-6",
         "print:hidden"
       )}
     >

@@ -1,6 +1,4 @@
-import { NotificationAwarenessBanner } from "@/components/notification-awareness-banner";
-import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
-import { getInitialNotificationRealtimeSnapshotForUser } from "@/lib/notification-realtime-server";
+import { AuthenticatedAppShell } from "@/components/authenticated-app-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -9,16 +7,5 @@ export default async function ProjectsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const actorUserId = await requireVerifiedSessionUserIdFromServer();
-  const notificationSnapshot =
-    await getInitialNotificationRealtimeSnapshotForUser(actorUserId);
-
-  return (
-    <>
-      <div className="container pt-6">
-        <NotificationAwarenessBanner initialSnapshot={notificationSnapshot} />
-      </div>
-      {children}
-    </>
-  );
+  return <AuthenticatedAppShell>{children}</AuthenticatedAppShell>;
 }

@@ -94,7 +94,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
   return (
     <ToastContext.Provider value={contextValue}>
       {children}
-      <div className="pointer-events-none fixed right-4 top-16 z-[140] flex w-[min(360px,calc(100vw-2rem))] flex-col gap-2">
+      <div className="pointer-events-none fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-[var(--layer-toast)] flex w-[min(360px,calc(100vw-2rem))] flex-col gap-2 md:bottom-auto md:top-20">
         {toasts.map((toast) => (
           <ToastCard key={toast.id} toast={toast} onDismiss={dismissToast} />
         ))}

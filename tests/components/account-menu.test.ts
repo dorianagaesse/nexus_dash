@@ -100,4 +100,80 @@ describe("account-menu", () => {
       root.unmount();
     });
   });
+
+  test("keeps version and repository diagnostics inside the account utility", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        React.createElement(AccountMenu, {
+          isAuthenticated: true,
+          displayName: "test.user",
+          usernameTag: "test.user#1234",
+          avatarSeed: "seed-123",
+          initialUnreadNotificationCount: 0,
+          appMetadata: {
+            repositoryUrl: "https://github.com/example/nexusdash",
+            versionTag: "v0.25.0",
+            versionLabel: "v0.25.0",
+            revision: "abc1234",
+            revisionLabel: "build abc1234",
+            environment: "test",
+            diagnosticLabel: "v0.25.0 | test | build abc1234",
+          },
+        })
+      );
+    });
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="Account menu"]')
+        ?.click();
+    });
+
+    expect(container.textContent).toContain("v0.25.0");
+    expect(container.textContent).toContain("Repository");
+    expect(container.querySelector("[aria-expanded='true']")).not.toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("supports an inward-opening sidebar menu", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        React.createElement(AccountMenu, {
+          isAuthenticated: true,
+          displayName: "test.user",
+          usernameTag: "test.user#1234",
+          avatarSeed: "seed-123",
+          initialUnreadNotificationCount: 0,
+          menuPlacement: "top",
+          menuAlign: "start",
+        })
+      );
+    });
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="Account menu"]')
+        ?.click();
+    });
+
+    const menu = container.querySelector<HTMLElement>('[role="menu"]');
+    expect(menu?.classList.contains("bottom-full")).toBe(true);
+    expect(menu?.classList.contains("left-0")).toBe(true);
+    expect(menu?.classList.contains("right-0")).toBe(false);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });
