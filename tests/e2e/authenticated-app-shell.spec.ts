@@ -96,8 +96,11 @@ test.describe("responsive authenticated app shell", () => {
       "aside nav[aria-label='Primary navigation']"
     );
     await expect(
-      desktopNavigation.locator("a", { hasText: "Projects" })
+      desktopNavigation.getByRole("link", { name: "Overview" })
     ).toHaveAttribute("aria-current", "page");
+    await expect(
+      desktopNavigation.getByRole("link", { name: "All projects" })
+    ).not.toHaveAttribute("aria-current", "page");
 
     const notificationsHref = await desktopNavigation
       .locator("a", { hasText: "Inbox" })
