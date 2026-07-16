@@ -3,9 +3,11 @@ import Link from "next/link";
 import {
   ArrowRight,
   Bot,
-  CalendarDays,
-  CircleDot,
+  Files,
   Layers3,
+  ListTodo,
+  Milestone,
+  Workflow,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -40,15 +42,36 @@ import { HomeAuthModeToggleLink } from "./home-auth-mode-toggle-link";
 import { HomeAuthMethods } from "./home-auth-methods";
 
 const outcomes = [
-  "Follow tasks from first decision to final delivery",
-  "Prepare meetings and keep the roadmap moving",
-  "Give teammates and agents the same shared context",
+  "Invite teammates and collaborate in real time",
+  "Connect Google Calendar to project work",
+  "Keep ownership clear with assignees, mentions, comments, and due dates",
 ];
 
-const focusItems = [
-  { title: "Follow up blocked delivery tasks", meta: "Today", state: "Tasks" },
-  { title: "Prepare the project meeting", meta: "Tomorrow", state: "Meetings" },
-  { title: "Update the delivery roadmap", meta: "Friday", state: "Roadmap" },
+const workflowItems = [
+  {
+    title: "Project context, kept together",
+    meta: "Context cards and files attached to cards or tasks",
+    state: "Context",
+    icon: Files,
+  },
+  {
+    title: "Plans you shape",
+    meta: "Roadmap milestones, related tasks, and epic progress",
+    state: "Plan",
+    icon: Milestone,
+  },
+  {
+    title: "Delivery you can follow",
+    meta: "Kanban from backlog to done, dated blockers, and auto-archive",
+    state: "Track",
+    icon: Workflow,
+  },
+  {
+    title: "Meetings become visible action",
+    meta: "Extracted meeting todos stay surfaced in a dedicated panel",
+    state: "Act",
+    icon: ListTodo,
+  },
 ];
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -154,38 +177,42 @@ function BrandMark({ productPanel = false }: { productPanel?: boolean }) {
 
 function ProductPanel() {
   return (
-    <section className="relative hidden min-h-dvh overflow-hidden bg-slate-100 px-10 py-10 text-slate-950 transition-colors duration-200 motion-reduce:transition-none dark:bg-slate-950 dark:text-white lg:flex lg:flex-col xl:px-16 xl:py-12">
-      <div className="absolute inset-y-0 right-0 w-px bg-slate-200 dark:bg-white/10" />
-      <BrandMark productPanel />
+    <section className="relative hidden min-h-dvh overflow-hidden bg-background px-10 py-10 text-foreground transition-colors duration-200 motion-reduce:transition-none lg:flex lg:flex-col xl:px-16 xl:py-12">
+      <div className="home-product-ambient pointer-events-none absolute -left-40 top-[8%] size-[34rem] rounded-full bg-[radial-gradient(circle,rgba(37,99,235,0.16)_0%,rgba(37,99,235,0)_70%)] dark:bg-[radial-gradient(circle,rgba(37,99,235,0.2)_0%,rgba(37,99,235,0)_70%)]" />
+      <div className="home-product-ambient home-product-ambient-secondary pointer-events-none absolute -bottom-48 right-[-8rem] size-[38rem] rounded-full bg-[radial-gradient(circle,rgba(79,70,229,0.12)_0%,rgba(79,70,229,0)_70%)] dark:bg-[radial-gradient(circle,rgba(79,70,229,0.16)_0%,rgba(79,70,229,0)_70%)]" />
+      <div className="absolute inset-y-0 right-0 w-px bg-border/80" />
+      <div className="relative z-10">
+        <BrandMark productPanel />
+      </div>
 
-      <div className="my-auto max-w-2xl py-14">
-        <Badge className="mb-6 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-800 hover:bg-blue-50 dark:border-blue-300/20 dark:bg-blue-400/10 dark:text-blue-100 dark:hover:bg-blue-400/10">
-          People and agents, one workspace.
+      <div className="relative z-10 my-auto max-w-2xl py-8">
+        <Badge className="mb-5 rounded-full border border-blue-500/20 bg-blue-500/[0.08] px-3 py-1 text-blue-700 hover:bg-blue-500/[0.08] dark:text-blue-200 dark:hover:bg-blue-500/[0.08]">
+          Projects, people, and agents. Connected.
         </Badge>
         <h1 className="max-w-xl text-4xl font-semibold leading-[1.08] tracking-[-0.035em] xl:text-5xl">
           Turn plans into progress—without losing context.
         </h1>
-        <p className="mt-5 max-w-xl text-base leading-7 text-slate-600 dark:text-slate-300 xl:text-lg">
+        <p className="mt-5 max-w-xl text-base leading-7 text-muted-foreground xl:text-lg">
           Bring tasks, meetings, roadmaps, teammates, and trusted agents into
           one focused workspace built for steady delivery.
         </p>
 
-        <div className="mt-8 flex max-w-xl gap-4 rounded-2xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-300/15 dark:bg-blue-400/[0.08]">
+        <div className="mt-7 flex max-w-xl gap-4 rounded-2xl border border-blue-500/20 bg-blue-500/[0.07] p-4 backdrop-blur-sm">
           <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-600 text-white dark:bg-blue-400 dark:text-slate-950">
             <Bot className="size-5" strokeWidth={2} aria-hidden="true" />
           </span>
           <div>
             <p className="text-sm font-semibold">Agent access, built for real work</p>
-            <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Give trusted agents project-scoped access so they can follow context,
-              collaborate, and help move work forward.
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              Connect trusted agents through a project-scoped API so they can read
+              context, collaborate on tasks, and help move delivery forward.
             </p>
           </div>
         </div>
 
-        <ul className="mt-6 grid gap-3" aria-label="NexusDash product benefits">
+        <ul className="mt-5 grid gap-2.5" aria-label="NexusDash product benefits">
           {outcomes.map((outcome) => (
-            <li key={outcome} className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200">
+            <li key={outcome} className="flex items-center gap-3 text-sm text-foreground/85">
               <span className="size-1.5 shrink-0 rounded-full bg-blue-600 dark:bg-blue-300">
                 <span className="sr-only">Included:</span>
               </span>
@@ -194,43 +221,41 @@ function ProductPanel() {
           ))}
         </ul>
 
-        <div className="mt-8 max-w-xl rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-white/[0.045]">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-4 dark:border-white/10">
+        <div className="mt-6 max-w-xl rounded-2xl border border-border/80 bg-card/75 p-5 shadow-[0_24px_70px_-52px_rgba(37,99,235,0.55)] backdrop-blur-sm">
+          <div className="flex items-center justify-between border-b border-border/80 pb-3.5">
             <div>
-              <p className="text-sm font-semibold">Today&apos;s focus</p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Three clear next steps</p>
+              <p className="text-sm font-semibold">A connected project system</p>
+              <p className="mt-1 text-xs text-muted-foreground">From context to delivery</p>
             </div>
-            <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-              <CalendarDays className="size-4 text-blue-600 dark:text-blue-300" aria-hidden="true" />
-              This week
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Workflow className="size-4 text-blue-600 dark:text-blue-300" aria-hidden="true" />
+              One workflow
             </div>
           </div>
-          <div className="divide-y divide-slate-200 dark:divide-white/10">
-            {focusItems.map((item, index) => (
-              <div key={item.title} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-3.5">
-                <CircleDot
-                  className={cn(
-                    "size-4",
-                    index === 0
-                      ? "text-blue-600 dark:text-blue-300"
-                      : "text-slate-400 dark:text-slate-500"
-                  )}
-                  aria-hidden="true"
-                />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{item.title}</p>
-                  <p className="mt-0.5 text-xs text-slate-500">{item.meta}</p>
+          <div className="divide-y divide-border/80">
+            {workflowItems.map((item) => {
+              const ItemIcon = item.icon;
+
+              return (
+                <div key={item.title} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-3">
+                  <span className="grid size-8 place-items-center rounded-lg bg-blue-500/[0.09] text-blue-700 dark:text-blue-300">
+                    <ItemIcon className="size-4" strokeWidth={1.9} aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.meta}</p>
+                  </div>
+                  <span className="rounded-full border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                    {item.state}
+                  </span>
                 </div>
-                <span className="rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:border-white/10 dark:text-slate-300">
-                  {item.state}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
 
-      <p className="text-xs leading-5 text-slate-500 dark:text-slate-500">
+      <p className="relative z-10 text-xs leading-5 text-muted-foreground">
         Plan together. Focus on what matters. Deliver with confidence.
       </p>
     </section>

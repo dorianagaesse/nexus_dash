@@ -15,7 +15,8 @@ test.describe("unauthenticated home entry", () => {
     ).toBeVisible();
     await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
     await expect(page.getByText("Agent access, built for real work")).toBeVisible();
-    await expect(page.getByText("Follow up blocked delivery tasks")).toBeVisible();
+    await expect(page.getByText("Project context, kept together")).toBeVisible();
+    await expect(page.getByText("Meetings become visible action")).toBeVisible();
     await expect(page.getByLabel("Email address")).toBeVisible();
     await expect(page.getByLabel("Password")).toBeVisible();
     await expect(page.getByText("session model")).toHaveCount(0);

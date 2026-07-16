@@ -85,6 +85,17 @@ on mobile.
   layouts keep the credential form immediately visible.
 - The product panel now changes meaningfully between light and dark themes, and
   Playwright verifies that the selected theme persists across a reload.
+- Replaced the illustrative weekly-focus list with a product-specific connected
+  workflow covering context cards and file attachments, user-owned roadmaps,
+  related tasks and epic progress, Kanban delivery and dated blocker follow-up,
+  auto-archive, and meeting todo extraction. Supporting copy now explicitly
+  covers project invitations, real-time collaboration, Google Calendar, task
+  ownership, and project-scoped API agent access.
+- Unified the desktop split on the same semantic page background and introduced
+  restrained blue/indigo ambient gradients only on the product side. The
+  gradients drift once and settle rather than animating indefinitely;
+  reduced-motion preferences collapse the animation through the global motion
+  contract.
 - Validation passed: lint, RLS inventory, 932 unit tests, coverage thresholds,
   production build, and focused Playwright checks across desktop, mobile, dark
   mode, tablet containment, and reduced motion.

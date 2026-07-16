@@ -60,4 +60,8 @@ The chosen direction is a flat, typography-led productivity SaaS surface:
 - Social-provider sign-in uses progressive email disclosure on phone widths;
   tablet and desktop keep the complete form visible. Light/dark selection is
   visibly distinct and persists across reloads.
+- The desktop product preview now describes NexusDash's actual connected
+  workflow instead of fictional weekly work, and both halves share the same
+  neutral light/dark foundation with a subtle motion-safe ambient gradient on
+  the product side.
 - Focused and repository-wide validation passed.

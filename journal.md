@@ -43,6 +43,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Final follow-up validation passed: repository lint, RLS inventory, 932 unit
   tests, coverage thresholds (91.37% statements), production build, and the
   focused four-test Playwright entry suite.
+- Replaced the generic `Today's focus` marketing mock with four truthful
+  NexusDash layers: project context and files; roadmap, related-task, and epic
+  planning; Kanban delivery with dated blocker follow-up and auto-archive; and
+  meeting todo extraction into the dedicated panel. Invitations, live
+  collaboration, Google Calendar, task ownership, and API agent access remain
+  explicit in the surrounding copy.
+- Unified the product/auth desktop split on the same semantic background and
+  added two slow blue/indigo ambient gradients to the product half. The effect
+  uses a transform-only entrance drift, settles instead of looping, and
+  inherits the global reduced-motion stop.
 
 # 2026-07-05 - TASK-321 accessible modal and sheet foundation
 
