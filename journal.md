@@ -2702,3 +2702,15 @@ Low-value entries to avoid going forward:
   and 390 px mobile screenshots are stored under
   `.tmp/task322-refinement/`; the visual pass also tightened desktop summary
   typography so Meeting notes and Not connected remain readable at 1440 px.
+
+# 2026-07-16 - TASK-324 user hub navigation queued
+
+- Added TASK-324 as the first item in the UI/UX execution queue after the
+  TASK-322 shell redesign exposed remaining disorder in the avatar menu and
+  account navigation hierarchy.
+- Chose a single shared user hub with route-backed Account, Settings, and
+  Notifications tabs. This preserves deep links, browser history, unread state,
+  and contextual return paths while still presenting one coherent personal
+  space.
+- Scoped the retained avatar menu as a concise launcher: identity, one user-hub
+  entry, secondary appearance/diagnostics, and a separated logout action.

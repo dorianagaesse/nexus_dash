@@ -2,30 +2,36 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-07-06
+Last reviewed: 2026-07-16
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-324
+  Title: Unified user hub and avatar-menu navigation rework
+  Status: Now 1 - account navigation consolidation
+  Rationale: Replace the disordered avatar-menu destination list with a calmer entry into one coherent user hub. The hub should present Account, Settings, and Notifications as three persistent, route-backed tabs so the experience feels like one page while preserving deep links, browser history, unread state, and safe return-to-project behavior. Keep the avatar control, but reduce its menu to identity, one clear user-hub entry, appearance/diagnostics, and a spatially separated logout action; avoid duplicating the same account destinations across the menu, sidebar, and page chrome.
+  Dependencies: TASK-270, TASK-321, TASK-322
+  Brief: `tasks/task-324-unified-user-hub-navigation.md`
 - ID: TASK-100
   Title: Mobile UI/UX refinement - touch ergonomics, compact layouts, and small-screen polish
-  Status: Now 1 - mobile core-flow remediation
+  Status: Next 2 - mobile core-flow remediation
   Rationale: Re-prioritize the long mobile dashboard sequence, replace four vertically stacked Kanban columns with an intentional status-switching pattern, enforce 44px touch targets and readable secondary text, reduce task-sheet friction, and retain the existing Google Calendar narrow-viewport scope identified by TASK-270.
   Dependencies: TASK-091, TASK-079, TASK-096, TASK-270, TASK-321, TASK-322
 - ID: TASK-133
   Title: Task UI bug fixing - mini scrollbar and detail/edit modal polish
-  Status: Next 2 - daily task-flow clarity
+  Status: Next 3 - daily task-flow clarity
   Rationale: Separate task reading from editing, remove ambiguous Save/Edit states, and fix compact scrollbar/modal regressions so the highest-frequency execution flow is visually clear and predictable after the shared overlay foundation lands.
   Dependencies: TASK-076, TASK-113, TASK-270, TASK-321
 - ID: TASK-108
   Title: Whole-app UI/UX refinement - global interaction, visual, and information-design polish
-  Status: Next 3 - cross-app convergence pass
+  Status: Next 4 - cross-app convergence pass
   Rationale: Use TASK-270 findings F6-F12 to normalize module hierarchy, metric semantics, read-only affordances, type/spacing tokens, empty states, toast policy, and reduced motion after the structural navigation, overlay, mobile, task, and entry work is complete.
-  Dependencies: TASK-096, TASK-100, TASK-129, TASK-133, TASK-270, TASK-321, TASK-322
+  Dependencies: TASK-096, TASK-100, TASK-129, TASK-133, TASK-270, TASK-321, TASK-322, TASK-324
 - ID: TASK-323
   Title: Production-readiness UX verification - accessibility, navigation, responsive, role, and recovery sign-off
-  Status: Next 4 - blocked final verification gate
+  Status: Next 5 - blocked final verification gate
   Rationale: Re-audit the remediated product rather than assuming implementation tasks achieved production quality. Verify WCAG AA fundamentals, keyboard/screen-reader operation, owner/editor/viewer/invitee journeys, navigation state preservation, realistic data density, loading/error/empty recovery, responsive layouts, themes, and critical usability flows; produce a residual-risk sign-off report and focused defects for anything still below production grade.
-  Dependencies: TASK-100, TASK-108, TASK-129, TASK-133, TASK-321, TASK-322
+  Dependencies: TASK-100, TASK-108, TASK-129, TASK-133, TASK-321, TASK-322, TASK-324
   Brief: `tasks/task-323-production-readiness-ux-verification.md`
 ### Deferred (Intentional)
 - ID: TASK-102
