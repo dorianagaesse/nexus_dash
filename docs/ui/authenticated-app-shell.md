@@ -11,10 +11,16 @@ project navigation.
 
 - Desktop uses a stable left sidebar so navigation and account identity remain
   visible without consuming the page's working height.
+- On a project dashboard, the sidebar changes `Projects` to the single
+  `All projects` exit and adds a `Current project` group with Overview and
+  owner-only Project settings. Project settings are rendered into the shell's
+  contextual action slot so their position remains responsive and zoom-safe.
 - Mobile uses a compact top utility bar and a two-item bottom navigation for
   true workspace destinations.
 - The user avatar menu is retained as the predictable home for Account,
   Settings, diagnostics, and logout.
+- Sidebar account menus open upward and toward the content area; mobile header
+  menus open downward and toward the viewport edge.
 - Every destination has a text label, Lucide icon, visible focus state, and a
   minimum 44 px target.
 - `aria-current="page"` identifies the active destination.

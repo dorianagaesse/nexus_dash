@@ -85,6 +85,10 @@ feedback consistently discoverable without covering page content.
   Notifications, diagnostics, and logout.
 - Reworked mobile Kanban to show one lane at a time with a floating status dock
   above the app bottom navigation; desktop keeps the four-column board.
+- Refined the completed shell from review feedback: project routes now expose a
+  contextual Overview/Project settings sidebar group, use one All projects
+  exit, retain an enhanced Share project header action, anchor the account menu
+  inside the viewport, and use a lighter mobile header with horizontal metrics.
 - Added normalized project/task and notification-list round trips that preserve
   query/hash state, reject unsafe origins, and use Account or Projects for
   direct-entry fallbacks.

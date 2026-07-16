@@ -141,4 +141,39 @@ describe("account-menu", () => {
       root.unmount();
     });
   });
+
+  test("supports an inward-opening sidebar menu", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        React.createElement(AccountMenu, {
+          isAuthenticated: true,
+          displayName: "test.user",
+          usernameTag: "test.user#1234",
+          avatarSeed: "seed-123",
+          initialUnreadNotificationCount: 0,
+          menuPlacement: "top",
+          menuAlign: "start",
+        })
+      );
+    });
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="Account menu"]')
+        ?.click();
+    });
+
+    const menu = container.querySelector<HTMLElement>('[role="menu"]');
+    expect(menu?.classList.contains("bottom-full")).toBe(true);
+    expect(menu?.classList.contains("left-0")).toBe(true);
+    expect(menu?.classList.contains("right-0")).toBe(false);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });

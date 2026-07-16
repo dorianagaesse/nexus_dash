@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
-import { Bell, FolderKanban } from "lucide-react";
+import { Bell, FolderKanban, LayoutDashboard } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
 import { NotificationLiveUpdates } from "@/components/notification-live-updates";
@@ -63,6 +63,8 @@ export function AuthenticatedAppShellClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentPath = useCurrentAppPath();
+  const projectRouteMatch = pathname.match(/^\/projects\/([^/]+)$/);
+  const projectId = projectRouteMatch?.[1] ?? null;
   const notificationSnapshot = useNotificationRealtimeSnapshot(
     initialNotificationSnapshot
   );
@@ -77,7 +79,11 @@ export function AuthenticatedAppShellClient({
   const navigation = (mobile = false) =>
     NAVIGATION_ITEMS.map((item) => {
       const Icon = item.icon;
-      const isCurrent = isDestinationCurrent(pathname, item.href);
+      const isProjectIndexDestination = item.href === "/projects";
+      const isCurrent =
+        isProjectIndexDestination && projectId && !mobile
+          ? false
+          : isDestinationCurrent(pathname, item.href);
       const href = buildAuthenticatedDestinationHref(item.href, currentPath);
       const unread =
         item.href === "/account/notifications"
@@ -114,7 +120,13 @@ export function AuthenticatedAppShellClient({
               </span>
             ) : null}
           </span>
-          <span>{mobile ? item.mobileLabel : item.label}</span>
+          <span>
+            {mobile
+              ? item.mobileLabel
+              : isProjectIndexDestination && projectId
+                ? "All projects"
+                : item.label}
+          </span>
         </Link>
       );
     });
@@ -149,6 +161,25 @@ export function AuthenticatedAppShellClient({
             Workspace
           </p>
           {navigation()}
+          {projectId ? (
+            <div className="mt-5 border-t border-border/70 pt-4">
+              <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
+                Current project
+              </p>
+              <Link
+                href={`/projects/${projectId}`}
+                aria-current="page"
+                className="relative flex min-h-12 items-center gap-3 rounded-xl bg-primary/10 px-3 text-sm font-medium text-primary transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:bg-primary/15"
+              >
+                <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-primary" aria-hidden />
+                <span className="grid h-7 w-7 place-items-center">
+                  <LayoutDashboard className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+                </span>
+                Overview
+              </Link>
+              <div id="project-sidebar-actions" className="mt-1" />
+            </div>
+          ) : null}
         </nav>
 
         {showContextualReturn ? (
@@ -173,6 +204,7 @@ export function AuthenticatedAppShellClient({
               currentPath={currentPath}
               appMetadata={appMetadata}
               menuPlacement="top"
+              menuAlign="start"
             />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{displayName ?? "Your account"}</p>

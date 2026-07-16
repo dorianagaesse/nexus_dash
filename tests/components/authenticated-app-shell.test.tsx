@@ -4,10 +4,14 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
+let mockPathname = "/account/notifications";
+let mockSearchParams = new URLSearchParams(
+  "returnTo=%2Fprojects%2Fproject-1%3FtaskId%3Dtask-7"
+);
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/account/notifications",
-  useSearchParams: () =>
-    new URLSearchParams("returnTo=%2Fprojects%2Fproject-1%3FtaskId%3Dtask-7"),
+  usePathname: () => mockPathname,
+  useSearchParams: () => mockSearchParams,
 }));
 
 vi.mock("@/lib/hooks/use-dismissible-menu", () => ({
@@ -27,6 +31,10 @@ const notificationSnapshot = {
 
 describe("authenticated app shell", () => {
   test("renders labeled primary destinations with semantic current state", () => {
+    mockPathname = "/account/notifications";
+    mockSearchParams = new URLSearchParams(
+      "returnTo=%2Fprojects%2Fproject-1%3FtaskId%3Dtask-7"
+    );
     const result = renderToStaticMarkup(
       <AuthenticatedAppShellClient
         displayName="Dorian"
@@ -61,5 +69,37 @@ describe("authenticated app shell", () => {
     expect(result).toContain(
       "/account/notifications?returnTo=%2Fprojects%2Fproject-1%3FtaskId%3Dtask-7"
     );
+  });
+
+  test("adapts desktop navigation to a specific project", () => {
+    mockPathname = "/projects/project-1";
+    mockSearchParams = new URLSearchParams();
+
+    const result = renderToStaticMarkup(
+      <AuthenticatedAppShellClient
+        displayName="Dorian"
+        usernameTag="dorian#1234"
+        avatarSeed="seed"
+        initialNotificationSnapshot={notificationSnapshot}
+        appMetadata={{
+          repositoryUrl: "https://github.com/example/nexusdash",
+          versionTag: "v0.25.0",
+          versionLabel: "v0.25.0",
+          revision: "abc1234",
+          revisionLabel: "build abc1234",
+          environment: "test",
+          diagnosticLabel: "v0.25.0 | test | build abc1234",
+        }}
+        notificationBanner={<div>Notification banner</div>}
+      >
+        <main>Project content</main>
+      </AuthenticatedAppShellClient>
+    );
+
+    expect(result).toContain("All projects");
+    expect(result).toContain("Current project");
+    expect(result).toContain("Overview");
+    expect(result).toContain('href="/projects/project-1"');
+    expect(result).toContain('id="project-sidebar-actions"');
   });
 });

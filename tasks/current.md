@@ -83,6 +83,11 @@ feedback consistently discoverable without covering page content.
 - Mobile Kanban now shows one status lane at a time with a floating Backlog /
   Doing / Blocked / Done dock above the app bottom navigation, while desktop
   keeps the four-column board.
+- Follow-up refinement makes the desktop sidebar project-aware, consolidates
+  Projects/All projects, moves owner Project settings into a contextual sidebar
+  slot, keeps an enhanced Share project action in the header, fixes sidebar
+  account-menu anchoring, and reduces the mobile project header to compact
+  actions plus horizontally scannable project metrics.
 - Project/task origins and notification-list origins round-trip through account
   detours without trusting external redirect input.
 - Repository/version diagnostics moved into the account utility and shared

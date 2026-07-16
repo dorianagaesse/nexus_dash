@@ -2637,3 +2637,9 @@ Low-value entries to avoid going forward:
   workflow run `29458290177` with explicit branch `git_ref`.
 - Captured desktop, mobile Kanban, and mobile account-menu screenshots under
   `.tmp/task322-final-screenshots/` and opened PR #367.
+- Follow-up UI review: fixed the sidebar account menu opening off-screen,
+  consolidated Projects/All projects, introduced project-aware Overview and
+  owner-only Project settings navigation, retained and strengthened Share in
+  the project header, and reduced mobile header weight with compact actions and
+  horizontally scrollable metrics. Added focused shell and menu anchoring
+  coverage before refreshing the PR preview.

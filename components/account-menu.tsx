@@ -21,6 +21,7 @@ interface AccountMenuProps {
   currentPath?: string;
   appMetadata?: AppMetadataSummary;
   menuPlacement?: "top" | "bottom";
+  menuAlign?: "start" | "end";
 }
 
 export function AccountMenu({
@@ -32,6 +33,7 @@ export function AccountMenu({
   currentPath = "/projects",
   appMetadata,
   menuPlacement = "bottom",
+  menuAlign = "end",
 }: AccountMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useDismissibleMenu<HTMLDivElement>(isOpen, () => setIsOpen(false));
@@ -96,7 +98,8 @@ export function AccountMenu({
           role="menu"
           aria-label="Account actions"
           className={cn(
-            "absolute right-0 z-[var(--layer-menu)] w-64 rounded-xl border border-border/70 bg-background p-1.5 shadow-lg",
+            "absolute z-[var(--layer-menu)] w-64 rounded-xl border border-border/70 bg-background p-1.5 shadow-lg",
+            menuAlign === "start" ? "left-0" : "right-0",
             menuPlacement === "top" ? "bottom-full mb-2" : "top-full mt-2"
           )}
         >
