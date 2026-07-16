@@ -8,6 +8,20 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.25.0 - 2026-07-06
+
+- Added a responsive authenticated app shell with Projects and Inbox as visible
+  workspace destinations, Account and Settings retained in the avatar menu,
+  semantic current-location state, an adaptive desktop sidebar, and a
+  touch-sized mobile bottom dock.
+- Preserved normalized project/task and notification-list origins through
+  account detours and notification targets, including query and hash state,
+  with safe direct-entry fallbacks and no external redirects.
+- Moved repository/version diagnostics into the account utility, established a
+  shared shell/menu/toast/dialog layer map, and added focused component and
+  Playwright coverage for keyboard, responsive, dark-mode, and round-trip
+  navigation behavior.
+
 ## v0.24.0 - 2026-07-05
 
 - Added a shared accessible dialog and responsive-sheet foundation with named

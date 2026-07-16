@@ -61,6 +61,7 @@ export default async function AccountSettingsPage({
 
   const status = readQueryValue(resolvedSearchParams?.status);
   const error = readQueryValue(resolvedSearchParams?.error);
+  const returnTo = readQueryValue(resolvedSearchParams?.returnTo);
   const currentCalendarId = settingsResult.data.calendarId;
   const hasCalendarConnection = settingsResult.data.hasCalendarConnection;
 
@@ -70,6 +71,7 @@ export default async function AccountSettingsPage({
       title="Google Calendar target"
       description="Choose which Google Calendar receives events created from NexusDash."
       identity={identity}
+      returnTo={returnTo}
     >
       {status && STATUS_MESSAGES[status] ? (
         <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-200">
@@ -139,7 +141,7 @@ export default async function AccountSettingsPage({
                 Use primary calendar
               </Button>
               <Button asChild variant="ghost">
-                <Link href="/projects">Back to projects</Link>
+                <Link href="/projects">Projects</Link>
               </Button>
             </div>
           </form>

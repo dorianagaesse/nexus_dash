@@ -1,7 +1,4 @@
-import { ChevronLeft } from "lucide-react";
-
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export default function ProjectDashboardLoading() {
@@ -10,17 +7,11 @@ export default function ProjectDashboardLoading() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <Badge variant="secondary">Project dashboard</Badge>
             <Badge variant="outline">...</Badge>
           </div>
           <div className="h-9 w-72 animate-pulse rounded bg-muted" />
           <div className="h-4 w-96 animate-pulse rounded bg-muted" />
         </div>
-
-        <Button variant="ghost" disabled>
-          <ChevronLeft className="h-4 w-4" />
-          Back to projects
-        </Button>
       </div>
 
       <Card>

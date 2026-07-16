@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Bot, Settings2, Share2, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -64,6 +65,8 @@ export function ProjectDashboardOwnerActions({
   const router = useRouter();
   const { pushToast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
+  const [sidebarActionsTarget, setSidebarActionsTarget] =
+    useState<HTMLElement | null>(null);
   const [activeTab, setActiveTab] = useState<ProjectDashboardSettingsTab>("general");
   const [nameDraft, setNameDraft] = useState(projectName);
   const [descriptionDraft, setDescriptionDraft] = useState(projectDescription ?? "");
@@ -110,6 +113,10 @@ export function ProjectDashboardOwnerActions({
   useEffect(() => {
     setDescriptionDraft(projectDescription ?? "");
   }, [projectDescription]);
+
+  useEffect(() => {
+    setSidebarActionsTarget(document.getElementById("project-sidebar-actions"));
+  }, []);
 
   const hasProjectChanges = useMemo(
     () =>
@@ -929,26 +936,42 @@ export function ProjectDashboardOwnerActions({
 
   return (
     <>
-      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="flex w-full flex-row gap-2 sm:w-auto sm:flex-wrap sm:items-center">
         <Button
           type="button"
-          variant="secondary"
-          className="w-full rounded-full px-4 sm:w-auto"
+          className="min-h-11 min-w-0 flex-1 rounded-xl px-4 shadow-sm sm:flex-none"
           onClick={() => openModal("sharing")}
         >
           <Share2 className="h-4 w-4" />
-          Share
+          Share project
         </Button>
         <Button
           type="button"
           variant="outline"
-          className="w-full rounded-full px-4 sm:w-auto"
+          className="min-h-11 min-w-0 flex-1 rounded-xl px-4 sm:flex-none lg:hidden"
           onClick={() => openModal("general")}
         >
           <Settings2 className="h-4 w-4" />
           Settings
         </Button>
       </div>
+
+      {sidebarActionsTarget
+        ? createPortal(
+            <Button
+              type="button"
+              variant="ghost"
+              className="hidden min-h-12 w-full justify-start rounded-xl px-3 text-muted-foreground hover:bg-muted hover:text-foreground lg:flex"
+              onClick={() => openModal("general")}
+            >
+              <span className="grid h-7 w-7 place-items-center">
+                <Settings2 className="h-5 w-5" aria-hidden />
+              </span>
+              Project settings
+            </Button>,
+            sidebarActionsTarget
+          )
+        : null}
 
       <Dialog
         open={isOpen}

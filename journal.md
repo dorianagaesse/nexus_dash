@@ -3,6 +3,23 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-06 - TASK-322 responsive authenticated app shell
+
+- Replaced the root floating authenticated utility cluster with a shared shell
+  for project and account routes: sticky labeled desktop navigation, a compact
+  mobile utility header, and a four-destination 64 px bottom navigation.
+- Added semantic current-location state, skip navigation, visible focus,
+  touch-sized controls, reserved mobile safe-area space, and a documented layer
+  map for shell, menus, floating panels, toasts, dialogs, and popovers.
+- Reused and narrowed safe internal return-path normalization so project/task
+  query and hash state survives account detours, notification targets return to
+  triage, direct entries use stable fallbacks, and unsafe redirects are rejected.
+- Moved repository/version diagnostics into the account utility and bumped the
+  product release from v0.24.0 to v0.25.0.
+- Validation: lint, RLS inventory, release policy, 937 unit tests, coverage
+  thresholds, production build, 15 Playwright tests, plus desktop and 390 px
+  dark-mode visual walkthroughs all passed.
+
 # 2026-07-05 - TASK-321 accessible modal and sheet foundation
 
 - Replaced duplicated custom overlay roots with a shared Radix-backed dialog
@@ -2596,3 +2613,41 @@ Low-value entries to avoid going forward:
 - Type: Iteration
 - Summary: TASK-119 highlighted the project owner inside the avatars-only presence stack.
 - Evidence: Added a thicker primary border to the member avatar whose project role is `owner`, while preserving borderless styling for other member avatars and username/display-name hover titles. Focused presence tests passed (4/4), `npm run lint` passed, and local-safe production `npm run build` passed with the existing Tailwind module-type warning.
+
+### 2026-07-12
+- Type: Iteration
+- Summary: TASK-322 reworked the closed PR #361 app-shell UI after visual review found the first implementation regressed navigation hierarchy.
+- Evidence: Checked closed PR #361 (`feature/322-responsive-authenticated-app-shell`) and captured before screenshots under `.tmp/task322-before-pr361/`, showing Account and Settings promoted as bottom-nav peers while the avatar menu remained conceptually separate and Kanban still required status-by-status scrolling. Revised the shell so Projects and Notifications are the only primary workspace destinations, retained Account/Settings/diagnostics/logout in the user avatar menu, kept the normalized `returnTo` navigation contract, and added a mobile Kanban status dock that switches Backlog/Doing/Blocked/Done in context. Captured after screenshots under `.tmp/task322-after-redesign/` and `.tmp/task322-after-kanban-final2/`; the local Next.js dev overlay `nextjs-portal` was identified as the stray bottom-left `N` in screenshots and is not product UI. Validation passed with `npm run lint`, `npm run rls:check`, `npm test -- --run tests/components/authenticated-app-shell.test.tsx tests/components/account-menu.test.ts tests/lib/authenticated-shell-navigation.test.ts`, `PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test authenticated-app-shell.spec.ts --project=chromium`, and `npm run build` with explicit local-safe production validation values.
+# 2026-07-16 - TASK-322 responsive shell redesign v3
+
+- Restarted TASK-322 from `origin/main` on
+  `feature/322-responsive-shell-redesign-v3` after PR #361 was closed for
+  insufficient UI quality.
+- Reframed the navigation hierarchy around an adaptive desktop sidebar,
+  Projects/Inbox mobile bottom navigation, and the retained user avatar menu
+  for personal utilities and diagnostics.
+- Kept Kanban navigation contextual: mobile shows one lane at a time with a
+  compact Backlog/Doing/Blocked/Done dock above the global navigation.
+- Preserved safe contextual return paths, notification triage continuity,
+  shared layers, keyboard focus, and 44 px touch targets from the functional
+  foundation.
+- Validation: lint, RLS inventory, 11 focused unit tests, and all 5 authenticated
+  shell Playwright scenarios passed against preview
+  `https://nexus-dash-i8gvlmwe0-dorian-agaesses-projects.vercel.app` deployed by
+  workflow run `29458290177` with explicit branch `git_ref`.
+- Captured desktop, mobile Kanban, and mobile account-menu screenshots under
+  `.tmp/task322-final-screenshots/` and opened PR #367.
+- Follow-up UI review: fixed the sidebar account menu opening off-screen,
+  consolidated Projects/All projects, introduced project-aware Overview and
+  owner-only Project settings navigation, retained and strengthened Share in
+  the project header, and reduced mobile header weight with compact actions and
+  horizontally scrollable metrics. Added focused shell and menu anchoring
+  coverage before refreshing the PR preview.
+- Follow-up validation: deployment workflow run `29519468456` checked out
+  commit `c2ea5669abcc7cd2607b537b11aa6e62ef7f9e22` and published
+  `https://nexus-dash-7tj1e2xpq-dorian-agaesses-projects.vercel.app`. All five
+  authenticated-shell Playwright scenarios passed against that preview, along
+  with lint and 8 focused component tests. Final desktop, open account-menu,
+  and 390 px mobile screenshots are stored under
+  `.tmp/task322-refinement/`; the visual pass also tightened desktop summary
+  typography so Meeting notes and Not connected remain readable at 1440 px.

@@ -4,9 +4,26 @@ import {
   Droppable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { Archive, Clock3, Flag, GripVertical, Link2, MessageSquare, Paperclip, TriangleAlert } from "lucide-react";
+import { useState } from "react";
+import {
+  Archive,
+  CheckCircle2,
+  CircleDashed,
+  Clock3,
+  Flag,
+  GripVertical,
+  Link2,
+  MessageSquare,
+  OctagonAlert,
+  Paperclip,
+  PlayCircle,
+  TriangleAlert,
+} from "lucide-react";
 
-import type { KanbanTask, ProjectTaskCollaborator } from "@/components/kanban-board-types";
+import type {
+  KanbanTask,
+  ProjectTaskCollaborator,
+} from "@/components/kanban-board-types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -74,6 +91,13 @@ const COLUMN_CHROME: Record<
   },
 };
 
+const STATUS_ICONS: Record<TaskStatus, typeof CircleDashed> = {
+  Backlog: CircleDashed,
+  "In Progress": PlayCircle,
+  Blocked: OctagonAlert,
+  Done: CheckCircle2,
+};
+
 interface KanbanColumnsGridProps {
   canEdit: boolean;
   columns: TaskColumns<KanbanTask>;
@@ -97,6 +121,9 @@ export function KanbanColumnsGrid({
   onEditTask,
   onTaskHoverChange,
 }: KanbanColumnsGridProps) {
+  const [activeMobileStatus, setActiveMobileStatus] =
+    useState<TaskStatus>("Backlog");
+
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="grid gap-4 xl:grid-cols-4">
@@ -112,9 +139,54 @@ export function KanbanColumnsGrid({
             onSelectTask={onSelectTask}
             onEditTask={onEditTask}
             onTaskHoverChange={onTaskHoverChange}
+            className={cn(status !== activeMobileStatus && "hidden xl:block")}
           />
         ))}
       </div>
+      <nav
+        className="sticky bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-[var(--layer-floating)] mx-auto mt-4 w-full max-w-lg rounded-2xl border border-border/70 bg-background/95 p-1.5 shadow-[0_12px_36px_-12px_rgba(15,23,42,0.32)] backdrop-blur supports-[backdrop-filter]:bg-background/90 xl:hidden"
+        aria-label="Kanban status navigation"
+      >
+        <div className="grid grid-cols-4 gap-1">
+          {TASK_STATUSES.map((status) => {
+            const Icon = STATUS_ICONS[status];
+            const isActive = status === activeMobileStatus;
+            const taskCount =
+              columns[status].length +
+              (status === "Done" ? archivedDoneTasks.length : 0);
+
+            return (
+              <button
+                key={status}
+                type="button"
+                aria-pressed={isActive}
+                aria-label={`${status}, ${taskCount} task${taskCount === 1 ? "" : "s"}`}
+                className={cn(
+                  "relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold text-muted-foreground transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  isActive
+                    ? "bg-primary/10 text-primary dark:bg-primary/15"
+                    : "hover:bg-accent hover:text-foreground"
+                )}
+                onClick={() => setActiveMobileStatus(status)}
+              >
+                <span className="flex items-center gap-1">
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  <span className="tabular-nums">{taskCount}</span>
+                </span>
+                <span className="max-w-full truncate">
+                  {status === "In Progress" ? "Doing" : status}
+                </span>
+                {isActive ? (
+                  <span
+                    className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-primary"
+                    aria-hidden="true"
+                  />
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </DragDropContext>
   );
 }
@@ -129,6 +201,7 @@ interface KanbanColumnProps {
   onSelectTask: (task: KanbanTask) => void;
   onEditTask: (task: KanbanTask) => void;
   onTaskHoverChange: (taskId: string | null) => void;
+  className?: string;
 }
 
 function KanbanColumn({
@@ -141,11 +214,18 @@ function KanbanColumn({
   onSelectTask,
   onEditTask,
   onTaskHoverChange,
+  className,
 }: KanbanColumnProps) {
   const chrome = COLUMN_CHROME[status];
 
   return (
-    <Card className={cn("min-h-[320px] overflow-hidden border shadow-[0_18px_48px_-42px_rgba(15,23,42,0.7)]", chrome.column)}>
+    <Card
+      className={cn(
+        "min-h-[320px] overflow-hidden border shadow-[0_18px_48px_-42px_rgba(15,23,42,0.7)]",
+        chrome.column,
+        className
+      )}
+    >
       <div className={cn("h-1.5 w-full", chrome.accent)} />
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-base">
@@ -190,9 +270,12 @@ function KanbanColumn({
                   <TaskCardIndicators task={task} className="mt-1" />
                   {task.description ? (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {renderContentWithMentions(getDescriptionPreview(task.description, 90), {
-                        mentionUsers,
-                      })}
+                      {renderContentWithMentions(
+                        getDescriptionPreview(task.description, 90),
+                        {
+                          mentionUsers,
+                        }
+                      )}
                     </p>
                   ) : null}
                 </button>
@@ -211,11 +294,13 @@ function KanbanColumn({
                 snapshot.isDraggingOver && chrome.dragState
               )}
             >
-                {tasks.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-border/50 bg-background/70 px-4 py-8 text-center">
-                    <p className="text-sm font-medium text-foreground/90">{chrome.emptyCopy}</p>
-                  </div>
-                ) : null}
+              {tasks.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border/50 bg-background/70 px-4 py-8 text-center">
+                  <p className="text-sm font-medium text-foreground/90">
+                    {chrome.emptyCopy}
+                  </p>
+                </div>
+              ) : null}
 
               {tasks.map((task, index) => (
                 <Draggable
@@ -240,7 +325,9 @@ function KanbanColumn({
                         )}
                         className={cn(
                           "rounded-xl border border-border/70 bg-card/95 p-3 shadow-sm transition duration-150",
-                          canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
+                          canEdit
+                            ? "cursor-grab active:cursor-grabbing"
+                            : "cursor-pointer",
                           draggableSnapshot.isDragging && "shadow-lg",
                           highlightedTaskIds.has(task.id) &&
                             "border-border/80 bg-muted/35 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
@@ -261,7 +348,9 @@ function KanbanColumn({
                         }}
                       >
                         <div className="mb-2 flex items-start justify-between gap-2">
-                          <h3 className="text-sm font-medium leading-snug">{task.title}</h3>
+                          <h3 className="text-sm font-medium leading-snug">
+                            {task.title}
+                          </h3>
                           <div className="flex items-center gap-1">
                             {status === "Blocked" ? (
                               <span
@@ -284,13 +373,19 @@ function KanbanColumn({
                           </div>
                         </div>
 
-                        <TaskCardIndicators task={task} className="-mt-1 mb-2" />
+                        <TaskCardIndicators
+                          task={task}
+                          className="-mt-1 mb-2"
+                        />
 
                         {task.description ? (
                           <p className="break-words text-xs text-muted-foreground">
-                            {renderContentWithMentions(getDescriptionPreview(task.description), {
-                              mentionUsers,
-                            })}
+                            {renderContentWithMentions(
+                              getDescriptionPreview(task.description),
+                              {
+                                mentionUsers,
+                              }
+                            )}
                           </p>
                         ) : null}
 
@@ -319,7 +414,9 @@ function KanbanColumn({
                               className="h-5 w-5 border-border/70"
                               decorative
                             />
-                            <span className="truncate">{task.assignee.displayName}</span>
+                            <span className="truncate">
+                              {task.assignee.displayName}
+                            </span>
                           </div>
                         ) : null}
 
@@ -374,7 +471,9 @@ function TaskCardIndicators({
   }
 
   return (
-    <div className={cn("flex items-center gap-1 text-muted-foreground", className)}>
+    <div
+      className={cn("flex items-center gap-1 text-muted-foreground", className)}
+    >
       {hasDeadline ? (
         <TaskDeadlineIndicator
           deadlineDate={task.deadlineDate}

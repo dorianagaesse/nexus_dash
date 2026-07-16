@@ -4,7 +4,7 @@
 TASK-322
 
 ## Status
-Pending — focused product-navigation follow-up from TASK-270
+Complete (2026-07-16 redesign)
 
 ## Objective
 Replace the floating utility-only authenticated chrome with a responsive app
@@ -12,8 +12,12 @@ shell that makes primary destinations, current location, account utilities, and
 feedback consistently discoverable without covering page content.
 
 ## Scope
-- Define primary authenticated navigation for Projects, Notifications, Account,
-  and Settings with a visible current-location state.
+- Define primary authenticated navigation for Projects and Inbox with a
+  visible current-location state.
+- Keep Account, Settings, diagnostics, and logout in the existing user avatar
+  menu instead of promoting personal utilities as global navigation peers.
+- Provide a mobile Kanban status switcher so users can move between Backlog,
+  Doing, Blocked, and Done without scrolling through every lane.
 - Preserve the originating project route when account, notification, or settings
   surfaces are opened as a detour, including meaningful query/hash state such
   as an open `taskId`.
@@ -21,7 +25,7 @@ feedback consistently discoverable without covering page content.
   menu links, notification-awareness links, and notification target round trips;
   define a stable direct-entry fallback and never trust an external referrer.
 - Distinguish hierarchical navigation from history/context return. Do not label
-  a fixed jump to Account or Projects as “Back” when it cannot restore the
+  a fixed jump to Account or Projects as "Back" when it cannot restore the
   user's origin.
 - Create desktop and mobile shell variants with consistent content gutters and
   reserved space for fixed/sticky UI.
@@ -42,7 +46,7 @@ feedback consistently discoverable without covering page content.
 1. A user can reach every primary authenticated destination without opening an
    unlabeled or account-only overflow path.
 2. Current location is visible and announced semantically.
-3. At 375–390 px, navigation and utilities do not overlap headings, toasts,
+3. At 375-390 px, navigation and utilities do not overlap headings, toasts,
    dialogs, or primary actions.
 4. Desktop and mobile layouts reserve the correct content inset for any
    persistent shell element.
@@ -69,3 +73,29 @@ feedback consistently discoverable without covering page content.
 ## Dependencies
 - TASK-270
 - TASK-321
+
+## Outcome
+- Added one authenticated shell across project and account routes with a stable
+  desktop sidebar, Projects/Inbox primary destinations, and a floating mobile
+  bottom navigation for workspace destinations.
+- Added semantic active-location state, skip navigation, visible focus, 44 px
+  utility targets, contextual return controls, and secondary account-menu
+  placement for repository/version diagnostics.
+- Retained the user avatar menu as the predictable home for Account, Settings,
+  Notifications, diagnostics, and logout.
+- Reworked mobile Kanban to show one lane at a time with a floating status dock
+  above the app bottom navigation; desktop keeps the four-column board.
+- Refined the completed shell from review feedback: project routes now expose a
+  contextual Overview/Project settings sidebar group, use one All projects
+  exit, retain an enhanced Share project header action, anchor the account menu
+  inside the viewport, and use a lighter mobile header with horizontal metrics.
+- Added normalized project/task and notification-list round trips that preserve
+  query/hash state, reject unsafe origins, and use Account or Projects for
+  direct-entry fallbacks.
+- Defined and adopted shared shell, menu, floating-panel, toast, dialog,
+  popover, nested-overlay, and skip-link layers.
+- Rework validation passed: focused shell/navigation unit tests and the
+  authenticated shell Playwright spec against the branch preview, including
+  account-menu utility placement, contextual returns, and mobile Kanban status
+  switching. Final screenshots were captured under
+  `.tmp/task322-final-screenshots/`.

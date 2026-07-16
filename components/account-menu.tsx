@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Bell, CircleUserRound, LogOut, Settings } from "lucide-react";
+import { Bell, CircleUserRound, ExternalLink, LogOut, Settings } from "lucide-react";
 
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { Button } from "@/components/ui/button";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import { useNotificationRealtimeSnapshot } from "@/lib/notification-realtime-client";
+import type { AppMetadataSummary } from "@/lib/app-metadata";
+import { buildAuthenticatedDestinationHref } from "@/lib/navigation/authenticated-shell";
+import { cn } from "@/lib/utils";
 
 interface AccountMenuProps {
   isAuthenticated: boolean;
@@ -15,6 +18,10 @@ interface AccountMenuProps {
   usernameTag: string | null;
   avatarSeed: string | null;
   initialUnreadNotificationCount: number;
+  currentPath?: string;
+  appMetadata?: AppMetadataSummary;
+  menuPlacement?: "top" | "bottom";
+  menuAlign?: "start" | "end";
 }
 
 export function AccountMenu({
@@ -23,6 +30,10 @@ export function AccountMenu({
   usernameTag,
   avatarSeed,
   initialUnreadNotificationCount,
+  currentPath = "/projects",
+  appMetadata,
+  menuPlacement = "bottom",
+  menuAlign = "end",
 }: AccountMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useDismissibleMenu<HTMLDivElement>(isOpen, () => setIsOpen(false));
@@ -39,6 +50,15 @@ export function AccountMenu({
     initialNotificationSnapshot
   );
   const unreadNotificationCount = notificationSnapshot.unreadCount;
+  const accountHref = buildAuthenticatedDestinationHref("/account", currentPath);
+  const settingsHref = buildAuthenticatedDestinationHref(
+    "/account/settings",
+    currentPath
+  );
+  const notificationsHref = buildAuthenticatedDestinationHref(
+    "/account/notifications",
+    currentPath
+  );
 
   if (!isAuthenticated) {
     return null;
@@ -54,7 +74,7 @@ export function AccountMenu({
         aria-haspopup="menu"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((previous) => !previous)}
-        className="relative overflow-hidden rounded-full p-0"
+        className="relative min-h-11 min-w-11 overflow-hidden rounded-full p-0"
       >
         {avatarSeed && displayName ? (
           <UserAvatar
@@ -74,7 +94,15 @@ export function AccountMenu({
         ) : null}
       </Button>
       {isOpen ? (
-        <div className="absolute right-0 z-30 mt-1 w-56 rounded-md border border-border/70 bg-background p-1 shadow-md">
+        <div
+          role="menu"
+          aria-label="Account actions"
+          className={cn(
+            "absolute z-[var(--layer-menu)] w-64 rounded-xl border border-border/70 bg-background p-1.5 shadow-lg",
+            menuAlign === "start" ? "left-0" : "right-0",
+            menuPlacement === "top" ? "bottom-full mb-2" : "top-full mt-2"
+          )}
+        >
           {displayName ? (
             <div className="border-b border-border/70 px-3 py-2">
               <div className="flex items-center gap-3">
@@ -96,20 +124,20 @@ export function AccountMenu({
               </div>
             </div>
           ) : null}
-          <Button type="button" variant="ghost" className="w-full justify-start" asChild>
-            <Link href="/account" onClick={() => setIsOpen(false)}>
+          <Button type="button" variant="ghost" className="min-h-11 w-full justify-start" asChild>
+            <Link role="menuitem" href={accountHref} onClick={() => setIsOpen(false)}>
               <CircleUserRound className="h-4 w-4" />
               Account
             </Link>
           </Button>
-          <Button type="button" variant="ghost" className="w-full justify-start" asChild>
-            <Link href="/account/settings" onClick={() => setIsOpen(false)}>
+          <Button type="button" variant="ghost" className="min-h-11 w-full justify-start" asChild>
+            <Link role="menuitem" href={settingsHref} onClick={() => setIsOpen(false)}>
               <Settings className="h-4 w-4" />
               Settings
             </Link>
           </Button>
-          <Button type="button" variant="ghost" className="w-full justify-start" asChild>
-            <Link href="/account/notifications" onClick={() => setIsOpen(false)}>
+          <Button type="button" variant="ghost" className="min-h-11 w-full justify-start" asChild>
+            <Link role="menuitem" href={notificationsHref} onClick={() => setIsOpen(false)}>
               <Bell className="h-4 w-4" />
               Notifications
               {unreadNotificationCount > 0 ? (
@@ -119,8 +147,28 @@ export function AccountMenu({
               ) : null}
             </Link>
           </Button>
-          <form action="/api/auth/logout" method="post">
-            <Button type="submit" variant="ghost" className="w-full justify-start">
+          {appMetadata ? (
+            <div className="mt-1 border-t border-border/70 px-3 py-2 text-xs text-muted-foreground">
+              <div className="flex items-center justify-between gap-3">
+                <span title={appMetadata.diagnosticLabel} className="font-mono">
+                  {appMetadata.versionLabel}
+                </span>
+                <Link
+                  role="menuitem"
+                  href={appMetadata.repositoryUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 items-center gap-1 rounded-md px-2 font-medium hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Repository
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                </Link>
+              </div>
+            </div>
+          ) : null}
+          <form action="/api/auth/logout" method="post" role="none">
+            <Button role="menuitem" type="submit" variant="ghost" className="min-h-11 w-full justify-start">
               <LogOut className="h-4 w-4" />
               Log out
             </Button>

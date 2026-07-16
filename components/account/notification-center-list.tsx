@@ -9,10 +9,12 @@ import { Button } from "@/components/ui/button";
 import { useNotificationRealtimeSnapshot } from "@/lib/notification-realtime-client";
 import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
 import type { NotificationSummary } from "@/lib/services/notification-service";
+import { buildNotificationTargetHref } from "@/lib/navigation/authenticated-shell";
 
 interface NotificationCenterListProps {
   notifications: NotificationSummary[];
   initialSnapshot: NotificationRealtimeSnapshot;
+  notificationCenterPath: string;
   onMarkRead: (formData: FormData) => void | Promise<void>;
   onMarkUnread: (formData: FormData) => void | Promise<void>;
   onMarkAllRead: () => void | Promise<void>;
@@ -60,6 +62,7 @@ function isProjectInvitationMetadata(
 export function NotificationCenterList({
   notifications,
   initialSnapshot,
+  notificationCenterPath,
   onMarkRead,
   onMarkUnread,
   onMarkAllRead,
@@ -251,7 +254,12 @@ export function NotificationCenterList({
 
                     {notification.targetPath ? (
                       <Button asChild variant="ghost">
-                        <Link href={notification.targetPath}>
+                        <Link
+                          href={buildNotificationTargetHref(
+                            notification.targetPath,
+                            notificationCenterPath
+                          )}
+                        >
                           <ExternalLink className="h-4 w-4" />
                           Open
                         </Link>
