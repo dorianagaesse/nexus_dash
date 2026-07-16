@@ -150,7 +150,7 @@ describe("home page auth entry", () => {
     expect(serialized).toContain('"type":"[Function HomeSocialProviderButton]"');
     expect(serialized).toContain('"provider":"google"');
     expect(serialized).toContain('"provider":"github"');
-    expect(serialized).toContain("Or use email");
+    expect(serialized).toContain('"type":"[Function HomeAuthMethods]"');
   });
 
   test("prefills sign-in email from query string", async () => {

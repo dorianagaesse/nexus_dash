@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowRight,
+  Bot,
   CalendarDays,
-  Check,
   CircleDot,
   Layers3,
 } from "lucide-react";
@@ -37,17 +37,18 @@ import {
   HomeSignupUsernameSuffix,
 } from "./home-signup-live-feedback";
 import { HomeAuthModeToggleLink } from "./home-auth-mode-toggle-link";
+import { HomeAuthMethods } from "./home-auth-methods";
 
 const outcomes = [
-  "See priorities and progress in one place",
-  "Keep decisions, notes, and tasks connected",
-  "Turn meetings and milestones into clear next steps",
+  "Follow tasks from first decision to final delivery",
+  "Prepare meetings and keep the roadmap moving",
+  "Give teammates and agents the same shared context",
 ];
 
 const focusItems = [
-  { title: "Finalize launch plan", meta: "Today", state: "In progress" },
-  { title: "Review customer feedback", meta: "Tomorrow", state: "Backlog" },
-  { title: "Share weekly update", meta: "Friday", state: "Ready" },
+  { title: "Follow up blocked delivery tasks", meta: "Today", state: "Tasks" },
+  { title: "Prepare the project meeting", meta: "Tomorrow", state: "Meetings" },
+  { title: "Update the delivery roadmap", meta: "Friday", state: "Roadmap" },
 ];
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -120,14 +121,14 @@ function resolveReturnToPath(value: string | null): string {
 const inputClassName =
   "h-12 w-full rounded-lg border border-input bg-background px-3.5 text-base outline-none transition-colors duration-200 placeholder:text-muted-foreground/80 hover:border-foreground/25 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none sm:text-sm";
 
-function BrandMark({ inverse = false }: { inverse?: boolean }) {
+function BrandMark({ productPanel = false }: { productPanel?: boolean }) {
   return (
     <div className="flex items-center gap-3">
       <span
         className={cn(
           "grid size-10 place-items-center rounded-xl",
-          inverse
-            ? "bg-white text-slate-950"
+          productPanel
+            ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
             : "bg-blue-600 text-white dark:bg-blue-500"
         )}
         aria-hidden="true"
@@ -139,7 +140,9 @@ function BrandMark({ inverse = false }: { inverse?: boolean }) {
         <span
           className={cn(
             "mt-1 text-xs",
-            inverse ? "text-slate-400" : "text-muted-foreground"
+            productPanel
+              ? "text-slate-500 dark:text-slate-400"
+              : "text-muted-foreground"
           )}
         >
           Project execution, connected.
@@ -151,59 +154,74 @@ function BrandMark({ inverse = false }: { inverse?: boolean }) {
 
 function ProductPanel() {
   return (
-    <section className="relative hidden min-h-dvh overflow-hidden bg-slate-950 px-10 py-10 text-white lg:flex lg:flex-col xl:px-16 xl:py-12">
-      <div className="absolute inset-y-0 right-0 w-px bg-white/10" />
-      <BrandMark inverse />
+    <section className="relative hidden min-h-dvh overflow-hidden bg-slate-100 px-10 py-10 text-slate-950 transition-colors duration-200 motion-reduce:transition-none dark:bg-slate-950 dark:text-white lg:flex lg:flex-col xl:px-16 xl:py-12">
+      <div className="absolute inset-y-0 right-0 w-px bg-slate-200 dark:bg-white/10" />
+      <BrandMark productPanel />
 
       <div className="my-auto max-w-2xl py-14">
-        <Badge className="mb-6 rounded-full border border-blue-300/20 bg-blue-400/10 px-3 py-1 text-blue-100 hover:bg-blue-400/10">
-          One workspace. Clearer momentum.
+        <Badge className="mb-6 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-800 hover:bg-blue-50 dark:border-blue-300/20 dark:bg-blue-400/10 dark:text-blue-100 dark:hover:bg-blue-400/10">
+          People and agents, one workspace.
         </Badge>
         <h1 className="max-w-xl text-4xl font-semibold leading-[1.08] tracking-[-0.035em] xl:text-5xl">
           Turn plans into progress—without losing context.
         </h1>
-        <p className="mt-5 max-w-xl text-base leading-7 text-slate-300 xl:text-lg">
-          Bring projects, tasks, meeting notes, and calendar commitments into
+        <p className="mt-5 max-w-xl text-base leading-7 text-slate-600 dark:text-slate-300 xl:text-lg">
+          Bring tasks, meetings, roadmaps, teammates, and trusted agents into
           one focused workspace built for steady delivery.
         </p>
 
-        <ul className="mt-8 grid gap-3" aria-label="NexusDash product benefits">
+        <div className="mt-8 flex max-w-xl gap-4 rounded-2xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-300/15 dark:bg-blue-400/[0.08]">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-600 text-white dark:bg-blue-400 dark:text-slate-950">
+            <Bot className="size-5" strokeWidth={2} aria-hidden="true" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold">Agent access, built for real work</p>
+            <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              Give trusted agents project-scoped access so they can follow context,
+              collaborate, and help move work forward.
+            </p>
+          </div>
+        </div>
+
+        <ul className="mt-6 grid gap-3" aria-label="NexusDash product benefits">
           {outcomes.map((outcome) => (
-            <li key={outcome} className="flex items-center gap-3 text-sm text-slate-200">
-              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-blue-400/15 text-blue-200">
-                <Check className="size-3.5" strokeWidth={2.5} aria-hidden="true" />
+            <li key={outcome} className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200">
+              <span className="size-1.5 shrink-0 rounded-full bg-blue-600 dark:bg-blue-300">
+                <span className="sr-only">Included:</span>
               </span>
               {outcome}
             </li>
           ))}
         </ul>
 
-        <div className="mt-10 max-w-xl rounded-2xl border border-white/10 bg-white/[0.045] p-5">
-          <div className="flex items-center justify-between border-b border-white/10 pb-4">
+        <div className="mt-8 max-w-xl rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-white/[0.045]">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-4 dark:border-white/10">
             <div>
               <p className="text-sm font-semibold">Today&apos;s focus</p>
-              <p className="mt-1 text-xs text-slate-400">Three clear next steps</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Three clear next steps</p>
             </div>
-            <div className="flex items-center gap-2 text-xs text-slate-300">
-              <CalendarDays className="size-4 text-blue-300" aria-hidden="true" />
+            <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+              <CalendarDays className="size-4 text-blue-600 dark:text-blue-300" aria-hidden="true" />
               This week
             </div>
           </div>
-          <div className="divide-y divide-white/10">
+          <div className="divide-y divide-slate-200 dark:divide-white/10">
             {focusItems.map((item, index) => (
               <div key={item.title} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-3.5">
                 <CircleDot
                   className={cn(
                     "size-4",
-                    index === 0 ? "text-blue-300" : "text-slate-500"
+                    index === 0
+                      ? "text-blue-600 dark:text-blue-300"
+                      : "text-slate-400 dark:text-slate-500"
                   )}
                   aria-hidden="true"
                 />
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-100">{item.title}</p>
+                  <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{item.title}</p>
                   <p className="mt-0.5 text-xs text-slate-500">{item.meta}</p>
                 </div>
-                <span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] font-medium text-slate-300">
+                <span className="rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:border-white/10 dark:text-slate-300">
                   {item.state}
                 </span>
               </div>
@@ -212,10 +230,166 @@ function ProductPanel() {
         </div>
       </div>
 
-      <p className="text-xs leading-5 text-slate-500">
+      <p className="text-xs leading-5 text-slate-500 dark:text-slate-500">
         Plan together. Focus on what matters. Deliver with confidence.
       </p>
     </section>
+  );
+}
+
+function renderSignInForm({
+  prefilledEmail,
+  returnToPath,
+}: {
+  prefilledEmail?: string;
+  returnToPath: string;
+}) {
+  return (
+    <form key="signin-form" action={signInAction} className="grid gap-4">
+      <input type="hidden" name="returnTo" value={returnToPath} />
+      <div className="grid gap-2">
+        <label htmlFor="signin-email" className="text-sm font-medium">
+          Email address
+        </label>
+        <input
+          id="signin-email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          inputMode="email"
+          placeholder="you@company.com"
+          defaultValue={prefilledEmail}
+          required
+          maxLength={320}
+          className={inputClassName}
+        />
+      </div>
+      <div className="grid gap-2">
+        <div className="flex items-center justify-between gap-4">
+          <label htmlFor="signin-password" className="text-sm font-medium">
+            Password
+          </label>
+          <Link
+            href="/forgot-password"
+            className="rounded-sm text-sm font-medium text-blue-700 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-300"
+          >
+            Forgot password?
+          </Link>
+        </div>
+        <input
+          id="signin-password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          placeholder="Enter your password"
+          required
+          maxLength={128}
+          className={inputClassName}
+        />
+      </div>
+      <AuthSubmitButton
+        className="mt-1 h-12 w-full rounded-lg"
+        defaultLabel="Sign in to NexusDash"
+        pendingLabel="Signing you in..."
+      />
+    </form>
+  );
+}
+
+function renderSignUpForm({
+  prefilledEmail,
+  returnToPath,
+}: {
+  prefilledEmail?: string;
+  returnToPath: string;
+}) {
+  return (
+    <form key="signup-form" action={signUpAction} className="grid gap-4">
+      <input type="hidden" name="returnTo" value={returnToPath} />
+      <div className="grid gap-2">
+        <label htmlFor="signup-username" className="text-sm font-medium">
+          Username
+        </label>
+        <div className="relative">
+          <input
+            id="signup-username"
+            name="username"
+            type="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="your.name"
+            required
+            minLength={MIN_USERNAME_LENGTH}
+            maxLength={MAX_USERNAME_LENGTH}
+            pattern="[A-Za-z0-9._]+"
+            className={cn(inputClassName, "pr-24")}
+          />
+          <HomeSignupUsernameSuffix usernameInputId="signup-username" />
+        </div>
+      </div>
+      <div className="grid gap-2">
+        <label htmlFor="signup-email" className="text-sm font-medium">
+          Email address
+        </label>
+        <input
+          id="signup-email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          inputMode="email"
+          placeholder="you@company.com"
+          defaultValue={prefilledEmail}
+          required
+          maxLength={320}
+          className={inputClassName}
+        />
+        <HomeSignupEmailFeedback emailInputId="signup-email" />
+      </div>
+      <div className="grid gap-2">
+        <label htmlFor="signup-password" className="text-sm font-medium">
+          Password
+        </label>
+        <input
+          id="signup-password"
+          name="password"
+          type="password"
+          autoComplete="new-password"
+          placeholder="Create a strong password"
+          required
+          minLength={MIN_PASSWORD_LENGTH}
+          maxLength={128}
+          className={inputClassName}
+        />
+      </div>
+      <div className="grid gap-2">
+        <label htmlFor="signup-confirm-password" className="text-sm font-medium">
+          Confirm password
+        </label>
+        <input
+          id="signup-confirm-password"
+          name="confirmPassword"
+          type="password"
+          autoComplete="new-password"
+          placeholder="Re-enter your password"
+          required
+          minLength={MIN_PASSWORD_LENGTH}
+          maxLength={128}
+          className={inputClassName}
+        />
+      </div>
+      <HomeSignupPasswordFeedback
+        passwordInputId="signup-password"
+        confirmPasswordInputId="signup-confirm-password"
+        minPasswordLength={MIN_PASSWORD_LENGTH}
+      />
+      <AuthSubmitButton
+        className="h-12 w-full rounded-lg"
+        defaultLabel="Create your account"
+        pendingLabel="Creating your account..."
+      />
+    </form>
   );
 }
 
@@ -340,164 +514,29 @@ export default async function Home({
               ) : null}
 
               {socialProviders.length > 0 ? (
-                <div className="grid gap-3">
-                  <div className="grid gap-2">
-                    {socialProviders.map(({ provider }) => (
-                      <HomeSocialProviderButton
-                        key={provider}
-                        provider={provider}
-                        form={activeForm}
-                        returnTo={returnToPath}
-                      />
-                    ))}
-                  </div>
-                  <div className="relative my-1">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-border" />
-                    </div>
-                    <div className="relative flex justify-center text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                      <span className="bg-card px-3">Or use email</span>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {isSignIn ? (
-                <form key="signin-form" action={signInAction} className="grid gap-4">
-                  <input type="hidden" name="returnTo" value={returnToPath} />
-                  <div className="grid gap-2">
-                    <label htmlFor="signin-email" className="text-sm font-medium">
-                      Email address
-                    </label>
-                    <input
-                      id="signin-email"
-                      name="email"
-                      type="email"
-                      autoComplete="email"
-                      inputMode="email"
-                      placeholder="you@company.com"
-                      defaultValue={prefilledEmail}
-                      required
-                      maxLength={320}
-                      className={inputClassName}
+                <HomeAuthMethods
+                  defaultEmailExpanded={Boolean(
+                    errorMessage || statusMessage || prefilledEmail
+                  )}
+                  providerOptions={socialProviders.map(({ provider }) => (
+                    <HomeSocialProviderButton
+                      key={provider}
+                      provider={provider}
+                      form={activeForm}
+                      returnTo={returnToPath}
                     />
-                  </div>
-                  <div className="grid gap-2">
-                    <div className="flex items-center justify-between gap-4">
-                      <label htmlFor="signin-password" className="text-sm font-medium">
-                        Password
-                      </label>
-                      <Link
-                        href="/forgot-password"
-                        className="rounded-sm text-sm font-medium text-blue-700 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-300"
-                      >
-                        Forgot password?
-                      </Link>
-                    </div>
-                    <input
-                      id="signin-password"
-                      name="password"
-                      type="password"
-                      autoComplete="current-password"
-                      placeholder="Enter your password"
-                      required
-                      maxLength={128}
-                      className={inputClassName}
-                    />
-                  </div>
-                  <AuthSubmitButton
-                    className="mt-1 h-12 w-full rounded-lg bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-600 dark:bg-blue-500 dark:hover:bg-blue-400"
-                    defaultLabel="Sign in to NexusDash"
-                    pendingLabel="Signing you in..."
-                  />
-                </form>
+                  ))}
+                >
+                  {isSignIn ? (
+                    renderSignInForm({ returnToPath, prefilledEmail })
+                  ) : (
+                    renderSignUpForm({ returnToPath, prefilledEmail })
+                  )}
+                </HomeAuthMethods>
+              ) : isSignIn ? (
+                renderSignInForm({ returnToPath, prefilledEmail })
               ) : (
-                <form key="signup-form" action={signUpAction} className="grid gap-4">
-                  <input type="hidden" name="returnTo" value={returnToPath} />
-                  <div className="grid gap-2">
-                    <label htmlFor="signup-username" className="text-sm font-medium">
-                      Username
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="signup-username"
-                        name="username"
-                        type="text"
-                        autoComplete="username"
-                        autoCapitalize="none"
-                        autoCorrect="off"
-                        spellCheck={false}
-                        placeholder="your.name"
-                        required
-                        minLength={MIN_USERNAME_LENGTH}
-                        maxLength={MAX_USERNAME_LENGTH}
-                        pattern="[A-Za-z0-9._]+"
-                        className={cn(inputClassName, "pr-24")}
-                      />
-                      <HomeSignupUsernameSuffix usernameInputId="signup-username" />
-                    </div>
-                  </div>
-                  <div className="grid gap-2">
-                    <label htmlFor="signup-email" className="text-sm font-medium">
-                      Email address
-                    </label>
-                    <input
-                      id="signup-email"
-                      name="email"
-                      type="email"
-                      autoComplete="email"
-                      inputMode="email"
-                      placeholder="you@company.com"
-                      defaultValue={prefilledEmail}
-                      required
-                      maxLength={320}
-                      className={inputClassName}
-                    />
-                    <HomeSignupEmailFeedback emailInputId="signup-email" />
-                  </div>
-                  <div className="grid gap-2">
-                    <label htmlFor="signup-password" className="text-sm font-medium">
-                      Password
-                    </label>
-                    <input
-                      id="signup-password"
-                      name="password"
-                      type="password"
-                      autoComplete="new-password"
-                      placeholder="Create a strong password"
-                      required
-                      minLength={MIN_PASSWORD_LENGTH}
-                      maxLength={128}
-                      className={inputClassName}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <label htmlFor="signup-confirm-password" className="text-sm font-medium">
-                      Confirm password
-                    </label>
-                    <input
-                      id="signup-confirm-password"
-                      name="confirmPassword"
-                      type="password"
-                      autoComplete="new-password"
-                      placeholder="Re-enter your password"
-                      required
-                      minLength={MIN_PASSWORD_LENGTH}
-                      maxLength={128}
-                      className={inputClassName}
-                    />
-                  </div>
-                  <HomeSignupPasswordFeedback
-                    passwordInputId="signup-password"
-                    confirmPasswordInputId="signup-confirm-password"
-                    minPasswordLength={MIN_PASSWORD_LENGTH}
-                  />
-                  <AuthSubmitButton
-                    className="h-12 w-full rounded-lg bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-600 dark:bg-blue-500 dark:hover:bg-blue-400"
-                    defaultLabel="Create your account"
-                    pendingLabel="Creating your account..."
-                  />
-                </form>
+                renderSignUpForm({ returnToPath, prefilledEmail })
               )}
 
               <div className="flex items-center justify-between gap-4 border-t border-border pt-4 text-sm text-muted-foreground">

@@ -14,6 +14,8 @@ test.describe("unauthenticated home entry", () => {
       })
     ).toBeVisible();
     await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+    await expect(page.getByText("Agent access, built for real work")).toBeVisible();
+    await expect(page.getByText("Follow up blocked delivery tasks")).toBeVisible();
     await expect(page.getByLabel("Email address")).toBeVisible();
     await expect(page.getByLabel("Password")).toBeVisible();
     await expect(page.getByText("session model")).toHaveCount(0);
@@ -27,6 +29,16 @@ test.describe("unauthenticated home entry", () => {
     await expect(
       page.getByRole("heading", { name: "Start your workspace" })
     ).toBeVisible();
+    const continueWithEmail = page.getByRole("button", {
+      name: "Continue with email",
+    });
+    if (await continueWithEmail.isVisible()) {
+      await expect(page.getByLabel("Email address")).not.toBeVisible();
+      await continueWithEmail.click();
+      await expect(
+        page.getByRole("link", { name: /Continue with/ }).first()
+      ).not.toBeVisible();
+    }
     await expect(page.getByLabel("Username")).toBeVisible();
     await expect(page.getByLabel("Email address")).toBeVisible();
     await expect(page.getByRole("button", { name: "Create your account" })).toBeVisible();
@@ -63,5 +75,21 @@ test.describe("unauthenticated home entry", () => {
 
     expect(layout.documentWidth).toBe(layout.viewportWidth);
     expect(layout.transitionProperty).toBe("none");
+  });
+
+  test("persists the selected theme across reloads", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto("/");
+
+    await page.getByRole("button", { name: "Switch to dark mode" }).click();
+    await expect(page.locator("html")).toHaveClass(/dark/);
+    await expect(page.getByText("Agent access, built for real work")).toBeVisible();
+
+    await page.reload();
+
+    await expect(page.locator("html")).toHaveClass(/dark/);
+    await expect(
+      page.getByRole("button", { name: "Switch to light mode" })
+    ).toBeVisible();
   });
 });

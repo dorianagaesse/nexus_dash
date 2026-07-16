@@ -75,6 +75,16 @@ on mobile.
   prefill, verification/status feedback, and signup validation behavior.
 - Added 48 px form/provider/primary controls, visible focus treatment, semantic
   live feedback, dark-mode verification, and global reduced-motion handling.
-- Validation passed: lint, RLS inventory, 930 unit tests, coverage thresholds,
+- Refined the entry experience after visual review: agent access is now the
+  lead product capability, task/meeting/roadmap examples reflect real
+  NexusDash workflows, and primary auth actions use the shared neutral button
+  treatment.
+- On phone widths with social providers enabled, Google, GitHub, and email are
+  presented as three compact choices; choosing email replaces those choices
+  with the credential form and retains a clear back path. Tablet and desktop
+  layouts keep the credential form immediately visible.
+- The product panel now changes meaningfully between light and dark themes, and
+  Playwright verifies that the selected theme persists across a reload.
+- Validation passed: lint, RLS inventory, 932 unit tests, coverage thresholds,
   production build, and focused Playwright checks across desktop, mobile, dark
   mode, tablet containment, and reduced motion.

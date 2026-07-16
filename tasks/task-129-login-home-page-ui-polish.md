@@ -55,4 +55,9 @@ The chosen direction is a flat, typography-led productivity SaaS surface:
 - The 390 px sign-up page is 1,119 px tall, down from 1,993 px, and has no
   horizontal overflow.
 - Light, dark, 390 px, 768 px, 1,440 px, and reduced-motion states were checked.
+- Agent access now leads the product story, supported by concrete task
+  follow-up, meeting preparation, roadmap, and collaboration examples.
+- Social-provider sign-in uses progressive email disclosure on phone widths;
+  tablet and desktop keep the complete form visible. Light/dark selection is
+  visibly distinct and persists across reloads.
 - Focused and repository-wide validation passed.

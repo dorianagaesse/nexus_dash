@@ -29,6 +29,20 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - CI release policy correctly required the product-changing `feature/*` branch
   to carry a minor version decision. Prepared `v0.25.0` with matching package,
   lockfile, and changelog metadata.
+- Incorporated product review feedback by making project-scoped agent access
+  the leading capability, replacing generic sample work with task follow-up,
+  meeting preparation, and roadmap examples, and returning the auth CTA to the
+  shared neutral button treatment.
+- Added phone-only progressive disclosure for social/email authentication,
+  retained immediate email access from 640 px upward, and added interaction
+  coverage for reveal, recovery-context defaults, and the back path.
+- Made the desktop product panel theme-aware and added reload persistence
+  coverage. Playwright passed all four focused entry tests with Google and
+  GitHub controls enabled; refreshed screenshots cover desktop light/dark and
+  phone provider/email states under `.tmp/task129-feedback-*.png`.
+- Final follow-up validation passed: repository lint, RLS inventory, 932 unit
+  tests, coverage thresholds (91.37% statements), production build, and the
+  focused four-test Playwright entry suite.
 
 # 2026-07-05 - TASK-321 accessible modal and sheet foundation
 
