@@ -107,13 +107,16 @@ test.describe("unauthenticated home entry", () => {
 
     const spotlight = page.locator(".home-responsive-spotlight");
     await expect(spotlight).toBeVisible();
-    const restingTransform = await spotlight.evaluate(
+    const primarySpotlight = spotlight.locator(
+      ".home-responsive-spotlight-primary"
+    );
+    const restingTransform = await primarySpotlight.evaluate(
       (element) => getComputedStyle(element).transform
     );
 
     await page.mouse.move(1400, 940);
     await page.waitForTimeout(500);
-    const responsiveTransform = await spotlight.evaluate(
+    const responsiveTransform = await primarySpotlight.evaluate(
       (element) => getComputedStyle(element).transform
     );
     expect(responsiveTransform).not.toBe(restingTransform);
@@ -122,6 +125,6 @@ test.describe("unauthenticated home entry", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.reload();
     await page.mouse.move(40, 40);
-    await expect(spotlight).toHaveCSS("transform", "none");
+    await expect(primarySpotlight).toHaveCSS("transform", "none");
   });
 });

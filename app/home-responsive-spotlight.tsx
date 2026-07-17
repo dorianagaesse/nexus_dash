@@ -2,9 +2,6 @@
 
 import { useEffect, useRef } from "react";
 
-const RESTING_TRANSFORM =
-  "translate3d(24vw, 42vh, 0) translate3d(-50%, -50%, 0) scale(1)";
-
 export function HomeResponsiveSpotlight() {
   const spotlightRef = useRef<HTMLDivElement>(null);
 
@@ -28,14 +25,34 @@ export function HomeResponsiveSpotlight() {
       }
 
       animationFrame = window.requestAnimationFrame(() => {
-        spotlight.style.transform = `translate3d(${event.clientX}px, ${event.clientY}px, 0) translate3d(-50%, -50%, 0) scale(1.08)`;
+        const horizontalProgress = event.clientX / window.innerWidth - 0.5;
+        const verticalProgress = event.clientY / window.innerHeight - 0.5;
+        spotlight.style.setProperty(
+          "--home-primary-x",
+          `${horizontalProgress * 52}px`
+        );
+        spotlight.style.setProperty(
+          "--home-primary-y",
+          `${verticalProgress * 42}px`
+        );
+        spotlight.style.setProperty(
+          "--home-secondary-x",
+          `${horizontalProgress * 34}px`
+        );
+        spotlight.style.setProperty(
+          "--home-secondary-y",
+          `${verticalProgress * 48}px`
+        );
         spotlight.dataset.active = "true";
         animationFrame = null;
       });
     };
 
     const resetSpotlight = () => {
-      spotlight.style.transform = RESTING_TRANSFORM;
+      spotlight.style.setProperty("--home-primary-x", "0px");
+      spotlight.style.setProperty("--home-primary-y", "0px");
+      spotlight.style.setProperty("--home-secondary-x", "0px");
+      spotlight.style.setProperty("--home-secondary-y", "0px");
       spotlight.dataset.active = "false";
     };
 
@@ -60,6 +77,9 @@ export function HomeResponsiveSpotlight() {
       className="home-responsive-spotlight pointer-events-none absolute hidden lg:block"
       data-active="false"
       aria-hidden="true"
-    />
+    >
+      <span className="home-responsive-spotlight-primary" />
+      <span className="home-responsive-spotlight-secondary" />
+    </div>
   );
 }

@@ -176,54 +176,87 @@
 }
 
 .home-responsive-spotlight {
-  left: 0;
-  top: 0;
+  --home-primary-x: 0px;
+  --home-primary-y: 0px;
+  --home-secondary-x: 0px;
+  --home-secondary-y: 0px;
+  inset: 0;
   z-index: 0;
-  width: 74vmax;
-  height: 74vmax;
+}
+
+.home-responsive-spotlight-primary,
+.home-responsive-spotlight-secondary {
+  position: absolute;
+  display: block;
+  border-radius: 9999px;
+  transform-origin: center;
+  transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.home-responsive-spotlight-primary {
+  left: -34vmax;
+  top: -28vmax;
+  width: 80vmax;
+  height: 80vmax;
   border-radius: 9999px;
   background:
     radial-gradient(
       circle at 50% 50%,
-      rgb(59 130 246 / 34%) 0%,
-      rgb(37 99 235 / 22%) 22%,
-      rgb(79 70 229 / 12%) 44%,
-      transparent 70%
+      rgb(59 130 246 / 30%) 0%,
+      rgb(37 99 235 / 22%) 34%,
+      rgb(99 102 241 / 9%) 60%,
+      transparent 76%
     ),
     radial-gradient(
-      circle at 58% 58%,
-      rgb(99 102 241 / 18%) 0%,
-      transparent 54%
+      circle at 64% 65%,
+      rgb(129 140 248 / 14%) 0%,
+      transparent 58%
     );
-  filter: saturate(1.12);
-  opacity: 0.82;
-  transform: translate3d(24vw, 42vh, 0) translate3d(-50%, -50%, 0) scale(1);
-  transform-origin: center;
-  transition:
-    transform 420ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 240ms ease-out;
-  will-change: transform, opacity;
+  filter: saturate(1.08);
+  transform: translate3d(var(--home-primary-x), var(--home-primary-y), 0);
 }
 
-.home-responsive-spotlight[data-active="true"] {
-  opacity: 1;
+.home-responsive-spotlight-secondary {
+  right: -13vmax;
+  bottom: -22vmax;
+  width: 52vmax;
+  height: 52vmax;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgb(99 102 241 / 17%) 0%,
+    rgb(79 70 229 / 10%) 42%,
+    transparent 74%
+  );
+  filter: saturate(1.05);
+  transform: translate3d(var(--home-secondary-x), var(--home-secondary-y), 0);
 }
 
-.dark .home-responsive-spotlight {
+.dark .home-responsive-spotlight-primary {
   background:
     radial-gradient(
       circle at 50% 50%,
-      rgb(59 130 246 / 32%) 0%,
-      rgb(37 99 235 / 20%) 24%,
-      rgb(79 70 229 / 14%) 46%,
-      transparent 70%
+      rgb(37 99 235 / 26%) 0%,
+      rgb(30 64 175 / 18%) 36%,
+      rgb(79 70 229 / 10%) 62%,
+      transparent 76%
     ),
     radial-gradient(
-      circle at 58% 58%,
-      rgb(129 140 248 / 18%) 0%,
-      transparent 55%
+      circle at 64% 65%,
+      rgb(99 102 241 / 14%) 0%,
+      transparent 58%
     );
-  filter: saturate(1.2);
+  filter: saturate(1.12);
+}
+
+.dark .home-responsive-spotlight-secondary {
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgb(79 70 229 / 18%) 0%,
+    rgb(49 46 129 / 11%) 44%,
+    transparent 74%
+  );
+  filter: saturate(1.1);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -249,7 +282,8 @@
     will-change: auto;
   }
 
-  .home-responsive-spotlight {
+  .home-responsive-spotlight-primary,
+  .home-responsive-spotlight-secondary {
     transform: none !important;
     transition: none !important;
     will-change: auto;
