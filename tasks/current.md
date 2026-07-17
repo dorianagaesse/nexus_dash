@@ -91,11 +91,15 @@ on mobile.
   auto-archive, and meeting todo extraction. Supporting copy now explicitly
   covers project invitations, real-time collaboration, Google Calendar, task
   ownership, and project-scoped API agent access.
-- Unified the desktop split on the same semantic page background and introduced
-  restrained blue/indigo ambient gradients only on the product side. The
-  gradients drift once and settle rather than animating indefinitely;
-  reduced-motion preferences collapse the animation through the global motion
-  contract.
-- Validation passed: lint, RLS inventory, 932 unit tests, coverage thresholds,
-  production build, and focused Playwright checks across desktop, mobile, dark
-  mode, tablet containment, and reduced motion.
+- Replaced the visible desktop split and product-side blobs with one continuous
+  left-to-right blue/indigo color field behind both columns. Neutral surfaces
+  remain dominant, blue supports the product story, and saturated accents stay
+  limited to key controls in line with the 60/30/10 hierarchy. The field moves
+  slowly and continuously while reduced-motion preferences disable it.
+- Rewrote the workflow subtitles and supporting benefits around what users gain:
+  a reliable source of context, roadmaps they shape, visible epic progress,
+  blocker follow-up, meeting decisions converted into todos, live teamwork,
+  calendar sync, and clear ownership.
+- Validation passed: lint, RLS inventory, 941 unit tests, coverage thresholds,
+  production build, and all 20 Playwright scenarios, including desktop/mobile
+  entry, theme persistence, tablet containment, and reduced motion.

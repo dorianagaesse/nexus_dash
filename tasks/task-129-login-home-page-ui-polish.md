@@ -61,7 +61,10 @@ The chosen direction is a flat, typography-led productivity SaaS surface:
   tablet and desktop keep the complete form visible. Light/dark selection is
   visibly distinct and persists across reloads.
 - The desktop product preview now describes NexusDash's actual connected
-  workflow instead of fictional weekly work, and both halves share the same
-  neutral light/dark foundation with a subtle motion-safe ambient gradient on
-  the product side.
+  workflow instead of fictional weekly work. Its supporting copy focuses on
+  user outcomes rather than implementation details.
+- Both halves now share one neutral light/dark foundation with a continuous,
+  slowly moving color field that travels from a stronger blue product edge to
+  a neutral authentication surface without a hard divider. Reduced-motion
+  preferences disable the movement.
 - Focused and repository-wide validation passed.

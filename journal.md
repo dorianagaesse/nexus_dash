@@ -2714,3 +2714,25 @@ Low-value entries to avoid going forward:
   space.
 - Scoped the retained avatar menu as a concise launcher: identity, one user-hub
   entry, secondary appearance/diagnostics, and a separated logout action.
+
+# 2026-07-17 - TASK-129 marketing copy and directional color refinement
+
+- Reworked the connected-workflow subtitles from terse feature labels into
+  outcome-led product copy covering a shared source of truth, user-shaped
+  roadmaps, epic progress, blocker follow-up, tidy completed work, and meeting
+  decisions that become immediately visible todos.
+- Replaced the two product-panel gradient blobs and hard column divider with a
+  single full-canvas blue/indigo field that fades from the product side through
+  the authentication side. The neutral base remains visually dominant and
+  saturated blue stays reserved for key accents, following a 60/30/10 color
+  hierarchy.
+- Added slow transform-only movement to the field and an explicit reduced-motion
+  override. Playwright confirmed live movement in light and dark themes, no
+  animation with reduced motion, and a smooth column transition in screenshots
+  `.tmp/task129-directional-gradient-light-stable.png` and
+  `.tmp/task129-directional-gradient-dark-stable.png`.
+- Validation passed with lint, RLS inventory, 941 unit tests, coverage at 91.37%
+  statements / 81.33% branches / 92.2% functions / 91.88% lines, a production
+  build, and all 20 Playwright scenarios. The database-backed browser suite used
+  the configured development database because the optional local PostgreSQL
+  service at `127.0.0.1:5432` was not running; outbound email remained disabled.

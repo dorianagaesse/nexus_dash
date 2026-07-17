@@ -42,33 +42,33 @@ import { HomeAuthModeToggleLink } from "./home-auth-mode-toggle-link";
 import { HomeAuthMethods } from "./home-auth-methods";
 
 const outcomes = [
-  "Invite teammates and collaborate in real time",
-  "Connect Google Calendar to project work",
-  "Keep ownership clear with assignees, mentions, comments, and due dates",
+  "Bring teammates into the same live project workspace",
+  "Keep project dates in sync with Google Calendar",
+  "Make ownership clear with assignees, mentions, and due dates",
 ];
 
 const workflowItems = [
   {
     title: "Project context, kept together",
-    meta: "Context cards and files attached to cards or tasks",
+    meta: "Give everyone one reliable place for project context and the files behind the work.",
     state: "Context",
     icon: Files,
   },
   {
     title: "Plans you shape",
-    meta: "Roadmap milestones, related tasks, and epic progress",
+    meta: "Build your own roadmap, connect related tasks, and see every epic move forward.",
     state: "Plan",
     icon: Milestone,
   },
   {
     title: "Delivery you can follow",
-    meta: "Kanban from backlog to done, dated blockers, and auto-archive",
+    meta: "Move work from backlog to done, follow blockers over time, and keep completed work tidy.",
     state: "Track",
     icon: Workflow,
   },
   {
     title: "Meetings become visible action",
-    meta: "Extracted meeting todos stay surfaced in a dedicated panel",
+    meta: "Turn meeting decisions into visible todos your team can act on right away.",
     state: "Act",
     icon: ListTodo,
   },
@@ -177,10 +177,7 @@ function BrandMark({ productPanel = false }: { productPanel?: boolean }) {
 
 function ProductPanel() {
   return (
-    <section className="relative hidden min-h-dvh overflow-hidden bg-background px-10 py-10 text-foreground transition-colors duration-200 motion-reduce:transition-none lg:flex lg:flex-col xl:px-16 xl:py-12">
-      <div className="home-product-ambient pointer-events-none absolute -left-40 top-[8%] size-[34rem] rounded-full bg-[radial-gradient(circle,rgba(37,99,235,0.16)_0%,rgba(37,99,235,0)_70%)] dark:bg-[radial-gradient(circle,rgba(37,99,235,0.2)_0%,rgba(37,99,235,0)_70%)]" />
-      <div className="home-product-ambient home-product-ambient-secondary pointer-events-none absolute -bottom-48 right-[-8rem] size-[38rem] rounded-full bg-[radial-gradient(circle,rgba(79,70,229,0.12)_0%,rgba(79,70,229,0)_70%)] dark:bg-[radial-gradient(circle,rgba(79,70,229,0.16)_0%,rgba(79,70,229,0)_70%)]" />
-      <div className="absolute inset-y-0 right-0 w-px bg-border/80" />
+    <section className="relative z-10 hidden min-h-dvh px-10 py-10 text-foreground transition-colors duration-200 motion-reduce:transition-none lg:flex lg:flex-col xl:px-16 xl:py-12">
       <div className="relative z-10">
         <BrandMark productPanel />
       </div>
@@ -204,8 +201,8 @@ function ProductPanel() {
           <div>
             <p className="text-sm font-semibold">Agent access, built for real work</p>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Connect trusted agents through a project-scoped API so they can read
-              context, collaborate on tasks, and help move delivery forward.
+              Give trusted agents secure, project-scoped access to the context
+              and actions they need to move work forward.
             </p>
           </div>
         </div>
@@ -221,8 +218,8 @@ function ProductPanel() {
           ))}
         </ul>
 
-        <div className="mt-6 max-w-xl rounded-2xl border border-border/80 bg-card/75 p-5 shadow-[0_24px_70px_-52px_rgba(37,99,235,0.55)] backdrop-blur-sm">
-          <div className="flex items-center justify-between border-b border-border/80 pb-3.5">
+        <div className="mt-5 max-w-xl rounded-2xl border border-border/80 bg-card/75 p-4 shadow-[0_24px_70px_-52px_rgba(37,99,235,0.55)] backdrop-blur-sm">
+          <div className="flex items-center justify-between border-b border-border/80 pb-3">
             <div>
               <p className="text-sm font-semibold">A connected project system</p>
               <p className="mt-1 text-xs text-muted-foreground">From context to delivery</p>
@@ -237,13 +234,13 @@ function ProductPanel() {
               const ItemIcon = item.icon;
 
               return (
-                <div key={item.title} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-3">
+                <div key={item.title} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-2">
                   <span className="grid size-8 place-items-center rounded-lg bg-blue-500/[0.09] text-blue-700 dark:text-blue-300">
                     <ItemIcon className="size-4" strokeWidth={1.9} aria-hidden="true" />
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.meta}</p>
+                    <p className="text-sm font-medium text-foreground">{item.title}</p>
+                    <p className="mt-0.5 text-xs leading-[1.45] text-muted-foreground">{item.meta}</p>
                   </div>
                   <span className="rounded-full border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
                     {item.state}
@@ -457,10 +454,14 @@ export default async function Home({
   const socialProviders = getEnabledSocialAuthProviders();
 
   return (
-    <main className="grid min-h-dvh bg-background lg:grid-cols-[minmax(0,1fr)_minmax(520px,0.86fr)]">
+    <main className="relative isolate grid min-h-dvh overflow-hidden bg-background lg:grid-cols-[minmax(0,1fr)_minmax(520px,0.86fr)]">
+      <div
+        className="home-entry-color-field pointer-events-none absolute hidden lg:block"
+        aria-hidden="true"
+      />
       <ProductPanel />
 
-      <section className="flex min-h-dvh items-start justify-center px-4 pb-8 pt-20 sm:items-center sm:px-8 sm:py-20 lg:px-12">
+      <section className="relative z-10 flex min-h-dvh items-start justify-center px-4 pb-8 pt-20 sm:items-center sm:px-8 sm:py-20 lg:px-12">
         <div className="w-full max-w-[440px]">
           <div className="mb-7 lg:hidden">
             <BrandMark />
