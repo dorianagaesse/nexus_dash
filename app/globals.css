@@ -176,51 +176,54 @@
 }
 
 .home-responsive-spotlight {
-  inset: -18%;
+  left: 0;
+  top: 0;
   z-index: 0;
+  width: 74vmax;
+  height: 74vmax;
+  border-radius: 9999px;
   background:
     radial-gradient(
-      ellipse 48% 54% at 24% 38%,
-      rgb(37 99 235 / 22%) 0%,
-      rgb(37 99 235 / 8%) 42%,
-      transparent 72%
+      circle at 50% 50%,
+      rgb(59 130 246 / 34%) 0%,
+      rgb(37 99 235 / 22%) 22%,
+      rgb(79 70 229 / 12%) 44%,
+      transparent 70%
     ),
     radial-gradient(
-      ellipse 34% 42% at 58% 76%,
-      rgb(79 70 229 / 13%) 0%,
-      transparent 72%
-    ),
-    linear-gradient(
-      108deg,
-      rgb(239 246 255 / 76%) 0%,
-      rgb(238 242 255 / 28%) 48%,
-      transparent 80%
+      circle at 58% 58%,
+      rgb(99 102 241 / 18%) 0%,
+      transparent 54%
     );
-  transform: translate3d(0, 0, 0) scale(1.04);
+  filter: saturate(1.12);
+  opacity: 0.82;
+  transform: translate3d(24vw, 42vh, 0) translate3d(-50%, -50%, 0) scale(1);
   transform-origin: center;
-  transition: transform 650ms cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform;
+  transition:
+    transform 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 240ms ease-out;
+  will-change: transform, opacity;
+}
+
+.home-responsive-spotlight[data-active="true"] {
+  opacity: 1;
 }
 
 .dark .home-responsive-spotlight {
   background:
     radial-gradient(
-      ellipse 48% 54% at 24% 38%,
-      rgb(37 99 235 / 24%) 0%,
-      rgb(37 99 235 / 8%) 44%,
-      transparent 72%
+      circle at 50% 50%,
+      rgb(59 130 246 / 32%) 0%,
+      rgb(37 99 235 / 20%) 24%,
+      rgb(79 70 229 / 14%) 46%,
+      transparent 70%
     ),
     radial-gradient(
-      ellipse 34% 42% at 58% 76%,
-      rgb(79 70 229 / 15%) 0%,
-      transparent 72%
-    ),
-    linear-gradient(
-      108deg,
-      rgb(15 23 42 / 68%) 0%,
-      rgb(15 23 42 / 22%) 48%,
-      transparent 82%
+      circle at 58% 58%,
+      rgb(129 140 248 / 18%) 0%,
+      transparent 55%
     );
+  filter: saturate(1.2);
 }
 
 @media (prefers-reduced-motion: reduce) {

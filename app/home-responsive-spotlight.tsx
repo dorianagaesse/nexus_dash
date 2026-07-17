@@ -2,7 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
-const RESTING_TRANSFORM = "translate3d(0, 0, 0) scale(1.04)";
+const RESTING_TRANSFORM =
+  "translate3d(24vw, 42vh, 0) translate3d(-50%, -50%, 0) scale(1)";
 
 export function HomeResponsiveSpotlight() {
   const spotlightRef = useRef<HTMLDivElement>(null);
@@ -27,15 +28,15 @@ export function HomeResponsiveSpotlight() {
       }
 
       animationFrame = window.requestAnimationFrame(() => {
-        const horizontalProgress = event.clientX / window.innerWidth - 0.5;
-        const verticalProgress = event.clientY / window.innerHeight - 0.5;
-        spotlight.style.transform = `translate3d(${horizontalProgress * 9}vw, ${verticalProgress * 7}vh, 0) scale(1.04)`;
+        spotlight.style.transform = `translate3d(${event.clientX}px, ${event.clientY}px, 0) translate3d(-50%, -50%, 0) scale(1.08)`;
+        spotlight.dataset.active = "true";
         animationFrame = null;
       });
     };
 
     const resetSpotlight = () => {
       spotlight.style.transform = RESTING_TRANSFORM;
+      spotlight.dataset.active = "false";
     };
 
     window.addEventListener("pointermove", updateSpotlight, { passive: true });
@@ -46,7 +47,10 @@ export function HomeResponsiveSpotlight() {
         window.cancelAnimationFrame(animationFrame);
       }
       window.removeEventListener("pointermove", updateSpotlight);
-      document.documentElement.removeEventListener("mouseleave", resetSpotlight);
+      document.documentElement.removeEventListener(
+        "mouseleave",
+        resetSpotlight
+      );
     };
   }, []);
 
@@ -54,6 +58,7 @@ export function HomeResponsiveSpotlight() {
     <div
       ref={spotlightRef}
       className="home-responsive-spotlight pointer-events-none absolute hidden lg:block"
+      data-active="false"
       aria-hidden="true"
     />
   );

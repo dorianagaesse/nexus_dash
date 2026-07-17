@@ -112,11 +112,12 @@ test.describe("unauthenticated home entry", () => {
     );
 
     await page.mouse.move(1400, 940);
-    await page.waitForTimeout(750);
+    await page.waitForTimeout(500);
     const responsiveTransform = await spotlight.evaluate(
       (element) => getComputedStyle(element).transform
     );
     expect(responsiveTransform).not.toBe(restingTransform);
+    await expect(spotlight).toHaveAttribute("data-active", "true");
 
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.reload();
