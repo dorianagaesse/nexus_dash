@@ -98,4 +98,24 @@ test.describe("unauthenticated home entry", () => {
       page.getByRole("button", { name: "Switch to light mode" })
     ).toBeVisible();
   });
+
+  test("highlights and attracts the connected node field around a precise pointer", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto("/");
+
+    const nodeField = page.locator(".home-interactive-node-field");
+    await expect(nodeField).toBeVisible();
+    await expect(nodeField).toHaveAttribute("data-active", "false");
+
+    await page.mouse.move(720, 500);
+    await expect(nodeField).toHaveAttribute("data-active", "true");
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.reload();
+    await expect(nodeField).toHaveAttribute("data-interactive", "false");
+    await page.mouse.move(240, 240);
+    await expect(nodeField).toHaveAttribute("data-active", "false");
+  });
 });

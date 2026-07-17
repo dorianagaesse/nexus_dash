@@ -175,6 +175,15 @@
     );
 }
 
+.home-interactive-node-field {
+  z-index: 0;
+  opacity: 0.9;
+}
+
+.dark .home-interactive-node-field {
+  opacity: 0.95;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -195,6 +204,10 @@
   .home-entry-color-field {
     animation: none !important;
     transform: none !important;
+    will-change: auto;
+  }
+
+  .home-interactive-node-field {
     will-change: auto;
   }
 }
