@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import {
   ArrowRight,
   Bot,
@@ -459,6 +460,62 @@ export default async function Home({
         className="home-entry-color-field pointer-events-none absolute hidden lg:block"
         aria-hidden="true"
       />
+      <svg
+        className="home-project-constellation pointer-events-none absolute inset-0 hidden size-full lg:block"
+        viewBox="0 0 1600 1000"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient id="project-constellation-edge" x1="0%" x2="100%">
+            <stop offset="0" stopColor="rgb(37 99 235)" stopOpacity="0.4" />
+            <stop offset="0.6" stopColor="rgb(79 70 229)" stopOpacity="0.2" />
+            <stop offset="1" stopColor="rgb(79 70 229)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        <g className="home-project-constellation__network">
+          <g
+            className="home-project-constellation__edges"
+            fill="none"
+            stroke="url(#project-constellation-edge)"
+          >
+            <path d="M520 416 C612 370 650 326 730 302" />
+            <path d="M520 416 C626 430 702 444 806 474" />
+            <path d="M730 302 C794 346 806 402 806 474" />
+            <path d="M806 474 C754 526 700 568 652 626" />
+            <path d="M806 474 C872 526 896 612 866 716" />
+            <path d="M652 626 C718 684 782 712 866 716" />
+            <path d="M806 474 C930 438 1030 408 1160 430" />
+            <path d="M866 716 C972 672 1056 630 1160 650" />
+            <path d="M1160 430 C1202 500 1204 574 1160 650" />
+          </g>
+
+          {[
+            [520, 416],
+            [730, 302],
+            [806, 474],
+            [652, 626],
+            [866, 716],
+            [1160, 430],
+            [1160, 650],
+          ].map(([x, y], index) => (
+            <g
+              key={`${x}-${y}`}
+              className="home-project-constellation__node"
+              transform={`translate(${x} ${y})`}
+              style={{ "--constellation-index": index } as CSSProperties}
+            >
+              <circle
+                className="home-project-constellation__pulse"
+                r="9"
+                fill="none"
+              />
+              <circle className="home-project-constellation__core" r="3.5" />
+            </g>
+          ))}
+        </g>
+      </svg>
       <ProductPanel />
 
       <section className="relative z-10 flex min-h-dvh items-start justify-center px-4 pb-8 pt-20 sm:items-center sm:px-8 sm:py-20 lg:px-12">

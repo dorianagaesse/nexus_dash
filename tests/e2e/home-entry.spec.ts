@@ -98,4 +98,23 @@ test.describe("unauthenticated home entry", () => {
       page.getByRole("button", { name: "Switch to light mode" })
     ).toBeVisible();
   });
+
+  test("animates the project constellation and makes it static for reduced motion", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto("/");
+
+    const network = page.locator(".home-project-constellation__network");
+    await expect(page.locator(".home-project-constellation")).toBeVisible();
+    await expect(network).toHaveCSS(
+      "animation-name",
+      "home-project-constellation-drift"
+    );
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.reload();
+
+    await expect(network).toHaveCSS("animation-name", "none");
+  });
 });
