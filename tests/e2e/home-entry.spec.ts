@@ -98,4 +98,29 @@ test.describe("unauthenticated home entry", () => {
       page.getByRole("button", { name: "Switch to light mode" })
     ).toBeVisible();
   });
+
+  test("lets the ambient spotlight follow a precise pointer and settle for reduced motion", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto("/");
+
+    const spotlight = page.locator(".home-responsive-spotlight");
+    await expect(spotlight).toBeVisible();
+    const restingTransform = await spotlight.evaluate(
+      (element) => getComputedStyle(element).transform
+    );
+
+    await page.mouse.move(1400, 940);
+    await page.waitForTimeout(750);
+    const responsiveTransform = await spotlight.evaluate(
+      (element) => getComputedStyle(element).transform
+    );
+    expect(responsiveTransform).not.toBe(restingTransform);
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.reload();
+    await page.mouse.move(40, 40);
+    await expect(spotlight).toHaveCSS("transform", "none");
+  });
 });
