@@ -459,6 +459,65 @@ export default async function Home({
         className="home-entry-color-field pointer-events-none absolute hidden lg:block"
         aria-hidden="true"
       />
+      <svg
+        className="home-connected-current pointer-events-none absolute inset-0 hidden size-full lg:block"
+        viewBox="0 0 1600 1000"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient id="connected-current-track" x1="0" x2="1">
+            <stop offset="0" stopColor="rgb(37 99 235)" stopOpacity="0" />
+            <stop offset="0.08" stopColor="rgb(37 99 235)" stopOpacity="0.3" />
+            <stop offset="0.48" stopColor="rgb(79 70 229)" stopOpacity="0.2" />
+            <stop offset="0.78" stopColor="rgb(37 99 235)" stopOpacity="0" />
+          </linearGradient>
+          <radialGradient id="connected-current-signal">
+            <stop offset="0" stopColor="white" />
+            <stop offset="0.35" stopColor="rgb(96 165 250)" />
+            <stop offset="1" stopColor="rgb(37 99 235)" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+
+        <g className="home-connected-current__tracks" fill="none">
+          <path d="M520 410 C730 298 884 352 1090 316 S1360 300 1640 408" />
+          <path d="M500 746 C720 610 906 760 1130 650 S1400 540 1640 658" />
+          <path d="M560 560 C760 450 920 584 1120 500 S1390 412 1620 510" />
+        </g>
+
+        <g className="home-connected-current__signal">
+          <circle r="12" fill="url(#connected-current-signal)">
+            <animateMotion
+              dur="12s"
+              repeatCount="indefinite"
+              path="M520 410 C730 298 884 352 1090 316 S1360 300 1640 408"
+            />
+            <animate
+              attributeName="opacity"
+              dur="12s"
+              repeatCount="indefinite"
+              values="0;0;1;1;0;0"
+              keyTimes="0;0.04;0.08;0.27;0.31;1"
+            />
+          </circle>
+          <circle r="9" fill="url(#connected-current-signal)">
+            <animateMotion
+              begin="4s"
+              dur="14s"
+              repeatCount="indefinite"
+              path="M500 746 C720 610 906 760 1130 650 S1400 540 1640 658"
+            />
+            <animate
+              attributeName="opacity"
+              begin="4s"
+              dur="14s"
+              repeatCount="indefinite"
+              values="0;0;0.85;0.85;0;0"
+              keyTimes="0;0.04;0.08;0.25;0.29;1"
+            />
+          </circle>
+        </g>
+      </svg>
       <ProductPanel />
 
       <section className="relative z-10 flex min-h-dvh items-start justify-center px-4 pb-8 pt-20 sm:items-center sm:px-8 sm:py-20 lg:px-12">

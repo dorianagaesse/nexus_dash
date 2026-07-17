@@ -175,6 +175,28 @@
     );
 }
 
+.home-connected-current {
+  z-index: 1;
+}
+
+.home-connected-current__tracks path {
+  stroke: url("#connected-current-track");
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.home-connected-current__tracks path:nth-child(2) {
+  opacity: 0.75;
+}
+
+.home-connected-current__tracks path:nth-child(3) {
+  opacity: 0.55;
+}
+
+.dark .home-connected-current__tracks path {
+  opacity: 0.82;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -196,5 +218,9 @@
     animation: none !important;
     transform: none !important;
     will-change: auto;
+  }
+
+  .home-connected-current__signal {
+    display: none;
   }
 }

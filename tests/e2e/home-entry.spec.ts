@@ -98,4 +98,24 @@ test.describe("unauthenticated home entry", () => {
       page.getByRole("button", { name: "Switch to light mode" })
     ).toBeVisible();
   });
+
+  test("uses intermittent connected-current signals and removes them for reduced motion", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto("/");
+
+    await expect(page.locator(".home-connected-current")).toBeVisible();
+    await expect(
+      page.locator(".home-connected-current__signal animateMotion")
+    ).toHaveCount(2);
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.reload();
+
+    await expect(page.locator(".home-connected-current__signal")).toHaveCSS(
+      "display",
+      "none"
+    );
+  });
 });
