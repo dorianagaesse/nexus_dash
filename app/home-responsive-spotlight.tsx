@@ -29,20 +29,22 @@ export function HomeResponsiveSpotlight() {
         const verticalProgress = event.clientY / window.innerHeight - 0.5;
         spotlight.style.setProperty(
           "--home-primary-x",
-          `${horizontalProgress * 52}px`
+          `${horizontalProgress * 104}px`
         );
         spotlight.style.setProperty(
           "--home-primary-y",
-          `${verticalProgress * 42}px`
+          `${verticalProgress * 84}px`
         );
         spotlight.style.setProperty(
           "--home-secondary-x",
-          `${horizontalProgress * 34}px`
+          `${horizontalProgress * 80}px`
         );
         spotlight.style.setProperty(
           "--home-secondary-y",
-          `${verticalProgress * 48}px`
+          `${verticalProgress * 96}px`
         );
+        spotlight.style.setProperty("--home-primary-scale", "1.035");
+        spotlight.style.setProperty("--home-secondary-scale", "1.055");
         spotlight.dataset.active = "true";
         animationFrame = null;
       });
@@ -53,6 +55,8 @@ export function HomeResponsiveSpotlight() {
       spotlight.style.setProperty("--home-primary-y", "0px");
       spotlight.style.setProperty("--home-secondary-x", "0px");
       spotlight.style.setProperty("--home-secondary-y", "0px");
+      spotlight.style.setProperty("--home-primary-scale", "1");
+      spotlight.style.setProperty("--home-secondary-scale", "1");
       spotlight.dataset.active = "false";
     };
 

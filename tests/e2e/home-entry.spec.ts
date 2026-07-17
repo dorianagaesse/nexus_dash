@@ -120,6 +120,11 @@ test.describe("unauthenticated home entry", () => {
       (element) => getComputedStyle(element).transform
     );
     expect(responsiveTransform).not.toBe(restingTransform);
+    const responsiveOffset = await primarySpotlight.evaluate((element) => {
+      const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
+      return Math.hypot(matrix.e, matrix.f);
+    });
+    expect(responsiveOffset).toBeGreaterThan(40);
     await expect(spotlight).toHaveAttribute("data-active", "true");
 
     await page.emulateMedia({ reducedMotion: "reduce" });
