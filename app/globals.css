@@ -195,66 +195,61 @@
 }
 
 .home-responsive-spotlight-primary {
-  left: -34vmax;
-  top: -28vmax;
-  width: 80vmax;
-  height: 80vmax;
-  border-radius: 9999px;
-  background:
-    radial-gradient(
-      circle at 50% 50%,
-      rgb(59 130 246 / 30%) 0%,
-      rgb(37 99 235 / 22%) 34%,
-      rgb(99 102 241 / 9%) 60%,
-      transparent 76%
-    ),
-    radial-gradient(
-      circle at 64% 65%,
-      rgb(129 140 248 / 14%) 0%,
-      transparent 58%
-    );
+  left: -42vmax;
+  top: -36vmax;
+  width: 92vmax;
+  height: 92vmax;
+  background: radial-gradient(
+    circle closest-side at 50% 50%,
+    rgb(59 130 246 / 30%) 0%,
+    rgb(37 99 235 / 22%) 26%,
+    rgb(79 70 229 / 12%) 52%,
+    rgb(99 102 241 / 5%) 76%,
+    rgb(129 140 248 / 2%) 90%,
+    transparent 100%
+  );
   filter: saturate(1.08);
   transform: translate3d(var(--home-primary-x), var(--home-primary-y), 0);
 }
 
 .home-responsive-spotlight-secondary {
-  right: -13vmax;
-  bottom: -22vmax;
-  width: 52vmax;
-  height: 52vmax;
+  right: -18vmax;
+  bottom: -30vmax;
+  width: 64vmax;
+  height: 64vmax;
   background: radial-gradient(
-    circle at 50% 50%,
+    circle closest-side at 50% 50%,
     rgb(99 102 241 / 17%) 0%,
-    rgb(79 70 229 / 10%) 42%,
-    transparent 74%
+    rgb(79 70 229 / 11%) 34%,
+    rgb(99 102 241 / 6%) 60%,
+    rgb(129 140 248 / 2%) 84%,
+    transparent 100%
   );
   filter: saturate(1.05);
   transform: translate3d(var(--home-secondary-x), var(--home-secondary-y), 0);
 }
 
 .dark .home-responsive-spotlight-primary {
-  background:
-    radial-gradient(
-      circle at 50% 50%,
-      rgb(37 99 235 / 26%) 0%,
-      rgb(30 64 175 / 18%) 36%,
-      rgb(79 70 229 / 10%) 62%,
-      transparent 76%
-    ),
-    radial-gradient(
-      circle at 64% 65%,
-      rgb(99 102 241 / 14%) 0%,
-      transparent 58%
-    );
+  background: radial-gradient(
+    circle closest-side at 50% 50%,
+    rgb(37 99 235 / 26%) 0%,
+    rgb(30 64 175 / 19%) 28%,
+    rgb(79 70 229 / 11%) 54%,
+    rgb(67 56 202 / 5%) 76%,
+    rgb(99 102 241 / 2%) 90%,
+    transparent 100%
+  );
   filter: saturate(1.12);
 }
 
 .dark .home-responsive-spotlight-secondary {
   background: radial-gradient(
-    circle at 50% 50%,
+    circle closest-side at 50% 50%,
     rgb(79 70 229 / 18%) 0%,
-    rgb(49 46 129 / 11%) 44%,
-    transparent 74%
+    rgb(49 46 129 / 12%) 36%,
+    rgb(67 56 202 / 6%) 62%,
+    rgb(99 102 241 / 2%) 84%,
+    transparent 100%
   );
   filter: saturate(1.1);
 }
