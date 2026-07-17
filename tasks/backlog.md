@@ -2,7 +2,7 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-07-16
+Last reviewed: 2026-07-17
 
 ## Pending
 ### Execution Queue (Now / Next)
@@ -38,6 +38,21 @@ Last reviewed: 2026-07-16
   Rationale: Re-audit the remediated product rather than assuming implementation tasks achieved production quality. Verify WCAG AA fundamentals, keyboard/screen-reader operation, owner/editor/viewer/invitee journeys, navigation state preservation, realistic data density, loading/error/empty recovery, responsive layouts, themes, and critical usability flows; produce a residual-risk sign-off report and focused defects for anything still below production grade.
   Dependencies: TASK-100, TASK-108, TASK-129, TASK-133, TASK-321, TASK-322, TASK-324
   Brief: `tasks/task-323-production-readiness-ux-verification.md`
+- ID: TASK-325
+  Title: Google Calendar integration audit - current-state architecture, behavior, and risk assessment
+  Status: Next 7 - calendar integration discovery
+  Rationale: Audit the current Google Calendar implementation across authentication, credential storage, account settings, project surfaces, event operations, tests, and deployment configuration; document the effective ownership model, known gaps, security risks, and a prioritized remediation path before extending the integration.
+  Dependencies: TASK-005, TASK-032, TASK-076, TASK-083
+- ID: TASK-326
+  Title: Google Calendar connection ownership - enforce user-scoped rather than project-scoped integration
+  Status: Next 8 - calendar ownership verification and remediation
+  Rationale: Verify and enforce that each Google Calendar authorization, credential, target-calendar preference, refresh lifecycle, and disconnect action belongs to the authenticated user rather than an individual project, while ensuring project calendar views use only the current user's connection and cannot expose another member's credentials or settings.
+  Dependencies: TASK-076, TASK-083, TASK-325
+- ID: TASK-327
+  Title: Additional calendar connections - provider and multi-calendar expansion
+  Status: Next 9 - calendar connection expansion
+  Rationale: Define and implement a scalable connection model beyond the current Google Calendar path, including additional Google accounts, selectable calendars, and future calendar providers, with clear per-user ownership, connection management, synchronization behavior, and consistent project-calendar UX.
+  Dependencies: TASK-325, TASK-326
 ### Deferred (Intentional)
 - ID: TASK-102
   Title: Collaboration service modularization - split invite, membership, and recipient flows into smaller service units
