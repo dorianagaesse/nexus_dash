@@ -108,6 +108,17 @@ test.describe("unauthenticated home entry", () => {
     const nodeField = page.locator(".home-interactive-node-field");
     await expect(nodeField).toBeVisible();
     await expect(nodeField).toHaveAttribute("data-active", "false");
+    await expect(nodeField).toHaveAttribute("data-constellation-seed", /\d+/);
+    const firstSeed = await nodeField.getAttribute("data-constellation-seed");
+    const strongLinkCount = Number(
+      await nodeField.getAttribute("data-strong-links")
+    );
+    expect(strongLinkCount).toBeGreaterThan(0);
+
+    await page.reload();
+    await expect
+      .poll(() => nodeField.getAttribute("data-constellation-seed"))
+      .not.toBe(firstSeed);
 
     await page.mouse.move(720, 500);
     await expect(nodeField).toHaveAttribute("data-active", "true");

@@ -3,25 +3,73 @@
 import { useEffect, useRef } from "react";
 
 const NODE_COUNT = 54;
-const ACTIVATION_RADIUS = 240;
-const MAX_ATTRACTION = 18;
+const ACTIVATION_RADIUS = 340;
+const MAX_ATTRACTION = 22;
+const MIN_NODE_DISTANCE = 0.072;
 
 type Point = { x: number; y: number };
 type NodePoint = Point & { emphasis: number };
-type Link = { from: number; to: number; weight: number };
+type Link = {
+  from: number;
+  to: number;
+  prominence: number;
+  weight: number;
+};
 
-function createNodeField() {
-  let seed = 129;
+function createRandomSeed() {
+  try {
+    const seed = new Uint32Array(1);
+    window.crypto.getRandomValues(seed);
+    return seed[0] || Date.now();
+  } catch {
+    return Math.floor(Math.random() * 4_294_967_295) || Date.now();
+  }
+}
+
+function createNodeField(seed: number) {
+  let state = seed >>> 0;
   const random = () => {
-    seed = (seed * 16807) % 2147483647;
-    return (seed - 1) / 2147483646;
+    state += 0x6d2b79f5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
   };
 
-  const nodes = Array.from({ length: NODE_COUNT }, (_, index): NodePoint => ({
-    x: 0.025 + random() * 0.95,
-    y: 0.04 + random() * 0.92,
-    emphasis: index % 11 === 0 ? 1.45 : index % 5 === 0 ? 1.2 : 1,
-  }));
+  const nodes: NodePoint[] = [];
+  while (nodes.length < NODE_COUNT) {
+    let candidate: NodePoint | null = null;
+
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      const emphasisRoll = random();
+      const proposed = {
+        x: 0.025 + random() * 0.95,
+        y: 0.04 + random() * 0.92,
+        emphasis: emphasisRoll < 0.12 ? 1.5 : emphasisRoll < 0.32 ? 1.2 : 1,
+      };
+      const relaxedDistance = MIN_NODE_DISTANCE * (attempt > 80 ? 0.72 : 1);
+      const clearsNeighbors = nodes.every((node) =>
+        Math.hypot(
+          (proposed.x - node.x) * 1.15,
+          proposed.y - node.y
+        ) > relaxedDistance
+      );
+
+      if (clearsNeighbors) {
+        candidate = proposed;
+        break;
+      }
+    }
+
+    nodes.push(
+      candidate ?? {
+        x: 0.025 + random() * 0.95,
+        y: 0.04 + random() * 0.92,
+        emphasis: 1,
+      }
+    );
+  }
+
   const linkKeys = new Set<string>();
   const links: Link[] = [];
 
@@ -33,17 +81,24 @@ function createNodeField() {
       }))
       .filter(({ to }) => to !== from)
       .sort((a, b) => a.distance - b.distance)
-      .slice(0, from % 4 === 0 ? 3 : 2);
+      .slice(0, random() < 0.28 ? 3 : 2);
 
     neighbors.forEach(({ to }) => {
       const key = [from, to].sort((a, b) => a - b).join(":");
       if (linkKeys.has(key)) return;
       linkKeys.add(key);
+      const prominenceRoll = random();
+      const prominence =
+        links.length % 7 === 0 || prominenceRoll < 0.12
+          ? 1
+          : prominenceRoll < 0.42
+            ? 0.45
+            : 0;
       links.push({
         from,
         to,
-        weight:
-          (from + to) % 9 === 0 ? 2.4 : (from + to) % 4 === 0 ? 1.45 : 0.8,
+        prominence,
+        weight: 0.75 + prominence * 1.65,
       });
     });
   });
@@ -51,7 +106,14 @@ function createNodeField() {
   return { nodes, links };
 }
 
-const nodeField = createNodeField();
+function smootherStep(progress: number) {
+  const value = Math.max(0, Math.min(1, progress));
+  return value * value * value * (value * (value * 6 - 15) + 10);
+}
+
+function proximityInfluence(distance: number) {
+  return 1 - smootherStep(distance / ACTIVATION_RADIUS);
+}
 
 export function HomeInteractiveNodeField() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -60,6 +122,13 @@ export function HomeInteractiveNodeField() {
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
     if (!canvas || !context) return;
+
+    const seed = createRandomSeed();
+    const nodeField = createNodeField(seed);
+    canvas.dataset.constellationSeed = String(seed);
+    canvas.dataset.strongLinks = String(
+      nodeField.links.filter((link) => link.prominence === 1).length
+    );
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const desktop = window.matchMedia("(min-width: 1024px)");
@@ -79,16 +148,28 @@ export function HomeInteractiveNodeField() {
       const dark = document.documentElement.classList.contains("dark");
       return dark
         ? {
-            haloInner: "rgba(59, 130, 246, 0.18)",
-            haloOuter: "rgba(79, 70, 229, 0)",
+            haloInner: "rgba(59, 130, 246, 0.2)",
+            haloMiddle: "rgba(79, 70, 229, 0.085)",
+            haloEdge: "rgba(79, 70, 229, 0.018)",
             link: "129, 140, 248",
             node: "147, 197, 253",
+            baseLinkAlpha: 0.075,
+            activeLinkAlpha: 0.48,
+            strongLinkAlpha: 0.085,
+            baseNodeAlpha: 0.24,
+            activeNodeAlpha: 0.7,
           }
         : {
-            haloInner: "rgba(37, 99, 235, 0.13)",
-            haloOuter: "rgba(99, 102, 241, 0)",
-            link: "37, 99, 235",
-            node: "29, 78, 216",
+            haloInner: "rgba(37, 99, 235, 0.18)",
+            haloMiddle: "rgba(79, 70, 229, 0.075)",
+            haloEdge: "rgba(99, 102, 241, 0.018)",
+            link: "29, 78, 216",
+            node: "30, 64, 175",
+            baseLinkAlpha: 0.105,
+            activeLinkAlpha: 0.56,
+            strongLinkAlpha: 0.12,
+            baseNodeAlpha: 0.31,
+            activeNodeAlpha: 0.66,
           };
     };
 
@@ -108,11 +189,10 @@ export function HomeInteractiveNodeField() {
         const baseX = node.x * width;
         const baseY = node.y * height;
         const distance = Math.hypot(pointer.x - baseX, pointer.y - baseY);
-        const influence =
-          Math.max(0, 1 - distance / ACTIVATION_RADIUS) * activity;
+        const influence = proximityInfluence(distance) * activity;
         const directionX = distance > 0 ? (pointer.x - baseX) / distance : 0;
         const directionY = distance > 0 ? (pointer.y - baseY) / distance : 0;
-        const attraction = influence * influence * MAX_ATTRACTION;
+        const attraction = Math.pow(influence, 1.35) * MAX_ATTRACTION;
 
         return {
           x: baseX + directionX * attraction,
@@ -141,10 +221,12 @@ export function HomeInteractiveNodeField() {
           0,
           pointer.x,
           pointer.y,
-          ACTIVATION_RADIUS * 1.35
+          ACTIVATION_RADIUS * 1.12
         );
         halo.addColorStop(0, palette.haloInner);
-        halo.addColorStop(1, palette.haloOuter);
+        halo.addColorStop(0.38, palette.haloMiddle);
+        halo.addColorStop(0.76, palette.haloEdge);
+        halo.addColorStop(1, "rgba(99, 102, 241, 0)");
         context.fillStyle = halo;
         context.fillRect(0, 0, width, height);
       }
@@ -152,19 +234,30 @@ export function HomeInteractiveNodeField() {
       nodeField.links.forEach((link) => {
         const from = resolvedNodes[link.from];
         const to = resolvedNodes[link.to];
-        const influence = Math.max(from.influence, to.influence);
-        const alpha = 0.095 + influence * 0.5;
+        const midpointDistance = Math.hypot(
+          pointer.x - (from.x + to.x) / 2,
+          pointer.y - (from.y + to.y) / 2
+        );
+        const midpointInfluence = proximityInfluence(midpointDistance) * activity;
+        const influence =
+          Math.max(from.influence, to.influence) * 0.62 +
+          midpointInfluence * 0.38;
+        const alpha =
+          palette.baseLinkAlpha +
+          link.prominence * palette.strongLinkAlpha +
+          influence * palette.activeLinkAlpha;
         context.beginPath();
         context.moveTo(from.x, from.y);
         context.lineTo(to.x, to.y);
-        context.lineWidth = link.weight + influence * 0.75;
+        context.lineWidth = link.weight + influence * (0.85 + link.prominence * 0.45);
         context.strokeStyle = `rgba(${palette.link}, ${alpha})`;
         context.stroke();
       });
 
       resolvedNodes.forEach((node) => {
         const radius = 1.35 * node.emphasis + node.influence * 1.9;
-        const alpha = 0.24 + node.influence * 0.7;
+        const alpha =
+          palette.baseNodeAlpha + node.influence * palette.activeNodeAlpha;
         context.beginPath();
         context.arc(node.x, node.y, radius, 0, Math.PI * 2);
         context.fillStyle = `rgba(${palette.node}, ${alpha})`;
