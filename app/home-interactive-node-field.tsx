@@ -2,10 +2,10 @@
 
 import { useEffect, useRef } from "react";
 
-const NODE_COUNT = 64;
+const NODE_COUNT = 96;
 const ACTIVATION_RADIUS = 340;
 const MAX_ATTRACTION = 22;
-const MIN_NODE_DISTANCE = 0.064;
+const MIN_NODE_DISTANCE = 0.048;
 
 type Point = { x: number; y: number };
 type NodePoint = Point & { emphasis: number };
@@ -81,7 +81,7 @@ function createNodeField(seed: number) {
       }))
       .filter(({ to }) => to !== from)
       .sort((a, b) => a.distance - b.distance)
-      .slice(0, random() < 0.2 ? 4 : 3);
+      .slice(0, random() < 0.55 ? 5 : 4);
 
     neighbors.forEach(({ to }) => {
       const key = [from, to].sort((a, b) => a - b).join(":");
