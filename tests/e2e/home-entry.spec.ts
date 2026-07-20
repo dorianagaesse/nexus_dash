@@ -109,19 +109,24 @@ test.describe("unauthenticated home entry", () => {
     await expect(nodeField).toBeVisible();
     await expect(nodeField).toHaveAttribute("data-active", "false");
     await expect(nodeField).toHaveAttribute("data-constellation-seed", /\d+/);
-    await expect(nodeField).toHaveAttribute("data-node-count", "96");
-    await expect(nodeField).toHaveAttribute("data-layout", "balanced-neural");
+    await expect(nodeField).toHaveAttribute("data-node-count", "156");
+    await expect(nodeField).toHaveAttribute("data-layout", "neural-volume");
+    await expect(nodeField).toHaveAttribute("data-depth-model", "perspective");
     await expect(nodeField).toHaveAttribute(
       "data-strength-model",
       "continuous"
     );
     const linkCount = Number(await nodeField.getAttribute("data-link-count"));
-    expect(linkCount).toBeGreaterThan(180);
+    expect(linkCount).toBeGreaterThan(350);
     const firstSeed = await nodeField.getAttribute("data-constellation-seed");
     const strongLinkCount = Number(
       await nodeField.getAttribute("data-strong-links")
     );
     expect(strongLinkCount).toBeGreaterThan(0);
+    const offscreenNodeCount = Number(
+      await nodeField.getAttribute("data-offscreen-nodes")
+    );
+    expect(offscreenNodeCount).toBeGreaterThan(0);
 
     await page.reload();
     await expect
