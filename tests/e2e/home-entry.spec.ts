@@ -110,8 +110,13 @@ test.describe("unauthenticated home entry", () => {
     await expect(nodeField).toHaveAttribute("data-active", "false");
     await expect(nodeField).toHaveAttribute("data-constellation-seed", /\d+/);
     await expect(nodeField).toHaveAttribute("data-node-count", "96");
+    await expect(nodeField).toHaveAttribute("data-layout", "balanced-neural");
+    await expect(nodeField).toHaveAttribute(
+      "data-strength-model",
+      "continuous"
+    );
     const linkCount = Number(await nodeField.getAttribute("data-link-count"));
-    expect(linkCount).toBeGreaterThan(235);
+    expect(linkCount).toBeGreaterThan(180);
     const firstSeed = await nodeField.getAttribute("data-constellation-seed");
     const strongLinkCount = Number(
       await nodeField.getAttribute("data-strong-links")
@@ -123,7 +128,8 @@ test.describe("unauthenticated home entry", () => {
       .poll(() => nodeField.getAttribute("data-constellation-seed"))
       .not.toBe(firstSeed);
 
-    await page.mouse.move(720, 500);
+    await page.mouse.move(180, 180);
+    await page.mouse.move(720, 500, { steps: 8 });
     await expect(nodeField).toHaveAttribute("data-active", "true");
 
     await page.emulateMedia({ reducedMotion: "reduce" });

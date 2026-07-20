@@ -3,17 +3,17 @@
 import { useEffect, useRef } from "react";
 
 const NODE_COUNT = 96;
+const PLACEMENT_CANDIDATES = 36;
 const ACTIVATION_RADIUS = 340;
 const MAX_ATTRACTION = 22;
-const MIN_NODE_DISTANCE = 0.048;
 
 type Point = { x: number; y: number };
 type NodePoint = Point & { emphasis: number };
 type Link = {
   from: number;
   to: number;
-  prominence: number;
-  weight: number;
+  strength: number;
+  bend: number;
 };
 
 function createRandomSeed() {
@@ -38,69 +38,77 @@ function createNodeField(seed: number) {
 
   const nodes: NodePoint[] = [];
   while (nodes.length < NODE_COUNT) {
-    let candidate: NodePoint | null = null;
+    let bestCandidate: NodePoint | null = null;
+    let bestClearance = -1;
 
-    for (let attempt = 0; attempt < 120; attempt += 1) {
-      const emphasisRoll = random();
-      const proposed = {
+    for (let attempt = 0; attempt < PLACEMENT_CANDIDATES; attempt += 1) {
+      const candidate = {
         x: 0.025 + random() * 0.95,
         y: 0.04 + random() * 0.92,
-        emphasis: emphasisRoll < 0.12 ? 1.5 : emphasisRoll < 0.32 ? 1.2 : 1,
+        emphasis: 0.92 + Math.pow(random(), 1.65) * 0.68,
       };
-      const relaxedDistance = MIN_NODE_DISTANCE * (attempt > 80 ? 0.72 : 1);
-      const clearsNeighbors = nodes.every((node) =>
-        Math.hypot(
-          (proposed.x - node.x) * 1.15,
-          proposed.y - node.y
-        ) > relaxedDistance
+      const clearance = nodes.reduce(
+        (nearest, node) =>
+          Math.min(
+            nearest,
+            Math.hypot(
+              (candidate.x - node.x) * 1.4,
+              candidate.y - node.y
+            )
+          ),
+        Number.POSITIVE_INFINITY
       );
 
-      if (clearsNeighbors) {
-        candidate = proposed;
-        break;
+      if (clearance > bestClearance) {
+        bestCandidate = candidate;
+        bestClearance = clearance;
       }
     }
 
-    nodes.push(
-      candidate ?? {
-        x: 0.025 + random() * 0.95,
-        y: 0.04 + random() * 0.92,
-        emphasis: 1,
-      }
-    );
+    if (bestCandidate) nodes.push(bestCandidate);
   }
 
   const linkKeys = new Set<string>();
   const links: Link[] = [];
 
+  const connect = (from: number, to: number) => {
+    if (to < 0 || to >= nodes.length || from === to) return;
+    const key = [from, to].sort((a, b) => a - b).join(":");
+    if (linkKeys.has(key)) return;
+    linkKeys.add(key);
+
+    const first = nodes[from];
+    const second = nodes[to];
+    const distance = Math.hypot(second.x - first.x, second.y - first.y);
+    const closeness = 1 - Math.min(1, distance / 0.19);
+    const cellAffinity =
+      ((first.emphasis + second.emphasis) / 2 - 0.92) / 0.68;
+
+    links.push({
+      from,
+      to,
+      strength: Math.min(
+        0.98,
+        0.14 + random() * 0.46 + closeness * 0.2 + cellAffinity * 0.18
+      ),
+      bend: (random() * 2 - 1) * (0.35 + random() * 0.35),
+    });
+  };
+
   nodes.forEach((node, from) => {
     const neighbors = nodes
       .map((candidate, to) => ({
         to,
-        distance: Math.hypot(candidate.x - node.x, candidate.y - node.y),
+        distance: Math.hypot(
+          (candidate.x - node.x) * 1.4,
+          candidate.y - node.y
+        ),
       }))
       .filter(({ to }) => to !== from)
-      .sort((a, b) => a.distance - b.distance)
-      .slice(0, random() < 0.55 ? 5 : 4);
+      .sort((left, right) => left.distance - right.distance)
+      .slice(0, random() < 0.48 ? 4 : 3);
 
-    neighbors.forEach(({ to }) => {
-      const key = [from, to].sort((a, b) => a - b).join(":");
-      if (linkKeys.has(key)) return;
-      linkKeys.add(key);
-      const prominenceRoll = random();
-      const prominence =
-        links.length % 7 === 0 || prominenceRoll < 0.12
-          ? 1
-          : prominenceRoll < 0.42
-            ? 0.45
-            : 0;
-      links.push({
-        from,
-        to,
-        prominence,
-        weight: 0.75 + prominence * 1.65,
-      });
-    });
+    neighbors.forEach(({ to }) => connect(from, to));
   });
 
   return { nodes, links };
@@ -129,8 +137,10 @@ export function HomeInteractiveNodeField() {
     canvas.dataset.nodeCount = String(nodeField.nodes.length);
     canvas.dataset.linkCount = String(nodeField.links.length);
     canvas.dataset.strongLinks = String(
-      nodeField.links.filter((link) => link.prominence === 1).length
+      nodeField.links.filter((link) => link.strength >= 0.72).length
     );
+    canvas.dataset.layout = "balanced-neural";
+    canvas.dataset.strengthModel = "continuous";
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const desktop = window.matchMedia("(min-width: 1024px)");
@@ -236,9 +246,19 @@ export function HomeInteractiveNodeField() {
       nodeField.links.forEach((link) => {
         const from = resolvedNodes[link.from];
         const to = resolvedNodes[link.to];
+        const deltaX = to.x - from.x;
+        const deltaY = to.y - from.y;
+        const linkLength = Math.hypot(deltaX, deltaY);
+        const bendAmount = Math.min(linkLength * 0.16, 22) * link.bend;
+        const controlX =
+          (from.x + to.x) / 2 -
+          (linkLength > 0 ? deltaY / linkLength : 0) * bendAmount;
+        const controlY =
+          (from.y + to.y) / 2 +
+          (linkLength > 0 ? deltaX / linkLength : 0) * bendAmount;
         const midpointDistance = Math.hypot(
-          pointer.x - (from.x + to.x) / 2,
-          pointer.y - (from.y + to.y) / 2
+          pointer.x - controlX,
+          pointer.y - controlY
         );
         const midpointInfluence = proximityInfluence(midpointDistance) * activity;
         const influence =
@@ -246,13 +266,15 @@ export function HomeInteractiveNodeField() {
           midpointInfluence * 0.38;
         const alpha =
           palette.baseLinkAlpha +
-          link.prominence * palette.strongLinkAlpha +
+          link.strength * palette.strongLinkAlpha +
           influence * palette.activeLinkAlpha;
         context.beginPath();
         context.moveTo(from.x, from.y);
-        context.lineTo(to.x, to.y);
-        context.lineWidth = link.weight + influence * (0.85 + link.prominence * 0.45);
-        context.strokeStyle = `rgba(${palette.link}, ${alpha})`;
+        context.quadraticCurveTo(controlX, controlY, to.x, to.y);
+        context.lineCap = "round";
+        context.lineWidth =
+          0.58 + link.strength * 1.45 + influence * (0.78 + link.strength * 0.58);
+        context.strokeStyle = `rgba(${palette.link}, ${Math.min(0.94, alpha)})`;
         context.stroke();
       });
 
@@ -264,6 +286,20 @@ export function HomeInteractiveNodeField() {
         context.arc(node.x, node.y, radius, 0, Math.PI * 2);
         context.fillStyle = `rgba(${palette.node}, ${alpha})`;
         context.fill();
+
+        const membraneAlpha =
+          0.025 + (node.emphasis - 0.92) * 0.07 + node.influence * 0.16;
+        context.beginPath();
+        context.arc(
+          node.x,
+          node.y,
+          radius + 2.2 + node.emphasis * 0.7,
+          0,
+          Math.PI * 2
+        );
+        context.strokeStyle = `rgba(${palette.node}, ${membraneAlpha})`;
+        context.lineWidth = 0.7 + node.influence * 0.45;
+        context.stroke();
 
         if (node.influence > 0.2) {
           context.beginPath();
