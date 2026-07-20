@@ -2,10 +2,10 @@
 
 import { useEffect, useRef } from "react";
 
-const NODE_COUNT = 54;
+const NODE_COUNT = 64;
 const ACTIVATION_RADIUS = 340;
 const MAX_ATTRACTION = 22;
-const MIN_NODE_DISTANCE = 0.072;
+const MIN_NODE_DISTANCE = 0.064;
 
 type Point = { x: number; y: number };
 type NodePoint = Point & { emphasis: number };
@@ -81,7 +81,7 @@ function createNodeField(seed: number) {
       }))
       .filter(({ to }) => to !== from)
       .sort((a, b) => a.distance - b.distance)
-      .slice(0, random() < 0.28 ? 3 : 2);
+      .slice(0, random() < 0.2 ? 4 : 3);
 
     neighbors.forEach(({ to }) => {
       const key = [from, to].sort((a, b) => a - b).join(":");
@@ -126,6 +126,8 @@ export function HomeInteractiveNodeField() {
     const seed = createRandomSeed();
     const nodeField = createNodeField(seed);
     canvas.dataset.constellationSeed = String(seed);
+    canvas.dataset.nodeCount = String(nodeField.nodes.length);
+    canvas.dataset.linkCount = String(nodeField.links.length);
     canvas.dataset.strongLinks = String(
       nodeField.links.filter((link) => link.prominence === 1).length
     );

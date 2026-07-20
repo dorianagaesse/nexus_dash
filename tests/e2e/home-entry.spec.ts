@@ -109,6 +109,9 @@ test.describe("unauthenticated home entry", () => {
     await expect(nodeField).toBeVisible();
     await expect(nodeField).toHaveAttribute("data-active", "false");
     await expect(nodeField).toHaveAttribute("data-constellation-seed", /\d+/);
+    await expect(nodeField).toHaveAttribute("data-node-count", "64");
+    const linkCount = Number(await nodeField.getAttribute("data-link-count"));
+    expect(linkCount).toBeGreaterThan(90);
     const firstSeed = await nodeField.getAttribute("data-constellation-seed");
     const strongLinkCount = Number(
       await nodeField.getAttribute("data-strong-links")
