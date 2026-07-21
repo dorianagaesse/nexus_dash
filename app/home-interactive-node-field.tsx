@@ -2,15 +2,17 @@
 
 import { useEffect, useRef } from "react";
 
-const NODE_COUNT = 208;
+const NODE_COUNT = 260;
 const CLUSTERED_NODE_COUNT = 112;
+const VIEWPORT_TISSUE_COUNT = 104;
 const CLUSTER_COUNT = 5;
 const PLACEMENT_CANDIDATES = 24;
 const WORLD_PADDING_X = 0.18;
 const WORLD_PADDING_Y = 0.2;
 const ACTIVATION_RADIUS = 340;
 const MAX_ATTRACTION = 22;
-const MAX_PARALLAX = 30;
+const MAX_PARALLAX = 42;
+const CLUSTER_DEPTHS = [0.1, 0.3, 0.52, 0.74, 0.94] as const;
 
 type Point = { x: number; y: number };
 type NodePoint = Point & {
@@ -60,7 +62,10 @@ function createNodeField(seed: number) {
 
     return {
       ...position,
-      depth: 0.18 + random() * 0.76,
+      depth: Math.max(
+        0.04,
+        Math.min(0.98, CLUSTER_DEPTHS[index] + (random() - 0.5) * 0.12)
+      ),
       radiusX: 0.1 + random() * 0.09,
       radiusY: 0.11 + random() * 0.1,
     };
@@ -75,7 +80,7 @@ function createNodeField(seed: number) {
       const radius = Math.pow(random(), 0.68);
       const depth = Math.max(
         0.04,
-        Math.min(0.98, anchor.depth + (random() - 0.5) * 0.34)
+        Math.min(0.98, anchor.depth + (random() - 0.5) * 0.24)
       );
 
       return {
@@ -89,14 +94,20 @@ function createNodeField(seed: number) {
   );
 
   while (nodes.length < NODE_COUNT) {
+    const ambientIndex = nodes.length - CLUSTERED_NODE_COUNT;
+    const crossesViewport = ambientIndex < VIEWPORT_TISSUE_COUNT;
     let bestCandidate: NodePoint | null = null;
     let bestClearance = -1;
 
     for (let attempt = 0; attempt < PLACEMENT_CANDIDATES; attempt += 1) {
       const depth = 0.04 + random() * 0.94;
       const candidate = {
-        x: -WORLD_PADDING_X + random() * (1 + WORLD_PADDING_X * 2),
-        y: -WORLD_PADDING_Y + random() * (1 + WORLD_PADDING_Y * 2),
+        x: crossesViewport
+          ? -0.04 + random() * 1.08
+          : -WORLD_PADDING_X + random() * (1 + WORLD_PADDING_X * 2),
+        y: crossesViewport
+          ? -0.05 + random() * 1.1
+          : -WORLD_PADDING_Y + random() * (1 + WORLD_PADDING_Y * 2),
         cluster: null,
         depth,
         emphasis: 0.82 + depth * 0.44 + Math.pow(random(), 1.8) * 0.5,
@@ -221,7 +232,9 @@ export function HomeInteractiveNodeField() {
     canvas.dataset.layout = "neural-volume";
     canvas.dataset.strengthModel = "continuous";
     canvas.dataset.depthModel = "perspective";
+    canvas.dataset.depthAnchors = String(CLUSTER_DEPTHS.length);
     canvas.dataset.ambientNodes = String(NODE_COUNT - CLUSTERED_NODE_COUNT);
+    canvas.dataset.viewportTissueNodes = String(VIEWPORT_TISSUE_COUNT);
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const desktop = window.matchMedia("(min-width: 1024px)");
@@ -282,17 +295,20 @@ export function HomeInteractiveNodeField() {
       const cameraY = ((pointer.y / height) * 2 - 1) * activity;
 
       return nodeField.nodes.map((node) => {
-        const perspective = 0.78 + node.depth * 0.42;
+        const perspective = 0.74 + node.depth * 0.52;
         const projectedX = 0.5 + (node.x - 0.5) * perspective;
         const projectedY = 0.5 + (node.y - 0.5) * perspective;
-        const parallax = node.depth * MAX_PARALLAX;
+        const parallax = Math.pow(node.depth, 1.35) * MAX_PARALLAX;
         const baseX = projectedX * width - cameraX * parallax;
         const baseY = projectedY * height - cameraY * parallax;
         const distance = Math.hypot(pointer.x - baseX, pointer.y - baseY);
         const influence = proximityInfluence(distance) * activity;
         const directionX = distance > 0 ? (pointer.x - baseX) / distance : 0;
         const directionY = distance > 0 ? (pointer.y - baseY) / distance : 0;
-        const attraction = Math.pow(influence, 1.35) * MAX_ATTRACTION;
+        const attraction =
+          Math.pow(influence, 1.35) *
+          MAX_ATTRACTION *
+          (0.55 + node.depth * 0.65);
 
         return {
           x: baseX + directionX * attraction,
@@ -364,34 +380,31 @@ export function HomeInteractiveNodeField() {
           palette.baseLinkAlpha * (0.3 + link.depth * 0.84) +
           link.strength * palette.strongLinkAlpha * (0.38 + link.depth * 0.82) +
           influence * palette.activeLinkAlpha * (0.62 + link.depth * 0.48);
-        const depthGradient = context.createLinearGradient(
-          from.x,
-          from.y,
-          to.x,
-          to.y
+        const fromAlpha = Math.min(
+          0.94,
+          alpha * (0.5 + from.depth * 0.62)
         );
-        depthGradient.addColorStop(
-          0,
-          `rgba(${palette.link}, ${Math.min(
-            0.94,
-            alpha * (0.5 + from.depth * 0.62)
-          )})`
-        );
-        depthGradient.addColorStop(
-          1,
-          `rgba(${palette.link}, ${Math.min(
-            0.94,
-            alpha * (0.5 + to.depth * 0.62)
-          )})`
-        );
+        const toAlpha = Math.min(0.94, alpha * (0.5 + to.depth * 0.62));
         context.beginPath();
         context.moveTo(from.x, from.y);
         context.quadraticCurveTo(controlX, controlY, to.x, to.y);
         context.lineCap = "round";
         context.lineWidth =
-          (0.22 + link.strength * 2.4) * (0.38 + link.depth * 1.22) +
+          (0.22 + link.strength * 2.4) * (0.28 + link.depth * 1.4) +
           influence * (0.7 + link.strength * 0.9);
-        context.strokeStyle = depthGradient;
+        if (Math.abs(from.depth - to.depth) > 0.08) {
+          const depthGradient = context.createLinearGradient(
+            from.x,
+            from.y,
+            to.x,
+            to.y
+          );
+          depthGradient.addColorStop(0, `rgba(${palette.link}, ${fromAlpha})`);
+          depthGradient.addColorStop(1, `rgba(${palette.link}, ${toAlpha})`);
+          context.strokeStyle = depthGradient;
+        } else {
+          context.strokeStyle = `rgba(${palette.link}, ${(fromAlpha + toAlpha) / 2})`;
+        }
         context.stroke();
       });
 
@@ -401,7 +414,7 @@ export function HomeInteractiveNodeField() {
         .forEach((node) => {
         const depthPresence = 0.36 + node.depth * 0.82;
         const radius =
-          (0.42 + node.depth * 2.75) * node.emphasis + node.influence * 2.1;
+          (0.3 + node.depth * 3.2) * node.emphasis + node.influence * 2.1;
         const alpha =
           palette.baseNodeAlpha * depthPresence +
           node.influence * palette.activeNodeAlpha * (0.72 + node.depth * 0.38);
