@@ -17,6 +17,7 @@ from typing import Any
 ROOT = Path(os.environ.get("GITHUB_WORKSPACE") or Path(__file__).resolve().parents[1]).resolve()
 REPO = os.environ.get("GITHUB_REPOSITORY", "").strip()
 MARKER_PREFIX = "<!-- dependabot-repair-agent:"
+ERROR_MARKER_PREFIX = "<!-- dependabot-repair-agent-error:"
 DEPENDABOT_LOGINS = {"app/dependabot", "dependabot[bot]"}
 OPEN_DEPENDABOT_SCAN_FETCH_LIMIT = 1000
 REQUIRED_CHECK_NAMES = {
@@ -271,30 +272,89 @@ def inferred_result_from_copilot_output(path: Path | None) -> dict[str, Any] | N
     }
 
 
-def load_result(path: Path, *, copilot_output_path: Path | None = None) -> dict[str, Any]:
+def validate_result_payload(payload: Any) -> dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+
+    decision = payload.get("decision")
+    summary = payload.get("summary")
+    validation = payload.get("validation")
+    if decision not in {"fixed", "defer"}:
+        return None
+    if not isinstance(summary, str) or not summary.strip():
+        return None
+    if not isinstance(validation, list) or not all(isinstance(item, str) for item in validation):
+        return None
+
+    return {
+        "decision": decision,
+        "summary": summary.strip(),
+        "validation": [item.strip() for item in validation if item.strip()],
+    }
+
+
+def load_result_with_status(
+    path: Path,
+    *,
+    copilot_output_path: Path | None = None,
+) -> tuple[dict[str, Any], bool, str]:
     if not path.exists():
         inferred = inferred_result_from_copilot_output(copilot_output_path)
-        if inferred:
-            return inferred
+        validated_inferred = validate_result_payload(inferred)
+        if validated_inferred:
+            return validated_inferred, True, "copilot-output"
 
-        return {
-            "decision": "defer",
-            "summary": default_result_summary(),
-            "validation": [],
-        }
+        return (
+            {
+                "decision": "defer",
+                "summary": default_result_summary(),
+                "validation": [],
+            },
+            False,
+            "missing",
+        )
 
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         inferred = inferred_result_from_copilot_output(copilot_output_path)
-        if inferred:
-            return inferred
+        validated_inferred = validate_result_payload(inferred)
+        if validated_inferred:
+            return validated_inferred, True, "copilot-output"
 
-        return {
+        return (
+            {
+                "decision": "defer",
+                "summary": default_result_summary(),
+                "validation": [],
+            },
+            False,
+            "invalid-json",
+        )
+
+    validated_payload = validate_result_payload(payload)
+    if validated_payload:
+        return validated_payload, True, "result-file"
+
+    inferred = inferred_result_from_copilot_output(copilot_output_path)
+    validated_inferred = validate_result_payload(inferred)
+    if validated_inferred:
+        return validated_inferred, True, "copilot-output"
+
+    return (
+        {
             "decision": "defer",
             "summary": default_result_summary(),
             "validation": [],
-        }
+        },
+        False,
+        "invalid-schema",
+    )
+
+
+def load_result(path: Path, *, copilot_output_path: Path | None = None) -> dict[str, Any]:
+    result, _, _ = load_result_with_status(path, copilot_output_path=copilot_output_path)
+    return result
 
 
 def working_tree_has_changes() -> bool:
@@ -452,6 +512,23 @@ def cmd_prepare(args: argparse.Namespace) -> int:
     prompt_path.parent.mkdir(parents=True, exist_ok=True)
     prompt_path.write_text(prompt_text(prompt_pr, Path(args.result_path), log_path), encoding="utf-8")
     return 0
+
+
+def cmd_validate_result(args: argparse.Namespace) -> int:
+    result, valid, source = load_result_with_status(
+        Path(args.result_path),
+        copilot_output_path=Path(args.copilot_output_path) if args.copilot_output_path else None,
+    )
+    print(
+        json.dumps(
+            {
+                "valid": valid,
+                "source": source,
+                "decision": result.get("decision"),
+            }
+        )
+    )
+    return 0 if valid else 1
 
 
 def commit_changes(commit_message: str) -> None:
@@ -814,14 +891,32 @@ def comment_manual_review(original_pr_number: int, marker: str, summary: str) ->
     )
 
 
+def comment_infrastructure_failure(original_pr_number: int, marker: str, source: str) -> None:
+    comment(
+        original_pr_number,
+        "\n".join(
+            [
+                marker,
+                "The scheduled Copilot repair lane did not produce a valid machine-readable result.",
+                f"Result status: `{source}`.",
+                "This is an automation failure, not a dependency decision. The PR remains eligible for a later retry.",
+            ]
+        ),
+    )
+
+
 def cmd_finalize(args: argparse.Namespace) -> int:
     original_pr = fetch_pr(args.pr_number)
     result_path = Path(args.result_path)
     copilot_output_path = Path(args.copilot_output_path) if args.copilot_output_path else None
-    result = load_result(result_path, copilot_output_path=copilot_output_path)
+    result, has_structured_result, result_source = load_result_with_status(
+        result_path,
+        copilot_output_path=copilot_output_path,
+    )
     summary = (result.get("summary") or "No summary was produced.").strip()
     validation = [str(item).strip() for item in result.get("validation") or [] if str(item).strip()]
-    marker = f"{MARKER_PREFIX}pr-{args.pr_number}:{args.head_sha} -->"
+    marker_prefix = MARKER_PREFIX if has_structured_result else ERROR_MARKER_PREFIX
+    marker = f"{marker_prefix}pr-{args.pr_number}:{args.head_sha} -->"
     replacement_branch = args.replacement_branch
     expected_branch = replacement_branch_name(args.pr_number, args.head_sha)
 
@@ -861,6 +956,10 @@ def cmd_finalize(args: argparse.Namespace) -> int:
     branch_head_commit = current_head_commit()
     has_uncommitted_changes = working_tree_has_changes()
     has_new_commit = branch_head_commit != args.baseline_sha
+
+    if not has_structured_result and not has_uncommitted_changes and not has_new_commit:
+        comment_infrastructure_failure(args.pr_number, marker, result_source)
+        return 0
 
     if result.get("decision") != "fixed":
         if not result_path.exists() and (has_uncommitted_changes or has_new_commit):
@@ -960,6 +1059,14 @@ def build_parser() -> argparse.ArgumentParser:
     prepare.add_argument("--result-path", required=True)
     prepare.add_argument("--log-path", required=True)
     prepare.set_defaults(func=cmd_prepare)
+
+    validate_result = subparsers.add_parser(
+        "validate-result",
+        help="Validate the machine-readable Copilot repair result.",
+    )
+    validate_result.add_argument("--result-path", required=True)
+    validate_result.add_argument("--copilot-output-path")
+    validate_result.set_defaults(func=cmd_validate_result)
 
     finalize = subparsers.add_parser("finalize", help="Create/comment/close PRs based on Copilot result.")
     finalize.add_argument("--pr-number", type=int, required=True)
