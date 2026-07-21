@@ -109,7 +109,7 @@ export function UserHubShell({
                 >
                   <span className="relative grid h-5 w-5 shrink-0 place-items-center">
                     <Icon
-                      className="h-4.5 w-4.5"
+                      className="h-[18px] w-[18px]"
                       strokeWidth={isCurrent ? 2.25 : 1.8}
                       aria-hidden
                     />

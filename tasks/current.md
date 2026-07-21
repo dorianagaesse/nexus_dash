@@ -4,8 +4,9 @@
 
 - ID: TASK-324
 - Title: Unified user hub and avatar-menu navigation rework
-- Status: Ready for review (2026-07-21)
+- Status: Complete (2026-07-21)
 - Branch: `feature/task-324-unified-user-hub-navigation`
+- Pull request: [#380](https://github.com/dorianagaesse/nexus_dash/pull/380)
 - Brief: [`task-324-unified-user-hub-navigation.md`](./task-324-unified-user-hub-navigation.md)
 
 ## Objective
@@ -97,3 +98,6 @@ rather than a second navigation system.
 - `npm run test:e2e`: production build and all 23 Playwright tests passed.
 - Light/dark Playwright walkthroughs at 375, 768, 1024, and 1440 px passed;
   screenshots are in `.tmp/task324-user-hub/`.
+- GitHub Quality Core, E2E Smoke, Tenant Isolation, Container Image, and branch
+  checks passed. Copilot's one actionable icon-sizing comment was applied and
+  resolved.

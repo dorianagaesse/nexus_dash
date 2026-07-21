@@ -104,7 +104,7 @@ Last reviewed: 2026-07-21
 ## Completed
 - ID: TASK-324
   Title: Unified user hub and avatar-menu navigation rework
-  Status: Done (2026-07-21)
+  Status: Done (2026-07-21, PR #380)
   Rationale: Unified Account, Settings, and Notifications behind one shared responsive, route-backed hub that preserves safe project return context and live unread state. Reduced the avatar menu to identity, one user-hub launcher, subordinate appearance/diagnostics, and separated logout, with keyboard, loading/error, 44 px target, and responsive light/dark coverage.
   Dependencies: TASK-270, TASK-321, TASK-322
   Brief: `tasks/task-324-unified-user-hub-navigation.md`

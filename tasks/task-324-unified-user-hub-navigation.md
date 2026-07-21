@@ -3,7 +3,7 @@
 ## Status
 
 Done (2026-07-21) - implemented on
-`feature/task-324-unified-user-hub-navigation`.
+`feature/task-324-unified-user-hub-navigation` in PR #380.
 
 ## Objective
 
@@ -110,3 +110,6 @@ rather than a second navigation system.
 - `npm run test:e2e` - production build and all 23 Playwright tests passed
 - Playwright visual walkthroughs passed at 375, 768, 1024, and 1440 px in
   light/dark themes; screenshots are stored under `.tmp/task324-user-hub/`.
+- GitHub Quality Core, E2E Smoke, Tenant Isolation, Container Image, and branch
+  checks passed; the initial Copilot review's single icon-size comment was
+  applied and resolved.

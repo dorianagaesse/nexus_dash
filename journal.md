@@ -27,6 +27,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
   production build, and all 23 Playwright tests. The first bare production
   build correctly rejected remote development env assumptions; the documented
   local-safe PostgreSQL and placeholder-secret contract produced the green run.
+- Opened ready-for-review PR #380. GitHub Quality Core, E2E Smoke, Tenant
+  Isolation, Container Image, and branch checks passed. Copilot's initial review
+  raised one actionable concern about a non-guaranteed `4.5` Tailwind size;
+  replaced it with an explicit 18 px icon size, revalidated, and resolved the
+  thread.
 
 # 2026-07-16 - TASK-129 login/home page UI polish started
 
