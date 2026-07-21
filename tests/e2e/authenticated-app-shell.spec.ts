@@ -112,12 +112,32 @@ test.describe("responsive authenticated app shell", () => {
     expect(currentUrl.pathname).toBe("/account/notifications");
     expect(currentUrl.searchParams.get("returnTo")).toBe(projectPath);
 
-    await page.getByRole("button", { name: "Account menu" }).click();
-    await page.getByRole("menuitem", { name: "Account" }).click();
+    const userHubNavigation = page.getByRole("navigation", {
+      name: "User hub navigation",
+    });
+    await expect(
+      userHubNavigation.getByRole("link", { name: "Notifications" })
+    ).toHaveAttribute("aria-current", "page");
+    await userHubNavigation.getByRole("link", { name: "Account" }).click();
     await expect(page).toHaveURL(/\/account\?returnTo=/);
     currentUrl = new URL(page.url());
     expect(currentUrl.pathname).toBe("/account");
     expect(currentUrl.searchParams.get("returnTo")).toBe(projectPath);
+
+    await page
+      .getByRole("navigation", { name: "User hub navigation" })
+      .getByRole("link", { name: "Settings" })
+      .click();
+    await expect(page).toHaveURL(/\/account\/settings\?returnTo=/);
+    await expect(
+      page
+        .getByRole("navigation", { name: "User hub navigation" })
+        .getByRole("link", { name: "Settings" })
+    ).toHaveAttribute("aria-current", "page");
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/account\?returnTo=/);
+    await expect(page.getByRole("heading", { name: "Account" })).toBeVisible();
 
     await page.getByRole("link", { name: "Return to project" }).click();
     await expect(page).toHaveURL(
@@ -174,13 +194,10 @@ test.describe("responsive authenticated app shell", () => {
       "/account/settings?returnTo=https%3A%2F%2Fevil.example%2Fphish"
     );
 
-    const fallback = page
-      .locator("#app-main-content")
-      .getByRole("link", { name: "Account" })
-      .first();
-    await expect(fallback).toHaveAttribute("href", "/account");
+    const fallback = page.getByRole("link", { name: "Projects" }).first();
+    await expect(fallback).toHaveAttribute("href", "/projects");
     await fallback.click();
-    await expect(page).toHaveURL(/\/account$/);
+    await expect(page).toHaveURL(/\/projects$/);
   });
 
   test("fits labeled controls and reserved content at 390px", async ({
@@ -196,8 +213,37 @@ test.describe("responsive authenticated app shell", () => {
     await expect(mobileNavigation).toBeVisible();
     await expect(mobileNavigation.getByRole("link")).toHaveCount(2);
     await page.getByRole("button", { name: "Account menu" }).click();
-    await expect(page.getByRole("menuitem", { name: "Account" })).toBeVisible();
-    await expect(page.getByRole("menuitem", { name: "Settings" })).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: /Your account/ })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Settings", exact: true })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("menuitem", { name: "Notifications", exact: true })
+    ).toHaveCount(0);
+    await expect(page.getByRole("menuitem", { name: /Switch to/ })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Log out" })).toBeVisible();
+    await page.getByRole("menuitem", { name: /Your account/ }).click();
+
+    const userHubNavigation = page.getByRole("navigation", {
+      name: "User hub navigation",
+    });
+    await expect(userHubNavigation).toBeVisible();
+    await expect(userHubNavigation.getByRole("link")).toHaveCount(3);
+    const hubGeometry = await userHubNavigation
+      .getByRole("link")
+      .evaluateAll((links) =>
+        links.map((link) => {
+          const rect = link.getBoundingClientRect();
+          return { width: rect.width, height: rect.height };
+        })
+      );
+    expect(hubGeometry.every(({ height }) => height >= 44)).toBe(true);
+    await userHubNavigation.getByRole("link", { name: "Notifications" }).click();
+    await expect(page).toHaveURL(/\/account\/notifications\?returnTo=/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/account\?returnTo=/);
 
     const geometry = await mobileNavigation
       .getByRole("link")

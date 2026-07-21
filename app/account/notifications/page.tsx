@@ -2,8 +2,6 @@ import { unstable_noStore as noStore } from "next/cache";
 
 import { NotificationCenterList } from "@/components/account/notification-center-list";
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
-import { ContextualReturnLink } from "@/components/contextual-return-link";
-import { Badge } from "@/components/ui/badge";
 import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { getInitialNotificationRealtimeSnapshotForUser } from "@/lib/notification-realtime-server";
 import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
@@ -107,21 +105,15 @@ export default async function AccountNotificationsPage({
   const visibleError = error ?? listError;
 
   return (
-    <main className="container py-12">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
-        <ContextualReturnLink
-          returnTo={returnTo}
-          fallback={{ href: "/account", label: "Account" }}
-        />
-
-        <Badge variant="secondary" className="w-fit">
-          Notifications
-        </Badge>
-
+    <section aria-labelledby="notifications-heading">
+      <div className="flex w-full flex-col gap-5">
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight">
+          <h1 id="notifications-heading" className="text-3xl font-semibold tracking-tight">
             Notifications
           </h1>
+          <p className="text-sm text-muted-foreground">
+            Review invitations, assignments, mentions, and due-date reminders.
+          </p>
         </div>
 
         {status && STATUS_MESSAGES[status] ? (
@@ -148,6 +140,6 @@ export default async function AccountNotificationsPage({
           onDeclineInvitation={declineNotificationInvitationAction}
         />
       </div>
-    </main>
+    </section>
   );
 }

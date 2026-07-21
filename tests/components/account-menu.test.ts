@@ -14,6 +14,7 @@ vi.mock("@/lib/hooks/use-dismissible-menu", () => ({
 import { AccountMenu } from "@/components/account-menu";
 
 (globalThis as { React?: typeof React }).React = React;
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("account-menu", () => {
   beforeEach(() => {
@@ -62,7 +63,8 @@ describe("account-menu", () => {
       })
     );
 
-    expect(result).toContain("bg-red-500");
+    expect(result).toContain("bg-destructive");
+    expect(result).toContain("3 unread notifications");
   });
 
   test("updates the notification indicator from live snapshots", async () => {
@@ -83,7 +85,7 @@ describe("account-menu", () => {
     });
 
     expect(container.textContent).not.toContain("Notifications");
-    expect(container.querySelector(".bg-red-500")).toBeNull();
+    expect(container.querySelector(".bg-destructive")).toBeNull();
 
     await act(async () => {
       publishNotificationRealtimeSnapshot({
@@ -94,7 +96,7 @@ describe("account-menu", () => {
       });
     });
 
-    expect(container.querySelector(".bg-red-500")).not.toBeNull();
+    expect(container.querySelector(".bg-destructive")).not.toBeNull();
 
     await act(async () => {
       root.unmount();
@@ -129,7 +131,7 @@ describe("account-menu", () => {
 
     await act(async () => {
       container
-        .querySelector<HTMLButtonElement>('button[aria-label="Account menu"]')
+        .querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]')
         ?.click();
     });
 
@@ -140,6 +142,59 @@ describe("account-menu", () => {
     await act(async () => {
       root.unmount();
     });
+  });
+
+  test("uses one user-hub launcher and separates secondary utilities from logout", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        React.createElement(AccountMenu, {
+          isAuthenticated: true,
+          displayName: "test.user",
+          usernameTag: "test.user#1234",
+          avatarSeed: "seed-123",
+          initialUnreadNotificationCount: 4,
+          currentPath: "/projects/project-1?taskId=task-7#kanban",
+          appMetadata: {
+            repositoryUrl: "https://github.com/example/nexusdash",
+            versionTag: "v0.27.0",
+            versionLabel: "v0.27.0",
+            revision: "abc1234",
+            revisionLabel: "build abc1234",
+            environment: "test",
+            diagnosticLabel: "v0.27.0 | test | build abc1234",
+          },
+        })
+      );
+    });
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]')
+        ?.click();
+    });
+
+    const menuLinks = Array.from(
+      container.querySelectorAll<HTMLAnchorElement>('a[role="menuitem"]')
+    );
+    expect(menuLinks).toHaveLength(2);
+    expect(menuLinks[0]?.textContent).toContain("Your account");
+    expect(menuLinks[0]?.getAttribute("href")).toBe(
+      "/account?returnTo=%2Fprojects%2Fproject-1%3FtaskId%3Dtask-7%23kanban"
+    );
+    expect(container.querySelector('[role="menuitem"][aria-label^="Switch to"]')).not.toBeNull();
+    const logout = Array.from(
+      container.querySelectorAll<HTMLElement>('[role="menuitem"]')
+    ).find((item) => item.textContent?.includes("Log out"));
+    expect(logout?.closest("form")?.className).toContain("border-t");
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
   });
 
   test("supports an inward-opening sidebar menu", async () => {
@@ -163,7 +218,7 @@ describe("account-menu", () => {
 
     await act(async () => {
       container
-        .querySelector<HTMLButtonElement>('button[aria-label="Account menu"]')
+        .querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]')
         ?.click();
     });
 
@@ -175,5 +230,58 @@ describe("account-menu", () => {
     await act(async () => {
       root.unmount();
     });
+  });
+
+  test("supports arrow-key traversal and restores focus on Escape", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        React.createElement(AccountMenu, {
+          isAuthenticated: true,
+          displayName: "test.user",
+          usernameTag: "test.user#1234",
+          avatarSeed: "seed-123",
+          initialUnreadNotificationCount: 0,
+        })
+      );
+    });
+
+    const trigger = container.querySelector<HTMLButtonElement>(
+      'button[aria-haspopup="menu"]'
+    );
+    trigger?.focus();
+    await act(async () => {
+      trigger?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })
+      );
+    });
+
+    const items = Array.from(
+      container.querySelectorAll<HTMLElement>('[role="menuitem"]')
+    );
+    expect(document.activeElement).toBe(items[0]);
+
+    await act(async () => {
+      items[0]?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })
+      );
+    });
+    expect(document.activeElement).toBe(items[1]);
+
+    await act(async () => {
+      items[1]?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true })
+      );
+    });
+    expect(container.querySelector('[role="menu"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
   });
 });

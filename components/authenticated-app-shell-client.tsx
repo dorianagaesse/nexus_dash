@@ -7,7 +7,6 @@ import { Bell, FolderKanban, LayoutDashboard } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
 import { NotificationLiveUpdates } from "@/components/notification-live-updates";
-import { ThemeToggle } from "@/components/theme-toggle";
 import type { AppMetadataSummary } from "@/lib/app-metadata";
 import { useCurrentAppPath } from "@/lib/hooks/use-current-app-path";
 import {
@@ -210,7 +209,6 @@ export function AuthenticatedAppShellClient({
               <p className="truncate text-sm font-medium">{displayName ?? "Your account"}</p>
               {usernameTag ? <p className="truncate text-xs text-muted-foreground">{usernameTag}</p> : null}
             </div>
-            <ThemeToggle compact />
           </div>
         </div>
       </aside>
@@ -226,7 +224,6 @@ export function AuthenticatedAppShellClient({
             <span className="truncate text-base font-semibold tracking-tight">NexusDash</span>
           </Link>
           <div className="ml-auto flex items-center gap-2">
-            <ThemeToggle compact />
             <AccountMenu
               isAuthenticated
               displayName={displayName}

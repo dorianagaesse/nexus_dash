@@ -2,7 +2,8 @@
 
 ## Status
 
-Pending - first item in the UI/UX execution queue.
+Done (2026-07-21) - implemented on
+`feature/task-324-unified-user-hub-navigation`.
 
 ## Objective
 
@@ -79,3 +80,33 @@ rather than a second navigation system.
   collision, or ambiguous current location.
 - Required repository validation is green, tracking documentation is updated,
   and the task ships through its dedicated feature branch and pull request.
+
+## Outcome
+
+- Added a shared account-layout user hub with one identity header and three
+  route-backed Account, Settings, and Notifications destinations across desktop
+  and mobile.
+- Preserved existing URLs, deep links, browser history, notification targets,
+  live unread badges, and normalized project/task `returnTo` context.
+- Replaced the avatar menu's duplicate destination list with one `Your account`
+  launcher, moved appearance into the secondary utility area, retained
+  repository/version diagnostics, and separated logout with destructive
+  styling.
+- Added keyboard traversal and focus restoration to the avatar menu, 44 px
+  controls across touched account views, and shared loading/error recovery
+  states without changing account or notification data behavior.
+- Added focused component and Playwright coverage for active state, nested
+  settings routes, unread state, safe URLs, menu composition, keyboard route
+  switching, Back/Forward, notification deep links, and project continuity.
+
+## Validation
+
+- `npm run lint`
+- `npm run rls:check`
+- `npm run release:check -- --base origin/main --branch feature/task-324-unified-user-hub-navigation`
+- `npm test` - 947 passed, 2 skipped
+- `npm run test:coverage` - 91.37% statements, 81.33% branches, 92.2%
+  functions, 91.88% lines
+- `npm run test:e2e` - production build and all 23 Playwright tests passed
+- Playwright visual walkthroughs passed at 375, 768, 1024, and 1440 px in
+  light/dark themes; screenshots are stored under `.tmp/task324-user-hub/`.

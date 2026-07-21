@@ -2,104 +2,98 @@
 
 ## Task
 
-- ID: TASK-129
-- Title: Login/home page UI polish - user-friendly, product-oriented entry experience
-- Status: Complete (2026-07-16)
-- Branch: `feature/task-129-login-home-page-ui-polish`
-- Brief: [`task-129-login-home-page-ui-polish.md`](./task-129-login-home-page-ui-polish.md)
+- ID: TASK-324
+- Title: Unified user hub and avatar-menu navigation rework
+- Status: Ready for review (2026-07-21)
+- Branch: `feature/task-324-unified-user-hub-navigation`
+- Brief: [`task-324-unified-user-hub-navigation.md`](./task-324-unified-user-hub-navigation.md)
 
 ## Objective
 
-Replace the implementation-focused unauthenticated home page with a concise,
-outcome-led entry experience that keeps returning-user sign-in immediate,
-explains NexusDash in product language, and avoids a second long marketing page
-on mobile.
+Turn the current collection of account destinations into one coherent user
+space, while simplifying the retained avatar menu into a concise launcher
+rather than a second navigation system.
 
 ## Scope
 
-- Preserve the existing credentials, social-provider, return-path, verification,
-  recovery, and inline validation behavior.
-- Reframe the page around user outcomes: planning, delivery focus, shared
-  context, and calendar-aware execution.
-- Establish a clear desktop split between product context and authentication.
-- Make authentication the first and dominant mobile experience, with only a
-  compact product-value summary.
-- Improve form hierarchy, touch targets, focus treatment, loading feedback,
-  responsive containment, light/dark contrast, and reduced-motion behavior.
-- Add focused unit and Playwright coverage for the entry experience.
+- Build one responsive user-hub header and route-backed navigation treatment
+  across Account, Settings, and Notifications.
+- Preserve the existing account URLs, deep links, browser history, unread
+  state, safe contextual `returnTo` values, and authenticated shell.
+- Reduce the avatar menu to identity, one clear user-hub entry, secondary
+  appearance/diagnostic utilities, and a spatially separated logout action.
+- Cover active state, accessible naming, keyboard and focus behavior, light and
+  dark themes, loading/empty/error states, and 375 px containment.
+- Add focused component and Playwright coverage for hub and menu behavior.
 
 ## Runtime Assumptions
 
-- Local PostgreSQL and the repository `.env` contract are available for runtime
-  rendering and authenticated redirect validation.
-- Social sign-in controls render only for providers enabled through the existing
-  server-side configuration.
-- Preview validation, if required by review, will use the active branch as the
-  explicit `git_ref` per `agent.md`.
+- Docker Engine, the repository `.env`, installed dependencies, and Playwright
+  Chromium are available locally.
+- The repository PostgreSQL Compose service may be started when database-backed
+  rendering or browser validation requires it.
+- Preview validation, if required by acceptance or review, will run the deploy
+  workflow from `feature/task-324-unified-user-hub-navigation` with
+  `git_ref=feature/task-324-unified-user-hub-navigation`; workflow logs will be
+  checked for the requested checkout ref.
 
 ## Acceptance Criteria
 
-1. Returning users can reach and understand the sign-in form without scrolling
-   at 390 px, 768 px, and desktop widths.
-2. New users see concrete product outcomes rather than session, provider, or
-   authorization architecture language.
-3. The 390 px sign-up page no longer appends a long card-based marketing page
-   and is materially shorter than the 1,993 px baseline.
-4. Sign-in and sign-up retain email prefill, safe `returnTo`, social-provider,
-   password recovery, status/error, and pending-submit behavior.
-5. Inputs and primary actions are at least 44 px high, labels remain visible,
-   keyboard focus is obvious, and status/error feedback is announced.
-6. The page remains usable without horizontal overflow in light and dark modes
-   and respects reduced-motion preferences.
-7. Focused tests and Playwright screenshots cover desktop sign-in and mobile
-   sign-up at minimum.
+1. Account, Settings, and Notifications are visibly available from one shared
+   user-hub navigation surface on desktop and mobile.
+2. Each hub view has a stable internal URL and supports refresh, deep linking,
+   browser Back/Forward, and contextual `returnTo` behavior.
+3. The active hub view is visually distinct and announced semantically without
+   relying on color alone.
+4. The avatar menu retains the user identity and provides one clear route into
+   the user hub without duplicating all three hub destinations.
+5. Appearance/diagnostic utilities remain available but visually subordinate;
+   logout is separated from navigation and cannot be mistaken for a tab.
+6. Notification unread state remains discoverable from the avatar entry point
+   and the Notifications tab without creating competing primary actions.
+7. All interactive targets are at least 44 px, keyboard reachable, visibly
+   focused, and usable at 375 px without clipping or horizontal page overflow.
+8. Account routes retain the responsive authenticated shell and do not obscure
+   page content, feedback, dialogs, or fixed navigation.
 
 ## Definition Of Done
 
-- The redesigned entry page is implemented with repository-native Next.js,
-  Tailwind, Shadcn, and Lucide patterns.
-- Task tracking and the execution journal describe the design decision,
-  baseline evidence, and validation outcome.
+- The shared user hub and simplified avatar menu use reusable components and
+  established semantic design tokens.
+- Focused component tests cover tab semantics, active state, unread state, menu
+  composition, and safe contextual URLs.
+- Playwright covers desktop/mobile hub switching, direct entry, browser
+  history, notification deep links, and return-to-project continuity.
+- Light/dark and 375/768/1024/1440 px visual walkthroughs pass without
+  overflow, collision, or ambiguous current location; screenshots are captured
+  under `.tmp/`.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
   `npm run build`, and relevant Playwright checks pass.
-- Before/after desktop and 390 px mobile screenshots are captured under `.tmp/`.
-- The branch is committed, pushed, and represented by a ready-for-review PR.
+- Tracking documentation and product version are updated, the branch is
+  committed and pushed, and a ready-for-review PR is open with initial Copilot
+  review/check feedback handled before handoff.
 
 ## Outcome
 
-- Replaced the long mixed auth/marketing page with a desktop product/auth split
-  and an auth-first mobile layout using product-outcome language throughout.
-- Reduced the 390 px sign-up document from 1,993 px to 1,119 px with no
-  horizontal overflow; sign-in remains visible in the initial mobile viewport.
-- Preserved credentials, social providers, password recovery, safe return paths,
-  prefill, verification/status feedback, and signup validation behavior.
-- Added 48 px form/provider/primary controls, visible focus treatment, semantic
-  live feedback, dark-mode verification, and global reduced-motion handling.
-- Refined the entry experience after visual review: agent access is now the
-  lead product capability, task/meeting/roadmap examples reflect real
-  NexusDash workflows, and primary auth actions use the shared neutral button
-  treatment.
-- On phone widths with social providers enabled, Google, GitHub, and email are
-  presented as three compact choices; choosing email replaces those choices
-  with the credential form and retains a clear back path. Tablet and desktop
-  layouts keep the credential form immediately visible.
-- The product panel now changes meaningfully between light and dark themes, and
-  Playwright verifies that the selected theme persists across a reload.
-- Replaced the illustrative weekly-focus list with a product-specific connected
-  workflow covering context cards and file attachments, user-owned roadmaps,
-  related tasks and epic progress, Kanban delivery and dated blocker follow-up,
-  auto-archive, and meeting todo extraction. Supporting copy now explicitly
-  covers project invitations, real-time collaboration, Google Calendar, task
-  ownership, and project-scoped API agent access.
-- Replaced the visible desktop split and product-side blobs with one continuous
-  left-to-right blue/indigo color field behind both columns. Neutral surfaces
-  remain dominant, blue supports the product story, and saturated accents stay
-  limited to key controls in line with the 60/30/10 hierarchy. The field moves
-  slowly and continuously while reduced-motion preferences disable it.
-- Rewrote the workflow subtitles and supporting benefits around what users gain:
-  a reliable source of context, roadmaps they shape, visible epic progress,
-  blocker follow-up, meeting decisions converted into todos, live teamwork,
-  calendar sync, and clear ownership.
-- Validation passed: lint, RLS inventory, 941 unit tests, coverage thresholds,
-  production build, and all 20 Playwright scenarios, including desktop/mobile
-  entry, theme persistence, tablet containment, and reduced motion.
+- Introduced one shared responsive user hub for Account, Settings, and
+  Notifications while retaining each stable route and the authenticated shell.
+- Preserved safe project/task return context, notification deep links, browser
+  history, live unread state, and nested Settings routes.
+- Simplified the avatar menu to identity, one user-hub launcher, appearance,
+  diagnostics, and a separated logout action with Arrow/Home/End/Escape
+  keyboard behavior.
+- Added account-route loading/error recovery, 44 px controls on touched
+  surfaces, and reusable component/Playwright coverage.
+- Prepared product release `v0.27.0` with matching package and changelog data.
+
+## Validation
+
+- `npm run lint` passed.
+- `npm run rls:check` passed.
+- Release policy and `git diff --check` passed.
+- `npm test`: 947 passed, 2 skipped.
+- `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
+  functions, 91.88% lines.
+- `npm run test:e2e`: production build and all 23 Playwright tests passed.
+- Light/dark Playwright walkthroughs at 375, 768, 1024, and 1440 px passed;
+  screenshots are in `.tmp/task324-user-hub/`.

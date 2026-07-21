@@ -3,6 +3,31 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-21 - TASK-324 unified user hub navigation
+
+- Applied UI/UX Pro Max guidance for accessible route-backed navigation,
+  non-color-only current state, 44 px targets, responsive containment, and a
+  restrained flat treatment that stays within the authenticated shell language.
+- Added one shared account-layout hub for Account, Settings, and Notifications,
+  preserving stable URLs, Back/Forward behavior, live unread badges, nested
+  settings routes, notification targets, and safe project/task return context.
+- Simplified the avatar menu from three duplicated destinations to identity and
+  one `Your account` launcher. Appearance and repository/version diagnostics
+  are visually secondary, while logout is separated and destructive; menu
+  keyboard support now covers Arrow, Home, End, and Escape with focus restore.
+- Added shared loading/error recovery, minimum 44 px controls across touched
+  account views, 19 focused component/navigation tests, and Playwright coverage
+  for desktop/mobile switching, direct entry, browser history, notification
+  deep links, keyboard navigation, and return-to-project continuity.
+- Captured and visually inspected light/dark walkthroughs at 375, 768, 1024,
+  and 1440 px under `.tmp/task324-user-hub/`; no overflow, clipping, shell
+  collision, or ambiguous active location remained.
+- Validation passed: lint, RLS inventory, release policy for `v0.27.0`, 947
+  unit/API tests with 2 skipped, coverage thresholds (91.37% statements), a
+  production build, and all 23 Playwright tests. The first bare production
+  build correctly rejected remote development env assumptions; the documented
+  local-safe PostgreSQL and placeholder-secret contract produced the green run.
+
 # 2026-07-16 - TASK-129 login/home page UI polish started
 
 - Created dedicated worktree `nexus_dash_task129` from `origin/main` on

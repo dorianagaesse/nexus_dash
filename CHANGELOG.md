@@ -8,6 +8,17 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.27.0 - 2026-07-21
+
+- Unified Account, Settings, and Notifications behind one shared responsive
+  user hub with route-backed navigation, semantic current state, live unread
+  badges, and preserved project return context.
+- Simplified the avatar menu to identity, one user-hub launcher, subordinate
+  appearance and repository/version utilities, and a separated logout action.
+- Added accessible loading/error states, 44 px account-surface controls,
+  keyboard menu and hub navigation coverage, and light/dark responsive
+  Playwright walkthroughs at 375, 768, 1024, and 1440 px.
+
 ## v0.26.0 - 2026-07-16
 
 - Redesigned the unauthenticated entry page around product outcomes with a
