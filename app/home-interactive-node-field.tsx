@@ -2,10 +2,10 @@
 
 import { useEffect, useRef } from "react";
 
-const NODE_COUNT = 156;
+const NODE_COUNT = 208;
 const CLUSTERED_NODE_COUNT = 112;
 const CLUSTER_COUNT = 5;
-const PLACEMENT_CANDIDATES = 28;
+const PLACEMENT_CANDIDATES = 24;
 const WORLD_PADDING_X = 0.18;
 const WORLD_PADDING_Y = 0.2;
 const ACTIVATION_RADIUS = 340;
@@ -108,7 +108,7 @@ function createNodeField(seed: number) {
             Math.hypot(
               (candidate.x - node.x) * 1.4,
               candidate.y - node.y,
-              (candidate.depth - node.depth) * 0.38
+              (candidate.depth - node.depth) * 0.18
             )
           ),
         Number.POSITIVE_INFINITY
@@ -182,8 +182,8 @@ function createNodeField(seed: number) {
             ? 6
             : 5
           : random() < 0.42
-            ? 4
-            : 3
+            ? 5
+            : 4
       );
 
     neighbors.forEach(({ to }) => connect(from, to));
@@ -221,6 +221,7 @@ export function HomeInteractiveNodeField() {
     canvas.dataset.layout = "neural-volume";
     canvas.dataset.strengthModel = "continuous";
     canvas.dataset.depthModel = "perspective";
+    canvas.dataset.ambientNodes = String(NODE_COUNT - CLUSTERED_NODE_COUNT);
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const desktop = window.matchMedia("(min-width: 1024px)");
@@ -360,8 +361,8 @@ export function HomeInteractiveNodeField() {
           Math.max(from.influence, to.influence) * 0.62 +
           midpointInfluence * 0.38;
         const alpha =
-          palette.baseLinkAlpha * (0.22 + link.depth * 0.92) +
-          link.strength * palette.strongLinkAlpha * (0.3 + link.depth * 0.9) +
+          palette.baseLinkAlpha * (0.3 + link.depth * 0.84) +
+          link.strength * palette.strongLinkAlpha * (0.38 + link.depth * 0.82) +
           influence * palette.activeLinkAlpha * (0.62 + link.depth * 0.48);
         const depthGradient = context.createLinearGradient(
           from.x,
@@ -373,14 +374,14 @@ export function HomeInteractiveNodeField() {
           0,
           `rgba(${palette.link}, ${Math.min(
             0.94,
-            alpha * (0.42 + from.depth * 0.72)
+            alpha * (0.5 + from.depth * 0.62)
           )})`
         );
         depthGradient.addColorStop(
           1,
           `rgba(${palette.link}, ${Math.min(
             0.94,
-            alpha * (0.42 + to.depth * 0.72)
+            alpha * (0.5 + to.depth * 0.62)
           )})`
         );
         context.beginPath();
@@ -398,7 +399,7 @@ export function HomeInteractiveNodeField() {
         .map((node, index) => ({ ...node, index }))
         .sort((first, second) => first.depth - second.depth)
         .forEach((node) => {
-        const depthPresence = 0.28 + node.depth * 0.9;
+        const depthPresence = 0.36 + node.depth * 0.82;
         const radius =
           (0.42 + node.depth * 2.75) * node.emphasis + node.influence * 2.1;
         const alpha =
