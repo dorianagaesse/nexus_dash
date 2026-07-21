@@ -3,6 +3,57 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-16 - TASK-129 login/home page UI polish started
+
+- Created dedicated worktree `nexus_dash_task129` from `origin/main` on
+  `feature/task-129-login-home-page-ui-polish`.
+- Captured the unchanged login UI with Playwright at 1440 px desktop and the
+  sign-up UI at 390 px mobile; the mobile document measured 1,993 px tall,
+  confirming TASK-270 finding F5.
+- Applied UI/UX Pro Max guidance for a flat, typography-led productivity SaaS
+  entry surface with restrained motion, visible labels/focus, semantic color,
+  and an auth-first mobile hierarchy.
+- Chose a desktop product/auth split and a compact mobile value summary while
+  preserving existing auth, provider, verification, recovery, validation, and
+  safe return-path behavior.
+- Completed the redesign and captured after screenshots at 1,440 px desktop,
+  390 px mobile sign-up, and 390 px mobile dark sign-in. The mobile sign-up
+  document is now 1,119 px tall with no horizontal overflow.
+- Validation passed: lint, RLS inventory, 930 unit tests, coverage (91.37%
+  statements), production build, 33 focused auth/home tests, and Playwright
+  coverage for desktop sign-in, compact mobile sign-up, tablet containment,
+  dark mode, and reduced motion.
+- The first build validation correctly rejected development remote database
+  URLs under production safeguards; the successful build used the documented
+  local/preview validation contract without changing runtime checks.
+- CI release policy correctly required the product-changing `feature/*` branch
+  to carry a minor version decision. Prepared `v0.25.0` with matching package,
+  lockfile, and changelog metadata.
+- Incorporated product review feedback by making project-scoped agent access
+  the leading capability, replacing generic sample work with task follow-up,
+  meeting preparation, and roadmap examples, and returning the auth CTA to the
+  shared neutral button treatment.
+- Added phone-only progressive disclosure for social/email authentication,
+  retained immediate email access from 640 px upward, and added interaction
+  coverage for reveal, recovery-context defaults, and the back path.
+- Made the desktop product panel theme-aware and added reload persistence
+  coverage. Playwright passed all four focused entry tests with Google and
+  GitHub controls enabled; refreshed screenshots cover desktop light/dark and
+  phone provider/email states under `.tmp/task129-feedback-*.png`.
+- Final follow-up validation passed: repository lint, RLS inventory, 932 unit
+  tests, coverage thresholds (91.37% statements), production build, and the
+  focused four-test Playwright entry suite.
+- Replaced the generic `Today's focus` marketing mock with four truthful
+  NexusDash layers: project context and files; roadmap, related-task, and epic
+  planning; Kanban delivery with dated blocker follow-up and auto-archive; and
+  meeting todo extraction into the dedicated panel. Invitations, live
+  collaboration, Google Calendar, task ownership, and API agent access remain
+  explicit in the surrounding copy.
+- Unified the product/auth desktop split on the same semantic background and
+  added two slow blue/indigo ambient gradients to the product half. The effect
+  uses a transform-only entrance drift, settles instead of looping, and
+  inherits the global reduced-motion stop.
+
 # 2026-07-06 - TASK-322 responsive authenticated app shell
 
 - Replaced the root floating authenticated utility cluster with a shared shell
@@ -2663,3 +2714,25 @@ Low-value entries to avoid going forward:
   space.
 - Scoped the retained avatar menu as a concise launcher: identity, one user-hub
   entry, secondary appearance/diagnostics, and a separated logout action.
+
+# 2026-07-17 - TASK-129 marketing copy and directional color refinement
+
+- Reworked the connected-workflow subtitles from terse feature labels into
+  outcome-led product copy covering a shared source of truth, user-shaped
+  roadmaps, epic progress, blocker follow-up, tidy completed work, and meeting
+  decisions that become immediately visible todos.
+- Replaced the two product-panel gradient blobs and hard column divider with a
+  single full-canvas blue/indigo field that fades from the product side through
+  the authentication side. The neutral base remains visually dominant and
+  saturated blue stays reserved for key accents, following a 60/30/10 color
+  hierarchy.
+- Added slow transform-only movement to the field and an explicit reduced-motion
+  override. Playwright confirmed live movement in light and dark themes, no
+  animation with reduced motion, and a smooth column transition in screenshots
+  `.tmp/task129-directional-gradient-light-stable.png` and
+  `.tmp/task129-directional-gradient-dark-stable.png`.
+- Validation passed with lint, RLS inventory, 941 unit tests, coverage at 91.37%
+  statements / 81.33% branches / 92.2% functions / 91.88% lines, a production
+  build, and all 20 Playwright scenarios. The database-backed browser suite used
+  the configured development database because the optional local PostgreSQL
+  service at `127.0.0.1:5432` was not running; outbound email remained disabled.

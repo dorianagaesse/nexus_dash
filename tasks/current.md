@@ -2,98 +2,104 @@
 
 ## Task
 
-- ID: TASK-322
-- Title: Responsive authenticated app shell and primary navigation
-- Status: Complete (2026-07-16 redesign)
-- Branch: `feature/322-responsive-shell-redesign-v3`
-- Brief: [`task-322-responsive-authenticated-app-shell.md`](./task-322-responsive-authenticated-app-shell.md)
+- ID: TASK-129
+- Title: Login/home page UI polish - user-friendly, product-oriented entry experience
+- Status: Complete (2026-07-16)
+- Branch: `feature/task-129-login-home-page-ui-polish`
+- Brief: [`task-129-login-home-page-ui-polish.md`](./task-129-login-home-page-ui-polish.md)
 
 ## Objective
 
-Replace the floating utility-only authenticated chrome with a responsive app
-shell that makes primary destinations, current location, account utilities, and
-feedback consistently discoverable without covering page content.
+Replace the implementation-focused unauthenticated home page with a concise,
+outcome-led entry experience that keeps returning-user sign-in immediate,
+explains NexusDash in product language, and avoids a second long marketing page
+on mobile.
 
 ## Scope
 
-- Define primary authenticated navigation for Projects and Inbox with a
-  visible and semantic current-location state.
-- Keep Account, Settings, diagnostics, and logout in the user avatar menu so
-  personal utilities do not compete with workspace destinations.
-- Add an in-context mobile Kanban status switcher so narrow screens do not
-  require scrolling through every board lane.
-- Preserve safe internal project/task and notification-list origins across
-  account, notification, settings, and notification-target detours.
-- Provide coordinated desktop/mobile shell layouts, content insets, utility
-  placement, and shared layer ordering.
-- Move repository/version metadata to a secondary diagnostic location.
-- Cover keyboard access, accessible names, focus visibility, mobile touch
-  targets, responsive containment, and routing continuity with focused tests.
+- Preserve the existing credentials, social-provider, return-path, verification,
+  recovery, and inline validation behavior.
+- Reframe the page around user outcomes: planning, delivery focus, shared
+  context, and calendar-aware execution.
+- Establish a clear desktop split between product context and authentication.
+- Make authentication the first and dominant mobile experience, with only a
+  compact product-value summary.
+- Improve form hierarchy, touch targets, focus treatment, loading feedback,
+  responsive containment, light/dark contrast, and reduced-motion behavior.
+- Add focused unit and Playwright coverage for the entry experience.
 
 ## Runtime Assumptions
 
-- Local PostgreSQL and the repository's documented `.env` contract are
-  available for authenticated Playwright validation.
-- Preview validation, if required by the review flow, will use the active branch
-  as the explicit `git_ref` per `agent.md`.
-- Safe navigation state is derived only from normalized internal URLs; external
-  referrers and unsafe redirect values are never trusted.
+- Local PostgreSQL and the repository `.env` contract are available for runtime
+  rendering and authenticated redirect validation.
+- Social sign-in controls render only for providers enabled through the existing
+  server-side configuration.
+- Preview validation, if required by review, will use the active branch as the
+  explicit `git_ref` per `agent.md`.
 
 ## Acceptance Criteria
 
-1. A user can reach every primary authenticated destination without opening an
-   unlabeled or account-only overflow path.
-2. Current location is visible and announced semantically.
-3. At 375-390 px, navigation and utilities do not overlap headings, toasts,
-   dialogs, or primary actions.
-4. Desktop and mobile layouts reserve the correct content inset for persistent
-   shell elements.
-5. Repository/version diagnostics remain available without dominating primary
-   navigation.
-6. Keyboard navigation, focus visibility, touch targets, and layer ordering are
-   covered by focused tests.
-7. Project -> Notifications/Settings -> contextual return restores the exact
-   allowed project URL, including an open task query when present.
-8. Notification center -> task/project -> contextual return restores the
-   notification list so users can continue triage.
-9. Direct visits without an origin use predictable Account or Projects
-   fallbacks and cannot be used for an external redirect.
+1. Returning users can reach and understand the sign-in form without scrolling
+   at 390 px, 768 px, and desktop widths.
+2. New users see concrete product outcomes rather than session, provider, or
+   authorization architecture language.
+3. The 390 px sign-up page no longer appends a long card-based marketing page
+   and is materially shorter than the 1,993 px baseline.
+4. Sign-in and sign-up retain email prefill, safe `returnTo`, social-provider,
+   password recovery, status/error, and pending-submit behavior.
+5. Inputs and primary actions are at least 44 px high, labels remain visible,
+   keyboard focus is obvious, and status/error feedback is announced.
+6. The page remains usable without horizontal overflow in light and dark modes
+   and respects reduced-motion preferences.
+7. Focused tests and Playwright screenshots cover desktop sign-in and mobile
+   sign-up at minimum.
 
 ## Definition Of Done
 
-- The authenticated shell is adopted by projects and account routes.
-- Desktop, small-phone, and dark-mode walkthroughs pass.
-- Playwright covers project/account/notification round trips, browser Back,
-  direct-entry fallbacks, and rejected unsafe return paths.
-- No page-level horizontal overflow or fixed-layer collision remains in the
-  covered routes.
-- TASK-270 and TASK-322 tracking docs are updated.
-- Repository validation required by `agent.md` is green and the branch is
-  committed, pushed, and represented by a ready-for-review pull request.
+- The redesigned entry page is implemented with repository-native Next.js,
+  Tailwind, Shadcn, and Lucide patterns.
+- Task tracking and the execution journal describe the design decision,
+  baseline evidence, and validation outcome.
+- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
+  `npm run build`, and relevant Playwright checks pass.
+- Before/after desktop and 390 px mobile screenshots are captured under `.tmp/`.
+- The branch is committed, pushed, and represented by a ready-for-review PR.
 
 ## Outcome
 
-- Shared authenticated navigation is active on all project and account routes
-  with an adaptive desktop sidebar and mobile app bar/bottom navigation,
-  Projects/Inbox current-location
-  semantics, safe-area spacing, and 44 px minimum shell targets.
-- Account, Settings, diagnostics, Notifications, and logout remain reachable
-  from the retained user avatar menu; Account and Settings are no longer
-  promoted as global bottom-nav peers.
-- Mobile Kanban now shows one status lane at a time with a floating Backlog /
-  Doing / Blocked / Done dock above the app bottom navigation, while desktop
-  keeps the four-column board.
-- Follow-up refinement makes the desktop sidebar project-aware, consolidates
-  Projects/All projects, moves owner Project settings into a contextual sidebar
-  slot, keeps an enhanced Share project action in the header, fixes sidebar
-  account-menu anchoring, and reduces the mobile project header to compact
-  actions plus horizontally scannable project metrics.
-- Project/task origins and notification-list origins round-trip through account
-  detours without trusting external redirect input.
-- Repository/version diagnostics moved into the account utility and shared
-  fixed-layer tokens now coordinate shell, feedback, dialogs, and popovers.
-- Rework validation passed: lint, 8 focused shell/menu component tests, and all
-  5 authenticated shell Playwright scenarios against the final branch preview,
-  including contextual returns and the mobile Kanban status-dock flow. Final
-  desktop, mobile, and retained account-menu screenshots were captured under
-  `.tmp/task322-refinement/`.
+- Replaced the long mixed auth/marketing page with a desktop product/auth split
+  and an auth-first mobile layout using product-outcome language throughout.
+- Reduced the 390 px sign-up document from 1,993 px to 1,119 px with no
+  horizontal overflow; sign-in remains visible in the initial mobile viewport.
+- Preserved credentials, social providers, password recovery, safe return paths,
+  prefill, verification/status feedback, and signup validation behavior.
+- Added 48 px form/provider/primary controls, visible focus treatment, semantic
+  live feedback, dark-mode verification, and global reduced-motion handling.
+- Refined the entry experience after visual review: agent access is now the
+  lead product capability, task/meeting/roadmap examples reflect real
+  NexusDash workflows, and primary auth actions use the shared neutral button
+  treatment.
+- On phone widths with social providers enabled, Google, GitHub, and email are
+  presented as three compact choices; choosing email replaces those choices
+  with the credential form and retains a clear back path. Tablet and desktop
+  layouts keep the credential form immediately visible.
+- The product panel now changes meaningfully between light and dark themes, and
+  Playwright verifies that the selected theme persists across a reload.
+- Replaced the illustrative weekly-focus list with a product-specific connected
+  workflow covering context cards and file attachments, user-owned roadmaps,
+  related tasks and epic progress, Kanban delivery and dated blocker follow-up,
+  auto-archive, and meeting todo extraction. Supporting copy now explicitly
+  covers project invitations, real-time collaboration, Google Calendar, task
+  ownership, and project-scoped API agent access.
+- Replaced the visible desktop split and product-side blobs with one continuous
+  left-to-right blue/indigo color field behind both columns. Neutral surfaces
+  remain dominant, blue supports the product story, and saturated accents stay
+  limited to key controls in line with the 60/30/10 hierarchy. The field moves
+  slowly and continuously while reduced-motion preferences disable it.
+- Rewrote the workflow subtitles and supporting benefits around what users gain:
+  a reliable source of context, roadmaps they shape, visible epic progress,
+  blocker follow-up, meeting decisions converted into todos, live teamwork,
+  calendar sync, and clear ownership.
+- Validation passed: lint, RLS inventory, 941 unit tests, coverage thresholds,
+  production build, and all 20 Playwright scenarios, including desktop/mobile
+  entry, theme persistence, tablet containment, and reduced motion.

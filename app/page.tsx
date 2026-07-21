@@ -1,9 +1,16 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, LockKeyhole, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  Bot,
+  Files,
+  Layers3,
+  ListTodo,
+  Milestone,
+  Workflow,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -32,22 +39,39 @@ import {
   HomeSignupUsernameSuffix,
 } from "./home-signup-live-feedback";
 import { HomeAuthModeToggleLink } from "./home-auth-mode-toggle-link";
+import { HomeAuthMethods } from "./home-auth-methods";
+import { HomeInteractiveNodeField } from "./home-interactive-node-field";
 
-const highlights = [
+const outcomes = [
+  "Bring teammates into the same live project workspace",
+  "Keep project dates in sync with Google Calendar",
+  "Make ownership clear with assignees, mentions, and due dates",
+];
+
+const workflowItems = [
   {
-    title: "Shared Project Hub",
-    description:
-      "Keep planning, context, and delivery updates in one workspace instead of scattered tools.",
+    title: "Project context, kept together",
+    meta: "Give everyone one reliable place for project context and the files behind the work.",
+    state: "Context",
+    icon: Files,
   },
   {
-    title: "Execution Flow",
-    description:
-      "Move tasks through Backlog, In Progress, Blocked, and Done with zero context switching.",
+    title: "Plans you shape",
+    meta: "Build your own roadmap, connect related tasks, and see every epic move forward.",
+    state: "Plan",
+    icon: Milestone,
   },
   {
-    title: "Calendar Context",
-    description:
-      "Bring key events into project execution so meetings and delivery stay aligned.",
+    title: "Delivery you can follow",
+    meta: "Move work from backlog to done, follow blockers over time, and keep completed work tidy.",
+    state: "Track",
+    icon: Workflow,
+  },
+  {
+    title: "Meetings become visible action",
+    meta: "Turn meeting decisions into visible todos your team can act on right away.",
+    state: "Act",
+    icon: ListTodo,
   },
 ];
 
@@ -119,16 +143,289 @@ function resolveReturnToPath(value: string | null): string {
 }
 
 const inputClassName =
-  "h-11 rounded-md border border-input bg-background px-3 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "h-12 w-full rounded-lg border border-input bg-background px-3.5 text-base outline-none transition-colors duration-200 placeholder:text-muted-foreground/80 hover:border-foreground/25 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none sm:text-sm";
 
-export default async function Home(
-  props: {
-    searchParams?: Promise<SearchParams>;
-  }
-) {
-  const resolvedSearchParams = await props.searchParams;
+function BrandMark({ productPanel = false }: { productPanel?: boolean }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span
+        className={cn(
+          "grid size-10 place-items-center rounded-xl",
+          productPanel
+            ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
+            : "bg-blue-600 text-white dark:bg-blue-500"
+        )}
+        aria-hidden="true"
+      >
+        <Layers3 className="size-5" strokeWidth={2.2} />
+      </span>
+      <span className="grid leading-none">
+        <span className="text-base font-semibold tracking-tight">NexusDash</span>
+        <span
+          className={cn(
+            "mt-1 text-xs",
+            productPanel
+              ? "text-slate-500 dark:text-slate-400"
+              : "text-muted-foreground"
+          )}
+        >
+          Project execution, connected.
+        </span>
+      </span>
+    </div>
+  );
+}
+
+function ProductPanel() {
+  return (
+    <section className="relative z-10 hidden min-h-dvh px-10 py-10 text-foreground transition-colors duration-200 motion-reduce:transition-none lg:flex lg:flex-col xl:px-16 xl:py-12">
+      <div className="relative z-10">
+        <BrandMark productPanel />
+      </div>
+
+      <div className="relative z-10 my-auto max-w-2xl py-8">
+        <Badge className="mb-5 rounded-full border border-blue-500/20 bg-blue-500/[0.08] px-3 py-1 text-blue-700 hover:bg-blue-500/[0.08] dark:text-blue-200 dark:hover:bg-blue-500/[0.08]">
+          Projects, people, and agents. Connected.
+        </Badge>
+        <h1 className="max-w-xl text-4xl font-semibold leading-[1.08] tracking-[-0.035em] xl:text-5xl">
+          Turn plans into progress—without losing context.
+        </h1>
+        <p className="mt-5 max-w-xl text-base leading-7 text-muted-foreground xl:text-lg">
+          Bring tasks, meetings, roadmaps, teammates, and trusted agents into
+          one focused workspace built for steady delivery.
+        </p>
+
+        <div className="mt-7 flex max-w-xl gap-4 rounded-2xl border border-blue-500/20 bg-blue-500/[0.07] p-4 backdrop-blur-sm">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-600 text-white dark:bg-blue-400 dark:text-slate-950">
+            <Bot className="size-5" strokeWidth={2} aria-hidden="true" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold">Agent access, built for real work</p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              Give trusted agents secure, project-scoped access to the context
+              and actions they need to move work forward.
+            </p>
+          </div>
+        </div>
+
+        <ul className="mt-5 grid gap-2.5" aria-label="NexusDash product benefits">
+          {outcomes.map((outcome) => (
+            <li key={outcome} className="flex items-center gap-3 text-sm text-foreground/85">
+              <span className="size-1.5 shrink-0 rounded-full bg-blue-600 dark:bg-blue-300">
+                <span className="sr-only">Included:</span>
+              </span>
+              {outcome}
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-5 max-w-xl rounded-2xl border border-border/80 bg-card/75 p-4 shadow-[0_24px_70px_-52px_rgba(37,99,235,0.55)] backdrop-blur-sm">
+          <div className="flex items-center justify-between border-b border-border/80 pb-3">
+            <div>
+              <p className="text-sm font-semibold">A connected project system</p>
+              <p className="mt-1 text-xs text-muted-foreground">From context to delivery</p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Workflow className="size-4 text-blue-600 dark:text-blue-300" aria-hidden="true" />
+              One workflow
+            </div>
+          </div>
+          <div className="divide-y divide-border/80">
+            {workflowItems.map((item) => {
+              const ItemIcon = item.icon;
+
+              return (
+                <div key={item.title} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-2">
+                  <span className="grid size-8 place-items-center rounded-lg bg-blue-500/[0.09] text-blue-700 dark:text-blue-300">
+                    <ItemIcon className="size-4" strokeWidth={1.9} aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">{item.title}</p>
+                    <p className="mt-0.5 text-xs leading-[1.45] text-muted-foreground">{item.meta}</p>
+                  </div>
+                  <span className="rounded-full border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                    {item.state}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <p className="relative z-10 text-xs leading-5 text-muted-foreground">
+        Plan together. Focus on what matters. Deliver with confidence.
+      </p>
+    </section>
+  );
+}
+
+function renderSignInForm({
+  prefilledEmail,
+  returnToPath,
+}: {
+  prefilledEmail?: string;
+  returnToPath: string;
+}) {
+  return (
+    <form key="signin-form" action={signInAction} className="grid gap-4">
+      <input type="hidden" name="returnTo" value={returnToPath} />
+      <div className="grid gap-2">
+        <label htmlFor="signin-email" className="text-sm font-medium">
+          Email address
+        </label>
+        <input
+          id="signin-email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          inputMode="email"
+          placeholder="you@company.com"
+          defaultValue={prefilledEmail}
+          required
+          maxLength={320}
+          className={inputClassName}
+        />
+      </div>
+      <div className="grid gap-2">
+        <div className="flex items-center justify-between gap-4">
+          <label htmlFor="signin-password" className="text-sm font-medium">
+            Password
+          </label>
+          <Link
+            href="/forgot-password"
+            className="rounded-sm text-sm font-medium text-blue-700 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-300"
+          >
+            Forgot password?
+          </Link>
+        </div>
+        <input
+          id="signin-password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          placeholder="Enter your password"
+          required
+          maxLength={128}
+          className={inputClassName}
+        />
+      </div>
+      <AuthSubmitButton
+        className="mt-1 h-12 w-full rounded-lg"
+        defaultLabel="Sign in to NexusDash"
+        pendingLabel="Signing you in..."
+      />
+    </form>
+  );
+}
+
+function renderSignUpForm({
+  prefilledEmail,
+  returnToPath,
+}: {
+  prefilledEmail?: string;
+  returnToPath: string;
+}) {
+  return (
+    <form key="signup-form" action={signUpAction} className="grid gap-4">
+      <input type="hidden" name="returnTo" value={returnToPath} />
+      <div className="grid gap-2">
+        <label htmlFor="signup-username" className="text-sm font-medium">
+          Username
+        </label>
+        <div className="relative">
+          <input
+            id="signup-username"
+            name="username"
+            type="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="your.name"
+            required
+            minLength={MIN_USERNAME_LENGTH}
+            maxLength={MAX_USERNAME_LENGTH}
+            pattern="[A-Za-z0-9._]+"
+            className={cn(inputClassName, "pr-24")}
+          />
+          <HomeSignupUsernameSuffix usernameInputId="signup-username" />
+        </div>
+      </div>
+      <div className="grid gap-2">
+        <label htmlFor="signup-email" className="text-sm font-medium">
+          Email address
+        </label>
+        <input
+          id="signup-email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          inputMode="email"
+          placeholder="you@company.com"
+          defaultValue={prefilledEmail}
+          required
+          maxLength={320}
+          className={inputClassName}
+        />
+        <HomeSignupEmailFeedback emailInputId="signup-email" />
+      </div>
+      <div className="grid gap-2">
+        <label htmlFor="signup-password" className="text-sm font-medium">
+          Password
+        </label>
+        <input
+          id="signup-password"
+          name="password"
+          type="password"
+          autoComplete="new-password"
+          placeholder="Create a strong password"
+          required
+          minLength={MIN_PASSWORD_LENGTH}
+          maxLength={128}
+          className={inputClassName}
+        />
+      </div>
+      <div className="grid gap-2">
+        <label htmlFor="signup-confirm-password" className="text-sm font-medium">
+          Confirm password
+        </label>
+        <input
+          id="signup-confirm-password"
+          name="confirmPassword"
+          type="password"
+          autoComplete="new-password"
+          placeholder="Re-enter your password"
+          required
+          minLength={MIN_PASSWORD_LENGTH}
+          maxLength={128}
+          className={inputClassName}
+        />
+      </div>
+      <HomeSignupPasswordFeedback
+        passwordInputId="signup-password"
+        confirmPasswordInputId="signup-confirm-password"
+        minPasswordLength={MIN_PASSWORD_LENGTH}
+      />
+      <AuthSubmitButton
+        className="h-12 w-full rounded-lg"
+        defaultLabel="Create your account"
+        pendingLabel="Creating your account..."
+      />
+    </form>
+  );
+}
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: Promise<SearchParams>;
+}) {
+  const resolvedSearchParams = await searchParams;
   const actorUserId = await getSessionUserIdFromServer();
-  const returnToPath = resolveReturnToPath(readQueryValue(resolvedSearchParams?.returnTo));
+  const returnToPath = resolveReturnToPath(
+    readQueryValue(resolvedSearchParams?.returnTo)
+  );
   if (actorUserId) {
     if (!isLiveProductionDeployment()) {
       redirect(returnToPath);
@@ -142,9 +439,12 @@ export default async function Home(
     );
   }
 
-  const formValue = readQueryValue(resolvedSearchParams?.form);
-  const activeForm = resolveActiveForm(formValue);
-  const prefilledEmail = resolvePrefilledEmail(readQueryValue(resolvedSearchParams?.email));
+  const activeForm = resolveActiveForm(
+    readQueryValue(resolvedSearchParams?.form)
+  );
+  const prefilledEmail = resolvePrefilledEmail(
+    readQueryValue(resolvedSearchParams?.email)
+  );
   const isSignIn = activeForm === "signin";
   const errorCode = readQueryValue(resolvedSearchParams?.error);
   const errorMessage =
@@ -155,307 +455,135 @@ export default async function Home(
   const socialProviders = getEnabledSocialAuthProviders();
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.14),transparent_38%),radial-gradient(circle_at_78%_18%,rgba(14,165,233,0.12),transparent_26%),linear-gradient(to_bottom,hsl(var(--background)),hsl(var(--background)),hsl(var(--muted)/0.26))] text-foreground">
-      <div className="pointer-events-none absolute inset-0 opacity-40">
-        <div className="absolute left-[-20%] top-[-12rem] h-[28rem] w-[28rem] rounded-full bg-slate-500/10 blur-3xl" />
-        <div className="absolute right-[-10%] top-[8rem] h-[20rem] w-[20rem] rounded-full bg-sky-400/10 blur-3xl" />
-      </div>
+    <main className="relative isolate grid min-h-dvh overflow-hidden bg-background lg:grid-cols-[minmax(0,1fr)_minmax(520px,0.86fr)]">
+      <HomeInteractiveNodeField />
+      <ProductPanel />
 
-      <main className="container relative z-10 grid min-h-screen items-start gap-8 py-8 sm:gap-10 sm:py-10 lg:grid-cols-[1.15fr_minmax(390px,470px)] lg:items-center lg:gap-16 lg:py-16">
-        <section className="order-2 space-y-6 sm:space-y-8 lg:order-1 lg:space-y-10">
-          <div className="flex flex-wrap items-center gap-3 text-xs">
-            <Badge variant="secondary" className="rounded-full px-3 py-1">
-              NexusDash workspace
-            </Badge>
-            <Badge variant="outline" className="rounded-full px-3 py-1">
-              Secure multi-user delivery
-            </Badge>
-          </div>
-          <div className="space-y-5">
-            <h1 className="max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl lg:text-[3.4rem]">
-              Sign in fast, keep delivery context tight, and move work without losing the thread.
+      <section className="relative z-10 flex min-h-dvh items-start justify-center px-4 pb-8 pt-20 sm:items-center sm:px-8 sm:py-20 lg:px-12">
+        <div className="w-full max-w-[440px]">
+          <div className="mb-7 lg:hidden">
+            <BrandMark />
+            <h1 className="mt-6 max-w-sm text-2xl font-semibold leading-tight tracking-[-0.025em] sm:text-3xl">
+              Bring every project into focus.
             </h1>
-            <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base md:text-lg">
-              Credentials stay available, but Google and GitHub entry can sit beside them
-              cleanly once configured. The goal is one calm auth surface, not three
-              disconnected flows.
+            <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+              Plan work, keep context close, and move forward with clear next steps.
             </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {highlights.map((item, index) => (
-              <Card
-                key={item.title}
-                className="border-border/70 bg-card/70 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.7)] backdrop-blur"
+          <Card className="border-border/80 bg-card shadow-none sm:rounded-2xl sm:shadow-[0_24px_70px_-48px_rgba(15,23,42,0.55)]">
+            <CardHeader className="space-y-6 p-5 pb-4 sm:p-7 sm:pb-5">
+              <nav
+                aria-label="Choose sign in or sign up"
+                className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1"
               >
-                <CardHeader className="space-y-3">
-                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                    0{index + 1}
-                  </span>
-                  <CardTitle className="text-lg">{item.title}</CardTitle>
-                  <CardDescription>{item.description}</CardDescription>
-                </CardHeader>
-              </Card>
-            ))}
-          </div>
+                <HomeAuthModeToggleLink
+                  targetForm="signin"
+                  returnTo={returnToPath}
+                  ariaCurrent={isSignIn ? "page" : undefined}
+                  className={cn(
+                    "flex min-h-11 items-center justify-center rounded-lg px-3 text-center text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-muted motion-reduce:transition-none",
+                    isSignIn
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+                  )}
+                >
+                  Sign in
+                </HomeAuthModeToggleLink>
+                <HomeAuthModeToggleLink
+                  targetForm="signup"
+                  returnTo={returnToPath}
+                  ariaCurrent={!isSignIn ? "page" : undefined}
+                  className={cn(
+                    "flex min-h-11 items-center justify-center rounded-lg px-3 text-center text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-muted motion-reduce:transition-none",
+                    !isSignIn
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+                  )}
+                >
+                  Sign up
+                </HomeAuthModeToggleLink>
+              </nav>
 
-          <Card className="border-border/70 bg-card/60 backdrop-blur">
-            <CardContent className="grid gap-4 p-4 sm:p-5 md:grid-cols-[1fr_auto] md:items-center">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Sparkles className="h-4 w-4 text-sky-500" />
-                  Modern auth entry
-                </div>
-                <p className="text-sm leading-6 text-muted-foreground">
-                  Social sign-in is layered into the same session model as email/password,
-                  so we keep one authorization boundary, one account system, and one path
-                  into projects.
-                </p>
+              <div className="space-y-1.5">
+                <CardTitle className="text-2xl tracking-[-0.025em] sm:text-[1.75rem]">
+                  {isSignIn ? "Welcome back" : "Start your workspace"}
+                </CardTitle>
+                <CardDescription className="text-sm leading-6">
+                  {isSignIn
+                    ? "Sign in to pick up where you left off."
+                    : "Create your account and bring your next project into focus."}
+                </CardDescription>
               </div>
-              <div className="flex w-fit items-center gap-2 rounded-full border border-border/70 bg-background/60 px-4 py-2 text-sm text-muted-foreground">
-                <LockKeyhole className="h-4 w-4" />
-                Session-backed
+            </CardHeader>
+
+            <CardContent className="grid gap-4 p-5 pt-0 sm:p-7 sm:pt-0">
+              {errorMessage ? (
+                <div
+                  role="alert"
+                  className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm leading-5 text-destructive"
+                >
+                  {errorMessage}
+                </div>
+              ) : null}
+
+              {statusMessage ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="rounded-lg border border-emerald-600/35 bg-emerald-500/10 px-4 py-3 text-sm leading-5 text-emerald-700 dark:text-emerald-300"
+                >
+                  {statusMessage}
+                </div>
+              ) : null}
+
+              {socialProviders.length > 0 ? (
+                <HomeAuthMethods
+                  defaultEmailExpanded={Boolean(
+                    errorMessage || statusMessage || prefilledEmail
+                  )}
+                  providerOptions={socialProviders.map(({ provider }) => (
+                    <HomeSocialProviderButton
+                      key={provider}
+                      provider={provider}
+                      form={activeForm}
+                      returnTo={returnToPath}
+                    />
+                  ))}
+                >
+                  {isSignIn ? (
+                    renderSignInForm({ returnToPath, prefilledEmail })
+                  ) : (
+                    renderSignUpForm({ returnToPath, prefilledEmail })
+                  )}
+                </HomeAuthMethods>
+              ) : isSignIn ? (
+                renderSignInForm({ returnToPath, prefilledEmail })
+              ) : (
+                renderSignUpForm({ returnToPath, prefilledEmail })
+              )}
+
+              <div className="flex items-center justify-between gap-4 border-t border-border pt-4 text-sm text-muted-foreground">
+                <p>
+                  {isSignIn ? "New to NexusDash?" : "Already have an account?"}{" "}
+                  <HomeAuthModeToggleLink
+                    targetForm={isSignIn ? "signup" : "signin"}
+                    returnTo={returnToPath}
+                    className="rounded-sm font-semibold text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {isSignIn ? "Create an account" : "Sign in"}
+                  </HomeAuthModeToggleLink>
+                </p>
+                <ArrowRight className="hidden size-4 shrink-0 sm:block" aria-hidden="true" />
               </div>
             </CardContent>
           </Card>
-        </section>
 
-        <Card className="order-1 border-border/70 bg-card/95 shadow-2xl shadow-black/20 lg:order-2">
-          <CardHeader className="space-y-4">
-            <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted p-1">
-              <HomeAuthModeToggleLink
-                targetForm="signin"
-                returnTo={returnToPath}
-                ariaCurrent={isSignIn ? "page" : undefined}
-                className={cn(
-                  "flex min-h-10 items-center justify-center rounded-md px-3 py-2 text-center text-sm font-medium transition",
-                  isSignIn
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Sign in
-              </HomeAuthModeToggleLink>
-              <HomeAuthModeToggleLink
-                targetForm="signup"
-                returnTo={returnToPath}
-                ariaCurrent={!isSignIn ? "page" : undefined}
-                className={cn(
-                  "flex min-h-10 items-center justify-center rounded-md px-3 py-2 text-center text-sm font-medium transition",
-                  !isSignIn
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Sign up
-              </HomeAuthModeToggleLink>
-            </div>
-            <div className="space-y-1">
-              <CardTitle className="text-2xl">
-                {isSignIn ? "Welcome back" : "Create your account"}
-              </CardTitle>
-              <CardDescription>
-                {isSignIn
-                  ? "Choose the fastest way back into your workspace."
-                  : "Start with social sign-in or create an email-based account."}
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            {errorMessage ? (
-              <div
-                role="alert"
-                className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-              >
-                {errorMessage}
-              </div>
-            ) : null}
-
-            {statusMessage ? (
-              <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-200">
-                {statusMessage}
-              </div>
-            ) : null}
-
-            {socialProviders.length > 0 ? (
-              <div className="grid gap-2">
-                {socialProviders.map(({ provider }) => (
-                  <HomeSocialProviderButton
-                    key={provider}
-                    provider={provider}
-                    form={activeForm}
-                    returnTo={returnToPath}
-                  />
-                ))}
-                <div className="relative my-1">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border/70" />
-                  </div>
-                  <div className="relative flex justify-center text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                    <span className="bg-card px-3">Or continue with email</span>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {isSignIn ? (
-              <form key="signin-form" action={signInAction} className="grid gap-4">
-                <input type="hidden" name="returnTo" value={returnToPath} />
-                <div className="grid gap-2">
-                  <label htmlFor="signin-email" className="text-sm font-medium">
-                    Email
-                  </label>
-                  <input
-                    id="signin-email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="you@company.com"
-                    defaultValue={prefilledEmail}
-                    required
-                    maxLength={320}
-                    className={inputClassName}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <label htmlFor="signin-password" className="text-sm font-medium">
-                    Password
-                  </label>
-                  <input
-                    id="signin-password"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    placeholder="Enter your password"
-                    required
-                    maxLength={128}
-                    className={inputClassName}
-                  />
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">
-                      Session-backed sign-in
-                    </span>
-                    <Link
-                      href="/forgot-password"
-                      className="font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                    >
-                      Forgot password?
-                    </Link>
-                  </div>
-                </div>
-                <AuthSubmitButton
-                  className="w-full"
-                  defaultLabel="Continue to dashboard"
-                  pendingLabel="Signing you in..."
-                />
-              </form>
-            ) : (
-              <form key="signup-form" action={signUpAction} className="grid gap-4">
-                <input type="hidden" name="returnTo" value={returnToPath} />
-                <div className="grid gap-2">
-                  <label htmlFor="signup-username" className="text-sm font-medium">
-                    Username
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="signup-username"
-                      name="username"
-                      type="text"
-                      autoComplete="username"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      placeholder="your.name"
-                      required
-                      minLength={MIN_USERNAME_LENGTH}
-                      maxLength={MAX_USERNAME_LENGTH}
-                      pattern="[A-Za-z0-9._]+"
-                      className={cn(inputClassName, "w-full pr-24")}
-                    />
-                    <HomeSignupUsernameSuffix usernameInputId="signup-username" />
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <label htmlFor="signup-email" className="text-sm font-medium">
-                    Email
-                  </label>
-                  <input
-                    id="signup-email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="you@company.com"
-                    defaultValue={prefilledEmail}
-                    required
-                    maxLength={320}
-                    className={inputClassName}
-                  />
-                  <HomeSignupEmailFeedback emailInputId="signup-email" />
-                </div>
-                <div className="grid gap-2">
-                  <label htmlFor="signup-password" className="text-sm font-medium">
-                    Password
-                  </label>
-                  <input
-                    id="signup-password"
-                    name="password"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="Create a strong password"
-                    required
-                    minLength={MIN_PASSWORD_LENGTH}
-                    maxLength={128}
-                    className={inputClassName}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <label
-                    htmlFor="signup-confirm-password"
-                    className="text-sm font-medium"
-                  >
-                    Confirm password
-                  </label>
-                  <input
-                    id="signup-confirm-password"
-                    name="confirmPassword"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="Re-enter your password"
-                    required
-                    minLength={MIN_PASSWORD_LENGTH}
-                    maxLength={128}
-                    className={inputClassName}
-                  />
-                </div>
-                <HomeSignupPasswordFeedback
-                  passwordInputId="signup-password"
-                  confirmPasswordInputId="signup-confirm-password"
-                  minPasswordLength={MIN_PASSWORD_LENGTH}
-                />
-                <AuthSubmitButton
-                  className="w-full"
-                  defaultLabel="Create workspace account"
-                  pendingLabel="Creating account..."
-                />
-              </form>
-            )}
-
-            <div className="flex flex-col items-start gap-2 border-t border-border/70 pt-2 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <p>
-                {isSignIn ? "New to NexusDash?" : "Already have an account?"}{" "}
-                <HomeAuthModeToggleLink
-                  targetForm={isSignIn ? "signup" : "signin"}
-                  returnTo={returnToPath}
-                  className="font-medium text-foreground underline-offset-4 hover:underline"
-                >
-                  {isSignIn ? "Create an account" : "Sign in"}
-                </HomeAuthModeToggleLink>
-              </p>
-              <ArrowRight className="hidden h-4 w-4 shrink-0 sm:block" />
-            </div>
-          </CardContent>
-        </Card>
-      </main>
-    </div>
+          <p className="mt-6 text-center text-xs leading-5 text-muted-foreground lg:hidden">
+            Plan together. Focus on what matters. Deliver with confidence.
+          </p>
+        </div>
+      </section>
+    </main>
   );
 }

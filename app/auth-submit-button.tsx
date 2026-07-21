@@ -25,7 +25,7 @@ export function AuthSubmitButton({
       <span
         aria-hidden
         className={cn(
-          "size-3 rounded-full border-2 border-current border-r-transparent transition-opacity",
+          "size-3 rounded-full border-2 border-current border-r-transparent transition-opacity motion-reduce:animate-none",
           pending ? "animate-spin opacity-100" : "opacity-0"
         )}
       />

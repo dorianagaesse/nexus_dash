@@ -22,19 +22,14 @@ Last reviewed: 2026-07-17
   Status: Next 3 - daily task-flow clarity
   Rationale: Separate task reading from editing, remove ambiguous Save/Edit states, and fix compact scrollbar/modal regressions so the highest-frequency execution flow is visually clear and predictable after the shared overlay foundation lands.
   Dependencies: TASK-076, TASK-113, TASK-270, TASK-321
-- ID: TASK-129
-  Title: Login/home page UI polish - user-friendly, product-oriented entry experience
-  Status: Next 4 - entry and product-voice refinement
-  Rationale: Replace session/provider architecture language with user outcomes, reduce the very long mobile first-visit path, improve visual hierarchy and CTA clarity, and keep returning-user sign-in friction low. TASK-270 finding F5 is the design brief.
-  Dependencies: TASK-045, TASK-059, TASK-083, TASK-270
 - ID: TASK-108
   Title: Whole-app UI/UX refinement - global interaction, visual, and information-design polish
-  Status: Next 5 - cross-app convergence pass
+  Status: Next 4 - cross-app convergence pass
   Rationale: Use TASK-270 findings F6-F12 to normalize module hierarchy, metric semantics, read-only affordances, type/spacing tokens, empty states, toast policy, and reduced motion after the structural navigation, overlay, mobile, task, and entry work is complete.
   Dependencies: TASK-096, TASK-100, TASK-129, TASK-133, TASK-270, TASK-321, TASK-322, TASK-324
 - ID: TASK-323
   Title: Production-readiness UX verification - accessibility, navigation, responsive, role, and recovery sign-off
-  Status: Next 6 - blocked final verification gate
+  Status: Next 5 - blocked final verification gate
   Rationale: Re-audit the remediated product rather than assuming implementation tasks achieved production quality. Verify WCAG AA fundamentals, keyboard/screen-reader operation, owner/editor/viewer/invitee journeys, navigation state preservation, realistic data density, loading/error/empty recovery, responsive layouts, themes, and critical usability flows; produce a residual-risk sign-off report and focused defects for anything still below production grade.
   Dependencies: TASK-100, TASK-108, TASK-129, TASK-133, TASK-321, TASK-322, TASK-324
   Brief: `tasks/task-323-production-readiness-ux-verification.md`
@@ -113,6 +108,12 @@ Last reviewed: 2026-07-17
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-129
+  Title: Login/home page UI polish - user-friendly, product-oriented entry experience
+  Status: Done (2026-07-16)
+  Rationale: Replaced architecture-led entry copy and the 1,993 px mobile first-visit path with an outcome-led desktop product/auth split and compact auth-first mobile experience. Preserved credentials, social-provider, recovery, validation, and safe return-path behavior while adding 48 px controls, clearer feedback, reduced-motion handling, and responsive regression coverage.
+  Dependencies: TASK-045, TASK-059, TASK-083, TASK-270
+  Brief: `tasks/task-129-login-home-page-ui-polish.md`
 - ID: TASK-322
   Title: Responsive authenticated app shell - primary navigation, utility placement, and safe feedback layers
   Status: Done (2026-07-16 redesigned after closed PR #361)

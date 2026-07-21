@@ -72,7 +72,7 @@ export function HomeSocialProviderButton({
       asChild
       variant="outline"
       className={cn(
-        "h-11 w-full justify-center rounded-xl border-border/70 bg-background/80 font-medium"
+        "h-12 w-full justify-center rounded-xl border-border/70 bg-background/80 font-medium motion-reduce:transition-none"
       )}
     >
       <a href={href}>

@@ -8,6 +8,18 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.26.0 - 2026-07-16
+
+- Redesigned the unauthenticated entry page around product outcomes with a
+  focused desktop product/auth split and an auth-first mobile layout.
+- Reduced the 390 px sign-up path from 1,993 px to 1,119 px while preserving
+  credentials, social providers, recovery, validation, and safe return paths.
+- Added 48 px authentication controls, clearer status and focus treatment,
+  deterministic reduced-motion behavior, and responsive Playwright coverage.
+- Made project-scoped API agent access the lead capability, replaced generic
+  example work with the connected NexusDash context/planning/delivery/meeting
+  workflow, and unified the desktop split with motion-safe ambient gradients.
+
 ## v0.25.0 - 2026-07-06
 
 - Added a responsive authenticated app shell with Projects and Inbox as visible
