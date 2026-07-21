@@ -179,6 +179,8 @@ test.describe("responsive authenticated app shell", () => {
       "/account/notifications"
     );
 
+    await page.getByRole("button", { name: "Close task" }).click();
+    await expect(page.getByRole("button", { name: "Close task" })).toHaveCount(0);
     await page.getByRole("link", { name: "Return to notifications" }).click();
     await expect(page).toHaveURL(/\/account\/notifications/);
     await expect(

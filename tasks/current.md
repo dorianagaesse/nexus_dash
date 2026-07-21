@@ -101,3 +101,6 @@ rather than a second navigation system.
 - GitHub Quality Core, E2E Smoke, Tenant Isolation, Container Image, and branch
   checks passed. Copilot's one actionable icon-sizing comment was applied and
   resolved.
+- Stabilized the notification round-trip Playwright journey by closing the
+  intentionally open task dialog before using the shell return link; the
+  focused test passed three consecutive runs.

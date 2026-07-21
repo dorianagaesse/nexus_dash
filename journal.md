@@ -32,6 +32,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
   raised one actionable concern about a non-guaranteed `4.5` Tailwind size;
   replaced it with an explicit 18 px icon size, revalidated, and resolved the
   thread.
+- The first post-review E2E rerun exposed a test-order race in notification
+  continuity coverage: the task detail dialog correctly remained open and its
+  overlay blocked the shell return link. Updated the journey to close task
+  details before returning to notifications; the focused flow passed three
+  consecutive local runs.
 
 # 2026-07-16 - TASK-129 login/home page UI polish started
 
