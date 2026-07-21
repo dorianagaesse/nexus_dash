@@ -40,6 +40,7 @@ import {
 } from "./home-signup-live-feedback";
 import { HomeAuthModeToggleLink } from "./home-auth-mode-toggle-link";
 import { HomeAuthMethods } from "./home-auth-methods";
+import { HomeInteractiveNodeField } from "./home-interactive-node-field";
 
 const outcomes = [
   "Bring teammates into the same live project workspace",
@@ -455,10 +456,7 @@ export default async function Home({
 
   return (
     <main className="relative isolate grid min-h-dvh overflow-hidden bg-background lg:grid-cols-[minmax(0,1fr)_minmax(520px,0.86fr)]">
-      <div
-        className="home-entry-color-field pointer-events-none absolute hidden lg:block"
-        aria-hidden="true"
-      />
+      <HomeInteractiveNodeField />
       <ProductPanel />
 
       <section className="relative z-10 flex min-h-dvh items-start justify-center px-4 pb-8 pt-20 sm:items-center sm:px-8 sm:py-20 lg:px-12">

@@ -98,4 +98,52 @@ test.describe("unauthenticated home entry", () => {
       page.getByRole("button", { name: "Switch to light mode" })
     ).toBeVisible();
   });
+
+  test("highlights and attracts the connected node field around a precise pointer", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto("/");
+
+    const nodeField = page.locator(".home-interactive-node-field");
+    await expect(nodeField).toBeVisible();
+    await expect(nodeField).toHaveAttribute("data-active", "false");
+    await expect(nodeField).toHaveAttribute("data-constellation-seed", /\d+/);
+    await expect(nodeField).toHaveAttribute("data-node-count", "260");
+    await expect(nodeField).toHaveAttribute("data-ambient-nodes", "148");
+    await expect(nodeField).toHaveAttribute("data-viewport-tissue-nodes", "104");
+    await expect(nodeField).toHaveAttribute("data-layout", "neural-volume");
+    await expect(nodeField).toHaveAttribute("data-depth-model", "perspective");
+    await expect(nodeField).toHaveAttribute("data-depth-anchors", "5");
+    await expect(nodeField).toHaveAttribute(
+      "data-strength-model",
+      "continuous"
+    );
+    const linkCount = Number(await nodeField.getAttribute("data-link-count"));
+    expect(linkCount).toBeGreaterThan(780);
+    const firstSeed = await nodeField.getAttribute("data-constellation-seed");
+    const strongLinkCount = Number(
+      await nodeField.getAttribute("data-strong-links")
+    );
+    expect(strongLinkCount).toBeGreaterThan(0);
+    const offscreenNodeCount = Number(
+      await nodeField.getAttribute("data-offscreen-nodes")
+    );
+    expect(offscreenNodeCount).toBeGreaterThan(0);
+
+    await page.reload();
+    await expect
+      .poll(() => nodeField.getAttribute("data-constellation-seed"))
+      .not.toBe(firstSeed);
+
+    await page.mouse.move(180, 180);
+    await page.mouse.move(720, 500, { steps: 8 });
+    await expect(nodeField).toHaveAttribute("data-active", "true");
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.reload();
+    await expect(nodeField).toHaveAttribute("data-interactive", "false");
+    await page.mouse.move(240, 240);
+    await expect(nodeField).toHaveAttribute("data-active", "false");
+  });
 });
