@@ -2,7 +2,7 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-07-21
+Last reviewed: 2026-07-23
 
 ## Pending
 ### Execution Queue (Now / Next)
@@ -21,25 +21,31 @@ Last reviewed: 2026-07-21
   Status: Next 3 - cross-app convergence pass
   Rationale: Use TASK-270 findings F6-F12 to normalize module hierarchy, metric semantics, read-only affordances, type/spacing tokens, empty states, toast policy, and reduced motion after the structural navigation, overlay, mobile, task, and entry work is complete.
   Dependencies: TASK-096, TASK-100, TASK-129, TASK-133, TASK-270, TASK-321, TASK-322, TASK-324
+- ID: TASK-328
+  Title: Human-readable account Settings refinement
+  Status: Next 4 - plain-language settings information architecture
+  Rationale: Rework the structurally sound but implementation-oriented account Settings content into a task-oriented, plain-language experience with clearer grouping, progressive disclosure, prerequisites, feedback, and recovery paths for casual users.
+  Dependencies: TASK-270, TASK-108, TASK-324
+  Brief: `tasks/task-328-settings-page-readability-refinement.md`
 - ID: TASK-323
   Title: Production-readiness UX verification - accessibility, navigation, responsive, role, and recovery sign-off
-  Status: Next 4 - blocked final verification gate
+  Status: Next 5 - blocked final verification gate
   Rationale: Re-audit the remediated product rather than assuming implementation tasks achieved production quality. Verify WCAG AA fundamentals, keyboard/screen-reader operation, owner/editor/viewer/invitee journeys, navigation state preservation, realistic data density, loading/error/empty recovery, responsive layouts, themes, and critical usability flows; produce a residual-risk sign-off report and focused defects for anything still below production grade.
-  Dependencies: TASK-100, TASK-108, TASK-129, TASK-133, TASK-321, TASK-322, TASK-324
+  Dependencies: TASK-100, TASK-108, TASK-129, TASK-133, TASK-321, TASK-322, TASK-324, TASK-328
   Brief: `tasks/task-323-production-readiness-ux-verification.md`
 - ID: TASK-325
   Title: Google Calendar integration audit - current-state architecture, behavior, and risk assessment
-  Status: Next 5 - calendar integration discovery
+  Status: Next 6 - calendar integration discovery
   Rationale: Audit the current Google Calendar implementation across authentication, credential storage, account settings, project surfaces, event operations, tests, and deployment configuration; document the effective ownership model, known gaps, security risks, and a prioritized remediation path before extending the integration.
   Dependencies: TASK-005, TASK-032, TASK-076, TASK-083
 - ID: TASK-326
   Title: Google Calendar connection ownership - enforce user-scoped rather than project-scoped integration
-  Status: Next 6 - calendar ownership verification and remediation
+  Status: Next 7 - calendar ownership verification and remediation
   Rationale: Verify and enforce that each Google Calendar authorization, credential, target-calendar preference, refresh lifecycle, and disconnect action belongs to the authenticated user rather than an individual project, while ensuring project calendar views use only the current user's connection and cannot expose another member's credentials or settings.
   Dependencies: TASK-076, TASK-083, TASK-325
 - ID: TASK-327
   Title: Additional calendar connections - provider and multi-calendar expansion
-  Status: Next 7 - calendar connection expansion
+  Status: Next 8 - calendar connection expansion
   Rationale: Define and implement a scalable connection model beyond the current Google Calendar path, including additional Google accounts, selectable calendars, and future calendar providers, with clear per-user ownership, connection management, synchronization behavior, and consistent project-calendar UX.
   Dependencies: TASK-325, TASK-326
 ### Deferred (Intentional)
@@ -104,8 +110,8 @@ Last reviewed: 2026-07-21
 ## Completed
 - ID: TASK-324
   Title: Unified user hub and avatar-menu navigation rework
-  Status: Done (2026-07-21, PR #380)
-  Rationale: Unified Account, Settings, and Notifications behind one shared responsive, route-backed hub that preserves safe project return context and live unread state. Reduced the avatar menu to identity, one user-hub launcher, subordinate appearance/diagnostics, and separated logout, with keyboard, loading/error, 44 px target, and responsive light/dark coverage.
+  Status: Done (2026-07-23, PR #380)
+  Rationale: Unified Account, Settings, and Notifications behind one shared responsive, route-backed hub that preserves safe project return context and live unread state. Kept three explicit casual-user destinations in the aligned avatar menu, moved one-click appearance control into persistent shell chrome, placed version/repository metadata in Settings, and retained separated logout plus keyboard, loading/error, 44 px target, and responsive light/dark coverage.
   Dependencies: TASK-270, TASK-321, TASK-322
   Brief: `tasks/task-324-unified-user-hub-navigation.md`
 - ID: TASK-129

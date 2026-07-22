@@ -17,13 +17,11 @@ function applyTheme(theme: Theme) {
 interface ThemeToggleProps {
   className?: string;
   compact?: boolean;
-  role?: "menuitem";
 }
 
 export function ThemeToggle({
   className,
   compact = false,
-  role,
 }: ThemeToggleProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [theme, setTheme] = useState<Theme>("light");
@@ -56,7 +54,6 @@ export function ThemeToggle({
       size={compact ? "icon" : "sm"}
       className={cn("min-h-11 min-w-11", className)}
       onClick={handleToggle}
-      role={role}
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
     >
       {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}

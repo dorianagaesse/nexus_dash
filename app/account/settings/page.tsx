@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AccountSettingsShell } from "@/components/account/account-settings-shell";
+import { AppAboutCard } from "@/components/account/app-about-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
@@ -143,6 +144,7 @@ export default async function AccountSettingsPage({
           </form>
         </CardContent>
       </Card>
+      <AppAboutCard />
     </AccountSettingsShell>
   );
 }

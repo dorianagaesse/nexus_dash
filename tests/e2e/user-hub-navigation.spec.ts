@@ -116,8 +116,26 @@ test.describe("unified user hub navigation", () => {
       );
 
       if (walkthrough.width === 1440) {
-        await page.getByRole("button", { name: /Account menu/ }).click();
-        await expect(page.getByRole("menu", { name: "Account actions" })).toBeVisible();
+        const accountTrigger = page.getByRole("button", { name: /Account menu/ });
+        await accountTrigger.click();
+        const accountMenu = page.getByRole("menu", { name: "Account actions" });
+        await expect(accountMenu).toBeVisible();
+        const [triggerBox, menuBox] = await Promise.all([
+          accountTrigger.boundingBox(),
+          accountMenu.boundingBox(),
+        ]);
+        expect(triggerBox).not.toBeNull();
+        expect(menuBox).not.toBeNull();
+        expect(Math.abs(triggerBox!.x - menuBox!.x)).toBeLessThanOrEqual(1);
+        expect(Math.abs(triggerBox!.width - menuBox!.width)).toBeLessThanOrEqual(1);
+        await expect(accountMenu.getByRole("menuitem")).toHaveCount(4);
+      }
+
+      if (walkthrough.current === "Settings") {
+        await expect(page.getByText("App version", { exact: true })).toBeVisible();
+        await expect(
+          page.getByRole("link", { name: "Open NexusDash repository on GitHub" })
+        ).toBeVisible();
       }
 
       if (screenshotDirectory) {

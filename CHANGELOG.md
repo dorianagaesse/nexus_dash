@@ -8,13 +8,15 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.27.0 - 2026-07-21
+## v0.27.0 - 2026-07-23
 
 - Unified Account, Settings, and Notifications behind one shared responsive
   user hub with route-backed navigation, semantic current state, live unread
   badges, and preserved project return context.
-- Simplified the avatar menu to identity, one user-hub launcher, subordinate
-  appearance and repository/version utilities, and a separated logout action.
+- Kept explicit Account, Settings, and Notifications actions in an avatar menu
+  aligned to the desktop identity card, with a separated logout action.
+- Restored one-click theme controls to persistent shell chrome and moved app
+  version plus the GitHub repository link into an About section in Settings.
 - Added accessible loading/error states, 44 px account-surface controls,
   keyboard menu and hub navigation coverage, and light/dark responsive
   Playwright walkthroughs at 375, 768, 1024, and 1440 px.

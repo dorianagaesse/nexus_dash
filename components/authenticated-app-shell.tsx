@@ -3,7 +3,6 @@ import { unstable_noStore as noStore } from "next/cache";
 import { AuthenticatedAppShellClient } from "@/components/authenticated-app-shell-client";
 import { NotificationAwarenessBanner } from "@/components/notification-awareness-banner";
 import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
-import { getAppMetadataSummary } from "@/lib/app-metadata";
 import { getInitialNotificationRealtimeSnapshotForUser } from "@/lib/notification-realtime-server";
 import { getAccountIdentitySummary } from "@/lib/services/account-identity-service";
 import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
@@ -41,7 +40,6 @@ export async function AuthenticatedAppShell({
       usernameTag={identity?.usernameTag ?? null}
       avatarSeed={identity?.avatarSeed ?? null}
       initialNotificationSnapshot={notificationSnapshot}
-      appMetadata={getAppMetadataSummary()}
       notificationBanner={
         <NotificationAwarenessBanner initialSnapshot={notificationSnapshot} />
       }

@@ -3,6 +3,30 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-23 - TASK-324 avatar-menu refinement
+
+- Applied follow-up product feedback without changing the validated shared
+  Account, Settings, and Notifications hub pages or their route contract.
+- Reframed the desktop user identity card as the full account-menu trigger so
+  the menu inherits its exact width and left edge; mobile keeps a compact,
+  viewport-safe avatar trigger.
+- Restored explicit Account, Settings, and Notifications menu actions for
+  casual-user discoverability while retaining keyboard traversal, live unread
+  state, safe return context, and separated destructive logout.
+- Returned theme switching to one-click persistent shell controls in the
+  desktop sidebar and mobile header. Moved app version and the GitHub repository
+  link into a compact About NexusDash section in Settings.
+- Queued TASK-328 for a separate human-readable Settings information-
+  architecture and copy refinement after TASK-108 and before TASK-323.
+- Validation passed with lint, RLS inventory, 948 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, a local-safe production build, and all 23 Playwright scenarios.
+- Captured and visually inspected the refined account hub at 375, 768, 1024,
+  and 1440 px in light/dark themes under
+  `.tmp/task324-user-hub-refinement/`. Playwright also confirmed the 1440 px
+  menu and identity trigger share the same width and left edge within one
+  pixel.
+
 # 2026-07-21 - TASK-324 unified user hub navigation
 
 - Applied UI/UX Pro Max guidance for accessible route-backed navigation,

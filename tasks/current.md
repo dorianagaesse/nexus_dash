@@ -4,7 +4,7 @@
 
 - ID: TASK-324
 - Title: Unified user hub and avatar-menu navigation rework
-- Status: Complete (2026-07-21)
+- Status: Complete (2026-07-23)
 - Branch: `feature/task-324-unified-user-hub-navigation`
 - Pull request: [#380](https://github.com/dorianagaesse/nexus_dash/pull/380)
 - Brief: [`task-324-unified-user-hub-navigation.md`](./task-324-unified-user-hub-navigation.md)
@@ -21,8 +21,11 @@ rather than a second navigation system.
   across Account, Settings, and Notifications.
 - Preserve the existing account URLs, deep links, browser history, unread
   state, safe contextual `returnTo` values, and authenticated shell.
-- Reduce the avatar menu to identity, one clear user-hub entry, secondary
-  appearance/diagnostic utilities, and a spatially separated logout action.
+- Keep the avatar menu aligned to its desktop identity trigger with explicit
+  Account, Settings, and Notifications destinations plus a spatially separated
+  logout action.
+- Keep appearance as a one-click shell control and place app version/repository
+  metadata in Settings rather than inside the avatar menu.
 - Cover active state, accessible naming, keyboard and focus behavior, light and
   dark themes, loading/empty/error states, and 375 px containment.
 - Add focused component and Playwright coverage for hub and menu behavior.
@@ -46,10 +49,11 @@ rather than a second navigation system.
    browser Back/Forward, and contextual `returnTo` behavior.
 3. The active hub view is visually distinct and announced semantically without
    relying on color alone.
-4. The avatar menu retains the user identity and provides one clear route into
-   the user hub without duplicating all three hub destinations.
-5. Appearance/diagnostic utilities remain available but visually subordinate;
-   logout is separated from navigation and cannot be mistaken for a tab.
+4. The avatar menu retains the user identity and provides explicit Account,
+   Settings, and Notifications destinations for casual-user discoverability.
+5. The desktop menu matches and aligns with its identity trigger; appearance
+   remains a one-click shell control, version/repository metadata is available
+   from Settings, and logout is separated from navigation.
 6. Notification unread state remains discoverable from the avatar entry point
    and the Notifications tab without creating competing primary actions.
 7. All interactive targets are at least 44 px, keyboard reachable, visibly
@@ -80,9 +84,11 @@ rather than a second navigation system.
   Notifications while retaining each stable route and the authenticated shell.
 - Preserved safe project/task return context, notification deep links, browser
   history, live unread state, and nested Settings routes.
-- Simplified the avatar menu to identity, one user-hub launcher, appearance,
-  diagnostics, and a separated logout action with Arrow/Home/End/Escape
-  keyboard behavior.
+- Matched the desktop avatar menu to the full identity trigger and restored
+  explicit Account, Settings, and Notifications actions with
+  Arrow/Home/End/Escape keyboard behavior and separated logout.
+- Restored one-click theme controls to the desktop sidebar and mobile header,
+  and moved version plus the GitHub repository link into Settings.
 - Added account-route loading/error recovery, 44 px controls on touched
   surfaces, and reusable component/Playwright coverage.
 - Prepared product release `v0.27.0` with matching package and changelog data.
@@ -92,12 +98,15 @@ rather than a second navigation system.
 - `npm run lint` passed.
 - `npm run rls:check` passed.
 - Release policy and `git diff --check` passed.
-- `npm test`: 947 passed, 2 skipped.
+- `npm test`: 948 passed, 2 skipped.
 - `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
   functions, 91.88% lines.
 - `npm run test:e2e`: production build and all 23 Playwright tests passed.
 - Light/dark Playwright walkthroughs at 375, 768, 1024, and 1440 px passed;
-  screenshots are in `.tmp/task324-user-hub/`.
+  refined menu/Settings screenshots are in
+  `.tmp/task324-user-hub-refinement/`.
+- Playwright verified the open desktop menu matches the identity trigger's
+  width and left edge within one pixel, and all 23 E2E scenarios passed.
 - GitHub Quality Core, E2E Smoke, Tenant Isolation, Container Image, and branch
   checks passed. Copilot's one actionable icon-sizing comment was applied and
   resolved.

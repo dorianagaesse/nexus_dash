@@ -103,7 +103,7 @@ describe("account-menu", () => {
     });
   });
 
-  test("keeps version and repository diagnostics inside the account utility", async () => {
+  test("keeps theme and product metadata outside the account menu", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -116,15 +116,6 @@ describe("account-menu", () => {
           usernameTag: "test.user#1234",
           avatarSeed: "seed-123",
           initialUnreadNotificationCount: 0,
-          appMetadata: {
-            repositoryUrl: "https://github.com/example/nexusdash",
-            versionTag: "v0.25.0",
-            versionLabel: "v0.25.0",
-            revision: "abc1234",
-            revisionLabel: "build abc1234",
-            environment: "test",
-            diagnosticLabel: "v0.25.0 | test | build abc1234",
-          },
         })
       );
     });
@@ -135,8 +126,9 @@ describe("account-menu", () => {
         ?.click();
     });
 
-    expect(container.textContent).toContain("v0.25.0");
-    expect(container.textContent).toContain("Repository");
+    expect(container.textContent).not.toContain("App version");
+    expect(container.textContent).not.toContain("Repository");
+    expect(container.querySelector('[aria-label^="Switch to"]')).toBeNull();
     expect(container.querySelector("[aria-expanded='true']")).not.toBeNull();
 
     await act(async () => {
@@ -144,7 +136,7 @@ describe("account-menu", () => {
     });
   });
 
-  test("uses one user-hub launcher and separates secondary utilities from logout", async () => {
+  test("offers three explicit destinations and separates logout", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -158,15 +150,6 @@ describe("account-menu", () => {
           avatarSeed: "seed-123",
           initialUnreadNotificationCount: 4,
           currentPath: "/projects/project-1?taskId=task-7#kanban",
-          appMetadata: {
-            repositoryUrl: "https://github.com/example/nexusdash",
-            versionTag: "v0.27.0",
-            versionLabel: "v0.27.0",
-            revision: "abc1234",
-            revisionLabel: "build abc1234",
-            environment: "test",
-            diagnosticLabel: "v0.27.0 | test | build abc1234",
-          },
         })
       );
     });
@@ -180,12 +163,20 @@ describe("account-menu", () => {
     const menuLinks = Array.from(
       container.querySelectorAll<HTMLAnchorElement>('a[role="menuitem"]')
     );
-    expect(menuLinks).toHaveLength(2);
-    expect(menuLinks[0]?.textContent).toContain("Your account");
+    expect(menuLinks).toHaveLength(3);
+    expect(menuLinks[0]?.textContent).toContain("Account");
     expect(menuLinks[0]?.getAttribute("href")).toBe(
       "/account?returnTo=%2Fprojects%2Fproject-1%3FtaskId%3Dtask-7%23kanban"
     );
-    expect(container.querySelector('[role="menuitem"][aria-label^="Switch to"]')).not.toBeNull();
+    expect(menuLinks[1]?.textContent).toContain("Settings");
+    expect(menuLinks[1]?.getAttribute("href")).toBe(
+      "/account/settings?returnTo=%2Fprojects%2Fproject-1%3FtaskId%3Dtask-7%23kanban"
+    );
+    expect(menuLinks[2]?.textContent).toContain("Notifications");
+    expect(menuLinks[2]?.getAttribute("href")).toBe(
+      "/account/notifications?returnTo=%2Fprojects%2Fproject-1%3FtaskId%3Dtask-7%23kanban"
+    );
+    expect(menuLinks[2]?.textContent).toContain("Unread notifications:");
     const logout = Array.from(
       container.querySelectorAll<HTMLElement>('[role="menuitem"]')
     ).find((item) => item.textContent?.includes("Log out"));
@@ -212,6 +203,7 @@ describe("account-menu", () => {
           initialUnreadNotificationCount: 0,
           menuPlacement: "top",
           menuAlign: "start",
+          triggerVariant: "identity",
         })
       );
     });
@@ -226,6 +218,10 @@ describe("account-menu", () => {
     expect(menu?.classList.contains("bottom-full")).toBe(true);
     expect(menu?.classList.contains("left-0")).toBe(true);
     expect(menu?.classList.contains("right-0")).toBe(false);
+    expect(menu?.classList.contains("w-full")).toBe(true);
+    expect(
+      container.querySelector<HTMLDivElement>("div.relative")?.classList.contains("w-full")
+    ).toBe(true);
 
     await act(async () => {
       root.unmount();

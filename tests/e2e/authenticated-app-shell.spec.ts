@@ -214,19 +214,20 @@ test.describe("responsive authenticated app shell", () => {
     );
     await expect(mobileNavigation).toBeVisible();
     await expect(mobileNavigation.getByRole("link")).toHaveCount(2);
+    await expect(page.getByRole("button", { name: /Switch to .* mode/ })).toBeVisible();
     await page.getByRole("button", { name: "Account menu" }).click();
     await expect(
-      page.getByRole("menuitem", { name: /Your account/ })
+      page.getByRole("menuitem", { name: "Account", exact: true })
     ).toBeVisible();
     await expect(
       page.getByRole("menuitem", { name: "Settings", exact: true })
-    ).toHaveCount(0);
+    ).toBeVisible();
     await expect(
       page.getByRole("menuitem", { name: "Notifications", exact: true })
-    ).toHaveCount(0);
-    await expect(page.getByRole("menuitem", { name: /Switch to/ })).toBeVisible();
+    ).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /Switch to/ })).toHaveCount(0);
     await expect(page.getByRole("menuitem", { name: "Log out" })).toBeVisible();
-    await page.getByRole("menuitem", { name: /Your account/ }).click();
+    await page.getByRole("menuitem", { name: "Account", exact: true }).click();
 
     const userHubNavigation = page.getByRole("navigation", {
       name: "User hub navigation",

@@ -7,7 +7,7 @@ import { Bell, FolderKanban, LayoutDashboard } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
 import { NotificationLiveUpdates } from "@/components/notification-live-updates";
-import type { AppMetadataSummary } from "@/lib/app-metadata";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { useCurrentAppPath } from "@/lib/hooks/use-current-app-path";
 import {
   AUTHENTICATED_DESTINATIONS,
@@ -45,7 +45,6 @@ interface AuthenticatedAppShellClientProps {
   usernameTag: string | null;
   avatarSeed: string | null;
   initialNotificationSnapshot: NotificationRealtimeSnapshot;
-  appMetadata: AppMetadataSummary;
   notificationBanner: ReactNode;
   children: ReactNode;
 }
@@ -55,7 +54,6 @@ export function AuthenticatedAppShellClient({
   usernameTag,
   avatarSeed,
   initialNotificationSnapshot,
-  appMetadata,
   notificationBanner,
   children,
 }: AuthenticatedAppShellClientProps) {
@@ -193,23 +191,21 @@ export function AuthenticatedAppShellClient({
         ) : null}
 
         <div className="mt-auto border-t border-border/70 p-3">
-          <div className="flex items-center gap-2 rounded-xl bg-muted/45 p-2">
-            <AccountMenu
-              isAuthenticated
-              displayName={displayName}
-              usernameTag={usernameTag}
-              avatarSeed={avatarSeed}
-              initialUnreadNotificationCount={initialNotificationSnapshot.unreadCount}
-              currentPath={currentPath}
-              appMetadata={appMetadata}
-              menuPlacement="top"
-              menuAlign="start"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{displayName ?? "Your account"}</p>
-              {usernameTag ? <p className="truncate text-xs text-muted-foreground">{usernameTag}</p> : null}
-            </div>
+          <div className="mb-2 flex min-h-11 items-center justify-between gap-3 px-2">
+            <span className="text-xs font-medium text-muted-foreground">Appearance</span>
+            <ThemeToggle compact />
           </div>
+          <AccountMenu
+            isAuthenticated
+            displayName={displayName}
+            usernameTag={usernameTag}
+            avatarSeed={avatarSeed}
+            initialUnreadNotificationCount={initialNotificationSnapshot.unreadCount}
+            currentPath={currentPath}
+            menuPlacement="top"
+            menuAlign="start"
+            triggerVariant="identity"
+          />
         </div>
       </aside>
 
@@ -224,6 +220,7 @@ export function AuthenticatedAppShellClient({
             <span className="truncate text-base font-semibold tracking-tight">NexusDash</span>
           </Link>
           <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle compact />
             <AccountMenu
               isAuthenticated
               displayName={displayName}
@@ -231,7 +228,6 @@ export function AuthenticatedAppShellClient({
               avatarSeed={avatarSeed}
               initialUnreadNotificationCount={initialNotificationSnapshot.unreadCount}
               currentPath={currentPath}
-              appMetadata={appMetadata}
             />
           </div>
         </div>

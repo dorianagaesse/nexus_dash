@@ -41,15 +41,6 @@ describe("authenticated app shell", () => {
         usernameTag="dorian#1234"
         avatarSeed="seed"
         initialNotificationSnapshot={notificationSnapshot}
-        appMetadata={{
-          repositoryUrl: "https://github.com/example/nexusdash",
-          versionTag: "v0.25.0",
-          versionLabel: "v0.25.0",
-          revision: "abc1234",
-          revisionLabel: "build abc1234",
-          environment: "test",
-          diagnosticLabel: "v0.25.0 | test | build abc1234",
-        }}
         notificationBanner={<div>Notification banner</div>}
       >
         <main>Settings content</main>
@@ -60,8 +51,7 @@ describe("authenticated app shell", () => {
     expect(result).toContain("Projects");
     expect(result).toContain("Inbox");
     expect(result).toContain("Account menu");
-    expect(result).not.toContain(">Account</a>");
-    expect(result).not.toContain(">Settings</a>");
+    expect(result).toContain("Appearance");
     expect(result).toContain('aria-current="page"');
     expect(result).toContain("lg:pl-64");
     expect(result).toContain("z-[var(--layer-shell)]");
@@ -81,15 +71,6 @@ describe("authenticated app shell", () => {
         usernameTag="dorian#1234"
         avatarSeed="seed"
         initialNotificationSnapshot={notificationSnapshot}
-        appMetadata={{
-          repositoryUrl: "https://github.com/example/nexusdash",
-          versionTag: "v0.25.0",
-          versionLabel: "v0.25.0",
-          revision: "abc1234",
-          revisionLabel: "build abc1234",
-          environment: "test",
-          diagnosticLabel: "v0.25.0 | test | build abc1234",
-        }}
         notificationBanner={<div>Notification banner</div>}
       >
         <main>Project content</main>
