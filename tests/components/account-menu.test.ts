@@ -204,6 +204,11 @@ describe("account-menu", () => {
           menuPlacement: "top",
           menuAlign: "start",
           triggerVariant: "identity",
+          identityAccessory: React.createElement(
+            "button",
+            { type: "button", "aria-label": "Appearance control" },
+            "Theme"
+          ),
         })
       );
     });
@@ -222,6 +227,17 @@ describe("account-menu", () => {
     expect(
       container.querySelector<HTMLDivElement>("div.relative")?.classList.contains("w-full")
     ).toBe(true);
+    const identityArea = container.querySelector<HTMLElement>(
+      "[data-account-identity-area]"
+    );
+    const accountTrigger = container.querySelector<HTMLButtonElement>(
+      'button[aria-haspopup="menu"]'
+    );
+    const appearanceControl = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Appearance control"]'
+    );
+    expect(identityArea?.contains(appearanceControl)).toBe(true);
+    expect(accountTrigger?.contains(appearanceControl)).toBe(false);
 
     await act(async () => {
       root.unmount();

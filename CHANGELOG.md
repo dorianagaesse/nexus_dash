@@ -15,8 +15,9 @@ SHA, deployment URL, and workflow run belong in release evidence.
   badges, and preserved project return context.
 - Kept explicit Account, Settings, and Notifications actions in an avatar menu
   aligned to the desktop identity card, with a separated logout action.
-- Restored one-click theme controls to persistent shell chrome and moved app
-  version plus the GitHub repository link into an About section in Settings.
+- Restored the compact one-click theme control to the desktop user-info card,
+  retained it in the mobile header, and moved app version plus the GitHub
+  repository link into an About section in Settings.
 - Added accessible loading/error states, 44 px account-surface controls,
   keyboard menu and hub navigation coverage, and light/dark responsive
   Playwright walkthroughs at 375, 768, 1024, and 1440 px.

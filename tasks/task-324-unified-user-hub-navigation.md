@@ -22,7 +22,7 @@ rather than a second navigation system.
 - Keep explicit Account, Settings, and Notifications rows in the avatar menu
   so casual users can recognize each destination without first understanding
   the shared hub model.
-- Match and align the desktop menu with the full user identity trigger.
+- Match and align the desktop menu with the complete user-info card.
 - Keep appearance as a one-click control in persistent shell chrome, move
   repository/version metadata to Settings, and separate logout visually and
   semantically from ordinary navigation.
@@ -62,9 +62,10 @@ rather than a second navigation system.
    relying on color alone.
 4. The avatar menu retains the user identity and provides explicit Account,
    Settings, and Notifications destinations for casual-user discoverability.
-5. The desktop menu matches and aligns with its identity trigger; appearance
-   remains a one-click shell control, version/repository metadata is available
-   from Settings, and logout is separated from navigation.
+5. The desktop menu matches and aligns with the complete user-info card;
+   appearance remains a separate one-click control within that card,
+   version/repository metadata is available from Settings, and logout is
+   separated from navigation.
 6. Notification unread state remains discoverable from the avatar entry point
    and the Notifications tab without creating competing primary actions.
 7. All interactive targets are at least 44 px, keyboard reachable, visibly
@@ -92,11 +93,12 @@ rather than a second navigation system.
   and mobile.
 - Preserved existing URLs, deep links, browser history, notification targets,
   live unread badges, and normalized project/task `returnTo` context.
-- Matched the desktop avatar menu to its full identity trigger and retained
+- Matched the desktop avatar menu to the complete user-info card and retained
   explicit Account, Settings, and Notifications actions for casual-user
   discoverability, with separated destructive logout styling.
-- Restored one-click theme controls to persistent desktop/mobile shell chrome
-  and moved app version plus the GitHub repository link into Settings.
+- Restored the compact theme control to the desktop user-info card, retained
+  the mobile header control, and moved app version plus the GitHub repository
+  link into Settings.
 - Added keyboard traversal and focus restoration to the avatar menu, 44 px
   controls across touched account views, and shared loading/error recovery
   states without changing account or notification data behavior.
@@ -114,10 +116,10 @@ rather than a second navigation system.
   functions, 91.88% lines
 - `npm run test:e2e` - production build and all 23 Playwright tests passed
 - Playwright visual walkthroughs passed at 375, 768, 1024, and 1440 px in
-  light/dark themes; refined menu/Settings screenshots are stored under
-  `.tmp/task324-user-hub-refinement/`.
-- The desktop open-menu geometry matches its identity trigger's width and left
-  edge within one pixel; all 23 E2E scenarios passed.
+  light/dark themes; latest theme-control screenshots are stored under
+  `.tmp/task324-theme-button-refinement/`.
+- The desktop open-menu geometry matches the complete user-info card's width
+  and left edge within one pixel; all 23 E2E scenarios passed.
 - GitHub Quality Core, E2E Smoke, Tenant Isolation, Container Image, and branch
   checks passed; the initial Copilot review's single icon-size comment was
   applied and resolved.

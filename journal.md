@@ -3,6 +3,24 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-25 - TASK-324 compact sidebar theme control restored
+
+- Restored the desktop theme toggle to the right edge of the bottom user-info
+  card, matching the earlier production appearance while keeping it outside
+  the account menu and available in one click.
+- Kept the identity portion as the account-menu trigger and anchored the open
+  menu to the full combined user-info card so its width and left edge remain
+  aligned after the theme-control move.
+- Left the validated user hub, three explicit menu destinations, Settings
+  metadata, mobile header controls, and TASK-328 follow-up unchanged.
+- Focused component tests (10/10), lint, and the local-safe production build
+  passed. The local Docker engine was unavailable, so the first Playwright
+  attempt could not reach PostgreSQL; rerunning against the configured
+  development database passed both user-hub scenarios.
+- Captured and visually inspected light/dark responsive screenshots under
+  `.tmp/task324-theme-button-refinement/`; the desktop menu remains aligned to
+  the full combined user-info card within one pixel.
+
 # 2026-07-23 - TASK-324 avatar-menu refinement
 
 - Applied follow-up product feedback without changing the validated shared

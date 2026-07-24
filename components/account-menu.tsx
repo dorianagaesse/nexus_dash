@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import {
   Bell,
   ChevronUp,
@@ -27,6 +28,7 @@ interface AccountMenuProps {
   menuPlacement?: "top" | "bottom";
   menuAlign?: "start" | "end";
   triggerVariant?: "avatar" | "identity";
+  identityAccessory?: ReactNode;
 }
 
 export function AccountMenu({
@@ -39,6 +41,7 @@ export function AccountMenu({
   menuPlacement = "bottom",
   menuAlign = "end",
   triggerVariant = "avatar",
+  identityAccessory,
 }: AccountMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -145,46 +148,42 @@ export function AccountMenu({
       ) : null}
     </span>
   );
-
-  return (
-    <div
-      ref={menuRef}
-      className={cn("relative", triggerVariant === "identity" && "w-full")}
+  const trigger = (
+    <Button
+      ref={triggerRef}
+      type="button"
+      variant={triggerVariant === "identity" ? "ghost" : "outline"}
+      size={triggerVariant === "identity" ? "default" : "icon"}
+      aria-label={`Account menu${unreadLabel}`}
+      aria-haspopup="menu"
+      aria-expanded={isOpen}
+      onClick={() => setIsOpen((previous) => !previous)}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          setIsOpen(true);
+        }
+      }}
+      className={cn(
+        triggerVariant === "identity"
+          ? "min-h-11 min-w-0 flex-1 justify-start gap-2 rounded-lg px-1 text-left hover:bg-muted/70"
+          : "relative min-h-11 min-w-11 overflow-hidden rounded-full p-0"
+      )}
     >
-      <Button
-        ref={triggerRef}
-        type="button"
-        variant={triggerVariant === "identity" ? "ghost" : "outline"}
-        size={triggerVariant === "identity" ? "default" : "icon"}
-        aria-label={`Account menu${unreadLabel}`}
-        aria-haspopup="menu"
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen((previous) => !previous)}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown") {
-            event.preventDefault();
-            setIsOpen(true);
-          }
-        }}
-        className={cn(
-          triggerVariant === "identity"
-            ? "min-h-[60px] w-full justify-start gap-3 rounded-xl bg-muted/45 px-2 text-left hover:bg-muted/70"
-            : "relative min-h-11 min-w-11 overflow-hidden rounded-full p-0"
-        )}
-      >
-        {avatar}
-        {triggerVariant === "identity" ? (
-          <>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">
-                {displayName ?? "Your account"}
-              </span>
-              {usernameTag ? (
-                <span className="block truncate text-xs font-normal text-muted-foreground">
-                  {usernameTag}
-                </span>
-              ) : null}
+      {avatar}
+      {triggerVariant === "identity" ? (
+        <>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium">
+              {displayName ?? "Your account"}
             </span>
+            {usernameTag ? (
+              <span className="block truncate text-xs font-normal text-muted-foreground">
+                {usernameTag}
+              </span>
+            ) : null}
+          </span>
+          {identityAccessory ? null : (
             <ChevronUp
               className={cn(
                 "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
@@ -192,9 +191,30 @@ export function AccountMenu({
               )}
               aria-hidden
             />
-          </>
-        ) : null}
-      </Button>
+          )}
+        </>
+      ) : null}
+    </Button>
+  );
+
+  return (
+    <div
+      ref={menuRef}
+      className={cn("relative", triggerVariant === "identity" && "w-full")}
+    >
+      {triggerVariant === "identity" ? (
+        <div
+          data-account-identity-area
+          className="flex items-center gap-2 rounded-xl bg-muted/45 p-2"
+        >
+          {trigger}
+          {identityAccessory ? (
+            <div className="shrink-0">{identityAccessory}</div>
+          ) : null}
+        </div>
+      ) : (
+        trigger
+      )}
       {isOpen ? (
         <div
           role="menu"

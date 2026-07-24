@@ -21,7 +21,7 @@ rather than a second navigation system.
   across Account, Settings, and Notifications.
 - Preserve the existing account URLs, deep links, browser history, unread
   state, safe contextual `returnTo` values, and authenticated shell.
-- Keep the avatar menu aligned to its desktop identity trigger with explicit
+- Keep the avatar menu aligned to its desktop user-info card with explicit
   Account, Settings, and Notifications destinations plus a spatially separated
   logout action.
 - Keep appearance as a one-click shell control and place app version/repository
@@ -51,9 +51,10 @@ rather than a second navigation system.
    relying on color alone.
 4. The avatar menu retains the user identity and provides explicit Account,
    Settings, and Notifications destinations for casual-user discoverability.
-5. The desktop menu matches and aligns with its identity trigger; appearance
-   remains a one-click shell control, version/repository metadata is available
-   from Settings, and logout is separated from navigation.
+5. The desktop menu matches and aligns with the complete user-info card;
+   appearance remains a separate one-click control within that card,
+   version/repository metadata is available from Settings, and logout is
+   separated from navigation.
 6. Notification unread state remains discoverable from the avatar entry point
    and the Notifications tab without creating competing primary actions.
 7. All interactive targets are at least 44 px, keyboard reachable, visibly
@@ -84,11 +85,12 @@ rather than a second navigation system.
   Notifications while retaining each stable route and the authenticated shell.
 - Preserved safe project/task return context, notification deep links, browser
   history, live unread state, and nested Settings routes.
-- Matched the desktop avatar menu to the full identity trigger and restored
+- Matched the desktop avatar menu to the full user-info card and restored
   explicit Account, Settings, and Notifications actions with
   Arrow/Home/End/Escape keyboard behavior and separated logout.
-- Restored one-click theme controls to the desktop sidebar and mobile header,
-  and moved version plus the GitHub repository link into Settings.
+- Restored the compact theme control to the desktop user-info card and retained
+  the mobile header control, while moving version plus the GitHub repository
+  link into Settings.
 - Added account-route loading/error recovery, 44 px controls on touched
   surfaces, and reusable component/Playwright coverage.
 - Prepared product release `v0.27.0` with matching package and changelog data.
@@ -103,10 +105,10 @@ rather than a second navigation system.
   functions, 91.88% lines.
 - `npm run test:e2e`: production build and all 23 Playwright tests passed.
 - Light/dark Playwright walkthroughs at 375, 768, 1024, and 1440 px passed;
-  refined menu/Settings screenshots are in
-  `.tmp/task324-user-hub-refinement/`.
-- Playwright verified the open desktop menu matches the identity trigger's
-  width and left edge within one pixel, and all 23 E2E scenarios passed.
+  latest theme-control screenshots are in
+  `.tmp/task324-theme-button-refinement/`.
+- Playwright verified the open desktop menu matches the complete user-info
+  card's width and left edge within one pixel, and all 23 E2E scenarios passed.
 - GitHub Quality Core, E2E Smoke, Tenant Isolation, Container Image, and branch
   checks passed. Copilot's one actionable icon-sizing comment was applied and
   resolved.

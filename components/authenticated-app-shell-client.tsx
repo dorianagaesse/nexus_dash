@@ -191,10 +191,6 @@ export function AuthenticatedAppShellClient({
         ) : null}
 
         <div className="mt-auto border-t border-border/70 p-3">
-          <div className="mb-2 flex min-h-11 items-center justify-between gap-3 px-2">
-            <span className="text-xs font-medium text-muted-foreground">Appearance</span>
-            <ThemeToggle compact />
-          </div>
           <AccountMenu
             isAuthenticated
             displayName={displayName}
@@ -205,6 +201,7 @@ export function AuthenticatedAppShellClient({
             menuPlacement="top"
             menuAlign="start"
             triggerVariant="identity"
+            identityAccessory={<ThemeToggle compact />}
           />
         </div>
       </aside>

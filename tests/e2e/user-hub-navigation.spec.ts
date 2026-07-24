@@ -116,18 +116,24 @@ test.describe("unified user hub navigation", () => {
       );
 
       if (walkthrough.width === 1440) {
+        const identityArea = page.locator("[data-account-identity-area]");
         const accountTrigger = page.getByRole("button", { name: /Account menu/ });
+        const themeToggle = page.getByRole("button", {
+          name: /Switch to .* mode/,
+        });
+        await expect(identityArea).toBeVisible();
+        await expect(themeToggle).toBeVisible();
         await accountTrigger.click();
         const accountMenu = page.getByRole("menu", { name: "Account actions" });
         await expect(accountMenu).toBeVisible();
-        const [triggerBox, menuBox] = await Promise.all([
-          accountTrigger.boundingBox(),
+        const [identityBox, menuBox] = await Promise.all([
+          identityArea.boundingBox(),
           accountMenu.boundingBox(),
         ]);
-        expect(triggerBox).not.toBeNull();
+        expect(identityBox).not.toBeNull();
         expect(menuBox).not.toBeNull();
-        expect(Math.abs(triggerBox!.x - menuBox!.x)).toBeLessThanOrEqual(1);
-        expect(Math.abs(triggerBox!.width - menuBox!.width)).toBeLessThanOrEqual(1);
+        expect(Math.abs(identityBox!.x - menuBox!.x)).toBeLessThanOrEqual(1);
+        expect(Math.abs(identityBox!.width - menuBox!.width)).toBeLessThanOrEqual(1);
         await expect(accountMenu.getByRole("menuitem")).toHaveCount(4);
       }
 

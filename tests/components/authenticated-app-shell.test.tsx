@@ -51,7 +51,7 @@ describe("authenticated app shell", () => {
     expect(result).toContain("Projects");
     expect(result).toContain("Inbox");
     expect(result).toContain("Account menu");
-    expect(result).toContain("Appearance");
+    expect(result).toContain("data-account-identity-area");
     expect(result).toContain('aria-current="page"');
     expect(result).toContain("lg:pl-64");
     expect(result).toContain("z-[var(--layer-shell)]");
