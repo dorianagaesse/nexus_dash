@@ -2,7 +2,8 @@
 
 ## Status
 
-Pending - first item in the UI/UX execution queue.
+Done (2026-07-23) - implemented on
+`feature/task-324-unified-user-hub-navigation` in PR #380.
 
 ## Objective
 
@@ -18,10 +19,13 @@ rather than a second navigation system.
 - Present those destinations as semantic, route-backed tabs or segmented
   navigation. They should feel like views of one page while retaining distinct
   URLs, deep links, browser history, unread state, and safe `returnTo` context.
-- Remove duplicated Account, Settings, and Notifications rows from the avatar
-  menu. Replace them with one clearly named user-hub action.
-- Keep appearance controls and repository/version diagnostics secondary in the
-  menu, and separate logout visually and semantically from ordinary navigation.
+- Keep explicit Account, Settings, and Notifications rows in the avatar menu
+  so casual users can recognize each destination without first understanding
+  the shared hub model.
+- Match and align the desktop menu with the full user identity trigger.
+- Keep appearance as a one-click control in persistent shell chrome, move
+  repository/version metadata to Settings, and separate logout visually and
+  semantically from ordinary navigation.
 - Reuse the authenticated shell and established NexusDash visual language
   rather than introducing another competing navigation layer.
 
@@ -38,8 +42,8 @@ rather than a second navigation system.
   focus order, content insets, and 44 px minimum targets.
 - Cover active state, keyboard operation, accessible naming, focus visibility,
   light/dark themes, and loading/empty/error states.
-- Update the avatar menu so personal identity is clear without crowding the
-  menu with repeated destination links.
+- Update the avatar menu so personal identity and all three personal
+  destinations are clear without reintroducing appearance or diagnostics.
 
 ## Out Of Scope
 
@@ -56,10 +60,11 @@ rather than a second navigation system.
    browser Back/Forward, and contextual `returnTo` behavior.
 3. The active hub view is visually distinct and announced semantically without
    relying on color alone.
-4. The avatar menu retains the user identity and provides one clear route into
-   the user hub without duplicating all three hub destinations.
-5. Appearance/diagnostic utilities remain available but visually subordinate;
-   logout is separated from navigation and cannot be mistaken for a tab.
+4. The avatar menu retains the user identity and provides explicit Account,
+   Settings, and Notifications destinations for casual-user discoverability.
+5. The desktop menu matches and aligns with its identity trigger; appearance
+   remains a one-click shell control, version/repository metadata is available
+   from Settings, and logout is separated from navigation.
 6. Notification unread state remains discoverable from the avatar entry point
    and the Notifications tab without creating competing primary actions.
 7. All interactive targets are at least 44 px, keyboard reachable, visibly
@@ -79,3 +84,40 @@ rather than a second navigation system.
   collision, or ambiguous current location.
 - Required repository validation is green, tracking documentation is updated,
   and the task ships through its dedicated feature branch and pull request.
+
+## Outcome
+
+- Added a shared account-layout user hub with one identity header and three
+  route-backed Account, Settings, and Notifications destinations across desktop
+  and mobile.
+- Preserved existing URLs, deep links, browser history, notification targets,
+  live unread badges, and normalized project/task `returnTo` context.
+- Matched the desktop avatar menu to its full identity trigger and retained
+  explicit Account, Settings, and Notifications actions for casual-user
+  discoverability, with separated destructive logout styling.
+- Restored one-click theme controls to persistent desktop/mobile shell chrome
+  and moved app version plus the GitHub repository link into Settings.
+- Added keyboard traversal and focus restoration to the avatar menu, 44 px
+  controls across touched account views, and shared loading/error recovery
+  states without changing account or notification data behavior.
+- Added focused component and Playwright coverage for active state, nested
+  settings routes, unread state, safe URLs, menu composition, keyboard route
+  switching, Back/Forward, notification deep links, and project continuity.
+
+## Validation
+
+- `npm run lint`
+- `npm run rls:check`
+- `npm run release:check -- --base origin/main --branch feature/task-324-unified-user-hub-navigation`
+- `npm test` - 948 passed, 2 skipped
+- `npm run test:coverage` - 91.37% statements, 81.33% branches, 92.2%
+  functions, 91.88% lines
+- `npm run test:e2e` - production build and all 23 Playwright tests passed
+- Playwright visual walkthroughs passed at 375, 768, 1024, and 1440 px in
+  light/dark themes; refined menu/Settings screenshots are stored under
+  `.tmp/task324-user-hub-refinement/`.
+- The desktop open-menu geometry matches its identity trigger's width and left
+  edge within one pixel; all 23 E2E scenarios passed.
+- GitHub Quality Core, E2E Smoke, Tenant Isolation, Container Image, and branch
+  checks passed; the initial Copilot review's single icon-size comment was
+  applied and resolved.

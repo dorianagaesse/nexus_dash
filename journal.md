@@ -3,6 +3,65 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-23 - TASK-324 avatar-menu refinement
+
+- Applied follow-up product feedback without changing the validated shared
+  Account, Settings, and Notifications hub pages or their route contract.
+- Reframed the desktop user identity card as the full account-menu trigger so
+  the menu inherits its exact width and left edge; mobile keeps a compact,
+  viewport-safe avatar trigger.
+- Restored explicit Account, Settings, and Notifications menu actions for
+  casual-user discoverability while retaining keyboard traversal, live unread
+  state, safe return context, and separated destructive logout.
+- Returned theme switching to one-click persistent shell controls in the
+  desktop sidebar and mobile header. Moved app version and the GitHub repository
+  link into a compact About NexusDash section in Settings.
+- Queued TASK-328 for a separate human-readable Settings information-
+  architecture and copy refinement after TASK-108 and before TASK-323.
+- Validation passed with lint, RLS inventory, 948 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, a local-safe production build, and all 23 Playwright scenarios.
+- Captured and visually inspected the refined account hub at 375, 768, 1024,
+  and 1440 px in light/dark themes under
+  `.tmp/task324-user-hub-refinement/`. Playwright also confirmed the 1440 px
+  menu and identity trigger share the same width and left edge within one
+  pixel.
+
+# 2026-07-21 - TASK-324 unified user hub navigation
+
+- Applied UI/UX Pro Max guidance for accessible route-backed navigation,
+  non-color-only current state, 44 px targets, responsive containment, and a
+  restrained flat treatment that stays within the authenticated shell language.
+- Added one shared account-layout hub for Account, Settings, and Notifications,
+  preserving stable URLs, Back/Forward behavior, live unread badges, nested
+  settings routes, notification targets, and safe project/task return context.
+- Simplified the avatar menu from three duplicated destinations to identity and
+  one `Your account` launcher. Appearance and repository/version diagnostics
+  are visually secondary, while logout is separated and destructive; menu
+  keyboard support now covers Arrow, Home, End, and Escape with focus restore.
+- Added shared loading/error recovery, minimum 44 px controls across touched
+  account views, 19 focused component/navigation tests, and Playwright coverage
+  for desktop/mobile switching, direct entry, browser history, notification
+  deep links, keyboard navigation, and return-to-project continuity.
+- Captured and visually inspected light/dark walkthroughs at 375, 768, 1024,
+  and 1440 px under `.tmp/task324-user-hub/`; no overflow, clipping, shell
+  collision, or ambiguous active location remained.
+- Validation passed: lint, RLS inventory, release policy for `v0.27.0`, 947
+  unit/API tests with 2 skipped, coverage thresholds (91.37% statements), a
+  production build, and all 23 Playwright tests. The first bare production
+  build correctly rejected remote development env assumptions; the documented
+  local-safe PostgreSQL and placeholder-secret contract produced the green run.
+- Opened ready-for-review PR #380. GitHub Quality Core, E2E Smoke, Tenant
+  Isolation, Container Image, and branch checks passed. Copilot's initial review
+  raised one actionable concern about a non-guaranteed `4.5` Tailwind size;
+  replaced it with an explicit 18 px icon size, revalidated, and resolved the
+  thread.
+- The first post-review E2E rerun exposed a test-order race in notification
+  continuity coverage: the task detail dialog correctly remained open and its
+  overlay blocked the shell return link. Updated the journey to close task
+  details before returning to notifications; the focused flow passed three
+  consecutive local runs.
+
 # 2026-07-16 - TASK-129 login/home page UI polish started
 
 - Created dedicated worktree `nexus_dash_task129` from `origin/main` on

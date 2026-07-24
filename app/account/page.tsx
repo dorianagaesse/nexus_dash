@@ -2,8 +2,6 @@ import { unstable_noStore as noStore } from "next/cache";
 import { notFound } from "next/navigation";
 
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
-import { ContextualReturnLink } from "@/components/contextual-return-link";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -93,24 +91,18 @@ export default async function AccountProfilePage({
 
   const status = readQueryValue(resolvedSearchParams?.status);
   const error = readQueryValue(resolvedSearchParams?.error);
-  const returnTo = readQueryValue(resolvedSearchParams?.returnTo);
   const avatarDisplayName =
     profileResult.data.usernameTag || profileResult.data.username || "Account";
 
   return (
-    <main className="container py-12">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-        <ContextualReturnLink
-          returnTo={returnTo}
-          fallback={{ href: "/projects", label: "Projects" }}
-        />
-        <Badge variant="secondary" className="w-fit">
-          Account profile
-        </Badge>
+    <section aria-labelledby="account-heading">
+      <div className="flex w-full flex-col gap-5">
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight">Account</h1>
+          <h1 id="account-heading" className="text-3xl font-semibold tracking-tight">
+            Account
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Manage your identity, email, password, and notifications.
+            Manage your identity, email, and password.
           </p>
         </div>
 
@@ -152,7 +144,7 @@ export default async function AccountProfilePage({
                 </div>
               </div>
               <form action={regenerateAccountAvatarAction}>
-                <Button type="submit" variant="outline">
+                <Button type="submit" variant="outline" className="min-h-11">
                   Regenerate avatar
                 </Button>
               </form>
@@ -190,7 +182,7 @@ export default async function AccountProfilePage({
                       minLength={MIN_USERNAME_LENGTH}
                       maxLength={MAX_USERNAME_LENGTH}
                       pattern="[A-Za-z0-9._]+"
-                      className="h-10 w-full rounded-md border border-input bg-background px-3 pr-24 text-sm"
+                      className="min-h-11 w-full rounded-md border border-input bg-background px-3 pr-24 text-sm"
                     />
                     <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground select-none">
                       #{profileResult.data.usernameDiscriminator ?? "pending"}
@@ -202,7 +194,7 @@ export default async function AccountProfilePage({
                   </p>
                 </div>
                 <div>
-                  <Button type="submit">Save username</Button>
+                  <Button type="submit" className="min-h-11">Save username</Button>
                 </div>
               </form>
 
@@ -226,7 +218,7 @@ export default async function AccountProfilePage({
                     defaultValue={profileResult.data.email ?? ""}
                     autoComplete="email"
                     required
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    className="min-h-11 rounded-md border border-input bg-background px-3 text-sm"
                   />
                   <p className="text-xs text-muted-foreground">
                     Changing email requires verifying the new address before workspace
@@ -234,7 +226,7 @@ export default async function AccountProfilePage({
                   </p>
                 </div>
                 <div>
-                  <Button type="submit">Update email</Button>
+                  <Button type="submit" className="min-h-11">Update email</Button>
                 </div>
               </form>
             </div>
@@ -262,7 +254,7 @@ export default async function AccountProfilePage({
                   required
                   minLength={MIN_PASSWORD_LENGTH}
                   maxLength={MAX_PASSWORD_LENGTH}
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  className="min-h-11 rounded-md border border-input bg-background px-3 text-sm"
                 />
               </div>
 
@@ -279,7 +271,7 @@ export default async function AccountProfilePage({
                     required
                     minLength={MIN_PASSWORD_LENGTH}
                     maxLength={MAX_PASSWORD_LENGTH}
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    className="min-h-11 rounded-md border border-input bg-background px-3 text-sm"
                   />
                 </div>
 
@@ -298,7 +290,7 @@ export default async function AccountProfilePage({
                     required
                     minLength={MIN_PASSWORD_LENGTH}
                     maxLength={MAX_PASSWORD_LENGTH}
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    className="min-h-11 rounded-md border border-input bg-background px-3 text-sm"
                   />
                 </div>
               </div>
@@ -308,12 +300,12 @@ export default async function AccountProfilePage({
               </p>
 
               <div>
-                <Button type="submit">Update password</Button>
+                <Button type="submit" className="min-h-11">Update password</Button>
               </div>
             </form>
           </CardContent>
         </Card>
       </div>
-    </main>
+    </section>
   );
 }
