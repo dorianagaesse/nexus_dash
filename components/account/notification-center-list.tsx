@@ -147,6 +147,7 @@ export function NotificationCenterList({
           <Button
             type="submit"
             variant="outline"
+            className="min-h-11"
             disabled={unreadCount === 0 || isRefreshing}
           >
             <Check className="h-4 w-4" />
@@ -234,7 +235,7 @@ export function NotificationCenterList({
                             name="invitationId"
                             value={metadata.invitationId}
                           />
-                          <Button type="submit">
+                          <Button type="submit" className="min-h-11">
                             <MailPlus className="h-4 w-4" />
                             Accept
                           </Button>
@@ -245,7 +246,7 @@ export function NotificationCenterList({
                             name="invitationId"
                             value={metadata.invitationId}
                           />
-                          <Button type="submit" variant="outline">
+                          <Button type="submit" variant="outline" className="min-h-11">
                             Decline
                           </Button>
                         </form>
@@ -253,7 +254,7 @@ export function NotificationCenterList({
                     ) : null}
 
                     {notification.targetPath ? (
-                      <Button asChild variant="ghost">
+                      <Button asChild variant="ghost" className="min-h-11">
                         <Link
                           href={buildNotificationTargetHref(
                             notification.targetPath,
@@ -272,7 +273,7 @@ export function NotificationCenterList({
                         name="notificationId"
                         value={notification.id}
                       />
-                      <Button type="submit" variant="ghost">
+                      <Button type="submit" variant="ghost" className="min-h-11">
                         {isUnread ? (
                           <>
                             <Check className="h-4 w-4" />

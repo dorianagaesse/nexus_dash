@@ -2,10 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AccountSettingsShell } from "@/components/account/account-settings-shell";
+import { AppAboutCard } from "@/components/account/app-about-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
-import { getAccountIdentitySummary } from "@/lib/services/account-identity-service";
 import {
   DEFAULT_GOOGLE_CALENDAR_ID,
   MAX_GOOGLE_CALENDAR_ID_LENGTH,
@@ -51,11 +51,8 @@ export default async function AccountSettingsPage({
   const actorUserId = await requireSessionUserIdFromServer();
   const resolvedSearchParams = await searchParams;
 
-  const [settingsResult, identity] = await Promise.all([
-    getGoogleCalendarTargetSettings(actorUserId),
-    getAccountIdentitySummary(actorUserId),
-  ]);
-  if (!settingsResult.ok || !identity) {
+  const settingsResult = await getGoogleCalendarTargetSettings(actorUserId);
+  if (!settingsResult.ok) {
     notFound();
   }
 
@@ -70,7 +67,6 @@ export default async function AccountSettingsPage({
       activeTab="calendar"
       title="Google Calendar target"
       description="Choose which Google Calendar receives events created from NexusDash."
-      identity={identity}
       returnTo={returnTo}
     >
       {status && STATUS_MESSAGES[status] ? (
@@ -119,7 +115,7 @@ export default async function AccountSettingsPage({
                     : currentCalendarId
                 }
                 placeholder={DEFAULT_GOOGLE_CALENDAR_ID}
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                className="min-h-11 rounded-md border border-input bg-background px-3 text-sm"
                 disabled={!hasCalendarConnection}
               />
               <p className="text-xs text-muted-foreground">
@@ -128,7 +124,7 @@ export default async function AccountSettingsPage({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="submit" disabled={!hasCalendarConnection}>
+              <Button type="submit" className="min-h-11" disabled={!hasCalendarConnection}>
                 Save settings
               </Button>
               <Button
@@ -136,17 +132,19 @@ export default async function AccountSettingsPage({
                 name="intent"
                 value="reset"
                 variant="secondary"
+                className="min-h-11"
                 disabled={!hasCalendarConnection}
               >
                 Use primary calendar
               </Button>
-              <Button asChild variant="ghost">
+              <Button asChild variant="ghost" className="min-h-11">
                 <Link href="/projects">Projects</Link>
               </Button>
             </div>
           </form>
         </CardContent>
       </Card>
+      <AppAboutCard />
     </AccountSettingsShell>
   );
 }

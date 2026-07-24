@@ -19,7 +19,10 @@ interface ThemeToggleProps {
   compact?: boolean;
 }
 
-export function ThemeToggle({ className, compact = false }: ThemeToggleProps) {
+export function ThemeToggle({
+  className,
+  compact = false,
+}: ThemeToggleProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [theme, setTheme] = useState<Theme>("light");
 
