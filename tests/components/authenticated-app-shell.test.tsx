@@ -43,6 +43,7 @@ describe("authenticated app shell", () => {
           usernameTag="dorian#1234"
           avatarSeed="seed"
           initialNotificationSnapshot={notificationSnapshot}
+          initialMeetingTodoSummary={{ openCount: 3, overdueCount: 1 }}
           notificationBanner={<div>Notification banner</div>}
         >
           <main>Settings content</main>
@@ -52,7 +53,9 @@ describe("authenticated app shell", () => {
 
     expect(result).toContain('aria-label="Primary navigation"');
     expect(result).toContain("Projects");
+    expect(result).toContain("Todos");
     expect(result).toContain("Inbox");
+    expect(result).toContain("3 open todos, 1 overdue");
     expect(result).toContain("Account menu");
     expect(result).toContain("data-account-identity-area");
     expect(result).toContain('aria-current="page"');
@@ -82,6 +85,7 @@ describe("authenticated app shell", () => {
           usernameTag="dorian#1234"
           avatarSeed="seed"
           initialNotificationSnapshot={notificationSnapshot}
+          initialMeetingTodoSummary={{ openCount: 3, overdueCount: 1 }}
           notificationBanner={<div>Notification banner</div>}
         >
           <main>Project content</main>

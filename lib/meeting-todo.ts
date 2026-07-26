@@ -14,13 +14,32 @@ export interface ProjectMeetingTodo {
   urgencyTimestamp: number;
 }
 
-function toTimestamp(value: string | null): number | null {
+type MeetingTodoDateValue = Date | string | null;
+
+function toTimestamp(value: MeetingTodoDateValue): number | null {
   if (!value) {
     return null;
   }
 
-  const timestamp = new Date(value).getTime();
+  const timestamp = value instanceof Date ? value.getTime() : new Date(value).getTime();
   return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+export function isMeetingTodoOverdueAt(input: {
+  scheduledAt: MeetingTodoDateValue;
+  completedAt: MeetingTodoDateValue;
+  meetingStatus: string;
+  referenceNowMs: number;
+}): boolean {
+  if (input.completedAt || input.meetingStatus === "done") {
+    return false;
+  }
+
+  const scheduledAtMs = toTimestamp(input.scheduledAt);
+  return (
+    scheduledAtMs !== null &&
+    input.referenceNowMs - scheduledAtMs >= MEETING_TODO_OVERDUE_GRACE_MS
+  );
 }
 
 export function isMeetingTodoOverdue(
@@ -28,15 +47,12 @@ export function isMeetingTodoOverdue(
   action: ProjectMeetingNotePanelAction,
   referenceNowMs: number
 ): boolean {
-  if (action.completedAt || note.status === "done") {
-    return false;
-  }
-
-  const scheduledAtMs = toTimestamp(note.scheduledAt);
-  return (
-    scheduledAtMs !== null &&
-    referenceNowMs - scheduledAtMs >= MEETING_TODO_OVERDUE_GRACE_MS
-  );
+  return isMeetingTodoOverdueAt({
+    scheduledAt: note.scheduledAt,
+    completedAt: action.completedAt,
+    meetingStatus: note.status,
+    referenceNowMs,
+  });
 }
 
 export function buildProjectMeetingTodos(

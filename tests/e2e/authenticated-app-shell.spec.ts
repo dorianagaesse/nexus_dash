@@ -300,7 +300,7 @@ test.describe("responsive authenticated app shell", () => {
       mobileBrand.locator('[data-product-state="alpha"]')
     ).toHaveText("Alpha");
     await expect(mobileNavigation).toBeVisible();
-    await expect(mobileNavigation.getByRole("link")).toHaveCount(2);
+    await expect(mobileNavigation.getByRole("link")).toHaveCount(3);
     await expect(page.getByRole("button", { name: /Switch to .* mode/ })).toBeVisible();
     await page.getByRole("button", { name: "Account menu" }).click();
     await expect(

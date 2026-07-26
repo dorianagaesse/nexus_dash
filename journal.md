@@ -2953,3 +2953,25 @@ Low-value entries to avoid going forward:
 - Replied to and resolved the Copilot thread in commit `5b81bbe`; the refreshed
   branch, Quality Core, E2E Smoke, Tenant Isolation, and Container Image checks
   all passed on PR #388.
+
+# 2026-07-26 - TASK-332 mobile meeting-todo navigation
+
+- Audited the expanded project todo popup at an iPhone 14 Pro CSS viewport
+  (393 x 852): its 352 x 371 px surface covered project context, nested a
+  320 px scroll area around 680 px of content, and exposed 28 px controls.
+- Selected a stable Todos destination over a floating action button because it
+  communicates navigation clearly, avoids another fixed safe-area collision,
+  and provides room for planned project and assignee capabilities.
+- Added `/todos`, adaptive Projects/Todos/Inbox navigation, actor-RLS-scoped
+  workspace aggregation, URL-backed views and project filters, source-meeting
+  deep links, access-aware completion, and open/overdue badge context.
+- Removed the floating panel from mobile layout and accessibility navigation
+  while retaining it as the project-scoped desktop quick panel. A 393 x 852
+  Playwright pass found and fixed native select intrinsic-width overflow caused
+  by long project names.
+- Full local validation passed: RLS inventory, least-privilege role setup and
+  PostgreSQL tenant-isolation matrix; lint; 134 passing Vitest files with 956
+  passing tests (2 files/tests skipped); coverage at 91.37% statements, 81.33%
+  branches, 92.2% functions, and 91.88% lines; production build; and all 24
+  Playwright scenarios. Light 393 x 852, dark 375 x 812, and desktop 1280 x
+  900 screenshots are stored under `.tmp/`.
