@@ -390,7 +390,7 @@ export function WorkspaceMeetingTodos({
                 )}
               >
                 {itemView}
-                <span className="tabular-nums text-xs" aria-label={`${count} ${itemView}`}>
+                <span className="tabular-nums text-xs">
                   {count}
                 </span>
               </Link>

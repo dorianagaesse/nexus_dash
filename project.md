@@ -1,6 +1,6 @@
 # NexusDash Project Blueprint (Current State)
 
-Last verified: 2026-07-26
+Last verified: 2026-07-05
 
 ## 1. Vision
 
@@ -10,8 +10,7 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
 
 - Email/password sign-up and sign-in from `/`.
 - Email verification and password recovery lifecycle for credentials accounts.
-- DB-backed session authentication with protected app routes (`/projects/**`,
-  `/todos`, `/account/**`).
+- DB-backed session authentication with protected app routes (`/projects/**`, `/account/**`).
 - Multi-project workspace with project CRUD.
 - Project sharing v2 with owner-managed invites, role-based membership, email-bound invitation flows, and resumable invite acceptance.
 - Project dashboard with core panels:
@@ -27,15 +26,6 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
     for task, task-comment, and context-card mutations; dashboards apply safe
     remote updates directly, keep adaptive polling and broad refresh as
     fallbacks, and acknowledge local mutations to avoid self-refresh prompts
-- Workspace meeting todos:
-  - dedicated `/todos` destination in the desktop sidebar and mobile bottom
-    navigation, with open and overdue counts
-  - actor-RLS-scoped aggregation across owned and shared projects, grouped by
-    source project with deep links back to the meeting note
-  - URL-backed Open/Completed views and project filters, plus authorized
-    completion/reopening and clear viewer read-only treatment
-  - desktop project dashboards retain the compact floating quick panel while
-    mobile uses the unobstructed full-screen workspace destination
 - Notification center:
   - durable per-user in-app inbox at `/account/notifications`
   - unread/read state and resolved lifecycle
@@ -136,9 +126,8 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 From `tasks/current.md` + `tasks/backlog.md`:
 
-1. Continue the prioritized UX and collaboration backlog after TASK-332,
-   including meeting participant identities, todo assignees, granular
-   collaboration rights, and the queued shell refinements.
+1. The prioritized UI/UX remediation sequence is TASK-321, TASK-322, TASK-100,
+   TASK-133, TASK-129, TASK-108, then the TASK-323 verification gate.
 
 ## 8. Source-of-Truth Docs
 

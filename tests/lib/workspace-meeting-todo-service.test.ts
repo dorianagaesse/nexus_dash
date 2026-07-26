@@ -153,25 +153,16 @@ describe("workspace meeting todo service", () => {
   test("returns the navigation count from open accessible actions", async () => {
     dbMock.project.findMany.mockResolvedValueOnce([
       {
-        id: "project-1",
-        name: "Alpha",
-        ownerId: "user-1",
-        memberships: [],
         meetingNotes: [
           {
-            id: "meeting-1",
-            title: "Planning",
             scheduledAt: new Date("2026-07-01T09:00:00.000Z"),
             status: "actions_in_progress",
-            createdAt: new Date("2026-07-01T08:00:00.000Z"),
-            actions: [
-              {
-                id: "todo-1",
-                content: "Follow up",
-                completedAt: null,
-                updatedAt: new Date("2026-07-01T10:00:00.000Z"),
-              },
-            ],
+            _count: { actions: 2 },
+          },
+          {
+            scheduledAt: new Date("2026-07-01T09:00:00.000Z"),
+            status: "done",
+            _count: { actions: 1 },
           },
         ],
       },
@@ -179,16 +170,27 @@ describe("workspace meeting todo service", () => {
 
     const result = await getWorkspaceMeetingTodoNavigationSummary("user-1");
 
-    expect(result.openCount).toBe(1);
-    expect(result.overdueCount).toBe(1);
+    expect(result.openCount).toBe(3);
+    expect(result.overdueCount).toBe(2);
     expect(dbMock.project.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ OR: expect.any(Array) }),
-        select: expect.objectContaining({
+        select: {
           meetingNotes: expect.objectContaining({
             where: { actions: { some: { completedAt: null } } },
+            select: expect.objectContaining({
+              scheduledAt: true,
+              status: true,
+              _count: {
+                select: {
+                  actions: {
+                    where: { completedAt: null },
+                  },
+                },
+              },
+            }),
           }),
-        }),
+        },
       })
     );
   });
