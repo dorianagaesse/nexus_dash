@@ -8,6 +8,15 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.28.0 - 2026-07-26
+
+- Added a subtle `Alpha` product-state label to the persistent desktop and
+  compact-mobile NexusDash wordmarks.
+- Included the alpha state in the brand links' accessible names and kept the
+  disclosure text-based, token-driven, and non-interactive.
+- Added focused component and responsive browser coverage for desktop/mobile
+  presence, accessible naming, and compact-header containment.
+
 ## v0.27.0 - 2026-07-23
 
 - Unified Account, Settings, and Notifications behind one shared responsive

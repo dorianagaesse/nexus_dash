@@ -2813,3 +2813,25 @@ Low-value entries to avoid going forward:
   build, and all 20 Playwright scenarios. The database-backed browser suite used
   the configured development database because the optional local PostgreSQL
   service at `127.0.0.1:5432` was not running; outbound email remained disabled.
+
+# 2026-07-26 - TASK-334 alpha product-state indicator started
+
+- Took ownership of TASK-334 on
+  `feature/task-334-alpha-product-state-indicator`, created from the latest
+  `origin/main`.
+- Scoped the disclosure to a reusable, non-interactive `Alpha` label attached
+  to both authenticated shell wordmarks, with the product state included in
+  each brand link's accessible name.
+- Kept the treatment intentionally subtle, token-driven, and responsive so it
+  communicates maturity without competing with navigation or compact mobile
+  header actions.
+- Implemented the reusable badge in both authenticated wordmarks, included the
+  alpha state in their accessible names, and prepared release `v0.28.0`.
+- Validation passed: lint, RLS inventory, release policy, 948 unit/API tests
+  with 2 skipped, coverage at 91.37% statements / 81.33% branches / 92.2%
+  functions / 91.88% lines, the local-safe production build, and all 24
+  Playwright scenarios.
+- Captured and visually reviewed the disclosure in light/dark themes at 375,
+  768, 1024, and 1440 px under `.tmp/task334-alpha-indicator/`; the automated
+  walkthrough also confirmed one visible badge, no page overflow, and no
+  compact-header collision at every breakpoint.
