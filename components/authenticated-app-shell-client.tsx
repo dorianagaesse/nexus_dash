@@ -8,6 +8,7 @@ import { Bell, FolderKanban, LayoutDashboard } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
 import { NotificationLiveUpdates } from "@/components/notification-live-updates";
 import { ProductFeedbackDialog } from "@/components/product-feedback-dialog";
+import { ProductStateBadge } from "@/components/product-state-badge";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useCurrentAppPath } from "@/lib/hooks/use-current-app-path";
 import {
@@ -143,13 +144,18 @@ export function AuthenticatedAppShellClient({
         <Link
           href="/projects"
           className="mx-4 mt-4 flex min-h-14 items-center gap-3 rounded-xl px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label="NexusDash projects"
+          aria-label="NexusDash alpha — projects"
         >
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-base font-bold text-primary-foreground shadow-sm">
             N
           </span>
-          <span>
-            <span className="block text-base font-semibold tracking-tight">NexusDash</span>
+          <span className="min-w-0">
+            <span className="flex items-start gap-1.5">
+              <span className="block text-base font-semibold tracking-tight">
+                NexusDash
+              </span>
+              <ProductStateBadge className="mt-0.5" />
+            </span>
             <span className="block text-xs text-muted-foreground">Project workspace</span>
           </span>
         </Link>
@@ -217,10 +223,15 @@ export function AuthenticatedAppShellClient({
           <Link
             href="/projects"
             className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="NexusDash projects"
+            aria-label="NexusDash alpha — projects"
           >
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground">N</span>
-            <span className="truncate text-base font-semibold tracking-tight">NexusDash</span>
+            <span className="flex min-w-0 items-start gap-1.5">
+              <span className="truncate text-base font-semibold tracking-tight">
+                NexusDash
+              </span>
+              <ProductStateBadge className="mt-0.5" />
+            </span>
           </Link>
           <div className="ml-auto flex items-center gap-2">
             <ProductFeedbackDialog triggerVariant="mobile" />

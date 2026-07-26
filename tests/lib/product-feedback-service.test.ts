@@ -19,7 +19,7 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/app-metadata", () => ({
   getAppMetadataSummary: () => ({
-    versionLabel: "v0.28.0",
+    versionLabel: "v0.29.0",
   }),
 }));
 
@@ -104,7 +104,7 @@ describe("product feedback service", () => {
           reporterUserId: "user-1",
           reportType: "bug",
           pagePath: "/projects/project-1?taskId=task-7",
-          appVersion: "v0.28.0",
+          appVersion: "v0.29.0",
           diagnosticsIncluded: true,
         },
       })

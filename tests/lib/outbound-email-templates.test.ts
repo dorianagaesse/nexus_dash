@@ -15,7 +15,7 @@ describe("outbound-email-templates", () => {
       reporterEmail: "dorian@example.com",
       reporterUsernameTag: "dorian#1234",
       pagePath: "/projects/project-1?taskId=task-7",
-      appVersion: "v0.28.0",
+      appVersion: "v0.29.0",
       diagnostics: {
         userAgent: "Test <Browser>",
         viewport: "390x844",

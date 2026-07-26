@@ -87,7 +87,7 @@ or product feedback to the NexusDash owner without leaving the app.
   reporter identity server-side, safely escaped report content, included only
   app-relative page/version context, and rate-limited each account to five
   recorded attempts per hour.
-- Prepared product release `v0.28.0` with product, runtime, changelog, and task
+- Prepared product release `v0.29.0` with product, runtime, changelog, and task
   documentation updates.
 
 ## Validation
@@ -101,9 +101,11 @@ or product feedback to the NexusDash owner without leaving the app.
 - `npm run build` passed with the documented safe local database/build
   overrides because the existing root `.env` has identical remote
   `DATABASE_URL` and `DIRECT_URL` values that production guardrails reject.
-- `npm run test:e2e`: production build and all 24 Playwright tests passed.
+- `npm run test:e2e`: production build and all 25 Playwright tests passed,
+  including the merged alpha-state shell coverage.
 - Focused light/dark screenshots at 375 px and 1440 px are stored under
-  `.tmp/task333/` and `.tmp/task333-refinement/`; the browser journey also
-  verified exact privacy payload, a 44 px square mobile target, no horizontal
-  overflow, a single-line desktop label, success feedback, and desktop
-  placement above the identity card.
+  `.tmp/task333/`, `.tmp/task333-refinement/`, and
+  `.tmp/task333-refinement-merged/`; the browser journey also verified exact
+  privacy payload, a 44 px square mobile target, no horizontal overflow, a
+  single-line desktop label, success feedback, and desktop placement above the
+  identity card.

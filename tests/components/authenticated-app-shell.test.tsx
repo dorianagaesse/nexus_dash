@@ -62,6 +62,10 @@ describe("authenticated app shell", () => {
     expect(result).toContain("Report a bug or feedback");
     expect(result).toContain('title="Report a bug or feedback"');
     expect(result).not.toContain(">Feedback</span>");
+    expect(result.match(/data-product-state="alpha"/g)).toHaveLength(2);
+    expect(
+      result.match(/aria-label="NexusDash alpha — projects"/g)
+    ).toHaveLength(2);
     expect(result).toContain(
       "/account/notifications?returnTo=%2Fprojects%2Fproject-1%3FtaskId%3Dtask-7"
     );

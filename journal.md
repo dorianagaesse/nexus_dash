@@ -2832,7 +2832,7 @@ Low-value entries to avoid going forward:
   authenticated API adapter, focused feedback service, escaped email template,
   fixed owner recipient, safe context capture, delivery recovery, and
   per-account throttling.
-- Prepared `v0.28.0` and updated current product/task documentation.
+- Prepared `v0.29.0` and updated current product/task documentation.
 - Passed lint, RLS inventory, release policy, diff hygiene, 960 unit tests,
   coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
   lines, a production build, and all 24 Playwright scenarios.
@@ -2862,3 +2862,47 @@ Low-value entries to avoid going forward:
   trigger captures at 375 px and 1440 px are stored under
   `.tmp/task333-refinement/`; the browser assertions verify the 44 px square
   mobile target and that the desktop label neither wraps nor overflows.
+- Merged the completed TASK-334 product-state indicator from `origin/main`,
+  preserved both shell changes and their coverage, and advanced this feature
+  release from `v0.28.0` to `v0.29.0` so the merged alpha indicator remains the
+  distinct `v0.28.0` release.
+- The post-merge lint, RLS inventory, release policy, 961 unit tests, coverage,
+  production build, and all 25 Playwright scenarios passed. The final 375 px
+  and 1440 px light/dark captures under `.tmp/task333-refinement-merged/`
+  confirm that the alpha badge, mobile icon-only report action, theme control,
+  account trigger, and single-line desktop report label coexist without
+  overflow or overlap.
+
+# 2026-07-26 - TASK-334 alpha product-state indicator started
+
+- Took ownership of TASK-334 on
+  `feature/task-334-alpha-product-state-indicator`, created from the latest
+  `origin/main`.
+- Scoped the disclosure to a reusable, non-interactive `Alpha` label attached
+  to both authenticated shell wordmarks, with the product state included in
+  each brand link's accessible name.
+- Kept the treatment intentionally subtle, token-driven, and responsive so it
+  communicates maturity without competing with navigation or compact mobile
+  header actions.
+- Implemented the reusable badge in both authenticated wordmarks, included the
+  alpha state in their accessible names, and prepared release `v0.28.0`.
+- Validation passed: lint, RLS inventory, release policy, 948 unit/API tests
+  with 2 skipped, coverage at 91.37% statements / 81.33% branches / 92.2%
+  functions / 91.88% lines, the local-safe production build, and all 24
+  Playwright scenarios.
+- Captured and visually reviewed the disclosure in light/dark themes at 375,
+  768, 1024, and 1440 px under `.tmp/task334-alpha-indicator/`; the automated
+  walkthrough also confirmed one visible badge, no page overflow, and no
+  compact-header collision at every breakpoint.
+- Committed the reviewable implementation as `3d18212`, pushed
+  `feature/task-334-alpha-product-state-indicator`, and opened ready-for-review
+  PR #388.
+- GitHub branch, Quality Core, E2E Smoke, Tenant Isolation, and Container Image
+  checks passed. Copilot's initial review raised one actionable test-harness
+  comment; aligned the screenshot env var with the `TASK_334_*` convention and
+  made the Playwright test create the optional output directory recursively.
+  Focused lint and the eight-combination alpha Playwright walkthrough passed
+  after the change.
+- Replied to and resolved the Copilot thread in commit `5b81bbe`; the refreshed
+  branch, Quality Core, E2E Smoke, Tenant Isolation, and Container Image checks
+  all passed on PR #388.
