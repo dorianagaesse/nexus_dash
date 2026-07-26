@@ -170,6 +170,27 @@ describe("product feedback service", () => {
     );
   });
 
+  test("treats empty or invalid diagnostic objects as excluded", async () => {
+    await submitProductFeedback({
+      ...validInput,
+      diagnostics: {
+        userAgent: "",
+        viewport: "not-a-viewport",
+        locale: "\u0000",
+        timeZone: "x".repeat(101),
+      },
+    });
+
+    expect(outboundEmailMock.sendOutboundEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining("Diagnostics included: No"),
+        metadata: expect.objectContaining({
+          diagnosticsIncluded: false,
+        }),
+      })
+    );
+  });
+
   test("keeps provider failures recoverable for the API client", async () => {
     outboundEmailMock.sendOutboundEmail.mockResolvedValueOnce({
       ok: false,

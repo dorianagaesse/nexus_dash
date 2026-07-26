@@ -95,14 +95,16 @@ function normalizeDiagnostics(value: unknown): ProductFeedbackEmailDiagnostics |
 
   const candidate = value as Record<string, unknown>;
   const viewport = readBoundedDiagnostic(candidate.viewport, 20);
-
-  return {
+  const diagnostics: ProductFeedbackEmailDiagnostics = {
     userAgent: readBoundedDiagnostic(candidate.userAgent, MAX_USER_AGENT_LENGTH),
-    viewport:
-      viewport && VIEWPORT_PATTERN.test(viewport) ? viewport : null,
+    viewport: viewport && VIEWPORT_PATTERN.test(viewport) ? viewport : null,
     locale: readBoundedDiagnostic(candidate.locale, MAX_LOCALE_LENGTH),
     timeZone: readBoundedDiagnostic(candidate.timeZone, MAX_TIME_ZONE_LENGTH),
   };
+
+  return Object.values(diagnostics).some((entry) => entry !== null)
+    ? diagnostics
+    : null;
 }
 
 function buildUsernameTag(input: {

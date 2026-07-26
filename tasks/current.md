@@ -51,7 +51,7 @@ or product feedback to the NexusDash owner without leaving the app.
    shared outbound-email service.
 5. The email safely includes report type, message, reporter identity, current
    app path, product version, and only user-approved client diagnostics.
-6. Loading prevents duplicate submissions; success closes/reset the form and
+6. Loading prevents duplicate submissions; success closes/resets the form and
    is announced; failure remains recoverable without losing the message.
 7. All controls are keyboard reachable, visibly focused, correctly labeled,
    at least 44 px, and usable in light/dark themes and at 375 px.
@@ -80,9 +80,9 @@ or product feedback to the NexusDash owner without leaving the app.
   dismissal, success confirmation, and retry-safe errors.
 - Added authenticated `POST /api/feedback` delivery through a focused service
   and the existing Resend-backed outbound email foundation.
-- Fixed the recipient server-side to `dorian.agaesse@gmail.com`, resolves
-  reporter identity server-side, safely escapes report content, includes only
-  app-relative page/version context, and rate-limits each account to five
+- Fixed the recipient server-side to `dorian.agaesse@gmail.com`, resolved
+  reporter identity server-side, safely escaped report content, included only
+  app-relative page/version context, and rate-limited each account to five
   recorded attempts per hour.
 - Prepared product release `v0.28.0` with product, runtime, changelog, and task
   documentation updates.
