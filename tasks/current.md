@@ -6,6 +6,7 @@
 - Title: In-product bug and feedback reporting
 - Status: In review (2026-07-26)
 - Branch: `feature/task-333-bug-feedback-reporting`
+- Pull request: [#389](https://github.com/dorianagaesse/nexus_dash/pull/389)
 - Brief: [`task-333-bug-feedback-reporting.md`](./task-333-bug-feedback-reporting.md)
 
 ## Objective
