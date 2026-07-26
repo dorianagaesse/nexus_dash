@@ -2814,6 +2814,65 @@ Low-value entries to avoid going forward:
   the configured development database because the optional local PostgreSQL
   service at `127.0.0.1:5432` was not running; outbound email remained disabled.
 
+# 2026-07-26 - TASK-333 bug and feedback reporting started
+
+- Promoted TASK-333 into the active task on
+  `feature/task-333-bug-feedback-reporting` with explicit acceptance and
+  completion criteria.
+- Chose the requested labeled desktop sidebar placement and a persistent
+  compact mobile-header action. This keeps the route-only bottom navigation
+  semantically coherent while retaining a 44 px mobile target.
+- Chose the existing authenticated API-adapter, service, outbound delivery
+  record, and Resend path. The fixed owner recipient and reporter identity will
+  be server-controlled; diagnostics will be explicit and privacy-bounded.
+
+# 2026-07-26 - TASK-333 implementation and local validation
+
+- Added the persistent desktop and mobile entries, responsive report form,
+  authenticated API adapter, focused feedback service, escaped email template,
+  fixed owner recipient, safe context capture, delivery recovery, and
+  per-account throttling.
+- Prepared `v0.29.0` and updated current product/task documentation.
+- Passed lint, RLS inventory, release policy, diff hygiene, 960 unit tests,
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, a production build, and all 24 Playwright scenarios.
+- Validated light/dark report surfaces at 375 px and 1440 px with screenshots
+  under `.tmp/task333/`. Playwright confirmed the 44 px mobile target, no
+  horizontal overflow, exact diagnostics opt-out payload, explicit success
+  outcome, and desktop placement above the identity card.
+- The existing root `.env` still provides identical remote runtime/direct
+  database URLs, so successful build/E2E validation used documented local
+  database URLs plus build-only preview placeholders rather than weakening
+  production runtime checks.
+- Committed the reviewable implementation as `4c4e3f7`, pushed
+  `feature/task-333-bug-feedback-reporting`, and opened ready-for-review PR
+  [#389](https://github.com/dorianagaesse/nexus_dash/pull/389).
+
+# 2026-07-26 - TASK-333 responsive trigger refinement
+
+- Incorporated product feedback by keeping the full desktop label on one line
+  with tighter spacing and making the mobile action icon-only.
+- Replaced the generic message-plus glyph with one Lucide-based composite: a
+  bug nested inside a speech bubble, conveying both bug reporting and general
+  feedback while retaining the 44 px mobile target, accessible name, native
+  tooltip, keyboard focus, and existing light/dark semantic colors.
+- Revalidated lint, RLS inventory, release policy, 961 unit tests, unchanged
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, the production build, and all 24 Playwright scenarios. Light/dark
+  trigger captures at 375 px and 1440 px are stored under
+  `.tmp/task333-refinement/`; the browser assertions verify the 44 px square
+  mobile target and that the desktop label neither wraps nor overflows.
+- Merged the completed TASK-334 product-state indicator from `origin/main`,
+  preserved both shell changes and their coverage, and advanced this feature
+  release from `v0.28.0` to `v0.29.0` so the merged alpha indicator remains the
+  distinct `v0.28.0` release.
+- The post-merge lint, RLS inventory, release policy, 961 unit tests, coverage,
+  production build, and all 25 Playwright scenarios passed. The final 375 px
+  and 1440 px light/dark captures under `.tmp/task333-refinement-merged/`
+  confirm that the alpha badge, mobile icon-only report action, theme control,
+  account trigger, and single-line desktop report label coexist without
+  overflow or overlap.
+
 # 2026-07-26 - TASK-334 alpha product-state indicator started
 
 - Took ownership of TASK-334 on

@@ -11,6 +11,8 @@ import {
   uniqueProjectName,
 } from "./helpers/project-helpers";
 
+const task333ScreenshotDirectory = process.env.TASK333_SCREENSHOT_DIR?.trim();
+
 async function createProjectTaskNotification(
   page: Parameters<typeof signInAsVerifiedUser>[0],
   userId: string
@@ -361,6 +363,154 @@ test.describe("responsive authenticated app shell", () => {
     expect(navigationBox).not.toBeNull();
     expect(mainBox).not.toBeNull();
     expect(navigationBox!.y).toBeGreaterThan(0);
+  });
+
+  test("submits feedback from mobile and keeps the desktop entry above identity", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await signInAsVerifiedUser(page);
+    await page.route("**/api/feedback", async (route) => {
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({ delivery: "sent" }),
+      });
+    });
+    await page.goto("/projects");
+
+    const mobileTrigger = page.getByRole("button", {
+      name: "Report a bug or feedback",
+      exact: true,
+    });
+    await expect(mobileTrigger).toBeVisible();
+    const mobileTriggerBox = await mobileTrigger.boundingBox();
+    expect(mobileTriggerBox?.height).toBeGreaterThanOrEqual(44);
+    expect(mobileTriggerBox?.width).toBeGreaterThanOrEqual(44);
+    if (task333ScreenshotDirectory) {
+      await page.screenshot({
+        path: path.resolve(task333ScreenshotDirectory, "mobile-feedback-trigger.png"),
+        fullPage: true,
+      });
+      await page.evaluate(() => document.documentElement.classList.add("dark"));
+      await page.waitForTimeout(300);
+      await page.screenshot({
+        path: path.resolve(
+          task333ScreenshotDirectory,
+          "mobile-feedback-trigger-dark.png"
+        ),
+        fullPage: true,
+      });
+      await page.evaluate(() => document.documentElement.classList.remove("dark"));
+    }
+    await mobileTrigger.click();
+
+    const feedbackDialog = page.getByRole("dialog", {
+      name: "Report a bug or share feedback",
+    });
+    await expect(feedbackDialog).toBeVisible();
+    await feedbackDialog
+      .locator("label")
+      .filter({ hasText: "An idea or suggestion" })
+      .click();
+    await feedbackDialog
+      .getByLabel("Your message")
+      .fill("A compact roadmap summary would help on mobile.");
+    await feedbackDialog
+      .locator("label")
+      .filter({ hasText: "Include diagnostics" })
+      .click();
+    if (task333ScreenshotDirectory) {
+      await page.screenshot({
+        path: path.resolve(task333ScreenshotDirectory, "mobile-feedback-sheet.png"),
+        fullPage: true,
+      });
+      await page.evaluate(() => document.documentElement.classList.add("dark"));
+      await page.waitForTimeout(300);
+      await page.screenshot({
+        path: path.resolve(
+          task333ScreenshotDirectory,
+          "mobile-feedback-sheet-dark.png"
+        ),
+        fullPage: true,
+      });
+      await page.evaluate(() => document.documentElement.classList.remove("dark"));
+    }
+
+    const feedbackRequestPromise = page.waitForRequest("**/api/feedback");
+    await feedbackDialog.getByRole("button", { name: "Send report" }).click();
+    const feedbackRequest = await feedbackRequestPromise;
+    expect(feedbackRequest.postDataJSON()).toEqual({
+      reportType: "feedback",
+      message: "A compact roadmap summary would help on mobile.",
+      pagePath: "/projects",
+      diagnostics: null,
+    });
+    await expect(feedbackDialog).not.toBeVisible();
+    await expect(
+      page.getByText("Thanks—your report was sent to the NexusDash team.")
+    ).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
+    ).toBe(true);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const desktopTrigger = page.getByRole("button", {
+      name: "Report a bug or feedback",
+      exact: true,
+    });
+    const identityArea = page.locator("[data-account-identity-area]");
+    await expect(desktopTrigger).toBeVisible();
+    await expect(identityArea).toBeVisible();
+    const desktopTriggerBox = await desktopTrigger.boundingBox();
+    const identityAreaBox = await identityArea.boundingBox();
+    expect(desktopTriggerBox).not.toBeNull();
+    expect(identityAreaBox).not.toBeNull();
+    expect(desktopTriggerBox!.y).toBeLessThan(identityAreaBox!.y);
+    expect(
+      await desktopTrigger.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth
+      )
+    ).toBe(true);
+    if (task333ScreenshotDirectory) {
+      await page.screenshot({
+        path: path.resolve(task333ScreenshotDirectory, "desktop-feedback-trigger.png"),
+        fullPage: true,
+      });
+      await page.evaluate(() => document.documentElement.classList.add("dark"));
+      await page.waitForTimeout(300);
+      await page.screenshot({
+        path: path.resolve(
+          task333ScreenshotDirectory,
+          "desktop-feedback-trigger-dark.png"
+        ),
+        fullPage: true,
+      });
+      await page.evaluate(() => document.documentElement.classList.remove("dark"));
+    }
+    await desktopTrigger.click();
+    await expect(
+      page.getByRole("dialog", {
+        name: "Report a bug or share feedback",
+      })
+    ).toBeVisible();
+    if (task333ScreenshotDirectory) {
+      await page.waitForTimeout(300);
+      await page.screenshot({
+        path: path.resolve(task333ScreenshotDirectory, "desktop-feedback-dialog.png"),
+        fullPage: true,
+      });
+      await page.evaluate(() => document.documentElement.classList.add("dark"));
+      await page.waitForTimeout(300);
+      await page.screenshot({
+        path: path.resolve(
+          task333ScreenshotDirectory,
+          "desktop-feedback-dialog-dark.png"
+        ),
+        fullPage: true,
+      });
+      await page.evaluate(() => document.documentElement.classList.remove("dark"));
+    }
   });
 
   test("switches Kanban lanes from the mobile status dock", async ({

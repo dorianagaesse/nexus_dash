@@ -3,12 +3,20 @@ export type OutboundEmailTemplateKey =
   | "password_reset"
   | "project_invitation"
   | "project_notification_digest"
+  | "product_feedback"
   | "operational_smoke";
 
 export interface OutboundEmailMessage {
   subject: string;
   text: string;
   html: string;
+}
+
+export interface ProductFeedbackEmailDiagnostics {
+  userAgent: string | null;
+  viewport: string | null;
+  locale: string | null;
+  timeZone: string | null;
 }
 
 const DEFAULT_TOKEN_TTL_SECONDS = 60 * 60;
@@ -94,6 +102,78 @@ export function buildPasswordResetEmail(input: {
       `<p>This link expires in <strong>${expiryLabel}</strong>.</p>` +
       `<p><a href="${safeResetUrl}">Reset password</a></p>` +
       `<p>If you did not request this, you can ignore this email.</p>`,
+  };
+}
+
+export function buildProductFeedbackEmail(input: {
+  reportType: "bug" | "feedback";
+  message: string;
+  reporterDisplayName: string;
+  reporterEmail: string;
+  reporterUsernameTag: string | null;
+  pagePath: string;
+  appVersion: string;
+  diagnostics: ProductFeedbackEmailDiagnostics | null;
+}): OutboundEmailMessage {
+  const typeLabel = input.reportType === "bug" ? "Bug report" : "Product feedback";
+  const reporterDisplayName =
+    sanitizePlainText(input.reporterDisplayName) || "NexusDash user";
+  const reporterEmail = sanitizePlainText(input.reporterEmail);
+  const reporterUsernameTag = input.reporterUsernameTag
+    ? sanitizePlainText(input.reporterUsernameTag)
+    : null;
+  const pagePath = sanitizePlainText(input.pagePath) || "/projects";
+  const appVersion = sanitizePlainText(input.appVersion) || "unknown";
+  const message = input.message.trim();
+  const reporterLine = reporterUsernameTag
+    ? `${reporterDisplayName} (${reporterUsernameTag})`
+    : reporterDisplayName;
+  const diagnosticRows = input.diagnostics
+    ? [
+        ["Browser", input.diagnostics.userAgent],
+        ["Viewport", input.diagnostics.viewport],
+        ["Locale", input.diagnostics.locale],
+        ["Time zone", input.diagnostics.timeZone],
+      ].filter((entry): entry is [string, string] => Boolean(entry[1]))
+    : [];
+
+  const textLines = [
+    typeLabel,
+    "",
+    "Message",
+    message,
+    "",
+    `Reporter: ${reporterLine}`,
+    `Email: ${reporterEmail}`,
+    `Page: ${pagePath}`,
+    `Version: ${appVersion}`,
+    `Diagnostics included: ${input.diagnostics ? "Yes" : "No"}`,
+    ...diagnosticRows.map(([label, value]) => `${label}: ${value}`),
+  ];
+
+  const htmlDiagnosticRows = diagnosticRows
+    .map(
+      ([label, value]) =>
+        `<tr><th align="left">${escapeHtmlText(label)}</th><td>${escapeHtmlText(value)}</td></tr>`
+    )
+    .join("");
+
+  return {
+    subject: truncateSubject(`[NexusDash] ${typeLabel} from ${reporterDisplayName}`),
+    text: textLines.join("\n"),
+    html:
+      `<h1>${escapeHtmlText(typeLabel)}</h1>` +
+      `<h2>Message</h2>` +
+      `<p>${escapeHtmlText(message).replace(/\r?\n/g, "<br />")}</p>` +
+      `<h2>Report context</h2>` +
+      `<table><tbody>` +
+      `<tr><th align="left">Reporter</th><td>${escapeHtmlText(reporterLine)}</td></tr>` +
+      `<tr><th align="left">Email</th><td>${escapeHtmlText(reporterEmail)}</td></tr>` +
+      `<tr><th align="left">Page</th><td>${escapeHtmlText(pagePath)}</td></tr>` +
+      `<tr><th align="left">Version</th><td>${escapeHtmlText(appVersion)}</td></tr>` +
+      `<tr><th align="left">Diagnostics included</th><td>${input.diagnostics ? "Yes" : "No"}</td></tr>` +
+      htmlDiagnosticRows +
+      `</tbody></table>`,
   };
 }
 

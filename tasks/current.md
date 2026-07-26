@@ -2,96 +2,110 @@
 
 ## Task
 
-- ID: TASK-334
-- Title: Alpha product-state indicator - subtle branding-level disclosure
-- Status: Complete (2026-07-26)
-- Branch: `feature/task-334-alpha-product-state-indicator`
-- Pull request: [#388](https://github.com/dorianagaesse/nexus_dash/pull/388)
-- Brief:
-  [`task-334-alpha-product-state-indicator.md`](./task-334-alpha-product-state-indicator.md)
+- ID: TASK-333
+- Title: In-product bug and feedback reporting
+- Status: In review (2026-07-26)
+- Branch: `feature/task-333-bug-feedback-reporting`
+- Pull request: [#389](https://github.com/dorianagaesse/nexus_dash/pull/389)
+- Brief: [`task-333-bug-feedback-reporting.md`](./task-333-bug-feedback-reporting.md)
 
 ## Objective
 
-Make NexusDash's alpha maturity visible at the brand level without competing
-with navigation or primary work, using a small accessible label attached to the
-authenticated shell wordmark.
+Give every authenticated user a persistent, accessible way to send a bug report
+or product feedback to the NexusDash owner without leaving the app.
 
 ## Scope
 
-- Add a reusable, non-interactive `Alpha` product-state label that uses the
-  existing semantic design tokens.
-- Attach the label to the desktop and compact-mobile NexusDash wordmarks in the
-  authenticated app shell.
-- Include the alpha state in the accessible name of each brand link.
-- Preserve the existing brand link destination, focus treatment, sidebar
-  dimensions, header actions, and navigation hierarchy.
-- Verify light/dark readability and containment at 375, 768, 1024, and 1440 px.
-- Add focused component and browser coverage for the disclosure.
+- Place a single-line labeled desktop entry immediately above the sidebar user
+  area.
+- Add a compact, icon-only persistent mobile-header entry that remains usable
+  at 375 px and retains an explicit accessible name.
+- Open one responsive dialog/sheet with report type, message, optional
+  diagnostics, validation, progress, success, and retry states.
+- Send reports through the existing Resend-backed outbound-email service to
+  `dorian.agaesse@gmail.com`.
+- Include authenticated reporter identity and safe page/product context without
+  including secrets or form contents from the current page.
 
 ## Runtime Assumptions
 
-- Dependencies and Playwright Chromium are installed locally.
-- Docker Engine and the repository database configuration are available if
-  authenticated browser validation requires them.
-- Preview validation will use
-  `feature/task-334-alpha-product-state-indicator` as the explicit `git_ref`.
+- Existing local database and `.env` prerequisites are unchanged.
+- Production has `RESEND_API_KEY` configured and uses the existing NexusDash
+  sender identity from `RESEND_FROM_EMAIL`.
+- Local/test delivery may remain in the existing skipped mode; provider
+  delivery is verified through mocked service coverage unless an explicitly
+  enabled live smoke run is requested.
+- Preview validation, when run, uses
+  `git_ref=feature/task-333-bug-feedback-reporting` and verifies that exact ref
+  in workflow logs.
 
 ## Acceptance Criteria
 
-1. Authenticated desktop and mobile shells show a small `Alpha` label attached
-   to the NexusDash wordmark near the top left.
-2. The label is visually subordinate to the wordmark and primary navigation,
-   uses established semantic tokens, and remains readable in light and dark
-   themes.
-3. Screen readers encounter the product state as part of the brand link's
-   accessible name; the disclosure does not rely on color alone.
-4. The label does not alter navigation behavior or collide with the wordmark,
-   theme control, account menu, or viewport edges at 375, 768, 1024, and
-   1440 px.
-5. Focused component and Playwright coverage protect desktop/mobile presence,
-   accessible naming, and compact-shell containment.
+1. Desktop shows a single-line labeled “Report a bug or feedback” control
+   directly above the user identity area at the bottom of the left sidebar.
+2. Mobile exposes the same action as an icon-only combined bug/message control
+   in the compact shell without colliding with brand, theme, account, content,
+   or bottom navigation at 375 px.
+3. The report UI distinguishes bug reports from general feedback, requires a
+   useful message, and clearly communicates optional diagnostics.
+4. Submitting authenticates the current user, validates and bounds all input,
+   and sends an email from NexusDash to `dorian.agaesse@gmail.com` through the
+   shared outbound-email service.
+5. The email safely includes report type, message, reporter identity, current
+   app path, product version, and only user-approved client diagnostics.
+6. Loading prevents duplicate submissions; success closes/resets the form and
+   is announced; failure remains recoverable without losing the message.
+7. All controls are keyboard reachable, visibly focused, correctly labeled,
+   at least 44 px, and usable in light/dark themes and at 375 px.
+8. Focused service/action/component tests cover validation, authorization,
+   safe email content, provider failures, dialog placement, and interaction
+   states.
 
 ## Definition Of Done
 
-- A reusable product-state badge is implemented and used by both authenticated
-  shell brand treatments.
-- Focused component tests and the relevant authenticated-shell Playwright flow
-  pass.
-- Light/dark screenshots at the standard responsive widths are captured and
-  visually reviewed.
+- Implementation follows shell, dialog, service-boundary, environment, and
+  outbound-email conventions already present in the repository.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  `npm run build`, and relevant Playwright checks pass.
-- Tracking documentation and release metadata are updated as required, the
-  branch is committed and pushed, and a ready-for-review PR is open with
-  initial automated review/check feedback handled before handoff.
+  `npm run build`, and relevant Playwright coverage pass.
+- Light/dark desktop and 375 px mobile walkthroughs show no overflow,
+  obstruction, or ambiguous submission outcome.
+- Product version, changelog, task/backlog tracking, and journal are updated.
+- The branch is committed and pushed, a ready-for-review PR is open, and
+  initial automated review/check feedback is handled before handoff.
 
 ## Outcome
 
-- Added a reusable, non-interactive `Alpha` badge using existing semantic
-  foreground, background, and border tokens.
-- Attached the badge to the top-right of the NexusDash wordmark in both the
-  desktop sidebar and compact mobile header.
-- Included the alpha state in both brand links' accessible names while
-  preserving their destination, focus treatment, and navigation hierarchy.
-- Added component coverage for both rendered disclosures and Playwright
-  coverage across light/dark 375, 768, 1024, and 1440 px shells, including
-  mobile action-collision and horizontal-overflow checks.
-- Prepared product release `v0.28.0` with matching package and changelog data.
+- Added the requested single-line desktop sidebar control directly above the
+  user identity area and a persistent icon-only mobile-header utility with a
+  combined bug/message glyph and accessible label.
+- Added one responsive dialog/sheet with bug and feedback types, bounded
+  message input, privacy-explained optional diagnostics, protected in-flight
+  dismissal, success confirmation, and retry-safe errors.
+- Added authenticated `POST /api/feedback` delivery through a focused service
+  and the existing Resend-backed outbound email foundation.
+- Fixed the recipient server-side to `dorian.agaesse@gmail.com`, resolved
+  reporter identity server-side, safely escaped report content, included only
+  app-relative page/version context, and rate-limited each account to five
+  recorded attempts per hour.
+- Prepared product release `v0.29.0` with product, runtime, changelog, and task
+  documentation updates.
 
 ## Validation
 
 - `npm run lint` passed.
 - `npm run rls:check` passed.
-- `npm test`: 948 passed, 2 skipped.
+- `npm run release:check` and `git diff --check` passed.
+- `npm test`: 961 passed, 2 skipped.
 - `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
   functions, 91.88% lines.
-- `npm run build` passed with the repository's local-safe production
-  validation environment.
-- `npm run release:check -- --base origin/main --branch
-  feature/task-334-alpha-product-state-indicator` passed for `v0.28.0`.
-- `npx playwright test`: all 24 scenarios passed.
-- Light/dark screenshots at 375, 768, 1024, and 1440 px were captured and
-  visually reviewed under `.tmp/task334-alpha-indicator/`.
-- GitHub branch, Quality Core, E2E Smoke, Tenant Isolation, and Container Image
-  checks passed on the review-fix head. Copilot's one actionable
-  screenshot-harness comment was applied, answered, and resolved.
+- `npm run build` passed with the documented safe local database/build
+  overrides because the existing root `.env` has identical remote
+  `DATABASE_URL` and `DIRECT_URL` values that production guardrails reject.
+- `npm run test:e2e`: production build and all 25 Playwright tests passed,
+  including the merged alpha-state shell coverage.
+- Focused light/dark screenshots at 375 px and 1440 px are stored under
+  `.tmp/task333/`, `.tmp/task333-refinement/`, and
+  `.tmp/task333-refinement-merged/`; the browser journey also verified exact
+  privacy payload, a 44 px square mobile target, no horizontal overflow, a
+  single-line desktop label, success feedback, and desktop placement above the
+  identity card.
