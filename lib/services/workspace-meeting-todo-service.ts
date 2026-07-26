@@ -180,14 +180,52 @@ export async function getWorkspaceMeetingTodoNavigationSummary(
     return { openCount: 0, overdueCount: 0 };
   }
 
-  const open = await loadWorkspaceMeetingTodos({
-    actorUserId,
-    openOnly: true,
-    referenceNowMs: Date.now(),
-  });
+  return withActorRlsContext(actorUserId, async (db) => {
+    const projects = await db.project.findMany({
+      where: buildProjectPrincipalWhere(actorUserId),
+      select: {
+        meetingNotes: {
+          where: {
+            actions: {
+              some: { completedAt: null },
+            },
+          },
+          select: {
+            scheduledAt: true,
+            status: true,
+            _count: {
+              select: {
+                actions: {
+                  where: { completedAt: null },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    const referenceNowMs = Date.now();
 
-  return {
-    openCount: open.length,
-    overdueCount: open.filter((todo) => todo.isOverdue).length,
-  };
+    return projects.reduce<WorkspaceMeetingTodoNavigationSummary>(
+      (summary, project) => {
+        for (const meeting of project.meetingNotes) {
+          const openInMeeting = meeting._count.actions;
+          summary.openCount += openInMeeting;
+          if (
+            isMeetingTodoOverdueAt({
+              scheduledAt: meeting.scheduledAt,
+              completedAt: null,
+              meetingStatus: meeting.status,
+              referenceNowMs,
+            })
+          ) {
+            summary.overdueCount += openInMeeting;
+          }
+        }
+
+        return summary;
+      },
+      { openCount: 0, overdueCount: 0 }
+    );
+  });
 }

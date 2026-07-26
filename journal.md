@@ -2978,3 +2978,9 @@ Low-value entries to avoid going forward:
 - Published implementation commit
   `0c679aaee83e27d24c138f9851844939f228375d` and opened ready-for-review
   [PR #390](https://github.com/dorianagaesse/nexus_dash/pull/390).
+- Addressed all three initial Copilot review threads: reverted `project.md`
+  because feature PRs do not maintain that snapshot, removed the duplicated
+  accessible count label from the Open/Completed switcher, and changed the
+  shell badge query to select only meeting status/date plus open-action counts.
+  Four focused test files (14 tests), lint, production build, and six focused
+  Playwright shell/todo scenarios passed after the review fixes.
