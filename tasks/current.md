@@ -4,8 +4,9 @@
 
 - ID: TASK-329
 - Title: Meeting participant identities - shared user avatars and initials for guests
-- Status: Implemented and validated; review pending (2026-07-26)
+- Status: Complete (2026-07-26)
 - Branch: `feature/task-329-meeting-participant-identities`
+- Pull request: [#391](https://github.com/dorianagaesse/nexus_dash/pull/391)
 - Brief: [`task-329-meeting-participant-identities.md`](./task-329-meeting-participant-identities.md)
 
 ## Objective
@@ -111,3 +112,10 @@ consistent avatar treatment.
 - Baseline and completed screenshots were visually reviewed in
   `.tmp/task329-baseline/screenshots/` and `.tmp/task329-final/screenshots/` at
   375 px and 1440 px in light and dark themes.
+- Ready-for-review PR #391 passed branch naming, Quality Core, Playwright,
+  PostgreSQL tenant isolation, and container-image checks on reviewed commit
+  `aa79a73`.
+- Copilot's initial review raised two related locale-stability comments.
+  Commit `aa79a73` replaced locale-dependent casing in participant identity
+  and deduplication keys; focused tests and lint passed, and both threads were
+  answered and resolved.

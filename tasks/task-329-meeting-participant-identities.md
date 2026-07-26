@@ -2,8 +2,9 @@
 
 ## Status
 
-Implemented and validated on `feature/task-329-meeting-participant-identities`;
-review is pending.
+Complete on `feature/task-329-meeting-participant-identities` in ready-for-review
+PR [#391](https://github.com/dorianagaesse/nexus_dash/pull/391). Initial
+automated review feedback is resolved and all required checks pass.
 
 ## Context
 

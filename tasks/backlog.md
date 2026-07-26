@@ -50,7 +50,7 @@ Last reviewed: 2026-07-26
   Dependencies: TASK-325, TASK-326
 - ID: TASK-329
   Title: Meeting participant identities - shared user avatars and initials for guests
-  Status: In Progress (2026-07-26)
+  Status: Done (2026-07-26, PR #391)
   Rationale: Replace free-form-only participant presentation with a mixed participant model that links registered participants to NexusDash users and renders them with the same shared avatar treatment used elsewhere, while keeping non-user participants available through a simple initials avatar derived from their name.
   Dependencies: TASK-089, TASK-098, TASK-119
 - ID: TASK-330

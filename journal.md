@@ -38,6 +38,18 @@ Use it for important implementation milestones, blockers, validation runs, and r
   and `.tmp/task329-final/screenshots/`. The final captures keep suggestions
   inside the viewport and clearly distinguish user avatars from guest initials.
 
+# 2026-07-26 - TASK-329 PR review and delivery
+
+- Committed and pushed the implementation as `750944a`, then opened
+  ready-for-review PR
+  [#391](https://github.com/dorianagaesse/nexus_dash/pull/391).
+- Copilot's initial review identified locale-dependent casing in the client
+  identity key and server deduplication key. Updated both to locale-stable
+  casing in `aa79a73`, reran 13 focused tests plus lint, answered both review
+  threads, and resolved them.
+- Branch naming, Quality Core, E2E Smoke, Tenant Isolation, and Container Image
+  checks all passed on reviewed commit `aa79a73`.
+
 # 2026-07-25 - TASK-324 compact sidebar theme control restored
 
 - Restored the desktop theme toggle to the right edge of the bottom user-info
