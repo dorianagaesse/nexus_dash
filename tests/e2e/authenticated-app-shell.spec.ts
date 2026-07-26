@@ -1,3 +1,4 @@
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
 import { expect, test } from "@playwright/test";
@@ -210,13 +211,17 @@ test.describe("responsive authenticated app shell", () => {
     await signInAsVerifiedUser(page);
     await page.goto("/projects");
 
-    const screenshotDirectory = process.env.TASK334_SCREENSHOT_DIR?.trim();
+    const screenshotDirectory = process.env.TASK_334_SCREENSHOT_DIR?.trim();
     const viewports = [
       { width: 375, height: 812, shell: "mobile" },
       { width: 768, height: 900, shell: "mobile" },
       { width: 1024, height: 900, shell: "desktop" },
       { width: 1440, height: 900, shell: "desktop" },
     ] as const;
+
+    if (screenshotDirectory) {
+      await mkdir(path.resolve(screenshotDirectory), { recursive: true });
+    }
 
     for (const theme of ["light", "dark"] as const) {
       await page.evaluate((nextTheme) => {
