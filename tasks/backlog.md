@@ -65,7 +65,7 @@ Last reviewed: 2026-07-26
   Dependencies: TASK-058, TASK-098, TASK-106, TASK-130
 - ID: TASK-332
   Title: Mobile meeting-todo popup refinement - audit and implement a discoverable entry pattern
-  Status: Ready for review - dedicated workspace Todos navigation implemented and validated
+  Status: In review - PR #390 adds the validated workspace Todos navigation
   Rationale: First audit the current mobile meeting-todo popup and its collisions, reachability, screen usage, focus behavior, and navigation context; then implement and validate the best mobile-only entry pattern, explicitly comparing a floating action button with a dedicated bottom-navigation destination before committing to the final interaction.
   Dependencies: TASK-100, TASK-316, TASK-321, TASK-322
 - ID: TASK-333

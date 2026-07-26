@@ -2835,3 +2835,6 @@ Low-value entries to avoid going forward:
   branches, 92.2% functions, and 91.88% lines; production build; and all 24
   Playwright scenarios. Light 393 x 852, dark 375 x 812, and desktop 1280 x
   900 screenshots are stored under `.tmp/`.
+- Published implementation commit
+  `0c679aaee83e27d24c138f9851844939f228375d` and opened ready-for-review
+  [PR #390](https://github.com/dorianagaesse/nexus_dash/pull/390).

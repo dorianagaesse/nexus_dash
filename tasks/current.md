@@ -4,8 +4,9 @@
 
 - ID: TASK-332
 - Title: Mobile meeting-todo navigation
-- Status: Ready for review
+- Status: In review
 - Branch: `feature/task-332-mobile-todo-navigation`
+- Pull request: [#390](https://github.com/dorianagaesse/nexus_dash/pull/390)
 - Brief: [`task-332-mobile-todo-navigation.md`](./task-332-mobile-todo-navigation.md)
 
 ## Objective
