@@ -2,116 +2,103 @@
 
 ## Task
 
-- ID: TASK-324
-- Title: Unified user hub and avatar-menu navigation rework
-- Status: Complete (2026-07-23)
-- Branch: `feature/task-324-unified-user-hub-navigation`
-- Pull request: [#380](https://github.com/dorianagaesse/nexus_dash/pull/380)
-- Brief: [`task-324-unified-user-hub-navigation.md`](./task-324-unified-user-hub-navigation.md)
+- ID: TASK-333
+- Title: In-product bug and feedback reporting
+- Status: In review (2026-07-26)
+- Branch: `feature/task-333-bug-feedback-reporting`
+- Brief: [`task-333-bug-feedback-reporting.md`](./task-333-bug-feedback-reporting.md)
 
 ## Objective
 
-Turn the current collection of account destinations into one coherent user
-space, while simplifying the retained avatar menu into a concise launcher
-rather than a second navigation system.
+Give every authenticated user a persistent, accessible way to send a bug report
+or product feedback to the NexusDash owner without leaving the app.
 
 ## Scope
 
-- Build one responsive user-hub header and route-backed navigation treatment
-  across Account, Settings, and Notifications.
-- Preserve the existing account URLs, deep links, browser history, unread
-  state, safe contextual `returnTo` values, and authenticated shell.
-- Keep the avatar menu aligned to its desktop user-info card with explicit
-  Account, Settings, and Notifications destinations plus a spatially separated
-  logout action.
-- Keep appearance as a one-click shell control and place app version/repository
-  metadata in Settings rather than inside the avatar menu.
-- Cover active state, accessible naming, keyboard and focus behavior, light and
-  dark themes, loading/empty/error states, and 375 px containment.
-- Add focused component and Playwright coverage for hub and menu behavior.
+- Place a labeled desktop entry immediately above the sidebar user area.
+- Add a compact, persistent mobile-header entry that remains usable at 375 px.
+- Open one responsive dialog/sheet with report type, message, optional
+  diagnostics, validation, progress, success, and retry states.
+- Send reports through the existing Resend-backed outbound-email service to
+  `dorian.agaesse@gmail.com`.
+- Include authenticated reporter identity and safe page/product context without
+  including secrets or form contents from the current page.
 
 ## Runtime Assumptions
 
-- Docker Engine, the repository `.env`, installed dependencies, and Playwright
-  Chromium are available locally.
-- The repository PostgreSQL Compose service may be started when database-backed
-  rendering or browser validation requires it.
-- Preview validation, if required by acceptance or review, will run the deploy
-  workflow from `feature/task-324-unified-user-hub-navigation` with
-  `git_ref=feature/task-324-unified-user-hub-navigation`; workflow logs will be
-  checked for the requested checkout ref.
+- Existing local database and `.env` prerequisites are unchanged.
+- Production has `RESEND_API_KEY` configured and uses the existing NexusDash
+  sender identity from `RESEND_FROM_EMAIL`.
+- Local/test delivery may remain in the existing skipped mode; provider
+  delivery is verified through mocked service coverage unless an explicitly
+  enabled live smoke run is requested.
+- Preview validation, when run, uses
+  `git_ref=feature/task-333-bug-feedback-reporting` and verifies that exact ref
+  in workflow logs.
 
 ## Acceptance Criteria
 
-1. Account, Settings, and Notifications are visibly available from one shared
-   user-hub navigation surface on desktop and mobile.
-2. Each hub view has a stable internal URL and supports refresh, deep linking,
-   browser Back/Forward, and contextual `returnTo` behavior.
-3. The active hub view is visually distinct and announced semantically without
-   relying on color alone.
-4. The avatar menu retains the user identity and provides explicit Account,
-   Settings, and Notifications destinations for casual-user discoverability.
-5. The desktop menu matches and aligns with the complete user-info card;
-   appearance remains a separate one-click control within that card,
-   version/repository metadata is available from Settings, and logout is
-   separated from navigation.
-6. Notification unread state remains discoverable from the avatar entry point
-   and the Notifications tab without creating competing primary actions.
-7. All interactive targets are at least 44 px, keyboard reachable, visibly
-   focused, and usable at 375 px without clipping or horizontal page overflow.
-8. Account routes retain the responsive authenticated shell and do not obscure
-   page content, feedback, dialogs, or fixed navigation.
+1. Desktop shows a labeled “Report a bug or feedback” control directly above
+   the user identity area at the bottom of the left sidebar.
+2. Mobile exposes the same action persistently in the compact shell without
+   colliding with brand, theme, account, content, or bottom navigation at
+   375 px.
+3. The report UI distinguishes bug reports from general feedback, requires a
+   useful message, and clearly communicates optional diagnostics.
+4. Submitting authenticates the current user, validates and bounds all input,
+   and sends an email from NexusDash to `dorian.agaesse@gmail.com` through the
+   shared outbound-email service.
+5. The email safely includes report type, message, reporter identity, current
+   app path, product version, and only user-approved client diagnostics.
+6. Loading prevents duplicate submissions; success closes/reset the form and
+   is announced; failure remains recoverable without losing the message.
+7. All controls are keyboard reachable, visibly focused, correctly labeled,
+   at least 44 px, and usable in light/dark themes and at 375 px.
+8. Focused service/action/component tests cover validation, authorization,
+   safe email content, provider failures, dialog placement, and interaction
+   states.
 
 ## Definition Of Done
 
-- The shared user hub and simplified avatar menu use reusable components and
-  established semantic design tokens.
-- Focused component tests cover tab semantics, active state, unread state, menu
-  composition, and safe contextual URLs.
-- Playwright covers desktop/mobile hub switching, direct entry, browser
-  history, notification deep links, and return-to-project continuity.
-- Light/dark and 375/768/1024/1440 px visual walkthroughs pass without
-  overflow, collision, or ambiguous current location; screenshots are captured
-  under `.tmp/`.
+- Implementation follows shell, dialog, service-boundary, environment, and
+  outbound-email conventions already present in the repository.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  `npm run build`, and relevant Playwright checks pass.
-- Tracking documentation and product version are updated, the branch is
-  committed and pushed, and a ready-for-review PR is open with initial Copilot
-  review/check feedback handled before handoff.
+  `npm run build`, and relevant Playwright coverage pass.
+- Light/dark desktop and 375 px mobile walkthroughs show no overflow,
+  obstruction, or ambiguous submission outcome.
+- Product version, changelog, task/backlog tracking, and journal are updated.
+- The branch is committed and pushed, a ready-for-review PR is open, and
+  initial automated review/check feedback is handled before handoff.
 
 ## Outcome
 
-- Introduced one shared responsive user hub for Account, Settings, and
-  Notifications while retaining each stable route and the authenticated shell.
-- Preserved safe project/task return context, notification deep links, browser
-  history, live unread state, and nested Settings routes.
-- Matched the desktop avatar menu to the full user-info card and restored
-  explicit Account, Settings, and Notifications actions with
-  Arrow/Home/End/Escape keyboard behavior and separated logout.
-- Restored the compact theme control to the desktop user-info card and retained
-  the mobile header control, while moving version plus the GitHub repository
-  link into Settings.
-- Added account-route loading/error recovery, 44 px controls on touched
-  surfaces, and reusable component/Playwright coverage.
-- Prepared product release `v0.27.0` with matching package and changelog data.
+- Added the requested labeled desktop sidebar control directly above the user
+  identity area and a persistent labeled mobile-header utility.
+- Added one responsive dialog/sheet with bug and feedback types, bounded
+  message input, privacy-explained optional diagnostics, protected in-flight
+  dismissal, success confirmation, and retry-safe errors.
+- Added authenticated `POST /api/feedback` delivery through a focused service
+  and the existing Resend-backed outbound email foundation.
+- Fixed the recipient server-side to `dorian.agaesse@gmail.com`, resolves
+  reporter identity server-side, safely escapes report content, includes only
+  app-relative page/version context, and rate-limits each account to five
+  recorded attempts per hour.
+- Prepared product release `v0.28.0` with product, runtime, changelog, and task
+  documentation updates.
 
 ## Validation
 
 - `npm run lint` passed.
 - `npm run rls:check` passed.
-- Release policy and `git diff --check` passed.
-- `npm test`: 948 passed, 2 skipped.
+- `npm run release:check` and `git diff --check` passed.
+- `npm test`: 960 passed, 2 skipped.
 - `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
   functions, 91.88% lines.
-- `npm run test:e2e`: production build and all 23 Playwright tests passed.
-- Light/dark Playwright walkthroughs at 375, 768, 1024, and 1440 px passed;
-  latest theme-control screenshots are in
-  `.tmp/task324-theme-button-refinement/`.
-- Playwright verified the open desktop menu matches the complete user-info
-  card's width and left edge within one pixel, and all 23 E2E scenarios passed.
-- GitHub Quality Core, E2E Smoke, Tenant Isolation, Container Image, and branch
-  checks passed. Copilot's one actionable icon-sizing comment was applied and
-  resolved.
-- Stabilized the notification round-trip Playwright journey by closing the
-  intentionally open task dialog before using the shell return link; the
-  focused test passed three consecutive runs.
+- `npm run build` passed with the documented safe local database/build
+  overrides because the existing root `.env` has identical remote
+  `DATABASE_URL` and `DIRECT_URL` values that production guardrails reject.
+- `npm run test:e2e`: production build and all 24 Playwright tests passed.
+- Focused light/dark screenshots at 375 px and 1440 px are stored under
+  `.tmp/task333/`; the browser journey also verified exact privacy payload,
+  44 px mobile target height, no horizontal overflow, success feedback, and
+  desktop placement above the identity card.

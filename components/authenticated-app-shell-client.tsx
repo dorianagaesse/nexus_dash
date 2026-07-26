@@ -7,6 +7,7 @@ import { Bell, FolderKanban, LayoutDashboard } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
 import { NotificationLiveUpdates } from "@/components/notification-live-updates";
+import { ProductFeedbackDialog } from "@/components/product-feedback-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useCurrentAppPath } from "@/lib/hooks/use-current-app-path";
 import {
@@ -190,19 +191,24 @@ export function AuthenticatedAppShellClient({
           </div>
         ) : null}
 
-        <div className="mt-auto border-t border-border/70 p-3">
-          <AccountMenu
-            isAuthenticated
-            displayName={displayName}
-            usernameTag={usernameTag}
-            avatarSeed={avatarSeed}
-            initialUnreadNotificationCount={initialNotificationSnapshot.unreadCount}
-            currentPath={currentPath}
-            menuPlacement="top"
-            menuAlign="start"
-            triggerVariant="identity"
-            identityAccessory={<ThemeToggle compact />}
-          />
+        <div className="mt-auto p-3">
+          <ProductFeedbackDialog triggerVariant="desktop" />
+          <div className="mt-2 border-t border-border/70 pt-3">
+            <AccountMenu
+              isAuthenticated
+              displayName={displayName}
+              usernameTag={usernameTag}
+              avatarSeed={avatarSeed}
+              initialUnreadNotificationCount={
+                initialNotificationSnapshot.unreadCount
+              }
+              currentPath={currentPath}
+              menuPlacement="top"
+              menuAlign="start"
+              triggerVariant="identity"
+              identityAccessory={<ThemeToggle compact />}
+            />
+          </div>
         </div>
       </aside>
 
@@ -217,6 +223,7 @@ export function AuthenticatedAppShellClient({
             <span className="truncate text-base font-semibold tracking-tight">NexusDash</span>
           </Link>
           <div className="ml-auto flex items-center gap-2">
+            <ProductFeedbackDialog triggerVariant="mobile" />
             <ThemeToggle compact />
             <AccountMenu
               isAuthenticated

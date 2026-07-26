@@ -21,6 +21,9 @@ Implemented today:
 - Project CRUD
 - Project sharing with owner-managed membership/invitation flows, including email-bound invite links
 - In-app notification center for durable unread/read notification review, starting with project invitations
+- Persistent authenticated bug and product-feedback reporting from desktop and
+  mobile shells, delivered to the NexusDash owner through the shared outbound
+  email foundation
 - Project notification email digests, delayed invitation reminders, and
   three-day task due-date reminders through the shared outbound email foundation
 - Project-scoped agent access with owner-managed API credentials, short-lived bearer-token exchange, and audit trail

@@ -37,6 +37,11 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
   - DB-backed notification email orchestration for project activity digests,
     invitation reminders, and three-day task due-date reminders, with
     recipient/project grouping, debounce timing, and outbound delivery records
+- Authenticated product feedback:
+  - persistent desktop-sidebar and mobile-header entry points
+  - responsive bug/feedback form with optional privacy-bounded diagnostics
+  - immediate owner delivery through the shared Resend-backed outbound-email
+    service with delivery records and per-account throttling
 - Task comments:
   - project-scoped, append-only task discussion threads
   - chronological author-attributed comment history in the task detail modal

@@ -1,11 +1,42 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  buildProductFeedbackEmail,
   buildProjectInvitationEmail,
   buildProjectNotificationDigestEmail,
 } from "@/lib/services/outbound-email-templates";
 
 describe("outbound-email-templates", () => {
+  test("builds escaped product feedback with explicit diagnostic context", () => {
+    const message = buildProductFeedbackEmail({
+      reportType: "bug",
+      message: "The <dialog> broke.\n<script>alert('nope')</script>",
+      reporterDisplayName: "Dorian\r\nBcc: injected@example.com",
+      reporterEmail: "dorian@example.com",
+      reporterUsernameTag: "dorian#1234",
+      pagePath: "/projects/project-1?taskId=task-7",
+      appVersion: "v0.28.0",
+      diagnostics: {
+        userAgent: "Test <Browser>",
+        viewport: "390x844",
+        locale: "fr-FR",
+        timeZone: "Europe/Paris",
+      },
+    });
+
+    expect(message.subject).toBe(
+      "[NexusDash] Bug report from Dorian Bcc: injected@example.com"
+    );
+    expect(message.subject).not.toContain("\n");
+    expect(message.text).toContain("The <dialog> broke.");
+    expect(message.text).toContain("Reporter: Dorian Bcc: injected@example.com");
+    expect(message.text).toContain("Viewport: 390x844");
+    expect(message.html).toContain("The &lt;dialog&gt; broke.<br />");
+    expect(message.html).toContain("&lt;script&gt;alert('nope')&lt;/script&gt;");
+    expect(message.html).toContain("Test &lt;Browser&gt;");
+    expect(message.html).not.toContain("<script>");
+  });
+
   test("sanitizes project invitation subject and plain text fields", () => {
     const message = buildProjectInvitationEmail({
       inviteUrl: "https://nexus-dash.app/invite/project/invite-1",

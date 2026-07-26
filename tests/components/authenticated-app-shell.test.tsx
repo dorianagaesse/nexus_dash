@@ -19,6 +19,7 @@ vi.mock("@/lib/hooks/use-dismissible-menu", () => ({
 }));
 
 import { AuthenticatedAppShellClient } from "@/components/authenticated-app-shell-client";
+import { ToastProvider } from "@/components/toast-provider";
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -36,15 +37,17 @@ describe("authenticated app shell", () => {
       "returnTo=%2Fprojects%2Fproject-1%3FtaskId%3Dtask-7"
     );
     const result = renderToStaticMarkup(
-      <AuthenticatedAppShellClient
-        displayName="Dorian"
-        usernameTag="dorian#1234"
-        avatarSeed="seed"
-        initialNotificationSnapshot={notificationSnapshot}
-        notificationBanner={<div>Notification banner</div>}
-      >
-        <main>Settings content</main>
-      </AuthenticatedAppShellClient>
+      <ToastProvider>
+        <AuthenticatedAppShellClient
+          displayName="Dorian"
+          usernameTag="dorian#1234"
+          avatarSeed="seed"
+          initialNotificationSnapshot={notificationSnapshot}
+          notificationBanner={<div>Notification banner</div>}
+        >
+          <main>Settings content</main>
+        </AuthenticatedAppShellClient>
+      </ToastProvider>
     );
 
     expect(result).toContain('aria-label="Primary navigation"');
@@ -56,6 +59,8 @@ describe("authenticated app shell", () => {
     expect(result).toContain("lg:pl-64");
     expect(result).toContain("z-[var(--layer-shell)]");
     expect(result).toContain("Skip to main content");
+    expect(result).toContain("Report a bug or feedback");
+    expect(result).toContain(">Feedback</span>");
     expect(result).toContain(
       "/account/notifications?returnTo=%2Fprojects%2Fproject-1%3FtaskId%3Dtask-7"
     );
@@ -66,15 +71,17 @@ describe("authenticated app shell", () => {
     mockSearchParams = new URLSearchParams();
 
     const result = renderToStaticMarkup(
-      <AuthenticatedAppShellClient
-        displayName="Dorian"
-        usernameTag="dorian#1234"
-        avatarSeed="seed"
-        initialNotificationSnapshot={notificationSnapshot}
-        notificationBanner={<div>Notification banner</div>}
-      >
-        <main>Project content</main>
-      </AuthenticatedAppShellClient>
+      <ToastProvider>
+        <AuthenticatedAppShellClient
+          displayName="Dorian"
+          usernameTag="dorian#1234"
+          avatarSeed="seed"
+          initialNotificationSnapshot={notificationSnapshot}
+          notificationBanner={<div>Notification banner</div>}
+        >
+          <main>Project content</main>
+        </AuthenticatedAppShellClient>
+      </ToastProvider>
     );
 
     expect(result).toContain("All projects");

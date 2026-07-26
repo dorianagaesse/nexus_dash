@@ -70,9 +70,10 @@ Last reviewed: 2026-07-26
   Dependencies: TASK-100, TASK-316, TASK-321, TASK-322
 - ID: TASK-333
   Title: In-product bug and feedback reporting - persistent, easy-to-find entry point
-  Status: Next 13 - user feedback capture
+  Status: In Review (2026-07-26)
   Rationale: Add a clearly discoverable way for users to report bugs or feedback with useful product context and an explicit submission outcome. Place the desktop entry above the user area at the bottom left, and audit mobile shell constraints before selecting a similarly accessible mobile placement.
   Dependencies: TASK-043, TASK-322, TASK-324
+  Brief: `tasks/task-333-bug-feedback-reporting.md`
 - ID: TASK-334
   Title: Alpha product-state indicator - subtle branding-level disclosure
   Status: Next 14 - product maturity communication

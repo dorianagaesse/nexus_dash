@@ -8,6 +8,22 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.28.0 - 2026-07-26
+
+- Added a persistent in-product bug and feedback reporter: a labeled action
+  above the desktop sidebar identity area and a compact labeled mobile-header
+  action.
+- Added a responsive, accessible report sheet with bug/feedback selection,
+  bounded message input, optional privacy-explained browser diagnostics,
+  explicit sending, success, validation, and retry states.
+- Routed verified authenticated reports through the existing NexusDash
+  Resend-backed delivery service to the fixed owner inbox, with server-resolved
+  reporter identity, safe page/version context, escaped email content,
+  delivery observability, and per-account throttling.
+- Added service, API, template, component, shell, and Playwright coverage for
+  validation, placement, responsive containment, privacy controls, delivery,
+  and failure recovery.
+
 ## v0.27.0 - 2026-07-23
 
 - Unified Account, Settings, and Notifications behind one shared responsive
