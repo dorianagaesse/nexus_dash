@@ -75,7 +75,7 @@ Last reviewed: 2026-07-26
   Dependencies: TASK-043, TASK-322, TASK-324
 - ID: TASK-334
   Title: Alpha product-state indicator - subtle branding-level disclosure
-  Status: In Review
+  Status: Complete (2026-07-26)
   Rationale: Make the product's alpha status visible without competing with primary navigation, starting with a small accessible label attached to the NexusDash brand area near the top left and adapting the treatment intentionally for the compact mobile shell.
   Dependencies: TASK-313, TASK-322
 - ID: TASK-335

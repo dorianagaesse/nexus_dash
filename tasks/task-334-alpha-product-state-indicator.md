@@ -2,7 +2,7 @@
 
 ## Status
 
-In review.
+Complete (2026-07-26).
 
 ## Objective
 

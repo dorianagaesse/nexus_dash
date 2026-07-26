@@ -4,7 +4,7 @@
 
 - ID: TASK-334
 - Title: Alpha product-state indicator - subtle branding-level disclosure
-- Status: In review
+- Status: Complete (2026-07-26)
 - Branch: `feature/task-334-alpha-product-state-indicator`
 - Pull request: [#388](https://github.com/dorianagaesse/nexus_dash/pull/388)
 - Brief:
@@ -92,3 +92,6 @@ authenticated shell wordmark.
 - `npx playwright test`: all 24 scenarios passed.
 - Light/dark screenshots at 375, 768, 1024, and 1440 px were captured and
   visually reviewed under `.tmp/task334-alpha-indicator/`.
+- GitHub branch, Quality Core, E2E Smoke, Tenant Isolation, and Container Image
+  checks passed on the review-fix head. Copilot's one actionable
+  screenshot-harness comment was applied, answered, and resolved.
