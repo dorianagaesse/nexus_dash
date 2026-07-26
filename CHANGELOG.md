@@ -10,9 +10,9 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 ## v0.28.0 - 2026-07-26
 
-- Added a persistent in-product bug and feedback reporter: a labeled action
-  above the desktop sidebar identity area and a compact labeled mobile-header
-  action.
+- Added a persistent in-product bug and feedback reporter: a single-line
+  labeled action above the desktop sidebar identity area and a compact
+  icon-only mobile-header action with a combined bug/message glyph.
 - Added a responsive, accessible report sheet with bug/feedback selection,
   bounded message input, optional privacy-explained browser diagnostics,
   explicit sending, success, validation, and retry states.

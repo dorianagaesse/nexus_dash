@@ -288,12 +288,29 @@ test.describe("responsive authenticated app shell", () => {
     await page.goto("/projects");
 
     const mobileTrigger = page.getByRole("button", {
-      name: "Feedback",
+      name: "Report a bug or feedback",
       exact: true,
     });
     await expect(mobileTrigger).toBeVisible();
     const mobileTriggerBox = await mobileTrigger.boundingBox();
     expect(mobileTriggerBox?.height).toBeGreaterThanOrEqual(44);
+    expect(mobileTriggerBox?.width).toBeGreaterThanOrEqual(44);
+    if (task333ScreenshotDirectory) {
+      await page.screenshot({
+        path: path.resolve(task333ScreenshotDirectory, "mobile-feedback-trigger.png"),
+        fullPage: true,
+      });
+      await page.evaluate(() => document.documentElement.classList.add("dark"));
+      await page.waitForTimeout(300);
+      await page.screenshot({
+        path: path.resolve(
+          task333ScreenshotDirectory,
+          "mobile-feedback-trigger-dark.png"
+        ),
+        fullPage: true,
+      });
+      await page.evaluate(() => document.documentElement.classList.remove("dark"));
+    }
     await mobileTrigger.click();
 
     const feedbackDialog = page.getByRole("dialog", {
@@ -358,6 +375,27 @@ test.describe("responsive authenticated app shell", () => {
     expect(desktopTriggerBox).not.toBeNull();
     expect(identityAreaBox).not.toBeNull();
     expect(desktopTriggerBox!.y).toBeLessThan(identityAreaBox!.y);
+    expect(
+      await desktopTrigger.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth
+      )
+    ).toBe(true);
+    if (task333ScreenshotDirectory) {
+      await page.screenshot({
+        path: path.resolve(task333ScreenshotDirectory, "desktop-feedback-trigger.png"),
+        fullPage: true,
+      });
+      await page.evaluate(() => document.documentElement.classList.add("dark"));
+      await page.waitForTimeout(300);
+      await page.screenshot({
+        path: path.resolve(
+          task333ScreenshotDirectory,
+          "desktop-feedback-trigger-dark.png"
+        ),
+        fullPage: true,
+      });
+      await page.evaluate(() => document.documentElement.classList.remove("dark"));
+    }
     await desktopTrigger.click();
     await expect(
       page.getByRole("dialog", {

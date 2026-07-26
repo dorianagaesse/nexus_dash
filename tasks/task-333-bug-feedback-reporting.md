@@ -10,10 +10,11 @@
 ## Product decision
 
 Use one shell-owned report dialog. Desktop receives the requested full-width
-sidebar control directly above the identity card. Mobile receives a persistent
-44 px icon button in the compact header, with an accessible name and native
-tooltip, because adding a modal action to the route-oriented bottom navigation
-would mix navigation and mutation semantics.
+single-line sidebar control directly above the identity card. Mobile receives
+a persistent 44 px icon button in the compact header, with a combined
+bug/message glyph, accessible name, and native tooltip, because adding a modal
+action to the route-oriented bottom navigation would mix navigation and
+mutation semantics.
 
 The form defaults to “Bug”, also supports “Feedback”, and collects a bounded
 message. It always includes authenticated reporter identity, current app path,

@@ -75,7 +75,7 @@ describe("product feedback dialog", () => {
 
     await click(
       Array.from(container.querySelectorAll("button")).find((button) =>
-        button.textContent?.includes("Report a bug or feedback")
+        button.getAttribute("aria-label") === "Report a bug or feedback"
       ) ?? null
     );
 
@@ -140,11 +140,15 @@ describe("product feedback dialog", () => {
         <ProductFeedbackDialog triggerVariant="mobile" />
       </ToastProvider>
     );
-    await click(
-      Array.from(container.querySelectorAll("button")).find(
-        (button) => button.textContent === "Feedback"
-      ) ?? null
+    const mobileTrigger = Array.from(container.querySelectorAll("button")).find(
+      (button) =>
+        button.getAttribute("aria-label") === "Report a bug or feedback"
     );
+    expect(mobileTrigger?.textContent).toBe("");
+    expect(mobileTrigger?.getAttribute("title")).toBe(
+      "Report a bug or feedback"
+    );
+    await click(mobileTrigger ?? null);
     const textarea = document.body.querySelector<HTMLTextAreaElement>("textarea");
     await setTextareaValue(
       textarea as HTMLTextAreaElement,

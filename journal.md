@@ -2847,3 +2847,18 @@ Low-value entries to avoid going forward:
 - Committed the reviewable implementation as `4c4e3f7`, pushed
   `feature/task-333-bug-feedback-reporting`, and opened ready-for-review PR
   [#389](https://github.com/dorianagaesse/nexus_dash/pull/389).
+
+# 2026-07-26 - TASK-333 responsive trigger refinement
+
+- Incorporated product feedback by keeping the full desktop label on one line
+  with tighter spacing and making the mobile action icon-only.
+- Replaced the generic message-plus glyph with one Lucide-based composite: a
+  bug nested inside a speech bubble, conveying both bug reporting and general
+  feedback while retaining the 44 px mobile target, accessible name, native
+  tooltip, keyboard focus, and existing light/dark semantic colors.
+- Revalidated lint, RLS inventory, release policy, 961 unit tests, unchanged
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, the production build, and all 24 Playwright scenarios. Light/dark
+  trigger captures at 375 px and 1440 px are stored under
+  `.tmp/task333-refinement/`; the browser assertions verify the 44 px square
+  mobile target and that the desktop label neither wraps nor overflows.

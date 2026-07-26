@@ -5,7 +5,7 @@ import {
   Bug,
   Lightbulb,
   LoaderCircle,
-  MessageSquarePlus,
+  MessageSquare,
   Send,
   X,
 } from "lucide-react";
@@ -53,6 +53,21 @@ function collectDiagnostics() {
     locale: window.navigator.language,
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   };
+}
+
+function FeedbackReportIcon() {
+  return (
+    <span className="relative block h-6 w-6" aria-hidden>
+      <MessageSquare
+        className="absolute inset-0 h-6 w-6"
+        strokeWidth={1.8}
+      />
+      <Bug
+        className="absolute left-[7px] top-[5px] h-2.5 w-2.5"
+        strokeWidth={2}
+      />
+    </span>
+  );
 }
 
 export function ProductFeedbackDialog({
@@ -144,27 +159,28 @@ export function ProductFeedbackDialog({
       <DialogTrigger asChild>
         <button
           type="button"
+          aria-label="Report a bug or feedback"
           title={triggerVariant === "mobile" ? "Report a bug or feedback" : undefined}
           className={cn(
-            "group flex min-h-11 items-center rounded-xl font-medium text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "group flex min-h-11 cursor-pointer touch-manipulation items-center rounded-xl font-medium text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             triggerVariant === "desktop"
-              ? "w-full gap-3 px-3 text-sm"
-              : "shrink-0 gap-1.5 px-2 text-xs"
+              ? "w-full gap-2 px-2 text-[13px]"
+              : "h-11 w-11 shrink-0 justify-center p-0"
           )}
         >
           <span
             className={cn(
               "grid shrink-0 place-items-center",
-              triggerVariant === "desktop" ? "h-7 w-7" : "h-7 w-5"
+              triggerVariant === "desktop" ? "h-7 w-7" : "h-6 w-6"
             )}
           >
-            <MessageSquarePlus
-              className={triggerVariant === "desktop" ? "h-5 w-5" : "h-[18px] w-[18px]"}
-              strokeWidth={1.8}
-              aria-hidden
-            />
+            <FeedbackReportIcon />
           </span>
-          <span>{triggerVariant === "desktop" ? "Report a bug or feedback" : "Feedback"}</span>
+          {triggerVariant === "desktop" ? (
+            <span className="whitespace-nowrap leading-none">
+              Report a bug or feedback
+            </span>
+          ) : null}
         </button>
       </DialogTrigger>
 

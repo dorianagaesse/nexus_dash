@@ -60,7 +60,8 @@ describe("authenticated app shell", () => {
     expect(result).toContain("z-[var(--layer-shell)]");
     expect(result).toContain("Skip to main content");
     expect(result).toContain("Report a bug or feedback");
-    expect(result).toContain(">Feedback</span>");
+    expect(result).toContain('title="Report a bug or feedback"');
+    expect(result).not.toContain(">Feedback</span>");
     expect(result).toContain(
       "/account/notifications?returnTo=%2Fprojects%2Fproject-1%3FtaskId%3Dtask-7"
     );

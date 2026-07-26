@@ -16,8 +16,10 @@ or product feedback to the NexusDash owner without leaving the app.
 
 ## Scope
 
-- Place a labeled desktop entry immediately above the sidebar user area.
-- Add a compact, persistent mobile-header entry that remains usable at 375 px.
+- Place a single-line labeled desktop entry immediately above the sidebar user
+  area.
+- Add a compact, icon-only persistent mobile-header entry that remains usable
+  at 375 px and retains an explicit accessible name.
 - Open one responsive dialog/sheet with report type, message, optional
   diagnostics, validation, progress, success, and retry states.
 - Send reports through the existing Resend-backed outbound-email service to
@@ -39,11 +41,11 @@ or product feedback to the NexusDash owner without leaving the app.
 
 ## Acceptance Criteria
 
-1. Desktop shows a labeled “Report a bug or feedback” control directly above
-   the user identity area at the bottom of the left sidebar.
-2. Mobile exposes the same action persistently in the compact shell without
-   colliding with brand, theme, account, content, or bottom navigation at
-   375 px.
+1. Desktop shows a single-line labeled “Report a bug or feedback” control
+   directly above the user identity area at the bottom of the left sidebar.
+2. Mobile exposes the same action as an icon-only combined bug/message control
+   in the compact shell without colliding with brand, theme, account, content,
+   or bottom navigation at 375 px.
 3. The report UI distinguishes bug reports from general feedback, requires a
    useful message, and clearly communicates optional diagnostics.
 4. Submitting authenticates the current user, validates and bounds all input,
@@ -73,8 +75,9 @@ or product feedback to the NexusDash owner without leaving the app.
 
 ## Outcome
 
-- Added the requested labeled desktop sidebar control directly above the user
-  identity area and a persistent labeled mobile-header utility.
+- Added the requested single-line desktop sidebar control directly above the
+  user identity area and a persistent icon-only mobile-header utility with a
+  combined bug/message glyph and accessible label.
 - Added one responsive dialog/sheet with bug and feedback types, bounded
   message input, privacy-explained optional diagnostics, protected in-flight
   dismissal, success confirmation, and retry-safe errors.
@@ -92,7 +95,7 @@ or product feedback to the NexusDash owner without leaving the app.
 - `npm run lint` passed.
 - `npm run rls:check` passed.
 - `npm run release:check` and `git diff --check` passed.
-- `npm test`: 960 passed, 2 skipped.
+- `npm test`: 961 passed, 2 skipped.
 - `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
   functions, 91.88% lines.
 - `npm run build` passed with the documented safe local database/build
@@ -100,6 +103,7 @@ or product feedback to the NexusDash owner without leaving the app.
   `DATABASE_URL` and `DIRECT_URL` values that production guardrails reject.
 - `npm run test:e2e`: production build and all 24 Playwright tests passed.
 - Focused light/dark screenshots at 375 px and 1440 px are stored under
-  `.tmp/task333/`; the browser journey also verified exact privacy payload,
-  44 px mobile target height, no horizontal overflow, success feedback, and
-  desktop placement above the identity card.
+  `.tmp/task333/` and `.tmp/task333-refinement/`; the browser journey also
+  verified exact privacy payload, a 44 px square mobile target, no horizontal
+  overflow, a single-line desktop label, success feedback, and desktop
+  placement above the identity card.
