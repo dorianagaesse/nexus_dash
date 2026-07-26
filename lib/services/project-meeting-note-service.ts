@@ -181,7 +181,7 @@ function normalizeParticipants(
     );
     const key = userId
       ? `user:${userId}`
-      : `external:${displayName.toLocaleLowerCase()}`;
+      : `external:${displayName.toLowerCase()}`;
 
     if ((!userId && !displayName) || seen.has(key)) {
       continue;

@@ -29,7 +29,7 @@ export function getMeetingParticipantKey(
     ? `user:${participant.userId}`
     : `external:${normalizeMeetingParticipantName(
         participant.displayName
-      ).toLocaleLowerCase()}`;
+      ).toLowerCase()}`;
 }
 
 export function getMeetingParticipantInitials(displayName: string): string {
