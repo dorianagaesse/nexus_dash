@@ -2,7 +2,8 @@
 
 ## Status
 
-Ready for review on `feature/task-332-mobile-todo-navigation`.
+In review in [PR #390](https://github.com/dorianagaesse/nexus_dash/pull/390)
+from `feature/task-332-mobile-todo-navigation`.
 
 ## Objective
 
