@@ -3,14 +3,13 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
-import { Bell, FolderKanban, LayoutDashboard } from "lucide-react";
+import { Bell, FolderKanban, LayoutDashboard, ListTodo } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
 import { NotificationLiveUpdates } from "@/components/notification-live-updates";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useCurrentAppPath } from "@/lib/hooks/use-current-app-path";
 import {
-  AUTHENTICATED_DESTINATIONS,
   buildAuthenticatedDestinationHref,
   isDestinationCurrent,
   resolveContextualReturnDestination,
@@ -18,6 +17,7 @@ import {
 } from "@/lib/navigation/authenticated-shell";
 import { useNotificationRealtimeSnapshot } from "@/lib/notification-realtime-client";
 import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
+import type { WorkspaceMeetingTodoNavigationSummary } from "@/lib/services/workspace-meeting-todo-service";
 import { cn } from "@/lib/utils";
 
 const NAVIGATION_ITEMS: Array<{
@@ -27,13 +27,19 @@ const NAVIGATION_ITEMS: Array<{
   icon: typeof FolderKanban;
 }> = [
   {
-    href: AUTHENTICATED_DESTINATIONS[0],
+    href: "/projects",
     label: "Projects",
     mobileLabel: "Projects",
     icon: FolderKanban,
   },
   {
-    href: AUTHENTICATED_DESTINATIONS[1],
+    href: "/todos",
+    label: "Todos",
+    mobileLabel: "Todos",
+    icon: ListTodo,
+  },
+  {
+    href: "/account/notifications",
     label: "Inbox",
     mobileLabel: "Inbox",
     icon: Bell,
@@ -45,6 +51,7 @@ interface AuthenticatedAppShellClientProps {
   usernameTag: string | null;
   avatarSeed: string | null;
   initialNotificationSnapshot: NotificationRealtimeSnapshot;
+  initialMeetingTodoSummary?: WorkspaceMeetingTodoNavigationSummary;
   notificationBanner: ReactNode;
   children: ReactNode;
 }
@@ -54,6 +61,7 @@ export function AuthenticatedAppShellClient({
   usernameTag,
   avatarSeed,
   initialNotificationSnapshot,
+  initialMeetingTodoSummary = { openCount: 0, overdueCount: 0 },
   notificationBanner,
   children,
 }: AuthenticatedAppShellClientProps) {
@@ -82,10 +90,24 @@ export function AuthenticatedAppShellClient({
           ? false
           : isDestinationCurrent(pathname, item.href);
       const href = buildAuthenticatedDestinationHref(item.href, currentPath);
-      const unread =
+      const badgeCount =
         item.href === "/account/notifications"
           ? notificationSnapshot.unreadCount
-          : 0;
+          : item.href === "/todos"
+            ? initialMeetingTodoSummary.openCount
+            : 0;
+      const badgeLabel =
+        item.href === "/account/notifications"
+          ? `${notificationSnapshot.unreadCount} unread notifications`
+          : item.href === "/todos"
+            ? `${initialMeetingTodoSummary.openCount} open todos${
+                initialMeetingTodoSummary.overdueCount > 0
+                  ? `, ${initialMeetingTodoSummary.overdueCount} overdue`
+                  : ""
+              }`
+            : "";
+      const hasOverdueTodos =
+        item.href === "/todos" && initialMeetingTodoSummary.overdueCount > 0;
 
       return (
         <Link
@@ -110,10 +132,19 @@ export function AuthenticatedAppShellClient({
           ) : null}
           <span className="relative grid h-7 w-7 shrink-0 place-items-center">
             <Icon className="h-5 w-5" strokeWidth={isCurrent ? 2.25 : 1.8} aria-hidden />
-            {unread > 0 ? (
-              <span className="absolute -right-1 -top-1 grid min-h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground ring-2 ring-background">
-                <span className="sr-only">{unread} unread notifications</span>
-                <span aria-hidden>{unread > 99 ? "99+" : unread}</span>
+            {badgeCount > 0 ? (
+              <span
+                className={cn(
+                  "absolute -right-1 -top-1 grid min-h-4 min-w-4 place-items-center rounded-full px-1 text-[9px] font-bold leading-none ring-2 ring-background",
+                  item.href === "/account/notifications"
+                    ? "bg-destructive text-destructive-foreground"
+                    : hasOverdueTodos
+                      ? "bg-amber-600 text-white dark:bg-amber-500 dark:text-slate-950"
+                      : "bg-primary text-primary-foreground"
+                )}
+              >
+                <span className="sr-only">{badgeLabel}</span>
+                <span aria-hidden>{badgeCount > 99 ? "99+" : badgeCount}</span>
               </span>
             ) : null}
           </span>
@@ -247,7 +278,7 @@ export function AuthenticatedAppShellClient({
 
       <nav
         aria-label="Primary navigation"
-        className="fixed inset-x-3 bottom-[calc(0.5rem+env(safe-area-inset-bottom))] z-[var(--layer-shell)] grid grid-cols-2 rounded-2xl border border-border/70 bg-background/95 p-1.5 shadow-[0_16px_40px_-12px_rgba(15,23,42,0.35)] backdrop-blur lg:hidden"
+        className="fixed inset-x-3 bottom-[calc(0.5rem+env(safe-area-inset-bottom))] z-[var(--layer-shell)] grid grid-cols-3 rounded-2xl border border-border/70 bg-background/95 p-1.5 shadow-[0_16px_40px_-12px_rgba(15,23,42,0.35)] backdrop-blur lg:hidden"
       >
         {navigation(true)}
       </nav>

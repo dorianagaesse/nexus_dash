@@ -28,6 +28,21 @@ describe("authenticated shell navigation", () => {
     );
   });
 
+  test("keeps Todos as a stable workspace destination and return origin", () => {
+    expect(buildAuthenticatedDestinationHref("/todos", "/projects/project-1")).toBe(
+      "/todos"
+    );
+    expect(
+      buildAuthenticatedDestinationHref("/account/settings", "/todos")
+    ).toBe("/account/settings?returnTo=%2Ftodos");
+    expect(
+      resolveContextualReturnDestination("/todos", {
+        href: "/projects",
+        label: "Projects",
+      })
+    ).toEqual({ href: "/todos", label: "Todos" });
+  });
+
   test("carries notification-list context into task targets", () => {
     expect(
       buildNotificationTargetHref(
@@ -89,6 +104,8 @@ describe("authenticated shell navigation", () => {
 
   test("marks only the matching primary destination current", () => {
     expect(isDestinationCurrent("/projects/project-1", "/projects")).toBe(true);
+    expect(isDestinationCurrent("/todos", "/todos")).toBe(true);
+    expect(isDestinationCurrent("/projects", "/todos")).toBe(false);
     expect(
       isDestinationCurrent("/account/settings/developers", "/account/settings")
     ).toBe(true);

@@ -1,0 +1,240 @@
+import { expect, test } from "@playwright/test";
+
+import { prisma } from "../../lib/prisma";
+import { signInAsVerifiedUser } from "./helpers/auth-helpers";
+import { uniqueProjectName } from "./helpers/project-helpers";
+
+async function createWorkspaceTodoFixture(userId: string) {
+  const ownerProjectName = uniqueProjectName("todo-owner-project");
+  const viewerProjectName = uniqueProjectName("todo-viewer-project");
+  const ownerMeetingTitle = uniqueProjectName("owner-planning");
+  const viewerMeetingTitle = uniqueProjectName("viewer-review");
+  const externalOwner = await prisma.user.create({
+    data: {
+      email: `${uniqueProjectName("todo-owner")}@nexusdash.local`,
+      name: "Todo Project Owner",
+      emailVerified: new Date(),
+    },
+    select: { id: true },
+  });
+  const ownerProject = await prisma.project.create({
+    data: {
+      ownerId: userId,
+      name: ownerProjectName,
+      description: "Editable meeting todos.",
+      memberships: {
+        create: {
+          userId,
+          role: "owner",
+        },
+      },
+      meetingNotes: {
+        create: {
+          title: ownerMeetingTitle,
+          scheduledAt: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000),
+          participants: ["Dorian"],
+          status: "actions_in_progress",
+          inputNotes: "Validate the mobile todo destination.",
+          outputNotes: "",
+          createdByUserId: userId,
+          updatedByUserId: userId,
+          actions: {
+            create: [
+              {
+                content: "Complete the mobile navigation audit",
+                position: 0,
+              },
+              {
+                content: "Open the source meeting from Todos",
+                position: 1,
+              },
+              {
+                content: "Share the completed prototype",
+                position: 2,
+                completedAt: new Date(Date.now() - 60_000),
+              },
+            ],
+          },
+        },
+      },
+    },
+    select: {
+      id: true,
+      meetingNotes: {
+        select: {
+          id: true,
+          actions: {
+            select: { id: true, content: true },
+          },
+        },
+      },
+    },
+  });
+  const viewerProject = await prisma.project.create({
+    data: {
+      ownerId: externalOwner.id,
+      name: viewerProjectName,
+      description: "Read-only meeting todos.",
+      memberships: {
+        create: [
+          {
+            userId: externalOwner.id,
+            role: "owner",
+          },
+          {
+            userId,
+            role: "viewer",
+          },
+        ],
+      },
+      meetingNotes: {
+        create: {
+          title: viewerMeetingTitle,
+          scheduledAt: new Date(),
+          participants: ["Camille"],
+          status: "actions_in_progress",
+          inputNotes: "Viewer coverage.",
+          outputNotes: "",
+          createdByUserId: externalOwner.id,
+          updatedByUserId: externalOwner.id,
+          actions: {
+            create: {
+              content: "Review the shared read-only follow-up",
+              position: 0,
+            },
+          },
+        },
+      },
+    },
+    select: { id: true },
+  });
+
+  return {
+    ownerProjectId: ownerProject.id,
+    viewerProjectId: viewerProject.id,
+    ownerProjectName,
+    viewerProjectName,
+    ownerMeetingTitle,
+    ownerMeetingId: ownerProject.meetingNotes[0]!.id,
+    sourceTodoId: ownerProject.meetingNotes[0]!.actions.find(
+      (action) => action.content === "Open the source meeting from Todos"
+    )!.id,
+  };
+}
+
+test.describe("workspace meeting todos", () => {
+  test("replaces the mobile popup with a route-backed primary destination", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 393, height: 852 });
+    const userId = await signInAsVerifiedUser(page);
+    const fixture = await createWorkspaceTodoFixture(userId);
+
+    await page.goto("/todos");
+
+    const mobileNavigation = page.locator(
+      "nav[aria-label='Primary navigation']:visible"
+    );
+    await expect(mobileNavigation.getByRole("link")).toHaveCount(3);
+    await expect(
+      mobileNavigation.getByRole("link", { name: /Todos/ })
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      page.getByRole("heading", { name: "Todos", exact: true })
+    ).toBeVisible();
+    await expect(page.getByText("Complete the mobile navigation audit")).toBeVisible();
+    await expect(page.getByText("Review the shared read-only follow-up")).toBeVisible();
+    await expect(page.getByText("View only", { exact: true })).toBeVisible();
+
+    const targetSizes = await mobileNavigation
+      .getByRole("link")
+      .evaluateAll((links) =>
+        links.map((link) => {
+          const rect = link.getBoundingClientRect();
+          return { width: rect.width, height: rect.height };
+        })
+      );
+    expect(targetSizes.every((target) => target.height >= 44)).toBe(true);
+    const completionBox = await page
+      .getByRole("button", {
+        name: "Complete todo: Complete the mobile navigation audit",
+      })
+      .boundingBox();
+    expect(completionBox?.width).toBeGreaterThanOrEqual(44);
+    expect(completionBox?.height).toBeGreaterThanOrEqual(44);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
+    ).toBe(true);
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.getByRole("button", { name: "Switch to dark mode" }).click();
+    await expect(page.locator("html")).toHaveClass(/dark/);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
+    ).toBe(true);
+    await page.getByRole("button", { name: "Switch to light mode" }).click();
+    await page.setViewportSize({ width: 393, height: 852 });
+
+    await page
+      .getByRole("combobox", { name: "Project", exact: true })
+      .selectOption(fixture.viewerProjectId);
+    await expect(page).toHaveURL(
+      new RegExp(`/todos\\?project=${fixture.viewerProjectId}$`)
+    );
+    await expect(page.getByText("Review the shared read-only follow-up")).toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: "Complete todo: Review the shared read-only follow-up",
+      })
+    ).toHaveCount(0);
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/todos$/);
+    await page.getByRole("link", { name: /^completed/i }).click();
+    await expect(page).toHaveURL(/\/todos\?view=completed$/);
+    await expect(page.getByText("Share the completed prototype")).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/todos$/);
+
+    const completionResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        /\/meeting-notes\/[^/]+\/actions\/[^/]+$/.test(response.url()) &&
+        response.ok()
+    );
+    await page
+      .getByRole("button", {
+        name: "Complete todo: Complete the mobile navigation audit",
+      })
+      .click();
+    await completionResponse;
+    await expect(page.getByText("Todo completed.")).toBeVisible();
+    await expect(page.getByText("Complete the mobile navigation audit")).toBeHidden();
+
+    await page
+      .locator("li", { hasText: "Open the source meeting from Todos" })
+      .getByRole("link", { name: new RegExp(fixture.ownerMeetingTitle) })
+      .click();
+    await expect(page).toHaveURL(
+      new RegExp(
+        `/projects/${fixture.ownerProjectId}\\?meetingNoteId=${fixture.ownerMeetingId}&meetingTodoId=${fixture.sourceTodoId}`
+      )
+    );
+    const meetingDialog = page.getByRole("dialog");
+    await expect(
+      meetingDialog.getByRole("heading", {
+        name: fixture.ownerMeetingTitle,
+      })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Meeting todos", exact: true })
+    ).toBeHidden();
+    await meetingDialog
+      .getByRole("button", { name: `Close ${fixture.ownerMeetingTitle}` })
+      .click();
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(
+      page.getByRole("region", { name: "Meeting todos", exact: true })
+    ).toBeVisible();
+  });
+});

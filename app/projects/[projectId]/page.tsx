@@ -126,6 +126,12 @@ export default async function ProjectDashboardPage({
   const status = readQueryValue(resolvedSearchParams?.status);
   const error = readQueryValue(resolvedSearchParams?.error);
   const initialTaskId = readQueryValue(resolvedSearchParams?.taskId);
+  const initialMeetingNoteId = readQueryValue(
+    resolvedSearchParams?.meetingNoteId
+  );
+  const initialMeetingTodoId = readQueryValue(
+    resolvedSearchParams?.meetingTodoId
+  );
   const actorRole =
     project.ownerId === actorUserId ? "owner" : (project.memberships[0]?.role ?? "viewer");
   const canEditProjectContent = actorRole === "owner" || actorRole === "editor";
@@ -258,6 +264,8 @@ export default async function ProjectDashboardPage({
           projectId={project.id}
           actorUserId={actorUserId}
           canEdit={canEditProjectContent}
+          initialMeetingNoteId={initialMeetingNoteId}
+          initialMeetingTodoId={initialMeetingTodoId}
         />
       </Suspense>
 

@@ -1,0 +1,147 @@
+// @vitest-environment jsdom
+
+import React, { act } from "react";
+import { createRoot } from "react-dom/client";
+import { renderToStaticMarkup } from "react-dom/server";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+
+const navigationMock = vi.hoisted(() => ({
+  push: vi.fn(),
+  refresh: vi.fn(),
+}));
+
+let mockSearchParams = new URLSearchParams();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => navigationMock,
+  useSearchParams: () => mockSearchParams,
+}));
+
+import {
+  WorkspaceMeetingTodos,
+  type WorkspaceMeetingTodoItem,
+} from "@/components/meeting-todos/workspace-meeting-todos";
+
+(globalThis as { React?: typeof React }).React = React;
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
+  true;
+
+const ownerTodo: WorkspaceMeetingTodoItem = {
+  id: "todo-owner",
+  content: "Confirm the mobile navigation pattern",
+  completedAt: null,
+  updatedAt: "2026-07-20T10:00:00.000Z",
+  isOverdue: true,
+  meeting: {
+    id: "meeting-1",
+    title: "Mobile launch readiness",
+    scheduledAt: "2026-07-10T09:00:00.000Z",
+    status: "actions_in_progress",
+  },
+  project: {
+    id: "project-1",
+    name: "Alpha",
+    role: "owner",
+    canEdit: true,
+  },
+};
+
+const viewerTodo: WorkspaceMeetingTodoItem = {
+  ...ownerTodo,
+  id: "todo-viewer",
+  content: "Review the shared launch notes",
+  isOverdue: false,
+  project: {
+    id: "project-2",
+    name: "Beta",
+    role: "viewer",
+    canEdit: false,
+  },
+};
+
+describe("workspace meeting todos", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSearchParams = new URLSearchParams();
+  });
+
+  test("renders route-backed views, source context, and touch-sized controls", () => {
+    const result = renderToStaticMarkup(
+      <WorkspaceMeetingTodos initialTodos={[ownerTodo, viewerTodo]} />
+    );
+
+    expect(result).toContain('aria-label="Todo views"');
+    expect(result).toContain('href="/todos"');
+    expect(result).toContain('href="/todos?view=completed"');
+    expect(result).toContain(
+      "/projects/project-1?meetingNoteId=meeting-1&amp;meetingTodoId=todo-owner"
+    );
+    expect(result).toContain("Complete todo: Confirm the mobile navigation pattern");
+    expect(result).toContain("h-11 w-11");
+    expect(result).toContain("Overdue");
+    expect(result).toContain("View only");
+  });
+
+  test("uses URL state for the completed project-filtered view", () => {
+    mockSearchParams = new URLSearchParams(
+      "view=completed&project=project-1"
+    );
+    const completedTodo = {
+      ...ownerTodo,
+      completedAt: "2026-07-20T11:00:00.000Z",
+      isOverdue: false,
+    };
+
+    const result = renderToStaticMarkup(
+      <WorkspaceMeetingTodos initialTodos={[completedTodo]} />
+    );
+
+    expect(result).toContain('aria-current="page"');
+    expect(result).toContain(
+      'href="/todos?project=project-1"'
+    );
+    expect(result).toContain("Reopen todo: Confirm the mobile navigation pattern");
+  });
+
+  test("completes editable todos with pending-safe feedback and refresh", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(JSON.stringify({ note: { id: "meeting-1" } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+
+    await act(async () => {
+      root.render(<WorkspaceMeetingTodos initialTodos={[ownerTodo]} />);
+    });
+
+    const completeButton = container.querySelector(
+      'button[aria-label="Complete todo: Confirm the mobile navigation pattern"]'
+    ) as HTMLButtonElement;
+    await act(async () => {
+      completeButton.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/projects/project-1/meeting-notes/meeting-1/actions/todo-owner",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ completed: true }),
+      })
+    );
+    expect(container.textContent).toContain("Todo completed.");
+    expect(container.textContent).toContain("All caught up");
+    expect(navigationMock.refresh).toHaveBeenCalled();
+
+    await act(async () => root.unmount());
+    container.remove();
+    fetchMock.mockRestore();
+  });
+});

@@ -16,6 +16,8 @@ interface ProjectMeetingNotesPanelSectionProps {
   projectId: string;
   actorUserId: string;
   canEdit: boolean;
+  initialMeetingNoteId?: string | null;
+  initialMeetingTodoId?: string | null;
 }
 
 function serializeMeetingNote(
@@ -37,6 +39,8 @@ export async function ProjectMeetingNotesPanelSection({
   projectId,
   actorUserId,
   canEdit,
+  initialMeetingNoteId,
+  initialMeetingTodoId,
 }: ProjectMeetingNotesPanelSectionProps) {
   const notes = await listProjectMeetingNotes({
     projectId,
@@ -48,6 +52,8 @@ export async function ProjectMeetingNotesPanelSection({
       projectId={projectId}
       canEdit={canEdit}
       notes={notes.map((note) => serializeMeetingNote(note))}
+      initialMeetingNoteId={initialMeetingNoteId}
+      initialMeetingTodoId={initialMeetingTodoId}
     />
   );
 }
