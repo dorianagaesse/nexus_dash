@@ -6,7 +6,7 @@
 - Title: Alpha product-state indicator - subtle branding-level disclosure
 - Status: In review
 - Branch: `feature/task-334-alpha-product-state-indicator`
-- Pull request: Pending
+- Pull request: [#388](https://github.com/dorianagaesse/nexus_dash/pull/388)
 - Brief:
   [`task-334-alpha-product-state-indicator.md`](./task-334-alpha-product-state-indicator.md)
 

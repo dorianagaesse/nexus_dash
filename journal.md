@@ -2835,3 +2835,6 @@ Low-value entries to avoid going forward:
   768, 1024, and 1440 px under `.tmp/task334-alpha-indicator/`; the automated
   walkthrough also confirmed one visible badge, no page overflow, and no
   compact-header collision at every breakpoint.
+- Committed the reviewable implementation as `3d18212`, pushed
+  `feature/task-334-alpha-product-state-indicator`, and opened ready-for-review
+  PR #388.
