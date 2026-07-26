@@ -2,7 +2,7 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-07-23
+Last reviewed: 2026-07-26
 
 ## Pending
 ### Execution Queue (Now / Next)
@@ -48,6 +48,41 @@ Last reviewed: 2026-07-23
   Status: Next 8 - calendar connection expansion
   Rationale: Define and implement a scalable connection model beyond the current Google Calendar path, including additional Google accounts, selectable calendars, and future calendar providers, with clear per-user ownership, connection management, synchronization behavior, and consistent project-calendar UX.
   Dependencies: TASK-325, TASK-326
+- ID: TASK-329
+  Title: Meeting participant identities - shared user avatars and initials for guests
+  Status: Next 9 - meeting participant identity refinement
+  Rationale: Replace free-form-only participant presentation with a mixed participant model that links registered participants to NexusDash users and renders them with the same shared avatar treatment used elsewhere, while keeping non-user participants available through a simple initials avatar derived from their name.
+  Dependencies: TASK-089, TASK-098, TASK-119
+- ID: TASK-330
+  Title: Meeting todo assignees - ownership across notes and the project-wide todo panel
+  Status: Next 10 - meeting follow-up ownership
+  Rationale: Let each meeting todo have an optional project-member assignee, persist that assignment through todo edits and lifecycle changes, and show the assignee consistently in meeting notes and the project-wide todo panel so follow-up ownership is immediately clear.
+  Dependencies: TASK-098, TASK-119, TASK-316, TASK-329
+- ID: TASK-331
+  Title: Granular collaboration invitations - meeting-note and roadmap capability rights
+  Status: Next 11 - invitation and membership permission expansion
+  Rationale: Extend invitations and project memberships beyond coarse roles with explicit create, edit, and remove rights for Meeting Notes and Roadmap content. Apply the selected rights consistently in invitation management, member administration, UI affordances, services, and routes without weakening owner safeguards or existing project isolation.
+  Dependencies: TASK-058, TASK-098, TASK-106, TASK-130
+- ID: TASK-332
+  Title: Mobile meeting-todo popup refinement - audit and implement a discoverable entry pattern
+  Status: Next 12 - audit-gated mobile todo remediation
+  Rationale: First audit the current mobile meeting-todo popup and its collisions, reachability, screen usage, focus behavior, and navigation context; then implement and validate the best mobile-only entry pattern, explicitly comparing a floating action button with a dedicated bottom-navigation destination before committing to the final interaction.
+  Dependencies: TASK-100, TASK-316, TASK-321, TASK-322
+- ID: TASK-333
+  Title: In-product bug and feedback reporting - persistent, easy-to-find entry point
+  Status: Next 13 - user feedback capture
+  Rationale: Add a clearly discoverable way for users to report bugs or feedback with useful product context and an explicit submission outcome. Place the desktop entry above the user area at the bottom left, and audit mobile shell constraints before selecting a similarly accessible mobile placement.
+  Dependencies: TASK-043, TASK-322, TASK-324
+- ID: TASK-334
+  Title: Alpha product-state indicator - subtle branding-level disclosure
+  Status: Next 14 - product maturity communication
+  Rationale: Make the product's alpha status visible without competing with primary navigation, starting with a small accessible label attached to the NexusDash brand area near the top left and adapting the treatment intentionally for the compact mobile shell.
+  Dependencies: TASK-313, TASK-322
+- ID: TASK-335
+  Title: Expanded epic presentation - improve mobile and desktop readability
+  Status: Next 15 - epic scanning and content readability
+  Rationale: Expand epic content by default on mobile so users can read meaningful context without repeated disclosure interactions, then test a comparable expanded desktop treatment and retain the version that improves comprehension without making dense project views harder to scan.
+  Dependencies: TASK-100, TASK-108, TASK-133, TASK-270
 ### Deferred (Intentional)
 - ID: TASK-102
   Title: Collaboration service modularization - split invite, membership, and recipient flows into smaller service units
