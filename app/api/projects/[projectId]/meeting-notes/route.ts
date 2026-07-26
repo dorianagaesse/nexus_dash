@@ -4,6 +4,7 @@ import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
+import type { ProjectMeetingParticipantInput } from "@/lib/meeting-participant";
 import {
   createProjectMeetingNote,
   listProjectMeetingNotes,
@@ -37,6 +38,30 @@ function readStringArray(value: unknown): string[] {
   }
 
   return value.filter((entry): entry is string => typeof entry === "string");
+}
+
+function readParticipants(value: unknown): ProjectMeetingParticipantInput[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((entry) => {
+    if (typeof entry === "string") {
+      return [{ userId: null, displayName: entry }];
+    }
+    if (!entry || typeof entry !== "object") {
+      return [];
+    }
+
+    const record = entry as Record<string, unknown>;
+    return [
+      {
+        userId:
+          typeof record.userId === "string" ? record.userId : null,
+        displayName: readString(record.displayName),
+      },
+    ];
+  });
 }
 
 function readActions(value: unknown): MeetingNoteActionInput[] {
@@ -130,7 +155,7 @@ export async function POST(
     projectId: params.projectId,
     title: readString(payload.title),
     scheduledAt: readOptionalString(payload.scheduledAt),
-    participants: readStringArray(payload.participants),
+    participants: readParticipants(payload.participants),
     labels: readStringArray(payload.labels),
     status: readOptionalString(payload.status),
     inputNotes: readString(payload.inputNotes),

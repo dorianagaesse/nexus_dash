@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 
 import { CalendarDateTimeField } from "@/components/calendar-date-time-field";
+import { MeetingParticipantAvatar } from "@/components/meeting-participants/meeting-participant-avatar";
+import { MeetingParticipantPicker } from "@/components/meeting-participants/meeting-participant-picker";
 import type {
   MeetingNoteStatus,
   ProjectMeetingNotePanelAction,
@@ -45,6 +47,11 @@ import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field
 import { TokenInput } from "@/components/ui/token-input";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import {
+  getMeetingParticipantKey,
+  type ProjectMeetingParticipantCollaborator,
+  type ProjectMeetingParticipantIdentity,
+} from "@/lib/meeting-participant";
+import {
   fetchProjectActivityMutation,
   PROJECT_ACTIVITY_REMOTE_EVENT,
   type ProjectActivityRemoteEventDetail,
@@ -64,6 +71,7 @@ interface ProjectMeetingNotesPanelProps {
   projectId: string;
   canEdit: boolean;
   notes: ProjectMeetingNotePanelNote[];
+  collaborators: ProjectMeetingParticipantCollaborator[];
 }
 
 interface DraftAction {
@@ -75,7 +83,7 @@ interface DraftAction {
 interface PrepareDraft {
   title: string;
   scheduledAtLocal: string;
-  participants: string[];
+  participants: ProjectMeetingParticipantIdentity[];
   participantInput: string;
   labels: string[];
   labelInput: string;
@@ -237,7 +245,7 @@ function noteMatchesQuery(note: ProjectMeetingNotePanelNote, query: string): boo
 
   const searchable = [
     note.title,
-    ...note.participants,
+    ...note.participants.map((participant) => participant.displayName),
     ...note.labels,
     STATUS_LABELS[note.status],
     note.inputNotes,
@@ -286,11 +294,20 @@ function buildNotesDraftFromNote(note: ProjectMeetingNotePanelNote): NotesDraft 
   };
 }
 
+function buildParticipantPayload(
+  participants: ProjectMeetingParticipantIdentity[]
+) {
+  return participants.map((participant) => ({
+    userId: participant.userId,
+    displayName: participant.displayName,
+  }));
+}
+
 function buildBasePayload(note: ProjectMeetingNotePanelNote) {
   return {
     title: note.title,
     scheduledAt: note.scheduledAt,
-    participants: note.participants,
+    participants: buildParticipantPayload(note.participants),
     labels: note.labels,
     status: note.status,
     inputNotes: note.inputNotes,
@@ -312,6 +329,8 @@ function mapMeetingNoteError(errorCode: string): string {
       return "Keep participants to 40 people or fewer.";
     case "meeting-note-participant-too-long":
       return "Participant names must be 80 characters or fewer.";
+    case "meeting-note-participant-user-invalid":
+      return "That NexusDash collaborator no longer has access to this project.";
     case "meeting-note-section-too-long":
       return "Meeting sections are too long.";
     case "meeting-note-too-many-actions":
@@ -636,6 +655,7 @@ export function ProjectMeetingNotesPanel({
   projectId,
   canEdit,
   notes,
+  collaborators,
 }: ProjectMeetingNotesPanelProps) {
   const { pushToast } = useToast();
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
@@ -753,6 +773,25 @@ export function ProjectMeetingNotesPanel({
     const labels = new Set<string>();
     localNotes.forEach((note) => note.labels.forEach((label) => labels.add(label)));
     return Array.from(labels).sort((left, right) => left.localeCompare(right));
+  }, [localNotes]);
+  const previousExternalParticipants = useMemo(() => {
+    const participants = new Map<string, ProjectMeetingParticipantIdentity>();
+    for (const note of localNotes) {
+      for (const participant of note.participants) {
+        if (participant.userId) {
+          continue;
+        }
+
+        const key = getMeetingParticipantKey(participant);
+        if (!participants.has(key)) {
+          participants.set(key, participant);
+        }
+      }
+    }
+
+    return Array.from(participants.values()).sort((left, right) =>
+      left.displayName.localeCompare(right.displayName)
+    );
   }, [localNotes]);
   useEffect(() => {
     const availableLabels = new Set(
@@ -916,7 +955,7 @@ export function ProjectMeetingNotesPanel({
       ...(prepareNote ? buildBasePayload(prepareNote) : {}),
       title: prepareDraft.title.trim(),
       scheduledAt: fromDateTimeLocal(prepareDraft.scheduledAtLocal),
-      participants: prepareDraft.participants,
+      participants: buildParticipantPayload(prepareDraft.participants),
       labels: prepareDraft.labels,
       status: prepareNote?.status ?? "prepared",
       inputNotes: prepareDraft.inputNotes.trim(),
@@ -1519,10 +1558,12 @@ export function ProjectMeetingNotesPanel({
               <label htmlFor="meeting-participants" className="text-sm font-medium">
                 Participants
               </label>
-              <TokenInput
+              <MeetingParticipantPicker
                 id="meeting-participants"
                 value={prepareDraft.participants}
                 inputValue={prepareDraft.participantInput}
+                collaborators={collaborators}
+                previousExternalParticipants={previousExternalParticipants}
                 onInputValueChange={(value) =>
                   setPrepareDraft((current) => ({
                     ...current,
@@ -1535,9 +1576,7 @@ export function ProjectMeetingNotesPanel({
                     participants,
                   }))
                 }
-                delimiters={["Enter", ",", " "]}
                 maxItems={40}
-                placeholder="Type a name, then Enter, comma, or space"
                 disabled={isSaving}
               />
             </div>
@@ -1710,10 +1749,15 @@ export function ProjectMeetingNotesPanel({
               <div className="flex flex-wrap gap-2">
                 {selectedNote.participants.map((participant) => (
                   <span
-                    key={participant}
-                    className="rounded-full border border-border/70 bg-muted/30 px-2.5 py-1 text-xs font-semibold text-foreground"
+                    key={getMeetingParticipantKey(participant)}
+                    className="inline-flex max-w-full items-center gap-2 rounded-full border border-border/70 bg-muted/40 p-1 pr-3 text-xs font-semibold text-foreground"
                   >
-                    {participant}
+                    <MeetingParticipantAvatar
+                      participant={participant}
+                      className="h-7 w-7 text-[10px]"
+                      decorative
+                    />
+                    <span className="truncate">{participant.displayName}</span>
                   </span>
                 ))}
               </div>

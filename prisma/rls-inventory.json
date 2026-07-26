@@ -79,6 +79,13 @@
       "rationale": "Tenant ownership is inherited through ProjectMeetingNote."
     },
     {
+      "model": "ProjectMeetingNoteParticipant",
+      "classification": "indirect-project-derived",
+      "enforcement": "rls",
+      "owner": "project meeting note service",
+      "rationale": "Tenant ownership and collaborator write permissions are inherited through ProjectMeetingNote."
+    },
+    {
       "model": "ProjectActivityEvent",
       "classification": "project-scoped-direct-rls",
       "enforcement": "rls",

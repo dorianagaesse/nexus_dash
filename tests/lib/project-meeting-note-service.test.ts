@@ -17,6 +17,9 @@ const loggerMock = vi.hoisted(() => ({
 }));
 
 const dbMock = vi.hoisted(() => ({
+  project: {
+    findFirst: vi.fn(),
+  },
   projectMeetingNote: {
     findMany: vi.fn(),
     findFirst: vi.fn(),
@@ -29,6 +32,34 @@ const dbMock = vi.hoisted(() => ({
     update: vi.fn(),
   },
 }));
+
+function externalParticipant(displayName: string, position: number) {
+  return {
+    userId: null,
+    displayName,
+    position,
+    user: null,
+  };
+}
+
+function linkedParticipant(
+  user: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    username: string | null;
+    usernameDiscriminator: string | null;
+    avatarSeed: string | null;
+  },
+  position: number
+) {
+  return {
+    userId: user.id,
+    displayName: user.username ?? user.name ?? "Account",
+    position,
+    user,
+  };
+}
 
 vi.mock("@/lib/services/project-access-service", () => ({
   requireProjectRole: projectAccessServiceMock.requireProjectRole,
@@ -58,7 +89,10 @@ const baseMeetingNoteRecord = {
   projectId: "project-1",
   title: "Weekly execution review",
   scheduledAt: new Date("2026-06-08T14:00:00.000Z"),
-  participants: ["Dorian", "Camille"],
+  participants: [
+    externalParticipant("Dorian", 0),
+    externalParticipant("Camille", 1),
+  ],
   labelsJson: JSON.stringify(["planning"]),
   status: "actions_in_progress",
   inputNotes: "Review roadmap risks.",
@@ -99,7 +133,7 @@ describe("project-meeting-note-service", () => {
         ...baseMeetingNoteRecord,
       id: "note-2",
       title: "Budget review",
-      participants: ["Morgan"],
+      participants: [externalParticipant("Morgan", 0)],
       labelsJson: JSON.stringify(["finance"]),
       status: "prepared",
       inputNotes: "Cost model.",
@@ -119,7 +153,20 @@ describe("project-meeting-note-service", () => {
     expect(result[0]).toMatchObject({
       id: "note-1",
       title: "Weekly execution review",
-      participants: ["Dorian", "Camille"],
+      participants: [
+        {
+          userId: null,
+          displayName: "Dorian",
+          usernameTag: null,
+          avatarSeed: null,
+        },
+        {
+          userId: null,
+          displayName: "Camille",
+          usernameTag: null,
+          avatarSeed: null,
+        },
+      ],
       labels: ["planning"],
       status: "actions_in_progress",
       actions: [{ id: "action-1", content: "Send recap" }],
@@ -160,7 +207,12 @@ describe("project-meeting-note-service", () => {
         projectId: "project-1",
         title: "Weekly execution review",
         scheduledAt: new Date("2026-06-08T14:00:00.000Z"),
-        participants: ["Dorian", "Camille"],
+        participants: {
+          create: [
+            { userId: null, displayName: "Dorian", position: 0 },
+            { userId: null, displayName: "Camille", position: 1 },
+          ],
+        },
         labelsJson: JSON.stringify(["Planning", "sync"]),
         status: "actions_in_progress",
         inputNotes: "Review roadmap risks.",
@@ -189,6 +241,104 @@ describe("project-meeting-note-service", () => {
       db: dbMock,
       projectId: "project-1",
     });
+  });
+
+  test("links current collaborators and resolves their live avatar identity", async () => {
+    const collaborator = {
+      id: "user-2",
+      name: "Camille Example",
+      email: "camille@example.com",
+      username: "camille",
+      usernameDiscriminator: "0042",
+      avatarSeed: "seed-camille",
+    };
+    dbMock.project.findFirst.mockResolvedValueOnce({
+      owner: {
+        id: "user-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "0001",
+        avatarSeed: "seed-owner",
+      },
+      memberships: [{ user: collaborator }],
+    });
+    dbMock.projectMeetingNote.create.mockResolvedValueOnce({ id: "note-1" });
+    dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
+      ...baseMeetingNoteRecord,
+      participants: [linkedParticipant(collaborator, 0)],
+    });
+
+    const result = await createProjectMeetingNote({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      title: "Collaborator sync",
+      participants: [
+        {
+          userId: "user-2",
+          displayName: "Untrusted client label",
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        note: {
+          participants: [
+            {
+              userId: "user-2",
+              displayName: "camille",
+              usernameTag: "camille#0042",
+              avatarSeed: "seed-camille",
+            },
+          ],
+        },
+      },
+    });
+    expect(dbMock.projectMeetingNote.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          participants: {
+            create: [
+              {
+                userId: "user-2",
+                displayName: "camille",
+                position: 0,
+              },
+            ],
+          },
+        }),
+      })
+    );
+  });
+
+  test("rejects linked users who are not current project collaborators", async () => {
+    dbMock.project.findFirst.mockResolvedValueOnce({
+      owner: {
+        id: "user-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "0001",
+        avatarSeed: "seed-owner",
+      },
+      memberships: [],
+    });
+
+    const result = await createProjectMeetingNote({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      title: "Collaborator sync",
+      participants: [{ userId: "user-outside", displayName: "Outside user" }],
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "meeting-note-participant-user-invalid",
+    });
+    expect(dbMock.projectMeetingNote.create).not.toHaveBeenCalled();
   });
 
   test("rejects viewer writes through project role enforcement", async () => {
@@ -242,6 +392,10 @@ describe("project-meeting-note-service", () => {
       where: { id: "note-1" },
       data: expect.objectContaining({
         title: "Updated review",
+        participants: {
+          deleteMany: {},
+          create: [],
+        },
         actions: {
           deleteMany: {},
           create: [

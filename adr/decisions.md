@@ -16,6 +16,29 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-07-26 - Normalize meeting participants as optional user identities
+- Status: Accepted
+- Context: TASK-329 needs meeting participants to distinguish current
+  NexusDash collaborators from external guests, reuse live user avatar/account
+  identity, preserve prior guest names for future suggestions, and retain
+  participant order and history if a linked user is later deleted.
+- Decision: Replace the meeting note string array with ordered
+  `ProjectMeetingNoteParticipant` child rows. Each row stores a display-name
+  snapshot and may link to `User`; linked rows resolve current user presentation
+  at read time, while null-linked rows remain project-scoped external guests.
+  Enforce read/write isolation through parent-meeting RLS and validate linked
+  user IDs against current project collaboration membership in the meeting
+  note service.
+- Consequences: Existing strings require a lossless backfill and API responses
+  now carry participant identities instead of bare names. User deletion keeps
+  the snapshot as an external identity, membership removal stops future
+  suggestion/linking without rewriting historical notes, and future meeting
+  ownership features can reference normalized identities.
+- Links: `tasks/task-329-meeting-participant-identities.md`,
+  `prisma/schema.prisma`,
+  `lib/services/project-meeting-note-service.ts`,
+  `components/meeting-participants/meeting-participant-picker.tsx`
+
 ## 2026-06-08 - Store meeting notes as first-class project records
 - Status: Accepted
 - Context: TASK-098 needs meeting preparation inputs, after-meeting outputs,

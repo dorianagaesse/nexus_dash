@@ -3,6 +3,41 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-26 - TASK-329 meeting participant identity refinement started
+
+- Took ownership of TASK-329 on
+  `feature/task-329-meeting-participant-identities`, created from the latest
+  `origin/main`.
+- Scoped the participant experience around an accessible searchable picker:
+  current project collaborators reuse NexusDash avatars, previous project
+  guests use initials avatars, and only Tab, Enter, the explicit plus control,
+  or suggestion activation commits a participant.
+- Made legacy participant preservation, current user identity resolution,
+  project-scoped history, keyboard behavior, and responsive light/dark visual
+  verification explicit acceptance requirements before implementation.
+
+# 2026-07-26 - TASK-329 implementation and local validation
+
+- Replaced meeting participant string arrays with ordered, optionally
+  user-linked participant rows that preserve display-name snapshots, resolve
+  live NexusDash avatars, survive user deletion as guest identities, and
+  inherit project isolation through dedicated parent-derived RLS.
+- Added an accessible participant combobox with collaborator and prior-guest
+  search, same-shape guest initials avatars, visible plus action, touch-sized
+  controls, and explicit Tab/Enter/suggestion commit behavior. Space, comma,
+  and blur no longer commit partial names.
+- Transactionally validated the migration against the configured development
+  data before deployment; all 5 legacy participant rows retained exact names
+  and positions. The migration also applied cleanly to local PostgreSQL.
+- Passed lint, RLS inventory, release policy, diff hygiene, 969 unit/API tests
+  with 2 skipped, unchanged coverage at 91.37% statements / 81.33% branches /
+  92.2% functions / 91.88% lines, the production build, the expanded real
+  PostgreSQL RLS matrix, and all 26 Playwright scenarios.
+- Captured and visually reviewed the before/after participant modal at 375 px
+  and 1440 px in light/dark themes under `.tmp/task329-baseline/screenshots/`
+  and `.tmp/task329-final/screenshots/`. The final captures keep suggestions
+  inside the viewport and clearly distinguish user avatars from guest initials.
+
 # 2026-07-25 - TASK-324 compact sidebar theme control restored
 
 - Restored the desktop theme toggle to the right edge of the bottom user-info

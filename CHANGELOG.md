@@ -8,6 +8,21 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.30.0 - 2026-07-26
+
+- Replaced free-form-only meeting participant tokens with an accessible
+  searchable identity picker covering current project collaborators and
+  distinct external guests from previous project meetings.
+- Linked NexusDash participants to live generated avatars and account metadata,
+  while preserving external participants with ordered display-name snapshots
+  and same-shape initials avatars.
+- Made participant creation explicit through Tab, Enter, suggestion selection,
+  or a visible plus action; Space and comma now remain ordinary name input and
+  blur no longer commits a partial participant.
+- Added a lossless legacy participant migration, project-derived RLS for the
+  structured participant rows, backward-compatible API parsing, and focused
+  service, route, component, helper, and responsive Playwright coverage.
+
 ## v0.29.0 - 2026-07-26
 
 - Added a persistent in-product bug and feedback reporter: a single-line
