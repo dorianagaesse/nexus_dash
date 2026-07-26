@@ -1,3 +1,6 @@
+import { mkdir } from "node:fs/promises";
+import path from "node:path";
+
 import { expect, test } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
@@ -202,6 +205,81 @@ test.describe("responsive authenticated app shell", () => {
     await expect(page).toHaveURL(/\/projects$/);
   });
 
+  test("discloses the alpha state across responsive shells and themes", async ({
+    page,
+  }) => {
+    await signInAsVerifiedUser(page);
+    await page.goto("/projects");
+
+    const screenshotDirectory = process.env.TASK_334_SCREENSHOT_DIR?.trim();
+    const viewports = [
+      { width: 375, height: 812, shell: "mobile" },
+      { width: 768, height: 900, shell: "mobile" },
+      { width: 1024, height: 900, shell: "desktop" },
+      { width: 1440, height: 900, shell: "desktop" },
+    ] as const;
+
+    if (screenshotDirectory) {
+      await mkdir(path.resolve(screenshotDirectory), { recursive: true });
+    }
+
+    for (const theme of ["light", "dark"] as const) {
+      await page.evaluate((nextTheme) => {
+        window.localStorage.setItem("nexusdash-theme", nextTheme);
+        document.documentElement.classList.toggle("dark", nextTheme === "dark");
+      }, theme);
+
+      for (const viewport of viewports) {
+        await page.setViewportSize(viewport);
+        const shell =
+          viewport.shell === "desktop"
+            ? page.locator("aside:visible")
+            : page.locator("header:visible");
+        const brand = shell.getByRole("link", {
+          name: "NexusDash alpha — projects",
+        });
+
+        await expect(brand).toBeVisible();
+        await expect(
+          brand.locator('[data-product-state="alpha"]')
+        ).toHaveText("Alpha");
+        await expect(
+          page.locator('[data-product-state="alpha"]:visible')
+        ).toHaveCount(1);
+
+        const brandBox = await brand.boundingBox();
+        expect(brandBox).not.toBeNull();
+        expect(brandBox!.x).toBeGreaterThanOrEqual(0);
+        expect(brandBox!.x + brandBox!.width).toBeLessThanOrEqual(
+          viewport.width
+        );
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth
+          )
+        ).toBe(true);
+
+        if (viewport.shell === "mobile") {
+          const headerActions = brand.locator("xpath=following-sibling::div[1]");
+          const headerActionsBox = await headerActions.boundingBox();
+          expect(headerActionsBox).not.toBeNull();
+          expect(brandBox!.x + brandBox!.width).toBeLessThanOrEqual(
+            headerActionsBox!.x
+          );
+        }
+
+        if (screenshotDirectory) {
+          await page.screenshot({
+            path: path.resolve(
+              screenshotDirectory,
+              `${theme}-${viewport.width}.png`
+            ),
+          });
+        }
+      }
+    }
+  });
+
   test("fits labeled controls and reserved content at 390px", async ({
     page,
   }) => {
@@ -212,6 +290,13 @@ test.describe("responsive authenticated app shell", () => {
     const mobileNavigation = page.locator(
       "nav[aria-label='Primary navigation']:visible"
     );
+    const mobileBrand = page
+      .locator("header:visible")
+      .getByRole("link", { name: "NexusDash alpha — projects" });
+    await expect(mobileBrand).toBeVisible();
+    await expect(
+      mobileBrand.locator('[data-product-state="alpha"]')
+    ).toHaveText("Alpha");
     await expect(mobileNavigation).toBeVisible();
     await expect(mobileNavigation.getByRole("link")).toHaveCount(2);
     await expect(page.getByRole("button", { name: /Switch to .* mode/ })).toBeVisible();
@@ -262,6 +347,14 @@ test.describe("responsive authenticated app shell", () => {
         () => document.documentElement.scrollWidth <= innerWidth
       )
     ).toBe(true);
+
+    const brandBox = await mobileBrand.boundingBox();
+    const themeToggleBox = await page
+      .getByRole("button", { name: /Switch to .* mode/ })
+      .boundingBox();
+    expect(brandBox).not.toBeNull();
+    expect(themeToggleBox).not.toBeNull();
+    expect(brandBox!.x + brandBox!.width).toBeLessThanOrEqual(themeToggleBox!.x);
 
     const navigationBox = await mobileNavigation.boundingBox();
     const mainBox = await page.locator("#app-main-content").boundingBox();

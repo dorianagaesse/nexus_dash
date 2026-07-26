@@ -1,20 +1,21 @@
-# Current Task
+# TASK-334 - Alpha product-state indicator
 
-## Task
+## Status
 
-- ID: TASK-334
-- Title: Alpha product-state indicator - subtle branding-level disclosure
-- Status: Complete (2026-07-26)
-- Branch: `feature/task-334-alpha-product-state-indicator`
-- Pull request: [#388](https://github.com/dorianagaesse/nexus_dash/pull/388)
-- Brief:
-  [`task-334-alpha-product-state-indicator.md`](./task-334-alpha-product-state-indicator.md)
+Complete (2026-07-26).
 
 ## Objective
 
 Make NexusDash's alpha maturity visible at the brand level without competing
 with navigation or primary work, using a small accessible label attached to the
 authenticated shell wordmark.
+
+## Rationale
+
+Users should understand that the product is still evolving before they rely on
+it as a finished service. The disclosure belongs with the persistent brand
+rather than in a transient notice, and it must remain legible without making
+the compact mobile header feel crowded.
 
 ## Scope
 
@@ -27,6 +28,18 @@ authenticated shell wordmark.
   dimensions, header actions, and navigation hierarchy.
 - Verify light/dark readability and containment at 375, 768, 1024, and 1440 px.
 - Add focused component and browser coverage for the disclosure.
+
+## Out Of Scope
+
+- Changing the release-version policy.
+- Adding dismissible banners, onboarding copy, warnings, or feature-level
+  instability notices.
+- Redesigning the NexusDash logo, authenticated navigation, or account menu.
+
+## Dependencies
+
+- TASK-313
+- TASK-322
 
 ## Runtime Assumptions
 
@@ -64,34 +77,3 @@ authenticated shell wordmark.
 - Tracking documentation and release metadata are updated as required, the
   branch is committed and pushed, and a ready-for-review PR is open with
   initial automated review/check feedback handled before handoff.
-
-## Outcome
-
-- Added a reusable, non-interactive `Alpha` badge using existing semantic
-  foreground, background, and border tokens.
-- Attached the badge to the top-right of the NexusDash wordmark in both the
-  desktop sidebar and compact mobile header.
-- Included the alpha state in both brand links' accessible names while
-  preserving their destination, focus treatment, and navigation hierarchy.
-- Added component coverage for both rendered disclosures and Playwright
-  coverage across light/dark 375, 768, 1024, and 1440 px shells, including
-  mobile action-collision and horizontal-overflow checks.
-- Prepared product release `v0.28.0` with matching package and changelog data.
-
-## Validation
-
-- `npm run lint` passed.
-- `npm run rls:check` passed.
-- `npm test`: 948 passed, 2 skipped.
-- `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
-  functions, 91.88% lines.
-- `npm run build` passed with the repository's local-safe production
-  validation environment.
-- `npm run release:check -- --base origin/main --branch
-  feature/task-334-alpha-product-state-indicator` passed for `v0.28.0`.
-- `npx playwright test`: all 24 scenarios passed.
-- Light/dark screenshots at 375, 768, 1024, and 1440 px were captured and
-  visually reviewed under `.tmp/task334-alpha-indicator/`.
-- GitHub branch, Quality Core, E2E Smoke, Tenant Isolation, and Container Image
-  checks passed on the review-fix head. Copilot's one actionable
-  screenshot-harness comment was applied, answered, and resolved.
