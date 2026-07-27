@@ -697,6 +697,7 @@ export function ProjectMeetingNotesPanel({
   const [pendingTodoActionId, setPendingTodoActionId] = useState<string | null>(
     null
   );
+  const appliedInitialMeetingNoteIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const sortedNotes = sortNotes(notes);
@@ -707,7 +708,10 @@ export function ProjectMeetingNotesPanel({
   }, [notes]);
 
   useEffect(() => {
-    if (!initialMeetingNoteId) {
+    if (
+      !initialMeetingNoteId ||
+      appliedInitialMeetingNoteIdRef.current === initialMeetingNoteId
+    ) {
       return;
     }
 
@@ -718,6 +722,7 @@ export function ProjectMeetingNotesPanel({
       return;
     }
 
+    appliedInitialMeetingNoteIdRef.current = initialMeetingNoteId;
     setIsExpanded(true);
     setListView(initialNote.status === "done" ? "archived" : "active");
     setSelectedNoteId(initialNote.id);

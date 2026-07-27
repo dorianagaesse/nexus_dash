@@ -103,6 +103,17 @@ describe("workspace meeting todos", () => {
     expect(result).toContain("Reopen todo: Confirm the mobile navigation pattern");
   });
 
+  test("renders the server-provided load error", () => {
+    const result = renderToStaticMarkup(
+      <WorkspaceMeetingTodos
+        initialTodos={[]}
+        loadError="Meeting todos are temporarily unavailable."
+      />
+    );
+
+    expect(result).toContain("Meeting todos are temporarily unavailable.");
+  });
+
   test("completes editable todos with pending-safe feedback and refresh", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);

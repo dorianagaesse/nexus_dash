@@ -429,7 +429,7 @@ export function WorkspaceMeetingTodos({
           role="alert"
           className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
-          {mutationError ?? "Could not load meeting todos. Refresh to retry."}
+          {mutationError ?? loadError}
         </div>
       ) : null}
 

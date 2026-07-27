@@ -40,7 +40,7 @@ export default async function TodosPage() {
     initialTodos = [...todos.open, ...todos.completed].map(serializeTodo);
   } catch (error) {
     logServerError("TodosPage.listWorkspaceMeetingTodos", error);
-    loadError = "meeting-todos-list-failed";
+    loadError = "Could not load meeting todos. Refresh to retry.";
   }
 
   return (
