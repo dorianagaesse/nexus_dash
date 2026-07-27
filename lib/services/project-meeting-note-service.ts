@@ -1,4 +1,9 @@
 import { logServerError } from "@/lib/observability/logger";
+import {
+  normalizeMeetingParticipantName,
+  type ProjectMeetingParticipantIdentity,
+  type ProjectMeetingParticipantInput,
+} from "@/lib/meeting-participant";
 import { touchProjectActivity } from "@/lib/services/project-activity-service";
 import {
   requireProjectRole,
@@ -10,6 +15,12 @@ import {
   parseTaskLabelsJson,
   serializeTaskLabels,
 } from "@/lib/task-label";
+import {
+  mapTaskPersonSummary,
+  taskPersonSummarySelect,
+  type TaskPersonSummary,
+  type TaskPersonRecord,
+} from "@/lib/task-person";
 
 const MIN_TITLE_LENGTH = 2;
 const MAX_TITLE_LENGTH = 140;
@@ -53,7 +64,7 @@ export interface MeetingNoteMutationInput {
   projectId: string;
   title: string;
   scheduledAt?: Date | string | null;
-  participants?: string[];
+  participants?: Array<string | ProjectMeetingParticipantInput>;
   labels?: string[];
   status?: string | null;
   inputNotes?: string;
@@ -72,7 +83,7 @@ export interface ProjectMeetingNoteSummary {
   projectId: string;
   title: string;
   scheduledAt: Date | null;
-  participants: string[];
+  participants: ProjectMeetingParticipantIdentity[];
   labels: string[];
   status: MeetingNoteStatus;
   inputNotes: string;
@@ -104,7 +115,12 @@ type MeetingNoteRecord = {
   projectId: string;
   title: string;
   scheduledAt: Date | null;
-  participants: string[];
+  participants: Array<{
+    userId: string | null;
+    displayName: string;
+    position: number;
+    user: TaskPersonRecord | null;
+  }>;
   labelsJson: string | null;
   status: string;
   inputNotes: string;
@@ -140,23 +156,39 @@ function normalizeLongText(value: unknown): string {
   return value.trim();
 }
 
-function normalizeParticipants(value: string[] | undefined): string[] {
+interface NormalizedMeetingParticipantInput {
+  userId: string | null;
+  displayName: string;
+}
+
+function normalizeParticipants(
+  value: Array<string | ProjectMeetingParticipantInput> | undefined
+): NormalizedMeetingParticipantInput[] {
   if (!Array.isArray(value)) {
     return [];
   }
 
   const seen = new Set<string>();
-  const participants: string[] = [];
+  const participants: NormalizedMeetingParticipantInput[] = [];
 
   for (const entry of value) {
-    const participant = normalizeText(entry).replace(/\s+/g, " ");
-    const key = participant.toLocaleLowerCase();
-    if (!participant || seen.has(key)) {
+    const userId =
+      typeof entry === "object" && entry
+        ? normalizeText(entry.userId) || null
+        : null;
+    const displayName = normalizeMeetingParticipantName(
+      typeof entry === "string" ? entry : entry?.displayName ?? ""
+    );
+    const key = userId
+      ? `user:${userId}`
+      : `external:${displayName.toLowerCase()}`;
+
+    if ((!userId && !displayName) || seen.has(key)) {
       continue;
     }
 
     seen.add(key);
-    participants.push(participant);
+    participants.push({ userId, displayName });
   }
 
   return participants;
@@ -208,7 +240,7 @@ function validateMeetingNoteDraft(input: {
   title: string;
   scheduledAtRaw: Date | string | null | undefined;
   scheduledAt: Date | null;
-  participants: string[];
+  participants: NormalizedMeetingParticipantInput[];
   labels: string[];
   status: MeetingNoteStatus;
   inputNotes: string;
@@ -238,7 +270,9 @@ function validateMeetingNoteDraft(input: {
 
   if (
     input.participants.some(
-      (participant) => participant.length > MAX_PARTICIPANT_LENGTH
+      (participant) =>
+        participant.userId === null &&
+        participant.displayName.length > MAX_PARTICIPANT_LENGTH
     )
   ) {
     return createError(400, "meeting-note-participant-too-long");
@@ -269,7 +303,25 @@ function mapMeetingNote(note: MeetingNoteRecord): ProjectMeetingNoteSummary {
     projectId: note.projectId,
     title: note.title,
     scheduledAt: note.scheduledAt,
-    participants: note.participants,
+    participants: note.participants
+      .slice()
+      .sort((left, right) => left.position - right.position)
+      .map((participant) => {
+        const user = mapTaskPersonSummary(participant.user);
+        return user
+          ? {
+              userId: user.id,
+              displayName: user.displayName,
+              usernameTag: user.usernameTag,
+              avatarSeed: user.avatarSeed,
+            }
+          : {
+              userId: null,
+              displayName: participant.displayName,
+              usernameTag: null,
+              avatarSeed: null,
+            };
+      }),
     labels: parseTaskLabelsJson(note.labelsJson ?? ""),
     status: normalizeStatus(note.status),
     inputNotes: note.inputNotes,
@@ -296,7 +348,7 @@ function noteMatchesSearch(note: ProjectMeetingNoteSummary, query: string): bool
 
   const haystack = [
     note.title,
-    ...note.participants,
+    ...note.participants.map((participant) => participant.displayName),
     ...note.labels,
     note.status,
     note.inputNotes,
@@ -320,6 +372,14 @@ async function readMeetingNoteById(input: {
       projectId: input.projectId,
     },
     include: {
+      participants: {
+        orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+        include: {
+          user: {
+            select: taskPersonSummarySelect,
+          },
+        },
+      },
       actions: {
         orderBy: [{ position: "asc" }, { createdAt: "asc" }],
       },
@@ -353,6 +413,97 @@ function buildDraft(input: MeetingNoteMutationInput) {
   };
 }
 
+async function resolveMeetingParticipants(input: {
+  db: DbClient;
+  projectId: string;
+  participants: NormalizedMeetingParticipantInput[];
+}): Promise<
+  | {
+      ok: true;
+      participants: Array<{
+        userId: string | null;
+        displayName: string;
+        position: number;
+      }>;
+    }
+  | ServiceErrorResult
+> {
+  const requestedUserIds = Array.from(
+    new Set(
+      input.participants.flatMap((participant) =>
+        participant.userId ? [participant.userId] : []
+      )
+    )
+  );
+
+  const collaboratorById = new Map<string, TaskPersonSummary>();
+  if (requestedUserIds.length > 0) {
+    const project = await input.db.project.findFirst({
+      where: { id: input.projectId },
+      select: {
+        owner: {
+          select: taskPersonSummarySelect,
+        },
+        memberships: {
+          where: {
+            userId: { in: requestedUserIds },
+          },
+          select: {
+            user: {
+              select: taskPersonSummarySelect,
+            },
+          },
+        },
+      },
+    });
+
+    if (!project) {
+      return createError(404, "meeting-note-not-found");
+    }
+
+    const owner = mapTaskPersonSummary(project.owner);
+    if (owner) {
+      collaboratorById.set(owner.id, owner);
+    }
+    for (const membership of project.memberships) {
+      const collaborator = mapTaskPersonSummary(membership.user);
+      if (collaborator) {
+        collaboratorById.set(collaborator.id, collaborator);
+      }
+    }
+  }
+
+  const participants: Array<{
+    userId: string | null;
+    displayName: string;
+    position: number;
+  }> = [];
+
+  for (const participant of input.participants) {
+    if (!participant.userId) {
+      participants.push({
+        userId: null,
+        displayName: participant.displayName,
+        position: participants.length,
+      });
+      continue;
+    }
+
+    const collaborator = collaboratorById.get(participant.userId);
+    if (!collaborator) {
+      return createError(400, "meeting-note-participant-user-invalid");
+    }
+
+    participants.push({
+      userId: collaborator.id,
+      displayName: collaborator.displayName,
+      position: participants.length,
+    });
+  }
+
+  return { ok: true, participants };
+}
+
 export async function listProjectMeetingNotes(input: {
   actorUserId: string;
   projectId: string;
@@ -381,6 +532,14 @@ export async function listProjectMeetingNotes(input: {
       },
       orderBy: [{ scheduledAt: "desc" }, { createdAt: "desc" }],
       include: {
+        participants: {
+          orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+          include: {
+            user: {
+              select: taskPersonSummarySelect,
+            },
+          },
+        },
         actions: {
           orderBy: [{ position: "asc" }, { createdAt: "asc" }],
         },
@@ -421,12 +580,23 @@ export async function createProjectMeetingNote(
     }
 
     try {
+      const participantResolution = await resolveMeetingParticipants({
+        db,
+        projectId: input.projectId,
+        participants: draft.participants,
+      });
+      if (!participantResolution.ok) {
+        return participantResolution;
+      }
+
       const created = await db.projectMeetingNote.create({
         data: {
           projectId: input.projectId,
           title: draft.title,
           scheduledAt: draft.scheduledAt,
-          participants: draft.participants,
+          participants: {
+            create: participantResolution.participants,
+          },
           labelsJson: serializeTaskLabels(draft.labels),
           status: draft.status,
           inputNotes: draft.inputNotes,
@@ -511,12 +681,24 @@ export async function updateProjectMeetingNote(
     }
 
     try {
+      const participantResolution = await resolveMeetingParticipants({
+        db,
+        projectId: input.projectId,
+        participants: draft.participants,
+      });
+      if (!participantResolution.ok) {
+        return participantResolution;
+      }
+
       await db.projectMeetingNote.update({
         where: { id: noteId },
         data: {
           title: draft.title,
           scheduledAt: draft.scheduledAt,
-          participants: draft.participants,
+          participants: {
+            deleteMany: {},
+            create: participantResolution.participants,
+          },
           labelsJson: serializeTaskLabels(draft.labels),
           status: draft.status,
           inputNotes: draft.inputNotes,

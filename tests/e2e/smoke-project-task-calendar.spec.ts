@@ -282,9 +282,9 @@ test.describe("critical UI smoke flows", () => {
 
     await page.getByRole("button", { name: "Prepare meeting" }).click();
     await page.locator("#meeting-title").fill(meetingTitle);
-    await page.locator("#meeting-participants").fill("Dorian");
-    await page.locator("#meeting-participants").press(",");
-    await page.locator("#meeting-participants").fill("Camille");
+    await page.locator("#meeting-participants").fill("Dorian Agaesse");
+    await page.locator("#meeting-participants").press("Enter");
+    await page.locator("#meeting-participants").fill("Camille Example");
     await page.locator("#meeting-participants").press("Enter");
     await page.locator("#meeting-labels").fill("sync");
     await page.locator("#meeting-labels").press("Enter");
@@ -309,7 +309,7 @@ test.describe("critical UI smoke flows", () => {
       {
         data: {
           title: meetingTitle,
-          participants: ["Dorian", "Camille"],
+          participants: ["Dorian Agaesse", "Camille Example"],
           labels: ["sync"],
           status: "prepared",
           inputNotes: "Review TASK-098 scope and risks.",
@@ -332,7 +332,7 @@ test.describe("critical UI smoke flows", () => {
         data: {
           title: overdueMeetingTitle,
           scheduledAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-          participants: ["Dorian"],
+          participants: ["Dorian Agaesse"],
           labels: ["risk"],
           status: "actions_in_progress",
           inputNotes: "Follow-up is overdue by design for smoke coverage.",

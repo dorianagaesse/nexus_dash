@@ -43,6 +43,7 @@ model User {
   projectActivityEvents      ProjectActivityEvent[]
   projectMeetingNotesCreated ProjectMeetingNote[]       @relation("ProjectMeetingNoteCreatedBy")
   projectMeetingNotesUpdated ProjectMeetingNote[]       @relation("ProjectMeetingNoteUpdatedBy")
+  projectMeetingParticipants ProjectMeetingNoteParticipant[]
 
   @@unique([username, usernameDiscriminator])
   @@index([username])
@@ -206,7 +207,6 @@ model ProjectMeetingNote {
   projectId       String
   title           String    @db.VarChar(140)
   scheduledAt     DateTime?
-  participants    String[]
   status          String    @default("prepared") @db.VarChar(40)
   labelsJson      String?
   inputNotes      String    @default("")
@@ -221,12 +221,30 @@ model ProjectMeetingNote {
   createdByUser User                       @relation("ProjectMeetingNoteCreatedBy", fields: [createdByUserId], references: [id])
   updatedByUser User                       @relation("ProjectMeetingNoteUpdatedBy", fields: [updatedByUserId], references: [id])
   actions       ProjectMeetingNoteAction[]
+  participants  ProjectMeetingNoteParticipant[]
 
   @@index([projectId, scheduledAt])
   @@index([projectId, status, scheduledAt])
   @@index([projectId, updatedAt])
   @@index([createdByUserId])
   @@index([updatedByUserId])
+}
+
+model ProjectMeetingNoteParticipant {
+  id            String   @id @default(cuid())
+  meetingNoteId String
+  userId        String?
+  displayName   String
+  position      Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  meetingNote ProjectMeetingNote @relation(fields: [meetingNoteId], references: [id], onDelete: Cascade)
+  user        User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([meetingNoteId, position])
+  @@index([meetingNoteId])
+  @@index([userId])
 }
 
 model ProjectMeetingNoteAction {

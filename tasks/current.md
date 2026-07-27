@@ -2,110 +2,120 @@
 
 ## Task
 
-- ID: TASK-333
-- Title: In-product bug and feedback reporting
-- Status: In review (2026-07-26)
-- Branch: `feature/task-333-bug-feedback-reporting`
-- Pull request: [#389](https://github.com/dorianagaesse/nexus_dash/pull/389)
-- Brief: [`task-333-bug-feedback-reporting.md`](./task-333-bug-feedback-reporting.md)
+- ID: TASK-329
+- Title: Meeting participant identities - shared user avatars and initials for guests
+- Status: Complete (2026-07-26)
+- Branch: `feature/task-329-meeting-participant-identities`
+- Pull request: [#391](https://github.com/dorianagaesse/nexus_dash/pull/391)
+- Brief: [`task-329-meeting-participant-identities.md`](./task-329-meeting-participant-identities.md)
 
 ## Objective
 
-Give every authenticated user a persistent, accessible way to send a bug report
-or product feedback to the NexusDash owner without leaving the app.
+Make meeting participants recognizable and reusable by linking project
+collaborators to their NexusDash identities, retaining previous external
+participants as suggestions, and presenting every selected participant with a
+consistent avatar treatment.
 
 ## Scope
 
-- Place a single-line labeled desktop entry immediately above the sidebar user
-  area.
-- Add a compact, icon-only persistent mobile-header entry that remains usable
-  at 375 px and retains an explicit accessible name.
-- Open one responsive dialog/sheet with report type, message, optional
-  diagnostics, validation, progress, success, and retry states.
-- Send reports through the existing Resend-backed outbound-email service to
-  `dorian.agaesse@gmail.com`.
-- Include authenticated reporter identity and safe page/product context without
-  including secrets or form contents from the current page.
+- Replace the free-form-only meeting participant control with an accessible
+  searchable participant picker.
+- Search current project collaborators and distinct external participants from
+  previous meeting notes in the same project.
+- Render NexusDash collaborators with the shared generated user avatar and
+  external participants with same-shape initials avatars.
+- Keep multi-word external names editable: Space only types, while Tab, Enter,
+  an explicit plus button, or selecting a suggestion adds a participant.
+- Preserve existing meeting participant data and search behavior through any
+  required persistence migration.
 
 ## Runtime Assumptions
 
-- Existing local database and `.env` prerequisites are unchanged.
-- Production has `RESEND_API_KEY` configured and uses the existing NexusDash
-  sender identity from `RESEND_FROM_EMAIL`.
-- Local/test delivery may remain in the existing skipped mode; provider
-  delivery is verified through mocked service coverage unless an explicitly
-  enabled live smoke run is requested.
+- Existing local PostgreSQL and `.env` prerequisites are unchanged.
+- The migration must be safe for all existing meeting notes with string-array
+  participants.
 - Preview validation, when run, uses
-  `git_ref=feature/task-333-bug-feedback-reporting` and verifies that exact ref
-  in workflow logs.
+  `git_ref=feature/task-329-meeting-participant-identities` and verifies that
+  exact ref in workflow logs.
 
 ## Acceptance Criteria
 
-1. Desktop shows a single-line labeled “Report a bug or feedback” control
-   directly above the user identity area at the bottom of the left sidebar.
-2. Mobile exposes the same action as an icon-only combined bug/message control
-   in the compact shell without colliding with brand, theme, account, content,
-   or bottom navigation at 375 px.
-3. The report UI distinguishes bug reports from general feedback, requires a
-   useful message, and clearly communicates optional diagnostics.
-4. Submitting authenticates the current user, validates and bounds all input,
-   and sends an email from NexusDash to `dorian.agaesse@gmail.com` through the
-   shared outbound-email service.
-5. The email safely includes report type, message, reporter identity, current
-   app path, product version, and only user-approved client diagnostics.
-6. Loading prevents duplicate submissions; success closes/resets the form and
-   is announced; failure remains recoverable without losing the message.
-7. All controls are keyboard reachable, visibly focused, correctly labeled,
-   at least 44 px, and usable in light/dark themes and at 375 px.
-8. Focused service/action/component tests cover validation, authorization,
-   safe email content, provider failures, dialog placement, and interaction
-   states.
+1. Selected participants in prepare/edit and meeting-detail surfaces render as
+   compact avatar identities rather than plain text-only chips.
+2. Project collaborators use the same generated avatar shape and identity data
+   as other NexusDash user surfaces.
+3. External participants use a same-size circular initials avatar derived
+   predictably from their display name.
+4. Typing filters project collaborators and distinct external participants
+   previously used in meeting notes for that project.
+5. Suggestions clearly distinguish NexusDash collaborators from previous
+   external participants and omit already-selected identities.
+6. Space and comma remain ordinary input characters; Tab, Enter, the explicit
+   plus button, and suggestion activation add a participant.
+7. Multi-word external names are normalized, deduplicated case-insensitively,
+   bounded by existing limits, and remain available for future meetings.
+8. The picker is keyboard and screen-reader operable, visibly focused, usable
+   at 375 px, and consistent in light and dark themes.
+9. Existing notes migrate without participant loss, project isolation remains
+   enforced, and meeting-note search continues to match participant names.
+10. Focused service, route, component, migration/RLS, and Playwright coverage
+    exercise collaborator linking, previous-external suggestions, initials,
+    explicit add keys/actions, editing, and legacy data preservation.
 
 ## Definition Of Done
 
-- Implementation follows shell, dialog, service-boundary, environment, and
-  outbound-email conventions already present in the repository.
+- Implementation follows existing service, API-adapter, avatar, accessible
+  overlay, and project-role boundaries.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
   `npm run build`, and relevant Playwright coverage pass.
-- Light/dark desktop and 375 px mobile walkthroughs show no overflow,
-  obstruction, or ambiguous submission outcome.
-- Product version, changelog, task/backlog tracking, and journal are updated.
+- Baseline and completed light/dark desktop plus 375 px screenshots are
+  captured and visually reviewed with no overflow, clipped suggestions, or
+  ambiguous participant state.
+- Product version, changelog, task/backlog tracking, journal, and any required
+  RLS/architecture records are updated.
 - The branch is committed and pushed, a ready-for-review PR is open, and
   initial automated review/check feedback is handled before handoff.
 
 ## Outcome
 
-- Added the requested single-line desktop sidebar control directly above the
-  user identity area and a persistent icon-only mobile-header utility with a
-  combined bug/message glyph and accessible label.
-- Added one responsive dialog/sheet with bug and feedback types, bounded
-  message input, privacy-explained optional diagnostics, protected in-flight
-  dismissal, success confirmation, and retry-safe errors.
-- Added authenticated `POST /api/feedback` delivery through a focused service
-  and the existing Resend-backed outbound email foundation.
-- Fixed the recipient server-side to `dorian.agaesse@gmail.com`, resolved
-  reporter identity server-side, safely escaped report content, included only
-  app-relative page/version context, and rate-limited each account to five
-  recorded attempts per hour.
-- Prepared product release `v0.29.0` with product, runtime, changelog, and task
-  documentation updates.
+- Replaced meeting participant strings with ordered participant identities
+  that optionally link to a current NexusDash user and retain an external
+  display-name snapshot.
+- Added collaborator and previous-guest search, shared user avatars,
+  same-shape guest initials avatars, explicit add/remove actions, accessible
+  listbox semantics, and responsive portaled suggestions.
+- Space and comma now remain in the input; Tab, Enter, suggestion activation,
+  and the visible plus control add participants, while blur leaves unfinished
+  text untouched.
+- Backfilled all legacy participant strings without changing order or text,
+  added parent-derived RLS, retained legacy string request compatibility, and
+  prepared release `v0.30.0`.
 
 ## Validation
 
-- `npm run lint` passed.
-- `npm run rls:check` passed.
-- `npm run release:check` and `git diff --check` passed.
-- `npm test`: 961 passed, 2 skipped.
+- Transactional migration/rollback validation preserved all 5 existing
+  participant rows exactly; deployment then succeeded against both the
+  configured development database and a clean local PostgreSQL database.
+- `npm run lint`, `npm run rls:check`, `npm run release:check`, and
+  `git diff --check` passed.
+- Focused coverage passed: 5 files / 26 tests.
+- `npm test`: 136 files passed, 2 skipped; 969 tests passed, 2 skipped.
 - `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
-  functions, 91.88% lines.
-- `npm run build` passed with the documented safe local database/build
-  overrides because the existing root `.env` has identical remote
-  `DATABASE_URL` and `DIRECT_URL` values that production guardrails reject.
-- `npm run test:e2e`: production build and all 25 Playwright tests passed,
-  including the merged alpha-state shell coverage.
-- Focused light/dark screenshots at 375 px and 1440 px are stored under
-  `.tmp/task333/`, `.tmp/task333-refinement/`, and
-  `.tmp/task333-refinement-merged/`; the browser journey also verified exact
-  privacy payload, a 44 px square mobile target, no horizontal overflow, a
-  single-line desktop label, success feedback, and desktop placement above the
-  identity card.
+  functions, and 91.88% lines.
+- The local PostgreSQL `npm run test:rls:setup` and `npm run test:rls` matrix
+  passed with explicit meeting participant cross-project, editor, viewer, and
+  revoked-member checks.
+- `npm run build` passed with documented local-safe database and build-only
+  secret placeholders.
+- Full Playwright passed all 26 scenarios, including TASK-329 collaborator,
+  prior-guest, multi-word input, explicit-add, persistence, and avatar checks.
+- Baseline and completed screenshots were visually reviewed in
+  `.tmp/task329-baseline/screenshots/` and `.tmp/task329-final/screenshots/` at
+  375 px and 1440 px in light and dark themes.
+- Ready-for-review PR #391 passed branch naming, Quality Core, Playwright,
+  PostgreSQL tenant isolation, and container-image checks on reviewed commit
+  `aa79a73`.
+- Copilot's initial review raised two related locale-stability comments.
+  Commit `aa79a73` replaced locale-dependent casing in participant identity
+  and deduplication keys; focused tests and lint passed, and both threads were
+  answered and resolved.

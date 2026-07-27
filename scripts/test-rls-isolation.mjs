@@ -31,6 +31,10 @@ const ids = {
   commentB: `rls_comment_b_${suffix}`,
   reactionA: `rls_reaction_a_${suffix}`,
   reactionB: `rls_reaction_b_${suffix}`,
+  meetingA: `rls_meeting_a_${suffix}`,
+  meetingB: `rls_meeting_b_${suffix}`,
+  participantA: `rls_participant_a_${suffix}`,
+  participantB: `rls_participant_b_${suffix}`,
   credentialA: `rls_credential_a_${suffix}`,
   credentialB: `rls_credential_b_${suffix}`,
   auditA: `rls_audit_a_${suffix}`,
@@ -139,6 +143,29 @@ async function seed() {
       ids.commentB,
       ids.ownerB,
     ]
+  );
+  await admin.query(
+    `INSERT INTO "ProjectMeetingNote"
+      ("id", "projectId", "title", "createdByUserId", "updatedByUserId", "createdAt", "updatedAt")
+     VALUES
+       ($1, $2, 'Meeting A', $3, $3, NOW(), NOW()),
+       ($4, $5, 'Meeting B', $6, $6, NOW(), NOW())`,
+    [
+      ids.meetingA,
+      ids.projectA,
+      ids.ownerA,
+      ids.meetingB,
+      ids.projectB,
+      ids.ownerB,
+    ]
+  );
+  await admin.query(
+    `INSERT INTO "ProjectMeetingNoteParticipant"
+      ("id", "meetingNoteId", "displayName", "position", "createdAt", "updatedAt")
+     VALUES
+       ($1, $2, 'Guest A', 0, NOW(), NOW()),
+       ($3, $4, 'Guest B', 0, NOW(), NOW())`,
+    [ids.participantA, ids.meetingA, ids.participantB, ids.meetingB]
   );
   await admin.query(
     `INSERT INTO "ApiCredential"
@@ -298,6 +325,52 @@ try {
   );
   assert.equal(viewerUpdate.rowCount, 0);
 
+  const ownerAParticipants = await runtimeTransaction(ids.ownerA, () =>
+    runtime.query(
+      `SELECT "id" FROM "ProjectMeetingNoteParticipant" WHERE "id" IN ($1, $2)`,
+      [ids.participantA, ids.participantB]
+    )
+  );
+  assert.deepEqual(ownerAParticipants.rows.map((row) => row.id), [
+    ids.participantA,
+  ]);
+
+  await expectRlsViolation(
+    () =>
+      runtimeTransaction(ids.ownerA, () =>
+        runtime.query(
+          `INSERT INTO "ProjectMeetingNoteParticipant"
+            ("id", "meetingNoteId", "displayName", "position", "createdAt", "updatedAt")
+           VALUES ($1, $2, 'Cross-project guest', 1, NOW(), NOW())`,
+          [`rls_cross_participant_${suffix}`, ids.meetingB]
+        )
+      ),
+    "cross-project meeting participant insert"
+  );
+
+  const editorParticipantInsert = await runtimeTransaction(ids.editorB, () =>
+    runtime.query(
+      `INSERT INTO "ProjectMeetingNoteParticipant"
+        ("id", "meetingNoteId", "displayName", "position", "createdAt", "updatedAt")
+       VALUES ($1, $2, 'Editor guest', 1, NOW(), NOW())`,
+      [`rls_editor_participant_${suffix}`, ids.meetingB]
+    )
+  );
+  assert.equal(editorParticipantInsert.rowCount, 1);
+
+  await expectRlsViolation(
+    () =>
+      runtimeTransaction(ids.viewerB, () =>
+        runtime.query(
+          `INSERT INTO "ProjectMeetingNoteParticipant"
+            ("id", "meetingNoteId", "displayName", "position", "createdAt", "updatedAt")
+           VALUES ($1, $2, 'Viewer guest', 1, NOW(), NOW())`,
+          [`rls_viewer_participant_${suffix}`, ids.meetingB]
+        )
+      ),
+    "viewer meeting participant insert"
+  );
+
   await admin.query(
     `DELETE FROM "ProjectMembership" WHERE "projectId" = $1 AND "userId" = $2`,
     [ids.projectB, ids.revokedB]
@@ -306,6 +379,13 @@ try {
     runtime.query(`SELECT "id" FROM "Task" WHERE "id" = $1`, [ids.taskB])
   );
   assert.equal(revokedRead.rowCount, 0);
+  const revokedParticipantRead = await runtimeTransaction(ids.revokedB, () =>
+    runtime.query(
+      `SELECT "id" FROM "ProjectMeetingNoteParticipant" WHERE "id" = $1`,
+      [ids.participantB]
+    )
+  );
+  assert.equal(revokedParticipantRead.rowCount, 0);
 
   const crossReactionRead = await runtimeTransaction(ids.ownerA, () =>
     runtime.query(`SELECT "id" FROM "TaskCommentReaction" WHERE "id" = $1`, [

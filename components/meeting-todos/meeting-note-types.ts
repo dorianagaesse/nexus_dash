@@ -1,3 +1,5 @@
+import type { ProjectMeetingParticipantIdentity } from "@/lib/meeting-participant";
+
 export type MeetingNoteStatus = "prepared" | "actions_in_progress" | "done";
 
 export interface ProjectMeetingNotePanelAction {
@@ -12,7 +14,7 @@ export interface ProjectMeetingNotePanelNote {
   projectId: string;
   title: string;
   scheduledAt: string | null;
-  participants: string[];
+  participants: ProjectMeetingParticipantIdentity[];
   labels: string[];
   status: MeetingNoteStatus;
   inputNotes: string;
