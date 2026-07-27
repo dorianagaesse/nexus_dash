@@ -5,9 +5,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 # 2026-07-27 - TASK-332 rebase and preview runtime repair
 
-- Rebased PR #390 onto `c1ebb17` and resolved the TASK-329 participant-model,
-  TASK-333 feedback, and TASK-334 alpha-state overlaps while preserving the
-  mobile Todos destination and desktop quick panel.
+- Rebased the former PR #390 onto `c1ebb17` and resolved the TASK-329
+  participant-model, TASK-333 feedback, and TASK-334 alpha-state overlaps
+  while preserving the mobile Todos destination and desktop quick panel.
 - Confirmed the preview database was migrated, not missing a migration. The
   TASK-329 migration backfilled structured participant rows and then removed
   `ProjectMeetingNote.participants`, while the stale pre-rebase preview bundle
@@ -23,6 +23,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
   lint, 139 passing Vitest files with 977 passing tests (2 files/tests
   skipped), unchanged coverage at 91.37% statements / 81.33% branches / 92.2%
   functions / 91.88% lines, production build, and all 27 Playwright scenarios.
+- Repository rules rejected the required force-push to PR #390's head branch,
+  so published the true rebased history on
+  `feature/task-332-mobile-todo-navigation-rebased`, opened replacement
+  [PR #394](https://github.com/dorianagaesse/nexus_dash/pull/394), and closed
+  #390 with a handoff comment.
 
 # 2026-07-26 - TASK-329 meeting participant identity refinement started
 

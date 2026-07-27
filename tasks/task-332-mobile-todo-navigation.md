@@ -2,8 +2,8 @@
 
 ## Status
 
-In review in [PR #390](https://github.com/dorianagaesse/nexus_dash/pull/390)
-from `feature/task-332-mobile-todo-navigation`.
+In review in [PR #394](https://github.com/dorianagaesse/nexus_dash/pull/394)
+from `feature/task-332-mobile-todo-navigation-rebased`.
 
 ## Objective
 
@@ -63,7 +63,8 @@ navigation:
 - The local PostgreSQL Compose service may be started for database-backed
   browser validation.
 - Preview validation, if required by review, will run from
-  `feature/task-332-mobile-todo-navigation` with that explicit `git_ref`.
+  `feature/task-332-mobile-todo-navigation-rebased` with that explicit
+  `git_ref`.
 
 ## Acceptance Criteria
 

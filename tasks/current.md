@@ -5,8 +5,8 @@
 - ID: TASK-332
 - Title: Mobile meeting-todo navigation
 - Status: In review
-- Branch: `feature/task-332-mobile-todo-navigation`
-- Pull request: [#390](https://github.com/dorianagaesse/nexus_dash/pull/390)
+- Branch: `feature/task-332-mobile-todo-navigation-rebased`
+- Pull request: [#394](https://github.com/dorianagaesse/nexus_dash/pull/394)
 - Brief: [`task-332-mobile-todo-navigation.md`](./task-332-mobile-todo-navigation.md)
 
 ## Objective
@@ -31,7 +31,7 @@ Todos destination that can grow into project and assignee filtering.
   Playwright Chromium are available locally.
 - The local PostgreSQL Compose service may be started for browser validation.
 - Preview validation, if required, will use
-  `git_ref=feature/task-332-mobile-todo-navigation`.
+  `git_ref=feature/task-332-mobile-todo-navigation-rebased`.
 
 ## Acceptance Criteria
 
