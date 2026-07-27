@@ -114,7 +114,9 @@ navigation:
   and highlight the source meeting todo.
 - Removed the project floating panel from mobile layout and accessibility
   navigation while retaining it at the desktop breakpoint.
-- Updated the product release to `v0.28.0`.
+- Rebasing after TASK-329 moved the product release to `v0.31.0` while
+  preserving the subsequently shipped participant-identity, feedback, and
+  alpha-state features.
 
 ## Validation
 
@@ -130,3 +132,17 @@ navigation:
   `task332-iphone-14-pro-light.png`, `task332-375-dark.png`, and
   `task332-desktop-panel.png`.
 - `git diff --check` passed.
+- Rebased onto `c1ebb17` (`origin/main`) and applied all 48 migrations to a
+  clean local PostgreSQL database. Updated the workspace-todo browser fixture
+  to create TASK-329's structured participant rows instead of the removed
+  `ProjectMeetingNote.participants` scalar column.
+- Diagnosed the stale preview against the configured preview database: health
+  and readiness endpoints passed, the migration job reported no pending
+  migrations, and the TASK-332 workspace badge query returned the expected
+  counts. A signed-in project render reproduced server-error digest
+  `4087704851` because the pre-rebase preview bundle still selected the legacy
+  participant column after TASK-329 had migrated and removed it. All temporary
+  diagnostic users and projects were deleted after verification.
+- The post-rebase `npm run validate:local` gate passed: RLS inventory and
+  PostgreSQL isolation, lint, 977 unit/API tests with 2 skipped, unchanged
+  coverage, production build, and all 27 Playwright scenarios.

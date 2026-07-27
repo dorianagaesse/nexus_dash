@@ -32,7 +32,12 @@ async function createWorkspaceTodoFixture(userId: string) {
         create: {
           title: ownerMeetingTitle,
           scheduledAt: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000),
-          participants: ["Dorian"],
+          participants: {
+            create: {
+              displayName: "Dorian",
+              position: 0,
+            },
+          },
           status: "actions_in_progress",
           inputNotes: "Validate the mobile todo destination.",
           outputNotes: "",
@@ -91,7 +96,12 @@ async function createWorkspaceTodoFixture(userId: string) {
         create: {
           title: viewerMeetingTitle,
           scheduledAt: new Date(),
-          participants: ["Camille"],
+          participants: {
+            create: {
+              displayName: "Camille",
+              position: 0,
+            },
+          },
           status: "actions_in_progress",
           inputNotes: "Viewer coverage.",
           outputNotes: "",

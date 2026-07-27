@@ -3,6 +3,27 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-27 - TASK-332 rebase and preview runtime repair
+
+- Rebased PR #390 onto `c1ebb17` and resolved the TASK-329 participant-model,
+  TASK-333 feedback, and TASK-334 alpha-state overlaps while preserving the
+  mobile Todos destination and desktop quick panel.
+- Confirmed the preview database was migrated, not missing a migration. The
+  TASK-329 migration backfilled structured participant rows and then removed
+  `ProjectMeetingNote.participants`, while the stale pre-rebase preview bundle
+  still selected that column during project rendering.
+- Verified both preview health endpoints, the migration workflow, and the
+  TASK-332 workspace summary query against the configured database. A
+  signed-in project check reproduced the reported error with digest
+  `4087704851`; all temporary diagnostic records were removed afterward.
+- Updated the TASK-332 Playwright fixture to use structured participant rows,
+  applied all 48 migrations to clean local PostgreSQL, and retained the
+  post-rebase product version at `v0.31.0`.
+- Full post-rebase validation passed: RLS inventory and PostgreSQL isolation,
+  lint, 139 passing Vitest files with 977 passing tests (2 files/tests
+  skipped), unchanged coverage at 91.37% statements / 81.33% branches / 92.2%
+  functions / 91.88% lines, production build, and all 27 Playwright scenarios.
+
 # 2026-07-26 - TASK-329 meeting participant identity refinement started
 
 - Took ownership of TASK-329 on

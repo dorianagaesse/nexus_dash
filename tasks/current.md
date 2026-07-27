@@ -72,3 +72,13 @@ Todos destination that can grow into project and assignee filtering.
   project workflow.
 - Passed the complete local validation baseline, including RLS isolation,
   956 unit/API tests, coverage, production build, and all 24 Playwright flows.
+- Rebased onto `c1ebb17` and resolved the TASK-329 participant-model,
+  TASK-333 feedback, and TASK-334 alpha-state overlaps without dropping any
+  shipped behavior.
+- Traced the stale preview error to code/schema skew: the successful TASK-329
+  migration removed the legacy meeting-note participant column while the old
+  TASK-332 preview bundle still queried it. Updated the Playwright fixture to
+  exercise structured participant rows and prepared a fresh preview deployment.
+- Passed the complete post-rebase local gate: 48 migrations, RLS isolation,
+  lint, 977 unit/API tests, coverage, production build, and all 27 Playwright
+  scenarios.
