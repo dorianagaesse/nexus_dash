@@ -1,4 +1,4 @@
-# TASK-336 Multi-User Collaboration Audit
+# TASK-336 Multi-user Collaboration Audit
 
 - Audit date: 2026-07-27
 - Baseline: `c1ebb17` (`origin/main`, including TASK-329)

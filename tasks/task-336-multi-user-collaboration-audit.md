@@ -39,11 +39,34 @@ For each product surface, evaluate:
 
 ## Acceptance Criteria
 
-See [`current.md`](./current.md#acceptance-criteria).
+1. The audit covers every implemented project-dashboard module plus sharing,
+   notifications, attachments, account-scoped integrations, and agent access.
+2. Each audited surface records its current collaboration strengths, material
+   gaps, user impact, and recommended direction.
+3. The audit explicitly evaluates ownership, assignment, authorship,
+   modification attribution, history, permissions, notifications, handoff, and
+   agent/human identity.
+4. Recommendations distinguish accountable ownership from participation,
+   creation, editing, and mere visibility.
+5. Findings are prioritized by collaboration risk and implementation
+   dependency rather than by visual prominence alone.
+6. Every material remediation is represented by a focused `TASK-XXX` backlog
+   entry with rationale and dependencies; duplicate or already-planned work is
+   referenced instead of recreated.
+7. Meeting-note ownership and meeting-todo assignment receive specific
+   treatment, while the audit also identifies comparable gaps elsewhere.
+8. The audit is evidence-based from schema, services, routes, UI, tests, and
+   available runtime behavior.
 
 ## Definition Of Done
 
-See [`current.md`](./current.md#definition-of-done).
+- A dated audit document is committed under `docs/audits/`.
+- `tasks/backlog.md` contains the resulting prioritized refinement tasks and
+  updated review date.
+- `tasks/current.md` and `journal.md` record the audit outcome.
+- Documentation links and formatting pass repository checks.
+- The branch is committed and pushed, a ready-for-review PR is open, and
+  initial automated review/check feedback is handled before handoff.
 
 ## Outcome
 
