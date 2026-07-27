@@ -2,8 +2,8 @@
 
 ## Status
 
-Audit complete; delivery review in progress on
-`docs/task-336-multi-user-collaboration-audit`.
+Complete on `docs/task-336-multi-user-collaboration-audit`; ready-for-review
+PR [#393](https://github.com/dorianagaesse/nexus_dash/pull/393).
 
 ## Context
 

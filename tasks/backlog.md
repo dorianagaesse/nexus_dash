@@ -8,7 +8,7 @@ Last reviewed: 2026-07-27
 ### Execution Queue (Now / Next)
 - ID: TASK-336
   Title: Multi-user collaboration audit - ownership, assignment, and traceability
-  Status: Audit complete; delivery review in progress (2026-07-27)
+  Status: Complete (2026-07-27, PR #393)
   Rationale: Audit every shared product surface for accountable ownership, action assignment, human/agent attribution, history, permissions, notifications, discovery, and handoff; then turn evidence-backed gaps into a sequenced refinement backlog rather than fixing meeting notes in isolation.
   Dependencies: TASK-058, TASK-098, TASK-106, TASK-119, TASK-130, TASK-316, TASK-319, TASK-329
   Brief: `tasks/task-336-multi-user-collaboration-audit.md`

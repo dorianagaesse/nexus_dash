@@ -4,8 +4,9 @@
 
 - ID: TASK-336
 - Title: Multi-user collaboration audit - ownership, assignment, and traceability
-- Status: Audit complete; delivery review in progress (2026-07-27)
+- Status: Complete (2026-07-27)
 - Branch: `docs/task-336-multi-user-collaboration-audit`
+- Pull request: [#393](https://github.com/dorianagaesse/nexus_dash/pull/393)
 - Brief: [`task-336-multi-user-collaboration-audit.md`](./task-336-multi-user-collaboration-audit.md)
 
 ## Objective
@@ -83,3 +84,8 @@ findings into a coherent, prioritized refinement backlog.
   context, meeting, participant identity, roadmap, and Calendar surfaces.
 - `npm run lint`, `npm run rls:check`, `npm run release:check`, unique backlog
   ID validation, Markdown link validation, and `git diff --check` passed.
+- Ready-for-review PR #393 passed branch naming, Quality Core, Playwright,
+  PostgreSQL tenant isolation, and container-image checks on reviewed commit
+  `fe5f525`.
+- Copilot's two initial documentation comments were addressed in `fe5f525`;
+  both threads were answered and resolved.

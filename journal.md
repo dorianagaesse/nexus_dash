@@ -49,6 +49,18 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Passed lint, RLS inventory, release policy, unique backlog-ID validation,
   Markdown link validation, and diff hygiene.
 
+# 2026-07-27 - TASK-336 PR review and delivery
+
+- Committed and pushed the audit as `ee47f11`, then opened ready-for-review PR
+  [#393](https://github.com/dorianagaesse/nexus_dash/pull/393).
+- Copilot identified two documentation-durability issues: the task brief
+  depended on the rotating `tasks/current.md`, and the audit heading used
+  inconsistent title capitalization. Inlined the acceptance criteria and
+  Definition of Done in the durable brief and aligned the heading in
+  `fe5f525`; both threads were answered and resolved.
+- Branch naming, Quality Core, Playwright, PostgreSQL tenant isolation, and
+  container-image checks all passed on reviewed commit `fe5f525`.
+
 # 2026-07-26 - TASK-329 meeting participant identity refinement started
 
 - Took ownership of TASK-329 on
