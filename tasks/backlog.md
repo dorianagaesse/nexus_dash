@@ -2,7 +2,7 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-07-26
+Last reviewed: 2026-07-28
 
 ## Pending
 ### Execution Queue (Now / Next)
@@ -84,6 +84,31 @@ Last reviewed: 2026-07-26
   Status: Next 15 - epic scanning and content readability
   Rationale: Expand epic content by default on mobile so users can read meaningful context without repeated disclosure interactions, then test a comparable expanded desktop treatment and retain the version that improves comprehension without making dense project views harder to scan.
   Dependencies: TASK-100, TASK-108, TASK-133, TASK-270
+- ID: TASK-336
+  Title: Bilateral related-task relationships - keep both task directions consistent
+  Status: Next 16 - related-task correctness
+  Rationale: Fix GitHub issue #395 so relating task A to task B makes the same canonical relationship visible when either task is opened, including immediately after optimistic updates and after reload, while keeping add/remove behavior duplicate-free and project-scoped.
+  Dependencies: TASK-076, TASK-118
+- ID: TASK-337
+  Title: Complete related-task candidate list - investigate missing and non-scrollable tasks
+  Status: Next 17 - related-task picker completeness
+  Rationale: Investigate and fix GitHub issue #396 by determining whether eligible tasks are missing because of status filtering, Blocked-task exclusion, clipped overflow, or a combination; ensure the full authorized candidate set is searchable, keyboard reachable, and scrollable.
+  Dependencies: TASK-076, TASK-133, TASK-321
+- ID: TASK-338
+  Title: User-facing task IDs - stable references in task details and relationship search
+  Status: Next 18 - task follow-up identifiers
+  Rationale: Introduce or expose concise, stable user-facing task identifiers so users can refer to tasks unambiguously; show the identifier when a task detail modal is open and beside each candidate while searching for a task to relate, without exposing opaque internal database IDs.
+  Dependencies: TASK-076, TASK-133
+- ID: TASK-339
+  Title: Related-task picker presentation - readable IDs, titles, and status colors
+  Status: Next 19 - related-task list visual refinement
+  Rationale: Redesign the current `Related to` candidate list so each row clearly presents the user-facing task ID, a bounded/truncated title, and status using the established Kanban column color, with accessible text that does not rely on color alone.
+  Dependencies: TASK-133, TASK-337, TASK-338
+- ID: TASK-340
+  Title: Movable meeting-todos modal - compact bottom-right project entry
+  Status: Next 20 - project todo popup refinement
+  Rationale: Replace the current meeting-todo popup treatment with a compact bottom-right floating `Todos` button using the todo icon and label; open the aggregated todos in an accessible modal that can be moved within the project-page area while preserving containment, focus, responsive behavior, and existing todo actions.
+  Dependencies: TASK-098, TASK-316, TASK-321, TASK-322, TASK-330, TASK-332
 ### Deferred (Intentional)
 - ID: TASK-102
   Title: Collaboration service modularization - split invite, membership, and recipient flows into smaller service units
