@@ -28,6 +28,26 @@ describe("authenticated shell navigation", () => {
     );
   });
 
+  test("keeps project-specific Todos as a valid return origin", () => {
+    expect(
+      buildAuthenticatedDestinationHref(
+        "/account/settings",
+        "/projects/project-1/todos"
+      )
+    ).toBe(
+      "/account/settings?returnTo=%2Fprojects%2Fproject-1%2Ftodos"
+    );
+    expect(
+      resolveContextualReturnDestination("/projects/project-1/todos", {
+        href: "/projects",
+        label: "Projects",
+      })
+    ).toEqual({
+      href: "/projects/project-1/todos",
+      label: "Return to project",
+    });
+  });
+
   test("carries notification-list context into task targets", () => {
     expect(
       buildNotificationTargetHref(

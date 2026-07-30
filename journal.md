@@ -3,6 +3,57 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-30 - TASK-332 project-scoped Todos navigation
+
+- Reconciled the feature branch with `origin/main` at `f220331`, resolving the
+  current-task and journal overlap while preserving TASK-336's shipped audit,
+  backlog, workflow, and runbook changes.
+- Replaced the workspace-wide `/todos` experience with
+  `/projects/[projectId]/todos` and a strict actor-RLS single-project service.
+  Removed the aggregate shell badge query, cross-project selector/grouping, and
+  workspace todo service so project isolation is enforced before rendering.
+- Added separate Workspace and Project navigation groups. Desktop uses the
+  existing sidebar; mobile uses a contained, safe-area-aware horizontal dock
+  with visible group labels, Lucide icons, active state, and 44 px targets.
+- Preserved URL-backed Open/Completed state, Back/Forward behavior,
+  source-meeting deep links, authorized completion/reopening, read-only viewer
+  treatment, and the desktop-only floating quick panel.
+- Visually reviewed light and dark iPhone 14 Pro captures at 393 x 852. The
+  project badge, Todos hierarchy, summary, tabs, rows, and grouped dock remain
+  readable; a 375 x 812 check confirmed that only the dock can scroll
+  horizontally and the document does not overflow.
+- The complete local gate passed against PostgreSQL on isolated port 5433:
+  48 applied migrations, RLS inventory, tenant isolation, lint, 139 passing
+  Vitest files with 2 skipped, 978 passing tests with 2 skipped, coverage at
+  91.37% statements / 81.33% branches / 92.2% functions / 91.88% lines,
+  production build, and all 27 Playwright scenarios.
+
+# 2026-07-27 - TASK-332 rebase and preview runtime repair
+
+- Rebased the former PR #390 onto `c1ebb17` and resolved the TASK-329
+  participant-model, TASK-333 feedback, and TASK-334 alpha-state overlaps
+  while preserving the mobile Todos destination and desktop quick panel.
+- Confirmed the preview database was migrated, not missing a migration. The
+  TASK-329 migration backfilled structured participant rows and then removed
+  `ProjectMeetingNote.participants`, while the stale pre-rebase preview bundle
+  still selected that column during project rendering.
+- Verified both preview health endpoints, the migration workflow, and the
+  TASK-332 workspace summary query against the configured database. A
+  signed-in project check reproduced the reported error with digest
+  `4087704851`; all temporary diagnostic records were removed afterward.
+- Updated the TASK-332 Playwright fixture to use structured participant rows,
+  applied all 48 migrations to clean local PostgreSQL, and retained the
+  post-rebase product version at `v0.31.0`.
+- Full post-rebase validation passed: RLS inventory and PostgreSQL isolation,
+  lint, 139 passing Vitest files with 977 passing tests (2 files/tests
+  skipped), unchanged coverage at 91.37% statements / 81.33% branches / 92.2%
+  functions / 91.88% lines, production build, and all 27 Playwright scenarios.
+- Repository rules rejected the required force-push to PR #390's head branch,
+  so published the true rebased history on
+  `feature/task-332-mobile-todo-navigation-rebased`, opened replacement
+  [PR #394](https://github.com/dorianagaesse/nexus_dash/pull/394), and closed
+  #390 with a handoff comment.
+
 # 2026-07-27 - TASK-336 multi-user collaboration audit started
 
 - Took ownership of TASK-336 on
@@ -3037,3 +3088,34 @@ Low-value entries to avoid going forward:
 - Replied to and resolved the Copilot thread in commit `5b81bbe`; the refreshed
   branch, Quality Core, E2E Smoke, Tenant Isolation, and Container Image checks
   all passed on PR #388.
+
+# 2026-07-26 - TASK-332 mobile meeting-todo navigation
+
+- Audited the expanded project todo popup at an iPhone 14 Pro CSS viewport
+  (393 x 852): its 352 x 371 px surface covered project context, nested a
+  320 px scroll area around 680 px of content, and exposed 28 px controls.
+- Selected a stable Todos destination over a floating action button because it
+  communicates navigation clearly, avoids another fixed safe-area collision,
+  and provides room for planned project and assignee capabilities.
+- Added `/todos`, adaptive Projects/Todos/Inbox navigation, actor-RLS-scoped
+  workspace aggregation, URL-backed views and project filters, source-meeting
+  deep links, access-aware completion, and open/overdue badge context.
+- Removed the floating panel from mobile layout and accessibility navigation
+  while retaining it as the project-scoped desktop quick panel. A 393 x 852
+  Playwright pass found and fixed native select intrinsic-width overflow caused
+  by long project names.
+- Full local validation passed: RLS inventory, least-privilege role setup and
+  PostgreSQL tenant-isolation matrix; lint; 134 passing Vitest files with 956
+  passing tests (2 files/tests skipped); coverage at 91.37% statements, 81.33%
+  branches, 92.2% functions, and 91.88% lines; production build; and all 24
+  Playwright scenarios. Light 393 x 852, dark 375 x 812, and desktop 1280 x
+  900 screenshots are stored under `.tmp/`.
+- Published implementation commit
+  `0c679aaee83e27d24c138f9851844939f228375d` and opened ready-for-review
+  [PR #390](https://github.com/dorianagaesse/nexus_dash/pull/390).
+- Addressed all three initial Copilot review threads: reverted `project.md`
+  because feature PRs do not maintain that snapshot, removed the duplicated
+  accessible count label from the Open/Completed switcher, and changed the
+  shell badge query to select only meeting status/date plus open-action counts.
+  Four focused test files (14 tests), lint, production build, and six focused
+  Playwright shell/todo scenarios passed after the review fixes.

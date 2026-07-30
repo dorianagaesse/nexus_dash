@@ -8,6 +8,21 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.31.0 - 2026-07-27
+
+- Replaced the obstructive mobile meeting-todo popup with a dedicated,
+  protected `/projects/[projectId]/todos` destination in current-project
+  navigation.
+- Added access-safe project-isolated todo reads, overdue-first open work,
+  recent completed work, URL-backed status views, and source meeting deep
+  links.
+- Preserved owner/editor completion controls and viewer read-only treatment,
+  kept the project quick panel on desktop, and removed it from mobile layout
+  and accessibility navigation.
+- Added a contained horizontally scrollable mobile dock with separate Workspace
+  and Project groups, safe-area clearance, 44 px controls, narrow-screen
+  containment, and responsive Playwright coverage.
+
 ## v0.30.0 - 2026-07-26
 
 - Replaced free-form-only meeting participant tokens with an accessible

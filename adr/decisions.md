@@ -16,6 +16,48 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-07-30 - Keep meeting todos within current-project navigation
+- Status: Accepted; supersedes the cross-project portion of the 2026-07-27
+  TASK-332 decision.
+- Context: Product review confirmed that meeting follow-ups should remain
+  bounded by the project the user intentionally opened. A workspace aggregate
+  weakens that context, while mobile still needs a discoverable replacement
+  for the obstructive floating panel and room for future project destinations.
+- Decision: Route Todos at `/projects/[projectId]/todos`, enforce project
+  access and isolation in the service, and remove Todos from workspace-level
+  navigation. Desktop places Overview and Todos in the Current project sidebar
+  group. Mobile uses one contained horizontal dock with separately labeled
+  Workspace and Project groups; only that dock may scroll horizontally, with
+  44 px targets, active states, keyboard access, and safe-area clearance.
+- Consequences: Users never mix meeting todos from unrelated projects, project
+  context is inherent in the URL and navigation hierarchy, and future
+  project-specific destinations can extend the Project group without
+  overloading workspace navigation.
+- Links: `tasks/task-332-mobile-todo-navigation.md`,
+  `app/projects/[projectId]/todos/`,
+  `lib/services/project-meeting-todo-service.ts`,
+  `components/authenticated-app-shell-client.tsx`
+
+## 2026-07-27 - Promote meeting todos to an adaptive workspace destination
+- Status: Superseded in part by the 2026-07-30 project-scoped decision.
+- Context: The project-scoped floating todo panel covered meeting and project
+  context on phone-sized screens, created a nested scroll region, and could not
+  accommodate planned project and assignee filtering. A floating action button
+  would conventionally suggest creation and add another safe-area collision.
+- Decision: Make `/todos` a stable authenticated destination in both the
+  desktop sidebar and mobile bottom navigation. Aggregate only projects
+  available to the actor under RLS, preserve project and source-meeting
+  context, store Open/Completed and project filters in the URL, hide the quick
+  panel below the desktop breakpoint, and retain the existing authorized
+  mutation endpoint.
+- Consequences: Mobile users get an unobstructed, deep-linkable todo workflow
+  that can grow with assignees and richer filters. The app shell performs one
+  lightweight open-todo summary read for its badge, while desktop users retain
+  the project-scoped quick panel.
+- Links: `tasks/task-332-mobile-todo-navigation.md`, `app/todos/`,
+  `lib/services/workspace-meeting-todo-service.ts`,
+  `components/authenticated-app-shell-client.tsx`
+
 ## 2026-07-26 - Normalize meeting participants as optional user identities
 - Status: Accepted
 - Context: TASK-329 needs meeting participants to distinguish current

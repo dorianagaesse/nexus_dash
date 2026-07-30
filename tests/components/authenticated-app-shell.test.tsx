@@ -53,6 +53,9 @@ describe("authenticated app shell", () => {
     expect(result).toContain('aria-label="Primary navigation"');
     expect(result).toContain("Projects");
     expect(result).toContain("Inbox");
+    expect(result).not.toContain("Todos");
+    expect(result).toContain('aria-label="Workspace navigation"');
+    expect(result).not.toContain('aria-label="Project navigation"');
     expect(result).toContain("Account menu");
     expect(result).toContain("data-account-identity-area");
     expect(result).toContain('aria-current="page"');
@@ -72,7 +75,7 @@ describe("authenticated app shell", () => {
   });
 
   test("adapts desktop navigation to a specific project", () => {
-    mockPathname = "/projects/project-1";
+    mockPathname = "/projects/project-1/todos";
     mockSearchParams = new URLSearchParams();
 
     const result = renderToStaticMarkup(
@@ -92,7 +95,13 @@ describe("authenticated app shell", () => {
     expect(result).toContain("All projects");
     expect(result).toContain("Current project");
     expect(result).toContain("Overview");
+    expect(result).toContain("Todos");
     expect(result).toContain('href="/projects/project-1"');
+    expect(result).toContain('href="/projects/project-1/todos"');
+    expect(result).toContain('aria-label="Workspace navigation"');
+    expect(result).toContain('aria-label="Project navigation"');
+    expect(result).toContain("overflow-x-auto");
+    expect(result).toContain("overscroll-x-contain");
     expect(result).toContain('id="project-sidebar-actions"');
   });
 });

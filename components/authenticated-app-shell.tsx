@@ -29,8 +29,12 @@ export async function AuthenticatedAppShell({
   if (identity === undefined || notificationSnapshot === undefined) {
     const actorUserId = await requireVerifiedSessionUserIdFromServer();
     [identity, notificationSnapshot] = await Promise.all([
-      getAccountIdentitySummary(actorUserId),
-      getInitialNotificationRealtimeSnapshotForUser(actorUserId),
+      identity === undefined
+        ? getAccountIdentitySummary(actorUserId)
+        : Promise.resolve(identity),
+      notificationSnapshot === undefined
+        ? getInitialNotificationRealtimeSnapshotForUser(actorUserId)
+        : Promise.resolve(notificationSnapshot),
     ]);
   }
 

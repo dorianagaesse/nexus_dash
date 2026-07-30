@@ -72,6 +72,8 @@ interface ProjectMeetingNotesPanelProps {
   canEdit: boolean;
   notes: ProjectMeetingNotePanelNote[];
   collaborators: ProjectMeetingParticipantCollaborator[];
+  initialMeetingNoteId?: string | null;
+  initialMeetingTodoId?: string | null;
 }
 
 interface DraftAction {
@@ -656,7 +658,11 @@ export function ProjectMeetingNotesPanel({
   canEdit,
   notes,
   collaborators,
+  initialMeetingNoteId = null,
+  initialMeetingTodoId = null,
 }: ProjectMeetingNotesPanelProps) {
+  const initialSelectedNote =
+    notes.find((note) => note.id === initialMeetingNoteId) ?? null;
   const { pushToast } = useToast();
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
@@ -670,12 +676,20 @@ export function ProjectMeetingNotesPanel({
   const [referenceNowMs] = useState(() => Date.now());
   const [query, setQuery] = useState("");
   const [selectedLabelFilters, setSelectedLabelFilters] = useState<string[]>([]);
-  const [listView, setListView] = useState<MeetingListView>("active");
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [listView, setListView] = useState<MeetingListView>(
+    initialSelectedNote?.status === "done" ? "archived" : "active"
+  );
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
+    initialSelectedNote?.id ?? null
+  );
   const [prepareDialog, setPrepareDialog] = useState<PrepareDialogState | null>(null);
   const [prepareDraft, setPrepareDraft] =
     useState<PrepareDraft>(EMPTY_PREPARE_DRAFT);
-  const [notesDraft, setNotesDraft] = useState<NotesDraft>(EMPTY_NOTES_DRAFT);
+  const [notesDraft, setNotesDraft] = useState<NotesDraft>(() =>
+    initialSelectedNote
+      ? buildNotesDraftFromNote(initialSelectedNote)
+      : EMPTY_NOTES_DRAFT
+  );
   const [draftError, setDraftError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState<string | null>(null);
@@ -683,6 +697,7 @@ export function ProjectMeetingNotesPanel({
   const [pendingTodoActionId, setPendingTodoActionId] = useState<string | null>(
     null
   );
+  const appliedInitialMeetingNoteIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const sortedNotes = sortNotes(notes);
@@ -691,6 +706,43 @@ export function ProjectMeetingNotesPanel({
       current && sortedNotes.some((note) => note.id === current) ? current : null
     );
   }, [notes]);
+
+  useEffect(() => {
+    if (
+      !initialMeetingNoteId ||
+      appliedInitialMeetingNoteIdRef.current === initialMeetingNoteId
+    ) {
+      return;
+    }
+
+    const initialNote = localNotes.find(
+      (note) => note.id === initialMeetingNoteId
+    );
+    if (!initialNote) {
+      return;
+    }
+
+    appliedInitialMeetingNoteIdRef.current = initialMeetingNoteId;
+    setIsExpanded(true);
+    setListView(initialNote.status === "done" ? "archived" : "active");
+    setSelectedNoteId(initialNote.id);
+    setNotesDraft(buildNotesDraftFromNote(initialNote));
+    setDraftError(null);
+  }, [initialMeetingNoteId, localNotes, setIsExpanded]);
+
+  useEffect(() => {
+    if (!selectedNoteId || !initialMeetingTodoId) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .getElementById(`meeting-todo-${initialMeetingTodoId}`)
+        ?.scrollIntoView({ block: "center" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [initialMeetingTodoId, selectedNoteId]);
 
   useEffect(() => {
     const handleProjectActivity = (event: Event) => {
@@ -1832,7 +1884,15 @@ export function ProjectMeetingNotesPanel({
                       notesDraft.actions.map((action, index) => {
                         const isComplete = action.completedAt != null;
                         return (
-                          <div key={action.id} className="flex items-center gap-2">
+                          <div
+                            key={action.id}
+                            id={`meeting-todo-${action.id}`}
+                            className={cn(
+                              "flex items-center gap-2 rounded-lg",
+                              action.id === initialMeetingTodoId &&
+                                "bg-primary/10 p-1 ring-2 ring-primary/35"
+                            )}
+                          >
                             <button
                               type="button"
                               disabled={!canEdit || isSaving}
