@@ -94,3 +94,12 @@ tasks, with complete search and accessible scrolling through long result sets.
   branches / 92.2% functions / 91.88% lines, the standard Turbopack production
   build, and all 28 Chromium scenarios.
 - Published the reviewable implementation and visual evidence in PR #400.
+- Rebased PR #400 onto `origin/main` after TASK-349 merged, preserving both
+  related-task behaviors and updating the bilateral Playwright selector to the
+  picker's accessible `option` role.
+- Advanced the release from `v0.31.1` to `v0.31.2` because merged PR #399 now
+  owns `v0.31.1`.
+- Rebase validation passed: lint, RLS inventory, release policy, 988 unit/API
+  tests with 2 skipped, coverage at 91.37% statements / 81.33% branches /
+  92.2% functions / 91.88% lines, production build, both focused related-task
+  browser scenarios, and the complete 29-scenario Playwright suite.

@@ -8,6 +8,18 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.31.2 - 2026-07-30
+
+- Removed the eight-result cap from create-task and task-detail related-task
+  pickers so every eligible active project task remains available across
+  Backlog, In Progress, Blocked, and Done.
+- Added a viewport-aware, scroll-contained listbox with complete search,
+  combobox semantics, arrow/Home/End navigation, active-option visibility,
+  44 px rows, and distinct empty states.
+- Added mixed-status component and Playwright regression coverage for
+  selection, project isolation, archived-task exclusion, desktop overflow, and
+  375 px create-flow containment.
+
 ## v0.31.1 - 2026-07-30
 
 - Made canonical related-task links reconcile bilaterally after local saves and
@@ -18,15 +30,6 @@ SHA, deployment URL, and workflow run belong in release evidence.
   archived-task visibility, and project authorization boundaries.
 - Added service/API, client reconciliation, and Playwright regressions for
   bilateral add/remove behavior, repeated updates, and full reloads.
-- Removed the eight-result cap from create-task and task-detail related-task
-  pickers so every eligible active project task remains available across
-  Backlog, In Progress, Blocked, and Done.
-- Added a viewport-aware, scroll-contained listbox with complete search,
-  combobox semantics, arrow/Home/End navigation, active-option visibility,
-  44 px rows, and distinct empty states.
-- Added mixed-status component and Playwright regression coverage for
-  selection, project isolation, archived-task exclusion, desktop overflow, and
-  375 px create-flow containment.
 
 ## v0.31.0 - 2026-07-27
 

@@ -3184,3 +3184,16 @@ Low-value entries to avoid going forward:
 - Committed the reviewable implementation as `5c1b820`, pushed
   `fix/395-bilateral-task-relations`, and opened ready-for-review PR
   [#399](https://github.com/dorianagaesse/nexus_dash/pull/399).
+
+# 2026-07-30 - TASK-350 conflict resolution after TASK-349 merge
+
+- Rebased `fix/task-350-related-task-picker` onto merged PR #399
+  (`ad8ba4a`) and preserved both TASK-349's bilateral relationship behavior and
+  TASK-350's complete accessible picker.
+- Resolved the overlapping changelog/current-task tracking, moved TASK-350 to
+  patch release `v0.31.2`, and aligned TASK-349's browser test with the
+  picker's intentional `option` role.
+- Validation passed: lint, RLS inventory, release policy, 988 unit/API tests
+  with 2 skipped, coverage at 91.37% statements / 81.33% branches / 92.2%
+  functions / 91.88% lines, production build, both focused related-task
+  Playwright scenarios, and the complete 29-scenario Playwright suite.
