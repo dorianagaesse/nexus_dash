@@ -2,10 +2,16 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-07-26
+Last reviewed: 2026-07-27
 
 ## Pending
 ### Execution Queue (Now / Next)
+- ID: TASK-336
+  Title: Multi-user collaboration audit - ownership, assignment, and traceability
+  Status: Complete (2026-07-27, PR #393)
+  Rationale: Audit every shared product surface for accountable ownership, action assignment, human/agent attribution, history, permissions, notifications, discovery, and handoff; then turn evidence-backed gaps into a sequenced refinement backlog rather than fixing meeting notes in isolation.
+  Dependencies: TASK-058, TASK-098, TASK-106, TASK-119, TASK-130, TASK-316, TASK-319, TASK-329
+  Brief: `tasks/task-336-multi-user-collaboration-audit.md`
 - ID: TASK-100
   Title: Mobile UI/UX refinement - touch ergonomics, compact layouts, and small-screen polish
   Status: Now 1 - mobile core-flow remediation
@@ -54,15 +60,15 @@ Last reviewed: 2026-07-26
   Rationale: Replace free-form-only participant presentation with a mixed participant model that links registered participants to NexusDash users and renders them with the same shared avatar treatment used elsewhere, while keeping non-user participants available through a simple initials avatar derived from their name.
   Dependencies: TASK-089, TASK-098, TASK-119
 - ID: TASK-330
-  Title: Meeting todo assignees - ownership across notes and the project-wide todo panel
+  Title: Meeting todo assignees and completion accountability - human/agent ownership across notes and the project-wide panel
   Status: Next 10 - meeting follow-up ownership
-  Rationale: Let each meeting todo have an optional project-member assignee, persist that assignment through todo edits and lifecycle changes, and show the assignee consistently in meeting notes and the project-wide todo panel so follow-up ownership is immediately clear.
-  Dependencies: TASK-098, TASK-119, TASK-316, TASK-329
+  Rationale: Give every meeting todo an optional authorized project actor, preserve its creator and completion actor, target reminders at the real assignee, and add assigned-to-me plus unassigned views across meeting detail and the project-wide panel. Assignment must not grant access, external meeting guests remain non-assignable until they join the project, and removed members or revoked agents must leave a visible reassignment state rather than silently orphaning work.
+  Dependencies: TASK-098, TASK-119, TASK-316, TASK-329, TASK-337
 - ID: TASK-331
-  Title: Granular collaboration invitations - meeting-note and roadmap capability rights
+  Title: Granular project capabilities - module-level human roles and agent scopes
   Status: Next 11 - invitation and membership permission expansion
-  Rationale: Extend invitations and project memberships beyond coarse roles with explicit create, edit, and remove rights for Meeting Notes and Roadmap content. Apply the selected rights consistently in invitation management, member administration, UI affordances, services, and routes without weakening owner safeguards or existing project isolation.
-  Dependencies: TASK-058, TASK-098, TASK-106, TASK-130
+  Rationale: Define one capability vocabulary across tasks, meeting notes, context cards, epics, roadmap, and the future shared schedule, then apply it consistently to invitations, memberships, agent scopes, UI affordances, services, and routes. Keep capability independent from ownership and assignment: responsibility never grants access, and owner safeguards plus project isolation remain authoritative.
+  Dependencies: TASK-058, TASK-098, TASK-106, TASK-130, TASK-337
 - ID: TASK-332
   Title: Mobile meeting-todo popup refinement - audit and implement a discoverable entry pattern
   Status: Next 12 - audit-gated mobile todo remediation
@@ -84,6 +90,69 @@ Last reviewed: 2026-07-26
   Status: Next 15 - epic scanning and content readability
   Rationale: Expand epic content by default on mobile so users can read meaningful context without repeated disclosure interactions, then test a comparable expanded desktop treatment and retain the version that improves comprehension without making dense project views harder to scan.
   Dependencies: TASK-100, TASK-108, TASK-133, TASK-270
+
+### Collaboration Refinement Program (TASK-336 Audit)
+- ID: TASK-337
+  Title: First-class project actor identity - human and agent assignment/provenance foundation
+  Status: P0 - collaboration identity foundation
+  Rationale: Introduce one project-actor contract that resolves either a human project member or active project agent credential with a stable identity, kind, display label, avatar treatment, current access state, and durable display snapshot. Use the actual agent credential for mutation attribution instead of its human owner, while retaining credential ownership separately for governance; make the actor contract reusable by assignments, stewardship, history, notifications, and work queries.
+  Dependencies: TASK-058, TASK-098, TASK-119, TASK-130, TASK-319
+- ID: TASK-338
+  Title: Project ownership continuity and collaborator offboarding
+  Status: P0 - ownership and handoff safety
+  Rationale: Add safe project-owner transfer and owner-leave flows, inventory active responsibilities before member removal or agent revocation, and require explicit reassignment or a visible unassigned/inactive-actor outcome. Preserve readable historical identity snapshots after access is removed and keep last-owner protections intact.
+  Dependencies: TASK-058, TASK-098, TASK-106, TASK-337
+- ID: TASK-339
+  Title: Conflict-safe shared editing - revision preconditions and draft recovery
+  Status: P0 - shared-write data-loss prevention
+  Rationale: Add expected revisions or equivalent write preconditions to long-form and shared mutations, reject stale saves deterministically, and preserve the user's draft with reload, compare, and reapply recovery. Start with meeting notes and context cards, then cover tasks, epics, and roadmap mutations; realtime edit locks remain a freshness aid rather than the concurrency guarantee.
+  Dependencies: TASK-119, TASK-126, TASK-127, TASK-130
+- ID: TASK-340
+  Title: Durable collaboration history - actor-attributed project and artifact timelines
+  Status: P1 - traceability foundation
+  Rationale: Expand project activity into a durable, paginated, role-aware history for every shared domain and meaningful sub-action, including ownership, assignment, status, attachment, relationship, and deletion changes. Preserve the real human or agent actor, safe summaries or bounded diffs, identity snapshots, deletion tombstones, retention rules, and artifact plus project timeline views without exposing raw secrets or transport payloads.
+  Dependencies: TASK-119, TASK-130, TASK-337, TASK-339
+- ID: TASK-341
+  Title: Meeting note stewardship and decision provenance
+  Status: P1 - meeting accountability
+  Rationale: Give each meeting note a visible, reassignable steward or facilitator; surface creator, last editor, and update time; and preserve authorship for accepted decisions. Keep attendance separate from responsibility, support filtering and handoff, and make note mutation/deletion capabilities explicit without conflating the note steward with individual todo assignees.
+  Dependencies: TASK-098, TASK-119, TASK-329, TASK-337, TASK-340
+- ID: TASK-348
+  Title: Personal Calendar versus shared project scheduling
+  Status: P1 - shared scheduling contract
+  Rationale: First label the existing Google integration clearly as each signed-in user's private "My calendar" overlay and decouple personal-calendar actions from misleading project-edit semantics. Then design a NexusDash-owned shared project schedule with project actors, accountable owners, capabilities, history, and optional external-calendar synchronization instead of presenting different private calendars as one collaborative module.
+  Dependencies: TASK-325, TASK-326, TASK-327, TASK-337, TASK-344
+- ID: TASK-342
+  Title: Context knowledge stewardship and attachment provenance
+  Status: P2 - shared knowledge accountability
+  Rationale: Add a visible, reassignable knowledge steward plus creator, last editor, update time, and review or staleness state to context cards. Surface the already-stored attachment uploader, record attachment lifecycle events, and retain provenance through member removal without turning every reader into an owner.
+  Dependencies: TASK-004, TASK-065, TASK-337, TASK-340
+- ID: TASK-343
+  Title: Epic leadership and initiative accountability
+  Status: P2 - initiative ownership
+  Rationale: Give each epic an accountable human or agent lead, visible creator and last editor, and an explicit health or review owner alongside derived task progress. Support reassignment and inactive-actor states, and preserve initiative-level history without treating linked task assignees as implicit epic owners.
+  Dependencies: TASK-133, TASK-337, TASK-340
+- ID: TASK-344
+  Title: Roadmap milestone ownership and execution linkage
+  Status: P2 - milestone accountability
+  Rationale: Add accountable owners and visible provenance to roadmap phases and events, connect milestones to the epics or tasks that deliver them, and record meaningful state, date, order, and relationship changes. Keep target ownership separate from edit capability and support human or agent actors.
+  Dependencies: TASK-130, TASK-133, TASK-337, TASK-340
+- ID: TASK-345
+  Title: Cross-artifact discussion, mentions, and watchers
+  Status: P2 - reusable collaboration conversation
+  Rationale: Extract a reusable, actor-aware thread and subscription model from task comments so meetings, context cards, epics, and roadmap items can support focused discussion, mentions, reactions where useful, and explicit watchers. Define notification, authorization, retention, deletion, and agent-attribution behavior once before adding isolated comment boxes to every surface.
+  Dependencies: TASK-111, TASK-112, TASK-113, TASK-337, TASK-340
+- ID: TASK-346
+  Title: Personal responsibility views and agent work queues
+  Status: P2 - responsibility discovery
+  Rationale: Add project and cross-project views plus query contracts for assigned to me, owned by me, unassigned, inactive owner, recently changed, and followed work across tasks, meeting todos, meeting notes, context, epics, and roadmap. Provide an agent-safe assigned-work API so accountable work is discoverable instead of requiring full-project scans.
+  Dependencies: TASK-330, TASK-337, TASK-341, TASK-342, TASK-343, TASK-344
+- ID: TASK-347
+  Title: Collaboration notification preferences and follow events
+  Status: P2 - relevant accountability notifications
+  Rationale: Add explicit watch/subscription preferences and notification producers for ownership, assignment, handoff, mention, completion, and followed changes across shared artifacts. Every notification should explain why it was received, deep-link to the affected object, respect email and in-app preferences, and avoid defaulting to all project members or using artifact creators as implicit assignees.
+  Dependencies: TASK-122, TASK-123, TASK-337, TASK-340, TASK-345
+
 ### Deferred (Intentional)
 - ID: TASK-102
   Title: Collaboration service modularization - split invite, membership, and recipient flows into smaller service units
