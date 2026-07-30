@@ -71,7 +71,7 @@ Last reviewed: 2026-07-30
   Brief: `tasks/task-349-bilateral-related-task-relationships.md`
 - ID: TASK-350
   Title: Complete related-task candidate list - investigate missing and non-scrollable tasks
-  Status: Ready for review - issue #396 on `fix/task-350-related-task-picker`
+  Status: In review - PR #400 fixes issue #396
   Rationale: Investigate and fix GitHub issue #396 by determining whether eligible tasks are missing because of status filtering, Blocked-task exclusion, clipped overflow, or a combination; ensure the full authorized candidate set is searchable, keyboard reachable, and scrollable.
   Dependencies: TASK-076, TASK-133, TASK-321
   Brief: `tasks/task-350-related-task-picker.md`

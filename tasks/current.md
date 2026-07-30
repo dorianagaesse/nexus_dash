@@ -4,9 +4,10 @@
 
 - ID: TASK-350
 - Title: Complete related-task candidate list
-- Status: Ready for review
+- Status: In review
 - Branch: `fix/task-350-related-task-picker`
 - GitHub issue: [#396](https://github.com/dorianagaesse/nexus_dash/issues/396)
+- Pull request: [#400](https://github.com/dorianagaesse/nexus_dash/pull/400)
 - Brief: [`task-350-related-task-picker.md`](./task-350-related-task-picker.md)
 
 ## Objective
@@ -92,3 +93,4 @@ tasks, with complete search and accessible scrolling through long result sets.
   (981 tests; 2 files/tests skipped), coverage at 91.37% statements / 81.33%
   branches / 92.2% functions / 91.88% lines, the standard Turbopack production
   build, and all 28 Chromium scenarios.
+- Published the reviewable implementation and visual evidence in PR #400.
