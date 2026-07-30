@@ -35,6 +35,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
   91.37% statements / 81.33% branches / 92.2% functions / 91.88% lines,
   production build, focused browser coverage, and all 30 Chromium scenarios.
 - Prepared feature release `v0.32.0`.
+- Published implementation commit `a3704dd` and opened ready-for-review
+  [PR #402](https://github.com/dorianagaesse/nexus_dash/pull/402).
 
 # 2026-07-30 - TASK-350 related-task picker completeness
 

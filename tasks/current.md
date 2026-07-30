@@ -4,8 +4,9 @@
 
 - ID: TASK-351
 - Title: User-facing task IDs
-- Status: Ready for review (2026-07-30)
+- Status: In review (2026-07-30)
 - Branch: `feature/task-351-user-facing-task-ids`
+- Pull request: [#402](https://github.com/dorianagaesse/nexus_dash/pull/402)
 - Brief: [`task-351-user-facing-task-ids.md`](./task-351-user-facing-task-ids.md)
 
 ## Objective
@@ -116,3 +117,5 @@ share without exposing the opaque database ID.
 - `npm run build` passed with documented local-safe runtime placeholders.
 - Focused TASK-351 Playwright coverage passed, followed by the complete
   30-scenario Chromium suite.
+- Implementation commit `a3704dd` is pushed and ready-for-review PR #402 is
+  open.
