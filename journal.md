@@ -37,6 +37,13 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Prepared feature release `v0.32.0`.
 - Published implementation commit `a3704dd` and opened ready-for-review
   [PR #402](https://github.com/dorianagaesse/nexus_dash/pull/402).
+- Copilot completed its initial review with two actionable comments. Updated
+  option accessible names to include the friendly reference and made
+  `TaskMutationResponseTask.reference` optional for persisted pre-TASK-351
+  activity events while keeping fresh API/OpenAPI responses required.
+- Post-review validation passed: lint, 16 focused component/helper tests,
+  production build, and the bilateral, TASK-350, and TASK-351 Playwright
+  regressions.
 
 # 2026-07-30 - TASK-350 related-task picker completeness
 

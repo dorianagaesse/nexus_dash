@@ -158,7 +158,9 @@ describe("RelatedTaskSelector", () => {
     expect(getOptions()).toHaveLength(1);
     expect(getOptions()[0]?.textContent).toContain("ND-10");
     expect(getOptions()[0]?.textContent).toContain("Done candidate 1");
-    expect(getOptions()[0]?.getAttribute("aria-describedby")).toBeTruthy();
+    expect(getOptions()[0]?.getAttribute("aria-label")).toBe(
+      "ND-10, Done candidate 1"
+    );
   });
 
   test("keeps keyboard navigation on the input while reaching and selecting the last task", async () => {
@@ -196,9 +198,7 @@ describe("RelatedTaskSelector", () => {
       );
     });
 
-    expect(container.textContent).toContain(
-      lastOption?.getAttribute("aria-label")
-    );
+    expect(container.textContent).toContain(lastOption?.dataset.taskTitle);
     expect(getOptions()).toHaveLength(11);
   });
 

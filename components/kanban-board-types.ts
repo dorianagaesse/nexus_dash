@@ -96,7 +96,8 @@ export interface KanbanTask {
 
 export interface TaskMutationResponseTask {
   id: string;
-  reference: string;
+  // Persisted activity events created before TASK-351 do not include a reference.
+  reference?: string;
   title: string;
   label: string | null;
   labelsJson: string | null;

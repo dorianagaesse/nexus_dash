@@ -119,3 +119,8 @@ share without exposing the opaque database ID.
   30-scenario Chromium suite.
 - Implementation commit `a3704dd` is pushed and ready-for-review PR #402 is
   open.
+- Addressed both initial Copilot review comments: related-task references now
+  participate directly in option accessible names, and legacy activity payloads
+  may omit `reference` explicitly in the client mutation type.
+- Post-review lint, 16 focused component/helper tests, production build, and
+  the three related-task Playwright regressions passed.

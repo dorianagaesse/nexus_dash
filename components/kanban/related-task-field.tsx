@@ -301,19 +301,16 @@ export function RelatedTaskSelector({
                           index === activeSuggestionIndex ? "true" : undefined
                         }
                         data-task-status={task.status}
+                        data-task-title={task.title}
                         tabIndex={-1}
-                        aria-label={task.title}
-                        aria-describedby={`${listboxId}-option-${index}-reference`}
+                        aria-label={`${task.reference}, ${task.title}`}
                         className="flex min-h-11 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-muted"
                         onMouseDown={(event) => event.preventDefault()}
                         onMouseMove={() => setActiveSuggestionIndex(index)}
                         onClick={() => selectTask(task.id)}
                         disabled={disabled}
                       >
-                        <span
-                          id={`${listboxId}-option-${index}-reference`}
-                          className="shrink-0 select-all font-mono text-xs font-semibold tabular-nums text-muted-foreground"
-                        >
+                        <span className="shrink-0 select-all font-mono text-xs font-semibold tabular-nums text-muted-foreground">
                           {task.reference}
                         </span>
                         <span className="min-w-0 flex-1 truncate">
