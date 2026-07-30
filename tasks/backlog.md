@@ -204,12 +204,6 @@ Last reviewed: 2026-07-30
   Status: Pending (Epic - split into TASK-045/TASK-046/TASK-047/TASK-048/TASK-058/TASK-059/TASK-081/TASK-082/TASK-083/TASK-084)
   Rationale: Add user accounts, persistent sessions, and modern authentication UX aligned with architecture decision.
   Dependencies: TASK-048, TASK-058, TASK-059
-- ID: TASK-023
-  Title: Security assessment and remediation baseline
-  Status: Done (Epic completed via TASK-049/TASK-050/TASK-051 on 2026-04-13)
-  Rationale: Completed the full security-baseline sequence by producing the OWASP-focused assessment, implementing the top-ranked remediations, and closing the loop with a dedicated verification and residual-risk report.
-  Dependencies: TASK-051
-
 ## Completed
 - ID: TASK-332
   Title: Mobile meeting-todo navigation - project-scoped Todos destination
@@ -596,6 +590,11 @@ Last reviewed: 2026-07-30
   Status: Done (2026-04-14)
   Rationale: Aligned the weekly Dependabot repair lane with the intended operating model by letting scheduled runs scan the full eligible red-PR backlog, preserving manual targeted controls, bounding execution with explicit matrix parallelism, and validating the rollout through merged PR `#174`.
   Dependencies: TASK-120, TASK-116
+- ID: TASK-023
+  Title: Security assessment and remediation baseline
+  Status: Done (Epic completed via TASK-049/TASK-050/TASK-051 on 2026-04-13)
+  Rationale: Completed the full security-baseline sequence by producing the OWASP-focused assessment, implementing the top-ranked remediations, and closing the loop with a dedicated verification and residual-risk report.
+  Dependencies: TASK-051
 - ID: TASK-051
   Title: Security baseline phase 3 - verification, retest, and closure report
   Status: Done (2026-04-13)
