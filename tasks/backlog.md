@@ -6,12 +6,6 @@ Last reviewed: 2026-07-30
 
 ## Pending
 ### Execution Queue (Now / Next)
-- ID: TASK-336
-  Title: Multi-user collaboration audit - ownership, assignment, and traceability
-  Status: Complete (2026-07-27, PR #393)
-  Rationale: Audit every shared product surface for accountable ownership, action assignment, human/agent attribution, history, permissions, notifications, discovery, and handoff; then turn evidence-backed gaps into a sequenced refinement backlog rather than fixing meeting notes in isolation.
-  Dependencies: TASK-058, TASK-098, TASK-106, TASK-119, TASK-130, TASK-316, TASK-319, TASK-329
-  Brief: `tasks/task-336-multi-user-collaboration-audit.md`
 - ID: TASK-100
   Title: Mobile UI/UX refinement - touch ergonomics, compact layouts, and small-screen polish
   Status: Now 1 - mobile core-flow remediation
@@ -54,65 +48,44 @@ Last reviewed: 2026-07-30
   Status: Next 8 - calendar connection expansion
   Rationale: Define and implement a scalable connection model beyond the current Google Calendar path, including additional Google accounts, selectable calendars, and future calendar providers, with clear per-user ownership, connection management, synchronization behavior, and consistent project-calendar UX.
   Dependencies: TASK-325, TASK-326
-- ID: TASK-329
-  Title: Meeting participant identities - shared user avatars and initials for guests
-  Status: Done (2026-07-26, PR #391)
-  Rationale: Replace free-form-only participant presentation with a mixed participant model that links registered participants to NexusDash users and renders them with the same shared avatar treatment used elsewhere, while keeping non-user participants available through a simple initials avatar derived from their name.
-  Dependencies: TASK-089, TASK-098, TASK-119
 - ID: TASK-330
   Title: Meeting todo assignees and completion accountability - human/agent ownership across notes and the project-wide panel
-  Status: Next 10 - meeting follow-up ownership
+  Status: Next 9 - meeting follow-up ownership
   Rationale: Give every meeting todo an optional authorized project actor, preserve its creator and completion actor, target reminders at the real assignee, and add assigned-to-me plus unassigned views across meeting detail and the project-wide panel. Assignment must not grant access, external meeting guests remain non-assignable until they join the project, and removed members or revoked agents must leave a visible reassignment state rather than silently orphaning work.
   Dependencies: TASK-098, TASK-119, TASK-316, TASK-329, TASK-337
 - ID: TASK-331
   Title: Granular project capabilities - module-level human roles and agent scopes
-  Status: Next 11 - invitation and membership permission expansion
+  Status: Next 10 - invitation and membership permission expansion
   Rationale: Define one capability vocabulary across tasks, meeting notes, context cards, epics, roadmap, and the future shared schedule, then apply it consistently to invitations, memberships, agent scopes, UI affordances, services, and routes. Keep capability independent from ownership and assignment: responsibility never grants access, and owner safeguards plus project isolation remain authoritative.
   Dependencies: TASK-058, TASK-098, TASK-106, TASK-130, TASK-337
-- ID: TASK-332
-  Title: Mobile meeting-todo popup refinement - audit and implement a discoverable entry pattern
-  Status: In review - PR #394 adds validated project-scoped Todos navigation
-  Rationale: First audit the current mobile meeting-todo popup and its collisions, reachability, screen usage, focus behavior, and navigation context; then implement and validate the best mobile-only entry pattern, explicitly comparing a floating action button with a dedicated bottom-navigation destination before committing to the final interaction.
-  Dependencies: TASK-100, TASK-316, TASK-321, TASK-322
-- ID: TASK-333
-  Title: In-product bug and feedback reporting - persistent, easy-to-find entry point
-  Status: In Review (2026-07-26)
-  Rationale: Add a clearly discoverable way for users to report bugs or feedback with useful product context and an explicit submission outcome. Place the desktop entry above the user area at the bottom left, and audit mobile shell constraints before selecting a similarly accessible mobile placement.
-  Dependencies: TASK-043, TASK-322, TASK-324
-  Brief: `tasks/task-333-bug-feedback-reporting.md`
-- ID: TASK-334
-  Title: Alpha product-state indicator - subtle branding-level disclosure
-  Status: Complete (2026-07-26)
-  Rationale: Make the product's alpha status visible without competing with primary navigation, starting with a small accessible label attached to the NexusDash brand area near the top left and adapting the treatment intentionally for the compact mobile shell.
-  Dependencies: TASK-313, TASK-322
 - ID: TASK-335
   Title: Expanded epic presentation - improve mobile and desktop readability
-  Status: Next 15 - epic scanning and content readability
+  Status: Next 11 - epic scanning and content readability
   Rationale: Expand epic content by default on mobile so users can read meaningful context without repeated disclosure interactions, then test a comparable expanded desktop treatment and retain the version that improves comprehension without making dense project views harder to scan.
   Dependencies: TASK-100, TASK-108, TASK-133, TASK-270
 - ID: TASK-349
   Title: Bilateral related-task relationships - keep both task directions consistent
-  Status: Next 16 - related-task correctness
+  Status: Next 12 - related-task correctness
   Rationale: Fix GitHub issue #395 so relating task A to task B makes the same canonical relationship visible when either task is opened, including immediately after optimistic updates and after reload, while keeping add/remove behavior duplicate-free and project-scoped.
   Dependencies: TASK-076, TASK-118
 - ID: TASK-350
   Title: Complete related-task candidate list - investigate missing and non-scrollable tasks
-  Status: Next 17 - related-task picker completeness
+  Status: Next 13 - related-task picker completeness
   Rationale: Investigate and fix GitHub issue #396 by determining whether eligible tasks are missing because of status filtering, Blocked-task exclusion, clipped overflow, or a combination; ensure the full authorized candidate set is searchable, keyboard reachable, and scrollable.
   Dependencies: TASK-076, TASK-133, TASK-321
 - ID: TASK-351
   Title: User-facing task IDs - stable references in task details and relationship search
-  Status: Next 18 - task follow-up identifiers
+  Status: Next 14 - task follow-up identifiers
   Rationale: Introduce or expose concise, stable user-facing task identifiers so users can refer to tasks unambiguously; show the identifier when a task detail modal is open and beside each candidate while searching for a task to relate, without exposing opaque internal database IDs.
   Dependencies: TASK-076, TASK-133
 - ID: TASK-352
   Title: Related-task picker presentation - readable IDs, titles, and status colors
-  Status: Next 19 - related-task list visual refinement
+  Status: Next 15 - related-task list visual refinement
   Rationale: Redesign the current `Related to` candidate list so each row clearly presents the user-facing task ID, a bounded/truncated title, and status using the established Kanban column color, with accessible text that does not rely on color alone.
   Dependencies: TASK-133, TASK-350, TASK-351
 - ID: TASK-353
   Title: Movable meeting-todos modal - compact bottom-right project entry
-  Status: Next 20 - project todo popup refinement
+  Status: Next 16 - project todo popup refinement
   Rationale: Replace the current meeting-todo popup treatment with a compact bottom-right floating `Todos` button using the todo icon and label; open the aggregated todos in an accessible modal that can be moved within the project-page area while preserving containment, focus, responsive behavior, and existing todo actions.
   Dependencies: TASK-098, TASK-316, TASK-321, TASK-322, TASK-330, TASK-332
 
@@ -238,6 +211,36 @@ Last reviewed: 2026-07-30
   Dependencies: TASK-051
 
 ## Completed
+- ID: TASK-332
+  Title: Mobile meeting-todo navigation - project-scoped Todos destination
+  Status: Done (2026-07-30, merged via PR #394)
+  Rationale: Replaced the obstructive mobile popup with a protected, route-backed project Todos destination; separated workspace and project navigation; retained URL-backed views, authorization, completion actions, and meeting deep links; and kept the quick panel on desktop only.
+  Dependencies: TASK-100, TASK-316, TASK-321, TASK-322
+  Brief: `tasks/task-332-mobile-todo-navigation.md`
+- ID: TASK-336
+  Title: Multi-user collaboration audit - ownership, assignment, and traceability
+  Status: Done (2026-07-30, merged via PR #393)
+  Rationale: Audited shared product surfaces for accountable ownership, assignment, human and agent attribution, history, permissions, notifications, discovery, and handoff, then captured the evidence-backed refinement program in TASK-337 through TASK-348.
+  Dependencies: TASK-058, TASK-098, TASK-106, TASK-119, TASK-130, TASK-316, TASK-319, TASK-329
+  Brief: `tasks/task-336-multi-user-collaboration-audit.md`
+- ID: TASK-329
+  Title: Meeting participant identities - shared user avatars and initials for guests
+  Status: Done (2026-07-27, merged via PR #391)
+  Rationale: Added structured meeting participants that link registered collaborators to current NexusDash identities and render external guests with initials avatars, including project-scoped suggestions and migration of existing free-form participant names.
+  Dependencies: TASK-089, TASK-098, TASK-119
+  Brief: `tasks/task-329-meeting-participant-identities.md`
+- ID: TASK-333
+  Title: In-product bug and feedback reporting - persistent, easy-to-find entry point
+  Status: Done (2026-07-26, merged via PR #389)
+  Rationale: Added persistent desktop and mobile report entry points plus an authenticated, privacy-conscious form that sends safely validated bug reports and feedback through the existing outbound-email foundation.
+  Dependencies: TASK-043, TASK-322, TASK-324
+  Brief: `tasks/task-333-bug-feedback-reporting.md`
+- ID: TASK-334
+  Title: Alpha product-state indicator - subtle branding-level disclosure
+  Status: Done (2026-07-26, merged via PR #388)
+  Rationale: Added an accessible Alpha label to the desktop and mobile authenticated-shell wordmarks, preserving navigation behavior and responsive containment while making product maturity consistently visible.
+  Dependencies: TASK-313, TASK-322
+  Brief: `tasks/task-334-alpha-product-state-indicator.md`
 - ID: TASK-324
   Title: Unified user hub and avatar-menu navigation rework
   Status: Done (2026-07-23, PR #380)
