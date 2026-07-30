@@ -39,6 +39,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   production build, and all 28 Chromium scenarios. Production build/E2E used
   build-only Google/agent secret placeholders while retaining the configured
   local email test key.
+- Published implementation commit `8472c6d` and visual-evidence commit
+  `948109b` on `fix/task-350-related-task-picker`, then opened ready-for-review
+  [PR #400](https://github.com/dorianagaesse/nexus_dash/pull/400).
 
 # 2026-07-30 - TASK-332 project-scoped Todos navigation
 
