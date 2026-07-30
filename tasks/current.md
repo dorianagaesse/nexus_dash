@@ -86,8 +86,8 @@ tasks, with complete search and accessible scrolling through long result sets.
   detail/create selection, final-row scrolling, Blocked-task search,
   authorization boundaries, archived exclusion, persistence, and 375 px
   containment.
-- Captured before, final-row, and narrow-create screenshots under
-  `.tmp/task-350-evidence`.
+- Added before, final-row, and narrow-create screenshots to `docs/reports/`
+  and embedded them in the TASK-350 brief for PR review.
 - Passed lint, RLS inventory, version policy, all 140 runnable Vitest files
   (981 tests; 2 files/tests skipped), coverage at 91.37% statements / 81.33%
   branches / 92.2% functions / 91.88% lines, the standard Turbopack production

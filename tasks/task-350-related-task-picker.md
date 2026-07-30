@@ -82,3 +82,17 @@ must remain available.
 - Focused tests and repository validation gates pass.
 - Product version, current task, backlog status, and journal are updated.
 - Reviewable changes are committed, pushed, and opened in a ready PR.
+
+## Visual Evidence
+
+### Before: capped candidate prefix
+
+![Before: the related-task picker stops at the capped prefix](../docs/reports/task-350-related-task-picker-before.png)
+
+### After: final eligible candidate reached
+
+![After: the related-task picker scrolled to its final eligible candidate](../docs/reports/task-350-related-task-picker-after.png)
+
+### After: contained 375 px create flow
+
+![After: the overflowing create-task picker remains contained at 375 px](../docs/reports/task-350-related-task-picker-mobile.png)

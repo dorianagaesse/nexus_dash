@@ -26,9 +26,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   Playwright regression that also covers current/archived/cross-project/
   unauthorized exclusions, persisted relationship selection, final-row
   scrolling, and the 375 px create flow.
-- Captured before/after evidence in `.tmp/task-350-evidence`: the original
-  picker exposed only its capped prefix, while the fixed picker reaches the
-  final candidate and remains contained in the narrow create sheet.
+- Added before/after evidence to `docs/reports/` and the TASK-350 brief: the
+  original picker exposed only its capped prefix, while the fixed picker
+  reaches the final candidate and remains contained in the narrow create
+  sheet.
 - Focused validation passed: 3 component tests and the dedicated Chromium
   Playwright scenario.
 - Complete validation passed with explicit local PostgreSQL URLs: lint, RLS
