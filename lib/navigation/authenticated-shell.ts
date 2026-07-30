@@ -2,7 +2,6 @@ import { appendQueryToPath, normalizeReturnToPath } from "@/lib/navigation/retur
 
 export const AUTHENTICATED_DESTINATIONS = [
   "/projects",
-  "/todos",
   "/account/notifications",
   "/account",
   "/account/settings",
@@ -18,7 +17,6 @@ function isAllowedReturnPath(path: string): boolean {
   return (
     pathname === "/projects" ||
     pathname.startsWith("/projects/") ||
-    pathname === "/todos" ||
     pathname === "/account/notifications"
   );
 }
@@ -49,7 +47,7 @@ export function buildAuthenticatedDestinationHref(
   destination: AuthenticatedDestination,
   currentPath: string
 ): string {
-  if (destination === "/projects" || destination === "/todos") {
+  if (destination === "/projects") {
     return destination;
   }
 
@@ -96,10 +94,6 @@ export function resolveContextualReturnDestination(
     return { href, label: "Return to project" };
   }
 
-  if (href === "/todos") {
-    return { href, label: "Todos" };
-  }
-
   if (href === "/projects") {
     return { href, label: "Projects" };
   }
@@ -113,9 +107,6 @@ export function isDestinationCurrent(
 ): boolean {
   if (destination === "/projects") {
     return pathname === "/projects" || pathname.startsWith("/projects/");
-  }
-  if (destination === "/todos") {
-    return pathname === destination;
   }
   if (destination === "/account/settings") {
     return pathname === destination || pathname.startsWith(`${destination}/`);

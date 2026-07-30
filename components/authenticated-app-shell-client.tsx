@@ -19,26 +19,23 @@ import {
 } from "@/lib/navigation/authenticated-shell";
 import { useNotificationRealtimeSnapshot } from "@/lib/notification-realtime-client";
 import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
-import type { WorkspaceMeetingTodoNavigationSummary } from "@/lib/services/workspace-meeting-todo-service";
 import { cn } from "@/lib/utils";
 
-const NAVIGATION_ITEMS: Array<{
-  href: AuthenticatedDestination;
+interface NavigationItem {
+  href: string;
   label: string;
   mobileLabel: string;
   icon: typeof FolderKanban;
-}> = [
+}
+
+const WORKSPACE_NAVIGATION_ITEMS: Array<
+  NavigationItem & { href: AuthenticatedDestination }
+> = [
   {
     href: "/projects",
     label: "Projects",
     mobileLabel: "Projects",
     icon: FolderKanban,
-  },
-  {
-    href: "/todos",
-    label: "Todos",
-    mobileLabel: "Todos",
-    icon: ListTodo,
   },
   {
     href: "/account/notifications",
@@ -48,12 +45,28 @@ const NAVIGATION_ITEMS: Array<{
   },
 ];
 
+function getProjectNavigationItems(projectId: string): NavigationItem[] {
+  return [
+    {
+      href: `/projects/${projectId}`,
+      label: "Overview",
+      mobileLabel: "Overview",
+      icon: LayoutDashboard,
+    },
+    {
+      href: `/projects/${projectId}/todos`,
+      label: "Todos",
+      mobileLabel: "Todos",
+      icon: ListTodo,
+    },
+  ];
+}
+
 interface AuthenticatedAppShellClientProps {
   displayName: string | null;
   usernameTag: string | null;
   avatarSeed: string | null;
   initialNotificationSnapshot: NotificationRealtimeSnapshot;
-  initialMeetingTodoSummary?: WorkspaceMeetingTodoNavigationSummary;
   notificationBanner: ReactNode;
   children: ReactNode;
 }
@@ -63,15 +76,17 @@ export function AuthenticatedAppShellClient({
   usernameTag,
   avatarSeed,
   initialNotificationSnapshot,
-  initialMeetingTodoSummary = { openCount: 0, overdueCount: 0 },
   notificationBanner,
   children,
 }: AuthenticatedAppShellClientProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentPath = useCurrentAppPath();
-  const projectRouteMatch = pathname.match(/^\/projects\/([^/]+)$/);
+  const projectRouteMatch = pathname.match(/^\/projects\/([^/]+)(?:\/|$)/);
   const projectId = projectRouteMatch?.[1] ?? null;
+  const projectNavigationItems = projectId
+    ? getProjectNavigationItems(projectId)
+    : [];
   const notificationSnapshot = useNotificationRealtimeSnapshot(
     initialNotificationSnapshot
   );
@@ -83,33 +98,32 @@ export function AuthenticatedAppShellClient({
     pathname.startsWith("/projects/") &&
     contextualReturn.href.startsWith("/account/notifications");
 
-  const navigation = (mobile = false) =>
-    NAVIGATION_ITEMS.map((item) => {
+  const renderNavigation = (
+    items: NavigationItem[],
+    options: { mobile?: boolean; workspace?: boolean } = {}
+  ) =>
+    items.map((item) => {
+      const { mobile = false, workspace = false } = options;
       const Icon = item.icon;
       const isProjectIndexDestination = item.href === "/projects";
-      const isCurrent =
-        isProjectIndexDestination && projectId && !mobile
-          ? false
-          : isDestinationCurrent(pathname, item.href);
-      const href = buildAuthenticatedDestinationHref(item.href, currentPath);
+      const isCurrent = workspace
+        ? isProjectIndexDestination
+          ? pathname === "/projects"
+          : isDestinationCurrent(
+              pathname,
+              item.href as AuthenticatedDestination
+            )
+        : pathname === item.href;
+      const href = workspace
+        ? buildAuthenticatedDestinationHref(
+            item.href as AuthenticatedDestination,
+            currentPath
+          )
+        : item.href;
       const badgeCount =
         item.href === "/account/notifications"
           ? notificationSnapshot.unreadCount
-          : item.href === "/todos"
-            ? initialMeetingTodoSummary.openCount
-            : 0;
-      const badgeLabel =
-        item.href === "/account/notifications"
-          ? `${notificationSnapshot.unreadCount} unread notifications`
-          : item.href === "/todos"
-            ? `${initialMeetingTodoSummary.openCount} open todos${
-                initialMeetingTodoSummary.overdueCount > 0
-                  ? `, ${initialMeetingTodoSummary.overdueCount} overdue`
-                  : ""
-              }`
-            : "";
-      const hasOverdueTodos =
-        item.href === "/todos" && initialMeetingTodoSummary.overdueCount > 0;
+          : 0;
 
       return (
         <Link
@@ -119,7 +133,7 @@ export function AuthenticatedAppShellClient({
           className={cn(
             "group relative flex min-h-12 items-center rounded-xl font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             mobile
-              ? "min-w-0 flex-col justify-center gap-1 px-3 py-1 text-[11px]"
+              ? "min-w-[4.5rem] shrink-0 touch-manipulation flex-col justify-center gap-1 px-2 py-1 text-[11px]"
               : "gap-3 px-3 text-sm",
             isCurrent
               ? "bg-primary/10 text-primary dark:bg-primary/15"
@@ -133,20 +147,19 @@ export function AuthenticatedAppShellClient({
             />
           ) : null}
           <span className="relative grid h-7 w-7 shrink-0 place-items-center">
-            <Icon className="h-5 w-5" strokeWidth={isCurrent ? 2.25 : 1.8} aria-hidden />
+            <Icon
+              className="h-5 w-5"
+              strokeWidth={isCurrent ? 2.25 : 1.8}
+              aria-hidden
+            />
             {badgeCount > 0 ? (
-              <span
-                className={cn(
-                  "absolute -right-1 -top-1 grid min-h-4 min-w-4 place-items-center rounded-full px-1 text-[9px] font-bold leading-none ring-2 ring-background",
-                  item.href === "/account/notifications"
-                    ? "bg-destructive text-destructive-foreground"
-                    : hasOverdueTodos
-                      ? "bg-amber-600 text-white dark:bg-amber-500 dark:text-slate-950"
-                      : "bg-primary text-primary-foreground"
-                )}
-              >
-                <span className="sr-only">{badgeLabel}</span>
-                <span aria-hidden>{badgeCount > 99 ? "99+" : badgeCount}</span>
+              <span className="absolute -right-1 -top-1 grid min-h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground ring-2 ring-background">
+                <span className="sr-only">
+                  {notificationSnapshot.unreadCount} unread notifications
+                </span>
+                <span aria-hidden>
+                  {badgeCount > 99 ? "99+" : badgeCount}
+                </span>
               </span>
             ) : null}
           </span>
@@ -162,7 +175,7 @@ export function AuthenticatedAppShellClient({
     });
 
   return (
-    <div className="min-h-dvh bg-muted/20 pb-[calc(4.75rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-64">
+    <div className="min-h-dvh bg-muted/20 pb-[calc(6.5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-64">
       <NotificationLiveUpdates initialSnapshot={initialNotificationSnapshot} />
       <a
         href="#app-main-content"
@@ -195,23 +208,13 @@ export function AuthenticatedAppShellClient({
           <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
             Workspace
           </p>
-          {navigation()}
+          {renderNavigation(WORKSPACE_NAVIGATION_ITEMS, { workspace: true })}
           {projectId ? (
             <div className="mt-5 border-t border-border/70 pt-4">
               <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
                 Current project
               </p>
-              <Link
-                href={`/projects/${projectId}`}
-                aria-current="page"
-                className="relative flex min-h-12 items-center gap-3 rounded-xl bg-primary/10 px-3 text-sm font-medium text-primary transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:bg-primary/15"
-              >
-                <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-primary" aria-hidden />
-                <span className="grid h-7 w-7 place-items-center">
-                  <LayoutDashboard className="h-5 w-5" strokeWidth={2.25} aria-hidden />
-                </span>
-                Overview
-              </Link>
+              {renderNavigation(projectNavigationItems)}
               <div id="project-sidebar-actions" className="mt-1" />
             </div>
           ) : null}
@@ -296,9 +299,55 @@ export function AuthenticatedAppShellClient({
 
       <nav
         aria-label="Primary navigation"
-        className="fixed inset-x-3 bottom-[calc(0.5rem+env(safe-area-inset-bottom))] z-[var(--layer-shell)] grid grid-cols-3 rounded-2xl border border-border/70 bg-background/95 p-1.5 shadow-[0_16px_40px_-12px_rgba(15,23,42,0.35)] backdrop-blur lg:hidden"
+        className="fixed inset-x-3 bottom-[calc(0.5rem+env(safe-area-inset-bottom))] z-[var(--layer-shell)] overflow-hidden rounded-2xl border border-border/70 bg-background/95 shadow-[0_16px_40px_-12px_rgba(15,23,42,0.35)] backdrop-blur lg:hidden"
       >
-        {navigation(true)}
+        <div className="max-w-full overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex w-max min-w-full items-stretch gap-2 p-1.5">
+            <div
+              role="group"
+              aria-label="Workspace navigation"
+              className="shrink-0 px-1 pb-1 pt-0.5"
+            >
+              <p
+                aria-hidden="true"
+                className="mb-0.5 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+              >
+                Workspace
+              </p>
+              <div className="flex gap-1">
+                {renderNavigation(WORKSPACE_NAVIGATION_ITEMS, {
+                  mobile: true,
+                  workspace: true,
+                })}
+              </div>
+            </div>
+            {projectId ? (
+              <>
+                <div
+                  aria-hidden="true"
+                  className="my-2 w-px shrink-0 bg-border"
+                />
+                <div
+                  role="group"
+                  aria-label="Project navigation"
+                  className="shrink-0 rounded-xl border border-primary/15 bg-primary/[0.04] px-1 pb-1 pt-0.5"
+                >
+                  <p
+                    aria-hidden="true"
+                    className="mb-0.5 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary/80"
+                  >
+                    Project
+                  </p>
+                  <div className="flex gap-1">
+                    {renderNavigation(projectNavigationItems, {
+                      mobile: true,
+                    })}
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
       </nav>
     </div>
   );

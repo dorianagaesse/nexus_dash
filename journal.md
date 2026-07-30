@@ -3,6 +3,31 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-30 - TASK-332 project-scoped Todos navigation
+
+- Reconciled the feature branch with `origin/main` at `f220331`, resolving the
+  current-task and journal overlap while preserving TASK-336's shipped audit,
+  backlog, workflow, and runbook changes.
+- Replaced the workspace-wide `/todos` experience with
+  `/projects/[projectId]/todos` and a strict actor-RLS single-project service.
+  Removed the aggregate shell badge query, cross-project selector/grouping, and
+  workspace todo service so project isolation is enforced before rendering.
+- Added separate Workspace and Project navigation groups. Desktop uses the
+  existing sidebar; mobile uses a contained, safe-area-aware horizontal dock
+  with visible group labels, Lucide icons, active state, and 44 px targets.
+- Preserved URL-backed Open/Completed state, Back/Forward behavior,
+  source-meeting deep links, authorized completion/reopening, read-only viewer
+  treatment, and the desktop-only floating quick panel.
+- Visually reviewed light and dark iPhone 14 Pro captures at 393 x 852. The
+  project badge, Todos hierarchy, summary, tabs, rows, and grouped dock remain
+  readable; a 375 x 812 check confirmed that only the dock can scroll
+  horizontally and the document does not overflow.
+- The complete local gate passed against PostgreSQL on isolated port 5433:
+  48 applied migrations, RLS inventory, tenant isolation, lint, 139 passing
+  Vitest files with 2 skipped, 978 passing tests with 2 skipped, coverage at
+  91.37% statements / 81.33% branches / 92.2% functions / 91.88% lines,
+  production build, and all 27 Playwright scenarios.
+
 # 2026-07-27 - TASK-332 rebase and preview runtime repair
 
 - Rebased the former PR #390 onto `c1ebb17` and resolved the TASK-329

@@ -8,8 +8,8 @@ from `feature/task-332-mobile-todo-navigation-rebased`.
 ## Objective
 
 Replace the obstructive mobile meeting-todo popup with a discoverable,
-route-backed workspace destination that remains useful as todo ownership and
-filtering capabilities expand.
+route-backed project destination that remains useful as todo ownership and
+project navigation capabilities expand.
 
 ## Audit Decision
 
@@ -24,24 +24,29 @@ creation rather than navigation, would add another floating collision near the
 safe area, and would not provide enough room for future project and assignee
 filters.
 
-The selected pattern is a stable `Todos` destination in adaptive primary
-navigation:
+The selected pattern was revised after product review. `Todos` remains a
+stable, full-page destination, but it belongs to the current project rather
+than the workspace:
 
-- mobile uses a third labeled bottom-navigation item between Projects and
-  Inbox;
-- desktop exposes the same workspace destination in the sidebar;
-- `/todos` provides the full-screen list and stable deep link;
+- mobile uses a contained horizontal navigation dock with visibly and
+  semantically separate Workspace and Project groups;
+- Workspace keeps Projects and Inbox while Project contains Overview and
+  Todos, leaving room for future project destinations;
+- desktop exposes Overview and Todos together in the Current project sidebar
+  group;
+- `/projects/[projectId]/todos` provides the full-screen list and stable deep
+  link without aggregating other projects;
 - the existing project-scoped floating panel remains available on desktop but
   is removed from the mobile layout.
 
 ## Scope
 
-- Add a protected `/todos` workspace route for meeting todos across every
-  project the signed-in user can access.
-- Add Todos to adaptive primary navigation with an accessible active state and
-  open-count badge.
-- Present URL-backed Open/Completed views and project filtering.
-- Group todos by project and retain links to their source meeting notes.
+- Add a protected `/projects/[projectId]/todos` route limited to the authorized
+  current project.
+- Add Todos to the current-project navigation group with an accessible active
+  state.
+- Present URL-backed Open/Completed views without cross-project filtering.
+- Retain links to source meeting notes inside the current project.
 - Reuse the existing authorized completion endpoint and clearly distinguish
   view-only projects.
 - Hide the floating project todo panel below the desktop breakpoint.
@@ -68,16 +73,16 @@ navigation:
 
 ## Acceptance Criteria
 
-1. Mobile primary navigation consistently presents Projects, Todos, and Inbox
-   in that order with labels, Lucide icons, at least 44 px targets, safe-area
-   clearance, and a semantically announced active state.
-2. `/todos` is protected, refreshable, deep-linkable, and lists meeting todos
-   from every project the signed-in user can access without exposing other
-   projects.
-3. Open and Completed views plus project filtering are reflected in the URL
-   and work with browser Back/Forward.
+1. Mobile navigation presents separate Workspace and Project groups inside a
+   contained horizontal rail, with labeled Lucide-icon links, at least 44 px
+   targets, safe-area clearance, keyboard reachability, and a semantically
+   announced active state.
+2. `/projects/[projectId]/todos` is protected, refreshable, deep-linkable, and
+   lists only meeting todos from the authorized current project.
+3. Open and Completed views are reflected in the URL and work with browser
+   Back/Forward.
 4. Open todos prioritize overdue work, completed todos prioritize recent
-   completion, and both retain project and source-meeting context.
+   completion, and both retain source-meeting context.
 5. Editors and owners can complete or reopen todos with pending, success, and
    recoverable error feedback; viewers receive a clear read-only treatment.
 6. The project meeting-todo floating panel is absent from mobile layout and
@@ -86,17 +91,19 @@ navigation:
    themes, without horizontal overflow or content hidden behind fixed
    navigation.
 8. Existing project meeting-note deep links, completion behavior, notification
-   return paths, and desktop panel behavior remain intact.
+   return paths, desktop panel behavior, and workspace navigation remain
+   intact.
 
 ## Definition Of Done
 
-- Workspace todo reads live in `lib/services/**`, execute under actor RLS
+- Project todo reads live in `lib/services/**`, execute under actor RLS
   context, and derive access from existing owner/membership rules.
 - Reusable route and list components use established semantic tokens and
   Lucide icons.
-- Focused unit/component tests cover access-safe aggregation, sorting, shell
-  navigation, URL state, read-only behavior, and completion feedback.
-- Playwright covers mobile navigation, direct `/todos` entry, filters,
+- Focused unit/component tests cover access-safe project isolation, sorting,
+  grouped shell navigation, URL state, read-only behavior, and completion
+  feedback.
+- Playwright covers mobile grouped navigation, direct project-Todos entry,
   Back/Forward, completion/reopening, meeting deep links, and mobile popup
   removal while retaining desktop behavior.
 - Light/dark walkthroughs at 375 and 393 px plus a desktop check pass, with
@@ -107,43 +114,44 @@ navigation:
 
 ## Outcome
 
-- Added the protected `/todos` route and actor-RLS-scoped workspace service.
-- Added Projects, Todos, and Inbox to adaptive primary navigation with open and
-  overdue badge context.
-- Added route-backed Open/Completed views, project filtering, project grouping,
-  viewer treatment, authorized completion/reopening, and deep links that open
-  and highlight the source meeting todo.
+- Replaced the workspace-wide `/todos` destination with protected
+  `/projects/[projectId]/todos` pages backed by an actor-RLS-scoped,
+  single-project service.
+- Split adaptive primary navigation into Workspace (Projects, Inbox) and
+  current Project (Overview, Todos) groups. Mobile contains both groups in a
+  horizontally scrollable safe-area dock; desktop places the project group in
+  the existing sidebar.
+- Added route-backed Open/Completed views, viewer treatment, authorized
+  completion/reopening, and deep links that open and highlight the source
+  meeting todo without exposing work from another accessible project.
 - Removed the project floating panel from mobile layout and accessibility
   navigation while retaining it at the desktop breakpoint.
-- Rebasing after TASK-329 moved the product release to `v0.31.0` while
-  preserving the subsequently shipped participant-identity, feedback, and
-  alpha-state features.
+- Reconciled `origin/main` at `f220331` while preserving the shipped
+  participant-identity, feedback, alpha-state, and collaboration-audit work.
 
 ## Validation
 
-- `npm run validate:local`
-  - RLS inventory and PostgreSQL tenant-isolation matrix passed.
-  - 134 Vitest files passed, 2 skipped; 956 tests passed, 2 skipped.
-  - Coverage: 91.37% statements, 81.33% branches, 92.2% functions, 91.88%
-    lines.
-  - Production build passed and generated `/todos`.
-  - All 24 Playwright scenarios passed.
-- TASK-332 browser checks passed at 393 x 852 light, 375 x 812 dark, and
-  1280 x 900 desktop. Screenshots are stored under `.tmp/` as
-  `task332-iphone-14-pro-light.png`, `task332-375-dark.png`, and
-  `task332-desktop-panel.png`.
+- Applied all 48 migrations to the isolated local PostgreSQL service; no
+  migrations were pending.
+- `npm run validate:local` passed:
+  - RLS inventory and PostgreSQL tenant-isolation matrix;
+  - lint;
+  - 139 Vitest files passed and 2 skipped; 978 tests passed and 2 skipped;
+  - coverage at 91.37% statements, 81.33% branches, 92.2% functions, and
+    91.88% lines;
+  - production build generated `/projects/[projectId]/todos`;
+  - all 27 Playwright scenarios passed.
+- The focused TASK-332 browser flow passed at 393 x 852 in light and dark
+  themes, at 375 x 812 for containment, and at 1280 x 900 for the retained
+  desktop quick panel. It verifies separate navigation groups, four 44 px
+  targets, project isolation, viewer access, URL history, completion, deep
+  links, and no page-level horizontal overflow.
 - `git diff --check` passed.
-- Rebased onto `c1ebb17` (`origin/main`) and applied all 48 migrations to a
-  clean local PostgreSQL database. Updated the workspace-todo browser fixture
-  to create TASK-329's structured participant rows instead of the removed
-  `ProjectMeetingNote.participants` scalar column.
 - Diagnosed the stale preview against the configured preview database: health
   and readiness endpoints passed, the migration job reported no pending
   migrations, and the TASK-332 workspace badge query returned the expected
   counts. A signed-in project render reproduced server-error digest
   `4087704851` because the pre-rebase preview bundle still selected the legacy
   participant column after TASK-329 had migrated and removed it. All temporary
-  diagnostic users and projects were deleted after verification.
-- The post-rebase `npm run validate:local` gate passed: RLS inventory and
-  PostgreSQL isolation, lint, 977 unit/API tests with 2 skipped, unchanged
-  coverage, production build, and all 27 Playwright scenarios.
+  diagnostic users and projects were deleted after verification. The updated
+  branch no longer reads the removed scalar column.

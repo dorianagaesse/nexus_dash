@@ -1,10 +1,15 @@
+import { mkdir } from "node:fs/promises";
+import path from "node:path";
+
 import { expect, test } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
 import { uniqueProjectName } from "./helpers/project-helpers";
 
-async function createWorkspaceTodoFixture(userId: string) {
+const screenshotDirectory = process.env.TASK332_SCREENSHOT_DIR?.trim();
+
+async function createProjectTodoFixture(userId: string) {
   const ownerProjectName = uniqueProjectName("todo-owner-project");
   const viewerProjectName = uniqueProjectName("todo-viewer-project");
   const ownerMeetingTitle = uniqueProjectName("owner-planning");
@@ -123,7 +128,6 @@ async function createWorkspaceTodoFixture(userId: string) {
     ownerProjectId: ownerProject.id,
     viewerProjectId: viewerProject.id,
     ownerProjectName,
-    viewerProjectName,
     ownerMeetingTitle,
     ownerMeetingId: ownerProject.meetingNotes[0]!.id,
     sourceTodoId: ownerProject.meetingNotes[0]!.actions.find(
@@ -132,29 +136,45 @@ async function createWorkspaceTodoFixture(userId: string) {
   };
 }
 
-test.describe("workspace meeting todos", () => {
-  test("replaces the mobile popup with a route-backed primary destination", async ({
+test.describe("project meeting todos", () => {
+  test("uses a project-scoped route and grouped mobile navigation", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 393, height: 852 });
     const userId = await signInAsVerifiedUser(page);
-    const fixture = await createWorkspaceTodoFixture(userId);
+    const fixture = await createProjectTodoFixture(userId);
 
-    await page.goto("/todos");
+    await page.goto(`/projects/${fixture.ownerProjectId}/todos`);
 
     const mobileNavigation = page.locator(
       "nav[aria-label='Primary navigation']:visible"
     );
-    await expect(mobileNavigation.getByRole("link")).toHaveCount(3);
     await expect(
-      mobileNavigation.getByRole("link", { name: /Todos/ })
+      mobileNavigation.getByRole("group", { name: "Workspace navigation" })
+    ).toBeVisible();
+    await expect(
+      mobileNavigation.getByRole("group", { name: "Project navigation" })
+    ).toBeVisible();
+    await expect(mobileNavigation.getByRole("link")).toHaveCount(4);
+    await expect(
+      mobileNavigation.getByRole("link", { name: "Todos", exact: true })
     ).toHaveAttribute("aria-current", "page");
     await expect(
       page.getByRole("heading", { name: "Todos", exact: true })
     ).toBeVisible();
-    await expect(page.getByText("Complete the mobile navigation audit")).toBeVisible();
-    await expect(page.getByText("Review the shared read-only follow-up")).toBeVisible();
-    await expect(page.getByText("View only", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Complete the mobile navigation audit")
+    ).toBeVisible();
+    await expect(
+      page.getByText("Review the shared read-only follow-up")
+    ).toHaveCount(0);
+    if (screenshotDirectory) {
+      await mkdir(path.resolve(screenshotDirectory), { recursive: true });
+      await page.screenshot({
+        path: path.resolve(screenshotDirectory, "iphone-14-pro-light.png"),
+        fullPage: true,
+      });
+    }
 
     const targetSizes = await mobileNavigation
       .getByRole("link")
@@ -164,7 +184,9 @@ test.describe("workspace meeting todos", () => {
           return { width: rect.width, height: rect.height };
         })
       );
-    expect(targetSizes.every((target) => target.height >= 44)).toBe(true);
+    expect(
+      targetSizes.every((target) => target.width >= 44 && target.height >= 44)
+    ).toBe(true);
     const completionBox = await page
       .getByRole("button", {
         name: "Complete todo: Complete the mobile navigation audit",
@@ -175,35 +197,32 @@ test.describe("workspace meeting todos", () => {
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
     ).toBe(true);
-    await page.setViewportSize({ width: 375, height: 812 });
+
     await page.getByRole("button", { name: "Switch to dark mode" }).click();
     await expect(page.locator("html")).toHaveClass(/dark/);
+    if (screenshotDirectory) {
+      await page.waitForTimeout(300);
+      await page.screenshot({
+        path: path.resolve(screenshotDirectory, "iphone-14-pro-dark.png"),
+        fullPage: true,
+      });
+    }
+    await page.setViewportSize({ width: 375, height: 812 });
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
     ).toBe(true);
     await page.getByRole("button", { name: "Switch to light mode" }).click();
     await page.setViewportSize({ width: 393, height: 852 });
 
-    await page
-      .getByRole("combobox", { name: "Project", exact: true })
-      .selectOption(fixture.viewerProjectId);
-    await expect(page).toHaveURL(
-      new RegExp(`/todos\\?project=${fixture.viewerProjectId}$`)
-    );
-    await expect(page.getByText("Review the shared read-only follow-up")).toBeVisible();
-    await expect(
-      page.getByRole("button", {
-        name: "Complete todo: Review the shared read-only follow-up",
-      })
-    ).toHaveCount(0);
-
-    await page.goBack();
-    await expect(page).toHaveURL(/\/todos$/);
     await page.getByRole("link", { name: /^completed/i }).click();
-    await expect(page).toHaveURL(/\/todos\?view=completed$/);
+    await expect(page).toHaveURL(
+      new RegExp(`/projects/${fixture.ownerProjectId}/todos\\?view=completed$`)
+    );
     await expect(page.getByText("Share the completed prototype")).toBeVisible();
     await page.goBack();
-    await expect(page).toHaveURL(/\/todos$/);
+    await expect(page).toHaveURL(
+      new RegExp(`/projects/${fixture.ownerProjectId}/todos$`)
+    );
 
     const completionResponse = page.waitForResponse(
       (response) =>
@@ -218,7 +237,9 @@ test.describe("workspace meeting todos", () => {
       .click();
     await completionResponse;
     await expect(page.getByText("Todo completed.")).toBeVisible();
-    await expect(page.getByText("Complete the mobile navigation audit")).toBeHidden();
+    await expect(
+      page.getByText("Complete the mobile navigation audit")
+    ).toBeHidden();
 
     await page
       .locator("li", { hasText: "Open the source meeting from Todos" })
@@ -242,7 +263,19 @@ test.describe("workspace meeting todos", () => {
       .getByRole("button", { name: `Close ${fixture.ownerMeetingTitle}` })
       .click();
 
+    await page.goto(`/projects/${fixture.viewerProjectId}/todos`);
+    await expect(
+      page.getByText("Review the shared read-only follow-up")
+    ).toBeVisible();
+    await expect(page.getByText("View only", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: "Complete todo: Review the shared read-only follow-up",
+      })
+    ).toHaveCount(0);
+
     await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`/projects/${fixture.ownerProjectId}`);
     await expect(
       page.getByRole("region", { name: "Meeting todos", exact: true })
     ).toBeVisible();

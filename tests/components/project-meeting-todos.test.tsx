@@ -18,15 +18,15 @@ vi.mock("next/navigation", () => ({
 }));
 
 import {
-  WorkspaceMeetingTodos,
-  type WorkspaceMeetingTodoItem,
-} from "@/components/meeting-todos/workspace-meeting-todos";
+  ProjectMeetingTodos,
+  type ProjectMeetingTodoItem,
+} from "@/components/meeting-todos/project-meeting-todos";
 
 (globalThis as { React?: typeof React }).React = React;
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
 
-const ownerTodo: WorkspaceMeetingTodoItem = {
+const ownerTodo: ProjectMeetingTodoItem = {
   id: "todo-owner",
   content: "Confirm the mobile navigation pattern",
   completedAt: null,
@@ -38,54 +38,40 @@ const ownerTodo: WorkspaceMeetingTodoItem = {
     scheduledAt: "2026-07-10T09:00:00.000Z",
     status: "actions_in_progress",
   },
-  project: {
-    id: "project-1",
-    name: "Alpha",
-    role: "owner",
-    canEdit: true,
-  },
 };
 
-const viewerTodo: WorkspaceMeetingTodoItem = {
-  ...ownerTodo,
-  id: "todo-viewer",
-  content: "Review the shared launch notes",
-  isOverdue: false,
-  project: {
-    id: "project-2",
-    name: "Beta",
-    role: "viewer",
-    canEdit: false,
-  },
-};
-
-describe("workspace meeting todos", () => {
+describe("project meeting todos", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSearchParams = new URLSearchParams();
   });
 
-  test("renders route-backed views, source context, and touch-sized controls", () => {
+  test("renders project route-backed views, source context, and touch-sized controls", () => {
     const result = renderToStaticMarkup(
-      <WorkspaceMeetingTodos initialTodos={[ownerTodo, viewerTodo]} />
+      <ProjectMeetingTodos
+        projectId="project-1"
+        canEdit
+        initialTodos={[ownerTodo]}
+      />
     );
 
     expect(result).toContain('aria-label="Todo views"');
-    expect(result).toContain('href="/todos"');
-    expect(result).toContain('href="/todos?view=completed"');
+    expect(result).toContain('href="/projects/project-1/todos"');
+    expect(result).toContain(
+      'href="/projects/project-1/todos?view=completed"'
+    );
     expect(result).toContain(
       "/projects/project-1?meetingNoteId=meeting-1&amp;meetingTodoId=todo-owner"
     );
-    expect(result).toContain("Complete todo: Confirm the mobile navigation pattern");
+    expect(result).toContain(
+      "Complete todo: Confirm the mobile navigation pattern"
+    );
     expect(result).toContain("h-11 w-11");
     expect(result).toContain("Overdue");
-    expect(result).toContain("View only");
   });
 
-  test("uses URL state for the completed project-filtered view", () => {
-    mockSearchParams = new URLSearchParams(
-      "view=completed&project=project-1"
-    );
+  test("uses URL state for the completed view and respects view-only access", () => {
+    mockSearchParams = new URLSearchParams("view=completed");
     const completedTodo = {
       ...ownerTodo,
       completedAt: "2026-07-20T11:00:00.000Z",
@@ -93,19 +79,26 @@ describe("workspace meeting todos", () => {
     };
 
     const result = renderToStaticMarkup(
-      <WorkspaceMeetingTodos initialTodos={[completedTodo]} />
+      <ProjectMeetingTodos
+        projectId="project-1"
+        canEdit={false}
+        initialTodos={[completedTodo]}
+      />
     );
 
     expect(result).toContain('aria-current="page"');
-    expect(result).toContain(
-      'href="/todos?project=project-1"'
+    expect(result).toContain('href="/projects/project-1/todos"');
+    expect(result).toContain("view only");
+    expect(result).not.toContain(
+      "Reopen todo: Confirm the mobile navigation pattern"
     );
-    expect(result).toContain("Reopen todo: Confirm the mobile navigation pattern");
   });
 
   test("renders the server-provided load error", () => {
     const result = renderToStaticMarkup(
-      <WorkspaceMeetingTodos
+      <ProjectMeetingTodos
+        projectId="project-1"
+        canEdit={false}
         initialTodos={[]}
         loadError="Meeting todos are temporarily unavailable."
       />
@@ -128,7 +121,13 @@ describe("workspace meeting todos", () => {
       );
 
     await act(async () => {
-      root.render(<WorkspaceMeetingTodos initialTodos={[ownerTodo]} />);
+      root.render(
+        <ProjectMeetingTodos
+          projectId="project-1"
+          canEdit
+          initialTodos={[ownerTodo]}
+        />
+      );
     });
 
     const completeButton = container.querySelector(

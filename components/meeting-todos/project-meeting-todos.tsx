@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   Circle,
   ExternalLink,
-  FolderKanban,
   LoaderCircle,
   RotateCcw,
 } from "lucide-react";
@@ -19,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { isMeetingTodoOverdueAt } from "@/lib/meeting-todo";
 import { cn } from "@/lib/utils";
 
-export interface WorkspaceMeetingTodoItem {
+export interface ProjectMeetingTodoItem {
   id: string;
   content: string;
   completedAt: string | null;
@@ -31,16 +30,12 @@ export interface WorkspaceMeetingTodoItem {
     scheduledAt: string | null;
     status: string;
   };
-  project: {
-    id: string;
-    name: string;
-    role: "owner" | "editor" | "viewer";
-    canEdit: boolean;
-  };
 }
 
-interface WorkspaceMeetingTodosProps {
-  initialTodos: WorkspaceMeetingTodoItem[];
+interface ProjectMeetingTodosProps {
+  projectId: string;
+  canEdit: boolean;
+  initialTodos: ProjectMeetingTodoItem[];
   loadError?: string | null;
 }
 
@@ -50,17 +45,15 @@ function normalizeView(value: string | null): TodoView {
   return value === "completed" ? "completed" : "open";
 }
 
-function buildTodosHref(view: TodoView, projectId: string): string {
+function buildTodosHref(projectId: string, view: TodoView): string {
   const searchParams = new URLSearchParams();
   if (view === "completed") {
     searchParams.set("view", view);
   }
-  if (projectId !== "all") {
-    searchParams.set("project", projectId);
-  }
 
   const query = searchParams.toString();
-  return query ? `/todos?${query}` : "/todos";
+  const pathname = `/projects/${projectId}/todos`;
+  return query ? `${pathname}?${query}` : pathname;
 }
 
 function formatMeetingDate(value: string | null): string | null {
@@ -80,43 +73,20 @@ function formatMeetingDate(value: string | null): string | null {
   }).format(date);
 }
 
-function groupTodosByProject(todos: WorkspaceMeetingTodoItem[]) {
-  const groups = new Map<
-    string,
-    {
-      project: WorkspaceMeetingTodoItem["project"];
-      todos: WorkspaceMeetingTodoItem[];
-    }
-  >();
-
-  for (const todo of todos) {
-    const group = groups.get(todo.project.id);
-    if (group) {
-      group.todos.push(todo);
-      continue;
-    }
-
-    groups.set(todo.project.id, {
-      project: todo.project,
-      todos: [todo],
-    });
-  }
-
-  return Array.from(groups.values());
-}
-
 function TodoCompletionControl({
   todo,
+  canEdit,
   isPending,
   onSetCompleted,
 }: {
-  todo: WorkspaceMeetingTodoItem;
+  todo: ProjectMeetingTodoItem;
+  canEdit: boolean;
   isPending: boolean;
-  onSetCompleted: (todo: WorkspaceMeetingTodoItem, completed: boolean) => void;
+  onSetCompleted: (todo: ProjectMeetingTodoItem, completed: boolean) => void;
 }) {
   const isCompleted = todo.completedAt !== null;
 
-  if (!todo.project.canEdit) {
+  if (!canEdit) {
     return (
       <span
         className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-border bg-muted/40 text-muted-foreground"
@@ -160,16 +130,20 @@ function TodoCompletionControl({
 
 function TodoRow({
   todo,
+  projectId,
+  canEdit,
   isPending,
   onSetCompleted,
 }: {
-  todo: WorkspaceMeetingTodoItem;
+  todo: ProjectMeetingTodoItem;
+  projectId: string;
+  canEdit: boolean;
   isPending: boolean;
-  onSetCompleted: (todo: WorkspaceMeetingTodoItem, completed: boolean) => void;
+  onSetCompleted: (todo: ProjectMeetingTodoItem, completed: boolean) => void;
 }) {
   const meetingDate = formatMeetingDate(todo.meeting.scheduledAt);
   const isCompleted = todo.completedAt !== null;
-  const meetingHref = `/projects/${todo.project.id}?meetingNoteId=${encodeURIComponent(
+  const meetingHref = `/projects/${projectId}?meetingNoteId=${encodeURIComponent(
     todo.meeting.id
   )}&meetingTodoId=${encodeURIComponent(todo.id)}`;
 
@@ -182,6 +156,7 @@ function TodoRow({
     >
       <TodoCompletionControl
         todo={todo}
+        canEdit={canEdit}
         isPending={isPending}
         onSetCompleted={onSetCompleted}
       />
@@ -221,7 +196,7 @@ function TodoRow({
               Overdue
             </Badge>
           ) : null}
-          {!todo.project.canEdit ? (
+          {!canEdit ? (
             <Badge variant="secondary">View only</Badge>
           ) : null}
         </div>
@@ -230,14 +205,15 @@ function TodoRow({
   );
 }
 
-export function WorkspaceMeetingTodos({
+export function ProjectMeetingTodos({
+  projectId,
+  canEdit,
   initialTodos,
   loadError = null,
-}: WorkspaceMeetingTodosProps) {
+}: ProjectMeetingTodosProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const view = normalizeView(searchParams.get("view"));
-  const requestedProjectId = searchParams.get("project") ?? "all";
   const [todos, setTodos] = useState(initialTodos);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -247,21 +223,6 @@ export function WorkspaceMeetingTodos({
     setTodos(initialTodos);
   }, [initialTodos]);
 
-  const projects = useMemo(() => {
-    const byId = new Map<string, WorkspaceMeetingTodoItem["project"]>();
-    for (const todo of todos) {
-      byId.set(todo.project.id, todo.project);
-    }
-
-    return Array.from(byId.values()).sort((left, right) =>
-      left.name.localeCompare(right.name)
-    );
-  }, [todos]);
-  const selectedProjectId = projects.some(
-    (project) => project.id === requestedProjectId
-  )
-    ? requestedProjectId
-    : "all";
   const openTodos = useMemo(
     () => todos.filter((todo) => todo.completedAt === null),
     [todos]
@@ -275,20 +236,12 @@ export function WorkspaceMeetingTodos({
     [openTodos]
   );
   const sourceTodos = view === "completed" ? completedTodos : openTodos;
-  const visibleTodos =
-    selectedProjectId === "all"
-      ? sourceTodos
-      : sourceTodos.filter((todo) => todo.project.id === selectedProjectId);
-  const groups = useMemo(
-    () => groupTodosByProject(visibleTodos),
-    [visibleTodos]
-  );
 
   const setTodoCompleted = async (
-    todo: WorkspaceMeetingTodoItem,
+    todo: ProjectMeetingTodoItem,
     completed: boolean
   ) => {
-    if (!todo.project.canEdit || pendingActionId) {
+    if (!canEdit || pendingActionId) {
       return;
     }
 
@@ -298,7 +251,7 @@ export function WorkspaceMeetingTodos({
 
     try {
       const response = await fetch(
-        `/api/projects/${todo.project.id}/meeting-notes/${todo.meeting.id}/actions/${todo.id}`,
+        `/api/projects/${projectId}/meeting-notes/${todo.meeting.id}/actions/${todo.id}`,
         {
           method: "PATCH",
           headers: {
@@ -368,10 +321,10 @@ export function WorkspaceMeetingTodos({
         </div>
       </section>
 
-      <div className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-card/70 p-3 sm:flex-row sm:items-end sm:justify-between sm:p-4">
+      <div className="rounded-2xl border border-border/70 bg-card/70 p-3 sm:p-4">
         <nav
           aria-label="Todo views"
-          className="grid grid-cols-2 rounded-xl bg-muted/70 p-1"
+          className="grid max-w-md grid-cols-2 rounded-xl bg-muted/70 p-1"
         >
           {(["open", "completed"] as const).map((itemView) => {
             const isCurrent = view === itemView;
@@ -380,7 +333,7 @@ export function WorkspaceMeetingTodos({
             return (
               <Link
                 key={itemView}
-                href={buildTodosHref(itemView, selectedProjectId)}
+                href={buildTodosHref(projectId, itemView)}
                 aria-current={isCurrent ? "page" : undefined}
                 className={cn(
                   "inline-flex min-h-11 min-w-0 touch-manipulation items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium capitalize transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -397,24 +350,6 @@ export function WorkspaceMeetingTodos({
             );
           })}
         </nav>
-
-        <label className="grid min-w-0 max-w-full gap-1.5 text-sm font-medium sm:min-w-56">
-          Project
-          <select
-            value={selectedProjectId}
-            onChange={(event) =>
-              router.push(buildTodosHref(view, event.target.value))
-            }
-            className="min-h-11 w-full min-w-0 max-w-full rounded-xl border border-input bg-background px-3 text-base outline-none transition focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
-          >
-            <option value="all">All projects</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-        </label>
       </div>
 
       <div aria-live="polite" aria-atomic="true">
@@ -433,52 +368,26 @@ export function WorkspaceMeetingTodos({
         </div>
       ) : null}
 
-      {groups.length > 0 ? (
-        <div className="space-y-4">
-          {groups.map((group) => (
-            <section
-              key={group.project.id}
-              aria-labelledby={`todo-project-${group.project.id}`}
-              className="overflow-hidden rounded-2xl border border-border/70 bg-card/80"
-            >
-              <header className="flex min-h-14 items-center justify-between gap-3 border-b border-border/60 bg-muted/25 px-4 py-2 sm:px-5">
-                <div className="flex min-w-0 items-center gap-2">
-                  <FolderKanban
-                    className="h-4.5 w-4.5 shrink-0 text-muted-foreground"
-                    aria-hidden
-                  />
-                  <h2
-                    id={`todo-project-${group.project.id}`}
-                    className="truncate text-sm font-semibold"
-                  >
-                    {group.project.name}
-                  </h2>
-                  <Badge variant="secondary" className="shrink-0 tabular-nums">
-                    {group.todos.length}
-                  </Badge>
-                </div>
-                <Link
-                  href={`/projects/${group.project.id}`}
-                  className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2 text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  Open project
-                </Link>
-              </header>
-              <ul>
-                {group.todos.map((todo) => (
-                  <TodoRow
-                    key={todo.id}
-                    todo={todo}
-                    isPending={pendingActionId === todo.id}
-                    onSetCompleted={(entry, completed) => {
-                      void setTodoCompleted(entry, completed);
-                    }}
-                  />
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
+      {sourceTodos.length > 0 ? (
+        <section
+          aria-label={`${view === "open" ? "Open" : "Completed"} meeting todos`}
+          className="overflow-hidden rounded-2xl border border-border/70 bg-card/80"
+        >
+          <ul>
+            {sourceTodos.map((todo) => (
+              <TodoRow
+                key={todo.id}
+                todo={todo}
+                projectId={projectId}
+                canEdit={canEdit}
+                isPending={pendingActionId === todo.id}
+                onSetCompleted={(entry, completed) => {
+                  void setTodoCompleted(entry, completed);
+                }}
+              />
+            ))}
+          </ul>
+        </section>
       ) : (
         <div className="rounded-2xl border border-dashed border-border bg-card/55 px-6 py-12 text-center">
           <CheckCircle2
@@ -490,12 +399,8 @@ export function WorkspaceMeetingTodos({
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
             {view === "open"
-              ? selectedProjectId === "all"
-                ? "There are no open meeting todos across your projects."
-                : "There are no open meeting todos in this project."
-              : selectedProjectId === "all"
-                ? "Completed meeting todos will appear here."
-                : "This project has no completed meeting todos."}
+              ? "There are no open meeting todos in this project."
+              : "This project has no completed meeting todos."}
           </p>
         </div>
       )}
