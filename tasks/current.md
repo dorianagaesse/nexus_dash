@@ -2,91 +2,104 @@
 
 ## Task
 
-- ID: TASK-349
-- Title: Bilateral related-task relationships
-- Status: In review (2026-07-30)
-- Branch: `fix/395-bilateral-task-relations`
-- GitHub issue: [#395](https://github.com/dorianagaesse/nexus_dash/issues/395)
-- Pull request: [#399](https://github.com/dorianagaesse/nexus_dash/pull/399)
-- Brief: [`task-349-bilateral-related-task-relationships.md`](./task-349-bilateral-related-task-relationships.md)
+- ID: TASK-350
+- Title: Complete related-task candidate list
+- Status: In review
+- Branch: `fix/task-350-related-task-picker`
+- GitHub issue: [#396](https://github.com/dorianagaesse/nexus_dash/issues/396)
+- Pull request: [#400](https://github.com/dorianagaesse/nexus_dash/pull/400)
+- Brief: [`task-350-related-task-picker.md`](./task-350-related-task-picker.md)
 
 ## Objective
 
-Make the existing canonical task relationship visible and consistent from both
-task directions after local mutations, live project updates, and full reloads.
+Ensure the create-task and task-detail `Related to` pickers expose every
+eligible active task in the authorized current project, including Blocked
+tasks, with complete search and accessible scrolling through long result sets.
 
 ## Scope
 
-- Preserve the single canonical `leftTaskId`/`rightTaskId` database row.
-- Verify task mutation and project-list responses merge incoming and outgoing
-  relationships.
-- Reconcile add, replace, and remove operations across every loaded active and
-  archived task, including the currently selected task.
-- Apply the same bilateral reconciliation to remote project activity updates.
-- Add focused service/API, client reconciliation, and browser regression
-  coverage without redesigning the related-task picker.
+- Trace candidate construction in create and task-detail flows across every
+  Kanban status.
+- Preserve project authorization, archived-task rules, current-task exclusion,
+  and intentional selected/already-related behavior.
+- Provide bounded result-list scrolling without moving the underlying modal or
+  page.
+- Keep keyboard focus and the active option visible through the complete
+  filtered result set.
+- Cover clear empty and no-search-results states.
+- Add focused component and Playwright regression coverage with enough tasks to
+  overflow the picker.
+- Record before/after candidate counts by status and visual evidence.
 
 ## Runtime Assumptions
 
-- Existing local PostgreSQL and `.env` prerequisites are unchanged.
-- No Prisma model or migration change is expected because `TaskRelation`
-  already stores one canonical undirected pair.
-- Browser validation uses the existing Playwright project/task fixture and may
-  run locally or against a branch preview.
-- A preview deployment, if used, must pass
-  `git_ref=fix/395-bilateral-task-relations` explicitly.
+- Installed dependencies and Playwright Chromium are available locally.
+- The local PostgreSQL Compose service may be started for browser validation.
+- Preview validation will use
+  `git_ref=fix/task-350-related-task-picker` if the local UI evidence cannot
+  cover the complete authenticated flow.
 
 ## Acceptance Criteria
 
-1. Relating task A to task B makes B visible from A and A visible from B
-   immediately after save and after a full reload.
-2. Removing the relation from either task removes it from both loaded task
-   views immediately and remains removed after reload.
-3. Repeated saves and duplicate input IDs keep one logical relation and one UI
-   entry.
-4. Local mutation and remote project-activity reconciliation update every
-   affected active or archived task without requiring a broad refresh.
-5. Existing archived-task visibility, project authorization, and cross-project
-   validation rules remain unchanged.
-6. Focused service/API, client reconciliation, and Playwright regression
-   coverage passes.
-7. Task tracking, root-cause notes, validation evidence, and release metadata
-   are updated in the same pull request.
+1. All eligible active tasks from Backlog, In Progress, Blocked, and Done are
+   present in or discoverable through both related-task pickers.
+2. The current task is excluded; selected and already-related tasks retain
+   intentional behavior; archived tasks remain unavailable.
+3. Search filters the complete eligible candidate set rather than a visible or
+   status-limited subset.
+4. Long results scroll inside the picker without clipping rows or scrolling
+   the underlying modal/page.
+5. Keyboard navigation reaches every filtered result and keeps the active
+   option visible.
+6. Empty and no-search-results states are distinct and clear.
+7. Cross-project and unauthorized tasks remain unavailable.
+8. Focused component and Playwright regression coverage passes at desktop and
+   narrow viewports.
+9. Before/after candidate counts by status and overflowing-list screenshots or
+   recordings are recorded.
+10. Repository task tracking and journal context are updated in the same PR.
 
 ## Definition Of Done
 
-- The root cause is documented with immediate-state and reload behavior.
-- The fix uses the established service boundary and canonical relation model.
-- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  `npm run build`, and the relevant Playwright coverage pass.
-- The patch version, changelog, task/backlog tracking, and journal are updated.
-- The branch is committed and pushed, a ready-for-review PR is open, and
-  initial automated review/check feedback is handled before handoff.
+- Root cause is documented as data filtering, visual clipping, interaction
+  handling, or a combination.
+- Candidate logic is shared or aligned between create and detail flows.
+- Focused unit/component and Playwright coverage passes.
+- Lint, RLS inventory, unit tests, coverage, production build, and relevant E2E
+  validation are green.
+- Product version and tracking docs are updated consistently.
+- The branch is committed, pushed, and opened as a ready-for-review PR with
+  initial automated feedback handled.
 
-## Outcome
+## Progress
 
-- Preserved the canonical undirected database row and existing tenant
-  boundaries.
-- Centralized incoming/outgoing serialization into one sorted, duplicate-safe
-  mapper used by server-rendered, list API, and mutation response paths.
-- Reconciled authoritative local and remote mutations across both task
-  directions in active, archived, and selected client state.
-- Added focused mapping, API, reconciliation, and browser coverage for add,
-  remove, repeat-save, immediate-state, and reload behavior.
-- Prepared patch release `v0.31.1`.
-
-## Validation
-
-- `npm run lint` passed.
-- `npm run rls:check` passed.
-- `npm run release:check -- --base origin/main --branch fix/395-bilateral-task-relations`
-  and `git diff --check` passed.
-- `npm test`: 985 passed, 2 skipped.
-- `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
-  functions, 91.88% lines.
-- `npm run build` passed with local PostgreSQL and documented preview-safe
-  environment overrides.
-- Focused Playwright regression passed, followed by the complete 28-scenario
-  Playwright suite.
-- Implementation commit `5c1b820` is pushed and ready-for-review PR #399 is
-  open.
+- Confirmed GitHub issue #396 maps to TASK-350 in the execution backlog.
+- Created a dedicated worktree and fix branch from `origin/main` because the
+  root checkout is concurrently occupied by issue #395.
+- Confirmed create and detail callers already aggregate every active status and
+  exclude archived tasks; the shared selector truncated both default and
+  searched suggestions to eight and lacked keyboard option navigation.
+- Replaced the cap with a viewport-aware, overscroll-contained listbox and
+  combobox keyboard behavior that keeps the active option visible.
+- Recorded detail candidate counts before/after with four tasks per status:
+  source 4/4/4/4 in both cases, rendered 8 total before and 4/4/4/4 after.
+- Added passing component coverage and a passing Chromium regression spanning
+  detail/create selection, final-row scrolling, Blocked-task search,
+  authorization boundaries, archived exclusion, persistence, and 375 px
+  containment.
+- Added before, final-row, and narrow-create screenshots to `docs/reports/`
+  and embedded them in the TASK-350 brief for PR review.
+- Passed lint, RLS inventory, version policy, all 140 runnable Vitest files
+  (981 tests; 2 files/tests skipped), coverage at 91.37% statements / 81.33%
+  branches / 92.2% functions / 91.88% lines, the standard Turbopack production
+  build, and all 28 Chromium scenarios.
+- Published the reviewable implementation and visual evidence in PR #400.
+- Rebased PR #400 onto `origin/main` after TASK-349 merged, preserving both
+  related-task behaviors and updating the bilateral Playwright selector to the
+  picker's accessible `option` role.
+- Advanced the release from `v0.31.1` to `v0.31.2` because merged PR #399 now
+  owns `v0.31.1`.
+- Rebase validation passed: lint, RLS inventory, release policy, 988 unit/API
+  tests with 2 skipped, coverage at 91.37% statements / 81.33% branches /
+  92.2% functions / 91.88% lines, production build, both focused related-task
+  browser scenarios, and the complete 29-scenario Playwright suite.

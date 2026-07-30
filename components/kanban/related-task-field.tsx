@@ -1,14 +1,8 @@
 "use client";
 
-import {
-  createPortal,
-} from "react-dom";
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { createPortal } from "react-dom";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Archive, Link2, Search, X } from "lucide-react";
 
 import type { TaskRelatedSummary } from "@/components/kanban-board-types";
@@ -49,28 +43,86 @@ export function RelatedTaskSelector({
     top: number;
     left: number;
     width: number;
+    listMaxHeight: number;
   } | null>(null);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+  const [isSuggestionsDismissed, setIsSuggestionsDismissed] = useState(false);
   const searchFieldRef = useRef<HTMLDivElement | null>(null);
+  const generatedId = useId().replace(/:/g, "");
+  const listboxId = `related-task-options-${generatedId}`;
   const normalizedQuery = searchValue.trim().toLowerCase();
 
   const suggestions = useMemo(() => {
     const selectedTaskIds = new Set(selectedTasks.map((task) => task.id));
-    const unselectedTasks = availableTasks.filter((task) => !selectedTaskIds.has(task.id));
+    const unselectedTasks = availableTasks.filter(
+      (task) => !selectedTaskIds.has(task.id)
+    );
 
     if (!normalizedQuery) {
-      return unselectedTasks.slice(0, 8);
+      return unselectedTasks;
     }
 
-    return unselectedTasks
-      .filter((task) => {
-        const haystack = `${task.title} ${task.status}`.toLowerCase();
-        return haystack.includes(normalizedQuery);
-      })
-      .slice(0, 8);
+    return unselectedTasks.filter((task) => {
+      const haystack = `${task.title} ${task.status}`.toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
   }, [availableTasks, normalizedQuery, selectedTasks]);
 
   const shouldShowSuggestions =
-    !disabled && isSearchFocused && (suggestions.length > 0 || normalizedQuery.length > 0);
+    !disabled && isSearchFocused && !isSuggestionsDismissed;
+  const activeSuggestion = suggestions[activeSuggestionIndex] ?? null;
+
+  const selectTask = (taskId: string) => {
+    onAddTask(taskId);
+    setActiveSuggestionIndex(-1);
+  };
+
+  const handleSearchKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") {
+      if (shouldShowSuggestions) {
+        event.preventDefault();
+        setIsSuggestionsDismissed(true);
+        setActiveSuggestionIndex(-1);
+      }
+      return;
+    }
+
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      setIsSuggestionsDismissed(false);
+      if (suggestions.length === 0) {
+        return;
+      }
+
+      setActiveSuggestionIndex((currentIndex) => {
+        if (event.key === "ArrowDown") {
+          return currentIndex < 0 || currentIndex >= suggestions.length - 1
+            ? 0
+            : currentIndex + 1;
+        }
+
+        return currentIndex <= 0 ? suggestions.length - 1 : currentIndex - 1;
+      });
+      return;
+    }
+
+    if (
+      shouldShowSuggestions &&
+      suggestions.length > 0 &&
+      (event.key === "Home" || event.key === "End")
+    ) {
+      event.preventDefault();
+      setActiveSuggestionIndex(
+        event.key === "Home" ? 0 : suggestions.length - 1
+      );
+      return;
+    }
+
+    if (event.key === "Enter" && shouldShowSuggestions && activeSuggestion) {
+      event.preventDefault();
+      selectTask(activeSuggestion.id);
+    }
+  };
 
   useEffect(() => {
     if (!shouldShowSuggestions) {
@@ -85,19 +137,44 @@ export function RelatedTaskSelector({
       }
 
       const rect = searchField.getBoundingClientRect();
-      const estimatedDropdownHeight = 164;
       const viewportPadding = 12;
+      const dropdownGap = 6;
+      const desiredListHeight =
+        suggestions.length > 0 ? Math.min(256, suggestions.length * 44) : 44;
+      const desiredDropdownHeight = desiredListHeight + 10;
       const availableBelow = window.innerHeight - rect.bottom - viewportPadding;
       const availableAbove = rect.top - viewportPadding;
       const openAbove =
-        availableBelow < estimatedDropdownHeight && availableAbove > availableBelow;
+        availableBelow < desiredDropdownHeight &&
+        availableAbove > availableBelow;
+      const availableOnChosenSide = openAbove ? availableAbove : availableBelow;
+      const listMaxHeight = Math.max(
+        72,
+        Math.min(256, availableOnChosenSide - dropdownGap - 10)
+      );
+      const renderedDropdownHeight = Math.min(
+        desiredDropdownHeight,
+        listMaxHeight + 10
+      );
+      const width = Math.min(
+        rect.width,
+        window.innerWidth - viewportPadding * 2
+      );
+      const left = Math.min(
+        Math.max(viewportPadding, rect.left),
+        window.innerWidth - viewportPadding - width
+      );
 
       setDropdownPosition({
         top: openAbove
-          ? Math.max(viewportPadding, rect.top - estimatedDropdownHeight - 6)
-          : rect.bottom + 6,
-        left: rect.left,
-        width: rect.width,
+          ? Math.max(
+              viewportPadding,
+              rect.top - renderedDropdownHeight - dropdownGap
+            )
+          : rect.bottom + dropdownGap,
+        left,
+        width,
+        listMaxHeight,
       });
     };
 
@@ -110,6 +187,22 @@ export function RelatedTaskSelector({
       window.removeEventListener("scroll", updateDropdownPosition, true);
     };
   }, [shouldShowSuggestions, suggestions.length]);
+
+  useEffect(() => {
+    if (!shouldShowSuggestions || !activeSuggestion) {
+      return;
+    }
+
+    const activeOption = document.getElementById(
+      `${listboxId}-option-${activeSuggestionIndex}`
+    );
+    activeOption?.scrollIntoView({ block: "nearest" });
+  }, [
+    activeSuggestion,
+    activeSuggestionIndex,
+    listboxId,
+    shouldShowSuggestions,
+  ]);
 
   return (
     <div
@@ -135,14 +228,33 @@ export function RelatedTaskSelector({
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           value={searchValue}
-          onChange={(event) => onSearchChange(event.target.value)}
-          onFocus={() => setIsSearchFocused(true)}
+          onChange={(event) => {
+            onSearchChange(event.target.value);
+            setIsSuggestionsDismissed(false);
+            setActiveSuggestionIndex(-1);
+          }}
+          onFocus={() => {
+            setIsSearchFocused(true);
+            setIsSuggestionsDismissed(false);
+          }}
           onBlur={() => {
             window.setTimeout(() => setIsSearchFocused(false), 120);
           }}
+          onKeyDown={handleSearchKeyDown}
           placeholder="Search active tasks"
+          aria-label="Search related tasks"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-haspopup="listbox"
+          aria-expanded={shouldShowSuggestions}
+          aria-controls={shouldShowSuggestions ? listboxId : undefined}
+          aria-activedescendant={
+            activeSuggestion
+              ? `${listboxId}-option-${activeSuggestionIndex}`
+              : undefined
+          }
           className={cn(
-            "h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm",
+            "h-11 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm",
             inputClassName
           )}
           disabled={disabled}
@@ -163,24 +275,60 @@ export function RelatedTaskSelector({
               }}
             >
               {suggestions.length > 0 ? (
-                <div className="scrollbar-hidden max-h-36 space-y-1 overflow-y-auto">
-                  {suggestions.map((task) => (
-                    <button
-                      key={task.id}
-                      type="button"
-                      className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => onAddTask(task.id)}
-                      disabled={disabled}
-                    >
-                      <span className="min-w-0 flex-1 truncate">{task.title}</span>
-                    </button>
-                  ))}
-                </div>
+                <>
+                  <span className="sr-only" aria-live="polite">
+                    {suggestions.length}{" "}
+                    {suggestions.length === 1 ? "task" : "tasks"} available.
+                  </span>
+                  <div
+                    id={listboxId}
+                    role="listbox"
+                    aria-label="Related task suggestions"
+                    data-related-task-listbox="true"
+                    className="space-y-1 overflow-y-auto overscroll-contain [scrollbar-color:rgba(148,163,184,0.52)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]"
+                    style={{ maxHeight: dropdownPosition.listMaxHeight }}
+                  >
+                    {suggestions.map((task, index) => (
+                      <button
+                        key={task.id}
+                        id={`${listboxId}-option-${index}`}
+                        type="button"
+                        role="option"
+                        aria-selected={index === activeSuggestionIndex}
+                        data-active={
+                          index === activeSuggestionIndex ? "true" : undefined
+                        }
+                        data-task-status={task.status}
+                        tabIndex={-1}
+                        className="flex min-h-11 w-full items-center rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-muted"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onMouseMove={() => setActiveSuggestionIndex(index)}
+                        onClick={() => selectTask(task.id)}
+                        disabled={disabled}
+                      >
+                        <span className="min-w-0 flex-1 truncate">
+                          {task.title}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </>
               ) : (
-                <p className="px-3 py-2 text-xs text-muted-foreground">
-                  No active tasks match that search.
-                </p>
+                <div
+                  id={listboxId}
+                  role="listbox"
+                  aria-label="Related task suggestions"
+                  data-related-task-listbox="true"
+                  className="px-3 py-2 text-xs text-muted-foreground"
+                >
+                  <p role="status">
+                    {normalizedQuery
+                      ? `No active tasks match “${searchValue.trim()}”.`
+                      : availableTasks.length === 0
+                        ? "No other active tasks are available."
+                        : "All active tasks are already selected."}
+                  </p>
+                </div>
               )}
             </div>,
             document.body
@@ -216,7 +364,8 @@ export function RelatedTaskPill({
         isArchived
           ? "border-border/70 bg-background text-foreground/85"
           : "border-border/70 bg-background text-foreground",
-        highlight && "border-border bg-muted/55 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
+        highlight &&
+          "border-border bg-muted/55 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
       )}
     >
       <button
@@ -233,7 +382,9 @@ export function RelatedTaskPill({
         ) : (
           <Link2 className="h-3.5 w-3.5" />
         )}
-        <span className="max-w-[140px] truncate sm:max-w-[180px]">{task.title}</span>
+        <span className="max-w-[140px] truncate sm:max-w-[180px]">
+          {task.title}
+        </span>
       </button>
       {isArchived || showStatus ? (
         <span
