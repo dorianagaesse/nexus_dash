@@ -201,6 +201,12 @@ describe("RelatedTaskSelector", () => {
     expect(document.body.textContent).toContain(
       "No other active tasks are available."
     );
+    const emptyListbox = document.body.querySelector<HTMLElement>(
+      "[role='listbox']"
+    );
+    expect(emptyListbox).not.toBeNull();
+    expect(emptyInput.getAttribute("aria-controls")).toBe(emptyListbox?.id);
+    expect(emptyInput.getAttribute("aria-expanded")).toBe("true");
 
     await act(async () => {
       root.render(<Harness />);

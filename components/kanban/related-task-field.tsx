@@ -247,7 +247,7 @@ export function RelatedTaskSelector({
           aria-autocomplete="list"
           aria-haspopup="listbox"
           aria-expanded={shouldShowSuggestions}
-          aria-controls={suggestions.length > 0 ? listboxId : undefined}
+          aria-controls={shouldShowSuggestions ? listboxId : undefined}
           aria-activedescendant={
             activeSuggestion
               ? `${listboxId}-option-${activeSuggestionIndex}`
@@ -314,17 +314,21 @@ export function RelatedTaskSelector({
                   </div>
                 </>
               ) : (
-                <p
+                <div
                   id={listboxId}
-                  role="status"
+                  role="listbox"
+                  aria-label="Related task suggestions"
+                  data-related-task-listbox="true"
                   className="px-3 py-2 text-xs text-muted-foreground"
                 >
-                  {normalizedQuery
-                    ? `No active tasks match “${searchValue.trim()}”.`
-                    : availableTasks.length === 0
-                      ? "No other active tasks are available."
-                      : "All active tasks are already selected."}
-                </p>
+                  <p role="status">
+                    {normalizedQuery
+                      ? `No active tasks match “${searchValue.trim()}”.`
+                      : availableTasks.length === 0
+                        ? "No other active tasks are available."
+                        : "All active tasks are already selected."}
+                  </p>
+                </div>
               )}
             </div>,
             document.body
