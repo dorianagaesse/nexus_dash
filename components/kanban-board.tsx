@@ -38,6 +38,7 @@ import {
   readApiError,
   type TaskColumns,
 } from "@/components/kanban-board-utils";
+import { reconcileBilateralTaskRelations } from "@/components/kanban-board-related";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import {
   ATTACHMENT_KIND_FILE,
@@ -955,55 +956,30 @@ export function KanbanBoard({
     (updatedTask: KanbanTask) => {
       setColumns((previousColumns) => {
         const nextColumns = cloneColumns(previousColumns);
-        const taskColumn = nextColumns[updatedTask.status];
-        const taskIndex = taskColumn.findIndex((task) => task.id === updatedTask.id);
-
-        if (taskIndex === -1) {
-          return previousColumns;
-        }
-
-        taskColumn[taskIndex] = {
-          ...taskColumn[taskIndex],
-          ...updatedTask,
-        };
+        TASK_STATUSES.forEach((status) => {
+          nextColumns[status] = nextColumns[status].map((task) =>
+            reconcileBilateralTaskRelations(task, updatedTask)
+          );
+        });
 
         return nextColumns;
       });
 
-      setArchivedDoneTasks((previousArchivedTasks) => {
-        const taskIndex = previousArchivedTasks.findIndex((task) => task.id === updatedTask.id);
-
-        if (taskIndex === -1) {
-          return previousArchivedTasks;
-        }
-
-        if (updatedTask.status !== "Done") {
-          return previousArchivedTasks.filter((task) => task.id !== updatedTask.id);
-        }
-
-        const nextArchivedTasks = [...previousArchivedTasks];
-        nextArchivedTasks[taskIndex] = {
-          ...nextArchivedTasks[taskIndex],
-          ...updatedTask,
-        };
-        return nextArchivedTasks;
-      });
+      setArchivedDoneTasks((previousArchivedTasks) =>
+        previousArchivedTasks.map((task) =>
+          reconcileBilateralTaskRelations(task, updatedTask)
+        )
+      );
 
       setSelectedTask((previousTask) => {
-        if (!previousTask || previousTask.id !== updatedTask.id) {
-          return previousTask;
-        }
-        return updatedTask;
+        return previousTask
+          ? reconcileBilateralTaskRelations(previousTask, updatedTask)
+          : previousTask;
       });
       setEditEpicId(updatedTask.epic?.id ?? "");
       setEditAssigneeUserId(updatedTask.assignee?.id ?? "");
-      syncRelatedTaskSummary(updatedTask.id, {
-        title: updatedTask.title,
-        status: updatedTask.status,
-        archivedAt: updatedTask.archivedAt,
-      });
     },
-    [syncRelatedTaskSummary]
+    []
   );
 
   const insertCreatedTask = useCallback(
@@ -1073,9 +1049,11 @@ export function KanbanBoard({
       setColumns((previousColumns) => {
         const nextColumns = createEmptyColumns<KanbanTask>();
         TASK_STATUSES.forEach((status) => {
-          nextColumns[status] = previousColumns[status].filter(
-            (task) => task.id !== remoteTask.id
-          );
+          nextColumns[status] = previousColumns[status]
+            .filter((task) => task.id !== remoteTask.id)
+            .map((task) =>
+              reconcileBilateralTaskRelations(task, remoteTask)
+            );
         });
 
         if (!remoteTask.archivedAt && isTaskStatus(remoteTask.status)) {
@@ -1089,9 +1067,11 @@ export function KanbanBoard({
       });
 
       setArchivedDoneTasks((previousTasks) => {
-        const withoutRemoteTask = previousTasks.filter(
-          (task) => task.id !== remoteTask.id
-        );
+        const withoutRemoteTask = previousTasks
+          .filter((task) => task.id !== remoteTask.id)
+          .map((task) =>
+            reconcileBilateralTaskRelations(task, remoteTask)
+          );
         if (remoteTask.status === "Done" && remoteTask.archivedAt) {
           return [...withoutRemoteTask, remoteTask].sort(
             (left, right) =>
@@ -1103,21 +1083,15 @@ export function KanbanBoard({
       });
 
       setSelectedTask((previousTask) => {
-        if (!previousTask || previousTask.id !== remoteTask.id) {
-          return previousTask;
-        }
-        return remoteTask;
+        return previousTask
+          ? reconcileBilateralTaskRelations(previousTask, remoteTask)
+          : previousTask;
       });
 
-      syncRelatedTaskSummary(remoteTask.id, {
-        title: remoteTask.title,
-        status: remoteTask.status,
-        archivedAt: remoteTask.archivedAt,
-      });
       setIsExpanded(true);
       setPersistError(null);
     },
-    [setIsExpanded, syncRelatedTaskSummary]
+    [setIsExpanded]
   );
 
   const applyRemoteReorder = useCallback(

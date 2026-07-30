@@ -15,6 +15,7 @@ import { requireAgentProjectScopes } from "@/lib/services/project-access-service
 import { mapTaskEpicSummary } from "@/lib/epic";
 import { mapTaskPersonSummary } from "@/lib/task-person";
 import { formatTaskDeadlineDate } from "@/lib/task-deadline";
+import { mergeRelatedTaskSummaries } from "@/lib/task-related";
 
 const ATTACHMENT_FILES_FIELD = "attachmentFiles";
 type TaskAttachment = Awaited<ReturnType<typeof listProjectKanbanTasks>>[number]["attachments"][number];
@@ -58,30 +59,6 @@ function serializeJsonField(value: unknown): string {
   }
 
   return JSON.stringify(value);
-}
-
-function mapRelatedTasks(task: {
-  outgoingRelations: Array<{
-    rightTask: {
-      id: string;
-      title: string;
-      status: string;
-      archivedAt: Date | null;
-    };
-  }>;
-  incomingRelations: Array<{
-    leftTask: {
-      id: string;
-      title: string;
-      status: string;
-      archivedAt: Date | null;
-    };
-  }>;
-}) {
-  return [
-    ...task.outgoingRelations.map((relation) => relation.rightTask),
-    ...task.incomingRelations.map((relation) => relation.leftTask),
-  ].sort((left, right) => left.title.localeCompare(right.title));
 }
 
 export async function GET(request: NextRequest, props: { params: Promise<{ projectId: string }> }) {
@@ -135,7 +112,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
         attachments: task.attachments.map((attachment: TaskAttachment) =>
           mapTaskAttachmentResponse(params.projectId, task.id, attachment)
         ),
-        relatedTasks: mapRelatedTasks(task),
+        relatedTasks: mergeRelatedTaskSummaries(task),
         blockedFollowUps: task.blockedFollowUps,
       })),
     },

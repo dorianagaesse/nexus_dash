@@ -92,9 +92,10 @@ Last reviewed: 2026-07-30
   Dependencies: TASK-100, TASK-108, TASK-133, TASK-270
 - ID: TASK-349
   Title: Bilateral related-task relationships - keep both task directions consistent
-  Status: Next 16 - related-task correctness
+  Status: In progress (2026-07-30, GitHub issue #395)
   Rationale: Fix GitHub issue #395 so relating task A to task B makes the same canonical relationship visible when either task is opened, including immediately after optimistic updates and after reload, while keeping add/remove behavior duplicate-free and project-scoped.
   Dependencies: TASK-076, TASK-118
+  Brief: `tasks/task-349-bilateral-related-task-relationships.md`
 - ID: TASK-350
   Title: Complete related-task candidate list - investigate missing and non-scrollable tasks
   Status: Next 17 - related-task picker completeness

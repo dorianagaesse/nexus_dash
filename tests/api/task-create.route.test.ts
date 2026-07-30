@@ -9,6 +9,10 @@ const projectTaskServiceMock = vi.hoisted(() => ({
   createTaskForProject: vi.fn(),
 }));
 
+const projectServiceMock = vi.hoisted(() => ({
+  listProjectKanbanTasks: vi.fn(),
+}));
+
 vi.mock("@/lib/auth/api-guard", () => ({
   getAgentProjectAccessContext: apiGuardMock.getAgentProjectAccessContext,
   requireApiPrincipal: apiGuardMock.requireApiPrincipal,
@@ -29,14 +33,14 @@ vi.mock("@/lib/services/project-attachment-service", () => ({
 }));
 
 vi.mock("@/lib/services/project-service", () => ({
-  listProjectKanbanTasks: vi.fn(),
+  listProjectKanbanTasks: projectServiceMock.listProjectKanbanTasks,
 }));
 
 vi.mock("@/lib/services/project-access-service", () => ({
   requireAgentProjectScopes: vi.fn(() => ({ ok: true })),
 }));
 
-import { POST } from "@/app/api/projects/[projectId]/tasks/route";
+import { GET, POST } from "@/app/api/projects/[projectId]/tasks/route";
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
@@ -45,6 +49,74 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
 function taskRouteParams(projectId: string) {
   return { params: Promise.resolve({ projectId }) };
 }
+
+describe("GET /api/projects/:projectId/tasks", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    apiGuardMock.requireApiPrincipal.mockResolvedValue({
+      ok: true,
+      principal: {
+        kind: "human",
+        actorUserId: "test-user",
+        requestId: "request-1",
+      },
+    });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValue(undefined);
+  });
+
+  test("serializes incoming and outgoing relations once in both task directions", async () => {
+    const relatedTask = {
+      id: "task-b",
+      title: "Task B",
+      status: "Done",
+      archivedAt: new Date("2026-07-29T08:00:00.000Z"),
+    };
+    projectServiceMock.listProjectKanbanTasks.mockResolvedValueOnce([
+      {
+        id: "task-a",
+        title: "Task A",
+        description: null,
+        blockedNote: null,
+        deadlineAt: null,
+        _count: { comments: 0 },
+        completedAt: null,
+        archivedAt: null,
+        status: "Backlog",
+        position: 0,
+        label: null,
+        labelsJson: null,
+        createdAt: new Date("2026-07-30T08:00:00.000Z"),
+        updatedAt: new Date("2026-07-30T08:00:00.000Z"),
+        epic: null,
+        assigneeUser: null,
+        createdByUser: null,
+        updatedByUser: null,
+        attachments: [],
+        outgoingRelations: [{ rightTask: relatedTask }],
+        incomingRelations: [{ leftTask: relatedTask }],
+        blockedFollowUps: [],
+      },
+    ]);
+
+    const response = await GET(
+      new Request("http://localhost/api/projects/p1/tasks") as never,
+      taskRouteParams("p1")
+    );
+    const payload = (await response.json()) as {
+      tasks: Array<{ relatedTasks: unknown[] }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.tasks[0]?.relatedTasks).toEqual([
+      {
+        id: "task-b",
+        title: "Task B",
+        status: "Done",
+        archivedAt: "2026-07-29T08:00:00.000Z",
+      },
+    ]);
+  });
+});
 
 describe("POST /api/projects/:projectId/tasks", () => {
   beforeEach(() => {

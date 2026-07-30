@@ -2,90 +2,88 @@
 
 ## Task
 
-- ID: TASK-332
-- Title: Mobile meeting-todo navigation
-- Status: In review
-- Branch: `feature/task-332-mobile-todo-navigation-rebased`
-- Pull request: [#394](https://github.com/dorianagaesse/nexus_dash/pull/394)
-- Brief: [`task-332-mobile-todo-navigation.md`](./task-332-mobile-todo-navigation.md)
+- ID: TASK-349
+- Title: Bilateral related-task relationships
+- Status: In progress (2026-07-30)
+- Branch: `fix/395-bilateral-task-relations`
+- GitHub issue: [#395](https://github.com/dorianagaesse/nexus_dash/issues/395)
+- Brief: [`task-349-bilateral-related-task-relationships.md`](./task-349-bilateral-related-task-relationships.md)
 
 ## Objective
 
-Replace the obstructive mobile meeting-todo popup with a project-scoped,
-route-backed Todos destination and an extensible mobile navigation dock that
-clearly separates workspace destinations from current-project destinations.
+Make the existing canonical task relationship visible and consistent from both
+task directions after local mutations, live project updates, and full reloads.
 
 ## Scope
 
-- Add protected project meeting todos at `/projects/[projectId]/todos`.
-- Add Todos to the current-project group in the adaptive sidebar and mobile
-  navigation dock.
-- Keep workspace navigation separate from project navigation on mobile through
-  a contained, horizontally scrollable two-group rail.
-- Provide URL-backed status views, source meeting links, and
-  completion/reopening without cross-project aggregation.
-- Hide the project-scoped floating todo panel on mobile while retaining it on
-  desktop.
-- Cover authorization, read-only behavior, accessibility, safe areas, light
-  and dark themes, and 375 px containment.
+- Preserve the single canonical `leftTaskId`/`rightTaskId` database row.
+- Verify task mutation and project-list responses merge incoming and outgoing
+  relationships.
+- Reconcile add, replace, and remove operations across every loaded active and
+  archived task, including the currently selected task.
+- Apply the same bilateral reconciliation to remote project activity updates.
+- Add focused service/API, client reconciliation, and browser regression
+  coverage without redesigning the related-task picker.
 
 ## Runtime Assumptions
 
-- Docker Engine, the repository environment, installed dependencies, and
-  Playwright Chromium are available locally.
-- The local PostgreSQL Compose service may be started for browser validation.
-- Preview validation, if required, will use
-  `git_ref=feature/task-332-mobile-todo-navigation-rebased`.
+- Existing local PostgreSQL and `.env` prerequisites are unchanged.
+- No Prisma model or migration change is expected because `TaskRelation`
+  already stores one canonical undirected pair.
+- Browser validation uses the existing Playwright project/task fixture and may
+  run locally or against a branch preview.
+- A preview deployment, if used, must pass
+  `git_ref=fix/395-bilateral-task-relations` explicitly.
 
 ## Acceptance Criteria
 
-1. Mobile primary navigation exposes distinct Workspace and Project groups in
-   a contained horizontal rail with labels, Lucide icons, 44 px targets,
-   safe-area clearance, keyboard access, and active state.
-2. `/projects/[projectId]/todos` is protected, refreshable, deep-linkable, and
-   strictly limited to the authorized current project.
-3. Open/Completed views are URL-backed and work with browser Back/Forward.
-4. Todos retain source-meeting context and sort overdue/recent work
-   predictably without exposing another project's work.
-5. Owners/editors can complete or reopen todos with clear feedback while
-   viewers receive a read-only treatment.
-6. Desktop and mobile project navigation both expose Overview and Todos while
-   the floating panel remains desktop-only.
-7. The touched UI passes 375 px, light/dark, keyboard, focus, and 44 px target
-   checks without overflow or fixed-navigation collisions.
-8. Existing meeting-note, notification-return, and desktop behavior remains
-   intact.
+1. Relating task A to task B makes B visible from A and A visible from B
+   immediately after save and after a full reload.
+2. Removing the relation from either task removes it from both loaded task
+   views immediately and remains removed after reload.
+3. Repeated saves and duplicate input IDs keep one logical relation and one UI
+   entry.
+4. Local mutation and remote project-activity reconciliation update every
+   affected active or archived task without requiring a broad refresh.
+5. Existing archived-task visibility, project authorization, and cross-project
+   validation rules remain unchanged.
+6. Focused service/API, client reconciliation, and Playwright regression
+   coverage passes.
+7. Task tracking, root-cause notes, validation evidence, and release metadata
+   are updated in the same pull request.
 
 ## Definition Of Done
 
-- Access-safe project reads live in `lib/services/**` under actor RLS.
-- Focused unit/component and Playwright coverage passes.
-- Required lint, RLS, test, coverage, build, and UI validation is green.
-- Tracking docs and product version are updated.
-- The branch is committed, pushed, and opened as a ready-for-review PR with
-  initial automated feedback handled.
+- The root cause is documented with immediate-state and reload behavior.
+- The fix uses the established service boundary and canonical relation model.
+- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
+  `npm run build`, and the relevant Playwright coverage pass.
+- The patch version, changelog, task/backlog tracking, and journal are updated.
+- The branch is committed and pushed, a ready-for-review PR is open, and
+  initial automated review/check feedback is handled before handoff.
 
-## Progress
+## Outcome
 
-- Completed the 393 x 852 mobile audit and selected a dedicated navigation
-  destination over a floating action button.
-- Reconciled the branch with `origin/main` at `f220331` and preserved the
-  merged TASK-329, TASK-333, TASK-334, and TASK-336 behavior.
-- Traced the stale preview error to code/schema skew: the successful TASK-329
-  migration removed the legacy meeting-note participant column while the old
-  TASK-332 preview bundle still queried it. Updated the Playwright fixture to
-  exercise structured participant rows and prepared a fresh preview deployment.
-- Reframed Todos as a protected project destination at
-  `/projects/[projectId]/todos`; removed the workspace aggregate route, badge
-  query, cross-project filter, and cross-project service.
-- Added distinct Workspace and Project groups to the desktop sidebar and a
-  contained horizontal mobile dock while retaining the project quick panel
-  only at the desktop breakpoint.
-- Preserved URL-backed Open/Completed views, browser history, source-meeting
-  deep links, authorized completion/reopening, and viewer treatment.
-- Visually reviewed the project Todos workflow at the iPhone 14 Pro
-  393 x 852 viewport in light and dark themes, plus 375 px containment and
-  1280 px desktop behavior.
-- Passed the complete local gate: all 48 migrations, RLS inventory and tenant
-  isolation, lint, 978 unit/API tests with 2 skipped, unchanged coverage,
-  production build, and all 27 Playwright scenarios.
+- Preserved the canonical undirected database row and existing tenant
+  boundaries.
+- Centralized incoming/outgoing serialization into one sorted, duplicate-safe
+  mapper used by server-rendered, list API, and mutation response paths.
+- Reconciled authoritative local and remote mutations across both task
+  directions in active, archived, and selected client state.
+- Added focused mapping, API, reconciliation, and browser coverage for add,
+  remove, repeat-save, immediate-state, and reload behavior.
+- Prepared patch release `v0.31.1`.
+
+## Validation
+
+- `npm run lint` passed.
+- `npm run rls:check` passed.
+- `npm run release:check -- --base origin/main --branch fix/395-bilateral-task-relations`
+  and `git diff --check` passed.
+- `npm test`: 985 passed, 2 skipped.
+- `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
+  functions, 91.88% lines.
+- `npm run build` passed with local PostgreSQL and documented preview-safe
+  environment overrides.
+- Focused Playwright regression passed, followed by the complete 28-scenario
+  Playwright suite.

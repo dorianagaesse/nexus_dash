@@ -17,7 +17,7 @@ import {
 import { listProjectEpics } from "@/lib/services/project-epic-service";
 import { mapTaskEpicSummary } from "@/lib/epic";
 import { mapTaskPersonSummary } from "@/lib/task-person";
-import { mapRelatedTaskSummary } from "@/lib/task-related";
+import { mergeRelatedTaskSummaries } from "@/lib/task-related";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import { formatTaskDeadlineDate } from "@/lib/task-deadline";
 import { getTaskLabelsFromStorage } from "@/lib/task-label";
@@ -27,8 +27,6 @@ type ProjectKanbanTask = Awaited<ReturnType<typeof listProjectKanbanTasks>>[numb
 type TaskAttachment = ProjectKanbanTask["attachments"][number];
 type TaskBlockedFollowUp =
   ProjectKanbanTask["blockedFollowUps"][number];
-type OutgoingRelation = ProjectKanbanTask["outgoingRelations"][number];
-type IncomingRelation = ProjectKanbanTask["incomingRelations"][number];
 
 interface KanbanBoardSectionProps {
   projectId: string;
@@ -85,14 +83,7 @@ export async function KanbanBoardSection({
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString(),
       archivedAt: task.archivedAt ? task.archivedAt.toISOString() : null,
-      relatedTasks: [
-        ...task.outgoingRelations.map((entry: OutgoingRelation) =>
-          mapRelatedTaskSummary(entry.rightTask)
-        ),
-        ...task.incomingRelations.map((entry: IncomingRelation) =>
-          mapRelatedTaskSummary(entry.leftTask)
-        ),
-      ].sort((left, right) => left.title.localeCompare(right.title)),
+      relatedTasks: mergeRelatedTaskSummaries(task),
       status: task.status,
       position: task.position,
       attachments: task.attachments.map((attachment: TaskAttachment) => ({
