@@ -23,7 +23,7 @@ on:
         required: false
         type: string
       git_ref:
-        description: "Git ref for deploy actions (branch/tag/SHA)"
+        description: "Git ref for deploy/promote actions; promote must match the staged deployment revision"
         required: false
         default: "main"
         type: string
@@ -53,7 +53,6 @@ jobs:
       VERCEL_SCOPE: ${{ secrets.VERCEL_ORG_ID }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DIRECT_URL: ${{ secrets.DIRECT_URL }}
-      MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
       GOOGLE_TOKEN_ENCRYPTION_KEY: ${{ secrets.GOOGLE_TOKEN_ENCRYPTION_KEY }}
       GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
       GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
@@ -97,20 +96,6 @@ jobs:
             exit 1
           fi
 
-      - name: Validate migration connection secret
-        run: |
-          if [ -z "$MIGRATION_DATABASE_URL" ]; then
-            echo "::error::Missing required GitHub secret: MIGRATION_DATABASE_URL"
-            echo "::error::Migrations must never fall back to runtime DATABASE_URL."
-            exit 1
-          fi
-
-          if [ -n "$DATABASE_URL" ] && [ "$MIGRATION_DATABASE_URL" = "$DATABASE_URL" ]; then
-            echo "::error::MIGRATION_DATABASE_URL must not be equal to DATABASE_URL."
-            echo "::error::Use a dedicated migration connection, separate from runtime app traffic."
-            exit 1
-          fi
-
       - name: Checkout
         uses: actions/checkout@v7
         with:
@@ -139,24 +124,9 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Apply Prisma migrations
-        run: |
-          for attempt in 1 2 3; do
-            echo "Running Prisma migrations (attempt ${attempt}/3)..."
-            if DATABASE_URL="$MIGRATION_DATABASE_URL" DIRECT_URL="$MIGRATION_DATABASE_URL" npx prisma migrate deploy; then
-              exit 0
-            fi
-
-            if [ "$attempt" -lt 3 ]; then
-              delay=$((attempt * 15))
-              echo "::warning::Prisma migrations failed; retrying in ${delay}s."
-              sleep "$delay"
-            fi
-          done
-
-          echo "::error::Prisma migrations failed after 3 attempts."
-          exit 1
-
+      # Keep staging from mutating the production database. Applying a migration
+      # here can make the live deployment incompatible before the staged build
+      # has been reviewed and promoted.
       - name: Pull Vercel environment (production)
         run: npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=production --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
@@ -178,6 +148,7 @@ jobs:
               --skip-domain \
               --scope="$VERCEL_SCOPE" \
               --token="$VERCEL_TOKEN" \
+              --meta "nexusDashGitCommitSha=$COMMIT_SHA" \
               -e "APP_VERSION=$APP_VERSION" \
               -e "APP_ENV=$APP_ENV" \
               -e "COMMIT_SHA=$COMMIT_SHA" \
@@ -200,7 +171,7 @@ jobs:
           echo "- App version: \`$APP_VERSION\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- App revision: \`${COMMIT_SHA:0:7}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: \`${{ steps.deploy_staged.outputs.deployment_url }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Next step: run workflow dispatch with \`action=promote\` to promote this deployment." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Next step: run workflow dispatch with \`action=promote\`, this URL, and \`git_ref=$COMMIT_SHA\`." >> "$GITHUB_STEP_SUMMARY"
 
   manual-operation:
     name: Manual Deploy/Promote/Rollback
@@ -216,7 +187,6 @@ jobs:
       VERCEL_SCOPE: ${{ secrets.VERCEL_ORG_ID }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DIRECT_URL: ${{ secrets.DIRECT_URL }}
-      MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
       GOOGLE_TOKEN_ENCRYPTION_KEY: ${{ secrets.GOOGLE_TOKEN_ENCRYPTION_KEY }}
       GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
       GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
@@ -278,20 +248,20 @@ jobs:
           fi
 
       - name: Checkout
-        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
+        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' || inputs.action == 'promote' }}
         uses: actions/checkout@v7
         with:
           ref: ${{ inputs.git_ref }}
 
       - name: Setup Node.js
-        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
+        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' || inputs.action == 'promote' }}
         uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
 
       - name: Resolve app metadata
-        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
+        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' || inputs.action == 'promote' }}
         run: |
           app_version="$(node -p "require('./package.json').version")"
           commit_sha="$(git rev-parse HEAD)"
@@ -307,15 +277,17 @@ jobs:
           echo "APP_REPOSITORY_URL=$repository_url" >> "$GITHUB_ENV"
 
       - name: Install dependencies
-        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
+        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' || inputs.action == 'promote' }}
         run: npm ci
 
       - name: Generate Prisma client
-        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
+        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' || inputs.action == 'promote' }}
         run: npx prisma generate
 
       - name: Validate migration connection secret
-        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
+        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'promote' }}
+        env:
+          MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
         run: |
           if [ -z "$MIGRATION_DATABASE_URL" ]; then
             echo "::error::Missing required GitHub secret: MIGRATION_DATABASE_URL"
@@ -329,11 +301,13 @@ jobs:
             exit 1
           fi
 
-      - name: Apply Prisma migrations
-        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
+      - name: Apply Prisma migrations (preview)
+        if: inputs.action == 'deploy-preview'
+        env:
+          MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
         run: |
           for attempt in 1 2 3; do
-            echo "Running Prisma migrations (attempt ${attempt}/3)..."
+            echo "Running preview Prisma migrations (attempt ${attempt}/3)..."
             if DATABASE_URL="$MIGRATION_DATABASE_URL" DIRECT_URL="$MIGRATION_DATABASE_URL" npx prisma migrate deploy; then
               exit 0
             fi
@@ -363,6 +337,7 @@ jobs:
               --prebuilt \
               --scope="$VERCEL_SCOPE" \
               --token="$VERCEL_TOKEN" \
+              --meta "nexusDashGitCommitSha=$COMMIT_SHA" \
               -e "RESEND_API_KEY=$RESEND_API_KEY" \
               -e "NOTIFICATION_EMAIL_DISPATCH_SECRET=$NOTIFICATION_EMAIL_DISPATCH_SECRET" \
               -e "AGENT_TOKEN_SIGNING_SECRET=$AGENT_TOKEN_SIGNING_SECRET" \
@@ -391,6 +366,7 @@ jobs:
               --skip-domain \
               --scope="$VERCEL_SCOPE" \
               --token="$VERCEL_TOKEN" \
+              --meta "nexusDashGitCommitSha=$COMMIT_SHA" \
               -e "APP_VERSION=$APP_VERSION" \
               -e "APP_ENV=$APP_ENV" \
               -e "COMMIT_SHA=$COMMIT_SHA" \
@@ -435,6 +411,80 @@ jobs:
             cat /tmp/vercel-inspect.txt
             exit 1
           fi
+
+      - name: Validate promotion target revision
+        if: inputs.action == 'promote'
+        run: |
+          deployment_lookup="${DEPLOYMENT_TARGET#https://}"
+          deployment_lookup="${deployment_lookup%%/*}"
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --get "https://api.vercel.com/v13/deployments/${deployment_lookup}" \
+            --data-urlencode "teamId=$VERCEL_ORG_ID" \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            --output /tmp/vercel-deployment.json
+
+          node <<'NODE' > /tmp/vercel-deployment-metadata.txt
+          const { readFileSync } = require("node:fs");
+          const deployment = JSON.parse(
+            readFileSync("/tmp/vercel-deployment.json", "utf8")
+          );
+          const projectId = deployment.projectId ?? deployment.project?.id ?? "";
+          const commitSha =
+            deployment.meta?.nexusDashGitCommitSha ??
+            deployment.meta?.githubCommitSha ??
+            deployment.gitSource?.sha ??
+            "";
+          process.stdout.write(`${projectId}\t${commitSha}\n`);
+          NODE
+
+          IFS=$'\t' read -r deployment_project_id deployment_commit_sha < /tmp/vercel-deployment-metadata.txt
+
+          if [ "$deployment_project_id" != "$VERCEL_PROJECT_ID" ]; then
+            echo "::error::Deployment '$DEPLOYMENT_TARGET' belongs to project '$deployment_project_id', not '$VERCEL_PROJECT_ID'."
+            exit 1
+          fi
+
+          if [ -z "$deployment_commit_sha" ]; then
+            echo "::error::Deployment '$DEPLOYMENT_TARGET' has no source revision metadata."
+            echo "::error::Create a new staged deployment with this workflow before promoting."
+            exit 1
+          fi
+
+          expected_commit_sha=$(printf '%s' "$COMMIT_SHA" | tr '[:upper:]' '[:lower:]')
+          actual_commit_sha=$(printf '%s' "$deployment_commit_sha" | tr '[:upper:]' '[:lower:]')
+          if [ "$actual_commit_sha" != "$expected_commit_sha" ]; then
+            echo "::error::Promotion revision mismatch."
+            echo "::error::Checked out '$expected_commit_sha' for migrations, but '$DEPLOYMENT_TARGET' contains '$actual_commit_sha'."
+            echo "::error::Set git_ref to the staged deployment revision."
+            exit 1
+          fi
+
+      # Promotion is the release boundary: update the schema only after the
+      # target deployment is validated and immediately before switching aliases.
+      - name: Apply Prisma migrations (production promotion)
+        if: inputs.action == 'promote'
+        env:
+          MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+        run: |
+          for attempt in 1 2 3; do
+            echo "Running production Prisma migrations before promotion (attempt ${attempt}/3)..."
+            if DATABASE_URL="$MIGRATION_DATABASE_URL" DIRECT_URL="$MIGRATION_DATABASE_URL" npx prisma migrate deploy; then
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 3 ]; then
+              delay=$((attempt * 15))
+              echo "::warning::Prisma migrations failed; retrying in ${delay}s."
+              sleep "$delay"
+            fi
+          done
+
+          echo "::error::Prisma migrations failed after 3 attempts; production was not promoted."
+          exit 1
 
       - name: Promote deployment to production
         if: inputs.action == 'promote'
@@ -483,7 +533,7 @@ jobs:
             if [ -n "${{ steps.deploy_prod_staged.outputs.deployment_url }}" ]; then
               echo "- Staged production URL: \`${{ steps.deploy_prod_staged.outputs.deployment_url }}\`" >> "$GITHUB_STEP_SUMMARY"
             fi
-            echo "- Next step: run with \`action=promote\`." >> "$GITHUB_STEP_SUMMARY"
+            echo "- Next step: run with \`action=promote\`, this URL, and \`git_ref=$COMMIT_SHA\`." >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "${{ inputs.action }}" = "promote" ] || [ "${{ inputs.action }}" = "rollback" ]; then
             target="${DEPLOYMENT_TARGET:-<not-normalized>}"

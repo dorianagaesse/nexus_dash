@@ -29,6 +29,64 @@ Use it for important implementation milestones, blockers, validation runs, and r
   [PR #394](https://github.com/dorianagaesse/nexus_dash/pull/394), and closed
   #390 with a handoff comment.
 
+# 2026-07-27 - TASK-336 multi-user collaboration audit started
+
+- Took ownership of TASK-336 on
+  `docs/task-336-multi-user-collaboration-audit`, created from the latest
+  `origin/main` after TASK-329 merged.
+- Scoped the audit around accountable stewardship, actionable assignment,
+  real human/agent attribution, durable history, capabilities, notifications,
+  responsibility discovery, handoff, and conflict-safe shared writes.
+- Applied the UI/UX Pro Max collaboration-dashboard guidance while keeping the
+  audit grounded in NexusDash's existing product language and avoiding a
+  cosmetic avatar-only response.
+
+# 2026-07-27 - TASK-336 repository and runtime audit
+
+- Inspected project membership, tasks, meeting notes and todos, context cards,
+  epics, roadmap, Calendar, attachments, notifications, agent credentials,
+  realtime activity, and concurrency behavior across schema, migrations,
+  services, routes, UI, and tests.
+- Confirmed that NexusDash is strong at project access/isolation and live
+  freshness, but uneven at accountability: tasks expose the clearest assignee
+  and provenance model, while other shared artifacts often lack visible
+  stewardship, real agent attribution, or durable history.
+- Verified that the project Calendar panel is a personal Google Calendar
+  overlay presented within a shared-project surface, and that shared update
+  routes lack revision preconditions capable of preventing silent stale-write
+  overwrites.
+- Built the app against isolated local PostgreSQL and passed seven focused
+  Chromium Playwright flows covering project, task, context, meeting,
+  participant identity, roadmap, and Calendar behavior.
+
+# 2026-07-27 - TASK-336 audit and refinement backlog completed
+
+- Added `docs/audits/task-336-multi-user-collaboration-audit.md` with a
+  maturity matrix, repository evidence, target collaboration model, priority
+  sequence, cautions, and measurable completion signals.
+- Created a sequenced refinement program in `tasks/backlog.md`: TASK-337
+  through TASK-348 cover project actors, ownership continuity, conflict-safe
+  editing, durable history, meeting stewardship, shared scheduling, knowledge
+  stewardship, epic/roadmap accountability, cross-artifact discussion,
+  responsibility views, and notification preferences.
+- Strengthened TASK-330 around human/agent todo assignment and completion
+  accountability, and broadened TASK-331 into a common module-capability model
+  so future surfaces do not invent incompatible permission rules.
+- Passed lint, RLS inventory, release policy, unique backlog-ID validation,
+  Markdown link validation, and diff hygiene.
+
+# 2026-07-27 - TASK-336 PR review and delivery
+
+- Committed and pushed the audit as `ee47f11`, then opened ready-for-review PR
+  [#393](https://github.com/dorianagaesse/nexus_dash/pull/393).
+- Copilot identified two documentation-durability issues: the task brief
+  depended on the rotating `tasks/current.md`, and the audit heading used
+  inconsistent title capitalization. Inlined the acceptance criteria and
+  Definition of Done in the durable brief and aligned the heading in
+  `fe5f525`; both threads were answered and resolved.
+- Branch naming, Quality Core, Playwright, PostgreSQL tenant isolation, and
+  container-image checks all passed on reviewed commit `fe5f525`.
+
 # 2026-07-26 - TASK-329 meeting participant identity refinement started
 
 - Took ownership of TASK-329 on
@@ -2898,6 +2956,32 @@ Low-value entries to avoid going forward:
 - Chose the existing authenticated API-adapter, service, outbound delivery
   record, and Resend path. The fixed owner recipient and reporter identity will
   be server-controlled; diagnostics will be explicit and privacy-bounded.
+
+# 2026-07-30 - PR #397 deployment-promotion review hardening
+
+- Validated both unresolved Copilot comments on
+  `.github/workflows/deploy-vercel.yml`: promotion could migrate a different
+  revision than the selected Vercel deployment, and the migration-only
+  production secret was exposed to every manual operation.
+- Added commit metadata to workflow-created deployments and a fail-closed
+  promotion guard that verifies both the Vercel project ID and exact checked-out
+  commit SHA before production migrations can run.
+- Scoped `MIGRATION_DATABASE_URL` to the migration validation/execution steps,
+  retained preview migrations, and kept production-staged deploys free of
+  migration commands.
+- Documented the required promotion `git_ref` and the remaining expand/contract
+  requirement because database migration and Vercel alias promotion are not an
+  atomic transaction.
+- Validation passed: workflow YAML parse, Bash syntax for all 27 `run` steps,
+  deployment sequencing/secret-scope assertions, `git diff --check`,
+  `npm run lint`, `npm run rls:check`, 969 unit/API tests, coverage at 91.37%
+  statements / 81.33% branches / 92.2% functions / 91.88% lines, and the
+  production build with documented local database plus build-only preview
+  placeholders.
+- Reconciled `origin/main` at `66b4b1f`; because the merged collaboration audit
+  had already allocated TASK-336 through TASK-348, renumbered this PR's five
+  pending follow-ups to TASK-349 through TASK-353 and preserved their dependency
+  ordering.
 
 # 2026-07-26 - TASK-333 implementation and local validation
 
