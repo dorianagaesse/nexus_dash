@@ -2931,6 +2931,32 @@ Low-value entries to avoid going forward:
   record, and Resend path. The fixed owner recipient and reporter identity will
   be server-controlled; diagnostics will be explicit and privacy-bounded.
 
+# 2026-07-30 - PR #397 deployment-promotion review hardening
+
+- Validated both unresolved Copilot comments on
+  `.github/workflows/deploy-vercel.yml`: promotion could migrate a different
+  revision than the selected Vercel deployment, and the migration-only
+  production secret was exposed to every manual operation.
+- Added commit metadata to workflow-created deployments and a fail-closed
+  promotion guard that verifies both the Vercel project ID and exact checked-out
+  commit SHA before production migrations can run.
+- Scoped `MIGRATION_DATABASE_URL` to the migration validation/execution steps,
+  retained preview migrations, and kept production-staged deploys free of
+  migration commands.
+- Documented the required promotion `git_ref` and the remaining expand/contract
+  requirement because database migration and Vercel alias promotion are not an
+  atomic transaction.
+- Validation passed: workflow YAML parse, Bash syntax for all 27 `run` steps,
+  deployment sequencing/secret-scope assertions, `git diff --check`,
+  `npm run lint`, `npm run rls:check`, 969 unit/API tests, coverage at 91.37%
+  statements / 81.33% branches / 92.2% functions / 91.88% lines, and the
+  production build with documented local database plus build-only preview
+  placeholders.
+- Reconciled `origin/main` at `66b4b1f`; because the merged collaboration audit
+  had already allocated TASK-336 through TASK-348, renumbered this PR's five
+  pending follow-ups to TASK-349 through TASK-353 and preserved their dependency
+  ordering.
+
 # 2026-07-26 - TASK-333 implementation and local validation
 
 - Added the persistent desktop and mobile entries, responsive report form,

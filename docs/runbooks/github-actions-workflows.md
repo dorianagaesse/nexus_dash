@@ -68,12 +68,26 @@ Automatic path:
 1. Merge to `main`.
 2. Wait for `Quality Gates` on `main`.
 3. `Deploy Vercel (CD + Rollback)` creates a staged production deployment.
-4. Promote the staged URL manually with `action=promote`.
+4. Promote the staged URL manually with `action=promote` and
+   `git_ref=<staged-commit-sha>` from the staged deployment summary.
 
 Manual path:
 
 - `action=deploy-production-staged`
 - optional `git_ref=<branch-or-sha>`
+
+Production-staged deploys record the checked-out commit SHA in Vercel
+deployment metadata and do not run Prisma migrations. Promotion fails closed
+unless the deployment belongs to the configured Vercel project and its recorded
+SHA exactly matches the checked-out `git_ref`. Only then does the workflow
+expose the migration-only GitHub secret, apply production migrations, and
+promote the staged deployment.
+
+This sequencing limits the migration-to-alias window but does not make
+destructive schema changes atomic with Vercel promotion. Production migrations
+must remain backward-compatible with the currently live release; use
+expand/contract migrations when removing or renaming data that live code still
+reads.
 
 Rollback path:
 
