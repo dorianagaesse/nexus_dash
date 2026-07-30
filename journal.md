@@ -3,6 +3,42 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-30 - TASK-350 related-task picker completeness
+
+- Mapped GitHub issue #396 to TASK-350 and isolated the work on
+  `fix/task-350-related-task-picker` because the root checkout was concurrently
+  occupied by issue #395.
+- Confirmed both picker callers already construct candidates from every active
+  Kanban column and intentionally omit archived tasks. The defect was in the
+  shared selector: both default and searched suggestions were sliced to eight,
+  while the input had no arrow-key listbox navigation.
+- Used a 16-candidate detail fixture with four tasks in each of Backlog,
+  In Progress, Blocked, and Done. Before the fix, source counts were 4/4/4/4
+  but only eight sorted candidates reached the DOM; after the fix, all 4/4/4/4
+  render in one bounded list. The create flow exposes 17 candidates because
+  the detail fixture's current task is eligible during creation.
+- Removed the result cap and added viewport-aware positioning, contained
+  vertical overflow, visible slim scrollbars, overscroll containment, 44 px
+  options, combobox/listbox semantics, arrow/Home/End/Enter/Escape behavior,
+  active-option scrolling, and distinct empty/no-match states.
+- Added component coverage for complete mixed-status results, full-set search,
+  final-option keyboard selection, overflow classes, and empty states. Added a
+  Playwright regression that also covers current/archived/cross-project/
+  unauthorized exclusions, persisted relationship selection, final-row
+  scrolling, and the 375 px create flow.
+- Captured before/after evidence in `.tmp/task-350-evidence`: the original
+  picker exposed only its capped prefix, while the fixed picker reaches the
+  final candidate and remains contained in the narrow create sheet.
+- Focused validation passed: 3 component tests and the dedicated Chromium
+  Playwright scenario.
+- Complete validation passed with explicit local PostgreSQL URLs: lint, RLS
+  inventory, release policy, 140 passing Vitest files with 2 skipped, 981
+  passing tests with 2 skipped, coverage at 91.37% statements / 81.33%
+  branches / 92.2% functions / 91.88% lines, the standard Turbopack
+  production build, and all 28 Chromium scenarios. Production build/E2E used
+  build-only Google/agent secret placeholders while retaining the configured
+  local email test key.
+
 # 2026-07-30 - TASK-332 project-scoped Todos navigation
 
 - Reconciled the feature branch with `origin/main` at `f220331`, resolving the
