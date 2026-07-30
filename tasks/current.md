@@ -4,9 +4,10 @@
 
 - ID: TASK-349
 - Title: Bilateral related-task relationships
-- Status: In progress (2026-07-30)
+- Status: In review (2026-07-30)
 - Branch: `fix/395-bilateral-task-relations`
 - GitHub issue: [#395](https://github.com/dorianagaesse/nexus_dash/issues/395)
+- Pull request: [#399](https://github.com/dorianagaesse/nexus_dash/pull/399)
 - Brief: [`task-349-bilateral-related-task-relationships.md`](./task-349-bilateral-related-task-relationships.md)
 
 ## Objective
@@ -87,3 +88,5 @@ task directions after local mutations, live project updates, and full reloads.
   environment overrides.
 - Focused Playwright regression passed, followed by the complete 28-scenario
   Playwright suite.
+- Implementation commit `5c1b820` is pushed and ready-for-review PR #399 is
+  open.

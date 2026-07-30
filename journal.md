@@ -3141,3 +3141,6 @@ Low-value entries to avoid going forward:
   statements / 81.33% branches / 92.2% functions / 91.88% lines; production
   build; the focused bilateral add/remove/reload Playwright scenario; and the
   complete 28-scenario Playwright suite against local PostgreSQL.
+- Committed the reviewable implementation as `5c1b820`, pushed
+  `fix/395-bilateral-task-relations`, and opened ready-for-review PR
+  [#399](https://github.com/dorianagaesse/nexus_dash/pull/399).

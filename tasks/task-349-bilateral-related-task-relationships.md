@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation and local validation complete (2026-07-30)
+In review (2026-07-30, PR #399)
 
 ## Objective
 
@@ -83,3 +83,5 @@ undirected relationship everywhere it is read or reconciled.
   unit/API tests with 2 skipped, coverage at 91.37% statements / 81.33%
   branches / 92.2% functions / 91.88% lines, production build, and all 28
   Playwright scenarios.
+- Published implementation commit `5c1b820` and opened ready-for-review PR
+  [#399](https://github.com/dorianagaesse/nexus_dash/pull/399).
