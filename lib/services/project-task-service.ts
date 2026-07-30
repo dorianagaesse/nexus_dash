@@ -2,7 +2,7 @@ import { deleteAttachmentFile } from "@/lib/attachment-storage";
 import { sanitizeRichText } from "@/lib/rich-text";
 import {
   buildCanonicalTaskRelation,
-  mapRelatedTaskSummary,
+  mergeRelatedTaskSummaries,
   normalizeRelatedTaskIds,
   type RelatedTaskSummary,
 } from "@/lib/task-related";
@@ -231,18 +231,6 @@ const relatedTaskSummarySelect = {
   status: true,
   archivedAt: true,
 } as const;
-
-function mergeRelatedTaskSummaries(task: {
-  outgoingRelations: { rightTask: { id: string; title: string; status: string; archivedAt: Date | null } }[];
-  incomingRelations: { leftTask: { id: string; title: string; status: string; archivedAt: Date | null } }[];
-}): RelatedTaskSummary[] {
-  const relatedTasks = [
-    ...task.outgoingRelations.map((entry) => mapRelatedTaskSummary(entry.rightTask)),
-    ...task.incomingRelations.map((entry) => mapRelatedTaskSummary(entry.leftTask)),
-  ];
-
-  return relatedTasks.sort((left, right) => left.title.localeCompare(right.title));
-}
 
 async function loadTaskMutationPayload(
   db: DbClient,

@@ -8,6 +8,17 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.31.1 - 2026-07-30
+
+- Made canonical related-task links reconcile bilaterally after local saves and
+  live project updates, so adding or removing a relationship is immediately
+  visible from either task without a broad refresh.
+- Consolidated incoming/outgoing relation serialization into one sorted,
+  duplicate-safe mapping while preserving the existing canonical database row,
+  archived-task visibility, and project authorization boundaries.
+- Added service/API, client reconciliation, and Playwright regressions for
+  bilateral add/remove behavior, repeated updates, and full reloads.
+
 ## v0.31.0 - 2026-07-27
 
 - Replaced the obstructive mobile meeting-todo popup with a dedicated,

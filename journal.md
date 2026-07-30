@@ -3119,3 +3119,28 @@ Low-value entries to avoid going forward:
   shell badge query to select only meeting status/date plus open-action counts.
   Four focused test files (14 tests), lint, production build, and six focused
   Playwright shell/todo scenarios passed after the review fixes.
+
+# 2026-07-30 - TASK-349 bilateral related-task relationships started
+
+- Took ownership of GitHub issue #395 on
+  `fix/395-bilateral-task-relations`, created from the latest `origin/main`,
+  and aligned it with the existing TASK-349 backlog entry.
+- Reproduced the defect as client reconciliation rather than persistence:
+  `replaceTaskRelations` already deletes both pair directions and creates one
+  canonical row, and reload/list payloads already select incoming plus outgoing
+  relations. Local saves and remote task activity only replaced the mutated
+  task, leaving the inverse summary on the other loaded task stale.
+- Centralized bilateral server mapping in a duplicate-safe helper and added an
+  authoritative client reconciler across active, archived, selected, and live
+  remote task state without changing the schema, RLS, authorization, or
+  archived-task rules.
+- Prepared patch release `v0.31.1` and added focused mapping, API, client, and
+  Playwright regression coverage.
+- Validation passed: 42 focused Vitest tests; full lint, RLS inventory, and
+  release-policy gates; 985 unit/API tests with 2 skipped; coverage at 91.37%
+  statements / 81.33% branches / 92.2% functions / 91.88% lines; production
+  build; the focused bilateral add/remove/reload Playwright scenario; and the
+  complete 28-scenario Playwright suite against local PostgreSQL.
+- Committed the reviewable implementation as `5c1b820`, pushed
+  `fix/395-bilateral-task-relations`, and opened ready-for-review PR
+  [#399](https://github.com/dorianagaesse/nexus_dash/pull/399).
