@@ -205,7 +205,7 @@ test("related-task pickers expose and navigate every eligible mixed-status task"
   const activeOption = detailListbox.locator("[data-active='true']");
   await expect(activeOption).toHaveCount(1);
   await expect(activeOption).toBeInViewport();
-  const finalTaskTitle = await activeOption.textContent();
+  const finalTaskTitle = await activeOption.getAttribute("aria-label");
   expect(finalTaskTitle).toBeTruthy();
   await detailSearch.press("Enter");
   await expect(

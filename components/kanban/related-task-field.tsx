@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 
 export interface RelatedTaskOption {
   id: string;
+  reference: string;
   title: string;
   status: string;
 }
@@ -63,7 +64,8 @@ export function RelatedTaskSelector({
     }
 
     return unselectedTasks.filter((task) => {
-      const haystack = `${task.title} ${task.status}`.toLowerCase();
+      const haystack =
+        `${task.reference} ${task.title} ${task.status}`.toLowerCase();
       return haystack.includes(normalizedQuery);
     });
   }, [availableTasks, normalizedQuery, selectedTasks]);
@@ -300,12 +302,20 @@ export function RelatedTaskSelector({
                         }
                         data-task-status={task.status}
                         tabIndex={-1}
-                        className="flex min-h-11 w-full items-center rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-muted"
+                        aria-label={task.title}
+                        aria-describedby={`${listboxId}-option-${index}-reference`}
+                        className="flex min-h-11 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-muted"
                         onMouseDown={(event) => event.preventDefault()}
                         onMouseMove={() => setActiveSuggestionIndex(index)}
                         onClick={() => selectTask(task.id)}
                         disabled={disabled}
                       >
+                        <span
+                          id={`${listboxId}-option-${index}-reference`}
+                          className="shrink-0 select-all font-mono text-xs font-semibold tabular-nums text-muted-foreground"
+                        >
+                          {task.reference}
+                        </span>
                         <span className="min-w-0 flex-1 truncate">
                           {task.title}
                         </span>

@@ -470,6 +470,7 @@ model RoadmapEvent {
 
 model Task {
   id                String                @id @default(cuid())
+  referenceNumber   Int                   @unique @default(autoincrement())
   title             String
   description       String?
   blockedNote       String?

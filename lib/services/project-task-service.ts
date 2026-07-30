@@ -25,6 +25,7 @@ import {
   formatTaskDeadlineDate,
   parseTaskDeadlineDate,
 } from "@/lib/task-deadline";
+import { formatTaskReference } from "@/lib/task-reference";
 import {
   requireAgentProjectScopes,
   requireProjectRole,
@@ -96,6 +97,7 @@ interface CreateTaskForProjectInput {
 
 interface UpdatedTaskPayload {
   id: string;
+  reference: string;
   title: string;
   label: string | null;
   labelsJson: string | null;
@@ -240,6 +242,7 @@ async function loadTaskMutationPayload(
     where: { id: taskId },
     select: {
       id: true,
+      referenceNumber: true,
       title: true,
       label: true,
       labelsJson: true,
@@ -313,6 +316,7 @@ async function loadTaskMutationPayload(
 
   return {
     id: task.id,
+    reference: formatTaskReference(task.referenceNumber),
     title: task.title,
     label: task.label,
     labelsJson: task.labelsJson,

@@ -2,104 +2,117 @@
 
 ## Task
 
-- ID: TASK-350
-- Title: Complete related-task candidate list
-- Status: In review
-- Branch: `fix/task-350-related-task-picker`
-- GitHub issue: [#396](https://github.com/dorianagaesse/nexus_dash/issues/396)
-- Pull request: [#400](https://github.com/dorianagaesse/nexus_dash/pull/400)
-- Brief: [`task-350-related-task-picker.md`](./task-350-related-task-picker.md)
+- ID: TASK-351
+- Title: User-facing task IDs
+- Status: Ready for review (2026-07-30)
+- Branch: `feature/task-351-user-facing-task-ids`
+- Brief: [`task-351-user-facing-task-ids.md`](./task-351-user-facing-task-ids.md)
 
 ## Objective
 
-Ensure the create-task and task-detail `Related to` pickers expose every
-eligible active task in the authorized current project, including Blocked
-tasks, with complete search and accessible scrolling through long result sets.
+Give every task a concise, stable reference that users can read, search, and
+share without exposing the opaque database ID.
 
 ## Scope
 
-- Trace candidate construction in create and task-detail flows across every
-  Kanban status.
-- Preserve project authorization, archived-task rules, current-task exclusion,
-  and intentional selected/already-related behavior.
-- Provide bounded result-list scrolling without moving the underlying modal or
-  page.
-- Keep keyboard focus and the active option visible through the complete
-  filtered result set.
-- Cover clear empty and no-search-results states.
-- Add focused component and Playwright regression coverage with enough tasks to
-  overflow the picker.
-- Record before/after candidate counts by status and visual evidence.
+- Add an immutable database-generated numeric reference to every existing and
+  future task.
+- Format references consistently as `ND-<number>` at the application boundary.
+- Show the reference in the task-detail header in read and edit modes.
+- Show the reference beside every related-task search candidate.
+- Match related-task searches by formatted reference as well as title and
+  status.
+- Preserve internal task IDs for routing, mutations, relations, and
+  authorization.
+- Add focused migration, mapping, component, API, and browser coverage.
 
 ## Runtime Assumptions
 
-- Installed dependencies and Playwright Chromium are available locally.
-- The local PostgreSQL Compose service may be started for browser validation.
-- Preview validation will use
-  `git_ref=fix/task-350-related-task-picker` if the local UI evidence cannot
-  cover the complete authenticated flow.
+- The PostgreSQL migration must backfill existing tasks and allocate future
+  references atomically through a database sequence.
+- References are globally unique, immutable, and never reused after task
+  deletion.
+- Existing local PostgreSQL and `.env` prerequisites are unchanged.
+- Browser validation uses the existing Playwright project/task fixture and may
+  run locally or against a branch preview.
+- Any preview validation must pass
+  `git_ref=feature/task-351-user-facing-task-ids` explicitly.
 
 ## Acceptance Criteria
 
-1. All eligible active tasks from Backlog, In Progress, Blocked, and Done are
-   present in or discoverable through both related-task pickers.
-2. The current task is excluded; selected and already-related tasks retain
-   intentional behavior; archived tasks remain unavailable.
-3. Search filters the complete eligible candidate set rather than a visible or
-   status-limited subset.
-4. Long results scroll inside the picker without clipping rows or scrolling
-   the underlying modal/page.
-5. Keyboard navigation reaches every filtered result and keeps the active
-   option visible.
-6. Empty and no-search-results states are distinct and clear.
-7. Cross-project and unauthorized tasks remain unavailable.
-8. Focused component and Playwright regression coverage passes at desktop and
-   narrow viewports.
-9. Before/after candidate counts by status and overflowing-list screenshots or
-   recordings are recorded.
-10. Repository task tracking and journal context are updated in the same PR.
+1. Every existing and newly created task has one globally unique numeric
+   reference rendered as `ND-<number>`.
+2. A task keeps the same reference after title, status, relation, archive, and
+   restore mutations and after a full reload.
+3. The task-detail modal exposes the reference in both read and edit modes
+   without displaying the internal database ID.
+4. Every related-task candidate exposes its reference beside its title.
+5. Searching the related-task picker by a complete or partial formatted
+   reference returns the authorized matching task in create and edit flows.
+6. Reference display and search remain keyboard accessible, readable at a
+   375 px viewport, and compatible with light and dark themes.
+7. Project authorization, active/archived candidate rules, bilateral
+   relations, and internal task routing remain unchanged.
+8. Focused migration/mapping, service/API, component, and Playwright coverage
+   passes.
+9. Release metadata, task tracking, root-cause notes, and validation evidence
+   are updated in the same pull request.
 
 ## Definition Of Done
 
-- Root cause is documented as data filtering, visual clipping, interaction
-  handling, or a combination.
-- Candidate logic is shared or aligned between create and detail flows.
-- Focused unit/component and Playwright coverage passes.
-- Lint, RLS inventory, unit tests, coverage, production build, and relevant E2E
-  validation are green.
-- Product version and tracking docs are updated consistently.
-- The branch is committed, pushed, and opened as a ready-for-review PR with
-  initial automated feedback handled.
+- The migration safely backfills existing rows and uses a database sequence for
+  concurrency-safe future allocation.
+- Reference formatting is centralized and reused by server/client presentation
+  paths.
+- The modal and related-task picker meet the UI/UX accessibility and responsive
+  checks from the UI/UX Pro Max review.
+- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
+  `npm run build`, release validation, and relevant Playwright coverage pass.
+- The feature release advances to `v0.32.0` with matching changelog and lockfile
+  metadata.
+- The branch is committed and pushed, a ready-for-review PR is open, and
+  initial Copilot review/check feedback is handled without merging the PR.
 
 ## Progress
 
-- Confirmed GitHub issue #396 maps to TASK-350 in the execution backlog.
-- Created a dedicated worktree and fix branch from `origin/main` because the
-  root checkout is concurrently occupied by issue #395.
-- Confirmed create and detail callers already aggregate every active status and
-  exclude archived tasks; the shared selector truncated both default and
-  searched suggestions to eight and lacked keyboard option navigation.
-- Replaced the cap with a viewport-aware, overscroll-contained listbox and
-  combobox keyboard behavior that keeps the active option visible.
-- Recorded detail candidate counts before/after with four tasks per status:
-  source 4/4/4/4 in both cases, rendered 8 total before and 4/4/4/4 after.
-- Added passing component coverage and a passing Chromium regression spanning
-  detail/create selection, final-row scrolling, Blocked-task search,
-  authorization boundaries, archived exclusion, persistence, and 375 px
-  containment.
-- Added before, final-row, and narrow-create screenshots to `docs/reports/`
-  and embedded them in the TASK-350 brief for PR review.
-- Passed lint, RLS inventory, version policy, all 140 runnable Vitest files
-  (981 tests; 2 files/tests skipped), coverage at 91.37% statements / 81.33%
-  branches / 92.2% functions / 91.88% lines, the standard Turbopack production
-  build, and all 28 Chromium scenarios.
-- Published the reviewable implementation and visual evidence in PR #400.
-- Rebased PR #400 onto `origin/main` after TASK-349 merged, preserving both
-  related-task behaviors and updating the bilateral Playwright selector to the
-  picker's accessible `option` role.
-- Advanced the release from `v0.31.1` to `v0.31.2` because merged PR #399 now
-  owns `v0.31.1`.
-- Rebase validation passed: lint, RLS inventory, release policy, 988 unit/API
-  tests with 2 skipped, coverage at 91.37% statements / 81.33% branches /
-  92.2% functions / 91.88% lines, production build, both focused related-task
-  browser scenarios, and the complete 29-scenario Playwright suite.
+- Confirmed TASK-351 is the next backlog item after the merged TASK-350 work.
+- Created the dedicated worktree and feature branch from `origin/main`.
+- Chose a globally unique `ND-<number>` reference so users can cite a task
+  unambiguously while opaque CUIDs remain internal.
+- Completed the UI/UX Pro Max design-system, accessibility/search, and Next.js
+  implementation reviews for the modal and related-task picker surfaces.
+- Added `Task.referenceNumber` with sequence-backed backfill, uniqueness, and
+  conditional least-privilege `app_runtime` sequence access.
+- Centralized `ND-<number>` formatting, added the reference to task list and
+  mutation contracts, and documented it in the agent OpenAPI schema.
+- Added the reference to read/edit modal headers and related-task candidates;
+  create and edit pickers now match complete or partial references without
+  indexing internal CUIDs.
+- Visually reviewed the desktop edit/search state and verified narrow create
+  containment at 375 px.
+
+## Outcome
+
+- Existing and new tasks receive stable, globally unique references while CUIDs
+  remain the internal route, mutation, authorization, and relation identity.
+- Reference allocation is concurrency-safe and deleted values are not reused.
+- Reference values survive task update, relation, and reload flows.
+- The task-detail and related-task surfaces preserve the established
+  information hierarchy, theme tokens, 44 px options, and keyboard behavior.
+- Prepared feature release `v0.32.0`.
+
+## Validation
+
+- `npx prisma validate` and local `prisma migrate deploy` passed; all 49
+  migrations are applied.
+- `npm run lint`, `npm run rls:check`, `git diff --check`, and
+  `npm run release:check -- --base origin/main --branch feature/task-351-user-facing-task-ids`
+  passed.
+- `npm run test:rls:setup` and `npm run test:rls` passed with the
+  least-privilege `NOBYPASSRLS` runtime role.
+- `npm test`: 995 passed, 2 skipped.
+- `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
+  functions, 91.88% lines.
+- `npm run build` passed with documented local-safe runtime placeholders.
+- Focused TASK-351 Playwright coverage passed, followed by the complete
+  30-scenario Chromium suite.

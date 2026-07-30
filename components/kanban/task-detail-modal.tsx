@@ -357,16 +357,27 @@ export function TaskDetailModal({
               )}
             >
               <div className={cn("min-w-0 flex-1 space-y-2", isEditing && "w-full pr-1")}>
-                <Badge
-                  variant="outline"
-                  className={
-                    isArchivedTask
-                      ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                      : undefined
-                  }
-                >
-                  {isArchivedTask ? "Archived" : selectedTask.status}
-                </Badge>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={
+                      isArchivedTask
+                        ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                        : undefined
+                    }
+                  >
+                    {isArchivedTask ? "Archived" : selectedTask.status}
+                  </Badge>
+                  {selectedTask.reference ? (
+                    <Badge
+                      variant="outline"
+                      aria-label={`Task reference ${selectedTask.reference}`}
+                      className="select-all font-mono font-semibold tabular-nums text-muted-foreground"
+                    >
+                      {selectedTask.reference}
+                    </Badge>
+                  ) : null}
+                </div>
                 {!isEditing ? (
                   <div className="space-y-3 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:space-y-0">
                     <CardTitle

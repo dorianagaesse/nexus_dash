@@ -77,7 +77,7 @@ Last reviewed: 2026-07-30
   Brief: `tasks/task-350-related-task-picker.md`
 - ID: TASK-351
   Title: User-facing task IDs - stable references in task details and relationship search
-  Status: Next 14 - task follow-up identifiers
+  Status: Ready for review (2026-07-30)
   Rationale: Introduce or expose concise, stable user-facing task identifiers so users can refer to tasks unambiguously; show the identifier when a task detail modal is open and beside each candidate while searching for a task to relate, without exposing opaque internal database IDs.
   Dependencies: TASK-076, TASK-133
 - ID: TASK-352

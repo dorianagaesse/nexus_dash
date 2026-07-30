@@ -35,6 +35,7 @@ const ownerSummary = {
 
 const baseTask: KanbanTask = {
   id: "task-1",
+  reference: "ND-42",
   title: "Comment identity",
   description: null,
   deadlineDate: null,
@@ -183,6 +184,9 @@ describe("TaskDetailModal comments", () => {
 
     expect(document.body.textContent).toContain("Build bot (agent)");
     expect(document.body.textContent).toContain("via owner#0001");
+    expect(
+      document.body.querySelector("[aria-label='Task reference ND-42']")
+    ).not.toBeNull();
     expect(document.body.querySelectorAll("[data-agent-avatar='true']")).toHaveLength(1);
 
     await act(async () => {

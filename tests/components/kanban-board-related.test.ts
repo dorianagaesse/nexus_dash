@@ -17,6 +17,7 @@ function createTask(
 ): KanbanTask {
   return {
     id,
+    reference: "ND-1",
     title,
     description: null,
     deadlineDate: null,
