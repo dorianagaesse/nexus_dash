@@ -34,6 +34,14 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Published implementation commit `5c10cc2` and opened ready-for-review
   [PR #403](https://github.com/dorianagaesse/nexus_dash/pull/403) without
   merging it.
+- GitHub checks passed for branch naming, Quality Core, E2E Smoke, tenant
+  isolation, and the container image. Copilot's initial review produced one
+  actionable accessibility comment: the article name in edit mode used the
+  saved epic name rather than the live field value.
+- Updated the editing article label to use the trimmed live name with a
+  saved-name fallback and added a focused regression. Post-review validation
+  passed with 5 component tests, targeted lint, `git diff --check`, and the
+  production build.
 
 # 2026-07-30 - TASK-351 user-facing task IDs
 

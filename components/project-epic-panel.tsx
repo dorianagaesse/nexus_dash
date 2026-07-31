@@ -554,7 +554,11 @@ export function ProjectEpicPanel({
                 return (
                   <article
                     key={epic.id}
-                    aria-label={isEditing ? `Edit epic ${epic.name}` : undefined}
+                    aria-label={
+                      isEditing
+                        ? `Edit epic ${editName.trim() || epic.name}`
+                        : undefined
+                    }
                     aria-labelledby={isEditing ? undefined : titleId}
                     className="min-w-0 overflow-hidden rounded-2xl border bg-card/85 shadow-[0_18px_48px_-42px_rgba(15,23,42,0.45)] backdrop-blur-sm"
                     style={{

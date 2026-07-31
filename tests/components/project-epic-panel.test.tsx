@@ -52,6 +52,15 @@ async function renderWithRoot(root: Root, ui: React.ReactElement) {
   });
 }
 
+function setInputValue(input: HTMLInputElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value"
+  )?.set;
+  setter?.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 const epicWithDenseLinkedTasks = {
   id: "epic-1",
   name: "Launch workspace sharing",
@@ -234,6 +243,51 @@ describe("project-epic-panel", () => {
     expect(
       Array.from(container.querySelectorAll("li"))[7]?.className
     ).toContain("lg:hidden");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("keeps the editing article name synchronized with the name field", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    const editButton = container.querySelector(
+      `button[aria-label="Edit epic ${epicWithDenseLinkedTasks.name}"]`
+    );
+
+    await act(async () => {
+      editButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const article = container.querySelector("article");
+    const nameInput = container.querySelector(
+      `#edit-epic-name-${epicWithDenseLinkedTasks.id}`
+    ) as HTMLInputElement | null;
+
+    expect(article?.getAttribute("aria-label")).toBe(
+      `Edit epic ${epicWithDenseLinkedTasks.name}`
+    );
+
+    await act(async () => {
+      if (nameInput) {
+        setInputValue(nameInput, "Launch collaboration beta");
+      }
+    });
+
+    expect(article?.getAttribute("aria-label")).toBe(
+      "Edit epic Launch collaboration beta"
+    );
 
     await act(async () => {
       root.unmount();

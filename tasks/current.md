@@ -98,9 +98,9 @@ preserving efficient scanning in dense project dashboards.
 
 - Existing local Docker PostgreSQL on `127.0.0.1:5432` was healthy; all 49
   migrations were already applied.
-- Focused component coverage passed 4 tests for section expansion, semantic
+- Focused component coverage passed 5 tests for section expansion, semantic
   context, viewer action safety, mobile-visible task rows, and desktop
-  disclosure state.
+  disclosure state, including live edit-name accessibility.
 - Focused TASK-335 Chromium coverage passed at 375 px and 1440 px in light and
   dark themes, including complete mobile rows, bounded desktop rows, 44 px edit
   targets, full-width card stacking, and horizontal containment.
@@ -114,3 +114,7 @@ preserving efficient scanning in dense project dashboards.
   feature/task-335-expanded-epic-presentation` passed for `v0.33.0`.
 - Implementation commit `5c10cc2` is pushed and ready-for-review PR #403 is
   open.
+- Addressed Copilot's initial review comment by deriving the editing article's
+  accessible name from the live name field with a saved-name fallback.
+- Post-review focused component tests, targeted lint, `git diff --check`, and
+  the production build passed.
