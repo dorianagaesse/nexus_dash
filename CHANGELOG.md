@@ -8,6 +8,15 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.33.0 - 2026-07-31
+
+- Expanded project epics into full-width responsive articles with readable
+  narrative, semantic progress, and linked-task context.
+- Showed every linked task by default on mobile while keeping dense desktop
+  cards bounded behind an accessible show-more/show-less control.
+- Replaced truncated micro-copy chips with wrapping task rows, preserved
+  textual status in both themes, and added focused responsive browser coverage.
+
 ## v0.32.0 - 2026-07-30
 
 - Added immutable, globally unique task references rendered as `ND-<number>`,

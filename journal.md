@@ -3,6 +3,35 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-31 - TASK-335 expanded epic presentation
+
+- Started TASK-335 in the dedicated
+  `feature/task-335-expanded-epic-presentation` worktree from current
+  `origin/main`, formalized the backlog rationale into an explicit task brief,
+  and moved the current-task record forward from merged TASK-351.
+- Applied UI/UX Pro Max guidance for the established calm productivity UI:
+  retain semantic theme tokens and typography, make complete context available
+  on mobile, keep controls at least 44 px, use semantic article/progress
+  structure, preserve visible focus, and validate 375 px plus dark mode.
+- Replaced narrow two-column desktop epic cards with full-width articles. On
+  wide screens, narrative/progress and linked work share a readable responsive
+  grid; on mobile they retain natural document order.
+- Replaced 11 px truncated task chips with wrapping task rows and explicit
+  textual statuses. Every linked task is visible by default below the desktop
+  breakpoint; dense desktop epics show six initially and expose the rest
+  through a named `aria-expanded`/`aria-controls` disclosure.
+- Preserved epic CRUD, viewer read-only behavior, project-section collapse
+  persistence, task/status/progress data contracts, and live-refresh locking.
+- Added focused component tests and a PostgreSQL-backed Playwright fixture with
+  two epics and eight linked tasks. Visual review at 375 px light and 1440 px
+  dark prompted a mobile header-width correction and a two-column wide-screen
+  linked-task grid.
+- Validation passed: existing local Docker PostgreSQL with all 49 migrations;
+  lint; RLS inventory; release policy for `v0.33.0`; 143 passing Vitest files
+  with 2 skipped; 997 passing tests with 2 skipped; coverage at 91.37%
+  statements / 81.33% branches / 92.2% functions / 91.88% lines; production
+  build; focused responsive browser coverage; and all 31 Chromium scenarios.
+
 # 2026-07-30 - TASK-351 user-facing task IDs
 
 - Started from merged TASK-350 on the dedicated

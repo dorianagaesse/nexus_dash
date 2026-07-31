@@ -60,9 +60,10 @@ Last reviewed: 2026-07-30
   Dependencies: TASK-058, TASK-098, TASK-106, TASK-130, TASK-337
 - ID: TASK-335
   Title: Expanded epic presentation - improve mobile and desktop readability
-  Status: Next 11 - epic scanning and content readability
+  Status: In progress (2026-07-31)
   Rationale: Expand epic content by default on mobile so users can read meaningful context without repeated disclosure interactions, then test a comparable expanded desktop treatment and retain the version that improves comprehension without making dense project views harder to scan.
   Dependencies: TASK-100, TASK-108, TASK-133, TASK-270
+  Brief: `tasks/task-335-expanded-epic-presentation.md`
 - ID: TASK-349
   Title: Bilateral related-task relationships - keep both task directions consistent
   Status: In review (2026-07-30, PR #399)

@@ -2,125 +2,111 @@
 
 ## Task
 
-- ID: TASK-351
-- Title: User-facing task IDs
-- Status: In review (2026-07-30)
-- Branch: `feature/task-351-user-facing-task-ids`
-- Pull request: [#402](https://github.com/dorianagaesse/nexus_dash/pull/402)
-- Brief: [`task-351-user-facing-task-ids.md`](./task-351-user-facing-task-ids.md)
+- ID: TASK-335
+- Title: Expanded epic presentation
+- Status: In progress (2026-07-31)
+- Branch: `feature/task-335-expanded-epic-presentation`
+- Brief:
+  [`task-335-expanded-epic-presentation.md`](./task-335-expanded-epic-presentation.md)
 
 ## Objective
 
-Give every task a concise, stable reference that users can read, search, and
-share without exposing the opaque database ID.
+Make epic cards readable as project context on mobile and desktop while
+preserving efficient scanning in dense project dashboards.
 
 ## Scope
 
-- Add an immutable database-generated numeric reference to every existing and
-  future task.
-- Format references consistently as `ND-<number>` at the application boundary.
-- Show the reference in the task-detail header in read and edit modes.
-- Show the reference beside every related-task search candidate.
-- Match related-task searches by formatted reference as well as title and
-  status.
-- Preserve internal task IDs for routing, mutations, relations, and
-  authorization.
-- Add focused migration, mapping, component, API, and browser coverage.
+- Replace the narrow two-column desktop epic-card treatment with a readable
+  full-width responsive article layout.
+- Keep the complete epic narrative and progress visible in natural reading
+  order.
+- Expose all linked tasks by default on mobile and use an explicit accessible
+  disclosure only for dense desktop linked-task sets.
+- Improve linked-task title/status readability without changing epic data or
+  CRUD behavior.
+- Add focused component and browser coverage.
 
 ## Runtime Assumptions
 
-- The PostgreSQL migration must backfill existing tasks and allocate future
-  references atomically through a database sequence.
-- References are globally unique, immutable, and never reused after task
-  deletion.
-- Existing local PostgreSQL and `.env` prerequisites are unchanged.
-- Browser validation uses the existing Playwright project/task fixture and may
-  run locally or against a branch preview.
+- Existing local PostgreSQL Docker and `.env` prerequisites are unchanged.
+- Browser fixtures can create epics and linked tasks through existing APIs.
 - Any preview validation must pass
-  `git_ref=feature/task-351-user-facing-task-ids` explicitly.
+  `git_ref=feature/task-335-expanded-epic-presentation` explicitly.
 
 ## Acceptance Criteria
 
-1. Every existing and newly created task has one globally unique numeric
-   reference rendered as `ND-<number>`.
-2. A task keeps the same reference after title, status, relation, archive, and
-   restore mutations and after a full reload.
-3. The task-detail modal exposes the reference in both read and edit modes
-   without displaying the internal database ID.
-4. Every related-task candidate exposes its reference beside its title.
-5. Searching the related-task picker by a complete or partial formatted
-   reference returns the authorized matching task in create and edit flows.
-6. Reference display and search remain keyboard accessible, readable at a
-   375 px viewport, and compatible with light and dark themes.
-7. Project authorization, active/archived candidate rules, bilateral
-   relations, and internal task routing remain unchanged.
-8. Focused migration/mapping, service/API, component, and Playwright coverage
-   passes.
-9. Release metadata, task tracking, root-cause notes, and validation evidence
-   are updated in the same pull request.
+1. Mobile epic cards expose complete context and linked work by default without
+   per-epic disclosure interactions.
+2. Desktop epic cards use a readable expanded layout while dense multi-epic
+   views remain scannable.
+3. Long descriptions and task titles wrap without clipping or horizontal page
+   overflow.
+4. Dense desktop linked-task disclosure is keyboard accessible, accurately
+   announced, and at least 44 px high.
+5. Epic articles and progress expose semantic names and values, with status
+   available as text.
+6. CRUD permissions, section collapse persistence, and mutation behavior remain
+   unchanged.
+7. Light/dark and 375 px responsive checks pass.
+8. Focused component and Playwright coverage passes.
 
 ## Definition Of Done
 
-- The migration safely backfills existing rows and uses a database sequence for
-  concurrency-safe future allocation.
-- Reference formatting is centralized and reused by server/client presentation
-  paths.
-- The modal and related-task picker meet the UI/UX accessibility and responsive
-  checks from the UI/UX Pro Max review.
-- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  `npm run build`, release validation, and relevant Playwright coverage pass.
-- The feature release advances to `v0.32.0` with matching changelog and lockfile
-  metadata.
-- The branch is committed and pushed, a ready-for-review PR is open, and
-  initial Copilot review/check feedback is handled without merging the PR.
+- The implementation satisfies the detailed task brief and UI/UX Pro Max
+  accessibility/responsive review.
+- Required validation, release metadata, and tracking documentation are
+  complete.
+- The branch is pushed and a ready-for-review PR is open with initial automated
+  feedback handled without merging it.
 
 ## Progress
 
-- Confirmed TASK-351 is the next backlog item after the merged TASK-350 work.
-- Created the dedicated worktree and feature branch from `origin/main`.
-- Chose a globally unique `ND-<number>` reference so users can cite a task
-  unambiguously while opaque CUIDs remain internal.
-- Completed the UI/UX Pro Max design-system, accessibility/search, and Next.js
-  implementation reviews for the modal and related-task picker surfaces.
-- Added `Task.referenceNumber` with sequence-backed backfill, uniqueness, and
-  conditional least-privilege `app_runtime` sequence access.
-- Centralized `ND-<number>` formatting, added the reference to task list and
-  mutation contracts, and documented it in the agent OpenAPI schema.
-- Added the reference to read/edit modal headers and related-task candidates;
-  create and edit pickers now match complete or partial references without
-  indexing internal CUIDs.
-- Visually reviewed the desktop edit/search state and verified narrow create
-  containment at 375 px.
+- Created the dedicated worktree from current `origin/main`.
+- Read the project execution contract, system context, TASK-270 assessment, and
+  existing epic implementation.
+- Ran the UI/UX Pro Max design-system, responsive disclosure/accessibility, and
+  Next.js guidance passes.
+- Chose a full-width responsive article treatment with mobile-first linked-task
+  expansion and bounded desktop disclosure.
+- Replaced narrow side-by-side desktop cards with full-width semantic epic
+  articles and a wide-screen narrative/progress/linked-work grid.
+- Replaced truncated task chips with wrapping title/status rows, made all rows
+  visible below the desktop breakpoint, and added an accessible bounded desktop
+  disclosure for epics with more than six linked tasks.
+- Added semantic article headings and progressbar values, 44 px section/action
+  targets, responsive action placement, theme-safe tokens, and reduced-motion
+  handling.
+- Visually reviewed 375 px light and 1440 px dark evidence, then refined mobile
+  header space and wide-screen linked-task density.
+- Prepared feature release `v0.33.0`.
 
 ## Outcome
 
-- Existing and new tasks receive stable, globally unique references while CUIDs
-  remain the internal route, mutation, authorization, and relation identity.
-- Reference allocation is concurrency-safe and deleted values are not reused.
-- Reference values survive task update, relation, and reload flows.
-- The task-detail and related-task surfaces preserve the established
-  information hierarchy, theme tokens, 44 px options, and keyboard behavior.
-- Prepared feature release `v0.32.0`.
+- Mobile users receive complete epic narrative, progress, and linked-task
+  context without a second disclosure.
+- Desktop epics use the full project-section width, keep multiple epics
+  vertically scannable, and bound dense linked work behind an explicit control.
+- Long descriptions, epic names, and task titles wrap without ellipsis or
+  horizontal page overflow.
+- Epic CRUD, viewer read-only behavior, status derivation, progress
+  calculations, project-section persistence, and live-refresh locking remain
+  unchanged.
 
 ## Validation
 
-- `npx prisma validate` and local `prisma migrate deploy` passed; all 49
-  migrations are applied.
-- `npm run lint`, `npm run rls:check`, `git diff --check`, and
-  `npm run release:check -- --base origin/main --branch feature/task-351-user-facing-task-ids`
-  passed.
-- `npm run test:rls:setup` and `npm run test:rls` passed with the
-  least-privilege `NOBYPASSRLS` runtime role.
-- `npm test`: 995 passed, 2 skipped.
+- Existing local Docker PostgreSQL on `127.0.0.1:5432` was healthy; all 49
+  migrations were already applied.
+- Focused component coverage passed 4 tests for section expansion, semantic
+  context, viewer action safety, mobile-visible task rows, and desktop
+  disclosure state.
+- Focused TASK-335 Chromium coverage passed at 375 px and 1440 px in light and
+  dark themes, including complete mobile rows, bounded desktop rows, 44 px edit
+  targets, full-width card stacking, and horizontal containment.
+- `npm run lint`, `npm run rls:check`, and `git diff --check` passed.
+- `npm test`: 143 files passed, 2 skipped; 997 tests passed, 2 skipped.
 - `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
-  functions, 91.88% lines.
-- `npm run build` passed with documented local-safe runtime placeholders.
-- Focused TASK-351 Playwright coverage passed, followed by the complete
-  30-scenario Chromium suite.
-- Implementation commit `a3704dd` is pushed and ready-for-review PR #402 is
-  open.
-- Addressed both initial Copilot review comments: related-task references now
-  participate directly in option accessible names, and legacy activity payloads
-  may omit `reference` explicitly in the client mutation type.
-- Post-review lint, 16 focused component/helper tests, production build, and
-  the three related-task Playwright regressions passed.
+  functions, and 91.88% lines.
+- Production `npm run build` passed through the complete E2E command.
+- `npm run test:e2e`: all 31 Chromium scenarios passed.
+- `npm run release:check -- --base origin/main --branch
+  feature/task-335-expanded-epic-presentation` passed for `v0.33.0`.
