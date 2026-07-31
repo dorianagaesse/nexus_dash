@@ -31,6 +31,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   with 2 skipped; 997 passing tests with 2 skipped; coverage at 91.37%
   statements / 81.33% branches / 92.2% functions / 91.88% lines; production
   build; focused responsive browser coverage; and all 31 Chromium scenarios.
+- Published implementation commit `5c10cc2` and opened ready-for-review
+  [PR #403](https://github.com/dorianagaesse/nexus_dash/pull/403) without
+  merging it.
 
 # 2026-07-30 - TASK-351 user-facing task IDs
 

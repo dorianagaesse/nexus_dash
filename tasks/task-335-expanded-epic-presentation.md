@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress (2026-07-31).
+In review (2026-07-31, PR #403).
 
 ## Objective
 

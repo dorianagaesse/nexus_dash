@@ -4,8 +4,10 @@
 
 - ID: TASK-335
 - Title: Expanded epic presentation
-- Status: In progress (2026-07-31)
+- Status: In review (2026-07-31)
 - Branch: `feature/task-335-expanded-epic-presentation`
+- Pull request:
+  [#403](https://github.com/dorianagaesse/nexus_dash/pull/403)
 - Brief:
   [`task-335-expanded-epic-presentation.md`](./task-335-expanded-epic-presentation.md)
 
@@ -110,3 +112,5 @@ preserving efficient scanning in dense project dashboards.
 - `npm run test:e2e`: all 31 Chromium scenarios passed.
 - `npm run release:check -- --base origin/main --branch
   feature/task-335-expanded-epic-presentation` passed for `v0.33.0`.
+- Implementation commit `5c10cc2` is pushed and ready-for-review PR #403 is
+  open.
