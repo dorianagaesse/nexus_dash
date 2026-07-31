@@ -2,125 +2,90 @@
 
 ## Task
 
-- ID: TASK-351
-- Title: User-facing task IDs
-- Status: In review (2026-07-30)
-- Branch: `feature/task-351-user-facing-task-ids`
-- Pull request: [#402](https://github.com/dorianagaesse/nexus_dash/pull/402)
-- Brief: [`task-351-user-facing-task-ids.md`](./task-351-user-facing-task-ids.md)
+- ID: TASK-352
+- Title: Related-task picker presentation
+- Status: In progress (2026-07-31)
+- Branch: `feature/task-352-related-task-picker-presentation`
+- Brief:
+  [`task-352-related-task-picker-presentation.md`](./task-352-related-task-picker-presentation.md)
 
 ## Objective
 
-Give every task a concise, stable reference that users can read, search, and
-share without exposing the opaque database ID.
+Make every related-task candidate easy to scan and distinguish by presenting
+its friendly task reference, bounded title, and Kanban-colored status in one
+responsive, accessible row.
 
 ## Scope
 
-- Add an immutable database-generated numeric reference to every existing and
-  future task.
-- Format references consistently as `ND-<number>` at the application boundary.
-- Show the reference in the task-detail header in read and edit modes.
-- Show the reference beside every related-task search candidate.
-- Match related-task searches by formatted reference as well as title and
-  status.
-- Preserve internal task IDs for routing, mutations, relations, and
-  authorization.
-- Add focused migration, mapping, component, API, and browser coverage.
+- Present each candidate as a stable reference column, a flexible truncated
+  title, and a compact status badge.
+- Reuse the established Backlog, In Progress, Blocked, and Done Kanban badge
+  colors in both light and dark themes.
+- Centralize the shared status presentation classes so the picker cannot drift
+  from the Kanban columns.
+- Keep status text visible and include reference, full title, and status in the
+  option's accessible name so meaning never depends on color.
+- Preserve the complete candidate set, reference/title/status filtering,
+  viewport-aware scrolling, keyboard navigation, and selection behavior from
+  TASK-350 and TASK-351.
+- Add focused component and browser coverage for presentation, accessibility,
+  long-title containment, mobile sizing, and both themes.
 
 ## Runtime Assumptions
 
-- The PostgreSQL migration must backfill existing tasks and allocate future
-  references atomically through a database sequence.
-- References are globally unique, immutable, and never reused after task
-  deletion.
+- TASK-350 and TASK-351 are present on `origin/main`; candidate eligibility and
+  stable `ND-<number>` references need no data or API changes.
+- Task statuses remain limited to the four values in `lib/task-status.ts`.
 - Existing local PostgreSQL and `.env` prerequisites are unchanged.
-- Browser validation uses the existing Playwright project/task fixture and may
-  run locally or against a branch preview.
-- Any preview validation must pass
-  `git_ref=feature/task-351-user-facing-task-ids` explicitly.
+- Browser validation uses the existing Playwright project/task fixture.
+- If a branch preview is required during review, it must pass
+  `git_ref=feature/task-352-related-task-picker-presentation` explicitly.
 
 ## Acceptance Criteria
 
-1. Every existing and newly created task has one globally unique numeric
-   reference rendered as `ND-<number>`.
-2. A task keeps the same reference after title, status, relation, archive, and
-   restore mutations and after a full reload.
-3. The task-detail modal exposes the reference in both read and edit modes
-   without displaying the internal database ID.
-4. Every related-task candidate exposes its reference beside its title.
-5. Searching the related-task picker by a complete or partial formatted
-   reference returns the authorized matching task in create and edit flows.
-6. Reference display and search remain keyboard accessible, readable at a
-   375 px viewport, and compatible with light and dark themes.
-7. Project authorization, active/archived candidate rules, bilateral
-   relations, and internal task routing remain unchanged.
-8. Focused migration/mapping, service/API, component, and Playwright coverage
-   passes.
-9. Release metadata, task tracking, root-cause notes, and validation evidence
-   are updated in the same pull request.
+1. Every related-task suggestion shows the friendly `ND-<number>` reference,
+   task title, and human-readable status in a consistent scan order.
+2. Backlog, In Progress, Blocked, and Done use the same semantic badge colors
+   as their Kanban columns in light and dark themes.
+3. Status remains understandable without color: visible status text is
+   present, and the option accessible name includes reference, full title, and
+   status.
+4. Long titles truncate with an ellipsis in the row, expose the full title to
+   pointer and assistive-technology users, and do not create horizontal
+   overflow at a 375 px viewport.
+5. Candidate rows remain at least 44 px high with existing hover, active,
+   focus, keyboard navigation, list scrolling, and selection behavior intact.
+6. Candidate eligibility, sorting, filtering by reference/title/status,
+   bilateral relationship behavior, and internal task identity remain
+   unchanged.
+7. Focused component and Playwright coverage proves all four status
+   presentations, accessible names, truncation, narrow containment, and theme
+   compatibility.
+8. Release metadata, task tracking, and validation evidence are updated in the
+   same pull request.
 
 ## Definition Of Done
 
-- The migration safely backfills existing rows and uses a database sequence for
-  concurrency-safe future allocation.
-- Reference formatting is centralized and reused by server/client presentation
-  paths.
-- The modal and related-task picker meet the UI/UX accessibility and responsive
-  checks from the UI/UX Pro Max review.
+- The picker and Kanban columns consume one shared status badge palette.
+- The row layout follows the UI/UX Pro Max accessibility, 44 px target,
+  truncation, responsive, and dark-mode guidance.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
   `npm run build`, release validation, and relevant Playwright coverage pass.
-- The feature release advances to `v0.32.0` with matching changelog and lockfile
-  metadata.
-- The branch is committed and pushed, a ready-for-review PR is open, and
-  initial Copilot review/check feedback is handled without merging the PR.
+- The feature release advances to `v0.33.0` with matching changelog and
+  lockfile metadata.
+- The branch is committed and pushed, a ready-for-review PR is open, and the
+  initial Copilot review/check outcome is handled without merging the PR.
 
 ## Progress
 
-- Confirmed TASK-351 is the next backlog item after the merged TASK-350 work.
-- Created the dedicated worktree and feature branch from `origin/main`.
-- Chose a globally unique `ND-<number>` reference so users can cite a task
-  unambiguously while opaque CUIDs remain internal.
-- Completed the UI/UX Pro Max design-system, accessibility/search, and Next.js
-  implementation reviews for the modal and related-task picker surfaces.
-- Added `Task.referenceNumber` with sequence-backed backfill, uniqueness, and
-  conditional least-privilege `app_runtime` sequence access.
-- Centralized `ND-<number>` formatting, added the reference to task list and
-  mutation contracts, and documented it in the agent OpenAPI schema.
-- Added the reference to read/edit modal headers and related-task candidates;
-  create and edit pickers now match complete or partial references without
-  indexing internal CUIDs.
-- Visually reviewed the desktop edit/search state and verified narrow create
-  containment at 375 px.
-
-## Outcome
-
-- Existing and new tasks receive stable, globally unique references while CUIDs
-  remain the internal route, mutation, authorization, and relation identity.
-- Reference allocation is concurrency-safe and deleted values are not reused.
-- Reference values survive task update, relation, and reload flows.
-- The task-detail and related-task surfaces preserve the established
-  information hierarchy, theme tokens, 44 px options, and keyboard behavior.
-- Prepared feature release `v0.32.0`.
+- Confirmed TASK-352 is the next presentation refinement after merged
+  TASK-350 and TASK-351.
+- Created the dedicated worktree and feature branch from merged `origin/main`.
+- Completed the UI/UX Pro Max design-system, accessibility, truncation,
+  responsive-layout, dark-theme, and Next.js guidance review.
+- Located the established status badge palette in the Kanban column component
+  and defined the shared-presentation boundary for implementation.
 
 ## Validation
 
-- `npx prisma validate` and local `prisma migrate deploy` passed; all 49
-  migrations are applied.
-- `npm run lint`, `npm run rls:check`, `git diff --check`, and
-  `npm run release:check -- --base origin/main --branch feature/task-351-user-facing-task-ids`
-  passed.
-- `npm run test:rls:setup` and `npm run test:rls` passed with the
-  least-privilege `NOBYPASSRLS` runtime role.
-- `npm test`: 995 passed, 2 skipped.
-- `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
-  functions, 91.88% lines.
-- `npm run build` passed with documented local-safe runtime placeholders.
-- Focused TASK-351 Playwright coverage passed, followed by the complete
-  30-scenario Chromium suite.
-- Implementation commit `a3704dd` is pushed and ready-for-review PR #402 is
-  open.
-- Addressed both initial Copilot review comments: related-task references now
-  participate directly in option accessible names, and legacy activity payloads
-  may omit `reference` explicitly in the client mutation type.
-- Post-review lint, 16 focused component/helper tests, production build, and
-  the three related-task Playwright regressions passed.
+- Pending implementation.
