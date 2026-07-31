@@ -38,6 +38,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   configuration. Final test/build runs used the documented local PostgreSQL URL
   and paired local-only `NEXTAUTH_URL`/`NEXTAUTH_SECRET` placeholders; no
   repository environment file or secret was created.
+- Published planning commit `0bffdc8` and implementation commit `8c66ec7`, then
+  opened ready-for-review
+  [PR #404](https://github.com/dorianagaesse/nexus_dash/pull/404).
 
 # 2026-07-30 - TASK-351 user-facing task IDs
 

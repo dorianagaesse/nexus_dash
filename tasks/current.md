@@ -4,8 +4,9 @@
 
 - ID: TASK-352
 - Title: Related-task picker presentation
-- Status: In progress (2026-07-31)
+- Status: In review (2026-07-31)
 - Branch: `feature/task-352-related-task-picker-presentation`
+- Pull request: [#404](https://github.com/dorianagaesse/nexus_dash/pull/404)
 - Brief:
   [`task-352-related-task-picker-presentation.md`](./task-352-related-task-picker-presentation.md)
 
@@ -119,3 +120,5 @@ responsive, accessible row.
 - The complete 31-scenario Chromium suite passed with the documented local
   database and paired trusted-origin placeholders.
 - Generated 375 px light and dark screenshots were visually inspected.
+- Planning commit `0bffdc8` and implementation commit `8c66ec7` are pushed;
+  ready-for-review PR #404 is open.
