@@ -82,7 +82,7 @@ Last reviewed: 2026-07-30
   Dependencies: TASK-076, TASK-133
 - ID: TASK-352
   Title: Related-task picker presentation - readable IDs, titles, and status colors
-  Status: In progress (2026-07-31)
+  Status: In review (2026-07-31, PR #404)
   Rationale: Redesign the current `Related to` candidate list so each row clearly presents the user-facing task ID, a bounded/truncated title, and status using the established Kanban column color, with accessible text that does not rely on color alone.
   Dependencies: TASK-133, TASK-350, TASK-351
 - ID: TASK-353
