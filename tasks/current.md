@@ -85,7 +85,37 @@ responsive, accessible row.
   responsive-layout, dark-theme, and Next.js guidance review.
 - Located the established status badge palette in the Kanban column component
   and defined the shared-presentation boundary for implementation.
+- Extracted the exact status badge palette into a shared presentation map used
+  by both Kanban headers and related-task candidates.
+- Redesigned candidate rows as a reference/title/status grid with visible
+  status text, full accessible names, hover-accessible full titles, and
+  ellipsis containment.
+- Added component and browser coverage for all four statuses, keyboard
+  selection, long titles, 44 px targets, 375 px containment, and light/dark
+  themes.
+- Visually reviewed the generated 375 px light and dark picker states.
+- Prepared feature release `v0.33.0`.
+
+## Outcome
+
+- Related-task candidates now scan consistently as friendly reference, bounded
+  title, and workflow status without changing which tasks users can relate.
+- Status colors match the Kanban columns through one shared source and remain
+  understandable through visible and announced text.
+- Long titles retain their full value while the visible row stays contained on
+  narrow screens.
 
 ## Validation
 
-- Pending implementation.
+- `npm run lint`, `npm run rls:check`, `git diff --check`, and
+  `npm run release:check -- --base origin/main --branch feature/task-352-related-task-picker-presentation`
+  passed.
+- `npm test`: 996 passed, 2 skipped.
+- `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
+  functions, 91.88% lines.
+- `npm run build` passed with documented local-safe environment placeholders.
+- Focused TASK-352 component/browser coverage and the bilateral, TASK-350, and
+  TASK-351 related-task regressions passed.
+- The complete 31-scenario Chromium suite passed with the documented local
+  database and paired trusted-origin placeholders.
+- Generated 375 px light and dark screenshots were visually inspected.

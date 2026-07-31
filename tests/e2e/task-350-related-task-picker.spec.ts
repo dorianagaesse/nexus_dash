@@ -139,7 +139,7 @@ test("related-task pickers expose and navigate every eligible mixed-status task"
   for (const status of TASK_STATUSES) {
     await expect(
       detailListbox.getByRole("option", {
-        name: new RegExp(`${candidateTitle(status, 4)}$`),
+        name: new RegExp(`${candidateTitle(status, 4)}, ${status}$`),
       })
     ).toBeAttached();
   }
@@ -217,7 +217,9 @@ test("related-task pickers expose and navigate every eligible mixed-status task"
   await detailSearch.fill(blockedTaskTitle);
   await expect(detailListbox.getByRole("option")).toHaveCount(1);
   await detailListbox
-    .getByRole("option", { name: new RegExp(`${blockedTaskTitle}$`) })
+    .getByRole("option", {
+      name: new RegExp(`${blockedTaskTitle}, Blocked$`),
+    })
     .click();
   const saveRequest = page.waitForResponse(
     (response) =>
@@ -261,7 +263,7 @@ test("related-task pickers expose and navigate every eligible mixed-status task"
   await createSearch.fill(blockedTaskTitle);
   await expect(createListbox.getByRole("option")).toHaveCount(1);
   const createBlockedOption = createListbox.getByRole("option", {
-    name: new RegExp(`${blockedTaskTitle}$`),
+    name: new RegExp(`${blockedTaskTitle}, Blocked$`),
   });
   const createBlockedOptionBounds = await createBlockedOption.boundingBox();
   expect(createBlockedOptionBounds).not.toBeNull();

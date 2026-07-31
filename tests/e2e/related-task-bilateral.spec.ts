@@ -46,7 +46,9 @@ test.describe("bilateral related tasks", () => {
     await page.getByRole("button", { name: /^Edit$/ }).click();
     await page.getByPlaceholder("Search active tasks").fill(taskBTitle);
     await page
-      .getByRole("option", { name: new RegExp(`${taskBTitle}$`) })
+      .getByRole("option", {
+        name: new RegExp(`${taskBTitle}, Backlog$`),
+      })
       .click();
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByText("Task saved.")).toBeVisible();
