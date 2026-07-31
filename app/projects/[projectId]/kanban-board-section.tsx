@@ -20,6 +20,7 @@ import { mapTaskPersonSummary } from "@/lib/task-person";
 import { mergeRelatedTaskSummaries } from "@/lib/task-related";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import { formatTaskDeadlineDate } from "@/lib/task-deadline";
+import { formatTaskReference } from "@/lib/task-reference";
 import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import { isTaskStatus } from "@/lib/task-status";
 
@@ -66,6 +67,7 @@ export async function KanbanBoardSection({
 
     const normalizedTask: KanbanTask = {
       id: task.id,
+      reference: formatTaskReference(task.referenceNumber) ?? null,
       title: task.title,
       description: task.description,
       deadlineDate: formatTaskDeadlineDate(task.deadlineAt),

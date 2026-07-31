@@ -3,6 +3,48 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-07-30 - TASK-351 user-facing task IDs
+
+- Started from merged TASK-350 on the dedicated
+  `feature/task-351-user-facing-task-ids` worktree and replaced the stale
+  current-task brief with explicit acceptance criteria and definition of done.
+- Applied UI/UX Pro Max guidance for a data-dense Next.js/Shadcn dashboard:
+  preserve title hierarchy, use compact monospaced/tabular reference metadata,
+  retain 44 px listbox options and keyboard semantics, and verify 375 px
+  containment.
+- Added immutable globally unique `Task.referenceNumber` values, rendered
+  through the shared formatter as `ND-<number>`. PostgreSQL sequence allocation
+  backfills existing rows, prevents concurrent-create collisions, never reuses
+  deleted values, and grants sequence access to `app_runtime` when that role is
+  present.
+- Kept CUIDs as the private routing/relation/authorization identity. Added the
+  friendly reference to server-rendered task data, list/mutation/activity
+  payloads, and the agent OpenAPI schema without accepting it as a mutation
+  input.
+- Added references to read/edit task-detail headers and related-task options;
+  create/edit search now matches complete or partial friendly references while
+  internal CUIDs remain absent from the search index.
+- Added formatter, route, component, modal, and Playwright regressions. The
+  browser flow proves create allocation, detail visibility, create/edit
+  reference search, update stability, reload stability, and narrow viewport
+  containment; visual inspection confirmed the reference remains subordinate
+  to task titles in light mode.
+- Complete validation passed: Prisma schema and all 49 migrations, lint, RLS
+  inventory, release policy, real PostgreSQL tenant isolation, 143 passing
+  Vitest files with 2 skipped, 995 passing tests with 2 skipped, coverage at
+  91.37% statements / 81.33% branches / 92.2% functions / 91.88% lines,
+  production build, focused browser coverage, and all 30 Chromium scenarios.
+- Prepared feature release `v0.32.0`.
+- Published implementation commit `a3704dd` and opened ready-for-review
+  [PR #402](https://github.com/dorianagaesse/nexus_dash/pull/402).
+- Copilot completed its initial review with two actionable comments. Updated
+  option accessible names to include the friendly reference and made
+  `TaskMutationResponseTask.reference` optional for persisted pre-TASK-351
+  activity events while keeping fresh API/OpenAPI responses required.
+- Post-review validation passed: lint, 16 focused component/helper tests,
+  production build, and the bilateral, TASK-350, and TASK-351 Playwright
+  regressions.
+
 # 2026-07-30 - TASK-350 related-task picker completeness
 
 - Mapped GitHub issue #396 to TASK-350 and isolated the work on

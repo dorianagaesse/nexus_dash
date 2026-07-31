@@ -117,6 +117,7 @@ function getTaskMutationErrorMessage(errorCode?: string): string {
 function mapTaskMutationResponseTask(task: TaskMutationResponseTask): KanbanTask {
   return {
     id: task.id,
+    reference: task.reference ?? null,
     title: task.title,
     labels: getTaskLabelsFromStorage(task.labelsJson, task.label),
     description: task.description,
@@ -577,6 +578,7 @@ export function KanbanBoard({
       .filter((task) => task.id !== selectedTask.id)
       .map((task) => ({
         id: task.id,
+        reference: task.reference ?? "",
         title: task.title,
         status: task.status,
       }))
@@ -588,6 +590,7 @@ export function KanbanBoard({
       TASK_STATUSES.flatMap((status) => columns[status])
         .map((task) => ({
           id: task.id,
+          reference: task.reference ?? "",
           title: task.title,
           status: task.status,
         }))
@@ -1286,6 +1289,7 @@ export function KanbanBoard({
 
       insertCreatedTask({
         id: optimisticTaskId,
+        reference: null,
         title: draft.title,
         labels: draft.labels,
         description: draft.description,

@@ -8,6 +8,17 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.32.0 - 2026-07-30
+
+- Added immutable, globally unique task references rendered as `ND-<number>`,
+  with sequence-backed allocation for concurrent creates and migration
+  backfill for existing tasks.
+- Exposed task references in read/edit task-detail headers and beside every
+  related-task suggestion without revealing internal database IDs.
+- Added create/edit related-task search by friendly reference plus focused
+  formatter, API, component, migration, responsive browser, and stability
+  coverage.
+
 ## v0.31.2 - 2026-07-30
 
 - Removed the eight-result cap from create-task and task-detail related-task

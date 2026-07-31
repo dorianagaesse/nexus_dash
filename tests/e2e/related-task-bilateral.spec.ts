@@ -45,7 +45,9 @@ test.describe("bilateral related tasks", () => {
     await taskDialog.getByRole("button", { name: "Task options" }).click();
     await page.getByRole("button", { name: /^Edit$/ }).click();
     await page.getByPlaceholder("Search active tasks").fill(taskBTitle);
-    await page.getByRole("option", { name: taskBTitle, exact: true }).click();
+    await page
+      .getByRole("option", { name: new RegExp(`${taskBTitle}$`) })
+      .click();
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByText("Task saved.")).toBeVisible();
     await taskDialog.getByRole("button", { name: "Close task" }).click();

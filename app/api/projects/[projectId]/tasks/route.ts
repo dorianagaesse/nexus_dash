@@ -15,6 +15,7 @@ import { requireAgentProjectScopes } from "@/lib/services/project-access-service
 import { mapTaskEpicSummary } from "@/lib/epic";
 import { mapTaskPersonSummary } from "@/lib/task-person";
 import { formatTaskDeadlineDate } from "@/lib/task-deadline";
+import { formatTaskReference } from "@/lib/task-reference";
 import { mergeRelatedTaskSummaries } from "@/lib/task-related";
 
 const ATTACHMENT_FILES_FIELD = "attachmentFiles";
@@ -92,6 +93,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
     {
       tasks: tasks.map((task) => ({
         id: task.id,
+        reference: formatTaskReference(task.referenceNumber),
         title: task.title,
         description: task.description,
         blockedNote: task.blockedNote,

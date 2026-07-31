@@ -20,6 +20,7 @@ const STATUSES = ["Backlog", "In Progress", "Blocked", "Done"] as const;
 const AVAILABLE_TASKS: RelatedTaskOption[] = STATUSES.flatMap((status) =>
   Array.from({ length: 3 }, (_, index) => ({
     id: `${status.toLowerCase().replaceAll(" ", "-")}-${index + 1}`,
+    reference: `ND-${STATUSES.indexOf(status) * 3 + index + 1}`,
     title: `${status} candidate ${index + 1}`,
     status,
   }))
@@ -149,6 +150,17 @@ describe("RelatedTaskSelector", () => {
 
     expect(getOptions()).toHaveLength(1);
     expect(getOptions()[0]?.textContent).toContain("Blocked candidate 3");
+
+    await act(async () => {
+      setInputValue(input, "ND-10");
+    });
+
+    expect(getOptions()).toHaveLength(1);
+    expect(getOptions()[0]?.textContent).toContain("ND-10");
+    expect(getOptions()[0]?.textContent).toContain("Done candidate 1");
+    expect(getOptions()[0]?.getAttribute("aria-label")).toBe(
+      "ND-10, Done candidate 1"
+    );
   });
 
   test("keeps keyboard navigation on the input while reaching and selecting the last task", async () => {
@@ -186,7 +198,7 @@ describe("RelatedTaskSelector", () => {
       );
     });
 
-    expect(container.textContent).toContain(lastOption?.textContent);
+    expect(container.textContent).toContain(lastOption?.dataset.taskTitle);
     expect(getOptions()).toHaveLength(11);
   });
 

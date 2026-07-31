@@ -139,8 +139,7 @@ test("related-task pickers expose and navigate every eligible mixed-status task"
   for (const status of TASK_STATUSES) {
     await expect(
       detailListbox.getByRole("option", {
-        name: candidateTitle(status, 4),
-        exact: true,
+        name: new RegExp(`${candidateTitle(status, 4)}$`),
       })
     ).toBeAttached();
   }
@@ -205,7 +204,7 @@ test("related-task pickers expose and navigate every eligible mixed-status task"
   const activeOption = detailListbox.locator("[data-active='true']");
   await expect(activeOption).toHaveCount(1);
   await expect(activeOption).toBeInViewport();
-  const finalTaskTitle = await activeOption.textContent();
+  const finalTaskTitle = await activeOption.getAttribute("data-task-title");
   expect(finalTaskTitle).toBeTruthy();
   await detailSearch.press("Enter");
   await expect(
@@ -218,7 +217,7 @@ test("related-task pickers expose and navigate every eligible mixed-status task"
   await detailSearch.fill(blockedTaskTitle);
   await expect(detailListbox.getByRole("option")).toHaveCount(1);
   await detailListbox
-    .getByRole("option", { name: blockedTaskTitle, exact: true })
+    .getByRole("option", { name: new RegExp(`${blockedTaskTitle}$`) })
     .click();
   const saveRequest = page.waitForResponse(
     (response) =>
@@ -262,8 +261,7 @@ test("related-task pickers expose and navigate every eligible mixed-status task"
   await createSearch.fill(blockedTaskTitle);
   await expect(createListbox.getByRole("option")).toHaveCount(1);
   const createBlockedOption = createListbox.getByRole("option", {
-    name: blockedTaskTitle,
-    exact: true,
+    name: new RegExp(`${blockedTaskTitle}$`),
   });
   const createBlockedOptionBounds = await createBlockedOption.boundingBox();
   expect(createBlockedOptionBounds).not.toBeNull();

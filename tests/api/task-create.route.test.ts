@@ -74,6 +74,7 @@ describe("GET /api/projects/:projectId/tasks", () => {
     projectServiceMock.listProjectKanbanTasks.mockResolvedValueOnce([
       {
         id: "task-a",
+        referenceNumber: 42,
         title: "Task A",
         description: null,
         blockedNote: null,
@@ -103,10 +104,11 @@ describe("GET /api/projects/:projectId/tasks", () => {
       taskRouteParams("p1")
     );
     const payload = (await response.json()) as {
-      tasks: Array<{ relatedTasks: unknown[] }>;
+      tasks: Array<{ reference: string; relatedTasks: unknown[] }>;
     };
 
     expect(response.status).toBe(200);
+    expect(payload.tasks[0]?.reference).toBe("ND-42");
     expect(payload.tasks[0]?.relatedTasks).toEqual([
       {
         id: "task-b",

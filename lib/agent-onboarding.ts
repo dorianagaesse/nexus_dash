@@ -1401,6 +1401,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           type: "object",
           required: [
             "id",
+            "reference",
             "title",
             "description",
             "blockedNote",
@@ -1424,6 +1425,10 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           ],
           properties: {
             id: { type: "string" },
+            reference: {
+              type: "string",
+              pattern: "^ND-[1-9][0-9]*$",
+            },
             title: { type: "string" },
             description: { type: ["string", "null"] },
             blockedNote: { type: ["string", "null"] },
@@ -1558,6 +1563,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               type: "object",
               required: [
                 "id",
+                "reference",
                 "title",
                 "label",
                 "labelsJson",
@@ -1579,6 +1585,10 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               ],
               properties: {
                 id: { type: "string" },
+                reference: {
+                  type: "string",
+                  pattern: "^ND-[1-9][0-9]*$",
+                },
                 title: { type: "string" },
                 label: { type: ["string", "null"] },
                 labelsJson: { type: ["string", "null"] },

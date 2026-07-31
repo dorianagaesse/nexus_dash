@@ -74,6 +74,7 @@ export interface TaskAttachment {
 
 export interface KanbanTask {
   id: string;
+  reference: string | null;
   title: string;
   description: string | null;
   deadlineDate: string | null;
@@ -95,6 +96,8 @@ export interface KanbanTask {
 
 export interface TaskMutationResponseTask {
   id: string;
+  // Persisted activity events created before TASK-351 do not include a reference.
+  reference?: string;
   title: string;
   label: string | null;
   labelsJson: string | null;
