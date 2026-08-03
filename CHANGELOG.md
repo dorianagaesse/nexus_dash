@@ -8,6 +8,17 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.34.0 - 2026-08-03
+
+- Replaced the expanded/collapsible desktop meeting-todo popup with a compact
+  bottom-right `Todos` trigger that preserves project open and overdue counts.
+- Moved the aggregate into the shared accessible dialog foundation with focus
+  containment and restoration, bounded pointer dragging, equivalent arrow-key
+  movement, resize re-containment, and reduced-motion-safe presentation.
+- Preserved completion/reopen, overdue, viewer, and source-meeting behavior,
+  retained the route-backed mobile Todos experience, and added focused
+  component and browser coverage for movement and containment.
+
 ## v0.33.0 - 2026-07-31
 
 - Redesigned related-task suggestions into scannable reference, bounded title,

@@ -3,6 +3,51 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-03 - TASK-353 movable meeting-todos modal
+
+- Started from merged `origin/main` in the dedicated
+  `feature/task-353-movable-meeting-todos-modal` worktree, then committed and
+  pushed the acceptance criteria and detailed interaction brief before
+  implementation.
+- Applied UI/UX Pro Max guidance for a dense productivity dashboard: use one
+  compact labeled Lucide entry, preserve semantic theme tokens and visible
+  focus, provide 44 px controls and a keyboard alternative to dragging, keep
+  motion transform-only/reduced-motion-safe, and verify both themes plus
+  responsive containment.
+- Replaced the expanded/collapsible desktop meeting-todo table with a
+  bottom-right `Todos` trigger whose accessible name exposes open and overdue
+  counts. TASK-332's route-backed mobile destination remains unchanged.
+- Built the aggregate on the shared Radix dialog foundation for named modal
+  semantics, focus containment, Escape/outside dismissal, and trigger focus
+  restoration. Source navigation closes this modal before opening the meeting
+  dialog so focus traps never stack.
+- Added a visible drag handle with pointer capture, arrow and Shift+Arrow
+  movement, screen-reader instructions/status, project/viewport clamping,
+  resize re-containment, and automatic close below the desktop breakpoint.
+- Preserved open/overdue/recently-completed presentation, completion/reopen
+  mutations, pending state, viewer treatment, and source-meeting context while
+  increasing row actions to 44 px targets.
+- Added five focused component tests and extended meeting-todo plus dashboard
+  browser coverage for trigger/modal semantics, focus restoration, light/dark
+  rendering, pointer and keyboard movement, resize containment, mobile absence,
+  mutations, viewer access, and source navigation.
+- Visually inspected 1280 px light and dark screenshots under
+  `.tmp/task353-movable-todos-modal/`; hierarchy, contrast, the move affordance,
+  todo status, and underlying project context remained clear.
+- Prepared feature release `v0.34.0` with matching package, lockfile, and
+  changelog metadata.
+- Complete validation passed: lint, RLS inventory, production compilation and
+  TypeScript checking, 143 passing Vitest files with 2 skipped, 1000 passing
+  tests with 2 skipped, coverage at 91.37% statements / 81.33% branches /
+  92.2% functions / 91.88% lines, affected browser regressions, and all 31
+  Playwright Chromium scenarios.
+- A first bare build correctly failed because a fresh worktree has no secret or
+  database environment; the documented local-safe PostgreSQL and placeholder
+  values produced the green build. The first complete browser run reached
+  30/31 because production-mode password recovery attempted delivery through
+  the placeholder Resend key; rerunning with local outbound delivery explicitly
+  disabled passed 31/31 without changing application code.
+
 # 2026-07-31 - TASK-352 related-task picker presentation
 
 - Started from merged TASK-351 on the dedicated

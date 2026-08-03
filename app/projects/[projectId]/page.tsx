@@ -137,7 +137,10 @@ export default async function ProjectDashboardPage({
   const canEditProjectContent = actorRole === "owner" || actorRole === "editor";
 
   return (
-    <main className="container space-y-6 py-6 sm:space-y-8 sm:py-10">
+    <main
+      data-project-page
+      className="container space-y-6 py-6 sm:space-y-8 sm:py-10"
+    >
       <ProjectLiveRefresh
         projectId={project.id}
         initialVersion={project.updatedAt.toISOString()}

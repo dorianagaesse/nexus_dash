@@ -2,7 +2,8 @@
 
 ## Status
 
-In progress on `feature/task-353-movable-meeting-todos-modal`.
+Implementation complete on `feature/task-353-movable-meeting-todos-modal`;
+ready-for-review PR pending.
 
 ## Source
 
@@ -76,3 +77,26 @@ keyboard.
 - Tracking docs and release metadata are current.
 - A ready-for-review PR is open and its initial automated review outcome is
   handled.
+
+## Outcome
+
+- Replaced the expanded/collapse quick panel with a compact, count-aware
+  desktop `Todos` trigger.
+- Added a shared-foundation modal with pointer capture, arrow-key movement,
+  project/viewport clamping, resize re-containment, visible instructions, and
+  focus restoration.
+- Preserved existing aggregate ordering, todo mutations, overdue status,
+  viewer behavior, source navigation, and the project-scoped mobile route.
+- Closing the Todos modal before source navigation prevents overlapping focus
+  traps.
+
+## Validation
+
+- Focused component suite: 5 passed.
+- Full unit/API suite: 1000 passed, 2 skipped.
+- Coverage: 91.37% statements, 81.33% branches, 92.2% functions, 91.88% lines.
+- Lint, RLS inventory, production build, and diff checks passed.
+- All 31 Playwright Chromium scenarios passed, including pointer/keyboard
+  movement, resize containment, focus restoration, mobile absence, themes,
+  mutations, and source-meeting navigation.
+- Desktop light and dark screenshots were visually inspected.

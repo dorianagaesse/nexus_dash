@@ -4,7 +4,7 @@
 
 - ID: TASK-353
 - Title: Movable meeting-todos modal
-- Status: In progress (2026-08-03)
+- Status: Implementation complete (2026-08-03; PR pending)
 - Branch: `feature/task-353-movable-meeting-todos-modal`
 - Pull request: Pending
 - Brief:
@@ -107,11 +107,44 @@ accessible modal users can reposition without losing containment or context.
   responsive, reduced-motion, and Next.js implementation reviews.
 - Defined pointer and keyboard movement with project-content containment while
   retaining the mobile route-backed Todos experience.
+- Replaced the desktop expanded/collapse panel with a count-aware fixed
+  `Todos` trigger and a shared-foundation modal.
+- Added a visible pointer drag handle, arrow and Shift+Arrow movement,
+  project/viewport clamping, resize re-containment, and breakpoint-safe close
+  behavior.
+- Increased todo row actions to 44 px targets and preserved completion,
+  reopen, overdue, recently completed, viewer, and source-meeting behavior.
+- Ensured source-meeting navigation closes the Todos focus trap before opening
+  the meeting dialog.
+- Added focused component coverage plus full-flow browser coverage for mobile
+  absence, desktop entry, focus, light/dark themes, pointer and keyboard
+  movement, resize containment, mutations, and source navigation.
+- Visually reviewed the generated desktop light and dark modal screenshots.
+- Prepared feature release `v0.34.0`.
 
 ## Outcome
 
-- Implementation in progress.
+- Desktop meeting todos now stay out of the way until requested from one
+  compact bottom-right entry.
+- The aggregate opens with modal semantics and remains movable and reachable
+  by pointer and keyboard users inside the visible project content.
+- Existing project-scoped mutations, permissions, overdue rules, source
+  navigation, and the route-backed mobile Todos experience are unchanged.
 
 ## Validation
 
-- Pending implementation.
+- `npm run lint`, `npm run rls:check`, and `git diff --check` passed.
+- `npm test`: 143 files passed, 2 skipped; 1000 tests passed, 2 skipped.
+- `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
+  functions, 91.88% lines.
+- `npm run build` passed with the documented local-safe database and
+  placeholder-secret environment.
+- Focused component coverage passed 5 tests; the affected meeting-todo and
+  dashboard smoke browser flows passed 7 scenarios.
+- The complete Playwright Chromium suite passed all 31 scenarios with outbound
+  email delivery disabled for local-safe password-recovery testing.
+- Desktop 1280 px light/dark screenshots were generated and visually inspected;
+  the modal hierarchy, theme contrast, drag affordance, target sizing, and
+  background context remained clear.
+- Release policy validation and PR workflow are pending the implementation
+  commit.
