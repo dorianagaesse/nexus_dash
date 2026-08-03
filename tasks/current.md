@@ -4,9 +4,9 @@
 
 - ID: TASK-354
 - Title: Sidebar todo count
-- Status: Ready for review (2026-08-03)
+- Status: In review (2026-08-03)
 - Branch: `feature/task-354-sidebar-todo-count`
-- Pull request: Pending
+- Pull request: [#410](https://github.com/dorianagaesse/nexus_dash/pull/410)
 - Brief: [`task-354-sidebar-todo-count.md`](./task-354-sidebar-todo-count.md)
 
 ## Objective
@@ -125,3 +125,5 @@ the active todo count to the `Todos` item and emphasizing overdue work.
   disabled locally. The preceding run's sole password-recovery failure was
   traced to the placeholder Resend key being treated as live and cleared under
   the documented disabled delivery mode.
+- Implementation commit `10276ce` is pushed and ready-for-review PR #410 is
+  open.

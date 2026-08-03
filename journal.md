@@ -3311,3 +3311,6 @@ Low-value entries to avoid going forward:
 - Visually reviewed the orange badge in 393 px light/dark mobile navigation and
   the 1280 px desktop sidebar under `.tmp/task354/`, then removed the isolated
   TASK-354 PostgreSQL container and volume created for browser validation.
+- Committed the reviewable implementation as `10276ce`, pushed the feature
+  branch, and opened ready-for-review
+  [PR #410](https://github.com/dorianagaesse/nexus_dash/pull/410).

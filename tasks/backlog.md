@@ -92,7 +92,7 @@ Last reviewed: 2026-08-03
   Dependencies: TASK-098, TASK-316, TASK-321, TASK-322, TASK-330, TASK-332
 - ID: TASK-354
   Title: Sidebar todo count - active and overdue project awareness
-  Status: Ready for review (2026-08-03)
+  Status: In review (2026-08-03, PR #410)
   Rationale: Add a compact top-right count to the project-scoped `Todos` navigation item so users can see outstanding meeting follow-ups without opening the page, and promote the badge to an accessible orange overdue state whenever at least one active todo is overdue.
   Dependencies: TASK-316, TASK-332
   Brief: `tasks/task-354-sidebar-todo-count.md`
