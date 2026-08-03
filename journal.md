@@ -47,6 +47,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   30/31 because production-mode password recovery attempted delivery through
   the placeholder Resend key; rerunning with local outbound delivery explicitly
   disabled passed 31/31 without changing application code.
+- Published planning commit `5829401` and implementation commit `2d61245`, then
+  opened ready-for-review
+  [PR #411](https://github.com/dorianagaesse/nexus_dash/pull/411).
 
 # 2026-07-31 - TASK-352 related-task picker presentation
 

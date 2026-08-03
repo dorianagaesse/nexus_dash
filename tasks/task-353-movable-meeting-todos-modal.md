@@ -2,8 +2,8 @@
 
 ## Status
 
-Implementation complete on `feature/task-353-movable-meeting-todos-modal`;
-ready-for-review PR pending.
+In review in [PR #411](https://github.com/dorianagaesse/nexus_dash/pull/411)
+from `feature/task-353-movable-meeting-todos-modal`.
 
 ## Source
 
@@ -100,3 +100,5 @@ keyboard.
   movement, resize containment, focus restoration, mobile absence, themes,
   mutations, and source-meeting navigation.
 - Desktop light and dark screenshots were visually inspected.
+- Planning commit `5829401` and implementation commit `2d61245` are pushed,
+  and ready-for-review PR #411 is open.

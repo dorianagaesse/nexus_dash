@@ -4,9 +4,9 @@
 
 - ID: TASK-353
 - Title: Movable meeting-todos modal
-- Status: Implementation complete (2026-08-03; PR pending)
+- Status: In review (2026-08-03)
 - Branch: `feature/task-353-movable-meeting-todos-modal`
-- Pull request: Pending
+- Pull request: [#411](https://github.com/dorianagaesse/nexus_dash/pull/411)
 - Brief:
   [`task-353-movable-meeting-todos-modal.md`](./task-353-movable-meeting-todos-modal.md)
 
@@ -146,5 +146,7 @@ accessible modal users can reposition without losing containment or context.
 - Desktop 1280 px light/dark screenshots were generated and visually inspected;
   the modal hierarchy, theme contrast, drag affordance, target sizing, and
   background context remained clear.
-- Release policy validation and PR workflow are pending the implementation
-  commit.
+- `npm run release:check -- --base origin/main --branch
+  feature/task-353-movable-meeting-todos-modal` passed for `v0.34.0`.
+- Planning commit `5829401` and implementation commit `2d61245` are pushed;
+  ready-for-review PR #411 is open.
