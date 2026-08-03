@@ -34,6 +34,7 @@ import {
   getDescriptionPreview,
   type TaskColumns,
 } from "@/components/kanban-board-utils";
+import { TASK_STATUS_BADGE_CLASS_NAMES } from "@/components/kanban/task-status-presentation";
 import {
   formatTaskDeadlineForDisplay,
   getTaskDeadlineUrgency,
@@ -47,7 +48,6 @@ const COLUMN_CHROME: Record<
   TaskStatus,
   {
     accent: string;
-    badge: string;
     column: string;
     dragState: string;
     emptyCopy: string;
@@ -55,8 +55,6 @@ const COLUMN_CHROME: Record<
 > = {
   Backlog: {
     accent: "bg-slate-400/80 dark:bg-slate-300/70",
-    badge:
-      "border-slate-300/70 bg-slate-100/80 text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-200",
     column:
       "border-slate-200/70 bg-gradient-to-b from-slate-100/30 via-card to-card dark:border-slate-800/80 dark:from-slate-900/35",
     dragState: "bg-slate-100/50 dark:bg-slate-900/35",
@@ -64,8 +62,6 @@ const COLUMN_CHROME: Record<
   },
   "In Progress": {
     accent: "bg-sky-500/80 dark:bg-sky-400/80",
-    badge:
-      "border-sky-200/80 bg-sky-100/80 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/55 dark:text-sky-200",
     column:
       "border-sky-200/70 bg-gradient-to-b from-sky-100/35 via-card to-card dark:border-sky-950/80 dark:from-sky-950/30",
     dragState: "bg-sky-100/45 dark:bg-sky-950/30",
@@ -73,8 +69,6 @@ const COLUMN_CHROME: Record<
   },
   Blocked: {
     accent: "bg-amber-500/85 dark:bg-amber-400/85",
-    badge:
-      "border-amber-200/80 bg-amber-100/80 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/55 dark:text-amber-200",
     column:
       "border-amber-200/70 bg-gradient-to-b from-amber-100/35 via-card to-card dark:border-amber-950/80 dark:from-amber-950/30",
     dragState: "bg-amber-100/45 dark:bg-amber-950/30",
@@ -82,8 +76,6 @@ const COLUMN_CHROME: Record<
   },
   Done: {
     accent: "bg-emerald-500/80 dark:bg-emerald-400/80",
-    badge:
-      "border-emerald-200/80 bg-emerald-100/80 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/55 dark:text-emerald-200",
     column:
       "border-emerald-200/70 bg-gradient-to-b from-emerald-100/35 via-card to-card dark:border-emerald-950/80 dark:from-emerald-950/28",
     dragState: "bg-emerald-100/45 dark:bg-emerald-950/28",
@@ -230,7 +222,10 @@ function KanbanColumn({
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-base">
           <span>{status}</span>
-          <Badge variant="outline" className={chrome.badge}>
+          <Badge
+            variant="outline"
+            className={TASK_STATUS_BADGE_CLASS_NAMES[status]}
+          >
             {tasks.length}
           </Badge>
         </CardTitle>

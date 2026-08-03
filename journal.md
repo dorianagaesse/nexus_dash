@@ -23,10 +23,13 @@ Use it for important implementation milestones, blockers, validation runs, and r
   desktop grid placement, 44 px controls, dark mode, and horizontal overflow.
 - Validation passed with a fresh healthy worktree-local PostgreSQL service and
   all 49 migrations; RLS inventory and tenant isolation; lint; 143 passing
-  Vitest files with 2 skipped; 998 passing tests with 2 skipped; coverage at
+  Vitest files with 2 skipped; 999 passing tests with 2 skipped; coverage at
   91.37% statements / 81.33% branches / 92.2% functions / 91.88% lines; a
-  production build using the required local-safe Google encryption key; all 31
-  Chromium scenarios; release policy for `v0.33.0`; and `git diff --check`.
+  production build using the required local-safe Google encryption key; all 32
+  Chromium scenarios; release policy for `v0.34.0`; and `git diff --check`.
+- Merged current `origin/main` into the feature branch after TASK-352 and two
+  dependency updates landed, preserved both release histories, and advanced
+  TASK-335 from the now-occupied `v0.33.0` slot to `v0.34.0`.
 
 # 2026-07-31 - TASK-335 expanded epic presentation
 
@@ -67,7 +70,47 @@ Use it for important implementation milestones, blockers, validation runs, and r
   saved-name fallback and added a focused regression. Post-review validation
   passed with 5 component tests, targeted lint, `git diff --check`, and the
   production build.
+# 2026-07-31 - TASK-352 related-task picker presentation
 
+- Started from merged TASK-351 on the dedicated
+  `feature/task-352-related-task-picker-presentation` worktree and committed the
+  current-task acceptance criteria and detailed design brief before
+  implementation.
+- Applied UI/UX Pro Max guidance for a dense productivity dashboard: maintain a
+  44 px row target, preserve combobox/listbox keyboard ownership, keep the full
+  title available when ellipsized, use status text in addition to color, and
+  validate 375 px containment in light and dark themes.
+- Extracted the established Kanban status badge classes into a shared
+  presentation map and reused the exact Backlog, In Progress, Blocked, and Done
+  palette in both Kanban headers and related-task candidates.
+- Redesigned each candidate as a reference/title/status grid. Friendly IDs use
+  monospaced tabular text, titles flex and truncate with hover text, and status
+  remains visible and participates in the full accessible option name.
+- Preserved candidate eligibility, sorting, reference/title/status filtering,
+  viewport-aware scrolling, keyboard navigation, bilateral relation behavior,
+  and internal task identities.
+- Added focused component coverage plus TASK-352 browser coverage for all four
+  statuses, exact accessible names, long-title truncation, 44 px rows, mobile
+  containment, keyboard selection, and distinct light/dark rendering.
+- Visually inspected the generated 375 px light and dark screenshots; IDs,
+  ellipsized titles, status labels, modal boundaries, and popover containment
+  are clear in both themes.
+- Prepared feature release `v0.33.0`.
+- Complete validation passed: lint, RLS inventory, release policy, 143 passing
+  Vitest files with 2 skipped, 996 passing tests with 2 skipped, coverage at
+  91.37% statements / 81.33% branches / 92.2% functions / 91.88% lines,
+  production build, focused related-task regressions, and all 31 Chromium
+  scenarios.
+- Fresh-worktree validation initially lacked database and trusted-origin
+  configuration. Final test/build runs used the documented local PostgreSQL URL
+  and paired local-only `NEXTAUTH_URL`/`NEXTAUTH_SECRET` placeholders; no
+  repository environment file or secret was created.
+- Published planning commit `0bffdc8` and implementation commit `8c66ec7`, then
+  opened ready-for-review
+  [PR #404](https://github.com/dorianagaesse/nexus_dash/pull/404).
+- Copilot completed its initial review with one actionable tracking comment;
+  aligned TASK-352's backlog status with the current-task `In review` state and
+  PR #404.
 # 2026-07-30 - TASK-351 user-facing task IDs
 
 - Started from merged TASK-350 on the dedicated

@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.33.0 - 2026-08-03
+## v0.34.0 - 2026-08-03
 
 - Kept project epic cards compact by default with title, textual status, and
   semantic progress visible while descriptions and linked tasks stay folded.
@@ -16,7 +16,15 @@ SHA, deployment URL, and workflow run belong in release evidence.
   the familiar one-column mobile and two-column desktop card presentation.
 - Preserved complete wrapping descriptions, bounded linked-task summaries,
   theme-safe styling, and focused responsive browser coverage after expansion.
+## v0.33.0 - 2026-07-31
 
+- Redesigned related-task suggestions into scannable reference, bounded title,
+  and visible status columns that remain contained at a 375 px viewport.
+- Reused one shared light/dark Kanban badge palette for Backlog, In Progress,
+  Blocked, and Done so picker and board status treatments stay consistent.
+- Preserved full titles and status in accessible option names, retained
+  keyboard/listbox behavior, and added focused component and responsive
+  light/dark browser coverage.
 ## v0.32.0 - 2026-07-30
 
 - Added immutable, globally unique task references rendered as `ND-<number>`,

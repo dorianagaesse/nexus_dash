@@ -72,18 +72,18 @@ Last reviewed: 2026-07-30
   Brief: `tasks/task-349-bilateral-related-task-relationships.md`
 - ID: TASK-350
   Title: Complete related-task candidate list - investigate missing and non-scrollable tasks
-  Status: In review - PR #400 fixes issue #396
+  Status: Complete (2026-07-30, PR #400)
   Rationale: Investigate and fix GitHub issue #396 by determining whether eligible tasks are missing because of status filtering, Blocked-task exclusion, clipped overflow, or a combination; ensure the full authorized candidate set is searchable, keyboard reachable, and scrollable.
   Dependencies: TASK-076, TASK-133, TASK-321
   Brief: `tasks/task-350-related-task-picker.md`
 - ID: TASK-351
   Title: User-facing task IDs - stable references in task details and relationship search
-  Status: In review (2026-07-30, PR #402)
+  Status: Complete (2026-07-31, PR #402)
   Rationale: Introduce or expose concise, stable user-facing task identifiers so users can refer to tasks unambiguously; show the identifier when a task detail modal is open and beside each candidate while searching for a task to relate, without exposing opaque internal database IDs.
   Dependencies: TASK-076, TASK-133
 - ID: TASK-352
   Title: Related-task picker presentation - readable IDs, titles, and status colors
-  Status: Next 15 - related-task list visual refinement
+  Status: In review (2026-07-31, PR #404)
   Rationale: Redesign the current `Related to` candidate list so each row clearly presents the user-facing task ID, a bounded/truncated title, and status using the established Kanban column color, with accessible text that does not rely on color alone.
   Dependencies: TASK-133, TASK-350, TASK-351
 - ID: TASK-353

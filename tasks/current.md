@@ -77,7 +77,8 @@ progress immediately; reveal the rest through an independent per-card control.
 - Kept full wrapping descriptions and the existing six-task-plus-remainder
   linked-work summary inside the expanded region.
 - Updated component and Playwright coverage for the clarified behavior.
-- Retained the feature release version at `v0.33.0`.
+- Reconciled release metadata over merged TASK-352 and advanced the feature
+  release to `v0.34.0`.
 
 ## Outcome
 
@@ -102,12 +103,12 @@ progress immediately; reveal the rest through an independent per-card control.
   containment.
 - The production build passes with local-safe database and secret overrides.
 - `npm run lint` and `git diff --check` pass.
-- `npm test`: 143 files passed, 2 skipped; 998 tests passed, 2 skipped.
+- `npm test`: 143 files passed, 2 skipped; 999 tests passed, 2 skipped.
 - `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
   functions, and 91.88% lines.
-- Full Playwright validation passes all 31 Chromium scenarios.
+- Full Playwright validation passes all 32 Chromium scenarios.
 - `npm run release:check -- --base origin/main --branch
-  feature/task-335-expanded-epic-presentation` passes for `v0.33.0`.
+  feature/task-335-expanded-epic-presentation` passes for `v0.34.0`.
 - Earlier PR checks passed for branch naming, Quality Core, E2E Smoke, tenant
   isolation, and the container image; Copilot's initial accessibility comment
   remains resolved.
