@@ -10,6 +10,7 @@ import {
   type RelatedTaskOption,
 } from "@/components/kanban/related-task-field";
 import type { TaskRelatedSummary } from "@/components/kanban-board-types";
+import { TASK_STATUS_BADGE_CLASS_NAMES } from "@/components/kanban/task-status-presentation";
 
 (globalThis as { React?: typeof React }).React = React;
 (
@@ -159,8 +160,52 @@ describe("RelatedTaskSelector", () => {
     expect(getOptions()[0]?.textContent).toContain("ND-10");
     expect(getOptions()[0]?.textContent).toContain("Done candidate 1");
     expect(getOptions()[0]?.getAttribute("aria-label")).toBe(
-      "ND-10, Done candidate 1"
+      "ND-10, Done candidate 1, Done"
     );
+  });
+
+  test("presents references, bounded titles, and shared Kanban status badges", async () => {
+    const longTitle =
+      "A deliberately long related-task title that must remain available while the visible row truncates";
+    const input = await renderHarness({
+      availableTasks: STATUSES.map((status, index) => ({
+        id: `presentation-${index}`,
+        reference: `ND-${index + 101}`,
+        title: index === 0 ? longTitle : `${status} presentation candidate`,
+        status,
+      })),
+    });
+
+    await act(async () => {
+      input.focus();
+    });
+    await act(async () => {});
+
+    const options = getOptions();
+    expect(options).toHaveLength(4);
+    expect(options[0]?.className).toContain(
+      "grid-cols-[minmax(4rem,auto)_minmax(0,1fr)_auto]"
+    );
+    expect(options[0]?.className).toContain("min-h-11");
+
+    for (const [index, status] of STATUSES.entries()) {
+      const option = options[index]!;
+      const title = index === 0 ? longTitle : `${status} presentation candidate`;
+      const titleElement = option.querySelector<HTMLElement>("[title]");
+      const statusBadge = option.querySelector<HTMLElement>(
+        "[data-task-status-badge='true']"
+      );
+
+      expect(option.getAttribute("aria-label")).toBe(
+        `ND-${index + 101}, ${title}, ${status}`
+      );
+      expect(titleElement?.title).toBe(title);
+      expect(titleElement?.className).toContain("truncate");
+      expect(statusBadge?.textContent).toBe(status);
+      for (const className of TASK_STATUS_BADGE_CLASS_NAMES[status].split(" ")) {
+        expect(statusBadge?.className).toContain(className);
+      }
+    }
   });
 
   test("keeps keyboard navigation on the input while reaching and selecting the last task", async () => {

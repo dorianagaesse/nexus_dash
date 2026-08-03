@@ -6,14 +6,16 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Archive, Link2, Search, X } from "lucide-react";
 
 import type { TaskRelatedSummary } from "@/components/kanban-board-types";
+import { TASK_STATUS_BADGE_CLASS_NAMES } from "@/components/kanban/task-status-presentation";
 import { Button } from "@/components/ui/button";
+import type { TaskStatus } from "@/lib/task-status";
 import { cn } from "@/lib/utils";
 
 export interface RelatedTaskOption {
   id: string;
   reference: string;
   title: string;
-  status: string;
+  status: TaskStatus;
 }
 
 interface RelatedTaskSelectorProps {
@@ -303,18 +305,30 @@ export function RelatedTaskSelector({
                         data-task-status={task.status}
                         data-task-title={task.title}
                         tabIndex={-1}
-                        aria-label={`${task.reference}, ${task.title}`}
-                        className="flex min-h-11 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-muted"
+                        aria-label={`${task.reference}, ${task.title}, ${task.status}`}
+                        className="grid min-h-11 w-full grid-cols-[minmax(4rem,auto)_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-muted"
                         onMouseDown={(event) => event.preventDefault()}
                         onMouseMove={() => setActiveSuggestionIndex(index)}
                         onClick={() => selectTask(task.id)}
                         disabled={disabled}
                       >
-                        <span className="shrink-0 select-all font-mono text-xs font-semibold tabular-nums text-muted-foreground">
+                        <span className="select-all font-mono text-xs font-semibold tabular-nums text-muted-foreground">
                           {task.reference}
                         </span>
-                        <span className="min-w-0 flex-1 truncate">
+                        <span
+                          className="min-w-0 truncate"
+                          title={task.title}
+                        >
                           {task.title}
+                        </span>
+                        <span
+                          data-task-status-badge="true"
+                          className={cn(
+                            "shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium leading-4",
+                            TASK_STATUS_BADGE_CLASS_NAMES[task.status]
+                          )}
+                        >
+                          {task.status}
                         </span>
                       </button>
                     ))}
