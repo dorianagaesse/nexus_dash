@@ -2,7 +2,7 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-07-30
+Last reviewed: 2026-08-03
 
 ## Pending
 ### Execution Queue (Now / Next)
@@ -98,13 +98,18 @@ Last reviewed: 2026-07-30
   Rationale: Replace the current meeting-todo popup treatment with a compact bottom-right floating `Todos` button using the todo icon and label; open the aggregated todos in an accessible modeless panel that can be grabbed anywhere and moved within the project-page area while leaving the underlying app usable and preserving containment, responsive behavior, and existing todo actions.
   Dependencies: TASK-098, TASK-316, TASK-321, TASK-322, TASK-330, TASK-332
   Brief: `tasks/task-353-movable-meeting-todos-modal.md`
+- ID: TASK-354
+  Title: Sidebar todo count - active and overdue project awareness
+  Status: In review (2026-08-05, PR #410)
+  Rationale: Add a compact top-right count to the project-scoped `Todos` navigation item so users can see outstanding meeting follow-ups without opening the page, and promote the badge to an accessible orange overdue state whenever at least one active todo is overdue.
+  Dependencies: TASK-316, TASK-332
+  Brief: `tasks/task-354-sidebar-todo-count.md`
 - ID: TASK-355
   Title: Reduce meeting-todo overdue grace to 24 hours
   Status: In progress (2026-08-05, branch fix/task-355-meeting-todo-overdue-grace, issue #413)
   Rationale: Apply a 24-hour overdue grace consistently across the meeting-todo service, TASK-354 navigation badge endpoint, dashboard panel, and notification email dispatcher so a todo whose source meeting ended more than a day ago is treated as overdue without dispatching immediately, while a todo from a same-day meeting remains neutral. Keep the same single source of truth constant and propagate the new rule to every consumer; do not branch this from TASK-354.
   Dependencies: TASK-098, TASK-227, TASK-268, TASK-314, TASK-316, TASK-354
   Brief: `tasks/task-355-meeting-todo-overdue-grace.md`
-
 ### Collaboration Refinement Program (TASK-336 Audit)
 - ID: TASK-337
   Title: First-class project actor identity - human and agent assignment/provenance foundation

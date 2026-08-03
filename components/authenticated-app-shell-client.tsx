@@ -11,6 +11,7 @@ import { ProductFeedbackDialog } from "@/components/product-feedback-dialog";
 import { ProductStateBadge } from "@/components/product-state-badge";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useCurrentAppPath } from "@/lib/hooks/use-current-app-path";
+import { useProjectTodoSummary } from "@/lib/hooks/use-project-todo-summary";
 import {
   buildAuthenticatedDestinationHref,
   isDestinationCurrent,
@@ -87,6 +88,7 @@ export function AuthenticatedAppShellClient({
   const projectNavigationItems = projectId
     ? getProjectNavigationItems(projectId)
     : [];
+  const projectTodoSummary = useProjectTodoSummary(projectId);
   const notificationSnapshot = useNotificationRealtimeSnapshot(
     initialNotificationSnapshot
   );
@@ -123,12 +125,25 @@ export function AuthenticatedAppShellClient({
       const badgeCount =
         item.href === "/account/notifications"
           ? notificationSnapshot.unreadCount
-          : 0;
+          : projectId && item.href === `/projects/${projectId}/todos`
+            ? (projectTodoSummary?.activeCount ?? 0)
+            : 0;
+      const isTodoBadge =
+        Boolean(projectId) && item.href === `/projects/${projectId}/todos`;
+      const isOverdueTodoBadge =
+        isTodoBadge && projectTodoSummary?.hasOverdue === true;
+      const todoNavigationLabel =
+        isTodoBadge && badgeCount > 0
+          ? `Todos, ${badgeCount} active ${badgeCount === 1 ? "todo" : "todos"}${
+              isOverdueTodoBadge ? ", overdue work present" : ""
+            }`
+          : undefined;
 
       return (
         <Link
           key={item.href}
           href={href}
+          aria-label={todoNavigationLabel}
           aria-current={isCurrent ? "page" : undefined}
           className={cn(
             "group relative flex min-h-12 items-center rounded-xl font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -153,13 +168,22 @@ export function AuthenticatedAppShellClient({
               aria-hidden
             />
             {badgeCount > 0 ? (
-              <span className="absolute -right-1 -top-1 grid min-h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground ring-2 ring-background">
-                <span className="sr-only">
-                  {notificationSnapshot.unreadCount} unread notifications
-                </span>
-                <span aria-hidden>
-                  {badgeCount > 99 ? "99+" : badgeCount}
-                </span>
+              <span
+                className={cn(
+                  "absolute -right-1.5 -top-1.5 grid min-h-5 min-w-5 place-items-center rounded-full px-1.5 text-[10px] font-bold tabular-nums leading-none ring-2 ring-background",
+                  isTodoBadge
+                    ? isOverdueTodoBadge
+                      ? "bg-amber-400 text-amber-950"
+                      : "bg-foreground text-background"
+                    : "bg-destructive text-destructive-foreground"
+                )}
+              >
+                {!isTodoBadge ? (
+                  <span className="sr-only">
+                    {badgeCount} unread notifications
+                  </span>
+                ) : null}
+                <span aria-hidden>{badgeCount}</span>
               </span>
             ) : null}
           </span>
@@ -200,7 +224,9 @@ export function AuthenticatedAppShellClient({
               </span>
               <ProductStateBadge className="mt-0.5" />
             </span>
-            <span className="block text-xs text-muted-foreground">Project workspace</span>
+            <span className="block text-xs text-muted-foreground">
+              Project workspace
+            </span>
           </span>
         </Link>
 
@@ -259,7 +285,9 @@ export function AuthenticatedAppShellClient({
             className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="NexusDash alpha — projects"
           >
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground">N</span>
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground">
+              N
+            </span>
             <span className="flex min-w-0 items-start gap-1.5">
               <span className="truncate text-base font-semibold tracking-tight">
                 NexusDash
@@ -275,7 +303,9 @@ export function AuthenticatedAppShellClient({
               displayName={displayName}
               usernameTag={usernameTag}
               avatarSeed={avatarSeed}
-              initialUnreadNotificationCount={initialNotificationSnapshot.unreadCount}
+              initialUnreadNotificationCount={
+                initialNotificationSnapshot.unreadCount
+              }
               currentPath={currentPath}
             />
           </div>
@@ -292,7 +322,11 @@ export function AuthenticatedAppShellClient({
         ) : null}
       </header>
 
-      <main id="app-main-content" tabIndex={-1} className="min-w-0 outline-none">
+      <main
+        id="app-main-content"
+        tabIndex={-1}
+        className="min-w-0 outline-none"
+      >
         <div className="container pt-4 sm:pt-6">{notificationBanner}</div>
         {children}
       </main>
