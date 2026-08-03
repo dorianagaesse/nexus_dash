@@ -2,7 +2,8 @@
 
 ## Status
 
-In review on `feature/task-354-sidebar-todo-count` (PR #410).
+In review in [PR #410](https://github.com/dorianagaesse/nexus_dash/pull/410)
+from `feature/task-354-sidebar-todo-count`.
 
 ## Objective
 
