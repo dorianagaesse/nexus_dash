@@ -121,6 +121,10 @@ accessible modal users can reposition without losing containment or context.
   movement, resize containment, mutations, and source navigation.
 - Visually reviewed the generated desktop light and dark modal screenshots.
 - Prepared feature release `v0.34.0`.
+- Addressed both initial Copilot review comments: no-op containment ticks no
+  longer update React position state, and repeated same-direction arrow moves
+  replace the live-region announcement node so assistive technology receives
+  every movement update.
 
 ## Outcome
 
@@ -150,3 +154,4 @@ accessible modal users can reposition without losing containment or context.
   feature/task-353-movable-meeting-todos-modal` passed for `v0.34.0`.
 - Planning commit `5829401` and implementation commit `2d61245` are pushed;
   ready-for-review PR #411 is open.
+- Post-review focused component tests, full lint, and production build passed.

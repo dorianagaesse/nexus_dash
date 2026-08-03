@@ -102,3 +102,7 @@ keyboard.
 - Desktop light and dark screenshots were visually inspected.
 - Planning commit `5829401` and implementation commit `2d61245` are pushed,
   and ready-for-review PR #411 is open.
+- Both initial Copilot comments were applied and verified: containment avoids
+  no-op state updates, and repeated arrow moves cause distinct live-region DOM
+  mutations. Focused component tests, lint, and production build passed after
+  review.

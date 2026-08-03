@@ -235,6 +235,17 @@ describe("meeting todo quick dialog", () => {
     });
 
     expect(dialog?.style.transform).not.toBe(initialTransform);
-    expect(document.body.textContent).toContain("Todos dialog moved right.");
+    const liveRegion = document.querySelector<HTMLElement>('[role="status"]');
+    const firstAnnouncement = liveRegion?.firstElementChild;
+    expect(liveRegion?.textContent).toBe("Todos dialog moved right.");
+
+    await act(async () => {
+      moveHandle.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })
+      );
+    });
+
+    expect(liveRegion?.textContent).toBe("Todos dialog moved right.");
+    expect(liveRegion?.firstElementChild).not.toBe(firstAnnouncement);
   });
 });

@@ -50,6 +50,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Published planning commit `5829401` and implementation commit `2d61245`, then
   opened ready-for-review
   [PR #411](https://github.com/dorianagaesse/nexus_dash/pull/411).
+- Copilot's initial review produced two actionable comments. Added an equality
+  guard that skips no-op position state updates during containment ticks and
+  keyed repeated live-region messages so consecutive same-direction arrow
+  moves still create an assistive-technology announcement mutation. Post-review
+  focused tests, full lint, and production build passed.
 
 # 2026-07-31 - TASK-352 related-task picker presentation
 

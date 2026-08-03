@@ -54,6 +54,11 @@ interface DragState {
   originPosition: DialogPosition;
 }
 
+interface MovementAnnouncement {
+  id: number;
+  message: string;
+}
+
 const DIALOG_EDGE_PADDING = 16;
 const KEYBOARD_MOVE_STEP = 16;
 const KEYBOARD_MOVE_LARGE_STEP = 48;
@@ -274,7 +279,8 @@ export function MeetingTodoQuickDialog({
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState<DialogPosition>({ x: 0, y: 0 });
   const [triggerInsetRight, setTriggerInsetRight] = useState(24);
-  const [movementAnnouncement, setMovementAnnouncement] = useState("");
+  const [movementAnnouncement, setMovementAnnouncement] =
+    useState<MovementAnnouncement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const positionRef = useRef(position);
   const dragStateRef = useRef<DragState | null>(null);
@@ -282,6 +288,13 @@ export function MeetingTodoQuickDialog({
   const overdueCount = todos.open.filter((todo) => todo.isOverdue).length;
 
   const applyPosition = useCallback((nextPosition: DialogPosition) => {
+    if (
+      positionRef.current.x === nextPosition.x &&
+      positionRef.current.y === nextPosition.y
+    ) {
+      return;
+    }
+
     positionRef.current = nextPosition;
     setPosition(nextPosition);
   }, []);
@@ -456,7 +469,10 @@ export function MeetingTodoQuickDialog({
       x: positionRef.current.x + movement.x,
       y: positionRef.current.y + movement.y,
     });
-    setMovementAnnouncement(`Todos dialog moved ${event.key.replace("Arrow", "").toLowerCase()}.`);
+    setMovementAnnouncement((current) => ({
+      id: (current?.id ?? 0) + 1,
+      message: `Todos dialog moved ${event.key.replace("Arrow", "").toLowerCase()}.`,
+    }));
   };
 
   if (todos.open.length === 0 && todos.completed.length === 0) {
@@ -466,7 +482,7 @@ export function MeetingTodoQuickDialog({
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       hasPositionedRef.current = false;
-      setMovementAnnouncement("");
+      setMovementAnnouncement(null);
       applyPosition({ x: 0, y: 0 });
     }
     setIsOpen(nextOpen);
@@ -562,7 +578,11 @@ export function MeetingTodoQuickDialog({
             <span className="hidden text-muted-foreground/80 sm:inline">or use arrow keys</span>
           </button>
           <span className="sr-only" role="status" aria-live="polite">
-            {movementAnnouncement}
+            {movementAnnouncement ? (
+              <span key={movementAnnouncement.id}>
+                {movementAnnouncement.message}
+              </span>
+            ) : null}
           </span>
         </header>
 
