@@ -145,7 +145,7 @@ describe("project-epic-panel", () => {
     });
   });
 
-  test("renders expanded epic context with semantic article and progress details", async () => {
+  test("keeps epic details collapsed while preserving semantic title and progress", async () => {
     projectSectionExpandedMock.isExpanded = true;
     const { container, root } = createTestRenderer();
 
@@ -161,31 +161,26 @@ describe("project-epic-panel", () => {
     const article = container.querySelector("article");
     const heading = article?.querySelector("h3");
     const progress = container.querySelector('[role="progressbar"]');
-    const taskRows = Array.from(container.querySelectorAll("li"));
-    const desktopDisclosure = Array.from(
-      container.querySelectorAll("button")
-    ).find((button) =>
-      button.textContent?.includes("Show 2 more linked tasks")
+    const disclosure = container.querySelector(
+      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
     );
+    const detailsId = disclosure?.getAttribute("aria-controls");
+    const details = detailsId ? document.getElementById(detailsId) : null;
 
     expect(article?.getAttribute("aria-labelledby")).toBe(heading?.id);
     expect(heading?.textContent).toBe("Launch workspace sharing");
-    expect(container.textContent).toContain(
+    expect(details?.textContent).toContain(
       epicWithDenseLinkedTasks.description
     );
+    expect(details?.hidden).toBe(true);
     expect(progress?.getAttribute("aria-valuenow")).toBe("25");
     expect(progress?.getAttribute("aria-valuetext")).toBe(
       "2 of 8 tasks completed"
     );
-    expect(taskRows).toHaveLength(8);
-    expect(taskRows[7]?.textContent).toContain(
-      "without truncating meaningful context"
-    );
-    expect(taskRows[7]?.className).toContain("lg:hidden");
-    expect(desktopDisclosure?.getAttribute("aria-expanded")).toBe("false");
-    expect(desktopDisclosure?.className).toContain("min-h-11");
-    expect(desktopDisclosure?.className).toContain("lg:inline-flex");
-    expect(container.textContent).not.toContain("+2 more");
+    expect(disclosure?.getAttribute("aria-expanded")).toBe("false");
+    expect(disclosure?.className).toContain("min-h-11");
+    expect(details?.querySelectorAll("li")).toHaveLength(7);
+    expect(details?.textContent).toContain("+2 more linked tasks");
     expect(
       container.querySelector(
         `button[aria-label="Edit epic ${epicWithDenseLinkedTasks.name}"]`
@@ -197,41 +192,60 @@ describe("project-epic-panel", () => {
     });
   });
 
-  test("expands and collapses dense desktop linked-task lists accessibly", async () => {
+  test("expands and collapses each epic independently", async () => {
     projectSectionExpandedMock.isExpanded = true;
     const { container, root } = createTestRenderer();
+    const secondEpic = {
+      ...epicWithDenseLinkedTasks,
+      id: "epic-2",
+      name: "Confirm launch readiness",
+      description: "Confirm the product is ready for invited teams.",
+      taskCount: 0,
+      completedTaskCount: 0,
+      progressPercent: 0,
+      linkedTasks: [],
+    };
 
     await renderWithRoot(
       root,
       React.createElement(ProjectEpicPanel, {
         projectId: "project-1",
         canEdit: true,
-        epics: [epicWithDenseLinkedTasks],
+        epics: [epicWithDenseLinkedTasks, secondEpic],
       })
     );
 
-    const findDisclosure = () =>
-      Array.from(container.querySelectorAll("button")).find((button) =>
-        button.textContent?.includes("linked task")
-      );
+    const findDisclosure = (label: string) =>
+      container.querySelector(`button[aria-label="${label}"]`);
+    const firstDisclosure = findDisclosure(
+      `Show details for ${epicWithDenseLinkedTasks.name}`
+    );
+    const secondDisclosure = findDisclosure(
+      `Show details for ${secondEpic.name}`
+    );
+    const firstDetails = document.getElementById("epic-epic-1-details");
+    const secondDetails = document.getElementById("epic-epic-2-details");
 
-    const disclosure = findDisclosure();
-    const linkedTasksId = disclosure?.getAttribute("aria-controls");
-
-    expect(linkedTasksId).toBe("epic-epic-1-linked-tasks");
+    expect(firstDisclosure?.getAttribute("aria-controls")).toBe(
+      "epic-epic-1-details"
+    );
+    expect(firstDetails?.hidden).toBe(true);
+    expect(secondDetails?.hidden).toBe(true);
 
     await act(async () => {
-      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      firstDisclosure?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
     });
 
-    const expandedDisclosure = findDisclosure();
-    expect(expandedDisclosure?.getAttribute("aria-expanded")).toBe("true");
-    expect(expandedDisclosure?.textContent).toContain(
-      "Show fewer linked tasks"
+    const expandedDisclosure = findDisclosure(
+      `Hide details for ${epicWithDenseLinkedTasks.name}`
     );
-    expect(
-      Array.from(container.querySelectorAll("li"))[7]?.className
-    ).not.toContain("lg:hidden");
+    expect(expandedDisclosure?.getAttribute("aria-expanded")).toBe("true");
+    expect(expandedDisclosure?.textContent).toContain("Hide details");
+    expect(firstDetails?.hidden).toBe(false);
+    expect(secondDisclosure?.getAttribute("aria-expanded")).toBe("false");
+    expect(secondDetails?.hidden).toBe(true);
 
     await act(async () => {
       expandedDisclosure?.dispatchEvent(
@@ -239,10 +253,12 @@ describe("project-epic-panel", () => {
       );
     });
 
-    expect(findDisclosure()?.getAttribute("aria-expanded")).toBe("false");
     expect(
-      Array.from(container.querySelectorAll("li"))[7]?.className
-    ).toContain("lg:hidden");
+      findDisclosure(
+        `Show details for ${epicWithDenseLinkedTasks.name}`
+      )?.getAttribute("aria-expanded")
+    ).toBe("false");
+    expect(firstDetails?.hidden).toBe(true);
 
     await act(async () => {
       root.unmount();

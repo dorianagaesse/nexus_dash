@@ -66,8 +66,8 @@ async function createDenseEpicFixture(userId: string) {
   };
 }
 
-test.describe("TASK-335 expanded epic presentation", () => {
-  test("keeps mobile context expanded and desktop density controllable", async ({
+test.describe("TASK-335 epic detail disclosure", () => {
+  test("keeps cards compact until their details are requested", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 375, height: 812 });
@@ -85,31 +85,23 @@ test.describe("TASK-335 expanded epic presentation", () => {
     const secondaryEpic = page.getByRole("article", {
       name: fixture.secondaryEpicName,
     });
-    const linkedTaskRows = primaryEpic.getByRole("listitem");
-    const desktopDisclosure = primaryEpic.getByRole("button", {
-      name: "Show 2 more linked tasks",
+    const description = primaryEpic.getByText("complete rollout narrative");
+    const linkedTasks = primaryEpic.getByRole("listitem");
+    const showDetails = primaryEpic.getByRole("button", {
+      name: `Show details for ${fixture.primaryEpicName}`,
     });
 
     await expect(primaryEpic).toBeVisible();
     await expect(secondaryEpic).toBeVisible();
-    await expect(
-      primaryEpic.getByText("complete rollout narrative")
-    ).toBeVisible();
+    await expect(description).toBeHidden();
+    await expect(linkedTasks.first()).toBeHidden();
+    await expect(showDetails).toBeVisible();
+    await expect(showDetails).toHaveAttribute("aria-expanded", "false");
     await expect(
       primaryEpic.getByRole("progressbar", {
         name: `${fixture.primaryEpicName} progress`,
       })
     ).toHaveAttribute("aria-valuenow", "25");
-    await expect(linkedTaskRows).toHaveCount(8);
-    for (let taskIndex = 0; taskIndex < 8; taskIndex += 1) {
-      await expect(linkedTaskRows.nth(taskIndex)).toBeVisible();
-    }
-    await expect(
-      primaryEpic.getByText(
-        "Validate a deliberately long linked task title without truncating meaningful project context"
-      )
-    ).toBeVisible();
-    await expect(desktopDisclosure).toBeHidden();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth
@@ -122,34 +114,52 @@ test.describe("TASK-335 expanded epic presentation", () => {
     expect(mobileEpicBounds!.x + mobileEpicBounds!.width).toBeLessThanOrEqual(
       375
     );
+    expect(mobileEpicBounds!.height).toBeLessThan(360);
 
     if (screenshotDirectory) {
       await mkdir(screenshotDirectory, { recursive: true });
       await primaryEpic.screenshot({
-        path: path.resolve(screenshotDirectory, "mobile-expanded-epic.png"),
+        path: path.resolve(screenshotDirectory, "mobile-collapsed-epic.png"),
       });
     }
 
+    await showDetails.focus();
+    await showDetails.press("Enter");
+
+    const hideDetails = primaryEpic.getByRole("button", {
+      name: `Hide details for ${fixture.primaryEpicName}`,
+    });
+    await expect(hideDetails).toHaveAttribute("aria-expanded", "true");
+    await expect(description).toBeVisible();
+    await expect(linkedTasks).toHaveCount(7);
+    for (let taskIndex = 0; taskIndex < 6; taskIndex += 1) {
+      await expect(linkedTasks.nth(taskIndex)).toBeVisible();
+    }
+    await expect(primaryEpic.getByText("+2 more linked tasks")).toBeVisible();
+    await expect(
+      secondaryEpic.getByText("ready for the first invited teams")
+    ).toBeHidden();
+
+    await hideDetails.click();
+    await expect(description).toBeHidden();
+    await expect(showDetails).toHaveAttribute("aria-expanded", "false");
+
     await page.setViewportSize({ width: 1440, height: 1000 });
     await expect(primaryEpic).toBeVisible();
-    await expect(linkedTaskRows.nth(5)).toBeVisible();
-    await expect(linkedTaskRows.nth(6)).toBeHidden();
-    await expect(linkedTaskRows.nth(7)).toBeHidden();
-    await expect(desktopDisclosure).toBeVisible();
-    await expect(desktopDisclosure).toHaveAttribute("aria-expanded", "false");
+    await expect(description).toBeHidden();
+    await expect(showDetails).toBeVisible();
 
     const firstEpicBounds = await primaryEpic.boundingBox();
     const secondEpicBounds = await secondaryEpic.boundingBox();
     expect(firstEpicBounds).not.toBeNull();
     expect(secondEpicBounds).not.toBeNull();
-    expect(Math.abs(firstEpicBounds!.x - secondEpicBounds!.x)).toBeLessThan(2);
     expect(
       Math.abs(firstEpicBounds!.width - secondEpicBounds!.width)
     ).toBeLessThan(2);
-    expect(
-      firstEpicBounds!.y + firstEpicBounds!.height <= secondEpicBounds!.y ||
-        secondEpicBounds!.y + secondEpicBounds!.height <= firstEpicBounds!.y
-    ).toBe(true);
+    expect(Math.abs(firstEpicBounds!.y - secondEpicBounds!.y)).toBeLessThan(2);
+    expect(Math.abs(firstEpicBounds!.x - secondEpicBounds!.x)).toBeGreaterThan(
+      firstEpicBounds!.width
+    );
 
     const editButton = primaryEpic.getByRole("button", {
       name: `Edit epic ${fixture.primaryEpicName}`,
@@ -159,14 +169,12 @@ test.describe("TASK-335 expanded epic presentation", () => {
     expect(editButtonBounds!.width).toBeGreaterThanOrEqual(44);
     expect(editButtonBounds!.height).toBeGreaterThanOrEqual(44);
 
-    await desktopDisclosure.click();
-    const collapseDisclosure = primaryEpic.getByRole("button", {
-      name: "Show fewer linked tasks",
-    });
-    await expect(collapseDisclosure).toHaveAttribute("aria-expanded", "true");
-    await expect(linkedTaskRows.nth(6)).toBeVisible();
-    await expect(linkedTaskRows.nth(7)).toBeVisible();
-    await expect(collapseDisclosure).toBeVisible();
+    const showDetailsBounds = await showDetails.boundingBox();
+    expect(showDetailsBounds).not.toBeNull();
+    expect(showDetailsBounds!.height).toBeGreaterThanOrEqual(44);
+
+    await showDetails.click();
+    await expect(description).toBeVisible();
 
     await page.getByRole("button", { name: "Switch to dark mode" }).click();
     await expect(primaryEpic).toBeVisible();
@@ -180,7 +188,7 @@ test.describe("TASK-335 expanded epic presentation", () => {
       await primaryEpic.screenshot({
         path: path.resolve(
           screenshotDirectory,
-          "desktop-expanded-epic-dark.png"
+          "desktop-disclosed-epic-dark.png"
         ),
       });
     }

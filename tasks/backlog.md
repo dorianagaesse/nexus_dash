@@ -59,9 +59,9 @@ Last reviewed: 2026-07-30
   Rationale: Define one capability vocabulary across tasks, meeting notes, context cards, epics, roadmap, and the future shared schedule, then apply it consistently to invitations, memberships, agent scopes, UI affordances, services, and routes. Keep capability independent from ownership and assignment: responsibility never grants access, and owner safeguards plus project isolation remain authoritative.
   Dependencies: TASK-058, TASK-098, TASK-106, TASK-130, TASK-337
 - ID: TASK-335
-  Title: Expanded epic presentation - improve mobile and desktop readability
-  Status: In review (2026-07-31, PR #403)
-  Rationale: Expand epic content by default on mobile so users can read meaningful context without repeated disclosure interactions, then test a comparable expanded desktop treatment and retain the version that improves comprehension without making dense project views harder to scan.
+  Title: Compact epic detail disclosure
+  Status: In review (2026-08-03, PR #403)
+  Rationale: Preserve the familiar compact epic cards and two-column desktop grid while collapsing descriptions and linked tasks by default, so long narratives do not dominate mobile scroll length or dense project dashboards; expose each epic's complete context through an independent accessible disclosure.
   Dependencies: TASK-100, TASK-108, TASK-133, TASK-270
   Brief: `tasks/task-335-expanded-epic-presentation.md`
 - ID: TASK-349

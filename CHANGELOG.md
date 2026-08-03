@@ -8,14 +8,14 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.33.0 - 2026-07-31
+## v0.33.0 - 2026-08-03
 
-- Expanded project epics into full-width responsive articles with readable
-  narrative, semantic progress, and linked-task context.
-- Showed every linked task by default on mobile while keeping dense desktop
-  cards bounded behind an accessible show-more/show-less control.
-- Replaced truncated micro-copy chips with wrapping task rows, preserved
-  textual status in both themes, and added focused responsive browser coverage.
+- Kept project epic cards compact by default with title, textual status, and
+  semantic progress visible while descriptions and linked tasks stay folded.
+- Added an independent accessible details disclosure to every epic and restored
+  the familiar one-column mobile and two-column desktop card presentation.
+- Preserved complete wrapping descriptions, bounded linked-task summaries,
+  theme-safe styling, and focused responsive browser coverage after expansion.
 
 ## v0.32.0 - 2026-07-30
 

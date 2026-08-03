@@ -96,13 +96,7 @@ function EpicStatusBadge({
   );
 }
 
-function EpicTaskRow({
-  task,
-  className,
-}: {
-  task: ProjectEpicPanelTask;
-  className?: string;
-}) {
+function EpicTaskChip({ task }: { task: ProjectEpicPanelTask }) {
   const toneClass =
     task.archivedAt != null || task.status === "Done"
       ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
@@ -115,20 +109,15 @@ function EpicTaskRow({
   return (
     <li
       className={cn(
-        "flex min-w-0 flex-col gap-1 rounded-xl border px-3 py-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3",
-        "bg-background/65",
-        className
+        "flex min-w-0 max-w-full items-start gap-2 rounded-xl border px-2.5 py-2 text-xs font-medium",
+        toneClass
       )}
+      title={task.title}
     >
-      <span className="min-w-0 break-words text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]">
+      <span className="min-w-0 flex-1 break-words leading-5 [overflow-wrap:anywhere]">
         {task.title}
       </span>
-      <span
-        className={cn(
-          "w-fit shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium",
-          toneClass
-        )}
-      >
+      <span className="shrink-0 opacity-75">
         {task.archivedAt != null ? "Archived" : task.status}
       </span>
     </li>
@@ -164,9 +153,9 @@ export function ProjectEpicPanel({
     null
   );
   const [isDeleting, setIsDeleting] = useState(false);
-  const [expandedLinkedTaskEpicIds, setExpandedLinkedTaskEpicIds] = useState<
-    Set<string>
-  >(() => new Set());
+  const [expandedEpicIds, setExpandedEpicIds] = useState<Set<string>>(
+    () => new Set()
+  );
 
   useEffect(() => {
     setLocalEpics(epics);
@@ -219,8 +208,8 @@ export function ProjectEpicPanel({
     router.refresh();
   };
 
-  const toggleLinkedTasks = (epicId: string) => {
-    setExpandedLinkedTaskEpicIds((previousIds) => {
+  const toggleEpicDetails = (epicId: string) => {
+    setExpandedEpicIds((previousIds) => {
       const nextIds = new Set(previousIds);
 
       if (nextIds.has(epicId)) {
@@ -537,19 +526,18 @@ export function ProjectEpicPanel({
               </p>
             </div>
           ) : (
-            <div className="grid gap-4">
+            <div className="grid gap-4 lg:grid-cols-2">
               {localEpics.map((epic) => {
                 const color = getEpicColorFromName(epic.name);
                 const isEditing = editingEpicId === epic.id;
-                const isLinkedTaskListExpanded = expandedLinkedTaskEpicIds.has(
-                  epic.id
-                );
+                const isDetailsExpanded = expandedEpicIds.has(epic.id);
+                const visibleTasks = epic.linkedTasks.slice(0, 6);
                 const hiddenTaskCount = Math.max(
                   0,
-                  epic.linkedTasks.length - 6
+                  epic.linkedTasks.length - visibleTasks.length
                 );
                 const titleId = `epic-${epic.id}-title`;
-                const linkedTasksId = `epic-${epic.id}-linked-tasks`;
+                const detailsId = `epic-${epic.id}-details`;
 
                 return (
                   <article
@@ -633,24 +621,29 @@ export function ProjectEpicPanel({
                         </div>
                       </div>
                     ) : (
-                      <div className="space-y-5 p-4 sm:p-5">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="min-w-0 space-y-3">
+                      <div className="space-y-4 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <h3
                                 id={titleId}
-                                className="min-w-0 break-words text-lg font-semibold leading-7 tracking-tight text-foreground [overflow-wrap:anywhere]"
+                                className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-semibold"
+                                style={{
+                                  backgroundColor: color.soft,
+                                  borderColor: color.border,
+                                  color: color.accent,
+                                }}
                               >
-                                {epic.name}
+                                <Flag className="h-3.5 w-3.5 shrink-0" />
+                                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                                  {epic.name}
+                                </span>
                               </h3>
                               <EpicStatusBadge status={epic.status} />
                             </div>
-                            <p className="max-w-3xl whitespace-pre-wrap break-words text-[15px] leading-6 text-foreground [overflow-wrap:anywhere]">
-                              {epic.description}
-                            </p>
                           </div>
                           {canEdit ? (
-                            <div className="flex shrink-0 self-end items-center gap-2 sm:self-auto">
+                            <div className="flex shrink-0 items-center gap-2">
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -675,45 +668,81 @@ export function ProjectEpicPanel({
                           ) : null}
                         </div>
 
-                        <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,0.8fr)_minmax(20rem,1.2fr)] xl:items-start">
-                          <section
-                            aria-label={`Progress for ${epic.name}`}
-                            className="space-y-3 rounded-xl border border-border/50 bg-background/70 p-4"
+                        <section
+                          aria-label={`Progress for ${epic.name}`}
+                          className="space-y-2 rounded-xl border border-border/50 bg-background/70 p-3"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <h4 className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                              Progress
+                            </h4>
+                            <p className="text-sm font-semibold tabular-nums text-foreground">
+                              {epic.progressPercent}%
+                            </p>
+                          </div>
+                          <div
+                            role="progressbar"
+                            aria-label={`${epic.name} progress`}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={epic.progressPercent}
+                            aria-valuetext={`${epic.completedTaskCount} of ${epic.taskCount} tasks completed`}
+                            className="h-2 overflow-hidden rounded-full bg-muted"
                           >
-                            <div className="flex items-center justify-between gap-3">
-                              <h4 className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                                Progress
-                              </h4>
-                              <p className="text-base font-semibold tabular-nums text-foreground">
-                                {epic.progressPercent}%
-                              </p>
-                            </div>
                             <div
-                              role="progressbar"
-                              aria-label={`${epic.name} progress`}
-                              aria-valuemin={0}
-                              aria-valuemax={100}
-                              aria-valuenow={epic.progressPercent}
-                              aria-valuetext={`${epic.completedTaskCount} of ${epic.taskCount} tasks completed`}
-                              className="h-2.5 overflow-hidden rounded-full bg-muted"
-                            >
-                              <div
-                                className="h-full rounded-full transition-[width] duration-200 motion-reduce:transition-none"
-                                style={{
-                                  width: `${epic.progressPercent}%`,
-                                  backgroundColor: color.accent,
-                                }}
-                              />
-                            </div>
-                            <p className="text-sm leading-5 text-muted-foreground">
-                              <span className="font-medium tabular-nums text-foreground">
-                                {epic.completedTaskCount}/{epic.taskCount}
-                              </span>{" "}
-                              task{epic.taskCount === 1 ? "" : "s"} completed
+                              className="h-full rounded-full transition-[width] duration-200 motion-reduce:transition-none"
+                              style={{
+                                width: `${epic.progressPercent}%`,
+                                backgroundColor: color.accent,
+                              }}
+                            />
+                          </div>
+                          <p className="text-xs leading-5 text-muted-foreground">
+                            <span className="font-medium tabular-nums text-foreground">
+                              {epic.completedTaskCount}/{epic.taskCount}
+                            </span>{" "}
+                            task{epic.taskCount === 1 ? "" : "s"} completed
+                          </p>
+                        </section>
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="min-h-11 w-full justify-between border border-border/50 px-3 text-muted-foreground"
+                          aria-expanded={isDetailsExpanded}
+                          aria-controls={detailsId}
+                          aria-label={`${
+                            isDetailsExpanded ? "Hide" : "Show"
+                          } details for ${epic.name}`}
+                          onClick={() => toggleEpicDetails(epic.id)}
+                        >
+                          <span>
+                            {isDetailsExpanded
+                              ? "Hide details"
+                              : "Show details"}
+                          </span>
+                          {isDetailsExpanded ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+
+                        <div
+                          id={detailsId}
+                          hidden={!isDetailsExpanded}
+                          className="min-w-0 space-y-4 border-t border-border/50 pt-4"
+                        >
+                          <section className="space-y-2">
+                            <h4 className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                              Description
+                            </h4>
+                            <p className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground [overflow-wrap:anywhere]">
+                              {epic.description}
                             </p>
                           </section>
 
-                          <section className="min-w-0 space-y-3">
+                          <section className="min-w-0 space-y-2">
                             <div className="flex items-center justify-between gap-3">
                               <h4 className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                                 Linked tasks
@@ -723,47 +752,19 @@ export function ProjectEpicPanel({
                               </span>
                             </div>
                             {epic.linkedTasks.length > 0 ? (
-                              <>
-                                <ul
-                                  id={linkedTasksId}
-                                  className="grid min-w-0 gap-2 xl:grid-cols-2"
-                                >
-                                  {epic.linkedTasks.map((task, taskIndex) => (
-                                    <EpicTaskRow
-                                      key={task.id}
-                                      task={task}
-                                      className={cn(
-                                        taskIndex >= 6 &&
-                                          !isLinkedTaskListExpanded &&
-                                          "lg:hidden"
-                                      )}
-                                    />
-                                  ))}
-                                </ul>
+                              <ul className="grid min-w-0 gap-2">
+                                {visibleTasks.map((task) => (
+                                  <EpicTaskChip key={task.id} task={task} />
+                                ))}
                                 {hiddenTaskCount > 0 ? (
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    className="hidden min-h-11 w-full justify-center text-muted-foreground lg:inline-flex"
-                                    aria-expanded={isLinkedTaskListExpanded}
-                                    aria-controls={linkedTasksId}
-                                    onClick={() => toggleLinkedTasks(epic.id)}
-                                  >
-                                    {isLinkedTaskListExpanded ? (
-                                      <ChevronUp className="h-4 w-4" />
-                                    ) : (
-                                      <ChevronDown className="h-4 w-4" />
-                                    )}
-                                    {isLinkedTaskListExpanded
-                                      ? "Show fewer linked tasks"
-                                      : `Show ${hiddenTaskCount} more linked task${
-                                          hiddenTaskCount === 1 ? "" : "s"
-                                        }`}
-                                  </Button>
+                                  <li className="text-xs text-muted-foreground">
+                                    +{hiddenTaskCount} more linked task
+                                    {hiddenTaskCount === 1 ? "" : "s"}
+                                  </li>
                                 ) : null}
-                              </>
+                              </ul>
                             ) : (
-                              <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-5 text-sm text-muted-foreground">
+                              <p className="text-sm text-muted-foreground">
                                 No tasks linked yet.
                               </p>
                             )}

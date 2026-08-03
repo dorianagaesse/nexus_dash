@@ -3,6 +3,31 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-03 - TASK-335 clarified compact disclosure
+
+- Clarified the product intent after review: retain the previous compact epic
+  presentation and reduce default information density rather than expanding
+  every epic narrative across the dashboard.
+- Reapplied UI/UX Pro Max guidance around progressive disclosure, 44 px touch
+  targets, keyboard semantics, independent expanded state, mobile content
+  priority, and theme parity while preserving the existing design language.
+- Restored the one-column mobile and two-column desktop epic-card grid, accent
+  strip, title flag, status badge, compact progress block, and linked-task chip
+  presentation.
+- Added a collapsed-by-default `Show details` control per epic. The controlled
+  region exposes the full description and bounded linked-task summary only
+  when requested, uses `aria-expanded`/`aria-controls`, and leaves sibling
+  epics collapsed.
+- Updated focused component and PostgreSQL-backed browser coverage for hidden
+  default details, Enter-key activation, independent cards, 375 px containment,
+  desktop grid placement, 44 px controls, dark mode, and horizontal overflow.
+- Validation passed with a fresh healthy worktree-local PostgreSQL service and
+  all 49 migrations; RLS inventory and tenant isolation; lint; 143 passing
+  Vitest files with 2 skipped; 998 passing tests with 2 skipped; coverage at
+  91.37% statements / 81.33% branches / 92.2% functions / 91.88% lines; a
+  production build using the required local-safe Google encryption key; all 31
+  Chromium scenarios; release policy for `v0.33.0`; and `git diff --check`.
+
 # 2026-07-31 - TASK-335 expanded epic presentation
 
 - Started TASK-335 in the dedicated
