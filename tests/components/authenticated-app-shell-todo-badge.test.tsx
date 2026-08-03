@@ -36,14 +36,17 @@ const notificationSnapshot = {
   serverTime: "2026-08-03T08:00:00.000Z",
 };
 
-function renderShell() {
+function renderShell(unreadCount = notificationSnapshot.unreadCount) {
   return renderToStaticMarkup(
     <ToastProvider>
       <AuthenticatedAppShellClient
         displayName="Dorian"
         usernameTag="dorian#1234"
         avatarSeed="seed"
-        initialNotificationSnapshot={notificationSnapshot}
+        initialNotificationSnapshot={{
+          ...notificationSnapshot,
+          unreadCount,
+        }}
         notificationBanner={<div>Notification banner</div>}
       >
         <main>Project content</main>
@@ -62,6 +65,13 @@ describe("authenticated shell todo badge", () => {
 
     expect(result).not.toContain("active todos");
     expect(result).toContain("2 unread notifications");
+  });
+
+  test("preserves the Inbox visual cap while announcing its exact count", () => {
+    const result = renderShell(128);
+
+    expect(result).toContain("128 unread notifications");
+    expect(result).toContain(">99+</span>");
   });
 
   test("shows a neutral exact active count", () => {

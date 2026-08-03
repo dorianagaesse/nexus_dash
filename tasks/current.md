@@ -127,3 +127,6 @@ the active todo count to the `Todos` item and emphasizing overdue work.
   the documented disabled delivery mode.
 - Implementation commit `10276ce` is pushed and ready-for-review PR #410 is
   open.
+- Copilot's initial review found one Inbox regression in the shared badge
+  rendering; restored its established visual `99+` cap while Todos continues
+  to show the exact active count. Focused shell tests and lint passed.

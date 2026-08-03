@@ -183,7 +183,9 @@ export function AuthenticatedAppShellClient({
                     {badgeCount} unread notifications
                   </span>
                 ) : null}
-                <span aria-hidden>{badgeCount}</span>
+                <span aria-hidden>
+                  {isTodoBadge || badgeCount <= 99 ? badgeCount : "99+"}
+                </span>
               </span>
             ) : null}
           </span>
