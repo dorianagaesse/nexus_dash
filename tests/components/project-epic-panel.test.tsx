@@ -179,6 +179,9 @@ describe("project-epic-panel", () => {
     );
     expect(disclosure?.getAttribute("aria-expanded")).toBe("false");
     expect(disclosure?.className).toContain("min-h-11");
+    expect(disclosure?.className).toContain("min-w-11");
+    expect(disclosure?.textContent).toBe("");
+    expect(disclosure?.getAttribute("title")).toBe("Show details");
     expect(details?.querySelectorAll("li")).toHaveLength(7);
     expect(details?.textContent).toContain("+2 more linked tasks");
     expect(
@@ -242,7 +245,7 @@ describe("project-epic-panel", () => {
       `Hide details for ${epicWithDenseLinkedTasks.name}`
     );
     expect(expandedDisclosure?.getAttribute("aria-expanded")).toBe("true");
-    expect(expandedDisclosure?.textContent).toContain("Hide details");
+    expect(expandedDisclosure?.getAttribute("title")).toBe("Hide details");
     expect(firstDetails?.hidden).toBe(false);
     expect(secondDisclosure?.getAttribute("aria-expanded")).toBe("false");
     expect(secondDetails?.hidden).toBe(true);

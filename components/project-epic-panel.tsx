@@ -642,30 +642,55 @@ export function ProjectEpicPanel({
                               <EpicStatusBadge status={epic.status} />
                             </div>
                           </div>
-                          {canEdit ? (
-                            <div className="flex shrink-0 items-center gap-2">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="min-h-11 min-w-11"
-                                onClick={() => startEdit(epic)}
-                                aria-label={`Edit epic ${epic.name}`}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="min-h-11 min-w-11"
-                                onClick={() => setPendingDeleteEpicId(epic.id)}
-                                aria-label={`Delete epic ${epic.name}`}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : null}
+                          <div className="flex shrink-0 items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="min-h-11 min-w-11 text-muted-foreground"
+                              aria-expanded={isDetailsExpanded}
+                              aria-controls={detailsId}
+                              aria-label={`${
+                                isDetailsExpanded ? "Hide" : "Show"
+                              } details for ${epic.name}`}
+                              title={`${
+                                isDetailsExpanded ? "Hide" : "Show"
+                              } details`}
+                              onClick={() => toggleEpicDetails(epic.id)}
+                            >
+                              {isDetailsExpanded ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
+                            </Button>
+                            {canEdit ? (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="min-h-11 min-w-11"
+                                  onClick={() => startEdit(epic)}
+                                  aria-label={`Edit epic ${epic.name}`}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="min-h-11 min-w-11"
+                                  onClick={() =>
+                                    setPendingDeleteEpicId(epic.id)
+                                  }
+                                  aria-label={`Delete epic ${epic.name}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            ) : null}
+                          </div>
                         </div>
 
                         <section
@@ -704,29 +729,6 @@ export function ProjectEpicPanel({
                             task{epic.taskCount === 1 ? "" : "s"} completed
                           </p>
                         </section>
-
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="min-h-11 w-full justify-between border border-border/50 px-3 text-muted-foreground"
-                          aria-expanded={isDetailsExpanded}
-                          aria-controls={detailsId}
-                          aria-label={`${
-                            isDetailsExpanded ? "Hide" : "Show"
-                          } details for ${epic.name}`}
-                          onClick={() => toggleEpicDetails(epic.id)}
-                        >
-                          <span>
-                            {isDetailsExpanded
-                              ? "Hide details"
-                              : "Show details"}
-                          </span>
-                          {isDetailsExpanded ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </Button>
 
                         <div
                           id={detailsId}

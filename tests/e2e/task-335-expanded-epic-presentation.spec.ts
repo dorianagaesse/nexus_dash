@@ -24,7 +24,7 @@ async function createDenseEpicFixture(userId: string) {
     },
     select: { id: true },
   });
-  const primaryEpicName = uniqueProjectName("workspace-sharing");
+  const primaryEpicName = "Workspace sharing";
   const primaryEpic = await prisma.epic.create({
     data: {
       projectId: project.id,
@@ -34,7 +34,7 @@ async function createDenseEpicFixture(userId: string) {
     },
     select: { id: true },
   });
-  const secondaryEpicName = uniqueProjectName("launch-readiness");
+  const secondaryEpicName = "Launch readiness";
 
   await prisma.epic.create({
     data: {
@@ -98,6 +98,9 @@ test.describe("TASK-335 epic detail disclosure", () => {
     await expect(showDetails).toBeVisible();
     await expect(showDetails).toHaveAttribute("aria-expanded", "false");
     await expect(
+      primaryEpic.getByText("Show details", { exact: true })
+    ).toHaveCount(0);
+    await expect(
       primaryEpic.getByRole("progressbar", {
         name: `${fixture.primaryEpicName} progress`,
       })
@@ -109,12 +112,27 @@ test.describe("TASK-335 epic detail disclosure", () => {
     ).toBe(true);
 
     const mobileEpicBounds = await primaryEpic.boundingBox();
+    const mobileDisclosureBounds = await showDetails.boundingBox();
+    const mobileEditBounds = await primaryEpic
+      .getByRole("button", {
+        name: `Edit epic ${fixture.primaryEpicName}`,
+      })
+      .boundingBox();
     expect(mobileEpicBounds).not.toBeNull();
+    expect(mobileDisclosureBounds).not.toBeNull();
+    expect(mobileEditBounds).not.toBeNull();
     expect(mobileEpicBounds!.x).toBeGreaterThanOrEqual(0);
     expect(mobileEpicBounds!.x + mobileEpicBounds!.width).toBeLessThanOrEqual(
       375
     );
     expect(mobileEpicBounds!.height).toBeLessThan(360);
+    expect(mobileDisclosureBounds!.width).toBeGreaterThanOrEqual(44);
+    expect(mobileDisclosureBounds!.height).toBeGreaterThanOrEqual(44);
+    expect(mobileEditBounds!.x).toBeGreaterThan(mobileDisclosureBounds!.x);
+    expect(
+      mobileEditBounds!.x -
+        (mobileDisclosureBounds!.x + mobileDisclosureBounds!.width)
+    ).toBeLessThanOrEqual(9);
 
     if (screenshotDirectory) {
       await mkdir(screenshotDirectory, { recursive: true });
@@ -171,6 +189,7 @@ test.describe("TASK-335 epic detail disclosure", () => {
 
     const showDetailsBounds = await showDetails.boundingBox();
     expect(showDetailsBounds).not.toBeNull();
+    expect(showDetailsBounds!.width).toBeGreaterThanOrEqual(44);
     expect(showDetailsBounds!.height).toBeGreaterThanOrEqual(44);
 
     await showDetails.click();

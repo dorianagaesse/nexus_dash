@@ -12,8 +12,9 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Kept project epic cards compact by default with title, textual status, and
   semantic progress visible while descriptions and linked tasks stay folded.
-- Added an independent accessible details disclosure to every epic and restored
-  the familiar one-column mobile and two-column desktop card presentation.
+- Added an independent accessible details chevron beside each epic's edit
+  action, avoiding an extra collapsed row while restoring the familiar
+  one-column mobile and two-column desktop card presentation.
 - Preserved complete wrapping descriptions, bounded linked-task summaries,
   theme-safe styling, and focused responsive browser coverage after expansion.
 ## v0.33.0 - 2026-07-31

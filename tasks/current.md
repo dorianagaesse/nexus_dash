@@ -23,7 +23,7 @@ progress immediately; reveal the rest through an independent per-card control.
 - Keep title, textual status, edit/delete actions, and semantic progress visible
   while each epic is collapsed by default.
 - Reveal the full description and bounded linked-task summary only after the
-  epic's accessible details control is activated.
+  epic's accessible action-cluster chevron is activated.
 - Preserve epic CRUD, permissions, status/progress behavior, project-section
   persistence, and the established token-driven visual presentation.
 - Add focused component and browser coverage for disclosure and responsive
@@ -41,8 +41,9 @@ progress immediately; reveal the rest through an independent per-card control.
 1. Mobile epic cards are collapsed by default and long descriptions/linked work
    do not add to the initial scroll length.
 2. Desktop epics retain the familiar two-column card grid.
-3. Each card's full-width 44 px disclosure is independently keyboard operable
-   and exposes accurate `aria-expanded`/`aria-controls` state.
+3. Each card's 44 px action-cluster chevron sits beside Edit/Delete, remains
+   available to viewers, is independently keyboard operable, and exposes an
+   accessible name plus accurate `aria-expanded`/`aria-controls` state.
 4. Expanded descriptions and linked-task summaries wrap without clipping or
    horizontal overflow, while sibling epics remain collapsed.
 5. Epic articles and progress expose semantic names and values, with status
@@ -71,9 +72,9 @@ progress immediately; reveal the rest through an independent per-card control.
   Next.js guidance passes.
 - Restored the established card grid, accent strip, compact title/status,
   progress treatment, and linked-task chips.
-- Added independent collapsed-by-default details regions with explicit
-  `Show details`/`Hide details` controls, semantic state, 44 px targets, and
-  keyboard support.
+- Added independent collapsed-by-default details regions controlled by
+  icon-only chevrons beside Edit/Delete, with semantic state, 44 px targets,
+  descriptive names, and keyboard support.
 - Kept full wrapping descriptions and the existing six-task-plus-remainder
   linked-work summary inside the expanded region.
 - Updated component and Playwright coverage for the clarified behavior.
@@ -98,9 +99,9 @@ progress immediately; reveal the rest through an independent per-card control.
   details, semantic progress, independent disclosure, and live edit-name
   accessibility.
 - Focused TASK-335 Chromium coverage passes at 375 px and 1440 px in light and
-  dark themes, including hidden default details, Enter-key activation,
-  independent state, restored desktop columns, 44 px controls, and horizontal
-  containment.
+  dark themes, including hidden default details, action-cluster placement,
+  Enter-key activation, independent state, restored desktop columns, 44 px
+  controls, and horizontal containment.
 - The production build passes with local-safe database and secret overrides.
 - `npm run lint` and `git diff --check` pass.
 - `npm test`: 143 files passed, 2 skipped; 999 tests passed, 2 skipped.

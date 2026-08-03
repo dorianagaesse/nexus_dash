@@ -14,10 +14,13 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Restored the one-column mobile and two-column desktop epic-card grid, accent
   strip, title flag, status badge, compact progress block, and linked-task chip
   presentation.
-- Added a collapsed-by-default `Show details` control per epic. The controlled
-  region exposes the full description and bounded linked-task summary only
-  when requested, uses `aria-expanded`/`aria-controls`, and leaves sibling
-  epics collapsed.
+- Added a collapsed-by-default details chevron per epic, then moved it into the
+  right-side action cluster beside Edit/Delete after visual review showed the
+  full-width disclosure row still consumed unnecessary collapsed-card height.
+  The 44 px icon control remains available to viewers, has a descriptive
+  accessible name, uses `aria-expanded`/`aria-controls`, reveals the full
+  description and bounded linked-task summary, and leaves sibling epics
+  collapsed.
 - Updated focused component and PostgreSQL-backed browser coverage for hidden
   default details, Enter-key activation, independent cards, 375 px containment,
   desktop grid placement, 44 px controls, dark mode, and horizontal overflow.

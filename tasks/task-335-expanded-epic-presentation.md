@@ -16,7 +16,8 @@ users expand only the epic whose description and linked tasks they need.
 Restore the familiar one-column mobile and two-column desktop card grid,
 accent strip, title flag, status badge, and compact progress treatment. Do not
 make the entire card interactive because it contains edit and delete actions.
-Instead, give each card a clear full-width `Show details` disclosure control.
+Instead, place an icon-only disclosure chevron in the right-side action cluster
+immediately before Edit/Delete so collapsed cards gain no extra vertical row.
 
 The disclosure is independent per epic and collapsed by default at every
 viewport. Its accessible state is exposed with `aria-expanded` and
@@ -32,7 +33,7 @@ plus a remainder count for dense epics).
 - Keep epic name, textual status, progress percentage, and completion count
   visible while the card is collapsed.
 - Hide the description and linked-task section by default behind an explicit
-  per-card disclosure.
+  per-card chevron in the action cluster.
 - Reveal the complete wrapping description and linked-task chips when the card
   is expanded.
 - Provide semantic article headings, progress values, disclosure state,
@@ -63,9 +64,10 @@ plus a remainder count for dense epics).
    title/status, actions, and progress summary consume card height.
 2. At desktop widths, the familiar two-column epic-card grid is retained so
    several collapsed epics remain easy to scan.
-3. Each epic has an independent, full-width disclosure with a 44 px target,
-   visible focus, keyboard activation, and accurate `aria-expanded` and
-   `aria-controls` state.
+3. Each epic has an independent icon-only chevron beside its edit action with a
+   44 px target, visible focus, descriptive accessible name, keyboard
+   activation, and accurate `aria-expanded` and `aria-controls` state; viewers
+   without edit rights still receive the disclosure.
 4. Expanding an epic reveals its complete wrapping description and linked-task
    summary without expanding sibling epics or creating horizontal overflow.
 5. Epic cards expose a semantic article heading and accessible progress value,
