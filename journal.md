@@ -3314,3 +3314,7 @@ Low-value entries to avoid going forward:
 - Committed the reviewable implementation as `10276ce`, pushed the feature
   branch, and opened ready-for-review
   [PR #410](https://github.com/dorianagaesse/nexus_dash/pull/410).
+- Copilot's initial review identified that the shared badge refactor removed
+  Inbox's visual `99+` cap. Restored the cap only for notifications, preserved
+  the exact sr-only unread count and exact visible Todos count, and added a
+  regression assertion. Focused shell tests and lint passed.
