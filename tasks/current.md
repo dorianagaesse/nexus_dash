@@ -2,125 +2,126 @@
 
 ## Task
 
-- ID: TASK-352
-- Title: Related-task picker presentation
-- Status: In review (2026-07-31)
-- Branch: `feature/task-352-related-task-picker-presentation`
-- Pull request: [#404](https://github.com/dorianagaesse/nexus_dash/pull/404)
-- Brief:
-  [`task-352-related-task-picker-presentation.md`](./task-352-related-task-picker-presentation.md)
+- ID: TASK-354
+- Title: Sidebar todo count
+- Status: Ready for review (2026-08-03)
+- Branch: `feature/task-354-sidebar-todo-count`
+- Pull request: Pending
+- Brief: [`task-354-sidebar-todo-count.md`](./task-354-sidebar-todo-count.md)
 
 ## Objective
 
-Make every related-task candidate easy to scan and distinguish by presenting
-its friendly task reference, bounded title, and Kanban-colored status in one
-responsive, accessible row.
+Make outstanding meeting follow-ups visible from project navigation by adding
+the active todo count to the `Todos` item and emphasizing overdue work.
 
 ## Scope
 
-- Present each candidate as a stable reference column, a flexible truncated
-  title, and a compact status badge.
-- Reuse the established Backlog, In Progress, Blocked, and Done Kanban badge
-  colors in both light and dark themes.
-- Centralize the shared status presentation classes so the picker cannot drift
-  from the Kanban columns.
-- Keep status text visible and include reference, full title, and status in the
-  option's accessible name so meaning never depends on color.
-- Preserve the complete candidate set, reference/title/status filtering,
-  viewport-aware scrolling, keyboard navigation, and selection behavior from
-  TASK-350 and TASK-351.
-- Add focused component and browser coverage for presentation, accessibility,
-  long-title containment, mobile sizing, and both themes.
+- Load an authorization-safe summary for the current project's meeting todos.
+- Show the number of active, incomplete todos in a compact top-right badge on
+  the project-scoped `Todos` navigation item.
+- Use the established neutral navigation treatment when no active todo is
+  overdue and an accessible orange warning treatment when at least one is
+  overdue.
+- Include count and overdue meaning in the navigation item's accessible name
+  so status does not depend on color alone.
+- Keep the badge current after project navigation, todo mutations, and remote
+  project activity without forcing a full page reload.
+- Preserve existing desktop sidebar, mobile project navigation, notification
+  badges, active-route styling, and project authorization behavior.
 
 ## Runtime Assumptions
 
-- TASK-350 and TASK-351 are present on `origin/main`; candidate eligibility and
-  stable `ND-<number>` references need no data or API changes.
-- Task statuses remain limited to the four values in `lib/task-status.ts`.
+- Active todos are meeting-note actions whose `completedAt` value is null.
+- Existing meeting-todo overdue rules remain authoritative, including the
+  seven-day grace period and archived-meeting exclusion.
 - Existing local PostgreSQL and `.env` prerequisites are unchanged.
-- Browser validation uses the existing Playwright project/task fixture.
-- If a branch preview is required during review, it must pass
-  `git_ref=feature/task-352-related-task-picker-presentation` explicitly.
+- Browser validation uses the existing project meeting-todo fixture.
+- If preview validation is required during review, it must pass
+  `git_ref=feature/task-354-sidebar-todo-count` explicitly.
 
 ## Acceptance Criteria
 
-1. Every related-task suggestion shows the friendly `ND-<number>` reference,
-   task title, and human-readable status in a consistent scan order.
-2. Backlog, In Progress, Blocked, and Done use the same semantic badge colors
-   as their Kanban columns in light and dark themes.
-3. Status remains understandable without color: visible status text is
-   present, and the option accessible name includes reference, full title, and
-   status.
-4. Long titles truncate with an ellipsis in the row, expose the full title to
-   pointer and assistive-technology users, and do not create horizontal
-   overflow at a 375 px viewport.
-5. Candidate rows remain at least 44 px high with existing hover, active,
-   focus, keyboard navigation, list scrolling, and selection behavior intact.
-6. Candidate eligibility, sorting, filtering by reference/title/status,
-   bilateral relationship behavior, and internal task identity remain
-   unchanged.
-7. Focused component and Playwright coverage proves all four status
-   presentations, accessible names, truncation, narrow containment, and theme
-   compatibility.
-8. Release metadata, task tracking, and validation evidence are updated in the
+1. The project-scoped `Todos` navigation item shows the exact number of active
+   todos when that number is greater than zero.
+2. The badge is absent when there are no active todos and handles large counts
+   without breaking the navigation layout.
+3. The badge uses a neutral semantic theme treatment when no active todo is
+   overdue and an orange warning treatment when one or more active todos are
+   overdue, in light and dark themes.
+4. The link's accessible name announces the active count and overdue state;
+   orange is not the only way overdue meaning is conveyed.
+5. The summary is limited to the authorized current project and does not expose
+   todo content or another project's counts.
+6. The count refreshes after completing or reopening a todo, after relevant
+   remote project activity, and when navigating between projects.
+7. Existing Inbox badge behavior, active-route indication, keyboard focus,
+   44 px navigation targets, mobile containment, and todo navigation remain
+   intact.
+8. Focused service, route, component, and Playwright coverage verifies zero,
+   active, overdue, mutation-refresh, authorization, and responsive states.
+9. Release metadata, task tracking, and validation evidence are updated in the
    same pull request.
 
 ## Definition Of Done
 
-- The picker and Kanban columns consume one shared status badge palette.
-- The row layout follows the UI/UX Pro Max accessibility, 44 px target,
-  truncation, responsive, and dark-mode guidance.
+- Todo summary persistence access stays in `lib/services/**`; the API route is
+  a thin authenticated transport adapter.
+- The badge follows the UI/UX Pro Max accessibility, semantic-color,
+  navigation-badge, theme, and responsive guidance.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
   `npm run build`, release validation, and relevant Playwright coverage pass.
-- The feature release advances to `v0.33.0` with matching changelog and
-  lockfile metadata.
+- The feature release advances from `v0.33.0` to `v0.34.0` with matching
+  changelog and lockfile metadata.
 - The branch is committed and pushed, a ready-for-review PR is open, and the
   initial Copilot review/check outcome is handled without merging the PR.
 
 ## Progress
 
-- Confirmed TASK-352 is the next presentation refinement after merged
-  TASK-350 and TASK-351.
-- Created the dedicated worktree and feature branch from merged `origin/main`.
-- Completed the UI/UX Pro Max design-system, accessibility, truncation,
-  responsive-layout, dark-theme, and Next.js guidance review.
-- Located the established status badge palette in the Kanban column component
-  and defined the shared-presentation boundary for implementation.
-- Extracted the exact status badge palette into a shared presentation map used
-  by both Kanban headers and related-task candidates.
-- Redesigned candidate rows as a reference/title/status grid with visible
-  status text, full accessible names, hover-accessible full titles, and
-  ellipsis containment.
-- Added component and browser coverage for all four statuses, keyboard
-  selection, long titles, 44 px targets, 375 px containment, and light/dark
-  themes.
-- Visually reviewed the generated 375 px light and dark picker states.
-- Prepared feature release `v0.33.0`.
+- Created TASK-354 in the backlog and its dedicated worktree from current
+  `origin/main`.
+- Completed the UI/UX Pro Max design-system, accessibility, navigation-badge,
+  semantic-color, responsive, dark-theme, and Next.js guidance review.
+- Confirmed the existing meeting-todo service is the source of truth for active
+  and overdue semantics and the authenticated shell owns both desktop and
+  mobile project navigation.
+- Added a minimal actor-RLS-scoped summary query and authenticated no-store API
+  endpoint that expose only the active count and overdue boolean.
+- Added one shell-level summary hook that loads on project navigation and
+  refreshes after local mutations or remote meeting activity without
+  duplicating requests for the desktop and mobile navigation renders.
+- Added exact neutral and orange warning badges with controlled accessible
+  names, tabular figures, theme compatibility, and the existing 44 px
+  navigation targets intact.
+- Routed Todos-page completion through the shared project-activity mutation
+  helper so the navigation count updates immediately after complete/reopen.
+- Added focused service, route, hook, shell, and Playwright coverage and
+  prepared feature release `v0.34.0`.
 
 ## Outcome
 
-- Related-task candidates now scan consistently as friendly reference, bounded
-  title, and workflow status without changing which tasks users can relate.
-- Status colors match the Kanban columns through one shared source and remain
-  understandable through visible and announced text.
-- Long titles retain their full value while the visible row stays contained on
-  narrow screens.
+- The current project's desktop and mobile `Todos` navigation now exposes its
+  exact active count without loading todo content into the shell.
+- Active work uses a compact neutral badge; any overdue active work promotes
+  the badge to orange and adds explicit overdue wording to the link's
+  accessible name.
+- Counts stay project-isolated and update after local todo changes, relevant
+  live project events, and project navigation while preserving the Inbox badge
+  and route state.
 
 ## Validation
 
 - `npm run lint`, `npm run rls:check`, `git diff --check`, and
-  `npm run release:check -- --base origin/main --branch feature/task-352-related-task-picker-presentation`
+  `npm run release:check -- --base origin/main --branch feature/task-354-sidebar-todo-count`
   passed.
-- `npm test`: 996 passed, 2 skipped.
+- `npm test`: 1006 passed, 2 skipped.
 - `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
   functions, 91.88% lines.
-- `npm run build` passed with documented local-safe environment placeholders.
-- Focused TASK-352 component/browser coverage and the bilateral, TASK-350, and
-  TASK-351 related-task regressions passed.
-- The complete 31-scenario Chromium suite passed with the documented local
-  database and paired trusted-origin placeholders.
-- Generated 375 px light and dark screenshots were visually inspected.
-- Planning commit `0bffdc8` and implementation commit `8c66ec7` are pushed;
-  ready-for-review PR #404 is open.
-- Copilot's initial review completed with one actionable tracking comment;
-  TASK-352's backlog status now matches this brief's review state and PR.
+- `npm run build` passed with the local-validation runbook's non-secret runtime
+  placeholders.
+- The focused project meeting-todo browser flow passed at 393 px and 375 px in
+  light/dark themes and at 1280 px for the desktop sidebar; screenshots under
+  `.tmp/task354/` were visually reviewed.
+- The complete 31-scenario Chromium suite passed with outbound email delivery
+  disabled locally. The preceding run's sole password-recovery failure was
+  traced to the placeholder Resend key being treated as live and cleared under
+  the documented disabled delivery mode.

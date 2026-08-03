@@ -3281,3 +3281,33 @@ Low-value entries to avoid going forward:
   with 2 skipped, coverage at 91.37% statements / 81.33% branches / 92.2%
   functions / 91.88% lines, production build, both focused related-task
   Playwright scenarios, and the complete 29-scenario Playwright suite.
+
+# 2026-08-03 - TASK-354 sidebar todo count
+
+- Added TASK-354 to the backlog and created
+  `feature/task-354-sidebar-todo-count` in its dedicated worktree from current
+  `origin/main`.
+- Kept the shell payload minimal through an actor-RLS-scoped project summary
+  that returns only active count and overdue presence, exposed by a thin
+  authenticated no-store route.
+- Added one project-aware client summary subscription for both responsive
+  navigation renders; it reloads on project changes, local mutation completion,
+  and relevant remote meeting activity.
+- Added exact top-right todo counts with neutral and orange overdue treatments,
+  controlled accessible names, tabular figures, and no change to the Inbox
+  badge, active-route state, or 44 px navigation targets.
+- Routed Todos-page completion through the shared project-activity mutation
+  helper, added service/route/hook/shell/browser coverage, and prepared feature
+  release `v0.34.0`.
+- Validation passed: lint, RLS inventory, release policy, 1006 unit/API tests
+  with 2 skipped, coverage at 91.37% statements / 81.33% branches / 92.2%
+  functions / 91.88% lines, production build, focused responsive todo browser
+  coverage, and all 31 Chromium scenarios.
+- The first fresh-worktree full unit run lacked `DATABASE_URL`; the clean rerun
+  used the local-validation runbook's documented PostgreSQL placeholder. The
+  first full browser run treated the placeholder Resend key as live and failed
+  only the password-reset delivery check; disabling outbound delivery locally
+  produced a clean full rerun without external email calls.
+- Visually reviewed the orange badge in 393 px light/dark mobile navigation and
+  the 1280 px desktop sidebar under `.tmp/task354/`, then removed the isolated
+  TASK-354 PostgreSQL container and volume created for browser validation.

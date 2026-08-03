@@ -157,7 +157,9 @@ test.describe("project meeting todos", () => {
     ).toBeVisible();
     await expect(mobileNavigation.getByRole("link")).toHaveCount(4);
     await expect(
-      mobileNavigation.getByRole("link", { name: "Todos", exact: true })
+      mobileNavigation.getByRole("link", {
+        name: "Todos, 2 active todos, overdue work present",
+      })
     ).toHaveAttribute("aria-current", "page");
     await expect(
       page.getByRole("heading", { name: "Todos", exact: true })
@@ -195,7 +197,9 @@ test.describe("project meeting todos", () => {
     expect(completionBox?.width).toBeGreaterThanOrEqual(44);
     expect(completionBox?.height).toBeGreaterThanOrEqual(44);
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth
+      )
     ).toBe(true);
 
     await page.getByRole("button", { name: "Switch to dark mode" }).click();
@@ -209,7 +213,9 @@ test.describe("project meeting todos", () => {
     }
     await page.setViewportSize({ width: 375, height: 812 });
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth
+      )
     ).toBe(true);
     await page.getByRole("button", { name: "Switch to light mode" }).click();
     await page.setViewportSize({ width: 393, height: 852 });
@@ -238,6 +244,11 @@ test.describe("project meeting todos", () => {
     await completionResponse;
     await expect(page.getByText("Todo completed.")).toBeVisible();
     await expect(
+      mobileNavigation.getByRole("link", {
+        name: "Todos, 1 active todo, overdue work present",
+      })
+    ).toBeVisible();
+    await expect(
       page.getByText("Complete the mobile navigation audit")
     ).toBeHidden();
 
@@ -265,6 +276,11 @@ test.describe("project meeting todos", () => {
 
     await page.goto(`/projects/${fixture.viewerProjectId}/todos`);
     await expect(
+      page
+        .locator("nav[aria-label='Primary navigation']:visible")
+        .getByRole("link", { name: "Todos, 1 active todo" })
+    ).toBeVisible();
+    await expect(
       page.getByText("Review the shared read-only follow-up")
     ).toBeVisible();
     await expect(page.getByText("View only", { exact: true })).toBeVisible();
@@ -279,5 +295,19 @@ test.describe("project meeting todos", () => {
     await expect(
       page.getByRole("region", { name: "Meeting todos", exact: true })
     ).toBeVisible();
+    const desktopSidebar = page.locator(
+      "aside nav[aria-label='Primary navigation']"
+    );
+    await expect(
+      desktopSidebar.getByRole("link", {
+        name: "Todos, 1 active todo, overdue work present",
+      })
+    ).toBeVisible();
+    if (screenshotDirectory) {
+      await page.screenshot({
+        path: path.resolve(screenshotDirectory, "desktop-sidebar.png"),
+        fullPage: true,
+      });
+    }
   });
 });

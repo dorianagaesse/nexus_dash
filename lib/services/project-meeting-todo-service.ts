@@ -33,6 +33,11 @@ export interface ProjectMeetingTodoList {
   completed: ProjectMeetingTodoSummary[];
 }
 
+export interface ProjectMeetingTodoNavigationSummary {
+  activeCount: number;
+  hasOverdue: boolean;
+}
+
 function normalizeIdentifier(value: string | null | undefined): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -157,4 +162,63 @@ export async function listProjectMeetingTodos(input: {
       completed,
     };
   }) as Promise<ProjectMeetingTodoList | null>;
+}
+
+export async function getProjectMeetingTodoNavigationSummary(input: {
+  actorUserId: string;
+  projectId: string;
+  referenceNowMs?: number;
+}): Promise<ProjectMeetingTodoNavigationSummary | null> {
+  const actorUserId = normalizeIdentifier(input.actorUserId);
+  const projectId = normalizeIdentifier(input.projectId);
+  if (!actorUserId || !projectId) {
+    return null;
+  }
+
+  return withActorRlsContext(actorUserId, async (db) => {
+    const project = await db.project.findFirst({
+      where: {
+        id: projectId,
+        ...buildProjectPrincipalWhere(actorUserId),
+      },
+      select: {
+        id: true,
+        meetingNotes: {
+          select: {
+            scheduledAt: true,
+            status: true,
+            actions: {
+              where: { completedAt: null },
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!project) {
+      return null;
+    }
+
+    const referenceNowMs = input.referenceNowMs ?? Date.now();
+    let activeCount = 0;
+    let hasOverdue = false;
+
+    for (const meeting of project.meetingNotes) {
+      activeCount += meeting.actions.length;
+      if (
+        meeting.actions.length > 0 &&
+        isMeetingTodoOverdueAt({
+          scheduledAt: meeting.scheduledAt,
+          completedAt: null,
+          meetingStatus: meeting.status,
+          referenceNowMs,
+        })
+      ) {
+        hasOverdue = true;
+      }
+    }
+
+    return { activeCount, hasOverdue };
+  }) as Promise<ProjectMeetingTodoNavigationSummary | null>;
 }

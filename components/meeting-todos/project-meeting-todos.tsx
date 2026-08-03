@@ -16,6 +16,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { isMeetingTodoOverdueAt } from "@/lib/meeting-todo";
+import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
 import { cn } from "@/lib/utils";
 
 export interface ProjectMeetingTodoItem {
@@ -196,9 +197,7 @@ function TodoRow({
               Overdue
             </Badge>
           ) : null}
-          {!canEdit ? (
-            <Badge variant="secondary">View only</Badge>
-          ) : null}
+          {!canEdit ? <Badge variant="secondary">View only</Badge> : null}
         </div>
       </div>
     </li>
@@ -250,7 +249,8 @@ export function ProjectMeetingTodos({
     setFeedback(null);
 
     try {
-      const response = await fetch(
+      const response = await fetchProjectActivityMutation(
+        projectId,
         `/api/projects/${projectId}/meeting-notes/${todo.meeting.id}/actions/${todo.id}`,
         {
           method: "PATCH",
@@ -260,9 +260,9 @@ export function ProjectMeetingTodos({
           body: JSON.stringify({ completed }),
         }
       );
-      const payload = (await response.json().catch(() => null)) as
-        | { error?: string }
-        | null;
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
 
       if (!response.ok) {
         throw new Error(payload?.error ?? "meeting-todo-update-failed");
@@ -291,7 +291,9 @@ export function ProjectMeetingTodos({
       setFeedback(completed ? "Todo completed." : "Todo reopened.");
       router.refresh();
     } catch {
-      setMutationError("Could not update this todo. Check your access and retry.");
+      setMutationError(
+        "Could not update this todo. Check your access and retry."
+      );
     } finally {
       setPendingActionId(null);
     }
@@ -343,9 +345,7 @@ export function ProjectMeetingTodos({
                 )}
               >
                 {itemView}
-                <span className="tabular-nums text-xs">
-                  {count}
-                </span>
+                <span className="tabular-nums text-xs">{count}</span>
               </Link>
             );
           })}

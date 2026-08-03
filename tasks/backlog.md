@@ -2,7 +2,7 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-07-30
+Last reviewed: 2026-08-03
 
 ## Pending
 ### Execution Queue (Now / Next)
@@ -90,6 +90,12 @@ Last reviewed: 2026-07-30
   Status: Next 16 - project todo popup refinement
   Rationale: Replace the current meeting-todo popup treatment with a compact bottom-right floating `Todos` button using the todo icon and label; open the aggregated todos in an accessible modal that can be moved within the project-page area while preserving containment, focus, responsive behavior, and existing todo actions.
   Dependencies: TASK-098, TASK-316, TASK-321, TASK-322, TASK-330, TASK-332
+- ID: TASK-354
+  Title: Sidebar todo count - active and overdue project awareness
+  Status: Ready for review (2026-08-03)
+  Rationale: Add a compact top-right count to the project-scoped `Todos` navigation item so users can see outstanding meeting follow-ups without opening the page, and promote the badge to an accessible orange overdue state whenever at least one active todo is overdue.
+  Dependencies: TASK-316, TASK-332
+  Brief: `tasks/task-354-sidebar-todo-count.md`
 
 ### Collaboration Refinement Program (TASK-336 Audit)
 - ID: TASK-337

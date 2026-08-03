@@ -25,7 +25,10 @@ vi.mock("@/lib/services/rls-context", () => ({
   withActorRlsContext: rlsContextMock.withActorRlsContext,
 }));
 
-import { listProjectMeetingTodos } from "@/lib/services/project-meeting-todo-service";
+import {
+  getProjectMeetingTodoNavigationSummary,
+  listProjectMeetingTodos,
+} from "@/lib/services/project-meeting-todo-service";
 
 const referenceNowMs = new Date("2026-07-20T12:00:00.000Z").getTime();
 
@@ -155,5 +158,71 @@ describe("project meeting todo service", () => {
         projectId: "project-other",
       })
     ).resolves.toBeNull();
+  });
+
+  test("summarizes active and overdue todos without selecting todo content", async () => {
+    dbMock.project.findFirst.mockResolvedValueOnce({
+      id: "project-owned",
+      meetingNotes: [
+        {
+          scheduledAt: new Date("2026-07-10T09:00:00.000Z"),
+          status: "actions_in_progress",
+          actions: [{ id: "todo-1" }, { id: "todo-2" }],
+        },
+        {
+          scheduledAt: new Date("2026-07-19T09:00:00.000Z"),
+          status: "actions_in_progress",
+          actions: [{ id: "todo-3" }],
+        },
+        {
+          scheduledAt: new Date("2026-07-01T09:00:00.000Z"),
+          status: "done",
+          actions: [{ id: "todo-archived" }],
+        },
+      ],
+    });
+
+    await expect(
+      getProjectMeetingTodoNavigationSummary({
+        actorUserId: " user-1 ",
+        projectId: " project-owned ",
+        referenceNowMs,
+      })
+    ).resolves.toEqual({ activeCount: 4, hasOverdue: true });
+
+    expect(dbMock.project.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "project-owned",
+        OR: expect.any(Array),
+      },
+      select: {
+        id: true,
+        meetingNotes: {
+          select: {
+            scheduledAt: true,
+            status: true,
+            actions: {
+              where: { completedAt: null },
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
+  });
+
+  test("returns zero summary for an authorized project without active todos", async () => {
+    dbMock.project.findFirst.mockResolvedValueOnce({
+      id: "project-empty",
+      meetingNotes: [],
+    });
+
+    await expect(
+      getProjectMeetingTodoNavigationSummary({
+        actorUserId: "user-1",
+        projectId: "project-empty",
+        referenceNowMs,
+      })
+    ).resolves.toEqual({ activeCount: 0, hasOverdue: false });
   });
 });

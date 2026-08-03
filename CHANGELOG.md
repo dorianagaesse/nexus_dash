@@ -8,6 +8,19 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.34.0 - 2026-08-03
+
+- Added an exact active meeting-todo count to the current project's `Todos`
+  navigation item on desktop and mobile, with an orange warning treatment when
+  overdue work is present.
+- Added accessible count and overdue descriptions that do not rely on color,
+  preserve the existing Inbox badge, and remain contained across responsive
+  navigation layouts and themes.
+- Added a minimal actor-authorized project summary endpoint plus live refresh
+  after local todo mutations, remote meeting activity, and project changes.
+- Added service, route, component, hook, and Playwright coverage for empty,
+  active, overdue, mutation-refresh, viewer, and project-isolation states.
+
 ## v0.33.0 - 2026-07-31
 
 - Redesigned related-task suggestions into scannable reference, bounded title,
