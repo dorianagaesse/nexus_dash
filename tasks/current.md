@@ -3,8 +3,8 @@
 ## Task
 
 - ID: TASK-353
-- Title: Movable meeting-todos modal
-- Status: In review (2026-08-03)
+- Title: Movable meeting-todos panel
+- Status: In progress (2026-08-04 feedback refinement)
 - Branch: `feature/task-353-movable-meeting-todos-modal`
 - Pull request: [#411](https://github.com/dorianagaesse/nexus_dash/pull/411)
 - Brief:
@@ -14,25 +14,27 @@
 
 Replace the always-expanded desktop meeting-todo popup with a compact,
 bottom-right `Todos` entry that opens the same project-scoped work in an
-accessible modal users can reposition without losing containment or context.
+accessible modeless panel. Users can reposition it while continuing to use the
+rest of the project page without a blocking or blurred backdrop.
 
 ## Scope
 
 - Replace the desktop floating table/collapse treatment with a compact fixed
   button containing the established todo icon and a visible `Todos` label.
-- Open aggregated project meeting todos in the shared accessible dialog
-  foundation, retaining open, overdue, recently completed, source-meeting,
-  completion/reopen, pending, and viewer behavior.
+- Open aggregated project meeting todos with modeless dialog semantics,
+  retaining open, overdue, recently completed, source-meeting,
+  completion/reopen, pending, and viewer behavior while the project page stays
+  interactive.
 - Provide a visible drag handle for pointer users and an equivalent keyboard
   movement interaction.
 - Clamp movement to the visible project-page content area and re-clamp after
-  viewport changes so the dialog and its close control remain reachable.
-- Close the Todos dialog before opening a source meeting, avoiding stacked
-  modal focus traps.
+  viewport changes so the panel and its close control remain reachable.
+- Close the Todos panel before opening a source meeting, leaving the meeting
+  dialog as the only modal surface.
 - Keep TASK-332's route-backed mobile Todos destination and grouped navigation
   unchanged; the desktop quick entry remains absent below the desktop
   breakpoint.
-- Add focused component and browser coverage for trigger, modal, focus,
+- Add focused component and browser coverage for trigger, modeless behavior,
   movement, containment, actions, responsive visibility, and themes.
 
 ## Out Of Scope
@@ -58,22 +60,24 @@ accessible modal users can reposition without losing containment or context.
 1. Desktop project pages with meeting todos show one compact bottom-right
    button with a Lucide todo icon, visible `Todos` label, and an accessible
    name that communicates the open and overdue counts.
-2. Activating the button opens a named modal containing the existing
+2. Activating the button opens a named modeless dialog containing the existing
    project-scoped open, overdue, and recently completed todo presentation.
-3. The modal traps focus while open, closes with its close control, Escape, or
-   outside interaction, and restores focus to the `Todos` trigger.
-4. Pointer users can drag the modal from a visible handle; keyboard users can
+3. The panel does not render a backdrop, blur, or page-wide pointer shield and
+   does not trap focus; underlying controls and text fields remain usable while
+   it is open. It closes with its close control or Escape and restores focus to
+   the `Todos` trigger on explicit close.
+4. Pointer users can drag the panel from a visible handle; keyboard users can
    focus the same handle and move it with arrow keys without relying on a
    pointer gesture.
 5. Pointer and keyboard movement stays within the visible project-page content
-   bounds, and resize or orientation changes cannot strand the modal or its
+   bounds, and resize or orientation changes cannot strand the panel or its
    close control off screen.
 6. Completion/reopen behavior, pending feedback, overdue treatment, viewer
    read-only treatment, and source-meeting navigation remain intact; source
    navigation produces one meeting dialog rather than stacked dialogs.
 7. At widths below the desktop breakpoint, the floating trigger and dialog are
    absent and the route-backed project Todos navigation remains unchanged.
-8. The trigger, modal, movement controls, scrollable content, light/dark
+8. The trigger, panel, movement controls, scrollable content, light/dark
    themes, reduced-motion preference, and a 375 px viewport meet the UI/UX Pro
    Max accessibility and containment checks.
 9. Focused component and Playwright coverage plus the required repository
@@ -83,9 +87,9 @@ accessible modal users can reposition without losing containment or context.
 
 ## Definition Of Done
 
-- The movable dialog is implemented as a focused client component on top of
-  the shared Radix dialog foundation, with no new persistence or transport
-  coupling.
+- The movable panel is implemented as a focused client component using Radix's
+  modeless dialog mode, with no backdrop, focus trap, page inerting, or new
+  persistence/transport coupling.
 - Movement uses bounded transforms, pointer capture, keyboard alternatives,
   semantic instructions, 44 px controls, and reduced-motion-safe styling.
 - Existing meeting-todo permissions and mutations are reused without contract
@@ -108,30 +112,34 @@ accessible modal users can reposition without losing containment or context.
 - Defined pointer and keyboard movement with project-content containment while
   retaining the mobile route-backed Todos experience.
 - Replaced the desktop expanded/collapse panel with a count-aware fixed
-  `Todos` trigger and a shared-foundation modal.
+  `Todos` trigger and a movable panel.
 - Added a visible pointer drag handle, arrow and Shift+Arrow movement,
   project/viewport clamping, resize re-containment, and breakpoint-safe close
   behavior.
 - Increased todo row actions to 44 px targets and preserved completion,
   reopen, overdue, recently completed, viewer, and source-meeting behavior.
-- Ensured source-meeting navigation closes the Todos focus trap before opening
-  the meeting dialog.
+- Ensured source-meeting navigation closes the Todos panel before opening the
+  meeting dialog.
 - Added focused component coverage plus full-flow browser coverage for mobile
   absence, desktop entry, focus, light/dark themes, pointer and keyboard
   movement, resize containment, mutations, and source navigation.
-- Visually reviewed the generated desktop light and dark modal screenshots.
+- Visually reviewed the generated desktop light and dark panel screenshots.
 - Prepared feature release `v0.34.0`.
 - Addressed both initial Copilot review comments: no-op containment ticks no
   longer update React position state, and repeated same-direction arrow moves
   replace the live-region announcement node so assistive technology receives
   every movement update.
+- Applied product feedback by switching the desktop Todos surface from modal to
+  modeless Radix behavior, removing its overlay and blur, preserving it across
+  outside interactions, and adding regression coverage that proves project text
+  fields remain usable while the panel stays open.
 
 ## Outcome
 
 - Desktop meeting todos now stay out of the way until requested from one
   compact bottom-right entry.
-- The aggregate opens with modal semantics and remains movable and reachable
-  by pointer and keyboard users inside the visible project content.
+- The aggregate opens as a modeless panel: it remains movable and reachable by
+  pointer and keyboard users while the underlying project page stays usable.
 - Existing project-scoped mutations, permissions, overdue rules, source
   navigation, and the route-backed mobile Todos experience are unchanged.
 
@@ -148,7 +156,7 @@ accessible modal users can reposition without losing containment or context.
 - The complete Playwright Chromium suite passed all 31 scenarios with outbound
   email delivery disabled for local-safe password-recovery testing.
 - Desktop 1280 px light/dark screenshots were generated and visually inspected;
-  the modal hierarchy, theme contrast, drag affordance, target sizing, and
+  the panel hierarchy, theme contrast, drag affordance, target sizing, and
   background context remained clear.
 - `npm run release:check -- --base origin/main --branch
   feature/task-353-movable-meeting-todos-modal` passed for `v0.34.0`.

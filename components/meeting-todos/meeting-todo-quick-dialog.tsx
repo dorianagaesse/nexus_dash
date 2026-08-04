@@ -281,6 +281,7 @@ export function MeetingTodoQuickDialog({
   const [triggerInsetRight, setTriggerInsetRight] = useState(24);
   const [movementAnnouncement, setMovementAnnouncement] =
     useState<MovementAnnouncement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const positionRef = useRef(position);
   const dragStateRef = useRef<DragState | null>(null);
@@ -471,7 +472,7 @@ export function MeetingTodoQuickDialog({
     });
     setMovementAnnouncement((current) => ({
       id: (current?.id ?? 0) + 1,
-      message: `Todos dialog moved ${event.key.replace("Arrow", "").toLowerCase()}.`,
+      message: `Todos panel moved ${event.key.replace("Arrow", "").toLowerCase()}.`,
     }));
   };
 
@@ -495,9 +496,10 @@ export function MeetingTodoQuickDialog({
     overdueCount > 0 ? `, ${overdueCount} overdue` : ""
   }`;
   const content = (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+    <Dialog modal={false} open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <button
+          ref={triggerRef}
           type="button"
           aria-label={triggerAccessibleName}
           style={{ right: triggerInsetRight }}
@@ -519,8 +521,19 @@ export function MeetingTodoQuickDialog({
 
       <DialogContent
         ref={dialogRef}
+        aria-modal="false"
         presentation="centered"
-        overlayClassName="hidden bg-black/50 backdrop-blur-[1px] lg:block"
+        overlayClassName="hidden"
+        onInteractOutside={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          if (
+            typeof window.matchMedia !== "function" ||
+            window.matchMedia("(min-width: 1024px)").matches
+          ) {
+            triggerRef.current?.focus();
+          }
+        }}
         className={cn(
           "hidden max-h-[min(42rem,calc(100dvh-2rem))] max-w-md flex-col overflow-hidden rounded-2xl border-border/70 bg-background p-0 shadow-[0_34px_96px_-34px_rgba(15,23,42,0.75)] lg:flex",
           isDragging && "select-none transition-none"
@@ -545,7 +558,7 @@ export function MeetingTodoQuickDialog({
                 ) : null}
               </div>
               <DialogDescription id="meeting-todo-dialog-description" className="mt-1.5 text-xs leading-5">
-                Project follow-ups from meeting notes. Move the dialog with the handle or its arrow keys.
+                Project follow-ups from meeting notes. Move the panel with the handle or its arrow keys. The rest of the project stays available while this panel is open.
               </DialogDescription>
             </div>
             <Button
@@ -561,7 +574,7 @@ export function MeetingTodoQuickDialog({
           </div>
           <button
             type="button"
-            aria-label="Move meeting todos dialog"
+            aria-label="Move meeting todos panel"
             aria-describedby="meeting-todo-dialog-description"
             onPointerDown={handleDragStart}
             onPointerMove={handleDragMove}

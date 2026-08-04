@@ -1,14 +1,15 @@
-# TASK-353 Movable Meeting-Todos Modal
+# TASK-353 Movable Meeting-Todos Panel
 
 ## Status
 
-In review in [PR #411](https://github.com/dorianagaesse/nexus_dash/pull/411)
+In progress after product-feedback refinement in
+[PR #411](https://github.com/dorianagaesse/nexus_dash/pull/411)
 from `feature/task-353-movable-meeting-todos-modal`.
 
 ## Source
 
 - Backlog request: replace the current meeting-todo popup with a compact
-  bottom-right `Todos` entry and a movable, accessible modal.
+  bottom-right `Todos` entry and a movable, accessible panel.
 - TASK-316 introduced the desktop floating project-wide todo table.
 - TASK-332 removed that popup from mobile in favor of a project-scoped,
   route-backed Todos destination.
@@ -25,17 +26,19 @@ pointer-only dialog.
 ## Goal
 
 Expose meeting todos through a small, predictable desktop entry point. Open
-the existing aggregate inside the shared modal foundation and let users move
-it within the visible project content using either pointer dragging or the
-keyboard.
+the existing aggregate as a modeless panel and let users move it within the
+visible project content using either pointer dragging or the keyboard while
+the underlying app remains fully usable.
 
 ## Design And Interaction Decision
 
 - Keep the trigger at the bottom-right of the visible desktop project area,
   with a Lucide `ListTodo` icon, visible `Todos` label, and count context in its
   accessible name.
-- Use the shared Radix dialog primitives for modal semantics, focus trapping,
-  Escape/outside dismissal, and trigger focus restoration.
+- Use Radix's modeless dialog mode for accessible naming, Escape dismissal, and
+  trigger focus restoration without a focus trap, inert page, or overlay.
+- Keep outside pointer and focus interactions available without dismissing the
+  panel, so project text fields and controls can be used alongside the todos.
 - Make only the labeled header handle draggable so todo rows and completion
   controls keep normal click, touch, and text behavior.
 - Support arrow-key movement from the drag handle, with a larger Shift+Arrow
@@ -44,22 +47,24 @@ keyboard.
   container and viewport. Re-clamp on resize and reset position on each open.
 - Keep movement subtle and transform-only; disable transition animation for
   reduced-motion preferences and while actively dragging.
-- Close the Todos modal before selecting a source meeting so two focus traps
-  never overlap.
+- Close the Todos panel before selecting a source meeting so the source modal
+  opens without a competing floating surface.
 - Preserve TASK-332's mobile route and hide this quick surface below `lg`.
 
 ## Acceptance Criteria
 
 1. A compact bottom-right desktop `Todos` button replaces the expanded/collapse
    popup and exposes open/overdue counts accessibly.
-2. The shared accessible dialog foundation presents the existing aggregate,
-   permissions, mutations, status treatments, and source links.
-3. Focus is contained while open and restored to the trigger on close.
+2. An accessible modeless dialog presents the existing aggregate, permissions,
+   mutations, status treatments, and source links.
+3. No backdrop, blur, focus trap, or page-wide pointer shield is present;
+   underlying project controls and text fields remain operable while the panel
+   stays open, and explicit close restores focus to the trigger.
 4. A visible handle supports bounded pointer dragging and equivalent keyboard
    arrow movement.
 5. The dialog remains fully reachable within project content after movement,
    resize, and orientation changes.
-6. Opening a source meeting closes the Todos modal before opening the meeting
+6. Opening a source meeting closes the Todos panel before opening the meeting
    dialog.
 7. The quick entry remains absent on mobile, where the project Todos route is
    still the primary surface.
@@ -82,13 +87,15 @@ keyboard.
 
 - Replaced the expanded/collapse quick panel with a compact, count-aware
   desktop `Todos` trigger.
-- Added a shared-foundation modal with pointer capture, arrow-key movement,
+- Added a modeless panel with pointer capture, arrow-key movement,
   project/viewport clamping, resize re-containment, visible instructions, and
   focus restoration.
 - Preserved existing aggregate ordering, todo mutations, overdue status,
   viewer behavior, source navigation, and the project-scoped mobile route.
-- Closing the Todos modal before source navigation prevents overlapping focus
-  traps.
+- Closing the Todos panel before source navigation keeps the true source
+  meeting modal singular.
+- Product-feedback refinement removed the overlay, blur, focus trap, and page
+  inerting; outside project fields remain usable without dismissing the panel.
 
 ## Validation
 

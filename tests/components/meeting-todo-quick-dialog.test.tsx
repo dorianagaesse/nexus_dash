@@ -133,7 +133,7 @@ afterEach(async () => {
 });
 
 describe("meeting todo quick dialog", () => {
-  test("uses a compact desktop-only trigger and an accessible modal", async () => {
+  test("uses a compact desktop-only trigger and an accessible modeless panel", async () => {
     renderPanel();
 
     const trigger = getButton("Todos, 1 open, 1 overdue");
@@ -146,15 +146,28 @@ describe("meeting todo quick dialog", () => {
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
 
     expect(dialog).not.toBeNull();
-    expect(dialog?.getAttribute("aria-modal")).toBe("true");
+    expect(dialog?.getAttribute("aria-modal")).toBe("false");
     expect(dialog?.textContent).toContain("Meeting todos");
     expect(dialog?.textContent).toContain("Choose the movable todo entry");
     expect(dialog?.textContent).toContain("Recently completed");
-    expect(getButton("Move meeting todos dialog").className).toContain("min-h-11");
+    expect(getButton("Move meeting todos panel").className).toContain("min-h-11");
+
+    const projectInput = document.createElement("input");
+    projectInput.setAttribute("aria-label", "Project field");
+    document.body.appendChild(projectInput);
+    await act(async () => {
+      projectInput.focus();
+      projectInput.click();
+      await Promise.resolve();
+    });
+
+    expect(document.activeElement).toBe(projectInput);
+    expect(document.querySelector<HTMLElement>('[role="dialog"]')).toBe(dialog);
+    expect(document.querySelector<HTMLElement>(".fixed.inset-0")).toBeNull();
 
     await act(async () => {
       getButton("Close meeting todos").click();
-      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(document.activeElement).toBe(trigger);
   });
@@ -225,7 +238,7 @@ describe("meeting todo quick dialog", () => {
     renderPanel();
     await openTodosDialog();
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
-    const moveHandle = getButton("Move meeting todos dialog");
+    const moveHandle = getButton("Move meeting todos panel");
     const initialTransform = dialog?.style.transform;
 
     await act(async () => {
@@ -237,7 +250,7 @@ describe("meeting todo quick dialog", () => {
     expect(dialog?.style.transform).not.toBe(initialTransform);
     const liveRegion = document.querySelector<HTMLElement>('[role="status"]');
     const firstAnnouncement = liveRegion?.firstElementChild;
-    expect(liveRegion?.textContent).toBe("Todos dialog moved right.");
+    expect(liveRegion?.textContent).toBe("Todos panel moved right.");
 
     await act(async () => {
       moveHandle.dispatchEvent(
@@ -245,7 +258,7 @@ describe("meeting todo quick dialog", () => {
       );
     });
 
-    expect(liveRegion?.textContent).toBe("Todos dialog moved right.");
+    expect(liveRegion?.textContent).toBe("Todos panel moved right.");
     expect(liveRegion?.firstElementChild).not.toBe(firstAnnouncement);
   });
 });

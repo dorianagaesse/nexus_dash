@@ -284,13 +284,24 @@ test.describe("project meeting todos", () => {
     await todosTrigger.click();
     const todosDialog = page.getByRole("dialog", { name: "Meeting todos" });
     await expect(todosDialog).toBeVisible();
+    await expect(todosDialog).toHaveAttribute("aria-modal", "false");
+    await expect(page.locator("body")).not.toHaveCSS("pointer-events", "none");
     await expect(
       todosDialog.getByText("Open the source meeting from Todos")
     ).toBeVisible();
+
+    const meetingSearch = page.getByPlaceholder(
+      "Search titles, participants, labels, inputs, outputs, actions"
+    );
+    await meetingSearch.fill("source meeting");
+    await expect(meetingSearch).toHaveValue("source meeting");
+    await expect(todosDialog).toBeVisible();
+    await meetingSearch.fill("");
+    await page.waitForTimeout(300);
     if (task353ScreenshotDirectory) {
       await mkdir(path.resolve(task353ScreenshotDirectory), { recursive: true });
       await page.screenshot({
-        path: path.resolve(task353ScreenshotDirectory, "desktop-modal-dark.png"),
+        path: path.resolve(task353ScreenshotDirectory, "desktop-panel-dark.png"),
         fullPage: false,
       });
     }
@@ -302,16 +313,17 @@ test.describe("project meeting todos", () => {
     await expect(page.locator("html")).not.toHaveClass(/dark/);
     await todosTrigger.click();
     await expect(todosDialog).toBeVisible();
+    await page.waitForTimeout(300);
     if (task353ScreenshotDirectory) {
       await page.screenshot({
-        path: path.resolve(task353ScreenshotDirectory, "desktop-modal-light.png"),
+        path: path.resolve(task353ScreenshotDirectory, "desktop-panel-light.png"),
         fullPage: false,
       });
     }
 
     const projectBounds = await page.locator("[data-project-page]").boundingBox();
     const moveHandle = todosDialog.getByRole("button", {
-      name: "Move meeting todos dialog",
+      name: "Move meeting todos panel",
     });
     await moveHandle.focus();
     await expect(moveHandle).toBeFocused();

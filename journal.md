@@ -3,6 +3,23 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-04 - TASK-353 product-feedback refinement
+
+- Took over the existing TASK-353 work on PR #411 in its dedicated worktree and
+  re-read the repository execution, project, runtime, task, backlog, and journal
+  context before changing the implementation.
+- Confirmed that the first pass used modal Radix behavior: it trapped focus,
+  made the page inert, and rendered a dark blurred overlay despite the panel's
+  movement support.
+- Switched only the desktop Todos surface to modeless dialog behavior, removed
+  the overlay and blur, kept outside pointer/focus interactions from dismissing
+  it, and retained Escape/explicit close, movement, containment, todo actions,
+  source-meeting navigation, and the mobile route.
+- Added component and browser regression coverage for modeless semantics and
+  using an underlying project text field while the Todos panel remains open.
+- Focused component coverage and full repository lint passed; broader browser
+  and repository validation is pending.
+
 # 2026-08-03 - TASK-353 movable meeting-todos modal
 
 - Started from merged `origin/main` in the dedicated
