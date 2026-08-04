@@ -3,6 +3,76 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-03 - TASK-335 clarified compact disclosure
+
+- Clarified the product intent after review: retain the previous compact epic
+  presentation and reduce default information density rather than expanding
+  every epic narrative across the dashboard.
+- Reapplied UI/UX Pro Max guidance around progressive disclosure, 44 px touch
+  targets, keyboard semantics, independent expanded state, mobile content
+  priority, and theme parity while preserving the existing design language.
+- Restored the one-column mobile and two-column desktop epic-card grid, accent
+  strip, title flag, status badge, compact progress block, and linked-task chip
+  presentation.
+- Added a collapsed-by-default details chevron per epic, then moved it into the
+  right-side action cluster beside Edit/Delete after visual review showed the
+  full-width disclosure row still consumed unnecessary collapsed-card height.
+  The 44 px icon control remains available to viewers, has a descriptive
+  accessible name, uses `aria-expanded`/`aria-controls`, reveals the full
+  description and bounded linked-task summary, and leaves sibling epics
+  collapsed.
+- Updated focused component and PostgreSQL-backed browser coverage for hidden
+  default details, Enter-key activation, independent cards, 375 px containment,
+  desktop grid placement, 44 px controls, dark mode, and horizontal overflow.
+- Validation passed with a fresh healthy worktree-local PostgreSQL service and
+  all 49 migrations; RLS inventory and tenant isolation; lint; 143 passing
+  Vitest files with 2 skipped; 999 passing tests with 2 skipped; coverage at
+  91.37% statements / 81.33% branches / 92.2% functions / 91.88% lines; a
+  production build using the required local-safe Google encryption key; all 32
+  Chromium scenarios; release policy for `v0.34.0`; and `git diff --check`.
+- Merged current `origin/main` into the feature branch after TASK-352 and two
+  dependency updates landed, preserved both release histories, and advanced
+  TASK-335 from the now-occupied `v0.33.0` slot to `v0.34.0`.
+
+# 2026-07-31 - TASK-335 expanded epic presentation
+
+- Started TASK-335 in the dedicated
+  `feature/task-335-expanded-epic-presentation` worktree from current
+  `origin/main`, formalized the backlog rationale into an explicit task brief,
+  and moved the current-task record forward from merged TASK-351.
+- Applied UI/UX Pro Max guidance for the established calm productivity UI:
+  retain semantic theme tokens and typography, make complete context available
+  on mobile, keep controls at least 44 px, use semantic article/progress
+  structure, preserve visible focus, and validate 375 px plus dark mode.
+- Replaced narrow two-column desktop epic cards with full-width articles. On
+  wide screens, narrative/progress and linked work share a readable responsive
+  grid; on mobile they retain natural document order.
+- Replaced 11 px truncated task chips with wrapping task rows and explicit
+  textual statuses. Every linked task is visible by default below the desktop
+  breakpoint; dense desktop epics show six initially and expose the rest
+  through a named `aria-expanded`/`aria-controls` disclosure.
+- Preserved epic CRUD, viewer read-only behavior, project-section collapse
+  persistence, task/status/progress data contracts, and live-refresh locking.
+- Added focused component tests and a PostgreSQL-backed Playwright fixture with
+  two epics and eight linked tasks. Visual review at 375 px light and 1440 px
+  dark prompted a mobile header-width correction and a two-column wide-screen
+  linked-task grid.
+- Validation passed: existing local Docker PostgreSQL with all 49 migrations;
+  lint; RLS inventory; release policy for `v0.33.0`; 143 passing Vitest files
+  with 2 skipped; 997 passing tests with 2 skipped; coverage at 91.37%
+  statements / 81.33% branches / 92.2% functions / 91.88% lines; production
+  build; focused responsive browser coverage; and all 31 Chromium scenarios.
+- Published implementation commit `5c10cc2` and opened ready-for-review
+  [PR #403](https://github.com/dorianagaesse/nexus_dash/pull/403) without
+  merging it.
+- GitHub checks passed for branch naming, Quality Core, E2E Smoke, tenant
+  isolation, and the container image. Copilot's initial review produced one
+  actionable accessibility comment: the article name in edit mode used the
+  saved epic name rather than the live field value.
+- Updated the editing article label to use the trimmed live name with a
+  saved-name fallback and added a focused regression. Post-review validation
+  passed with 5 component tests, targeted lint, `git diff --check`, and the
+  production build.
 # 2026-07-31 - TASK-352 related-task picker presentation
 
 - Started from merged TASK-351 on the dedicated
@@ -44,7 +114,6 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Copilot completed its initial review with one actionable tracking comment;
   aligned TASK-352's backlog status with the current-task `In review` state and
   PR #404.
-
 # 2026-07-30 - TASK-351 user-facing task IDs
 
 - Started from merged TASK-350 on the dedicated

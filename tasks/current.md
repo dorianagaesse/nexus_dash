@@ -2,125 +2,114 @@
 
 ## Task
 
-- ID: TASK-352
-- Title: Related-task picker presentation
-- Status: In review (2026-07-31)
-- Branch: `feature/task-352-related-task-picker-presentation`
-- Pull request: [#404](https://github.com/dorianagaesse/nexus_dash/pull/404)
+- ID: TASK-335
+- Title: Compact epic detail disclosure
+- Status: In review (2026-08-03)
+- Branch: `feature/task-335-expanded-epic-presentation`
+- Pull request:
+  [#403](https://github.com/dorianagaesse/nexus_dash/pull/403)
 - Brief:
-  [`task-352-related-task-picker-presentation.md`](./task-352-related-task-picker-presentation.md)
+  [`task-335-expanded-epic-presentation.md`](./task-335-expanded-epic-presentation.md)
 
 ## Objective
 
-Make every related-task candidate easy to scan and distinguish by presenting
-its friendly task reference, bounded title, and Kanban-colored status in one
-responsive, accessible row.
+Preserve the familiar compact epic cards while keeping long descriptions and
+linked tasks out of the default dashboard scan. Show title/status, actions, and
+progress immediately; reveal the rest through an independent per-card control.
 
 ## Scope
 
-- Present each candidate as a stable reference column, a flexible truncated
-  title, and a compact status badge.
-- Reuse the established Backlog, In Progress, Blocked, and Done Kanban badge
-  colors in both light and dark themes.
-- Centralize the shared status presentation classes so the picker cannot drift
-  from the Kanban columns.
-- Keep status text visible and include reference, full title, and status in the
-  option's accessible name so meaning never depends on color.
-- Preserve the complete candidate set, reference/title/status filtering,
-  viewport-aware scrolling, keyboard navigation, and selection behavior from
-  TASK-350 and TASK-351.
-- Add focused component and browser coverage for presentation, accessibility,
-  long-title containment, mobile sizing, and both themes.
+- Restore the one-column mobile and two-column desktop epic-card grid.
+- Keep title, textual status, edit/delete actions, and semantic progress visible
+  while each epic is collapsed by default.
+- Reveal the full description and bounded linked-task summary only after the
+  epic's accessible action-cluster chevron is activated.
+- Preserve epic CRUD, permissions, status/progress behavior, project-section
+  persistence, and the established token-driven visual presentation.
+- Add focused component and browser coverage for disclosure and responsive
+  behavior.
 
 ## Runtime Assumptions
 
-- TASK-350 and TASK-351 are present on `origin/main`; candidate eligibility and
-  stable `ND-<number>` references need no data or API changes.
-- Task statuses remain limited to the four values in `lib/task-status.ts`.
-- Existing local PostgreSQL and `.env` prerequisites are unchanged.
-- Browser validation uses the existing Playwright project/task fixture.
-- If a branch preview is required during review, it must pass
-  `git_ref=feature/task-352-related-task-picker-presentation` explicitly.
+- Existing PostgreSQL and `.env` prerequisites are unchanged.
+- Browser fixtures can create epics and linked tasks through existing services.
+- Any preview validation must pass
+  `git_ref=feature/task-335-expanded-epic-presentation` explicitly.
 
 ## Acceptance Criteria
 
-1. Every related-task suggestion shows the friendly `ND-<number>` reference,
-   task title, and human-readable status in a consistent scan order.
-2. Backlog, In Progress, Blocked, and Done use the same semantic badge colors
-   as their Kanban columns in light and dark themes.
-3. Status remains understandable without color: visible status text is
-   present, and the option accessible name includes reference, full title, and
-   status.
-4. Long titles truncate with an ellipsis in the row, expose the full title to
-   pointer and assistive-technology users, and do not create horizontal
-   overflow at a 375 px viewport.
-5. Candidate rows remain at least 44 px high with existing hover, active,
-   focus, keyboard navigation, list scrolling, and selection behavior intact.
-6. Candidate eligibility, sorting, filtering by reference/title/status,
-   bilateral relationship behavior, and internal task identity remain
+1. Mobile epic cards are collapsed by default and long descriptions/linked work
+   do not add to the initial scroll length.
+2. Desktop epics retain the familiar two-column card grid.
+3. Each card's 44 px action-cluster chevron sits beside Edit/Delete, remains
+   available to viewers, is independently keyboard operable, and exposes an
+   accessible name plus accurate `aria-expanded`/`aria-controls` state.
+4. Expanded descriptions and linked-task summaries wrap without clipping or
+   horizontal overflow, while sibling epics remain collapsed.
+5. Epic articles and progress expose semantic names and values, with status
+   available as text.
+6. CRUD permissions, section collapse persistence, and mutation behavior remain
    unchanged.
-7. Focused component and Playwright coverage proves all four status
-   presentations, accessible names, truncation, narrow containment, and theme
-   compatibility.
-8. Release metadata, task tracking, and validation evidence are updated in the
-   same pull request.
+7. Light/dark and 375 px responsive checks pass.
+8. Focused component and Playwright coverage passes.
 
 ## Definition Of Done
 
-- The picker and Kanban columns consume one shared status badge palette.
-- The row layout follows the UI/UX Pro Max accessibility, 44 px target,
-  truncation, responsive, and dark-mode guidance.
-- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  `npm run build`, release validation, and relevant Playwright coverage pass.
-- The feature release advances to `v0.33.0` with matching changelog and
-  lockfile metadata.
-- The branch is committed and pushed, a ready-for-review PR is open, and the
-  initial Copilot review/check outcome is handled without merging the PR.
+- The implementation satisfies the clarified task brief and UI/UX Pro Max
+  progressive-disclosure/accessibility review.
+- Required validation, release metadata, and tracking documentation are
+  complete.
+- The branch is pushed and PR #403 is updated with checks monitored, without
+  merging it.
 
 ## Progress
 
-- Confirmed TASK-352 is the next presentation refinement after merged
-  TASK-350 and TASK-351.
-- Created the dedicated worktree and feature branch from merged `origin/main`.
-- Completed the UI/UX Pro Max design-system, accessibility, truncation,
-  responsive-layout, dark-theme, and Next.js guidance review.
-- Located the established status badge palette in the Kanban column component
-  and defined the shared-presentation boundary for implementation.
-- Extracted the exact status badge palette into a shared presentation map used
-  by both Kanban headers and related-task candidates.
-- Redesigned candidate rows as a reference/title/status grid with visible
-  status text, full accessible names, hover-accessible full titles, and
-  ellipsis containment.
-- Added component and browser coverage for all four statuses, keyboard
-  selection, long titles, 44 px targets, 375 px containment, and light/dark
-  themes.
-- Visually reviewed the generated 375 px light and dark picker states.
-- Prepared feature release `v0.33.0`.
+- Created the dedicated worktree from current `origin/main` and retained the
+  existing TASK-335 branch and PR #403 for the clarified implementation.
+- Read the project execution contract, system context, TASK-270 assessment, and
+  existing epic implementation.
+- Re-ran UI/UX Pro Max design-system, progressive-disclosure/accessibility, and
+  Next.js guidance passes.
+- Restored the established card grid, accent strip, compact title/status,
+  progress treatment, and linked-task chips.
+- Added independent collapsed-by-default details regions controlled by
+  icon-only chevrons beside Edit/Delete, with semantic state, 44 px targets,
+  descriptive names, and keyboard support.
+- Kept full wrapping descriptions and the existing six-task-plus-remainder
+  linked-work summary inside the expanded region.
+- Updated component and Playwright coverage for the clarified behavior.
+- Reconciled release metadata over merged TASK-352 and advanced the feature
+  release to `v0.34.0`.
 
 ## Outcome
 
-- Related-task candidates now scan consistently as friendly reference, bounded
-  title, and workflow status without changing which tasks users can relate.
-- Status colors match the Kanban columns through one shared source and remain
-  understandable through visible and announced text.
-- Long titles retain their full value while the visible row stays contained on
-  narrow screens.
+- Mobile users can scan several epics without long narratives increasing the
+  initial page length.
+- Desktop users again receive the familiar two-column compact-card layout.
+- Users can reveal one epic's description and linked work without expanding its
+  siblings.
+- Epic CRUD, viewer read-only behavior, status derivation, progress calculations,
+  project-section persistence, and live-refresh locking remain unchanged.
 
 ## Validation
 
-- `npm run lint`, `npm run rls:check`, `git diff --check`, and
-  `npm run release:check -- --base origin/main --branch feature/task-352-related-task-picker-presentation`
-  passed.
-- `npm test`: 996 passed, 2 skipped.
+- Fresh worktree-local PostgreSQL became healthy and all 49 migrations applied;
+  RLS inventory and the full tenant-isolation matrix passed.
+- Focused component coverage passes 5 tests for section expansion, collapsed
+  details, semantic progress, independent disclosure, and live edit-name
+  accessibility.
+- Focused TASK-335 Chromium coverage passes at 375 px and 1440 px in light and
+  dark themes, including hidden default details, action-cluster placement,
+  Enter-key activation, independent state, restored desktop columns, 44 px
+  controls, and horizontal containment.
+- The production build passes with local-safe database and secret overrides.
+- `npm run lint` and `git diff --check` pass.
+- `npm test`: 143 files passed, 2 skipped; 999 tests passed, 2 skipped.
 - `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
-  functions, 91.88% lines.
-- `npm run build` passed with documented local-safe environment placeholders.
-- Focused TASK-352 component/browser coverage and the bilateral, TASK-350, and
-  TASK-351 related-task regressions passed.
-- The complete 31-scenario Chromium suite passed with the documented local
-  database and paired trusted-origin placeholders.
-- Generated 375 px light and dark screenshots were visually inspected.
-- Planning commit `0bffdc8` and implementation commit `8c66ec7` are pushed;
-  ready-for-review PR #404 is open.
-- Copilot's initial review completed with one actionable tracking comment;
-  TASK-352's backlog status now matches this brief's review state and PR.
+  functions, and 91.88% lines.
+- Full Playwright validation passes all 32 Chromium scenarios.
+- `npm run release:check -- --base origin/main --branch
+  feature/task-335-expanded-epic-presentation` passes for `v0.34.0`.
+- Earlier PR checks passed for branch naming, Quality Core, E2E Smoke, tenant
+  isolation, and the container image; Copilot's initial accessibility comment
+  remains resolved.
