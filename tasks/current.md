@@ -4,7 +4,7 @@
 
 - ID: TASK-353
 - Title: Movable meeting-todos panel
-- Status: In progress (2026-08-04 feedback refinement)
+- Status: In review (2026-08-04 feedback addressed)
 - Branch: `feature/task-353-movable-meeting-todos-modal`
 - Pull request: [#411](https://github.com/dorianagaesse/nexus_dash/pull/411)
 - Brief:
@@ -119,7 +119,7 @@ rest of the project page without a blocking or blurred backdrop.
 - Generated and visually reviewed light/dark desktop panel captures with the
   surrounding project page undimmed.
 - Merged current `origin/main` after TASK-335 landed and moved TASK-353 release
-  metadata to `v0.35.0`; post-merge validation is in progress.
+  metadata to `v0.35.0`; the complete post-merge validation passed.
 
 ## Outcome
 
@@ -132,13 +132,15 @@ rest of the project page without a blocking or blurred backdrop.
 
 ## Validation
 
-- Before the `origin/main` merge, lint, RLS inventory, 1000 tests, coverage
-  thresholds, production build, release hygiene, and all 31 Playwright
-  scenarios passed.
+- Post-merge lint, RLS inventory, release policy for `v0.35.0`, production
+  build, and `git diff --check` passed.
+- `npm test`: 143 files passed, 2 skipped; 1003 tests passed, 2 skipped.
+- `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
+  functions, and 91.88% lines.
+- The complete post-merge Playwright Chromium suite passed all 32 scenarios.
 - The TASK-353 browser regression passed against isolated PostgreSQL 16 and
   proves modeless focus/pointer behavior, text-field use, movement,
   re-containment, source navigation, mutations, mobile absence, and themes.
 - Final 1280 px light/dark screenshots under
   `.tmp/task353-modeless-panel/` were visually inspected with no background
   dimming or blur.
-- Post-merge full validation and final commit/check evidence remain pending.

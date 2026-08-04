@@ -17,8 +17,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
   source-meeting navigation, and the mobile route.
 - Added component and browser regression coverage for modeless semantics and
   using an underlying project text field while the Todos panel remains open.
-- Focused component coverage, full repository lint, RLS inventory, 1000 tests,
-  coverage thresholds, the production build, all 31 Playwright scenarios, and
+- Merged current `origin/main` after TASK-335 landed, preserved its `v0.34.0`
+  release history, and advanced TASK-353 to `v0.35.0` without replacing the
+  existing ready-for-review PR.
+- Focused component coverage, full repository lint, RLS inventory, 1003 tests,
+  coverage thresholds, the production build, all 32 Playwright scenarios, and
   release checks passed against an isolated PostgreSQL 16 database.
 - Generated and visually reviewed final 1280 px light/dark captures under
   `.tmp/task353-modeless-panel/`; the project page remains undimmed and the

@@ -88,7 +88,7 @@ Last reviewed: 2026-07-30
   Dependencies: TASK-133, TASK-350, TASK-351
 - ID: TASK-353
   Title: Movable meeting-todos panel - compact bottom-right project entry
-  Status: In progress (2026-08-04 feedback refinement, PR #411)
+  Status: In review (2026-08-04 feedback addressed, PR #411)
   Rationale: Replace the current meeting-todo popup treatment with a compact bottom-right floating `Todos` button using the todo icon and label; open the aggregated todos in an accessible modeless panel that can be moved within the project-page area while leaving the underlying app usable and preserving containment, responsive behavior, and existing todo actions.
   Dependencies: TASK-098, TASK-316, TASK-321, TASK-322, TASK-330, TASK-332
   Brief: `tasks/task-353-movable-meeting-todos-modal.md`

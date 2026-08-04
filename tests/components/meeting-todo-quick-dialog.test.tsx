@@ -167,7 +167,7 @@ describe("meeting todo quick dialog", () => {
 
     await act(async () => {
       getButton("Close meeting todos").click();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 50));
     });
     expect(document.activeElement).toBe(trigger);
   });

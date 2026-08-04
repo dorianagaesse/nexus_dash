@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress after product-feedback refinement in
+In review after product-feedback refinement in
 [PR #411](https://github.com/dorianagaesse/nexus_dash/pull/411)
 from `feature/task-353-movable-meeting-todos-modal`.
 
@@ -79,6 +79,8 @@ the underlying app remains fully usable.
   behavior.
 - Required local validation, release policy checks, and relevant Playwright
   scenarios pass.
+- The feature release advances to `v0.35.0` after merged TASK-335 occupied
+  `v0.34.0`.
 - Tracking docs and release metadata are current.
 - A ready-for-review PR is open and its initial automated review outcome is
   handled.
@@ -100,13 +102,15 @@ the underlying app remains fully usable.
 ## Validation
 
 - Focused component suite: 5 passed.
-- Full unit/API suite: 1000 passed, 2 skipped.
+- Full unit/API suite: 1003 passed, 2 skipped.
 - Coverage: 91.37% statements, 81.33% branches, 92.2% functions, 91.88% lines.
-- Lint, RLS inventory, production build, and diff checks passed.
-- All 31 Playwright Chromium scenarios passed, including pointer/keyboard
+- Lint, RLS inventory, `v0.35.0` release policy, production build, and diff
+  checks passed after merging current `origin/main`.
+- All 32 Playwright Chromium scenarios passed, including pointer/keyboard
   movement, resize containment, focus restoration, mobile absence, themes,
   mutations, and source-meeting navigation.
-- Desktop light and dark screenshots were visually inspected.
+- Desktop light and dark screenshots were visually inspected with an undimmed,
+  unblurred project page and usable underlying search field.
 - Planning commit `5829401` and implementation commit `2d61245` are pushed,
   and ready-for-review PR #411 is open.
 - Both initial Copilot comments were applied and verified: containment avoids
