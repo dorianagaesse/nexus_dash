@@ -50,8 +50,8 @@ rest of the project page without a blocking or blurred backdrop.
   `origin/main`; no database or API migration is required.
 - The draggable desktop surface is rendered only when the current project has
   meeting todos, matching the existing quick panel.
-- The existing local PostgreSQL and `.env` prerequisites are unchanged.
-- Browser validation uses the existing project meeting-todo fixtures.
+- Browser validation uses the existing project meeting-todo fixtures and an
+  isolated PostgreSQL 16 database with all committed migrations.
 - If preview validation is required, it must pass
   `git_ref=feature/task-353-movable-meeting-todos-modal` explicitly.
 
@@ -96,70 +96,49 @@ rest of the project page without a blocking or blurred backdrop.
   changes.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
   `npm run build`, release validation, and relevant Playwright coverage pass.
-- The feature release advances to `v0.34.0` with matching changelog and
-  lockfile metadata.
-- The branch is committed and pushed, a ready-for-review PR is open, and the
-  initial Copilot review/check outcome is handled without merging the PR.
+- The feature release advances to `v0.35.0` with matching changelog and
+  lockfile metadata after merged TASK-335 occupied `v0.34.0`.
+- The branch is committed and pushed, ready-for-review PR #411 is updated, and
+  automated review/check feedback is handled without merging the PR.
 
 ## Progress
 
-- Read the repository execution, architecture, runtime, and PR contracts.
-- Created the dedicated worktree from merged `origin/main`.
-- Reviewed TASK-316 and TASK-332 behavior plus the shared accessible dialog
-  foundation.
-- Completed the UI/UX Pro Max design-system, accessibility, movement,
-  responsive, reduced-motion, and Next.js implementation reviews.
-- Defined pointer and keyboard movement with project-content containment while
-  retaining the mobile route-backed Todos experience.
 - Replaced the desktop expanded/collapse panel with a count-aware fixed
-  `Todos` trigger and a movable panel.
-- Added a visible pointer drag handle, arrow and Shift+Arrow movement,
-  project/viewport clamping, resize re-containment, and breakpoint-safe close
-  behavior.
-- Increased todo row actions to 44 px targets and preserved completion,
-  reopen, overdue, recently completed, viewer, and source-meeting behavior.
-- Ensured source-meeting navigation closes the Todos panel before opening the
-  meeting dialog.
-- Added focused component coverage plus full-flow browser coverage for mobile
-  absence, desktop entry, focus, light/dark themes, pointer and keyboard
-  movement, resize containment, mutations, and source navigation.
-- Visually reviewed the generated desktop light and dark panel screenshots.
-- Prepared feature release `v0.34.0`.
-- Addressed both initial Copilot review comments: no-op containment ticks no
-  longer update React position state, and repeated same-direction arrow moves
-  replace the live-region announcement node so assistive technology receives
-  every movement update.
-- Applied product feedback by switching the desktop Todos surface from modal to
-  modeless Radix behavior, removing its overlay and blur, preserving it across
-  outside interactions, and adding regression coverage that proves project text
-  fields remain usable while the panel stays open.
+  `Todos` trigger and a movable modeless panel.
+- Added pointer capture, arrow and Shift+Arrow movement, project/viewport
+  clamping, resize re-containment, screen-reader status, and breakpoint-safe
+  close behavior.
+- Preserved completion/reopen, overdue, recently completed, viewer,
+  source-meeting, and route-backed mobile behavior.
+- Addressed initial Copilot review comments for no-op position updates and
+  repeated live-region movement announcements.
+- Applied product feedback by removing modal behavior, the overlay, blur, focus
+  trap, and page inerting while preserving the panel across outside app use.
+- Added component and Playwright regressions proving an underlying project text
+  field remains usable while the Todos panel stays open.
+- Generated and visually reviewed light/dark desktop panel captures with the
+  surrounding project page undimmed.
+- Merged current `origin/main` after TASK-335 landed and moved TASK-353 release
+  metadata to `v0.35.0`; post-merge validation is in progress.
 
 ## Outcome
 
-- Desktop meeting todos now stay out of the way until requested from one
-  compact bottom-right entry.
-- The aggregate opens as a modeless panel: it remains movable and reachable by
-  pointer and keyboard users while the underlying project page stays usable.
+- Desktop meeting todos stay out of the way until requested from one compact
+  bottom-right entry.
+- The aggregate opens as a modeless panel that remains movable and reachable
+  while the underlying project page stays usable.
 - Existing project-scoped mutations, permissions, overdue rules, source
   navigation, and the route-backed mobile Todos experience are unchanged.
 
 ## Validation
 
-- `npm run lint`, `npm run rls:check`, and `git diff --check` passed.
-- `npm test`: 143 files passed, 2 skipped; 1000 tests passed, 2 skipped.
-- `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
-  functions, 91.88% lines.
-- `npm run build` passed with the documented local-safe database and
-  placeholder-secret environment.
-- Focused component coverage passed 5 tests; the affected meeting-todo and
-  dashboard smoke browser flows passed 7 scenarios.
-- The complete Playwright Chromium suite passed all 31 scenarios with outbound
-  email delivery disabled for local-safe password-recovery testing.
-- Desktop 1280 px light/dark screenshots were generated and visually inspected;
-  the panel hierarchy, theme contrast, drag affordance, target sizing, and
-  background context remained clear.
-- `npm run release:check -- --base origin/main --branch
-  feature/task-353-movable-meeting-todos-modal` passed for `v0.34.0`.
-- Planning commit `5829401` and implementation commit `2d61245` are pushed;
-  ready-for-review PR #411 is open.
-- Post-review focused component tests, full lint, and production build passed.
+- Before the `origin/main` merge, lint, RLS inventory, 1000 tests, coverage
+  thresholds, production build, release hygiene, and all 31 Playwright
+  scenarios passed.
+- The TASK-353 browser regression passed against isolated PostgreSQL 16 and
+  proves modeless focus/pointer behavior, text-field use, movement,
+  re-containment, source navigation, mutations, mobile absence, and themes.
+- Final 1280 px light/dark screenshots under
+  `.tmp/task353-modeless-panel/` were visually inspected with no background
+  dimming or blur.
+- Post-merge full validation and final commit/check evidence remain pending.

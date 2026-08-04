@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.34.0 - 2026-08-03
+## v0.35.0 - 2026-08-04
 
 - Replaced the expanded/collapsible desktop meeting-todo popup with a compact
   bottom-right `Todos` trigger that preserves project open and overdue counts.
@@ -20,6 +20,16 @@ SHA, deployment URL, and workflow run belong in release evidence.
   retained the route-backed mobile Todos experience, and added focused
   component and browser coverage for movement and containment.
 
+## v0.34.0 - 2026-08-03
+
+- Kept project epic cards compact by default with title, textual status, and
+  semantic progress visible while descriptions and linked tasks stay folded.
+- Added an independent accessible details chevron beside each epic's edit
+  action, avoiding an extra collapsed row while restoring the familiar
+  one-column mobile and two-column desktop card presentation.
+- Preserved complete wrapping descriptions, bounded linked-task summaries,
+  theme-safe styling, and focused responsive browser coverage after expansion.
+
 ## v0.33.0 - 2026-07-31
 
 - Redesigned related-task suggestions into scannable reference, bounded title,
@@ -29,7 +39,6 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Preserved full titles and status in accessible option names, retained
   keyboard/listbox behavior, and added focused component and responsive
   light/dark browser coverage.
-
 ## v0.32.0 - 2026-07-30
 
 - Added immutable, globally unique task references rendered as `ND-<number>`,
