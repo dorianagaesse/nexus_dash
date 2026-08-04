@@ -39,10 +39,11 @@ the underlying app remains fully usable.
   trigger focus restoration without a focus trap, inert page, or overlay.
 - Keep outside pointer and focus interactions available without dismissing the
   panel, so project text fields and controls can be used alongside the todos.
-- Make only the labeled header handle draggable so todo rows and completion
-  controls keep normal click, touch, and text behavior.
-- Support arrow-key movement from the drag handle, with a larger Shift+Arrow
-  step, so movement never requires a fine pointer gesture.
+- Make the entire panel draggable with a small movement threshold, so a grab
+  can start over any surface while ordinary todo clicks remain intact.
+- Avoid a dedicated pointer drag strip. Keep a compact header control for
+  arrow-key movement, with a larger Shift+Arrow step, so movement never
+  requires a fine pointer gesture.
 - Clamp the transformed dialog to the visible intersection of the project-page
   container and viewport. Re-clamp on resize and reset position on each open.
 - Keep movement subtle and transform-only; disable transition animation for
@@ -60,8 +61,8 @@ the underlying app remains fully usable.
 3. No backdrop, blur, focus trap, or page-wide pointer shield is present;
    underlying project controls and text fields remain operable while the panel
    stays open, and explicit close restores focus to the trigger.
-4. A visible handle supports bounded pointer dragging and equivalent keyboard
-   arrow movement.
+4. The whole panel supports bounded pointer dragging without a dedicated drag
+   strip, and a compact header control provides equivalent keyboard movement.
 5. The dialog remains fully reachable within project content after movement,
    resize, and orientation changes.
 6. Opening a source meeting closes the Todos panel before opening the meeting
@@ -89,9 +90,9 @@ the underlying app remains fully usable.
 
 - Replaced the expanded/collapse quick panel with a compact, count-aware
   desktop `Todos` trigger.
-- Added a modeless panel with pointer capture, arrow-key movement,
-  project/viewport clamping, resize re-containment, visible instructions, and
-  focus restoration.
+- Added a modeless panel with click-safe drag-from-anywhere pointer capture,
+  compact arrow-key movement, project/viewport clamping, resize
+  re-containment, visible instructions, and focus restoration.
 - Preserved existing aggregate ordering, todo mutations, overdue status,
   viewer behavior, source navigation, and the project-scoped mobile route.
 - Closing the Todos panel before source navigation keeps the true source
@@ -106,9 +107,10 @@ the underlying app remains fully usable.
 - Coverage: 91.37% statements, 81.33% branches, 92.2% functions, 91.88% lines.
 - Lint, RLS inventory, `v0.35.0` release policy, production build, and diff
   checks passed after merging current `origin/main`.
-- All 32 Playwright Chromium scenarios passed, including pointer/keyboard
-  movement, resize containment, focus restoration, mobile absence, themes,
-  mutations, and source-meeting navigation.
+- All 32 Playwright Chromium scenarios passed, including drag initiation over
+  an interactive todo without accidental activation, keyboard movement,
+  resize containment, focus restoration, mobile absence, themes, mutations,
+  and source-meeting navigation.
 - Desktop light and dark screenshots were visually inspected with an undimmed,
   unblurred project page and usable underlying search field.
 - Planning commit `5829401` and implementation commit `2d61245` are pushed,

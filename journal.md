@@ -26,6 +26,15 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Generated and visually reviewed final 1280 px light/dark captures under
   `.tmp/task353-modeless-panel/`; the project page remains undimmed and the
   search field, controls, and surrounding context stay visibly available.
+- Applied the follow-up interaction feedback by removing the full-width drag
+  strip and making the complete panel surface draggable. A movement threshold
+  preserves ordinary todo clicks, a post-drag click guard prevents accidental
+  completion or navigation, and the compact header control retains the
+  keyboard arrow-key alternative.
+- Re-ran the focused component suite, lint, RLS and release checks, production
+  build, 1003-test unit suite, coverage thresholds, and all 32 Chromium
+  scenarios. The browser regression starts its pointer drag on an interactive
+  todo title and verifies movement without opening the source meeting.
 
 # 2026-08-03 - TASK-353 movable meeting-todos modal
 

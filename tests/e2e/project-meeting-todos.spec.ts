@@ -323,7 +323,7 @@ test.describe("project meeting todos", () => {
 
     const projectBounds = await page.locator("[data-project-page]").boundingBox();
     const moveHandle = todosDialog.getByRole("button", {
-      name: "Move meeting todos panel",
+      name: "Move meeting todos panel with arrow keys",
     });
     await moveHandle.focus();
     await expect(moveHandle).toBeFocused();
@@ -334,22 +334,27 @@ test.describe("project meeting todos", () => {
     const keyboardMovedBounds = await todosDialog.boundingBox();
     expect(keyboardMovedBounds?.x).toBeLessThan(initialDialogBounds?.x ?? 0);
 
-    const handleBounds = await moveHandle.boundingBox();
-    expect(handleBounds).not.toBeNull();
-    if (handleBounds) {
+    const todoDragTarget = todosDialog.getByText(
+      "Open the source meeting from Todos",
+      { exact: true }
+    );
+    const todoDragTargetBounds = await todoDragTarget.boundingBox();
+    expect(todoDragTargetBounds).not.toBeNull();
+    if (todoDragTargetBounds) {
       await page.mouse.move(
-        handleBounds.x + handleBounds.width / 2,
-        handleBounds.y + handleBounds.height / 2
+        todoDragTargetBounds.x + todoDragTargetBounds.width / 2,
+        todoDragTargetBounds.y + todoDragTargetBounds.height / 2
       );
       await page.mouse.down();
       await page.mouse.move(
-        handleBounds.x + handleBounds.width / 2 + 120,
-        handleBounds.y + handleBounds.height / 2 + 80,
+        todoDragTargetBounds.x + todoDragTargetBounds.width / 2 + 120,
+        todoDragTargetBounds.y + todoDragTargetBounds.height / 2 + 80,
         { steps: 8 }
       );
       await page.mouse.up();
     }
 
+    await expect(todosDialog).toBeVisible();
     const pointerMovedBounds = await todosDialog.boundingBox();
     expect(pointerMovedBounds?.x).toBeGreaterThan(keyboardMovedBounds?.x ?? 0);
     expect(pointerMovedBounds).not.toBeNull();

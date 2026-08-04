@@ -25,8 +25,8 @@ rest of the project page without a blocking or blurred backdrop.
   retaining open, overdue, recently completed, source-meeting,
   completion/reopen, pending, and viewer behavior while the project page stays
   interactive.
-- Provide a visible drag handle for pointer users and an equivalent keyboard
-  movement interaction.
+- Let pointer users drag from anywhere on the panel, without a dedicated drag
+  strip, and provide an equivalent compact keyboard movement control.
 - Clamp movement to the visible project-page content area and re-clamp after
   viewport changes so the panel and its close control remain reachable.
 - Close the Todos panel before opening a source meeting, leaving the meeting
@@ -66,9 +66,10 @@ rest of the project page without a blocking or blurred backdrop.
    does not trap focus; underlying controls and text fields remain usable while
    it is open. It closes with its close control or Escape and restores focus to
    the `Todos` trigger on explicit close.
-4. Pointer users can drag the panel from a visible handle; keyboard users can
-   focus the same handle and move it with arrow keys without relying on a
-   pointer gesture.
+4. Pointer users can drag the panel from anywhere on its surface without a
+   dedicated drag strip; clicks still activate todo controls unless movement
+   crosses the drag threshold. Keyboard users can focus the compact header
+   control and move the panel with arrow keys.
 5. Pointer and keyboard movement stays within the visible project-page content
    bounds, and resize or orientation changes cannot strand the panel or its
    close control off screen.
@@ -90,8 +91,9 @@ rest of the project page without a blocking or blurred backdrop.
 - The movable panel is implemented as a focused client component using Radix's
   modeless dialog mode, with no backdrop, focus trap, page inerting, or new
   persistence/transport coupling.
-- Movement uses bounded transforms, pointer capture, keyboard alternatives,
-  semantic instructions, 44 px controls, and reduced-motion-safe styling.
+- Movement uses a click-safe threshold, bounded transforms, pointer capture,
+  a compact keyboard alternative, semantic instructions, 44 px controls, and
+  reduced-motion-safe styling.
 - Existing meeting-todo permissions and mutations are reused without contract
   changes.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
@@ -105,7 +107,8 @@ rest of the project page without a blocking or blurred backdrop.
 
 - Replaced the desktop expanded/collapse panel with a count-aware fixed
   `Todos` trigger and a movable modeless panel.
-- Added pointer capture, arrow and Shift+Arrow movement, project/viewport
+- Added drag-from-anywhere pointer movement with click suppression after the
+  movement threshold, plus arrow and Shift+Arrow movement, project/viewport
   clamping, resize re-containment, screen-reader status, and breakpoint-safe
   close behavior.
 - Preserved completion/reopen, overdue, recently completed, viewer,
@@ -139,8 +142,9 @@ rest of the project page without a blocking or blurred backdrop.
   functions, and 91.88% lines.
 - The complete post-merge Playwright Chromium suite passed all 32 scenarios.
 - The TASK-353 browser regression passed against isolated PostgreSQL 16 and
-  proves modeless focus/pointer behavior, text-field use, movement,
-  re-containment, source navigation, mutations, mobile absence, and themes.
+  proves modeless focus/pointer behavior, text-field use, drag initiation over
+  todo content without accidental activation, re-containment, source
+  navigation, mutations, mobile absence, and themes.
 - Final 1280 px light/dark screenshots under
   `.tmp/task353-modeless-panel/` were visually inspected with no background
   dimming or blur.

@@ -13,9 +13,10 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Replaced the expanded/collapsible desktop meeting-todo popup with a compact
   bottom-right `Todos` trigger that preserves project open and overdue counts.
 - Moved the aggregate into an accessible modeless panel with no blocking or
-  blurred backdrop, bounded pointer dragging, equivalent arrow-key movement,
-  resize re-containment, and reduced-motion-safe presentation while the
-  underlying project page remains usable.
+  blurred backdrop, bounded drag-from-anywhere pointer movement without a
+  dedicated strip, equivalent arrow-key movement, resize re-containment, and
+  reduced-motion-safe presentation while the underlying project page remains
+  usable.
 - Preserved completion/reopen, overdue, viewer, and source-meeting behavior,
   retained the route-backed mobile Todos experience, and added focused
   component and browser coverage for movement and containment.

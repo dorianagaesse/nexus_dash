@@ -150,7 +150,10 @@ describe("meeting todo quick dialog", () => {
     expect(dialog?.textContent).toContain("Meeting todos");
     expect(dialog?.textContent).toContain("Choose the movable todo entry");
     expect(dialog?.textContent).toContain("Recently completed");
-    expect(getButton("Move meeting todos panel").className).toContain("min-h-11");
+    expect(
+      getButton("Move meeting todos panel with arrow keys").className
+    ).toContain("h-11");
+    expect(dialog?.textContent).not.toContain("Drag to move");
 
     const projectInput = document.createElement("input");
     projectInput.setAttribute("aria-label", "Project field");
@@ -234,11 +237,11 @@ describe("meeting todo quick dialog", () => {
     ).toEqual({ x: -228, y: -184 });
   });
 
-  test("supports keyboard movement from the visible drag handle", async () => {
+  test("supports keyboard movement from the compact header control", async () => {
     renderPanel();
     await openTodosDialog();
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
-    const moveHandle = getButton("Move meeting todos panel");
+    const moveHandle = getButton("Move meeting todos panel with arrow keys");
     const initialTransform = dialog?.style.transform;
 
     await act(async () => {

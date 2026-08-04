@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
@@ -52,6 +53,7 @@ interface DragState {
   originClientX: number;
   originClientY: number;
   originPosition: DialogPosition;
+  hasMoved: boolean;
 }
 
 interface MovementAnnouncement {
@@ -62,6 +64,7 @@ interface MovementAnnouncement {
 const DIALOG_EDGE_PADDING = 16;
 const KEYBOARD_MOVE_STEP = 16;
 const KEYBOARD_MOVE_LARGE_STEP = 48;
+const POINTER_DRAG_THRESHOLD = 4;
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
@@ -285,6 +288,7 @@ export function MeetingTodoQuickDialog({
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const positionRef = useRef(position);
   const dragStateRef = useRef<DragState | null>(null);
+  const suppressClickRef = useRef(false);
   const hasPositionedRef = useRef(false);
   const overdueCount = todos.open.filter((todo) => todo.isOverdue).length;
 
@@ -343,6 +347,7 @@ export function MeetingTodoQuickDialog({
   useEffect(() => {
     if (!isOpen) {
       dragStateRef.current = null;
+      suppressClickRef.current = false;
       hasPositionedRef.current = false;
       setIsDragging(false);
       return undefined;
@@ -413,35 +418,53 @@ export function MeetingTodoQuickDialog({
     [applyPosition, clampPosition]
   );
 
-  const handleDragStart = (event: ReactPointerEvent<HTMLButtonElement>) => {
+  const handleDragStart = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
       return;
     }
 
+    suppressClickRef.current = false;
     dragStateRef.current = {
       pointerId: event.pointerId,
       originClientX: event.clientX,
       originClientY: event.clientY,
       originPosition: positionRef.current,
+      hasMoved: false,
     };
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setIsDragging(true);
   };
 
-  const handleDragMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+  const handleDragMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const dragState = dragStateRef.current;
     if (!dragState || dragState.pointerId !== event.pointerId) {
       return;
     }
 
+    const deltaX = event.clientX - dragState.originClientX;
+    const deltaY = event.clientY - dragState.originClientY;
+    if (
+      !dragState.hasMoved &&
+      Math.hypot(deltaX, deltaY) < POINTER_DRAG_THRESHOLD
+    ) {
+      return;
+    }
+
+    if (!dragState.hasMoved) {
+      dragState.hasMoved = true;
+      suppressClickRef.current = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setIsDragging(true);
+    }
+
+    event.preventDefault();
     moveDialog({
-      x: dragState.originPosition.x + event.clientX - dragState.originClientX,
-      y: dragState.originPosition.y + event.clientY - dragState.originClientY,
+      x: dragState.originPosition.x + deltaX,
+      y: dragState.originPosition.y + deltaY,
     });
   };
 
-  const handleDragEnd = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (dragStateRef.current?.pointerId !== event.pointerId) {
+  const handleDragEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const dragState = dragStateRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) {
       return;
     }
 
@@ -450,6 +473,30 @@ export function MeetingTodoQuickDialog({
     }
     dragStateRef.current = null;
     setIsDragging(false);
+
+    if (!dragState.hasMoved) {
+      suppressClickRef.current = false;
+      return;
+    }
+
+    window.setTimeout(() => {
+      suppressClickRef.current = false;
+    }, 0);
+  };
+
+  const handleDragCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
+    suppressClickRef.current = false;
+    handleDragEnd(event);
+  };
+
+  const handleClickCapture = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!suppressClickRef.current) {
+      return;
+    }
+
+    suppressClickRef.current = false;
+    event.preventDefault();
+    event.stopPropagation();
   };
 
   const handleMoveKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
@@ -525,6 +572,11 @@ export function MeetingTodoQuickDialog({
         presentation="centered"
         overlayClassName="hidden"
         onInteractOutside={(event) => event.preventDefault()}
+        onPointerDown={handleDragStart}
+        onPointerMove={handleDragMove}
+        onPointerUp={handleDragEnd}
+        onPointerCancel={handleDragCancel}
+        onClickCapture={handleClickCapture}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           if (
@@ -535,8 +587,8 @@ export function MeetingTodoQuickDialog({
           }
         }}
         className={cn(
-          "hidden max-h-[min(42rem,calc(100dvh-2rem))] max-w-md flex-col overflow-hidden rounded-2xl border-border/70 bg-background p-0 shadow-[0_34px_96px_-34px_rgba(15,23,42,0.75)] lg:flex",
-          isDragging && "select-none transition-none"
+          "hidden max-h-[min(42rem,calc(100dvh-2rem))] max-w-md cursor-grab flex-col overflow-hidden rounded-2xl border-border/70 bg-background p-0 shadow-[0_34px_96px_-34px_rgba(15,23,42,0.75)] lg:flex",
+          isDragging && "cursor-grabbing select-none transition-none"
         )}
         style={{
           transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px))`,
@@ -557,39 +609,38 @@ export function MeetingTodoQuickDialog({
                   </span>
                 ) : null}
               </div>
-              <DialogDescription id="meeting-todo-dialog-description" className="mt-1.5 text-xs leading-5">
-                Project follow-ups from meeting notes. Move the panel with the handle or its arrow keys. The rest of the project stays available while this panel is open.
+              <DialogDescription
+                id="meeting-todo-dialog-description"
+                className="mt-1.5 text-xs leading-5"
+              >
+                Project follow-ups from meeting notes. Drag anywhere on the
+                panel to move it. Keyboard users can focus the move control and
+                use arrow keys. The rest of the project stays available while
+                this panel is open.
               </DialogDescription>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-11 w-11 shrink-0 rounded-full"
-              onClick={() => setIsOpen(false)}
-              aria-label="Close meeting todos"
-            >
-              <X className="h-4 w-4" aria-hidden />
-            </Button>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                aria-label="Move meeting todos panel with arrow keys"
+                aria-describedby="meeting-todo-dialog-description"
+                onKeyDown={handleMoveKeyDown}
+                className="inline-flex h-11 w-11 cursor-grab items-center justify-center rounded-full text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none"
+              >
+                <GripHorizontal className="h-4 w-4" aria-hidden />
+              </button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-11 w-11 shrink-0 rounded-full"
+                onClick={() => setIsOpen(false)}
+                aria-label="Close meeting todos"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </Button>
+            </div>
           </div>
-          <button
-            type="button"
-            aria-label="Move meeting todos panel"
-            aria-describedby="meeting-todo-dialog-description"
-            onPointerDown={handleDragStart}
-            onPointerMove={handleDragMove}
-            onPointerUp={handleDragEnd}
-            onPointerCancel={handleDragEnd}
-            onKeyDown={handleMoveKeyDown}
-            className={cn(
-              "mt-3 flex min-h-11 w-full touch-none items-center justify-center gap-2 rounded-xl border border-dashed border-border/80 bg-muted/30 px-3 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/35 hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none",
-              isDragging ? "cursor-grabbing bg-muted/70 text-foreground" : "cursor-grab"
-            )}
-          >
-            <GripHorizontal className="h-4 w-4" aria-hidden />
-            <span>Drag to move</span>
-            <span className="hidden text-muted-foreground/80 sm:inline">or use arrow keys</span>
-          </button>
           <span className="sr-only" role="status" aria-live="polite">
             {movementAnnouncement ? (
               <span key={movementAnnouncement.id}>
