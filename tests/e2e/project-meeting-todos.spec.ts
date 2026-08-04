@@ -289,6 +289,9 @@ test.describe("project meeting todos", () => {
     await expect(
       todosDialog.getByText("Open the source meeting from Todos")
     ).toBeVisible();
+    await expect(
+      todosDialog.getByText("Project follow-ups from meeting notes")
+    ).toHaveCount(0);
 
     const meetingSearch = page.getByPlaceholder(
       "Search titles, participants, labels, inputs, outputs, actions"
@@ -305,9 +308,34 @@ test.describe("project meeting todos", () => {
         fullPage: false,
       });
     }
+    const darkDialogBounds = await todosDialog.boundingBox();
+    const darkTriggerBounds = await todosTrigger.boundingBox();
     await todosDialog
       .getByRole("button", { name: "Close meeting todos" })
       .click();
+    await expect(todosDialog).toHaveCSS(
+      "animation-name",
+      "meeting-todo-panel-exit"
+    );
+    await page.waitForTimeout(70);
+    const closingDialogBounds = await todosDialog.boundingBox();
+    if (darkDialogBounds && darkTriggerBounds && closingDialogBounds) {
+      const triggerCenter = {
+        x: darkTriggerBounds.x + darkTriggerBounds.width / 2,
+        y: darkTriggerBounds.y + darkTriggerBounds.height / 2,
+      };
+      const distanceToTrigger = (
+        bounds: NonNullable<typeof darkDialogBounds>
+      ) =>
+        Math.hypot(
+          bounds.x + bounds.width / 2 - triggerCenter.x,
+          bounds.y + bounds.height / 2 - triggerCenter.y
+        );
+      expect(distanceToTrigger(closingDialogBounds)).toBeLessThan(
+        distanceToTrigger(darkDialogBounds)
+      );
+    }
+    await expect(todosDialog).toBeHidden();
     await expect(todosTrigger).toBeFocused();
     await page.getByRole("button", { name: "Switch to light mode" }).click();
     await expect(page.locator("html")).not.toHaveClass(/dark/);
@@ -390,10 +418,24 @@ test.describe("project meeting todos", () => {
       );
     }
 
+    const preservedDialogBounds = resizedDialogBounds;
     await todosDialog
       .getByRole("button", { name: "Close meeting todos" })
       .click();
     await expect(todosDialog).toBeHidden();
     await expect(todosTrigger).toBeFocused();
+    await todosTrigger.click();
+    await expect(todosDialog).toBeVisible();
+    await page.waitForTimeout(250);
+    const reopenedDialogBounds = await todosDialog.boundingBox();
+    expect(reopenedDialogBounds).not.toBeNull();
+    if (preservedDialogBounds && reopenedDialogBounds) {
+      expect(reopenedDialogBounds.x).toBeCloseTo(preservedDialogBounds.x, 0);
+      expect(reopenedDialogBounds.y).toBeCloseTo(preservedDialogBounds.y, 0);
+    }
+    await todosDialog
+      .getByRole("button", { name: "Close meeting todos" })
+      .click();
+    await expect(todosDialog).toBeHidden();
   });
 });

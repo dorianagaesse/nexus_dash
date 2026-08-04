@@ -48,6 +48,9 @@ the underlying app remains fully usable.
   container and viewport. Re-clamp on resize and reset position on each open.
 - Keep movement subtle and transform-only; disable transition animation for
   reduced-motion preferences and while actively dragging.
+- Keep the visual header concise, direct the exit animation toward the
+  floating trigger, and retain the last bounded position across close/reopen
+  cycles.
 - Close the Todos panel before selecting a source meeting so the source modal
   opens without a competing floating surface.
 - Preserve TASK-332's mobile route and hide this quick surface below `lg`.
@@ -64,12 +67,14 @@ the underlying app remains fully usable.
 4. The whole panel supports bounded pointer dragging without a dedicated drag
    strip, and a compact header control provides equivalent keyboard movement.
 5. The dialog remains fully reachable within project content after movement,
-   resize, and orientation changes.
-6. Opening a source meeting closes the Todos panel before opening the meeting
+   resize, orientation changes, and reopening at its previous location.
+6. Dismissal animates toward the floating `Todos` trigger without the generic
+   sideways exit motion.
+7. Opening a source meeting closes the Todos panel before opening the meeting
    dialog.
-7. The quick entry remains absent on mobile, where the project Todos route is
+8. The quick entry remains absent on mobile, where the project Todos route is
    still the primary surface.
-8. Focused component and browser coverage proves accessibility, containment,
+9. Focused component and browser coverage proves accessibility, containment,
    actions, responsive behavior, and light/dark compatibility.
 
 ## Definition Of Done
@@ -99,6 +104,9 @@ the underlying app remains fully usable.
   meeting modal singular.
 - Product-feedback refinement removed the overlay, blur, focus trap, and page
   inerting; outside project fields remain usable without dismissing the panel.
+- Follow-up refinement removed the visible helper paragraph, made dismissal
+  converge on the floating trigger, and preserved the last bounded location
+  when the panel is reopened.
 
 ## Validation
 
@@ -109,8 +117,9 @@ the underlying app remains fully usable.
   checks passed after merging current `origin/main`.
 - All 32 Playwright Chromium scenarios passed, including drag initiation over
   an interactive todo without accidental activation, keyboard movement,
-  resize containment, focus restoration, mobile absence, themes, mutations,
-  and source-meeting navigation.
+  trigger-directed dismissal, close/reopen position restoration, resize
+  containment, focus restoration, mobile absence, themes, mutations, and
+  source-meeting navigation.
 - Desktop light and dark screenshots were visually inspected with an undimmed,
   unblurred project page and usable underlying search field.
 - Planning commit `5829401` and implementation commit `2d61245` are pushed,

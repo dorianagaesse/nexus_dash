@@ -35,6 +35,15 @@ Use it for important implementation milestones, blockers, validation runs, and r
   build, 1003-test unit suite, coverage thresholds, and all 32 Chromium
   scenarios. The browser regression starts its pointer drag on an interactive
   todo title and verifies movement without opening the source meeting.
+- Removed the visible explanatory paragraph beneath `Meeting todos` while
+  retaining a concise screen-reader-only dialog description. Replaced the
+  generic close keyframe with a panel-specific transform that calculates the
+  current floating-trigger center before dismissal, eliminating the sideways
+  exit motion.
+- Stopped resetting the bounded transform on close or reopen. Focused and
+  browser regressions now verify that reopening restores the previous panel
+  coordinates and that an in-progress close frame is measurably nearer the
+  floating `Todos` trigger.
 
 # 2026-08-03 - TASK-353 movable meeting-todos modal
 

@@ -150,6 +150,9 @@ describe("meeting todo quick dialog", () => {
     expect(dialog?.textContent).toContain("Meeting todos");
     expect(dialog?.textContent).toContain("Choose the movable todo entry");
     expect(dialog?.textContent).toContain("Recently completed");
+    expect(dialog?.textContent).not.toContain(
+      "Project follow-ups from meeting notes"
+    );
     expect(
       getButton("Move meeting todos panel with arrow keys").className
     ).toContain("h-11");
@@ -263,5 +266,21 @@ describe("meeting todo quick dialog", () => {
 
     expect(liveRegion?.textContent).toBe("Todos panel moved right.");
     expect(liveRegion?.firstElementChild).not.toBe(firstAnnouncement);
+
+    const movedTransform = dialog?.style.transform;
+    await act(async () => {
+      getButton("Close meeting todos").click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    await openTodosDialog();
+
+    const reopenedTransform = document.querySelector<HTMLElement>(
+      '[role="dialog"]'
+    )?.style.transform;
+    expect(reopenedTransform).not.toBe(initialTransform);
+    expect(reopenedTransform).not.toBe(
+      "translate(calc(-50% + 0px), calc(-50% + 0px))"
+    );
+    expect(movedTransform).not.toBe(initialTransform);
   });
 });

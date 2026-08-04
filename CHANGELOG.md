@@ -17,6 +17,8 @@ SHA, deployment URL, and workflow run belong in release evidence.
   dedicated strip, equivalent arrow-key movement, resize re-containment, and
   reduced-motion-safe presentation while the underlying project page remains
   usable.
+- Kept the panel header concise, animated dismissal back toward the floating
+  `Todos` trigger, and restored the last bounded panel position when reopened.
 - Preserved completion/reopen, overdue, viewer, and source-meeting behavior,
   retained the route-backed mobile Todos experience, and added focused
   component and browser coverage for movement and containment.

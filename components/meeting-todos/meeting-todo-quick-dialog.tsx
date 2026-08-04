@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -309,6 +310,29 @@ export function MeetingTodoQuickDialog({
     []
   );
 
+  const prepareExitAnimation = useCallback(() => {
+    const dialog = dialogRef.current;
+    const trigger = triggerRef.current;
+    if (!dialog || !trigger) {
+      return;
+    }
+
+    const triggerRect = trigger.getBoundingClientRect();
+    dialog.style.setProperty(
+      "--meeting-todo-exit-x",
+      `${triggerRect.left + triggerRect.width / 2 - window.innerWidth / 2}px`
+    );
+    dialog.style.setProperty(
+      "--meeting-todo-exit-y",
+      `${triggerRect.top + triggerRect.height / 2 - window.innerHeight / 2}px`
+    );
+  }, []);
+
+  const closePanel = useCallback(() => {
+    prepareExitAnimation();
+    setIsOpen(false);
+  }, [prepareExitAnimation]);
+
   const clampPosition = useCallback(
     (desiredPosition: DialogPosition) => {
       const dialog = dialogRef.current;
@@ -348,7 +372,6 @@ export function MeetingTodoQuickDialog({
     if (!isOpen) {
       dragStateRef.current = null;
       suppressClickRef.current = false;
-      hasPositionedRef.current = false;
       setIsDragging(false);
       return undefined;
     }
@@ -387,7 +410,7 @@ export function MeetingTodoQuickDialog({
     };
     const handleDesktopChange = (event: MediaQueryListEvent) => {
       if (!event.matches) {
-        setIsOpen(false);
+        closePanel();
       }
     };
     const frameId = window.requestAnimationFrame(ensureContained);
@@ -409,7 +432,7 @@ export function MeetingTodoQuickDialog({
       window.removeEventListener("scroll", ensureContained);
       desktopMediaQuery.removeEventListener("change", handleDesktopChange);
     };
-  }, [applyPosition, clampPosition, getProjectRect, isOpen]);
+  }, [applyPosition, clampPosition, closePanel, getProjectRect, isOpen]);
 
   const moveDialog = useCallback(
     (desiredPosition: DialogPosition) => {
@@ -529,14 +552,15 @@ export function MeetingTodoQuickDialog({
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
-      hasPositionedRef.current = false;
       setMovementAnnouncement(null);
-      applyPosition({ x: 0, y: 0 });
+      setIsOpen(true);
+      return;
     }
-    setIsOpen(nextOpen);
+
+    closePanel();
   };
   const openSourceMeeting = (note: ProjectMeetingNotePanelNote) => {
-    setIsOpen(false);
+    closePanel();
     onOpenMeeting(note);
   };
   const triggerAccessibleName = `Todos, ${todos.open.length} open${
@@ -568,6 +592,7 @@ export function MeetingTodoQuickDialog({
 
       <DialogContent
         ref={dialogRef}
+        data-meeting-todo-panel
         aria-modal="false"
         presentation="centered"
         overlayClassName="hidden"
@@ -591,11 +616,13 @@ export function MeetingTodoQuickDialog({
           isDragging && "cursor-grabbing select-none transition-none"
         )}
         style={{
+          "--meeting-todo-position-x": `${position.x}px`,
+          "--meeting-todo-position-y": `${position.y}px`,
           transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px))`,
-        }}
+        } as CSSProperties}
       >
         <header className="border-b border-border/60 px-4 py-3">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <ListTodo className="h-4 w-4 shrink-0" aria-hidden />
@@ -609,15 +636,6 @@ export function MeetingTodoQuickDialog({
                   </span>
                 ) : null}
               </div>
-              <DialogDescription
-                id="meeting-todo-dialog-description"
-                className="mt-1.5 text-xs leading-5"
-              >
-                Project follow-ups from meeting notes. Drag anywhere on the
-                panel to move it. Keyboard users can focus the move control and
-                use arrow keys. The rest of the project stays available while
-                this panel is open.
-              </DialogDescription>
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <button
@@ -634,13 +652,20 @@ export function MeetingTodoQuickDialog({
                 variant="ghost"
                 size="icon"
                 className="h-11 w-11 shrink-0 rounded-full"
-                onClick={() => setIsOpen(false)}
+                onClick={closePanel}
                 aria-label="Close meeting todos"
               >
                 <X className="h-4 w-4" aria-hidden />
               </Button>
             </div>
           </div>
+          <DialogDescription
+            id="meeting-todo-dialog-description"
+            className="sr-only"
+          >
+            Meeting todo panel. Drag anywhere to move it. Use the move control
+            and arrow keys for keyboard movement.
+          </DialogDescription>
           <span className="sr-only" role="status" aria-live="polite">
             {movementAnnouncement ? (
               <span key={movementAnnouncement.id}>
