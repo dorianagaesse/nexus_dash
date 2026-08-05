@@ -3,7 +3,7 @@ import type {
   ProjectMeetingNotePanelNote,
 } from "@/components/meeting-todos/meeting-note-types";
 
-export const MEETING_TODO_OVERDUE_GRACE_DAYS = 1;
+export const MEETING_TODO_OVERDUE_GRACE_DAYS = 7;
 const MEETING_TODO_OVERDUE_GRACE_MS =
   MEETING_TODO_OVERDUE_GRACE_DAYS * 24 * 60 * 60 * 1000;
 

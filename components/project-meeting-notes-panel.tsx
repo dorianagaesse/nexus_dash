@@ -1404,7 +1404,7 @@ export function ProjectMeetingNotesPanel({
                     {overdueMeetingCount === 1 ? "" : "s"}.
                   </p>
                   <p className="mt-1 text-xs leading-5 text-amber-800/80 dark:text-amber-100/80">
-                    Open todos are marked overdue one day after the meeting date.
+                    Open todos are marked overdue seven days after the meeting date.
                   </p>
                 </div>
               </div>
