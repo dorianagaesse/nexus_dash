@@ -3,6 +3,23 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-05 - TASK-353 symmetric trigger animation follow-up
+
+- Corrected the Todos entrance after product feedback showed that the latest
+  close animation returned to the floating trigger but opening still appeared
+  from the viewport center.
+- Added a matching panel-specific entrance keyframe and capture the current
+  floating-trigger center before both open and close, so the panel now travels
+  between that trigger and its initial or remembered bounded position in both
+  directions.
+- Prevented the entrance animation from masking later keyboard/drag transforms
+  and paused containment until its 220 ms travel completes, avoiding position
+  corruption from measuring an in-flight scaled panel.
+- Extended the PostgreSQL-backed Chromium regression to prove the early opening
+  frame is closer to the trigger than the final panel frame while retaining
+  exit direction, resize containment, keyboard movement, and reopen-position
+  coverage.
+
 # 2026-08-04 - TASK-353 product-feedback refinement
 
 - Took over the existing TASK-353 work on PR #411 in its dedicated worktree and

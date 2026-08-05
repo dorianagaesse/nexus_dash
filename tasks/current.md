@@ -27,8 +27,9 @@ rest of the project page without a blocking or blurred backdrop.
   interactive.
 - Let pointer users drag from anywhere on the panel, without a dedicated drag
   strip, and provide an equivalent compact keyboard movement control.
-- Keep the header free of explanatory copy, animate dismissal toward the
-  floating trigger, and restore the last bounded location when reopened.
+- Keep the header free of explanatory copy, animate opening from and dismissal
+  toward the floating trigger, and restore the last bounded location when
+  reopened.
 - Clamp movement to the visible project-page content area and re-clamp after
   viewport changes so the panel and its close control remain reachable.
 - Close the Todos panel before opening a source meeting, leaving the meeting
@@ -75,9 +76,9 @@ rest of the project page without a blocking or blurred backdrop.
 5. Pointer and keyboard movement stays within the visible project-page content
    bounds, and resize or orientation changes cannot strand the panel or its
    close control off screen.
-6. Closing animates the panel toward the floating `Todos` trigger, and
-   reopening restores its previous bounded location for the current project
-   page.
+6. Opening animates the panel from the floating `Todos` trigger, closing
+   animates it back toward that trigger, and reopening restores its previous
+   bounded location for the current project page.
 7. Completion/reopen behavior, pending feedback, overdue treatment, viewer
    read-only treatment, and source-meeting navigation remain intact; source
    navigation produces one meeting dialog rather than stacked dialogs.
@@ -116,8 +117,9 @@ rest of the project page without a blocking or blurred backdrop.
   movement threshold, plus arrow and Shift+Arrow movement, project/viewport
   clamping, resize re-containment, screen-reader status, and breakpoint-safe
   close behavior.
-- Removed visible helper copy, added a trigger-targeted exit animation, and
-  retained the last bounded panel position across close/reopen cycles.
+- Removed visible helper copy, added symmetric trigger-targeted entrance/exit
+  animations, and retained the last bounded panel position across close/reopen
+  cycles.
 - Preserved completion/reopen, overdue, recently completed, viewer,
   source-meeting, and route-backed mobile behavior.
 - Addressed initial Copilot review comments for no-op position updates and
@@ -150,9 +152,9 @@ rest of the project page without a blocking or blurred backdrop.
 - The complete post-merge Playwright Chromium suite passed all 32 scenarios.
 - The TASK-353 browser regression passed against isolated PostgreSQL 16 and
   proves modeless focus/pointer behavior, text-field use, drag initiation over
-  todo content without accidental activation, trigger-directed dismissal,
-  close/reopen position restoration, re-containment, source navigation,
-  mutations, mobile absence, and themes.
+  todo content without accidental activation, trigger-directed opening and
+  dismissal, close/reopen position restoration, re-containment, source
+  navigation, mutations, mobile absence, and themes.
 - Final 1280 px light/dark screenshots under
   `.tmp/task353-modeless-panel/` were visually inspected with no background
   dimming or blur.

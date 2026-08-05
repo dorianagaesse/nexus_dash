@@ -281,9 +281,37 @@ test.describe("project meeting todos", () => {
     await expect(todosTrigger).toBeVisible();
     await page.getByRole("button", { name: "Switch to dark mode" }).click();
     await expect(page.locator("html")).toHaveClass(/dark/);
+    const openingTriggerBounds = await todosTrigger.boundingBox();
     await todosTrigger.click();
     const todosDialog = page.getByRole("dialog", { name: "Meeting todos" });
     await expect(todosDialog).toBeVisible();
+    await expect(todosDialog).toHaveCSS(
+      "animation-name",
+      "meeting-todo-panel-enter"
+    );
+    const openingDialogBounds = await todosDialog.boundingBox();
+    await todosDialog.evaluate(async (element) => {
+      await Promise.all(
+        element.getAnimations().map((animation) => animation.finished)
+      );
+    });
+    const openedDialogBounds = await todosDialog.boundingBox();
+    if (openingTriggerBounds && openingDialogBounds && openedDialogBounds) {
+      const triggerCenter = {
+        x: openingTriggerBounds.x + openingTriggerBounds.width / 2,
+        y: openingTriggerBounds.y + openingTriggerBounds.height / 2,
+      };
+      const distanceToTrigger = (
+        bounds: NonNullable<typeof openingDialogBounds>
+      ) =>
+        Math.hypot(
+          bounds.x + bounds.width / 2 - triggerCenter.x,
+          bounds.y + bounds.height / 2 - triggerCenter.y
+        );
+      expect(distanceToTrigger(openingDialogBounds)).toBeLessThan(
+        distanceToTrigger(openedDialogBounds)
+      );
+    }
     await expect(todosDialog).toHaveAttribute("aria-modal", "false");
     await expect(page.locator("body")).not.toHaveCSS("pointer-events", "none");
     await expect(
@@ -341,7 +369,11 @@ test.describe("project meeting todos", () => {
     await expect(page.locator("html")).not.toHaveClass(/dark/);
     await todosTrigger.click();
     await expect(todosDialog).toBeVisible();
-    await page.waitForTimeout(300);
+    await todosDialog.evaluate(async (element) => {
+      await Promise.all(
+        element.getAnimations().map((animation) => animation.finished)
+      );
+    });
     if (task353ScreenshotDirectory) {
       await page.screenshot({
         path: path.resolve(task353ScreenshotDirectory, "desktop-panel-light.png"),
@@ -426,7 +458,11 @@ test.describe("project meeting todos", () => {
     await expect(todosTrigger).toBeFocused();
     await todosTrigger.click();
     await expect(todosDialog).toBeVisible();
-    await page.waitForTimeout(250);
+    await todosDialog.evaluate(async (element) => {
+      await Promise.all(
+        element.getAnimations().map((animation) => animation.finished)
+      );
+    });
     const reopenedDialogBounds = await todosDialog.boundingBox();
     expect(reopenedDialogBounds).not.toBeNull();
     if (preservedDialogBounds && reopenedDialogBounds) {

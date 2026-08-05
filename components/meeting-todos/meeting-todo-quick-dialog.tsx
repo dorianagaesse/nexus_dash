@@ -66,6 +66,7 @@ const DIALOG_EDGE_PADDING = 16;
 const KEYBOARD_MOVE_STEP = 16;
 const KEYBOARD_MOVE_LARGE_STEP = 48;
 const POINTER_DRAG_THRESHOLD = 4;
+const PANEL_ANIMATION_DURATION_MS = 220;
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
@@ -282,6 +283,8 @@ export function MeetingTodoQuickDialog({
   const [isOpen, setIsOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState<DialogPosition>({ x: 0, y: 0 });
+  const [triggerAnimationPosition, setTriggerAnimationPosition] =
+    useState<DialogPosition>({ x: 0, y: 0 });
   const [triggerInsetRight, setTriggerInsetRight] = useState(24);
   const [movementAnnouncement, setMovementAnnouncement] =
     useState<MovementAnnouncement | null>(null);
@@ -291,6 +294,7 @@ export function MeetingTodoQuickDialog({
   const dragStateRef = useRef<DragState | null>(null);
   const suppressClickRef = useRef(false);
   const hasPositionedRef = useRef(false);
+  const isOpeningRef = useRef(false);
   const overdueCount = todos.open.filter((todo) => todo.isOverdue).length;
 
   const applyPosition = useCallback((nextPosition: DialogPosition) => {
@@ -310,28 +314,23 @@ export function MeetingTodoQuickDialog({
     []
   );
 
-  const prepareExitAnimation = useCallback(() => {
-    const dialog = dialogRef.current;
+  const captureTriggerAnimationPosition = useCallback(() => {
     const trigger = triggerRef.current;
-    if (!dialog || !trigger) {
+    if (!trigger) {
       return;
     }
 
     const triggerRect = trigger.getBoundingClientRect();
-    dialog.style.setProperty(
-      "--meeting-todo-exit-x",
-      `${triggerRect.left + triggerRect.width / 2 - window.innerWidth / 2}px`
-    );
-    dialog.style.setProperty(
-      "--meeting-todo-exit-y",
-      `${triggerRect.top + triggerRect.height / 2 - window.innerHeight / 2}px`
-    );
+    setTriggerAnimationPosition({
+      x: triggerRect.left + triggerRect.width / 2 - window.innerWidth / 2,
+      y: triggerRect.top + triggerRect.height / 2 - window.innerHeight / 2,
+    });
   }, []);
 
   const closePanel = useCallback(() => {
-    prepareExitAnimation();
+    captureTriggerAnimationPosition();
     setIsOpen(false);
-  }, [prepareExitAnimation]);
+  }, [captureTriggerAnimationPosition]);
 
   const clampPosition = useCallback(
     (desiredPosition: DialogPosition) => {
@@ -372,48 +371,33 @@ export function MeetingTodoQuickDialog({
     if (!isOpen) {
       dragStateRef.current = null;
       suppressClickRef.current = false;
+      isOpeningRef.current = false;
       setIsDragging(false);
       return undefined;
     }
 
     const desktopMediaQuery = window.matchMedia("(min-width: 1024px)");
     const ensureContained = () => {
+      if (isOpeningRef.current) {
+        return;
+      }
+
       const dialog = dialogRef.current;
       if (!dialog) {
         return;
       }
 
-      const projectRect = getProjectRect();
-      const dialogRect = dialog.getBoundingClientRect();
-      const visibleProjectLeft = projectRect
-        ? Math.max(DIALOG_EDGE_PADDING, projectRect.left + DIALOG_EDGE_PADDING)
-        : DIALOG_EDGE_PADDING;
-      const visibleProjectRight = projectRect
-        ? Math.min(
-            window.innerWidth - DIALOG_EDGE_PADDING,
-            projectRect.right - DIALOG_EDGE_PADDING
-          )
-        : window.innerWidth - DIALOG_EDGE_PADDING;
-      const desiredPosition =
-        !hasPositionedRef.current
-          ? {
-              x:
-                positionRef.current.x +
-                (visibleProjectLeft + visibleProjectRight) / 2 -
-                (dialogRect.left + dialogRect.right) / 2,
-              y: positionRef.current.y,
-            }
-          : positionRef.current;
-
-      applyPosition(clampPosition(desiredPosition));
-      hasPositionedRef.current = true;
+      applyPosition(clampPosition(positionRef.current));
     };
     const handleDesktopChange = (event: MediaQueryListEvent) => {
       if (!event.matches) {
         closePanel();
       }
     };
-    const frameId = window.requestAnimationFrame(ensureContained);
+    const containmentTimerId = window.setTimeout(() => {
+      isOpeningRef.current = false;
+      ensureContained();
+    }, PANEL_ANIMATION_DURATION_MS);
     const resizeObserver =
       typeof ResizeObserver === "undefined"
         ? null
@@ -426,13 +410,19 @@ export function MeetingTodoQuickDialog({
     desktopMediaQuery.addEventListener("change", handleDesktopChange);
 
     return () => {
-      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(containmentTimerId);
       resizeObserver?.disconnect();
       window.removeEventListener("resize", ensureContained);
       window.removeEventListener("scroll", ensureContained);
       desktopMediaQuery.removeEventListener("change", handleDesktopChange);
     };
-  }, [applyPosition, clampPosition, closePanel, getProjectRect, isOpen]);
+  }, [
+    applyPosition,
+    clampPosition,
+    closePanel,
+    getProjectRect,
+    isOpen,
+  ]);
 
   const moveDialog = useCallback(
     (desiredPosition: DialogPosition) => {
@@ -552,6 +542,28 @@ export function MeetingTodoQuickDialog({
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
+      captureTriggerAnimationPosition();
+      if (!hasPositionedRef.current) {
+        const projectRect = getProjectRect();
+        const visibleProjectLeft = projectRect
+          ? Math.max(
+              DIALOG_EDGE_PADDING,
+              projectRect.left + DIALOG_EDGE_PADDING
+            )
+          : DIALOG_EDGE_PADDING;
+        const visibleProjectRight = projectRect
+          ? Math.min(
+              window.innerWidth - DIALOG_EDGE_PADDING,
+              projectRect.right - DIALOG_EDGE_PADDING
+            )
+          : window.innerWidth - DIALOG_EDGE_PADDING;
+        applyPosition({
+          x: (visibleProjectLeft + visibleProjectRight) / 2 - window.innerWidth / 2,
+          y: positionRef.current.y,
+        });
+        hasPositionedRef.current = true;
+      }
+      isOpeningRef.current = true;
       setMovementAnnouncement(null);
       setIsOpen(true);
       return;
@@ -618,6 +630,8 @@ export function MeetingTodoQuickDialog({
         style={{
           "--meeting-todo-position-x": `${position.x}px`,
           "--meeting-todo-position-y": `${position.y}px`,
+          "--meeting-todo-trigger-x": `${triggerAnimationPosition.x}px`,
+          "--meeting-todo-trigger-y": `${triggerAnimationPosition.y}px`,
           transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px))`,
         } as CSSProperties}
       >
