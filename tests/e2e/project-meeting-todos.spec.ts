@@ -8,6 +8,7 @@ import { signInAsVerifiedUser } from "./helpers/auth-helpers";
 import { uniqueProjectName } from "./helpers/project-helpers";
 
 const screenshotDirectory = process.env.TASK332_SCREENSHOT_DIR?.trim();
+const task353ScreenshotDirectory = process.env.TASK353_SCREENSHOT_DIR?.trim();
 
 async function createProjectTodoFixture(userId: string) {
   const ownerProjectName = uniqueProjectName("todo-owner-project");
@@ -257,7 +258,7 @@ test.describe("project meeting todos", () => {
       })
     ).toBeVisible();
     await expect(
-      page.getByRole("region", { name: "Meeting todos", exact: true })
+      page.getByRole("button", { name: /^Todos, \d+ open/ })
     ).toBeHidden();
     await meetingDialog
       .getByRole("button", { name: `Close ${fixture.ownerMeetingTitle}` })
@@ -276,8 +277,201 @@ test.describe("project meeting todos", () => {
 
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(`/projects/${fixture.ownerProjectId}`);
+    const todosTrigger = page.getByRole("button", { name: /^Todos, \d+ open/ });
+    await expect(todosTrigger).toBeVisible();
+    await page.getByRole("button", { name: "Switch to dark mode" }).click();
+    await expect(page.locator("html")).toHaveClass(/dark/);
+    const openingTriggerBounds = await todosTrigger.boundingBox();
+    await todosTrigger.click();
+    const todosDialog = page.getByRole("dialog", { name: "Meeting todos" });
+    await expect(todosDialog).toBeVisible();
+    await expect(todosDialog).toHaveCSS(
+      "animation-name",
+      "meeting-todo-panel-enter"
+    );
+    const openingDialogBounds = await todosDialog.boundingBox();
+    await todosDialog.evaluate(async (element) => {
+      await Promise.all(
+        element.getAnimations().map((animation) => animation.finished)
+      );
+    });
+    const openedDialogBounds = await todosDialog.boundingBox();
+    if (openingTriggerBounds && openingDialogBounds && openedDialogBounds) {
+      const triggerCenter = {
+        x: openingTriggerBounds.x + openingTriggerBounds.width / 2,
+        y: openingTriggerBounds.y + openingTriggerBounds.height / 2,
+      };
+      const distanceToTrigger = (
+        bounds: NonNullable<typeof openingDialogBounds>
+      ) =>
+        Math.hypot(
+          bounds.x + bounds.width / 2 - triggerCenter.x,
+          bounds.y + bounds.height / 2 - triggerCenter.y
+        );
+      expect(distanceToTrigger(openingDialogBounds)).toBeLessThan(
+        distanceToTrigger(openedDialogBounds)
+      );
+    }
+    await expect(todosDialog).toHaveAttribute("aria-modal", "false");
+    await expect(page.locator("body")).not.toHaveCSS("pointer-events", "none");
     await expect(
-      page.getByRole("region", { name: "Meeting todos", exact: true })
+      todosDialog.getByText("Open the source meeting from Todos")
     ).toBeVisible();
+    await expect(
+      todosDialog.getByText("Project follow-ups from meeting notes")
+    ).toHaveCount(0);
+
+    const meetingSearch = page.getByPlaceholder(
+      "Search titles, participants, labels, inputs, outputs, actions"
+    );
+    await meetingSearch.fill("source meeting");
+    await expect(meetingSearch).toHaveValue("source meeting");
+    await expect(todosDialog).toBeVisible();
+    await meetingSearch.fill("");
+    await page.waitForTimeout(300);
+    if (task353ScreenshotDirectory) {
+      await mkdir(path.resolve(task353ScreenshotDirectory), { recursive: true });
+      await page.screenshot({
+        path: path.resolve(task353ScreenshotDirectory, "desktop-panel-dark.png"),
+        fullPage: false,
+      });
+    }
+    const darkDialogBounds = await todosDialog.boundingBox();
+    const darkTriggerBounds = await todosTrigger.boundingBox();
+    await todosDialog
+      .getByRole("button", { name: "Close meeting todos" })
+      .click();
+    await expect(todosDialog).toHaveCSS(
+      "animation-name",
+      "meeting-todo-panel-exit"
+    );
+    await page.waitForTimeout(70);
+    const closingDialogBounds = await todosDialog.boundingBox();
+    if (darkDialogBounds && darkTriggerBounds && closingDialogBounds) {
+      const triggerCenter = {
+        x: darkTriggerBounds.x + darkTriggerBounds.width / 2,
+        y: darkTriggerBounds.y + darkTriggerBounds.height / 2,
+      };
+      const distanceToTrigger = (
+        bounds: NonNullable<typeof darkDialogBounds>
+      ) =>
+        Math.hypot(
+          bounds.x + bounds.width / 2 - triggerCenter.x,
+          bounds.y + bounds.height / 2 - triggerCenter.y
+        );
+      expect(distanceToTrigger(closingDialogBounds)).toBeLessThan(
+        distanceToTrigger(darkDialogBounds)
+      );
+    }
+    await expect(todosDialog).toBeHidden();
+    await expect(todosTrigger).toBeFocused();
+    await page.getByRole("button", { name: "Switch to light mode" }).click();
+    await expect(page.locator("html")).not.toHaveClass(/dark/);
+    await todosTrigger.click();
+    await expect(todosDialog).toBeVisible();
+    await todosDialog.evaluate(async (element) => {
+      await Promise.all(
+        element.getAnimations().map((animation) => animation.finished)
+      );
+    });
+    if (task353ScreenshotDirectory) {
+      await page.screenshot({
+        path: path.resolve(task353ScreenshotDirectory, "desktop-panel-light.png"),
+        fullPage: false,
+      });
+    }
+
+    const projectBounds = await page.locator("[data-project-page]").boundingBox();
+    const moveHandle = todosDialog.getByRole("button", {
+      name: "Move meeting todos panel with arrow keys",
+    });
+    await moveHandle.focus();
+    await expect(moveHandle).toBeFocused();
+    await page.waitForTimeout(250);
+    const initialDialogBounds = await todosDialog.boundingBox();
+    await page.keyboard.press("Shift+ArrowLeft");
+    await page.waitForTimeout(50);
+    const keyboardMovedBounds = await todosDialog.boundingBox();
+    expect(keyboardMovedBounds?.x).toBeLessThan(initialDialogBounds?.x ?? 0);
+
+    const todoDragTarget = todosDialog.getByText(
+      "Open the source meeting from Todos",
+      { exact: true }
+    );
+    const todoDragTargetBounds = await todoDragTarget.boundingBox();
+    expect(todoDragTargetBounds).not.toBeNull();
+    if (todoDragTargetBounds) {
+      await page.mouse.move(
+        todoDragTargetBounds.x + todoDragTargetBounds.width / 2,
+        todoDragTargetBounds.y + todoDragTargetBounds.height / 2
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        todoDragTargetBounds.x + todoDragTargetBounds.width / 2 + 120,
+        todoDragTargetBounds.y + todoDragTargetBounds.height / 2 + 80,
+        { steps: 8 }
+      );
+      await page.mouse.up();
+    }
+
+    await expect(todosDialog).toBeVisible();
+    const pointerMovedBounds = await todosDialog.boundingBox();
+    expect(pointerMovedBounds?.x).toBeGreaterThan(keyboardMovedBounds?.x ?? 0);
+    expect(pointerMovedBounds).not.toBeNull();
+    expect(projectBounds).not.toBeNull();
+    if (pointerMovedBounds && projectBounds) {
+      expect(pointerMovedBounds.x).toBeGreaterThanOrEqual(projectBounds.x + 15);
+      expect(pointerMovedBounds.x + pointerMovedBounds.width).toBeLessThanOrEqual(
+        projectBounds.x + projectBounds.width - 15
+      );
+      expect(pointerMovedBounds.y).toBeGreaterThanOrEqual(15);
+      expect(pointerMovedBounds.y + pointerMovedBounds.height).toBeLessThanOrEqual(885);
+    }
+
+    await page.setViewportSize({ width: 1024, height: 720 });
+    await expect(todosDialog).toBeVisible();
+    await page.waitForTimeout(100);
+    const resizedProjectBounds = await page
+      .locator("[data-project-page]")
+      .boundingBox();
+    const resizedDialogBounds = await todosDialog.boundingBox();
+    expect(resizedProjectBounds).not.toBeNull();
+    expect(resizedDialogBounds).not.toBeNull();
+    if (resizedDialogBounds && resizedProjectBounds) {
+      expect(resizedDialogBounds.x).toBeGreaterThanOrEqual(
+        resizedProjectBounds.x + 15
+      );
+      expect(resizedDialogBounds.x + resizedDialogBounds.width).toBeLessThanOrEqual(
+        resizedProjectBounds.x + resizedProjectBounds.width - 15
+      );
+      expect(resizedDialogBounds.y).toBeGreaterThanOrEqual(15);
+      expect(resizedDialogBounds.y + resizedDialogBounds.height).toBeLessThanOrEqual(
+        705
+      );
+    }
+
+    const preservedDialogBounds = resizedDialogBounds;
+    await todosDialog
+      .getByRole("button", { name: "Close meeting todos" })
+      .click();
+    await expect(todosDialog).toBeHidden();
+    await expect(todosTrigger).toBeFocused();
+    await todosTrigger.click();
+    await expect(todosDialog).toBeVisible();
+    await todosDialog.evaluate(async (element) => {
+      await Promise.all(
+        element.getAnimations().map((animation) => animation.finished)
+      );
+    });
+    const reopenedDialogBounds = await todosDialog.boundingBox();
+    expect(reopenedDialogBounds).not.toBeNull();
+    if (preservedDialogBounds && reopenedDialogBounds) {
+      expect(reopenedDialogBounds.x).toBeCloseTo(preservedDialogBounds.x, 0);
+      expect(reopenedDialogBounds.y).toBeCloseTo(preservedDialogBounds.y, 0);
+    }
+    await todosDialog
+      .getByRole("button", { name: "Close meeting todos" })
+      .click();
+    await expect(todosDialog).toBeHidden();
   });
 });

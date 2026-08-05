@@ -3,6 +3,118 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-05 - TASK-353 symmetric trigger animation follow-up
+
+- Corrected the Todos entrance after product feedback showed that the latest
+  close animation returned to the floating trigger but opening still appeared
+  from the viewport center.
+- Added a matching panel-specific entrance keyframe and capture the current
+  floating-trigger center before both open and close, so the panel now travels
+  between that trigger and its initial or remembered bounded position in both
+  directions.
+- Prevented the entrance animation from masking later keyboard/drag transforms
+  and paused containment until its 220 ms travel completes, avoiding position
+  corruption from measuring an in-flight scaled panel.
+- Extended the PostgreSQL-backed Chromium regression to prove the early opening
+  frame is closer to the trigger than the final panel frame while retaining
+  exit direction, resize containment, keyboard movement, and reopen-position
+  coverage.
+
+# 2026-08-04 - TASK-353 product-feedback refinement
+
+- Took over the existing TASK-353 work on PR #411 in its dedicated worktree and
+  re-read the repository execution, project, runtime, task, backlog, and journal
+  context before changing the implementation.
+- Confirmed that the first pass used modal Radix behavior: it trapped focus,
+  made the page inert, and rendered a dark blurred overlay despite the panel's
+  movement support.
+- Switched only the desktop Todos surface to modeless dialog behavior, removed
+  the overlay and blur, kept outside pointer/focus interactions from dismissing
+  it, and retained Escape/explicit close, movement, containment, todo actions,
+  source-meeting navigation, and the mobile route.
+- Added component and browser regression coverage for modeless semantics and
+  using an underlying project text field while the Todos panel remains open.
+- Merged current `origin/main` after TASK-335 landed, preserved its `v0.34.0`
+  release history, and advanced TASK-353 to `v0.35.0` without replacing the
+  existing ready-for-review PR.
+- Focused component coverage, full repository lint, RLS inventory, 1003 tests,
+  coverage thresholds, the production build, all 32 Playwright scenarios, and
+  release checks passed against an isolated PostgreSQL 16 database.
+- Generated and visually reviewed final 1280 px light/dark captures under
+  `.tmp/task353-modeless-panel/`; the project page remains undimmed and the
+  search field, controls, and surrounding context stay visibly available.
+- Applied the follow-up interaction feedback by removing the full-width drag
+  strip and making the complete panel surface draggable. A movement threshold
+  preserves ordinary todo clicks, a post-drag click guard prevents accidental
+  completion or navigation, and the compact header control retains the
+  keyboard arrow-key alternative.
+- Re-ran the focused component suite, lint, RLS and release checks, production
+  build, 1003-test unit suite, coverage thresholds, and all 32 Chromium
+  scenarios. The browser regression starts its pointer drag on an interactive
+  todo title and verifies movement without opening the source meeting.
+- Removed the visible explanatory paragraph beneath `Meeting todos` while
+  retaining a concise screen-reader-only dialog description. Replaced the
+  generic close keyframe with a panel-specific transform that calculates the
+  current floating-trigger center before dismissal, eliminating the sideways
+  exit motion.
+- Stopped resetting the bounded transform on close or reopen. Focused and
+  browser regressions now verify that reopening restores the previous panel
+  coordinates and that an in-progress close frame is measurably nearer the
+  floating `Todos` trigger.
+
+# 2026-08-03 - TASK-353 movable meeting-todos modal
+
+- Started from merged `origin/main` in the dedicated
+  `feature/task-353-movable-meeting-todos-modal` worktree, then committed and
+  pushed the acceptance criteria and detailed interaction brief before
+  implementation.
+- Applied UI/UX Pro Max guidance for a dense productivity dashboard: use one
+  compact labeled Lucide entry, preserve semantic theme tokens and visible
+  focus, provide 44 px controls and a keyboard alternative to dragging, keep
+  motion transform-only/reduced-motion-safe, and verify both themes plus
+  responsive containment.
+- Replaced the expanded/collapsible desktop meeting-todo table with a
+  bottom-right `Todos` trigger whose accessible name exposes open and overdue
+  counts. TASK-332's route-backed mobile destination remains unchanged.
+- Built the aggregate on the shared Radix dialog foundation for named modal
+  semantics, focus containment, Escape/outside dismissal, and trigger focus
+  restoration. Source navigation closes this modal before opening the meeting
+  dialog so focus traps never stack.
+- Added a visible drag handle with pointer capture, arrow and Shift+Arrow
+  movement, screen-reader instructions/status, project/viewport clamping,
+  resize re-containment, and automatic close below the desktop breakpoint.
+- Preserved open/overdue/recently-completed presentation, completion/reopen
+  mutations, pending state, viewer treatment, and source-meeting context while
+  increasing row actions to 44 px targets.
+- Added five focused component tests and extended meeting-todo plus dashboard
+  browser coverage for trigger/modal semantics, focus restoration, light/dark
+  rendering, pointer and keyboard movement, resize containment, mobile absence,
+  mutations, viewer access, and source navigation.
+- Visually inspected 1280 px light and dark screenshots under
+  `.tmp/task353-movable-todos-modal/`; hierarchy, contrast, the move affordance,
+  todo status, and underlying project context remained clear.
+- Prepared feature release `v0.34.0` with matching package, lockfile, and
+  changelog metadata.
+- Complete validation passed: lint, RLS inventory, production compilation and
+  TypeScript checking, 143 passing Vitest files with 2 skipped, 1000 passing
+  tests with 2 skipped, coverage at 91.37% statements / 81.33% branches /
+  92.2% functions / 91.88% lines, affected browser regressions, and all 31
+  Playwright Chromium scenarios.
+- A first bare build correctly failed because a fresh worktree has no secret or
+  database environment; the documented local-safe PostgreSQL and placeholder
+  values produced the green build. The first complete browser run reached
+  30/31 because production-mode password recovery attempted delivery through
+  the placeholder Resend key; rerunning with local outbound delivery explicitly
+  disabled passed 31/31 without changing application code.
+- Published planning commit `5829401` and implementation commit `2d61245`, then
+  opened ready-for-review
+  [PR #411](https://github.com/dorianagaesse/nexus_dash/pull/411).
+- Copilot's initial review produced two actionable comments. Added an equality
+  guard that skips no-op position state updates during containment ticks and
+  keyed repeated live-region messages so consecutive same-direction arrow
+  moves still create an assistive-technology announcement mutation. Post-review
+  focused tests, full lint, and production build passed.
+
 # 2026-08-03 - TASK-335 clarified compact disclosure
 
 - Clarified the product intent after review: retain the previous compact epic

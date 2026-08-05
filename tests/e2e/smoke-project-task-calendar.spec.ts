@@ -359,21 +359,20 @@ test.describe("critical UI smoke flows", () => {
       .filter({ hasText: "1 overdue todo" });
     await expect(overdueMeetingCard.getByText("1 overdue todo")).toBeVisible();
 
-    const meetingTodoPanel = page.getByRole("region", { name: "Meeting todos" });
-    await expect(meetingTodoPanel).toBeVisible();
-    await expect(meetingTodoPanel.getByText("Finalize delayed recap")).toBeVisible();
-    await expect(meetingTodoPanel.getByText(overdueMeetingTitle)).toBeVisible();
+    const meetingTodoTrigger = page.getByRole("button", {
+      name: "Todos, 1 open, 1 overdue",
+    });
+    await expect(meetingTodoTrigger).toBeVisible();
+    await meetingTodoTrigger.click();
+    const meetingTodoDialog = page.getByRole("dialog", {
+      name: "Meeting todos",
+    });
+    await expect(meetingTodoDialog).toBeVisible();
+    await expect(meetingTodoDialog.getByText("Finalize delayed recap")).toBeVisible();
+    await expect(meetingTodoDialog.getByText(overdueMeetingTitle)).toBeVisible();
     await expect(
-      meetingTodoPanel.getByText("Overdue", { exact: true })
+      meetingTodoDialog.getByText("Overdue", { exact: true })
     ).toBeVisible();
-    await meetingTodoPanel
-      .getByRole("button", { name: "Collapse meeting todos" })
-      .click();
-    await expect(meetingTodoPanel.getByText("Finalize delayed recap")).toBeHidden();
-    await meetingTodoPanel
-      .getByRole("button", { name: /Meeting todos\s+1 open, 1 overdue/ })
-      .click();
-    await expect(meetingTodoPanel.getByText("Finalize delayed recap")).toBeVisible();
 
     const completeTodoRequest = page.waitForResponse(
       (response) =>
@@ -381,11 +380,11 @@ test.describe("critical UI smoke flows", () => {
         /\/meeting-notes\/[^/]+\/actions\/[^/]+$/.test(response.url()) &&
         response.ok()
     );
-    await meetingTodoPanel
+    await meetingTodoDialog
       .getByRole("button", { name: "Complete todo: Finalize delayed recap" })
       .click();
     await completeTodoRequest;
-    await expect(meetingTodoPanel.getByText("All caught up.")).toBeVisible();
+    await expect(meetingTodoDialog.getByText("All caught up.")).toBeVisible();
 
     const reopenTodoRequest = page.waitForResponse(
       (response) =>
@@ -393,19 +392,22 @@ test.describe("critical UI smoke flows", () => {
         /\/meeting-notes\/[^/]+\/actions\/[^/]+$/.test(response.url()) &&
         response.ok()
     );
-    await meetingTodoPanel
+    await meetingTodoDialog
       .getByRole("button", { name: "Reopen todo: Finalize delayed recap" })
       .click();
     await reopenTodoRequest;
     await expect(
-      meetingTodoPanel.getByRole("button", {
+      meetingTodoDialog.getByRole("button", {
         name: "Complete todo: Finalize delayed recap",
       })
     ).toBeVisible();
 
-    await meetingTodoPanel.getByText(overdueMeetingTitle).click();
-    const sourceMeetingDialog = page.getByRole("dialog");
+    await meetingTodoDialog.getByText(overdueMeetingTitle).click();
+    const sourceMeetingDialog = page.getByRole("dialog", {
+      name: overdueMeetingTitle,
+    });
     await expect(sourceMeetingDialog).toBeVisible();
+    await expect(meetingTodoDialog).toBeHidden();
     await expect(
       sourceMeetingDialog.getByRole("heading", { name: overdueMeetingTitle })
     ).toBeVisible();
