@@ -3658,3 +3658,10 @@ Low-value entries to avoid going forward:
   Inbox's visual `99+` cap. Restored the cap only for notifications, preserved
   the exact sr-only unread count and exact visible Todos count, and added a
   regression assertion. Focused shell tests and lint passed.
+- Rebased the three TASK-354 commits onto current `origin/main`, preserving
+  TASK-355's one-day overdue grace and TASK-341's related-task scrolling fix.
+  Repository rules correctly rejected rewriting PR #410's protected branch,
+  so prepared `feature/task-354-sidebar-todo-count-r2` as its clean replacement.
+- Rebase validation passed: no conflict markers, release policy from `v0.35.2`
+  to `v0.36.0`, 15 focused service/API/hook/shell tests, lint, and production
+  build.

@@ -4,9 +4,9 @@
 
 - ID: TASK-354
 - Title: Sidebar todo count
-- Status: In review (2026-08-05, rebased onto main; PR #410)
-- Branch: `feature/task-354-sidebar-todo-count`
-- Pull request: [#410](https://github.com/dorianagaesse/nexus_dash/pull/410)
+- Status: In review (2026-08-05, rebased replacement for PR #410 pending)
+- Branch: `feature/task-354-sidebar-todo-count-r2`
+- Pull request: Replacement for [#410](https://github.com/dorianagaesse/nexus_dash/pull/410) pending
 - Brief: [`task-354-sidebar-todo-count.md`](./task-354-sidebar-todo-count.md)
 
 ## Objective
@@ -37,7 +37,7 @@ the active todo count to the `Todos` item and emphasizing overdue work.
 - Existing local PostgreSQL and `.env` prerequisites are unchanged.
 - Browser validation uses the existing project meeting-todo fixture.
 - If preview validation is required during review, it must pass
-  `git_ref=feature/task-354-sidebar-todo-count` explicitly.
+  `git_ref=feature/task-354-sidebar-todo-count-r2` explicitly.
 
 ## Acceptance Criteria
 
@@ -110,8 +110,10 @@ the active todo count to the `Todos` item and emphasizing overdue work.
 
 ## Validation
 
-- `npm run lint`, `npm run rls:check`, `git diff --check`, and
-  `npm run release:check -- --base origin/main --branch feature/task-354-sidebar-todo-count`
+- `npm run lint`, `npm run rls:check`, and `git diff --check` passed.
+- After rebasing onto `origin/main`, the focused 15-test service/API/hook/shell
+  suite, production build, and
+  `npm run release:check -- --base origin/main --branch feature/task-354-sidebar-todo-count-r2`
   passed.
 - `npm test`: 1006 passed, 2 skipped.
 - `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
@@ -125,8 +127,9 @@ the active todo count to the `Todos` item and emphasizing overdue work.
   disabled locally. The preceding run's sole password-recovery failure was
   traced to the placeholder Resend key being treated as live and cleared under
   the documented disabled delivery mode.
-- Implementation commit `10276ce` is pushed and ready-for-review PR #410 is
-  open.
+- Replayed the implementation as `fb8bb38` on current `origin/main`. Repository
+  rules correctly rejected rewriting PR #410's protected head branch, so this
+  `r2` branch is the clean replacement path.
 - Copilot's initial review found one Inbox regression in the shared badge
   rendering; restored its established visual `99+` cap while Todos continues
   to show the exact active count. Focused shell tests and lint passed.
