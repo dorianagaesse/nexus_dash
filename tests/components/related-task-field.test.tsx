@@ -301,11 +301,11 @@ describe("RelatedTaskSelector", () => {
     const popoverTopBefore = popover?.style.top;
 
     const scrollEvent = new Event("scroll", { bubbles: true });
-    Object.defineProperty(scrollEvent, "target", { value: listbox });
-    window.dispatchEvent(scrollEvent);
+    listbox?.dispatchEvent(scrollEvent);
 
     await act(async () => {});
 
+    expect(scrollEvent.target).toBe(listbox);
     expect(popover?.style.top).toBe(popoverTopBefore);
   });
 });
