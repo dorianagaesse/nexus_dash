@@ -182,13 +182,24 @@ export function RelatedTaskSelector({
       });
     };
 
+    const handleScroll = (event: Event) => {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest('[data-overlay-popover="true"]')
+      ) {
+        return;
+      }
+      updateDropdownPosition();
+    };
+
     updateDropdownPosition();
     window.addEventListener("resize", updateDropdownPosition);
-    window.addEventListener("scroll", updateDropdownPosition, true);
+    window.addEventListener("scroll", handleScroll, true);
 
     return () => {
       window.removeEventListener("resize", updateDropdownPosition);
-      window.removeEventListener("scroll", updateDropdownPosition, true);
+      window.removeEventListener("scroll", handleScroll, true);
     };
   }, [shouldShowSuggestions, suggestions.length]);
 

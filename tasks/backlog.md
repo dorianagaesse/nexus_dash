@@ -64,6 +64,12 @@ Last reviewed: 2026-07-30
   Rationale: Preserve the familiar compact epic cards and two-column desktop grid while collapsing descriptions and linked tasks by default, so long narratives do not dominate mobile scroll length or dense project dashboards; expose each epic's complete context through an independent accessible disclosure.
   Dependencies: TASK-100, TASK-108, TASK-133, TASK-270
   Brief: `tasks/task-335-expanded-epic-presentation.md`
+- ID: TASK-341
+  Title: Related-task picker scroll fix - scrollbar visible but list does not move
+  Status: In Progress (2026-08-04)
+  Rationale: Fix GitHub issue #401 so the related-task candidate list actually scrolls when its content overflows. Gate the window-level scroll listener that re-positions the popover so internal list scrolls do not trigger unnecessary re-renders, while keeping the existing keyboard navigation, thin scrollbar, and project isolation intact.
+  Dependencies: TASK-076, TASK-133, TASK-337, TASK-352
+  Brief: `tasks/task-341-related-task-scroll.md`
 - ID: TASK-349
   Title: Bilateral related-task relationships - keep both task directions consistent
   Status: In review (2026-07-30, PR #399)

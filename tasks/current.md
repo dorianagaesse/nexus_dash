@@ -2,114 +2,82 @@
 
 ## Task
 
-- ID: TASK-335
-- Title: Compact epic detail disclosure
-- Status: In review (2026-08-03)
-- Branch: `feature/task-335-expanded-epic-presentation`
-- Pull request:
-  [#403](https://github.com/dorianagaesse/nexus_dash/pull/403)
-- Brief:
-  [`task-335-expanded-epic-presentation.md`](./task-335-expanded-epic-presentation.md)
+- ID: TASK-341
+- Title: Related-task picker scroll does not work - scrollbar visible but list does not move
+- Status: In Progress (2026-08-04)
+- Branch: `feature/task-341-related-task-scroll`
+- Issue: [#401](https://github.com/dorianagaesse/nexus_dash/issues/401)
+- Brief: `tasks/task-341-related-task-scroll.md`
 
 ## Objective
 
-Preserve the familiar compact epic cards while keeping long descriptions and
-linked tasks out of the default dashboard scan. Show title/status, actions, and
-progress immediately; reveal the rest through an independent per-card control.
+Make the related-task candidate list actually scroll whenever its content
+exceeds the visible list height, without re-rendering the popover on each
+internal scroll event, and keep the focus/keyboard navigation already added by
+TASK-352 working.
 
 ## Scope
 
-- Restore the one-column mobile and two-column desktop epic-card grid.
-- Keep title, textual status, edit/delete actions, and semantic progress visible
-  while each epic is collapsed by default.
-- Reveal the full description and bounded linked-task summary only after the
-  epic's accessible action-cluster chevron is activated.
-- Preserve epic CRUD, permissions, status/progress behavior, project-section
-  persistence, and the established token-driven visual presentation.
-- Add focused component and browser coverage for disclosure and responsive
+- The related-task popover's scroll container and its overflow/wheel/touch
   behavior.
+- The window-level scroll listener that previously re-positioned the popover
+  on every scroll event.
+- Both task creation and task detail/edit flows where the shared picker is
+  used.
+- Focused regression coverage with enough candidates to overflow the list.
 
 ## Runtime Assumptions
 
-- Existing PostgreSQL and `.env` prerequisites are unchanged.
-- Browser fixtures can create epics and linked tasks through existing services.
-- Any preview validation must pass
-  `git_ref=feature/task-335-expanded-epic-presentation` explicitly.
+- Existing local PostgreSQL and `.env` prerequisites are unchanged.
+- No Prisma migration or schema change is required.
+- The Radix Dialog scroll lock on `document.body` is unchanged.
 
 ## Acceptance Criteria
 
-1. Mobile epic cards are collapsed by default and long descriptions/linked work
-   do not add to the initial scroll length.
-2. Desktop epics retain the familiar two-column card grid.
-3. Each card's 44 px action-cluster chevron sits beside Edit/Delete, remains
-   available to viewers, is independently keyboard operable, and exposes an
-   accessible name plus accurate `aria-expanded`/`aria-controls` state.
-4. Expanded descriptions and linked-task summaries wrap without clipping or
-   horizontal overflow, while sibling epics remain collapsed.
-5. Epic articles and progress expose semantic names and values, with status
-   available as text.
-6. CRUD permissions, section collapse persistence, and mutation behavior remain
-   unchanged.
-7. Light/dark and 375 px responsive checks pass.
-8. Focused component and Playwright coverage passes.
+1. The related-task candidate list (`[data-related-task-listbox="true"]`) keeps
+   its `overflow-y-auto` scroll container so the candidate list scrolls for
+   every direction a user can input (mouse wheel, trackpad, touch, keyboard).
+2. The window-level scroll listener that re-positions the popover now ignores
+   scroll events whose target sits inside the popover
+   (`[data-overlay-popover="true"]`), so scrolling inside the list no longer
+   triggers an unnecessary popover re-render.
+3. Scrolling the list does not unintentionally scroll the underlying task
+   modal or page while the list still has room to move.
+4. The visible scrollbar (thin track + thumb) remains in both light and dark
+   themes and accurately reflects the list's scroll position.
+5. Keyboard navigation already wired by TASK-352 (ArrowDown/ArrowUp,
+   Home/End, Enter, Escape) continues to scroll the active option into view
+   and to select/end on Enter/Escape.
+6. Both the create-task flow (`create-task-dialog.tsx`) and the
+   task-detail/edit flow (`task-detail-modal.tsx`) are covered by the same
+   popover behavior.
+7. Focused component coverage exercises the scroll listener guard, and
+   existing related-task tests still pass.
 
 ## Definition Of Done
 
-- The implementation satisfies the clarified task brief and UI/UX Pro Max
-  progressive-disclosure/accessibility review.
-- Required validation, release metadata, and tracking documentation are
-  complete.
-- The branch is pushed and PR #403 is updated with checks monitored, without
-  merging it.
-
-## Progress
-
-- Created the dedicated worktree from current `origin/main` and retained the
-  existing TASK-335 branch and PR #403 for the clarified implementation.
-- Read the project execution contract, system context, TASK-270 assessment, and
-  existing epic implementation.
-- Re-ran UI/UX Pro Max design-system, progressive-disclosure/accessibility, and
-  Next.js guidance passes.
-- Restored the established card grid, accent strip, compact title/status,
-  progress treatment, and linked-task chips.
-- Added independent collapsed-by-default details regions controlled by
-  icon-only chevrons beside Edit/Delete, with semantic state, 44 px targets,
-  descriptive names, and keyboard support.
-- Kept full wrapping descriptions and the existing six-task-plus-remainder
-  linked-work summary inside the expanded region.
-- Updated component and Playwright coverage for the clarified behavior.
-- Reconciled release metadata over merged TASK-352 and advanced the feature
-  release to `v0.34.0`.
-
-## Outcome
-
-- Mobile users can scan several epics without long narratives increasing the
-  initial page length.
-- Desktop users again receive the familiar two-column compact-card layout.
-- Users can reveal one epic's description and linked work without expanding its
-  siblings.
-- Epic CRUD, viewer read-only behavior, status derivation, progress calculations,
-  project-section persistence, and live-refresh locking remain unchanged.
+- Implementation follows existing service, popover, and project-role
+  boundaries; no persistence or API changes.
+- `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`
+  pass.
+- Existing related-task-field tests pass.
+- The branch is committed and pushed, a ready-for-review PR is open, and
+  initial automated review/check feedback is handled before handoff.
+- `tasks/current.md`, `tasks/backlog.md`, and `journal.md` are updated in the
+  same PR.
 
 ## Validation
 
-- Fresh worktree-local PostgreSQL became healthy and all 49 migrations applied;
-  RLS inventory and the full tenant-isolation matrix passed.
-- Focused component coverage passes 5 tests for section expansion, collapsed
-  details, semantic progress, independent disclosure, and live edit-name
-  accessibility.
-- Focused TASK-335 Chromium coverage passes at 375 px and 1440 px in light and
-  dark themes, including hidden default details, action-cluster placement,
-  Enter-key activation, independent state, restored desktop columns, 44 px
-  controls, and horizontal containment.
-- The production build passes with local-safe database and secret overrides.
-- `npm run lint` and `git diff --check` pass.
-- `npm test`: 143 files passed, 2 skipped; 999 tests passed, 2 skipped.
-- `npm run test:coverage`: 91.37% statements, 81.33% branches, 92.2%
-  functions, and 91.88% lines.
-- Full Playwright validation passes all 32 Chromium scenarios.
-- `npm run release:check -- --base origin/main --branch
-  feature/task-335-expanded-epic-presentation` passes for `v0.34.0`.
-- Earlier PR checks passed for branch naming, Quality Core, E2E Smoke, tenant
-  isolation, and the container image; Copilot's initial accessibility comment
-  remains resolved.
+- `npm run lint` passes.
+- `npm test` passes (focused related-task-field coverage includes the new
+  scroll guard test).
+- `npm run test:coverage` passes.
+- `npm run build` passes.
+- Manual scroll check (wheel/trackpad) on the related-task list while the
+  create-task dialog and the task-detail modal are open.
+
+## Outcome
+
+- Skip the popover re-position when the scroll event originates inside the
+  popover so the candidate list keeps its scroll position.
+- Cover the new scroll guard with a focused component test.
