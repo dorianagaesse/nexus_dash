@@ -309,7 +309,8 @@ describe("RelatedTaskSelector", () => {
     expect(popover?.style.top).toBe(popoverTopBefore);
   });
 
-  test("bounds the candidate list inside an overflow-hidden popover so wheel events can scroll it", async () => {
+  test("keeps modal wheel events inside the scroll lock and pointer movement passive", async () => {
+    container.setAttribute("data-overlay-content", "true");
     const input = await renderHarness();
 
     await act(async () => {
@@ -327,6 +328,8 @@ describe("RelatedTaskSelector", () => {
     );
     expect(popover).not.toBeNull();
     expect(popover?.contains(listbox)).toBe(true);
+    expect(popover?.parentElement).toBe(container);
+    expect(popover?.style.position).toBe("absolute");
 
     expect(popover?.className).toContain("overflow-hidden");
     const popoverMaxHeight = Number.parseInt(
@@ -345,21 +348,18 @@ describe("RelatedTaskSelector", () => {
     expect(listbox?.className).toContain("overflow-y-auto");
     expect(listbox?.className).toContain("overscroll-contain");
 
-    const firstOption = document.body.querySelector<HTMLElement>(
-      "[role='option']"
-    );
-    expect(firstOption).not.toBeNull();
-    expect(listbox?.contains(firstOption)).toBe(true);
+    const option = getOptions()[4];
+    expect(option).toBeDefined();
+    expect(listbox?.contains(option!)).toBe(true);
 
-    const wheelEvent = new WheelEvent("wheel", {
-      bubbles: true,
-      cancelable: true,
-      deltaY: 100,
-    });
-    firstOption?.dispatchEvent(wheelEvent);
+    scrollIntoView.mockClear();
+    option?.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
     await act(async () => {});
 
-    expect(wheelEvent.target).toBe(firstOption);
+    expect(option?.dataset.active).toBeUndefined();
+    expect(option?.getAttribute("aria-selected")).toBe("false");
+    expect(input.getAttribute("aria-activedescendant")).toBeNull();
+    expect(scrollIntoView).not.toHaveBeenCalled();
 
     let wheelBubbledToListbox = false;
     listbox?.addEventListener(
@@ -369,10 +369,14 @@ describe("RelatedTaskSelector", () => {
       },
       { once: true }
     );
-    firstOption?.dispatchEvent(
-      new WheelEvent("wheel", { bubbles: true, deltaY: 100 })
-    );
+    const wheelEvent = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaY: 100,
+    });
+    option?.dispatchEvent(wheelEvent);
     await act(async () => {});
     expect(wheelBubbledToListbox).toBe(true);
+    expect(wheelEvent.defaultPrevented).toBe(false);
   });
 });

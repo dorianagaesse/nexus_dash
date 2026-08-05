@@ -66,8 +66,8 @@ Last reviewed: 2026-07-30
   Brief: `tasks/task-335-expanded-epic-presentation.md`
 - ID: TASK-341
   Title: Related-task picker scroll fix - scrollbar visible but list does not move
-  Status: In Progress (2026-08-04)
-  Rationale: Fix GitHub issue #401 so the related-task candidate list actually scrolls when its content overflows. Gate the window-level scroll listener that re-positions the popover so internal list scrolls do not trigger unnecessary re-renders, while keeping the existing keyboard navigation, thin scrollbar, and project isolation intact.
+  Status: In review (2026-08-05, PR #415; behavior feedback addressed)
+  Rationale: Fix GitHub issue #401 by keeping the portaled candidate list inside the Radix dialog scroll-lock boundary, and separate pointer hover from keyboard activation so native scrolling works while pointer movement never scrolls the list.
   Dependencies: TASK-076, TASK-133, TASK-337, TASK-352
   Brief: `tasks/task-341-related-task-scroll.md`
 - ID: TASK-349

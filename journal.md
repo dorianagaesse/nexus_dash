@@ -3489,7 +3489,8 @@ Low-value entries to avoid going forward:
   the full Playwright sweep and `npm run test:rls` are intentionally
   deferred until the next Docker-enabled runtime; the change is UI-only and
   does not touch persistence, RLS, or authorization.
-- Released as `v0.34.1` (patch, per `fix/*` policy).
+- Initially prepared as `v0.34.1`; the rebased PR releases this fix as
+  `v0.35.1`.
 
 # 2026-08-05 - TASK-341: Bound related-task popover so wheel/trackpad scrolls the list
 
@@ -3518,8 +3519,8 @@ Low-value entries to avoid going forward:
 - Validation passed: lint, 1001 unit/API tests with 2 skipped (added the new
   wheel-bounds test), coverage unchanged at 91.37% statements / 81.33%
   branches / 92.2% functions / 91.88% lines, production build.
-- Still on `v0.34.1` (patch, per `fix/*` policy) — same task, same branch,
-  same PR.
+- This attempt was initially prepared as `v0.34.1`; the rebased PR releases
+  the task as `v0.35.1`.
 
 # 2026-08-05 - TASK-341: Rebased onto current main, opened as PR #415
 
@@ -3545,3 +3546,28 @@ Low-value entries to avoid going forward:
   Gates CI workflow run 31031796580 re-ran on the new branch and all four
   jobs (Quality Core, Tenant Isolation, E2E Smoke, Container Image) plus
   Check Branch Name went green, so PR #415 is MERGEABLE.
+
+# 2026-08-05 - TASK-341: Corrected modal scroll-lock and pointer behavior
+
+- Reproduced the follow-up symptom precisely: dragging the scrollbar changed
+  the list, wheel input did not, and moving the pointer near a clipped option
+  scrolled the list slightly.
+- The earlier re-render and outer-bound theories were incomplete. Radix
+  Dialog's `react-remove-scroll` integration permits native scrolling only in
+  the dialog content shard. The related-task popover was portaled to
+  `document.body`, outside that shard, so the modal canceled wheel and touch
+  defaults while direct scrollbar dragging still worked.
+- Candidate `onMouseMove` also changed the keyboard-active index, whose effect
+  calls `scrollIntoView`. This was the separate cause of pointer-position
+  scrolling.
+- Fixed modal usage by portaling the popover into the nearest
+  `[data-overlay-content="true"]` element with dialog-relative absolute
+  coordinates and boundaries. Non-modal usage retains the fixed body portal.
+- Removed pointer-driven active-index changes. Pointer hover stays visual via
+  CSS, while Arrow keys, Home, and End remain the only interactions that move
+  the active option into view.
+- Replaced the synthetic wheel-bubbling assertion with component coverage for
+  the dialog portal boundary and passive pointer behavior. Strengthened the
+  existing Playwright flow to prove real wheel scrolling reaches the final
+  candidate without moving the surrounding modal in both create and edit
+  flows.
