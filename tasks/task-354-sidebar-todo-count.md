@@ -2,8 +2,9 @@
 
 ## Status
 
-Rebased replacement for [PR #410](https://github.com/dorianagaesse/nexus_dash/pull/410)
-pending from `feature/task-354-sidebar-todo-count-r2`.
+Draft [PR #416](https://github.com/dorianagaesse/nexus_dash/pull/416), which
+supersedes [PR #410](https://github.com/dorianagaesse/nexus_dash/pull/410), is
+open from `feature/task-354-sidebar-todo-count-r2`.
 
 ## Objective
 

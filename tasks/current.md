@@ -4,9 +4,9 @@
 
 - ID: TASK-354
 - Title: Sidebar todo count
-- Status: In review (2026-08-05, rebased replacement for PR #410 pending)
+- Status: Draft replacement open (2026-08-05, PR #416 supersedes PR #410)
 - Branch: `feature/task-354-sidebar-todo-count-r2`
-- Pull request: Replacement for [#410](https://github.com/dorianagaesse/nexus_dash/pull/410) pending
+- Pull request: [#416](https://github.com/dorianagaesse/nexus_dash/pull/416) (supersedes [#410](https://github.com/dorianagaesse/nexus_dash/pull/410))
 - Brief: [`task-354-sidebar-todo-count.md`](./task-354-sidebar-todo-count.md)
 
 ## Objective

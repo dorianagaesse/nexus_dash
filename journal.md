@@ -3665,3 +3665,6 @@ Low-value entries to avoid going forward:
 - Rebase validation passed: no conflict markers, release policy from `v0.35.2`
   to `v0.36.0`, 15 focused service/API/hook/shell tests, lint, and production
   build.
+- Pushed the policy-compliant replacement branch and opened draft
+  [PR #416](https://github.com/dorianagaesse/nexus_dash/pull/416), superseding
+  conflicting PR #410 without rewriting its protected history.
