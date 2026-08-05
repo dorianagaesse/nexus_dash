@@ -28,6 +28,10 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Fixed the related-task picker so the candidate list actually scrolls when
   its content overflows the visible list height, addressing GitHub issue #401.
+- Bounded the candidate list inside an `overflow-hidden` popover with a
+  matching `maxHeight` so the list is the only scrollable surface, letting
+  mouse wheel, trackpad, touch, and keyboard scroll consume every candidate
+  from the first to the last.
 - Gated the window-level scroll listener that re-positions the popover so
   internal list scrolls no longer trigger an unnecessary popover re-render.
 - Bounded the popover with `overflow-hidden` + a fixed `maxHeight` so wheel,

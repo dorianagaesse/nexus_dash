@@ -21,10 +21,13 @@ list never moves.
 - Gate the window-level scroll listener so it only re-positions the popover
   when the scroll event originates outside the popover
   (`[data-overlay-popover="true"]`).
-- Keep the existing `overflow-y-auto`, `overscroll-contain`, thin-scroll
-  styling, and TASK-352 keyboard navigation unchanged.
-- Add a focused component test that dispatches a scroll event whose target is
-  the listbox and confirms the popover's `top` does not change.
+- Bound the candidate list inside an `overflow-hidden` popover with a matching
+  `maxHeight` so the list is the only scrollable surface. The list keeps its
+  `overflow-y-auto`, `overscroll-contain`, and thin scrollbar styling.
+- Keep the existing TASK-352 keyboard navigation unchanged.
+- Add focused component tests that verify the new popover bounds, that the
+  scroll guard still suppresses re-positioning for internal list scrolls, and
+  that wheel events dispatched on a candidate bubble up to the listbox.
 
 ## Scope
 

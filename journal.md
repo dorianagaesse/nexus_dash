@@ -3490,3 +3490,33 @@ Low-value entries to avoid going forward:
   deferred until the next Docker-enabled runtime; the change is UI-only and
   does not touch persistence, RLS, or authorization.
 - Released as `v0.34.1` (patch, per `fix/*` policy).
+
+# 2026-08-05 - TASK-341: Bound related-task popover so wheel/trackpad scrolls the list
+
+- Follow-up on GitHub issue [#401](https://github.com/dorianagaesse/nexus_dash/issues/401):
+  the user reported the list still would not scroll with the mouse wheel or
+  trackpad (only the elevator drag worked). The previous fix had only removed
+  the unnecessary popover re-render on internal scroll events; the popover
+  itself was still rendered as a single-level container with no height bound.
+- Compared the popover to the other working popovers in the codebase
+  (`epic-select`, `assignee-select`, `meeting-participant-picker`,
+  `mention-autocomplete`, `emoji-picker-button`) and confirmed they all use a
+  two-level structure: outer `overflow-hidden` + `maxHeight` clip box, inner
+  `overflow-y-auto` scroll container with its own `maxHeight`.
+- Fix: added `overflow-hidden` + `maxHeight: listMaxHeight + 10` to the
+  related-task popover so the list is the only scrollable surface and the
+  browser delegates wheel events to it instead of failing to find a
+  scrollable ancestor on the bare `position: fixed` container. The list keeps
+  its existing `overflow-y-auto` + `overscroll-contain` + thin scrollbar
+  styling and the TASK-352 keyboard navigation.
+- Focused component coverage added a new test that verifies the popover has
+  `overflow-hidden` + `maxHeight`, the list has `overflow-y-auto` +
+  `overscroll-contain` + `maxHeight`, and a `wheel` event dispatched on a
+  candidate bubbles up to the listbox. The pre-existing scroll-guard test
+  still passes because the new structure does not change the capture-phase
+  scroll listener.
+- Validation passed: lint, 1001 unit/API tests with 2 skipped (added the new
+  wheel-bounds test), coverage unchanged at 91.37% statements / 81.33%
+  branches / 92.2% functions / 91.88% lines, production build.
+- Still on `v0.34.1` (patch, per `fix/*` policy) — same task, same branch,
+  same PR.
