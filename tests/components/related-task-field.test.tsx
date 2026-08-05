@@ -308,4 +308,71 @@ describe("RelatedTaskSelector", () => {
     expect(scrollEvent.target).toBe(listbox);
     expect(popover?.style.top).toBe(popoverTopBefore);
   });
+
+  test("bounds the candidate list inside an overflow-hidden popover so wheel events can scroll it", async () => {
+    const input = await renderHarness();
+
+    await act(async () => {
+      input.focus();
+    });
+    await act(async () => {});
+
+    const listbox = document.body.querySelector<HTMLElement>(
+      "[data-related-task-listbox='true']"
+    );
+    expect(listbox).not.toBeNull();
+
+    const popover = document.body.querySelector<HTMLElement>(
+      '[data-overlay-popover="true"]'
+    );
+    expect(popover).not.toBeNull();
+    expect(popover?.contains(listbox)).toBe(true);
+
+    expect(popover?.className).toContain("overflow-hidden");
+    const popoverMaxHeight = Number.parseInt(
+      popover?.style.maxHeight ?? "0",
+      10
+    );
+    expect(popoverMaxHeight).toBeGreaterThan(0);
+
+    const listMaxHeight = Number.parseInt(
+      listbox?.style.maxHeight ?? "0",
+      10
+    );
+    expect(listMaxHeight).toBeGreaterThan(0);
+    expect(popoverMaxHeight).toBeGreaterThanOrEqual(listMaxHeight);
+
+    expect(listbox?.className).toContain("overflow-y-auto");
+    expect(listbox?.className).toContain("overscroll-contain");
+
+    const firstOption = document.body.querySelector<HTMLElement>(
+      "[role='option']"
+    );
+    expect(firstOption).not.toBeNull();
+    expect(listbox?.contains(firstOption)).toBe(true);
+
+    const wheelEvent = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaY: 100,
+    });
+    firstOption?.dispatchEvent(wheelEvent);
+    await act(async () => {});
+
+    expect(wheelEvent.target).toBe(firstOption);
+
+    let wheelBubbledToListbox = false;
+    listbox?.addEventListener(
+      "wheel",
+      () => {
+        wheelBubbledToListbox = true;
+      },
+      { once: true }
+    );
+    firstOption?.dispatchEvent(
+      new WheelEvent("wheel", { bubbles: true, deltaY: 100 })
+    );
+    await act(async () => {});
+    expect(wheelBubbledToListbox).toBe(true);
+  });
 });

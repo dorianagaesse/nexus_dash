@@ -281,12 +281,13 @@ export function RelatedTaskSelector({
         ? createPortal(
             <div
               data-overlay-popover="true"
-              className="pointer-events-auto z-[120] rounded-md border border-border/70 bg-popover p-1 shadow-lg"
+              className="pointer-events-auto z-[120] overflow-hidden rounded-md border border-border/70 bg-popover p-1 shadow-lg"
               style={{
                 position: "fixed",
                 top: dropdownPosition.top,
                 left: dropdownPosition.left,
                 width: dropdownPosition.width,
+                maxHeight: dropdownPosition.listMaxHeight + 10,
               }}
             >
               {suggestions.length > 0 ? (

@@ -80,4 +80,9 @@ TASK-352 working.
 
 - Skip the popover re-position when the scroll event originates inside the
   popover so the candidate list keeps its scroll position.
-- Cover the new scroll guard with a focused component test.
+- Bound the candidate list inside an `overflow-hidden` popover with a
+  matching `maxHeight` so the list is the only scrollable surface and wheel /
+  trackpad / touch / keyboard scroll consume every candidate from the first
+  to the last.
+- Cover the new scroll guard and the popover bounding with focused component
+  tests.
