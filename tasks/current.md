@@ -4,8 +4,9 @@
 
 - ID: TASK-341
 - Title: Related-task picker scroll does not work - scrollbar visible but list does not move
-- Status: In Progress (2026-08-04)
-- Branch: `fix/task-341-related-task-scroll`
+- Status: Done (2026-08-05)
+- Branch: `fix/task-341-related-task-scroll-r2`
+- PR: [#415](https://github.com/dorianagaesse/nexus_dash/pull/415) (replaces the auto-closed #412)
 - Issue: [#401](https://github.com/dorianagaesse/nexus_dash/issues/401)
 - Brief: `tasks/task-341-related-task-scroll.md`
 

@@ -3520,3 +3520,28 @@ Low-value entries to avoid going forward:
   branches / 92.2% functions / 91.88% lines, production build.
 - Still on `v0.34.1` (patch, per `fix/*` policy) — same task, same branch,
   same PR.
+
+# 2026-08-05 - TASK-341: Rebased onto current main, opened as PR #415
+
+- While this branch was waiting on review, `origin/main` moved ahead with
+  TASK-353 (commit `12a475a`, `v0.35.0`). Rebased the three TASK-341 commits
+  onto `12a475a` and resolved the tracking-file conflicts by keeping
+  `v0.35.0` in `CHANGELOG.md`, adding a new `v0.35.1` entry for the
+  TASK-341 fix on top, and bumping `package.json` / `package-lock.json` to
+  `0.35.1` (patch bump from the `fix/*` policy).
+- The repository's push rules block force-push to the existing branch, so
+  the standard rebase workflow required deleting and recreating
+  `fix/task-341-related-task-scroll`. GitHub auto-closed PR #412 when the
+  branch was deleted and the API refuses to reopen it ("state cannot be
+  changed. The branch was force-pushed or recreated"), which is a known
+  GitHub limitation — the equivalent UI action would be a single "Reopen
+  pull request" click.
+- Per the user's decision, opened the rebased commits on a fresh
+  `fix/task-341-related-task-scroll-r2` branch as PR
+  [#415](https://github.com/dorianagaesse/nexus_dash/pull/415), and left a
+  redirect comment on the auto-closed #412.
+- Validation passed on the rebased branch head `40e4bd4`: lint,
+  related-task-field test file (6 tests), production build. The Quality
+  Gates CI workflow run 31031796580 re-ran on the new branch and all four
+  jobs (Quality Core, Tenant Isolation, E2E Smoke, Container Image) plus
+  Check Branch Name went green, so PR #415 is MERGEABLE.

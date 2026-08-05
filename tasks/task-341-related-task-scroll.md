@@ -31,8 +31,10 @@ list never moves.
 
 ## Scope
 
-- `components/kanban/related-task-field.tsx` (scroll listener guard)
-- `tests/components/related-task-field.test.tsx` (new scroll-guard assertion)
+- `components/kanban/related-task-field.tsx` (scroll listener guard + popover
+  bounds)
+- `tests/components/related-task-field.test.tsx` (scroll guard + popover
+  bounds assertions)
 - Both create-task and task-detail/edit popovers share the same component, so
   no per-call-site change is needed.
 
