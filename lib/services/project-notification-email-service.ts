@@ -1045,7 +1045,7 @@ async function createMeetingTodoOverdueReminderNotificationForCandidate(input: {
         recipientUserId: input.candidate.recipientUserId,
         type: NOTIFICATION_TYPE_MEETING_TODO_OVERDUE_REMINDER,
         title: `Overdue meeting todo: ${input.candidate.actionContent}`,
-        body: `${input.candidate.actionContent} from ${input.candidate.meetingTitle} is still open one day after the ${scheduledLabel} meeting.`,
+        body: `${input.candidate.actionContent} from ${input.candidate.meetingTitle} is still open seven days after the ${scheduledLabel} meeting.`,
         targetPath,
         sourceType: NOTIFICATION_SOURCE_MEETING_TODO_OVERDUE_REMINDER,
         sourceId,

@@ -7,7 +7,7 @@ import {
 } from "@/lib/meeting-todo";
 
 const REFERENCE_NOW = new Date("2026-06-21T12:00:00.000Z").getTime();
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 function meetingNote(
   overrides: Partial<ProjectMeetingNotePanelNote> = {}
@@ -37,8 +37,8 @@ function meetingNote(
 }
 
 describe("meeting todo aggregation", () => {
-  test("uses a single-day overdue grace", () => {
-    expect(MEETING_TODO_OVERDUE_GRACE_DAYS).toBe(1);
+  test("uses a seven-day overdue grace", () => {
+    expect(MEETING_TODO_OVERDUE_GRACE_DAYS).toBe(7);
   });
 
   test("sorts overdue open todos before newer follow-ups", () => {
@@ -68,13 +68,16 @@ describe("meeting todo aggregation", () => {
     expect(result.open.map((todo) => todo.isOverdue)).toEqual([true, false]);
   });
 
-  test("marks a todo overdue exactly one day after the meeting", () => {
-    const exactlyOneDayNote = meetingNote({
+  test("marks a todo overdue exactly seven days after the meeting", () => {
+    const exactlySevenDaysNote = meetingNote({
       id: "note-boundary",
-      scheduledAt: new Date(REFERENCE_NOW - ONE_DAY_MS).toISOString(),
+      scheduledAt: new Date(REFERENCE_NOW - SEVEN_DAYS_MS).toISOString(),
     });
 
-    const result = buildProjectMeetingTodos([exactlyOneDayNote], REFERENCE_NOW);
+    const result = buildProjectMeetingTodos(
+      [exactlySevenDaysNote],
+      REFERENCE_NOW
+    );
 
     expect(result.open[0]?.isOverdue).toBe(true);
   });
@@ -82,7 +85,7 @@ describe("meeting todo aggregation", () => {
   test("keeps a todo neutral one millisecond before the grace boundary", () => {
     const justUnderNote = meetingNote({
       id: "note-just-under",
-      scheduledAt: new Date(REFERENCE_NOW - ONE_DAY_MS + 1).toISOString(),
+      scheduledAt: new Date(REFERENCE_NOW - SEVEN_DAYS_MS + 1).toISOString(),
     });
 
     const result = buildProjectMeetingTodos([justUnderNote], REFERENCE_NOW);

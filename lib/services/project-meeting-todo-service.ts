@@ -184,12 +184,18 @@ export async function getProjectMeetingTodoNavigationSummary(input: {
       select: {
         id: true,
         meetingNotes: {
+          where: {
+            actions: {
+              some: { completedAt: null },
+            },
+          },
           select: {
             scheduledAt: true,
             status: true,
-            actions: {
-              where: { completedAt: null },
-              select: { id: true },
+            _count: {
+              select: {
+                actions: { where: { completedAt: null } },
+              },
             },
           },
         },
@@ -205,9 +211,8 @@ export async function getProjectMeetingTodoNavigationSummary(input: {
     let hasOverdue = false;
 
     for (const meeting of project.meetingNotes) {
-      activeCount += meeting.actions.length;
+      activeCount += meeting._count.actions;
       if (
-        meeting.actions.length > 0 &&
         isMeetingTodoOverdueAt({
           scheduledAt: meeting.scheduledAt,
           completedAt: null,

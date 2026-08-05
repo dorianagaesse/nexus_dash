@@ -100,16 +100,17 @@ Last reviewed: 2026-08-03
   Brief: `tasks/task-353-movable-meeting-todos-modal.md`
 - ID: TASK-354
   Title: Sidebar todo count - active and overdue project awareness
-  Status: Draft replacement open (2026-08-05, PR #416 supersedes PR #410)
+  Status: In review (2026-08-05, PR #416 supersedes PR #410)
   Rationale: Add a compact top-right count to the project-scoped `Todos` navigation item so users can see outstanding meeting follow-ups without opening the page, and promote the badge to an accessible orange overdue state whenever at least one active todo is overdue.
   Dependencies: TASK-316, TASK-332
   Brief: `tasks/task-354-sidebar-todo-count.md`
 - ID: TASK-355
-  Title: Reduce meeting-todo overdue grace to 24 hours
-  Status: In progress (2026-08-05, branch fix/task-355-meeting-todo-overdue-grace, issue #413)
-  Rationale: Apply a 24-hour overdue grace consistently across the meeting-todo service, TASK-354 navigation badge endpoint, dashboard panel, and notification email dispatcher so a todo whose source meeting ended more than a day ago is treated as overdue without dispatching immediately, while a todo from a same-day meeting remains neutral. Keep the same single source of truth constant and propagate the new rule to every consumer; do not branch this from TASK-354.
+  Title: Meeting-todo overdue grace experiment
+  Status: Reverted (2026-08-05, seven-day policy restored in PR #416)
+  Rationale: PR #414 temporarily reduced the grace period to 24 hours. Product direction restored seven days while retaining the shared threshold and precise rolling dispatcher cutoff, with no alternate one-day runtime path.
   Dependencies: TASK-098, TASK-227, TASK-268, TASK-314, TASK-316, TASK-354
   Brief: `tasks/task-355-meeting-todo-overdue-grace.md`
+
 ### Collaboration Refinement Program (TASK-336 Audit)
 - ID: TASK-337
   Title: First-class project actor identity - human and agent assignment/provenance foundation

@@ -19,6 +19,11 @@ SHA, deployment URL, and workflow run belong in release evidence.
   after local todo mutations, remote meeting activity, and project changes.
 - Added service, route, component, hook, and Playwright coverage for empty,
   active, overdue, mutation-refresh, viewer, and project-isolation states.
+- Restored the established seven-day meeting-todo overdue grace across the
+  project list, navigation badge, dashboard copy, reminder dispatcher, and
+  tests while retaining one shared threshold and the precise rolling cutoff.
+- Limited the navigation summary query to meetings with incomplete actions and
+  returned filtered database counts instead of loading action identifiers.
 
 ## v0.35.2 - 2026-08-05
 

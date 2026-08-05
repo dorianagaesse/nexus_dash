@@ -4,7 +4,7 @@
 
 - ID: TASK-354
 - Title: Sidebar todo count
-- Status: Draft replacement open (2026-08-05, PR #416 supersedes PR #410)
+- Status: In review (2026-08-05, PR #416 supersedes PR #410)
 - Branch: `feature/task-354-sidebar-todo-count-r2`
 - Pull request: [#416](https://github.com/dorianagaesse/nexus_dash/pull/416) (supersedes [#410](https://github.com/dorianagaesse/nexus_dash/pull/410))
 - Brief: [`task-354-sidebar-todo-count.md`](./task-354-sidebar-todo-count.md)
@@ -33,7 +33,7 @@ the active todo count to the `Todos` item and emphasizing overdue work.
 
 - Active todos are meeting-note actions whose `completedAt` value is null.
 - Existing meeting-todo overdue rules remain authoritative, including the
-  one-day grace period and archived-meeting exclusion.
+  restored seven-day grace period and archived-meeting exclusion.
 - Existing local PostgreSQL and `.env` prerequisites are unchanged.
 - Browser validation uses the existing project meeting-todo fixture.
 - If preview validation is required during review, it must pass
@@ -96,6 +96,11 @@ the active todo count to the `Todos` item and emphasizing overdue work.
   helper so the navigation count updates immediately after complete/reopen.
 - Added focused service, route, hook, shell, and Playwright coverage and
   prepared feature release `v0.36.0`.
+- Restored the seven-day overdue policy across runtime behavior, copy,
+  notification metadata, and boundary tests without retaining an alternate
+  one-day path.
+- Filtered the summary relation to meetings with incomplete actions and used
+  filtered database counts, addressing Copilot's only actionable review.
 
 ## Outcome
 
@@ -107,9 +112,14 @@ the active todo count to the `Todos` item and emphasizing overdue work.
 - Counts stay project-isolated and update after local todo changes, relevant
   live project events, and project navigation while preserving the Inbox badge
   and route state.
+- All meeting-todo surfaces again use the seven-day grace from one shared
+  constant; the dispatcher retains the matching precise rolling cutoff.
 
 ## Validation
 
+- Seven-day restoration and Copilot query fix: 60 focused tests passed; the
+  complete suite passed with 1,020 tests and 2 skips; lint, RLS inventory,
+  production build, release policy, and `git diff --check` passed.
 - `npm run lint`, `npm run rls:check`, and `git diff --check` passed.
 - After rebasing onto `origin/main`, the focused 15-test service/API/hook/shell
   suite, production build, and

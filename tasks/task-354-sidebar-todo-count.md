@@ -34,7 +34,7 @@ the active todo count to the `Todos` item and emphasizing overdue work.
 
 - Active todos are meeting-note actions whose `completedAt` value is null.
 - Existing meeting-todo overdue rules remain authoritative, including the
-  one-day grace period and archived-meeting exclusion.
+  restored seven-day grace period and archived-meeting exclusion.
 - Existing local PostgreSQL and `.env` prerequisites are unchanged.
 - Browser validation uses the existing project meeting-todo fixture.
 - Preview validation, if required, runs with the active branch passed as the

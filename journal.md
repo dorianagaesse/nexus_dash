@@ -3,6 +3,24 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-05 - Restore seven-day meeting-todo grace and finish PR #416
+
+- Product direction reversed the temporary TASK-355 24-hour policy and restored
+  the established seven-day meeting-todo overdue grace.
+- Kept the useful TASK-355 consistency refactor: the dispatcher still derives
+  from `MEETING_TODO_OVERDUE_GRACE_DAYS` and uses the same rolling threshold as
+  UI consumers. Removed all one-day runtime behavior, copy, metadata, and
+  boundary expectations rather than retaining a fallback path.
+- Audited PR #416 and confirmed the active navigation count is absent from
+  `main`, so closing the PR would remove the feature. Kept PR #416 as the
+  delivery path.
+- Copilot's only unresolved thread correctly identified unnecessary historical
+  meeting-note loading. Filtered the relation to meetings with incomplete
+  actions and selected filtered database counts instead of action identifiers.
+- Validation passed: 60 focused policy/summary/notification tests, the complete
+  suite (1,020 passed, 2 skipped), lint, RLS inventory, production build,
+  release policy (`v0.35.2` to `v0.36.0`), and `git diff --check`.
+
 # 2026-08-05 - TASK-355 meeting-todo overdue grace investigation
 
 - User reported that a todo created from a meeting note dated today (or
@@ -3658,8 +3676,9 @@ Low-value entries to avoid going forward:
   Inbox's visual `99+` cap. Restored the cap only for notifications, preserved
   the exact sr-only unread count and exact visible Todos count, and added a
   regression assertion. Focused shell tests and lint passed.
-- Rebased the three TASK-354 commits onto current `origin/main`, preserving
-  TASK-355's one-day overdue grace and TASK-341's related-task scrolling fix.
+- Rebased the three TASK-354 commits onto current `origin/main`, initially
+  preserving TASK-355's then-current one-day grace and TASK-341's related-task
+  scrolling fix.
   Repository rules correctly rejected rewriting PR #410's protected branch,
   so prepared `feature/task-354-sidebar-todo-count-r2` as its clean replacement.
 - Rebase validation passed: no conflict markers, release policy from `v0.35.2`
