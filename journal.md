@@ -3462,3 +3462,31 @@ Low-value entries to avoid going forward:
   with 2 skipped, coverage at 91.37% statements / 81.33% branches / 92.2%
   functions / 91.88% lines, production build, both focused related-task
   Playwright scenarios, and the complete 29-scenario Playwright suite.
+
+# 2026-08-05 - TASK-341: Related-task picker scroll does not work
+
+- Picked up GitHub issue [#401](https://github.com/dorianagaesse/nexus_dash/issues/401)
+  on the existing `feature/task-335-...` branch shape, started a dedicated
+  worktree at `../nexus_dash_task341` from `origin/main` on
+  `fix/task-341-related-task-scroll` (renamed from the worktree's
+  `feature/...` default because the issue is a regression bug, not a planned
+  backlog feature).
+- Root cause: the window-level capture-phase scroll listener that re-positions
+  the popover was also firing for scroll events bubbling up from the candidate
+  list itself, triggering a `setDropdownPosition` re-render that reset the
+  list's scroll position before the browser could commit the scroll delta.
+- Fix: gated the scroll listener so it only re-positions the popover when the
+  scroll event target sits outside `[data-overlay-popover="true"]`. The list
+  keeps its `overflow-y-auto` + `overscroll-contain` + thin scrollbar
+  styling, and the TASK-352 keyboard navigation now drives the active option
+  through the full list.
+- Focused component coverage added a new test that dispatches a scroll event
+  whose `target` is the listbox and asserts the popover's `top` does not
+  change.
+- Validation passed: lint, 1000 unit/API tests with 2 skipped, coverage at
+  91.37% statements / 81.33% branches / 92.2% functions / 91.88% lines,
+  production build. Local PostgreSQL is unavailable in this environment, so
+  the full Playwright sweep and `npm run test:rls` are intentionally
+  deferred until the next Docker-enabled runtime; the change is UI-only and
+  does not touch persistence, RLS, or authorization.
+- Released as `v0.34.1` (patch, per `fix/*` policy).

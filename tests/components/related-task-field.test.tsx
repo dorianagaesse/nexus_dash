@@ -280,4 +280,32 @@ describe("RelatedTaskSelector", () => {
       "No active tasks match “not-a-task”."
     );
   });
+
+  test("does not reposition the popover when the scroll target is inside it", async () => {
+    const input = await renderHarness();
+
+    await act(async () => {
+      input.focus();
+    });
+    await act(async () => {});
+
+    const listbox = document.body.querySelector<HTMLElement>(
+      "[data-related-task-listbox='true']"
+    );
+    expect(listbox).not.toBeNull();
+
+    const popover = document.body.querySelector<HTMLElement>(
+      '[data-overlay-popover="true"]'
+    );
+    expect(popover).not.toBeNull();
+    const popoverTopBefore = popover?.style.top;
+
+    const scrollEvent = new Event("scroll", { bubbles: true });
+    Object.defineProperty(scrollEvent, "target", { value: listbox });
+    window.dispatchEvent(scrollEvent);
+
+    await act(async () => {});
+
+    expect(popover?.style.top).toBe(popoverTopBefore);
+  });
 });

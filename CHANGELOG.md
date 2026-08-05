@@ -24,6 +24,17 @@ SHA, deployment URL, and workflow run belong in release evidence.
   retained the route-backed mobile Todos experience, and added focused
   component and browser coverage for movement and containment.
 
+## v0.35.1 - 2026-08-05
+
+- Fixed the related-task picker so the candidate list actually scrolls when
+  its content overflows the visible list height, addressing GitHub issue #401.
+- Gated the window-level scroll listener that re-positions the popover so
+  internal list scrolls no longer trigger an unnecessary popover re-render.
+- Bounded the popover with `overflow-hidden` + a fixed `maxHeight` so wheel,
+  trackpad, and touch scrolling all reach the last candidate instead of
+  stopping partway down, while keeping the thin scrollbar, keyboard
+  navigation, and both create-task and task-detail flows wired the same way.
+
 ## v0.34.0 - 2026-08-03
 
 - Kept project epic cards compact by default with title, textual status, and
