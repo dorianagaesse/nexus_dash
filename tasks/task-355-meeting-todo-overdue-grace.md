@@ -5,7 +5,7 @@
 - In progress
 - GitHub issue: [#413](https://github.com/dorianagaesse/nexus_dash/issues/413)
 - Branch: `fix/task-355-meeting-todo-overdue-grace`
-- Pull request: TBD
+- Pull request: [#414](https://github.com/dorianagaesse/nexus_dash/pull/414)
 
 ## Objective
 

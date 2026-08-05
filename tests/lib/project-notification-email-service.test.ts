@@ -153,7 +153,7 @@ function meetingTodoOverdueReminderNotification(
     recipientUserId: "user-1",
     type: "meeting_todo_overdue_reminder",
     title: "Overdue meeting todo: Send notes to finance",
-    body: "Send notes to finance from Budget review is still open 1 day after the May 6, 2026 meeting.",
+    body: "Send notes to finance from Budget review is still open one day after the May 6, 2026 meeting.",
     targetPath:
       "/projects/project-1?meetingNoteId=meeting-1&meetingTodoId=action-1",
     sourceType: "meeting_todo_overdue_reminder",
@@ -581,7 +581,7 @@ describe("project-notification-email-service", () => {
     expect(sql).toContain('FROM "ProjectMeetingNoteAction" action');
     expect(sql).toContain('action."completedAt" IS NULL');
     expect(sql).toContain('note."scheduledAt" IS NOT NULL');
-    expect(sql).toContain('note."scheduledAt" < CAST(');
+    expect(sql).toContain('note."scheduledAt" <=');
     expect(sql).toContain('note."status" <> \'done\'');
     expect(sql).toContain('note."createdByUserId" =');
     expect(sql).toContain('project."ownerId" =');

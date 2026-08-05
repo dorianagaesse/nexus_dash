@@ -6,7 +6,7 @@
 - Title: Reduce meeting-todo overdue grace to 24 hours
 - Status: In progress (2026-08-05)
 - Branch: `fix/task-355-meeting-todo-overdue-grace`
-- Pull request: TBD
+- Pull request: [#414](https://github.com/dorianagaesse/nexus_dash/pull/414)
 - Brief: [`task-355-meeting-todo-overdue-grace.md`](./task-355-meeting-todo-overdue-grace.md)
 - Issue: [#413](https://github.com/dorianagaesse/nexus_dash/issues/413)
 

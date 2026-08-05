@@ -15,6 +15,10 @@ SHA, deployment URL, and workflow run belong in release evidence.
   classified as overdue across the project Todos page, the dashboard
   meeting-todos summary, the TASK-354 navigation badge endpoint, and the
   notification email dispatcher.
+- Aligned the dispatcher candidate query with the 24-hour rolling rule
+  used by the UI by replacing the calendar-date threshold with a
+  `now - grace` cutoff, and reused the shared
+  `MEETING_TODO_OVERDUE_GRACE_DAYS` constant instead of duplicating it.
 - Updated the user-facing reminder copy ("one day after the meeting")
   and the overdue-helper copy inside `Project meeting todos` to match
   the new grace period.
