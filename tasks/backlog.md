@@ -59,10 +59,11 @@ Last reviewed: 2026-08-03
   Rationale: Define one capability vocabulary across tasks, meeting notes, context cards, epics, roadmap, and the future shared schedule, then apply it consistently to invitations, memberships, agent scopes, UI affordances, services, and routes. Keep capability independent from ownership and assignment: responsibility never grants access, and owner safeguards plus project isolation remain authoritative.
   Dependencies: TASK-058, TASK-098, TASK-106, TASK-130, TASK-337
 - ID: TASK-335
-  Title: Expanded epic presentation - improve mobile and desktop readability
-  Status: Next 11 - epic scanning and content readability
-  Rationale: Expand epic content by default on mobile so users can read meaningful context without repeated disclosure interactions, then test a comparable expanded desktop treatment and retain the version that improves comprehension without making dense project views harder to scan.
+  Title: Compact epic detail disclosure
+  Status: In review (2026-08-03, PR #403)
+  Rationale: Preserve the familiar compact epic cards and two-column desktop grid while collapsing descriptions and linked tasks by default, so long narratives do not dominate mobile scroll length or dense project dashboards; expose each epic's complete context through an independent accessible disclosure.
   Dependencies: TASK-100, TASK-108, TASK-133, TASK-270
+  Brief: `tasks/task-335-expanded-epic-presentation.md`
 - ID: TASK-349
   Title: Bilateral related-task relationships - keep both task directions consistent
   Status: In review (2026-07-30, PR #399)
@@ -86,10 +87,11 @@ Last reviewed: 2026-08-03
   Rationale: Redesign the current `Related to` candidate list so each row clearly presents the user-facing task ID, a bounded/truncated title, and status using the established Kanban column color, with accessible text that does not rely on color alone.
   Dependencies: TASK-133, TASK-350, TASK-351
 - ID: TASK-353
-  Title: Movable meeting-todos modal - compact bottom-right project entry
-  Status: Next 16 - project todo popup refinement
-  Rationale: Replace the current meeting-todo popup treatment with a compact bottom-right floating `Todos` button using the todo icon and label; open the aggregated todos in an accessible modal that can be moved within the project-page area while preserving containment, focus, responsive behavior, and existing todo actions.
+  Title: Movable meeting-todos panel - compact bottom-right project entry
+  Status: In review (2026-08-04 feedback addressed, PR #411)
+  Rationale: Replace the current meeting-todo popup treatment with a compact bottom-right floating `Todos` button using the todo icon and label; open the aggregated todos in an accessible modeless panel that can be grabbed anywhere and moved within the project-page area while leaving the underlying app usable and preserving containment, responsive behavior, and existing todo actions.
   Dependencies: TASK-098, TASK-316, TASK-321, TASK-322, TASK-330, TASK-332
+  Brief: `tasks/task-353-movable-meeting-todos-modal.md`
 - ID: TASK-354
   Title: Sidebar todo count - active and overdue project awareness
   Status: In review (2026-08-03, PR #410)

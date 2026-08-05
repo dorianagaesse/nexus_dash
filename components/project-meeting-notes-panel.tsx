@@ -31,7 +31,7 @@ import type {
   ProjectMeetingNotePanelAction,
   ProjectMeetingNotePanelNote,
 } from "@/components/meeting-todos/meeting-note-types";
-import { MeetingTodoSidePanel } from "@/components/meeting-todos/meeting-todo-side-panel";
+import { MeetingTodoQuickDialog } from "@/components/meeting-todos/meeting-todo-quick-dialog";
 import {
   PROJECT_SECTION_CARD_CLASS,
   PROJECT_SECTION_CONTENT_CLASS,
@@ -1512,7 +1512,7 @@ export function ProjectMeetingNotesPanel({
         </CardContent>
       ) : null}
 
-      <MeetingTodoSidePanel
+      <MeetingTodoQuickDialog
         notes={localNotes}
         canEdit={canEdit}
         referenceNowMs={referenceNowMs}

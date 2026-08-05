@@ -21,7 +21,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
+import {
+  EmojiInputField,
+  EmojiTextareaField,
+} from "@/components/ui/emoji-field";
 import { getEpicColorFromName } from "@/lib/epic";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import { cn } from "@/lib/utils";
@@ -74,7 +77,11 @@ function mapEpicMutationError(errorCode: string): string {
   }
 }
 
-function EpicStatusBadge({ status }: { status: ProjectEpicPanelEpic["status"] }) {
+function EpicStatusBadge({
+  status,
+}: {
+  status: ProjectEpicPanelEpic["status"];
+}) {
   const toneClass =
     status === "Completed"
       ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
@@ -100,18 +107,20 @@ function EpicTaskChip({ task }: { task: ProjectEpicPanelTask }) {
           : "border-border/60 bg-background/70 text-muted-foreground";
 
   return (
-    <span
+    <li
       className={cn(
-        "inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium",
+        "flex min-w-0 max-w-full items-start gap-2 rounded-xl border px-2.5 py-2 text-xs font-medium",
         toneClass
       )}
       title={task.title}
     >
-      <span className="truncate">{task.title}</span>
-      <span className="opacity-75">
+      <span className="min-w-0 flex-1 break-words leading-5 [overflow-wrap:anywhere]">
+        {task.title}
+      </span>
+      <span className="shrink-0 opacity-75">
         {task.archivedAt != null ? "Archived" : task.status}
       </span>
-    </span>
+    </li>
   );
 }
 
@@ -140,8 +149,13 @@ export function ProjectEpicPanel({
   const [editDescription, setEditDescription] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
-  const [pendingDeleteEpicId, setPendingDeleteEpicId] = useState<string | null>(null);
+  const [pendingDeleteEpicId, setPendingDeleteEpicId] = useState<string | null>(
+    null
+  );
   const [isDeleting, setIsDeleting] = useState(false);
+  const [expandedEpicIds, setExpandedEpicIds] = useState<Set<string>>(
+    () => new Set()
+  );
 
   useEffect(() => {
     setLocalEpics(epics);
@@ -194,6 +208,20 @@ export function ProjectEpicPanel({
     router.refresh();
   };
 
+  const toggleEpicDetails = (epicId: string) => {
+    setExpandedEpicIds((previousIds) => {
+      const nextIds = new Set(previousIds);
+
+      if (nextIds.has(epicId)) {
+        nextIds.delete(epicId);
+      } else {
+        nextIds.add(epicId);
+      }
+
+      return nextIds;
+    });
+  };
+
   const handleCreateEpic = async () => {
     const normalizedName = createName.trim();
     const normalizedDescription = createDescription.trim();
@@ -217,12 +245,15 @@ export function ProjectEpicPanel({
         }),
       });
 
-      const payload = (await response.json().catch(() => null)) as
-        | { error?: string; epic?: ProjectEpicPanelEpic }
-        | null;
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        epic?: ProjectEpicPanelEpic;
+      } | null;
 
       if (!response.ok || !payload?.epic) {
-        throw new Error(mapEpicMutationError(payload?.error ?? "epic-create-failed"));
+        throw new Error(
+          mapEpicMutationError(payload?.error ?? "epic-create-failed")
+        );
       }
 
       const createdEpic = payload.epic;
@@ -234,7 +265,9 @@ export function ProjectEpicPanel({
         message: "Epic created.",
       });
     } catch (error) {
-      setCreateError(error instanceof Error ? error.message : "Could not create epic.");
+      setCreateError(
+        error instanceof Error ? error.message : "Could not create epic."
+      );
     } finally {
       setIsCreating(false);
     }
@@ -256,28 +289,36 @@ export function ProjectEpicPanel({
     setEditError(null);
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/epics/${editingEpic.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: normalizedName,
-          description: normalizedDescription,
-        }),
-      });
+      const response = await fetch(
+        `/api/projects/${projectId}/epics/${editingEpic.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: normalizedName,
+            description: normalizedDescription,
+          }),
+        }
+      );
 
-      const payload = (await response.json().catch(() => null)) as
-        | { error?: string; epic?: ProjectEpicPanelEpic }
-        | null;
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        epic?: ProjectEpicPanelEpic;
+      } | null;
 
       if (!response.ok || !payload?.epic) {
-        throw new Error(mapEpicMutationError(payload?.error ?? "epic-update-failed"));
+        throw new Error(
+          mapEpicMutationError(payload?.error ?? "epic-update-failed")
+        );
       }
 
       const updatedEpic = payload.epic;
       setLocalEpics((previousEpics) =>
-        previousEpics.map((epic) => (epic.id === updatedEpic.id ? updatedEpic : epic))
+        previousEpics.map((epic) =>
+          epic.id === updatedEpic.id ? updatedEpic : epic
+        )
       );
       cancelEdit(true);
       refreshProjectData();
@@ -286,7 +327,9 @@ export function ProjectEpicPanel({
         message: "Epic updated.",
       });
     } catch (error) {
-      setEditError(error instanceof Error ? error.message : "Could not update epic.");
+      setEditError(
+        error instanceof Error ? error.message : "Could not update epic."
+      );
     } finally {
       setIsSavingEdit(false);
     }
@@ -300,14 +343,21 @@ export function ProjectEpicPanel({
     setIsDeleting(true);
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/epics/${pendingDeleteEpic.id}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `/api/projects/${projectId}/epics/${pendingDeleteEpic.id}`,
+        {
+          method: "DELETE",
+        }
+      );
 
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
 
       if (!response.ok) {
-        throw new Error(mapEpicMutationError(payload?.error ?? "epic-delete-failed"));
+        throw new Error(
+          mapEpicMutationError(payload?.error ?? "epic-delete-failed")
+        );
       }
 
       setLocalEpics((previousEpics) =>
@@ -322,7 +372,8 @@ export function ProjectEpicPanel({
     } catch (error) {
       pushToast({
         variant: "error",
-        message: error instanceof Error ? error.message : "Could not delete epic.",
+        message:
+          error instanceof Error ? error.message : "Could not delete epic.",
       });
     } finally {
       setIsDeleting(false);
@@ -349,7 +400,7 @@ export function ProjectEpicPanel({
             type="button"
             onClick={() => setIsExpanded((previous) => !previous)}
             aria-expanded={isExpanded}
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 text-left transition hover:bg-muted/40"
+            className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-1 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             {isExpanded ? (
               <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -371,7 +422,7 @@ export function ProjectEpicPanel({
             <Button
               type="button"
               size="sm"
-              className="w-full sm:w-auto"
+              className="min-h-11 w-full sm:w-auto"
               onClick={() => {
                 resetCreateDraft();
                 setIsExpanded(true);
@@ -398,13 +449,16 @@ export function ProjectEpicPanel({
               <div className="space-y-1">
                 <h3 className="text-sm font-semibold">Create epic</h3>
                 <p className="text-xs text-muted-foreground">
-                  Give the initiative a clear flag and enough context to stay useful on the
-                  project page.
+                  Give the initiative a clear flag and enough context to stay
+                  useful on the project page.
                 </p>
               </div>
               <div className="grid gap-3">
                 <div className="grid gap-2">
-                  <label htmlFor="create-epic-name" className="text-sm font-medium">
+                  <label
+                    htmlFor="create-epic-name"
+                    className="text-sm font-medium"
+                  >
                     Name
                   </label>
                   <EmojiInputField
@@ -417,13 +471,18 @@ export function ProjectEpicPanel({
                   />
                 </div>
                 <div className="grid gap-2">
-                  <label htmlFor="create-epic-description" className="text-sm font-medium">
+                  <label
+                    htmlFor="create-epic-description"
+                    className="text-sm font-medium"
+                  >
                     Description
                   </label>
                   <EmojiTextareaField
                     id="create-epic-description"
                     value={createDescription}
-                    onChange={(event) => setCreateDescription(event.target.value)}
+                    onChange={(event) =>
+                      setCreateDescription(event.target.value)
+                    }
                     className="min-h-28 rounded-md border border-input bg-background px-3 py-2 text-sm"
                     placeholder="Explain the initiative and what success looks like."
                     maxLength={3000}
@@ -459,7 +518,9 @@ export function ProjectEpicPanel({
 
           {localEpics.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-5 py-8 text-center">
-              <p className="text-sm font-medium text-foreground">No epics yet.</p>
+              <p className="text-sm font-medium text-foreground">
+                No epics yet.
+              </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Create one to group related work under a clear initiative.
               </p>
@@ -469,13 +530,25 @@ export function ProjectEpicPanel({
               {localEpics.map((epic) => {
                 const color = getEpicColorFromName(epic.name);
                 const isEditing = editingEpicId === epic.id;
+                const isDetailsExpanded = expandedEpicIds.has(epic.id);
                 const visibleTasks = epic.linkedTasks.slice(0, 6);
-                const hiddenTaskCount = Math.max(0, epic.linkedTasks.length - visibleTasks.length);
+                const hiddenTaskCount = Math.max(
+                  0,
+                  epic.linkedTasks.length - visibleTasks.length
+                );
+                const titleId = `epic-${epic.id}-title`;
+                const detailsId = `epic-${epic.id}-details`;
 
                 return (
                   <article
                     key={epic.id}
-                    className="overflow-hidden rounded-2xl border bg-card/85 shadow-[0_18px_48px_-42px_rgba(15,23,42,0.45)] backdrop-blur-sm"
+                    aria-label={
+                      isEditing
+                        ? `Edit epic ${editName.trim() || epic.name}`
+                        : undefined
+                    }
+                    aria-labelledby={isEditing ? undefined : titleId}
+                    className="min-w-0 overflow-hidden rounded-2xl border bg-card/85 shadow-[0_18px_48px_-42px_rgba(15,23,42,0.45)] backdrop-blur-sm"
                     style={{
                       borderColor: color.border,
                     }}
@@ -498,7 +571,9 @@ export function ProjectEpicPanel({
                           <EmojiInputField
                             id={`edit-epic-name-${epic.id}`}
                             value={editName}
-                            onChange={(event) => setEditName(event.target.value)}
+                            onChange={(event) =>
+                              setEditName(event.target.value)
+                            }
                             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                             maxLength={80}
                           />
@@ -513,7 +588,9 @@ export function ProjectEpicPanel({
                           <EmojiTextareaField
                             id={`edit-epic-description-${epic.id}`}
                             value={editDescription}
-                            onChange={(event) => setEditDescription(event.target.value)}
+                            onChange={(event) =>
+                              setEditDescription(event.target.value)
+                            }
                             className="min-h-28 rounded-md border border-input bg-background px-3 py-2 text-sm"
                             maxLength={3000}
                           />
@@ -546,100 +623,154 @@ export function ProjectEpicPanel({
                     ) : (
                       <div className="space-y-4 p-4">
                         <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 space-y-2">
+                          <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span
-                                className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-semibold"
+                              <h3
+                                id={titleId}
+                                className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-semibold"
                                 style={{
                                   backgroundColor: color.soft,
                                   borderColor: color.border,
                                   color: color.accent,
                                 }}
                               >
-                                <Flag className="h-3.5 w-3.5" />
-                                {epic.name}
-                              </span>
+                                <Flag className="h-3.5 w-3.5 shrink-0" />
+                                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                                  {epic.name}
+                                </span>
+                              </h3>
                               <EpicStatusBadge status={epic.status} />
                             </div>
-                            <p className="text-sm leading-6 text-foreground">
-                              {epic.description}
-                            </p>
                           </div>
-                          {canEdit ? (
-                            <div className="flex items-center gap-1">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => startEdit(epic)}
-                                aria-label={`Edit epic ${epic.name}`}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setPendingDeleteEpicId(epic.id)}
-                                aria-label={`Delete epic ${epic.name}`}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : null}
+                          <div className="flex shrink-0 items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="min-h-11 min-w-11 text-muted-foreground"
+                              aria-expanded={isDetailsExpanded}
+                              aria-controls={detailsId}
+                              aria-label={`${
+                                isDetailsExpanded ? "Hide" : "Show"
+                              } details for ${epic.name}`}
+                              title={`${
+                                isDetailsExpanded ? "Hide" : "Show"
+                              } details`}
+                              onClick={() => toggleEpicDetails(epic.id)}
+                            >
+                              {isDetailsExpanded ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
+                            </Button>
+                            {canEdit ? (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="min-h-11 min-w-11"
+                                  onClick={() => startEdit(epic)}
+                                  aria-label={`Edit epic ${epic.name}`}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="min-h-11 min-w-11"
+                                  onClick={() =>
+                                    setPendingDeleteEpicId(epic.id)
+                                  }
+                                  aria-label={`Delete epic ${epic.name}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            ) : null}
+                          </div>
                         </div>
 
-                        <div className="space-y-2 rounded-xl border border-border/50 bg-background/70 p-3">
+                        <section
+                          aria-label={`Progress for ${epic.name}`}
+                          className="space-y-2 rounded-xl border border-border/50 bg-background/70 p-3"
+                        >
                           <div className="flex items-center justify-between gap-3">
-                            <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                            <h4 className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                               Progress
-                            </p>
-                            <p className="text-sm font-semibold text-foreground">
+                            </h4>
+                            <p className="text-sm font-semibold tabular-nums text-foreground">
                               {epic.progressPercent}%
                             </p>
                           </div>
-                          <div className="h-2 overflow-hidden rounded-full bg-muted">
+                          <div
+                            role="progressbar"
+                            aria-label={`${epic.name} progress`}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={epic.progressPercent}
+                            aria-valuetext={`${epic.completedTaskCount} of ${epic.taskCount} tasks completed`}
+                            className="h-2 overflow-hidden rounded-full bg-muted"
+                          >
                             <div
-                              className="h-full rounded-full transition-[width]"
+                              className="h-full rounded-full transition-[width] duration-200 motion-reduce:transition-none"
                               style={{
                                 width: `${epic.progressPercent}%`,
                                 backgroundColor: color.accent,
                               }}
                             />
                           </div>
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                            <span>
-                              {epic.completedTaskCount}/{epic.taskCount} task
-                              {epic.taskCount === 1 ? "" : "s"} completed
-                            </span>
-                          </div>
-                        </div>
+                          <p className="text-xs leading-5 text-muted-foreground">
+                            <span className="font-medium tabular-nums text-foreground">
+                              {epic.completedTaskCount}/{epic.taskCount}
+                            </span>{" "}
+                            task{epic.taskCount === 1 ? "" : "s"} completed
+                          </p>
+                        </section>
 
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                              Linked tasks
+                        <div
+                          id={detailsId}
+                          hidden={!isDetailsExpanded}
+                          className="min-w-0 space-y-4 border-t border-border/50 pt-4"
+                        >
+                          <section className="space-y-2">
+                            <h4 className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                              Description
+                            </h4>
+                            <p className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground [overflow-wrap:anywhere]">
+                              {epic.description}
                             </p>
-                            <span className="text-xs text-muted-foreground">
-                              {epic.taskCount} total
-                            </span>
-                          </div>
-                          {epic.linkedTasks.length > 0 ? (
-                            <div className="flex flex-wrap gap-2">
-                              {visibleTasks.map((task) => (
-                                <EpicTaskChip key={task.id} task={task} />
-                              ))}
-                              {hiddenTaskCount > 0 ? (
-                                <span className="inline-flex items-center rounded-full border border-border/60 bg-background/70 px-2 py-1 text-[11px] text-muted-foreground">
-                                  +{hiddenTaskCount} more
-                                </span>
-                              ) : null}
+                          </section>
+
+                          <section className="min-w-0 space-y-2">
+                            <div className="flex items-center justify-between gap-3">
+                              <h4 className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                                Linked tasks
+                              </h4>
+                              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                                {epic.taskCount} total
+                              </span>
                             </div>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">
-                              No tasks linked yet.
-                            </p>
-                          )}
+                            {epic.linkedTasks.length > 0 ? (
+                              <ul className="grid min-w-0 gap-2">
+                                {visibleTasks.map((task) => (
+                                  <EpicTaskChip key={task.id} task={task} />
+                                ))}
+                                {hiddenTaskCount > 0 ? (
+                                  <li className="text-xs text-muted-foreground">
+                                    +{hiddenTaskCount} more linked task
+                                    {hiddenTaskCount === 1 ? "" : "s"}
+                                  </li>
+                                ) : null}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">
+                                No tasks linked yet.
+                              </p>
+                            )}
+                          </section>
                         </div>
                       </div>
                     )}
