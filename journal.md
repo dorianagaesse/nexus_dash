@@ -3,6 +3,48 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-05 - TASK-355 meeting-todo overdue grace investigation
+
+- User reported that a todo created from a meeting note dated today (or
+  yesterday) does not surface as "Overdue" in the project Todos page.
+- Investigated `lib/meeting-todo.ts`, the projection in
+  `lib/services/project-meeting-todo-service.ts`, and the notification
+  dispatcher in `lib/services/project-notification-email-service.ts`. The
+  seven-day grace period (`MEETING_TODO_OVERDUE_GRACE_DAYS`,
+  `MEETING_TODO_OVERDUE_DAYS`) is applied consistently across every
+  consumer and matches the documented policy in `project.md` and the
+  TASK-354 brief. There is no data-flow defect.
+- Opened GitHub issue #413 to capture the four candidate fixes and the
+  decision that a per-todo due date (option 4) and a no-grace rule
+  (option 2) are out of scope for this change.
+- Product decision (via AskUserQuestion): reduce the grace period from
+  seven days to one day everywhere it is applied.
+- Implemented across `MEETING_TODO_OVERDUE_GRACE_DAYS`,
+  `MEETING_TODO_OVERDUE_DAYS` (now derived from the same shared
+  constant), the user-facing reminder copy, the dashboard helper copy,
+  and the unit/service/notification-dispatcher tests.
+- Copilot review (commit `debdfc4`) flagged a real semantic drift: the
+  dispatcher candidate query used calendar-date midnight boundaries
+  while the UI uses precise `now - scheduledAt ≥ 24h` math. With a
+  seven-day grace the drift was at most seven hours; with a one-day
+  grace it could be nearly a full day, meaning a meeting scheduled
+  yesterday evening could be picked up by the dispatcher before the UI
+  marked it overdue. Switched the dispatcher threshold to a rolling
+  cutoff (`note."scheduledAt" <= now - grace*24h`) and aligned the
+  reminder body string with the helper copy so the user-visible
+  behavior stays consistent.
+- Validation: `npm run lint`, `npm run rls:check`, `npm test` (1,007
+  tests), `npm run test:coverage` (91.37% statements / 81.33%
+  branches / 92.2% functions / 91.88% lines), `npm run build`, and
+  `npm run release:check` all green. PR #414 CI (Quality Core, Tenant
+  Isolation, E2E Smoke, Container Image) also green.
+- Release: bumped to v0.35.1 (patch) and added a `v0.35.1 - 2026-08-05`
+  CHANGELOG entry covering the grace change and the dispatcher
+  consistency fix.
+- Branch: `fix/task-355-meeting-todo-overdue-grace`; PR:
+  [#414](https://github.com/dorianagaesse/nexus_dash/pull/414);
+  closes [#413](https://github.com/dorianagaesse/nexus_dash/issues/413).
+
 # 2026-08-05 - TASK-353 symmetric trigger animation follow-up
 
 - Corrected the Todos entrance after product feedback showed that the latest

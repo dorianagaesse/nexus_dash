@@ -8,6 +8,25 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.35.1 - 2026-08-05
+
+- Reduced the meeting-todo overdue grace period from seven days to one day
+  so a todo whose source meeting ended more than 24 hours ago is
+  classified as overdue across the project Todos page, the dashboard
+  meeting-todos summary, the TASK-354 navigation badge endpoint, and the
+  notification email dispatcher.
+- Aligned the dispatcher candidate query with the 24-hour rolling rule
+  used by the UI by replacing the calendar-date threshold with a
+  `now - grace` cutoff, and reused the shared
+  `MEETING_TODO_OVERDUE_GRACE_DAYS` constant instead of duplicating it.
+- Updated the user-facing reminder copy ("one day after the meeting")
+  and the overdue-helper copy inside `Project meeting todos` to match
+  the new grace period.
+- Updated unit, service, and notification-dispatcher tests to lock in
+  the new boundary at exactly 24 hours, 24 hours minus a millisecond,
+  and beyond, while preserving the `done` archive exclusion and the
+  completed-todo suppression rules.
+
 ## v0.35.0 - 2026-08-04
 
 - Replaced the expanded/collapsible desktop meeting-todo popup with a compact
