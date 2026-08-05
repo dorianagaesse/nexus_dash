@@ -192,7 +192,7 @@ describe("notification-service", () => {
         id: "notification-meeting-todo-1",
         type: "meeting_todo_overdue_reminder",
         title: "Overdue meeting todo: Send notes to finance",
-        body: "Send notes to finance from Budget review is still open seven days after the May 6, 2026 meeting.",
+        body: "Send notes to finance from Budget review is still open 1 day after the May 6, 2026 meeting.",
         targetPath:
           "/projects/project-1?meetingNoteId=meeting-1&meetingTodoId=action-1",
         sourceType: "meeting_todo_overdue_reminder",

@@ -156,4 +156,38 @@ describe("project meeting todo service", () => {
       })
     ).resolves.toBeNull();
   });
+
+  test("list omits overdue for todos inside the one-day grace window", async () => {
+    dbMock.project.findFirst.mockResolvedValueOnce({
+      id: "project-owned",
+      name: "Alpha",
+      ownerId: "user-1",
+      memberships: [],
+      meetingNotes: [
+        {
+          id: "meeting-fresh",
+          title: "Daily standup",
+          scheduledAt: new Date(referenceNowMs - 30 * 60 * 1000),
+          status: "actions_in_progress",
+          createdAt: new Date(referenceNowMs - 30 * 60 * 1000),
+          actions: [
+            {
+              id: "todo-fresh",
+              content: "Send the standup notes",
+              completedAt: null,
+              updatedAt: new Date(referenceNowMs - 30 * 60 * 1000),
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await listProjectMeetingTodos({
+      actorUserId: "user-1",
+      projectId: "project-owned",
+      referenceNowMs,
+    });
+
+    expect(result?.open.map((todo) => todo.isOverdue)).toEqual([false]);
+  });
 });

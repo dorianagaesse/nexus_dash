@@ -34,7 +34,7 @@ const EMAIL_KIND_PROJECT_INVITATION_REMINDER = "project_invitation_reminder";
 const QUIET_WINDOW_MS = 30 * 60 * 1000;
 const MAX_ACTIVITY_DELAY_MS = 60 * 60 * 1000;
 const INVITATION_REMINDER_AFTER_MS = 6 * 60 * 60 * 1000;
-const MEETING_TODO_OVERDUE_DAYS = 7;
+const MEETING_TODO_OVERDUE_DAYS = 1;
 const STALE_DISPATCHING_MS = 30 * 60 * 1000;
 const MAX_GROUPS_PER_DISPATCH = 100;
 const MAX_RECONCILE_NOTIFICATIONS = 500;
@@ -1052,7 +1052,7 @@ async function createMeetingTodoOverdueReminderNotificationForCandidate(input: {
         recipientUserId: input.candidate.recipientUserId,
         type: NOTIFICATION_TYPE_MEETING_TODO_OVERDUE_REMINDER,
         title: `Overdue meeting todo: ${input.candidate.actionContent}`,
-        body: `${input.candidate.actionContent} from ${input.candidate.meetingTitle} is still open seven days after the ${scheduledLabel} meeting.`,
+        body: `${input.candidate.actionContent} from ${input.candidate.meetingTitle} is still open ${MEETING_TODO_OVERDUE_DAYS} day${MEETING_TODO_OVERDUE_DAYS === 1 ? "" : "s"} after the ${scheduledLabel} meeting.`,
         targetPath,
         sourceType: NOTIFICATION_SOURCE_MEETING_TODO_OVERDUE_REMINDER,
         sourceId,

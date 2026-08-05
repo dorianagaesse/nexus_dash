@@ -3,6 +3,23 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-05 - TASK-355 meeting-todo overdue grace investigation
+
+- User reported that a todo created from a meeting note dated today (or
+  yesterday) does not surface as "Overdue" in the project Todos page.
+- Investigated `lib/meeting-todo.ts`, the projection in
+  `lib/services/project-meeting-todo-service.ts`, and the notification
+  dispatcher in `lib/services/project-notification-email-service.ts`. The
+  seven-day grace period (`MEETING_TODO_OVERDUE_GRACE_DAYS`,
+  `MEETING_TODO_OVERDUE_DAYS`) is applied consistently across every
+  consumer and matches the documented policy in `project.md` and the
+  TASK-354 brief. There is no data-flow defect.
+- Opened GitHub issue #413 to capture the four candidate fixes and the
+  decision that a per-todo due date (option 4) and a no-grace rule
+  (option 2) are out of scope for this change.
+- Product decision (via AskUserQuestion): reduce the grace period from
+  seven days to one day everywhere it is applied.
+
 # 2026-08-05 - TASK-353 symmetric trigger animation follow-up
 
 - Corrected the Todos entrance after product feedback showed that the latest
