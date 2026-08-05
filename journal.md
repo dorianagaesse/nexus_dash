@@ -3,6 +3,48 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-05 - TASK-355 meeting-todo overdue grace investigation
+
+- User reported that a todo created from a meeting note dated today (or
+  yesterday) does not surface as "Overdue" in the project Todos page.
+- Investigated `lib/meeting-todo.ts`, the projection in
+  `lib/services/project-meeting-todo-service.ts`, and the notification
+  dispatcher in `lib/services/project-notification-email-service.ts`. The
+  seven-day grace period (`MEETING_TODO_OVERDUE_GRACE_DAYS`,
+  `MEETING_TODO_OVERDUE_DAYS`) is applied consistently across every
+  consumer and matches the documented policy in `project.md` and the
+  TASK-354 brief. There is no data-flow defect.
+- Opened GitHub issue #413 to capture the four candidate fixes and the
+  decision that a per-todo due date (option 4) and a no-grace rule
+  (option 2) are out of scope for this change.
+- Product decision (via AskUserQuestion): reduce the grace period from
+  seven days to one day everywhere it is applied.
+- Implemented across `MEETING_TODO_OVERDUE_GRACE_DAYS`,
+  `MEETING_TODO_OVERDUE_DAYS` (now derived from the same shared
+  constant), the user-facing reminder copy, the dashboard helper copy,
+  and the unit/service/notification-dispatcher tests.
+- Copilot review (commit `debdfc4`) flagged a real semantic drift: the
+  dispatcher candidate query used calendar-date midnight boundaries
+  while the UI uses precise `now - scheduledAt ≥ 24h` math. With a
+  seven-day grace the drift was at most seven hours; with a one-day
+  grace it could be nearly a full day, meaning a meeting scheduled
+  yesterday evening could be picked up by the dispatcher before the UI
+  marked it overdue. Switched the dispatcher threshold to a rolling
+  cutoff (`note."scheduledAt" <= now - grace*24h`) and aligned the
+  reminder body string with the helper copy so the user-visible
+  behavior stays consistent.
+- Validation: `npm run lint`, `npm run rls:check`, `npm test` (1,007
+  tests), `npm run test:coverage` (91.37% statements / 81.33%
+  branches / 92.2% functions / 91.88% lines), `npm run build`, and
+  `npm run release:check` all green. PR #414 CI (Quality Core, Tenant
+  Isolation, E2E Smoke, Container Image) also green.
+- Release: bumped to v0.35.1 (patch) and added a `v0.35.1 - 2026-08-05`
+  CHANGELOG entry covering the grace change and the dispatcher
+  consistency fix.
+- Branch: `fix/task-355-meeting-todo-overdue-grace`; PR:
+  [#414](https://github.com/dorianagaesse/nexus_dash/pull/414);
+  closes [#413](https://github.com/dorianagaesse/nexus_dash/issues/413).
+
 # 2026-08-05 - TASK-353 symmetric trigger animation follow-up
 
 - Corrected the Todos entrance after product feedback showed that the latest
@@ -3489,8 +3531,8 @@ Low-value entries to avoid going forward:
   the full Playwright sweep and `npm run test:rls` are intentionally
   deferred until the next Docker-enabled runtime; the change is UI-only and
   does not touch persistence, RLS, or authorization.
-- Initially prepared as `v0.34.1`; the rebased PR releases this fix as
-  `v0.35.1`.
+- Initially prepared as `v0.34.1`; after merging the latest `main`, PR #415
+  releases this fix as `v0.35.2`.
 
 # 2026-08-05 - TASK-341: Bound related-task popover so wheel/trackpad scrolls the list
 
@@ -3519,17 +3561,17 @@ Low-value entries to avoid going forward:
 - Validation passed: lint, 1001 unit/API tests with 2 skipped (added the new
   wheel-bounds test), coverage unchanged at 91.37% statements / 81.33%
   branches / 92.2% functions / 91.88% lines, production build.
-- This attempt was initially prepared as `v0.34.1`; the rebased PR releases
-  the task as `v0.35.1`.
+- This attempt was initially prepared as `v0.34.1`; after merging the latest
+  `main`, PR #415 releases the task as `v0.35.2`.
 
 # 2026-08-05 - TASK-341: Rebased onto current main, opened as PR #415
 
 - While this branch was waiting on review, `origin/main` moved ahead with
   TASK-353 (commit `12a475a`, `v0.35.0`). Rebased the three TASK-341 commits
   onto `12a475a` and resolved the tracking-file conflicts by keeping
-  `v0.35.0` in `CHANGELOG.md`, adding a new `v0.35.1` entry for the
-  TASK-341 fix on top, and bumping `package.json` / `package-lock.json` to
-  `0.35.1` (patch bump from the `fix/*` policy).
+  `v0.35.0` in `CHANGELOG.md` and initially prepared `v0.35.1` for TASK-341.
+  After TASK-355 subsequently claimed `v0.35.1` on `main`, PR #415 moved to
+  `v0.35.2` (patch bump from the `fix/*` policy).
 - The repository's push rules block force-push to the existing branch, so
   the standard rebase workflow required deleting and recreating
   `fix/task-341-related-task-scroll`. GitHub auto-closed PR #412 when the
@@ -3571,3 +3613,11 @@ Low-value entries to avoid going forward:
   existing Playwright flow to prove real wheel scrolling reaches the final
   candidate without moving the surrounding modal in both create and edit
   flows.
+- Merged `origin/main` at `46ad9f3` to retain TASK-355 and resolve PR #415's
+  stale-base conflict without rewriting branch history. TASK-355 keeps
+  `v0.35.1`; this fix advances to `v0.35.2`.
+- Post-merge validation passed: lint, 6 focused component tests, release policy
+  (`0.35.1` to `0.35.2`), production build, and the PostgreSQL-backed
+  Chromium related-task scenario covering native wheel movement, pointer
+  passivity, final-option reachability, and modal containment in edit and
+  create flows.

@@ -60,23 +60,22 @@ scroll the list; and TASK-352 keyboard navigation must keep working.
 
 - Implementation follows existing service, popover, and project-role
   boundaries; no persistence or API changes.
-- `npm run lint`, `npm test`, `npm run test:coverage`, and `npm run build`
-  pass.
-- Existing related-task-field tests pass.
+- `npm run lint`, focused component and Playwright tests, `npm run build`, and
+  release validation pass.
 - The branch is committed and pushed, a ready-for-review PR is open, and
-  initial automated review/check feedback is handled before handoff.
+  automated review feedback is incorporated before handoff.
 - `tasks/current.md`, `tasks/backlog.md`, and `journal.md` are updated in the
   same PR.
 
 ## Validation
 
 - `npm run lint` passes.
-- `npm test` passes (focused related-task-field coverage includes modal portal
-  containment and passive pointer movement).
-- `npm run test:coverage` passes.
-- `npm run build` passes.
-- Manual scroll check (wheel/trackpad) on the related-task list while the
-  create-task dialog and the task-detail modal are open.
+- `npm test -- tests/components/related-task-field.test.tsx` passes (6 tests).
+- `npx playwright test tests/e2e/task-350-related-task-picker.spec.ts` passes
+  against isolated PostgreSQL 16 (1 Chromium scenario covering edit and
+  create flows).
+- `npm run build` passes with local validation environment values.
+- `git diff --check` passes.
 
 ## Outcome
 

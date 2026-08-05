@@ -1,9 +1,13 @@
 import { describe, expect, test } from "vitest";
 
 import type { ProjectMeetingNotePanelNote } from "@/components/meeting-todos/meeting-note-types";
-import { buildProjectMeetingTodos } from "@/lib/meeting-todo";
+import {
+  MEETING_TODO_OVERDUE_GRACE_DAYS,
+  buildProjectMeetingTodos,
+} from "@/lib/meeting-todo";
 
 const REFERENCE_NOW = new Date("2026-06-21T12:00:00.000Z").getTime();
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 function meetingNote(
   overrides: Partial<ProjectMeetingNotePanelNote> = {}
@@ -33,13 +37,17 @@ function meetingNote(
 }
 
 describe("meeting todo aggregation", () => {
+  test("uses a single-day overdue grace", () => {
+    expect(MEETING_TODO_OVERDUE_GRACE_DAYS).toBe(1);
+  });
+
   test("sorts overdue open todos before newer follow-ups", () => {
     const result = buildProjectMeetingTodos(
       [
         meetingNote(),
         meetingNote({
           id: "note-2",
-          scheduledAt: "2026-06-20T12:00:00.000Z",
+          scheduledAt: "2026-06-21T05:00:00.000Z",
           actions: [
             {
               id: "action-2",
@@ -58,6 +66,28 @@ describe("meeting todo aggregation", () => {
       "action-2",
     ]);
     expect(result.open.map((todo) => todo.isOverdue)).toEqual([true, false]);
+  });
+
+  test("marks a todo overdue exactly one day after the meeting", () => {
+    const exactlyOneDayNote = meetingNote({
+      id: "note-boundary",
+      scheduledAt: new Date(REFERENCE_NOW - ONE_DAY_MS).toISOString(),
+    });
+
+    const result = buildProjectMeetingTodos([exactlyOneDayNote], REFERENCE_NOW);
+
+    expect(result.open[0]?.isOverdue).toBe(true);
+  });
+
+  test("keeps a todo neutral one millisecond before the grace boundary", () => {
+    const justUnderNote = meetingNote({
+      id: "note-just-under",
+      scheduledAt: new Date(REFERENCE_NOW - ONE_DAY_MS + 1).toISOString(),
+    });
+
+    const result = buildProjectMeetingTodos([justUnderNote], REFERENCE_NOW);
+
+    expect(result.open[0]?.isOverdue).toBe(false);
   });
 
   test("keeps completed todos available for reopening in newest-first order", () => {

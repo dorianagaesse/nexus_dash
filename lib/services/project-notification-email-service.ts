@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 
 import { Prisma } from "@prisma/client";
 
+import { MEETING_TODO_OVERDUE_GRACE_DAYS } from "@/lib/meeting-todo";
 import { logServerError, logServerInfo } from "@/lib/observability/logger";
 import { prisma } from "@/lib/prisma";
 import { sendOutboundEmail } from "@/lib/services/outbound-email-service";
@@ -34,7 +35,8 @@ const EMAIL_KIND_PROJECT_INVITATION_REMINDER = "project_invitation_reminder";
 const QUIET_WINDOW_MS = 30 * 60 * 1000;
 const MAX_ACTIVITY_DELAY_MS = 60 * 60 * 1000;
 const INVITATION_REMINDER_AFTER_MS = 6 * 60 * 60 * 1000;
-const MEETING_TODO_OVERDUE_DAYS = 7;
+const MEETING_TODO_OVERDUE_DAYS = MEETING_TODO_OVERDUE_GRACE_DAYS;
+const MEETING_TODO_OVERDUE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 const STALE_DISPATCHING_MS = 30 * 60 * 1000;
 const MAX_GROUPS_PER_DISPATCH = 100;
 const MAX_RECONCILE_NOTIFICATIONS = 500;
@@ -922,18 +924,9 @@ async function findMeetingTodoOverdueReminderCandidates(input: {
   limit: number;
   recipientUserId: string;
 }): Promise<MeetingTodoOverdueReminderCandidate[]> {
-  const todayDate = getLocalCalendarDateString(input.now);
-  const latestOverdueMeetingDate = addCalendarDaysToDateString(
-    todayDate,
-    -MEETING_TODO_OVERDUE_DAYS
-  );
-  const exclusiveScheduledBeforeDate = latestOverdueMeetingDate
-    ? addCalendarDaysToDateString(latestOverdueMeetingDate, 1)
-    : null;
-
-  if (!latestOverdueMeetingDate || !exclusiveScheduledBeforeDate) {
-    return [];
-  }
+  const graceMilliseconds =
+    MEETING_TODO_OVERDUE_DAYS * MEETING_TODO_OVERDUE_DAY_IN_MS;
+  const overdueSinceTimestamp = new Date(input.now.getTime() - graceMilliseconds);
 
   return input.db.$queryRaw<MeetingTodoOverdueReminderCandidate[]>(Prisma.sql`
     WITH eligible_actions AS (
@@ -954,7 +947,7 @@ async function findMeetingTodoOverdueReminderCandidates(input: {
         ON project."id" = note."projectId"
       WHERE action."completedAt" IS NULL
         AND note."scheduledAt" IS NOT NULL
-        AND note."scheduledAt" < CAST(${exclusiveScheduledBeforeDate} AS timestamp)
+        AND note."scheduledAt" <= ${overdueSinceTimestamp}
         AND note."status" <> 'done'
         AND note."createdByUserId" = ${input.recipientUserId}
         AND (
@@ -1052,7 +1045,7 @@ async function createMeetingTodoOverdueReminderNotificationForCandidate(input: {
         recipientUserId: input.candidate.recipientUserId,
         type: NOTIFICATION_TYPE_MEETING_TODO_OVERDUE_REMINDER,
         title: `Overdue meeting todo: ${input.candidate.actionContent}`,
-        body: `${input.candidate.actionContent} from ${input.candidate.meetingTitle} is still open seven days after the ${scheduledLabel} meeting.`,
+        body: `${input.candidate.actionContent} from ${input.candidate.meetingTitle} is still open one day after the ${scheduledLabel} meeting.`,
         targetPath,
         sourceType: NOTIFICATION_SOURCE_MEETING_TODO_OVERDUE_REMINDER,
         sourceId,
