@@ -8,6 +8,17 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.35.2 - 2026-08-05
+
+- Fixed the related-task picker so the candidate list actually scrolls when
+  its content overflows the visible list height, addressing GitHub issue #401.
+- Kept modal pickers inside the dialog scroll-lock boundary so native mouse,
+  trackpad, and touch scrolling reaches every candidate without moving the
+  task modal or underlying page.
+- Separated pointer hover from keyboard option activation so moving the
+  pointer never calls `scrollIntoView`, while arrow, Home, and End navigation
+  continue to keep the active option visible in both task flows.
+
 ## v0.35.1 - 2026-08-05
 
 - Reduced the meeting-todo overdue grace period from seven days to one day

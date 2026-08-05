@@ -3504,3 +3504,120 @@ Low-value entries to avoid going forward:
   with 2 skipped, coverage at 91.37% statements / 81.33% branches / 92.2%
   functions / 91.88% lines, production build, both focused related-task
   Playwright scenarios, and the complete 29-scenario Playwright suite.
+
+# 2026-08-05 - TASK-341: Related-task picker scroll does not work
+
+- Picked up GitHub issue [#401](https://github.com/dorianagaesse/nexus_dash/issues/401)
+  on the existing `feature/task-335-...` branch shape, started a dedicated
+  worktree at `../nexus_dash_task341` from `origin/main` on
+  `fix/task-341-related-task-scroll` (renamed from the worktree's
+  `feature/...` default because the issue is a regression bug, not a planned
+  backlog feature).
+- Root cause: the window-level capture-phase scroll listener that re-positions
+  the popover was also firing for scroll events bubbling up from the candidate
+  list itself, triggering a `setDropdownPosition` re-render that reset the
+  list's scroll position before the browser could commit the scroll delta.
+- Fix: gated the scroll listener so it only re-positions the popover when the
+  scroll event target sits outside `[data-overlay-popover="true"]`. The list
+  keeps its `overflow-y-auto` + `overscroll-contain` + thin scrollbar
+  styling, and the TASK-352 keyboard navigation now drives the active option
+  through the full list.
+- Focused component coverage added a new test that dispatches a scroll event
+  whose `target` is the listbox and asserts the popover's `top` does not
+  change.
+- Validation passed: lint, 1000 unit/API tests with 2 skipped, coverage at
+  91.37% statements / 81.33% branches / 92.2% functions / 91.88% lines,
+  production build. Local PostgreSQL is unavailable in this environment, so
+  the full Playwright sweep and `npm run test:rls` are intentionally
+  deferred until the next Docker-enabled runtime; the change is UI-only and
+  does not touch persistence, RLS, or authorization.
+- Initially prepared as `v0.34.1`; after merging the latest `main`, PR #415
+  releases this fix as `v0.35.2`.
+
+# 2026-08-05 - TASK-341: Bound related-task popover so wheel/trackpad scrolls the list
+
+- Follow-up on GitHub issue [#401](https://github.com/dorianagaesse/nexus_dash/issues/401):
+  the user reported the list still would not scroll with the mouse wheel or
+  trackpad (only the elevator drag worked). The previous fix had only removed
+  the unnecessary popover re-render on internal scroll events; the popover
+  itself was still rendered as a single-level container with no height bound.
+- Compared the popover to the other working popovers in the codebase
+  (`epic-select`, `assignee-select`, `meeting-participant-picker`,
+  `mention-autocomplete`, `emoji-picker-button`) and confirmed they all use a
+  two-level structure: outer `overflow-hidden` + `maxHeight` clip box, inner
+  `overflow-y-auto` scroll container with its own `maxHeight`.
+- Fix: added `overflow-hidden` + `maxHeight: listMaxHeight + 10` to the
+  related-task popover so the list is the only scrollable surface and the
+  browser delegates wheel events to it instead of failing to find a
+  scrollable ancestor on the bare `position: fixed` container. The list keeps
+  its existing `overflow-y-auto` + `overscroll-contain` + thin scrollbar
+  styling and the TASK-352 keyboard navigation.
+- Focused component coverage added a new test that verifies the popover has
+  `overflow-hidden` + `maxHeight`, the list has `overflow-y-auto` +
+  `overscroll-contain` + `maxHeight`, and a `wheel` event dispatched on a
+  candidate bubbles up to the listbox. The pre-existing scroll-guard test
+  still passes because the new structure does not change the capture-phase
+  scroll listener.
+- Validation passed: lint, 1001 unit/API tests with 2 skipped (added the new
+  wheel-bounds test), coverage unchanged at 91.37% statements / 81.33%
+  branches / 92.2% functions / 91.88% lines, production build.
+- This attempt was initially prepared as `v0.34.1`; after merging the latest
+  `main`, PR #415 releases the task as `v0.35.2`.
+
+# 2026-08-05 - TASK-341: Rebased onto current main, opened as PR #415
+
+- While this branch was waiting on review, `origin/main` moved ahead with
+  TASK-353 (commit `12a475a`, `v0.35.0`). Rebased the three TASK-341 commits
+  onto `12a475a` and resolved the tracking-file conflicts by keeping
+  `v0.35.0` in `CHANGELOG.md` and initially prepared `v0.35.1` for TASK-341.
+  After TASK-355 subsequently claimed `v0.35.1` on `main`, PR #415 moved to
+  `v0.35.2` (patch bump from the `fix/*` policy).
+- The repository's push rules block force-push to the existing branch, so
+  the standard rebase workflow required deleting and recreating
+  `fix/task-341-related-task-scroll`. GitHub auto-closed PR #412 when the
+  branch was deleted and the API refuses to reopen it ("state cannot be
+  changed. The branch was force-pushed or recreated"), which is a known
+  GitHub limitation — the equivalent UI action would be a single "Reopen
+  pull request" click.
+- Per the user's decision, opened the rebased commits on a fresh
+  `fix/task-341-related-task-scroll-r2` branch as PR
+  [#415](https://github.com/dorianagaesse/nexus_dash/pull/415), and left a
+  redirect comment on the auto-closed #412.
+- Validation passed on the rebased branch head `40e4bd4`: lint,
+  related-task-field test file (6 tests), production build. The Quality
+  Gates CI workflow run 31031796580 re-ran on the new branch and all four
+  jobs (Quality Core, Tenant Isolation, E2E Smoke, Container Image) plus
+  Check Branch Name went green, so PR #415 is MERGEABLE.
+
+# 2026-08-05 - TASK-341: Corrected modal scroll-lock and pointer behavior
+
+- Reproduced the follow-up symptom precisely: dragging the scrollbar changed
+  the list, wheel input did not, and moving the pointer near a clipped option
+  scrolled the list slightly.
+- The earlier re-render and outer-bound theories were incomplete. Radix
+  Dialog's `react-remove-scroll` integration permits native scrolling only in
+  the dialog content shard. The related-task popover was portaled to
+  `document.body`, outside that shard, so the modal canceled wheel and touch
+  defaults while direct scrollbar dragging still worked.
+- Candidate `onMouseMove` also changed the keyboard-active index, whose effect
+  calls `scrollIntoView`. This was the separate cause of pointer-position
+  scrolling.
+- Fixed modal usage by portaling the popover into the nearest
+  `[data-overlay-content="true"]` element with dialog-relative absolute
+  coordinates and boundaries. Non-modal usage retains the fixed body portal.
+- Removed pointer-driven active-index changes. Pointer hover stays visual via
+  CSS, while Arrow keys, Home, and End remain the only interactions that move
+  the active option into view.
+- Replaced the synthetic wheel-bubbling assertion with component coverage for
+  the dialog portal boundary and passive pointer behavior. Strengthened the
+  existing Playwright flow to prove real wheel scrolling reaches the final
+  candidate without moving the surrounding modal in both create and edit
+  flows.
+- Merged `origin/main` at `46ad9f3` to retain TASK-355 and resolve PR #415's
+  stale-base conflict without rewriting branch history. TASK-355 keeps
+  `v0.35.1`; this fix advances to `v0.35.2`.
+- Post-merge validation passed: lint, 6 focused component tests, release policy
+  (`0.35.1` to `0.35.2`), production build, and the PostgreSQL-backed
+  Chromium related-task scenario covering native wheel movement, pointer
+  passivity, final-option reachability, and modal containment in edit and
+  create flows.

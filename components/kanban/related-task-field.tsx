@@ -47,6 +47,8 @@ export function RelatedTaskSelector({
     left: number;
     width: number;
     listMaxHeight: number;
+    portalContainer: HTMLElement | null;
+    strategy: "absolute" | "fixed";
   } | null>(null);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [isSuggestionsDismissed, setIsSuggestionsDismissed] = useState(false);
@@ -143,11 +145,37 @@ export function RelatedTaskSelector({
       const rect = searchField.getBoundingClientRect();
       const viewportPadding = 12;
       const dropdownGap = 6;
+      const overlayContent = searchField.closest<HTMLElement>(
+        '[data-overlay-content="true"]'
+      );
+      const overlayRect = overlayContent?.getBoundingClientRect() ?? null;
+      const overlayClientTop = overlayContent?.clientTop ?? 0;
+      const overlayClientLeft = overlayContent?.clientLeft ?? 0;
+      const boundaryTop = Math.max(
+        viewportPadding,
+        overlayRect ? overlayRect.top + overlayClientTop : viewportPadding
+      );
+      const boundaryRight = Math.min(
+        window.innerWidth - viewportPadding,
+        overlayRect
+          ? overlayRect.right - overlayClientLeft
+          : window.innerWidth - viewportPadding
+      );
+      const boundaryBottom = Math.min(
+        window.innerHeight - viewportPadding,
+        overlayRect
+          ? overlayRect.bottom - overlayClientTop
+          : window.innerHeight - viewportPadding
+      );
+      const boundaryLeft = Math.max(
+        viewportPadding,
+        overlayRect ? overlayRect.left + overlayClientLeft : viewportPadding
+      );
       const desiredListHeight =
         suggestions.length > 0 ? Math.min(256, suggestions.length * 44) : 44;
       const desiredDropdownHeight = desiredListHeight + 10;
-      const availableBelow = window.innerHeight - rect.bottom - viewportPadding;
-      const availableAbove = rect.top - viewportPadding;
+      const availableBelow = boundaryBottom - rect.bottom;
+      const availableAbove = rect.top - boundaryTop;
       const openAbove =
         availableBelow < desiredDropdownHeight &&
         availableAbove > availableBelow;
@@ -160,35 +188,49 @@ export function RelatedTaskSelector({
         desiredDropdownHeight,
         listMaxHeight + 10
       );
-      const width = Math.min(
-        rect.width,
-        window.innerWidth - viewportPadding * 2
+      const width = Math.min(rect.width, boundaryRight - boundaryLeft);
+      const viewportLeft = Math.min(
+        Math.max(boundaryLeft, rect.left),
+        boundaryRight - width
       );
-      const left = Math.min(
-        Math.max(viewportPadding, rect.left),
-        window.innerWidth - viewportPadding - width
-      );
+      const viewportTop = openAbove
+        ? Math.max(boundaryTop, rect.top - renderedDropdownHeight - dropdownGap)
+        : rect.bottom + dropdownGap;
+      const containerOriginTop = overlayRect
+        ? overlayRect.top + overlayClientTop
+        : 0;
+      const containerOriginLeft = overlayRect
+        ? overlayRect.left + overlayClientLeft
+        : 0;
 
       setDropdownPosition({
-        top: openAbove
-          ? Math.max(
-              viewportPadding,
-              rect.top - renderedDropdownHeight - dropdownGap
-            )
-          : rect.bottom + dropdownGap,
-        left,
+        top: viewportTop - containerOriginTop,
+        left: viewportLeft - containerOriginLeft,
         width,
         listMaxHeight,
+        portalContainer: overlayContent,
+        strategy: overlayContent ? "absolute" : "fixed",
       });
+    };
+
+    const handleScroll = (event: Event) => {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest('[data-overlay-popover="true"]')
+      ) {
+        return;
+      }
+      updateDropdownPosition();
     };
 
     updateDropdownPosition();
     window.addEventListener("resize", updateDropdownPosition);
-    window.addEventListener("scroll", updateDropdownPosition, true);
+    window.addEventListener("scroll", handleScroll, true);
 
     return () => {
       window.removeEventListener("resize", updateDropdownPosition);
-      window.removeEventListener("scroll", updateDropdownPosition, true);
+      window.removeEventListener("scroll", handleScroll, true);
     };
   }, [shouldShowSuggestions, suggestions.length]);
 
@@ -270,12 +312,13 @@ export function RelatedTaskSelector({
         ? createPortal(
             <div
               data-overlay-popover="true"
-              className="pointer-events-auto z-[120] rounded-md border border-border/70 bg-popover p-1 shadow-lg"
+              className="pointer-events-auto z-[120] overflow-hidden rounded-md border border-border/70 bg-popover p-1 shadow-lg"
               style={{
-                position: "fixed",
+                position: dropdownPosition.strategy,
                 top: dropdownPosition.top,
                 left: dropdownPosition.left,
                 width: dropdownPosition.width,
+                maxHeight: dropdownPosition.listMaxHeight + 10,
               }}
             >
               {suggestions.length > 0 ? (
@@ -308,7 +351,6 @@ export function RelatedTaskSelector({
                         aria-label={`${task.reference}, ${task.title}, ${task.status}`}
                         className="grid min-h-11 w-full grid-cols-[minmax(4rem,auto)_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-muted"
                         onMouseDown={(event) => event.preventDefault()}
-                        onMouseMove={() => setActiveSuggestionIndex(index)}
                         onClick={() => selectTask(task.id)}
                         disabled={disabled}
                       >
@@ -352,7 +394,7 @@ export function RelatedTaskSelector({
                 </div>
               )}
             </div>,
-            document.body
+            dropdownPosition.portalContainer ?? document.body
           )
         : null}
     </div>

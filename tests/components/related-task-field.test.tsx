@@ -280,4 +280,103 @@ describe("RelatedTaskSelector", () => {
       "No active tasks match “not-a-task”."
     );
   });
+
+  test("does not reposition the popover when the scroll target is inside it", async () => {
+    const input = await renderHarness();
+
+    await act(async () => {
+      input.focus();
+    });
+    await act(async () => {});
+
+    const listbox = document.body.querySelector<HTMLElement>(
+      "[data-related-task-listbox='true']"
+    );
+    expect(listbox).not.toBeNull();
+
+    const popover = document.body.querySelector<HTMLElement>(
+      '[data-overlay-popover="true"]'
+    );
+    expect(popover).not.toBeNull();
+    const popoverTopBefore = popover?.style.top;
+
+    const scrollEvent = new Event("scroll", { bubbles: true });
+    listbox?.dispatchEvent(scrollEvent);
+
+    await act(async () => {});
+
+    expect(scrollEvent.target).toBe(listbox);
+    expect(popover?.style.top).toBe(popoverTopBefore);
+  });
+
+  test("keeps modal wheel events inside the scroll lock and pointer movement passive", async () => {
+    container.setAttribute("data-overlay-content", "true");
+    const input = await renderHarness();
+
+    await act(async () => {
+      input.focus();
+    });
+    await act(async () => {});
+
+    const listbox = document.body.querySelector<HTMLElement>(
+      "[data-related-task-listbox='true']"
+    );
+    expect(listbox).not.toBeNull();
+
+    const popover = document.body.querySelector<HTMLElement>(
+      '[data-overlay-popover="true"]'
+    );
+    expect(popover).not.toBeNull();
+    expect(popover?.contains(listbox)).toBe(true);
+    expect(popover?.parentElement).toBe(container);
+    expect(popover?.style.position).toBe("absolute");
+
+    expect(popover?.className).toContain("overflow-hidden");
+    const popoverMaxHeight = Number.parseInt(
+      popover?.style.maxHeight ?? "0",
+      10
+    );
+    expect(popoverMaxHeight).toBeGreaterThan(0);
+
+    const listMaxHeight = Number.parseInt(
+      listbox?.style.maxHeight ?? "0",
+      10
+    );
+    expect(listMaxHeight).toBeGreaterThan(0);
+    expect(popoverMaxHeight).toBeGreaterThanOrEqual(listMaxHeight);
+
+    expect(listbox?.className).toContain("overflow-y-auto");
+    expect(listbox?.className).toContain("overscroll-contain");
+
+    const option = getOptions()[4];
+    expect(option).toBeDefined();
+    expect(listbox?.contains(option!)).toBe(true);
+
+    scrollIntoView.mockClear();
+    option?.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    await act(async () => {});
+
+    expect(option?.dataset.active).toBeUndefined();
+    expect(option?.getAttribute("aria-selected")).toBe("false");
+    expect(input.getAttribute("aria-activedescendant")).toBeNull();
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    let wheelBubbledToListbox = false;
+    listbox?.addEventListener(
+      "wheel",
+      () => {
+        wheelBubbledToListbox = true;
+      },
+      { once: true }
+    );
+    const wheelEvent = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaY: 100,
+    });
+    option?.dispatchEvent(wheelEvent);
+    await act(async () => {});
+    expect(wheelBubbledToListbox).toBe(true);
+    expect(wheelEvent.defaultPrevented).toBe(false);
+  });
 });

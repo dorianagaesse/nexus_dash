@@ -182,16 +182,67 @@ test("related-task pickers expose and navigate every eligible mixed-status task"
     (element) => element.scrollTop
   );
   await detailListbox.evaluate((element) => {
-    element.scrollTop = element.scrollHeight;
+    element.scrollTop = 22;
   });
+  const detailListboxBounds = await detailListbox.boundingBox();
+  expect(detailListboxBounds).not.toBeNull();
+  await page.mouse.move(
+    detailListboxBounds!.x + detailListboxBounds!.width / 2,
+    detailListboxBounds!.y + 2
+  );
+  await page.mouse.move(
+    detailListboxBounds!.x + detailListboxBounds!.width / 2,
+    detailListboxBounds!.y + detailListboxBounds!.height - 2
+  );
   await expect
     .poll(() => detailListbox.evaluate((element) => element.scrollTop))
-    .toBeGreaterThan(0);
-  await detailListbox.hover();
+    .toBe(22);
+
+  await page.mouse.wheel(0, 600);
+  let detailListScrollTop = 0;
+  await expect
+    .poll(async () => {
+      detailListScrollTop = await detailListbox.evaluate(
+        (element) => element.scrollTop
+      );
+      return detailListScrollTop;
+    })
+    .toBeGreaterThan(22);
+  await page.mouse.wheel(0, -600);
+  await expect
+    .poll(() => detailListbox.evaluate((element) => element.scrollTop))
+    .toBeLessThan(detailListScrollTop);
+
   await page.mouse.wheel(0, 2000);
+  await expect
+    .poll(() =>
+      detailListbox.evaluate(
+        (element) =>
+          element.scrollTop >= element.scrollHeight - element.clientHeight - 1
+      )
+    )
+    .toBe(true);
   await expect
     .poll(() => detailScroller.evaluate((element) => element.scrollTop))
     .toBe(detailScrollTop);
+  const detailFinalOption = detailListbox.getByRole("option").last();
+  await expect(detailFinalOption).toBeVisible();
+  expect(
+    await detailListbox.evaluate((listbox) => {
+      const option = listbox.querySelector<HTMLElement>(
+        "[role='option']:last-of-type"
+      );
+      if (!option) {
+        return false;
+      }
+      const optionRect = option.getBoundingClientRect();
+      const listboxRect = listbox.getBoundingClientRect();
+      return (
+        optionRect.top >= listboxRect.top &&
+        optionRect.bottom <= listboxRect.bottom
+      );
+    })
+  ).toBe(true);
 
   if (screenshotDirectory) {
     await page.screenshot({
@@ -253,6 +304,50 @@ test("related-task pickers expose and navigate every eligible mixed-status task"
   expect(
     createPopoverBounds!.x + createPopoverBounds!.width
   ).toBeLessThanOrEqual(375);
+
+  const createScroller = page
+    .getByRole("dialog")
+    .locator("div.overflow-y-auto")
+    .first();
+  const createScrollTop = await createScroller.evaluate(
+    (element) => element.scrollTop
+  );
+  const createListboxBounds = await createListbox.boundingBox();
+  expect(createListboxBounds).not.toBeNull();
+  await page.mouse.move(
+    createListboxBounds!.x + createListboxBounds!.width / 2,
+    createListboxBounds!.y + createListboxBounds!.height / 2
+  );
+  await page.mouse.wheel(0, 2000);
+  await expect
+    .poll(() =>
+      createListbox.evaluate(
+        (element) =>
+          element.scrollTop >= element.scrollHeight - element.clientHeight - 1
+      )
+    )
+    .toBe(true);
+  await expect
+    .poll(() => createScroller.evaluate((element) => element.scrollTop))
+    .toBe(createScrollTop);
+  const createFinalOption = createListbox.getByRole("option").last();
+  await expect(createFinalOption).toBeVisible();
+  expect(
+    await createListbox.evaluate((listbox) => {
+      const option = listbox.querySelector<HTMLElement>(
+        "[role='option']:last-of-type"
+      );
+      if (!option) {
+        return false;
+      }
+      const optionRect = option.getBoundingClientRect();
+      const listboxRect = listbox.getBoundingClientRect();
+      return (
+        optionRect.top >= listboxRect.top &&
+        optionRect.bottom <= listboxRect.bottom
+      );
+    })
+  ).toBe(true);
 
   if (screenshotDirectory) {
     await page.screenshot({
