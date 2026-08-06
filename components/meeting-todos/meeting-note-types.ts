@@ -1,4 +1,5 @@
 import type { ProjectMeetingParticipantIdentity } from "@/lib/meeting-participant";
+import type { MeetingTodoActorSummary } from "@/lib/meeting-todo-actor";
 
 export type MeetingNoteStatus = "prepared" | "actions_in_progress" | "done";
 
@@ -7,6 +8,9 @@ export interface ProjectMeetingNotePanelAction {
   content: string;
   completedAt: string | null;
   position: number;
+  creator?: MeetingTodoActorSummary | null;
+  assignee?: MeetingTodoActorSummary | null;
+  completedBy?: MeetingTodoActorSummary | null;
 }
 
 export interface ProjectMeetingNotePanelNote {

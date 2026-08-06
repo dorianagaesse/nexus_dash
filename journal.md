@@ -3,6 +3,45 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-06 - TASK-330 meeting-todo accountability completed
+
+- Added durable human/agent creator, optional assignee, and completer provenance
+  to meeting todos, including display snapshots and visible inactive/revoked
+  responsibility states. Existing todos are backfilled from their meeting-note
+  creator, while note edits preserve unchanged todo IDs and history.
+- Added service-enforced assignment eligibility, agent `task:read`/`task:write`
+  meeting endpoints, human/agent completion attribution, project-wide
+  responsibility filters, and assignee-targeted overdue reminders that never
+  fall back to note creators or agent owners.
+- Added accessible assignment controls and identity treatment across meeting
+  detail, the project Todos page, and quick views, with responsive light/dark
+  browser coverage at mobile and desktop widths.
+- Applied migration `20260806120000_task330_meeting_todo_accountability` to the
+  configured database and a disposable local PostgreSQL database. The real
+  least-privilege RLS matrix passed after provisioning its `NOBYPASSRLS` runtime
+  role.
+- Validation passed: ESLint; Prisma format, validation, generation, and migrate
+  deploy; RLS inventory and real isolation matrix; 1,027 tests across 146 files
+  with two intentional skips; coverage at 91.37% statements, 81.33% branches,
+  92.20% functions, and 91.88% lines; production build; and the focused
+  Playwright meeting-todo flow in 35.1 seconds.
+- Released as feature version `0.37.0`; the branch version-policy check passes
+  against `origin/main` (`0.36.0`).
+
+# 2026-08-06 - TASK-330 meeting-todo accountability started
+
+- Created dedicated worktree `nexus_dash_task330` from `origin/main` on
+  `feature/task-330-meeting-todo-assignees` and activated the task brief.
+- Confirmed TASK-337's universal project-actor foundation is still pending.
+  Scoped a narrow reusable meeting-todo actor contract so TASK-330 can deliver
+  human/agent assignment and provenance without absorbing unrelated artifact
+  ownership work.
+- Defined explicit inactive-assignee behavior, URL-backed responsibility views,
+  service-enforced assignment eligibility, and reminder delivery only to active
+  human assignees rather than implicit creators or agent owners.
+- Applied the UI/UX quality guidance for labeled native controls, keyboard and
+  focus behavior, semantic status text, responsive layouts, and 44px touch targets.
+
 # 2026-08-06 - Execution backlog reconciled after recent merges
 
 - Audited the execution queue against first-parent Git history and GitHub merge

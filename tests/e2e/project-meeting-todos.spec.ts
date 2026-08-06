@@ -171,6 +171,33 @@ test.describe("project meeting todos", () => {
     await expect(
       page.getByText("Review the shared read-only follow-up")
     ).toHaveCount(0);
+
+    const accountableTodo = page.locator("li", {
+      hasText: "Complete the mobile navigation audit",
+    });
+    const assignmentResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        /\/meeting-notes\/[^/]+\/actions\/[^/]+$/.test(response.url()) &&
+        response.ok()
+    );
+    await accountableTodo.getByLabel("Assignee").selectOption({ index: 1 });
+    await assignmentResponse;
+    await expect(
+      page.locator("[aria-live='polite']").getByText(/^Assigned to .+\.$/)
+    ).toBeVisible();
+    await page.getByRole("link", { name: /^Assigned to me/ }).click();
+    await expect(page).toHaveURL(
+      new RegExp(
+        `/projects/${fixture.ownerProjectId}/todos\\?responsibility=mine$`
+      )
+    );
+    await expect(page.getByText("Complete the mobile navigation audit")).toBeVisible();
+    await expect(page.getByText("Open the source meeting from Todos")).toBeHidden();
+    await page.getByRole("link", { name: /^All/ }).click();
+    await expect(page).toHaveURL(
+      new RegExp(`/projects/${fixture.ownerProjectId}/todos$`)
+    );
     if (screenshotDirectory) {
       await mkdir(path.resolve(screenshotDirectory), { recursive: true });
       await page.screenshot({

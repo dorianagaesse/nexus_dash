@@ -31,6 +31,10 @@ import type {
   ProjectMeetingNotePanelAction,
   ProjectMeetingNotePanelNote,
 } from "@/components/meeting-todos/meeting-note-types";
+import {
+  MeetingTodoActorIdentity,
+  MeetingTodoAssigneeSelect,
+} from "@/components/meeting-todos/meeting-todo-actor-control";
 import { MeetingTodoQuickDialog } from "@/components/meeting-todos/meeting-todo-quick-dialog";
 import {
   PROJECT_SECTION_CARD_CLASS,
@@ -58,6 +62,11 @@ import {
 } from "@/lib/project-activity-client";
 import { buildProjectMeetingTodos, type ProjectMeetingTodo } from "@/lib/meeting-todo";
 import {
+  getMeetingTodoActorKey,
+  type MeetingTodoActorReference,
+  type MeetingTodoActorSummary,
+} from "@/lib/meeting-todo-actor";
+import {
   getTaskLabelColor,
   MAX_TASK_LABELS,
   normalizeTaskLabel,
@@ -72,6 +81,7 @@ interface ProjectMeetingNotesPanelProps {
   canEdit: boolean;
   notes: ProjectMeetingNotePanelNote[];
   collaborators: ProjectMeetingParticipantCollaborator[];
+  todoActors: MeetingTodoActorSummary[];
   initialMeetingNoteId?: string | null;
   initialMeetingTodoId?: string | null;
 }
@@ -80,6 +90,10 @@ interface DraftAction {
   id: string;
   content: string;
   completedAt: string | null;
+  persisted: boolean;
+  creator: MeetingTodoActorSummary | null;
+  assignee: MeetingTodoActorSummary | null;
+  completedBy: MeetingTodoActorSummary | null;
 }
 
 interface PrepareDraft {
@@ -292,6 +306,10 @@ function buildNotesDraftFromNote(note: ProjectMeetingNotePanelNote): NotesDraft 
       id: action.id,
       content: action.content,
       completedAt: action.completedAt,
+      persisted: true,
+      creator: action.creator ?? null,
+      assignee: action.assignee ?? null,
+      completedBy: action.completedBy ?? null,
     })),
   };
 }
@@ -658,6 +676,7 @@ export function ProjectMeetingNotesPanel({
   canEdit,
   notes,
   collaborators,
+  todoActors,
   initialMeetingNoteId = null,
   initialMeetingTodoId = null,
 }: ProjectMeetingNotesPanelProps) {
@@ -973,6 +992,9 @@ export function ProjectMeetingNotesPanel({
           current.map((note) => (note.id === payload.note?.id ? payload.note : note))
         )
       );
+      if (selectedNoteId === payload.note.id) {
+        setNotesDraft(buildNotesDraftFromNote(payload.note));
+      }
       pushToast({
         variant: "success",
         message: completed ? "Meeting todo completed." : "Meeting todo reopened.",
@@ -1092,6 +1114,10 @@ export function ProjectMeetingNotesPanel({
           id: createLocalId("meeting-action"),
           content: "",
           completedAt: null,
+          persisted: false,
+          creator: null,
+          assignee: null,
+          completedBy: null,
         },
       ],
     }));
@@ -1101,6 +1127,23 @@ export function ProjectMeetingNotesPanel({
     setNotesDraft((current) => ({
       ...current,
       actions: current.actions.filter((action) => action.id !== actionId),
+    }));
+  };
+
+  const updateDraftActionAssignee = (
+    actionId: string,
+    assignee: MeetingTodoActorReference | null
+  ) => {
+    const selectedActor = assignee
+      ? todoActors.find(
+          (actor) => getMeetingTodoActorKey(actor) === getMeetingTodoActorKey(assignee)
+        ) ?? null
+      : null;
+    setNotesDraft((current) => ({
+      ...current,
+      actions: current.actions.map((action) =>
+        action.id === actionId ? { ...action, assignee: selectedActor } : action
+      ),
     }));
   };
 
@@ -1129,9 +1172,12 @@ export function ProjectMeetingNotesPanel({
       status: notesDraft.status,
       actions: notesDraft.actions
         .map((action) => ({
-          id: action.id,
+          id: action.persisted ? action.id : null,
           content: action.content.trim(),
           completedAt: action.completedAt,
+          assignee: action.assignee
+            ? { kind: action.assignee.kind, id: action.assignee.id }
+            : null,
         }))
         .filter((action) => action.content.length > 0),
     };
@@ -1861,7 +1907,7 @@ export function ProjectMeetingNotesPanel({
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-3">
-                    <label className="text-sm font-medium">Todos for me</label>
+                    <label className="text-sm font-medium">Meeting todos</label>
                     {canEdit ? (
                       <Button
                         type="button"
@@ -1888,50 +1934,103 @@ export function ProjectMeetingNotesPanel({
                             key={action.id}
                             id={`meeting-todo-${action.id}`}
                             className={cn(
-                              "flex items-center gap-2 rounded-lg",
+                              "space-y-3 rounded-xl border border-border/70 bg-card/60 p-3",
                               action.id === initialMeetingTodoId &&
-                                "bg-primary/10 p-1 ring-2 ring-primary/35"
+                                "bg-primary/10 ring-2 ring-primary/35"
                             )}
                           >
-                            <button
-                              type="button"
-                              disabled={!canEdit || isSaving}
-                              onClick={() => toggleDraftAction(action.id)}
-                              className="rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-default disabled:hover:bg-transparent"
-                              aria-label={`${isComplete ? "Reopen" : "Complete"} todo ${index + 1}`}
-                            >
-                              {isComplete ? (
-                                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                              ) : (
-                                <Circle className="h-4 w-4" />
-                              )}
-                            </button>
-                            <EmojiInputField
-                              value={action.content}
-                              onChange={(event) =>
-                                updateDraftAction(action.id, event.target.value)
-                              }
-                              className={cn(
-                                "h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm",
-                                isComplete ? "text-muted-foreground line-through" : ""
-                              )}
-                              placeholder="Send recap to stakeholders"
-                              maxLength={240}
-                              aria-label={`Todo ${index + 1}`}
-                              disabled={!canEdit || isSaving}
-                            />
-                            {canEdit ? (
-                              <Button
+                            <div className="flex items-center gap-2">
+                              <button
                                 type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => removeDraftAction(action.id)}
-                                aria-label={`Remove todo ${index + 1}`}
-                                disabled={isSaving}
+                                disabled={
+                                  !canEdit ||
+                                  isSaving ||
+                                  pendingTodoActionId === action.id
+                                }
+                                onClick={() => {
+                                  const persistedAction = selectedNote.actions.find(
+                                    (entry) => entry.id === action.id
+                                  );
+                                  if (action.persisted && persistedAction) {
+                                    void setTodoCompleted(
+                                      {
+                                        action: persistedAction,
+                                        note: selectedNote,
+                                        isOverdue: false,
+                                        urgencyTimestamp: 0,
+                                      },
+                                      !isComplete
+                                    );
+                                  } else {
+                                    toggleDraftAction(action.id);
+                                  }
+                                }}
+                                className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-60"
+                                aria-label={`${isComplete ? "Reopen" : "Complete"} todo ${index + 1}`}
                               >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            ) : null}
+                                {isComplete ? (
+                                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                                ) : (
+                                  <Circle className="h-5 w-5" />
+                                )}
+                              </button>
+                              <EmojiInputField
+                                value={action.content}
+                                onChange={(event) =>
+                                  updateDraftAction(action.id, event.target.value)
+                                }
+                                className={cn(
+                                  "h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm",
+                                  isComplete ? "text-muted-foreground line-through" : ""
+                                )}
+                                placeholder="Send recap to stakeholders"
+                                maxLength={240}
+                                aria-label={`Todo ${index + 1}`}
+                                disabled={!canEdit || isSaving}
+                              />
+                              {canEdit ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => removeDraftAction(action.id)}
+                                  aria-label={`Remove todo ${index + 1}`}
+                                  disabled={isSaving}
+                                  className="h-11 w-11 shrink-0"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              ) : null}
+                            </div>
+                            {canEdit ? (
+                              <MeetingTodoAssigneeSelect
+                                id={`meeting-todo-assignee-${action.id}`}
+                                value={action.assignee}
+                                options={todoActors}
+                                onChange={(assignee) =>
+                                  updateDraftActionAssignee(action.id, assignee)
+                                }
+                                disabled={isSaving}
+                              />
+                            ) : (
+                              <MeetingTodoActorIdentity actor={action.assignee} />
+                            )}
+                            <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-border/60 pt-2">
+                              {action.creator ? (
+                                <MeetingTodoActorIdentity
+                                  actor={action.creator}
+                                  prefix="Created by"
+                                  compact
+                                />
+                              ) : null}
+                              {isComplete && action.completedBy ? (
+                                <MeetingTodoActorIdentity
+                                  actor={action.completedBy}
+                                  prefix="Completed by"
+                                  compact
+                                />
+                              ) : null}
+                            </div>
                           </div>
                         );
                       })

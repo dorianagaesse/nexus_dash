@@ -13,7 +13,14 @@ export const AGENT_API_KEY_PLACEHOLDER = "nda_public.secret";
 export const AGENT_BEARER_TOKEN_ENV_NAME = "NEXUSDASH_AGENT_BEARER_TOKEN";
 export const AGENT_ATTACHMENT_MAX_FILE_SIZE_LABEL = "25MB";
 
-type AgentApiTag = "Auth" | "Projects" | "Epics" | "Roadmap" | "Tasks" | "Context";
+type AgentApiTag =
+  | "Auth"
+  | "Projects"
+  | "Epics"
+  | "Roadmap"
+  | "Tasks"
+  | "Meetings"
+  | "Context";
 type AgentHttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
 type AgentRequestContentType = "application/json" | "multipart/form-data";
 
@@ -58,6 +65,30 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     title: "Read project summary",
     description: "Read project metadata and dashboard summary metrics.",
     requiredScopes: ["project:read"],
+  },
+  {
+    tag: "Meetings",
+    method: "GET",
+    path: "/api/projects/{projectId}/meeting-notes",
+    title: "List meeting notes and todos",
+    description:
+      "List project meeting notes with todo creator, assignee, completion actor, and access state.",
+    requiredScopes: ["task:read"],
+    notes: ["External meeting participants are attendance context and cannot be assignees."],
+  },
+  {
+    tag: "Meetings",
+    method: "PATCH",
+    path: "/api/projects/{projectId}/meeting-notes/{noteId}/actions/{actionId}",
+    title: "Update meeting todo accountability",
+    description:
+      "Complete, reopen, assign, or unassign one meeting todo without replacing sibling todos.",
+    requiredScopes: ["task:write"],
+    requestContentType: "application/json",
+    notes: [
+      "Send exactly one of completed or assignee.",
+      "Agent completion is attributed to the active credential, not its human owner.",
+    ],
   },
   {
     tag: "Projects",
@@ -2499,6 +2530,156 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 "application/json": {
                   schema: {
                     $ref: "#/components/schemas/OkResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/meeting-notes": {
+        get: {
+          ...buildOperationMetadata(
+            "GET",
+            "/api/projects/{projectId}/meeting-notes"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            {
+              name: "q",
+              in: "query",
+              required: false,
+              schema: { type: "string" },
+              description: "Optional text search across meeting content and todos.",
+            },
+          ],
+          responses: {
+            200: {
+              description: "Meeting notes and accountable todos returned",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: ["notes"],
+                    properties: {
+                      notes: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          additionalProperties: true,
+                          required: ["id", "projectId", "title", "actions"],
+                          properties: {
+                            id: { type: "string" },
+                            projectId: { type: "string" },
+                            title: { type: "string" },
+                            actions: {
+                              type: "array",
+                              items: {
+                                type: "object",
+                                additionalProperties: true,
+                                required: [
+                                  "id",
+                                  "content",
+                                  "completedAt",
+                                  "creator",
+                                  "assignee",
+                                  "completedBy",
+                                ],
+                                properties: {
+                                  id: { type: "string" },
+                                  content: { type: "string" },
+                                  completedAt: { type: ["string", "null"], format: "date-time" },
+                                  creator: { type: ["object", "null"], additionalProperties: true },
+                                  assignee: { type: ["object", "null"], additionalProperties: true },
+                                  completedBy: { type: ["object", "null"], additionalProperties: true },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/meeting-notes/{noteId}/actions/{actionId}": {
+        patch: {
+          ...buildOperationMetadata(
+            "PATCH",
+            "/api/projects/{projectId}/meeting-notes/{noteId}/actions/{actionId}"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            {
+              name: "noteId",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+            },
+            {
+              name: "actionId",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  oneOf: [
+                    {
+                      type: "object",
+                      required: ["completed"],
+                      additionalProperties: false,
+                      properties: { completed: { type: "boolean" } },
+                    },
+                    {
+                      type: "object",
+                      required: ["assignee"],
+                      additionalProperties: false,
+                      properties: {
+                        assignee: {
+                          oneOf: [
+                            { type: "null" },
+                            {
+                              type: "object",
+                              required: ["kind", "id"],
+                              additionalProperties: false,
+                              properties: {
+                                kind: { type: "string", enum: ["human", "agent"] },
+                                id: { type: "string" },
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Meeting todo updated with actor attribution",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: ["note"],
+                    properties: {
+                      note: { type: "object", additionalProperties: true },
+                    },
                   },
                 },
               },

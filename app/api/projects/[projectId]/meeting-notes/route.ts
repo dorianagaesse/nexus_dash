@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
+import {
+  getAgentProjectAccessContext,
+  requireApiPrincipal,
+  requireAuthenticatedApiUser,
+} from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import type { ProjectMeetingParticipantInput } from "@/lib/meeting-participant";
+import { isMeetingTodoActorReference } from "@/lib/meeting-todo-actor";
 import {
   createProjectMeetingNote,
   listProjectMeetingNotes,
@@ -80,6 +85,12 @@ function readActions(value: unknown): MeetingNoteActionInput[] {
         id: readOptionalString(record.id),
         content: readString(record.content),
         completedAt: readOptionalString(record.completedAt),
+        assignee:
+          record.assignee === null
+            ? null
+            : isMeetingTodoActorReference(record.assignee)
+              ? { kind: record.assignee.kind, id: record.assignee.id.trim() }
+              : undefined,
       },
     ];
   });
@@ -115,16 +126,18 @@ export async function GET(
   props: { params: Promise<{ projectId: string }> }
 ) {
   const params = await props.params;
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
-  if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+  const principalResult = await requireApiPrincipal(request);
+  if (!principalResult.ok) {
+    return principalResult.response;
   }
+  const principal = principalResult.principal;
 
   const query = request.nextUrl.searchParams.get("q");
   const notes = await listProjectMeetingNotes({
-    actorUserId: authenticatedUser.userId,
+    actorUserId: principal.actorUserId,
     projectId: params.projectId,
     query,
+    agentAccess: getAgentProjectAccessContext(principal),
   });
 
   return NextResponse.json({

@@ -1,11 +1,18 @@
 import { ProjectMembershipRole } from "@prisma/client";
 
 import { isMeetingTodoOverdueAt } from "@/lib/meeting-todo";
+import type { MeetingTodoActorSummary } from "@/lib/meeting-todo-actor";
 import {
   buildProjectPrincipalWhere,
   hasRequiredRole,
 } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
+import {
+  loadMeetingTodoActorRegistry,
+  mapStoredMeetingTodoActor,
+  meetingTodoActorCredentialSelect,
+  meetingTodoActorUserSelect,
+} from "@/lib/services/project-meeting-todo-actor-service";
 
 export interface ProjectMeetingTodoSummary {
   id: string;
@@ -14,6 +21,9 @@ export interface ProjectMeetingTodoSummary {
   updatedAt: Date;
   isOverdue: boolean;
   urgencyTimestamp: number;
+  creator: MeetingTodoActorSummary | null;
+  assignee: MeetingTodoActorSummary | null;
+  completedBy: MeetingTodoActorSummary | null;
   meeting: {
     id: string;
     title: string;
@@ -29,6 +39,8 @@ export interface ProjectMeetingTodoList {
     role: ProjectMembershipRole;
     canEdit: boolean;
   };
+  currentActorUserId: string;
+  actors: MeetingTodoActorSummary[];
   open: ProjectMeetingTodoSummary[];
   completed: ProjectMeetingTodoSummary[];
 }
@@ -58,7 +70,8 @@ export async function listProjectMeetingTodos(input: {
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
-    const project = await db.project.findFirst({
+    const [project, actorRegistry] = await Promise.all([
+      db.project.findFirst({
       where: {
         id: projectId,
         ...buildProjectPrincipalWhere(actorUserId),
@@ -91,12 +104,38 @@ export async function listProjectMeetingTodos(input: {
                 content: true,
                 completedAt: true,
                 updatedAt: true,
+                creatorKind: true,
+                createdByUserId: true,
+                createdByCredentialId: true,
+                creatorDisplayNameSnapshot: true,
+                createdByUser: { select: meetingTodoActorUserSelect },
+                createdByCredential: {
+                  select: meetingTodoActorCredentialSelect,
+                },
+                assigneeKind: true,
+                assigneeUserId: true,
+                assigneeCredentialId: true,
+                assigneeDisplayNameSnapshot: true,
+                assigneeUser: { select: meetingTodoActorUserSelect },
+                assigneeCredential: {
+                  select: meetingTodoActorCredentialSelect,
+                },
+                completedByKind: true,
+                completedByUserId: true,
+                completedByCredentialId: true,
+                completedByDisplayNameSnapshot: true,
+                completedByUser: { select: meetingTodoActorUserSelect },
+                completedByCredential: {
+                  select: meetingTodoActorCredentialSelect,
+                },
               },
             },
           },
         },
       },
-    });
+      }),
+      loadMeetingTodoActorRegistry({ db, projectId }),
+    ]);
 
     if (!project) {
       return null;
@@ -121,6 +160,52 @@ export async function listProjectMeetingTodos(input: {
           referenceNowMs,
         }),
         urgencyTimestamp: timestamp(meeting.scheduledAt ?? meeting.createdAt),
+        creator: mapStoredMeetingTodoActor({
+          kind: action.creatorKind,
+          id:
+            action.creatorKind === "human"
+              ? action.createdByUserId
+              : action.createdByCredentialId,
+          displayNameSnapshot: action.creatorDisplayNameSnapshot,
+          user: action.createdByUser,
+          credential: action.createdByCredential,
+          isCurrentProjectHuman: Boolean(
+            action.createdByUserId &&
+              actorRegistry?.activeHumanIds.has(action.createdByUserId)
+          ),
+        }),
+        assignee: action.assigneeKind
+          ? mapStoredMeetingTodoActor({
+              kind: action.assigneeKind,
+              id:
+                action.assigneeKind === "human"
+                  ? action.assigneeUserId
+                  : action.assigneeCredentialId,
+              displayNameSnapshot: action.assigneeDisplayNameSnapshot,
+              user: action.assigneeUser,
+              credential: action.assigneeCredential,
+              isCurrentProjectHuman: Boolean(
+                action.assigneeUserId &&
+                  actorRegistry?.activeHumanIds.has(action.assigneeUserId)
+              ),
+            })
+          : null,
+        completedBy: action.completedByKind
+          ? mapStoredMeetingTodoActor({
+              kind: action.completedByKind,
+              id:
+                action.completedByKind === "human"
+                  ? action.completedByUserId
+                  : action.completedByCredentialId,
+              displayNameSnapshot: action.completedByDisplayNameSnapshot,
+              user: action.completedByUser,
+              credential: action.completedByCredential,
+              isCurrentProjectHuman: Boolean(
+                action.completedByUserId &&
+                  actorRegistry?.activeHumanIds.has(action.completedByUserId)
+              ),
+            })
+          : null,
         meeting: {
           id: meeting.id,
           title: meeting.title,
@@ -158,6 +243,8 @@ export async function listProjectMeetingTodos(input: {
         role,
         canEdit,
       },
+      currentActorUserId: actorUserId,
+      actors: actorRegistry?.assignable ?? [],
       open,
       completed,
     };

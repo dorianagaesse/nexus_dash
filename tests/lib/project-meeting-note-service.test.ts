@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const projectAccessServiceMock = vi.hoisted(() => ({
   requireProjectRole: vi.fn(),
+  requireAgentProjectScopes: vi.fn(),
 }));
 
 const rlsContextMock = vi.hoisted(() => ({
@@ -19,7 +20,10 @@ const loggerMock = vi.hoisted(() => ({
 const dbMock = vi.hoisted(() => ({
   project: {
     findFirst: vi.fn(),
+    findUnique: vi.fn(),
   },
+  user: { findUnique: vi.fn() },
+  apiCredential: { findFirst: vi.fn() },
   projectMeetingNote: {
     findMany: vi.fn(),
     findFirst: vi.fn(),
@@ -63,6 +67,7 @@ function linkedParticipant(
 
 vi.mock("@/lib/services/project-access-service", () => ({
   requireProjectRole: projectAccessServiceMock.requireProjectRole,
+  requireAgentProjectScopes: projectAccessServiceMock.requireAgentProjectScopes,
 }));
 
 vi.mock("@/lib/services/rls-context", () => ({
@@ -80,6 +85,7 @@ vi.mock("@/lib/observability/logger", () => ({
 import {
   createProjectMeetingNote,
   listProjectMeetingNotes,
+  setProjectMeetingNoteActionAssignee,
   setProjectMeetingNoteActionCompletion,
   updateProjectMeetingNote,
 } from "@/lib/services/project-meeting-note-service";
@@ -106,6 +112,31 @@ const baseMeetingNoteRecord = {
       content: "Send recap",
       completedAt: null,
       position: 0,
+      creatorKind: "human" as const,
+      createdByUserId: "user-1",
+      createdByCredentialId: null,
+      creatorDisplayNameSnapshot: "owner",
+      createdByUser: {
+        id: "user-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "0001",
+        avatarSeed: "seed-owner",
+      },
+      createdByCredential: null,
+      assigneeKind: null,
+      assigneeUserId: null,
+      assigneeCredentialId: null,
+      assigneeDisplayNameSnapshot: null,
+      assigneeUser: null,
+      assigneeCredential: null,
+      completedByKind: null,
+      completedByUserId: null,
+      completedByCredentialId: null,
+      completedByDisplayNameSnapshot: null,
+      completedByUser: null,
+      completedByCredential: null,
     },
   ],
 };
@@ -117,6 +148,21 @@ describe("project-meeting-note-service", () => {
       ok: true,
       role: "editor",
     });
+    projectAccessServiceMock.requireAgentProjectScopes.mockReturnValue({ ok: true });
+    const owner = {
+      id: "user-1",
+      name: "Owner",
+      email: "owner@example.com",
+      username: "owner",
+      usernameDiscriminator: "0001",
+      avatarSeed: "seed-owner",
+    };
+    dbMock.project.findUnique.mockResolvedValue({
+      owner,
+      memberships: [],
+      apiCredentials: [],
+    });
+    dbMock.user.findUnique.mockResolvedValue(owner);
     rlsContextMock.withActorRlsContext.mockImplementation(
       async (_actorUserId: string, operation: (db: typeof dbMock) => unknown) =>
         operation(dbMock)
@@ -226,11 +272,31 @@ describe("project-meeting-note-service", () => {
               content: "Send recap",
               completedAt: null,
               position: 0,
+              creatorKind: "human",
+              createdByUserId: "user-1",
+              createdByCredentialId: null,
+              creatorDisplayNameSnapshot: "owner",
+              assigneeKind: null,
+              assigneeUserId: null,
+              assigneeCredentialId: null,
+              assigneeDisplayNameSnapshot: null,
             },
             {
               content: "Update roadmap",
               completedAt: new Date("2026-06-08T15:00:00.000Z"),
               position: 1,
+              creatorKind: "human",
+              createdByUserId: "user-1",
+              createdByCredentialId: null,
+              creatorDisplayNameSnapshot: "owner",
+              assigneeKind: null,
+              assigneeUserId: null,
+              assigneeCredentialId: null,
+              assigneeDisplayNameSnapshot: null,
+              completedByKind: "human",
+              completedByUserId: "user-1",
+              completedByCredentialId: null,
+              completedByDisplayNameSnapshot: "owner",
             },
           ],
         },
@@ -362,18 +428,19 @@ describe("project-meeting-note-service", () => {
     expect(dbMock.projectMeetingNote.create).not.toHaveBeenCalled();
   });
 
-  test("updates a note by replacing follow-up actions in order", async () => {
+  test("updates a note while preserving an existing follow-up identity", async () => {
     dbMock.projectMeetingNote.findFirst
-      .mockResolvedValueOnce({ id: "note-1" })
+      .mockResolvedValueOnce({
+        id: "note-1",
+        actions: [{ id: "action-1" }],
+      })
       .mockResolvedValueOnce({
         ...baseMeetingNoteRecord,
         title: "Updated review",
         actions: [
           {
-            id: "action-2",
+            ...baseMeetingNoteRecord.actions[0],
             content: "Updated action",
-            completedAt: null,
-            position: 0,
           },
         ],
       });
@@ -384,7 +451,7 @@ describe("project-meeting-note-service", () => {
       projectId: "project-1",
       noteId: "note-1",
       title: "Updated review",
-      actions: [{ content: "Updated action" }],
+      actions: [{ id: "action-1", content: "Updated action" }],
     });
 
     expect(result.ok).toBe(true);
@@ -397,14 +464,14 @@ describe("project-meeting-note-service", () => {
           create: [],
         },
         actions: {
-          deleteMany: {},
-          create: [
+          deleteMany: { id: { notIn: ["action-1"] } },
+          update: [
             {
-              content: "Updated action",
-              completedAt: null,
-              position: 0,
+              where: { id: "action-1" },
+              data: { content: "Updated action", position: 0 },
             },
           ],
+          create: [],
         },
       }),
     });
@@ -453,7 +520,13 @@ describe("project-meeting-note-service", () => {
     expect(result.ok).toBe(true);
     expect(dbMock.projectMeetingNoteAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
-      data: { completedAt: expect.any(Date) },
+      data: {
+        completedAt: expect.any(Date),
+        completedByKind: "human",
+        completedByUserId: "user-1",
+        completedByCredentialId: null,
+        completedByDisplayNameSnapshot: "owner",
+      },
     });
     expect(dbMock.projectMeetingNote.update).toHaveBeenCalledWith({
       where: { id: "note-1" },
@@ -489,7 +562,13 @@ describe("project-meeting-note-service", () => {
     expect(result.ok).toBe(true);
     expect(dbMock.projectMeetingNoteAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
-      data: { completedAt: null },
+      data: {
+        completedAt: null,
+        completedByKind: null,
+        completedByUserId: null,
+        completedByCredentialId: null,
+        completedByDisplayNameSnapshot: null,
+      },
     });
     expect(dbMock.projectMeetingNote.update).toHaveBeenCalledWith({
       where: { id: "note-1" },
@@ -517,5 +596,165 @@ describe("project-meeting-note-service", () => {
 
     expect(result).toEqual({ ok: false, status: 403, error: "forbidden" });
     expect(dbMock.projectMeetingNoteAction.update).not.toHaveBeenCalled();
+  });
+
+  test("assigns an active project agent and preserves its credential identity", async () => {
+    dbMock.project.findUnique.mockResolvedValueOnce({
+      owner: {
+        id: "user-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "0001",
+        avatarSeed: "seed-owner",
+      },
+      memberships: [],
+      apiCredentials: [
+        {
+          id: "credential-1",
+          label: "Release agent",
+          projectId: "project-1",
+          revokedAt: null,
+          expiresAt: null,
+        },
+      ],
+    });
+    dbMock.projectMeetingNoteAction.findFirst.mockResolvedValueOnce({ id: "action-1" });
+    dbMock.projectMeetingNoteAction.update.mockResolvedValueOnce({ id: "action-1" });
+    dbMock.projectMeetingNote.update.mockResolvedValueOnce({ id: "note-1" });
+    dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
+      ...baseMeetingNoteRecord,
+      actions: [
+        {
+          ...baseMeetingNoteRecord.actions[0],
+          assigneeKind: "agent",
+          assigneeCredentialId: "credential-1",
+          assigneeDisplayNameSnapshot: "Release agent",
+          assigneeCredential: {
+            id: "credential-1",
+            label: "Release agent",
+            projectId: "project-1",
+            revokedAt: null,
+            expiresAt: null,
+          },
+        },
+      ],
+    });
+
+    const result = await setProjectMeetingNoteActionAssignee({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      noteId: "note-1",
+      actionId: "action-1",
+      assignee: { kind: "agent", id: "credential-1" },
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        note: {
+          actions: [
+            {
+              assignee: {
+                kind: "agent",
+                id: "credential-1",
+                displayName: "Release agent",
+                status: "active",
+              },
+            },
+          ],
+        },
+      },
+    });
+    expect(dbMock.projectMeetingNoteAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        assigneeKind: "agent",
+        assigneeUserId: null,
+        assigneeCredentialId: "credential-1",
+        assigneeDisplayNameSnapshot: "Release agent",
+      },
+    });
+  });
+
+  test("rejects assignment to a revoked agent credential", async () => {
+    dbMock.project.findUnique.mockResolvedValueOnce({
+      owner: {
+        id: "user-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "0001",
+        avatarSeed: "seed-owner",
+      },
+      memberships: [],
+      apiCredentials: [
+        {
+          id: "credential-revoked",
+          label: "Former agent",
+          projectId: "project-1",
+          revokedAt: new Date("2026-08-01T00:00:00.000Z"),
+          expiresAt: null,
+        },
+      ],
+    });
+    dbMock.projectMeetingNoteAction.findFirst.mockResolvedValueOnce({ id: "action-1" });
+
+    await expect(
+      setProjectMeetingNoteActionAssignee({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        noteId: "note-1",
+        actionId: "action-1",
+        assignee: { kind: "agent", id: "credential-revoked" },
+      })
+    ).resolves.toEqual({
+      ok: false,
+      status: 400,
+      error: "meeting-note-action-assignee-invalid",
+    });
+    expect(dbMock.projectMeetingNoteAction.update).not.toHaveBeenCalled();
+  });
+
+  test("records the credential when an authorized agent completes a todo", async () => {
+    projectAccessServiceMock.requireAgentProjectScopes.mockReturnValueOnce({ ok: true });
+    dbMock.apiCredential.findFirst.mockResolvedValueOnce({
+      id: "credential-1",
+      label: "Release agent",
+      projectId: "project-1",
+      revokedAt: null,
+      expiresAt: null,
+    });
+    dbMock.projectMeetingNoteAction.findFirst.mockResolvedValueOnce({
+      id: "action-1",
+      meetingNote: { status: "actions_in_progress" },
+    });
+    dbMock.projectMeetingNoteAction.update.mockResolvedValueOnce({ id: "action-1" });
+    dbMock.projectMeetingNote.update.mockResolvedValueOnce({ id: "note-1" });
+    dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce(baseMeetingNoteRecord);
+
+    const result = await setProjectMeetingNoteActionCompletion({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      noteId: "note-1",
+      actionId: "action-1",
+      completed: true,
+      agentAccess: {
+        credentialId: "credential-1",
+        projectId: "project-1",
+        scopes: ["task:write"],
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(dbMock.projectMeetingNoteAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: expect.objectContaining({
+        completedByKind: "agent",
+        completedByUserId: null,
+        completedByCredentialId: "credential-1",
+        completedByDisplayNameSnapshot: "Release agent",
+      }),
+    });
   });
 });

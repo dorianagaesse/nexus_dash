@@ -26,6 +26,9 @@ function serializeTodo(
     completedAt: todo.completedAt?.toISOString() ?? null,
     updatedAt: todo.updatedAt.toISOString(),
     isOverdue: todo.isOverdue,
+    creator: todo.creator,
+    assignee: todo.assignee,
+    completedBy: todo.completedBy,
     meeting: {
       ...todo.meeting,
       scheduledAt: todo.meeting.scheduledAt?.toISOString() ?? null,
@@ -92,6 +95,8 @@ export default async function ProjectTodosPage({
         <ProjectMeetingTodos
           projectId={projectId}
           canEdit={result?.project.canEdit ?? false}
+          currentActorUserId={result?.currentActorUserId ?? actorUserId}
+          actors={result?.actors ?? []}
           initialTodos={initialTodos}
           loadError={loadError}
         />

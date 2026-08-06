@@ -94,6 +94,38 @@ describe("project meeting todos", () => {
     );
   });
 
+  test("filters the queue to todos assigned to the signed-in user", () => {
+    mockSearchParams = new URLSearchParams("responsibility=mine");
+    const assignedTodo: ProjectMeetingTodoItem = {
+      ...ownerTodo,
+      id: "todo-assigned",
+      content: "Owned follow-up",
+      assignee: {
+        kind: "human",
+        id: "user-1",
+        displayName: "owner",
+        usernameTag: "owner#0001",
+        avatarSeed: "seed-owner",
+        status: "active",
+        isAssignable: true,
+      },
+    };
+    const result = renderToStaticMarkup(
+      <ProjectMeetingTodos
+        projectId="project-1"
+        canEdit
+        currentActorUserId="user-1"
+        actors={[assignedTodo.assignee!]}
+        initialTodos={[ownerTodo, assignedTodo]}
+      />
+    );
+
+    expect(result).toContain("Owned follow-up");
+    expect(result).not.toContain("Confirm the mobile navigation pattern");
+    expect(result).toContain('aria-label="Todo responsibility"');
+    expect(result).toContain("Assigned to me");
+  });
+
   test("renders the server-provided load error", () => {
     const result = renderToStaticMarkup(
       <ProjectMeetingTodos

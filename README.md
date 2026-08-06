@@ -27,8 +27,9 @@ Implemented today:
 - Project dashboard with:
   - Context cards (CRUD + attachments)
   - Meeting notes with searchable preparation inputs, label filters,
-    participants, after-meeting outputs, todo tracking, overdue highlights,
-    state, and archived history
+    participants, after-meeting outputs, accountable human/agent todo
+    assignments, creator/completer provenance, responsibility filters,
+    overdue and reassignment states, and archived history
   - Roadmap event-first milestone lanes with grouped child events, drag-and-drop regrouping, and target-date planning
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`)
   - Calendar panel (Google Calendar list/create/update/delete)
@@ -101,7 +102,8 @@ Open `http://localhost:3000`.
 - Logout endpoint: `POST /api/auth/logout`.
 - Agent access is project-scoped and owner-managed from the project settings surface.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
-- Agent v1 is limited to project/roadmap/task/context APIs and does not include calendar access.
+- Agent v1 is limited to project/roadmap/task/context plus meeting-todo
+  accountability APIs and does not include calendar access.
 
 ## Database and Migrations
 
@@ -373,6 +375,9 @@ the assignee when present, or the task creator when unassigned, and only while
 that recipient still has project access. `Done`, archived, and undated tasks are
 ignored. Due groups claimed in one dispatcher run are batched by recipient, with
 project sections in one email when several projects are ready together. Project
+meeting-todo overdue reminders are delivered only to an active human assignee
+who still has project access; unassigned, inactive, and agent-assigned todos do
+not fall back to the meeting creator or credential owner. Project
 invitation reminders are sent once after 6 hours when the verified invited user
 has not opened, accepted, declined, or otherwise resolved the invitation
 notification. Sending email never marks notifications read or resolved.
