@@ -2,7 +2,7 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-08-03
+Last reviewed: 2026-08-06
 
 ## Pending
 ### Execution Queue (Now / Next)
@@ -58,59 +58,6 @@ Last reviewed: 2026-08-03
   Status: Next 10 - invitation and membership permission expansion
   Rationale: Define one capability vocabulary across tasks, meeting notes, context cards, epics, roadmap, and the future shared schedule, then apply it consistently to invitations, memberships, agent scopes, UI affordances, services, and routes. Keep capability independent from ownership and assignment: responsibility never grants access, and owner safeguards plus project isolation remain authoritative.
   Dependencies: TASK-058, TASK-098, TASK-106, TASK-130, TASK-337
-- ID: TASK-335
-  Title: Compact epic detail disclosure
-  Status: In review (2026-08-03, PR #403)
-  Rationale: Preserve the familiar compact epic cards and two-column desktop grid while collapsing descriptions and linked tasks by default, so long narratives do not dominate mobile scroll length or dense project dashboards; expose each epic's complete context through an independent accessible disclosure.
-  Dependencies: TASK-100, TASK-108, TASK-133, TASK-270
-  Brief: `tasks/task-335-expanded-epic-presentation.md`
-- ID: TASK-341
-  Title: Related-task picker scroll fix - scrollbar visible but list does not move
-  Status: In review (2026-08-05, PR #415; behavior feedback addressed)
-  Rationale: Fix GitHub issue #401 by keeping the portaled candidate list inside the Radix dialog scroll-lock boundary, and separate pointer hover from keyboard activation so native scrolling works while pointer movement never scrolls the list.
-  Dependencies: TASK-076, TASK-133, TASK-337, TASK-352
-  Brief: `tasks/task-341-related-task-scroll.md`
-- ID: TASK-349
-  Title: Bilateral related-task relationships - keep both task directions consistent
-  Status: In review (2026-07-30, PR #399)
-  Rationale: Fix GitHub issue #395 so relating task A to task B makes the same canonical relationship visible when either task is opened, including immediately after optimistic updates and after reload, while keeping add/remove behavior duplicate-free and project-scoped.
-  Dependencies: TASK-076, TASK-118
-  Brief: `tasks/task-349-bilateral-related-task-relationships.md`
-- ID: TASK-350
-  Title: Complete related-task candidate list - investigate missing and non-scrollable tasks
-  Status: Complete (2026-07-30, PR #400)
-  Rationale: Investigate and fix GitHub issue #396 by determining whether eligible tasks are missing because of status filtering, Blocked-task exclusion, clipped overflow, or a combination; ensure the full authorized candidate set is searchable, keyboard reachable, and scrollable.
-  Dependencies: TASK-076, TASK-133, TASK-321
-  Brief: `tasks/task-350-related-task-picker.md`
-- ID: TASK-351
-  Title: User-facing task IDs - stable references in task details and relationship search
-  Status: Complete (2026-07-31, PR #402)
-  Rationale: Introduce or expose concise, stable user-facing task identifiers so users can refer to tasks unambiguously; show the identifier when a task detail modal is open and beside each candidate while searching for a task to relate, without exposing opaque internal database IDs.
-  Dependencies: TASK-076, TASK-133
-- ID: TASK-352
-  Title: Related-task picker presentation - readable IDs, titles, and status colors
-  Status: In review (2026-07-31, PR #404)
-  Rationale: Redesign the current `Related to` candidate list so each row clearly presents the user-facing task ID, a bounded/truncated title, and status using the established Kanban column color, with accessible text that does not rely on color alone.
-  Dependencies: TASK-133, TASK-350, TASK-351
-- ID: TASK-353
-  Title: Movable meeting-todos panel - compact bottom-right project entry
-  Status: In review (2026-08-04 feedback addressed, PR #411)
-  Rationale: Replace the current meeting-todo popup treatment with a compact bottom-right floating `Todos` button using the todo icon and label; open the aggregated todos in an accessible modeless panel that can be grabbed anywhere and moved within the project-page area while leaving the underlying app usable and preserving containment, responsive behavior, and existing todo actions.
-  Dependencies: TASK-098, TASK-316, TASK-321, TASK-322, TASK-330, TASK-332
-  Brief: `tasks/task-353-movable-meeting-todos-modal.md`
-- ID: TASK-354
-  Title: Sidebar todo count - active and overdue project awareness
-  Status: In review (2026-08-05, PR #416 supersedes PR #410)
-  Rationale: Add a compact top-right count to the project-scoped `Todos` navigation item so users can see outstanding meeting follow-ups without opening the page, and promote the badge to an accessible orange overdue state whenever at least one active todo is overdue.
-  Dependencies: TASK-316, TASK-332
-  Brief: `tasks/task-354-sidebar-todo-count.md`
-- ID: TASK-355
-  Title: Meeting-todo overdue grace experiment
-  Status: Reverted (2026-08-05, seven-day policy restored in PR #416)
-  Rationale: PR #414 temporarily reduced the grace period to 24 hours. Product direction restored seven days while retaining the shared threshold and precise rolling dispatcher cutoff, with no alternate one-day runtime path.
-  Dependencies: TASK-098, TASK-227, TASK-268, TASK-314, TASK-316, TASK-354
-  Brief: `tasks/task-355-meeting-todo-overdue-grace.md`
-
 ### Collaboration Refinement Program (TASK-336 Audit)
 - ID: TASK-337
   Title: First-class project actor identity - human and agent assignment/provenance foundation
@@ -132,7 +79,7 @@ Last reviewed: 2026-08-03
   Status: P1 - traceability foundation
   Rationale: Expand project activity into a durable, paginated, role-aware history for every shared domain and meaningful sub-action, including ownership, assignment, status, attachment, relationship, and deletion changes. Preserve the real human or agent actor, safe summaries or bounded diffs, identity snapshots, deletion tombstones, retention rules, and artifact plus project timeline views without exposing raw secrets or transport payloads.
   Dependencies: TASK-119, TASK-130, TASK-337, TASK-339
-- ID: TASK-341
+- ID: TASK-356
   Title: Meeting note stewardship and decision provenance
   Status: P1 - meeting accountability
   Rationale: Give each meeting note a visible, reassignable steward or facilitator; surface creator, last editor, and update time; and preserve authorship for accepted decisions. Keep attendance separate from responsibility, support filtering and handoff, and make note mutation/deletion capabilities explicit without conflating the note steward with individual todo assignees.
@@ -166,7 +113,7 @@ Last reviewed: 2026-08-03
   Title: Personal responsibility views and agent work queues
   Status: P2 - responsibility discovery
   Rationale: Add project and cross-project views plus query contracts for assigned to me, owned by me, unassigned, inactive owner, recently changed, and followed work across tasks, meeting todos, meeting notes, context, epics, and roadmap. Provide an agent-safe assigned-work API so accountable work is discoverable instead of requiring full-project scans.
-  Dependencies: TASK-330, TASK-337, TASK-341, TASK-342, TASK-343, TASK-344
+  Dependencies: TASK-330, TASK-337, TASK-356, TASK-342, TASK-343, TASK-344
 - ID: TASK-347
   Title: Collaboration notification preferences and follow events
   Status: P2 - relevant accountability notifications
@@ -227,6 +174,60 @@ Last reviewed: 2026-08-03
   Rationale: Add user accounts, persistent sessions, and modern authentication UX aligned with architecture decision.
   Dependencies: TASK-048, TASK-058, TASK-059
 ## Completed
+- ID: TASK-354
+  Title: Sidebar todo count - active and overdue project awareness
+  Status: Done (2026-08-05, merged via PR #416; superseded PR #410)
+  Rationale: Added an authorization-safe active and overdue summary to the project Todos navigation, kept it current after local and remote activity, and restored the shared seven-day overdue policy.
+  Dependencies: TASK-316, TASK-332
+  Brief: `tasks/task-354-sidebar-todo-count.md`
+- ID: TASK-355
+  Title: Meeting-todo overdue grace experiment
+  Status: Reverted (2026-08-05, PR #414 reverted by PR #416)
+  Rationale: The temporary 24-hour grace policy was removed; the retained consistency work keeps every runtime consumer on the shared seven-day threshold and precise rolling cutoff.
+  Dependencies: TASK-098, TASK-227, TASK-268, TASK-314, TASK-316, TASK-354
+  Brief: `tasks/task-355-meeting-todo-overdue-grace.md`
+- ID: TASK-341
+  Title: Related-task picker scroll fix - scrollbar visible but list does not move
+  Status: Done (2026-08-05, merged via PR #415)
+  Rationale: Kept the portaled candidate list inside the dialog scroll-lock boundary and separated pointer hover from keyboard activation so native wheel and trackpad scrolling work predictably.
+  Dependencies: TASK-076, TASK-133, TASK-337, TASK-352
+  Brief: `tasks/task-341-related-task-scroll.md`
+- ID: TASK-353
+  Title: Movable meeting-todos panel - compact bottom-right project entry
+  Status: Done (2026-08-05, merged via PR #411)
+  Rationale: Replaced the expanded quick surface with a compact Todos entry and accessible modeless panel that supports bounded pointer and keyboard movement while leaving the project usable.
+  Dependencies: TASK-098, TASK-316, TASK-321, TASK-322, TASK-330, TASK-332
+  Brief: `tasks/task-353-movable-meeting-todos-modal.md`
+- ID: TASK-335
+  Title: Compact epic detail disclosure
+  Status: Done (2026-08-04, merged via PR #403)
+  Rationale: Preserved compact epic cards and the desktop grid while exposing descriptions and linked tasks through independent accessible disclosures.
+  Dependencies: TASK-100, TASK-108, TASK-133, TASK-270
+  Brief: `tasks/task-335-expanded-epic-presentation.md`
+- ID: TASK-352
+  Title: Related-task picker presentation - readable IDs, titles, and status colors
+  Status: Done (2026-08-03, merged via PR #404)
+  Rationale: Gave related-task candidates predictable reference, title, and status roles while preserving search, keyboard navigation, scrolling, and selection behavior.
+  Dependencies: TASK-133, TASK-350, TASK-351
+  Brief: `tasks/task-352-related-task-picker-presentation.md`
+- ID: TASK-351
+  Title: User-facing task IDs - stable references in task details and relationship search
+  Status: Done (2026-07-31, merged via PR #402)
+  Rationale: Added stable friendly task references to task details and related-task search without exposing internal database IDs.
+  Dependencies: TASK-076, TASK-133
+  Brief: `tasks/task-351-user-facing-task-ids.md`
+- ID: TASK-350
+  Title: Complete related-task candidate list - investigate missing and non-scrollable tasks
+  Status: Done (2026-07-30, merged via PR #400)
+  Rationale: Made the full authorized related-task candidate set searchable, keyboard reachable, and scrollable without broadening eligibility.
+  Dependencies: TASK-076, TASK-133, TASK-321
+  Brief: `tasks/task-350-related-task-picker.md`
+- ID: TASK-349
+  Title: Bilateral related-task relationships - keep both task directions consistent
+  Status: Done (2026-07-30, merged via PR #399)
+  Rationale: Made canonical related-task relationships visible and removable from either task direction while preserving project scope and duplicate-free mutations.
+  Dependencies: TASK-076, TASK-118
+  Brief: `tasks/task-349-bilateral-related-task-relationships.md`
 - ID: TASK-332
   Title: Mobile meeting-todo navigation - project-scoped Todos destination
   Status: Done (2026-07-30, merged via PR #394)
