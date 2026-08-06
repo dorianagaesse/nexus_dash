@@ -421,9 +421,12 @@ export async function updateCalendarPreferences(input: {
   writeSourceId?: string | null;
 }): Promise<void> {
   await withActorRlsContext(input.userId, async (db) => {
-    const sources = await db.calendarSource.findMany({
-      where: { userId: input.userId, isAvailable: true },
-    });
+    const [sources, existingPreference] = await Promise.all([
+      db.calendarSource.findMany({
+        where: { userId: input.userId, isAvailable: true },
+      }),
+      db.calendarPreference.findUnique({ where: { userId: input.userId } }),
+    ]);
     const ownedIds = new Set(sources.map((source) => source.id));
     if (input.selectedSourceIds?.some((id) => !ownedIds.has(id))) {
       throw new Error("calendar-source-not-found");
@@ -433,6 +436,17 @@ export async function updateCalendarPreferences(input: {
       : null;
     if (input.writeSourceId && (!writeSource || !isWritableCalendarRole(writeSource.accessRole))) {
       throw new Error("calendar-source-not-writable");
+    }
+    const effectiveWriteSourceId =
+      input.writeSourceId !== undefined
+        ? input.writeSourceId
+        : existingPreference?.writeSourceId ?? null;
+    if (
+      input.selectedSourceIds &&
+      effectiveWriteSourceId &&
+      !input.selectedSourceIds.includes(effectiveWriteSourceId)
+    ) {
+      throw new Error("calendar-write-source-not-selected");
     }
     if (input.selectedSourceIds) {
       await db.calendarSource.updateMany({

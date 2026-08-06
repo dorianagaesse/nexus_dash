@@ -139,6 +139,22 @@ describe("calendar connection service", () => {
     ).rejects.toThrow("calendar-source-not-found");
   });
 
+  test("requires the writable target to remain selected", async () => {
+    prismaMock.calendarSource.findMany.mockResolvedValueOnce([
+      { id: "source-write", connectionId: "connection-1", accessRole: "owner" },
+      { id: "source-read", connectionId: "connection-1", accessRole: "reader" },
+    ]);
+    prismaMock.calendarPreference.findUnique.mockResolvedValueOnce({
+      writeSourceId: "source-write",
+    });
+    await expect(
+      updateCalendarPreferences({
+        userId: "user-1",
+        selectedSourceIds: ["source-read"],
+      })
+    ).rejects.toThrow("calendar-write-source-not-selected");
+  });
+
   test("adopts a legacy identity in place on the next successful OAuth callback", async () => {
     prismaMock.calendarConnection.findFirst.mockResolvedValueOnce({
       id: "legacy-connection",
