@@ -173,8 +173,9 @@ If Google OAuth is enabled:
 
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` must
   be configured together.
-- `GOOGLE_TOKEN_ENCRYPTION_KEY` must be configured for environments running
-  production runtime checks (production and preview in this project).
+- `GOOGLE_TOKEN_ENCRYPTION_KEY` must be configured in every non-test
+  environment where Google Calendar OAuth is enabled, including local
+  development, preview, and production.
 
 ## Sensitivity Policy
 
@@ -256,6 +257,10 @@ Important:
 - Keep `GOOGLE_TOKEN_ENCRYPTION_KEY` stable per environment. Rotating it
   requires token re-authorization because existing encrypted tokens may become
   unreadable.
+- Disconnect marks the current user's credential revoked before contacting
+  Google, attempts refresh-token revocation, and then removes the local row.
+  When Google cannot confirm revocation, direct the user to Google Account
+  permissions; NexusDash still deletes its local token copy.
 - Keep `AGENT_TOKEN_SIGNING_SECRET` stable per environment. Rotating it
   invalidates all outstanding short-lived bearer tokens immediately and should
   be coordinated with any active agent clients.

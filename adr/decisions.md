@@ -16,6 +16,22 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-08-06 - Make Google Calendar disconnect fail-closed and user-owned
+- Status: Accepted
+- Context: The existing Calendar credential is user-scoped, but its revocation
+  marker was not enforced and the settings DELETE route only reset the target
+  calendar instead of terminating access.
+- Decision: Treat revoked credentials as unusable, require encrypted token
+  storage whenever Calendar OAuth is configured outside tests, and disconnect
+  by marking the signed-in user's row revoked before attempting Google token
+  revocation and permanently deleting the local credential.
+- Consequences: A failed provider call cannot reactivate local Calendar access;
+  users receive a safe Google Account recovery path when upstream revocation is
+  unconfirmed. PATCH remains the target-reset contract, while DELETE now means
+  disconnect.
+- Links: `tasks/task-326-google-calendar-connection-ownership.md`,
+  `docs/audits/task-325-google-calendar-integration-audit.md`
+
 ## 2026-07-30 - Keep meeting todos within current-project navigation
 - Status: Accepted; supersedes the cross-project portion of the 2026-07-27
   TASK-332 decision.

@@ -5,6 +5,8 @@ import {
 import {
   decryptGoogleToken,
   encryptGoogleToken,
+  hasGoogleTokenEncryptionKey,
+  isEncryptedGoogleToken,
 } from "@/lib/services/google-token-crypto";
 import { withActorRlsContext } from "@/lib/services/rls-context";
 
@@ -61,23 +63,43 @@ export async function findGoogleCalendarCredential(
     return null;
   }
 
-  const credential = await withActorRlsContext(normalizedUserId, (db) =>
-    db.googleCalendarCredential.findUnique({
+  return withActorRlsContext(normalizedUserId, async (db) => {
+    const credential = await db.googleCalendarCredential.findUnique({
       where: { userId: normalizedUserId },
-    })
-  );
+    });
 
-  if (!credential) {
-    return null;
-  }
+    if (!credential || credential.revokedAt) {
+      return null;
+    }
 
-  return {
-    ...credential,
-    accessToken: credential.accessToken
+    const accessToken = credential.accessToken
       ? decryptGoogleToken(credential.accessToken)
-      : null,
-    refreshToken: decryptGoogleToken(credential.refreshToken),
-  };
+      : null;
+    const refreshToken = decryptGoogleToken(credential.refreshToken);
+
+    if (
+      hasGoogleTokenEncryptionKey() &&
+      ((credential.accessToken && !isEncryptedGoogleToken(credential.accessToken)) ||
+        !isEncryptedGoogleToken(credential.refreshToken))
+    ) {
+      await db.googleCalendarCredential.updateMany({
+        where: {
+          userId: normalizedUserId,
+          revokedAt: null,
+        },
+        data: {
+          accessToken: accessToken ? encryptGoogleToken(accessToken) : null,
+          refreshToken: encryptGoogleToken(refreshToken),
+        },
+      });
+    }
+
+    return {
+      ...credential,
+      accessToken,
+      refreshToken,
+    };
+  });
 }
 
 export async function findGoogleCalendarCredentialCalendarId(userId: string) {
@@ -89,11 +111,11 @@ export async function findGoogleCalendarCredentialCalendarId(userId: string) {
   const credential = await withActorRlsContext(normalizedUserId, (db) =>
     db.googleCalendarCredential.findUnique({
       where: { userId: normalizedUserId },
-      select: { calendarId: true },
+      select: { calendarId: true, revokedAt: true },
     })
   );
 
-  if (!credential) {
+  if (!credential || credential.revokedAt) {
     return null;
   }
 
@@ -104,9 +126,9 @@ export async function updateGoogleCalendarCredentialTokens(
   input: GoogleCalendarTokenUpdateInput
 ) {
   const normalizedUserId = normalizeUserId(input.userId);
-  return withActorRlsContext(normalizedUserId, (db) =>
-    db.googleCalendarCredential.update({
-      where: { userId: normalizedUserId },
+  return withActorRlsContext(normalizedUserId, async (db) => {
+    const result = await db.googleCalendarCredential.updateMany({
+      where: { userId: normalizedUserId, revokedAt: null },
       data: {
         accessToken: encryptGoogleToken(input.accessToken),
         refreshToken: encryptGoogleToken(input.refreshToken),
@@ -114,8 +136,12 @@ export async function updateGoogleCalendarCredentialTokens(
         scope: input.scope,
         expiresAt: createExpiryDate(input.expiresIn),
       },
-    })
-  );
+    });
+
+    if (result.count === 0) {
+      throw new Error("calendar-not-connected");
+    }
+  });
 }
 
 export async function updateGoogleCalendarCredentialCalendarId(
@@ -124,7 +150,7 @@ export async function updateGoogleCalendarCredentialCalendarId(
   const normalizedUserId = normalizeUserId(input.userId);
   const result = await withActorRlsContext(normalizedUserId, (db) =>
     db.googleCalendarCredential.updateMany({
-      where: { userId: normalizedUserId },
+      where: { userId: normalizedUserId, revokedAt: null },
       data: {
         calendarId: normalizeGoogleCalendarId(input.calendarId),
       },
@@ -132,6 +158,48 @@ export async function updateGoogleCalendarCredentialCalendarId(
   );
 
   return result.count > 0;
+}
+
+export async function markGoogleCalendarCredentialRevokedForDisconnect(
+  userId: string
+): Promise<{ refreshToken: string } | null> {
+  const normalizedUserId = normalizeUserId(userId);
+  if (!normalizedUserId) {
+    return null;
+  }
+
+  return withActorRlsContext(normalizedUserId, async (db) => {
+    const credential = await db.googleCalendarCredential.findUnique({
+      where: { userId: normalizedUserId },
+      select: { refreshToken: true, revokedAt: true },
+    });
+
+    if (!credential) {
+      return null;
+    }
+
+    if (!credential.revokedAt) {
+      await db.googleCalendarCredential.updateMany({
+        where: { userId: normalizedUserId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
+
+    return { refreshToken: decryptGoogleToken(credential.refreshToken) };
+  });
+}
+
+export async function deleteGoogleCalendarCredential(userId: string): Promise<void> {
+  const normalizedUserId = normalizeUserId(userId);
+  if (!normalizedUserId) {
+    return;
+  }
+
+  await withActorRlsContext(normalizedUserId, (db) =>
+    db.googleCalendarCredential.deleteMany({
+      where: { userId: normalizedUserId },
+    })
+  );
 }
 
 export async function upsertGoogleCalendarCredentialTokens(

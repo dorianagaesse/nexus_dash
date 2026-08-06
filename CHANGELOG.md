@@ -8,6 +8,20 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.38.0 - 2026-08-16
+
+- Made Google Calendar credential reads, refreshes, target updates, and project
+  connection status fail closed for revoked credentials.
+- Added a true authenticated-user disconnect that blocks local use first,
+  attempts Google token revocation, permanently removes stored tokens, and
+  provides a recovery warning when upstream revocation is unconfirmed.
+- Required encrypted Calendar token storage whenever OAuth is configured
+  outside tests and added lazy encryption for legacy plaintext local rows.
+- Added an accessible Settings confirmation flow and repaired the project
+  Calendar summary request by including its project authorization context.
+- Expanded service, API, component, environment, and real PostgreSQL RLS
+  coverage for user-owned Calendar credentials and lifecycle failures.
+
 ## v0.37.1 - 2026-08-20
 
 - Fixed Vercel Preview authentication origins so callbacks and post-auth
@@ -35,7 +49,6 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Added schema constraints, backfill migration, service/API/component tests, and
   responsive identity presentation across the meeting dialog, quick panel, and
   project-wide Todos destination.
-
 ## v0.36.0 - 2026-08-05
 
 - Added an exact active meeting-todo count to the current project's `Todos`
