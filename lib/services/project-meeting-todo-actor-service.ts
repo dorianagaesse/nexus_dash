@@ -3,6 +3,7 @@ import type {
   MeetingTodoActorReference,
   MeetingTodoActorSummary,
 } from "@/lib/meeting-todo-actor";
+import { getHistoricalMeetingTodoActorId } from "@/lib/meeting-todo-actor";
 import {
   buildProjectPrincipalWhere,
   requireProjectRole,
@@ -131,7 +132,12 @@ export function mapStoredMeetingTodoActor(input: {
     }
     return {
       kind: "human",
-      id,
+      id:
+        id ||
+        getHistoricalMeetingTodoActorId({
+          kind: "human",
+          displayNameSnapshot: snapshot,
+        }),
       displayName: snapshot || "Former project member",
       usernameTag: null,
       avatarSeed: null,
@@ -145,7 +151,12 @@ export function mapStoredMeetingTodoActor(input: {
   }
   return {
     kind: "agent",
-    id,
+    id:
+      id ||
+      getHistoricalMeetingTodoActorId({
+        kind: "agent",
+        displayNameSnapshot: snapshot,
+      }),
     displayName: snapshot || "Former project agent",
     usernameTag: null,
     avatarSeed: null,

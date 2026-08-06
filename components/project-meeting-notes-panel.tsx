@@ -1175,9 +1175,13 @@ export function ProjectMeetingNotesPanel({
           id: action.persisted ? action.id : null,
           content: action.content.trim(),
           completedAt: action.completedAt,
-          assignee: action.assignee
-            ? { kind: action.assignee.kind, id: action.assignee.id }
-            : null,
+          ...(action.assignee?.isAssignable === false
+            ? {}
+            : {
+                assignee: action.assignee
+                  ? { kind: action.assignee.kind, id: action.assignee.id }
+                  : null,
+              }),
         }))
         .filter((action) => action.content.length > 0),
     };

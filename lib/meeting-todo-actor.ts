@@ -24,6 +24,15 @@ export function getMeetingTodoActorKey(
   return `${actor.kind}:${actor.id}`;
 }
 
+export function getHistoricalMeetingTodoActorId(input: {
+  kind: MeetingTodoActorKind;
+  displayNameSnapshot: string;
+}): string {
+  return `historical-${input.kind}-${encodeURIComponent(
+    input.displayNameSnapshot.trim()
+  )}`;
+}
+
 export function isMeetingTodoActorReference(
   value: unknown
 ): value is MeetingTodoActorReference {

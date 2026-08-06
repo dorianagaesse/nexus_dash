@@ -20,8 +20,12 @@ Use it for important implementation milestones, blockers, validation runs, and r
   configured database and a disposable local PostgreSQL database. The real
   least-privilege RLS matrix passed after provisioning its `NOBYPASSRLS` runtime
   role.
+- Addressed the initial Copilot review by preserving inactive assignments during
+  unrelated note edits, assigning stable delimiter-safe IDs to deleted actor
+  snapshots, and restoring the feature-PR documentation boundary for
+  `README.md` and `project.md`.
 - Validation passed: ESLint; Prisma format, validation, generation, and migrate
-  deploy; RLS inventory and real isolation matrix; 1,027 tests across 146 files
+  deploy; RLS inventory and real isolation matrix; 1,029 tests across 147 files
   with two intentional skips; coverage at 91.37% statements, 81.33% branches,
   92.20% functions, and 91.88% lines; production build; and the focused
   Playwright meeting-todo flow in 35.1 seconds.
