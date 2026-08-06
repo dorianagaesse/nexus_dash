@@ -2,7 +2,7 @@
 
 ## Status
 
-Pending after TASK-325.
+Implementation complete (2026-08-06); ready for stacked review after TASK-325.
 
 ## Objective
 

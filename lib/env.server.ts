@@ -786,12 +786,12 @@ export function validateServerRuntimeConfig(
   }
 
   if (
-    runtimeEnvironment === "production" &&
+    runtimeEnvironment !== "test" &&
     googleClientId &&
     !getOptionalServerEnv("GOOGLE_TOKEN_ENCRYPTION_KEY")
   ) {
     throw new Error(
-      "GOOGLE_TOKEN_ENCRYPTION_KEY is required in production when Google Calendar OAuth is enabled."
+      "GOOGLE_TOKEN_ENCRYPTION_KEY is required when Google Calendar OAuth is enabled outside tests."
     );
   }
 

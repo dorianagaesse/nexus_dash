@@ -9,6 +9,7 @@ import {
   normalizeReturnToPath,
   parseTokenResponse,
   refreshAccessToken,
+  revokeGoogleToken,
   resolveGoogleOAuthRedirectUri,
 } from "@/lib/google-calendar";
 
@@ -142,5 +143,17 @@ describe("google-calendar", () => {
     );
 
     await expect(refreshAccessToken("bad-refresh")).rejects.toThrow("invalid_grant");
+  });
+
+  test("revokes a refresh token through Google's server endpoint", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(null, { status: 200 }));
+
+    await expect(revokeGoogleToken("refresh-token")).resolves.toBe(true);
+    const request = fetchSpy.mock.calls[0];
+    expect(request[0]).toBe("https://oauth2.googleapis.com/revoke");
+    expect(request[1]).toMatchObject({ method: "POST" });
+    expect((request[1]?.body as URLSearchParams).get("token")).toBe("refresh-token");
   });
 });
