@@ -17,9 +17,7 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
   - Context cards (create/edit/delete + attachments)
   - Meeting notes with searchable project-scoped history, task-style labels,
     label filters, structured participants, preparation inputs, meeting outputs,
-    accountable todos with human/agent assignees, durable creator/completer
-    provenance, responsibility filters, overdue highlights, inactive-assignee
-    handoff states, meeting state, and archived done notes
+    todo tracking, overdue highlights, state, and archived done notes
   - Roadmap event-first milestone lanes with grouped child events, drag-and-drop regrouping, and target-date planning
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`) with reorder, deadline/comment visibility, task epic links, and task detail modal
   - Project epics registry with dedicated epic CRUD, automatic status/progress, and linked-task rollups
@@ -91,10 +89,8 @@ Current schema includes:
   `ProjectMeetingNoteAction`, `TaskBlockedFollowUp`. Meeting notes store
   task-style `labelsJson` and a simple state (`prepared`,
   `actions_in_progress`, `done`) so done notes can be shown in an archived
-  list. Meeting actions preserve human/agent creator, optional assignee, and
-  completion actor foreign keys plus durable display snapshots; open todos are
-  considered overdue seven days after the meeting date for project-page
-  highlighting and reminders target active human assignees only.
+  list; open todos are considered overdue seven days after the meeting date for
+  project-page highlighting.
 - Collaboration on tasks: `TaskComment` with optional agent credential
   attribution metadata for agent-authored comments
 - Attachments: `TaskAttachment`, `ResourceAttachment` with `uploadedByUserId`
@@ -122,8 +118,7 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 ## 6. Known Gaps (Intentionally Pending)
 
-- Agent v1 intentionally excludes calendar access and MCP-based tool transport;
-  task-scoped credentials can read and update meeting-todo accountability.
+- Agent v1 intentionally excludes calendar access and MCP-based tool transport.
 - App-managed invite email delivery is not implemented yet.
 - Broader security hardening and verification phases remain pending.
 
