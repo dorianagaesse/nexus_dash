@@ -3,6 +3,20 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-06 - TASK-325 Google Calendar integration audit completed
+
+- Audited Google Calendar OAuth, credential storage and RLS, token lifecycle,
+  account settings, project surfaces, event CRUD, tests, and deployment at
+  baseline `a632a19`.
+- Confirmed the current-user ownership boundary is sound, while identifying
+  missing disconnect/revocation enforcement, a broken summary request,
+  optional local token encryption, unverified calendar IDs, singular connection
+  constraints, private-project UX ambiguity, and provider/RLS test gaps.
+- Published the audit and decision-complete TASK-326/TASK-327 briefs. TASK-348
+  remains the owner of personal-calendar versus shared-project scheduling.
+- Validation: focused Calendar suite passed 9 files / 76 tests; `npm run
+  rls:check` passed; documentation diff checks passed.
+
 # 2026-08-06 - Execution backlog reconciled after recent merges
 
 - Audited the execution queue against first-parent Git history and GitHub merge
