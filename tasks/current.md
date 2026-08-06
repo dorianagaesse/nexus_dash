@@ -2,9 +2,9 @@
 
 ## Status
 
-Implementation complete on `feature/task-327-calendar-connections`, stacked
-after TASK-326. Ready for review and preview validation; interactive two-account
-Google acceptance requires authorized test-account access.
+Implementation and explicit-ref preview validation complete on
+`feature/task-327-calendar-connections`, stacked after TASK-326. Interactive
+two-account Google acceptance requires authorized test-account access.
 
 ## Objective
 
