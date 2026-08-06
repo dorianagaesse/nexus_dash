@@ -8,6 +8,21 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.39.0 - 2026-08-06
+
+- Replaced the singular Google credential with user-owned Calendar connections,
+  discovered sources, and one account-wide writable target while preserving
+  existing encrypted tokens and target selection.
+- Added multiple Google accounts, CalendarList discovery, safe add/reconnect/
+  refresh/disconnect flows, source selection, and read-only enforcement.
+- Aggregated selected calendars with bounded concurrency, pagination, one
+  transient read retry, deterministic ordering, truncation signals, and
+  per-source partial-failure warnings.
+- Added source-aware project event creation and origin-locked mutations plus a
+  responsive, keyboard-accessible Settings management surface.
+- Expanded composite ownership constraints, forced direct-user RLS, migration,
+  provider, API, UI, and real PostgreSQL isolation coverage.
+
 ## v0.38.0 - 2026-08-16
 
 - Made Google Calendar credential reads, refreshes, target updates, and project

@@ -22,6 +22,19 @@ export interface CalendarEventItem {
   description: string | null;
   htmlLink: string | null;
   status: string;
+  calendarSourceId: string;
+  connectionId: string;
+  calendarName: string;
+  calendarColor: string | null;
+  writable: boolean;
+}
+
+export interface CalendarSourceOption {
+  id: string;
+  connectionId: string;
+  name: string;
+  color: string | null;
+  writable: boolean;
 }
 
 export interface CalendarEventsResponse {
@@ -32,6 +45,9 @@ export interface CalendarEventsResponse {
   timeMax?: string;
   syncedAt?: string;
   events?: CalendarEventItem[];
+  sources?: CalendarSourceOption[];
+  warnings?: Array<{ calendarSourceId: string; error: string }>;
+  truncated?: boolean;
   error?: string;
 }
 

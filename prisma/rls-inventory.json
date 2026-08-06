@@ -205,11 +205,25 @@
       "rationale": "Tenant ownership is inherited through Task."
     },
     {
-      "model": "GoogleCalendarCredential",
+      "model": "CalendarConnection",
       "classification": "user-scoped-direct-rls",
       "enforcement": "rls",
-      "owner": "Google Calendar credential service",
-      "rationale": "Each row is accessible only to its userId."
+      "owner": "Calendar connection service",
+      "rationale": "Each provider connection and its tokens are accessible only to its userId."
+    },
+    {
+      "model": "CalendarSource",
+      "classification": "user-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "Calendar connection service",
+      "rationale": "Each discovered provider calendar is directly constrained to its user and connection owner."
+    },
+    {
+      "model": "CalendarPreference",
+      "classification": "user-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "Calendar connection service",
+      "rationale": "Default connection and write target are account-wide preferences owned by one user."
     },
     {
       "model": "ApiCredential",
