@@ -46,7 +46,11 @@ export interface CalendarEventsResponse {
   syncedAt?: string;
   events?: CalendarEventItem[];
   sources?: CalendarSourceOption[];
-  warnings?: Array<{ calendarSourceId: string; error: string }>;
+  warnings?: Array<{
+    calendarSourceId: string;
+    connectionId: string;
+    error: string;
+  }>;
   truncated?: boolean;
   error?: string;
 }
