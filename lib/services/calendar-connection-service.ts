@@ -361,8 +361,8 @@ export async function ensureFreshAccessToken(
 export async function getSelectedCalendarSourceContexts(
   userId: string
 ): Promise<CalendarSourceContext[]> {
-  const rows = await withActorRlsContext(userId, (db) =>
-    db.calendarSource.findMany({
+  return withActorRlsContext(userId, async (db) => {
+    const rows = await db.calendarSource.findMany({
       where: {
         userId,
         isSelected: true,
@@ -371,17 +371,13 @@ export async function getSelectedCalendarSourceContexts(
       },
       include: { connection: true },
       orderBy: [{ name: "asc" }, { id: "asc" }],
-    })
-  );
-  return Promise.all(
-    rows.map(async (row) => ({
+    });
+    return Promise.all(rows.map(async (row) => ({
       source: row,
-      connection: await withActorRlsContext(userId, (db) =>
-        decryptAndUpgrade(db, row.connection)
-      ),
+      connection: await decryptAndUpgrade(db, row.connection),
       writable: isWritableCalendarRole(row.accessRole),
-    }))
-  );
+    })));
+  });
 }
 
 export async function getWritableCalendarSourceContext(
