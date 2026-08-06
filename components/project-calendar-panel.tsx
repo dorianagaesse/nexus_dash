@@ -27,6 +27,7 @@ import {
   toDateInputValue,
   type CalendarEventItem,
   type CalendarEventsResponse,
+  type CalendarSourceOption,
 } from "@/components/project-calendar-panel-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,6 +54,9 @@ export function ProjectCalendarPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [events, setEvents] = useState<CalendarEventItem[]>([]);
+  const [calendarSources, setCalendarSources] = useState<CalendarSourceOption[]>([]);
+  const [eventCalendarSourceId, setEventCalendarSourceId] = useState("");
+  const [sourceWarning, setSourceWarning] = useState<string | null>(null);
   const [syncedAt, setSyncedAt] = useState<string | null>(null);
   const [rangeStart, setRangeStart] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +95,9 @@ export function ProjectCalendarPanel({
     setEventEndDateTime(defaults.end);
     setEventLocation("");
     setEventDescription("");
+    setEventCalendarSourceId(
+      calendarSources.find((source) => source.writable)?.id ?? ""
+    );
     setEditingEventId(null);
     setEventFormError(null);
   };
@@ -106,7 +113,7 @@ export function ProjectCalendarPanel({
   };
 
   const openEditEventModal = (event: CalendarEventItem) => {
-    if (!canEdit) {
+    if (!canEdit || !event.writable) {
       return;
     }
 
@@ -121,6 +128,7 @@ export function ProjectCalendarPanel({
     setEventEndDateTime(parsed.endDateTime);
     setEventLocation(parsed.location);
     setEventDescription(parsed.description);
+    setEventCalendarSourceId(event.calendarSourceId);
     setEventFormError(null);
     setIsEventModalOpen(true);
   };
@@ -167,6 +175,7 @@ export function ProjectCalendarPanel({
       if (response.status === 401) {
         setIsConnected(false);
         setEvents([]);
+        setCalendarSources([]);
         setSyncedAt(null);
         return;
       }
@@ -177,6 +186,19 @@ export function ProjectCalendarPanel({
 
       setIsConnected(payload.connected);
       setEvents(payload.events ?? []);
+      setCalendarSources(payload.sources ?? []);
+      setEventCalendarSourceId((current) =>
+        current && (payload.sources ?? []).some((source) => source.id === current)
+          ? current
+          : (payload.sources ?? []).find((source) => source.writable)?.id ?? ""
+      );
+      setSourceWarning(
+        payload.truncated
+          ? "Some calendars reached the 1,000-event display limit."
+          : payload.warnings?.length
+            ? `${payload.warnings.length} calendar source${payload.warnings.length === 1 ? "" : "s"} could not be loaded.`
+            : null
+      );
       setSyncedAt(payload.syncedAt ?? null);
       setRangeStart(payload.timeMin ?? null);
     } catch (fetchError) {
@@ -242,6 +264,7 @@ export function ProjectCalendarPanel({
           end: endValue,
           location: eventLocation.trim(),
           description: eventDescription.trim(),
+          calendarSourceId: eventCalendarSourceId || undefined,
         }),
       });
 
@@ -286,7 +309,7 @@ export function ProjectCalendarPanel({
 
     try {
       const response = await fetch(
-        `/api/calendar/events/${editingEventId}?projectId=${encodeURIComponent(projectId)}`,
+        `/api/calendar/events/${editingEventId}?projectId=${encodeURIComponent(projectId)}&calendarSourceId=${encodeURIComponent(eventCalendarSourceId)}`,
         {
           method: "DELETE",
         }
@@ -387,6 +410,11 @@ export function ProjectCalendarPanel({
 
             {!isLoading && isConnected === true ? (
               <>
+                {sourceWarning ? (
+                  <p role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+                    {sourceWarning}
+                  </p>
+                ) : null}
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
                   <p className="text-xs text-muted-foreground">
                     {syncedAt ? `Synced ${new Date(syncedAt).toLocaleString()}` : "Connected"}
@@ -467,6 +495,8 @@ export function ProjectCalendarPanel({
         eventEndDateTime={eventEndDateTime}
         eventLocation={eventLocation}
         eventDescription={eventDescription}
+        calendarSources={calendarSources}
+        eventCalendarSourceId={eventCalendarSourceId}
         eventFormError={eventFormError}
         connectUrl={connectUrl}
         onClose={closeEventModal}
@@ -480,6 +510,7 @@ export function ProjectCalendarPanel({
         onEventEndDateTimeChange={setEventEndDateTime}
         onEventLocationChange={setEventLocation}
         onEventDescriptionChange={setEventDescription}
+        onEventCalendarSourceIdChange={setEventCalendarSourceId}
       />
     </>
   );

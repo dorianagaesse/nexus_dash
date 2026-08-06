@@ -513,11 +513,9 @@ export async function getProjectSummaryById(
           },
         },
       }),
-      db.googleCalendarCredential.findUnique({
-        where: { userId: normalizedActorUserId },
-        select: {
-          revokedAt: true,
-        },
+      db.calendarConnection.findFirst({
+        where: { userId: normalizedActorUserId, revokedAt: null },
+        select: { id: true },
       }),
     ]);
 
@@ -534,7 +532,7 @@ export async function getProjectSummaryById(
         contextCards,
         meetingNotes,
         attachmentCount: taskAttachmentCount + contextAttachmentCount,
-        isCalendarConnected: calendarCredential?.revokedAt == null && Boolean(calendarCredential),
+        isCalendarConnected: Boolean(calendarCredential),
       },
     };
   }) as Promise<ProjectSummaryWithStatsRecord | null>;

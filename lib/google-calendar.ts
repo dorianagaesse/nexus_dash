@@ -9,15 +9,24 @@ const GOOGLE_REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke";
 export const GOOGLE_OAUTH_CALLBACK_PATH = "/api/auth/callback/google";
 export const GOOGLE_CALENDAR_SCOPE_EVENTS =
   "https://www.googleapis.com/auth/calendar.events";
+export const GOOGLE_CALENDAR_LIST_SCOPE_READONLY =
+  "https://www.googleapis.com/auth/calendar.calendarlist.readonly";
 export const GOOGLE_CALENDAR_SCOPE_READONLY =
   "https://www.googleapis.com/auth/calendar.readonly";
 export const GOOGLE_CALENDAR_SCOPE_FULL =
   "https://www.googleapis.com/auth/calendar";
-const GOOGLE_CALENDAR_SCOPE = GOOGLE_CALENDAR_SCOPE_EVENTS;
+const GOOGLE_CALENDAR_SCOPES = [
+  "openid",
+  "email",
+  GOOGLE_CALENDAR_SCOPE_EVENTS,
+  GOOGLE_CALENDAR_LIST_SCOPE_READONLY,
+].join(" ");
 
 export const GOOGLE_OAUTH_STATE_COOKIE = "nexusdash_google_oauth_state";
 export const GOOGLE_OAUTH_RETURN_TO_COOKIE = "nexusdash_google_oauth_return_to";
 export const GOOGLE_OAUTH_ACTOR_COOKIE = "nexusdash_google_oauth_actor";
+export const GOOGLE_OAUTH_INTENT_COOKIE = "nexusdash_google_oauth_intent";
+export const GOOGLE_OAUTH_CONNECTION_COOKIE = "nexusdash_google_oauth_connection";
 export const DEFAULT_CALENDAR_EVENT_DAYS = 14;
 
 interface GoogleOAuthEnv {
@@ -94,7 +103,7 @@ export function buildGoogleOAuthUrl(state: string, redirectUri: string): string 
     access_type: "offline",
     prompt: "consent",
     include_granted_scopes: "true",
-    scope: GOOGLE_CALENDAR_SCOPE,
+    scope: GOOGLE_CALENDAR_SCOPES,
     state,
   });
 

@@ -31,8 +31,8 @@ const prismaMock = vi.hoisted(() => ({
   projectMeetingNote: {
     count: vi.fn(),
   },
-  googleCalendarCredential: {
-    findUnique: vi.fn(),
+  calendarConnection: {
+    findFirst: vi.fn(),
   },
 }));
 
@@ -107,8 +107,8 @@ describe("project-service", () => {
     prismaMock.projectMeetingNote.count.mockResolvedValueOnce(2);
     prismaMock.taskAttachment.count.mockResolvedValueOnce(3);
     prismaMock.resourceAttachment.count.mockResolvedValueOnce(3);
-    prismaMock.googleCalendarCredential.findUnique.mockResolvedValueOnce({
-      revokedAt: null,
+    prismaMock.calendarConnection.findFirst.mockResolvedValueOnce({
+      id: "connection-1",
     });
 
     const result = await getProjectSummaryById("project-1", actorUserId);
@@ -236,11 +236,9 @@ describe("project-service", () => {
         },
       },
     });
-    expect(prismaMock.googleCalendarCredential.findUnique).toHaveBeenCalledWith({
-      where: { userId: actorUserId },
-      select: {
-        revokedAt: true,
-      },
+    expect(prismaMock.calendarConnection.findFirst).toHaveBeenCalledWith({
+      where: { userId: actorUserId, revokedAt: null },
+      select: { id: true },
     });
   });
 
