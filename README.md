@@ -34,8 +34,7 @@ Implemented today:
   - Calendar panel (Google Calendar list/create/update/delete)
   - Task comments with agent-authored comment attribution through the project
     credential label and a shared agent avatar
-- Per-user Google Calendar connection, target setting, and revocation-aware
-  disconnect (`/account/settings`)
+- Per-user Google Calendar connection and calendar target setting (`/account/settings`)
 - Attachment storage abstraction:
   - `local` provider (filesystem)
   - `r2` provider (Cloudflare R2)
@@ -189,9 +188,7 @@ Environment access/validation is centralized in `lib/env.server.ts` and executed
   metadata. The user-facing app version does not include the commit SHA.
 - `APP_REPOSITORY_URL` is optional and defaults to the NexusDash GitHub
   repository.
-- Outside tests, when Google Calendar OAuth is enabled,
-  `GOOGLE_TOKEN_ENCRYPTION_KEY` is required. Legacy plaintext local tokens are
-  encrypted on their next authenticated read.
+- In production, when Google OAuth is enabled, `GOOGLE_TOKEN_ENCRYPTION_KEY` is required.
 - `AGENT_ACCESS_TOKEN_TTL_SECONDS` is optional, defaults to `600`, and must stay between `300` and `900`.
 - `GOOGLE_CALENDAR_ID` must be unset or `primary`.
 - `RESEND_FROM_EMAIL` defaults to `NexusDash <noreply@nexus-dash.app>` when unset.
