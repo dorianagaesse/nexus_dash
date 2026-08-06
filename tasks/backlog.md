@@ -47,7 +47,7 @@ Last reviewed: 2026-08-06
   Brief: `tasks/task-326-google-calendar-connection-ownership.md`
 - ID: TASK-327
   Title: Additional calendar connections - provider and multi-calendar expansion
-  Status: Next 8 - calendar connection expansion
+  Status: In review (2026-08-06; stacked after TASK-326)
   Rationale: Define and implement a scalable connection model beyond the current Google Calendar path, including additional Google accounts, selectable calendars, and future calendar providers, with clear per-user ownership, connection management, synchronization behavior, and consistent project-calendar UX.
   Dependencies: TASK-325, TASK-326
   Brief: `tasks/task-327-additional-calendar-connections.md`

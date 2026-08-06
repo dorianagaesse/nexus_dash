@@ -20,6 +20,7 @@ This folder contains architecture decision records.
 - `adr/task-056-data-platform-adr.md`
 - `adr/task-057-supabase-environment-strategy.md`
 - `adr/task-076-supabase-r2-google-calendar-boundaries.md`
+- `adr/task-327-calendar-connections.md`
 
 ## Usage Rule
 

@@ -67,7 +67,7 @@ export function CalendarWeekGrid({
               <div className="space-y-2">
                 {allDayEvents.map((event) => (
                   <MobileCalendarEventCard
-                    key={event.id}
+                    key={`${event.calendarSourceId}:${event.id}`}
                     event={event}
                     canEdit={canEdit}
                     label="All day"
@@ -77,7 +77,7 @@ export function CalendarWeekGrid({
                 ))}
                 {timedEvents.map((event) => (
                   <MobileCalendarEventCard
-                    key={event.id}
+                    key={`${event.calendarSourceId}:${event.id}`}
                     event={event}
                     canEdit={canEdit}
                     label={formatEventTimeLabel(event)}
@@ -121,7 +121,7 @@ export function CalendarWeekGrid({
                     ) : (
                       allDayEvents.map((event) => (
                         <DesktopAllDayEventChip
-                          key={event.id}
+                          key={`${event.calendarSourceId}:${event.id}`}
                           event={event}
                           canEdit={canEdit}
                           onOpenGoogleEvent={onOpenGoogleEvent}
@@ -208,7 +208,7 @@ export function CalendarWeekGrid({
 
                     return (
                       <article
-                        key={event.id}
+                        key={`${event.calendarSourceId}:${event.id}`}
                         title={eventTitle}
                         className={cn(
                           "absolute left-1 right-1 overflow-hidden rounded-md border border-sky-500/40 bg-sky-500/10 px-1.5 py-1",
@@ -236,7 +236,7 @@ export function CalendarWeekGrid({
                             <span className="shrink-0 text-[10px] text-muted-foreground">
                               {formatEventStartTimeLabel(event)}
                             </span>
-                            {canEdit ? (
+                            {canEdit && event.writable ? (
                               <button
                                 type="button"
                                 onClick={(mouseEvent) => {
@@ -259,8 +259,11 @@ export function CalendarWeekGrid({
                               <p className="truncate text-[10px] text-muted-foreground">
                                 {formatEventTimeLabel(event)}
                               </p>
+                              <p className="truncate text-[10px] text-muted-foreground">
+                                {event.calendarName}
+                              </p>
                             </div>
-                            {canEdit ? (
+                            {canEdit && event.writable ? (
                               <button
                                 type="button"
                                 onClick={(mouseEvent) => {
@@ -322,7 +325,7 @@ function DesktopAllDayEventChip({
       <p className="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground">
         {event.summary}
       </p>
-      {canEdit ? (
+      {canEdit && event.writable ? (
         <button
           type="button"
           onClick={(mouseEvent) => {
@@ -381,7 +384,7 @@ function MobileCalendarEventCard({
             <p className="text-xs text-muted-foreground">{event.location}</p>
           ) : null}
         </div>
-        {canEdit ? (
+        {canEdit && event.writable ? (
           <button
             type="button"
             onClick={(mouseEvent) => {

@@ -51,8 +51,13 @@ describe("google-calendar", () => {
     expect(url.searchParams.get("redirect_uri")).toBe(
       "http://localhost:3000/api/auth/callback/google"
     );
-    expect(url.searchParams.get("scope")).toBe(
-      "https://www.googleapis.com/auth/calendar.events"
+    expect(url.searchParams.get("scope")?.split(" ")).toEqual(
+      expect.arrayContaining([
+        "openid",
+        "email",
+        "https://www.googleapis.com/auth/calendar.events",
+        "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+      ])
     );
   });
 

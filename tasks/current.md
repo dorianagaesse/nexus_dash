@@ -1,41 +1,54 @@
-# TASK-326: Google Calendar Connection Ownership Hardening
+# TASK-327: Multi-account and Multi-calendar Connections
 
 ## Status
 
-Implementation complete on `feature/task-326-calendar-ownership`; ready for
-stacked review after local validation.
+Implementation complete on `feature/task-327-calendar-connections`, stacked
+after TASK-326. Ready for review and preview validation; interactive two-account
+Google acceptance requires authorized test-account access.
 
 ## Objective
 
-Close the lifecycle and enforcement gaps in the existing single-Google-
-connection model while preserving strict authenticated-user ownership.
+Replace the singular Google credential with a user-owned, provider-ready
+connection/source/preference domain; expose safe connection management; and
+aggregate live events from every selected Calendar source while Google remains
+the only live provider.
 
 ## Scope
 
-- Enforce active-only credential reads, refreshes, and target updates.
-- Implement idempotent, fail-closed disconnect with provider revocation and
-  unconditional local token removal.
-- Require token encryption whenever Calendar OAuth is configured outside tests
-  and upgrade legacy plaintext rows when read.
-- Add accessible disconnect UX and repair the dashboard summary request.
-- Prove ownership in unit/API/UI and real PostgreSQL RLS tests.
+- Data-preserving migration to `CalendarConnection`, `CalendarSource`, and
+  `CalendarPreference`, including direct-user RLS and composite ownership keys.
+- Provider adapter for authorization, identity, refresh, revocation, discovery,
+  and event CRUD; Google OAuth gains identity and CalendarList scopes.
+- Add/reconnect/sync/disconnect/preference APIs plus a compatibility facade for
+  the singular Google settings endpoint.
+- Server-rendered Settings management with focused accessible client controls.
+- Bounded, paginated, partial-failure event aggregation and source-aware writes.
+- Project Calendar source identification, target selection, and origin-locked
+  mutations without durable event copies.
 
 ## Acceptance Criteria
 
-1. Revoked credentials cannot authorize Calendar operations.
-2. Disconnect affects only the signed-in user, removes local tokens even when
-   provider revocation fails, and reports a safe revocation status.
-3. Target reset remains available through PATCH while DELETE disconnects.
-4. Configured non-test Calendar OAuth requires token encryption and legacy
-   plaintext tokens are rewritten encrypted.
-5. Calendar summary requests include their project authorization context.
-6. Automated and real-database coverage proves the ownership boundary.
+1. Existing Google credentials migrate without token loss, receive a legacy
+   identity/source/preference, and adopt the real Google `sub` on OAuth.
+2. Users can add multiple Google accounts, discover/select calendars, retain a
+   single writable target, reconnect safely, and disconnect one account without
+   affecting another.
+3. Selected sources aggregate deterministically with bounded concurrency,
+   pagination, truncation metadata, one read-only retry, and per-source warnings.
+4. Event responses identify connection/source/calendar/write capability;
+   creation chooses an explicit or default writable source and mutations remain
+   locked to the originating source.
+5. Direct-user RLS and composite ownership constraints fail closed across
+   connections, sources, preferences, and refresh-token access.
+6. Settings and project Calendar flows meet keyboard, 44px touch, 375px,
+   responsive, loading/error/empty/reauthorization, and light/dark requirements.
 
 ## Definition Of Done
 
-- Runtime, tests, docs, ADR index, changelog, version, and tracking documents
-  are consistent.
-- Lint, RLS inventory/matrix, tests, coverage, build, and E2E pass.
-- An explicit-ref preview is validated.
-- The branch is pushed and a ready-for-review PR is open with automated feedback
-  handled.
+- Migration, services, adapters, APIs, UI, compatibility path, ADR/runbook,
+  tracking, changelog, and feature version are complete.
+- Focused migration/provider/API/UI tests plus lint, RLS inventory, full tests,
+  coverage, build, real PostgreSQL RLS, and Playwright pass.
+- An explicit-ref preview and two-account interactive Google smoke are recorded.
+- The branch is pushed and a ready-for-review stacked PR is open with actionable
+  automated review feedback resolved.
