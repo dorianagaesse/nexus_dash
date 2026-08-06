@@ -250,6 +250,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   tests (two expected skips); coverage passed at 91.42% statements and 81.33%
   branches; production build passed; PostgreSQL RLS setup/matrix passed; full
   Playwright passed 32/32 Chromium tests.
+- Preview: workflow run `31096210298` explicitly checked out
+  `feature/task-326-calendar-ownership` at `e899238`, deployed
+  `https://nexus-dash-lvexl0fhe-dorian-agaesses-projects.vercel.app`, and the
+  external preview Playwright entry walkthrough passed 5/5 Chromium tests.
 
 # 2026-08-06 - TASK-325 Google Calendar integration audit completed
 
