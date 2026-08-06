@@ -5,6 +5,7 @@ const prismaMock = vi.hoisted(() => ({
     findUnique: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
+    deleteMany: vi.fn(),
     upsert: vi.fn(),
   },
 }));
@@ -16,6 +17,8 @@ const googleCalendarMock = vi.hoisted(() => ({
 const googleTokenCryptoMock = vi.hoisted(() => ({
   encryptGoogleToken: vi.fn((value: string) => value),
   decryptGoogleToken: vi.fn((value: string) => value),
+  hasGoogleTokenEncryptionKey: vi.fn(() => false),
+  isEncryptedGoogleToken: vi.fn((value: string) => value.startsWith("enc:v1:")),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -29,12 +32,16 @@ vi.mock("@/lib/google-calendar", () => ({
 vi.mock("@/lib/services/google-token-crypto", () => ({
   encryptGoogleToken: googleTokenCryptoMock.encryptGoogleToken,
   decryptGoogleToken: googleTokenCryptoMock.decryptGoogleToken,
+  hasGoogleTokenEncryptionKey: googleTokenCryptoMock.hasGoogleTokenEncryptionKey,
+  isEncryptedGoogleToken: googleTokenCryptoMock.isEncryptedGoogleToken,
 }));
 
 import {
   DEFAULT_GOOGLE_CALENDAR_ID,
   findGoogleCalendarCredential,
   findGoogleCalendarCredentialCalendarId,
+  deleteGoogleCalendarCredential,
+  markGoogleCalendarCredentialRevokedForDisconnect,
   normalizeGoogleCalendarId,
   updateGoogleCalendarCredentialCalendarId,
   updateGoogleCalendarCredentialTokens,
@@ -46,6 +53,12 @@ describe("google-calendar-credential-service", () => {
     vi.clearAllMocks();
     googleCalendarMock.createExpiryDate.mockReturnValue(
       new Date("2026-02-16T00:00:00.000Z")
+    );
+    googleTokenCryptoMock.hasGoogleTokenEncryptionKey.mockReturnValue(false);
+    googleTokenCryptoMock.encryptGoogleToken.mockImplementation((value: string) => value);
+    googleTokenCryptoMock.decryptGoogleToken.mockImplementation((value: string) => value);
+    googleTokenCryptoMock.isEncryptedGoogleToken.mockImplementation((value: string) =>
+      value.startsWith("enc:v1:")
     );
   });
 
@@ -69,7 +82,7 @@ describe("google-calendar-credential-service", () => {
   });
 
   test("updates credential tokens with refreshed expiry", async () => {
-    prismaMock.googleCalendarCredential.update.mockResolvedValueOnce({});
+    prismaMock.googleCalendarCredential.updateMany.mockResolvedValueOnce({ count: 1 });
 
     await updateGoogleCalendarCredentialTokens({
       userId: "user-1",
@@ -81,8 +94,8 @@ describe("google-calendar-credential-service", () => {
     });
 
     expect(googleCalendarMock.createExpiryDate).toHaveBeenCalledWith(3600);
-    expect(prismaMock.googleCalendarCredential.update).toHaveBeenCalledWith({
-      where: { userId: "user-1" },
+    expect(prismaMock.googleCalendarCredential.updateMany).toHaveBeenCalledWith({
+      where: { userId: "user-1", revokedAt: null },
       data: {
         accessToken: "new-access",
         refreshToken: "refresh",
@@ -103,7 +116,7 @@ describe("google-calendar-credential-service", () => {
     expect(result).toBe(DEFAULT_GOOGLE_CALENDAR_ID);
     expect(prismaMock.googleCalendarCredential.findUnique).toHaveBeenCalledWith({
       where: { userId: "user-1" },
-      select: { calendarId: true },
+      select: { calendarId: true, revokedAt: true },
     });
   });
 
@@ -117,8 +130,66 @@ describe("google-calendar-credential-service", () => {
 
     expect(didUpdate).toBe(true);
     expect(prismaMock.googleCalendarCredential.updateMany).toHaveBeenCalledWith({
-      where: { userId: "user-1" },
+      where: { userId: "user-1", revokedAt: null },
       data: { calendarId: "team@example.com" },
+    });
+  });
+
+  test("treats revoked credentials as disconnected", async () => {
+    prismaMock.googleCalendarCredential.findUnique.mockResolvedValueOnce({
+      userId: "user-1",
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+      revokedAt: new Date("2026-08-06T10:00:00.000Z"),
+    });
+
+    await expect(findGoogleCalendarCredential("user-1")).resolves.toBeNull();
+    expect(googleTokenCryptoMock.decryptGoogleToken).not.toHaveBeenCalled();
+  });
+
+  test("rewrites plaintext tokens when an encryption key is available", async () => {
+    googleTokenCryptoMock.hasGoogleTokenEncryptionKey.mockReturnValue(true);
+    googleTokenCryptoMock.encryptGoogleToken.mockImplementation(
+      (value: string) => `enc:v1:${value}`
+    );
+    prismaMock.googleCalendarCredential.findUnique.mockResolvedValueOnce({
+      userId: "user-1",
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+      revokedAt: null,
+    });
+    prismaMock.googleCalendarCredential.updateMany.mockResolvedValueOnce({ count: 1 });
+
+    await findGoogleCalendarCredential("user-1");
+
+    expect(prismaMock.googleCalendarCredential.updateMany).toHaveBeenCalledWith({
+      where: { userId: "user-1", revokedAt: null },
+      data: {
+        accessToken: "enc:v1:access-token",
+        refreshToken: "enc:v1:refresh-token",
+      },
+    });
+  });
+
+  test("marks a credential revoked before disconnect and then deletes it", async () => {
+    prismaMock.googleCalendarCredential.findUnique.mockResolvedValueOnce({
+      refreshToken: "refresh-token",
+      revokedAt: null,
+    });
+    prismaMock.googleCalendarCredential.updateMany.mockResolvedValueOnce({ count: 1 });
+    prismaMock.googleCalendarCredential.deleteMany.mockResolvedValueOnce({ count: 1 });
+
+    await expect(
+      markGoogleCalendarCredentialRevokedForDisconnect("user-1")
+    ).resolves.toEqual({ refreshToken: "refresh-token" });
+    await deleteGoogleCalendarCredential("user-1");
+
+    expect(prismaMock.googleCalendarCredential.updateMany).toHaveBeenCalledWith({
+      where: { userId: "user-1", revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+    expect(prismaMock.googleCalendarCredential.deleteMany).toHaveBeenCalledWith({
+      where: { userId: "user-1" },
     });
   });
 

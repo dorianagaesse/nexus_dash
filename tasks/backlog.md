@@ -41,7 +41,7 @@ Last reviewed: 2026-08-06
   Brief: `tasks/task-325-google-calendar-integration-audit.md`
 - ID: TASK-326
   Title: Google Calendar connection ownership - enforce user-scoped rather than project-scoped integration
-  Status: Next 7 - calendar ownership verification and remediation
+  Status: In review (2026-08-06; stacked after TASK-325)
   Rationale: Verify and enforce that each Google Calendar authorization, credential, target-calendar preference, refresh lifecycle, and disconnect action belongs to the authenticated user rather than an individual project, while ensuring project calendar views use only the current user's connection and cannot expose another member's credentials or settings.
   Dependencies: TASK-076, TASK-083, TASK-325
   Brief: `tasks/task-326-google-calendar-connection-ownership.md`

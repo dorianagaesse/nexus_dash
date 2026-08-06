@@ -5,6 +5,7 @@ export { normalizeReturnToPath } from "@/lib/navigation/return-to";
 
 const GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
+const GOOGLE_REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke";
 export const GOOGLE_OAUTH_CALLBACK_PATH = "/api/auth/callback/google";
 export const GOOGLE_CALENDAR_SCOPE_EVENTS =
   "https://www.googleapis.com/auth/calendar.events";
@@ -185,6 +186,19 @@ export async function refreshAccessToken(
   });
 
   return postTokenForm(body);
+}
+
+export async function revokeGoogleToken(token: string): Promise<boolean> {
+  const response = await fetch(GOOGLE_REVOKE_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({ token }),
+    cache: "no-store",
+  });
+
+  return response.ok;
 }
 
 export function createExpiryDate(expiresInSeconds: number): Date {

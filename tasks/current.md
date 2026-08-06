@@ -1,49 +1,41 @@
-# TASK-325: Google Calendar Integration Audit
+# TASK-326: Google Calendar Connection Ownership Hardening
 
 ## Status
 
-Complete on `docs/task-325-google-calendar-audit`; ready for review.
+Implementation complete on `feature/task-326-calendar-ownership`; ready for
+stacked review after local validation.
 
 ## Objective
 
-Audit the implemented Google Calendar integration from OAuth initiation through
-event operations and deployment, establish the effective user/project ownership
-model, and turn every material gap into decision-complete follow-up work.
+Close the lifecycle and enforcement gaps in the existing single-Google-
+connection model while preserving strict authenticated-user ownership.
 
 ## Scope
 
-- OAuth initiation, callback state and actor binding, scopes, and redirect
-  configuration.
-- Credential schema, RLS, encryption, refresh, revocation, and recovery.
-- Account settings and project dashboard Calendar behavior.
-- Event list/create/update/delete contracts and upstream failure handling.
-- Unit, API, RLS, E2E, deployment, and live-provider validation coverage.
+- Enforce active-only credential reads, refreshes, and target updates.
+- Implement idempotent, fail-closed disconnect with provider revocation and
+  unconditional local token removal.
+- Require token encryption whenever Calendar OAuth is configured outside tests
+  and upgrade legacy plaintext rows when read.
+- Add accessible disconnect UX and repair the dashboard summary request.
+- Prove ownership in unit/API/UI and real PostgreSQL RLS tests.
 
 ## Acceptance Criteria
 
-1. A dated, commit-pinned audit documents current architecture and behavior.
-2. Security and product strengths are distinguished from verified gaps and
-   residual risks.
-3. Findings cover ownership, token lifecycle, UI semantics, event operations,
-   tests, environment configuration, and operational recovery.
-4. Each material remediation is assigned to TASK-326, TASK-327, TASK-348, or a
-   clearly identified future concern without duplicating existing work.
-5. TASK-326 and TASK-327 have decision-complete briefs derived from the audit.
+1. Revoked credentials cannot authorize Calendar operations.
+2. Disconnect affects only the signed-in user, removes local tokens even when
+   provider revocation fails, and reports a safe revocation status.
+3. Target reset remains available through PATCH while DELETE disconnects.
+4. Configured non-test Calendar OAuth requires token encryption and legacy
+   plaintext tokens are rewritten encrypted.
+5. Calendar summary requests include their project authorization context.
+6. Automated and real-database coverage proves the ownership boundary.
 
 ## Definition Of Done
 
-- The audit is committed under `docs/audits/`.
-- TASK-326 and TASK-327 briefs are committed under `tasks/`.
-- Backlog status, `tasks/current.md`, and `journal.md` are consistent.
-- Documentation checks, focused calendar tests, and the RLS inventory check
-  pass.
-- The branch is pushed, a ready-for-review PR is open, and initial automated
-  review/check feedback is handled.
-
-## Outcome
-
-- Audit: `docs/audits/task-325-google-calendar-integration-audit.md`
-- Ownership hardening brief:
-  `tasks/task-326-google-calendar-connection-ownership.md`
-- Connection expansion brief:
-  `tasks/task-327-additional-calendar-connections.md`
+- Runtime, tests, docs, ADR index, changelog, version, and tracking documents
+  are consistent.
+- Lint, RLS inventory/matrix, tests, coverage, build, and E2E pass.
+- An explicit-ref preview is validated.
+- The branch is pushed and a ready-for-review PR is open with automated feedback
+  handled.
