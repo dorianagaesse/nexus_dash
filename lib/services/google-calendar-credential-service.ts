@@ -1,16 +1,122 @@
-import type { GoogleCalendarCredential } from "@prisma/client";
+import { createExpiryDate } from "@/lib/google-calendar";
 import {
-  createExpiryDate,
-} from "@/lib/google-calendar";
-import {
-  decryptGoogleToken,
-  encryptGoogleToken,
-  hasGoogleTokenEncryptionKey,
-  isEncryptedGoogleToken,
-} from "@/lib/services/google-token-crypto";
+  findCalendarConnection,
+  getWritableCalendarSourceContext,
+  GOOGLE_CALENDAR_PROVIDER,
+  updateCalendarConnectionTokens,
+} from "@/lib/services/calendar-connection-service";
+import { encryptGoogleToken } from "@/lib/services/google-token-crypto";
 import { withActorRlsContext } from "@/lib/services/rls-context";
 
-interface GoogleCalendarTokenInput {
+export const DEFAULT_GOOGLE_CALENDAR_ID = "primary";
+export const MAX_GOOGLE_CALENDAR_ID_LENGTH = 255;
+
+export function normalizeGoogleCalendarId(value: string | null | undefined): string {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  return normalized || DEFAULT_GOOGLE_CALENDAR_ID;
+}
+
+export async function findGoogleCalendarCredential(userId: string) {
+  const connection = await findCalendarConnection(userId);
+  if (!connection || connection.provider !== GOOGLE_CALENDAR_PROVIDER) return null;
+  const source = await getWritableCalendarSourceContext(userId);
+  return {
+    ...connection,
+    scope: connection.scopes,
+    calendarId: source?.source.providerCalendarId ?? DEFAULT_GOOGLE_CALENDAR_ID,
+  };
+}
+
+export async function findGoogleCalendarCredentialCalendarId(userId: string) {
+  const source = await getWritableCalendarSourceContext(userId);
+  return source?.source.providerCalendarId ?? null;
+}
+
+export async function updateGoogleCalendarCredentialTokens(input: {
+  userId: string;
+  accessToken: string;
+  expiresIn: number;
+  refreshToken: string;
+  tokenType: string | null;
+  scope: string | null;
+}) {
+  const connection = await findCalendarConnection(input.userId);
+  if (!connection) throw new Error("calendar-not-connected");
+  return updateCalendarConnectionTokens({
+    userId: input.userId,
+    connectionId: connection.id,
+    tokens: {
+      accessToken: input.accessToken,
+      expiresIn: input.expiresIn,
+      refreshToken: input.refreshToken,
+      tokenType: input.tokenType ?? undefined,
+      scope: input.scope ?? undefined,
+    },
+  });
+}
+
+export async function updateGoogleCalendarCredentialCalendarId(input: {
+  userId: string;
+  calendarId: string;
+}) {
+  const calendarId = normalizeGoogleCalendarId(input.calendarId);
+  return withActorRlsContext(input.userId, async (db) => {
+    const source = await db.calendarSource.findFirst({
+      where: {
+        userId: input.userId,
+        providerCalendarId: calendarId,
+        isAvailable: true,
+        connection: { provider: GOOGLE_CALENDAR_PROVIDER, revokedAt: null },
+      },
+    });
+    if (!source) return false;
+    await db.calendarPreference.upsert({
+      where: { userId: input.userId },
+      update: {
+        defaultConnectionId: source.connectionId,
+        writeSourceId: source.id,
+      },
+      create: {
+        userId: input.userId,
+        defaultConnectionId: source.connectionId,
+        writeSourceId: source.id,
+      },
+    });
+    return true;
+  });
+}
+
+export async function markGoogleCalendarCredentialRevokedForDisconnect(
+  userId: string
+): Promise<{ refreshToken: string } | null> {
+  const connection = await findCalendarConnection(userId);
+  if (!connection) return null;
+  await withActorRlsContext(userId, (db) =>
+    db.calendarConnection.updateMany({
+      where: { id: connection.id, userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    })
+  );
+  return { refreshToken: connection.refreshToken };
+}
+
+export async function deleteGoogleCalendarCredential(userId: string): Promise<void> {
+  await withActorRlsContext(userId, async (db) => {
+    const preference = await db.calendarPreference.findUnique({ where: { userId } });
+    const connectionId = preference?.defaultConnectionId;
+    if (!connectionId) return;
+    await db.calendarPreference.updateMany({
+      where: { userId },
+      data: { defaultConnectionId: null, writeSourceId: null },
+    });
+    await db.calendarConnection.deleteMany({ where: { id: connectionId, userId } });
+  });
+}
+
+// Compatibility helper for callers that have not yet adopted provider identity.
+// The OAuth callback uses connectGoogleCalendarAccount and never creates a new
+// legacy identity.
+export async function upsertGoogleCalendarCredentialTokens(input: {
   userId: string;
   accessToken: string;
   expiresIn: number;
@@ -19,248 +125,67 @@ interface GoogleCalendarTokenInput {
   scope?: string | null;
   providerAccountId?: string | null;
   calendarId?: string | null;
-}
-
-interface GoogleCalendarTokenUpdateInput {
-  userId: string;
-  accessToken: string;
-  expiresIn: number;
-  refreshToken: string;
-  tokenType: string | null;
-  scope: string | null;
-}
-
-interface GoogleCalendarCalendarIdUpdateInput {
-  userId: string;
-  calendarId: string;
-}
-
-export const DEFAULT_GOOGLE_CALENDAR_ID = "primary";
-export const MAX_GOOGLE_CALENDAR_ID_LENGTH = 255;
-
-type DecryptedGoogleCalendarCredential = Omit<
-  GoogleCalendarCredential,
-  "accessToken" | "refreshToken"
-> & {
-  accessToken: string | null;
-  refreshToken: string;
-};
-
-export class GoogleCalendarCredentialTokenDecryptionError extends Error {
-  readonly originalError: unknown;
-
-  constructor(originalError: unknown) {
-    super("google-calendar-credential-token-decryption-failed");
-    this.name = "GoogleCalendarCredentialTokenDecryptionError";
-    this.originalError = originalError;
-  }
-}
-
-function normalizeUserId(userId: string): string {
-  return userId.trim();
-}
-
-export function normalizeGoogleCalendarId(calendarId: string | null | undefined): string {
-  const normalized = typeof calendarId === "string" ? calendarId.trim() : "";
-  return normalized.length > 0 ? normalized : DEFAULT_GOOGLE_CALENDAR_ID;
-}
-
-export async function findGoogleCalendarCredential(
-  userId: string
-): Promise<DecryptedGoogleCalendarCredential | null> {
-  const normalizedUserId = normalizeUserId(userId);
-  if (!normalizedUserId) {
-    return null;
-  }
-
-  return withActorRlsContext(normalizedUserId, async (db) => {
-    const credential = await db.googleCalendarCredential.findUnique({
-      where: { userId: normalizedUserId },
+}) {
+  return withActorRlsContext(input.userId, async (db) => {
+    const existing = await db.calendarConnection.findFirst({
+      where: { userId: input.userId, provider: GOOGLE_CALENDAR_PROVIDER },
+      orderBy: { createdAt: "asc" },
     });
-
-    if (!credential || credential.revokedAt) {
-      return null;
-    }
-
-    const accessToken = credential.accessToken
-      ? decryptGoogleToken(credential.accessToken)
-      : null;
-    const refreshToken = decryptGoogleToken(credential.refreshToken);
-
-    if (
-      hasGoogleTokenEncryptionKey() &&
-      ((credential.accessToken && !isEncryptedGoogleToken(credential.accessToken)) ||
-        !isEncryptedGoogleToken(credential.refreshToken))
-    ) {
-      await db.googleCalendarCredential.updateMany({
-        where: {
-          userId: normalizedUserId,
-          revokedAt: null,
+    const refreshToken = input.refreshToken ?? existing?.refreshToken ?? null;
+    if (!refreshToken) throw new Error("missing-refresh-token");
+    const connection = existing
+      ? await db.calendarConnection.update({
+          where: { id: existing.id },
+          data: {
+            accessToken: encryptGoogleToken(input.accessToken),
+            refreshToken: input.refreshToken
+              ? encryptGoogleToken(input.refreshToken)
+              : refreshToken,
+            tokenType: input.tokenType ?? null,
+            scopes: input.scope ?? null,
+            expiresAt: createExpiryDate(input.expiresIn),
+            revokedAt: null,
+          },
+        })
+      : await db.calendarConnection.create({
+          data: {
+            userId: input.userId,
+            provider: GOOGLE_CALENDAR_PROVIDER,
+            providerAccountId: input.providerAccountId ?? `legacy:${input.userId}`,
+            accountLabel: "Google account",
+            accessToken: encryptGoogleToken(input.accessToken),
+            refreshToken: encryptGoogleToken(refreshToken),
+            tokenType: input.tokenType ?? null,
+            scopes: input.scope ?? null,
+            expiresAt: createExpiryDate(input.expiresIn),
+          },
+        });
+    const providerCalendarId = normalizeGoogleCalendarId(input.calendarId);
+    const source = await db.calendarSource.upsert({
+      where: {
+        connectionId_providerCalendarId: {
+          connectionId: connection.id,
+          providerCalendarId,
         },
-        data: {
-          accessToken: accessToken ? encryptGoogleToken(accessToken) : null,
-          refreshToken: encryptGoogleToken(refreshToken),
-        },
-      });
-    }
-
-    return {
-      ...credential,
-      accessToken,
-      refreshToken,
-    };
-  });
-}
-
-export async function findGoogleCalendarCredentialCalendarId(userId: string) {
-  const normalizedUserId = normalizeUserId(userId);
-  if (!normalizedUserId) {
-    return null;
-  }
-
-  const credential = await withActorRlsContext(normalizedUserId, (db) =>
-    db.googleCalendarCredential.findUnique({
-      where: { userId: normalizedUserId },
-      select: { calendarId: true, revokedAt: true },
-    })
-  );
-
-  if (!credential || credential.revokedAt) {
-    return null;
-  }
-
-  return normalizeGoogleCalendarId(credential.calendarId);
-}
-
-export async function updateGoogleCalendarCredentialTokens(
-  input: GoogleCalendarTokenUpdateInput
-) {
-  const normalizedUserId = normalizeUserId(input.userId);
-  return withActorRlsContext(normalizedUserId, async (db) => {
-    const result = await db.googleCalendarCredential.updateMany({
-      where: { userId: normalizedUserId, revokedAt: null },
-      data: {
-        accessToken: encryptGoogleToken(input.accessToken),
-        refreshToken: encryptGoogleToken(input.refreshToken),
-        tokenType: input.tokenType,
-        scope: input.scope,
-        expiresAt: createExpiryDate(input.expiresIn),
       },
-    });
-
-    if (result.count === 0) {
-      throw new Error("calendar-not-connected");
-    }
-  });
-}
-
-export async function updateGoogleCalendarCredentialCalendarId(
-  input: GoogleCalendarCalendarIdUpdateInput
-) {
-  const normalizedUserId = normalizeUserId(input.userId);
-  const result = await withActorRlsContext(normalizedUserId, (db) =>
-    db.googleCalendarCredential.updateMany({
-      where: { userId: normalizedUserId, revokedAt: null },
-      data: {
-        calendarId: normalizeGoogleCalendarId(input.calendarId),
-      },
-    })
-  );
-
-  return result.count > 0;
-}
-
-export async function markGoogleCalendarCredentialRevokedForDisconnect(
-  userId: string
-): Promise<{ refreshToken: string } | null> {
-  const normalizedUserId = normalizeUserId(userId);
-  if (!normalizedUserId) {
-    return null;
-  }
-
-  return withActorRlsContext(normalizedUserId, async (db) => {
-    const credential = await db.googleCalendarCredential.findUnique({
-      where: { userId: normalizedUserId },
-      select: { refreshToken: true, revokedAt: true },
-    });
-
-    if (!credential) {
-      return null;
-    }
-
-    if (!credential.revokedAt) {
-      await db.googleCalendarCredential.updateMany({
-        where: { userId: normalizedUserId, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
-    }
-
-    try {
-      return { refreshToken: decryptGoogleToken(credential.refreshToken) };
-    } catch (error) {
-      throw new GoogleCalendarCredentialTokenDecryptionError(error);
-    }
-  });
-}
-
-export async function deleteGoogleCalendarCredential(userId: string): Promise<void> {
-  const normalizedUserId = normalizeUserId(userId);
-  if (!normalizedUserId) {
-    return;
-  }
-
-  await withActorRlsContext(normalizedUserId, (db) =>
-    db.googleCalendarCredential.deleteMany({
-      where: { userId: normalizedUserId },
-    })
-  );
-}
-
-export async function upsertGoogleCalendarCredentialTokens(
-  input: GoogleCalendarTokenInput
-) {
-  const normalizedUserId = normalizeUserId(input.userId);
-  return withActorRlsContext(normalizedUserId, async (db) => {
-    let refreshToken = input.refreshToken ?? null;
-
-    if (!refreshToken) {
-      const existing = await db.googleCalendarCredential.findUnique({
-        where: { userId: normalizedUserId },
-        select: { refreshToken: true },
-      });
-
-      refreshToken = existing?.refreshToken
-        ? decryptGoogleToken(existing.refreshToken)
-        : null;
-    }
-
-    if (!refreshToken) {
-      throw new Error("missing-refresh-token");
-    }
-
-    const expiresAt = createExpiryDate(input.expiresIn);
-
-    await db.googleCalendarCredential.upsert({
-      where: { userId: normalizedUserId },
-      update: {
-        accessToken: encryptGoogleToken(input.accessToken),
-        refreshToken: encryptGoogleToken(refreshToken),
-        tokenType: input.tokenType ?? null,
-        scope: input.scope ?? null,
-        providerAccountId: input.providerAccountId ?? null,
-        calendarId: normalizeGoogleCalendarId(input.calendarId),
-        expiresAt,
-        revokedAt: null,
-      },
+      update: { isAvailable: true },
       create: {
-        userId: normalizedUserId,
-        accessToken: encryptGoogleToken(input.accessToken),
-        refreshToken: encryptGoogleToken(refreshToken),
-        tokenType: input.tokenType ?? null,
-        scope: input.scope ?? null,
-        providerAccountId: input.providerAccountId ?? null,
-        calendarId: normalizeGoogleCalendarId(input.calendarId),
-        expiresAt,
+        userId: input.userId,
+        connectionId: connection.id,
+        providerCalendarId,
+        name: providerCalendarId === "primary" ? "Primary calendar" : providerCalendarId,
+        accessRole: "owner",
+        isPrimary: providerCalendarId === "primary",
+        isSelected: true,
+      },
+    });
+    await db.calendarPreference.upsert({
+      where: { userId: input.userId },
+      update: {},
+      create: {
+        userId: input.userId,
+        defaultConnectionId: connection.id,
+        writeSourceId: source.id,
       },
     });
   });

@@ -16,6 +16,21 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-08-06 - Model Calendar accounts, sources, and preferences separately
+- Status: Accepted
+- Context: A singular Google credential and free-form target ID cannot safely
+  support multiple accounts, discovered calendars, read-only sources, or a
+  stable write target.
+- Decision: Use directly user-owned `CalendarConnection`, `CalendarSource`, and
+  `CalendarPreference` records with composite ownership keys and forced RLS;
+  place provider behavior behind an adapter and keep events live rather than
+  storing copies.
+- Consequences: Google is the sole live provider but the domain is provider-
+  ready; partial reads are explicit, mutations are source-bound, and adding or
+  removing one account never silently retargets another.
+- Links: `adr/task-327-calendar-connections.md`,
+  `tasks/task-327-additional-calendar-connections.md`
+
 ## 2026-08-06 - Make Google Calendar disconnect fail-closed and user-owned
 - Status: Accepted
 - Context: The existing Calendar credential is user-scoped, but its revocation
