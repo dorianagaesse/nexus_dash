@@ -94,7 +94,9 @@ Current schema includes:
 - Collaboration on tasks: `TaskComment` with optional agent credential
   attribution metadata for agent-authored comments
 - Attachments: `TaskAttachment`, `ResourceAttachment` with `uploadedByUserId`
-- Calendar: `GoogleCalendarCredential` (one row per user)
+- Calendar: user-owned `CalendarConnection`, `CalendarSource`, and
+  `CalendarPreference` records (multiple provider accounts and calendars, one
+  account-wide write target)
 - Notification email orchestration: `ProjectNotificationEmail` and
   `ProjectNotificationEmailItem`
 

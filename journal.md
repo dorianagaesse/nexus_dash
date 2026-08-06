@@ -221,6 +221,34 @@ Use it for important implementation milestones, blockers, validation runs, and r
   non-`P2021` error still propagates. All 11 tests in that file pass; full
   `npm test` is 936 passing / 1 skipped, with 13 pre-existing integration
   files failing only because the workstation has no `DATABASE_URL`.
+# 2026-08-06 - TASK-327 multi-account Calendar connections implemented
+
+- Replaced the singular credential schema with data-preserving, directly user-
+  owned Calendar connections, sources, and preferences. Added composite owner
+  keys, forced RLS, legacy identity/source/preference adoption, and isolation
+  coverage across all three tables.
+- Added the provider adapter, Google OpenID identity and CalendarList scopes,
+  stable `sub` identities, add/reconnect mismatch handling, discovery sync,
+  per-connection disconnect, and preference APIs while retaining the singular
+  settings compatibility facade.
+- Added bounded four-source live aggregation, 1,000-event pagination limits,
+  one transient read retry, deterministic ordering, partial-source warnings,
+  source metadata, and origin-locked non-retried mutations.
+- Rebuilt Settings as responsive account cards with accessible Calendar
+  selection, one writable target, refresh/reconnect/disconnect recovery, 44px
+  controls, and focused client state. Updated the project Calendar surface with
+  source-aware creation, read-only locking, warning states, and collision-safe
+  event keys.
+- Validation: Prisma migration applied successfully to PostgreSQL; lint and RLS
+  inventory passed; 151 test files / 1,032 tests passed (two expected skips);
+  coverage passed at 91.60% statements and 81.21% branches; production build
+  passed; the expanded NOBYPASSRLS matrix passed; all 32 existing Playwright
+  tests plus the focused TASK-327 responsive/keyboard/theme test passed.
+- Pending external acceptance: two authorized Google test accounts are required
+  to exercise live OAuth, CalendarList, CRUD, reconnect, and single-account
+  disconnect. No account credentials or interactive session were available in
+  the workspace.
+
 # 2026-08-06 - TASK-326 Google Calendar ownership hardening completed
 
 - Made Calendar credential reads, refreshes, and target changes active-only,

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
+import type { CalendarSourceOption } from "@/components/project-calendar-panel-utils";
 
 interface CalendarEventModalProps {
   isOpen: boolean;
@@ -21,6 +22,8 @@ interface CalendarEventModalProps {
   eventEndDateTime: string;
   eventLocation: string;
   eventDescription: string;
+  calendarSources: CalendarSourceOption[];
+  eventCalendarSourceId: string;
   eventFormError: string | null;
   connectUrl: string;
   onClose: () => void;
@@ -34,6 +37,7 @@ interface CalendarEventModalProps {
   onEventEndDateTimeChange: (value: string) => void;
   onEventLocationChange: (value: string) => void;
   onEventDescriptionChange: (value: string) => void;
+  onEventCalendarSourceIdChange: (value: string) => void;
 }
 
 export function CalendarEventModal({
@@ -51,6 +55,8 @@ export function CalendarEventModal({
   eventEndDateTime,
   eventLocation,
   eventDescription,
+  calendarSources,
+  eventCalendarSourceId,
   eventFormError,
   connectUrl,
   onClose,
@@ -64,6 +70,7 @@ export function CalendarEventModal({
   onEventEndDateTimeChange,
   onEventLocationChange,
   onEventDescriptionChange,
+  onEventCalendarSourceIdChange,
 }: CalendarEventModalProps) {
   if (!isBrowserReady || !isOpen) {
     return null;
@@ -107,6 +114,30 @@ export function CalendarEventModal({
               void onSubmit();
             }}
           >
+            <div className="grid gap-2">
+              <label htmlFor="calendar-event-source" className="text-sm font-medium">
+                Calendar
+              </label>
+              <select
+                id="calendar-event-source"
+                value={eventCalendarSourceId}
+                onChange={(event) => onEventCalendarSourceIdChange(event.target.value)}
+                disabled={isEventMutationPending || eventModalMode === "edit"}
+                required
+                className="min-h-11 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="" disabled>Select a writable calendar</option>
+                {calendarSources.filter((source) => source.writable).map((source) => (
+                  <option key={source.id} value={source.id}>{source.name}</option>
+                ))}
+              </select>
+              {eventModalMode === "edit" ? (
+                <p className="text-xs text-muted-foreground">
+                  Existing events stay locked to their originating calendar.
+                </p>
+              ) : null}
+            </div>
+
             <div className="grid gap-2">
               <label htmlFor="calendar-event-summary" className="text-sm font-medium">
                 Title
