@@ -59,7 +59,13 @@ export function CalendarConnectionsManager({
         error?: string;
         revocationStatus?: string;
       } | null;
-      if (!response.ok) throw new Error(payload?.error ?? "Calendar update failed.");
+      if (!response.ok) {
+        throw new Error(
+          payload?.error === "calendar-write-source-not-selected"
+            ? "Keep the event target selected, or choose another writable calendar."
+            : payload?.error ?? "Calendar update failed."
+        );
+      }
       setMessage(
         payload?.revocationStatus === "unconfirmed"
           ? "Disconnected locally. Review NexusDash in Google Account permissions because Google did not confirm revocation."
