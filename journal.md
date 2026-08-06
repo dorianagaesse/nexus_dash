@@ -3,6 +3,18 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-06 - Execution backlog reconciled after recent merges
+
+- Audited the execution queue against first-parent Git history and GitHub merge
+  state. TASK-335, TASK-341, and TASK-349 through TASK-355 no longer represent
+  executable work and were moved to the completed ledger.
+- Recorded TASK-355 as reverted because PR #416 restored the seven-day policy
+  after PR #414's temporary 24-hour experiment.
+- Cleared the merged TASK-354 current-task brief without selecting a new
+  implementation task; TASK-100 remains first in the execution queue.
+- Renumbered the unrelated, unstarted meeting-stewardship follow-up from the
+  duplicate TASK-341 to TASK-356 and updated its dependent queue reference.
+
 # 2026-08-05 - Restore seven-day meeting-todo grace and finish PR #416
 
 - Product direction reversed the temporary TASK-355 24-hour policy and restored

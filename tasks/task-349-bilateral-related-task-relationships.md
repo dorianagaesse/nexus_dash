@@ -2,7 +2,7 @@
 
 ## Status
 
-In review (2026-07-30, PR #399)
+Done (2026-07-30, merged via PR #399)
 
 ## Objective
 

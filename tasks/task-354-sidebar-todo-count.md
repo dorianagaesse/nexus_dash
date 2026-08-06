@@ -2,9 +2,9 @@
 
 ## Status
 
-Draft [PR #416](https://github.com/dorianagaesse/nexus_dash/pull/416), which
-supersedes [PR #410](https://github.com/dorianagaesse/nexus_dash/pull/410), is
-open from `feature/task-354-sidebar-todo-count-r2`.
+Done (2026-08-05, merged via
+[PR #416](https://github.com/dorianagaesse/nexus_dash/pull/416), which
+superseded [PR #410](https://github.com/dorianagaesse/nexus_dash/pull/410)).
 
 ## Objective
 

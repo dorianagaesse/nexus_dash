@@ -2,7 +2,7 @@
 
 ## Status
 
-- In review
+- Done (2026-07-30, merged via PR #400)
 - GitHub issue: [#396](https://github.com/dorianagaesse/nexus_dash/issues/396)
 - Pull request: [#400](https://github.com/dorianagaesse/nexus_dash/pull/400)
 - Branch: `fix/task-350-related-task-picker`

@@ -2,9 +2,8 @@
 
 ## Status
 
-In review after product-feedback refinement in
-[PR #411](https://github.com/dorianagaesse/nexus_dash/pull/411)
-from `feature/task-353-movable-meeting-todos-modal`.
+Done (2026-08-05, merged via
+[PR #411](https://github.com/dorianagaesse/nexus_dash/pull/411)).
 
 ## Source
 
