@@ -234,6 +234,22 @@ Use it for important implementation milestones, blockers, validation runs, and r
   non-`P2021` error still propagates. All 11 tests in that file pass; full
   `npm test` is 936 passing / 1 skipped, with 13 pre-existing integration
   files failing only because the workstation has no `DATABASE_URL`.
+# 2026-08-06 - TASK-326 Google Calendar ownership hardening completed
+
+- Made Calendar credential reads, refreshes, and target changes active-only,
+  added lazy encryption for legacy plaintext values, and made encryption
+  mandatory whenever Calendar OAuth is configured outside tests.
+- Replaced target reset over `DELETE` with an authenticated-user-only,
+  idempotent disconnect that revokes upstream when possible and always removes
+  local tokens. Preserved target reset through `PATCH`.
+- Added accessible disconnect/recovery UI, configurable pending confirmation
+  copy, and repaired project Calendar summary requests by supplying `projectId`.
+- Expanded unit/API/component coverage and the real PostgreSQL RLS matrix for
+  two-user Calendar credential isolation and forged cross-user operations.
+- Validation: lint and RLS inventory passed; 147 test files passed with 1,031
+  tests (two expected skips); coverage passed at 91.42% statements and 81.33%
+  branches; production build passed; PostgreSQL RLS setup/matrix passed; full
+  Playwright passed 32/32 Chromium tests.
 
 # 2026-08-06 - TASK-325 Google Calendar integration audit completed
 

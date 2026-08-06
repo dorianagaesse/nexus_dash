@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import {
+  disconnectGoogleCalendar,
   getGoogleCalendarTargetSettings,
   updateGoogleCalendarTargetSettings,
 } from "@/lib/services/account-settings-service";
@@ -12,6 +13,7 @@ interface UpdateGoogleCalendarSettingsRequestBody {
 }
 
 type GoogleCalendarSettingsResult =
+  | Awaited<ReturnType<typeof disconnectGoogleCalendar>>
   | Awaited<ReturnType<typeof getGoogleCalendarTargetSettings>>
   | Awaited<ReturnType<typeof updateGoogleCalendarTargetSettings>>;
 
@@ -67,9 +69,8 @@ export async function DELETE(request: NextRequest) {
   }
 
   return jsonServiceResult(
-    await updateGoogleCalendarTargetSettings({
+    await disconnectGoogleCalendar({
       actorUserId: authenticatedUser.userId,
-      calendarIdRaw: "",
     })
   );
 }
