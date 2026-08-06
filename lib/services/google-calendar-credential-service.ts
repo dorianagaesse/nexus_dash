@@ -61,11 +61,18 @@ export async function updateGoogleCalendarCredentialCalendarId(input: {
 }) {
   const calendarId = normalizeGoogleCalendarId(input.calendarId);
   return withActorRlsContext(input.userId, async (db) => {
+    const preference = await db.calendarPreference.findUnique({
+      where: { userId: input.userId },
+      select: { defaultConnectionId: true },
+    });
+    if (!preference?.defaultConnectionId) return false;
     const source = await db.calendarSource.findFirst({
       where: {
         userId: input.userId,
+        connectionId: preference.defaultConnectionId,
         providerCalendarId: calendarId,
         isAvailable: true,
+        accessRole: { in: ["owner", "writer"] },
         connection: { provider: GOOGLE_CALENDAR_PROVIDER, revokedAt: null },
       },
     });
