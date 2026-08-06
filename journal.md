@@ -248,9 +248,13 @@ Use it for important implementation milestones, blockers, validation runs, and r
   to exercise live OAuth, CalendarList, CRUD, reconnect, and single-account
   disconnect. No account credentials or interactive session were available in
   the workspace.
-- Preview: workflow run `31098759860` explicitly checked out
-  `feature/task-327-calendar-connections` at `11949d6`, applied the migration,
-  and deployed `https://nexus-dash-qrytaa7d4-dorian-agaesses-projects.vercel.app`.
+- Review: addressed and resolved all three initial Copilot threads by scoping
+  compatibility targets to the default writable connection, removing N+1 RLS
+  transactions, and aligning the client warning contract. Focused regression
+  tests and lint passed.
+- Final reviewed preview: workflow run `31099193559` explicitly checked out
+  `feature/task-327-calendar-connections` at `797534c`, applied the migration,
+  and deployed `https://nexus-dash-74qj9r5kj-dorian-agaesses-projects.vercel.app`.
   The external preview Playwright entry walkthrough passed 5/5 Chromium tests.
 
 # 2026-08-06 - TASK-326 Google Calendar ownership hardening completed
