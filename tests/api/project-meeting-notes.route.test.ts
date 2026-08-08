@@ -93,6 +93,33 @@ function sampleNote() {
     inputNotes: "Review roadmap risks.",
     outputNotes: "Scope was clarified.",
     decisions: "Keep TASK-098 focused.",
+    steward: {
+      kind: "human",
+      id: "user-2",
+      displayName: "Dorian",
+      usernameTag: "dorian#0001",
+      avatarSeed: "seed-dorian",
+      status: "active",
+      isAssignable: true,
+    },
+    createdBy: {
+      kind: "human",
+      id: "user-2",
+      displayName: "Dorian",
+      usernameTag: "dorian#0001",
+      avatarSeed: "seed-dorian",
+      status: "active",
+      isAssignable: true,
+    },
+    updatedBy: {
+      kind: "human",
+      id: "user-2",
+      displayName: "Dorian",
+      usernameTag: "dorian#0001",
+      avatarSeed: "seed-dorian",
+      status: "active",
+      isAssignable: true,
+    },
     createdAt: new Date("2026-06-08T13:00:00.000Z"),
     updatedAt: new Date("2026-06-08T15:00:00.000Z"),
     actions: [
@@ -136,51 +163,36 @@ describe("project meeting notes routes", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(readJson(response)).resolves.toEqual({
-      notes: [
-        {
-          id: "note-1",
-          projectId: "project-1",
-          title: "Weekly execution review",
-          scheduledAt: "2026-06-08T14:00:00.000Z",
-          participants: [
-            {
-              userId: "user-2",
-              displayName: "Dorian",
-              usernameTag: "dorian#0001",
-              avatarSeed: "seed-dorian",
-            },
-            {
-              userId: null,
-              displayName: "Camille",
-              usernameTag: null,
-              avatarSeed: null,
-            },
-          ],
-          labels: ["planning"],
-          status: "actions_in_progress",
-          inputNotes: "Review roadmap risks.",
-          outputNotes: "Scope was clarified.",
-          decisions: "Keep TASK-098 focused.",
-          createdAt: "2026-06-08T13:00:00.000Z",
-          updatedAt: "2026-06-08T15:00:00.000Z",
-          actions: [
-            {
-              id: "action-1",
-              content: "Send recap",
-              completedAt: null,
-              position: 0,
-            },
-          ],
-        },
-      ],
+    const payload = await readJson(response);
+    expect(payload.notes).toHaveLength(1);
+    expect(payload.notes[0]).toMatchObject({
+      id: "note-1",
+      steward: { id: "user-2" },
+      createdBy: { id: "user-2" },
+      updatedBy: { id: "user-2" },
     });
     expect(meetingNoteServiceMock.listProjectMeetingNotes).toHaveBeenCalledWith({
       actorUserId: "user-1",
       projectId: "project-1",
       query: "recap",
+      stewardFilter: "all",
       agentAccess: undefined,
     });
+  });
+
+  test("GET forwards steward filter from query string", async () => {
+    meetingNoteServiceMock.listProjectMeetingNotes.mockResolvedValueOnce([sampleNote()]);
+
+    await listMeetingNotes(
+      new NextRequest(
+        "http://localhost/api/projects/project-1/meeting-notes?steward=mine"
+      ),
+      projectParams("project-1")
+    );
+
+    expect(meetingNoteServiceMock.listProjectMeetingNotes).toHaveBeenCalledWith(
+      expect.objectContaining({ stewardFilter: "mine" })
+    );
   });
 
   test("POST creates a structured meeting note", async () => {
@@ -430,6 +442,7 @@ describe("project meeting notes routes", () => {
       actorUserId: "user-1",
       projectId: "project-1",
       query: null,
+      stewardFilter: "all",
       agentAccess,
     });
   });

@@ -1,86 +1,115 @@
 # Current Task
 
-## TASK-406: Stable Preview OAuth Alias After Immutable Validation
+## TASK-356: Meeting Note Stewardship and Decision Provenance
 
 ## Status
 
-Ready for user testing on `fix/task-406-stable-preview-auth-alias` via PR #448.
+Implementation and validation complete on
+`feature/task-356-meeting-note-stewardship-r4`, refreshed onto current `main`
+after TASK-406 merged; ready for review.
 
 ## Context
 
-TASK-370 correctly removed a stale alias that pointed to production and made
-immutable deployment validation authoritative. The follow-up Preview test
-showed that social OAuth cannot use a new immutable callback for every deploy:
-GitHub rejected the generated `redirect_uri` because the provider application
-is registered against the long-lived static Preview URL. The static URL must
-therefore remain usable without weakening the immutable deployment checks.
-The first TASK-406 deployment exposed a second regression from TASK-370:
-removing `AUTH_GITHUB_REDIRECT_URI` also changed the derived callback path from
-the registered `/api/auth/callback/github` route to the unregistered
-`/api/auth/oauth/github/callback` route.
+`ProjectMeetingNote` already records `createdByUserId` and `updatedByUserId`,
+but every editor is functionally interchangeable: there is no visible
+accountable steward, the meeting-todo follow-ups live under an anonymous
+parent, and the audit-driven "needs decision provenance" call to action has no
+note-level surface.
+
+TASK-330 introduced the reusable meeting-todo actor contract for human project
+members and active project agent credentials. This task continues the
+deliberate, narrow pattern: surface a single, reassignable steward/facilitator
+on every meeting note without expanding into cross-artifact ownership or a
+workspace ownership queue.
 
 ## Scope
 
-- Add one exact `PREVIEW_AUTH_ORIGIN` allowlist entry for Preview request-origin
-  resolution while preserving the immutable `VERCEL_URL` fallback.
-- Preserve the existing provider-specific callback contracts: GitHub uses
-  `/api/auth/callback/github`, while social Google stays on
-  `/api/auth/oauth/google/callback` to avoid the Calendar OAuth route.
-- Require a valid HTTPS `PREVIEW_AUTH_ORIGIN` whenever social or Calendar OAuth
-  is enabled in Vercel Preview.
-- Validate the immutable deployment first, then atomically assign the stable
-  alias and verify it resolves to the same deployment and readiness metadata.
-- Document which URL is deployment evidence and which URL testers should use
-  for provider-backed OAuth.
+- Add a durable steward/facilitator actor to `ProjectMeetingNote`, modeled on
+  the existing meeting-todo actor contract.
+- Backfill steward identity from the note creator for existing rows.
+- Surface creator, last editor, update time, and steward identity in the
+  meeting-notes panel and meeting detail view.
+- Add accessible steward assignment controls (label, keyboard, focus, 44px
+  target, light/dark, semantic status) in the meeting detail and note
+  preparation flow; viewers see the same identity without mutation
+  affordances.
+- Add steward responsibility filters (`All`, `Stewarded by me`, `Unstewarded`)
+  for both active and archived notes.
+- Reuse the established human/agent registry and chip so removed members and
+  revoked/expired agents surface as `Needs reassignment` rather than silently
+  orphaning the note.
+- Keep steward independent from participants and from meeting-todo assignees;
+  no UI should conflate the three.
+- Make note mutation and deletion capability explicit by reusing the existing
+  owner/editor/viewer boundary; viewers see steward identity without edit
+  affordances.
+
+## Out Of Scope
+
+- A universal project-actor foundation or cross-artifact actor migration
+  (TASK-337).
+- A workspace-wide stewardship queue (TASK-346).
+- New agent capability vocabulary or granular meeting scopes (TASK-331).
+- Mentions, follow notifications, or notification preferences beyond the
+  existing overdue reminder pipeline (TASK-347).
+- Conflict-safe revision preconditions or draft recovery (TASK-339).
+- Durable collaboration history or audit timelines (TASK-340).
+- Decision-level authorship beyond the note-level steward/facilitator (this
+  task keeps the existing single `decisions` text field untouched).
 
 ## Acceptance Criteria
 
-1. A request through the exact configured stable Preview alias generates
-   callbacks on that alias; any unconfigured alias falls back to the immutable
-   `VERCEL_URL`.
-2. Preview startup fails closed when OAuth is enabled without a valid exact
-   HTTPS `PREVIEW_AUTH_ORIGIN`.
-3. The deploy workflow never moves the stable alias until the immutable target,
-   revision, environment, migration project ref, and database readiness pass.
-4. After assignment, the workflow proves the alias resolves to that same Vercel
-   deployment and repeats environment/revision/database readiness checks.
-5. GitHub OAuth initiation from the stable Preview URL is accepted by GitHub
-   with the registered `/api/auth/callback/github` URI and does not redirect to
-   the production domain.
-6. Existing production routing and TASK-370 database isolation remain unchanged.
+1. Every meeting note exposes creator, last editor, update time, and an
+   optional steward/facilitator with actor kind, stable identifier, display
+   label, avatar treatment, and current access state. Stewards are rendered
+   with the same chip vocabulary used for meeting-todo assignees, including
+   `Needs reassignment` for removed or revoked actors.
+2. New notes persist a steward that defaults to the note creator. Existing
+   notes are backfilled from `createdByUserId`. Editing a note preserves the
+   steward unless the editor explicitly reassigns or clears it; the steward
+   must survive unrelated field edits.
+3. Editors can assign or clear a steward from meeting detail and the
+   preparation flow using a labeled, keyboard-operable chip with pending and
+   error feedback. Viewers see steward identity without mutation affordances,
+   and the mutation/deletion boundary is explicit in the UI.
+4. Steward validation is enforced in the service boundary. Human steward
+   candidates must currently own or belong to the project; agent steward
+   candidates must be active, unexpired credentials for that project.
+   Stewardship never grants access, and external meeting participants are
+   never selectable as stewards.
+5. Removed human members and revoked/expired agents remain visibly attached to
+   their note as inactive and labeled `Needs reassignment` until cleared or
+   reassigned.
+6. The meeting notes panel supports stable URL-backed
+   `All`/`Stewarded by me`/`Unstewarded` filters for both active and archived
+   lists, with accurate counts and useful filtered empty states.
+7. UI remains usable at 375px and desktop widths, in light and dark themes,
+   with visible focus, semantic status text, at least 44px primary touch
+   targets, and no color-only stewardship state.
+8. Stewardship survives the existing project-scoped realtime reconciliation,
+   and a steward change emits a project activity event so observers refresh
+   correctly.
 
 ## Definition Of Done
 
-- Focused request-origin and runtime-environment coverage passes.
+- Prisma schema, migration, RLS inventory, services, routes, UI projections,
+  and relevant documentation are updated together.
+- Focused unit, service, route, component, and Playwright coverage exercises
+  human/agent stewardship, invalid actors, inactive states, steward filters,
+  creator/last-editor provenance, role restrictions, and steward
+  defaults/backfill.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  and `npm run build` pass.
-- GitHub Preview environment metadata contains `PREVIEW_AUTH_ORIGIN` without
-  exposing credentials.
-- The branch preview workflow completes for the explicit branch ref and its
-  logs prove the checked-out ref, validated immutable target, and alias target.
-- A ready-for-review PR is open; required checks and initial Copilot review are
-  complete; actionable threads are resolved before merge.
-- `tasks/current.md`, `tasks/backlog.md`, relevant runbooks, and `journal.md`
-  record the diagnosis and validation outcome.
+  `npm run build`, and relevant meeting-note E2E coverage pass.
+- `tasks/current.md`, `tasks/backlog.md`,
+  `tasks/task-356-meeting-note-stewardship.md`, and `journal.md` reflect the
+  delivered behavior.
+- The branch is pushed, a ready-for-review PR is open, required checks are
+  green, and initial Copilot review feedback is resolved or documented.
 
 ## Runtime Assumptions
 
-- The existing static Preview alias is registered in the Preview GitHub and
-  Google OAuth applications.
-- The alias may move only through the Preview deployment workflow after the
-  immutable deployment passes all existing TASK-370 checks.
-- `PREVIEW_AUTH_ORIGIN` is non-secret environment metadata; OAuth client secrets
-  and database connection strings remain secret.
-
-## Validation Evidence
-
-- Workflow run `32843605455` deployed commit `8df7e1c`, validated immutable
-  Preview URL
-  `https://nexus-dash-7ykoau18s-dorian-agaesses-projects.vercel.app`, then
-  assigned and verified the stable Preview auth alias.
-- Both URLs report `APP_ENV=preview`, revision `8df7e1c`, database ready, and
-  the same Vercel deployment identity.
-- The first unauthenticated provider probe only proved that GitHub would send an
-  unauthenticated client to login; the user's authenticated test correctly
-  exposed the callback-path mismatch. Corrected deployment evidence and
-  user-owned completion of the signed-in OAuth flow are pending before merge.
+- Local database-backed validation uses the repository `.env` contract and a
+  reachable PostgreSQL instance when migration or E2E execution requires it.
+- No new secrets or external provider configuration are introduced.
+- Preview deployment is not an acceptance requirement; local browser coverage
+  is sufficient unless review feedback exposes a preview-only concern.

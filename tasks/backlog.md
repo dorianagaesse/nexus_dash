@@ -337,6 +337,7 @@ Last reviewed: 2026-08-24
   Title: Meeting note stewardship and decision provenance
   Status: P1 - meeting accountability
   Rationale: Give each meeting note a visible, reassignable steward or facilitator; surface creator, last editor, and update time; and preserve authorship for accepted decisions. Keep attendance separate from responsibility, support filtering and handoff, and make note mutation/deletion capabilities explicit without conflating the note steward with individual todo assignees.
+  Brief: tasks/task-356-meeting-note-stewardship.md
   Dependencies: TASK-098, TASK-119, TASK-329, TASK-337, TASK-340
 - ID: TASK-348
   Title: Personal Calendar versus shared project scheduling
