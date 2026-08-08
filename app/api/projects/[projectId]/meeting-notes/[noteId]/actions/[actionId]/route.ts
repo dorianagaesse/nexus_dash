@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
+import {
+  getAgentProjectAccessContext,
+  requireAuthenticatedApiUser,
+  requireApiPrincipal,
+} from "@/lib/auth/api-guard";
+import { isMeetingTodoActorReference } from "@/lib/meeting-todo-actor";
 import { logServerWarning } from "@/lib/observability/logger";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   setProjectMeetingNoteActionCompletion,
+  setProjectMeetingNoteActionAssignee,
   type ProjectMeetingNoteSummary,
 } from "@/lib/services/project-meeting-note-service";
 
 interface MeetingNoteActionRequestBody {
   completed?: unknown;
+  assignee?: unknown;
 }
 
 function serializeMeetingNote(note: ProjectMeetingNoteSummary) {
@@ -37,9 +44,28 @@ export async function PATCH(
   }
 ) {
   const params = await props.params;
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
-  if (!authenticatedUser.ok) {
-    return authenticatedUser.response;
+  const usesAgentBearer = request.headers
+    .get("authorization")
+    ?.trim()
+    .toLowerCase()
+    .startsWith("bearer ");
+  const principal = usesAgentBearer
+    ? await (async () => {
+        const result = await requireApiPrincipal(request);
+        return result.ok ? result.principal : result.response;
+      })()
+    : await (async () => {
+        const result = await requireAuthenticatedApiUser(request);
+        return result.ok
+          ? ({
+              kind: "human" as const,
+              actorUserId: result.userId,
+              requestId: "session",
+            } as const)
+          : result.response;
+      })();
+  if (principal instanceof NextResponse) {
+    return principal;
   }
 
   let payload: MeetingNoteActionRequestBody;
@@ -54,27 +80,65 @@ export async function PATCH(
     return NextResponse.json({ error: "invalid-json" }, { status: 400 });
   }
 
-  if (typeof payload.completed !== "boolean") {
+  const hasCompletedProperty = Object.prototype.hasOwnProperty.call(
+    payload,
+    "completed"
+  );
+  const hasCompleted = typeof payload.completed === "boolean";
+  const hasAssignee = Object.prototype.hasOwnProperty.call(payload, "assignee");
+  if (hasCompletedProperty && !hasCompleted) {
     return NextResponse.json(
       { error: "meeting-note-action-completed-invalid" },
       { status: 400 }
     );
   }
+  if (hasCompleted === hasAssignee) {
+    return NextResponse.json(
+      { error: "meeting-note-action-update-invalid" },
+      { status: 400 }
+    );
+  }
 
-  const result = await setProjectMeetingNoteActionCompletion({
-    actorUserId: authenticatedUser.userId,
+  if (
+    hasAssignee &&
+    payload.assignee !== null &&
+    !isMeetingTodoActorReference(payload.assignee)
+  ) {
+    return NextResponse.json(
+      { error: "meeting-note-action-assignee-invalid" },
+      { status: 400 }
+    );
+  }
+
+  const commonInput = {
+    actorUserId: principal.actorUserId,
     projectId: params.projectId,
     noteId: params.noteId,
     actionId: params.actionId,
-    completed: payload.completed,
-  });
+    agentAccess:
+      principal.kind === "agent"
+        ? getAgentProjectAccessContext(principal)
+        : undefined,
+  };
+  const result = hasCompleted
+    ? await setProjectMeetingNoteActionCompletion({
+        ...commonInput,
+        completed: payload.completed as boolean,
+      })
+    : await setProjectMeetingNoteActionAssignee({
+        ...commonInput,
+        assignee:
+          payload.assignee === null
+            ? null
+            : (payload.assignee as { kind: "human" | "agent"; id: string }),
+      });
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
   const version = await recordProjectActivityEventVersion({
-    actorUserId: authenticatedUser.userId,
+    actorUserId: principal.actorUserId,
     projectId: params.projectId,
     domain: "meeting-note",
     action: "updated",
@@ -82,6 +146,8 @@ export async function PATCH(
     payload: {
       noteId: result.data.note.id,
       actionId: params.actionId,
+      actorCredentialId:
+        principal.kind === "agent" ? principal.credentialId : null,
     },
   });
 

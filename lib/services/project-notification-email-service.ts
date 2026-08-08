@@ -938,7 +938,7 @@ async function findMeetingTodoOverdueReminderCandidates(input: {
         note."scheduledAt" AS "scheduledAt",
         project."id" AS "projectId",
         project."name" AS "projectName",
-        note."createdByUserId" AS "recipientUserId",
+        action."assigneeUserId" AS "recipientUserId",
         to_char(note."scheduledAt", 'YYYY-MM-DD') AS "scheduledDate"
       FROM "ProjectMeetingNoteAction" action
       INNER JOIN "ProjectMeetingNote" note
@@ -949,7 +949,8 @@ async function findMeetingTodoOverdueReminderCandidates(input: {
         AND note."scheduledAt" IS NOT NULL
         AND note."scheduledAt" <= ${overdueSinceTimestamp}
         AND note."status" <> 'done'
-        AND note."createdByUserId" = ${input.recipientUserId}
+        AND action."assigneeKind" = 'human'
+        AND action."assigneeUserId" = ${input.recipientUserId}
         AND (
           project."ownerId" = ${input.recipientUserId}
           OR EXISTS (

@@ -4,11 +4,28 @@ import {
   type ProjectMeetingParticipantIdentity,
   type ProjectMeetingParticipantInput,
 } from "@/lib/meeting-participant";
+import {
+  isMeetingTodoActorReference,
+  type MeetingTodoActorReference,
+  type MeetingTodoActorSummary,
+} from "@/lib/meeting-todo-actor";
 import { touchProjectActivity } from "@/lib/services/project-activity-service";
 import {
   requireProjectRole,
+  requireAgentProjectScopes,
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
+import {
+  loadMeetingTodoActorRegistry,
+  mapStoredMeetingTodoActor,
+  meetingTodoActorCredentialSelect,
+  meetingTodoActorUserSelect,
+  resolveAssignableMeetingTodoActorFromRegistry,
+  resolveMeetingTodoMutationActor,
+  type MeetingTodoActorCredentialRecord,
+  type MeetingTodoActorRegistry,
+  type ResolvedMeetingTodoActorPersistence,
+} from "@/lib/services/project-meeting-todo-actor-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 import {
   normalizeTaskLabels,
@@ -57,6 +74,7 @@ export interface MeetingNoteActionInput {
   id?: string | null;
   content: string;
   completedAt?: Date | string | null;
+  assignee?: MeetingTodoActorReference | null;
 }
 
 export interface MeetingNoteMutationInput {
@@ -99,6 +117,9 @@ export interface ProjectMeetingNoteActionSummary {
   content: string;
   completedAt: Date | null;
   position: number;
+  creator: MeetingTodoActorSummary | null;
+  assignee: MeetingTodoActorSummary | null;
+  completedBy: MeetingTodoActorSummary | null;
 }
 
 export interface MeetingNoteActionCompletionInput {
@@ -109,6 +130,36 @@ export interface MeetingNoteActionCompletionInput {
   completed: boolean;
   agentAccess?: AgentProjectAccessContext;
 }
+
+export interface MeetingNoteActionAssigneeInput {
+  actorUserId: string;
+  projectId: string;
+  noteId: string;
+  actionId: string;
+  assignee: MeetingTodoActorReference | null;
+  agentAccess?: AgentProjectAccessContext;
+}
+
+type MeetingTodoStoredActorFields = {
+  createdByUserId: string | null;
+  createdByCredentialId: string | null;
+  creatorKind: "human" | "agent";
+  creatorDisplayNameSnapshot: string;
+  createdByUser: TaskPersonRecord | null;
+  createdByCredential: MeetingTodoActorCredentialRecord | null;
+  assigneeUserId: string | null;
+  assigneeCredentialId: string | null;
+  assigneeKind: "human" | "agent" | null;
+  assigneeDisplayNameSnapshot: string | null;
+  assigneeUser: TaskPersonRecord | null;
+  assigneeCredential: MeetingTodoActorCredentialRecord | null;
+  completedByUserId: string | null;
+  completedByCredentialId: string | null;
+  completedByKind: "human" | "agent" | null;
+  completedByDisplayNameSnapshot: string | null;
+  completedByUser: TaskPersonRecord | null;
+  completedByCredential: MeetingTodoActorCredentialRecord | null;
+};
 
 type MeetingNoteRecord = {
   id: string;
@@ -128,13 +179,22 @@ type MeetingNoteRecord = {
   decisions: string;
   createdAt: Date;
   updatedAt: Date;
-  actions: Array<{
+  actions: Array<MeetingTodoStoredActorFields & {
     id: string;
     content: string;
     completedAt: Date | null;
     position: number;
   }>;
 };
+
+const meetingTodoActionActorInclude = {
+  createdByUser: { select: meetingTodoActorUserSelect },
+  createdByCredential: { select: meetingTodoActorCredentialSelect },
+  assigneeUser: { select: meetingTodoActorUserSelect },
+  assigneeCredential: { select: meetingTodoActorCredentialSelect },
+  completedByUser: { select: meetingTodoActorUserSelect },
+  completedByCredential: { select: meetingTodoActorCredentialSelect },
+} as const;
 
 function createError(status: number, error: string): ServiceErrorResult {
   return { ok: false, status, error };
@@ -219,15 +279,28 @@ function normalizeScheduledAt(value: Date | string | null | undefined): Date | n
 
 function normalizeActionInputs(
   value: MeetingNoteActionInput[] | undefined
-): Array<{ content: string; completedAt: Date | null; position: number }> {
+): Array<{
+  id: string | null;
+  content: string;
+  completedAt: Date | null;
+  position: number;
+  assignee: MeetingTodoActorReference | null | undefined;
+}> {
   if (!Array.isArray(value)) {
     return [];
   }
 
   return value
     .map((action) => ({
+      id: normalizeText(action.id) || null,
       content: normalizeText(action.content),
       completedAt: normalizeScheduledAt(action.completedAt ?? null),
+      assignee:
+        action.assignee === null
+          ? null
+          : isMeetingTodoActorReference(action.assignee)
+            ? { kind: action.assignee.kind, id: action.assignee.id.trim() }
+            : undefined,
     }))
     .filter((action) => action.content.length > 0)
     .map((action, index) => ({
@@ -246,7 +319,7 @@ function validateMeetingNoteDraft(input: {
   inputNotes: string;
   outputNotes: string;
   decisions: string;
-  actions: Array<{ content: string }>;
+  actions: Array<{ id: string | null; content: string }>;
 }): ServiceErrorResult | null {
   if (input.title.length < MIN_TITLE_LENGTH) {
     return createError(400, "meeting-note-title-too-short");
@@ -294,10 +367,44 @@ function validateMeetingNoteDraft(input: {
     return createError(400, "meeting-note-action-too-long");
   }
 
+  const actionIds = input.actions.flatMap((action) =>
+    action.id ? [action.id] : []
+  );
+  if (new Set(actionIds).size !== actionIds.length) {
+    return createError(400, "meeting-note-action-invalid");
+  }
+
   return null;
 }
 
-function mapMeetingNote(note: MeetingNoteRecord): ProjectMeetingNoteSummary {
+function mapActionActor(input: {
+  kind: "human" | "agent" | null;
+  userId: string | null;
+  credentialId: string | null;
+  snapshot: string | null;
+  user: TaskPersonRecord | null;
+  credential: MeetingTodoActorCredentialRecord | null;
+  registry: MeetingTodoActorRegistry | null;
+}): MeetingTodoActorSummary | null {
+  if (!input.kind) {
+    return null;
+  }
+  return mapStoredMeetingTodoActor({
+    kind: input.kind,
+    id: input.kind === "human" ? input.userId : input.credentialId,
+    displayNameSnapshot: input.snapshot,
+    user: input.user,
+    credential: input.credential,
+    isCurrentProjectHuman:
+      input.kind === "human" && Boolean(input.userId) &&
+      Boolean(input.registry?.activeHumanIds.has(input.userId ?? "")),
+  });
+}
+
+function mapMeetingNote(
+  note: MeetingNoteRecord,
+  registry: MeetingTodoActorRegistry | null
+): ProjectMeetingNoteSummary {
   return {
     id: note.id,
     projectId: note.projectId,
@@ -335,6 +442,33 @@ function mapMeetingNote(note: MeetingNoteRecord): ProjectMeetingNoteSummary {
         content: action.content,
         completedAt: action.completedAt,
         position: action.position,
+        creator: mapActionActor({
+          kind: action.creatorKind,
+          userId: action.createdByUserId,
+          credentialId: action.createdByCredentialId,
+          snapshot: action.creatorDisplayNameSnapshot,
+          user: action.createdByUser,
+          credential: action.createdByCredential,
+          registry,
+        }),
+        assignee: mapActionActor({
+          kind: action.assigneeKind,
+          userId: action.assigneeUserId,
+          credentialId: action.assigneeCredentialId,
+          snapshot: action.assigneeDisplayNameSnapshot,
+          user: action.assigneeUser,
+          credential: action.assigneeCredential,
+          registry,
+        }),
+        completedBy: mapActionActor({
+          kind: action.completedByKind,
+          userId: action.completedByUserId,
+          credentialId: action.completedByCredentialId,
+          snapshot: action.completedByDisplayNameSnapshot,
+          user: action.completedByUser,
+          credential: action.completedByCredential,
+          registry,
+        }),
       })),
     createdAt: note.createdAt,
     updatedAt: note.updatedAt,
@@ -366,7 +500,8 @@ async function readMeetingNoteById(input: {
   projectId: string;
   noteId: string;
 }): Promise<ProjectMeetingNoteSummary | null> {
-  const note = await input.db.projectMeetingNote.findFirst({
+  const [note, registry] = await Promise.all([
+    input.db.projectMeetingNote.findFirst({
     where: {
       id: input.noteId,
       projectId: input.projectId,
@@ -382,11 +517,17 @@ async function readMeetingNoteById(input: {
       },
       actions: {
         orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+        include: meetingTodoActionActorInclude,
       },
     },
-  });
+    }),
+    loadMeetingTodoActorRegistry({
+      db: input.db,
+      projectId: input.projectId,
+    }),
+  ]);
 
-  return note ? mapMeetingNote(note) : null;
+  return note ? mapMeetingNote(note, registry) : null;
 }
 
 function buildDraft(input: MeetingNoteMutationInput) {
@@ -410,6 +551,71 @@ function buildDraft(input: MeetingNoteMutationInput) {
     outputNotes,
     decisions,
     actions,
+  };
+}
+
+type NormalizedMeetingAction = ReturnType<typeof normalizeActionInputs>[number];
+
+function resolveDraftActionAssignees(input: {
+  actions: NormalizedMeetingAction[];
+  registry: MeetingTodoActorRegistry | null;
+}):
+  | {
+      ok: true;
+      assignments: Array<{
+        assigneeKind: "human" | "agent" | null;
+        assigneeUserId: string | null;
+        assigneeCredentialId: string | null;
+        assigneeDisplayNameSnapshot: string | null;
+      } | undefined>;
+    }
+  | ServiceErrorResult {
+  const assignments: Array<{
+    assigneeKind: "human" | "agent" | null;
+    assigneeUserId: string | null;
+    assigneeCredentialId: string | null;
+    assigneeDisplayNameSnapshot: string | null;
+  } | undefined> = [];
+
+  for (const action of input.actions) {
+    if (action.assignee === undefined) {
+      assignments.push(undefined);
+      continue;
+    }
+    if (action.assignee === null) {
+      assignments.push({
+        assigneeKind: null,
+        assigneeUserId: null,
+        assigneeCredentialId: null,
+        assigneeDisplayNameSnapshot: null,
+      });
+      continue;
+    }
+
+    const resolution = resolveAssignableMeetingTodoActorFromRegistry({
+      registry: input.registry,
+      reference: action.assignee,
+    });
+    if (!resolution.ok) {
+      return createError(resolution.status, resolution.error);
+    }
+    assignments.push({
+      assigneeKind: resolution.actor.summary.kind,
+      assigneeUserId: resolution.actor.userId,
+      assigneeCredentialId: resolution.actor.credentialId,
+      assigneeDisplayNameSnapshot: resolution.actor.displayNameSnapshot,
+    });
+  }
+
+  return { ok: true, assignments };
+}
+
+function buildCreatorPersistence(actor: ResolvedMeetingTodoActorPersistence) {
+  return {
+    creatorKind: actor.summary.kind,
+    createdByUserId: actor.userId,
+    createdByCredentialId: actor.credentialId,
+    creatorDisplayNameSnapshot: actor.displayNameSnapshot,
   };
 }
 
@@ -515,6 +721,17 @@ export async function listProjectMeetingNotes(input: {
     return [];
   }
 
+  if (input.agentAccess) {
+    const agentScopeAccess = requireAgentProjectScopes({
+      agentAccess: input.agentAccess,
+      projectId: input.projectId,
+      requiredScopes: ["task:read"],
+    });
+    if (!agentScopeAccess.ok) {
+      return [];
+    }
+  }
+
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
@@ -526,7 +743,8 @@ export async function listProjectMeetingNotes(input: {
       return [];
     }
 
-    const notes = await db.projectMeetingNote.findMany({
+    const [notes, registry] = await Promise.all([
+      db.projectMeetingNote.findMany({
       where: {
         projectId: input.projectId,
       },
@@ -542,12 +760,17 @@ export async function listProjectMeetingNotes(input: {
         },
         actions: {
           orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+          include: meetingTodoActionActorInclude,
         },
       },
-    });
+      }),
+      loadMeetingTodoActorRegistry({ db, projectId: input.projectId }),
+    ]);
 
     const query = normalizeText(input.query).toLocaleLowerCase();
-    return notes.map((note) => mapMeetingNote(note)).filter((note) => noteMatchesSearch(note, query));
+    return notes
+      .map((note) => mapMeetingNote(note, registry))
+      .filter((note) => noteMatchesSearch(note, query));
   }) as Promise<ProjectMeetingNoteSummary[]>;
 }
 
@@ -568,6 +791,17 @@ export async function createProjectMeetingNote(
     return validationError;
   }
 
+  if (input.agentAccess) {
+    const agentScopeAccess = requireAgentProjectScopes({
+      agentAccess: input.agentAccess,
+      projectId: input.projectId,
+      requiredScopes: ["task:write"],
+    });
+    if (!agentScopeAccess.ok) {
+      return createError(agentScopeAccess.status, agentScopeAccess.error);
+    }
+  }
+
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
@@ -580,13 +814,33 @@ export async function createProjectMeetingNote(
     }
 
     try {
-      const participantResolution = await resolveMeetingParticipants({
-        db,
-        projectId: input.projectId,
-        participants: draft.participants,
-      });
+      const [participantResolution, mutationActor, actorRegistry] =
+        await Promise.all([
+          resolveMeetingParticipants({
+            db,
+            projectId: input.projectId,
+            participants: draft.participants,
+          }),
+          resolveMeetingTodoMutationActor({
+            db,
+            actorUserId,
+            projectId: input.projectId,
+            agentAccess: input.agentAccess,
+          }),
+          loadMeetingTodoActorRegistry({ db, projectId: input.projectId }),
+        ]);
       if (!participantResolution.ok) {
         return participantResolution;
+      }
+      if (!mutationActor.ok) {
+        return createError(mutationActor.status, mutationActor.error);
+      }
+      const assignmentResolution = resolveDraftActionAssignees({
+        actions: draft.actions,
+        registry: actorRegistry,
+      });
+      if (!assignmentResolution.ok) {
+        return assignmentResolution;
       }
 
       const created = await db.projectMeetingNote.create({
@@ -605,10 +859,26 @@ export async function createProjectMeetingNote(
           createdByUserId: actorUserId,
           updatedByUserId: actorUserId,
           actions: {
-            create: draft.actions.map((action) => ({
+            create: draft.actions.map((action, index) => ({
               content: action.content,
               completedAt: action.completedAt,
               position: action.position,
+              ...buildCreatorPersistence(mutationActor.actor),
+              ...(assignmentResolution.assignments[index] ?? {
+                assigneeKind: null,
+                assigneeUserId: null,
+                assigneeCredentialId: null,
+                assigneeDisplayNameSnapshot: null,
+              }),
+              ...(action.completedAt
+                ? {
+                    completedByKind: mutationActor.actor.summary.kind,
+                    completedByUserId: mutationActor.actor.userId,
+                    completedByCredentialId: mutationActor.actor.credentialId,
+                    completedByDisplayNameSnapshot:
+                      mutationActor.actor.displayNameSnapshot,
+                  }
+                : {}),
             })),
           },
         },
@@ -658,6 +928,17 @@ export async function updateProjectMeetingNote(
     return validationError;
   }
 
+  if (input.agentAccess) {
+    const agentScopeAccess = requireAgentProjectScopes({
+      agentAccess: input.agentAccess,
+      projectId: input.projectId,
+      requiredScopes: ["task:write"],
+    });
+    if (!agentScopeAccess.ok) {
+      return createError(agentScopeAccess.status, agentScopeAccess.error);
+    }
+  }
+
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
@@ -674,21 +955,97 @@ export async function updateProjectMeetingNote(
         id: noteId,
         projectId: input.projectId,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        actions: { select: { id: true } },
+      },
     });
     if (!existing) {
       return createError(404, "meeting-note-not-found");
     }
 
     try {
-      const participantResolution = await resolveMeetingParticipants({
-        db,
-        projectId: input.projectId,
-        participants: draft.participants,
-      });
+      const [participantResolution, mutationActor, actorRegistry] =
+        await Promise.all([
+          resolveMeetingParticipants({
+            db,
+            projectId: input.projectId,
+            participants: draft.participants,
+          }),
+          resolveMeetingTodoMutationActor({
+            db,
+            actorUserId,
+            projectId: input.projectId,
+            agentAccess: input.agentAccess,
+          }),
+          loadMeetingTodoActorRegistry({ db, projectId: input.projectId }),
+        ]);
       if (!participantResolution.ok) {
         return participantResolution;
       }
+      if (!mutationActor.ok) {
+        return createError(mutationActor.status, mutationActor.error);
+      }
+      const assignmentResolution = resolveDraftActionAssignees({
+        actions: draft.actions,
+        registry: actorRegistry,
+      });
+      if (!assignmentResolution.ok) {
+        return assignmentResolution;
+      }
+
+      const existingActionIds = new Set(existing.actions.map((action) => action.id));
+      const retainedActionIds = draft.actions.flatMap((action) =>
+        action.id ? [action.id] : []
+      );
+      if (retainedActionIds.some((id) => !existingActionIds.has(id))) {
+        return createError(400, "meeting-note-action-invalid");
+      }
+
+      const updates = draft.actions.flatMap((action, index) => {
+        if (!action.id) {
+          return [];
+        }
+        const assignment = assignmentResolution.assignments[index];
+        return [
+          {
+            where: { id: action.id },
+            data: {
+              content: action.content,
+              position: action.position,
+              ...(assignment ?? {}),
+            },
+          },
+        ];
+      });
+      const creates = draft.actions.flatMap((action, index) => {
+        if (action.id) {
+          return [];
+        }
+        return [
+          {
+            content: action.content,
+            completedAt: action.completedAt,
+            position: action.position,
+            ...buildCreatorPersistence(mutationActor.actor),
+            ...(assignmentResolution.assignments[index] ?? {
+              assigneeKind: null,
+              assigneeUserId: null,
+              assigneeCredentialId: null,
+              assigneeDisplayNameSnapshot: null,
+            }),
+            ...(action.completedAt
+              ? {
+                  completedByKind: mutationActor.actor.summary.kind,
+                  completedByUserId: mutationActor.actor.userId,
+                  completedByCredentialId: mutationActor.actor.credentialId,
+                  completedByDisplayNameSnapshot:
+                    mutationActor.actor.displayNameSnapshot,
+                }
+              : {}),
+          },
+        ];
+      });
 
       await db.projectMeetingNote.update({
         where: { id: noteId },
@@ -706,12 +1063,12 @@ export async function updateProjectMeetingNote(
           decisions: draft.decisions,
           updatedByUserId: actorUserId,
           actions: {
-            deleteMany: {},
-            create: draft.actions.map((action) => ({
-              content: action.content,
-              completedAt: action.completedAt,
-              position: action.position,
-            })),
+            deleteMany:
+              retainedActionIds.length > 0
+                ? { id: { notIn: retainedActionIds } }
+                : {},
+            update: updates,
+            create: creates,
           },
         },
       });
@@ -754,6 +1111,17 @@ export async function setProjectMeetingNoteActionCompletion(
     return createError(400, "meeting-note-action-not-found");
   }
 
+  if (input.agentAccess) {
+    const agentScopeAccess = requireAgentProjectScopes({
+      agentAccess: input.agentAccess,
+      projectId: input.projectId,
+      requiredScopes: ["task:write"],
+    });
+    if (!agentScopeAccess.ok) {
+      return createError(agentScopeAccess.status, agentScopeAccess.error);
+    }
+  }
+
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
@@ -787,10 +1155,32 @@ export async function setProjectMeetingNoteActionCompletion(
     }
 
     try {
+      const mutationActor = await resolveMeetingTodoMutationActor({
+        db,
+        actorUserId,
+        projectId: input.projectId,
+        agentAccess: input.agentAccess,
+      });
+      if (!mutationActor.ok) {
+        return createError(mutationActor.status, mutationActor.error);
+      }
+
       await db.projectMeetingNoteAction.update({
         where: { id: actionId },
         data: {
           completedAt: input.completed ? new Date() : null,
+          completedByKind: input.completed
+            ? mutationActor.actor.summary.kind
+            : null,
+          completedByUserId: input.completed
+            ? mutationActor.actor.userId
+            : null,
+          completedByCredentialId: input.completed
+            ? mutationActor.actor.credentialId
+            : null,
+          completedByDisplayNameSnapshot: input.completed
+            ? mutationActor.actor.displayNameSnapshot
+            : null,
         },
       });
 
@@ -821,6 +1211,108 @@ export async function setProjectMeetingNoteActionCompletion(
       };
     } catch (error) {
       logServerError("setProjectMeetingNoteActionCompletion", error);
+      return createError(500, "meeting-note-action-update-failed");
+    }
+  });
+}
+
+export async function setProjectMeetingNoteActionAssignee(
+  input: MeetingNoteActionAssigneeInput
+): Promise<ServiceResult<{ note: ProjectMeetingNoteSummary }>> {
+  const actorUserId = normalizeText(input.actorUserId);
+  const noteId = normalizeText(input.noteId);
+  const actionId = normalizeText(input.actionId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+  if (!noteId || !actionId) {
+    return createError(400, "meeting-note-action-not-found");
+  }
+
+  if (input.agentAccess) {
+    const agentScopeAccess = requireAgentProjectScopes({
+      agentAccess: input.agentAccess,
+      projectId: input.projectId,
+      requiredScopes: ["task:write"],
+    });
+    if (!agentScopeAccess.ok) {
+      return createError(agentScopeAccess.status, agentScopeAccess.error);
+    }
+  }
+
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "editor",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
+
+    const action = await db.projectMeetingNoteAction.findFirst({
+      where: {
+        id: actionId,
+        meetingNoteId: noteId,
+        meetingNote: { projectId: input.projectId },
+      },
+      select: { id: true },
+    });
+    if (!action) {
+      return createError(404, "meeting-note-action-not-found");
+    }
+
+    const assignment = input.assignee
+      ? await (async () => {
+          const registry = await loadMeetingTodoActorRegistry({
+            db,
+            projectId: input.projectId,
+          });
+          return resolveAssignableMeetingTodoActorFromRegistry({
+            registry,
+            reference: input.assignee as MeetingTodoActorReference,
+          });
+        })()
+      : null;
+    if (assignment && !assignment.ok) {
+      return createError(assignment.status, assignment.error);
+    }
+
+    try {
+      await db.projectMeetingNoteAction.update({
+        where: { id: actionId },
+        data: assignment
+          ? {
+              assigneeKind: assignment.actor.summary.kind,
+              assigneeUserId: assignment.actor.userId,
+              assigneeCredentialId: assignment.actor.credentialId,
+              assigneeDisplayNameSnapshot: assignment.actor.displayNameSnapshot,
+            }
+          : {
+              assigneeKind: null,
+              assigneeUserId: null,
+              assigneeCredentialId: null,
+              assigneeDisplayNameSnapshot: null,
+            },
+      });
+      await db.projectMeetingNote.update({
+        where: { id: noteId },
+        data: { updatedByUserId: actorUserId },
+      });
+
+      const note = await readMeetingNoteById({
+        db,
+        projectId: input.projectId,
+        noteId,
+      });
+      if (!note) {
+        return createError(404, "meeting-note-not-found");
+      }
+      await touchProjectActivity({ db, projectId: input.projectId });
+      return { ok: true, data: { note } };
+    } catch (error) {
+      logServerError("setProjectMeetingNoteActionAssignee", error);
       return createError(500, "meeting-note-action-update-failed");
     }
   });

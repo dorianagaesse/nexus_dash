@@ -50,9 +50,10 @@ Last reviewed: 2026-08-08
   Dependencies: TASK-325, TASK-326
 - ID: TASK-330
   Title: Meeting todo assignees and completion accountability - human/agent ownership across notes and the project-wide panel
-  Status: Next 9 - meeting follow-up ownership
+  Status: Done - meeting follow-up ownership delivered on 2026-08-06
   Rationale: Give every meeting todo an optional authorized project actor, preserve its creator and completion actor, target reminders at the real assignee, and add assigned-to-me plus unassigned views across meeting detail and the project-wide panel. Assignment must not grant access, external meeting guests remain non-assignable until they join the project, and removed members or revoked agents must leave a visible reassignment state rather than silently orphaning work.
   Dependencies: TASK-098, TASK-119, TASK-316, TASK-329, TASK-337
+  Brief: `tasks/task-330-meeting-todo-assignees.md`
 - ID: TASK-331
   Title: Granular project capabilities - module-level human roles and agent scopes
   Status: Next 10 - invitation and membership permission expansion

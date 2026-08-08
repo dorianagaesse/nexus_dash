@@ -583,7 +583,9 @@ describe("project-notification-email-service", () => {
     expect(sql).toContain('note."scheduledAt" IS NOT NULL');
     expect(sql).toContain('note."scheduledAt" <=');
     expect(sql).toContain('note."status" <> \'done\'');
-    expect(sql).toContain('note."createdByUserId" =');
+    expect(sql).toContain('action."assigneeKind" = \'human\'');
+    expect(sql).toContain('action."assigneeUserId" =');
+    expect(sql).not.toContain('note."createdByUserId" =');
     expect(sql).toContain('project."ownerId" =');
     expect(sql).toContain('FROM "ProjectMembership" membership');
     expect(sql).toContain('notification."sourceType" =');

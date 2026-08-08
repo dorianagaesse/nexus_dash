@@ -3,6 +3,46 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-08 - TASK-330 assignee control rebuilt as inline Participants-style chip
+
+- User feedback after the initial accountability ship called the previous
+  assignee `<select>` "shit": it forced every todo onto two stacked rows,
+  pushed the todo list off the participant card on mobile, and broke visual
+  parity with the rest of the meeting UI.
+- Replaced `MeetingTodoAssigneeSelect` in
+  `components/meeting-todos/meeting-todo-actor-control.tsx` with a new
+  `MeetingTodoAssigneeChip` (editable) and `MeetingTodoAssigneeChipReadonly`
+  in `components/meeting-todos/meeting-todo-assignee-chip.tsx`. The chip
+  reuses the same `UserAvatar`/`AgentAvatar` components and
+  rounded-pill geometry as the meeting Participants field
+  (`h-7 w-7` avatar, `border-border/70 bg-muted/40`, `text-xs font-semibold`)
+  so users see one identity vocabulary across the project surface.
+- The chip lives on the same row as the todo content: the `TodoRow` and the
+  meeting-detail todo row now wrap completion checkbox, content, and
+  assignee in a single `flex flex-wrap items-center gap-x-2 gap-y-2` row,
+  removing the bordered `grid-cols-[minmax(0,1fr),minmax(12rem,0.8fr)]`
+  divider that previously separated the two halves.
+- The popover opens via `createPortal` to `document.body`, lists
+  "Unassigned" / "Project members" / "Project agents" with check marks,
+  closes on outside pointer-down and Escape, repositions on resize/scroll,
+  and exposes `data-meeting-todo-assignee-chip="true"` and
+  `data-needs-reassignment="true"` for testing.
+- Added `tests/components/meeting-todo-assignee-chip.test.tsx` (5 cases:
+  unassigned placeholder, assigned display, inactive reassignment flag,
+  popover open + selection, readonly variant). Updated
+  `tests/e2e/project-meeting-todos.spec.ts` to drive the chip via
+  `[data-meeting-todo-assignee-chip='true']` plus the listbox role, and to
+  assert the chip's `boundingBox` vertically overlaps the todo content
+  `boundingBox` to lock the same-line layout into the smoke.
+- Validation passed: lint, `npm run rls:check`, 1036 unit/API tests with
+  2 skipped, coverage 91.37% statements / 81.33% branches / 92.2%
+  functions / 91.88% lines, production build, and the focused
+  `tests/e2e/project-meeting-todos.spec.ts` plus the related task-329 and
+  task-351 browser specs. Playwright screenshots at
+  `.tmp/task332-screenshots/` (iphone-14-pro-light/dark and
+  desktop-sidebar) confirm the chip sits on the same row as the todo
+  content in mobile light/dark and desktop sidebar views.
+
 # 2026-08-08 - External UX feedback refinement program added to backlog
 
 - Reviewed an external UX feedback pass covering 16 points across auth flows,
@@ -23,6 +63,77 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Three feedback items noted as already covered rather than re-tasked:
   meeting-todos panel movement (TASK-353/TASK-332) and collapsible sidebar
   plus overview sub-nav (TASK-110 modular dashboard personalization epic).
+- Docs-only change; no code or validation suite run per agent.md guidance.
+
+# 2026-08-08 - Defensive calendar credential fetch (preview 1277004625)
+
+- Preview deployments of `feature/task-330-meeting-todo-assignees` failed every
+  `/projects/[id]` render with Next.js error digest `1277004625` (and
+  `2548249264` after redeploy). Vercel function logs were the only signal:
+  responses returned 200 while the body carried `PrismaClientKnownRequestError`
+  `P2021` — `The table public.GoogleCalendarCredential does not exist in the
+  current database` — from `prisma.googleCalendarCredential.findUnique()` in
+  `getProjectSummaryById`.
+- Root cause is missing schema in the staging database that backs the preview
+  runtime. `MIGRATION_DATABASE_URL` and `DATABASE_URL` are deliberately
+  separate secrets, and the migration history (baseline + every TASK-* follow
+  up) does create the table; whatever drift produced the absence is not
+  reachable from this branch.
+- Decoupled the calendar credential lookup from the main stats `Promise.all`
+  in `lib/services/project-service.ts` and wrapped it in a small
+  `safeFindCalendarCredential` helper that swallows Prisma `P2021` (`Table
+  Does Not Exist`) and returns `null`, leaving every other Prisma error to
+  propagate. `isCalendarConnected` already degraded to `false` on null, so
+  project pages render correctly even if the calendar table is missing; other
+  calendar flows still require the table and surface a real error.
+- Added two unit tests in `tests/lib/project-service.test.ts`: the missing
+  table path returns the summary with `isCalendarConnected: false`, and any
+  non-`P2021` error still propagates. All 11 tests in that file pass; full
+  `npm test` is 936 passing / 1 skipped, with 13 pre-existing integration
+  files failing only because the workstation has no `DATABASE_URL`.
+
+# 2026-08-06 - TASK-330 meeting-todo accountability completed
+
+- Added durable human/agent creator, optional assignee, and completer provenance
+  to meeting todos, including display snapshots and visible inactive/revoked
+  responsibility states. Existing todos are backfilled from their meeting-note
+  creator, while note edits preserve unchanged todo IDs and history.
+- Added service-enforced assignment eligibility, agent `task:read`/`task:write`
+  meeting endpoints, human/agent completion attribution, project-wide
+  responsibility filters, and assignee-targeted overdue reminders that never
+  fall back to note creators or agent owners.
+- Added accessible assignment controls and identity treatment across meeting
+  detail, the project Todos page, and quick views, with responsive light/dark
+  browser coverage at mobile and desktop widths.
+- Applied migration `20260806120000_task330_meeting_todo_accountability` to the
+  configured database and a disposable local PostgreSQL database. The real
+  least-privilege RLS matrix passed after provisioning its `NOBYPASSRLS` runtime
+  role.
+- Addressed the initial Copilot review by preserving inactive assignments during
+  unrelated note edits, assigning stable delimiter-safe IDs to deleted actor
+  snapshots, and restoring the feature-PR documentation boundary for
+  `README.md` and `project.md`.
+- Validation passed: ESLint; Prisma format, validation, generation, and migrate
+  deploy; RLS inventory and real isolation matrix; 1,029 tests across 147 files
+  with two intentional skips; coverage at 91.37% statements, 81.33% branches,
+  92.20% functions, and 91.88% lines; production build; and the focused
+  Playwright meeting-todo flow in 35.1 seconds.
+- Released as feature version `0.37.0`; the branch version-policy check passes
+  against `origin/main` (`0.36.0`).
+
+# 2026-08-06 - TASK-330 meeting-todo accountability started
+
+- Created dedicated worktree `nexus_dash_task330` from `origin/main` on
+  `feature/task-330-meeting-todo-assignees` and activated the task brief.
+- Confirmed TASK-337's universal project-actor foundation is still pending.
+  Scoped a narrow reusable meeting-todo actor contract so TASK-330 can deliver
+  human/agent assignment and provenance without absorbing unrelated artifact
+  ownership work.
+- Defined explicit inactive-assignee behavior, URL-backed responsibility views,
+  service-enforced assignment eligibility, and reminder delivery only to active
+  human assignees rather than implicit creators or agent owners.
+- Applied the UI/UX quality guidance for labeled native controls, keyboard and
+  focus behavior, semantic status text, responsive layouts, and 44px touch targets.  plus overview sub-nav (TASK-110 modular dashboard personalization epic).
 - Docs-only change; no code or validation suite run per agent.md guidance.
 
 # 2026-08-06 - Execution backlog reconciled after recent merges

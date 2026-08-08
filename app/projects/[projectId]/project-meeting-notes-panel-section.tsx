@@ -11,6 +11,7 @@ import {
 import type { ProjectMeetingNotePanelNote } from "@/components/meeting-todos/meeting-note-types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listProjectMeetingNotes } from "@/lib/services/project-meeting-note-service";
+import { listProjectMeetingTodoActors } from "@/lib/services/project-meeting-todo-actor-service";
 import { listProjectCollaborators } from "@/lib/services/project-service";
 
 interface ProjectMeetingNotesPanelSectionProps {
@@ -43,12 +44,13 @@ export async function ProjectMeetingNotesPanelSection({
   initialMeetingNoteId,
   initialMeetingTodoId,
 }: ProjectMeetingNotesPanelSectionProps) {
-  const [notes, collaborators] = await Promise.all([
+  const [notes, collaborators, todoActors] = await Promise.all([
     listProjectMeetingNotes({
       projectId,
       actorUserId,
     }),
     listProjectCollaborators(projectId, actorUserId),
+    listProjectMeetingTodoActors({ projectId, actorUserId }),
   ]);
 
   return (
@@ -57,6 +59,7 @@ export async function ProjectMeetingNotesPanelSection({
       canEdit={canEdit}
       notes={notes.map((note) => serializeMeetingNote(note))}
       collaborators={collaborators}
+      todoActors={todoActors}
       initialMeetingNoteId={initialMeetingNoteId}
       initialMeetingTodoId={initialMeetingTodoId}
     />
