@@ -25,6 +25,9 @@ export interface ProjectMeetingNotePanelNote {
   outputNotes: string;
   decisions?: string;
   actions: ProjectMeetingNotePanelAction[];
+  steward?: MeetingTodoActorSummary | null;
+  createdBy?: MeetingTodoActorSummary | null;
+  updatedBy?: MeetingTodoActorSummary | null;
   createdAt: string;
   updatedAt: string;
 }
