@@ -2,6 +2,12 @@
 
 import { Paperclip, X } from "lucide-react";
 
+import {
+  ContextCardActorChip,
+} from "@/components/context-panel/context-card-actor-chip";
+import {
+  ContextCardReviewBadge,
+} from "@/components/context-panel/context-card-review-badge";
 import type {
   ProjectContextAttachment,
   ProjectContextCard,
@@ -51,29 +57,49 @@ export function ContextPreviewModal({
           onClose();
         }}
       >
-        <CardHeader className="flex shrink-0 flex-row items-start justify-between gap-3 space-y-0">
-          <DialogTitle
-            className="text-xl text-slate-900"
-            onDoubleClick={() => {
-              if (!canEdit) {
-                return;
-              }
+        <CardHeader className="flex shrink-0 flex-col items-start gap-3 space-y-0">
+          <div className="flex w-full items-start justify-between gap-3">
+            <DialogTitle
+              className="text-xl text-slate-900"
+              onDoubleClick={() => {
+                if (!canEdit) {
+                  return;
+                }
 
-              onEdit(card.id);
-            }}
-          >
-            {card.title}
-          </DialogTitle>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="text-slate-800 hover:bg-slate-900/10"
-            onClick={onClose}
-            aria-label="Close context preview"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+                onEdit(card.id);
+              }}
+            >
+              {card.title}
+            </DialogTitle>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-slate-800 hover:bg-slate-900/10"
+              onClick={onClose}
+              aria-label="Close context preview"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <ContextCardReviewBadge review={card.projection.review} />
+            <ContextCardActorChip
+              actor={card.projection.steward}
+              label="Steward"
+              fallback="Unassigned"
+            />
+            <ContextCardActorChip
+              actor={card.projection.lastEditor}
+              label="Last edit"
+              fallback="No edits yet"
+            />
+            <ContextCardActorChip
+              actor={card.projection.creator}
+              label="Created"
+              fallback="Unknown"
+            />
+          </div>
         </CardHeader>
         <CardContent className="min-h-0 flex-1 space-y-4 overflow-y-auto">
           <RichTextContent
