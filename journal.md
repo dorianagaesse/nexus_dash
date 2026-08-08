@@ -3,6 +3,46 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-08 - TASK-330 assignee control rebuilt as inline Participants-style chip
+
+- User feedback after the initial accountability ship called the previous
+  assignee `<select>` "shit": it forced every todo onto two stacked rows,
+  pushed the todo list off the participant card on mobile, and broke visual
+  parity with the rest of the meeting UI.
+- Replaced `MeetingTodoAssigneeSelect` in
+  `components/meeting-todos/meeting-todo-actor-control.tsx` with a new
+  `MeetingTodoAssigneeChip` (editable) and `MeetingTodoAssigneeChipReadonly`
+  in `components/meeting-todos/meeting-todo-assignee-chip.tsx`. The chip
+  reuses the same `UserAvatar`/`AgentAvatar` components and
+  rounded-pill geometry as the meeting Participants field
+  (`h-7 w-7` avatar, `border-border/70 bg-muted/40`, `text-xs font-semibold`)
+  so users see one identity vocabulary across the project surface.
+- The chip lives on the same row as the todo content: the `TodoRow` and the
+  meeting-detail todo row now wrap completion checkbox, content, and
+  assignee in a single `flex flex-wrap items-center gap-x-2 gap-y-2` row,
+  removing the bordered `grid-cols-[minmax(0,1fr),minmax(12rem,0.8fr)]`
+  divider that previously separated the two halves.
+- The popover opens via `createPortal` to `document.body`, lists
+  "Unassigned" / "Project members" / "Project agents" with check marks,
+  closes on outside pointer-down and Escape, repositions on resize/scroll,
+  and exposes `data-meeting-todo-assignee-chip="true"` and
+  `data-needs-reassignment="true"` for testing.
+- Added `tests/components/meeting-todo-assignee-chip.test.tsx` (5 cases:
+  unassigned placeholder, assigned display, inactive reassignment flag,
+  popover open + selection, readonly variant). Updated
+  `tests/e2e/project-meeting-todos.spec.ts` to drive the chip via
+  `[data-meeting-todo-assignee-chip='true']` plus the listbox role, and to
+  assert the chip's `boundingBox` vertically overlaps the todo content
+  `boundingBox` to lock the same-line layout into the smoke.
+- Validation passed: lint, `npm run rls:check`, 1036 unit/API tests with
+  2 skipped, coverage 91.37% statements / 81.33% branches / 92.2%
+  functions / 91.88% lines, production build, and the focused
+  `tests/e2e/project-meeting-todos.spec.ts` plus the related task-329 and
+  task-351 browser specs. Playwright screenshots at
+  `.tmp/task332-screenshots/` (iphone-14-pro-light/dark and
+  desktop-sidebar) confirm the chip sits on the same row as the todo
+  content in mobile light/dark and desktop sidebar views.
+
 # 2026-08-08 - Defensive calendar credential fetch (preview 1277004625)
 
 - Preview deployments of `feature/task-330-meeting-todo-assignees` failed every

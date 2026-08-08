@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import type { ProjectMeetingNotePanelNote } from "@/components/meeting-todos/meeting-note-types";
+import { MeetingTodoAssigneeChipReadonly } from "@/components/meeting-todos/meeting-todo-assignee-chip";
 import { MeetingTodoActorIdentity } from "@/components/meeting-todos/meeting-todo-actor-control";
 import { Button } from "@/components/ui/button";
 import {
@@ -228,7 +229,7 @@ function OpenTodoItem({
           </span>
         ) : null}
         <div className="mt-1.5">
-          <MeetingTodoActorIdentity actor={todo.action.assignee ?? null} compact />
+          <MeetingTodoAssigneeChipReadonly actor={todo.action.assignee ?? null} />
         </div>
       </div>
     </li>

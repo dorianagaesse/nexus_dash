@@ -181,7 +181,26 @@ test.describe("project meeting todos", () => {
         /\/meeting-notes\/[^/]+\/actions\/[^/]+$/.test(response.url()) &&
         response.ok()
     );
-    await accountableTodo.getByLabel("Assignee").selectOption({ index: 1 });
+    const assigneeChip = accountableTodo.locator(
+      "[data-meeting-todo-assignee-chip='true']"
+    );
+    const todoContentRect = await accountableTodo
+      .getByText("Complete the mobile navigation audit")
+      .boundingBox();
+    const chipRect = await assigneeChip.boundingBox();
+    expect(todoContentRect).not.toBeNull();
+    expect(chipRect).not.toBeNull();
+    if (todoContentRect && chipRect) {
+      const verticalOverlap =
+        Math.min(todoContentRect.y + todoContentRect.height, chipRect.y + chipRect.height) -
+        Math.max(todoContentRect.y, chipRect.y);
+      expect(verticalOverlap).toBeGreaterThan(0);
+    }
+    await assigneeChip.click();
+    await page
+      .getByRole("option", { name: /Project member/ })
+      .first()
+      .click();
     await assignmentResponse;
     await expect(
       page.locator("[aria-live='polite']").getByText(/^Assigned to .+\.$/)

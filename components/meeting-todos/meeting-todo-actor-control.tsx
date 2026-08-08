@@ -4,11 +4,7 @@ import { AlertTriangle, UserRound } from "lucide-react";
 
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import {
-  getMeetingTodoActorKey,
-  type MeetingTodoActorReference,
-  type MeetingTodoActorSummary,
-} from "@/lib/meeting-todo-actor";
+import type { MeetingTodoActorSummary } from "@/lib/meeting-todo-actor";
 import { cn } from "@/lib/utils";
 
 export function MeetingTodoActorIdentity({
@@ -64,78 +60,5 @@ export function MeetingTodoActorIdentity({
         </span>
       ) : null}
     </span>
-  );
-}
-
-export function MeetingTodoAssigneeSelect({
-  id,
-  value,
-  options,
-  onChange,
-  disabled = false,
-  label = "Assignee",
-}: {
-  id: string;
-  value: MeetingTodoActorSummary | MeetingTodoActorReference | null;
-  options: MeetingTodoActorSummary[];
-  onChange: (value: MeetingTodoActorReference | null) => void;
-  disabled?: boolean;
-  label?: string;
-}) {
-  const currentValue = value ? getMeetingTodoActorKey(value) : "";
-  const currentIsInactive = Boolean(
-    value &&
-      "isAssignable" in value &&
-      !value.isAssignable &&
-      !options.some((option) => getMeetingTodoActorKey(option) === currentValue)
-  );
-  const humans = options.filter((actor) => actor.kind === "human");
-  const agents = options.filter((actor) => actor.kind === "agent");
-
-  return (
-    <div className="space-y-1.5">
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
-      <select
-        id={id}
-        value={currentValue}
-        disabled={disabled}
-        onChange={(event) => {
-          const [kind, actorId] = event.target.value.split(":", 2);
-          onChange(
-            (kind === "human" || kind === "agent") && actorId
-              ? { kind, id: actorId }
-              : null
-          );
-        }}
-        className="min-h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        <option value="">Unassigned</option>
-        {currentIsInactive && value ? (
-          <option value={currentValue} disabled>
-            {"displayName" in value ? value.displayName : "Inactive actor"} — needs reassignment
-          </option>
-        ) : null}
-        {humans.length > 0 ? (
-          <optgroup label="Project members">
-            {humans.map((actor) => (
-              <option key={getMeetingTodoActorKey(actor)} value={getMeetingTodoActorKey(actor)}>
-                {actor.displayName}{actor.usernameTag ? ` — ${actor.usernameTag}` : ""}
-              </option>
-            ))}
-          </optgroup>
-        ) : null}
-        {agents.length > 0 ? (
-          <optgroup label="Project agents">
-            {agents.map((actor) => (
-              <option key={getMeetingTodoActorKey(actor)} value={getMeetingTodoActorKey(actor)}>
-                {actor.displayName} (agent)
-              </option>
-            ))}
-          </optgroup>
-        ) : null}
-      </select>
-    </div>
   );
 }

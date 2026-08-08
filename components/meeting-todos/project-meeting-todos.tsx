@@ -15,9 +15,10 @@ import {
 } from "lucide-react";
 
 import {
-  MeetingTodoActorIdentity,
-  MeetingTodoAssigneeSelect,
-} from "@/components/meeting-todos/meeting-todo-actor-control";
+  MeetingTodoAssigneeChip,
+  MeetingTodoAssigneeChipReadonly,
+} from "@/components/meeting-todos/meeting-todo-assignee-chip";
+import { MeetingTodoActorIdentity } from "@/components/meeting-todos/meeting-todo-actor-control";
 import { Badge } from "@/components/ui/badge";
 import { isMeetingTodoOverdueAt } from "@/lib/meeting-todo";
 import {
@@ -194,14 +195,28 @@ function TodoRow({
         onSetCompleted={onSetCompleted}
       />
       <div className="min-w-0 flex-1">
-        <p
-          className={cn(
-            "break-words text-sm font-medium leading-6 text-foreground [overflow-wrap:anywhere] sm:text-[15px]",
-            isCompleted && "text-muted-foreground line-through"
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+          <p
+            className={cn(
+              "min-w-0 flex-1 break-words text-sm font-medium leading-6 text-foreground [overflow-wrap:anywhere] sm:text-[15px]",
+              isCompleted && "text-muted-foreground line-through"
+            )}
+          >
+            {todo.content}
+          </p>
+          {canEdit ? (
+            <MeetingTodoAssigneeChip
+              id={`project-todo-assignee-${todo.id}`}
+              value={todo.assignee ?? null}
+              options={actors}
+              onChange={(assignee) => onSetAssignee(todo, assignee)}
+              disabled={isPending}
+              pending={isPending}
+            />
+          ) : (
+            <MeetingTodoAssigneeChipReadonly actor={todo.assignee ?? null} />
           )}
-        >
-          {todo.content}
-        </p>
+        </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
           <Link
@@ -231,32 +246,19 @@ function TodoRow({
           ) : null}
           {!canEdit ? <Badge variant="secondary">View only</Badge> : null}
         </div>
-        <div className="mt-3 grid gap-3 border-t border-border/60 pt-3 sm:grid-cols-[minmax(0,1fr),minmax(12rem,0.8fr)]">
-          <div className="flex flex-wrap gap-x-4 gap-y-2">
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+          <MeetingTodoActorIdentity
+            actor={todo.creator ?? null}
+            prefix="Created by"
+            compact
+          />
+          {isCompleted ? (
             <MeetingTodoActorIdentity
-              actor={todo.creator ?? null}
-              prefix="Created by"
+              actor={todo.completedBy ?? null}
+              prefix="Completed by"
               compact
             />
-            {isCompleted ? (
-              <MeetingTodoActorIdentity
-                actor={todo.completedBy ?? null}
-                prefix="Completed by"
-                compact
-              />
-            ) : null}
-          </div>
-          {canEdit ? (
-            <MeetingTodoAssigneeSelect
-              id={`project-todo-assignee-${todo.id}`}
-              value={todo.assignee ?? null}
-              options={actors}
-              onChange={(assignee) => onSetAssignee(todo, assignee)}
-              disabled={isPending}
-            />
-          ) : (
-            <MeetingTodoActorIdentity actor={todo.assignee ?? null} />
-          )}
+          ) : null}
         </div>
       </div>
     </li>

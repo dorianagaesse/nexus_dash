@@ -32,9 +32,10 @@ import type {
   ProjectMeetingNotePanelNote,
 } from "@/components/meeting-todos/meeting-note-types";
 import {
-  MeetingTodoActorIdentity,
-  MeetingTodoAssigneeSelect,
-} from "@/components/meeting-todos/meeting-todo-actor-control";
+  MeetingTodoAssigneeChip,
+  MeetingTodoAssigneeChipReadonly,
+} from "@/components/meeting-todos/meeting-todo-assignee-chip";
+import { MeetingTodoActorIdentity } from "@/components/meeting-todos/meeting-todo-actor-control";
 import { MeetingTodoQuickDialog } from "@/components/meeting-todos/meeting-todo-quick-dialog";
 import {
   PROJECT_SECTION_CARD_CLASS,
@@ -1943,7 +1944,7 @@ export function ProjectMeetingNotesPanel({
                                 "bg-primary/10 ring-2 ring-primary/35"
                             )}
                           >
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <button
                                 type="button"
                                 disabled={
@@ -1993,6 +1994,22 @@ export function ProjectMeetingNotesPanel({
                                 disabled={!canEdit || isSaving}
                               />
                               {canEdit ? (
+                                <MeetingTodoAssigneeChip
+                                  id={`meeting-todo-assignee-${action.id}`}
+                                  value={action.assignee ?? null}
+                                  options={todoActors}
+                                  onChange={(assignee) =>
+                                    updateDraftActionAssignee(action.id, assignee)
+                                  }
+                                  disabled={isSaving}
+                                  pending={isSaving}
+                                />
+                              ) : (
+                                <MeetingTodoAssigneeChipReadonly
+                                  actor={action.assignee ?? null}
+                                />
+                              )}
+                              {canEdit ? (
                                 <Button
                                   type="button"
                                   variant="ghost"
@@ -2006,19 +2023,6 @@ export function ProjectMeetingNotesPanel({
                                 </Button>
                               ) : null}
                             </div>
-                            {canEdit ? (
-                              <MeetingTodoAssigneeSelect
-                                id={`meeting-todo-assignee-${action.id}`}
-                                value={action.assignee}
-                                options={todoActors}
-                                onChange={(assignee) =>
-                                  updateDraftActionAssignee(action.id, assignee)
-                                }
-                                disabled={isSaving}
-                              />
-                            ) : (
-                              <MeetingTodoActorIdentity actor={action.assignee} />
-                            )}
                             <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-border/60 pt-2">
                               {action.creator ? (
                                 <MeetingTodoActorIdentity
