@@ -1,6 +1,4 @@
-# Current Task
-
-## TASK-348: Personal Calendar Versus Shared Project Scheduling
+# TASK-348: Personal Calendar Versus Shared Project Scheduling
 
 ## Status
 

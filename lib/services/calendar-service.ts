@@ -473,10 +473,13 @@ export async function createCalendarEvent(
   }>
 > {
   try {
+    // Calendar mutations act on the signed-in user's private Google Calendar,
+    // not on the project. Project access is only required so the dashboard
+    // can scope the request to a project the caller can see.
     const projectAccess = await ensureCalendarProjectAccess({
       actorUserId,
       projectId,
-      minimumRole: "editor",
+      minimumRole: "viewer",
     });
     if (!projectAccess.ok) {
       return projectAccess;
@@ -552,10 +555,13 @@ export async function updateCalendarEvent(
   }>
 > {
   try {
+    // Calendar mutations act on the signed-in user's private Google Calendar,
+    // not on the project. Project access is only required so the dashboard
+    // can scope the request to a project the caller can see.
     const projectAccess = await ensureCalendarProjectAccess({
       actorUserId,
       projectId,
-      minimumRole: "editor",
+      minimumRole: "viewer",
     });
     if (!projectAccess.ok) {
       return projectAccess;
@@ -630,10 +636,13 @@ export async function deleteCalendarEvent(
   projectId: string
 ): Promise<ServiceResult<{ ok: true }>> {
   try {
+    // Calendar mutations act on the signed-in user's private Google Calendar,
+    // not on the project. Project access is only required so the dashboard
+    // can scope the request to a project the caller can see.
     const projectAccess = await ensureCalendarProjectAccess({
       actorUserId,
       projectId,
-      minimumRole: "editor",
+      minimumRole: "viewer",
     });
     if (!projectAccess.ok) {
       return projectAccess;
