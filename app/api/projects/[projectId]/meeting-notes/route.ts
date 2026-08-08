@@ -121,6 +121,15 @@ async function readJsonPayload(
   }
 }
 
+function readStewardFilter(
+  value: string | null
+): "all" | "mine" | "unassigned" {
+  if (value === "mine" || value === "unassigned") {
+    return value;
+  }
+  return "all";
+}
+
 export async function GET(
   request: NextRequest,
   props: { params: Promise<{ projectId: string }> }
@@ -133,10 +142,14 @@ export async function GET(
   const principal = principalResult.principal;
 
   const query = request.nextUrl.searchParams.get("q");
+  const stewardFilter = readStewardFilter(
+    request.nextUrl.searchParams.get("steward")
+  );
   const notes = await listProjectMeetingNotes({
     actorUserId: principal.actorUserId,
     projectId: params.projectId,
     query,
+    stewardFilter,
     agentAccess: getAgentProjectAccessContext(principal),
   });
 

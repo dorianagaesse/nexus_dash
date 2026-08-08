@@ -1,84 +1,114 @@
 # Current Task
 
-## TASK-370: Preview Authentication and Database Isolation Guardrails
+## TASK-356: Meeting Note Stewardship and Decision Provenance
 
 ## Status
 
-Complete on `fix/task-370-preview-auth-isolation`; validated on the immutable
-Vercel Preview deployment and delivered through PR #432.
+Implementation in progress on
+`feature/task-356-meeting-note-stewardship`.
 
 ## Context
 
-Authentication from a URL believed to be a preview reached production and a
-signup reported an email already present in the production user database.
-Investigation confirmed that the tested Vercel alias currently targets a
-production deployment. The Vercel Preview environment also retained that alias
-as `NEXTAUTH_URL`, so preview auth callbacks and generated links could select a
-stale production origin even when the immutable deployment itself was a real
-preview. Preview and production currently use distinct Supabase project refs,
-but the deployment contract does not pin either environment to its intended
-ref or verify the deployed target before publishing the preview URL.
+`ProjectMeetingNote` already records `createdByUserId` and `updatedByUserId`,
+but every editor is functionally interchangeable: there is no visible
+accountable steward, the meeting-todo follow-ups live under an anonymous
+parent, and the audit-driven "needs decision provenance" call to action has no
+note-level surface.
+
+TASK-330 introduced the reusable meeting-todo actor contract for human
+project members and active project agent credentials. This task continues the
+deliberate, narrow pattern: surface a single, reassignable steward/facilitator
+on every meeting note without expanding into cross-artifact ownership or a
+workspace ownership queue.
 
 ## Scope
 
-- Resolve request origins from the current immutable Vercel deployment host in
-  preview instead of using a static `NEXTAUTH_URL`.
-- Pin production-like runtimes to an explicitly configured expected Supabase
-  project ref and reject cross-environment database routing at startup.
-- Validate the preview migration target, Vercel deployment target, deployed
-  environment/revision metadata, and database readiness before uploading the
-  preview URL artifact.
-- Remove stale Vercel Preview origin/redirect overrides (`NEXTAUTH_URL` and
-  OAuth callback URLs) and configure expected project-ref metadata for Preview
-  and Production.
-- Exercise signup/signin on the fixed preview without touching production.
+- Add a durable steward/facilitator actor to `ProjectMeetingNote`, modeled on
+  the existing meeting-todo actor contract.
+- Backfill steward identity from the note creator for existing rows.
+- Surface creator, last editor, update time, and steward identity in the
+  meeting-notes panel and meeting detail view.
+- Add accessible steward assignment controls (label, keyboard, focus, 44px
+  target, light/dark, semantic status) in the meeting detail and note
+  preparation flow; viewers see the same identity without mutation
+  affordances.
+- Add steward responsibility filters (`All`, `Stewarded by me`,
+  `Unstewarded`) for both active and archived notes.
+- Reuse the established human/agent registry and chip so removed members and
+  revoked/expired agents surface as `Needs reassignment` rather than silently
+  orphaning the note.
+- Keep steward independent from participants and from meeting-todo assignees;
+  no UI should conflate the three.
+- Make note mutation and deletion capability explicit by reusing the existing
+  owner/editor/viewer boundary; viewers see steward identity without edit
+  affordances.
+
+## Out Of Scope
+
+- A universal project-actor foundation or cross-artifact actor migration
+  (TASK-337).
+- A workspace-wide stewardship queue (TASK-346).
+- New agent capability vocabulary or granular meeting scopes (TASK-331).
+- Mentions, follow notifications, or notification preferences beyond the
+  existing overdue reminder pipeline (TASK-347).
+- Conflict-safe revision preconditions or draft recovery (TASK-339).
+- Durable collaboration history or audit timelines (TASK-340).
+- Decision-level authorship beyond the note-level steward/facilitator (this
+  task keeps the existing single `decisions` text field untouched).
 
 ## Acceptance Criteria
 
-1. A preview request resolves auth callback/link origins to that preview's
-   immutable `VERCEL_URL`, never the production domain or a stale alias.
-2. Preview and production fail closed when their runtime Supabase project ref
-   does not match `EXPECTED_SUPABASE_PROJECT_REF`.
-3. The preview deploy workflow rejects a non-preview Vercel target, a revision
-   mismatch, an environment mismatch, an unreachable database, or a migration
-   connection aimed at the wrong Supabase project.
-4. The workflow artifact contains the immutable URL of the exact requested
-   branch deployment only after all preview checks pass.
-5. A new account can sign up and sign back in on the fixed preview while the
-   browser remains on the preview origin.
-6. Existing production routing and trusted-origin behavior remain unchanged.
+1. Every meeting note exposes creator, last editor, update time, and an
+   optional steward/facilitator with actor kind, stable identifier, display
+   label, avatar treatment, and current access state. Stewards are rendered
+   with the same chip vocabulary used for meeting-todo assignees, including
+   `Needs reassignment` for removed or revoked actors.
+2. New notes persist a steward that defaults to the note creator. Existing
+   notes are backfilled from `createdByUserId`. Editing a note preserves the
+   steward unless the editor explicitly reassigns or clears it; the steward
+   must survive unrelated field edits.
+3. Editors can assign or clear a steward from meeting detail and the
+   preparation flow using a labeled, keyboard-operable chip with pending and
+   error feedback. Viewers see steward identity without mutation
+   affordances, and the mutation/deletion boundary is explicit in the UI.
+4. Steward validation is enforced in the service boundary. Human steward
+   candidates must currently own or belong to the project; agent steward
+   candidates must be active, unexpired credentials for that project.
+   Stewardship never grants access, and external meeting participants are
+   never selectable as stewards.
+5. Removed human members and revoked/expired agents remain visibly attached
+   to their note as inactive and labeled `Needs reassignment` until cleared
+   or reassigned.
+6. The meeting notes panel supports stable URL-backed
+   `All`/`Stewarded by me`/`Unstewarded` filters for both active and archived
+   lists, with accurate counts and useful filtered empty states.
+7. UI remains usable at 375px and desktop widths, in light and dark themes,
+   with visible focus, semantic status text, at least 44px primary touch
+   targets, and no color-only stewardship state.
+8. Stewardship survives the existing project-scoped realtime reconciliation,
+   and a steward change emits a project activity event so observers refresh
+   correctly.
 
 ## Definition Of Done
 
-- Focused origin, runtime-environment, health-route, and deploy-validation
-  coverage passes.
+- Prisma schema, migration, RLS inventory, services, routes, UI projections,
+  and relevant documentation are updated together.
+- Focused unit, service, route, component, and Playwright coverage exercises
+  human/agent stewardship, invalid actors, inactive states, steward filters,
+  creator/last-editor provenance, role restrictions, and steward
+  defaults/backfill.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  `npm run build`, and relevant deployed-preview Playwright checks pass.
-- Vercel/GitHub environment metadata is configured without exposing secrets.
-- The branch preview workflow completes for the explicit branch ref and its
-  logs prove the checked-out ref and validated Preview target.
-- A ready-for-review PR is open; required checks and initial Copilot review are
-  complete; actionable threads are resolved before merge.
-- `tasks/current.md`, `tasks/backlog.md`, relevant runbooks, and `journal.md`
-  record the diagnosis and validation outcome.
+  `npm run build`, and relevant meeting-note E2E coverage pass.
+- `tasks/current.md`, `tasks/backlog.md`,
+  `tasks/task-356-meeting-note-stewardship.md`, `project.md`, and
+  `journal.md` reflect the delivered behavior.
+- The branch is pushed, a ready-for-review PR is open, required checks are
+  green, and initial Copilot review feedback is resolved or documented.
 
 ## Runtime Assumptions
 
-- Preview and production remain separate Supabase projects; their project refs
-  are safe non-secret deployment metadata while connection strings stay secret.
-- GitHub `preview` and `production` environments and the corresponding Vercel
-  environments are available to configure `EXPECTED_SUPABASE_PROJECT_REF`.
-- Preview validation uses the immutable URL emitted by `deploy-vercel.yml`, not
-  a branch alias or a historical Vercel URL.
-
-## Validation Evidence
-
-- Workflow run `32313383142` checked out the explicit fix branch, applied
-  staging migrations, verified Preview target/revision/environment/database
-  readiness, and published
-  `https://nexus-dash-h1s18isxe-dorian-agaesses-projects.vercel.app`.
-- The deployed opt-in Playwright case created a staging account, signed out,
-  signed back in, and remained on that immutable origin.
-- Lint, RLS inventory, unit/API, coverage, build, and CI Playwright validation
-  passed. Copilot's initial review completed; its environment-restoration
-  comment was applied and covered by the focused request-origin test.
+- Local database-backed validation uses the repository `.env` contract and a
+  reachable PostgreSQL instance when migration or E2E execution requires it.
+- No new secrets or external provider configuration are introduced.
+- Preview deployment is not an acceptance requirement; local browser coverage
+  is sufficient unless review feedback exposes a preview-only concern.

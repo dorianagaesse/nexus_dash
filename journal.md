@@ -3959,3 +3959,50 @@ Low-value entries to avoid going forward:
 - Pushed the policy-compliant replacement branch and opened draft
   [PR #416](https://github.com/dorianagaesse/nexus_dash/pull/416), superseding
   conflicting PR #410 without rewriting its protected history.
+
+# 2026-08-09 - TASK-356 meeting note stewardship and decision provenance
+
+- Drafted the task brief at `tasks/task-356-meeting-note-stewardship.md`
+  following TASK-330's pattern, with explicit out-of-scope for TASK-337,
+  TASK-339, TASK-340, TASK-346, and TASK-347 to keep the deliverable
+  narrow: a single visible steward per note, not a workspace ownership queue.
+- Extended `ProjectMeetingNote` with `stewardUserId`, `stewardCredentialId`,
+  `stewardKind`, and `stewardDisplayNameSnapshot`. Migration
+  `20260809120000_task356_meeting_note_stewardship/migration.sql` adds the
+  columns, backfills from `createdByUserId` with a derived display snapshot,
+  wires FKs to `User` and `ApiCredential`, enforces a `steward_actor_check`
+  (either all four columns null OR exactly one of stewardUserId /
+  stewardCredentialId populated with matching stewardKind), and indexes
+  `stewardUserId` and `stewardCredentialId`. RLS inventory unchanged because
+  the table is already classified as `project-scoped-direct-rls` and inherits
+  the same policies.
+- `setProjectMeetingNoteSteward` validates the steward through the same
+  `resolveAssignableMeetingTodoActorFromRegistry` helper used by todo
+  assignees, so removed members and revoked/expired agents surface as
+  `Needs reassignment` instead of silently orphaning the note.
+- New `/api/projects/:projectId/meeting-notes/:noteId/steward` PATCH endpoint
+  accepts `{ steward: { kind, id } | null }`, requires the editor scope,
+  records a `meeting-note/updated` activity event with the new steward
+  payload, and returns the refreshed note so the UI can mirror state.
+- `listProjectMeetingNotes` accepts a `stewardFilter: "all" | "mine" |
+  "unassigned"` parameter; the panel wires it to a URL-backed
+  `meetingNoteSteward` search param next to the existing label and active /
+  archived toggles.
+- Meeting detail view now renders a labelled steward block with
+  `MeetingTodoAssigneeChip` (editable) or `MeetingTodoAssigneeChipReadonly`
+  (viewer), plus created-by / last-edited-by / updated-time provenance.
+  Prepare-meeting dialog mirrors the same control so reassignment is
+  possible without leaving the editing flow.
+- Service test `project-meeting-note-service.test.ts` now exercises steward
+  defaults on create, preservation on unrelated updates, valid human
+  reassignment, removal invalidation, clearing with `null`, and both the
+  `unassigned` and `mine` filter cases (20 / 20 passing).
+- Added `tests/api/meeting-note-steward.route.test.ts` covering
+  reassignment, clearing, malformed payload rejection, and service error
+  surfacing (4 / 4 passing). Existing
+  `tests/api/project-meeting-notes.route.test.ts` GET test updated to expect
+  the steward filter parameter plus a steward field assertion.
+- New `tests/e2e/project-meeting-steward.spec.ts` covers default-to-creator,
+  reassignment via the dedicated endpoint, clearing, malformed payload
+  rejection, the `unassigned` query filter, and the steward block
+  visibility in the meeting detail view.
