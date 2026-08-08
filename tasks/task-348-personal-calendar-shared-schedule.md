@@ -1,13 +1,13 @@
-# Current Task
-
-## TASK-348: Personal Calendar Versus Shared Project Scheduling
+# TASK-348: Personal Calendar Versus Shared Project Scheduling
 
 ## Status
 
-Implementation complete on
-`feature/task-348-personal-calendar-shared-schedule-r4`, refreshed onto current
-`main` after TASK-406 merged. Phase 1 relabels and decouples the personal
-calendar overlay; the future shared schedule remains intentionally deferred.
+Implementation in progress on
+`feature/task-348-personal-calendar-shared-schedule`. Phase 1 (relabel and
+decouple) is being delivered alongside a design ADR for the future shared
+schedule. TASK-348's full shared-schedule implementation is intentionally
+deferred until TASK-337 (project actor identity) and TASK-331 (capability
+model) land.
 
 ## Context
 
@@ -97,33 +97,37 @@ second stage so the follow-up work has a clear contract to build on.
    removed.
 6. The view-only and connected-but-read-only-scope paths still surface clear
    empty states and do not show mutation affordances.
-7. Tests covering the calendar event routes and panel are updated so that a
-   viewer with Google write scope succeeds in `POST`, `PATCH`, and `DELETE`; a
-   viewer without write scope still receives `insufficient-scope`; and the
-   personal-overlay copy assertions reflect the new label.
-8. The Calendar event modal title remains neutral and the modal continues to
-   pass through the connected-Google reauthorization reconnect link when
-   applicable.
+7. Tests covering the calendar event routes and panel are updated so that:
+   a viewer with Google write scope succeeds in `POST`, `PATCH`, and
+   `DELETE`; a viewer without write scope still receives
+   `insufficient-scope`; and the personal-overlay copy assertions reflect the
+   new label.
+8. The Calendar event modal title remains neutral (it is the user's personal
+   event, not a project record) and the modal continues to pass through the
+   connected-Google reauthorization reconnect link when applicable.
 9. `adr/task-348-shared-schedule-contract.md` describes the future
    NexusDash-owned shared project schedule: artifact model, owner/assignee
-   actor contract, capabilities, history and audit surface, and optional
-   external-calendar synchronization. The decision is logged in
-   `adr/decisions.md`.
+   actor contract, capabilities (drawing on TASK-331), history and audit
+   surface, and the optional external-calendar synchronization model. The
+   decision is logged in `adr/decisions.md` with a short summary and pointer
+   to the ADR.
 10. UI remains usable at 375px and desktop widths, in light and dark themes,
     with visible focus, semantic status text, at least 44px primary touch
-    targets, and no behavior change for project role semantics elsewhere.
+    targets, and no behavior change for the project role semantics elsewhere
+    in the product.
 
 ## Definition Of Done
 
 - Calendar panel, summary card, skeleton, and modal copy are aligned to the
   "My calendar" overlay label.
-- `ProjectCalendarPanel` and `lib/services/calendar-service.ts` mutation paths
-  no longer require project editor role.
+- `ProjectCalendarPanel` and `lib/services/calendar-service.ts` mutation
+  paths no longer require project editor role.
 - Updated unit, API, and component tests cover viewer success, write-scope
   failure, and copy assertions.
-- The shared-schedule ADR exists and is referenced from `adr/decisions.md`.
-- `tasks/current.md`, `tasks/backlog.md`, `journal.md`, and the ADR reflect the
-  delivered behavior.
+- The shared-schedule ADR exists at `adr/task-348-shared-schedule-contract.md`
+  and is referenced from `adr/decisions.md`.
+- `tasks/current.md`, `tasks/backlog.md`, `journal.md`, and the ADR reflect
+  the delivered behavior.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
   `npm run build`, and the calendar Playwright smoke pass.
 - The branch is pushed, a ready-for-review PR is open, required checks are

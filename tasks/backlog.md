@@ -340,9 +340,10 @@ Last reviewed: 2026-08-24
   Dependencies: TASK-098, TASK-119, TASK-329, TASK-337, TASK-340
 - ID: TASK-348
   Title: Personal Calendar versus shared project scheduling
-  Status: P1 - shared scheduling contract
-  Rationale: First label the existing Google integration clearly as each signed-in user's private "My calendar" overlay and decouple personal-calendar actions from misleading project-edit semantics. Then design a NexusDash-owned shared project schedule with project actors, accountable owners, capabilities, history, and optional external-calendar synchronization instead of presenting different private calendars as one collaborative module.
+  Status: Done (2026-08-09, phase 1: relabel + decouple + ADR; shared schedule implementation still pending TASK-337 + TASK-331)
+  Rationale: Phase 1 relabeled the existing Google integration clearly as each signed-in user's private "My calendar" overlay and decoupled personal-calendar actions from misleading project-edit semantics. The full NexusDash-owned shared project schedule design is captured in `adr/task-348-shared-schedule-contract.md` and stays queued behind TASK-337 (project actor identity) and TASK-331 (capability model) so the implementation can reuse the shared actor and capability vocabularies instead of inventing parallel ones.
   Dependencies: TASK-325, TASK-326, TASK-327, TASK-337, TASK-344
+  Brief: `tasks/task-348-personal-calendar-shared-schedule.md`
 - ID: TASK-342
   Title: Context knowledge stewardship and attachment provenance
   Status: P2 - shared knowledge accountability
