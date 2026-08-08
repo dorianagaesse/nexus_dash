@@ -3832,3 +3832,37 @@ Low-value entries to avoid going forward:
 - Pushed the policy-compliant replacement branch and opened draft
   [PR #416](https://github.com/dorianagaesse/nexus_dash/pull/416), superseding
   conflicting PR #410 without rewriting its protected history.
+
+# 2026-08-09 - TASK-342 context knowledge stewardship and attachment provenance
+
+- Started the task on `feature/task-342-context-knowledge-stewardship` cut from
+  `origin/main`. Drafted `tasks/task-342-context-knowledge-stewardship.md` plus
+  the Acceptance Criteria/Definition of Done in `tasks/current.md`; bumped the
+  backlog entry to Now 1.
+- Added the `ContextCardActorKind` enum and 13 stewardship/provenance columns
+  on `Resource` (creator/lastEditor/steward × user/credential/kind/snapshot,
+  plus `updatedAt`). Added `uploadedByKind` and
+  `uploadedByDisplayNameSnapshot` to `ResourceAttachment` with a CHECK
+  constraint enforcing human-only uploads. Migration
+  `20260809120000_task342_context_knowledge_stewardship` backfills existing
+  rows from the existing `uploadedByUserId` and resets `Resource.updatedAt`
+  to `createdAt`.
+- Mirrored the TASK-330 actor pattern via `lib/context-card-actor.ts` and
+  `lib/services/context-card-actor-service.ts`. New
+  `lib/services/context-card-stewardship-service.ts` exposes the review
+  threshold (env-overridable via `CONTEXT_CARD_REVIEW_THRESHOLD_DAYS`,
+  defaulting to 90), `projectContextCard`, `assignContextCardSteward`, and
+  `recordContextCardCreator`/`recordContextCardEditor` write helpers.
+- Updated `lib/services/context-card-service.ts` so create/update persist the
+  creator/last editor snapshots and return the full `ContextCardResponse`
+  with the projection block. `lib/services/project-attachment-service.ts`
+  resolves the uploader display snapshot via a new `resolveUploaderDisplaySnapshot`
+  helper for both form and direct-upload paths.
+- Added `PATCH /api/projects/:projectId/context-cards/:cardId/stewardship`
+  with editor-role eligibility and surface the new `projection` block +
+  project-wide `assignableActors` in the list/get responses.
+- UI: new `ContextCardActorChip`, `ContextCardReviewBadge`, and searchable
+  `ContextCardStewardPicker` (combobox). Wired into the preview header and
+  edit modal. Cards now show a review/steward chip strip on the grid surface.
+- Validation: `npm run lint`, `npm test` (969 passing — 27 new), `npm run
+  rls:check`, and `npm run build` all clean in the worktree.

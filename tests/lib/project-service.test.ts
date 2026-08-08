@@ -518,6 +518,75 @@ describe("project-service", () => {
       include: {
         attachments: {
           orderBy: [{ createdAt: "desc" }],
+          include: {
+            uploadedBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                username: true,
+                usernameDiscriminator: true,
+                avatarSeed: true,
+              },
+            },
+          },
+        },
+        createdByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+            usernameDiscriminator: true,
+            avatarSeed: true,
+          },
+        },
+        createdByCredential: {
+          select: {
+            id: true,
+            label: true,
+            projectId: true,
+            revokedAt: true,
+            expiresAt: true,
+          },
+        },
+        lastEditedByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+            usernameDiscriminator: true,
+            avatarSeed: true,
+          },
+        },
+        lastEditedByCredential: {
+          select: {
+            id: true,
+            label: true,
+            projectId: true,
+            revokedAt: true,
+            expiresAt: true,
+          },
+        },
+        stewardUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+            usernameDiscriminator: true,
+            avatarSeed: true,
+          },
+        },
+        stewardCredential: {
+          select: {
+            id: true,
+            label: true,
+            projectId: true,
+            revokedAt: true,
+            expiresAt: true,
+          },
         },
       },
     });
