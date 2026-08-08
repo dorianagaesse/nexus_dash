@@ -43,6 +43,28 @@ Use it for important implementation milestones, blockers, validation runs, and r
   desktop-sidebar) confirm the chip sits on the same row as the todo
   content in mobile light/dark and desktop sidebar views.
 
+# 2026-08-08 - External UX feedback refinement program added to backlog
+
+- Reviewed an external UX feedback pass covering 16 points across auth flows,
+  sidebar/navigation, account settings, project hub copy, context card
+  attachments, realtime refresh, modal patterns, roadmap discoverability, and
+  overview density.
+- Added a new `### External UX Feedback Refinement Program (External Review)`
+  section to `tasks/backlog.md` directly below the execution queue, with 13
+  concrete follow-up tasks (TASK-357 through TASK-369) covering verify-email
+  status page polish with auto-redirect, sidebar workspace label
+  deduplication, real tabs on account settings, Developers surface collapsible
+  sections with uniform layout, bug/feedback diagnostics copy clarity, Inbox
+  vs Notifications naming unification, /projects copy tightening, modal title
+  vs primary button separation, project edit Cancel affordance, context card
+  link auto-confirm plus mobile polish, epic live refresh on task and epic
+  mutations, task comment vs Save changes button distinction, and roadmap
+  first-time discoverability.
+- Three feedback items noted as already covered rather than re-tasked:
+  meeting-todos panel movement (TASK-353/TASK-332) and collapsible sidebar
+  plus overview sub-nav (TASK-110 modular dashboard personalization epic).
+- Docs-only change; no code or validation suite run per agent.md guidance.
+
 # 2026-08-08 - Defensive calendar credential fetch (preview 1277004625)
 
 - Preview deployments of `feature/task-330-meeting-todo-assignees` failed every
@@ -111,7 +133,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
   service-enforced assignment eligibility, and reminder delivery only to active
   human assignees rather than implicit creators or agent owners.
 - Applied the UI/UX quality guidance for labeled native controls, keyboard and
-  focus behavior, semantic status text, responsive layouts, and 44px touch targets.
+  focus behavior, semantic status text, responsive layouts, and 44px touch targets.  plus overview sub-nav (TASK-110 modular dashboard personalization epic).
+- Docs-only change; no code or validation suite run per agent.md guidance.
 
 # 2026-08-06 - Execution backlog reconciled after recent merges
 
