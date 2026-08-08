@@ -2,7 +2,7 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-08-06
+Last reviewed: 2026-08-08
 
 ## Pending
 ### Execution Queue (Now / Next)
@@ -58,6 +58,72 @@ Last reviewed: 2026-08-06
   Status: Next 10 - invitation and membership permission expansion
   Rationale: Define one capability vocabulary across tasks, meeting notes, context cards, epics, roadmap, and the future shared schedule, then apply it consistently to invitations, memberships, agent scopes, UI affordances, services, and routes. Keep capability independent from ownership and assignment: responsibility never grants access, and owner safeguards plus project isolation remain authoritative.
   Dependencies: TASK-058, TASK-098, TASK-106, TASK-130, TASK-337
+### External UX Feedback Refinement Program (External Review)
+- ID: TASK-357
+  Title: Verify-email and reset-password status pages - reduce repetition and add auto-redirect on completion
+  Status: Pending
+  Rationale: Reviewer feedback that the verify-email and reset-password status pages restate the same instruction twice (header copy plus a "Next step" panel) and require a redundant "I verified, continue" click even after the email link has already verified the session. Trim the duplicate copy and add a lightweight listener that polls or subscribes for completion and auto-redirects to the dashboard once verification succeeds, while keeping manual controls as a fallback for clients that block background work.
+  Dependencies: TASK-047, TASK-048, TASK-083, TASK-084
+- ID: TASK-358
+  Title: Sidebar workspace label deduplication - keep "Workspace" once, surface useful content under brand
+  Status: Pending
+  Rationale: The authenticated sidebar shows "NexusDash / Project workspace" alongside a "WORKSPACE" section label above the nav items, so "workspace" appears twice on every project view. Keep the brand row for product identity and surface a more useful secondary treatment (environment label, role context, or build info) below it instead of repeating "Project workspace"; review any other "Workspace" labels for the same redundancy.
+  Dependencies: TASK-322, TASK-334
+- ID: TASK-359
+  Title: Account Settings tabs - real tabbed interface for Calendar and Developers sections
+  Status: Pending
+  Rationale: Today `/account/settings` lists Calendar and Developers as section anchors that scroll vertically, so clicking the second tab forces the user to scroll past the first section's content. Replace the stacked layout with a real tabs control that swaps content in place, preserves deep links/anchors to each tab, and matches the shared Radix dialog/sheet semantics already used elsewhere.
+  Dependencies: TASK-321, TASK-328
+- ID: TASK-360
+  Title: Account Settings → Developers - collapsible sections with uniform single-column layout
+  Status: Pending
+  Rationale: The Developers surface mixes full-width sections (for example "Where credentials live") with side-by-side panels ("Authentication flow", "Scope model"), which makes scanning unpredictable and hides parallel content under one another. Lay every section into a uniform single-column structure, default all sections to collapsed except the first, and add an accessible disclosure pattern so users can reveal each section on demand.
+  Dependencies: TASK-328
+- ID: TASK-361
+  Title: Bug/feedback report copy clarity - explain what diagnostics includes and excludes
+  Status: Pending
+  Rationale: The diagnostics checkbox help text on the bug/feedback form reads "Browser, screen size, language, and time zone. No page content, cookies, or form data." which raises reviewer concern about whether form data is collected elsewhere. Rewrite the copy to clearly enumerate what is included (the listed diagnostics) and what is excluded (page content, cookies, form data, identifiers), and surface the same exclusion list in any privacy/feedback FAQ entry.
+  Dependencies: TASK-333
+- ID: TASK-362
+  Title: Inbox vs Notifications naming unification - standardize on one label across surfaces
+  Status: Pending
+  Rationale: The avatar menu links to "Inbox" while the destination page and unread badge read "Notifications", creating confusion about whether they are the same surface or two different things. Standardize on a single label across avatar menu, hub page, badge counts, route name, and notification emails; update related copy and routing consistently and verify that no other surface carries the alternate label.
+  Dependencies: TASK-322, TASK-324
+- ID: TASK-363
+  Title: /projects page copy refinement - reduce repeated "project" mentions
+  Status: Pending
+  Rationale: The Projects hub restates the word "project" across label, headline, subhead, CTA, and empty state, which dilutes the headline and feels redundant. Tighten the copy so each instance adds new information (for example headline "Projects" plus a value-proposition subhead plus "Create project" CTA plus an empty-state next step) without repeating the noun.
+  Dependencies: TASK-108, TASK-129
+- ID: TASK-364
+  Title: Modal title and primary button differentiation - avoid identical labels
+  Status: Pending
+  Rationale: The Create Project modal uses "Create project" as both its title and primary button, which is a known anti-pattern: it duplicates intent and makes it harder to scan for the action that closes the form. Review every modal/dialog so the title names the object and the primary button names the action (for example title "New project" with button "Create project"), and apply consistent secondary/cancel labels.
+  Dependencies: TASK-108
+- ID: TASK-365
+  Title: Project edit form Cancel button affordance - add shared secondary button styling
+  Status: Pending
+  Rationale: The in-card project edit form shows a bare "Cancel" link/button that visually competes with the "Open dashboard" CTA and looks like plain text rather than a button. Apply the shared secondary button treatment to the Cancel control so it reads as a button while remaining subordinate to the primary CTA, and confirm the same pattern on every in-card edit affordance.
+  Dependencies: TASK-078, TASK-108
+- ID: TASK-366
+  Title: Context card link attachment - auto-confirm on paste and tighten mobile composer
+  Status: Pending
+  Rationale: Reviewers repeatedly miss the explicit "+" confirmation step when adding an attachment link to a context card, and the link input requires horizontal scroll on mobile. Auto-confirm a valid URL on Enter or blur so the link is captured without a secondary tap, keep the explicit add affordance for users who want to stage multiple links, and tighten the mobile attachment composer so it fits the sheet width without horizontal scrolling.
+  Dependencies: TASK-100, TASK-111, TASK-112
+- ID: TASK-367
+  Title: Epic live refresh on task and epic mutations
+  Status: Pending
+  Rationale: Creating or linking a task does not update the Epics panel in real time, so users have to manually refresh to see their epic's progress and linked-tasks count update. Extend the typed realtime/refresh path so epic rollups, progress, and linked-task counts reconcile after relevant task mutations, and add focused dashboard activity events for epic mutations themselves; preserve the safe remote-update semantics already shipped for tasks, comments, and context cards.
+  Dependencies: TASK-107, TASK-118, TASK-276, TASK-311
+- ID: TASK-368
+  Title: Task comment "Add comment" vs "Save changes" button distinction
+  Status: Pending
+  Rationale: The task detail modal places a "Save changes" primary button next to an "Add comment" button, and reviewers have hit "Save changes" thinking it would post the comment they just typed. Visually separate the two actions (move the comment composer out of the save flow, or replace the primary button label/context for comment drafts) and ensure the comment composer publishes through its own affordance without depending on task save.
+  Dependencies: TASK-099, TASK-133
+- ID: TASK-369
+  Title: Roadmap section first-time discoverability affordance
+  Status: Pending
+  Rationale: The Roadmap section's milestone/grouped-event model only "clicked" for the reviewer after creating two or three items. Add an opt-in help affordance (reusing the upcoming TASK-134 pattern) plus a clearer empty-state explanation of what a milestone is, how phases and events relate, and what good inputs look like, so the first interaction is self-explanatory.
+  Dependencies: TASK-106, TASK-130, TASK-134
 ### Collaboration Refinement Program (TASK-336 Audit)
 - ID: TASK-337
   Title: First-class project actor identity - human and agent assignment/provenance foundation

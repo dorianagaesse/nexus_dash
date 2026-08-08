@@ -3,6 +3,28 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-08 - External UX feedback refinement program added to backlog
+
+- Reviewed an external UX feedback pass covering 16 points across auth flows,
+  sidebar/navigation, account settings, project hub copy, context card
+  attachments, realtime refresh, modal patterns, roadmap discoverability, and
+  overview density.
+- Added a new `### External UX Feedback Refinement Program (External Review)`
+  section to `tasks/backlog.md` directly below the execution queue, with 13
+  concrete follow-up tasks (TASK-357 through TASK-369) covering verify-email
+  status page polish with auto-redirect, sidebar workspace label
+  deduplication, real tabs on account Settings, Developers surface collapsible
+  sections with uniform layout, bug/feedback diagnostics copy clarity, Inbox
+  vs Notifications naming unification, /projects copy tightening, modal title
+  vs primary button separation, project edit Cancel affordance, context card
+  link auto-confirm plus mobile polish, epic live refresh on task and epic
+  mutations, task comment vs Save changes button distinction, and roadmap
+  first-time discoverability.
+- Three feedback items noted as already covered rather than re-tasked:
+  meeting-todos panel movement (TASK-353/TASK-332) and collapsible sidebar
+  plus overview sub-nav (TASK-110 modular dashboard personalization epic).
+- Docs-only change; no code or validation suite run per agent.md guidance.
+
 # 2026-08-06 - Execution backlog reconciled after recent merges
 
 - Audited the execution queue against first-parent Git history and GitHub merge
