@@ -35,14 +35,12 @@ import { cn } from "@/lib/utils";
 
 interface ProjectCalendarPanelProps {
   projectId: string;
-  canEdit: boolean;
 }
 
 type EventModalMode = "create" | "edit";
 
 export function ProjectCalendarPanel({
   projectId,
-  canEdit,
 }: ProjectCalendarPanelProps) {
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
@@ -96,20 +94,12 @@ export function ProjectCalendarPanel({
   };
 
   const openCreateEventModal = () => {
-    if (!canEdit) {
-      return;
-    }
-
     setEventModalMode("create");
     resetEventForm();
     setIsEventModalOpen(true);
   };
 
   const openEditEventModal = (event: CalendarEventItem) => {
-    if (!canEdit) {
-      return;
-    }
-
     const parsed = parseEventForForm(event);
     setEventModalMode("edit");
     setEditingEventId(event.id);
@@ -197,10 +187,6 @@ export function ProjectCalendarPanel({
   }, [projectId]);
 
   const submitEventForm = async () => {
-    if (!canEdit) {
-      return;
-    }
-
     const trimmedSummary = eventSummary.trim();
     if (!trimmedSummary) {
       setEventFormError("Event title is required.");
@@ -267,10 +253,6 @@ export function ProjectCalendarPanel({
   };
 
   const handleDeleteEvent = async () => {
-    if (!canEdit) {
-      return;
-    }
-
     if (eventModalMode !== "edit" || !editingEventId) {
       setEventFormError("No calendar event selected for deletion.");
       return;
@@ -353,9 +335,14 @@ export function ProjectCalendarPanel({
               <CardTitle className="text-lg font-semibold tracking-tight">
                 <span className="inline-flex items-center gap-2">
                   <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                  Calendar
+                  My calendar
                 </span>
               </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Your personal Google Calendar shown alongside this project. Events you
+                create or edit here update your private calendar, not a shared project
+                schedule.
+              </p>
             </div>
           </button>
       </CardHeader>
@@ -370,7 +357,7 @@ export function ProjectCalendarPanel({
 
             {!isLoading && isConnected === false ? (
               <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
-                <p>Connect Google Calendar to show events here.</p>
+                <p>Connect your Google Calendar to overlay your personal events here.</p>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button type="button" size="sm" asChild>
                     <a href={connectUrl}>Connect Google Calendar</a>
@@ -392,19 +379,17 @@ export function ProjectCalendarPanel({
                     {syncedAt ? `Synced ${new Date(syncedAt).toLocaleString()}` : "Connected"}
                   </p>
                   <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                    {canEdit ? (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={openCreateEventModal}
-                        disabled={isLoading}
-                        className="w-full sm:w-auto"
-                      >
-                        <PlusSquare className="h-4 w-4" />
-                        New event
-                      </Button>
-                    ) : null}
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={openCreateEventModal}
+                      disabled={isLoading}
+                      className="w-full sm:w-auto"
+                    >
+                      <PlusSquare className="h-4 w-4" />
+                      New event
+                    </Button>
                     <Button
                       type="button"
                       variant="ghost"
@@ -420,7 +405,6 @@ export function ProjectCalendarPanel({
                 </div>
 
                 <CalendarWeekGrid
-                  canEdit={canEdit}
                   weekDays={weekDays}
                   eventsByDay={eventsByDay}
                   eventsCount={events.length}
