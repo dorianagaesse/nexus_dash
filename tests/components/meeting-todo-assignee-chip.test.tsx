@@ -61,9 +61,14 @@ const AGENT: MeetingTodoActorSummary = {
 interface HarnessProps {
   initialValue?: MeetingTodoActorReference | null;
   options?: MeetingTodoActorSummary[];
+  bordered?: boolean;
 }
 
-function Harness({ initialValue = null, options = HUMANS }: HarnessProps) {
+function Harness({
+  initialValue = null,
+  options = HUMANS,
+  bordered = true,
+}: HarnessProps) {
   const [value, setValue] = React.useState<MeetingTodoActorReference | null>(
     initialValue
   );
@@ -73,6 +78,7 @@ function Harness({ initialValue = null, options = HUMANS }: HarnessProps) {
       value={value}
       options={options}
       onChange={setValue}
+      bordered={bordered}
     />
   );
 }
@@ -189,6 +195,24 @@ describe("meeting-todo-assignee-chip", () => {
       "[data-meeting-todo-assignee-chip='true']"
     );
     expect(chip).toBeNull();
+    expect(container.textContent).toContain("camille");
+  });
+
+  test("renders without an outer border when bordered={false}", () => {
+    act(() => {
+      root.render(
+        <Harness
+          initialValue={{ kind: "human", id: "user-2" }}
+          options={HUMANS}
+          bordered={false}
+        />
+      );
+    });
+    const trigger = container.querySelector(
+      "[data-meeting-todo-assignee-chip='true']"
+    );
+    expect(trigger).not.toBeNull();
+    expect(trigger?.className).not.toMatch(/\bborder\b/);
     expect(container.textContent).toContain("camille");
   });
 });

@@ -1939,7 +1939,7 @@ export function ProjectMeetingNotesPanel({
                             key={action.id}
                             id={`meeting-todo-${action.id}`}
                             className={cn(
-                              "space-y-3 rounded-xl border border-border/70 bg-card/60 p-3",
+                              "space-y-2 rounded-xl bg-card/60 p-3",
                               action.id === initialMeetingTodoId &&
                                 "bg-primary/10 ring-2 ring-primary/35"
                             )}
@@ -1970,7 +1970,7 @@ export function ProjectMeetingNotesPanel({
                                     toggleDraftAction(action.id);
                                   }
                                 }}
-                                className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-60"
+                                className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-60"
                                 aria-label={`${isComplete ? "Reopen" : "Complete"} todo ${index + 1}`}
                               >
                                 {isComplete ? (
@@ -1980,12 +1980,13 @@ export function ProjectMeetingNotesPanel({
                                 )}
                               </button>
                               <EmojiInputField
+                                wrapperClassName="min-w-0 flex-1"
                                 value={action.content}
                                 onChange={(event) =>
                                   updateDraftAction(action.id, event.target.value)
                                 }
                                 className={cn(
-                                  "h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm",
+                                  "h-11 rounded-md border border-input bg-background px-3 text-sm",
                                   isComplete ? "text-muted-foreground line-through" : ""
                                 )}
                                 placeholder="Send recap to stakeholders"
@@ -2003,10 +2004,12 @@ export function ProjectMeetingNotesPanel({
                                   }
                                   disabled={isSaving}
                                   pending={isSaving}
+                                  bordered={false}
                                 />
                               ) : (
                                 <MeetingTodoAssigneeChipReadonly
                                   actor={action.assignee ?? null}
+                                  bordered={false}
                                 />
                               )}
                               {canEdit ? (

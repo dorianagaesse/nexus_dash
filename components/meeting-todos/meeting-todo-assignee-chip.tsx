@@ -25,25 +25,33 @@ const POPOVER_OPTION_HEIGHT = 56;
 interface AssigneeChipBaseProps {
   actor: MeetingTodoActorSummary | null;
   needsReassignment?: boolean;
+  bordered?: boolean;
   className?: string;
 }
 
 function AssigneeChipBase({
   actor,
   needsReassignment = false,
+  bordered = true,
   className,
 }: AssigneeChipBaseProps) {
   if (!actor) {
     return (
       <span
         className={cn(
-          "inline-flex max-w-full items-center gap-1.5 rounded-full border border-dashed border-border/70 bg-muted/30 py-1 pl-1.5 pr-3 text-xs font-semibold text-muted-foreground",
+          "inline-flex max-w-full items-center gap-1.5 rounded-full py-1 pl-1.5 pr-3 text-xs font-semibold text-muted-foreground",
+          bordered
+            ? "border border-dashed border-border/70 bg-muted/30"
+            : "bg-transparent",
           className
         )}
       >
         <span
           aria-hidden
-          className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-dashed border-border/70"
+          className={cn(
+            "grid h-6 w-6 shrink-0 place-items-center rounded-full",
+            bordered ? "border border-dashed border-border/70" : "bg-muted/50"
+          )}
         >
           <UserRound className="h-3.5 w-3.5" aria-hidden />
         </span>
@@ -55,8 +63,16 @@ function AssigneeChipBase({
   return (
     <span
       className={cn(
-        "inline-flex max-w-full items-center gap-2 rounded-full border border-border/70 bg-muted/40 p-1 pr-3 text-xs font-semibold text-foreground",
-        needsReassignment && "border-amber-500/45 bg-amber-500/[0.08]",
+        "inline-flex max-w-full items-center gap-2 rounded-full p-1 pr-3 text-xs font-semibold text-foreground",
+        bordered
+          ? cn(
+              "border border-border/70 bg-muted/40",
+              needsReassignment && "border-amber-500/45 bg-amber-500/[0.08]"
+            )
+          : cn(
+              "bg-transparent hover:bg-muted/40",
+              needsReassignment && "bg-amber-500/[0.08] hover:bg-amber-500/[0.12]"
+            ),
         className
       )}
     >
@@ -103,9 +119,11 @@ function AssigneeChipBase({
 
 export function MeetingTodoAssigneeChipReadonly({
   actor,
+  bordered = true,
   className,
 }: {
   actor: MeetingTodoActorSummary | null;
+  bordered?: boolean;
   className?: string;
 }) {
   const needsReassignment = actor !== null && !actor.isAssignable;
@@ -113,6 +131,7 @@ export function MeetingTodoAssigneeChipReadonly({
     <AssigneeChipBase
       actor={actor}
       needsReassignment={needsReassignment}
+      bordered={bordered}
       className={className}
     />
   );
@@ -171,6 +190,7 @@ interface MeetingTodoAssigneeChipProps {
   disabled?: boolean;
   className?: string;
   pending?: boolean;
+  bordered?: boolean;
 }
 
 export function MeetingTodoAssigneeChip({
@@ -181,6 +201,7 @@ export function MeetingTodoAssigneeChip({
   disabled = false,
   className,
   pending = false,
+  bordered = true,
 }: MeetingTodoAssigneeChipProps) {
   const generatedId = useId().replace(/:/g, "");
   const listboxId = `${id}-${generatedId}-listbox`;
@@ -300,11 +321,23 @@ export function MeetingTodoAssigneeChip({
           setIsOpen((previous) => !previous);
         }}
         className={cn(
-          "group inline-flex max-w-full items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 p-1 pr-2.5 text-xs font-semibold text-foreground transition-colors hover:border-border hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60",
-          isInactive && "border-amber-500/45 bg-amber-500/[0.08]"
+          "group inline-flex max-w-full items-center gap-1.5 rounded-full p-1 pr-2.5 text-xs font-semibold text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60",
+          bordered
+            ? cn(
+                "border border-border/70 bg-muted/40 hover:border-border hover:bg-muted/60",
+                isInactive && "border-amber-500/45 bg-amber-500/[0.08]"
+              )
+            : cn(
+                "bg-transparent hover:bg-muted/40",
+                isInactive && "bg-amber-500/[0.08] hover:bg-amber-500/[0.12]"
+              )
         )}
       >
-        <AssigneeChipBase actor={currentActor} needsReassignment={isInactive} />
+        <AssigneeChipBase
+          actor={currentActor}
+          needsReassignment={isInactive}
+          bordered={bordered}
+        />
         <ChevronDown
           aria-hidden
           className={cn(
