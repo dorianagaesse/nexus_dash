@@ -8,6 +8,28 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.38.0 - 2026-08-09
+
+- Relabeled the project dashboard Calendar section, upcoming-events stat card,
+  panel skeleton, and event modal as "My calendar" / "personal event" so the
+  integration is presented as the signed-in user's personal Google Calendar
+  overlay rather than a shared project module.
+- Decoupled personal calendar mutations from the project editor role: a
+  signed-in project member whose Google credential exposes the calendar write
+  scope can now create, update, and delete their own personal calendar events
+  while looking at a project. Project access is retained only so the dashboard
+  can scope the request to a project the caller can see; the user's own Google
+  write scope is the only authorization to mutate their private calendar.
+- Dropped the `canEdit` prop from the project calendar panel, section, and
+  grid/chip components so the visible "New event" and "Edit" affordances are
+  reachable for any project member with a writable Google credential.
+- Documented the future NexusDash-owned shared project schedule in
+  `adr/task-348-shared-schedule-contract.md` (artifact model, task-337 actor
+  contract, task-331 capability vocabulary, task-340 history surface, optional
+  external-calendar sync). The shared schedule stays queued behind TASK-337 and
+  TASK-331 so the implementation can reuse the shared actor and capability
+  vocabularies instead of inventing parallel ones.
+
 ## v0.37.2 - 2026-08-25
 
 - Restored the registered stable Vercel Preview URL for GitHub and Google OAuth
