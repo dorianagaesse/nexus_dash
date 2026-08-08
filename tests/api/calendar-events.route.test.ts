@@ -256,6 +256,68 @@ describe("calendar events routes", () => {
     });
   });
 
+  test("POST allows a viewer with Google write scope to mutate their personal calendar", async () => {
+    projectAccessServiceMock.requireProjectRole.mockResolvedValueOnce({
+      ok: true,
+      role: "viewer",
+    });
+
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
+      ok: true,
+      context: {
+        accessToken: "access-token",
+        calendarId: "primary",
+        scope: "write-scope",
+      },
+    });
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          id: "evt-viewer",
+          summary: "Personal standup",
+          start: { dateTime: "2026-02-14T08:00:00.000Z" },
+          end: { dateTime: "2026-02-14T08:30:00.000Z" },
+          status: "confirmed",
+        }),
+        { status: 200 }
+      )
+    );
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/calendar/events", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          projectId: PROJECT_ID,
+          summary: "Personal standup",
+          start: "2026-02-14T08:00:00.000Z",
+          end: "2026-02-14T08:30:00.000Z",
+          isAllDay: false,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    await expect(readJson(response)).resolves.toEqual({
+      event: {
+        id: "evt-viewer",
+        summary: "Personal standup",
+        start: "2026-02-14T08:00:00.000Z",
+        end: "2026-02-14T08:30:00.000Z",
+        isAllDay: false,
+        location: null,
+        description: null,
+        htmlLink: null,
+        status: "confirmed",
+      },
+    });
+
+    const accessArgs = projectAccessServiceMock.requireProjectRole.mock
+      .calls[projectAccessServiceMock.requireProjectRole.mock.calls.length - 1][0];
+    expect(accessArgs.minimumRole).toBe("viewer");
+  });
+
   test("POST returns auth failure payload when calendar is not connected", async () => {
     googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
       ok: false,
