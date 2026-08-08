@@ -9,13 +9,16 @@ import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { createContextCardForProject } from "@/lib/services/context-card-service";
+import { listProjectContextCardActors } from "@/lib/services/context-card-actor-service";
+import { projectContextCard } from "@/lib/services/context-card-stewardship-service";
 import { mapContextAttachmentResponse } from "@/lib/services/project-attachment-service";
 import { listProjectContextResources } from "@/lib/services/project-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 
 const ATTACHMENT_FILES_FIELD = "attachmentFiles";
-type ContextCardAttachment =
-  Awaited<ReturnType<typeof listProjectContextResources>>[number]["attachments"][number];
+type ContextCardRecord =
+  Awaited<ReturnType<typeof listProjectContextResources>>[number];
+type ContextCardAttachment = ContextCardRecord["attachments"][number];
 
 interface ContextCardCreateJsonRequestBody {
   title?: unknown;
@@ -81,18 +84,32 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
     agentAccess
   );
 
+  const assignableActors = await listProjectContextCardActors({
+    actorUserId: principalResult.principal.actorUserId,
+    projectId: params.projectId,
+  });
+
   return NextResponse.json(
     {
-      cards: cards.map((card) => ({
-        id: card.id,
-        title: card.name,
-        content: card.content,
-        color: card.color,
-        createdAt: card.createdAt,
-        attachments: card.attachments.map((attachment: ContextCardAttachment) =>
-          mapContextAttachmentResponse(params.projectId, card.id, attachment)
-        ),
-      })),
+      cards: cards.map((card) => {
+        const projection = projectContextCard({ card });
+        return {
+          id: card.id,
+          title: card.name,
+          content: card.content,
+          color: card.color,
+          createdAt: card.createdAt.toISOString(),
+          updatedAt: card.updatedAt.toISOString(),
+          attachments: card.attachments.map((attachment: ContextCardAttachment) =>
+            mapContextAttachmentResponse(params.projectId, card.id, attachment)
+          ),
+          projection: {
+            ...projection,
+            lastEditedAt: card.updatedAt.toISOString(),
+          },
+        };
+      }),
+      assignableActors,
     },
     { headers: timing.headers() }
   );

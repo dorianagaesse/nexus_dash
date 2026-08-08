@@ -111,16 +111,22 @@ export async function PATCH(
     entityId: cardId,
     payload: {
       card: {
-        id: cardId,
-        title,
-        content,
-        color,
+        id: result.data.id,
+        title: result.data.title,
+        content: result.data.content,
+        color: result.data.color,
       },
     },
   });
 
   return NextResponse.json(
-    { ok: true },
+    {
+      card: {
+        ...result.data,
+        createdAt: result.data.createdAt.toISOString(),
+        updatedAt: result.data.updatedAt.toISOString(),
+      },
+    },
     { headers: withProjectActivityVersionHeader(timing.headers(), version) }
   );
 }
