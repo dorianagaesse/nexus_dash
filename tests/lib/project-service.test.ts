@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { Prisma } from "@prisma/client";
+
 const prismaMock = vi.hoisted(() => ({
   task: {
     findFirst: vi.fn(),
@@ -242,6 +244,65 @@ describe("project-service", () => {
         revokedAt: true,
       },
     });
+  });
+
+  test("returns summary when calendar credential table is missing", async () => {
+    prismaMock.project.findFirst.mockResolvedValueOnce({
+      id: "project-1",
+      name: "Project 1",
+      description: null,
+      updatedAt: new Date("2026-05-30T10:00:00.000Z"),
+    });
+    prismaMock.task.count
+      .mockResolvedValueOnce(4)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(1);
+    prismaMock.resource.count.mockResolvedValueOnce(1);
+    prismaMock.projectMeetingNote.count.mockResolvedValueOnce(2);
+    prismaMock.taskAttachment.count.mockResolvedValueOnce(3);
+    prismaMock.resourceAttachment.count.mockResolvedValueOnce(3);
+    const p2021 = Object.create(Prisma.PrismaClientKnownRequestError.prototype);
+    p2021.code = "P2021";
+    prismaMock.googleCalendarCredential.findUnique.mockRejectedValueOnce(p2021);
+
+    const result = await getProjectSummaryById("project-1", actorUserId);
+
+    expect(result).toMatchObject({
+      id: "project-1",
+      stats: {
+        trackedTasks: 4,
+        openTasks: 1,
+        completedTasks: 1,
+        contextCards: 1,
+        meetingNotes: 2,
+        attachmentCount: 6,
+        isCalendarConnected: false,
+      },
+    });
+  });
+
+  test("rethrows non-P2021 errors from the calendar credential query", async () => {
+    prismaMock.project.findFirst.mockResolvedValueOnce({
+      id: "project-1",
+      name: "Project 1",
+      description: null,
+      updatedAt: new Date("2026-05-30T10:00:00.000Z"),
+    });
+    prismaMock.task.count
+      .mockResolvedValueOnce(4)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(1);
+    prismaMock.resource.count.mockResolvedValueOnce(1);
+    prismaMock.projectMeetingNote.count.mockResolvedValueOnce(2);
+    prismaMock.taskAttachment.count.mockResolvedValueOnce(3);
+    prismaMock.resourceAttachment.count.mockResolvedValueOnce(3);
+    prismaMock.googleCalendarCredential.findUnique.mockRejectedValueOnce(
+      new Error("connection-refused")
+    );
+
+    await expect(
+      getProjectSummaryById("project-1", actorUserId)
+    ).rejects.toThrow("connection-refused");
   });
 
   test("archives stale done tasks before loading kanban tasks", async () => {

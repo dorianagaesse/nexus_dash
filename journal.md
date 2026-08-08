@@ -3,6 +3,33 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-08 - Defensive calendar credential fetch (preview 1277004625)
+
+- Preview deployments of `feature/task-330-meeting-todo-assignees` failed every
+  `/projects/[id]` render with Next.js error digest `1277004625` (and
+  `2548249264` after redeploy). Vercel function logs were the only signal:
+  responses returned 200 while the body carried `PrismaClientKnownRequestError`
+  `P2021` — `The table public.GoogleCalendarCredential does not exist in the
+  current database` — from `prisma.googleCalendarCredential.findUnique()` in
+  `getProjectSummaryById`.
+- Root cause is missing schema in the staging database that backs the preview
+  runtime. `MIGRATION_DATABASE_URL` and `DATABASE_URL` are deliberately
+  separate secrets, and the migration history (baseline + every TASK-* follow
+  up) does create the table; whatever drift produced the absence is not
+  reachable from this branch.
+- Decoupled the calendar credential lookup from the main stats `Promise.all`
+  in `lib/services/project-service.ts` and wrapped it in a small
+  `safeFindCalendarCredential` helper that swallows Prisma `P2021` (`Table
+  Does Not Exist`) and returns `null`, leaving every other Prisma error to
+  propagate. `isCalendarConnected` already degraded to `false` on null, so
+  project pages render correctly even if the calendar table is missing; other
+  calendar flows still require the table and surface a real error.
+- Added two unit tests in `tests/lib/project-service.test.ts`: the missing
+  table path returns the summary with `isCalendarConnected: false`, and any
+  non-`P2021` error still propagates. All 11 tests in that file pass; full
+  `npm test` is 936 passing / 1 skipped, with 13 pre-existing integration
+  files failing only because the workstation has no `DATABASE_URL`.
+
 # 2026-08-06 - TASK-330 meeting-todo accountability completed
 
 - Added durable human/agent creator, optional assignee, and completer provenance
