@@ -13,7 +13,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   section to `tasks/backlog.md` directly below the execution queue, with 13
   concrete follow-up tasks (TASK-357 through TASK-369) covering verify-email
   status page polish with auto-redirect, sidebar workspace label
-  deduplication, real tabs on account Settings, Developers surface collapsible
+  deduplication, real tabs on account settings, Developers surface collapsible
   sections with uniform layout, bug/feedback diagnostics copy clarity, Inbox
   vs Notifications naming unification, /projects copy tightening, modal title
   vs primary button separation, project edit Cancel affordance, context card

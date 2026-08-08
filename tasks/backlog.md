@@ -75,7 +75,7 @@ Last reviewed: 2026-08-08
   Rationale: Today `/account/settings` lists Calendar and Developers as section anchors that scroll vertically, so clicking the second tab forces the user to scroll past the first section's content. Replace the stacked layout with a real tabs control that swaps content in place, preserves deep links/anchors to each tab, and matches the shared Radix dialog/sheet semantics already used elsewhere.
   Dependencies: TASK-321, TASK-328
 - ID: TASK-360
-  Title: Account Settings → Developers - collapsible sections with uniform single-column layout
+  Title: Account Settings Developers surface - collapsible sections with uniform single-column layout
   Status: Pending
   Rationale: The Developers surface mixes full-width sections (for example "Where credentials live") with side-by-side panels ("Authentication flow", "Scope model"), which makes scanning unpredictable and hides parallel content under one another. Lay every section into a uniform single-column structure, default all sections to collapsed except the first, and add an accessible disclosure pattern so users can reveal each section on demand.
   Dependencies: TASK-328
