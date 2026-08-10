@@ -14,6 +14,7 @@ import {
   createContextAttachmentsFromDraft,
   mapContextAttachmentResponse,
 } from "@/lib/services/project-attachment-service";
+import { loadContextCardActorRegistry } from "@/lib/services/context-card-actor-service";
 import {
   requireAgentProjectScopes,
   requireProjectRole,
@@ -280,8 +281,13 @@ export async function createContextCardForProject(
 
       await touchProjectActivity({ db, projectId: input.projectId });
 
+      const registry = await loadContextCardActorRegistry({
+        db,
+        projectId: input.projectId,
+      });
       const projection = projectContextCard({
         card: createdCardWithAttachments,
+        registry,
       });
 
       const response = mapContextCardResponse({
@@ -437,8 +443,13 @@ export async function updateContextCardForProject(
 
       await touchProjectActivity({ db, projectId: input.projectId });
 
+      const registry = await loadContextCardActorRegistry({
+        db,
+        projectId: input.projectId,
+      });
       const projection = projectContextCard({
         card: updatedCard,
+        registry,
       });
 
       return {

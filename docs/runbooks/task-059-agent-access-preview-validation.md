@@ -62,9 +62,9 @@ are recorded, and rotation/revocation take effect immediately for new exchanges.
      `context:write` returns `200` and the updated card including the
      `projection` block.
    - `PATCH /api/projects/:projectId/context-cards/:cardId/stewardship` with
-     `context:write` returns `200` and the updated steward + review state; a
-     request referencing a non-assignable actor returns `400
-     context-card-steward-invalid`.
+     `context:write` returns `200` and the updated steward + review state;
+     a request referencing a non-assignable actor returns
+     `400 context-card-steward-invalid`.
    - `DELETE /api/projects/:projectId/context-cards/:cardId` without
      `context:delete` returns `403`.
 
