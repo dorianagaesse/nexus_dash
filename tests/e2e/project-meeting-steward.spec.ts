@@ -101,15 +101,13 @@ test("defaults steward to creator, supports reassignment, and filters by steward
   expect(filteredPayload.notes.some((note) => note.id === noteId)).toBe(true);
 
   await page.goto(`/projects/${projectIdValue}`);
-  await expect(
-    page.getByRole("heading", { name: "Stewardship kickoff" })
-  ).toBeVisible();
-  await page
+  const noteCard = page
     .getByRole("button", { name: /Stewardship kickoff/i })
-    .first()
-    .click();
+    .first();
+  await expect(noteCard).toBeVisible();
+  await noteCard.click();
   await expect(
-    page.getByRole("button", { name: /Steward \/ facilitator/i })
+    page.getByText("Steward / facilitator", { exact: true })
   ).toBeVisible();
   if (screenshotDirectory) {
     await page.screenshot({

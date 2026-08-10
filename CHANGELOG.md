@@ -8,6 +8,26 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.38.0 - 2026-08-10
+
+- Added a durable, reassignable steward/facilitator actor to every meeting note
+  (human project member or active project agent credential), reusing the
+  TASK-330 actor contract so removed members and revoked/expired agents render
+  as `Needs reassignment` instead of orphaning the note.
+- Persisted creator, last editor, and update-time provenance on every meeting
+  note response, surfaced alongside the steward in the meeting notes panel and
+  meeting detail view.
+- New meeting notes default the steward to the note creator; unrelated edits
+  preserve the steward; editors can explicitly reassign or clear it from the
+  detail view and the preparation flow with accessible, keyboard-operable
+  controls (44px touch target, light/dark, semantic status). Viewers see the
+  steward identity without mutation affordances.
+- Added URL-backed `All`, `Stewarded by me`, and `Unstewarded` responsibility
+  filters for both the active and archived meeting notes lists, with accurate
+  counts and useful empty states.
+- Extended the project activity event stream so stewardship changes emit a
+  project activity event and survive project-scoped realtime reconciliation.
+
 ## v0.37.2 - 2026-08-25
 
 - Restored the registered stable Vercel Preview URL for GitHub and Google OAuth

@@ -409,6 +409,13 @@ function mapMeetingNoteError(errorCode: string): string {
       return "Meeting todo not found.";
     case "meeting-note-action-update-failed":
       return "Could not update the meeting todo. Please retry.";
+    case "meeting-note-steward-required":
+      return "Send a steward reference to update this note.";
+    case "meeting-note-steward-invalid":
+    case "meeting-note-action-assignee-invalid":
+      return "That steward no longer has access to this project. Pick a current project member or active agent.";
+    case "meeting-note-steward-update-failed":
+      return "Could not update the steward. Please retry.";
     case "meeting-note-not-found":
       return "Meeting note not found.";
     case "forbidden":
