@@ -179,6 +179,27 @@ describe("meeting note steward route", () => {
     expect(payload.error).toBe("meeting-note-steward-invalid");
   });
 
+  test("rejects payloads that omit the steward field", async () => {
+    const response = await updateSteward(
+      new NextRequest(
+        "http://localhost/api/projects/project-1/meeting-notes/note-1/steward",
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({}),
+        }
+      ),
+      noteParams("project-1", "note-1")
+    );
+
+    expect(response.status).toBe(400);
+    const payload = await readJson(response);
+    expect(payload.error).toBe("meeting-note-steward-required");
+    expect(
+      meetingNoteServiceMock.setProjectMeetingNoteSteward
+    ).not.toHaveBeenCalled();
+  });
+
   test("surfaces service errors", async () => {
     meetingNoteServiceMock.setProjectMeetingNoteSteward.mockResolvedValueOnce({
       ok: false,

@@ -67,7 +67,10 @@ export async function PATCH(
   } else if (isMeetingTodoActorReference(payload.steward)) {
     steward = { kind: payload.steward.kind, id: payload.steward.id.trim() };
   } else if (payload.steward === undefined) {
-    steward = null;
+    return NextResponse.json(
+      { error: "meeting-note-steward-required" },
+      { status: 400 }
+    );
   } else {
     return NextResponse.json(
       { error: "meeting-note-steward-invalid" },

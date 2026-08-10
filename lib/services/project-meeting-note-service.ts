@@ -1497,7 +1497,11 @@ export async function setProjectMeetingNoteSteward(
         })()
       : null;
     if (stewardUpdate && !stewardUpdate.ok) {
-      return createError(stewardUpdate.status, stewardUpdate.error);
+      const errorCode =
+        stewardUpdate.error === "meeting-note-action-assignee-invalid"
+          ? "meeting-note-steward-invalid"
+          : stewardUpdate.error;
+      return createError(stewardUpdate.status, errorCode);
     }
 
     try {
