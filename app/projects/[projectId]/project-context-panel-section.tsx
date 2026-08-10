@@ -12,8 +12,12 @@ import {
 } from "@/components/project-context-panel-types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getContextCardColorFromSeed } from "@/lib/context-card-colors";
-import { listProjectContextCardActors } from "@/lib/services/context-card-actor-service";
-import { projectContextCard } from "@/lib/services/context-card-stewardship-service";
+
+import {
+  projectContextCard,
+  loadContextCardActorRegistryForProject,
+  type ContextCardCardRecord,
+} from "@/lib/services/context-card-stewardship-service";
 import { listProjectContextResources } from "@/lib/services/project-service";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 
@@ -34,14 +38,20 @@ export async function ProjectContextPanelSection({
   storageProvider,
 }: ProjectContextPanelSectionProps) {
   const resources = await listProjectContextResources(projectId, actorUserId);
-  const assignableActors = await listProjectContextCardActors({
+  const registry = await loadContextCardActorRegistryForProject({
     actorUserId,
     projectId,
   });
+  const assignableActors = registry?.assignable ?? [];
   const now = new Date();
 
   const cards = resources.map((resource) => {
-    const projection = projectContextCard({ card: resource, now });
+    const cardRecord = resource as unknown as ContextCardCardRecord;
+    const projection = projectContextCard({
+      card: cardRecord,
+      now,
+      registry,
+    });
 
     const attachments = resource.attachments.map(
       (attachment: ContextCardAttachment) => ({
@@ -89,7 +99,7 @@ export async function ProjectContextPanelSection({
       content: resource.content,
       color: resource.color ?? getContextCardColorFromSeed(resource.id),
       createdAt: resource.createdAt.toISOString(),
-      updatedAt: resource.updatedAt.toISOString(),
+      updatedAt: cardRecord.updatedAt.toISOString(),
       attachments,
       projection: {
         id: projection.id,

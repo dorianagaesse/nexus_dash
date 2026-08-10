@@ -238,15 +238,18 @@ export function projectContextCard(input: {
   referenceNowMs?: number;
   thresholdDays?: number;
   now?: Date;
+  registry?: ContextCardActorRegistry | null;
 }): ContextCardProjection {
-  const registry =
-    input.card.stewardUser !== undefined ||
-    input.card.lastEditedByUser !== undefined ||
-    input.card.createdByUser !== undefined ||
-    input.card.attachments !== undefined
-      ? null
-      : null;
+  const registry = input.registry ?? null;
   const now = input.now ?? new Date();
+
+  function isCurrentHuman(userId: string | null): boolean | undefined {
+    if (!userId || !registry) {
+      return undefined;
+    }
+    return registry.activeHumanIds.has(userId);
+  }
+
   return {
     id: input.card.id,
     creator: mapStoredContextCardActor({
@@ -258,6 +261,7 @@ export function projectContextCard(input: {
       displayNameSnapshot: input.card.creatorDisplayNameSnapshot,
       user: input.card.createdByUser,
       credential: input.card.createdByCredential,
+      isCurrentProjectHuman: isCurrentHuman(input.card.createdByUserId),
     }),
     lastEditor:
       input.card.lastEditorKind && input.card.lastEditorDisplayNameSnapshot
@@ -270,6 +274,7 @@ export function projectContextCard(input: {
             displayNameSnapshot: input.card.lastEditorDisplayNameSnapshot,
             user: input.card.lastEditedByUser,
             credential: input.card.lastEditedByCredential,
+            isCurrentProjectHuman: isCurrentHuman(input.card.lastEditedByUserId),
           })
         : null,
     steward:
@@ -283,6 +288,7 @@ export function projectContextCard(input: {
             displayNameSnapshot: input.card.stewardDisplayNameSnapshot,
             user: input.card.stewardUser,
             credential: input.card.stewardCredential,
+            isCurrentProjectHuman: isCurrentHuman(input.card.stewardUserId),
           })
         : null,
     review: resolveContextCardReviewState({
@@ -445,10 +451,12 @@ export async function assignContextCardSteward(input: {
 
       await touchProjectActivity({ db, projectId });
 
+      const registry = await loadContextCardActorRegistry({ db, projectId });
       const projection = projectContextCard({
         card: updatedCard as ContextCardCardRecord,
         referenceNowMs: input.referenceNowMs,
         thresholdDays: input.thresholdDays,
+        registry,
       });
 
       return {
