@@ -79,9 +79,9 @@ or a shared scheduling system.
    their card as inactive and are labeled `Needs reassignment` until cleared
    or reassigned.
 6. Each context-card attachment shows the recorded uploader with a stable
-   display label and avatar treatment. Attachments uploaded by removed human
-   members continue to show their original identity and are labeled as no
-   longer project-active.
+   display label and avatar treatment. Attachments uploaded by removed
+   human members continue to show their original identity and are labeled
+   as no longer project-active.
 7. Each context card surfaces a derived `Needs review` signal when it has not
    been edited for a configurable threshold (default 90 days). The signal is
    visible in the dashboard grid, the preview modal, and the edit modal; it
