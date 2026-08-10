@@ -913,7 +913,7 @@ describe("project-meeting-note-service", () => {
       expect(result).toEqual({
         ok: false,
         status: 400,
-        error: "meeting-note-action-assignee-invalid",
+        error: "meeting-note-steward-invalid",
       });
       expect(dbMock.projectMeetingNote.update).not.toHaveBeenCalled();
     });
@@ -947,7 +947,7 @@ describe("project-meeting-note-service", () => {
       });
     });
 
-    test("filters unstewearded notes from the list", async () => {
+    test("filters unstewarded notes from the list", async () => {
       dbMock.projectMeetingNote.findMany.mockResolvedValueOnce([
         baseMeetingNoteRecord,
         {

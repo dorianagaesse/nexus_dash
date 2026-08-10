@@ -3879,3 +3879,41 @@ Low-value entries to avoid going forward:
   reassignment via the dedicated endpoint, clearing, malformed payload
   rejection, the `unassigned` query filter, and the steward block
   visibility in the meeting detail view.
+
+# 2026-08-10 - TASK-356 stewardship Copilot + CI feedback
+
+- CI Quality Core failed on `release:check` because the feature branch was
+  shipping product changes without a version bump. Bumped
+  `package.json` / `package-lock.json` to `0.38.0` and added a
+  `## v0.38.0 - 2026-08-10` entry to `CHANGELOG.md` mirroring the TASK-330
+  release-note shape.
+- E2E smoke surfaced two regressions introduced by the steward block:
+  - `project-meeting-steward.spec.ts` expected a `<h2>` for the note title,
+    but the card title is rendered as a `<p>` inside a clickable button.
+    Switched the assertion to `getByRole("button", { name: ... })` and
+    verified the "Steward / facilitator" label is visible after opening
+    the note dialog.
+  - `task-329-participant-identities.spec.ts` counted dialog imgs to guard
+    against guest names being rendered as avatars. Steward + createdBy +
+    updatedBy all add an `<img>` for the same human (now 4 imgs total:
+    1 collaborator + 3 owner avatars). Updated the count to 4 with a
+    comment explaining the new identity vocabulary.
+- Copilot review produced 5 inline comments, all addressed:
+  - The steward service now translates the shared
+    `meeting-note-action-assignee-invalid` code into a steward-specific
+    `meeting-note-steward-invalid` error so client-side error handling
+    doesn't have to special-case the meeting-todo vocabulary.
+  - The PATCH route now requires an explicit `steward` field — missing
+    returns `400 meeting-note-steward-required` instead of silently
+    clearing the steward.
+  - Added a new route test for the missing-field case, updated the
+    existing service test to expect the steward-specific error code, and
+    fixed the `unstewearded` → `unstewarded` test name typo.
+  - `mapMeetingNoteError` now covers
+    `meeting-note-steward-required` / `-invalid` /
+    `meeting-note-steward-update-failed` (and continues to map the shared
+    `meeting-note-action-assignee-invalid` for safety) so users see
+    targeted steward messages instead of the generic fallback.
+- Re-ran the local validation baseline: `npm run lint`, `npm test`
+  (1050 passed, 2 skipped), `npm run rls:check`, `npm run test:coverage`
+  (91.37% stmts / 81.33% branches), and `npm run build` all pass.

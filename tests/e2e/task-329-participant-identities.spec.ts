@@ -190,5 +190,7 @@ test("links collaborators, reuses guests, and explicitly adds multi-word names",
   await expect(page.getByText("Firstname Name", { exact: true })).toBeVisible();
   await expect(page.getByText("Lastname, Firstname", { exact: true })).toBeVisible();
   await expect(page.getByText("Morgan Lee", { exact: true })).toBeVisible();
-  await expect(page.getByRole("dialog").locator("img")).toHaveCount(1);
+  // Steward + Created by + Last edited by (same human) plus the linked
+  // collaborator avatar; guest names render as text only.
+  await expect(page.getByRole("dialog").locator("img")).toHaveCount(4);
 });
