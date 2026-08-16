@@ -115,6 +115,23 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Focused regression validation passed: 4 files, 88 tests covering request
   origin selection, environment validation, health metadata, and migration
   project-ref validation.
+# 2026-08-16 - TASK-326 review refreshed after TASK-325 merge
+
+- Merged TASK-325 through PR #418, retargeted PR #419 to `main`, and merged the
+  current base into `feature/task-326-calendar-ownership` without changing the
+  ownership or disconnect contracts.
+- Reviewed active-only credential access, fail-closed disconnect ordering,
+  provider revocation recovery, lazy token encryption, project summary context,
+  and cross-user RLS coverage against the current service architecture.
+- Advanced the feature version from `0.37.0` to `0.38.0` because current `main`
+  already owns `0.37.0`. Added 44px confirmation controls and recovery copy that
+  does not claim local revocation succeeded when the request fails early.
+- Local validation passed: 171 focused Calendar/ownership tests, 1,048 full-suite
+  tests with two expected skips, coverage at 91.42% statements / 81.33%
+  branches, lint, RLS inventory, version policy, and production build.
+- The local real-RLS rerun is unavailable because Docker Desktop is not running;
+  the required GitHub PostgreSQL RLS job remains the authoritative refreshed
+  matrix for this review.
 
 # 2026-08-08 - TASK-330 assignee control rebuilt as inline Participants-style chip
 

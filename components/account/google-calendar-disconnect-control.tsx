@@ -49,7 +49,7 @@ export function GoogleCalendarDisconnectControl() {
       router.refresh();
     } catch {
       setError(
-        "Could not disconnect Google Calendar. Your connection remains blocked; retry to remove the stored credentials."
+        "Could not finish disconnecting Google Calendar. Retry, and review NexusDash access in your Google Account permissions if the problem continues."
       );
     } finally {
       setIsDisconnecting(false);
