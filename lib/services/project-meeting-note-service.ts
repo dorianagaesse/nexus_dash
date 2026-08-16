@@ -104,13 +104,6 @@ export interface MeetingNoteStewardInput {
   agentAccess?: AgentProjectAccessContext;
 }
 
-export interface MeetingNoteListOptions {
-  query?: string | null;
-  stewardFilter?: "all" | "mine" | "unassigned";
-  currentActorUserId?: string | null;
-  agentAccess?: AgentProjectAccessContext;
-}
-
 export interface ProjectMeetingNoteSummary {
   id: string;
   projectId: string;
@@ -446,15 +439,15 @@ function mapNoteActor(input: {
   return mapActionActor(input);
 }
 
-function isActiveHuman(
-  registry: MeetingTodoActorRegistry | null,
-  actor: MeetingTodoActorSummary | null
+function isCurrentActiveActor(
+  actor: MeetingTodoActorSummary | null,
+  currentActor: MeetingTodoActorReference
 ): boolean {
   return (
     actor !== null &&
-    actor.kind === "human" &&
     actor.status === "active" &&
-    Boolean(registry?.activeHumanIds.has(actor.id))
+    actor.kind === currentActor.kind &&
+    actor.id === currentActor.id
   );
 }
 
@@ -582,9 +575,8 @@ function noteMatchesSearch(note: ProjectMeetingNoteSummary, query: string): bool
 
 function noteMatchesStewardFilter(input: {
   note: ProjectMeetingNoteSummary;
-  registry: MeetingTodoActorRegistry | null;
   stewardFilter: "all" | "mine" | "unassigned";
-  currentActorUserId: string | null;
+  currentActor: MeetingTodoActorReference;
 }): boolean {
   if (input.stewardFilter === "all") {
     return true;
@@ -594,12 +586,7 @@ function noteMatchesStewardFilter(input: {
     return input.note.steward === null;
   }
 
-  // mine
-  if (!input.currentActorUserId) {
-    return false;
-  }
-  return isActiveHuman(input.registry, input.note.steward) &&
-    input.note.steward?.id === input.currentActorUserId;
+  return isCurrentActiveActor(input.note.steward, input.currentActor);
 }
 
 async function readMeetingNoteById(input: {
@@ -842,6 +829,9 @@ export async function listProjectMeetingNotes(input: {
   }
 
   const stewardFilter = input.stewardFilter ?? "all";
+  const currentActor: MeetingTodoActorReference = input.agentAccess
+    ? { kind: "agent", id: input.agentAccess.credentialId }
+    : { kind: "human", id: actorUserId };
 
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
@@ -886,9 +876,8 @@ export async function listProjectMeetingNotes(input: {
       .filter((note) =>
         noteMatchesStewardFilter({
           note,
-          registry,
           stewardFilter,
-          currentActorUserId: actorUserId,
+          currentActor,
         })
       );
   }) as Promise<ProjectMeetingNoteSummary[]>;

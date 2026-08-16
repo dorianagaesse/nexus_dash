@@ -4,8 +4,8 @@
 
 ## Status
 
-Implementation in progress on
-`feature/task-356-meeting-note-stewardship`.
+Implementation and validation complete on
+`feature/task-356-meeting-note-stewardship`; ready for review.
 
 ## Context
 

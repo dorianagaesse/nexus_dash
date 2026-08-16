@@ -64,6 +64,18 @@ test("defaults steward to creator, supports reassignment, and filters by steward
   };
   expect(created.note.steward?.id).toBeTruthy();
 
+  const secondCreatedResponse = await page.request.post(
+    `/api/projects/${projectIdValue}/meeting-notes`,
+    {
+      data: {
+        title: "Owner retrospective",
+        status: "prepared",
+        participants: [],
+      },
+    }
+  );
+  expect(secondCreatedResponse.status()).toBe(201);
+
   const noteId = created.note.id;
   const reassign = await page.request.patch(
     `/api/projects/${projectIdValue}/meeting-notes/${noteId}/steward`,
@@ -100,7 +112,31 @@ test("defaults steward to creator, supports reassignment, and filters by steward
   const filteredPayload = (await filtered.json()) as { notes: Array<{ id: string }> };
   expect(filteredPayload.notes.some((note) => note.id === noteId)).toBe(true);
 
-  await page.goto(`/projects/${projectIdValue}`);
+  await page.goto(
+    `/projects/${projectIdValue}?meetingNoteSteward=unassigned`
+  );
+  await expect(page.getByRole("link", { name: "All 2" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Stewarded by me 1" })
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Unstewarded 1" })
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Owner retrospective/i })
+  ).toHaveCount(0);
+
+  await page.goto(
+    `/projects/${projectIdValue}?meetingNoteQuery=${encodeURIComponent("Stewardship kickoff")}`
+  );
+  await expect(
+    page.getByRole("button", { name: /Owner retrospective/i })
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Clear meeting notes search" }).click();
+  await expect(
+    page.getByRole("button", { name: /Owner retrospective/i })
+  ).toBeVisible();
+
   const noteCard = page
     .getByRole("button", { name: /Stewardship kickoff/i })
     .first();

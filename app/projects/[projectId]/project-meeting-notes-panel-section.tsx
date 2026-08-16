@@ -52,8 +52,6 @@ export async function ProjectMeetingNotesPanelSection({
     listProjectMeetingNotes({
       projectId,
       actorUserId,
-      stewardFilter,
-      query,
     }),
     listProjectCollaborators(projectId, actorUserId),
     listProjectMeetingTodoActors({ projectId, actorUserId }),
