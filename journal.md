@@ -3993,3 +3993,15 @@ Low-value entries to avoid going forward:
   edit modal. Cards now show a review/steward chip strip on the grid surface.
 - Validation: `npm run lint`, `npm test` (969 passing — 27 new), `npm run
   rls:check`, and `npm run build` all clean in the worktree.
+- PR #428 CI repair: Quality Core stopped at `release:check` because
+  `package.json` had advanced to `0.38.0` while the lockfile remained at
+  `0.37.0`, and the feature release had no matching changelog entry. Aligned
+  both root lockfile versions and documented `v0.38.0` in `CHANGELOG.md`.
+- The repaired release gate exposed three stale route-test fixtures: the
+  context-card list test did not mock the new stewardship projection/registry,
+  and update-route mocks omitted timestamps now serialized in the response.
+  Updated those mocks and expectations without changing production behavior.
+- Repair validation passed: release policy, lint, RLS inventory, 12 focused
+  route tests, the full unit/API suite (1064 passed, 2 skipped), coverage
+  (91.37% statements / 81.33% branches / 92.2% functions / 91.88% lines),
+  and the production build. No deployment was triggered.
