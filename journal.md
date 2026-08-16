@@ -92,6 +92,20 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `npm test` is 936 passing / 1 skipped, with 13 pre-existing integration
   files failing only because the workstation has no `DATABASE_URL`.
 
+# 2026-08-06 - TASK-325 Google Calendar integration audit completed
+
+- Audited Google Calendar OAuth, credential storage and RLS, token lifecycle,
+  account settings, project surfaces, event CRUD, tests, and deployment at
+  baseline `a632a19`.
+- Confirmed the current-user ownership boundary is sound, while identifying
+  missing disconnect/revocation enforcement, a broken summary request,
+  optional local token encryption, unverified calendar IDs, singular connection
+  constraints, private-project UX ambiguity, and provider/RLS test gaps.
+- Published the audit and decision-complete TASK-326/TASK-327 briefs. TASK-348
+  remains the owner of personal-calendar versus shared-project scheduling.
+- Validation: focused Calendar suite passed 9 files / 76 tests; `npm run
+  rls:check` passed; documentation diff checks passed.
+
 # 2026-08-06 - TASK-330 meeting-todo accountability completed
 
 - Added durable human/agent creator, optional assignee, and completer provenance
