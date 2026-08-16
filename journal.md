@@ -3,6 +3,58 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-09 - TASK-348 Phase 1: relabel personal Google Calendar overlay and decouple from project editor role
+
+- TASK-336's multi-user audit named the project Calendar panel as a P1
+  collaboration gap. The integration is correctly user-owned (the Google
+  token belongs to the signed-in user and events come from their personal
+  calendar), but the panel was presented as if it were a shared project
+  module: a viewer could not create an event in their own Google Calendar
+  while looking at a project, the header just said "Calendar", and editor
+  role was gating mutation of the user's private calendar in a way that
+  suggested shared ownership.
+- Phase 1 of TASK-348 ships the user-visible fix without waiting for the
+  shared schedule design. The full shared schedule is captured in the new
+  ADR (`adr/task-348-shared-schedule-contract.md`) and stays queued behind
+  TASK-337 (project actor identity) and TASK-331 (capability model).
+- Renamed the dashboard surface consistently across
+  `components/project-calendar-panel.tsx`,
+  `components/project-dashboard/calendar-summary-stat-card.tsx`,
+  `components/calendar-panel/calendar-event-modal.tsx`, and
+  `app/projects/[projectId]/project-calendar-panel-section.tsx` so the
+  section header, the skeleton header, the stat card, and the modal all
+  say "My calendar" / "personal event" with explanatory copy that names
+  the integration as an overlay on the signed-in user's private Google
+  Calendar. The "New event" affordance, the in-event-card pencil, and the
+  modal submit are now reachable for any signed-in project member whose
+  Google credential exposes the calendar write scope.
+- Dropped `ProjectCalendarPanel`'s `canEdit` prop and the matching editor
+  gating in `app/projects/[projectId]/page.tsx` so the visibility of the
+  personal-calendar mutex affordances is no longer projected through the
+  project editor role. The user-scoped Google write scope is the only
+  authorization to mutate the user's private calendar.
+- Downgraded `minimumRole: "editor"` to `minimumRole: "viewer"` in
+  `lib/services/calendar-service.ts` for `createCalendarEvent`,
+  `updateCalendarEvent`, and `deleteCalendarEvent`. Project access is only
+  required so the dashboard can scope the request to a project the caller
+  can see; the authorization to mutate the user's private calendar is the
+  user's own Google write scope.
+- Tests updated: `tests/api/calendar-events.route.test.ts` now has a
+  `POST allows a viewer with Google write scope to mutate their personal
+  calendar` case; `tests/api/calendar-event-id.route.test.ts` has parallel
+  `PATCH` and `DELETE` viewer-success cases that also assert the
+  `minimumRole: "viewer"` argument to `requireProjectRole`. The
+  `tests/e2e/smoke-project-task-calendar.spec.ts` smoke uses the new "My
+  calendar" copy and the new disconnect-state copy.
+- Logged the decision in `adr/decisions.md` (2026-08-09 entry) and pointed
+  to `adr/task-348-shared-schedule-contract.md`, which describes the
+  future NexusDash-owned shared schedule (artifact model, task-337 actor
+  contract, task-331 capability vocabulary, task-340 history surface,
+  optional external-calendar sync). The shared schedule ADR is intentionally
+  sequenced behind TASK-337 and TASK-331 so the implementation can reuse
+  the shared actor and capability vocabularies instead of inventing
+  parallel ones.
+
 # 2026-08-08 - TASK-330 assignee control rebuilt as inline Participants-style chip
 
 - User feedback after the initial accountability ship called the previous

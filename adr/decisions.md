@@ -16,6 +16,45 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-08-09 - Relabel personal Google Calendar overlay and decouple it from project editor role
+- Status: Accepted
+- Context: TASK-336's multi-user collaboration audit named the project
+  Calendar panel as a P1 collaboration gap. The current integration is
+  correctly user-owned (the Google token belongs to the signed-in user and
+  events come from their personal calendar), but the panel is presented as
+  if it were a shared project module: a viewer cannot create an event in
+  their own Google Calendar while looking at a project, the panel header
+  just says "Calendar", and editor role controls mutation of the user's
+  private calendar in a way that suggests shared ownership.
+- Decision: Phase 1 of TASK-348 relabels the project dashboard Calendar
+  section, the upcoming-events summary card, the modal, and the empty
+  state as "My calendar" so users understand it is a personal overlay. The
+  mutation routes (`POST` / `PATCH` / `DELETE`) drop the `minimumRole:
+  "editor"` requirement down to `viewer` so the user's own Google write
+  scope — not the project editor role — is the only authorization to
+  mutate their private calendar. Project access is retained only so the
+  dashboard can scope the request to a project the caller can see. Tests
+  add a viewer success path and an explicit `insufficient-scope` row. The
+  full shared project schedule is deferred behind TASK-337 (project actor
+  identity) and TASK-331 (capability model) and is documented in the
+  deep-dive ADR below.
+- Consequences: A viewer can now manage their own Google Calendar events
+  while looking at a project; the UI no longer suggests shared ownership;
+  existing view-only, read-only-scope, and disconnected flows keep their
+  copy and affordances. The future shared schedule will be a separate
+  NexusDash-owned artifact (artifact model, actor contract, capabilities,
+  history, optional external sync) and will not regress the personal
+  overlay.
+- Links: `tasks/task-348-personal-calendar-shared-schedule.md`,
+  `tasks/current.md`, `adr/task-348-shared-schedule-contract.md`,
+  `lib/services/calendar-service.ts`,
+  `components/project-calendar-panel.tsx`,
+  `components/project-dashboard/calendar-summary-stat-card.tsx`,
+  `components/calendar-panel/calendar-event-modal.tsx`,
+  `tests/api/calendar-events.route.test.ts`,
+  `tests/api/calendar-event-id.route.test.ts`,
+  `tests/e2e/smoke-project-task-calendar.spec.ts`
+
 ## 2026-07-30 - Keep meeting todos within current-project navigation
 - Status: Accepted; supersedes the cross-project portion of the 2026-07-27
   TASK-332 decision.
