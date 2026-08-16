@@ -4074,3 +4074,35 @@ Low-value entries to avoid going forward:
 - Re-ran the local validation baseline: `npm run lint`, `npm test`
   (1050 passed, 2 skipped), `npm run rls:check`, `npm run test:coverage`
   (91.37% stmts / 81.33% branches), and `npm run build` all pass.
+
+# 2026-08-16 - TASK-356 takeover review
+
+- Reviewed PR #429 against the task brief, all five resolved Copilot threads,
+  the service/API/UI implementation, and the latest `origin/main`; merged the
+  two intervening safe dependency updates into the feature branch.
+- Corrected responsibility-filter data flow. The server component had passed
+  the active steward and search filters into `listProjectMeetingNotes`, leaving
+  the client with only a subset of notes. That made the `All`, `Stewarded by
+  me`, and `Unstewarded` counts depend on the current filter and prevented a
+  cleared URL-seeded search from restoring excluded notes. The panel now loads
+  the complete authorized note set and applies its URL-backed filter locally.
+- Added steward-filter-specific empty-state guidance and included the steward
+  filter in the panel's active-filter state.
+- Corrected `steward=mine` for agent-authenticated API reads. The filter now
+  compares against the calling credential instead of its backing human owner;
+  added a focused service regression test.
+- Relaxed the steward actor CHECK constraint from exactly one surviving FK to
+  at most one, matching the existing TASK-330 historical-actor contract. This
+  lets `ON DELETE SET NULL` preserve the kind/display snapshot instead of
+  failing when a referenced user or credential is deleted.
+- Extended the TASK-356 Playwright scenario with two notes so it verifies
+  unfiltered responsibility counts, filtered visibility, and restoration of
+  the full list after clearing a URL-seeded search.
+- Updated `project.md` and TASK-356 status tracking to reflect the delivered
+  steward/provenance behavior.
+- Local validation after the fixes: lint passed; RLS inventory passed; focused
+  meeting-note service/API tests passed (37/37); full Vitest passed (1051/1051,
+  2 skipped); coverage passed at 91.37% statements / 81.33% branches; and the
+  production build passed. Local PostgreSQL-backed E2E/RLS could not run
+  because Docker Desktop was unavailable and the configured database endpoint
+  timed out, so those checks are left to the branch CI PostgreSQL service.

@@ -1027,5 +1027,49 @@ describe("project-meeting-note-service", () => {
       expect(result).toHaveLength(1);
       expect(result[0]?.id).toBe("note-1");
     });
+
+    test("filters notes stewarded by the calling agent credential", async () => {
+      const credential = {
+        id: "credential-1",
+        label: "Release agent",
+        projectId: "project-1",
+        revokedAt: null,
+        expiresAt: null,
+      };
+      dbMock.project.findUnique.mockResolvedValueOnce({
+        owner: baseMeetingNoteRecord.createdByUser,
+        memberships: [],
+        apiCredentials: [credential],
+      });
+      dbMock.projectMeetingNote.findMany.mockResolvedValueOnce([
+        {
+          ...baseMeetingNoteRecord,
+          stewardUserId: null,
+          stewardCredentialId: credential.id,
+          stewardKind: "agent" as const,
+          stewardDisplayNameSnapshot: credential.label,
+          stewardUser: null,
+          stewardCredential: credential,
+        },
+      ]);
+
+      const result = await listProjectMeetingNotes({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        stewardFilter: "mine",
+        agentAccess: {
+          credentialId: credential.id,
+          projectId: "project-1",
+          scopes: ["task:read"],
+        },
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.steward).toMatchObject({
+        kind: "agent",
+        id: credential.id,
+        status: "active",
+      });
+    });
   });
 });
