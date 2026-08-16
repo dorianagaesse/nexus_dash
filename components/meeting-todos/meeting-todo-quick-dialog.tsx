@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 
 import type { ProjectMeetingNotePanelNote } from "@/components/meeting-todos/meeting-note-types";
+import { MeetingTodoAssigneeChipReadonly } from "@/components/meeting-todos/meeting-todo-assignee-chip";
+import { MeetingTodoActorIdentity } from "@/components/meeting-todos/meeting-todo-actor-control";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -226,6 +228,9 @@ function OpenTodoItem({
             Overdue
           </span>
         ) : null}
+        <div className="mt-1.5">
+          <MeetingTodoAssigneeChipReadonly actor={todo.action.assignee ?? null} />
+        </div>
       </div>
     </li>
   );
@@ -263,6 +268,15 @@ function CompletedTodoRow({
         <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
           {todo.note.title}
         </span>
+        {todo.action.completedBy ? (
+          <span className="mt-1 block">
+            <MeetingTodoActorIdentity
+              actor={todo.action.completedBy}
+              prefix="Completed by"
+              compact
+            />
+          </span>
+        ) : null}
       </button>
     </li>
   );

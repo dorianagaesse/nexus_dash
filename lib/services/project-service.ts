@@ -438,7 +438,6 @@ export async function getProjectSummaryById(
       meetingNotes,
       taskAttachmentCount,
       contextAttachmentCount,
-      calendarCredential,
     ] = await Promise.all([
       db.project.findFirst({
         where: {
@@ -513,17 +512,16 @@ export async function getProjectSummaryById(
           },
         },
       }),
-      db.googleCalendarCredential.findUnique({
-        where: { userId: normalizedActorUserId },
-        select: {
-          revokedAt: true,
-        },
-      }),
     ]);
 
     if (!project) {
       return null;
     }
+
+    const calendarCredential = await safeFindCalendarCredential(
+      db,
+      normalizedActorUserId
+    );
 
     return {
       ...project,
@@ -538,6 +536,28 @@ export async function getProjectSummaryById(
       },
     };
   }) as Promise<ProjectSummaryWithStatsRecord | null>;
+}
+
+async function safeFindCalendarCredential(
+  db: DbClient,
+  actorUserId: string
+): Promise<{ revokedAt: Date | null } | null> {
+  try {
+    return await db.googleCalendarCredential.findUnique({
+      where: { userId: actorUserId },
+      select: {
+        revokedAt: true,
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2021"
+    ) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function listProjectKanbanTasks(

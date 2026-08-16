@@ -9,6 +9,8 @@ import { uniqueProjectName } from "./helpers/project-helpers";
 
 const screenshotDirectory = process.env.TASK332_SCREENSHOT_DIR?.trim();
 const task353ScreenshotDirectory = process.env.TASK353_SCREENSHOT_DIR?.trim();
+const task330RowScreenshotDirectory =
+  process.env.TASK330_ROW_SCREENSHOT_DIR?.trim();
 
 async function createProjectTodoFixture(userId: string) {
   const ownerProjectName = uniqueProjectName("todo-owner-project");
@@ -171,6 +173,52 @@ test.describe("project meeting todos", () => {
     await expect(
       page.getByText("Review the shared read-only follow-up")
     ).toHaveCount(0);
+
+    const accountableTodo = page.locator("li", {
+      hasText: "Complete the mobile navigation audit",
+    });
+    const assignmentResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        /\/meeting-notes\/[^/]+\/actions\/[^/]+$/.test(response.url()) &&
+        response.ok()
+    );
+    const assigneeChip = accountableTodo.locator(
+      "[data-meeting-todo-assignee-chip='true']"
+    );
+    const todoContentRect = await accountableTodo
+      .getByText("Complete the mobile navigation audit")
+      .boundingBox();
+    const chipRect = await assigneeChip.boundingBox();
+    expect(todoContentRect).not.toBeNull();
+    expect(chipRect).not.toBeNull();
+    if (todoContentRect && chipRect) {
+      const verticalOverlap =
+        Math.min(todoContentRect.y + todoContentRect.height, chipRect.y + chipRect.height) -
+        Math.max(todoContentRect.y, chipRect.y);
+      expect(verticalOverlap).toBeGreaterThan(0);
+    }
+    await assigneeChip.click();
+    await page
+      .getByRole("option", { name: /Project member/ })
+      .first()
+      .click();
+    await assignmentResponse;
+    await expect(
+      page.locator("[aria-live='polite']").getByText(/^Assigned to .+\.$/)
+    ).toBeVisible();
+    await page.getByRole("link", { name: /^Assigned to me/ }).click();
+    await expect(page).toHaveURL(
+      new RegExp(
+        `/projects/${fixture.ownerProjectId}/todos\\?responsibility=mine$`
+      )
+    );
+    await expect(page.getByText("Complete the mobile navigation audit")).toBeVisible();
+    await expect(page.getByText("Open the source meeting from Todos")).toBeHidden();
+    await page.getByRole("link", { name: /^All/ }).click();
+    await expect(page).toHaveURL(
+      new RegExp(`/projects/${fixture.ownerProjectId}/todos$`)
+    );
     if (screenshotDirectory) {
       await mkdir(path.resolve(screenshotDirectory), { recursive: true });
       await page.screenshot({
@@ -271,9 +319,88 @@ test.describe("project meeting todos", () => {
     await expect(
       page.getByRole("button", { name: /^Todos, \d+ open/ })
     ).toBeHidden();
+
+    const todoRow = meetingDialog.locator(
+      `[id="meeting-todo-${fixture.sourceTodoId}"]`
+    );
+    await expect(todoRow).toBeVisible();
+    const todoInputRect = await todoRow
+      .getByRole("textbox", { name: /Todo 2/ })
+      .boundingBox();
+    const todoChipRect = await todoRow
+      .locator("[data-meeting-todo-assignee-chip='true']")
+      .boundingBox();
+    const todoTrashRect = await todoRow
+      .getByRole("button", { name: /Remove todo 2/ })
+      .boundingBox();
+    const todoCheckboxRect = await todoRow
+      .getByRole("button", { name: /Complete todo 2/ })
+      .boundingBox();
+    expect(todoInputRect).not.toBeNull();
+    expect(todoChipRect).not.toBeNull();
+    expect(todoTrashRect).not.toBeNull();
+    expect(todoCheckboxRect).not.toBeNull();
+    if (
+      todoInputRect &&
+      todoChipRect &&
+      todoTrashRect &&
+      todoCheckboxRect
+    ) {
+      expect(todoChipRect.x).toBeGreaterThan(todoInputRect.x);
+      expect(todoTrashRect.x).toBeGreaterThan(todoChipRect.x);
+    }
+    const todoChipClasses = await todoRow
+      .locator("[data-meeting-todo-assignee-chip='true']")
+      .getAttribute("class");
+    expect(todoChipClasses ?? "").not.toMatch(/\bborder\b/);
+    const todoCheckboxClasses = await todoRow
+      .getByRole("button", { name: /Complete todo 2/ })
+      .getAttribute("class");
+    expect(todoCheckboxClasses ?? "").not.toMatch(/\bborder\b/);
+
+    if (task330RowScreenshotDirectory) {
+      await mkdir(path.resolve(task330RowScreenshotDirectory), {
+        recursive: true,
+      });
+      await todoRow.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(150);
+      await todoRow.screenshot({
+        path: path.resolve(task330RowScreenshotDirectory, "todo-row.png"),
+      });
+    }
+
     await meetingDialog
       .getByRole("button", { name: `Close ${fixture.ownerMeetingTitle}` })
       .click();
+
+    if (task330RowScreenshotDirectory) {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.goto(
+        `/projects/${fixture.ownerProjectId}?meetingNoteId=${fixture.ownerMeetingId}&meetingTodoId=${fixture.sourceTodoId}`
+      );
+      const desktopMeetingDialog = page.getByRole("dialog");
+      await expect(
+        desktopMeetingDialog.getByRole("heading", {
+          name: fixture.ownerMeetingTitle,
+        })
+      ).toBeVisible();
+      const desktopRow = desktopMeetingDialog.locator(
+        `[id="meeting-todo-${fixture.sourceTodoId}"]`
+      );
+      await expect(desktopRow).toBeVisible();
+      await desktopRow.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(150);
+      await desktopRow.screenshot({
+        path: path.resolve(
+          task330RowScreenshotDirectory,
+          "todo-row-desktop.png"
+        ),
+      });
+      await page.getByRole("button", {
+        name: `Close ${fixture.ownerMeetingTitle}`,
+      }).click();
+      await page.setViewportSize({ width: 393, height: 852 });
+    }
 
     await page.goto(`/projects/${fixture.viewerProjectId}/todos`);
     await expect(
@@ -350,6 +477,22 @@ test.describe("project meeting todos", () => {
       await page.screenshot({
         path: path.resolve(task353ScreenshotDirectory, "desktop-panel-dark.png"),
         fullPage: false,
+      });
+    }
+    if (task330RowScreenshotDirectory) {
+      await mkdir(path.resolve(task330RowScreenshotDirectory), {
+        recursive: true,
+      });
+      const desktopTodoRow = todosDialog
+        .locator("li", { hasText: "Open the source meeting from Todos" })
+        .first();
+      await desktopTodoRow.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(150);
+      await desktopTodoRow.screenshot({
+        path: path.resolve(
+          task330RowScreenshotDirectory,
+          "todo-row-desktop-dark.png"
+        ),
       });
     }
     const darkDialogBounds = await todosDialog.boundingBox();

@@ -5,6 +5,7 @@ import { logServerWarning } from "@/lib/observability/logger";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import type { ProjectMeetingParticipantInput } from "@/lib/meeting-participant";
+import { isMeetingTodoActorReference } from "@/lib/meeting-todo-actor";
 import {
   deleteProjectMeetingNote,
   updateProjectMeetingNote,
@@ -80,6 +81,12 @@ function readActions(value: unknown): MeetingNoteActionInput[] {
         id: readOptionalString(record.id),
         content: readString(record.content),
         completedAt: readOptionalString(record.completedAt),
+        assignee:
+          record.assignee === null
+            ? null
+            : isMeetingTodoActorReference(record.assignee)
+              ? { kind: record.assignee.kind, id: record.assignee.id.trim() }
+              : undefined,
       },
     ];
   });

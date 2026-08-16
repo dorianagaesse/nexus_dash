@@ -8,6 +8,25 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.37.0 - 2026-08-06
+
+- Added durable creator, optional human/agent assignee, and completion-actor
+  provenance to meeting todos, including display snapshots that remain readable
+  after membership removal, credential revocation, or actor deletion.
+- Added accessible assignment controls in meeting detail and the project Todos
+  page, with URL-backed `All`, `Assigned to me`, and `Unassigned` responsibility
+  views plus explicit `Needs reassignment` states for inactive actors.
+- Preserved todo IDs and accountability when meeting notes are edited instead
+  of deleting and recreating every follow-up action.
+- Targeted overdue reminders only at active human assignees with current project
+  access, avoiding implicit creator and agent-owner delivery.
+- Extended the agent v1 contract so task-scoped credentials can read accountable
+  meeting todos and assign, complete, reopen, or unassign one todo with the real
+  credential recorded as completion actor.
+- Added schema constraints, backfill migration, service/API/component tests, and
+  responsive identity presentation across the meeting dialog, quick panel, and
+  project-wide Todos destination.
+
 ## v0.36.0 - 2026-08-05
 
 - Added an exact active meeting-todo count to the current project's `Todos`
