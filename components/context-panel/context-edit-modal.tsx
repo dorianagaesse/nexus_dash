@@ -1,9 +1,14 @@
 import type { FormEvent } from "react";
 import { Link2, Trash2, Upload } from "lucide-react";
 
+import {
+  ContextCardActorChip,
+} from "@/components/context-panel/context-card-actor-chip";
+import { ContextCardStewardPicker } from "@/components/context-panel/context-card-steward-picker";
 import { ContextColorPicker } from "@/components/context-panel/context-color-picker";
 import { ContextModalFrame } from "@/components/context-panel/context-modal-frame";
 import type {
+  ProjectContextActorSummary,
   ProjectContextAttachment,
   ProjectContextCard,
 } from "@/components/project-context-panel-types";
@@ -28,6 +33,11 @@ interface ContextEditModalProps {
   editingColor: string;
   editContent: string;
   editingCardAttachments: ProjectContextAttachment[];
+  assignableActors: ProjectContextActorSummary[];
+  selectedSteward: ProjectContextActorSummary | null;
+  stewardCleared: boolean;
+  isUpdatingSteward: boolean;
+  stewardError: string | null;
   isUpdatingCard: boolean;
   isSubmittingAttachment: boolean;
   isEditLinkComposerOpen: boolean;
@@ -45,6 +55,7 @@ interface ContextEditModalProps {
   onAddFileAttachment: (file: File | null) => void | Promise<void>;
   onEditLinkUrlChange: (value: string) => void;
   onAddLinkAttachment: () => void | Promise<void>;
+  onSelectSteward: (actor: ProjectContextActorSummary | null) => void;
 }
 
 export function ContextEditModal({
@@ -52,6 +63,11 @@ export function ContextEditModal({
   editingColor,
   editContent,
   editingCardAttachments,
+  assignableActors,
+  selectedSteward,
+  stewardCleared,
+  isUpdatingSteward,
+  stewardError,
   isUpdatingCard,
   isSubmittingAttachment,
   isEditLinkComposerOpen,
@@ -69,10 +85,15 @@ export function ContextEditModal({
   onAddFileAttachment,
   onEditLinkUrlChange,
   onAddLinkAttachment,
+  onSelectSteward,
 }: ContextEditModalProps) {
   if (!editingCard) {
     return null;
   }
+
+  const stewardActor = stewardCleared
+    ? null
+    : selectedSteward ?? editingCard.projection.steward;
 
   return (
     <ContextModalFrame
@@ -114,6 +135,28 @@ export function ContextEditModal({
 
         <ContextColorPicker selectedColor={editingColor} onSelect={onEditingColorChange} />
         <input type="hidden" name="color" value={editingColor} />
+
+        <div className="space-y-2 rounded-md border border-border/60 bg-background/70 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium">Knowledge steward</p>
+            <ContextCardActorChip
+              actor={stewardActor}
+              fallback="Unassigned"
+            />
+          </div>
+          <ContextCardStewardPicker
+            actors={assignableActors}
+            selected={stewardActor}
+            cleared={stewardCleared}
+            disabled={isUpdatingSteward || isUpdatingCard}
+            onChange={onSelectSteward}
+          />
+          {stewardError ? (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {stewardError}
+            </div>
+          ) : null}
+        </div>
 
         <div className="space-y-2">
           {editingCardAttachments.length === 0 ? (

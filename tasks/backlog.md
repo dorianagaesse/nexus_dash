@@ -161,9 +161,10 @@ Last reviewed: 2026-08-08
   Dependencies: TASK-325, TASK-326, TASK-327, TASK-337, TASK-344
 - ID: TASK-342
   Title: Context knowledge stewardship and attachment provenance
-  Status: P2 - shared knowledge accountability
+  Status: Done 2026-08-09 - shared knowledge accountability
   Rationale: Add a visible, reassignable knowledge steward plus creator, last editor, update time, and review or staleness state to context cards. Surface the already-stored attachment uploader, record attachment lifecycle events, and retain provenance through member removal without turning every reader into an owner.
   Dependencies: TASK-004, TASK-065, TASK-337, TASK-340
+  Brief: `tasks/task-342-context-knowledge-stewardship.md`
 - ID: TASK-343
   Title: Epic leadership and initiative accountability
   Status: P2 - initiative ownership

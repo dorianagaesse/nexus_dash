@@ -21,6 +21,9 @@ const prismaMock = vi.hoisted(() => ({
   resourceAttachment: {
     create: vi.fn(),
   },
+  user: {
+    findUnique: vi.fn(),
+  },
 }));
 
 const attachmentStorageMock = vi.hoisted(() => ({
@@ -71,6 +74,14 @@ describe("project-attachment-service", () => {
     vi.clearAllMocks();
     prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
     prismaMock.project.findFirst.mockResolvedValue({ ownerId: actorUserId, memberships: [] });
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: actorUserId,
+      name: "Ada Lovelace",
+      email: "ada@example.com",
+      username: "ada",
+      usernameDiscriminator: "0001",
+      avatarSeed: "seed-ada",
+    });
   });
 
   test("maps task upload storage-unavailable errors to actionable message", async () => {

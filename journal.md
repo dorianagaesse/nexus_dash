@@ -3846,3 +3846,49 @@ Low-value entries to avoid going forward:
 - Pushed the policy-compliant replacement branch and opened draft
   [PR #416](https://github.com/dorianagaesse/nexus_dash/pull/416), superseding
   conflicting PR #410 without rewriting its protected history.
+
+# 2026-08-09 - TASK-342 context knowledge stewardship and attachment provenance
+
+- Started the task on `feature/task-342-context-knowledge-stewardship` cut from
+  `origin/main`. Drafted `tasks/task-342-context-knowledge-stewardship.md` plus
+  the Acceptance Criteria/Definition of Done in `tasks/current.md`; bumped the
+  backlog entry to Now 1.
+- Added the `ContextCardActorKind` enum and 13 stewardship/provenance columns
+  on `Resource` (creator/lastEditor/steward × user/credential/kind/snapshot,
+  plus `updatedAt`). Added `uploadedByKind` and
+  `uploadedByDisplayNameSnapshot` to `ResourceAttachment` with a CHECK
+  constraint enforcing human-only uploads. Migration
+  `20260809120000_task342_context_knowledge_stewardship` backfills existing
+  rows from the existing `uploadedByUserId` and resets `Resource.updatedAt`
+  to `createdAt`.
+- Mirrored the TASK-330 actor pattern via `lib/context-card-actor.ts` and
+  `lib/services/context-card-actor-service.ts`. New
+  `lib/services/context-card-stewardship-service.ts` exposes the review
+  threshold (env-overridable via `CONTEXT_CARD_REVIEW_THRESHOLD_DAYS`,
+  defaulting to 90), `projectContextCard`, `assignContextCardSteward`, and
+  `recordContextCardCreator`/`recordContextCardEditor` write helpers.
+- Updated `lib/services/context-card-service.ts` so create/update persist the
+  creator/last editor snapshots and return the full `ContextCardResponse`
+  with the projection block. `lib/services/project-attachment-service.ts`
+  resolves the uploader display snapshot via a new `resolveUploaderDisplaySnapshot`
+  helper for both form and direct-upload paths.
+- Added `PATCH /api/projects/:projectId/context-cards/:cardId/stewardship`
+  with editor-role eligibility and surface the new `projection` block +
+  project-wide `assignableActors` in the list/get responses.
+- UI: new `ContextCardActorChip`, `ContextCardReviewBadge`, and searchable
+  `ContextCardStewardPicker` (combobox). Wired into the preview header and
+  edit modal. Cards now show a review/steward chip strip on the grid surface.
+- Validation: `npm run lint`, `npm test` (969 passing — 27 new), `npm run
+  rls:check`, and `npm run build` all clean in the worktree.
+- PR #428 CI repair: Quality Core stopped at `release:check` because
+  `package.json` had advanced to `0.38.0` while the lockfile remained at
+  `0.37.0`, and the feature release had no matching changelog entry. Aligned
+  both root lockfile versions and documented `v0.38.0` in `CHANGELOG.md`.
+- The repaired release gate exposed three stale route-test fixtures: the
+  context-card list test did not mock the new stewardship projection/registry,
+  and update-route mocks omitted timestamps now serialized in the response.
+  Updated those mocks and expectations without changing production behavior.
+- Repair validation passed: release policy, lint, RLS inventory, 12 focused
+  route tests, the full unit/API suite (1064 passed, 2 skipped), coverage
+  (91.37% statements / 81.33% branches / 92.2% functions / 91.88% lines),
+  and the production build. No deployment was triggered.

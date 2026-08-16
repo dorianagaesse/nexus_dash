@@ -26,6 +26,7 @@ import { useToast } from "@/components/toast-provider";
 import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
 import type {
   PendingAttachmentLink,
+  ProjectContextActorSummary,
   ProjectContextAttachment,
   ProjectContextCard,
 } from "@/components/project-context-panel-types";
@@ -64,6 +65,7 @@ interface ProjectContextPanelProps {
   projectId: string;
   storageProvider: "local" | "r2";
   cards: ProjectContextCard[];
+  assignableActors: ProjectContextActorSummary[];
 }
 
 type RemoteContextCardPayload = Omit<Partial<ProjectContextCard>, "attachments"> & {
@@ -119,6 +121,7 @@ export function ProjectContextPanel({
   projectId,
   storageProvider,
   cards,
+  assignableActors,
 }: ProjectContextPanelProps) {
   const isMountedRef = useRef(true);
   const router = useRouter();
@@ -157,6 +160,11 @@ export function ProjectContextPanel({
     useState<ProjectContextAttachment | null>(null);
   const [previewCardId, setPreviewCardId] = useState<string | null>(null);
   const [pendingDeleteCardId, setPendingDeleteCardId] = useState<string | null>(null);
+  const [selectedSteward, setSelectedSteward] =
+    useState<ProjectContextActorSummary | null>(null);
+  const [stewardCleared, setStewardCleared] = useState(false);
+  const [isUpdatingSteward, setIsUpdatingSteward] = useState(false);
+  const [stewardError, setStewardError] = useState<string | null>(null);
   const [localCards, setLocalCards] = useState<ProjectContextCard[]>(() =>
     cards.map((card) => ({
       ...card,
@@ -410,6 +418,9 @@ export function ProjectContextPanel({
     setEditContent("");
     setEditError(null);
     setAttachmentError(null);
+    setStewardError(null);
+    setSelectedSteward(null);
+    setStewardCleared(false);
     setPreviewAttachment(null);
   };
 
@@ -428,11 +439,137 @@ export function ProjectContextPanel({
     setEditContent(normalizeContextCardContentHtml(cardToEdit.content));
     setEditError(null);
     setAttachmentError(null);
+    setStewardError(null);
     setIsEditLinkComposerOpen(false);
     setEditLinkUrl("");
     setEditFileInputKey((previous) => previous + 1);
     setPreviewAttachment(null);
+    setSelectedSteward(cardToEdit.projection.steward);
+    setStewardCleared(cardToEdit.projection.steward === null);
     setEditingCardId(cardId);
+  };
+
+  const handleSelectSteward = (actor: ProjectContextActorSummary | null) => {
+    if (!editingCard || isUpdatingSteward) {
+      return;
+    }
+
+    const previousSteward = editingCard.projection.steward;
+    const previousCleared = previousSteward === null;
+    const nextCleared = actor === null;
+    const isUnchanged =
+      (actor === null && previousCleared) ||
+      (actor !== null &&
+        previousSteward !== null &&
+        actor.kind === previousSteward.kind &&
+        actor.id === previousSteward.id);
+    if (isUnchanged) {
+      return;
+    }
+
+    if (actor === null) {
+      setSelectedSteward(null);
+      setStewardCleared(true);
+    } else {
+      setSelectedSteward(actor);
+      setStewardCleared(false);
+    }
+    setIsUpdatingSteward(true);
+    setStewardError(null);
+
+    const targetCardId = editingCard.id;
+    const payload = actor
+      ? { steward: { kind: actor.kind, id: actor.id } }
+      : { steward: null };
+
+    void (async () => {
+      try {
+        const response = await fetchProjectActivityMutation(
+          projectId,
+          `/api/projects/${projectId}/context-cards/${targetCardId}/stewardship`,
+          {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload),
+          }
+        );
+
+        if (!response.ok) {
+          const errorPayload = (await response.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+          if (!isMountedRef.current) {
+            return;
+          }
+          setSelectedSteward(previousSteward);
+          setStewardCleared(previousCleared);
+          setStewardError(
+            mapStewardshipError(
+              errorPayload?.error ?? "context-card-stewardship-update-failed"
+            )
+          );
+          pushToast({
+            variant: "error",
+            message: "Could not update knowledge steward.",
+          });
+          return;
+        }
+
+        const resultPayload = (await response.json().catch(() => null)) as
+          | {
+              steward: ProjectContextActorSummary | null;
+              review: { lastEditedAt: string };
+            }
+          | null;
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        setLocalCards((previous) =>
+          previous.map((card) =>
+            card.id === targetCardId
+              ? {
+                  ...card,
+                  projection: {
+                    ...card.projection,
+                    steward: resultPayload?.steward ?? actor,
+                    review: {
+                      ...card.projection.review,
+                      lastEditedAt:
+                        resultPayload?.review.lastEditedAt ??
+                        card.projection.review.lastEditedAt,
+                    },
+                  },
+                }
+              : card
+          )
+        );
+
+        pushToast({
+          variant: "success",
+          message: actor
+            ? `Steward set to ${actor.displayName}.`
+            : "Steward cleared.",
+        });
+      } catch (error) {
+        console.error("[ProjectContextPanel.handleSelectSteward]", error);
+        if (!isMountedRef.current) {
+          return;
+        }
+        setSelectedSteward(previousSteward);
+        setStewardCleared(previousCleared);
+        setStewardError("Could not update knowledge steward.");
+        pushToast({
+          variant: "error",
+          message: "Could not update knowledge steward.",
+        });
+      } finally {
+        if (isMountedRef.current) {
+          setIsUpdatingSteward(false);
+        }
+      }
+    })();
   };
 
   const handleStageCreateLink = () => {
@@ -507,6 +644,20 @@ export function ProjectContextPanel({
     }
   };
 
+  const mapStewardshipError = (errorCode: string): string => {
+    switch (errorCode) {
+      case "context-card-steward-invalid":
+      case "context-card-stewardship-missing":
+        return "Selected steward is not assignable.";
+      case "context-card-not-found":
+        return "Context card not found.";
+      case "forbidden":
+        return "You do not have permission to update the steward.";
+      default:
+        return "Could not update knowledge steward.";
+    }
+  };
+
   const handleCreateCardSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isCreatingCard) {
@@ -550,13 +701,28 @@ export function ProjectContextPanel({
 
     closeCreateModal();
     setIsCreatingCard(false);
+    const optimisticNow = new Date().toISOString();
     setLocalCards((previous) => [
       {
         id: optimisticCardId,
         title: optimisticTitle,
         content: normalizeContextCardContentHtml(optimisticContent),
         color: optimisticColor,
+        createdAt: optimisticNow,
+        updatedAt: optimisticNow,
         attachments: optimisticAttachments,
+        projection: {
+          id: optimisticCardId,
+          creator: null,
+          lastEditor: null,
+          steward: null,
+          review: {
+            needsReview: false,
+            thresholdDays: 90,
+            lastEditedAt: optimisticNow,
+          },
+          attachments: [],
+        },
       },
       ...previous,
     ]);
@@ -580,11 +746,7 @@ export function ProjectContextPanel({
           | {
               error?: string;
               cardId?: string;
-              card?: {
-                id: string;
-                title: string;
-                content: string;
-                color: string;
+              card?: Omit<ProjectContextCard, "attachments"> & {
                 attachments: Omit<ProjectContextAttachment, "downloadUrl">[];
               };
             }
@@ -1174,6 +1336,11 @@ export function ProjectContextPanel({
         editingColor={editingColor}
         editContent={editContent}
         editingCardAttachments={editingCardAttachments}
+        assignableActors={assignableActors}
+        selectedSteward={selectedSteward}
+        stewardCleared={stewardCleared}
+        isUpdatingSteward={isUpdatingSteward}
+        stewardError={stewardError}
         isUpdatingCard={isUpdatingCard}
         isSubmittingAttachment={isSubmittingAttachment}
         isEditLinkComposerOpen={isEditLinkComposerOpen}
@@ -1193,6 +1360,7 @@ export function ProjectContextPanel({
         onAddFileAttachment={handleAddFileAttachment}
         onEditLinkUrlChange={setEditLinkUrl}
         onAddLinkAttachment={handleAddLinkAttachment}
+        onSelectSteward={handleSelectSteward}
       />
 
       <ContextPreviewModal

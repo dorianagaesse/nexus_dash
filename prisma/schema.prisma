@@ -47,6 +47,9 @@ model User {
   meetingTodoActionsCreated   ProjectMeetingNoteAction[]      @relation("MeetingTodoCreatedByUser")
   meetingTodoActionsAssigned  ProjectMeetingNoteAction[]      @relation("MeetingTodoAssignedToUser")
   meetingTodoActionsCompleted ProjectMeetingNoteAction[]      @relation("MeetingTodoCompletedByUser")
+  contextCardsCreated         Resource[]                      @relation("ContextCardCreatedByUser")
+  contextCardsLastEdited      Resource[]                      @relation("ContextCardLastEditedByUser")
+  contextCardsStewarded       Resource[]                      @relation("ContextCardStewardedUser")
 
   @@unique([username, usernameDiscriminator])
   @@index([username])
@@ -174,6 +177,11 @@ enum ProjectMembershipRole {
 }
 
 enum MeetingTodoActorKind {
+  human
+  agent
+}
+
+enum ContextCardActorKind {
   human
   agent
 }
@@ -591,17 +599,44 @@ model TaskRelation {
 }
 
 model Resource {
-  id          String               @id @default(cuid())
-  type        String
-  name        String
-  content     String
-  color       String?
-  projectId   String
-  project     Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  attachments ResourceAttachment[]
-  createdAt   DateTime             @default(now())
+  id                            String                @id @default(cuid())
+  type                          String
+  name                          String
+  content                       String
+  color                         String?
+  projectId                     String
+  project                       Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  attachments                   ResourceAttachment[]
+  createdByUserId               String?
+  createdByCredentialId         String?
+  creatorKind                   ContextCardActorKind  @default(human)
+  creatorDisplayNameSnapshot    String                @default("Unknown actor") @db.VarChar(80)
+  lastEditedByUserId            String?
+  lastEditedByCredentialId      String?
+  lastEditorKind                ContextCardActorKind?
+  lastEditorDisplayNameSnapshot String?               @db.VarChar(80)
+  stewardUserId                 String?
+  stewardCredentialId           String?
+  stewardKind                   ContextCardActorKind?
+  stewardDisplayNameSnapshot    String?               @db.VarChar(80)
+  createdAt                     DateTime              @default(now())
+  updatedAt                     DateTime              @updatedAt
+
+  createdByUser          User?          @relation("ContextCardCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByCredential    ApiCredential? @relation("ContextCardCreatedByCredential", fields: [createdByCredentialId], references: [id], onDelete: SetNull)
+  lastEditedByUser       User?          @relation("ContextCardLastEditedByUser", fields: [lastEditedByUserId], references: [id], onDelete: SetNull)
+  lastEditedByCredential ApiCredential? @relation("ContextCardLastEditedByCredential", fields: [lastEditedByCredentialId], references: [id], onDelete: SetNull)
+  stewardUser            User?          @relation("ContextCardStewardedUser", fields: [stewardUserId], references: [id], onDelete: SetNull)
+  stewardCredential      ApiCredential? @relation("ContextCardStewardedCredential", fields: [stewardCredentialId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
+  @@index([createdByUserId])
+  @@index([createdByCredentialId])
+  @@index([lastEditedByUserId])
+  @@index([lastEditedByCredentialId])
+  @@index([stewardUserId])
+  @@index([stewardCredentialId])
+  @@index([projectId, updatedAt])
 }
 
 model TaskAttachment {
@@ -623,18 +658,20 @@ model TaskAttachment {
 }
 
 model ResourceAttachment {
-  id               String   @id @default(cuid())
-  resourceId       String
-  uploadedByUserId String
-  resource         Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
-  uploadedBy       User     @relation("ResourceAttachmentUploader", fields: [uploadedByUserId], references: [id], onDelete: Cascade)
-  kind             String
-  name             String
-  url              String?
-  storageKey       String?
-  mimeType         String?
-  sizeBytes        Int?
-  createdAt        DateTime @default(now())
+  id                            String               @id @default(cuid())
+  resourceId                    String
+  uploadedByUserId              String
+  uploadedByKind                ContextCardActorKind @default(human)
+  uploadedByDisplayNameSnapshot String               @default("Unknown uploader") @db.VarChar(80)
+  resource                      Resource             @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  uploadedBy                    User                 @relation("ResourceAttachmentUploader", fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+  kind                          String
+  name                          String
+  url                           String?
+  storageKey                    String?
+  mimeType                      String?
+  sizeBytes                     Int?
+  createdAt                     DateTime             @default(now())
 
   @@index([resourceId])
   @@index([uploadedByUserId])
@@ -729,6 +766,9 @@ model ApiCredential {
   meetingTodoActionsCreated   ProjectMeetingNoteAction[] @relation("MeetingTodoCreatedByCredential")
   meetingTodoActionsAssigned  ProjectMeetingNoteAction[] @relation("MeetingTodoAssignedToCredential")
   meetingTodoActionsCompleted ProjectMeetingNoteAction[] @relation("MeetingTodoCompletedByCredential")
+  contextCardsCreated         Resource[]                 @relation("ContextCardCreatedByCredential")
+  contextCardsLastEdited      Resource[]                 @relation("ContextCardLastEditedByCredential")
+  contextCardsStewarded       Resource[]                 @relation("ContextCardStewardedCredential")
 
   @@index([projectId])
   @@index([createdByUserId])
