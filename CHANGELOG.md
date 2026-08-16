@@ -8,6 +8,22 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.38.0 - 2026-08-16
+
+- Added durable creator, last-editor, and optional human or agent steward
+  identity to context cards, with display snapshots that remain readable after
+  membership removal or credential revocation.
+- Added accessible stewardship controls for project editors and owners, while
+  preserving read-only identity details for viewers and validating every
+  assignment at the service boundary.
+- Surfaced attachment-uploader provenance and explicit inactive-actor states so
+  historical knowledge sources remain attributable.
+- Added a configurable derived `Needs review` signal across context-card grid,
+  preview, and edit surfaces for cards that have not been updated recently.
+- Added migration, service, route, component, and browser coverage for actor
+  assignment, inactive identities, attachment attribution, permissions, and
+  responsive stewardship presentation.
+
 ## v0.37.2 - 2026-08-25
 
 - Restored the registered stable Vercel Preview URL for GitHub and Google OAuth
