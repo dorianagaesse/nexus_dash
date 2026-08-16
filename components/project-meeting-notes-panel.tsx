@@ -981,7 +981,10 @@ export function ProjectMeetingNotesPanel({
       current.filter((label) => availableLabels.has(label.toLocaleLowerCase()))
     );
   }, [existingLabels]);
-  const hasActiveFilters = query.trim() !== "" || selectedLabelFilters.length > 0;
+  const hasActiveFilters =
+    query.trim() !== "" ||
+    selectedLabelFilters.length > 0 ||
+    activeStewardFilter !== "all";
   const labelSuggestions = useMemo(() => {
     const queryValue = prepareDraft.labelInput.trim().toLocaleLowerCase();
     if (!queryValue) {
@@ -1679,8 +1682,12 @@ export function ProjectMeetingNotesPanel({
                     : "No active meeting notes yet."}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {hasActiveFilters
+                {query.trim() !== "" || selectedLabelFilters.length > 0
                   ? "Try another search or clear the selected labels."
+                  : activeStewardFilter === "mine"
+                    ? "Choose All to see notes stewarded by other collaborators or awaiting a steward."
+                    : activeStewardFilter === "unassigned"
+                      ? "Choose All to see notes that already have a steward."
                   : listView === "archived"
                     ? "Done meeting notes will land here."
                     : "Prepare one before the next discussion."}

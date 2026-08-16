@@ -43,7 +43,9 @@ ALTER TABLE "ProjectMeetingNote"
       OR (
         "stewardKind" IS NOT NULL
         AND "stewardDisplayNameSnapshot" IS NOT NULL
-        AND num_nonnulls("stewardUserId", "stewardCredentialId") = 1
+        -- Keep the actor snapshot valid when an FK target is deleted and
+        -- ON DELETE SET NULL removes its stable identifier.
+        AND num_nonnulls("stewardUserId", "stewardCredentialId") <= 1
         AND ("stewardKind" = 'human' OR "stewardUserId" IS NULL)
         AND ("stewardKind" = 'agent' OR "stewardCredentialId" IS NULL)
       )

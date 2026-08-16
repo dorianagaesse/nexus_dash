@@ -1,6 +1,6 @@
 # NexusDash Project Blueprint (Current State)
 
-Last verified: 2026-07-05
+Last verified: 2026-08-16
 
 ## 1. Vision
 
@@ -17,7 +17,9 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
   - Context cards (create/edit/delete + attachments)
   - Meeting notes with searchable project-scoped history, task-style labels,
     label filters, structured participants, preparation inputs, meeting outputs,
-    todo tracking, overdue highlights, state, and archived done notes
+    todo tracking, overdue highlights, state, archived done notes, and a
+    reassignable human-or-agent steward with creator/last-editor provenance and
+    URL-backed responsibility filters
   - Roadmap event-first milestone lanes with grouped child events, drag-and-drop regrouping, and target-date planning
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`) with reorder, deadline/comment visibility, task epic links, and task detail modal
   - Project epics registry with dedicated epic CRUD, automatic status/progress, and linked-task rollups
@@ -89,8 +91,10 @@ Current schema includes:
   `ProjectMeetingNoteAction`, `TaskBlockedFollowUp`. Meeting notes store
   task-style `labelsJson` and a simple state (`prepared`,
   `actions_in_progress`, `done`) so done notes can be shown in an archived
-  list; open todos are considered overdue seven days after the meeting date for
-  project-page highlighting.
+  list. Each note also stores a nullable human-or-agent steward with a display
+  snapshot so removed members and revoked credentials remain visible as needing
+  reassignment; open todos are considered overdue seven days after the meeting
+  date for project-page highlighting.
 - Collaboration on tasks: `TaskComment` with optional agent credential
   attribution metadata for agent-authored comments
 - Attachments: `TaskAttachment`, `ResourceAttachment` with `uploadedByUserId`
