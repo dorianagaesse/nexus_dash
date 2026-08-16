@@ -1,8 +1,10 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   Archive,
@@ -80,11 +82,37 @@ type PrepareDialogMode = "create" | "edit";
 interface ProjectMeetingNotesPanelProps {
   projectId: string;
   canEdit: boolean;
+  currentActorUserId?: string;
   notes: ProjectMeetingNotePanelNote[];
   collaborators: ProjectMeetingParticipantCollaborator[];
   todoActors: MeetingTodoActorSummary[];
+  stewardFilter?: StewardFilterValue;
+  initialQuery?: string | null;
   initialMeetingNoteId?: string | null;
   initialMeetingTodoId?: string | null;
+}
+
+export type StewardFilterValue = "all" | "mine" | "unassigned";
+
+function normalizeStewardFilter(value: string | null | undefined): StewardFilterValue {
+  return value === "mine" || value === "unassigned" ? value : "all";
+}
+
+function buildNotesHref(input: {
+  projectId: string;
+  stewardFilter: StewardFilterValue;
+  query?: string | null;
+}): string {
+  const params = new URLSearchParams();
+  if (input.stewardFilter !== "all") {
+    params.set("meetingNoteSteward", input.stewardFilter);
+  }
+  const trimmedQuery = (input.query ?? "").trim();
+  if (trimmedQuery.length > 0) {
+    params.set("meetingNoteQuery", trimmedQuery);
+  }
+  const query = params.toString();
+  return query ? `/projects/${input.projectId}?${query}` : `/projects/${input.projectId}`;
 }
 
 interface DraftAction {
@@ -207,6 +235,25 @@ function formatShortDate(value: string | null): string {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
+  }).format(date);
+}
+
+function formatMeetingTimestamp(value: string | null): string {
+  if (!value) {
+    return "—";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   }).format(date);
 }
 
@@ -362,6 +409,13 @@ function mapMeetingNoteError(errorCode: string): string {
       return "Meeting todo not found.";
     case "meeting-note-action-update-failed":
       return "Could not update the meeting todo. Please retry.";
+    case "meeting-note-steward-required":
+      return "Send a steward reference to update this note.";
+    case "meeting-note-steward-invalid":
+    case "meeting-note-action-assignee-invalid":
+      return "That steward no longer has access to this project. Pick a current project member or active agent.";
+    case "meeting-note-steward-update-failed":
+      return "Could not update the steward. Please retry.";
     case "meeting-note-not-found":
       return "Meeting note not found.";
     case "forbidden":
@@ -675,15 +729,26 @@ function MeetingDialogShell({
 export function ProjectMeetingNotesPanel({
   projectId,
   canEdit,
+  currentActorUserId = "",
   notes,
   collaborators,
   todoActors,
+  stewardFilter = "all",
+  initialQuery = null,
   initialMeetingNoteId = null,
   initialMeetingTodoId = null,
 }: ProjectMeetingNotesPanelProps) {
   const initialSelectedNote =
     notes.find((note) => note.id === initialMeetingNoteId) ?? null;
   const { pushToast } = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlStewardFilter = normalizeStewardFilter(
+    searchParams.get("meetingNoteSteward")
+  );
+  const urlQuery = searchParams.get("meetingNoteQuery") ?? "";
+  const activeStewardFilter = stewardFilter ?? urlStewardFilter;
+  const activeQuery = initialQuery ?? urlQuery;
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
     sectionKey: "meeting-notes",
@@ -694,7 +759,7 @@ export function ProjectMeetingNotesPanel({
     sortNotes(notes)
   );
   const [referenceNowMs] = useState(() => Date.now());
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(activeQuery);
   const [selectedLabelFilters, setSelectedLabelFilters] = useState<string[]>([]);
   const [listView, setListView] = useState<MeetingListView>(
     initialSelectedNote?.status === "done" ? "archived" : "active"
@@ -717,6 +782,10 @@ export function ProjectMeetingNotesPanel({
   const [pendingTodoActionId, setPendingTodoActionId] = useState<string | null>(
     null
   );
+  const [pendingStewardNoteId, setPendingStewardNoteId] = useState<string | null>(
+    null
+  );
+  const [stewardError, setStewardError] = useState<string | null>(null);
   const appliedInitialMeetingNoteIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -818,12 +887,51 @@ export function ProjectMeetingNotesPanel({
     [overdueTodoCounts]
   );
   const visibleSourceNotes = listView === "active" ? activeNotes : archivedNotes;
+  const stewardCounts = useMemo(() => {
+    const matchesMine = (note: ProjectMeetingNotePanelNote) => {
+      const steward = note.steward;
+      return (
+        steward?.kind === "human" &&
+        steward.status === "active" &&
+        steward.id === currentActorUserId
+      );
+    };
+    return {
+      all: visibleSourceNotes.length,
+      mine: visibleSourceNotes.filter(matchesMine).length,
+      unassigned: visibleSourceNotes.filter((note) => note.steward == null).length,
+    };
+  }, [visibleSourceNotes, currentActorUserId]);
+  const noteMatchesStewardFilter = useCallback(
+    (note: ProjectMeetingNotePanelNote): boolean => {
+      if (activeStewardFilter === "all") {
+        return true;
+      }
+      if (activeStewardFilter === "unassigned") {
+        return note.steward == null;
+      }
+      // mine
+      const steward = note.steward;
+      return (
+        steward?.kind === "human" &&
+        steward.status === "active" &&
+        steward.id === currentActorUserId
+      );
+    },
+    [activeStewardFilter, currentActorUserId]
+  );
   const filteredNotes = useMemo(
     () =>
       visibleSourceNotes
         .filter((note) => noteMatchesQuery(note, query))
-        .filter((note) => noteMatchesLabelFilters(note, selectedLabelFilters)),
-    [visibleSourceNotes, query, selectedLabelFilters]
+        .filter((note) => noteMatchesLabelFilters(note, selectedLabelFilters))
+        .filter(noteMatchesStewardFilter),
+    [
+      visibleSourceNotes,
+      query,
+      selectedLabelFilters,
+      noteMatchesStewardFilter,
+    ]
   );
 
   const selectedNote = useMemo(
@@ -873,7 +981,10 @@ export function ProjectMeetingNotesPanel({
       current.filter((label) => availableLabels.has(label.toLocaleLowerCase()))
     );
   }, [existingLabels]);
-  const hasActiveFilters = query.trim() !== "" || selectedLabelFilters.length > 0;
+  const hasActiveFilters =
+    query.trim() !== "" ||
+    selectedLabelFilters.length > 0 ||
+    activeStewardFilter !== "all";
   const labelSuggestions = useMemo(() => {
     const queryValue = prepareDraft.labelInput.trim().toLocaleLowerCase();
     if (!queryValue) {
@@ -1008,6 +1119,64 @@ export function ProjectMeetingNotesPanel({
       });
     } finally {
       setPendingTodoActionId(null);
+    }
+  };
+
+  const setNoteSteward = async (
+    note: ProjectMeetingNotePanelNote,
+    steward: MeetingTodoActorReference | null
+  ) => {
+    if (!canEdit || pendingStewardNoteId) {
+      return;
+    }
+
+    setPendingStewardNoteId(note.id);
+    setStewardError(null);
+    try {
+      const response = await fetchProjectActivityMutation(
+        projectId,
+        `/api/projects/${projectId}/meeting-notes/${note.id}/steward`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ steward }),
+        }
+      );
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string; note?: ProjectMeetingNotePanelNote }
+        | null;
+      if (!response.ok || !payload?.note) {
+        throw new Error(mapMeetingNoteError(payload?.error ?? "unknown"));
+      }
+
+      setLocalNotes((current) =>
+        sortNotes(
+          current.map((entry) =>
+            entry.id === payload.note?.id ? payload.note : entry
+          )
+        )
+      );
+      const stewardName = steward
+        ? todoActors.find(
+            (actor) =>
+              actor.kind === steward.kind && actor.id === steward.id
+          )?.displayName ?? "steward"
+        : null;
+      pushToast({
+        variant: "success",
+        message: stewardName
+          ? `${stewardName} is now stewarding this note.`
+          : "Steward cleared from this note.",
+      });
+      router.refresh();
+    } catch (error) {
+      setStewardError(
+        error instanceof Error
+          ? error.message
+          : "Could not update the steward. The actor may no longer have project access."
+      );
+    } finally {
+      setPendingStewardNoteId(null);
     }
   };
 
@@ -1396,6 +1565,47 @@ export function ProjectMeetingNotesPanel({
             </div>
           </div>
 
+          <div className="rounded-2xl border border-border/60 bg-muted/15 p-3">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              <ClipboardList className="h-3.5 w-3.5" />
+              Steward
+            </div>
+            <nav
+              aria-label="Steward filter"
+              className="mt-2 grid grid-cols-1 gap-1 rounded-xl bg-muted/40 p-1 sm:grid-cols-3"
+            >
+              {(
+                [
+                  ["all", "All", stewardCounts.all],
+                  ["mine", "Stewarded by me", stewardCounts.mine],
+                  ["unassigned", "Unstewarded", stewardCounts.unassigned],
+                ] as const
+              ).map(([value, label, count]) => {
+                const isCurrent = activeStewardFilter === value;
+                return (
+                  <Link
+                    key={value}
+                    href={buildNotesHref({
+                      projectId,
+                      stewardFilter: value,
+                      query: query.trim() || null,
+                    })}
+                    aria-current={isCurrent ? "page" : undefined}
+                    className={cn(
+                      "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      isCurrent
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <span className="truncate">{label}</span>
+                    <span className="tabular-nums text-xs">{count}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+
           {existingLabels.length > 0 ? (
             <div className="space-y-2 rounded-2xl border border-border/60 bg-muted/15 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1472,8 +1682,12 @@ export function ProjectMeetingNotesPanel({
                     : "No active meeting notes yet."}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {hasActiveFilters
+                {query.trim() !== "" || selectedLabelFilters.length > 0
                   ? "Try another search or clear the selected labels."
+                  : activeStewardFilter === "mine"
+                    ? "Choose All to see notes stewarded by other collaborators or awaiting a steward."
+                    : activeStewardFilter === "unassigned"
+                      ? "Choose All to see notes that already have a steward."
                   : listView === "archived"
                     ? "Done meeting notes will land here."
                     : "Prepare one before the next discussion."}
@@ -1544,6 +1758,13 @@ export function ProjectMeetingNotesPanel({
                     <p className="mt-3 line-clamp-2 text-xs leading-5 text-muted-foreground">
                       {note.inputNotes || "No preparation inputs captured."}
                     </p>
+
+                    <div className="mt-3">
+                      <MeetingTodoActorIdentity
+                        actor={note.steward ?? null}
+                        prefix="Steward"
+                      />
+                    </div>
 
                     <div className="mt-auto flex flex-wrap items-center gap-2 pt-4 text-xs text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
@@ -1656,6 +1877,45 @@ export function ProjectMeetingNotesPanel({
                 disabled={isSaving}
               />
             </div>
+
+            {prepareNote ? (
+              <div className="grid gap-2 rounded-2xl border border-border/60 bg-muted/15 p-3">
+                <div className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  <span>Steward / facilitator</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <MeetingTodoAssigneeChip
+                    id={`meeting-note-steward-prepare-${prepareNote.id}`}
+                    value={prepareNote.steward ?? null}
+                    options={todoActors}
+                    onChange={(steward) => {
+                      void setNoteSteward(prepareNote, steward);
+                    }}
+                    disabled={pendingStewardNoteId === prepareNote.id}
+                    pending={pendingStewardNoteId === prepareNote.id}
+                  />
+                  {pendingStewardNoteId === prepareNote.id ? (
+                    <span className="text-xs text-muted-foreground">
+                      Updating steward…
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  New notes default to you as steward. Reassign any time without
+                  changing the note content.
+                </p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                  <MeetingTodoActorIdentity
+                    actor={prepareNote.createdBy ?? null}
+                    prefix="Created by"
+                  />
+                  <MeetingTodoActorIdentity
+                    actor={prepareNote.updatedBy ?? null}
+                    prefix="Last edited by"
+                  />
+                </div>
+              </div>
+            ) : null}
 
             <div className="grid gap-2">
               <label htmlFor="meeting-participants" className="text-sm font-medium">
@@ -1865,6 +2125,64 @@ export function ProjectMeetingNotesPanel({
                 ))}
               </div>
             ) : null}
+
+            <div className="grid gap-2 rounded-2xl border border-border/60 bg-muted/15 p-3">
+              <div className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                <span>Steward / facilitator</span>
+                {!canEdit ? (
+                  <span className="text-[10px] font-normal normal-case text-muted-foreground">
+                    View only
+                  </span>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                {canEdit ? (
+                  <MeetingTodoAssigneeChip
+                    id={`meeting-note-steward-${selectedNote.id}`}
+                    value={selectedNote.steward ?? null}
+                    options={todoActors}
+                    onChange={(steward) => {
+                      void setNoteSteward(selectedNote, steward);
+                    }}
+                    disabled={pendingStewardNoteId === selectedNote.id}
+                    pending={pendingStewardNoteId === selectedNote.id}
+                  />
+                ) : (
+                  <MeetingTodoAssigneeChipReadonly
+                    actor={selectedNote.steward ?? null}
+                  />
+                )}
+                {pendingStewardNoteId === selectedNote.id ? (
+                  <span className="text-xs text-muted-foreground">
+                    Updating steward…
+                  </span>
+                ) : null}
+              </div>
+              {stewardError ? (
+                <p
+                  role="alert"
+                  className="text-xs text-destructive"
+                >
+                  {stewardError}
+                </p>
+              ) : null}
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                <MeetingTodoActorIdentity
+                  actor={selectedNote.createdBy ?? null}
+                  prefix="Created by"
+                />
+                <MeetingTodoActorIdentity
+                  actor={selectedNote.updatedBy ?? null}
+                  prefix="Last edited by"
+                />
+                <span>
+                  Updated{" "}
+                  <time dateTime={selectedNote.updatedAt}>
+                    {formatMeetingTimestamp(selectedNote.updatedAt)}
+                  </time>
+                </span>
+              </div>
+            </div>
 
             <SectionBlock title="Inputs">
               <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">

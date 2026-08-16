@@ -18,6 +18,8 @@ interface ProjectMeetingNotesPanelSectionProps {
   projectId: string;
   actorUserId: string;
   canEdit: boolean;
+  stewardFilter?: "all" | "mine" | "unassigned";
+  query?: string | null;
   initialMeetingNoteId?: string | null;
   initialMeetingTodoId?: string | null;
 }
@@ -41,6 +43,8 @@ export async function ProjectMeetingNotesPanelSection({
   projectId,
   actorUserId,
   canEdit,
+  stewardFilter = "all",
+  query = null,
   initialMeetingNoteId,
   initialMeetingTodoId,
 }: ProjectMeetingNotesPanelSectionProps) {
@@ -57,6 +61,9 @@ export async function ProjectMeetingNotesPanelSection({
     <ProjectMeetingNotesPanel
       projectId={projectId}
       canEdit={canEdit}
+      currentActorUserId={actorUserId}
+      stewardFilter={stewardFilter}
+      initialQuery={query}
       notes={notes.map((note) => serializeMeetingNote(note))}
       collaborators={collaborators}
       todoActors={todoActors}

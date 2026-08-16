@@ -3846,3 +3846,120 @@ Low-value entries to avoid going forward:
 - Pushed the policy-compliant replacement branch and opened draft
   [PR #416](https://github.com/dorianagaesse/nexus_dash/pull/416), superseding
   conflicting PR #410 without rewriting its protected history.
+
+# 2026-08-09 - TASK-356 meeting note stewardship and decision provenance
+
+- Drafted the task brief at `tasks/task-356-meeting-note-stewardship.md`
+  following TASK-330's pattern, with explicit out-of-scope for TASK-337,
+  TASK-339, TASK-340, TASK-346, and TASK-347 to keep the deliverable
+  narrow: a single visible steward per note, not a workspace ownership queue.
+- Extended `ProjectMeetingNote` with `stewardUserId`, `stewardCredentialId`,
+  `stewardKind`, and `stewardDisplayNameSnapshot`. Migration
+  `20260809120000_task356_meeting_note_stewardship/migration.sql` adds the
+  columns, backfills from `createdByUserId` with a derived display snapshot,
+  wires FKs to `User` and `ApiCredential`, enforces a `steward_actor_check`
+  (either all four columns null OR exactly one of stewardUserId /
+  stewardCredentialId populated with matching stewardKind), and indexes
+  `stewardUserId` and `stewardCredentialId`. RLS inventory unchanged because
+  the table is already classified as `project-scoped-direct-rls` and inherits
+  the same policies.
+- `setProjectMeetingNoteSteward` validates the steward through the same
+  `resolveAssignableMeetingTodoActorFromRegistry` helper used by todo
+  assignees, so removed members and revoked/expired agents surface as
+  `Needs reassignment` instead of silently orphaning the note.
+- New `/api/projects/:projectId/meeting-notes/:noteId/steward` PATCH endpoint
+  accepts `{ steward: { kind, id } | null }`, requires the editor scope,
+  records a `meeting-note/updated` activity event with the new steward
+  payload, and returns the refreshed note so the UI can mirror state.
+- `listProjectMeetingNotes` accepts a `stewardFilter: "all" | "mine" |
+  "unassigned"` parameter; the panel wires it to a URL-backed
+  `meetingNoteSteward` search param next to the existing label and active /
+  archived toggles.
+- Meeting detail view now renders a labelled steward block with
+  `MeetingTodoAssigneeChip` (editable) or `MeetingTodoAssigneeChipReadonly`
+  (viewer), plus created-by / last-edited-by / updated-time provenance.
+  Prepare-meeting dialog mirrors the same control so reassignment is
+  possible without leaving the editing flow.
+- Service test `project-meeting-note-service.test.ts` now exercises steward
+  defaults on create, preservation on unrelated updates, valid human
+  reassignment, removal invalidation, clearing with `null`, and both the
+  `unassigned` and `mine` filter cases (20 / 20 passing).
+- Added `tests/api/meeting-note-steward.route.test.ts` covering
+  reassignment, clearing, malformed payload rejection, and service error
+  surfacing (4 / 4 passing). Existing
+  `tests/api/project-meeting-notes.route.test.ts` GET test updated to expect
+  the steward filter parameter plus a steward field assertion.
+- New `tests/e2e/project-meeting-steward.spec.ts` covers default-to-creator,
+  reassignment via the dedicated endpoint, clearing, malformed payload
+  rejection, the `unassigned` query filter, and the steward block
+  visibility in the meeting detail view.
+
+# 2026-08-10 - TASK-356 stewardship Copilot + CI feedback
+
+- CI Quality Core failed on `release:check` because the feature branch was
+  shipping product changes without a version bump. Bumped
+  `package.json` / `package-lock.json` to `0.38.0` and added a
+  `## v0.38.0 - 2026-08-10` entry to `CHANGELOG.md` mirroring the TASK-330
+  release-note shape.
+- E2E smoke surfaced two regressions introduced by the steward block:
+  - `project-meeting-steward.spec.ts` expected a `<h2>` for the note title,
+    but the card title is rendered as a `<p>` inside a clickable button.
+    Switched the assertion to `getByRole("button", { name: ... })` and
+    verified the "Steward / facilitator" label is visible after opening
+    the note dialog.
+  - `task-329-participant-identities.spec.ts` counted dialog imgs to guard
+    against guest names being rendered as avatars. Steward + createdBy +
+    updatedBy all add an `<img>` for the same human (now 4 imgs total:
+    1 collaborator + 3 owner avatars). Updated the count to 4 with a
+    comment explaining the new identity vocabulary.
+- Copilot review produced 5 inline comments, all addressed:
+  - The steward service now translates the shared
+    `meeting-note-action-assignee-invalid` code into a steward-specific
+    `meeting-note-steward-invalid` error so client-side error handling
+    doesn't have to special-case the meeting-todo vocabulary.
+  - The PATCH route now requires an explicit `steward` field — missing
+    returns `400 meeting-note-steward-required` instead of silently
+    clearing the steward.
+  - Added a new route test for the missing-field case, updated the
+    existing service test to expect the steward-specific error code, and
+    fixed the `unstewearded` → `unstewarded` test name typo.
+  - `mapMeetingNoteError` now covers
+    `meeting-note-steward-required` / `-invalid` /
+    `meeting-note-steward-update-failed` (and continues to map the shared
+    `meeting-note-action-assignee-invalid` for safety) so users see
+    targeted steward messages instead of the generic fallback.
+- Re-ran the local validation baseline: `npm run lint`, `npm test`
+  (1050 passed, 2 skipped), `npm run rls:check`, `npm run test:coverage`
+  (91.37% stmts / 81.33% branches), and `npm run build` all pass.
+
+# 2026-08-16 - TASK-356 takeover review
+
+- Reviewed PR #429 against the task brief, all five resolved Copilot threads,
+  the service/API/UI implementation, and the latest `origin/main`; merged the
+  two intervening safe dependency updates into the feature branch.
+- Corrected responsibility-filter data flow. The server component had passed
+  the active steward and search filters into `listProjectMeetingNotes`, leaving
+  the client with only a subset of notes. That made the `All`, `Stewarded by
+  me`, and `Unstewarded` counts depend on the current filter and prevented a
+  cleared URL-seeded search from restoring excluded notes. The panel now loads
+  the complete authorized note set and applies its URL-backed filter locally.
+- Added steward-filter-specific empty-state guidance and included the steward
+  filter in the panel's active-filter state.
+- Corrected `steward=mine` for agent-authenticated API reads. The filter now
+  compares against the calling credential instead of its backing human owner;
+  added a focused service regression test.
+- Relaxed the steward actor CHECK constraint from exactly one surviving FK to
+  at most one, matching the existing TASK-330 historical-actor contract. This
+  lets `ON DELETE SET NULL` preserve the kind/display snapshot instead of
+  failing when a referenced user or credential is deleted.
+- Extended the TASK-356 Playwright scenario with two notes so it verifies
+  unfiltered responsibility counts, filtered visibility, and restoration of
+  the full list after clearing a URL-seeded search.
+- Updated `project.md` and TASK-356 status tracking to reflect the delivered
+  steward/provenance behavior.
+- Local validation after the fixes: lint passed; RLS inventory passed; focused
+  meeting-note service/API tests passed (37/37); full Vitest passed (1051/1051,
+  2 skipped); coverage passed at 91.37% statements / 81.33% branches; and the
+  production build passed. Local PostgreSQL-backed E2E/RLS could not run
+  because Docker Desktop was unavailable and the configured database endpoint
+  timed out, so those checks are left to the branch CI PostgreSQL service.
