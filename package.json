@@ -1,6 +1,6 @@
 {
   "name": "nexusdash",
-  "version": "0.37.0",
+  "version": "0.38.0",
   "private": true,
   "engines": {
     "node": "^20.19.0 || ^22.13.0 || >=24.0.0",
@@ -43,7 +43,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "emojibase-data": "^17.0.0",
-    "lucide-react": "^1.27.0",
+    "lucide-react": "^1.31.0",
     "next": "^16.2.7",
     "pg": "^8.22.0",
     "react": "^19.2.5",
@@ -64,7 +64,7 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.10",
     "jsdom": "^29.1.1",
-    "postcss": "^8.5.23",
+    "postcss": "^8.5.26",
     "prisma": "^7.8.0",
     "tailwindcss": "^4.2.2",
     "typescript": "^6.0.3",

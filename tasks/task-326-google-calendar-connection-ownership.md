@@ -2,7 +2,8 @@
 
 ## Status
 
-Implementation complete (2026-08-06); ready for stacked review after TASK-325.
+Implementation complete (2026-08-06); review refreshed against current `main`
+on 2026-08-16 after TASK-325 merged.
 
 ## Objective
 

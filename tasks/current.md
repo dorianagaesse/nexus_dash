@@ -2,8 +2,8 @@
 
 ## Status
 
-Implementation complete on `feature/task-326-calendar-ownership`; ready for
-stacked review after local validation.
+Implementation complete on `feature/task-326-calendar-ownership`; review and
+validation refreshed against current `main` after TASK-325 merged.
 
 ## Objective
 

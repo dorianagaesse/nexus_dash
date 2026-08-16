@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const apiGuardMock = vi.hoisted(() => ({
   requireAuthenticatedApiUser: vi.fn(),
+  requireApiPrincipal: vi.fn(),
+  getAgentProjectAccessContext: vi.fn(),
 }));
 
 const meetingNoteServiceMock = vi.hoisted(() => ({
@@ -10,6 +12,7 @@ const meetingNoteServiceMock = vi.hoisted(() => ({
   createProjectMeetingNote: vi.fn(),
   updateProjectMeetingNote: vi.fn(),
   setProjectMeetingNoteActionCompletion: vi.fn(),
+  setProjectMeetingNoteActionAssignee: vi.fn(),
   deleteProjectMeetingNote: vi.fn(),
 }));
 
@@ -19,6 +22,8 @@ const activityEventResponseMock = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth/api-guard", () => ({
   requireAuthenticatedApiUser: apiGuardMock.requireAuthenticatedApiUser,
+  requireApiPrincipal: apiGuardMock.requireApiPrincipal,
+  getAgentProjectAccessContext: apiGuardMock.getAgentProjectAccessContext,
 }));
 
 vi.mock("@/lib/services/project-meeting-note-service", () => ({
@@ -27,6 +32,8 @@ vi.mock("@/lib/services/project-meeting-note-service", () => ({
   updateProjectMeetingNote: meetingNoteServiceMock.updateProjectMeetingNote,
   setProjectMeetingNoteActionCompletion:
     meetingNoteServiceMock.setProjectMeetingNoteActionCompletion,
+  setProjectMeetingNoteActionAssignee:
+    meetingNoteServiceMock.setProjectMeetingNoteActionAssignee,
   deleteProjectMeetingNote: meetingNoteServiceMock.deleteProjectMeetingNote,
 }));
 
@@ -106,6 +113,15 @@ describe("project meeting notes routes", () => {
       ok: true,
       userId: "user-1",
     });
+    apiGuardMock.requireApiPrincipal.mockResolvedValue({
+      ok: true,
+      principal: {
+        kind: "human",
+        actorUserId: "user-1",
+        requestId: "request-1",
+      },
+    });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValue(undefined);
     activityEventResponseMock.recordProjectActivityEventVersion.mockResolvedValue(
       new Date("2026-06-08T15:00:00.000Z")
     );
@@ -163,6 +179,7 @@ describe("project meeting notes routes", () => {
       actorUserId: "user-1",
       projectId: "project-1",
       query: "recap",
+      agentAccess: undefined,
     });
   });
 
@@ -352,6 +369,7 @@ describe("project meeting notes routes", () => {
       payload: {
         noteId: "note-1",
         actionId: "action-1",
+        actorCredentialId: null,
       },
     });
   });
@@ -376,6 +394,129 @@ describe("project meeting notes routes", () => {
     expect(
       meetingNoteServiceMock.setProjectMeetingNoteActionCompletion
     ).not.toHaveBeenCalled();
+  });
+
+  test("GET forwards task-scoped agent identity to the service", async () => {
+    const agentAccess = {
+      credentialId: "credential-1",
+      projectId: "project-1",
+      scopes: ["task:read" as const],
+    };
+    apiGuardMock.requireApiPrincipal.mockResolvedValueOnce({
+      ok: true,
+      principal: {
+        kind: "agent",
+        actorUserId: "user-1",
+        ownerUserId: "user-1",
+        credentialId: "credential-1",
+        projectId: "project-1",
+        scopes: ["task:read"],
+        tokenId: "token-1",
+        requestId: "request-1",
+      },
+    });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValueOnce(agentAccess);
+    meetingNoteServiceMock.listProjectMeetingNotes.mockResolvedValueOnce([]);
+
+    const response = await listMeetingNotes(
+      new NextRequest("http://localhost/api/projects/project-1/meeting-notes", {
+        headers: { authorization: "Bearer token" },
+      }),
+      projectParams("project-1")
+    );
+
+    expect(response.status).toBe(200);
+    expect(meetingNoteServiceMock.listProjectMeetingNotes).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      query: null,
+      agentAccess,
+    });
+  });
+
+  test("PATCH updates one meeting todo assignee", async () => {
+    meetingNoteServiceMock.setProjectMeetingNoteActionAssignee.mockResolvedValueOnce({
+      ok: true,
+      data: { note: sampleNote() },
+    });
+    const response = await updateMeetingTodo(
+      new NextRequest(
+        "http://localhost/api/projects/project-1/meeting-notes/note-1/actions/action-1",
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            assignee: { kind: "agent", id: "credential-1" },
+          }),
+          headers: { "content-type": "application/json" },
+        }
+      ),
+      actionParams("project-1", "note-1", "action-1")
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      meetingNoteServiceMock.setProjectMeetingNoteActionAssignee
+    ).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      noteId: "note-1",
+      actionId: "action-1",
+      assignee: { kind: "agent", id: "credential-1" },
+      agentAccess: undefined,
+    });
+  });
+
+  test("PATCH attributes agent completion through its credential context", async () => {
+    const agentAccess = {
+      credentialId: "credential-1",
+      projectId: "project-1",
+      scopes: ["task:write" as const],
+    };
+    apiGuardMock.requireApiPrincipal.mockResolvedValueOnce({
+      ok: true,
+      principal: {
+        kind: "agent",
+        actorUserId: "user-1",
+        ownerUserId: "user-1",
+        credentialId: "credential-1",
+        projectId: "project-1",
+        scopes: ["task:write"],
+        tokenId: "token-1",
+        requestId: "request-1",
+      },
+    });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValueOnce(agentAccess);
+    meetingNoteServiceMock.setProjectMeetingNoteActionCompletion.mockResolvedValueOnce({
+      ok: true,
+      data: { note: sampleNote() },
+    });
+
+    const response = await updateMeetingTodo(
+      new NextRequest(
+        "http://localhost/api/projects/project-1/meeting-notes/note-1/actions/action-1",
+        {
+          method: "PATCH",
+          body: JSON.stringify({ completed: true }),
+          headers: {
+            "content-type": "application/json",
+            authorization: "Bearer token",
+          },
+        }
+      ),
+      actionParams("project-1", "note-1", "action-1")
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      meetingNoteServiceMock.setProjectMeetingNoteActionCompletion
+    ).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      noteId: "note-1",
+      actionId: "action-1",
+      completed: true,
+      agentAccess,
+    });
   });
 
   test("POST returns 400 for invalid json", async () => {
