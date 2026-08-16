@@ -17,6 +17,7 @@ interface ConfirmDialogProps {
   title: string;
   description: string;
   confirmLabel: string;
+  confirmingLabel?: string;
   isConfirming?: boolean;
   onConfirm: () => void | Promise<void>;
   onCancel: () => void;
@@ -27,6 +28,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel,
+  confirmingLabel = "Deleting...",
   isConfirming = false,
   onConfirm,
   onCancel,
@@ -62,7 +64,7 @@ export function ConfirmDialog({
               type="button"
               variant="destructive"
               disabled={isConfirming}
-              className="w-full sm:w-auto"
+              className="min-h-11 w-full sm:w-auto"
               onClick={() => {
                 try {
                   const result = onConfirm();
@@ -76,7 +78,7 @@ export function ConfirmDialog({
                 }
               }}
             >
-              {isConfirming ? "Deleting..." : confirmLabel}
+              {isConfirming ? confirmingLabel : confirmLabel}
             </Button>
             <DialogClose asChild>
               <Button
@@ -84,7 +86,7 @@ export function ConfirmDialog({
                 type="button"
                 variant="ghost"
                 disabled={isConfirming}
-                className="w-full sm:w-auto"
+                className="min-h-11 w-full sm:w-auto"
               >
                 Cancel
               </Button>

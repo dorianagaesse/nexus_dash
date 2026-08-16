@@ -233,6 +233,7 @@ export default async function ProjectDashboardPage({
               className="w-[8.75rem] shrink-0 snap-start md:w-auto"
             />
             <CalendarSummaryStatCard
+              projectId={project.id}
               isConnected={project.stats.isCalendarConnected}
               className="w-[8.75rem] shrink-0 snap-start md:w-auto"
             />

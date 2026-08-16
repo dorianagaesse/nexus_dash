@@ -10,6 +10,7 @@ import {
 } from "@/lib/project-dashboard";
 
 interface CalendarSummaryStatCardProps {
+  projectId: string;
   isConnected: boolean;
   className?: string;
 }
@@ -29,7 +30,12 @@ interface CalendarEventsPayload {
   }>;
 }
 
+export function buildCalendarSummaryEventsUrl(projectId: string): string {
+  return `/api/calendar/events?range=current-week&projectId=${encodeURIComponent(projectId)}`;
+}
+
 export function CalendarSummaryStatCard({
+  projectId,
   isConnected,
   className,
 }: CalendarSummaryStatCardProps) {
@@ -49,10 +55,13 @@ export function CalendarSummaryStatCard({
       setIsLoading(true);
 
       try {
-        const response = await fetch("/api/calendar/events?range=current-week", {
+        const response = await fetch(
+          buildCalendarSummaryEventsUrl(projectId),
+          {
           cache: "no-store",
           signal: controller.signal,
-        });
+          }
+        );
         const payload = (await response.json().catch(() => null)) as
           | CalendarEventsPayload
           | null;
@@ -77,7 +86,7 @@ export function CalendarSummaryStatCard({
     void loadEvents();
 
     return () => controller.abort();
-  }, [isConnected]);
+  }, [isConnected, projectId]);
 
   if (!isConnected) {
     return (

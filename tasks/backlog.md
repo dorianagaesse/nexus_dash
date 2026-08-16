@@ -35,13 +35,13 @@ Last reviewed: 2026-08-08
   Brief: `tasks/task-323-production-readiness-ux-verification.md`
 - ID: TASK-325
   Title: Google Calendar integration audit - current-state architecture, behavior, and risk assessment
-  Status: Complete (2026-08-06; ready for review)
+  Status: Complete (merged in PR #418 on 2026-08-16)
   Rationale: Audit the current Google Calendar implementation across authentication, credential storage, account settings, project surfaces, event operations, tests, and deployment configuration; document the effective ownership model, known gaps, security risks, and a prioritized remediation path before extending the integration.
   Dependencies: TASK-005, TASK-032, TASK-076, TASK-083
   Brief: `tasks/task-325-google-calendar-integration-audit.md`
 - ID: TASK-326
   Title: Google Calendar connection ownership - enforce user-scoped rather than project-scoped integration
-  Status: Next 7 - calendar ownership verification and remediation
+  Status: In review (2026-08-16; retargeted to main after TASK-325)
   Rationale: Verify and enforce that each Google Calendar authorization, credential, target-calendar preference, refresh lifecycle, and disconnect action belongs to the authenticated user rather than an individual project, while ensuring project calendar views use only the current user's connection and cannot expose another member's credentials or settings.
   Dependencies: TASK-076, TASK-083, TASK-325
   Brief: `tasks/task-326-google-calendar-connection-ownership.md`

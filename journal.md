@@ -3,6 +3,24 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-16 - TASK-326 review refreshed after TASK-325 merge
+
+- Merged TASK-325 through PR #418, retargeted PR #419 to `main`, and merged the
+  current base into `feature/task-326-calendar-ownership` without changing the
+  ownership or disconnect contracts.
+- Reviewed active-only credential access, fail-closed disconnect ordering,
+  provider revocation recovery, lazy token encryption, project summary context,
+  and cross-user RLS coverage against the current service architecture.
+- Advanced the feature version from `0.37.0` to `0.38.0` because current `main`
+  already owns `0.37.0`. Added 44px confirmation controls and recovery copy that
+  does not claim local revocation succeeded when the request fails early.
+- Local validation passed: 171 focused Calendar/ownership tests, 1,048 full-suite
+  tests with two expected skips, coverage at 91.42% statements / 81.33%
+  branches, lint, RLS inventory, version policy, and production build.
+- The local real-RLS rerun is unavailable because Docker Desktop is not running;
+  the required GitHub PostgreSQL RLS job remains the authoritative refreshed
+  matrix for this review.
+
 # 2026-08-08 - TASK-330 assignee control rebuilt as inline Participants-style chip
 
 - User feedback after the initial accountability ship called the previous
@@ -91,6 +109,26 @@ Use it for important implementation milestones, blockers, validation runs, and r
   non-`P2021` error still propagates. All 11 tests in that file pass; full
   `npm test` is 936 passing / 1 skipped, with 13 pre-existing integration
   files failing only because the workstation has no `DATABASE_URL`.
+# 2026-08-06 - TASK-326 Google Calendar ownership hardening completed
+
+- Made Calendar credential reads, refreshes, and target changes active-only,
+  added lazy encryption for legacy plaintext values, and made encryption
+  mandatory whenever Calendar OAuth is configured outside tests.
+- Replaced target reset over `DELETE` with an authenticated-user-only,
+  idempotent disconnect that revokes upstream when possible and always removes
+  local tokens. Preserved target reset through `PATCH`.
+- Added accessible disconnect/recovery UI, configurable pending confirmation
+  copy, and repaired project Calendar summary requests by supplying `projectId`.
+- Expanded unit/API/component coverage and the real PostgreSQL RLS matrix for
+  two-user Calendar credential isolation and forged cross-user operations.
+- Validation: lint and RLS inventory passed; 147 test files passed with 1,031
+  tests (two expected skips); coverage passed at 91.42% statements and 81.33%
+  branches; production build passed; PostgreSQL RLS setup/matrix passed; full
+  Playwright passed 32/32 Chromium tests.
+- Preview: workflow run `31096210298` explicitly checked out
+  `feature/task-326-calendar-ownership` at `e899238`, deployed
+  `https://nexus-dash-lvexl0fhe-dorian-agaesses-projects.vercel.app`, and the
+  external preview Playwright entry walkthrough passed 5/5 Chromium tests.
 
 # 2026-08-06 - TASK-325 Google Calendar integration audit completed
 
