@@ -64,7 +64,7 @@ export function ConfirmDialog({
               type="button"
               variant="destructive"
               disabled={isConfirming}
-              className="w-full sm:w-auto"
+              className="min-h-11 w-full sm:w-auto"
               onClick={() => {
                 try {
                   const result = onConfirm();
@@ -86,7 +86,7 @@ export function ConfirmDialog({
                 type="button"
                 variant="ghost"
                 disabled={isConfirming}
-                className="w-full sm:w-auto"
+                className="min-h-11 w-full sm:w-auto"
               >
                 Cancel
               </Button>
