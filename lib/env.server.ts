@@ -522,6 +522,49 @@ function assertMatchingSupabaseProjectRefs(
   }
 }
 
+function assertExpectedSupabaseProjectRef(
+  databaseUrl: ParsedDatabaseConnectionString,
+  directUrl: ParsedDatabaseConnectionString,
+  supabaseClientProjectRef: string | null
+): void {
+  const vercelEnvironment = getVercelEnvironment();
+  if (vercelEnvironment !== "preview" && vercelEnvironment !== "production") {
+    return;
+  }
+
+  const configuredProjectRefs = [
+    databaseUrl.supabaseProjectRef,
+    directUrl.supabaseProjectRef,
+    supabaseClientProjectRef,
+  ].filter((value): value is string => Boolean(value));
+  if (configuredProjectRefs.length === 0) {
+    return;
+  }
+
+  const expectedProjectRef = getOptionalServerEnv(
+    "EXPECTED_SUPABASE_PROJECT_REF"
+  )?.toLowerCase();
+  if (!expectedProjectRef) {
+    throw new Error(
+      "EXPECTED_SUPABASE_PROJECT_REF is required for Vercel preview and production deployments."
+    );
+  }
+
+  if (!/^[a-z0-9-]+$/.test(expectedProjectRef)) {
+    throw new Error(
+      "EXPECTED_SUPABASE_PROJECT_REF must contain only lowercase letters, numbers, and hyphens."
+    );
+  }
+
+  if (
+    configuredProjectRefs.some((projectRef) => projectRef !== expectedProjectRef)
+  ) {
+    throw new Error(
+      `Supabase runtime configuration does not match EXPECTED_SUPABASE_PROJECT_REF for Vercel ${vercelEnvironment}.`
+    );
+  }
+}
+
 function assertProductionDatabaseConnectionHardening(
   databaseUrl: ParsedDatabaseConnectionString,
   directUrl: ParsedDatabaseConnectionString,
@@ -665,6 +708,11 @@ export function validateServerRuntimeConfig(
     runtimeEnvironment,
     supabaseClientProjectRef
   );
+  assertExpectedSupabaseProjectRef(
+    parsedDatabaseUrl,
+    parsedDirectUrl,
+    supabaseClientProjectRef
+  );
 
   assertOptionalEnvironmentGroup(
     ["NEXTAUTH_URL", "NEXTAUTH_SECRET"],
@@ -710,7 +758,11 @@ export function validateServerRuntimeConfig(
     throw new Error("TRUSTED_ORIGINS must contain at least one valid absolute URL.");
   }
 
-  const hasTrustedAppOrigin = trustedOriginsAreValid || Boolean(nextAuthUrl);
+  // Prebuilt Vercel previews do not have their immutable VERCEL_URL until the
+  // artifact is deployed. The runtime origin resolver still requires it.
+  const hasVercelPreviewOrigin = getVercelEnvironment() === "preview";
+  const hasTrustedAppOrigin =
+    trustedOriginsAreValid || Boolean(nextAuthUrl) || hasVercelPreviewOrigin;
   const hasGoogleRedirectResolution =
     Boolean(googleRedirectUri) ||
     hasTrustedAppOrigin;

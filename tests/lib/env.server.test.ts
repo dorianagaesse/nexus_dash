@@ -22,11 +22,13 @@ import {
 const ENV_KEYS_TO_RESET = [
   "NODE_ENV",
   "VERCEL_ENV",
+  "VERCEL_URL",
   "DATABASE_URL",
   "DIRECT_URL",
   "SUPABASE_URL",
   "SUPABASE_PUBLISHABLE_KEY",
   "SUPABASE_API_KEY",
+  "EXPECTED_SUPABASE_PROJECT_REF",
   "NEXTAUTH_URL",
   "NEXTAUTH_SECRET",
   "TRUSTED_ORIGINS",
@@ -871,6 +873,78 @@ describe("env.server", () => {
 
     expect(() => validateServerRuntimeConfig()).toThrow(
       "SUPABASE_URL must target the same Supabase project as DATABASE_URL and DIRECT_URL in production."
+    );
+  });
+
+  test("allows runtime-derived OAuth redirects in Vercel preview", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("VERCEL_URL", "nexus-dash-immutable.example.vercel.app");
+    vi.stubEnv("DATABASE_URL", "postgresql://localhost:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://localhost:5433/postgres");
+    vi.stubEnv("AUTH_GOOGLE_CLIENT_ID", "client-id");
+    vi.stubEnv("AUTH_GOOGLE_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("AUTH_GOOGLE_REDIRECT_URI", "");
+    vi.stubEnv("NEXTAUTH_URL", "");
+    vi.stubEnv("NEXTAUTH_SECRET", "");
+    vi.stubEnv("TRUSTED_ORIGINS", "");
+
+    expect(() => validateServerRuntimeConfig()).not.toThrow();
+  });
+
+  test("passes Vercel preview validation for the expected Supabase project", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("EXPECTED_SUPABASE_PROJECT_REF", "preview-ref");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://app_runtime.preview-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://postgres:pwd@db.preview-ref.supabase.co:5432/postgres?sslmode=require"
+    );
+    vi.stubEnv("SUPABASE_URL", "https://preview-ref.supabase.co");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "pk_test_123");
+
+    expect(() => validateServerRuntimeConfig()).not.toThrow();
+  });
+
+  test("requires an expected Supabase project ref in Vercel preview", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("EXPECTED_SUPABASE_PROJECT_REF", "");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://app_runtime.preview-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://postgres:pwd@db.preview-ref.supabase.co:5432/postgres?sslmode=require"
+    );
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "EXPECTED_SUPABASE_PROJECT_REF is required for Vercel preview and production deployments."
+    );
+  });
+
+  test("rejects a Vercel preview runtime aimed at another Supabase project", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("EXPECTED_SUPABASE_PROJECT_REF", "preview-ref");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://app_runtime.production-ref:pwd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://postgres:pwd@db.production-ref.supabase.co:5432/postgres?sslmode=require"
+    );
+    vi.stubEnv("SUPABASE_URL", "https://production-ref.supabase.co");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "pk_test_123");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "Supabase runtime configuration does not match EXPECTED_SUPABASE_PROJECT_REF for Vercel preview."
     );
   });
 

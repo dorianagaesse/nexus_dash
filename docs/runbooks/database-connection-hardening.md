@@ -38,6 +38,10 @@ For Supabase production:
   `postgres.<project-ref>`). On direct/client URLs, it is encoded in the host
   (`db.<project-ref>.supabase.co` and
   `https://<project-ref>.supabase.co`).
+- `EXPECTED_SUPABASE_PROJECT_REF` must be configured separately in Vercel and
+  GitHub Preview/Production environments. It is non-secret metadata and pins
+  all three runtime endpoints plus the workflow migration connection to the
+  intended project.
 
 Do not use the Supabase session pooler (`*.pooler.supabase.com:5432`) for
 `DATABASE_URL` in Vercel/serverless runtime. Session mode is capped by the
@@ -115,7 +119,7 @@ recovery unless the operator explicitly authorizes a specific secret operation.
   Supabase.
 - `DIRECT_URL` / `MIGRATION_DATABASE_URL` do not use `app_runtime`.
 - Supabase project refs match across `DATABASE_URL`, `DIRECT_URL`, and
-  `SUPABASE_URL`.
+  `SUPABASE_URL`, and match `EXPECTED_SUPABASE_PROJECT_REF`.
 - Vercel logs do not show `EMAXCONNSESSION` during representative authenticated
   request bursts.
 - No credentials appear in logs, errors, or build artifacts.

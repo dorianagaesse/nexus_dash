@@ -60,6 +60,7 @@ Required for Vercel runtime/deployments:
 
 - `DATABASE_URL`
 - `DIRECT_URL`
+- `EXPECTED_SUPABASE_PROJECT_REF` (environment-scoped, non-secret)
 
 For Supabase-backed Vercel deployments:
 
@@ -203,6 +204,7 @@ Can stay non-sensitive:
 - `R2_ACCOUNT_ID`
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY`
+- `EXPECTED_SUPABASE_PROJECT_REF`
 
 Important:
 
@@ -213,10 +215,21 @@ Important:
 
 - Preview builds run with production-like checks (`NODE_ENV=production` during
   build), so missing production-only guards can break preview deploys.
+- Do not set `NEXTAUTH_URL` in Vercel Preview to a historical deployment or
+  branch alias. Preview auth origins resolve from the immutable system
+  `VERCEL_URL`; Production continues to use its trusted canonical origin.
+- For the same reason, do not pin `GOOGLE_REDIRECT_URI`,
+  `AUTH_GOOGLE_REDIRECT_URI`, or `AUTH_GITHUB_REDIRECT_URI` in Preview to a
+  historical deployment URL. When Preview provider credentials are enabled,
+  their provider-side callback allowlist must accept the immutable URL being
+  tested; otherwise leave that provider disabled for preview testing.
 - Production database secrets must come from the intended Supabase Production
   project, not local `.env` snapshots or preview/staging files. The app rejects
   production startup when Supabase project refs differ across `DATABASE_URL`,
   `DIRECT_URL`, and `SUPABASE_URL`.
+- `EXPECTED_SUPABASE_PROJECT_REF` must differ between Preview and Production.
+  Runtime startup and preview migrations fail closed when their Supabase ref
+  does not match this environment-scoped value.
 - When Supabase direct-host connectivity is unavailable, `DIRECT_URL` may use
   the admin session pooler on port `5432`. That is an admin/migration fallback,
   not permission to use session pooling or admin credentials for
@@ -326,7 +339,11 @@ Before merging deploy-affecting changes:
 1. Confirm required env vars exist for target environment.
 2. Confirm sensitive vars are marked sensitive where supported.
 3. Run manual preview deploy (`deploy-vercel.yml`, `action=deploy-preview`).
-4. Validate critical auth/integration path(s) on preview URL.
-5. If any preview path bypasses deployment-time `-e` injection, confirm
+4. Use only the immutable URL in the `preview-deployment` artifact. The
+   workflow verifies that it is a Vercel Preview target for the requested
+   revision, reports `APP_ENV=preview`, and passes database readiness before
+   uploading the artifact.
+5. Validate critical auth/integration path(s) on that preview URL.
+6. If any preview path bypasses deployment-time `-e` injection, confirm
    `AGENT_TOKEN_SIGNING_SECRET` exists in Vercel Preview before relying on that
    preview URL.

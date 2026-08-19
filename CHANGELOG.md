@@ -8,6 +8,15 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.37.1 - 2026-08-20
+
+- Fixed Vercel Preview authentication origins so callbacks and post-auth
+  redirects remain on the immutable deployment URL instead of a stale alias.
+- Pinned Preview and Production runtimes and migration connections to their
+  expected Supabase project refs, failing closed on cross-environment routing.
+- Added branch, deployment-target, revision, environment, and database
+  readiness verification before a preview URL artifact can be published.
+
 ## v0.37.0 - 2026-08-06
 
 - Added durable creator, optional human/agent assignee, and completion-actor

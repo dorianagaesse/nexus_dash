@@ -1,4 +1,9 @@
-import { getOptionalServerEnv, isProductionEnvironment } from "@/lib/env.server";
+import {
+  getOptionalServerEnv,
+  isLiveProductionDeployment,
+  isPreviewDeployment,
+  isProductionEnvironment,
+} from "@/lib/env.server";
 
 const DEFAULT_LOCAL_ORIGIN = "http://localhost:3000";
 
@@ -57,9 +62,26 @@ function resolveTrustedProductionOrigin(): string | null {
   }
 }
 
+function resolveVercelPreviewOrigin(): string | null {
+  const vercelUrl = getOptionalServerEnv("VERCEL_URL");
+  if (!vercelUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(`https://${vercelUrl}`).origin;
+  } catch {
+    return null;
+  }
+}
+
 function isAllowedOrigin(origin: string): boolean {
   if (!isProductionEnvironment()) {
     return true;
+  }
+
+  if (isPreviewDeployment()) {
+    return origin === resolveVercelPreviewOrigin();
   }
 
   const trustedOrigin = resolveTrustedProductionOrigin();
@@ -89,13 +111,22 @@ function buildOrigin(protocol: string | null, host: string | null): string | nul
 
 export function resolveRequestOriginFromHeaders(headers: HeaderReader): string {
   const trustedOrigin = resolveTrustedProductionOrigin();
-  if (isProductionEnvironment()) {
+  if (isLiveProductionDeployment()) {
     if (trustedOrigin) {
       return trustedOrigin;
     }
 
     throw new Error(
       "Unable to resolve trusted request origin in production. Configure TRUSTED_ORIGINS or NEXTAUTH_URL."
+    );
+  }
+
+  const previewOrigin = isPreviewDeployment()
+    ? resolveVercelPreviewOrigin()
+    : null;
+  if (isPreviewDeployment() && !previewOrigin) {
+    throw new Error(
+      "Unable to resolve trusted request origin in Vercel preview. Configure VERCEL_URL."
     );
   }
 
@@ -117,7 +148,14 @@ export function resolveRequestOriginFromHeaders(headers: HeaderReader): string {
   }
 
   if (trustedOrigin) {
+    if (isPreviewDeployment()) {
+      return previewOrigin!;
+    }
     return trustedOrigin;
+  }
+
+  if (previewOrigin) {
+    return previewOrigin;
   }
 
   return DEFAULT_LOCAL_ORIGIN;

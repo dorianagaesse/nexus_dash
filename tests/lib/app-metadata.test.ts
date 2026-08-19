@@ -81,6 +81,16 @@ describe("app-metadata", () => {
     expect(summary.revision).toBe("1234567");
   });
 
+  test("prefers the workflow-injected revision over provider metadata", () => {
+    process.env.COMMIT_SHA = "abcdef0123456789";
+    process.env.VERCEL_GIT_COMMIT_SHA = "9999999999999999";
+    process.env.GITHUB_SHA = "8888888888888888";
+
+    const summary = getAppMetadataSummary();
+
+    expect(summary.revision).toBe("abcdef0");
+  });
+
   test("falls back to package version when configured version is invalid", () => {
     process.env.APP_VERSION = "release-candidate";
 

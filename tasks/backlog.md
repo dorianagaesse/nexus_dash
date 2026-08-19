@@ -5,6 +5,13 @@ Use this file to capture tasks discovered during development. Each entry should 
 Last reviewed: 2026-08-08
 
 ## Pending
+### Active Runtime Remediation
+- ID: TASK-370
+  Title: Preview authentication and database isolation guardrails
+  Status: Complete (2026-08-20; PR #432)
+  Rationale: Prevent stale or mutable Vercel aliases from being mistaken for previews, keep preview auth callbacks on the immutable deployment origin, pin Preview and Production to their intended Supabase project refs, and make the preview workflow verify target, revision, environment metadata, and database readiness before publishing its artifact.
+  Dependencies: TASK-048, TASK-068, TASK-259, TASK-315
+
 ### Execution Queue (Now / Next)
 - ID: TASK-100
   Title: Mobile UI/UX refinement - touch ergonomics, compact layouts, and small-screen polish

@@ -1,98 +1,84 @@
 # Current Task
 
-## TASK-330: Meeting Todo Assignees and Completion Accountability
+## TASK-370: Preview Authentication and Database Isolation Guardrails
 
 ## Status
 
-Implementation and validation complete on
-`feature/task-330-meeting-todo-assignees`; ready for review.
+Complete on `fix/task-370-preview-auth-isolation`; validated on the immutable
+Vercel Preview deployment and delivered through PR #432.
 
 ## Context
 
-Meeting todos currently preserve only content and completion time. They do not
-show who created the follow-up, who owns it, or who completed it. Overdue
-reminders therefore fall back to the meeting-note creator even when another
-project collaborator is actually accountable.
-
-TASK-337's universal project-actor model is not implemented yet. This task will
-introduce a deliberately narrow, reusable meeting-todo actor contract for human
-project members and active project agent credentials without expanding into
-cross-artifact ownership.
+Authentication from a URL believed to be a preview reached production and a
+signup reported an email already present in the production user database.
+Investigation confirmed that the tested Vercel alias currently targets a
+production deployment. The Vercel Preview environment also retained that alias
+as `NEXTAUTH_URL`, so preview auth callbacks and generated links could select a
+stale production origin even when the immutable deployment itself was a real
+preview. Preview and production currently use distinct Supabase project refs,
+but the deployment contract does not pin either environment to its intended
+ref or verify the deployed target before publishing the preview URL.
 
 ## Scope
 
-- Persist durable creator, optional assignee, and completion-actor identity for
-  every meeting todo, including safe display snapshots.
-- Backfill existing todo creators from their meeting-note creator.
-- Preserve existing todo identity and provenance when a meeting note is edited.
-- Allow assignment only to current project members or active, unexpired project
-  agent credentials. Meeting guests are not assignment candidates.
-- Display inactive/revoked assignees as needing reassignment instead of silently
-  converting them to unassigned.
-- Add accessible assignment controls in meeting detail and the project Todos
-  page, plus `All`, `Assigned to me`, and `Unassigned` responsibility views.
-- Record the authenticated human or agent credential that completes a todo.
-- Send overdue reminders only to an active human assignee. Do not redirect an
-  agent assignment to its credential owner, and do not treat the note creator
-  as an implicit assignee.
-
-## Out Of Scope
-
-- A universal actor table or cross-artifact actor migration (TASK-337).
-- Cross-project responsibility queues (TASK-346).
-- New agent capability vocabulary or granular meeting scopes (TASK-331).
-- Assignment notifications or preference controls beyond the existing overdue
-  reminder pipeline (TASK-347).
+- Resolve request origins from the current immutable Vercel deployment host in
+  preview instead of using a static `NEXTAUTH_URL`.
+- Pin production-like runtimes to an explicitly configured expected Supabase
+  project ref and reject cross-environment database routing at startup.
+- Validate the preview migration target, Vercel deployment target, deployed
+  environment/revision metadata, and database readiness before uploading the
+  preview URL artifact.
+- Remove stale Vercel Preview origin/redirect overrides (`NEXTAUTH_URL` and
+  OAuth callback URLs) and configure expected project-ref metadata for Preview
+  and Production.
+- Exercise signup/signin on the fixed preview without touching production.
 
 ## Acceptance Criteria
 
-1. Each meeting todo exposes creator, optional assignee, and (when completed)
-   completion actor with actor kind, stable identifier, display label, avatar
-   treatment, and current access state.
-2. New todos record their creator. Existing todos are backfilled from the
-   meeting-note creator, and editing a note does not replace unchanged todo IDs
-   or erase creator/assignee/completion provenance.
-3. Editors can assign or clear a todo from meeting detail and the project Todos
-   page using a labeled, keyboard-operable control with pending and error
-   feedback; viewers see the same identity information without mutation affordances.
-4. Assignment validation is enforced in the service boundary. Human candidates
-   must currently own or belong to the project; agent candidates must be active,
-   unexpired credentials for that project. Assignment never grants access.
-5. External meeting participants are never offered or accepted as assignees.
-6. Removed human members and revoked/expired agents remain visibly attached to
-   their todo as inactive and are labeled `Needs reassignment` until cleared or
-   reassigned.
-7. The project Todos page supports stable URL-backed `All`, `Assigned to me`,
-   and `Unassigned` filters for both open and completed views, with accurate
-   counts and useful filtered empty states.
-8. Completing a todo records the authenticated human or agent credential as the
-   completion actor; reopening clears the current completion actor together
-   with the completion timestamp.
-9. Overdue reminder reconciliation targets only active human assignees with
-   current project access. Unassigned, inactive-human, and agent-assigned todos
-   do not generate a reminder for another person.
-10. UI remains usable at 375px and desktop widths, in light and dark themes,
-    with visible focus, semantic status text, at least 44px primary touch
-    targets, and no color-only responsibility state.
+1. A preview request resolves auth callback/link origins to that preview's
+   immutable `VERCEL_URL`, never the production domain or a stale alias.
+2. Preview and production fail closed when their runtime Supabase project ref
+   does not match `EXPECTED_SUPABASE_PROJECT_REF`.
+3. The preview deploy workflow rejects a non-preview Vercel target, a revision
+   mismatch, an environment mismatch, an unreachable database, or a migration
+   connection aimed at the wrong Supabase project.
+4. The workflow artifact contains the immutable URL of the exact requested
+   branch deployment only after all preview checks pass.
+5. A new account can sign up and sign back in on the fixed preview while the
+   browser remains on the preview origin.
+6. Existing production routing and trusted-origin behavior remain unchanged.
 
 ## Definition Of Done
 
-- Prisma schema, migration, RLS inventory, services, routes, UI projections,
-  reminder reconciliation, and relevant documentation are updated together.
-- Focused unit, service, route, component, and Playwright coverage exercises
-  human/agent assignment, invalid actors, inactive states, responsibility
-  filters, creator/completer provenance, role restrictions, and reminder targeting.
+- Focused origin, runtime-environment, health-route, and deploy-validation
+  coverage passes.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  `npm run build`, and relevant meeting-todo E2E coverage pass.
-- `tasks/current.md`, `tasks/backlog.md`, `tasks/task-330-meeting-todo-assignees.md`,
-  `project.md`, and `journal.md` reflect the delivered behavior.
-- The branch is pushed, a ready-for-review PR is open, required checks are
-  green, and initial Copilot review feedback is resolved or documented.
+  `npm run build`, and relevant deployed-preview Playwright checks pass.
+- Vercel/GitHub environment metadata is configured without exposing secrets.
+- The branch preview workflow completes for the explicit branch ref and its
+  logs prove the checked-out ref and validated Preview target.
+- A ready-for-review PR is open; required checks and initial Copilot review are
+  complete; actionable threads are resolved before merge.
+- `tasks/current.md`, `tasks/backlog.md`, relevant runbooks, and `journal.md`
+  record the diagnosis and validation outcome.
 
 ## Runtime Assumptions
 
-- Local database-backed validation uses the repository `.env` contract and a
-  reachable PostgreSQL instance when migration or E2E execution requires it.
-- No new secrets or external provider configuration are introduced.
-- Preview deployment is not an acceptance requirement; local browser coverage
-  is sufficient unless review feedback exposes a preview-only concern.
+- Preview and production remain separate Supabase projects; their project refs
+  are safe non-secret deployment metadata while connection strings stay secret.
+- GitHub `preview` and `production` environments and the corresponding Vercel
+  environments are available to configure `EXPECTED_SUPABASE_PROJECT_REF`.
+- Preview validation uses the immutable URL emitted by `deploy-vercel.yml`, not
+  a branch alias or a historical Vercel URL.
+
+## Validation Evidence
+
+- Workflow run `32313383142` checked out the explicit fix branch, applied
+  staging migrations, verified Preview target/revision/environment/database
+  readiness, and published
+  `https://nexus-dash-h1s18isxe-dorian-agaesses-projects.vercel.app`.
+- The deployed opt-in Playwright case created a staging account, signed out,
+  signed back in, and remained on that immutable origin.
+- Lint, RLS inventory, unit/API, coverage, build, and CI Playwright validation
+  passed. Copilot's initial review completed; its environment-restoration
+  comment was applied and covered by the focused request-origin test.

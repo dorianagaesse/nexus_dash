@@ -28,6 +28,7 @@ describe("GET /api/health/ready", () => {
     const payload = (await response.json()) as {
       status: string;
       checks: { database: string };
+      deployment: { environment: string; revision: string | null };
       service: string;
       timestamp: string;
       requestId: string | null;
@@ -37,6 +38,7 @@ describe("GET /api/health/ready", () => {
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(payload.status).toBe("ready");
     expect(payload.checks.database).toBe("ok");
+    expect(payload.deployment.environment).toBe("test");
     expect(payload.service).toBe("nexusdash");
     expect(typeof payload.timestamp).toBe("string");
     expect(payload.requestId).toBe("req-ready-1");

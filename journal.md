@@ -3,6 +3,50 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-20 - TASK-370 preview isolation validated
+
+- Removed stale Preview `NEXTAUTH_URL` and OAuth redirect overrides from
+  Vercel/GitHub configuration, left Production auth settings unchanged, and
+  pinned Preview and Production to their distinct expected Supabase refs.
+- Workflow run `32313383142` explicitly checked out
+  `fix/task-370-preview-auth-isolation`, validated staging migrations and the
+  immutable Vercel Preview identity, reported runtime revision `bf91a06`,
+  confirmed database readiness, and published
+  `https://nexus-dash-h1s18isxe-dorian-agaesses-projects.vercel.app`.
+- The deployed Chromium isolation case passed signup, logout, and subsequent
+  signin with a generated staging account while remaining on the immutable
+  preview origin. This also exercised the staging database so it remains
+  active.
+- Local validation passed lint, RLS inventory, 1,048 unit/API tests with 2
+  skipped, coverage (91.37% statements, 81.33% branches, 92.20% functions,
+  91.88% lines), production build, and focused deployment/auth suites. The
+  repository-wide local Playwright command built and passed its five
+  DB-independent cases but could not run 27 DB-backed cases because local
+  PostgreSQL was unavailable at `127.0.0.1:5432`; the same CI Playwright suite
+  passed with its PostgreSQL service.
+- Copilot completed its initial review with one actionable test-isolation
+  comment. Environment restoration now deletes originally absent variables
+  instead of writing the string `undefined`, and the focused seven-test suite
+  passes.
+
+# 2026-08-20 - TASK-370 preview auth/database isolation diagnosis
+
+- The reported URL
+  `nexus-dash-dorianagaesse-3732-dorian-agaesses-projects.vercel.app` is a
+  mutable alias currently attached to a Vercel `production` deployment created
+  on 2026-08-09, so testing it exercised production data. The current manual
+  workflow runs for `main`, TASK-342, and TASK-356 emitted different immutable
+  URLs whose Vercel target is `preview` and whose logs show the requested refs
+  were checked out.
+- Vercel Preview and Production use distinct Supabase refs (`dikde…` and
+  `ixhy…` respectively), but Preview still had `NEXTAUTH_URL` pinned to the
+  stale alias. TASK-370 removes that static preview-origin dependency, adds an
+  expected-project-ref deployment pin, and makes preview artifact publication
+  contingent on target/revision/environment/database-readiness validation.
+- Focused regression validation passed: 4 files, 88 tests covering request
+  origin selection, environment validation, health metadata, and migration
+  project-ref validation.
+
 # 2026-08-08 - TASK-330 assignee control rebuilt as inline Participants-style chip
 
 - User feedback after the initial accountability ship called the previous

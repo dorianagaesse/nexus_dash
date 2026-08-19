@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const sessionUserMock = vi.hoisted(() => ({
   getSessionUserIdFromServer: vi.fn(),
@@ -71,6 +71,7 @@ import { signInAction, signUpAction } from "@/app/home-auth-actions";
 describe("home auth actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("NEXTAUTH_URL", "https://nexus-dash.app");
     isLiveProductionDeploymentMock.mockReturnValue(true);
     sessionUserMock.getSessionUserIdFromServer.mockResolvedValue(null);
     emailVerificationMock.isEmailVerifiedForUser.mockResolvedValue(true);
@@ -91,6 +92,10 @@ describe("home auth actions", () => {
     redirectMock.mockImplementation((path: string) => {
       throw new Error(`NEXT_REDIRECT:${path}`);
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   test("signInAction redirects to home with form error when credentials are invalid", async () => {

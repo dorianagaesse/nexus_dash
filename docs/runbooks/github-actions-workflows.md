@@ -60,6 +60,10 @@ Run `.github/workflows/deploy-vercel.yml` manually:
 - `git_ref=<branch-or-sha>`
 
 Use the `preview-deployment` artifact or job summary URL for preview smoke.
+The artifact is uploaded only after the workflow verifies that the immutable
+URL belongs to the configured Vercel project, targets Preview, contains the
+requested revision, reports `APP_ENV=preview`, and can reach its database. Do
+not substitute a branch alias or a URL from an older deployment.
 
 ### Staged Production Deploy
 
