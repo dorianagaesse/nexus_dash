@@ -51,6 +51,7 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_CLI_VERSION: 50.18.0
       VERCEL_SCOPE: ${{ secrets.VERCEL_ORG_ID }}
+      EXPECTED_SUPABASE_PROJECT_REF: ${{ vars.EXPECTED_SUPABASE_PROJECT_REF }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DIRECT_URL: ${{ secrets.DIRECT_URL }}
       GOOGLE_TOKEN_ENCRYPTION_KEY: ${{ secrets.GOOGLE_TOKEN_ENCRYPTION_KEY }}
@@ -70,12 +71,12 @@ jobs:
       AUTH_GITHUB_REDIRECT_URI: ${{ secrets.AUTH_GITHUB_REDIRECT_URI }}
 
     steps:
-      - name: Validate required Vercel secrets
+      - name: Validate required Vercel configuration
         run: |
           missing=0
-          for key in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+          for key in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID EXPECTED_SUPABASE_PROJECT_REF; do
             if [ -z "${!key}" ]; then
-              echo "::error::Missing required GitHub secret: $key"
+              echo "::error::Missing required GitHub configuration: $key"
               missing=1
             fi
           done
@@ -151,6 +152,7 @@ jobs:
               --meta "nexusDashGitCommitSha=$COMMIT_SHA" \
               -e "APP_VERSION=$APP_VERSION" \
               -e "APP_ENV=$APP_ENV" \
+              -e "EXPECTED_SUPABASE_PROJECT_REF=$EXPECTED_SUPABASE_PROJECT_REF" \
               -e "COMMIT_SHA=$COMMIT_SHA" \
               -e "APP_REPOSITORY_URL=$APP_REPOSITORY_URL"
           )
@@ -185,6 +187,7 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_CLI_VERSION: 50.18.0
       VERCEL_SCOPE: ${{ secrets.VERCEL_ORG_ID }}
+      EXPECTED_SUPABASE_PROJECT_REF: ${{ vars.EXPECTED_SUPABASE_PROJECT_REF }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DIRECT_URL: ${{ secrets.DIRECT_URL }}
       GOOGLE_TOKEN_ENCRYPTION_KEY: ${{ secrets.GOOGLE_TOKEN_ENCRYPTION_KEY }}
@@ -204,12 +207,12 @@ jobs:
       AUTH_GITHUB_REDIRECT_URI: ${{ secrets.AUTH_GITHUB_REDIRECT_URI }}
 
     steps:
-      - name: Validate required Vercel secrets
+      - name: Validate required Vercel configuration
         run: |
           missing=0
-          for key in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+          for key in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID EXPECTED_SUPABASE_PROJECT_REF; do
             if [ -z "${!key}" ]; then
-              echo "::error::Missing required GitHub secret: $key"
+              echo "::error::Missing required GitHub configuration: $key"
               missing=1
             fi
           done
@@ -301,6 +304,8 @@ jobs:
             exit 1
           fi
 
+          DATABASE_URL="$MIGRATION_DATABASE_URL" node scripts/validate-supabase-project-ref.mjs
+
       - name: Apply Prisma migrations (preview)
         if: inputs.action == 'deploy-preview'
         env:
@@ -343,11 +348,87 @@ jobs:
               -e "AGENT_TOKEN_SIGNING_SECRET=$AGENT_TOKEN_SIGNING_SECRET" \
               -e "APP_VERSION=$APP_VERSION" \
               -e "APP_ENV=$APP_ENV" \
+              -e "EXPECTED_SUPABASE_PROJECT_REF=$EXPECTED_SUPABASE_PROJECT_REF" \
               -e "COMMIT_SHA=$COMMIT_SHA" \
               -e "APP_REPOSITORY_URL=$APP_REPOSITORY_URL"
           )
           echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
           echo "$deployment_url" > preview-deployment.txt
+
+      - name: Validate preview deployment identity and readiness
+        if: inputs.action == 'deploy-preview'
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy_preview.outputs.deployment_url }}
+        run: |
+          deployment_host="${DEPLOYMENT_URL#https://}"
+          deployment_host="${deployment_host%%/*}"
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --get "https://api.vercel.com/v13/deployments/${deployment_host}" \
+            --data-urlencode "teamId=$VERCEL_ORG_ID" \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            --output /tmp/preview-deployment.json
+
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const deployment = JSON.parse(readFileSync("/tmp/preview-deployment.json", "utf8"));
+          const expectedHost = new URL(process.env.DEPLOYMENT_URL).hostname;
+          const actualHost = deployment.url ?? "";
+          const commitSha =
+            deployment.meta?.nexusDashGitCommitSha ??
+            deployment.meta?.githubCommitSha ??
+            deployment.gitSource?.sha ??
+            "";
+
+          if (deployment.projectId !== process.env.VERCEL_PROJECT_ID) {
+            throw new Error("Preview deployment belongs to an unexpected Vercel project.");
+          }
+          if (deployment.target !== "preview") {
+            throw new Error(`Expected Vercel preview target, received '${deployment.target ?? "unknown"}'.`);
+          }
+          if (deployment.readyState !== "READY") {
+            throw new Error(`Expected ready preview deployment, received '${deployment.readyState ?? "unknown"}'.`);
+          }
+          if (actualHost !== expectedHost) {
+            throw new Error("Preview deployment URL resolved to a different deployment host.");
+          }
+          if (commitSha.toLowerCase() !== process.env.COMMIT_SHA.toLowerCase()) {
+            throw new Error("Preview deployment revision does not match the checked-out git ref.");
+          }
+
+          console.log(`Verified immutable Vercel preview target for ${expectedHost}.`);
+          NODE
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 4 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            "$DEPLOYMENT_URL/api/health/ready" \
+            --output /tmp/preview-readiness.json
+
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const readiness = JSON.parse(readFileSync("/tmp/preview-readiness.json", "utf8"));
+          const expectedRevision = process.env.COMMIT_SHA.slice(0, 7).toLowerCase();
+          const actualRevision = readiness.deployment?.revision?.toLowerCase();
+
+          if (readiness.status !== "ready" || readiness.checks?.database !== "ok") {
+            throw new Error("Preview database readiness check did not pass.");
+          }
+          if (readiness.deployment?.environment !== "preview") {
+            throw new Error("Deployed application does not report the preview environment.");
+          }
+          if (actualRevision !== expectedRevision) {
+            throw new Error("Deployed application revision does not match the checked-out git ref.");
+          }
+
+          console.log(`Verified preview runtime ${actualRevision} and database readiness.`);
+          NODE
 
       - name: Deploy production (staged)
         if: inputs.action == 'deploy-production-staged'
@@ -369,6 +450,7 @@ jobs:
               --meta "nexusDashGitCommitSha=$COMMIT_SHA" \
               -e "APP_VERSION=$APP_VERSION" \
               -e "APP_ENV=$APP_ENV" \
+              -e "EXPECTED_SUPABASE_PROJECT_REF=$EXPECTED_SUPABASE_PROJECT_REF" \
               -e "COMMIT_SHA=$COMMIT_SHA" \
               -e "APP_REPOSITORY_URL=$APP_REPOSITORY_URL"
           )
@@ -527,6 +609,7 @@ jobs:
           if [ "${{ inputs.action }}" = "deploy-preview" ]; then
             if [ -n "${{ steps.deploy_preview.outputs.deployment_url }}" ]; then
               echo "- Preview URL: \`${{ steps.deploy_preview.outputs.deployment_url }}\`" >> "$GITHUB_STEP_SUMMARY"
+              echo "- Preview verification: immutable Vercel Preview target, matching revision/environment, database ready" >> "$GITHUB_STEP_SUMMARY"
             fi
           fi
           if [ "${{ inputs.action }}" = "deploy-production-staged" ]; then

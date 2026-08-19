@@ -125,6 +125,8 @@ Notes:
   - Supabase project-ref alignment between `DATABASE_URL`, `DIRECT_URL`, and
     `SUPABASE_URL` so production cannot silently boot against a preview or
     staging database
+  - environment pinning through `EXPECTED_SUPABASE_PROJECT_REF` for
+    Supabase-backed Vercel Preview and Production runtimes
 
 For Supabase production/preview:
 
@@ -140,6 +142,9 @@ For Supabase production/preview:
   session-pooler URL on `*.pooler.supabase.com:5432`.
 - `SUPABASE_URL`: the matching client API URL,
   `https://<project-ref>.supabase.co`.
+- `EXPECTED_SUPABASE_PROJECT_REF`: the same environment's non-secret project
+  ref. Configure distinct values in Vercel and GitHub `preview` / `production`
+  environments so a cross-environment connection fails closed.
 - Prisma runtime automatically adds the compatibility flags needed for the
   Supabase transaction pooler when constructing the `@prisma/adapter-pg`
   connection string.
@@ -479,6 +484,16 @@ Required GitHub secrets:
 - `MIGRATION_DATABASE_URL` (admin-capable migration connection; must not be the runtime `DATABASE_URL`)
 - `AGENT_TOKEN_SIGNING_SECRET` (required for production deploys; preview workflow falls back to a placeholder when intentionally unset)
 - Preview deployments still need `AGENT_TOKEN_SIGNING_SECRET` at runtime. GitHub Actions fallback values do not automatically populate Vercel's shared preview runtime unless the deployment explicitly passes them through.
+
+Required GitHub environment variable (not a secret):
+
+- `EXPECTED_SUPABASE_PROJECT_REF`, configured independently for `preview` and
+  `production`.
+
+The preview workflow validates the migration project ref, immutable Vercel
+deployment target, checked-out revision, deployed `APP_ENV`, and database
+readiness before uploading `preview-deployment`. Always use that artifact URL;
+historical or branch aliases may later point at a different target.
 
 ### Dependency Security Cadence
 

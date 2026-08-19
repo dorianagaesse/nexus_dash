@@ -52,9 +52,10 @@ function readVersion(): string {
 
 function readRevision(): string | null {
   const revision =
+    readOptionalEnv("COMMIT_SHA") ??
     readOptionalEnv("VERCEL_GIT_COMMIT_SHA") ??
     readOptionalEnv("GITHUB_SHA") ??
-    readOptionalEnv("COMMIT_SHA");
+    null;
   if (!revision) {
     return null;
   }

@@ -3,6 +3,24 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-20 - TASK-370 preview auth/database isolation diagnosis
+
+- The reported URL
+  `nexus-dash-dorianagaesse-3732-dorian-agaesses-projects.vercel.app` is a
+  mutable alias currently attached to a Vercel `production` deployment created
+  on 2026-08-09, so testing it exercised production data. The current manual
+  workflow runs for `main`, TASK-342, and TASK-356 emitted different immutable
+  URLs whose Vercel target is `preview` and whose logs show the requested refs
+  were checked out.
+- Vercel Preview and Production use distinct Supabase refs (`dikde…` and
+  `ixhy…` respectively), but Preview still had `NEXTAUTH_URL` pinned to the
+  stale alias. TASK-370 removes that static preview-origin dependency, adds an
+  expected-project-ref deployment pin, and makes preview artifact publication
+  contingent on target/revision/environment/database-readiness validation.
+- Focused regression validation passed: 4 files, 88 tests covering request
+  origin selection, environment validation, health metadata, and migration
+  project-ref validation.
+
 # 2026-08-08 - TASK-330 assignee control rebuilt as inline Participants-style chip
 
 - User feedback after the initial accountability ship called the previous

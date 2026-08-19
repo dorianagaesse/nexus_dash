@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getAppMetadataSummary } from "@/lib/app-metadata";
 import { logServerError } from "@/lib/observability/logger";
 import { checkDatabaseReadiness } from "@/lib/services/health-service";
 
@@ -10,6 +11,7 @@ export async function GET(request: Request): Promise<Response> {
 
   try {
     await checkDatabaseReadiness();
+    const metadata = getAppMetadataSummary();
 
     return NextResponse.json(
       {
@@ -18,6 +20,10 @@ export async function GET(request: Request): Promise<Response> {
         timestamp: new Date().toISOString(),
         checks: {
           database: "ok",
+        },
+        deployment: {
+          environment: metadata.environment,
+          revision: metadata.revision,
         },
         requestId,
       },
