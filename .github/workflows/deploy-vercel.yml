@@ -385,8 +385,10 @@ jobs:
           if (deployment.projectId !== process.env.VERCEL_PROJECT_ID) {
             throw new Error("Preview deployment belongs to an unexpected Vercel project.");
           }
-          if (deployment.target !== "preview") {
-            throw new Error(`Expected Vercel preview target, received '${deployment.target ?? "unknown"}'.`);
+          // Vercel's REST API represents preview deployments with a null target,
+          // while some API/CLI versions normalize that value to "preview".
+          if (deployment.target != null && deployment.target !== "preview") {
+            throw new Error(`Expected Vercel preview target, received '${deployment.target}'.`);
           }
           if (deployment.readyState !== "READY") {
             throw new Error(`Expected ready preview deployment, received '${deployment.readyState ?? "unknown"}'.`);
