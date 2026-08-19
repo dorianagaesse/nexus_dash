@@ -3,6 +3,32 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-20 - TASK-370 preview isolation validated
+
+- Removed stale Preview `NEXTAUTH_URL` and OAuth redirect overrides from
+  Vercel/GitHub configuration, left Production auth settings unchanged, and
+  pinned Preview and Production to their distinct expected Supabase refs.
+- Workflow run `32313383142` explicitly checked out
+  `fix/task-370-preview-auth-isolation`, validated staging migrations and the
+  immutable Vercel Preview identity, reported runtime revision `bf91a06`,
+  confirmed database readiness, and published
+  `https://nexus-dash-h1s18isxe-dorian-agaesses-projects.vercel.app`.
+- The deployed Chromium isolation case passed signup, logout, and subsequent
+  signin with a generated staging account while remaining on the immutable
+  preview origin. This also exercised the staging database so it remains
+  active.
+- Local validation passed lint, RLS inventory, 1,048 unit/API tests with 2
+  skipped, coverage (91.37% statements, 81.33% branches, 92.20% functions,
+  91.88% lines), production build, and focused deployment/auth suites. The
+  repository-wide local Playwright command built and passed its five
+  DB-independent cases but could not run 27 DB-backed cases because local
+  PostgreSQL was unavailable at `127.0.0.1:5432`; the same CI Playwright suite
+  passed with its PostgreSQL service.
+- Copilot completed its initial review with one actionable test-isolation
+  comment. Environment restoration now deletes originally absent variables
+  instead of writing the string `undefined`, and the focused seven-test suite
+  passes.
+
 # 2026-08-20 - TASK-370 preview auth/database isolation diagnosis
 
 - The reported URL

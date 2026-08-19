@@ -4,7 +4,8 @@
 
 ## Status
 
-In progress on `fix/task-370-preview-auth-isolation`.
+Complete on `fix/task-370-preview-auth-isolation`; validated on the immutable
+Vercel Preview deployment and delivered through PR #432.
 
 ## Context
 
@@ -69,3 +70,15 @@ ref or verify the deployed target before publishing the preview URL.
   environments are available to configure `EXPECTED_SUPABASE_PROJECT_REF`.
 - Preview validation uses the immutable URL emitted by `deploy-vercel.yml`, not
   a branch alias or a historical Vercel URL.
+
+## Validation Evidence
+
+- Workflow run `32313383142` checked out the explicit fix branch, applied
+  staging migrations, verified Preview target/revision/environment/database
+  readiness, and published
+  `https://nexus-dash-h1s18isxe-dorian-agaesses-projects.vercel.app`.
+- The deployed opt-in Playwright case created a staging account, signed out,
+  signed back in, and remained on that immutable origin.
+- Lint, RLS inventory, unit/API, coverage, build, and CI Playwright validation
+  passed. Copilot's initial review completed; its environment-restoration
+  comment was applied and covered by the focused request-origin test.

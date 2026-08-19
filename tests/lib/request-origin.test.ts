@@ -11,6 +11,15 @@ class TestHeaders {
   }
 }
 
+function restoreEnvironmentVariable(name: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+
+  process.env[name] = value;
+}
+
 describe("request-origin", () => {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalVercelEnv = process.env.VERCEL_ENV;
@@ -27,11 +36,11 @@ describe("request-origin", () => {
   });
 
   afterEach(() => {
-    process.env.NODE_ENV = originalNodeEnv;
-    process.env.VERCEL_ENV = originalVercelEnv;
-    process.env.VERCEL_URL = originalVercelUrl;
-    process.env.NEXTAUTH_URL = originalNextAuthUrl;
-    process.env.TRUSTED_ORIGINS = originalTrustedOrigins;
+    restoreEnvironmentVariable("NODE_ENV", originalNodeEnv);
+    restoreEnvironmentVariable("VERCEL_ENV", originalVercelEnv);
+    restoreEnvironmentVariable("VERCEL_URL", originalVercelUrl);
+    restoreEnvironmentVariable("NEXTAUTH_URL", originalNextAuthUrl);
+    restoreEnvironmentVariable("TRUSTED_ORIGINS", originalTrustedOrigins);
   });
 
   test("uses forwarded origin when available", () => {
