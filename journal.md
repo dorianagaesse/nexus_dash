@@ -4035,3 +4035,19 @@ Low-value entries to avoid going forward:
   route tests, the full unit/API suite (1064 passed, 2 skipped), coverage
   (91.37% statements / 81.33% branches / 92.2% functions / 91.88% lines),
   and the production build. No deployment was triggered.
+- Replacement PR #446 Copilot review identified stale realtime projections,
+  RLS-hidden actor choices, incomplete preview stewardship controls, and agent
+  attachment attribution gaps. Added a display-safe SECURITY DEFINER actor
+  projection, preserved card edit timestamps during stewardship-only writes,
+  and now reject agent-authenticated attachment creation until the attachment
+  schema can persist credential identity without misattribution.
+- Realtime context-card updates now carry timestamps and complete stewardship
+  projections. The grid, preview, and edit surfaces use shared user/agent
+  avatars, explicitly call out inactive stewards as needing reassignment, and
+  expose labeled 44px keyboard-operable assignment controls with pending/error
+  behavior. Added focused component, route, and service regressions.
+- Review-fix validation passed: release policy, lint, RLS inventory, Prisma
+  validation, production build, 1,080 unit/API/component tests (2 skipped), and
+  coverage (91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines). The standalone project-ref script test remains a Windows CRLF/shebang
+  loader limitation and is covered by the Linux CI run.

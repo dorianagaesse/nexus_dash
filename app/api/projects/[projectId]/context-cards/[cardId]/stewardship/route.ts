@@ -17,6 +17,10 @@ interface ContextCardStewardshipRequestBody {
   steward?: unknown;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 export async function PATCH(
   request: NextRequest,
   props: { params: Promise<{ projectId: string; cardId: string }> }
@@ -35,7 +39,11 @@ export async function PATCH(
 
   let payload: ContextCardStewardshipRequestBody;
   try {
-    payload = (await request.json()) as ContextCardStewardshipRequestBody;
+    const parsedPayload: unknown = await request.json();
+    if (!isRecord(parsedPayload)) {
+      return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    }
+    payload = parsedPayload;
   } catch (error) {
     logServerWarning(
       "PATCH /api/projects/:projectId/context-cards/:cardId/stewardship.invalidJson",
@@ -84,7 +92,22 @@ export async function PATCH(
     action: "updated",
     entityId: cardId,
     payload: {
-      cardId,
+      card: {
+        id: result.data.cardId,
+        updatedAt: result.data.updatedAt.toISOString(),
+        projection: {
+          ...result.data.projection,
+          review: {
+            ...result.data.projection.review,
+            lastEditedAt:
+              result.data.projection.review.lastEditedAt.toISOString(),
+          },
+          attachments: result.data.projection.attachments.map((attachment) => ({
+            ...attachment,
+            uploadedAt: attachment.uploadedAt.toISOString(),
+          })),
+        },
+      },
       change: "stewardship",
       steward: result.data.steward
         ? {
@@ -104,6 +127,7 @@ export async function PATCH(
         thresholdDays: result.data.thresholdDays,
         lastEditedAt: result.data.lastEditedAt.toISOString(),
       },
+      updatedAt: result.data.updatedAt.toISOString(),
     },
     {
       headers: withProjectActivityVersionHeader(new Headers(), version),

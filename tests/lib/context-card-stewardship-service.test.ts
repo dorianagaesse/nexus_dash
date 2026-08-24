@@ -1,17 +1,23 @@
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {},
 }));
 
+const rlsContextMock = vi.hoisted(() => ({ withActorRlsContext: vi.fn() }));
+const projectAccessMock = vi.hoisted(() => ({
+  requireAgentProjectScopes: vi.fn(),
+  requireProjectRole: vi.fn(),
+}));
+
 vi.mock("@/lib/services/rls-context", () => ({
-  withActorRlsContext: vi.fn(),
+  withActorRlsContext: rlsContextMock.withActorRlsContext,
 }));
 
 vi.mock("@/lib/services/project-access-service", () => ({
   buildProjectPrincipalWhere: vi.fn(),
-  requireAgentProjectScopes: vi.fn(),
-  requireProjectRole: vi.fn(),
+  requireAgentProjectScopes: projectAccessMock.requireAgentProjectScopes,
+  requireProjectRole: projectAccessMock.requireProjectRole,
 }));
 
 vi.mock("@/lib/services/project-activity-service", () => ({
@@ -19,6 +25,7 @@ vi.mock("@/lib/services/project-activity-service", () => ({
 }));
 
 import {
+  assignContextCardSteward,
   getContextCardReviewThresholdDays,
   projectContextCard,
   resolveContextCardReviewState,
@@ -173,6 +180,12 @@ describe("context-card projection", () => {
     ],
   };
 
+  beforeEach(() => {
+    vi.clearAllMocks();
+    projectAccessMock.requireAgentProjectScopes.mockReturnValue({ ok: true });
+    projectAccessMock.requireProjectRole.mockResolvedValue({ ok: true, role: "editor" });
+  });
+
   test("captures creator, last editor, steward, and review state", () => {
     const projection = projectContextCard({
       card: baseCard,
@@ -247,6 +260,7 @@ describe("context-card projection", () => {
   });
 
   test("marks a card needing review via threshold when the env is overridden", () => {
+    vi.stubEnv("CONTEXT_CARD_REVIEW_THRESHOLD_DAYS", "5");
     const freshCard: ContextCardCardRecord = {
       ...baseCard,
       updatedAt: new Date(referenceNowMs - 10 * day),
@@ -255,6 +269,42 @@ describe("context-card projection", () => {
       card: freshCard,
       referenceNowMs,
     });
-    expect(projection.review.needsReview).toBe(false);
+    expect(projection.review.needsReview).toBe(true);
+    expect(projection.review.thresholdDays).toBe(5);
+    vi.unstubAllEnvs();
+  });
+
+  test("preserves the last-edit timestamp during stewardship-only changes", async () => {
+    const db = {
+      resource: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: baseCard.id,
+          updatedAt: baseCard.updatedAt,
+        }),
+        update: vi.fn().mockResolvedValue({ ...baseCard, stewardKind: null }),
+      },
+      $queryRaw: vi.fn().mockResolvedValue([]),
+    };
+    rlsContextMock.withActorRlsContext.mockImplementation(
+      (_actorUserId: string, callback: (client: typeof db) => unknown) => callback(db)
+    );
+
+    const result = await assignContextCardSteward({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      cardId: baseCard.id,
+      steward: null,
+      referenceNowMs,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(db.resource.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ updatedAt: baseCard.updatedAt }),
+      })
+    );
+    if (result.ok) {
+      expect(result.data.lastEditedAt).toEqual(baseCard.updatedAt);
+    }
   });
 });

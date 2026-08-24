@@ -69,7 +69,7 @@ export async function ProjectContextPanelSection({
     );
 
     const attachmentProjections: ProjectContextAttachmentProjection[] =
-      projection.attachments.map((attachmentProjection, index) => ({
+      projection.attachments.map((attachmentProjection) => ({
         id: attachmentProjection.id,
         kind: attachmentProjection.kind,
         name: attachmentProjection.name,

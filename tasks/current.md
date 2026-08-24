@@ -97,13 +97,12 @@ or a shared scheduling system.
   documentation are updated together.
 - Focused unit, service, route, component, and Playwright coverage exercises
   human/agent steward assignment, invalid actors, inactive states, attachment
-  uploader display, review-state derivation, role restrictions, and optimistic
-  mutation.
+  uploader display, review-state derivation, role restrictions, and
+  optimistic mutation.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
   `npm run build`, and a focused context-card Playwright coverage pass.
-- `tasks/current.md`, `tasks/backlog.md`,
-  `tasks/task-342-context-knowledge-stewardship.md`, and `journal.md` reflect
-  the delivered behavior.
+- `tasks/current.md`, `tasks/backlog.md`, `tasks/task-342-context-knowledge-stewardship.md`,
+  and `journal.md` reflect the delivered behavior.
 - The branch is pushed, a ready-for-review PR is open, required checks are
   green, and initial Copilot review feedback is resolved or documented.
 

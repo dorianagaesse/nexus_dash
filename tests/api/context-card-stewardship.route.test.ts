@@ -28,6 +28,17 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
 }
 
+function buildProjection(lastEditedAt: Date, steward: Record<string, unknown> | null) {
+  return {
+    id: "card-1",
+    creator: null,
+    lastEditor: null,
+    steward,
+    review: { needsReview: false, thresholdDays: 90, lastEditedAt },
+    attachments: [],
+  };
+}
+
 describe("context card stewardship route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -44,22 +55,25 @@ describe("context card stewardship route", () => {
 
   test("assigns a human steward", async () => {
     const lastEditedAt = new Date("2026-07-20T12:00:00.000Z");
+    const steward = {
+      kind: "human",
+      id: "user-1",
+      displayName: "Ada",
+      usernameTag: "ada#0001",
+      avatarSeed: "seed-ada",
+      status: "active",
+      isAssignable: true,
+    };
     stewardshipServiceMock.assignContextCardSteward.mockResolvedValueOnce({
       ok: true,
       data: {
         cardId: "card-1",
-        steward: {
-          kind: "human",
-          id: "user-1",
-          displayName: "Ada",
-          usernameTag: "ada#0001",
-          avatarSeed: "seed-ada",
-          status: "active",
-          isAssignable: true,
-        },
+        steward,
         needsReview: false,
         thresholdDays: 90,
         lastEditedAt,
+        updatedAt: lastEditedAt,
+        projection: buildProjection(lastEditedAt, steward),
       },
     });
 
@@ -94,6 +108,7 @@ describe("context card stewardship route", () => {
   });
 
   test("clears the steward when null is sent", async () => {
+    const lastEditedAt = new Date("2026-04-01T00:00:00.000Z");
     stewardshipServiceMock.assignContextCardSteward.mockResolvedValueOnce({
       ok: true,
       data: {
@@ -101,7 +116,12 @@ describe("context card stewardship route", () => {
         steward: null,
         needsReview: true,
         thresholdDays: 90,
-        lastEditedAt: new Date("2026-04-01T00:00:00.000Z"),
+        lastEditedAt,
+        updatedAt: lastEditedAt,
+        projection: {
+          ...buildProjection(lastEditedAt, null),
+          review: { needsReview: true, thresholdDays: 90, lastEditedAt },
+        },
       },
     });
 
@@ -176,6 +196,27 @@ describe("context card stewardship route", () => {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: "{",
+      }
+    );
+
+    const response = await PATCH(request as never, {
+      params: { projectId: "p1", cardId: "card-1" },
+    });
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "Invalid JSON payload",
+    });
+    expect(stewardshipServiceMock.assignContextCardSteward).not.toHaveBeenCalled();
+  });
+
+  test("rejects a JSON null body", async () => {
+    const request = new Request(
+      "http://localhost/api/projects/p1/context-cards/card-1/stewardship",
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: "null",
       }
     );
 

@@ -8,7 +8,9 @@ import {
 import {
   ContextCardReviewBadge,
 } from "@/components/context-panel/context-card-review-badge";
+import { ContextCardStewardPicker } from "@/components/context-panel/context-card-steward-picker";
 import type {
+  ProjectContextActorSummary,
   ProjectContextAttachment,
   ProjectContextCard,
 } from "@/components/project-context-panel-types";
@@ -27,8 +29,12 @@ interface ContextPreviewModalProps {
   isOpen: boolean;
   card: ProjectContextCard | null;
   attachments: ProjectContextAttachment[];
+  assignableActors: ProjectContextActorSummary[];
+  isUpdatingSteward: boolean;
+  stewardError: string | null;
   onClose: () => void;
   onEdit: (cardId: string) => void;
+  onSelectSteward: (actor: ProjectContextActorSummary | null) => void;
   onPreviewAttachment: (attachment: ProjectContextAttachment) => void;
 }
 
@@ -37,8 +43,12 @@ export function ContextPreviewModal({
   isOpen,
   card,
   attachments,
+  assignableActors,
+  isUpdatingSteward,
+  stewardError,
   onClose,
   onEdit,
+  onSelectSteward,
   onPreviewAttachment,
 }: ContextPreviewModalProps) {
   return (
@@ -88,6 +98,7 @@ export function ContextPreviewModal({
               actor={card.projection.steward}
               label="Steward"
               fallback="Unassigned"
+              needsReassignment
             />
             <ContextCardActorChip
               actor={card.projection.lastEditor}
@@ -102,6 +113,33 @@ export function ContextPreviewModal({
           </div>
         </CardHeader>
         <CardContent className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+          {canEdit ? (
+            <div className="space-y-2 rounded-md border border-slate-900/15 bg-white/45 p-3">
+              <label
+                htmlFor="context-preview-steward-picker"
+                className="text-sm font-medium text-slate-900"
+              >
+                Knowledge steward
+              </label>
+              <ContextCardStewardPicker
+                id="context-preview-steward-picker"
+                actors={assignableActors}
+                selected={card.projection.steward}
+                cleared={card.projection.steward === null}
+                disabled={isUpdatingSteward}
+                onChange={onSelectSteward}
+              />
+              {stewardError ? (
+                <div
+                  role="alert"
+                  className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+                >
+                  {stewardError}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           <RichTextContent
             html={card.content}
             emptyContentHtml="<p>No content.</p>"

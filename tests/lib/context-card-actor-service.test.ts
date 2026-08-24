@@ -23,6 +23,7 @@ vi.mock("@/lib/services/project-access-service", () => ({
 }));
 
 import {
+  loadContextCardActorRegistry,
   mapStoredContextCardActor,
   resolveAssignableContextCardActorFromRegistry,
 } from "@/lib/services/context-card-actor-service";
@@ -218,5 +219,50 @@ describe("context-card-actor-service registry resolver", () => {
       status: 400,
       error: "context-card-steward-invalid",
     });
+  });
+});
+
+describe("context-card-actor-service RLS-safe registry", () => {
+  test("hydrates project humans and agents from the display-safe SQL projection", async () => {
+    const db = {
+      $queryRaw: vi.fn().mockResolvedValue([
+        {
+          kind: "human",
+          actorId: "user-1",
+          name: "Ada",
+          email: "ada@example.com",
+          username: "ada",
+          usernameDiscriminator: "0001",
+          avatarSeed: "seed-ada",
+          label: null,
+          revokedAt: null,
+          expiresAt: null,
+        },
+        {
+          kind: "agent",
+          actorId: "credential-1",
+          name: null,
+          email: null,
+          username: null,
+          usernameDiscriminator: null,
+          avatarSeed: null,
+          label: "Release bot",
+          revokedAt: null,
+          expiresAt: null,
+        },
+      ]),
+    };
+
+    const registry = await loadContextCardActorRegistry({
+      db: db as never,
+      projectId: "project-1",
+      now: new Date("2026-08-24T00:00:00.000Z"),
+    });
+
+    expect(registry?.assignable).toEqual([
+      expect.objectContaining({ kind: "human", id: "user-1" }),
+      expect.objectContaining({ kind: "agent", id: "credential-1" }),
+    ]);
+    expect(db.$queryRaw).toHaveBeenCalledTimes(1);
   });
 });

@@ -358,6 +358,20 @@ export function ProjectContextPanel({
                     typeof remoteCard.color === "string"
                       ? remoteCard.color
                       : card.color,
+                  updatedAt:
+                    typeof remoteCard.updatedAt === "string"
+                      ? remoteCard.updatedAt
+                      : card.updatedAt,
+                  projection: remoteCard.projection
+                    ? {
+                        ...card.projection,
+                        ...remoteCard.projection,
+                        review: {
+                          ...card.projection.review,
+                          ...remoteCard.projection.review,
+                        },
+                      }
+                    : card.projection,
                 }
               : card
           )
@@ -450,11 +464,12 @@ export function ProjectContextPanel({
   };
 
   const handleSelectSteward = (actor: ProjectContextActorSummary | null) => {
-    if (!editingCard || isUpdatingSteward) {
+    const targetCard = editingCard ?? previewCard;
+    if (!targetCard || isUpdatingSteward) {
       return;
     }
 
-    const previousSteward = editingCard.projection.steward;
+    const previousSteward = targetCard.projection.steward;
     const previousCleared = previousSteward === null;
     const nextCleared = actor === null;
     const isUnchanged =
@@ -477,7 +492,7 @@ export function ProjectContextPanel({
     setIsUpdatingSteward(true);
     setStewardError(null);
 
-    const targetCardId = editingCard.id;
+    const targetCardId = targetCard.id;
     const payload = actor
       ? { steward: { kind: actor.kind, id: actor.id } }
       : { steward: null };
@@ -518,7 +533,12 @@ export function ProjectContextPanel({
         const resultPayload = (await response.json().catch(() => null)) as
           | {
               steward: ProjectContextActorSummary | null;
-              review: { lastEditedAt: string };
+              review: {
+                needsReview: boolean;
+                thresholdDays: number;
+                lastEditedAt: string;
+              };
+              updatedAt: string;
             }
           | null;
 
@@ -531,14 +551,13 @@ export function ProjectContextPanel({
             card.id === targetCardId
               ? {
                   ...card,
+                  updatedAt: resultPayload?.updatedAt ?? card.updatedAt,
                   projection: {
                     ...card.projection,
                     steward: resultPayload?.steward ?? actor,
                     review: {
                       ...card.projection.review,
-                      lastEditedAt:
-                        resultPayload?.review.lastEditedAt ??
-                        card.projection.review.lastEditedAt,
+                      ...(resultPayload?.review ?? {}),
                     },
                   },
                 }
@@ -1368,8 +1387,12 @@ export function ProjectContextPanel({
         isOpen={Boolean(previewCard)}
         card={previewCard}
         attachments={previewCardAttachments}
+        assignableActors={assignableActors}
+        isUpdatingSteward={isUpdatingSteward}
+        stewardError={stewardError}
         onClose={() => setPreviewCardId(null)}
         onEdit={openEditModal}
+        onSelectSteward={handleSelectSteward}
         onPreviewAttachment={(attachment) => setPreviewAttachment(attachment)}
       />
 
