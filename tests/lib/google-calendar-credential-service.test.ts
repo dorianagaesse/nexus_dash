@@ -40,6 +40,7 @@ import {
   DEFAULT_GOOGLE_CALENDAR_ID,
   findGoogleCalendarCredential,
   findGoogleCalendarCredentialCalendarId,
+  GoogleCalendarCredentialTokenDecryptionError,
   deleteGoogleCalendarCredential,
   markGoogleCalendarCredentialRevokedForDisconnect,
   normalizeGoogleCalendarId,
@@ -190,6 +191,25 @@ describe("google-calendar-credential-service", () => {
     });
     expect(prismaMock.googleCalendarCredential.deleteMany).toHaveBeenCalledWith({
       where: { userId: "user-1" },
+    });
+  });
+
+  test("classifies token decryption failures after marking disconnect", async () => {
+    const decryptionError = new Error("invalid-google-token-ciphertext");
+    prismaMock.googleCalendarCredential.findUnique.mockResolvedValueOnce({
+      refreshToken: "enc:v1:invalid",
+      revokedAt: null,
+    });
+    prismaMock.googleCalendarCredential.updateMany.mockResolvedValueOnce({ count: 1 });
+    googleTokenCryptoMock.decryptGoogleToken.mockImplementationOnce(() => {
+      throw decryptionError;
+    });
+
+    const result = markGoogleCalendarCredentialRevokedForDisconnect("user-1");
+
+    await expect(result).rejects.toMatchObject({
+      name: GoogleCalendarCredentialTokenDecryptionError.name,
+      originalError: decryptionError,
     });
   });
 
