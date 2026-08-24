@@ -39,6 +39,9 @@ The existing Agent REST API remains supported and regression-tested.
   Streamable HTTP.
 - Protect private data and actions with OAuth 2.1 Authorization Code + PKCE,
   short-lived access tokens, and revocable rotating refresh tokens.
+- Keep the MCP tool endpoint disabled by default and fail closed when OAuth
+  enforcement or required metadata is absent, invalid, or misconfigured; no
+  unauthenticated implementation window may expose tool discovery or calls.
 - Publish the protected-resource and authorization-server metadata required by
   MCP clients, including correct `resource` propagation and a supported client
   registration strategy.
@@ -91,26 +94,28 @@ The existing Agent REST API remains supported and regression-tested.
 
 1. A stable MCP server is reachable over public HTTPS and protected by the
    selected OAuth 2.1 flow.
-2. No static NexusDash user secret is sent to or stored in ChatGPT or Codex.
-3. NexusDash project membership, role, and capability checks apply to every
+2. The MCP tool endpoint stays disabled or rejects access before OAuth
+   enforcement is active and fails closed for missing or invalid auth config.
+3. No static NexusDash user secret is sent to or stored in ChatGPT or Codex.
+4. NexusDash project membership, role, and capability checks apply to every
    tool call and prevent cross-project or cross-user access.
-4. The initial read and write tools work from the confirmed ChatGPT surfaces
+5. The initial read and write tools work from the confirmed ChatGPT surfaces
    and any confirmed Codex surfaces.
-5. Subject to TASK-386 availability findings, the owner can install and use the
+6. Subject to TASK-386 availability findings, the owner can install and use the
    private plugin on supported web, desktop, and mobile clients.
-6. A new conversation can rediscover the connected NexusDash tools without a
+7. A new conversation can rediscover the connected NexusDash tools without a
    local machine or local `.env` file.
-7. Sensitive writes present an accurate confirmation naming the resource and
+8. Sensitive writes present an accurate confirmation naming the resource and
    operation and cannot execute without a server-validated intent bound to the
    user, tool, resource, and proposed change.
-8. No permanent-delete tool is discoverable or callable in v1.
-9. The Agent REST API and its regression suite continue to pass.
-10. Preview validation covers transport, OAuth, authorization, schemas, tool
+9. No permanent-delete tool is discoverable or callable in v1.
+10. The Agent REST API and its regression suite continue to pass.
+11. Preview validation covers transport, OAuth, authorization, schemas, tool
     selection, confirmations, audit output, and REST non-regression before
     production deployment.
-11. Calls, authorization refusals, and failures are observable without logging
+12. Calls, authorization refusals, and failures are observable without logging
     tokens, secrets, or unnecessarily sensitive content.
-12. Revocation, disconnect, rollback, diagnostics, and emergency disablement
+13. Revocation, disconnect, rollback, diagnostics, and emergency disablement
     procedures are documented and exercised.
 
 ## Runtime Assumptions
@@ -183,8 +188,9 @@ The existing Agent REST API remains supported and regression-tested.
 - The production-readiness runbook covers and exercises revocation, disconnect,
   rollback, diagnostics, credential isolation, and emergency disablement before
   production rollout; the final production smoke test passes.
-- TASK-386 through TASK-405 are complete and the backlog, journal, ADR index,
-  product documentation, and relevant runbooks reflect the delivered system.
+- TASK-386 through TASK-405 are complete and `tasks/current.md`, the backlog,
+  journal, ADR index, product documentation, and relevant runbooks reflect the
+  delivered system.
 
 ## Delivery Tasks
 

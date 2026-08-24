@@ -235,7 +235,7 @@ Last reviewed: 2026-08-24
 - ID: TASK-391
   Title: Remote NexusDash MCP server over Streamable HTTP
   Status: Pending
-  Rationale: Expose a stable public HTTPS MCP endpoint, preferably `/mcp`, with protocol initialization, tool discovery, concise server instructions, schema validation, structured errors, serverless-compatible lifecycle behavior, safe diagnostics, and redacted logging. Keep transport concerns thin over the shared application services.
+  Rationale: Implement a stable HTTPS MCP endpoint, preferably `/mcp`, with protocol initialization, tool discovery, concise server instructions, schema validation, structured errors, serverless-compatible lifecycle behavior, safe diagnostics, and redacted logging. Keep the tool endpoint disabled by default and fail closed when OAuth enforcement or required metadata/config is absent or invalid; do not expose unauthenticated tool discovery or calls while TASK-395 is incomplete. Keep transport concerns thin over the shared application services.
   Dependencies: TASK-315, TASK-387, TASK-389, TASK-390
 - ID: TASK-392
   Title: NexusDash MCP read tools

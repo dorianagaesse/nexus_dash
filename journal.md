@@ -30,6 +30,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   made scope mapping precede plugin packaging, placed evaluation retention
   policy before artifact collection, and kept connector quotas in TASK-397
   without reactivating the broader deferred TASK-064 baseline.
+- Release-safety review made `/mcp` disabled by default and fail closed until
+  OAuth enforcement is active, and added `tasks/current.md` to the Epic's
+  explicit completion tracking.
 - Docs-only planning change; no connector or runtime behavior was implemented.
 
 # 2026-08-24 - Codex session feedback added to backlog
