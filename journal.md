@@ -23,6 +23,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   reproducible with explicit revalidation triggers, and added runtime
   assumptions plus a branch/preview/runbook-backed validation contract to the
   Epic brief.
+- The final safety pass defined relation add/remove preservation, sanitized and
+  bounded evaluation evidence, server-enforced confirmation intents for
+  sensitive writes, and least-privilege v1 scopes limited to exposed tools.
 - Docs-only planning change; no connector or runtime behavior was implemented.
 
 # 2026-08-24 - Codex session feedback added to backlog

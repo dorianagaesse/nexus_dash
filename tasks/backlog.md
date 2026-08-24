@@ -245,12 +245,12 @@ Last reviewed: 2026-08-24
 - ID: TASK-393
   Title: NexusDash MCP write tools
   Status: Pending
-  Rationale: Implement and test task creation, true partial updates, status moves, comments, labels, Epic assignment, and authorized task relations through the shared services. Each mutation must return the complete final resource plus a concise change summary, and v1 must expose no permanent-delete operation.
+  Rationale: Implement and test task creation, true partial updates, status moves, comments, labels, Epic assignment, and authorized task relations through the shared services. Relation mutations must expose explicit add/remove sets that preserve unmentioned links; any separately named full-replacement operation must preview removed links and require confirmation. Each mutation must return the complete final resource plus a concise change summary, and v1 must expose no permanent-delete operation.
   Dependencies: TASK-099, TASK-349, TASK-373, TASK-374, TASK-375, TASK-376, TASK-388, TASK-389, TASK-390, TASK-391
 - ID: TASK-394
   Title: MCP tool annotations and sensitive-write confirmations
   Status: Pending
-  Rationale: Add accurate MCP annotations for read-only, write, idempotent, and potentially destructive behavior, then verify client confirmations identify the exact NexusDash resource and requested action in understandable language. Ensure annotations and confirmations remain consistent with the enforced tool policy rather than acting as the authorization boundary.
+  Rationale: Add accurate MCP annotations for read-only, write, idempotent, and potentially destructive behavior, then verify client confirmations identify the exact NexusDash resource and requested action in understandable language. For every write classified as confirmation-required, implement a server-enforced two-step intent flow (preparation tool or equivalent exchange) that issues a short-lived, single-use token bound to the user, tool, resource, proposed payload hash, and authorization state; reject direct, expired, replayed, or changed-payload execution. Client prompts remain UX signals rather than the enforcement boundary.
   Dependencies: TASK-389, TASK-392, TASK-393
 - ID: TASK-395
   Title: OAuth 2.1 authorization for the NexusDash MCP server
@@ -260,7 +260,7 @@ Last reviewed: 2026-08-24
 - ID: TASK-396
   Title: OAuth scope mapping to NexusDash project capabilities
   Status: Pending
-  Rationale: Define and enforce MCP OAuth scopes for project, task, context, and roadmap reads/writes, map them to the canonical NexusDash capability vocabulary, and check both scope and current project authorization on every tool call. Prevent assignments or responsibility metadata from granting access and block all cross-user or cross-project traversal.
+  Rationale: Define and enforce only the OAuth scopes required by the v1 catalog: project read, task read/write, context read, and roadmap read. Map them to the canonical NexusDash capability vocabulary and check both scope and current project authorization on every tool call. Do not request or issue context-write or roadmap-write scopes until explicit write tools, acceptance criteria, and authorization tests are approved; prevent responsibility metadata from granting access and block cross-user or cross-project traversal.
   Dependencies: TASK-331, TASK-389, TASK-395
 - ID: TASK-397
   Title: MCP security controls, quotas, audit, and observability
@@ -285,7 +285,7 @@ Last reviewed: 2026-08-24
 - ID: TASK-401
   Title: NexusDash connector agent evaluation suite
   Status: Pending
-  Rationale: Build repeatable evaluations for direct and indirect tool requests, search-first behavior, prior-identifier reuse, duplicate-risk creation, confirmation-required writes, insufficient permission, unsupported deletion, empty results, and ambiguous matches. Record chosen tools, arguments, results, confirmation behavior, and pass criteria so releases can be compared.
+  Rationale: Build repeatable evaluations for direct and indirect tool requests, search-first behavior, prior-identifier reuse, duplicate-risk creation, confirmation-required writes, insufficient permission, unsupported deletion, empty results, and ambiguous matches. Use synthetic or sanitized fixtures; record chosen tools, redacted arguments/results/identifiers, confirmation behavior, and pass criteria under an explicit bounded-retention policy so releases can be compared without retaining raw task, comment, context, roadmap, or user content.
   Dependencies: TASK-392, TASK-393, TASK-394, TASK-398, TASK-399
 - ID: TASK-402
   Title: Preview deployment and end-to-end MCP connector validation

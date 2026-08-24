@@ -44,9 +44,17 @@ The existing Agent REST API remains supported and regression-tested.
   registration strategy.
 - Never embed a NexusDash API key or another static user secret in the plugin.
 - Separate read and write tools and expose no permanent-delete tool in v1.
+- Issue only the OAuth scopes required by the v1 tool catalog; context-card and
+  roadmap write scopes remain unavailable until corresponding tools and
+  authorization coverage are separately approved.
 - Return concise, structured, paginated, model-readable results.
 - Annotate tool behavior, including read-only, destructive, and idempotent
-  characteristics, and require clear confirmation for sensitive writes.
+  characteristics, and require a server-validated, short-lived confirmation
+  intent for writes classified as sensitive rather than relying only on client
+  prompt behavior.
+- Treat relation changes as explicit additions or removals that preserve
+  unmentioned links; any complete replacement operation must be separately
+  named, preview its effect, and require confirmation.
 - Keep the transport compatible with the selected serverless deployment model
   and prevent sensitive data from entering logs or metrics.
 
@@ -90,7 +98,8 @@ The existing Agent REST API remains supported and regression-tested.
 6. A new conversation can rediscover the connected NexusDash tools without a
    local machine or local `.env` file.
 7. Sensitive writes present an accurate confirmation naming the resource and
-   operation.
+   operation and cannot execute without a server-validated intent bound to the
+   user, tool, resource, and proposed change.
 8. No permanent-delete tool is discoverable or callable in v1.
 9. The Agent REST API and its regression suite continue to pass.
 10. Preview validation covers transport, OAuth, authorization, schemas, tool
@@ -134,6 +143,10 @@ The existing Agent REST API remains supported and regression-tested.
   schema and handler, OAuth metadata and PKCE, token expiry/refresh/revocation,
   capability enforcement, confirmations, redaction, pagination, and Agent REST
   non-regression.
+- Use synthetic or sanitized fixtures for evaluations and stored validation
+  artifacts. Redact sensitive arguments, results, content, and identifiers;
+  retain only the minimum evidence and duration defined by the connector
+  runbook.
 - Trigger the explicit branch through `deploy-vercel.yml` using `git_ref`, then
   retain the workflow run, checked-out ref and revision, immutable preview URL,
   environment/database identity, and artifact evidence described by
