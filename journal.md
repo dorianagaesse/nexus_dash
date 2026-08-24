@@ -5,8 +5,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 # 2026-08-24 - Codex session feedback added to backlog
 
-- Captured nine submitted feedback points as ten focused follow-ups, TASK-371
-  through TASK-380, under a new `Codex Session Feedback Refinement Program`
+- Captured eleven submitted feedback points as twelve focused follow-ups,
+  TASK-371 through TASK-382, under a new `Codex Session Feedback Refinement Program`
   section in `tasks/backlog.md`.
 - Added a backlog task for screenshot attachments in task descriptions/comments
   and preserved the submitted `dd` item verbatim with an explicit clarification
@@ -17,6 +17,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   operations, non-delete credential presets, and Epic-driven task labels. The
   filters and bulk operations are separate tasks because their API contracts
   and acceptance concerns are independent.
+- Added two Kanban refinement tasks: a responsive bounded-height board with
+  independently scrollable lanes, and a search/filter surface spanning task
+  titles, descriptions, comments, labels, and clickable label chips.
 - Docs-only backlog grooming; no runtime behavior changed.
 
 # 2026-08-20 - TASK-370 preview isolation validated

@@ -186,6 +186,16 @@ Last reviewed: 2026-08-24
   Status: Pending
   Rationale: Let an Epic define a label that is automatically applied or clearly suggested when tasks are created in or linked to that Epic. Define precedence when a task already has labels, behavior when tasks move between Epics, and whether the Epic policy is required or advisory so related work cannot silently remain inconsistently labeled.
   Dependencies: TASK-031, TASK-107, TASK-343
+- ID: TASK-381
+  Title: Bounded Kanban height with independently scrollable lanes
+  Status: Pending
+  Rationale: Prevent the Kanban board from growing indefinitely with the number of task cards. Give the board a responsive fixed or viewport-bounded vertical size and make each lane's task area scroll independently while keeping the lane header, task count, filters, and create affordances visible. Preserve drag-and-drop behavior, keyboard access, scroll position, and usable mobile layouts when tasks move within or between long lanes.
+  Dependencies: TASK-003, TASK-100, TASK-133, TASK-322
+- ID: TASK-382
+  Title: Kanban task search and clickable label filters
+  Status: Pending
+  Rationale: Add a search and filter surface above the Kanban board that finds authorized tasks by title, description, comments, labels, and other useful task text without exposing hidden or cross-project content. Let users click a label on a task card or in the filter controls to toggle that label filter, clearly show active search/filter state and result counts, support combining or clearing criteria, and keep matching behavior responsive for large boards.
+  Dependencies: TASK-031, TASK-099, TASK-108, TASK-133, TASK-381
 ### Collaboration Refinement Program (TASK-336 Audit)
 - ID: TASK-337
   Title: First-class project actor identity - human and agent assignment/provenance foundation
