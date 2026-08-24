@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+
 import { resolveAgentCredentialStatus } from "@/lib/agent-access";
 import type {
   ContextCardActorReference,
@@ -46,6 +48,19 @@ export interface ResolvedContextCardActorPersistence {
   credentialId: string | null;
   displayNameSnapshot: string;
   summary: ContextCardActorSummary;
+}
+
+interface RlsSafeContextCardActorRow {
+  kind: "human" | "agent";
+  actorId: string;
+  name: string | null;
+  email: string | null;
+  username: string | null;
+  usernameDiscriminator: string | null;
+  avatarSeed: string | null;
+  label: string | null;
+  revokedAt: Date | null;
+  expiresAt: Date | null;
 }
 
 interface ActorResolutionError {
@@ -170,21 +185,11 @@ export async function loadContextCardActorRegistry(input: {
   projectId: string;
   now?: Date;
 }): Promise<ContextCardActorRegistry | null> {
-  const project = await input.db.project.findUnique({
-    where: { id: input.projectId },
-    select: {
-      owner: { select: contextCardActorUserSelect },
-      memberships: {
-        orderBy: [{ createdAt: "asc" }],
-        select: { user: { select: contextCardActorUserSelect } },
-      },
-      apiCredentials: {
-        orderBy: [{ label: "asc" }, { createdAt: "asc" }],
-        select: contextCardActorCredentialSelect,
-      },
-    },
-  });
-  if (!project) {
+  const rows = await input.db.$queryRaw<RlsSafeContextCardActorRow[]>(Prisma.sql`
+    SELECT *
+    FROM app.list_project_context_card_actors(${input.projectId})
+  `);
+  if (rows.length === 0) {
     return null;
   }
 
@@ -192,17 +197,38 @@ export async function loadContextCardActorRegistry(input: {
   const humanById = new Map<string, ContextCardActorSummary>();
   const credentialById = new Map<string, ContextCardActorSummary>();
 
-  for (const user of [project.owner, ...project.memberships.map((item) => item.user)]) {
-    if (activeHumanIds.has(user.id)) {
+  const now = input.now ?? new Date();
+  for (const row of rows) {
+    if (row.kind === "human") {
+      if (activeHumanIds.has(row.actorId)) {
+        continue;
+      }
+      const user = {
+        id: row.actorId,
+        name: row.name,
+        email: row.email,
+        username: row.username,
+        usernameDiscriminator: row.usernameDiscriminator,
+        avatarSeed: row.avatarSeed,
+      };
+      activeHumanIds.add(row.actorId);
+      humanById.set(row.actorId, mapHuman(user, "active"));
       continue;
     }
-    activeHumanIds.add(user.id);
-    humanById.set(user.id, mapHuman(user, "active"));
-  }
 
-  const now = input.now ?? new Date();
-  for (const credential of project.apiCredentials) {
-    credentialById.set(credential.id, mapCredential(credential, now));
+    credentialById.set(
+      row.actorId,
+      mapCredential(
+        {
+          id: row.actorId,
+          label: row.label ?? "Project agent",
+          projectId: input.projectId,
+          revokedAt: row.revokedAt,
+          expiresAt: row.expiresAt,
+        },
+        now
+      )
+    );
   }
 
   const assignable = [

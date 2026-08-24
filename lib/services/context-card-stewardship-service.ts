@@ -62,6 +62,8 @@ export interface ContextCardStewardshipSummary {
   needsReview: boolean;
   thresholdDays: number;
   lastEditedAt: Date;
+  updatedAt: Date;
+  projection: ContextCardProjection;
 }
 
 interface ServiceErrorResult {
@@ -400,7 +402,7 @@ export async function assignContextCardSteward(input: {
         projectId,
         type: RESOURCE_TYPE_CONTEXT_CARD,
       },
-      select: { id: true },
+      select: { id: true, updatedAt: true },
     });
     if (!existingCard) {
       return createError(404, "context-card-not-found");
@@ -439,12 +441,14 @@ export async function assignContextCardSteward(input: {
               stewardCredentialId: stewardPersistence.credentialId,
               stewardKind: input.steward?.kind ?? null,
               stewardDisplayNameSnapshot: stewardPersistence.displayNameSnapshot,
+              updatedAt: existingCard.updatedAt,
             }
           : {
               stewardUserId: null,
               stewardCredentialId: null,
               stewardKind: null,
               stewardDisplayNameSnapshot: null,
+              updatedAt: existingCard.updatedAt,
             },
         select: contextCardCardSelect,
       });
@@ -467,6 +471,8 @@ export async function assignContextCardSteward(input: {
           needsReview: projection.review.needsReview,
           thresholdDays: projection.review.thresholdDays,
           lastEditedAt: projection.review.lastEditedAt,
+          updatedAt: updatedCard.updatedAt,
+          projection,
         },
       };
     } catch (error) {

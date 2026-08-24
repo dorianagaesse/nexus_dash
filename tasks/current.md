@@ -5,7 +5,8 @@
 ## Status
 
 Implementation complete on
-`feature/task-342-context-knowledge-stewardship`; ready for review.
+`feature/task-342-context-knowledge-stewardship-r3` in replacement PR #446;
+ready for review.
 
 ## Context
 

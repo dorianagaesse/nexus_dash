@@ -6,6 +6,7 @@ import type { ProjectContextActorSummary } from "@/components/project-context-pa
 import { cn } from "@/lib/utils";
 
 interface ContextCardStewardPickerProps {
+  id?: string;
   actors: ProjectContextActorSummary[];
   selected: ProjectContextActorSummary | null;
   cleared: boolean;
@@ -28,6 +29,7 @@ function sameActor(
 }
 
 export function ContextCardStewardPicker({
+  id,
   actors,
   selected,
   cleared,
@@ -36,7 +38,9 @@ export function ContextCardStewardPicker({
 }: ContextCardStewardPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
   const buttonId = useId();
   const listId = useId();
 
@@ -68,20 +72,30 @@ export function ContextCardStewardPicker({
   const summary: ProjectContextActorSummary | null = cleared
     ? null
     : selected;
+  const optionCount = filteredActors.length + 1;
+
+  const chooseOption = (index: number) => {
+    onChange(index === 0 ? null : filteredActors[index - 1] ?? null);
+    setIsOpen(false);
+    setQuery("");
+    buttonRef.current?.focus();
+  };
 
   return (
     <div className="flex items-center gap-2">
       <div ref={containerRef} className="relative flex-1">
         <button
-          id={buttonId}
+          ref={buttonRef}
+          id={id ?? buttonId}
           type="button"
           className={cn(
-            "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm",
+            "flex min-h-11 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm",
             disabled && "opacity-60"
           )}
           aria-haspopup="listbox"
           aria-expanded={isOpen}
           aria-controls={listId}
+          aria-label={`Knowledge steward, current selection: ${summary?.displayName ?? "Unassigned"}`}
           disabled={disabled}
           onClick={() => setIsOpen((previous) => !previous)}
         >
@@ -100,7 +114,32 @@ export function ContextCardStewardPicker({
               <input
                 autoFocus
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                role="combobox"
+                aria-expanded="true"
+                aria-controls={listId}
+                aria-activedescendant={`${listId}-option-${activeIndex}`}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setActiveIndex(0);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowDown") {
+                    event.preventDefault();
+                    setActiveIndex((current) => (current + 1) % optionCount);
+                  } else if (event.key === "ArrowUp") {
+                    event.preventDefault();
+                    setActiveIndex(
+                      (current) => (current - 1 + optionCount) % optionCount
+                    );
+                  } else if (event.key === "Enter") {
+                    event.preventDefault();
+                    chooseOption(activeIndex);
+                  } else if (event.key === "Escape") {
+                    event.preventDefault();
+                    setIsOpen(false);
+                    buttonRef.current?.focus();
+                  }
+                }}
                 placeholder="Search members or agents"
                 className="h-8 w-full bg-transparent text-xs outline-none"
               />
@@ -112,12 +151,13 @@ export function ContextCardStewardPicker({
             >
               <li>
                 <button
+                  id={`${listId}-option-0`}
                   type="button"
                   role="option"
                   aria-selected={summary === null}
                   className={cn(
-                    "flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left hover:bg-muted/60",
-                    summary === null && "bg-muted/40"
+                    "flex min-h-11 w-full items-center justify-between gap-2 px-3 py-1.5 text-left hover:bg-muted/60",
+                    (summary === null || activeIndex === 0) && "bg-muted/40"
                   )}
                   onClick={() => {
                     onChange(null);
@@ -132,15 +172,17 @@ export function ContextCardStewardPicker({
                   No matching assignable members.
                 </li>
               ) : (
-                filteredActors.map((actor) => (
+                filteredActors.map((actor, index) => (
                   <li key={actorKey(actor)}>
                     <button
+                      id={`${listId}-option-${index + 1}`}
                       type="button"
                       role="option"
                       aria-selected={sameActor(summary, actor)}
                       className={cn(
-                        "flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left hover:bg-muted/60",
-                        sameActor(summary, actor) && "bg-muted/40"
+                        "flex min-h-11 w-full items-center justify-between gap-2 px-3 py-1.5 text-left hover:bg-muted/60",
+                        (sameActor(summary, actor) || activeIndex === index + 1) &&
+                          "bg-muted/40"
                       )}
                       onClick={() => {
                         onChange(actor);
@@ -161,7 +203,7 @@ export function ContextCardStewardPicker({
       </div>
       <button
         type="button"
-        className="flex h-10 items-center gap-1 rounded-md border border-input bg-background px-2 text-xs text-muted-foreground"
+        className="flex min-h-11 items-center gap-1 rounded-md border border-input bg-background px-3 text-xs text-muted-foreground"
         disabled={disabled || (!summary && !cleared)}
         onClick={() => {
           onChange(null);

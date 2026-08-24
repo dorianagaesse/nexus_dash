@@ -118,6 +118,7 @@ export function ContextCardsGrid({
                 actor={card.projection.steward}
                 label="Steward"
                 fallback="Unassigned"
+                needsReassignment
               />
             </div>
 

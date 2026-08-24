@@ -997,6 +997,10 @@ export async function createContextAttachmentUploadTarget(input: {
     return agentScopeError;
   }
 
+  if (input.agentAccess) {
+    return createError(403, "agent-context-attachments-unsupported");
+  }
+
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
@@ -1088,6 +1092,10 @@ export async function finalizeContextAttachmentDirectUpload(input: {
   });
   if (agentScopeError) {
     return agentScopeError;
+  }
+
+  if (input.agentAccess) {
+    return createError(403, "agent-context-attachments-unsupported");
   }
 
   return withActorRlsContext(actorUserId, async (db) => {

@@ -5,6 +5,7 @@ import {
   ContextCardActorChip,
 } from "@/components/context-panel/context-card-actor-chip";
 import { ContextCardStewardPicker } from "@/components/context-panel/context-card-steward-picker";
+import { ContextCardReviewBadge } from "@/components/context-panel/context-card-review-badge";
 import { ContextColorPicker } from "@/components/context-panel/context-color-picker";
 import { ContextModalFrame } from "@/components/context-panel/context-modal-frame";
 import type {
@@ -138,13 +139,20 @@ export function ContextEditModal({
 
         <div className="space-y-2 rounded-md border border-border/60 bg-background/70 p-3">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium">Knowledge steward</p>
-            <ContextCardActorChip
-              actor={stewardActor}
-              fallback="Unassigned"
-            />
+            <label htmlFor="context-edit-steward-picker" className="text-sm font-medium">
+              Knowledge steward
+            </label>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <ContextCardReviewBadge review={editingCard.projection.review} />
+              <ContextCardActorChip
+                actor={stewardActor}
+                fallback="Unassigned"
+                needsReassignment
+              />
+            </div>
           </div>
           <ContextCardStewardPicker
+            id="context-edit-steward-picker"
             actors={assignableActors}
             selected={stewardActor}
             cleared={stewardCleared}
@@ -152,7 +160,7 @@ export function ContextEditModal({
             onChange={onSelectSteward}
           />
           {stewardError ? (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <div role="alert" className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               {stewardError}
             </div>
           ) : null}
