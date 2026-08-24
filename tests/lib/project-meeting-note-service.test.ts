@@ -18,6 +18,7 @@ const loggerMock = vi.hoisted(() => ({
 }));
 
 const dbMock = vi.hoisted(() => ({
+  $queryRaw: vi.fn(),
   project: {
     findFirst: vi.fn(),
     findUnique: vi.fn(),
@@ -192,6 +193,7 @@ describe("project-meeting-note-service", () => {
       memberships: [],
       apiCredentials: [],
     });
+    dbMock.$queryRaw.mockResolvedValue([]);
     dbMock.user.findUnique.mockResolvedValue(owner);
     rlsContextMock.withActorRlsContext.mockImplementation(
       async (_actorUserId: string, operation: (db: typeof dbMock) => unknown) =>
@@ -252,6 +254,72 @@ describe("project-meeting-note-service", () => {
       projectId: "project-1",
       minimumRole: "viewer",
       db: dbMock,
+    });
+  });
+
+  test("uses the safe actor projection when RLS hides collaborator and agent rows", async () => {
+    dbMock.$queryRaw.mockResolvedValueOnce([
+      {
+        kind: "human",
+        actorId: "user-2",
+        name: "Editor",
+        email: "editor@example.com",
+        username: "editor",
+        usernameDiscriminator: "0002",
+        avatarSeed: "seed-editor",
+        label: null,
+        revokedAt: null,
+        expiresAt: null,
+      },
+      {
+        kind: "agent",
+        actorId: "credential-1",
+        name: null,
+        email: null,
+        username: null,
+        usernameDiscriminator: null,
+        avatarSeed: null,
+        label: "Release agent",
+        revokedAt: null,
+        expiresAt: null,
+      },
+    ]);
+    dbMock.projectMeetingNote.findMany.mockResolvedValueOnce([
+      {
+        ...baseMeetingNoteRecord,
+        stewardUserId: "user-2",
+        stewardDisplayNameSnapshot: "editor",
+        stewardUser: null,
+        actions: [
+          {
+            ...baseMeetingNoteRecord.actions[0],
+            assigneeKind: "agent",
+            assigneeCredentialId: "credential-1",
+            assigneeDisplayNameSnapshot: "Release agent",
+            assigneeCredential: null,
+          },
+        ],
+      },
+    ]);
+
+    const result = await listProjectMeetingNotes({
+      actorUserId: "user-1",
+      projectId: "project-1",
+    });
+
+    expect(result[0]?.steward).toMatchObject({
+      kind: "human",
+      id: "user-2",
+      displayName: "editor",
+      status: "active",
+      isAssignable: true,
+    });
+    expect(result[0]?.actions[0]?.assignee).toMatchObject({
+      kind: "agent",
+      id: "credential-1",
+      displayName: "Release agent",
+      status: "active",
+      isAssignable: true,
     });
   });
 

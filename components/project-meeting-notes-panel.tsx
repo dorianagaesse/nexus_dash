@@ -1918,6 +1918,7 @@ export function ProjectMeetingNotesPanel({
                     }}
                     disabled={pendingStewardNoteId === prepareNote.id}
                     pending={pendingStewardNoteId === prepareNote.id}
+                    triggerClassName="min-h-11"
                   />
                   {pendingStewardNoteId === prepareNote.id ? (
                     <span className="text-xs text-muted-foreground">
@@ -1925,6 +1926,11 @@ export function ProjectMeetingNotesPanel({
                     </span>
                   ) : null}
                 </div>
+                {stewardError ? (
+                  <p role="alert" className="text-xs text-destructive">
+                    {stewardError}
+                  </p>
+                ) : null}
                 <p className="text-xs text-muted-foreground">
                   New notes default to you as steward. Reassign any time without
                   changing the note content.
@@ -2171,6 +2177,7 @@ export function ProjectMeetingNotesPanel({
                     }}
                     disabled={pendingStewardNoteId === selectedNote.id}
                     pending={pendingStewardNoteId === selectedNote.id}
+                    triggerClassName="min-h-11"
                   />
                 ) : (
                   <MeetingTodoAssigneeChipReadonly

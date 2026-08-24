@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.38.0 - 2026-08-10
+## v0.38.0 - 2026-08-24
 
 - Added a durable, reassignable steward/facilitator actor to every meeting note
   (human project member or active project agent credential), reusing the

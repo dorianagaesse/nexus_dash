@@ -16,8 +16,8 @@ accountable steward, the meeting-todo follow-ups live under an anonymous
 parent, and the audit-driven "needs decision provenance" call to action has no
 note-level surface.
 
-TASK-330 introduced the reusable meeting-todo actor contract for human project
-members and active project agent credentials. This task continues the
+TASK-330 introduced the reusable meeting-todo actor contract for human
+project members and active project agent credentials. This task continues the
 deliberate, narrow pattern: surface a single, reassignable steward/facilitator
 on every meeting note without expanding into cross-artifact ownership or a
 workspace ownership queue.
@@ -33,8 +33,8 @@ workspace ownership queue.
   target, light/dark, semantic status) in the meeting detail and note
   preparation flow; viewers see the same identity without mutation
   affordances.
-- Add steward responsibility filters (`All`, `Stewarded by me`, `Unstewarded`)
-  for both active and archived notes.
+- Add steward responsibility filters (`All`, `Stewarded by me`,
+  `Unstewarded`) for both active and archived notes.
 - Reuse the established human/agent registry and chip so removed members and
   revoked/expired agents surface as `Needs reassignment` rather than silently
   orphaning the note.
@@ -70,16 +70,16 @@ workspace ownership queue.
    must survive unrelated field edits.
 3. Editors can assign or clear a steward from meeting detail and the
    preparation flow using a labeled, keyboard-operable chip with pending and
-   error feedback. Viewers see steward identity without mutation affordances,
-   and the mutation/deletion boundary is explicit in the UI.
+   error feedback. Viewers see steward identity without mutation
+   affordances, and the mutation/deletion boundary is explicit in the UI.
 4. Steward validation is enforced in the service boundary. Human steward
    candidates must currently own or belong to the project; agent steward
    candidates must be active, unexpired credentials for that project.
    Stewardship never grants access, and external meeting participants are
    never selectable as stewards.
-5. Removed human members and revoked/expired agents remain visibly attached to
-   their note as inactive and labeled `Needs reassignment` until cleared or
-   reassigned.
+5. Removed human members and revoked/expired agents remain visibly attached
+   to their note as inactive and labeled `Needs reassignment` until cleared
+   or reassigned.
 6. The meeting notes panel supports stable URL-backed
    `All`/`Stewarded by me`/`Unstewarded` filters for both active and archived
    lists, with accurate counts and useful filtered empty states.
