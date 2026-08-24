@@ -96,8 +96,8 @@ would read it; editors would write to it.
   - History and capability enforcement fall back to scraping Google API
     responses, which is fragile and provider-shaped.
 - **Verdict:** Rejected. Loses the audit's primary wins (NexusDash-owned
-history, capability-aware authorization, project actor identity) while
-introducing a brittle cross-system trust dependency.
+  history, capability-aware authorization, project actor identity) while
+  introducing a brittle cross-system trust dependency.
 
 ### Option B — NexusDash-owned shared schedule with optional external sync (selected)
 
@@ -122,7 +122,7 @@ the user's personal calendar through their own OAuth credentials.
   - External sync is a feature, not a requirement, so it can be deferred and
     shipped incrementally.
 - **Verdict:** Selected. Aligns with the audit, the architecture, and the
-existing TASK-336 refinement program.
+  existing TASK-336 refinement program.
 
 ### Option C — Build the shared schedule inline without TASK-337/TASK-331
 
@@ -140,7 +140,7 @@ Skip the actor + capability foundation and ship a flat schedule with
   - History and audit cannot produce the actor-attributed, snapshot-safe
     timeline the audit requires.
 - **Verdict:** Rejected. Throws away the foundation work that is already
-sequenced.
+  sequenced.
 
 ## 4) Decision
 
@@ -153,7 +153,7 @@ records. Each event is owned by the project and has:
   `createdAt`, `updatedAt`, `deletedAt` (soft-delete), and a `revision`
   counter for safe replace and conflict rejection (TASK-339).
 - **Time:** `startAt`, `endAt`, `isAllDay`, `timezone` (the actor's
-  timezone at creation time, captured by IDB tz name, not an offset).
+  timezone at creation time, captured by IANA time-zone name, not an offset).
   All-day events use UTC midnight with a separate exclusive `endDate`.
 - **Content:** `summary` (required, 1–200 chars), `description`
   (markdown, 0–4000), `location` (text), `status` (`scheduled` |
@@ -205,16 +205,16 @@ agent credential.
 The schedule exposes granular capabilities that plug into the same
 vocabulary as tasks, meeting notes, context cards, epics, and roadmap:
 
-| Capability | Reserved to | Service enforcement |
-|---|---|---|
-| `schedule.read` | viewer, editor, owner | List and detail reads; RLS via `withActorRlsContext`. |
-| `schedule.create` | editor, owner | POST `/api/projects/:projectId/schedule/events`. |
-| `schedule.update` | editor, owner (unless assignee-only edits are allowed) | PATCH route; reserved-revision precondition. |
-| `schedule.delete` | editor, owner (cascades to external links) | DELETE route; tombstone. |
-| `schedule.assign` | editor, owner | Add/remove `ProjectScheduleEventAssignee`. |
-| `schedule.export` | editor, owner | Emit ICS / mirror to user's external calendar. |
-| `schedule.observe` | viewer, editor, owner | Project activity SSE event subscription. |
-| `schedule.sync` | self — only the actor's own external link | Sync on behalf of the user; never on behalf of someone else. |
+| Capability         | Reserved to                                            | Service enforcement                                          |
+| ------------------ | ------------------------------------------------------ | ------------------------------------------------------------ |
+| `schedule.read`    | viewer, editor, owner                                  | List and detail reads; RLS via `withActorRlsContext`.        |
+| `schedule.create`  | editor, owner                                          | POST `/api/projects/:projectId/schedule/events`.             |
+| `schedule.update`  | editor, owner (unless assignee-only edits are allowed) | PATCH route; reserved-revision precondition.                 |
+| `schedule.delete`  | editor, owner (cascades to external links)             | DELETE route; tombstone.                                     |
+| `schedule.assign`  | editor, owner                                          | Add/remove `ProjectScheduleEventAssignee`.                   |
+| `schedule.export`  | editor, owner                                          | Emit ICS / mirror to user's external calendar.               |
+| `schedule.observe` | viewer, editor, owner                                  | Project activity SSE event subscription.                     |
+| `schedule.sync`    | self — only the actor's own external link              | Sync on behalf of the user; never on behalf of someone else. |
 
 Rules consistent with TASK-331:
 
