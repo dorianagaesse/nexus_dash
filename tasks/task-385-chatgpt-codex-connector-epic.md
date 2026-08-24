@@ -101,10 +101,59 @@ The existing Agent REST API remains supported and regression-tested.
 12. Revocation, disconnect, rollback, diagnostics, and emergency disablement
     procedures are documented and exercised.
 
+## Runtime Assumptions
+
+- Local and CI validation have a reachable PostgreSQL database that satisfies
+  the repository's migration and runtime-role contract in
+  [`docs/runbooks/local-validation.md`](../docs/runbooks/local-validation.md)
+  and
+  [`docs/runbooks/database-connection-hardening.md`](../docs/runbooks/database-connection-hardening.md).
+- Preview and production retain separate database, OAuth, signing, encryption,
+  and plugin credentials. Required server variables and secrets are declared
+  through `lib/env.server.ts` and documented without values in
+  [`docs/runbooks/vercel-env-contract-and-secrets.md`](../docs/runbooks/vercel-env-contract-and-secrets.md).
+- TASK-387 decides whether MCP request handling is stateless or uses durable
+  session state and verifies that the selected design fits the Vercel runtime.
+- TASK-395 reuses the existing NexusDash user identity only where the ADR shows
+  that login, consent, token issuance, refresh, revocation, and audit semantics
+  remain safe and explicit.
+- Public preview and production origins can expose stable HTTPS MCP, OAuth
+  metadata, authorization, callback, revocation, health, and diagnostic paths.
+- TASK-386 is the authority for which ChatGPT and Codex clients can be included
+  in acceptance at validation time; an unavailable or policy-disabled surface
+  is documented rather than silently assumed.
+- The Agent REST API remains enabled throughout delivery and is validated from
+  the same branch and environment as the MCP connector.
+
+## Validation And Evidence Contract
+
+- Run the repository baseline from `agent.md`: lint, RLS inventory, unit/API
+  tests, coverage, and production build; add the real PostgreSQL RLS matrix
+  whenever models, migrations, runtime roles, or tenant policies change.
+- Add focused automated evidence for MCP initialization/discovery, every tool
+  schema and handler, OAuth metadata and PKCE, token expiry/refresh/revocation,
+  capability enforcement, confirmations, redaction, pagination, and Agent REST
+  non-regression.
+- Trigger the explicit branch through `deploy-vercel.yml` using `git_ref`, then
+  retain the workflow run, checked-out ref and revision, immutable preview URL,
+  environment/database identity, and artifact evidence described by
+  [`docs/runbooks/github-actions-workflows.md`](../docs/runbooks/github-actions-workflows.md).
+- Validate the immutable preview endpoint with MCP Inspector before connecting
+  the private plugin, then execute the TASK-401 evaluation suite and the
+  supported-client journeys recorded by TASK-386.
+- Exercise authorization failure, disconnect, compromised-session revocation,
+  credential rotation, rollback, and emergency disablement without recording
+  raw tokens or secrets. Reuse the safe preview-access evidence practices in
+  [`docs/runbooks/protected-preview-agent-access.md`](../docs/runbooks/protected-preview-agent-access.md).
+- Record final validation outcomes, residual client/rollout limitations,
+  production smoke evidence, and rollback readiness in the task briefs,
+  journal, and connector operations runbook before closing the Epic.
+
 ## Definition Of Done
 
 - TASK-386 records the supported account, workspace, ChatGPT, and Codex
-  surfaces and any rollout limitations that constrain acceptance.
+  surfaces in a dated evidence report and any rollout limitations that
+  constrain acceptance.
 - The architecture ADR, tool catalog, security policy, OAuth/scopes model, and
   shared-service boundaries are approved and represented by executable tasks.
 - The remote MCP server, read/write tools, OAuth flow, authorization mapping,

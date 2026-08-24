@@ -210,7 +210,7 @@ Last reviewed: 2026-08-24
 - ID: TASK-386
   Title: ChatGPT and Codex plugin availability gate for the target account
   Status: Pending - discovery gate
-  Rationale: Before implementation, verify Developer mode, custom remote MCP connection, private plugin installation, ChatGPT web/desktop/mobile access, and supported Codex surfaces for the owner's actual account and workspace. Record rollout, policy, authentication, and client differences so the program does not promise an unavailable surface; keep the result current enough to inform preview acceptance.
+  Rationale: Before implementation, verify Developer mode, custom remote MCP connection, private plugin installation, ChatGPT web/desktop/mobile access, and supported Codex surfaces for the owner's actual account and workspace. Produce a dated evidence report naming the tested account/workspace type, client and platform versions, official documentation sources, observed rollout/policy/authentication limits, and results per surface. Revalidate before TASK-402 and TASK-403 whenever the report is older than 30 days, official availability guidance changes, the workspace policy changes, or a target client/plugin version materially changes.
   Dependencies: TASK-115
 - ID: TASK-387
   Title: ChatGPT and Codex connector architecture ADR
