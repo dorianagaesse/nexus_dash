@@ -210,7 +210,7 @@ Last reviewed: 2026-08-24
 - ID: TASK-386
   Title: ChatGPT and Codex plugin availability gate for the target account
   Status: Pending - discovery gate
-  Rationale: Before implementation, verify Developer mode, custom remote MCP connection, private plugin installation, ChatGPT web/desktop/mobile access, and supported Codex surfaces for the owner's actual account and workspace. Produce a dated evidence report naming the tested account/workspace type, client and platform versions, official documentation sources, observed rollout/policy/authentication limits, and results per surface. Revalidate before TASK-402 and TASK-403 whenever the report is older than 30 days, official availability guidance changes, the workspace policy changes, or a target client/plugin version materially changes.
+  Rationale: Before implementation, verify Developer mode, custom remote MCP connection, private plugin installation, ChatGPT web/desktop/mobile access, supported Codex surfaces, and support for the selected incremental project-authorization flow on the owner's actual account and workspace. Produce a dated evidence report naming the tested account/workspace type, client and platform versions, official documentation sources, observed rollout/policy/authentication limits, and results per surface. Revalidate before TASK-402 and TASK-403 whenever the report is older than 30 days, official availability guidance changes, the workspace policy changes, or a target client/plugin version materially changes.
   Dependencies: TASK-115
 - ID: TASK-387
   Title: ChatGPT and Codex connector architecture ADR
@@ -255,17 +255,17 @@ Last reviewed: 2026-08-24
 - ID: TASK-395
   Title: OAuth 2.1 authorization for the NexusDash MCP server
   Status: Pending
-  Rationale: Implement Authorization Code with PKCE, short-lived access tokens, revocable rotating refresh tokens, protected-resource metadata, authorization-server or OpenID Connect metadata, correct `resource` propagation, and the selected CIMD, DCR, or predefined-client strategy. Reuse NexusDash identity where safe and support connector disconnect, consent revocation, and token-family invalidation.
+  Rationale: Implement Authorization Code with PKCE, short-lived access tokens, revocable rotating refresh tokens, protected-resource metadata, authorization-server or OpenID Connect metadata, correct `resource` propagation, and the selected CIMD, DCR, or predefined-client strategy. Support a discovery-only bootstrap grant followed by a client-compatible incremental authorization or token exchange for a selected project. Reuse NexusDash identity where safe and support connector disconnect and consent revocation; enforce immediate failure of already-issued access tokens through introspection, a session/token version, or a bounded denylist in addition to refresh-token-family invalidation.
   Dependencies: TASK-048, TASK-059, TASK-083, TASK-386, TASK-387, TASK-391
 - ID: TASK-396
   Title: OAuth scope mapping to NexusDash project capabilities
   Status: Pending
-  Rationale: Define and enforce only the OAuth scopes required by the v1 catalog: a distinct project-discovery scope for membership-filtered `list_projects`, plus project-bound project read, task read/write, context read, and roadmap read scopes. The discovery scope may return only projects currently visible to the authenticated user and never authorizes a project-specific operation by itself; every subsequent tool must check its project-bound scope and current membership/capability. Do not request or issue context-write or roadmap-write scopes until explicit write tools, acceptance criteria, and authorization tests are approved; prevent responsibility metadata from granting access and block cross-user or cross-project traversal.
+  Rationale: Define and enforce only the OAuth scopes required by the v1 catalog: a discovery-only bootstrap scope for membership-filtered `list_projects`, plus short-lived grants bound to one selected project with project read, task read/write, context read, and roadmap read scopes. Define the post-discovery incremental authorization/token exchange, project identifier binding, consent representation, and separate-grant behavior for multi-project use. The discovery scope never authorizes a project-specific operation; every subsequent tool verifies the token's project binding, approved scope, current membership, and capability. Do not request or issue context-write or roadmap-write scopes until explicit write tools and tests are approved; block cross-user or cross-project traversal.
   Dependencies: TASK-331, TASK-389, TASK-395
 - ID: TASK-397
   Title: MCP security controls, quotas, audit, and observability
   Status: Pending
-  Rationale: Deliver the connector's public-endpoint rate-limiting baseline with per-user and per-tool quotas, payload and pagination bounds, forged-identifier defenses, write audit events, OAuth refusal/error logging, token and sensitive-data redaction, immediate compromised-session revocation, and latency/error/usage metrics. Before TASK-401 begins, approve a bounded retention and redaction policy for evaluation and preview artifacts. Define actionable alerts without logging model prompts or resource content unnecessarily; broader non-connector API rate limiting remains tracked separately by TASK-064.
+  Rationale: Deliver the connector's public-endpoint rate-limiting baseline with pre-authentication IP/client/endpoint limits for metadata, authorization, registration, and token paths plus post-authentication per-user and per-tool quotas. Add payload and pagination bounds, forged-identifier defenses, write audit events, OAuth refusal/error logging, token and sensitive-data redaction, immediate compromised-session/access-token revocation, and latency/error/usage metrics. Before TASK-401 begins, approve a bounded retention and redaction policy for evaluation and preview artifacts. Validate abuse paths that never authenticate or create many sessions/clients; broader non-connector API rate limiting remains tracked by TASK-064.
   Dependencies: TASK-043, TASK-307, TASK-389, TASK-395, TASK-396
 - ID: TASK-398
   Title: NexusDash plugin skill and model operating instructions
@@ -280,7 +280,7 @@ Last reviewed: 2026-08-24
 - ID: TASK-400
   Title: MCP, OAuth, plugin, and Agent REST automated test matrix
   Status: Pending
-  Rationale: Cover MCP initialization/discovery, schemas, read/write tools, pagination, empty results, OAuth authorization/expiry/refresh/revocation, insufficient scopes, unauthorized projects, annotations, confirmations, redaction, and Agent REST non-regression. Include realistic transport and authorization boundaries rather than only isolated tool handlers.
+  Rationale: Cover MCP initialization/discovery, schemas, read/write tools, pagination, empty results, discovery-only and project-bound grant exchange, multi-project isolation, OAuth authorization/expiry/refresh/revocation, immediate rejection of an already-issued revoked access token, pre-auth endpoint abuse limits, insufficient scopes, unauthorized projects, annotations, confirmations, redaction, and Agent REST non-regression. Include realistic transport and authorization boundaries rather than only isolated tool handlers.
   Dependencies: TASK-391, TASK-392, TASK-393, TASK-394, TASK-395, TASK-396, TASK-397, TASK-399
 - ID: TASK-401
   Title: NexusDash connector agent evaluation suite
@@ -290,7 +290,7 @@ Last reviewed: 2026-08-24
 - ID: TASK-402
   Title: Preview deployment and end-to-end MCP connector validation
   Status: Pending
-  Rationale: Deploy MCP, OAuth, and the private plugin against the explicit preview branch; verify the endpoint with MCP Inspector and supported ChatGPT Developer mode; exercise reads, writes, confirmations, logs, metrics, schemas, tool selection, token lifecycle, and Agent REST regression; and retain preview URL, workflow, revision, and environment evidence.
+  Rationale: Deploy MCP, OAuth, and the private plugin against the explicit preview branch. Keep `/mcp` disabled until a fail-closed activation preflight proves the expected branch/revision/environment, OAuth metadata and enforcement, project-bound grant exchange, scope checks, immediate revocation, security controls, schemas, and required secrets/config are valid; TASK-402 is the first task permitted to activate the endpoint. Then verify it with MCP Inspector and supported ChatGPT Developer mode; exercise reads, writes, confirmations, logs, metrics, tool selection, token lifecycle, and Agent REST regression; and retain preview URL, workflow, revision, activation, and environment evidence.
   Dependencies: TASK-315, TASK-370, TASK-399, TASK-400, TASK-401
 - ID: TASK-403
   Title: ChatGPT and Codex web, desktop, and mobile connector experience validation

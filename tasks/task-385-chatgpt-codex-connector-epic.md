@@ -42,6 +42,8 @@ The existing Agent REST API remains supported and regression-tested.
 - Keep the MCP tool endpoint disabled by default and fail closed when OAuth
   enforcement or required metadata is absent, invalid, or misconfigured; no
   unauthenticated implementation window may expose tool discovery or calls.
+  TASK-402 is the first task allowed to activate `/mcp`, after its preflight
+  proves TASK-395 through TASK-400 are present and valid in that environment.
 - Publish the protected-resource and authorization-server metadata required by
   MCP clients, including correct `resource` propagation and a supported client
   registration strategy.
@@ -53,6 +55,12 @@ The existing Agent REST API remains supported and regression-tested.
 - Authorize account-level `list_projects` through a distinct project-discovery
   capability that returns only memberships visible to the current user;
   require project-bound scopes again for every project-specific operation.
+- Use a two-stage authorization path: an initial discovery-only grant can call
+  `list_projects`, then a post-discovery authorization/token exchange issues a
+  short-lived grant bound to one selected project and its approved operation
+  scopes. Multi-project use requires explicit grants per project rather than a
+  broad all-project bearer token; TASK-386 must confirm the client can complete
+  the selected incremental authorization flow.
 - Return concise, structured, paginated, model-readable results.
 - Annotate tool behavior, including read-only, destructive, and idempotent
   characteristics, and require a server-validated, short-lived confirmation
@@ -99,23 +107,26 @@ The existing Agent REST API remains supported and regression-tested.
 3. No static NexusDash user secret is sent to or stored in ChatGPT or Codex.
 4. NexusDash project membership, role, and capability checks apply to every
    tool call and prevent cross-project or cross-user access.
-5. The initial read and write tools work from the confirmed ChatGPT surfaces
+5. Project discovery never authorizes project data access by itself; every
+   project-specific call uses a short-lived grant bound to the selected project
+   and approved scopes, with separate explicit grants for additional projects.
+6. The initial read and write tools work from the confirmed ChatGPT surfaces
    and any confirmed Codex surfaces.
-6. Subject to TASK-386 availability findings, the owner can install and use the
+7. Subject to TASK-386 availability findings, the owner can install and use the
    private plugin on supported web, desktop, and mobile clients.
-7. A new conversation can rediscover the connected NexusDash tools without a
+8. A new conversation can rediscover the connected NexusDash tools without a
    local machine or local `.env` file.
-8. Sensitive writes present an accurate confirmation naming the resource and
+9. Sensitive writes present an accurate confirmation naming the resource and
    operation and cannot execute without a server-validated intent bound to the
    user, tool, resource, and proposed change.
-9. No permanent-delete tool is discoverable or callable in v1.
-10. The Agent REST API and its regression suite continue to pass.
-11. Preview validation covers transport, OAuth, authorization, schemas, tool
+10. No permanent-delete tool is discoverable or callable in v1.
+11. The Agent REST API and its regression suite continue to pass.
+12. Preview validation covers transport, OAuth, authorization, schemas, tool
     selection, confirmations, audit output, and REST non-regression before
     production deployment.
-12. Calls, authorization refusals, and failures are observable without logging
+13. Calls, authorization refusals, and failures are observable without logging
     tokens, secrets, or unnecessarily sensitive content.
-13. Revocation, disconnect, rollback, diagnostics, and emergency disablement
+14. Revocation, disconnect, rollback, diagnostics, and emergency disablement
     procedures are documented and exercised.
 
 ## Runtime Assumptions

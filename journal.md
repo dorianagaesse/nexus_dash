@@ -33,6 +33,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Release-safety review made `/mcp` disabled by default and fail closed until
   OAuth enforcement is active, and added `tasks/current.md` to the Epic's
   explicit completion tracking.
+- Authorization review made TASK-402 the sole activation gate, defined the
+  discovery-to-project-bound grant exchange and multi-project consent model,
+  required immediate invalidation of issued access tokens, and added pre-auth
+  abuse limits for public OAuth and metadata endpoints.
 - Docs-only planning change; no connector or runtime behavior was implemented.
 
 # 2026-08-24 - Codex session feedback added to backlog
