@@ -3,6 +3,75 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-24 - ChatGPT and Codex connector Epic added to backlog
+
+- Integrated the attached ND-MCP plan as non-executable TASK-385 with a
+  dedicated Epic brief and twenty focused delivery tasks, TASK-386 through
+  TASK-405.
+- Preserved the proposed remote Streamable HTTP MCP, OAuth 2.1, shared-service,
+  read/write tool, no-delete v1, private-plugin, test/evaluation, preview,
+  production, and operations workstreams.
+- Verified the cited official OpenAI documentation for stable HTTPS MCP
+  endpoints, Streamable HTTP, OAuth 2.1/PKCE metadata requirements, Developer
+  mode testing, confirmations, and current plugin surfaces. Kept account,
+  workspace, mobile, and Codex availability behind TASK-386 rather than
+  assuming universal access.
+- Copilot review made project discovery and paginated comment reads explicit,
+  added the Epic Definition of Done, and moved the exercised operations runbook
+  ahead of production rollout so revocation and rollback are real gates.
+- A follow-up review made TASK-386's availability evidence dated and
+  reproducible with explicit revalidation triggers, and added runtime
+  assumptions plus a branch/preview/runbook-backed validation contract to the
+  Epic brief.
+- The final safety pass defined relation add/remove preservation, sanitized and
+  bounded evaluation evidence, server-enforced confirmation intents for
+  sensitive writes, and least-privilege v1 scopes limited to exposed tools.
+- Dependency review added a membership-filtered project-discovery capability,
+  made scope mapping precede plugin packaging, placed evaluation retention
+  policy before artifact collection, and kept connector quotas in TASK-397
+  without reactivating the broader deferred TASK-064 baseline.
+- Release-safety review made `/mcp` disabled by default and fail closed until
+  OAuth enforcement is active, and added `tasks/current.md` to the Epic's
+  explicit completion tracking.
+- Authorization review made TASK-402 the sole activation gate, defined the
+  discovery-to-project-bound grant exchange and multi-project consent model,
+  required immediate invalidation of issued access tokens, and added pre-auth
+  abuse limits for public OAuth and metadata endpoints.
+- Final thread triage made Epic completion conditional on TASK-386-supported
+  surfaces, added signed discovery/project token-use claims with cross-project
+  replay rejection, and independently gated sensitive write tools until the
+  server-enforced confirmation flow is active.
+- Docs-only planning change; no connector or runtime behavior was implemented.
+
+# 2026-08-24 - Codex session feedback added to backlog
+
+- Captured thirteen submitted feedback points as fourteen focused follow-ups,
+  TASK-371 through TASK-384, under a new `Codex Session Feedback Refinement Program`
+  section in `tasks/backlog.md`.
+- Added a backlog task for screenshot attachments in task descriptions/comments
+  and preserved the submitted `dd` item verbatim with an explicit clarification
+  gate.
+- Converted the agent-session feedback into focused API tasks covering a
+  canonical labels array, single-task status transitions, true partial PATCH,
+  complete create responses, server-side epic/label filters, bounded bulk
+  operations, non-delete credential presets, and Epic-driven task labels. The
+  filters and bulk operations are separate tasks because their API contracts
+  and acceptance concerns are independent.
+- Added two Kanban refinement tasks: a responsive bounded-height board with
+  independently scrollable lanes, and a search/filter surface spanning task
+  titles, descriptions, comments, labels, and clickable label chips.
+- Added a focused bug task to diagnose and fix stale Epic task counts after
+  task creation, linking, unlinking, or reassignment without requiring a no-op
+  Epic edit/save; sequenced the broader cross-client realtime work after it.
+- Added an independently executable Kanban Epic filter covering one or more
+  Epics, unassigned tasks, clear state, result counts, filtered drag-and-drop,
+  and future composition with search and label filters.
+- Copilot review aligned the partial PATCH and create-response entries with
+  behavior that already exists at runtime, replaced an undefined Kanban
+  dependency, and kept Kanban search independently executable from lane
+  scrolling.
+- Docs-only backlog grooming; no runtime behavior changed.
+
 # 2026-08-20 - TASK-370 preview isolation validated
 
 - Removed stale Preview `NEXTAUTH_URL` and OAuth redirect overrides from

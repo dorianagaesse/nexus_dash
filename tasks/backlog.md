@@ -2,7 +2,7 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-08-08
+Last reviewed: 2026-08-24
 
 ## Pending
 ### Active Runtime Remediation
@@ -124,7 +124,7 @@ Last reviewed: 2026-08-08
   Title: Epic live refresh on task and epic mutations
   Status: Pending
   Rationale: Creating or linking a task does not update the Epics panel in real time, so users have to manually refresh to see their epic's progress and linked-tasks count update. Extend the typed realtime/refresh path so epic rollups, progress, and linked-task counts reconcile after relevant task mutations, and add focused dashboard activity events for epic mutations themselves; preserve the safe remote-update semantics already shipped for tasks, comments, and context cards.
-  Dependencies: TASK-107, TASK-118, TASK-276, TASK-311
+  Dependencies: TASK-107, TASK-118, TASK-276, TASK-311, TASK-383
 - ID: TASK-368
   Title: Task comment "Add comment" vs "Save changes" button distinction
   Status: Pending
@@ -135,6 +135,178 @@ Last reviewed: 2026-08-08
   Status: Pending
   Rationale: The Roadmap section's milestone/grouped-event model only "clicked" for the reviewer after creating two or three items. Add an opt-in help affordance (reusing the upcoming TASK-134 pattern) plus a clearer empty-state explanation of what a milestone is, how phases and events relate, and what good inputs look like, so the first interaction is self-explanatory.
   Dependencies: TASK-106, TASK-130, TASK-134
+### Codex Session Feedback Refinement Program
+- ID: TASK-371
+  Title: Screenshot attachments in task descriptions and comments
+  Status: Pending
+  Rationale: Let collaborators paste or upload screenshots directly in task descriptions and task comments so visual evidence, reproduction context, and design feedback stay with the work instead of requiring an external link. Reuse the existing attachment storage and authorization boundaries, provide inline previews, and keep upload behavior accessible on desktop and mobile.
+  Dependencies: TASK-019, TASK-029, TASK-099, TASK-133
+- ID: TASK-372
+  Title: dd
+  Status: Pending - scope clarification required
+  Rationale: Preserve the submitted backlog item exactly as provided so it is not lost. Clarify the intended outcome, affected product surface, acceptance criteria, and dependencies before moving it into the execution queue or beginning implementation.
+  Dependencies: None identified pending clarification
+- ID: TASK-373
+  Title: Agent task API labels contract - expose a canonical string array
+  Status: Pending
+  Rationale: Return task labels to agent clients as a first-class `labels: string[]` field instead of requiring callers to reconcile the legacy singular `label` value with the JSON-encoded `labelsJson` string. Keep the write and read contracts consistent, document any compatibility window, and cover empty, single-label, and multi-label responses.
+  Dependencies: TASK-031, TASK-115, TASK-127
+- ID: TASK-374
+  Title: Agent task API single-task status transition
+  Status: Pending
+  Rationale: Allow an agent to change one task's status without submitting the ordering of every Kanban column. Define a focused project-scoped mutation that preserves deterministic ordering in both the source and destination columns, returns the updated task, and leaves full-board reorder available for explicit bulk reordering.
+  Dependencies: TASK-059, TASK-115, TASK-127, TASK-276
+- ID: TASK-375
+  Title: Agent task OpenAPI contract for true partial PATCH semantics
+  Status: Pending
+  Rationale: Align the published agent OpenAPI contract with the runtime's existing partial-update behavior so `PATCH /api/projects/{projectId}/tasks/{taskId}` does not document `title` as required when only another field changes. Document omitted fields versus explicit null or clear operations, retain validation for supplied values, and add contract coverage that prevents the schema from drifting from the tested route behavior.
+  Dependencies: TASK-055, TASK-115, TASK-127
+- ID: TASK-376
+  Title: Agent task creation OpenAPI complete response contract
+  Status: Pending
+  Rationale: Align the published `TaskCreateResponse` schema and agent documentation with the runtime response, which already includes both `taskId` and the complete created `task`. Describe the canonical labels, status, ordering, epic, assignment, timestamps, and other server-derived fields, and add contract coverage so generated clients can use the full task without a follow-up read.
+  Dependencies: TASK-055, TASK-115, TASK-127, TASK-373
+- ID: TASK-377
+  Title: Agent task API server-side epic and label filters
+  Status: Pending
+  Rationale: Add server-side `epicId` and `label` filters to task listing so agent clients can retrieve focused work without downloading and filtering an entire board. Define filter composition, empty and unknown-filter behavior, pagination interaction, and response metadata while preserving project authorization boundaries.
+  Dependencies: TASK-059, TASK-107, TASK-115, TASK-127, TASK-331, TASK-373
+- ID: TASK-378
+  Title: Agent task API bounded bulk operations
+  Status: Pending
+  Rationale: Define bounded bulk task operations for common agent workflows without requiring repeated single-item calls or full-board rewrites. Specify supported mutations, maximum batch size, per-item authorization and validation, atomicity or partial-failure behavior, idempotency expectations, and detailed result reporting.
+  Dependencies: TASK-059, TASK-115, TASK-127, TASK-331, TASK-374, TASK-375
+- ID: TASK-379
+  Title: Agent credential presets for read/write access without delete
+  Status: Pending
+  Rationale: Make it straightforward to issue a project-scoped agent token that can read and update tasks without deletion permission. The underlying write/delete scope split already exists, so align credential setup guidance, presets, and task-oriented onboarding examples to avoid granting `task:delete` for missions that do not require destructive access.
+  Dependencies: TASK-059, TASK-115, TASK-331
+- ID: TASK-380
+  Title: Epic default or suggested task label
+  Status: Pending
+  Rationale: Let an Epic define a label that is automatically applied or clearly suggested when tasks are created in or linked to that Epic. Define precedence when a task already has labels, behavior when tasks move between Epics, and whether the Epic policy is required or advisory so related work cannot silently remain inconsistently labeled.
+  Dependencies: TASK-031, TASK-107, TASK-343
+- ID: TASK-381
+  Title: Bounded Kanban height with independently scrollable lanes
+  Status: Pending
+  Rationale: Prevent the Kanban board from growing indefinitely with the number of task cards. Give the board a responsive fixed or viewport-bounded vertical size and make each lane's task area scroll independently while keeping the lane header, task count, and create affordances visible. Preserve drag-and-drop behavior, keyboard access, scroll position, and usable mobile layouts when tasks move within or between long lanes.
+  Dependencies: TASK-096, TASK-100, TASK-133, TASK-322
+- ID: TASK-382
+  Title: Kanban task search and clickable label filters
+  Status: Pending
+  Rationale: Add a search and filter surface above the Kanban board that finds authorized tasks by title, description, comments, labels, and other useful task text without exposing hidden or cross-project content. Let users click a label on a task card or in the filter controls to toggle that label filter, clearly show active search/filter state and result counts, support combining or clearing criteria, and keep matching behavior responsive for large boards.
+  Dependencies: TASK-031, TASK-099, TASK-108, TASK-133
+- ID: TASK-383
+  Title: Fix stale Epic task count after task creation or linking
+  Status: Pending - bug remediation
+  Rationale: Reproduce and identify why an Epic's linked-task count and derived progress remain stale after creating a task in that Epic, then refresh only after the Epic edit form is opened and saved. Trace the task create/link/unlink/reassignment mutation path through server-derived Epic data and client state reconciliation, fix the root cause without relying on a no-op Epic save or full page reload, and add regression coverage proving the Epic area updates immediately after each relevant task mutation. This focused same-session correctness fix should land before TASK-367 expands cross-client realtime Epic refresh behavior.
+  Dependencies: TASK-107, TASK-118, TASK-276, TASK-311
+- ID: TASK-384
+  Title: Kanban task filtering by Epic
+  Status: Pending
+  Rationale: Add an Epic filter to the Kanban board so users can focus every lane on tasks linked to one or more selected Epics, explicitly include or isolate tasks with no Epic, and clear the selection in one action. Show active Epic filters and filtered result counts, preserve authorized project boundaries, keep drag-and-drop behavior predictable while a filter is active, and compose cleanly with task search and label filters when those controls are available without making this task depend on their delivery.
+  Dependencies: TASK-107, TASK-108, TASK-133
+### ChatGPT and Codex Connector Program (TASK-385 Epic)
+- ID: TASK-386
+  Title: ChatGPT and Codex plugin availability gate for the target account
+  Status: Pending - discovery gate
+  Rationale: Before implementation, verify Developer mode, custom remote MCP connection, private plugin installation, ChatGPT web/desktop/mobile access, supported Codex surfaces, and support for the selected incremental project-authorization flow on the owner's actual account and workspace. Produce a dated evidence report naming the tested account/workspace type, client and platform versions, official documentation sources, observed rollout/policy/authentication limits, and results per surface. Revalidate before TASK-402 and TASK-403 whenever the report is older than 30 days, official availability guidance changes, the workspace policy changes, or a target client/plugin version materially changes.
+  Dependencies: TASK-115
+- ID: TASK-387
+  Title: ChatGPT and Codex connector architecture ADR
+  Status: Pending
+  Rationale: Record the ChatGPT/Codex to OAuth to MCP to NexusDash service/data path, coexistence with the Agent REST API, identity and authorization model, Vercel/serverless constraints, MCP session strategy, security boundaries, observability, risks, metrics, and rollback decisions before transport implementation begins.
+  Dependencies: TASK-059, TASK-127, TASK-315, TASK-386
+- ID: TASK-388
+  Title: Initial NexusDash MCP tool catalog and contracts
+  Status: Pending
+  Rationale: Define model-readable names, descriptions, input schemas, structured outputs, pagination, filters, project/Epic/label name resolution, ambiguity handling, and explicit errors for project discovery/summary, Epic, task search/read/write/move/comment, paginated comment history, context-card, and roadmap tools. Keep permanent deletion outside v1 and align task contracts with TASK-373 through TASK-377.
+  Dependencies: TASK-127, TASK-373, TASK-374, TASK-375, TASK-376, TASK-377, TASK-386, TASK-387
+- ID: TASK-389
+  Title: MCP tool security, effects, and confirmation policy
+  Status: Pending
+  Rationale: Classify every planned tool by required OAuth scope, read/write behavior, idempotence, exact side effects, sensitivity, confirmation requirement, project-membership validation, and bounded pagination or payload limits. Prohibit permanent-delete tools in v1 and make the policy testable by the server and plugin clients.
+  Dependencies: TASK-331, TASK-387, TASK-388
+- ID: TASK-390
+  Title: Shared application-service foundation for Agent REST and MCP transports
+  Status: Pending
+  Rationale: Audit and consolidate the internal project, Epic, task, status, label, relation, comment, context-card, roadmap, authorization, and audit services so REST routes and MCP tools use the same application behavior directly. Keep persistence inside `lib/services/**` and avoid implementing MCP as a client of the public REST API when an internal service boundary exists.
+  Dependencies: TASK-060, TASK-127, TASK-387, TASK-388, TASK-389
+- ID: TASK-391
+  Title: Remote NexusDash MCP server over Streamable HTTP
+  Status: Pending
+  Rationale: Implement a stable HTTPS MCP endpoint, preferably `/mcp`, with protocol initialization, tool discovery, concise server instructions, schema validation, structured errors, serverless-compatible lifecycle behavior, safe diagnostics, and redacted logging. Keep the endpoint and each tool disabled by default and fail closed when OAuth enforcement, required metadata/config, scope/project binding, or a tool's security prerequisite is absent or invalid. In particular, expose no unauthenticated tool discovery/calls while TASK-395 is incomplete and no confirmation-required write until TASK-394's server-enforced intent path is active. Keep transport concerns thin over shared services.
+  Dependencies: TASK-315, TASK-387, TASK-389, TASK-390
+- ID: TASK-392
+  Title: NexusDash MCP read tools
+  Status: Pending
+  Rationale: Implement and test authorized, concise, paginated tools for project discovery and summaries, Epic lists/details, task search/filter/list/detail, bounded paginated task-comment history, context cards, and roadmap data. Cover empty and ambiguous results, stable identifiers, bounded payloads, and project isolation.
+  Dependencies: TASK-377, TASK-388, TASK-389, TASK-390, TASK-391
+- ID: TASK-393
+  Title: NexusDash MCP write tools
+  Status: Pending
+  Rationale: Implement and test task creation, true partial updates, status moves, comments, labels, Epic assignment, and authorized task relations through the shared services. Keep every confirmation-required handler independently disabled and fail closed until TASK-394's server-enforced intent validation is active, even if OAuth or other MCP tools are already enabled. Relation mutations must expose explicit add/remove sets that preserve unmentioned links; any separately named full-replacement operation must preview removed links and require confirmation. Each mutation returns the complete final resource plus a concise change summary, and v1 exposes no permanent-delete operation.
+  Dependencies: TASK-099, TASK-349, TASK-373, TASK-374, TASK-375, TASK-376, TASK-388, TASK-389, TASK-390, TASK-391
+- ID: TASK-394
+  Title: MCP tool annotations and sensitive-write confirmations
+  Status: Pending
+  Rationale: Add accurate MCP annotations for read-only, write, idempotent, and potentially destructive behavior, then verify client confirmations identify the exact NexusDash resource and requested action in understandable language. For every write classified as confirmation-required, implement a server-enforced two-step intent flow (preparation tool or equivalent exchange) that issues a short-lived, single-use token bound to the user, tool, resource, proposed payload hash, and authorization state; reject direct, expired, replayed, or changed-payload execution. Client prompts remain UX signals rather than the enforcement boundary.
+  Dependencies: TASK-389, TASK-392, TASK-393
+- ID: TASK-395
+  Title: OAuth 2.1 authorization for the NexusDash MCP server
+  Status: Pending
+  Rationale: Implement Authorization Code with PKCE, short-lived access tokens, revocable rotating refresh tokens, protected-resource metadata, authorization-server or OpenID Connect metadata, correct `resource` propagation, and the selected CIMD, DCR, or predefined-client strategy. Support a discovery-only bootstrap grant followed by a client-compatible incremental authorization or token exchange for one selected project. Sign explicit token-use and immutable `project_id` (or ADR-approved equivalent), subject, audience/resource, scope, token/session-version, and expiry claims so adapters can reject cross-project replay before service execution. Reuse NexusDash identity where safe and support disconnect and consent revocation; immediately reject already-issued revoked access tokens through introspection, session/token version, or a bounded denylist in addition to refresh-family invalidation.
+  Dependencies: TASK-048, TASK-059, TASK-083, TASK-386, TASK-387, TASK-391
+- ID: TASK-396
+  Title: OAuth scope mapping to NexusDash project capabilities
+  Status: Pending
+  Rationale: Define and enforce only the OAuth scopes required by the v1 catalog: a discovery-only bootstrap scope for membership-filtered `list_projects`, plus short-lived grants bound to one selected project with project read, task read/write, context read, and roadmap read scopes. Define the post-discovery incremental authorization/token exchange, consent representation, separate-grant behavior for multi-project use, and verified `project_id` claim comparison against every project argument/resource before service calls. Discovery-only tokens carry no project claim and never authorize project data; project tokens verify claim, scope, current membership, and capability. Do not issue context-write or roadmap-write scopes until tools and tests are approved; explicitly test that a token for project A cannot be replayed against project B.
+  Dependencies: TASK-331, TASK-389, TASK-395
+- ID: TASK-397
+  Title: MCP security controls, quotas, audit, and observability
+  Status: Pending
+  Rationale: Deliver the connector's public-endpoint rate-limiting baseline with pre-authentication IP/client/endpoint limits for metadata, authorization, registration, and token paths plus post-authentication per-user and per-tool quotas. Add payload and pagination bounds, forged-identifier defenses, write audit events, OAuth refusal/error logging, token and sensitive-data redaction, immediate compromised-session/access-token revocation, and latency/error/usage metrics. Before TASK-401 begins, approve a bounded retention and redaction policy for evaluation and preview artifacts. Validate abuse paths that never authenticate or create many sessions/clients; broader non-connector API rate limiting remains tracked by TASK-064.
+  Dependencies: TASK-043, TASK-307, TASK-389, TASK-395, TASK-396
+- ID: TASK-398
+  Title: NexusDash plugin skill and model operating instructions
+  Status: Pending
+  Rationale: Author short, robust plugin instructions that make the model search before creating, resolve projects/Epics/labels safely, avoid duplicates, request confirmation when required, reject unsupported deletion, present completed changes clearly, and stay within the user's permissions and stated scope. Put the highest-impact safety and workflow constraints in the earliest server-loaded instructions.
+  Dependencies: TASK-388, TASK-389, TASK-392, TASK-393, TASK-394
+- ID: TASK-399
+  Title: Private NexusDash plugin packaging
+  Status: Pending
+  Rationale: Package the remote MCP server and NexusDash skill in a valid private plugin with stable identity, description, icon, permission metadata, connection instructions, privacy/support information, and separate preview/production versioning. Do not add a custom UI in v1 or embed static NexusDash API credentials.
+  Dependencies: TASK-386, TASK-391, TASK-394, TASK-395, TASK-396, TASK-398
+- ID: TASK-400
+  Title: MCP, OAuth, plugin, and Agent REST automated test matrix
+  Status: Pending
+  Rationale: Cover MCP initialization/discovery, schemas, read/write tools, pagination, empty results, discovery-only and project-bound grant exchange, signed project-claim validation, cross-project token replay rejection, multi-project isolation, OAuth authorization/expiry/refresh/revocation, immediate rejection of an already-issued revoked access token, pre-auth endpoint abuse limits, insufficient scopes, unauthorized projects, annotations, confirmations, and redaction. Prove confirmation-required writes remain disabled between OAuth delivery and TASK-394 intent enforcement, and retain Agent REST non-regression across realistic transport boundaries.
+  Dependencies: TASK-391, TASK-392, TASK-393, TASK-394, TASK-395, TASK-396, TASK-397, TASK-399
+- ID: TASK-401
+  Title: NexusDash connector agent evaluation suite
+  Status: Pending
+  Rationale: Build repeatable evaluations for direct and indirect tool requests, search-first behavior, prior-identifier reuse, duplicate-risk creation, confirmation-required writes, insufficient permission, unsupported deletion, empty results, and ambiguous matches. Use synthetic or sanitized fixtures; record chosen tools, redacted arguments/results/identifiers, confirmation behavior, and pass criteria under an explicit bounded-retention policy so releases can be compared without retaining raw task, comment, context, roadmap, or user content.
+  Dependencies: TASK-389, TASK-392, TASK-393, TASK-394, TASK-397, TASK-398, TASK-399
+- ID: TASK-402
+  Title: Preview deployment and end-to-end MCP connector validation
+  Status: Pending
+  Rationale: Deploy MCP, OAuth, and the private plugin against the explicit preview branch. Keep `/mcp` disabled until a fail-closed activation preflight proves the expected branch/revision/environment, OAuth metadata and enforcement, project-bound grant exchange, scope checks, immediate revocation, security controls, schemas, and required secrets/config are valid; TASK-402 is the first task permitted to activate the endpoint. Then verify it with MCP Inspector and supported ChatGPT Developer mode; exercise reads, writes, confirmations, logs, metrics, tool selection, token lifecycle, and Agent REST regression; and retain preview URL, workflow, revision, activation, and environment evidence.
+  Dependencies: TASK-315, TASK-370, TASK-399, TASK-400, TASK-401
+- ID: TASK-403
+  Title: ChatGPT and Codex web, desktop, and mobile connector experience validation
+  Status: Pending
+  Rationale: On every surface confirmed by TASK-386, connect the same NexusDash account from a new conversation, read projects, search tasks, create/update/move work, verify confirmations and token expiry, disconnect/reconnect, and prove the flow works with the local computer turned off. Document account rollout, workspace-policy, client, and Codex limitations rather than treating unsupported surfaces as failures.
+  Dependencies: TASK-386, TASK-402
+- ID: TASK-404
+  Title: NexusDash private connector production rollout
+  Status: Pending
+  Rationale: Complete security review, production MCP/OAuth URL verification, preview/production credential isolation, migration/env/secret checks, alert thresholds, rollback rehearsal, private plugin release, and a full post-deploy smoke test. Production rollout must remain reversible and must not broaden the confirmed v1 tool or permission scope.
+  Dependencies: TASK-042, TASK-315, TASK-370, TASK-396, TASK-397, TASK-400, TASK-401, TASK-402, TASK-403, TASK-405
+- ID: TASK-405
+  Title: NexusDash connector production-readiness and operations runbook
+  Status: Pending
+  Rationale: Before production rollout, document and exercise plugin installation and connection, environment ownership, secret rotation and revocation, connector disconnect, tool/schema changes, MCP metadata updates, OAuth and discovery diagnosis, automated tests and evaluations, server/plugin rollback, and emergency disablement. Include safe evidence collection that never records access tokens, refresh tokens, client secrets, or unnecessary user content, then retain the same runbook for ongoing maintenance.
+  Dependencies: TASK-395, TASK-397, TASK-399, TASK-402
 ### Collaboration Refinement Program (TASK-336 Audit)
 - ID: TASK-337
   Title: First-class project actor identity - human and agent assignment/provenance foundation
@@ -225,11 +397,17 @@ Last reviewed: 2026-08-08
   Dependencies: TASK-039, TASK-043
 - ID: TASK-064
   Title: Security hardening - API rate limiting baseline (deferred)
-  Status: Pending
-  Rationale: Add rate limiting and abuse controls when endpoints are exposed publicly; defer now until deployment/auth topology is finalized so policy matches real traffic boundaries.
+  Status: Pending (Deferred - connector-specific public endpoint covered by TASK-397)
+  Rationale: Add a broader rate-limiting and abuse-control baseline for public NexusDash API surfaces when their deployment/auth topology is finalized. TASK-397 owns the remote connector's MCP/OAuth-specific per-user and per-tool quotas so the connector program is not blocked by this intentionally deferred cross-API task.
   Dependencies: TASK-039, TASK-040, TASK-046
 
 ### Epic Tracking (Non-Executable)
+- ID: TASK-385
+  Title: Remote NexusDash connector for ChatGPT and Codex
+  Status: Pending (Epic - split into TASK-386 through TASK-405)
+  Rationale: Let an authenticated user discover and operate authorized NexusDash projects from supported ChatGPT and Codex surfaces through a remotely hosted Streamable HTTP MCP server, OAuth 2.1, and a private plugin, without a local computer or manually supplied `.env`. Preserve the Agent REST API, reuse NexusDash services and permissions, separate reads from confirmed writes, expose no permanent deletion in v1, and gate promised surfaces on current account/workspace availability.
+  Dependencies: TASK-386, TASK-387, TASK-388, TASK-389, TASK-390, TASK-391, TASK-392, TASK-393, TASK-394, TASK-395, TASK-396, TASK-397, TASK-398, TASK-399, TASK-400, TASK-401, TASK-402, TASK-403, TASK-404, TASK-405
+  Brief: `tasks/task-385-chatgpt-codex-connector-epic.md`
 - ID: TASK-110
   Title: Modular dashboard personalization - user-configurable project workspace composition and arrangement
   Status: Pending (Epic - likely split into dashboard-layout foundation, module registry/adapters, arrangement UX, and mobile-specific follow-ups)
