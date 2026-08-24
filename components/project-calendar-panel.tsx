@@ -358,9 +358,9 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
                 </span>
               </CardTitle>
               <p className="text-xs text-muted-foreground">
-                Your personal Google Calendar shown alongside this project.
-                Events you create or edit here update your private calendar, not
-                a shared project schedule.
+                Your selected Google Calendar shown alongside this project.
+                Events you create or edit here update that Google calendar, not
+                a shared NexusDash project schedule.
               </p>
             </div>
           </button>
@@ -379,8 +379,8 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
             {!isLoading && isConnected === false ? (
               <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
                 <p>
-                  Connect your Google Calendar to overlay your personal events
-                  here.
+                  Connect Google Calendar to overlay events from your selected
+                  calendar here.
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button type="button" size="sm" asChild>

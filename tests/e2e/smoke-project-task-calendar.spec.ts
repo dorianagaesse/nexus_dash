@@ -601,7 +601,7 @@ test.describe("critical UI smoke flows", () => {
     await page.getByRole("button", { name: "My calendar" }).click();
 
     const disconnectedState = page.getByText(
-      "Connect your Google Calendar to overlay your personal events here."
+      "Connect Google Calendar to overlay events from your selected calendar here."
     );
     const refreshButton = page.getByRole("button", { name: "Refresh" });
     await expect(disconnectedState.or(refreshButton)).toBeVisible();

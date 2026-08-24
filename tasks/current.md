@@ -15,16 +15,15 @@ model) land.
 
 TASK-336's multi-user collaboration audit named the project Calendar panel as
 a P1 collaboration gap: the integration is correctly user-owned (the Google
-token belongs to the signed-in user and events come from their personal
+token belongs to the signed-in user and events come from their selected Google
 calendar), but the panel still presents itself as if it were a project module.
-A viewer cannot create an event in their own Google Calendar while looking at a
-project, the panel header just says "Calendar", and editor role controls
-mutation of the user's private calendar in a way that suggests shared
-ownership.
+A viewer cannot create an event through their own Google connection while
+looking at a project, the panel header just says "Calendar", and editor role
+controls the configured Google target in a way that suggests shared ownership.
 
 The audit recommended a two-stage path:
 
-1. Stop pretending the personal Google Calendar overlay is a shared project
+1. Stop presenting the user-scoped Google Calendar overlay as a shared project
    module. Label it clearly as the signed-in user's "My calendar" overlay,
    decouple its mutation semantics from the project editor role, and keep the
    existing user-scoped credentials intact.
@@ -43,10 +42,10 @@ second stage so the follow-up work has a clear contract to build on.
   shared project schedule.
 - Decouple calendar mutations from the project editor role: a viewer who has
   connected Google Calendar with write scope can create, update, and delete
-  their own personal events while looking at the project. Project access is
-  retained only to scope the request and read the project context; the user's
-  own Google credentials and write scope are the only authorization to mutate
-  their private calendar.
+  events in their configured target calendar while looking at the project.
+  Project access is retained only to scope the request and read the project
+  context; the user's Google credentials and write scope authorize mutation of
+  that selected target.
 - Keep the dashboard surfaces accessible, label-aware, and consistent with the
   existing responsive and theme baseline; update copy where it currently
   suggests shared ownership.
@@ -79,9 +78,9 @@ second stage so the follow-up work has a clear contract to build on.
 ## Acceptance Criteria
 
 1. The project dashboard Calendar section header reads "My calendar" with
-   explanatory copy that names the integration as a personal Google Calendar
-   overlay and clarifies that edits update the signed-in user's private
-   calendar rather than a shared project schedule.
+   explanatory copy that names the integration as a user-scoped Google Calendar
+   overlay and clarifies that edits update the selected Google target rather
+   than a shared NexusDash project schedule.
 2. The dashboard upcoming-events summary card is relabeled to match ("My
    calendar") so the stat row and section header use one vocabulary.
 3. The Calendar section skeleton, project dashboard labels, and any other
