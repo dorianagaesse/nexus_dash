@@ -61,6 +61,12 @@ The existing Agent REST API remains supported and regression-tested.
   scopes. Multi-project use requires explicit grants per project rather than a
   broad all-project bearer token; TASK-386 must confirm the client can complete
   the selected incremental authorization flow.
+- Represent the binding in signed access-token claims: a discovery token has a
+  discovery-only token-use claim and no project grant, while an operational
+  token carries one immutable `project_id` (or ADR-approved equivalent), the
+  approved scopes, subject, audience/resource, token/session version, and
+  expiry. Every project-specific adapter compares its requested project ID to
+  the verified claim before calling shared services.
 - Return concise, structured, paginated, model-readable results.
 - Annotate tool behavior, including read-only, destructive, and idempotent
   characteristics, and require a server-validated, short-lived confirmation
@@ -191,11 +197,15 @@ The existing Agent REST API remains supported and regression-tested.
 - The remote MCP server, read/write tools, OAuth flow, authorization mapping,
   annotations, confirmations, security controls, audit, and observability meet
   the Epic acceptance criteria.
-- The private plugin and NexusDash skill are versioned for preview and
-  production without embedded static user credentials or permanent-delete
-  tools.
-- Automated tests, agent evaluations, preview validation, and supported-client
-  journeys pass without regressing the Agent REST API.
+- When TASK-386 confirms private-plugin delivery on the target account, the
+  plugin and NexusDash skill are versioned for preview and production without
+  embedded static user credentials or permanent-delete tools. If delivery is
+  unavailable, the Epic records a blocked-delivery decision and does not claim
+  implementation completion until a supported distribution path is approved.
+- Automated tests and agent evaluations pass without regressing the Agent REST
+  API. Preview and client journeys pass for every surface confirmed by
+  TASK-386; unavailable surfaces have dated evidence and an explicit blocked or
+  deferred rollout decision rather than a fabricated pass.
 - The production-readiness runbook covers and exercises revocation, disconnect,
   rollback, diagnostics, credential isolation, and emergency disablement before
   production rollout; the final production smoke test passes.

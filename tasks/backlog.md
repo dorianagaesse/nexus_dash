@@ -235,7 +235,7 @@ Last reviewed: 2026-08-24
 - ID: TASK-391
   Title: Remote NexusDash MCP server over Streamable HTTP
   Status: Pending
-  Rationale: Implement a stable HTTPS MCP endpoint, preferably `/mcp`, with protocol initialization, tool discovery, concise server instructions, schema validation, structured errors, serverless-compatible lifecycle behavior, safe diagnostics, and redacted logging. Keep the tool endpoint disabled by default and fail closed when OAuth enforcement or required metadata/config is absent or invalid; do not expose unauthenticated tool discovery or calls while TASK-395 is incomplete. Keep transport concerns thin over the shared application services.
+  Rationale: Implement a stable HTTPS MCP endpoint, preferably `/mcp`, with protocol initialization, tool discovery, concise server instructions, schema validation, structured errors, serverless-compatible lifecycle behavior, safe diagnostics, and redacted logging. Keep the endpoint and each tool disabled by default and fail closed when OAuth enforcement, required metadata/config, scope/project binding, or a tool's security prerequisite is absent or invalid. In particular, expose no unauthenticated tool discovery/calls while TASK-395 is incomplete and no confirmation-required write until TASK-394's server-enforced intent path is active. Keep transport concerns thin over shared services.
   Dependencies: TASK-315, TASK-387, TASK-389, TASK-390
 - ID: TASK-392
   Title: NexusDash MCP read tools
@@ -245,7 +245,7 @@ Last reviewed: 2026-08-24
 - ID: TASK-393
   Title: NexusDash MCP write tools
   Status: Pending
-  Rationale: Implement and test task creation, true partial updates, status moves, comments, labels, Epic assignment, and authorized task relations through the shared services. Relation mutations must expose explicit add/remove sets that preserve unmentioned links; any separately named full-replacement operation must preview removed links and require confirmation. Each mutation must return the complete final resource plus a concise change summary, and v1 must expose no permanent-delete operation.
+  Rationale: Implement and test task creation, true partial updates, status moves, comments, labels, Epic assignment, and authorized task relations through the shared services. Keep every confirmation-required handler independently disabled and fail closed until TASK-394's server-enforced intent validation is active, even if OAuth or other MCP tools are already enabled. Relation mutations must expose explicit add/remove sets that preserve unmentioned links; any separately named full-replacement operation must preview removed links and require confirmation. Each mutation returns the complete final resource plus a concise change summary, and v1 exposes no permanent-delete operation.
   Dependencies: TASK-099, TASK-349, TASK-373, TASK-374, TASK-375, TASK-376, TASK-388, TASK-389, TASK-390, TASK-391
 - ID: TASK-394
   Title: MCP tool annotations and sensitive-write confirmations
@@ -255,12 +255,12 @@ Last reviewed: 2026-08-24
 - ID: TASK-395
   Title: OAuth 2.1 authorization for the NexusDash MCP server
   Status: Pending
-  Rationale: Implement Authorization Code with PKCE, short-lived access tokens, revocable rotating refresh tokens, protected-resource metadata, authorization-server or OpenID Connect metadata, correct `resource` propagation, and the selected CIMD, DCR, or predefined-client strategy. Support a discovery-only bootstrap grant followed by a client-compatible incremental authorization or token exchange for a selected project. Reuse NexusDash identity where safe and support connector disconnect and consent revocation; enforce immediate failure of already-issued access tokens through introspection, a session/token version, or a bounded denylist in addition to refresh-token-family invalidation.
+  Rationale: Implement Authorization Code with PKCE, short-lived access tokens, revocable rotating refresh tokens, protected-resource metadata, authorization-server or OpenID Connect metadata, correct `resource` propagation, and the selected CIMD, DCR, or predefined-client strategy. Support a discovery-only bootstrap grant followed by a client-compatible incremental authorization or token exchange for one selected project. Sign explicit token-use and immutable `project_id` (or ADR-approved equivalent), subject, audience/resource, scope, token/session-version, and expiry claims so adapters can reject cross-project replay before service execution. Reuse NexusDash identity where safe and support disconnect and consent revocation; immediately reject already-issued revoked access tokens through introspection, session/token version, or a bounded denylist in addition to refresh-family invalidation.
   Dependencies: TASK-048, TASK-059, TASK-083, TASK-386, TASK-387, TASK-391
 - ID: TASK-396
   Title: OAuth scope mapping to NexusDash project capabilities
   Status: Pending
-  Rationale: Define and enforce only the OAuth scopes required by the v1 catalog: a discovery-only bootstrap scope for membership-filtered `list_projects`, plus short-lived grants bound to one selected project with project read, task read/write, context read, and roadmap read scopes. Define the post-discovery incremental authorization/token exchange, project identifier binding, consent representation, and separate-grant behavior for multi-project use. The discovery scope never authorizes a project-specific operation; every subsequent tool verifies the token's project binding, approved scope, current membership, and capability. Do not request or issue context-write or roadmap-write scopes until explicit write tools and tests are approved; block cross-user or cross-project traversal.
+  Rationale: Define and enforce only the OAuth scopes required by the v1 catalog: a discovery-only bootstrap scope for membership-filtered `list_projects`, plus short-lived grants bound to one selected project with project read, task read/write, context read, and roadmap read scopes. Define the post-discovery incremental authorization/token exchange, consent representation, separate-grant behavior for multi-project use, and verified `project_id` claim comparison against every project argument/resource before service calls. Discovery-only tokens carry no project claim and never authorize project data; project tokens verify claim, scope, current membership, and capability. Do not issue context-write or roadmap-write scopes until tools and tests are approved; explicitly test that a token for project A cannot be replayed against project B.
   Dependencies: TASK-331, TASK-389, TASK-395
 - ID: TASK-397
   Title: MCP security controls, quotas, audit, and observability
@@ -280,7 +280,7 @@ Last reviewed: 2026-08-24
 - ID: TASK-400
   Title: MCP, OAuth, plugin, and Agent REST automated test matrix
   Status: Pending
-  Rationale: Cover MCP initialization/discovery, schemas, read/write tools, pagination, empty results, discovery-only and project-bound grant exchange, multi-project isolation, OAuth authorization/expiry/refresh/revocation, immediate rejection of an already-issued revoked access token, pre-auth endpoint abuse limits, insufficient scopes, unauthorized projects, annotations, confirmations, redaction, and Agent REST non-regression. Include realistic transport and authorization boundaries rather than only isolated tool handlers.
+  Rationale: Cover MCP initialization/discovery, schemas, read/write tools, pagination, empty results, discovery-only and project-bound grant exchange, signed project-claim validation, cross-project token replay rejection, multi-project isolation, OAuth authorization/expiry/refresh/revocation, immediate rejection of an already-issued revoked access token, pre-auth endpoint abuse limits, insufficient scopes, unauthorized projects, annotations, confirmations, and redaction. Prove confirmation-required writes remain disabled between OAuth delivery and TASK-394 intent enforcement, and retain Agent REST non-regression across realistic transport boundaries.
   Dependencies: TASK-391, TASK-392, TASK-393, TASK-394, TASK-395, TASK-396, TASK-397, TASK-399
 - ID: TASK-401
   Title: NexusDash connector agent evaluation suite

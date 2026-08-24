@@ -37,6 +37,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   discovery-to-project-bound grant exchange and multi-project consent model,
   required immediate invalidation of issued access tokens, and added pre-auth
   abuse limits for public OAuth and metadata endpoints.
+- Final thread triage made Epic completion conditional on TASK-386-supported
+  surfaces, added signed discovery/project token-use claims with cross-project
+  replay rejection, and independently gated sensitive write tools until the
+  server-enforced confirmation flow is active.
 - Docs-only planning change; no connector or runtime behavior was implemented.
 
 # 2026-08-24 - Codex session feedback added to backlog
