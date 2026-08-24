@@ -157,14 +157,14 @@ Last reviewed: 2026-08-24
   Rationale: Allow an agent to change one task's status without submitting the ordering of every Kanban column. Define a focused project-scoped mutation that preserves deterministic ordering in both the source and destination columns, returns the updated task, and leaves full-board reorder available for explicit bulk reordering.
   Dependencies: TASK-059, TASK-115, TASK-127, TASK-276
 - ID: TASK-375
-  Title: Agent task API true partial PATCH semantics
+  Title: Agent task OpenAPI contract for true partial PATCH semantics
   Status: Pending
-  Rationale: Make `PATCH /api/projects/{projectId}/tasks/{taskId}` accept only the fields being changed instead of requiring `title` when an agent updates another property such as the description. Distinguish omitted fields from explicit null or clear operations, retain validation for supplied values, and document the partial-update contract.
+  Rationale: Align the published agent OpenAPI contract with the runtime's existing partial-update behavior so `PATCH /api/projects/{projectId}/tasks/{taskId}` does not document `title` as required when only another field changes. Document omitted fields versus explicit null or clear operations, retain validation for supplied values, and add contract coverage that prevents the schema from drifting from the tested route behavior.
   Dependencies: TASK-055, TASK-115, TASK-127
 - ID: TASK-376
-  Title: Agent task creation API complete response representation
+  Title: Agent task creation OpenAPI complete response contract
   Status: Pending
-  Rationale: Return the complete created task representation from the task creation endpoint rather than only its identifier so agents can immediately use canonical labels, status, ordering, epic, assignment, timestamps, and other server-derived fields without a follow-up read.
+  Rationale: Align the published `TaskCreateResponse` schema and agent documentation with the runtime response, which already includes both `taskId` and the complete created `task`. Describe the canonical labels, status, ordering, epic, assignment, timestamps, and other server-derived fields, and add contract coverage so generated clients can use the full task without a follow-up read.
   Dependencies: TASK-055, TASK-115, TASK-127, TASK-373
 - ID: TASK-377
   Title: Agent task API server-side epic and label filters
@@ -190,12 +190,12 @@ Last reviewed: 2026-08-24
   Title: Bounded Kanban height with independently scrollable lanes
   Status: Pending
   Rationale: Prevent the Kanban board from growing indefinitely with the number of task cards. Give the board a responsive fixed or viewport-bounded vertical size and make each lane's task area scroll independently while keeping the lane header, task count, filters, and create affordances visible. Preserve drag-and-drop behavior, keyboard access, scroll position, and usable mobile layouts when tasks move within or between long lanes.
-  Dependencies: TASK-003, TASK-100, TASK-133, TASK-322
+  Dependencies: TASK-096, TASK-100, TASK-133, TASK-322
 - ID: TASK-382
   Title: Kanban task search and clickable label filters
   Status: Pending
   Rationale: Add a search and filter surface above the Kanban board that finds authorized tasks by title, description, comments, labels, and other useful task text without exposing hidden or cross-project content. Let users click a label on a task card or in the filter controls to toggle that label filter, clearly show active search/filter state and result counts, support combining or clearing criteria, and keep matching behavior responsive for large boards.
-  Dependencies: TASK-031, TASK-099, TASK-108, TASK-133, TASK-381
+  Dependencies: TASK-031, TASK-099, TASK-108, TASK-133
 ### Collaboration Refinement Program (TASK-336 Audit)
 - ID: TASK-337
   Title: First-class project actor identity - human and agent assignment/provenance foundation

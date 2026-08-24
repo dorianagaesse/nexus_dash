@@ -20,6 +20,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Added two Kanban refinement tasks: a responsive bounded-height board with
   independently scrollable lanes, and a search/filter surface spanning task
   titles, descriptions, comments, labels, and clickable label chips.
+- Copilot review aligned the partial PATCH and create-response entries with
+  behavior that already exists at runtime, replaced an undefined Kanban
+  dependency, and kept Kanban search independently executable from lane
+  scrolling.
 - Docs-only backlog grooming; no runtime behavior changed.
 
 # 2026-08-20 - TASK-370 preview isolation validated
