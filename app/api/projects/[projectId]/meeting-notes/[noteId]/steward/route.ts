@@ -33,7 +33,7 @@ function serializeMeetingNote(note: ProjectMeetingNoteSummary) {
 async function readJsonPayload(
   request: NextRequest,
   routeLabel: string
-): Promise<StewardRequestBody | NextResponse> {
+): Promise<unknown | NextResponse> {
   try {
     return (await request.json()) as StewardRequestBody;
   } catch (error) {
@@ -60,13 +60,24 @@ export async function PATCH(
   if (payload instanceof NextResponse) {
     return payload;
   }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return NextResponse.json(
+      { error: "meeting-note-steward-required" },
+      { status: 400 }
+    );
+  }
+
+  const stewardPayload = payload as StewardRequestBody;
 
   let steward: Parameters<typeof setProjectMeetingNoteSteward>[0]["steward"];
-  if (payload.steward === null) {
+  if (stewardPayload.steward === null) {
     steward = null;
-  } else if (isMeetingTodoActorReference(payload.steward)) {
-    steward = { kind: payload.steward.kind, id: payload.steward.id.trim() };
-  } else if (payload.steward === undefined) {
+  } else if (isMeetingTodoActorReference(stewardPayload.steward)) {
+    steward = {
+      kind: stewardPayload.steward.kind,
+      id: stewardPayload.steward.id.trim(),
+    };
+  } else if (stewardPayload.steward === undefined) {
     return NextResponse.json(
       { error: "meeting-note-steward-required" },
       { status: 400 }

@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+
 import { logServerError } from "@/lib/observability/logger";
 import {
   normalizeMeetingParticipantName,
@@ -403,6 +405,85 @@ function validateMeetingNoteDraft(input: {
   return null;
 }
 
+interface RlsSafeMeetingActorRow {
+  kind: "human" | "agent";
+  actorId: string;
+  name: string | null;
+  email: string | null;
+  username: string | null;
+  usernameDiscriminator: string | null;
+  avatarSeed: string | null;
+  label: string | null;
+  revokedAt: Date | null;
+  expiresAt: Date | null;
+}
+
+async function loadMeetingNoteActorRegistry(input: {
+  db: DbClient;
+  projectId: string;
+}): Promise<MeetingTodoActorRegistry | null> {
+  const [visibleRegistry, projectedRows] = await Promise.all([
+    loadMeetingTodoActorRegistry(input),
+    input.db.$queryRaw<RlsSafeMeetingActorRow[]>(Prisma.sql`
+      SELECT *
+      FROM app.list_project_meeting_note_actors(${input.projectId})
+    `),
+  ]);
+
+  const activeHumanIds = new Set(visibleRegistry?.activeHumanIds ?? []);
+  const humanById = new Map(visibleRegistry?.humanById ?? []);
+  const credentialById = new Map(visibleRegistry?.credentialById ?? []);
+
+  for (const row of projectedRows) {
+    if (row.kind === "human") {
+      const actor = mapStoredMeetingTodoActor({
+        kind: "human",
+        id: row.actorId,
+        displayNameSnapshot: null,
+        user: {
+          id: row.actorId,
+          name: row.name,
+          email: row.email,
+          username: row.username,
+          usernameDiscriminator: row.usernameDiscriminator,
+          avatarSeed: row.avatarSeed,
+        },
+        isCurrentProjectHuman: true,
+      });
+      if (actor) {
+        activeHumanIds.add(row.actorId);
+        humanById.set(row.actorId, actor);
+      }
+      continue;
+    }
+
+    const actor = mapStoredMeetingTodoActor({
+      kind: "agent",
+      id: row.actorId,
+      displayNameSnapshot: row.label,
+      credential: {
+        id: row.actorId,
+        label: row.label ?? "Project agent",
+        projectId: input.projectId,
+        revokedAt: row.revokedAt,
+        expiresAt: row.expiresAt,
+      },
+    });
+    if (actor) {
+      credentialById.set(row.actorId, actor);
+    }
+  }
+
+  if (!visibleRegistry && projectedRows.length === 0) {
+    return null;
+  }
+
+  const assignable = [...humanById.values(), ...credentialById.values()].filter(
+    (actor) => actor.isAssignable
+  );
+  return { activeHumanIds, humanById, credentialById, assignable };
+}
+
 function mapActionActor(input: {
   kind: "human" | "agent" | null;
   userId: string | null;
@@ -414,6 +495,15 @@ function mapActionActor(input: {
 }): MeetingTodoActorSummary | null {
   if (!input.kind) {
     return null;
+  }
+  const actorId = input.kind === "human" ? input.userId : input.credentialId;
+  const projectedActor = actorId
+    ? input.kind === "human"
+      ? input.registry?.humanById.get(actorId)
+      : input.registry?.credentialById.get(actorId)
+    : null;
+  if (projectedActor) {
+    return projectedActor;
   }
   return mapStoredMeetingTodoActor({
     kind: input.kind,
@@ -616,7 +706,7 @@ async function readMeetingNoteById(input: {
       },
     },
     }),
-    loadMeetingTodoActorRegistry({
+    loadMeetingNoteActorRegistry({
       db: input.db,
       projectId: input.projectId,
     }),
@@ -866,7 +956,7 @@ export async function listProjectMeetingNotes(input: {
         },
       },
       }),
-      loadMeetingTodoActorRegistry({ db, projectId: input.projectId }),
+      loadMeetingNoteActorRegistry({ db, projectId: input.projectId }),
     ]);
 
     const query = normalizeText(input.query).toLocaleLowerCase();
@@ -936,7 +1026,7 @@ export async function createProjectMeetingNote(
             projectId: input.projectId,
             agentAccess: input.agentAccess,
           }),
-          loadMeetingTodoActorRegistry({ db, projectId: input.projectId }),
+          loadMeetingNoteActorRegistry({ db, projectId: input.projectId }),
         ]);
       if (!participantResolution.ok) {
         return participantResolution;
@@ -1091,7 +1181,7 @@ export async function updateProjectMeetingNote(
             projectId: input.projectId,
             agentAccess: input.agentAccess,
           }),
-          loadMeetingTodoActorRegistry({ db, projectId: input.projectId }),
+          loadMeetingNoteActorRegistry({ db, projectId: input.projectId }),
         ]);
       if (!participantResolution.ok) {
         return participantResolution;
@@ -1378,7 +1468,7 @@ export async function setProjectMeetingNoteActionAssignee(
 
     const assignment = input.assignee
       ? await (async () => {
-          const registry = await loadMeetingTodoActorRegistry({
+          const registry = await loadMeetingNoteActorRegistry({
             db,
             projectId: input.projectId,
           });
@@ -1475,7 +1565,7 @@ export async function setProjectMeetingNoteSteward(
 
     const stewardUpdate = input.steward
       ? await (async () => {
-          const registry = await loadMeetingTodoActorRegistry({
+          const registry = await loadMeetingNoteActorRegistry({
             db,
             projectId: input.projectId,
           });

@@ -189,6 +189,7 @@ interface MeetingTodoAssigneeChipProps {
   onChange: (value: MeetingTodoActorReference | null) => void;
   disabled?: boolean;
   className?: string;
+  triggerClassName?: string;
   pending?: boolean;
   bordered?: boolean;
 }
@@ -200,6 +201,7 @@ export function MeetingTodoAssigneeChip({
   onChange,
   disabled = false,
   className,
+  triggerClassName,
   pending = false,
   bordered = true,
 }: MeetingTodoAssigneeChipProps) {
@@ -330,7 +332,8 @@ export function MeetingTodoAssigneeChip({
             : cn(
                 "bg-transparent hover:bg-muted/40",
                 isInactive && "bg-amber-500/[0.08] hover:bg-amber-500/[0.12]"
-              )
+              ),
+          triggerClassName
         )}
       >
         <AssigneeChipBase

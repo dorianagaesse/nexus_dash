@@ -483,7 +483,11 @@ Keep UI-only or task-only notes in `journal.md`.
   reassignment" instead of being silently nulled out. The UI reuses the
   established `MeetingTodoAssigneeChip` / `MeetingTodoAssigneeChipReadonly`
   components and `MeetingTodoActorIdentity` control so the steward, todo
-  assignee, and creator chips all share one identity language.
+  assignee, and creator chips all share one identity language. Actor status is
+  read through `app.list_project_meeting_note_actors`, a SECURITY DEFINER
+  projection that returns display-safe identity/status fields to authorized
+  project members without exposing credential secrets or relying on
+  owner-only membership and credential row visibility.
 - Consequences: Steward responsibilities are filtered with the same
   `mine` / `unassigned` / `all` URL-backed semantics already used for
   meeting todos; viewers never see mutation affordances; and the project

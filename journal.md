@@ -4076,3 +4076,18 @@ Low-value entries to avoid going forward:
   production build passed. Local PostgreSQL-backed E2E/RLS could not run
   because Docker Desktop was unavailable and the configured database endpoint
   timed out, so those checks are left to the branch CI PostgreSQL service.
+
+# 2026-08-24 - TASK-356 replacement PR review hardening
+
+- Added non-object/null JSON validation to the steward PATCH route and focused
+  route coverage so malformed input returns a stable 400 response.
+- Exposed trigger-level sizing on the shared assignee chip, applied 44px
+  targets to both steward controls, and surfaced mutation errors inside the
+  preparation dialog.
+- Added the display-safe `app.list_project_meeting_note_actors` projection so
+  viewers and editors see accurate active collaborator/agent status even when
+  base RLS policies hide other membership and credential rows.
+- Focused route, component, and service validation passed (35 tests), along
+  with lint and the RLS inventory check. The real PostgreSQL matrix could not
+  run locally because its two required RLS database URLs are unavailable; CI
+  remains the authoritative database validation.

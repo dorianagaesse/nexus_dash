@@ -62,12 +62,14 @@ interface HarnessProps {
   initialValue?: MeetingTodoActorReference | null;
   options?: MeetingTodoActorSummary[];
   bordered?: boolean;
+  triggerClassName?: string;
 }
 
 function Harness({
   initialValue = null,
   options = HUMANS,
   bordered = true,
+  triggerClassName,
 }: HarnessProps) {
   const [value, setValue] = React.useState<MeetingTodoActorReference | null>(
     initialValue
@@ -79,6 +81,7 @@ function Harness({
       options={options}
       onChange={setValue}
       bordered={bordered}
+      triggerClassName={triggerClassName}
     />
   );
 }
@@ -108,6 +111,16 @@ describe("meeting-todo-assignee-chip", () => {
     expect(chip).not.toBeNull();
     expect(chip?.textContent).toContain("Unassigned");
     expect(chip?.getAttribute("aria-haspopup")).toBe("listbox");
+  });
+
+  test("applies caller-provided sizing to the interactive trigger", () => {
+    act(() => {
+      root.render(<Harness triggerClassName="min-h-11" />);
+    });
+    const trigger = container.querySelector(
+      "[data-meeting-todo-assignee-chip='true']"
+    );
+    expect(trigger?.className).toContain("min-h-11");
   });
 
   test("renders the assigned actor's display name", () => {

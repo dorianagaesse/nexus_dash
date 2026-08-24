@@ -200,6 +200,28 @@ describe("meeting note steward route", () => {
     ).not.toHaveBeenCalled();
   });
 
+  test("rejects a null JSON body without calling the service", async () => {
+    const response = await updateSteward(
+      new NextRequest(
+        "http://localhost/api/projects/project-1/meeting-notes/note-1/steward",
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: "null",
+        }
+      ),
+      noteParams("project-1", "note-1")
+    );
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "meeting-note-steward-required",
+    });
+    expect(
+      meetingNoteServiceMock.setProjectMeetingNoteSteward
+    ).not.toHaveBeenCalled();
+  });
+
   test("surfaces service errors", async () => {
     meetingNoteServiceMock.setProjectMeetingNoteSteward.mockResolvedValueOnce({
       ok: false,
