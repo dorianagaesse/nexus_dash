@@ -25,9 +25,12 @@ vi.mock("@/lib/services/calendar-connection-service", () => ({
 }));
 
 import {
+  GoogleCalendarCredentialTokenDecryptionError,
+  markGoogleCalendarCredentialRevokedForDisconnect,
   updateGoogleCalendarCredentialCalendarId,
   upsertGoogleCalendarCredentialTokens,
 } from "@/lib/services/google-calendar-credential-service";
+import { findCalendarConnection } from "@/lib/services/calendar-connection-service";
 
 describe("singular Google Calendar settings compatibility", () => {
   beforeEach(() => {
@@ -105,5 +108,17 @@ describe("singular Google Calendar settings compatibility", () => {
     expect(
       prismaMock.calendarConnection.update.mock.calls[0]?.[0]?.data.refreshToken
     ).not.toBe("legacy-plaintext-refresh");
+  });
+
+  test("classifies connection token decryption failures during disconnect", async () => {
+    const decryptionError = new Error("invalid-google-token-ciphertext");
+    vi.mocked(findCalendarConnection).mockRejectedValueOnce(decryptionError);
+
+    await expect(
+      markGoogleCalendarCredentialRevokedForDisconnect("user-1")
+    ).rejects.toMatchObject({
+      name: GoogleCalendarCredentialTokenDecryptionError.name,
+      originalError: decryptionError,
+    });
   });
 });

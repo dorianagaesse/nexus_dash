@@ -1,6 +1,7 @@
 import {
   deleteGoogleCalendarCredential,
   DEFAULT_GOOGLE_CALENDAR_ID,
+  GoogleCalendarCredentialTokenDecryptionError,
   MAX_GOOGLE_CALENDAR_ID_LENGTH,
   findGoogleCalendarCredentialCalendarId,
   markGoogleCalendarCredentialRevokedForDisconnect,
@@ -154,9 +155,27 @@ export async function disconnectGoogleCalendar(
     return createError(403, "forbidden");
   }
 
-  const credential = await markGoogleCalendarCredentialRevokedForDisconnect(
-    normalizedActorUserId
-  );
+  let credential: { refreshToken: string } | null;
+  try {
+    credential = await markGoogleCalendarCredentialRevokedForDisconnect(
+      normalizedActorUserId
+    );
+  } catch (error) {
+    if (!(error instanceof GoogleCalendarCredentialTokenDecryptionError)) {
+      throw error;
+    }
+
+    logServerWarning(
+      "disconnectGoogleCalendar.tokenDecryptionFailed",
+      "Google token could not be decrypted before disconnect",
+      { error: error.originalError }
+    );
+    await deleteGoogleCalendarCredential(normalizedActorUserId);
+    return createSuccess(200, {
+      hasCalendarConnection: false as const,
+      revocationStatus: "unconfirmed" as const,
+    });
+  }
   if (!credential) {
     return createSuccess(200, {
       hasCalendarConnection: false as const,

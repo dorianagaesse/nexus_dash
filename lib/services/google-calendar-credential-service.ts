@@ -14,6 +14,16 @@ import { withActorRlsContext } from "@/lib/services/rls-context";
 export const DEFAULT_GOOGLE_CALENDAR_ID = "primary";
 export const MAX_GOOGLE_CALENDAR_ID_LENGTH = 255;
 
+export class GoogleCalendarCredentialTokenDecryptionError extends Error {
+  readonly originalError: unknown;
+
+  constructor(originalError: unknown) {
+    super("google-calendar-credential-token-decryption-failed");
+    this.name = "GoogleCalendarCredentialTokenDecryptionError";
+    this.originalError = originalError;
+  }
+}
+
 export function normalizeGoogleCalendarId(value: string | null | undefined): string {
   const normalized = typeof value === "string" ? value.trim() : "";
   return normalized || DEFAULT_GOOGLE_CALENDAR_ID;
@@ -99,7 +109,12 @@ export async function updateGoogleCalendarCredentialCalendarId(input: {
 export async function markGoogleCalendarCredentialRevokedForDisconnect(
   userId: string
 ): Promise<{ refreshToken: string } | null> {
-  const connection = await findCalendarConnection(userId);
+  let connection: Awaited<ReturnType<typeof findCalendarConnection>>;
+  try {
+    connection = await findCalendarConnection(userId);
+  } catch (error) {
+    throw new GoogleCalendarCredentialTokenDecryptionError(error);
+  }
   if (!connection) return null;
   await withActorRlsContext(userId, (db) =>
     db.calendarConnection.updateMany({
