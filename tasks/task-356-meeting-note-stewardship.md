@@ -103,8 +103,8 @@ expanding into cross-artifact ownership or a workspace ownership queue.
 - `npm run lint`, `npm run rls:check`, `npm test`,
   `npm run test:coverage`, `npm run build`, and relevant meeting-note
   E2E coverage pass.
-- `tasks/current.md`, `tasks/backlog.md`, this task brief, `project.md`,
-  and `journal.md` reflect the delivered behavior.
+- `tasks/current.md`, `tasks/backlog.md`, this task brief, and `journal.md`
+  reflect the delivered behavior.
 - The branch is pushed, a ready-for-review PR is open, required checks
   are green, and initial Copilot review feedback is resolved or
   documented.

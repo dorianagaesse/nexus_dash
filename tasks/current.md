@@ -100,8 +100,8 @@ workspace ownership queue.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
   `npm run build`, and relevant meeting-note E2E coverage pass.
 - `tasks/current.md`, `tasks/backlog.md`,
-  `tasks/task-356-meeting-note-stewardship.md`, `project.md`, and
-  `journal.md` reflect the delivered behavior.
+  `tasks/task-356-meeting-note-stewardship.md`, and `journal.md` reflect the
+  delivered behavior.
 - The branch is pushed, a ready-for-review PR is open, required checks are
   green, and initial Copilot review feedback is resolved or documented.
 
