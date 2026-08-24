@@ -5,7 +5,10 @@ import {
   GOOGLE_CALENDAR_PROVIDER,
   updateCalendarConnectionTokens,
 } from "@/lib/services/calendar-connection-service";
-import { encryptGoogleToken } from "@/lib/services/google-token-crypto";
+import {
+  decryptGoogleToken,
+  encryptGoogleToken,
+} from "@/lib/services/google-token-crypto";
 import { withActorRlsContext } from "@/lib/services/rls-context";
 
 export const DEFAULT_GOOGLE_CALENDAR_ID = "primary";
@@ -140,14 +143,15 @@ export async function upsertGoogleCalendarCredentialTokens(input: {
     });
     const refreshToken = input.refreshToken ?? existing?.refreshToken ?? null;
     if (!refreshToken) throw new Error("missing-refresh-token");
+    const storedRefreshToken = encryptGoogleToken(
+      decryptGoogleToken(refreshToken)
+    );
     const connection = existing
       ? await db.calendarConnection.update({
           where: { id: existing.id },
           data: {
             accessToken: encryptGoogleToken(input.accessToken),
-            refreshToken: input.refreshToken
-              ? encryptGoogleToken(input.refreshToken)
-              : refreshToken,
+            refreshToken: storedRefreshToken,
             tokenType: input.tokenType ?? null,
             scopes: input.scope ?? null,
             expiresAt: createExpiryDate(input.expiresIn),
@@ -161,7 +165,7 @@ export async function upsertGoogleCalendarCredentialTokens(input: {
             providerAccountId: input.providerAccountId ?? `legacy:${input.userId}`,
             accountLabel: "Google account",
             accessToken: encryptGoogleToken(input.accessToken),
-            refreshToken: encryptGoogleToken(refreshToken),
+            refreshToken: storedRefreshToken,
             tokenType: input.tokenType ?? null,
             scopes: input.scope ?? null,
             expiresAt: createExpiryDate(input.expiresIn),
