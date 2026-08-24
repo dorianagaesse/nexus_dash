@@ -124,7 +124,7 @@ Last reviewed: 2026-08-24
   Title: Epic live refresh on task and epic mutations
   Status: Pending
   Rationale: Creating or linking a task does not update the Epics panel in real time, so users have to manually refresh to see their epic's progress and linked-tasks count update. Extend the typed realtime/refresh path so epic rollups, progress, and linked-task counts reconcile after relevant task mutations, and add focused dashboard activity events for epic mutations themselves; preserve the safe remote-update semantics already shipped for tasks, comments, and context cards.
-  Dependencies: TASK-107, TASK-118, TASK-276, TASK-311
+  Dependencies: TASK-107, TASK-118, TASK-276, TASK-311, TASK-383
 - ID: TASK-368
   Title: Task comment "Add comment" vs "Save changes" button distinction
   Status: Pending
@@ -196,6 +196,11 @@ Last reviewed: 2026-08-24
   Status: Pending
   Rationale: Add a search and filter surface above the Kanban board that finds authorized tasks by title, description, comments, labels, and other useful task text without exposing hidden or cross-project content. Let users click a label on a task card or in the filter controls to toggle that label filter, clearly show active search/filter state and result counts, support combining or clearing criteria, and keep matching behavior responsive for large boards.
   Dependencies: TASK-031, TASK-099, TASK-108, TASK-133
+- ID: TASK-383
+  Title: Fix stale Epic task count after task creation or linking
+  Status: Pending - bug remediation
+  Rationale: Reproduce and identify why an Epic's linked-task count and derived progress remain stale after creating a task in that Epic, then refresh only after the Epic edit form is opened and saved. Trace the task create/link/unlink/reassignment mutation path through server-derived Epic data and client state reconciliation, fix the root cause without relying on a no-op Epic save or full page reload, and add regression coverage proving the Epic area updates immediately after each relevant task mutation. This focused same-session correctness fix should land before TASK-367 expands cross-client realtime Epic refresh behavior.
+  Dependencies: TASK-107, TASK-118, TASK-276, TASK-311
 ### Collaboration Refinement Program (TASK-336 Audit)
 - ID: TASK-337
   Title: First-class project actor identity - human and agent assignment/provenance foundation

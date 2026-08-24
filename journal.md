@@ -5,8 +5,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 # 2026-08-24 - Codex session feedback added to backlog
 
-- Captured eleven submitted feedback points as twelve focused follow-ups,
-  TASK-371 through TASK-382, under a new `Codex Session Feedback Refinement Program`
+- Captured twelve submitted feedback points as thirteen focused follow-ups,
+  TASK-371 through TASK-383, under a new `Codex Session Feedback Refinement Program`
   section in `tasks/backlog.md`.
 - Added a backlog task for screenshot attachments in task descriptions/comments
   and preserved the submitted `dd` item verbatim with an explicit clarification
@@ -20,6 +20,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Added two Kanban refinement tasks: a responsive bounded-height board with
   independently scrollable lanes, and a search/filter surface spanning task
   titles, descriptions, comments, labels, and clickable label chips.
+- Added a focused bug task to diagnose and fix stale Epic task counts after
+  task creation, linking, unlinking, or reassignment without requiring a no-op
+  Epic edit/save; sequenced the broader cross-client realtime work after it.
 - Copilot review aligned the partial PATCH and create-response entries with
   behavior that already exists at runtime, replaced an undefined Kanban
   dependency, and kept Kanban search independently executable from lane
