@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.38.0 - 2026-08-16
+## v0.38.0 - 2026-08-24
 
 - Made Google Calendar credential reads, refreshes, target updates, and project
   connection status fail closed for revoked credentials.
