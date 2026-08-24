@@ -46,6 +46,16 @@ type DecryptedGoogleCalendarCredential = Omit<
   refreshToken: string;
 };
 
+export class GoogleCalendarCredentialTokenDecryptionError extends Error {
+  readonly originalError: unknown;
+
+  constructor(originalError: unknown) {
+    super("google-calendar-credential-token-decryption-failed");
+    this.name = "GoogleCalendarCredentialTokenDecryptionError";
+    this.originalError = originalError;
+  }
+}
+
 function normalizeUserId(userId: string): string {
   return userId.trim();
 }
@@ -185,7 +195,11 @@ export async function markGoogleCalendarCredentialRevokedForDisconnect(
       });
     }
 
-    return { refreshToken: decryptGoogleToken(credential.refreshToken) };
+    try {
+      return { refreshToken: decryptGoogleToken(credential.refreshToken) };
+    } catch (error) {
+      throw new GoogleCalendarCredentialTokenDecryptionError(error);
+    }
   });
 }
 
