@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.38.0 - 2026-08-16
+## v0.38.0 - 2026-08-24
 
 - Added durable creator, last-editor, and optional human or agent steward
   identity to context cards, with display snapshots that remain readable after
