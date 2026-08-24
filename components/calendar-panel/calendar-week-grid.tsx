@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 
 interface CalendarWeekGridProps {
+  canWrite: boolean;
   weekDays: Date[];
   eventsByDay: Map<string, DayEventBucket>;
   eventsCount: number;
@@ -26,6 +27,7 @@ interface CalendarWeekGridProps {
 }
 
 export function CalendarWeekGrid({
+  canWrite,
   weekDays,
   eventsByDay,
   eventsCount,
@@ -56,7 +58,9 @@ export function CalendarWeekGrid({
               className="rounded-xl border border-border/60 bg-background px-3 py-3"
             >
               <header className="mb-3 flex items-center justify-between gap-2 border-b border-border/60 pb-2">
-                <p className="text-sm font-medium text-foreground">{formatDayHeader(day)}</p>
+                <p className="text-sm font-medium text-foreground">
+                  {formatDayHeader(day)}
+                </p>
                 <span className="text-[11px] text-muted-foreground">
                   {dayEventCount} event{dayEventCount === 1 ? "" : "s"}
                 </span>
@@ -65,6 +69,7 @@ export function CalendarWeekGrid({
               <div className="space-y-2">
                 {allDayEvents.map((event) => (
                   <MobileCalendarEventCard
+                    canWrite={canWrite}
                     key={event.id}
                     event={event}
                     label="All day"
@@ -74,6 +79,7 @@ export function CalendarWeekGrid({
                 ))}
                 {timedEvents.map((event) => (
                   <MobileCalendarEventCard
+                    canWrite={canWrite}
                     key={event.id}
                     event={event}
                     label={formatEventTimeLabel(event)}
@@ -97,7 +103,9 @@ export function CalendarWeekGrid({
       <div className="hidden space-y-3 md:block">
         <div className="overflow-x-auto">
           <div className="grid min-w-[1180px] grid-cols-[80px_repeat(7,minmax(0,1fr))] gap-2">
-            <div className="pt-1 text-[11px] font-medium text-muted-foreground">All day</div>
+            <div className="pt-1 text-[11px] font-medium text-muted-foreground">
+              All day
+            </div>
             {weekDays.map((day) => {
               const dayKey = toDateKey(day);
               const dayBucket = eventsByDay.get(dayKey);
@@ -109,14 +117,19 @@ export function CalendarWeekGrid({
                   className="rounded-md border border-border/60 bg-background px-2 py-2"
                 >
                   <header className="mb-2 border-b border-border/60 pb-1.5">
-                    <p className="text-xs font-medium text-foreground">{formatDayHeader(day)}</p>
+                    <p className="text-xs font-medium text-foreground">
+                      {formatDayHeader(day)}
+                    </p>
                   </header>
                   <div className="space-y-1">
                     {allDayEvents.length === 0 ? (
-                      <p className="text-[11px] text-muted-foreground">No all-day events</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        No all-day events
+                      </p>
                     ) : (
                       allDayEvents.map((event) => (
                         <DesktopAllDayEventChip
+                          canWrite={canWrite}
                           key={event.id}
                           event={event}
                           onOpenGoogleEvent={onOpenGoogleEvent}
@@ -173,7 +186,8 @@ export function CalendarWeekGrid({
                 >
                   {Array.from(
                     {
-                      length: CALENDAR_DAY_END_HOUR - CALENDAR_DAY_START_HOUR + 1,
+                      length:
+                        CALENDAR_DAY_END_HOUR - CALENDAR_DAY_START_HOUR + 1,
                     },
                     (_, index) => {
                       const top = index * CALENDAR_HOUR_CELL_HEIGHT_PX;
@@ -193,7 +207,8 @@ export function CalendarWeekGrid({
                       return null;
                     }
 
-                    const isCompactEvent = layout.heightPx < CALENDAR_COMPACT_EVENT_HEIGHT_PX;
+                    const isCompactEvent =
+                      layout.heightPx < CALENDAR_COMPACT_EVENT_HEIGHT_PX;
                     const canOpen = Boolean(event.htmlLink);
                     const eventTitle = `${event.summary} - ${formatEventTimeLabel(event)}`;
                     const style = {
@@ -207,14 +222,17 @@ export function CalendarWeekGrid({
                         title={eventTitle}
                         className={cn(
                           "absolute left-1 right-1 overflow-hidden rounded-md border border-sky-500/40 bg-sky-500/10 px-1.5 py-1",
-                          canOpen ? "cursor-pointer transition hover:bg-sky-500/20" : ""
+                          canOpen
+                            ? "cursor-pointer transition hover:bg-sky-500/20"
+                            : ""
                         )}
                         style={style}
                         onClick={() => onOpenGoogleEvent(event)}
                         onKeyDown={(keyboardEvent) => {
                           if (
                             canOpen &&
-                            (keyboardEvent.key === "Enter" || keyboardEvent.key === " ")
+                            (keyboardEvent.key === "Enter" ||
+                              keyboardEvent.key === " ")
                           ) {
                             keyboardEvent.preventDefault();
                             onOpenGoogleEvent(event);
@@ -231,17 +249,19 @@ export function CalendarWeekGrid({
                             <span className="shrink-0 text-[10px] text-muted-foreground">
                               {formatEventStartTimeLabel(event)}
                             </span>
-                            <button
-                              type="button"
-                              onClick={(mouseEvent) => {
-                                mouseEvent.stopPropagation();
-                                onOpenEditEventModal(event);
-                              }}
-                              className="shrink-0 rounded p-0.5 text-muted-foreground transition hover:bg-sky-500/20 hover:text-foreground"
-                              aria-label="Edit calendar event"
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </button>
+                            {canWrite ? (
+                              <button
+                                type="button"
+                                onClick={(mouseEvent) => {
+                                  mouseEvent.stopPropagation();
+                                  onOpenEditEventModal(event);
+                                }}
+                                className="shrink-0 rounded p-0.5 text-muted-foreground transition hover:bg-sky-500/20 hover:text-foreground"
+                                aria-label="Edit calendar event"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </button>
+                            ) : null}
                           </div>
                         ) : (
                           <div className="flex min-w-0 items-start gap-1">
@@ -253,17 +273,19 @@ export function CalendarWeekGrid({
                                 {formatEventTimeLabel(event)}
                               </p>
                             </div>
-                            <button
-                              type="button"
-                              onClick={(mouseEvent) => {
-                                mouseEvent.stopPropagation();
-                                onOpenEditEventModal(event);
-                              }}
-                              className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground transition hover:bg-sky-500/20 hover:text-foreground"
-                              aria-label="Edit calendar event"
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </button>
+                            {canWrite ? (
+                              <button
+                                type="button"
+                                onClick={(mouseEvent) => {
+                                  mouseEvent.stopPropagation();
+                                  onOpenEditEventModal(event);
+                                }}
+                                className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground transition hover:bg-sky-500/20 hover:text-foreground"
+                                aria-label="Edit calendar event"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </button>
+                            ) : null}
                           </div>
                         )}
                       </article>
@@ -280,10 +302,12 @@ export function CalendarWeekGrid({
 }
 
 function DesktopAllDayEventChip({
+  canWrite,
   event,
   onOpenGoogleEvent,
   onOpenEditEventModal,
 }: {
+  canWrite: boolean;
   event: CalendarEventItem;
   onOpenGoogleEvent: (event: CalendarEventItem) => void;
   onOpenEditEventModal: (event: CalendarEventItem) => void;
@@ -300,7 +324,10 @@ function DesktopAllDayEventChip({
       title={eventTitle}
       onClick={() => onOpenGoogleEvent(event)}
       onKeyDown={(keyboardEvent) => {
-        if (canOpen && (keyboardEvent.key === "Enter" || keyboardEvent.key === " ")) {
+        if (
+          canOpen &&
+          (keyboardEvent.key === "Enter" || keyboardEvent.key === " ")
+        ) {
           keyboardEvent.preventDefault();
           onOpenGoogleEvent(event);
         }
@@ -311,27 +338,31 @@ function DesktopAllDayEventChip({
       <p className="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground">
         {event.summary}
       </p>
-      <button
-        type="button"
-        onClick={(mouseEvent) => {
-          mouseEvent.stopPropagation();
-          onOpenEditEventModal(event);
-        }}
-        className="rounded p-0.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-        aria-label="Edit calendar event"
-      >
-        <Pencil className="h-3 w-3" />
-      </button>
+      {canWrite ? (
+        <button
+          type="button"
+          onClick={(mouseEvent) => {
+            mouseEvent.stopPropagation();
+            onOpenEditEventModal(event);
+          }}
+          className="rounded p-0.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          aria-label="Edit calendar event"
+        >
+          <Pencil className="h-3 w-3" />
+        </button>
+      ) : null}
     </article>
   );
 }
 
 function MobileCalendarEventCard({
+  canWrite,
   event,
   label,
   onOpenGoogleEvent,
   onOpenEditEventModal,
 }: {
+  canWrite: boolean;
   event: CalendarEventItem;
   label: string;
   onOpenGoogleEvent: (event: CalendarEventItem) => void;
@@ -347,7 +378,10 @@ function MobileCalendarEventCard({
       )}
       onClick={() => onOpenGoogleEvent(event)}
       onKeyDown={(keyboardEvent) => {
-        if (canOpen && (keyboardEvent.key === "Enter" || keyboardEvent.key === " ")) {
+        if (
+          canOpen &&
+          (keyboardEvent.key === "Enter" || keyboardEvent.key === " ")
+        ) {
           keyboardEvent.preventDefault();
           onOpenGoogleEvent(event);
         }
@@ -361,22 +395,26 @@ function MobileCalendarEventCard({
           <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
             {label}
           </p>
-          <p className="break-words text-sm font-medium text-foreground">{event.summary}</p>
+          <p className="break-words text-sm font-medium text-foreground">
+            {event.summary}
+          </p>
           {event.location ? (
             <p className="text-xs text-muted-foreground">{event.location}</p>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={(mouseEvent) => {
-            mouseEvent.stopPropagation();
-            onOpenEditEventModal(event);
-          }}
-          className="mt-0.5 shrink-0 rounded p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-          aria-label="Edit calendar event"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
+        {canWrite ? (
+          <button
+            type="button"
+            onClick={(mouseEvent) => {
+              mouseEvent.stopPropagation();
+              onOpenEditEventModal(event);
+            }}
+            className="mt-0.5 shrink-0 rounded p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            aria-label="Edit calendar event"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
       </div>
     </article>
   );
