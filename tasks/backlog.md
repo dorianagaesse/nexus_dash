@@ -220,7 +220,7 @@ Last reviewed: 2026-08-24
 - ID: TASK-388
   Title: Initial NexusDash MCP tool catalog and contracts
   Status: Pending
-  Rationale: Define model-readable names, descriptions, input schemas, structured outputs, pagination, filters, project/Epic/label name resolution, ambiguity handling, and explicit errors for the initial project summary, Epic, task search/read/write/move/comment, context-card, and roadmap tools. Keep permanent deletion outside v1 and align task contracts with TASK-373 through TASK-377.
+  Rationale: Define model-readable names, descriptions, input schemas, structured outputs, pagination, filters, project/Epic/label name resolution, ambiguity handling, and explicit errors for project discovery/summary, Epic, task search/read/write/move/comment, paginated comment history, context-card, and roadmap tools. Keep permanent deletion outside v1 and align task contracts with TASK-373 through TASK-377.
   Dependencies: TASK-127, TASK-373, TASK-374, TASK-375, TASK-376, TASK-377, TASK-386, TASK-387
 - ID: TASK-389
   Title: MCP tool security, effects, and confirmation policy
@@ -240,7 +240,7 @@ Last reviewed: 2026-08-24
 - ID: TASK-392
   Title: NexusDash MCP read tools
   Status: Pending
-  Rationale: Implement and test authorized, concise, paginated tools for project summaries, Epic lists/details, task search/filter/list/detail with comments, context cards, and roadmap data. Cover empty and ambiguous results, stable identifiers, bounded payloads, and project isolation.
+  Rationale: Implement and test authorized, concise, paginated tools for project discovery and summaries, Epic lists/details, task search/filter/list/detail, bounded paginated task-comment history, context cards, and roadmap data. Cover empty and ambiguous results, stable identifiers, bounded payloads, and project isolation.
   Dependencies: TASK-377, TASK-388, TASK-389, TASK-390, TASK-391
 - ID: TASK-393
   Title: NexusDash MCP write tools
@@ -301,12 +301,12 @@ Last reviewed: 2026-08-24
   Title: NexusDash private connector production rollout
   Status: Pending
   Rationale: Complete security review, production MCP/OAuth URL verification, preview/production credential isolation, migration/env/secret checks, alert thresholds, rollback rehearsal, private plugin release, and a full post-deploy smoke test. Production rollout must remain reversible and must not broaden the confirmed v1 tool or permission scope.
-  Dependencies: TASK-042, TASK-315, TASK-370, TASK-396, TASK-397, TASK-400, TASK-401, TASK-402, TASK-403
+  Dependencies: TASK-042, TASK-315, TASK-370, TASK-396, TASK-397, TASK-400, TASK-401, TASK-402, TASK-403, TASK-405
 - ID: TASK-405
-  Title: NexusDash connector operations and maintenance runbook
+  Title: NexusDash connector production-readiness and operations runbook
   Status: Pending
-  Rationale: Document plugin installation and connection, environment ownership, secret rotation and revocation, tool/schema changes, MCP metadata updates, OAuth and discovery diagnosis, automated tests and evaluations, server/plugin rollback, and emergency disablement. Include safe evidence collection that never records access tokens, refresh tokens, client secrets, or unnecessary user content.
-  Dependencies: TASK-395, TASK-397, TASK-399, TASK-402, TASK-404
+  Rationale: Before production rollout, document and exercise plugin installation and connection, environment ownership, secret rotation and revocation, connector disconnect, tool/schema changes, MCP metadata updates, OAuth and discovery diagnosis, automated tests and evaluations, server/plugin rollback, and emergency disablement. Include safe evidence collection that never records access tokens, refresh tokens, client secrets, or unnecessary user content, then retain the same runbook for ongoing maintenance.
+  Dependencies: TASK-395, TASK-397, TASK-399, TASK-402
 ### Collaboration Refinement Program (TASK-336 Audit)
 - ID: TASK-337
   Title: First-class project actor identity - human and agent assignment/provenance foundation

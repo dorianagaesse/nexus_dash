@@ -16,6 +16,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   mode testing, confirmations, and current plugin surfaces. Kept account,
   workspace, mobile, and Codex availability behind TASK-386 rather than
   assuming universal access.
+- Copilot review made project discovery and paginated comment reads explicit,
+  added the Epic Definition of Done, and moved the exercised operations runbook
+  ahead of production rollout so revocation and rollback are real gates.
 - Docs-only planning change; no connector or runtime behavior was implemented.
 
 # 2026-08-24 - Codex session feedback added to backlog

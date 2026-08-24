@@ -52,11 +52,13 @@ The existing Agent REST API remains supported and regression-tested.
 
 ## Initial Tool Catalog
 
+- `list_projects`
 - `get_project_summary`
 - `list_epics`
 - `search_tasks`
 - `list_tasks`
 - `get_task`
+- `list_task_comments`
 - `create_task`
 - `update_task`
 - `move_task`
@@ -99,13 +101,33 @@ The existing Agent REST API remains supported and regression-tested.
 12. Revocation, disconnect, rollback, diagnostics, and emergency disablement
     procedures are documented and exercised.
 
+## Definition Of Done
+
+- TASK-386 records the supported account, workspace, ChatGPT, and Codex
+  surfaces and any rollout limitations that constrain acceptance.
+- The architecture ADR, tool catalog, security policy, OAuth/scopes model, and
+  shared-service boundaries are approved and represented by executable tasks.
+- The remote MCP server, read/write tools, OAuth flow, authorization mapping,
+  annotations, confirmations, security controls, audit, and observability meet
+  the Epic acceptance criteria.
+- The private plugin and NexusDash skill are versioned for preview and
+  production without embedded static user credentials or permanent-delete
+  tools.
+- Automated tests, agent evaluations, preview validation, and supported-client
+  journeys pass without regressing the Agent REST API.
+- The production-readiness runbook covers and exercises revocation, disconnect,
+  rollback, diagnostics, credential isolation, and emergency disablement before
+  production rollout; the final production smoke test passes.
+- TASK-386 through TASK-405 are complete and the backlog, journal, ADR index,
+  product documentation, and relevant runbooks reflect the delivered system.
+
 ## Delivery Tasks
 
 | Source item | NexusDash task | Outcome |
 | --- | --- | --- |
 | ND-MCP-00 | TASK-386 | Confirm account, workspace, and client availability. |
 | ND-MCP-01 | TASK-387 | Record the technical architecture and deployment model. |
-| ND-MCP-02 | TASK-388 | Define the initial MCP tool contracts. |
+| ND-MCP-02 | TASK-388 | Define the initial MCP tool contracts, including project and comment discovery. |
 | ND-MCP-03 | TASK-389 | Define tool security and confirmation policy. |
 | ND-MCP-04 | TASK-390 | Consolidate shared REST/MCP application services. |
 | ND-MCP-05 | TASK-391 | Build the Streamable HTTP MCP server. |
@@ -122,7 +144,7 @@ The existing Agent REST API remains supported and regression-tested.
 | ND-MCP-16 | TASK-402 | Deploy and validate the complete preview path. |
 | ND-MCP-17 | TASK-403 | Validate supported web, desktop, and mobile journeys. |
 | ND-MCP-18 | TASK-404 | Complete production security and deployment gates. |
-| ND-MCP-19 | TASK-405 | Document operation and maintenance. |
+| ND-MCP-19 | TASK-405 | Prepare and exercise the production-readiness and operations runbook. |
 
 ## Official Product References
 
@@ -130,4 +152,3 @@ The existing Agent REST API remains supported and regression-tested.
 - [Plugin authentication](https://developers.openai.com/plugins/build/auth)
 - [Connect and test a plugin](https://developers.openai.com/plugins/deploy/connect-chatgpt)
 - [Plugins in ChatGPT and Codex](https://learn.chatgpt.com/docs/plugins)
-
