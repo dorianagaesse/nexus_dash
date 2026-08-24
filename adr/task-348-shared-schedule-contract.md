@@ -6,15 +6,15 @@ Status: Proposed
 ## 1) Decision Summary
 
 Adopt a NexusDash-owned shared project schedule as a first-class project
-artifact, distinct from the user's personal Google Calendar overlay. The shared
+artifact, distinct from the user-scoped Google Calendar overlay. The shared
 schedule is persisted in NexusDash, scoped and isolated by project RLS, driven
 by the TASK-337 project-actor identity and the TASK-331 capability vocabularies,
 exposes a durable actor-attributed history, and optionally mirrors selected
 events to/from external calendars (Google Calendar initially) via a
-user-credentialed, per-connection sync channel. The existing personal Google
-Calendar overlay stays user-scoped and continues to mutate the user's own
-Google account; the shared schedule is the durable project-level source of
-truth for project-bound time.
+user-credentialed, per-connection sync channel. The existing Google Calendar
+overlay stays user-scoped and mutates the target selected through the user's
+own Google connection; the shared schedule is the durable project-level source
+of truth for project-bound time.
 
 ## 2) Context
 
@@ -22,12 +22,12 @@ truth for project-bound time.
 
 TASK-336's multi-user collaboration audit named the project Calendar panel as
 a P1 collaboration gap. The current integration is correctly user-owned (the
-Google token belongs to the signed-in user and events come from their personal
+Google token belongs to the signed-in user and events come from their selected
 calendar), but the panel is presented as if it were a shared project module:
-a viewer cannot create an event in their own Google Calendar while looking at
-a project, the panel header just says "Calendar", and editor role controls
-mutation of the user's private calendar in a way that suggests shared
-ownership.
+a viewer cannot create an event through their own Google connection while
+looking at a project, the panel header just says "Calendar", and editor role
+controls mutation of the configured Google target in a way that suggests
+shared NexusDash ownership.
 
 ### Why now
 
@@ -54,7 +54,7 @@ implemented immediately because it depends on two foundational pieces:
   the project: ownership and last-owner protection remain authoritative;
   capability grants never grant ownership; capability is independent of
   assignment.
-- The personal Google Calendar overlay must continue to work. It is the
+- The user-scoped Google Calendar overlay must continue to work. It is the
   existing affordance, the audit logs already point to it, and many users
   lean on it for personal time blocking.
 - The shared schedule must be realtime-coherent with the existing
@@ -109,7 +109,7 @@ the user's personal calendar through their own OAuth credentials.
 - **Pros:**
   - Project ownership, capability, actor, and history are first-class and
     consistent with the rest of the project surface.
-  - Personal Google Calendar overlay keeps working as a "My calendar" pane
+  - The user-scoped Google Calendar overlay keeps working as a "My calendar" pane
     without complicated dual-use semantics.
   - External sync is opt-in, per-user, and credential-scoped. No shared
     external accounts.
@@ -170,7 +170,8 @@ records. Each event is owned by the project and has:
 - **External links:** `externalLinks` — one row per external mirror (Google
   initially). Each link records the user's `GoogleCalendarCredentialId`,
   the remote calendar id, the remote event id, the last-known sync cursor,
-  and the sync direction (`outbound` | `inbound` | `bidirectional`).
+  and the sync direction (`outbound` | `bidirectional`). Inbound-only reads do
+  not create an external-link row, as defined in section 4.5.
 
 ### 4.2 Owner / assignee actor contract (drawing on TASK-337)
 
@@ -263,7 +264,7 @@ Sync is opt-in, per-user, and per-credential. It is never implicit.
 
 - **One link per (event, credential).** A `ProjectScheduleEventExternalLink`
   row is created when the user opts to mirror a schedule event into their
-  personal Google Calendar. The row stores the user's
+  selected Google Calendar. The row stores the user's
   `GoogleCalendarCredentialId`, the remote `calendarId`, the remote
   `eventId`, the `syncDirection` (`outbound` | `bidirectional`),
   `syncCursor` (opaque etag/version), and `lastSyncedAt`.
@@ -336,7 +337,7 @@ Sync is opt-in, per-user, and per-credential. It is never implicit.
   "Schedule — N events this week".
 - Event creation and editing flow reuses the existing `CalendarEventModal`
   form atoms but routes through the shared-schedule service. The form
-  still distinguishes "My calendar" personal events from "Schedule" shared
+  still distinguishes "My calendar" Google events from "Schedule" shared
   events so users do not confuse the two.
 - The "My calendar" overlay remains a personal read/write surface against
   the signed-in user's Google Calendar. It is visually adjacent to the

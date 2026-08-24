@@ -13,16 +13,15 @@ calendar overlay; the future shared schedule remains intentionally deferred.
 
 TASK-336's multi-user collaboration audit named the project Calendar panel as
 a P1 collaboration gap: the integration is correctly user-owned (the Google
-token belongs to the signed-in user and events come from their personal
+token belongs to the signed-in user and events come from their selected Google
 calendar), but the panel still presents itself as if it were a project module.
-A viewer cannot create an event in their own Google Calendar while looking at a
-project, the panel header just says "Calendar", and editor role controls
-mutation of the user's private calendar in a way that suggests shared
-ownership.
+A viewer cannot create an event through their own Google connection while
+looking at a project, the panel header just says "Calendar", and editor role
+controls the configured Google target in a way that suggests shared ownership.
 
 The audit recommended a two-stage path:
 
-1. Stop pretending the personal Google Calendar overlay is a shared project
+1. Stop presenting the user-scoped Google Calendar overlay as a shared project
    module. Label it clearly as the signed-in user's "My calendar" overlay,
    decouple its mutation semantics from the project editor role, and keep the
    existing user-scoped credentials intact.
@@ -41,10 +40,10 @@ second stage so the follow-up work has a clear contract to build on.
   shared project schedule.
 - Decouple calendar mutations from the project editor role: a viewer who has
   connected Google Calendar with write scope can create, update, and delete
-  their own personal events while looking at the project. Project access is
-  retained only to scope the request and read the project context; the user's
-  own Google credentials and write scope are the only authorization to mutate
-  their private calendar.
+  events in their configured target calendar while looking at the project.
+  Project access is retained only to scope the request and read the project
+  context; the user's Google credentials and write scope authorize mutation of
+  that selected target.
 - Keep the dashboard surfaces accessible, label-aware, and consistent with the
   existing responsive and theme baseline; update copy where it currently
   suggests shared ownership.
@@ -77,9 +76,9 @@ second stage so the follow-up work has a clear contract to build on.
 ## Acceptance Criteria
 
 1. The project dashboard Calendar section header reads "My calendar" with
-   explanatory copy that names the integration as a personal Google Calendar
-   overlay and clarifies that edits update the signed-in user's private
-   calendar rather than a shared project schedule.
+   explanatory copy that names the integration as a user-scoped Google Calendar
+   overlay and clarifies that edits update the selected Google target rather
+   than a shared NexusDash project schedule.
 2. The dashboard upcoming-events summary card is relabeled to match ("My
    calendar") so the stat row and section header use one vocabulary.
 3. The Calendar section skeleton, project dashboard labels, and any other
@@ -97,33 +96,37 @@ second stage so the follow-up work has a clear contract to build on.
    removed.
 6. The view-only and connected-but-read-only-scope paths still surface clear
    empty states and do not show mutation affordances.
-7. Tests covering the calendar event routes and panel are updated so that a
-   viewer with Google write scope succeeds in `POST`, `PATCH`, and `DELETE`; a
-   viewer without write scope still receives `insufficient-scope`; and the
-   personal-overlay copy assertions reflect the new label.
-8. The Calendar event modal title remains neutral and the modal continues to
-   pass through the connected-Google reauthorization reconnect link when
-   applicable.
+7. Tests covering the calendar event routes and panel are updated so that:
+   a viewer with Google write scope succeeds in `POST`, `PATCH`, and
+   `DELETE`; a viewer without write scope still receives
+   `insufficient-scope`; and the personal-overlay copy assertions reflect the
+   new label.
+8. The Calendar event modal title remains neutral (it is the user's personal
+   event, not a project record) and the modal continues to pass through the
+   connected-Google reauthorization reconnect link when applicable.
 9. `adr/task-348-shared-schedule-contract.md` describes the future
    NexusDash-owned shared project schedule: artifact model, owner/assignee
-   actor contract, capabilities, history and audit surface, and optional
-   external-calendar synchronization. The decision is logged in
-   `adr/decisions.md`.
+   actor contract, capabilities (drawing on TASK-331), history and audit
+   surface, and the optional external-calendar synchronization model. The
+   decision is logged in `adr/decisions.md` with a short summary and pointer
+   to the ADR.
 10. UI remains usable at 375px and desktop widths, in light and dark themes,
     with visible focus, semantic status text, at least 44px primary touch
-    targets, and no behavior change for project role semantics elsewhere.
+    targets, and no behavior change for the project role semantics elsewhere
+    in the product.
 
 ## Definition Of Done
 
 - Calendar panel, summary card, skeleton, and modal copy are aligned to the
   "My calendar" overlay label.
-- `ProjectCalendarPanel` and `lib/services/calendar-service.ts` mutation paths
-  no longer require project editor role.
+- `ProjectCalendarPanel` and `lib/services/calendar-service.ts` mutation
+  paths no longer require project editor role.
 - Updated unit, API, and component tests cover viewer success, write-scope
   failure, and copy assertions.
-- The shared-schedule ADR exists and is referenced from `adr/decisions.md`.
-- `tasks/current.md`, `tasks/backlog.md`, `journal.md`, and the ADR reflect the
-  delivered behavior.
+- The shared-schedule ADR exists at `adr/task-348-shared-schedule-contract.md`
+  and is referenced from `adr/decisions.md`.
+- `tasks/current.md`, `tasks/backlog.md`, `journal.md`, and the ADR reflect
+  the delivered behavior.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
   `npm run build`, and the calendar Playwright smoke pass.
 - The branch is pushed, a ready-for-review PR is open, required checks are

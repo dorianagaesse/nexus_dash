@@ -86,7 +86,9 @@ export function CalendarEventModal({
       >
         <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0">
           <DialogTitle className="text-lg">
-            {eventModalMode === "create" ? "New personal event" : "Edit personal event"}
+            {eventModalMode === "create"
+              ? "New Google Calendar event"
+              : "Edit Google Calendar event"}
           </DialogTitle>
           <Button
             type="button"
@@ -101,7 +103,8 @@ export function CalendarEventModal({
         </CardHeader>
         <CardContent className="flex-1 min-h-0 overflow-y-auto">
           <p className="mb-3 text-xs text-muted-foreground">
-            Saves to your connected Google Calendar, not to a shared project schedule.
+            Saves to your selected Google Calendar, not to a shared NexusDash
+            project schedule.
           </p>
           <form
             className="grid gap-4"

@@ -8,18 +8,16 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.38.0 - 2026-08-09
+## v0.38.0 - 2026-08-24
 
 - Relabeled the project dashboard Calendar section, upcoming-events stat card,
-  panel skeleton, and event modal as "My calendar" / "personal event" so the
-  integration is presented as the signed-in user's personal Google Calendar
-  overlay rather than a shared project module.
-- Decoupled personal calendar mutations from the project editor role: a
+  panel skeleton, and event modal as a user-scoped "My calendar" overlay
+  rather than a shared NexusDash project module.
+- Decoupled connected-calendar mutations from the project editor role: a
   signed-in project member whose Google credential exposes the calendar write
-  scope can now create, update, and delete their own personal calendar events
-  while looking at a project. Project access is retained only so the dashboard
-  can scope the request to a project the caller can see; the user's own Google
-  write scope is the only authorization to mutate their private calendar.
+  scope can now create, update, and delete events in their configured target
+  calendar while looking at a project. Project access only scopes the request;
+  the user's Google connection and write scope authorize the mutation.
 - Dropped the `canEdit` prop from the project calendar panel, section, and
   grid/chip components so the visible "New event" and "Edit" affordances are
   reachable for any project member with a writable Google credential.
