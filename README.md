@@ -34,9 +34,7 @@ Implemented today:
   - Calendar panel (Google Calendar list/create/update/delete)
   - Task comments with agent-authored comment attribution through the project
     credential label and a shared agent avatar
-- Per-user Calendar connections with multiple Google accounts, discovered
-  selectable calendars, one writable target, and revocation-aware disconnect
-  (`/account/settings`)
+- Per-user Google Calendar connection and calendar target setting (`/account/settings`)
 - Attachment storage abstraction:
   - `local` provider (filesystem)
   - `r2` provider (Cloudflare R2)
