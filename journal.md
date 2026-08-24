@@ -26,6 +26,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - The final safety pass defined relation add/remove preservation, sanitized and
   bounded evaluation evidence, server-enforced confirmation intents for
   sensitive writes, and least-privilege v1 scopes limited to exposed tools.
+- Dependency review added a membership-filtered project-discovery capability,
+  made scope mapping precede plugin packaging, placed evaluation retention
+  policy before artifact collection, and kept connector quotas in TASK-397
+  without reactivating the broader deferred TASK-064 baseline.
 - Docs-only planning change; no connector or runtime behavior was implemented.
 
 # 2026-08-24 - Codex session feedback added to backlog

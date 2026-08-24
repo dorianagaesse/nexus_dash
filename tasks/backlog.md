@@ -260,13 +260,13 @@ Last reviewed: 2026-08-24
 - ID: TASK-396
   Title: OAuth scope mapping to NexusDash project capabilities
   Status: Pending
-  Rationale: Define and enforce only the OAuth scopes required by the v1 catalog: project read, task read/write, context read, and roadmap read. Map them to the canonical NexusDash capability vocabulary and check both scope and current project authorization on every tool call. Do not request or issue context-write or roadmap-write scopes until explicit write tools, acceptance criteria, and authorization tests are approved; prevent responsibility metadata from granting access and block cross-user or cross-project traversal.
+  Rationale: Define and enforce only the OAuth scopes required by the v1 catalog: a distinct project-discovery scope for membership-filtered `list_projects`, plus project-bound project read, task read/write, context read, and roadmap read scopes. The discovery scope may return only projects currently visible to the authenticated user and never authorizes a project-specific operation by itself; every subsequent tool must check its project-bound scope and current membership/capability. Do not request or issue context-write or roadmap-write scopes until explicit write tools, acceptance criteria, and authorization tests are approved; prevent responsibility metadata from granting access and block cross-user or cross-project traversal.
   Dependencies: TASK-331, TASK-389, TASK-395
 - ID: TASK-397
   Title: MCP security controls, quotas, audit, and observability
   Status: Pending
-  Rationale: Add per-user and per-tool rate limits, payload and pagination bounds, forged-identifier defenses, write audit events, OAuth refusal/error logging, token and sensitive-data redaction, immediate compromised-session revocation, and latency/error/usage metrics. Define actionable alerts without logging model prompts or resource content unnecessarily.
-  Dependencies: TASK-043, TASK-064, TASK-307, TASK-389, TASK-395, TASK-396
+  Rationale: Deliver the connector's public-endpoint rate-limiting baseline with per-user and per-tool quotas, payload and pagination bounds, forged-identifier defenses, write audit events, OAuth refusal/error logging, token and sensitive-data redaction, immediate compromised-session revocation, and latency/error/usage metrics. Before TASK-401 begins, approve a bounded retention and redaction policy for evaluation and preview artifacts. Define actionable alerts without logging model prompts or resource content unnecessarily; broader non-connector API rate limiting remains tracked separately by TASK-064.
+  Dependencies: TASK-043, TASK-307, TASK-389, TASK-395, TASK-396
 - ID: TASK-398
   Title: NexusDash plugin skill and model operating instructions
   Status: Pending
@@ -276,7 +276,7 @@ Last reviewed: 2026-08-24
   Title: Private NexusDash plugin packaging
   Status: Pending
   Rationale: Package the remote MCP server and NexusDash skill in a valid private plugin with stable identity, description, icon, permission metadata, connection instructions, privacy/support information, and separate preview/production versioning. Do not add a custom UI in v1 or embed static NexusDash API credentials.
-  Dependencies: TASK-386, TASK-391, TASK-394, TASK-395, TASK-398
+  Dependencies: TASK-386, TASK-391, TASK-394, TASK-395, TASK-396, TASK-398
 - ID: TASK-400
   Title: MCP, OAuth, plugin, and Agent REST automated test matrix
   Status: Pending
@@ -286,7 +286,7 @@ Last reviewed: 2026-08-24
   Title: NexusDash connector agent evaluation suite
   Status: Pending
   Rationale: Build repeatable evaluations for direct and indirect tool requests, search-first behavior, prior-identifier reuse, duplicate-risk creation, confirmation-required writes, insufficient permission, unsupported deletion, empty results, and ambiguous matches. Use synthetic or sanitized fixtures; record chosen tools, redacted arguments/results/identifiers, confirmation behavior, and pass criteria under an explicit bounded-retention policy so releases can be compared without retaining raw task, comment, context, roadmap, or user content.
-  Dependencies: TASK-392, TASK-393, TASK-394, TASK-398, TASK-399
+  Dependencies: TASK-389, TASK-392, TASK-393, TASK-394, TASK-397, TASK-398, TASK-399
 - ID: TASK-402
   Title: Preview deployment and end-to-end MCP connector validation
   Status: Pending
@@ -397,8 +397,8 @@ Last reviewed: 2026-08-24
   Dependencies: TASK-039, TASK-043
 - ID: TASK-064
   Title: Security hardening - API rate limiting baseline (deferred)
-  Status: Pending
-  Rationale: Add rate limiting and abuse controls when endpoints are exposed publicly; defer now until deployment/auth topology is finalized so policy matches real traffic boundaries.
+  Status: Pending (Deferred - connector-specific public endpoint covered by TASK-397)
+  Rationale: Add a broader rate-limiting and abuse-control baseline for public NexusDash API surfaces when their deployment/auth topology is finalized. TASK-397 owns the remote connector's MCP/OAuth-specific per-user and per-tool quotas so the connector program is not blocked by this intentionally deferred cross-API task.
   Dependencies: TASK-039, TASK-040, TASK-046
 
 ### Epic Tracking (Non-Executable)

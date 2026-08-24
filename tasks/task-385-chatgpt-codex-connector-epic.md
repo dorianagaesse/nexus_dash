@@ -47,6 +47,9 @@ The existing Agent REST API remains supported and regression-tested.
 - Issue only the OAuth scopes required by the v1 tool catalog; context-card and
   roadmap write scopes remain unavailable until corresponding tools and
   authorization coverage are separately approved.
+- Authorize account-level `list_projects` through a distinct project-discovery
+  capability that returns only memberships visible to the current user;
+  require project-bound scopes again for every project-specific operation.
 - Return concise, structured, paginated, model-readable results.
 - Annotate tool behavior, including read-only, destructive, and idempotent
   characteristics, and require a server-validated, short-lived confirmation
@@ -145,8 +148,8 @@ The existing Agent REST API remains supported and regression-tested.
   non-regression.
 - Use synthetic or sanitized fixtures for evaluations and stored validation
   artifacts. Redact sensitive arguments, results, content, and identifiers;
-  retain only the minimum evidence and duration defined by the connector
-  runbook.
+  retain only the minimum evidence and duration defined before evaluation by
+  TASK-397 and operationalized by the connector runbook in TASK-405.
 - Trigger the explicit branch through `deploy-vercel.yml` using `git_ref`, then
   retain the workflow run, checked-out ref and revision, immutable preview URL,
   environment/database identity, and artifact evidence described by
