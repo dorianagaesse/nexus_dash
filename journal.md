@@ -3,6 +3,21 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-24 - ChatGPT and Codex connector Epic added to backlog
+
+- Integrated the attached ND-MCP plan as non-executable TASK-385 with a
+  dedicated Epic brief and twenty focused delivery tasks, TASK-386 through
+  TASK-405.
+- Preserved the proposed remote Streamable HTTP MCP, OAuth 2.1, shared-service,
+  read/write tool, no-delete v1, private-plugin, test/evaluation, preview,
+  production, and operations workstreams.
+- Verified the cited official OpenAI documentation for stable HTTPS MCP
+  endpoints, Streamable HTTP, OAuth 2.1/PKCE metadata requirements, Developer
+  mode testing, confirmations, and current plugin surfaces. Kept account,
+  workspace, mobile, and Codex availability behind TASK-386 rather than
+  assuming universal access.
+- Docs-only planning change; no connector or runtime behavior was implemented.
+
 # 2026-08-24 - Codex session feedback added to backlog
 
 - Captured thirteen submitted feedback points as fourteen focused follow-ups,

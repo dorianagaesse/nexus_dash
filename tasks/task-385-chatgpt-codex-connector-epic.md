@@ -1,0 +1,133 @@
+# TASK-385 ChatGPT and Codex Connector Epic
+
+## Status
+
+Pending (non-executable Epic split into TASK-386 through TASK-405).
+
+## Objective
+
+Allow an authenticated user to discover and operate their authorized NexusDash
+projects from ChatGPT and supported Codex surfaces, including a new mobile
+conversation, without depending on a local computer or manually supplying an
+`.env` file.
+
+The initial integration uses a remotely hosted NexusDash MCP server protected
+by OAuth 2.1 and packaged as a private plugin. Account, workspace, and client
+availability must be confirmed by TASK-386 before implementation assumptions
+are locked.
+
+## Expected User Outcomes
+
+From a supported ChatGPT or Codex surface, an authenticated user can:
+
+- find and read authorized projects, Epics, tasks, comments, context cards,
+  and roadmap data;
+- filter tasks by project, Epic, label, status, or text;
+- create and partially update a task;
+- move a task to another status;
+- add a task comment;
+- reconnect from a new conversation without a local configuration file; and
+- retain the same effective permissions enforced by NexusDash.
+
+The existing Agent REST API remains supported and regression-tested.
+
+## Architecture Principles
+
+- Keep the existing Agent REST API and reuse the same internal application
+  services and authorization rules from both transports.
+- Expose a stable public HTTPS MCP endpoint, preferably `/mcp`, using
+  Streamable HTTP.
+- Protect private data and actions with OAuth 2.1 Authorization Code + PKCE,
+  short-lived access tokens, and revocable rotating refresh tokens.
+- Publish the protected-resource and authorization-server metadata required by
+  MCP clients, including correct `resource` propagation and a supported client
+  registration strategy.
+- Never embed a NexusDash API key or another static user secret in the plugin.
+- Separate read and write tools and expose no permanent-delete tool in v1.
+- Return concise, structured, paginated, model-readable results.
+- Annotate tool behavior, including read-only, destructive, and idempotent
+  characteristics, and require clear confirmation for sensitive writes.
+- Keep the transport compatible with the selected serverless deployment model
+  and prevent sensitive data from entering logs or metrics.
+
+## Initial Tool Catalog
+
+- `get_project_summary`
+- `list_epics`
+- `search_tasks`
+- `list_tasks`
+- `get_task`
+- `create_task`
+- `update_task`
+- `move_task`
+- `add_task_comment`
+- `list_context_cards`
+- `get_roadmap`
+
+## Out Of Scope For V1
+
+- Public marketplace publication.
+- A custom MCP user interface.
+- Permanent deletion of a task, context card, or other resource.
+- Replacement or removal of the Agent REST API.
+- AI services that are not compatible with the selected MCP/plugin contract.
+- Autonomous mutations without an explicit user request or appropriate
+  confirmation.
+
+## Acceptance Criteria
+
+1. A stable MCP server is reachable over public HTTPS and protected by the
+   selected OAuth 2.1 flow.
+2. No static NexusDash user secret is sent to or stored in ChatGPT or Codex.
+3. NexusDash project membership, role, and capability checks apply to every
+   tool call and prevent cross-project or cross-user access.
+4. The initial read and write tools work from the confirmed ChatGPT surfaces
+   and any confirmed Codex surfaces.
+5. Subject to TASK-386 availability findings, the owner can install and use the
+   private plugin on supported web, desktop, and mobile clients.
+6. A new conversation can rediscover the connected NexusDash tools without a
+   local machine or local `.env` file.
+7. Sensitive writes present an accurate confirmation naming the resource and
+   operation.
+8. No permanent-delete tool is discoverable or callable in v1.
+9. The Agent REST API and its regression suite continue to pass.
+10. Preview validation covers transport, OAuth, authorization, schemas, tool
+    selection, confirmations, audit output, and REST non-regression before
+    production deployment.
+11. Calls, authorization refusals, and failures are observable without logging
+    tokens, secrets, or unnecessarily sensitive content.
+12. Revocation, disconnect, rollback, diagnostics, and emergency disablement
+    procedures are documented and exercised.
+
+## Delivery Tasks
+
+| Source item | NexusDash task | Outcome |
+| --- | --- | --- |
+| ND-MCP-00 | TASK-386 | Confirm account, workspace, and client availability. |
+| ND-MCP-01 | TASK-387 | Record the technical architecture and deployment model. |
+| ND-MCP-02 | TASK-388 | Define the initial MCP tool contracts. |
+| ND-MCP-03 | TASK-389 | Define tool security and confirmation policy. |
+| ND-MCP-04 | TASK-390 | Consolidate shared REST/MCP application services. |
+| ND-MCP-05 | TASK-391 | Build the Streamable HTTP MCP server. |
+| ND-MCP-06 | TASK-392 | Implement read tools. |
+| ND-MCP-07 | TASK-393 | Implement write tools. |
+| ND-MCP-08 | TASK-394 | Add annotations and confirmation behavior. |
+| ND-MCP-09 | TASK-395 | Implement OAuth 2.1 for MCP. |
+| ND-MCP-10 | TASK-396 | Map OAuth scopes to NexusDash permissions. |
+| ND-MCP-11 | TASK-397 | Add security controls, quotas, audit, and metrics. |
+| ND-MCP-12 | TASK-398 | Create the NexusDash plugin skill. |
+| ND-MCP-13 | TASK-399 | Package the private plugin. |
+| ND-MCP-14 | TASK-400 | Add automated integration and regression coverage. |
+| ND-MCP-15 | TASK-401 | Build the agent evaluation suite. |
+| ND-MCP-16 | TASK-402 | Deploy and validate the complete preview path. |
+| ND-MCP-17 | TASK-403 | Validate supported web, desktop, and mobile journeys. |
+| ND-MCP-18 | TASK-404 | Complete production security and deployment gates. |
+| ND-MCP-19 | TASK-405 | Document operation and maintenance. |
+
+## Official Product References
+
+- [Build an MCP server](https://developers.openai.com/plugins/concepts/mcp-server)
+- [Plugin authentication](https://developers.openai.com/plugins/build/auth)
+- [Connect and test a plugin](https://developers.openai.com/plugins/deploy/connect-chatgpt)
+- [Plugins in ChatGPT and Codex](https://learn.chatgpt.com/docs/plugins)
+
