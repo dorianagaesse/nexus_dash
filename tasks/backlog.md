@@ -201,6 +201,11 @@ Last reviewed: 2026-08-24
   Status: Pending - bug remediation
   Rationale: Reproduce and identify why an Epic's linked-task count and derived progress remain stale after creating a task in that Epic, then refresh only after the Epic edit form is opened and saved. Trace the task create/link/unlink/reassignment mutation path through server-derived Epic data and client state reconciliation, fix the root cause without relying on a no-op Epic save or full page reload, and add regression coverage proving the Epic area updates immediately after each relevant task mutation. This focused same-session correctness fix should land before TASK-367 expands cross-client realtime Epic refresh behavior.
   Dependencies: TASK-107, TASK-118, TASK-276, TASK-311
+- ID: TASK-384
+  Title: Kanban task filtering by Epic
+  Status: Pending
+  Rationale: Add an Epic filter to the Kanban board so users can focus every lane on tasks linked to one or more selected Epics, explicitly include or isolate tasks with no Epic, and clear the selection in one action. Show active Epic filters and filtered result counts, preserve authorized project boundaries, keep drag-and-drop behavior predictable while a filter is active, and compose cleanly with task search and label filters when those controls are available without making this task depend on their delivery.
+  Dependencies: TASK-107, TASK-108, TASK-133
 ### Collaboration Refinement Program (TASK-336 Audit)
 - ID: TASK-337
   Title: First-class project actor identity - human and agent assignment/provenance foundation
