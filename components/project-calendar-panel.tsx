@@ -24,6 +24,7 @@ import {
   groupEventsByDay,
   mapEventMutationError,
   parseEventForForm,
+  resolvePreferredWriteSourceId,
   toDateInputValue,
   type CalendarEventItem,
   type CalendarEventsResponse,
@@ -55,6 +56,7 @@ export function ProjectCalendarPanel({
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [events, setEvents] = useState<CalendarEventItem[]>([]);
   const [calendarSources, setCalendarSources] = useState<CalendarSourceOption[]>([]);
+  const [defaultCalendarSourceId, setDefaultCalendarSourceId] = useState("");
   const [eventCalendarSourceId, setEventCalendarSourceId] = useState("");
   const [sourceWarning, setSourceWarning] = useState<string | null>(null);
   const [syncedAt, setSyncedAt] = useState<string | null>(null);
@@ -95,9 +97,7 @@ export function ProjectCalendarPanel({
     setEventEndDateTime(defaults.end);
     setEventLocation("");
     setEventDescription("");
-    setEventCalendarSourceId(
-      calendarSources.find((source) => source.writable)?.id ?? ""
-    );
+    setEventCalendarSourceId(defaultCalendarSourceId);
     setEditingEventId(null);
     setEventFormError(null);
   };
@@ -176,6 +176,7 @@ export function ProjectCalendarPanel({
         setIsConnected(false);
         setEvents([]);
         setCalendarSources([]);
+        setDefaultCalendarSourceId("");
         setSyncedAt(null);
         return;
       }
@@ -187,10 +188,15 @@ export function ProjectCalendarPanel({
       setIsConnected(payload.connected);
       setEvents(payload.events ?? []);
       setCalendarSources(payload.sources ?? []);
+      const preferredSourceId = resolvePreferredWriteSourceId(
+        payload.sources ?? [],
+        payload.writeSourceId
+      );
+      setDefaultCalendarSourceId(preferredSourceId);
       setEventCalendarSourceId((current) =>
         current && (payload.sources ?? []).some((source) => source.id === current)
           ? current
-          : (payload.sources ?? []).find((source) => source.writable)?.id ?? ""
+          : preferredSourceId
       );
       setSourceWarning(
         payload.truncated

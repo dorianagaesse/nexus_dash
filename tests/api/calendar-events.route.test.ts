@@ -8,6 +8,7 @@ const googleCalendarAccessMock = vi.hoisted(() => ({
 }));
 
 const calendarConnectionServiceMock = vi.hoisted(() => ({
+  getCalendarPreference: vi.fn(),
   getSelectedCalendarSourceContexts: vi.fn(),
 }));
 
@@ -24,6 +25,7 @@ vi.mock("@/lib/google-calendar-access", () => ({
 }));
 
 vi.mock("@/lib/services/calendar-connection-service", () => ({
+  getCalendarPreference: calendarConnectionServiceMock.getCalendarPreference,
   getSelectedCalendarSourceContexts:
     calendarConnectionServiceMock.getSelectedCalendarSourceContexts,
 }));
@@ -60,6 +62,9 @@ describe("calendar events routes", () => {
         writable: true,
       },
     ]);
+    calendarConnectionServiceMock.getCalendarPreference.mockResolvedValue({
+      writeSourceId: "source-1",
+    });
     projectAccessServiceMock.requireProjectRole.mockResolvedValue({
       ok: true,
       role: "owner",
@@ -173,7 +178,7 @@ describe("calendar events routes", () => {
     });
   });
 
-  test("GET returns 500 when calendar fetch throws", async () => {
+  test("GET maps a single source network failure to a provider error", async () => {
     googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
       ok: true,
       context: {
@@ -188,10 +193,10 @@ describe("calendar events routes", () => {
       new NextRequest(`http://localhost/api/calendar/events?projectId=${PROJECT_ID}`)
     );
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(502);
     await expect(readJson(response)).resolves.toEqual({
-      connected: false,
-      error: "calendar-internal-error",
+      connected: true,
+      error: "calendar-fetch-failed",
     });
   });
 
@@ -308,11 +313,7 @@ describe("calendar events routes", () => {
           { status: 200 }
         )
       )
-      .mockResolvedValue(
-        new Response(JSON.stringify({ error: { message: "temporary" } }), {
-          status: 503,
-        })
-      );
+      .mockRejectedValue(new Error("network unavailable"));
 
     const response = await GET(
       new NextRequest(`http://localhost/api/calendar/events?projectId=${PROJECT_ID}`)
@@ -334,6 +335,7 @@ describe("calendar events routes", () => {
         error: "calendar-fetch-failed",
       },
     ]);
+    expect(payload.writeSourceId).toBe("source-1");
   });
 
   test("POST rejects writes when scope is read-only", async () => {

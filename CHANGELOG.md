@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.39.0 - 2026-08-06
+## v0.39.0 - 2026-08-24
 
 - Replaced the singular Google credential with user-owned Calendar connections,
   discovered sources, and one account-wide writable target while preserving
@@ -23,7 +23,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Expanded composite ownership constraints, forced direct-user RLS, migration,
   provider, API, UI, and real PostgreSQL isolation coverage.
 
-## v0.38.0 - 2026-08-16
+## v0.38.0 - 2026-08-24
 
 - Made Google Calendar credential reads, refreshes, target updates, and project
   connection status fail closed for revoked credentials.
