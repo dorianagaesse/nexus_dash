@@ -51,8 +51,19 @@ export interface CalendarEventsResponse {
     connectionId: string;
     error: string;
   }>;
+  writeSourceId?: string | null;
   truncated?: boolean;
   error?: string;
+}
+
+export function resolvePreferredWriteSourceId(
+  sources: CalendarSourceOption[],
+  writeSourceId: string | null | undefined
+): string {
+  const writableSources = sources.filter((source) => source.writable);
+  return writableSources.some((source) => source.id === writeSourceId)
+    ? (writeSourceId ?? "")
+    : (writableSources[0]?.id ?? "");
 }
 
 export interface DayEventBucket {

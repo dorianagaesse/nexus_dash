@@ -4,10 +4,13 @@ import {
   hasCalendarWriteScope,
 } from "@/lib/google-calendar-access";
 import { getCalendarProvider } from "@/lib/calendar-providers/google";
-import { logServerError } from "@/lib/observability/logger";
+import { logServerError, logServerWarning } from "@/lib/observability/logger";
 import { requireProjectRole } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
-import { getSelectedCalendarSourceContexts } from "@/lib/services/calendar-connection-service";
+import {
+  getCalendarPreference,
+  getSelectedCalendarSourceContexts,
+} from "@/lib/services/calendar-connection-service";
 
 interface ServiceErrorResult {
   ok: false;
@@ -407,6 +410,7 @@ export async function listCalendarEvents(input: {
       error: string;
     }>;
     truncated: boolean;
+    writeSourceId: string | null;
     sources: Array<{
       id: string;
       connectionId: string;
@@ -428,7 +432,10 @@ export async function listCalendarEvents(input: {
       return projectAccess;
     }
 
-    const sourceContexts = await getSelectedCalendarSourceContexts(input.actorUserId);
+    const [sourceContexts, preference] = await Promise.all([
+      getSelectedCalendarSourceContexts(input.actorUserId),
+      getCalendarPreference(input.actorUserId),
+    ]);
     if (sourceContexts.length === 0) {
       return createError(401, { connected: false, error: "not-connected" });
     }
@@ -469,14 +476,8 @@ export async function listCalendarEvents(input: {
         let warning: (typeof results)[number]["warning"] = null;
         let truncated = false;
         do {
-          let response = await fetchGoogleCalendarEvents({
-            accessToken: auth.context.accessToken,
-            calendarId: auth.context.calendarId,
-            timeMin: queryWindow.timeMin,
-            timeMax: queryWindow.timeMax,
-            pageToken,
-          });
-          if (response.status === 429 || response.status >= 500) {
+          let response: Response;
+          try {
             response = await fetchGoogleCalendarEvents({
               accessToken: auth.context.accessToken,
               calendarId: auth.context.calendarId,
@@ -484,6 +485,31 @@ export async function listCalendarEvents(input: {
               timeMax: queryWindow.timeMax,
               pageToken,
             });
+            if (response.status === 429 || response.status >= 500) {
+              response = await fetchGoogleCalendarEvents({
+                accessToken: auth.context.accessToken,
+                calendarId: auth.context.calendarId,
+                timeMin: queryWindow.timeMin,
+                timeMax: queryWindow.timeMax,
+                pageToken,
+              });
+            }
+          } catch (error) {
+            logServerWarning(
+              "listCalendarEvents.sourceFetchFailed",
+              "Calendar source request failed",
+              {
+                calendarSourceId: auth.context.calendarSourceId,
+                connectionId: auth.context.connectionId,
+                error,
+              }
+            );
+            warning = {
+              calendarSourceId: auth.context.calendarSourceId,
+              connectionId: auth.context.connectionId,
+              error: "calendar-fetch-failed",
+            };
+            break;
           }
           const payload = (await response.json().catch(() => null)) as {
             items?: GoogleCalendarApiEvent[];
@@ -572,6 +598,7 @@ export async function listCalendarEvents(input: {
       events,
       warnings,
       truncated: results.some((result) => result.truncated),
+      writeSourceId: preference?.writeSourceId ?? null,
       sources: sourceContexts.map((context) => ({
         id: context.source.id,
         connectionId: context.connection.id,
