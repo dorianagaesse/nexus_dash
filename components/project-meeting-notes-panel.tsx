@@ -789,6 +789,10 @@ export function ProjectMeetingNotesPanel({
   const appliedInitialMeetingNoteIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    setQuery(activeQuery);
+  }, [activeQuery]);
+
+  useEffect(() => {
     const sortedNotes = sortNotes(notes);
     setLocalNotes(sortedNotes);
     setSelectedNoteId((current) =>
@@ -1180,6 +1184,20 @@ export function ProjectMeetingNotesPanel({
     }
   };
 
+  const clearMeetingNotesQuery = useCallback(() => {
+    setQuery("");
+    if (!searchParams.has("meetingNoteQuery")) {
+      return;
+    }
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("meetingNoteQuery");
+    const nextQuery = params.toString();
+    router.replace(
+      nextQuery ? `/projects/${projectId}?${nextQuery}` : `/projects/${projectId}`
+    );
+  }, [projectId, router, searchParams]);
+
   const closeNoteDialog = () => {
     if (isSaving) {
       return;
@@ -1515,7 +1533,14 @@ export function ProjectMeetingNotesPanel({
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  const nextQuery = event.target.value;
+                  if (nextQuery.length === 0) {
+                    clearMeetingNotesQuery();
+                    return;
+                  }
+                  setQuery(nextQuery);
+                }}
                 className="h-11 w-full rounded-md border border-input bg-background pl-9 pr-10 text-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
                 placeholder="Search titles, participants, labels, inputs, outputs, actions"
                 aria-label="Search meeting notes"
@@ -1523,7 +1548,7 @@ export function ProjectMeetingNotesPanel({
               {query ? (
                 <button
                   type="button"
-                  onClick={() => setQuery("")}
+                  onClick={clearMeetingNotesQuery}
                   className="absolute right-2 top-1/2 rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
                   aria-label="Clear meeting notes search"
                 >
