@@ -2,7 +2,7 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-08-08
+Last reviewed: 2026-08-24
 
 ## Pending
 ### Active Runtime Remediation
@@ -135,6 +135,52 @@ Last reviewed: 2026-08-08
   Status: Pending
   Rationale: The Roadmap section's milestone/grouped-event model only "clicked" for the reviewer after creating two or three items. Add an opt-in help affordance (reusing the upcoming TASK-134 pattern) plus a clearer empty-state explanation of what a milestone is, how phases and events relate, and what good inputs look like, so the first interaction is self-explanatory.
   Dependencies: TASK-106, TASK-130, TASK-134
+### Codex Session Feedback Refinement Program
+- ID: TASK-371
+  Title: Screenshot attachments in task descriptions and comments
+  Status: Pending
+  Rationale: Let collaborators paste or upload screenshots directly in task descriptions and task comments so visual evidence, reproduction context, and design feedback stay with the work instead of requiring an external link. Reuse the existing attachment storage and authorization boundaries, provide inline previews, and keep upload behavior accessible on desktop and mobile.
+  Dependencies: TASK-019, TASK-029, TASK-099, TASK-133
+- ID: TASK-372
+  Title: dd
+  Status: Pending - scope clarification required
+  Rationale: Preserve the submitted backlog item exactly as provided so it is not lost. Clarify the intended outcome, affected product surface, acceptance criteria, and dependencies before moving it into the execution queue or beginning implementation.
+  Dependencies: None identified pending clarification
+- ID: TASK-373
+  Title: Agent task API labels contract - expose a canonical string array
+  Status: Pending
+  Rationale: Return task labels to agent clients as a first-class `labels: string[]` field instead of requiring callers to reconcile the legacy singular `label` value with the JSON-encoded `labelsJson` string. Keep the write and read contracts consistent, document any compatibility window, and cover empty, single-label, and multi-label responses.
+  Dependencies: TASK-031, TASK-115, TASK-127
+- ID: TASK-374
+  Title: Agent task API single-task status transition
+  Status: Pending
+  Rationale: Allow an agent to change one task's status without submitting the ordering of every Kanban column. Define a focused project-scoped mutation that preserves deterministic ordering in both the source and destination columns, returns the updated task, and leaves full-board reorder available for explicit bulk reordering.
+  Dependencies: TASK-059, TASK-115, TASK-127, TASK-276
+- ID: TASK-375
+  Title: Agent task API true partial PATCH semantics
+  Status: Pending
+  Rationale: Make `PATCH /api/projects/{projectId}/tasks/{taskId}` accept only the fields being changed instead of requiring `title` when an agent updates another property such as the description. Distinguish omitted fields from explicit null or clear operations, retain validation for supplied values, and document the partial-update contract.
+  Dependencies: TASK-055, TASK-115, TASK-127
+- ID: TASK-376
+  Title: Agent task creation API complete response representation
+  Status: Pending
+  Rationale: Return the complete created task representation from the task creation endpoint rather than only its identifier so agents can immediately use canonical labels, status, ordering, epic, assignment, timestamps, and other server-derived fields without a follow-up read.
+  Dependencies: TASK-055, TASK-115, TASK-127, TASK-373
+- ID: TASK-377
+  Title: Agent task API server filters and bulk operations
+  Status: Pending
+  Rationale: Add server-side `epicId` and `label` filters to task listing and define bounded bulk operations for common agent workflows. Specify pagination, filter composition, per-item authorization and validation, maximum batch size, atomicity or partial-failure behavior, and response details so callers do not need to download and rewrite an entire board.
+  Dependencies: TASK-059, TASK-107, TASK-115, TASK-127, TASK-331, TASK-373
+- ID: TASK-378
+  Title: Agent credential presets for read/write access without delete
+  Status: Pending
+  Rationale: Make it straightforward to issue a project-scoped agent token that can read and update tasks without deletion permission. The underlying write/delete scope split already exists, so align credential setup guidance, presets, and task-oriented onboarding examples to avoid granting `task:delete` for missions that do not require destructive access.
+  Dependencies: TASK-059, TASK-115, TASK-331
+- ID: TASK-379
+  Title: Epic default or suggested task label
+  Status: Pending
+  Rationale: Let an Epic define a label that is automatically applied or clearly suggested when tasks are created in or linked to that Epic. Define precedence when a task already has labels, behavior when tasks move between Epics, and whether the Epic policy is required or advisory so related work cannot silently remain inconsistently labeled.
+  Dependencies: TASK-031, TASK-107, TASK-343
 ### Collaboration Refinement Program (TASK-336 Audit)
 - ID: TASK-337
   Title: First-class project actor identity - human and agent assignment/provenance foundation

@@ -3,6 +3,18 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-24 - Codex session feedback added to backlog
+
+- Captured nine submitted follow-ups as TASK-371 through TASK-379 under a new
+  `Codex Session Feedback Refinement Program` section in `tasks/backlog.md`.
+- Added screenshot attachments for task descriptions/comments and preserved
+  the submitted `dd` item verbatim with an explicit clarification gate.
+- Converted the agent-session feedback into focused API tasks covering a
+  canonical labels array, single-task status transitions, true partial PATCH,
+  complete create responses, server-side epic/label filters, bounded bulk
+  operations, non-delete credential presets, and Epic-driven task labels.
+- Docs-only backlog grooming; no runtime behavior changed.
+
 # 2026-08-20 - TASK-370 preview isolation validated
 
 - Removed stale Preview `NEXTAUTH_URL` and OAuth redirect overrides from
