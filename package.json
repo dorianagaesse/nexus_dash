@@ -81,10 +81,6 @@
     "picomatch@^4.0.0": "4.0.4",
     "next": {
       "postcss": "8.5.15"
-    },
-    "@prisma/dev": {
-      "@hono/node-server": "1.19.14",
-      "hono": "4.12.26"
     }
   }
 }

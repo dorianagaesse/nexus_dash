@@ -514,13 +514,9 @@ Prisma tooling advisory note:
 - `@prisma/client` declares `prisma` as an optional peer, so npm can classify
   Prisma CLI packages as `devOptional` and still include them in
   `npm audit --omit=dev`.
-- Prisma 7.8.0 pins `@prisma/dev` 0.24.3, whose local development server uses
-  `@hono/node-server` and Hono. NexusDash does not import either package or
-  expose that development server in the deployed application.
-- The repository keeps targeted patched overrides for
-  `@hono/node-server@1.19.14` and `hono@4.12.26` until a supported Prisma
-  release no longer needs them. Remove the overrides when the installed
-  Prisma dependency tree is audit-clean without them.
+- Prisma 7.9.1 resolves `@prisma/dev` 0.24.17, which no longer installs
+  `@hono/node-server` or Hono. The former targeted overrides were removed with
+  that upgrade because they no longer affect the installed dependency tree.
 
 Dependabot automation policy:
 - grouped GitHub Actions updates are considered safe auto-merge candidates
