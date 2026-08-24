@@ -167,16 +167,21 @@ Last reviewed: 2026-08-24
   Rationale: Return the complete created task representation from the task creation endpoint rather than only its identifier so agents can immediately use canonical labels, status, ordering, epic, assignment, timestamps, and other server-derived fields without a follow-up read.
   Dependencies: TASK-055, TASK-115, TASK-127, TASK-373
 - ID: TASK-377
-  Title: Agent task API server filters and bulk operations
+  Title: Agent task API server-side epic and label filters
   Status: Pending
-  Rationale: Add server-side `epicId` and `label` filters to task listing and define bounded bulk operations for common agent workflows. Specify pagination, filter composition, per-item authorization and validation, maximum batch size, atomicity or partial-failure behavior, and response details so callers do not need to download and rewrite an entire board.
+  Rationale: Add server-side `epicId` and `label` filters to task listing so agent clients can retrieve focused work without downloading and filtering an entire board. Define filter composition, empty and unknown-filter behavior, pagination interaction, and response metadata while preserving project authorization boundaries.
   Dependencies: TASK-059, TASK-107, TASK-115, TASK-127, TASK-331, TASK-373
 - ID: TASK-378
+  Title: Agent task API bounded bulk operations
+  Status: Pending
+  Rationale: Define bounded bulk task operations for common agent workflows without requiring repeated single-item calls or full-board rewrites. Specify supported mutations, maximum batch size, per-item authorization and validation, atomicity or partial-failure behavior, idempotency expectations, and detailed result reporting.
+  Dependencies: TASK-059, TASK-115, TASK-127, TASK-331, TASK-374, TASK-375
+- ID: TASK-379
   Title: Agent credential presets for read/write access without delete
   Status: Pending
   Rationale: Make it straightforward to issue a project-scoped agent token that can read and update tasks without deletion permission. The underlying write/delete scope split already exists, so align credential setup guidance, presets, and task-oriented onboarding examples to avoid granting `task:delete` for missions that do not require destructive access.
   Dependencies: TASK-059, TASK-115, TASK-331
-- ID: TASK-379
+- ID: TASK-380
   Title: Epic default or suggested task label
   Status: Pending
   Rationale: Let an Epic define a label that is automatically applied or clearly suggested when tasks are created in or linked to that Epic. Define precedence when a task already has labels, behavior when tasks move between Epics, and whether the Epic policy is required or advisory so related work cannot silently remain inconsistently labeled.
