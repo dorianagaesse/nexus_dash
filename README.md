@@ -198,6 +198,11 @@ Environment access/validation is centralized in `lib/env.server.ts` and executed
 - `GOOGLE_CALENDAR_ID` must be unset or `primary`.
 - `RESEND_FROM_EMAIL` defaults to `NexusDash <noreply@nexus-dash.app>` when unset.
 - `TRUSTED_ORIGINS` (optional) can restrict verification-link origins in production.
+- `PREVIEW_AUTH_ORIGIN` is required in Vercel Preview when Google or GitHub
+  OAuth is enabled. It must be the exact stable HTTPS alias registered as the
+  providers' Preview callback origin, without a path or trailing slash.
+- Do not set `NEXTAUTH_URL` in Vercel Preview. Preview requests trust the
+  immutable deployment origin and the exact `PREVIEW_AUTH_ORIGIN` only.
 - `CRON_SECRET` or `NOTIFICATION_EMAIL_DISPATCH_SECRET` protects the
   notification email dispatch endpoint. If both are set,
   `NOTIFICATION_EMAIL_DISPATCH_SECRET` takes precedence. Configured values must
@@ -485,15 +490,19 @@ Required GitHub secrets:
 - `AGENT_TOKEN_SIGNING_SECRET` (required for production deploys; preview workflow falls back to a placeholder when intentionally unset)
 - Preview deployments still need `AGENT_TOKEN_SIGNING_SECRET` at runtime. GitHub Actions fallback values do not automatically populate Vercel's shared preview runtime unless the deployment explicitly passes them through.
 
-Required GitHub environment variable (not a secret):
+Required GitHub environment variables (not secrets):
 
 - `EXPECTED_SUPABASE_PROJECT_REF`, configured independently for `preview` and
   `production`.
+- `PREVIEW_AUTH_ORIGIN`, configured for `preview` as the stable Vercel alias
+  registered with the Preview GitHub/Google OAuth applications.
 
 The preview workflow validates the migration project ref, immutable Vercel
 deployment target, checked-out revision, deployed `APP_ENV`, and database
-readiness before uploading `preview-deployment`. Always use that artifact URL;
-historical or branch aliases may later point at a different target.
+readiness before assigning `PREVIEW_AUTH_ORIGIN` to that exact deployment. It
+then verifies the alias target and readiness before uploading
+`preview-deployment`. Use the immutable URL as deployment evidence and the
+stable auth URL for interactive OAuth testing.
 
 ### Dependency Security Cadence
 

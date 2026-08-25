@@ -8,6 +8,14 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.37.2 - 2026-08-25
+
+- Restored the registered stable Vercel Preview URL for GitHub and Google OAuth
+  while retaining immutable deployment, revision, environment, and database
+  validation before the alias can move.
+- Restricted Preview callback origins to the immutable deployment and one
+  explicit `PREVIEW_AUTH_ORIGIN`, rejecting arbitrary or stale aliases.
+
 ## v0.37.1 - 2026-08-20
 
 - Fixed Vercel Preview authentication origins so callbacks and post-auth

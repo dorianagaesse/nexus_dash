@@ -205,6 +205,7 @@ Can stay non-sensitive:
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY`
 - `EXPECTED_SUPABASE_PROJECT_REF`
+- `PREVIEW_AUTH_ORIGIN`
 
 Important:
 
@@ -215,14 +216,18 @@ Important:
 
 - Preview builds run with production-like checks (`NODE_ENV=production` during
   build), so missing production-only guards can break preview deploys.
-- Do not set `NEXTAUTH_URL` in Vercel Preview to a historical deployment or
-  branch alias. Preview auth origins resolve from the immutable system
-  `VERCEL_URL`; Production continues to use its trusted canonical origin.
-- For the same reason, do not pin `GOOGLE_REDIRECT_URI`,
-  `AUTH_GOOGLE_REDIRECT_URI`, or `AUTH_GITHUB_REDIRECT_URI` in Preview to a
-  historical deployment URL. When Preview provider credentials are enabled,
-  their provider-side callback allowlist must accept the immutable URL being
-  tested; otherwise leave that provider disabled for preview testing.
+- Do not set `NEXTAUTH_URL` in Vercel Preview. Configure
+  `PREVIEW_AUTH_ORIGIN` as the exact stable HTTPS Vercel alias registered with
+  the Preview GitHub and Google OAuth applications, without a path or trailing
+  slash. Preview runtime checks fail closed when OAuth is enabled without it.
+- Do not pin `GOOGLE_REDIRECT_URI`, `AUTH_GOOGLE_REDIRECT_URI`, or
+  `AUTH_GITHUB_REDIRECT_URI` to an immutable or historical deployment. Preview
+  callbacks derive from the current request and accept only the immutable
+  `VERCEL_URL` or exact `PREVIEW_AUTH_ORIGIN`.
+- The deploy workflow validates the immutable deployment target, revision,
+  environment, and database readiness before moving the stable auth alias. It
+  then verifies that the alias resolves to the same deployment and repeats the
+  readiness check through the alias before publishing either URL.
 - Production database secrets must come from the intended Supabase Production
   project, not local `.env` snapshots or preview/staging files. The app rejects
   production startup when Supabase project refs differ across `DATABASE_URL`,
@@ -339,11 +344,12 @@ Before merging deploy-affecting changes:
 1. Confirm required env vars exist for target environment.
 2. Confirm sensitive vars are marked sensitive where supported.
 3. Run manual preview deploy (`deploy-vercel.yml`, `action=deploy-preview`).
-4. Use only the immutable URL in the `preview-deployment` artifact. The
-   workflow verifies that it is a Vercel Preview target for the requested
-   revision, reports `APP_ENV=preview`, and passes database readiness before
-   uploading the artifact.
-5. Validate critical auth/integration path(s) on that preview URL.
+4. Confirm the immutable URL in the `preview-deployment` artifact is the
+   requested Preview revision. The workflow validates it before assigning the
+   stable `PREVIEW_AUTH_ORIGIN`, then verifies the alias points to that same
+   deployment and passes readiness.
+5. Use the immutable URL as deployment evidence and the stable auth URL for
+   critical OAuth/integration testing.
 6. If any preview path bypasses deployment-time `-e` injection, confirm
    `AGENT_TOKEN_SIGNING_SECRET` exists in Vercel Preview before relying on that
    preview URL.

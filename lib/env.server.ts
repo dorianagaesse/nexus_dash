@@ -522,6 +522,19 @@ function assertMatchingSupabaseProjectRefs(
   }
 }
 
+function assertValidHttpsOrigin(name: string, value: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${name} must be a valid absolute URL.`);
+  }
+
+  if (parsed.protocol !== "https:" || parsed.origin !== value) {
+    throw new Error(`${name} must be an HTTPS origin without a path, query, or trailing slash.`);
+  }
+}
+
 function assertExpectedSupabaseProjectRef(
   databaseUrl: ParsedDatabaseConnectionString,
   directUrl: ParsedDatabaseConnectionString,
@@ -724,6 +737,11 @@ export function validateServerRuntimeConfig(
     assertValidUrl("NEXTAUTH_URL", nextAuthUrl);
   }
 
+  const previewAuthOrigin = getOptionalServerEnv("PREVIEW_AUTH_ORIGIN");
+  if (previewAuthOrigin) {
+    assertValidHttpsOrigin("PREVIEW_AUTH_ORIGIN", previewAuthOrigin);
+  }
+
   assertOptionalEnvironmentGroup(
     ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
     "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be configured together."
@@ -761,8 +779,12 @@ export function validateServerRuntimeConfig(
   // Prebuilt Vercel previews do not have their immutable VERCEL_URL until the
   // artifact is deployed. The runtime origin resolver still requires it.
   const hasVercelPreviewOrigin = getVercelEnvironment() === "preview";
+  const hasPreviewAuthOrigin = hasVercelPreviewOrigin && Boolean(previewAuthOrigin);
   const hasTrustedAppOrigin =
-    trustedOriginsAreValid || Boolean(nextAuthUrl) || hasVercelPreviewOrigin;
+    trustedOriginsAreValid ||
+    Boolean(nextAuthUrl) ||
+    hasVercelPreviewOrigin ||
+    hasPreviewAuthOrigin;
   const hasGoogleRedirectResolution =
     Boolean(googleRedirectUri) ||
     hasTrustedAppOrigin;
@@ -782,6 +804,16 @@ export function validateServerRuntimeConfig(
   if (githubClientId && !hasTrustedAppOrigin && !githubRedirectUri) {
     throw new Error(
       "GitHub sign-in requires AUTH_GITHUB_REDIRECT_URI or a trusted app origin (TRUSTED_ORIGINS/NEXTAUTH_URL)."
+    );
+  }
+
+  if (
+    hasVercelPreviewOrigin &&
+    (googleClientId || authGoogleClientId || githubClientId) &&
+    !hasPreviewAuthOrigin
+  ) {
+    throw new Error(
+      "PREVIEW_AUTH_ORIGIN is required in Vercel Preview when OAuth providers are enabled."
     );
   }
 
