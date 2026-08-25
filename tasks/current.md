@@ -4,7 +4,7 @@
 
 ## Status
 
-In progress on `fix/task-406-stable-preview-auth-alias`.
+Ready for user testing on `fix/task-406-stable-preview-auth-alias` via PR #448.
 
 ## Context
 
@@ -66,4 +66,13 @@ therefore remain usable without weakening the immutable deployment checks.
 
 ## Validation Evidence
 
-- Pending branch deployment and user-owned OAuth smoke validation.
+- Workflow run `32843605455` deployed commit `8df7e1c`, validated immutable
+  Preview URL
+  `https://nexus-dash-7ykoau18s-dorian-agaesses-projects.vercel.app`, then
+  assigned and verified the stable Preview auth alias.
+- Both URLs report `APP_ENV=preview`, revision `8df7e1c`, database ready, and
+  the same Vercel deployment identity.
+- GitHub and Google authorization initiation from the stable alias generate
+  callbacks on that alias. GitHub accepted the callback and continued to its
+  login flow instead of showing the unassociated `redirect_uri` warning.
+- User-owned completion of the signed-in OAuth flow is pending before merge.

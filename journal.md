@@ -19,6 +19,14 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Local validation passed: lint, RLS inventory, 1,052 unit/API tests with two
   skipped, coverage at 91.37% statements / 81.33% branches / 92.2% functions /
   91.88% lines, production build, release policy, and workflow YAML parsing.
+- Opened PR #448 and deployed commit `8df7e1c` through workflow run
+  `32843605455`. The run validated immutable Preview
+  `nexus-dash-7ykoau18s-dorian-agaesses-projects.vercel.app`, assigned the
+  static test alias, and verified both hosts report Preview revision `8df7e1c`
+  with database readiness.
+- Live OAuth initiation through the static alias generated static GitHub and
+  Google callbacks. GitHub accepted its registered callback and continued to
+  `/login`; the prior unassociated `redirect_uri` warning was absent.
 
 # 2026-08-24 - ChatGPT and Codex connector Epic added to backlog
 
