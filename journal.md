@@ -24,9 +24,14 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `nexus-dash-7ykoau18s-dorian-agaesses-projects.vercel.app`, assigned the
   static test alias, and verified both hosts report Preview revision `8df7e1c`
   with database readiness.
-- Live OAuth initiation through the static alias generated static GitHub and
-  Google callbacks. GitHub accepted its registered callback and continued to
-  `/login`; the prior unassociated `redirect_uri` warning was absent.
+- The initial unauthenticated GitHub probe continued to `/login` before GitHub
+  validated the callback. The user's authenticated smoke correctly showed the
+  callback remained unassociated: TASK-370 had removed the explicit redirect
+  and unintentionally changed GitHub's path from the registered
+  `/api/auth/callback/github` route to `/api/auth/oauth/github/callback`.
+- Preserved GitHub's registered legacy path when deriving redirects from the
+  stable Preview origin. Social Google retains `/api/auth/oauth/google/callback`
+  because `/api/auth/callback/google` is the separate Calendar OAuth handler.
 
 # 2026-08-24 - ChatGPT and Codex connector Epic added to backlog
 

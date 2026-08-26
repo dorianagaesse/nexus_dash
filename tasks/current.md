@@ -14,11 +14,18 @@ showed that social OAuth cannot use a new immutable callback for every deploy:
 GitHub rejected the generated `redirect_uri` because the provider application
 is registered against the long-lived static Preview URL. The static URL must
 therefore remain usable without weakening the immutable deployment checks.
+The first TASK-406 deployment exposed a second regression from TASK-370:
+removing `AUTH_GITHUB_REDIRECT_URI` also changed the derived callback path from
+the registered `/api/auth/callback/github` route to the unregistered
+`/api/auth/oauth/github/callback` route.
 
 ## Scope
 
 - Add one exact `PREVIEW_AUTH_ORIGIN` allowlist entry for Preview request-origin
   resolution while preserving the immutable `VERCEL_URL` fallback.
+- Preserve the existing provider-specific callback contracts: GitHub uses
+  `/api/auth/callback/github`, while social Google stays on
+  `/api/auth/oauth/google/callback` to avoid the Calendar OAuth route.
 - Require a valid HTTPS `PREVIEW_AUTH_ORIGIN` whenever social or Calendar OAuth
   is enabled in Vercel Preview.
 - Validate the immutable deployment first, then atomically assign the stable
@@ -38,7 +45,8 @@ therefore remain usable without weakening the immutable deployment checks.
 4. After assignment, the workflow proves the alias resolves to that same Vercel
    deployment and repeats environment/revision/database readiness checks.
 5. GitHub OAuth initiation from the stable Preview URL is accepted by GitHub
-   and does not redirect to the production domain.
+   with the registered `/api/auth/callback/github` URI and does not redirect to
+   the production domain.
 6. Existing production routing and TASK-370 database isolation remain unchanged.
 
 ## Definition Of Done
@@ -72,7 +80,7 @@ therefore remain usable without weakening the immutable deployment checks.
   assigned and verified the stable Preview auth alias.
 - Both URLs report `APP_ENV=preview`, revision `8df7e1c`, database ready, and
   the same Vercel deployment identity.
-- GitHub and Google authorization initiation from the stable alias generate
-  callbacks on that alias. GitHub accepted the callback and continued to its
-  login flow instead of showing the unassociated `redirect_uri` warning.
-- User-owned completion of the signed-in OAuth flow is pending before merge.
+- The first unauthenticated provider probe only proved that GitHub would send an
+  unauthenticated client to login; the user's authenticated test correctly
+  exposed the callback-path mismatch. Corrected deployment evidence and
+  user-owned completion of the signed-in OAuth flow are pending before merge.

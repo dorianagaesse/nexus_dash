@@ -15,6 +15,8 @@ SHA, deployment URL, and workflow run belong in release evidence.
   validation before the alias can move.
 - Restricted Preview callback origins to the immutable deployment and one
   explicit `PREVIEW_AUTH_ORIGIN`, rejecting arbitrary or stale aliases.
+- Preserved GitHub's established `/api/auth/callback/github` path when deriving
+  callbacks from the stable Preview origin.
 
 ## v0.37.1 - 2026-08-20
 
