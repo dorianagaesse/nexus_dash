@@ -24,6 +24,7 @@ describe("request-origin", () => {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalVercelEnv = process.env.VERCEL_ENV;
   const originalVercelUrl = process.env.VERCEL_URL;
+  const originalPreviewAuthOrigin = process.env.PREVIEW_AUTH_ORIGIN;
   const originalNextAuthUrl = process.env.NEXTAUTH_URL;
   const originalTrustedOrigins = process.env.TRUSTED_ORIGINS;
 
@@ -31,6 +32,7 @@ describe("request-origin", () => {
     process.env.NODE_ENV = "test";
     delete process.env.VERCEL_ENV;
     delete process.env.VERCEL_URL;
+    delete process.env.PREVIEW_AUTH_ORIGIN;
     delete process.env.NEXTAUTH_URL;
     delete process.env.TRUSTED_ORIGINS;
   });
@@ -39,6 +41,7 @@ describe("request-origin", () => {
     restoreEnvironmentVariable("NODE_ENV", originalNodeEnv);
     restoreEnvironmentVariable("VERCEL_ENV", originalVercelEnv);
     restoreEnvironmentVariable("VERCEL_URL", originalVercelUrl);
+    restoreEnvironmentVariable("PREVIEW_AUTH_ORIGIN", originalPreviewAuthOrigin);
     restoreEnvironmentVariable("NEXTAUTH_URL", originalNextAuthUrl);
     restoreEnvironmentVariable("TRUSTED_ORIGINS", originalTrustedOrigins);
   });
@@ -113,6 +116,68 @@ describe("request-origin", () => {
         "x-forwarded-proto": "https",
         "x-forwarded-host":
           "nexus-dash-stale-dorian-agaesses-projects.vercel.app",
+      })
+    );
+
+    expect(origin).toBe(
+      "https://nexus-dash-immutable-dorian-agaesses-projects.vercel.app"
+    );
+  });
+
+  test("uses the configured stable auth origin when a preview request arrives through it", () => {
+    process.env.NODE_ENV = "production";
+    process.env.VERCEL_ENV = "preview";
+    process.env.VERCEL_URL =
+      "nexus-dash-immutable-dorian-agaesses-projects.vercel.app";
+    process.env.PREVIEW_AUTH_ORIGIN =
+      "https://nexus-dash-preview-dorian-agaesses-projects.vercel.app";
+
+    const origin = resolveRequestOriginFromHeaders(
+      new TestHeaders({
+        "x-forwarded-proto": "https",
+        "x-forwarded-host":
+          "nexus-dash-preview-dorian-agaesses-projects.vercel.app",
+      })
+    );
+
+    expect(origin).toBe(
+      "https://nexus-dash-preview-dorian-agaesses-projects.vercel.app"
+    );
+  });
+
+  test("does not trust an unconfigured preview alias", () => {
+    process.env.NODE_ENV = "production";
+    process.env.VERCEL_ENV = "preview";
+    process.env.VERCEL_URL =
+      "nexus-dash-immutable-dorian-agaesses-projects.vercel.app";
+    process.env.PREVIEW_AUTH_ORIGIN =
+      "https://nexus-dash-preview-dorian-agaesses-projects.vercel.app";
+
+    const origin = resolveRequestOriginFromHeaders(
+      new TestHeaders({
+        "x-forwarded-proto": "https",
+        "x-forwarded-host": "attacker-preview.example.com",
+      })
+    );
+
+    expect(origin).toBe(
+      "https://nexus-dash-immutable-dorian-agaesses-projects.vercel.app"
+    );
+  });
+
+  test("does not trust a malformed configured preview auth origin", () => {
+    process.env.NODE_ENV = "production";
+    process.env.VERCEL_ENV = "preview";
+    process.env.VERCEL_URL =
+      "nexus-dash-immutable-dorian-agaesses-projects.vercel.app";
+    process.env.PREVIEW_AUTH_ORIGIN =
+      "https://nexus-dash-preview-dorian-agaesses-projects.vercel.app/";
+
+    const origin = resolveRequestOriginFromHeaders(
+      new TestHeaders({
+        "x-forwarded-proto": "https",
+        "x-forwarded-host":
+          "nexus-dash-preview-dorian-agaesses-projects.vercel.app",
       })
     );
 

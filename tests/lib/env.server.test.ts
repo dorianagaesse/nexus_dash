@@ -23,6 +23,7 @@ const ENV_KEYS_TO_RESET = [
   "NODE_ENV",
   "VERCEL_ENV",
   "VERCEL_URL",
+  "PREVIEW_AUTH_ORIGIN",
   "DATABASE_URL",
   "DIRECT_URL",
   "SUPABASE_URL",
@@ -876,10 +877,11 @@ describe("env.server", () => {
     );
   });
 
-  test("allows runtime-derived OAuth redirects in Vercel preview", () => {
+  test("allows configured stable OAuth redirects in Vercel preview", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("VERCEL_ENV", "preview");
     vi.stubEnv("VERCEL_URL", "nexus-dash-immutable.example.vercel.app");
+    vi.stubEnv("PREVIEW_AUTH_ORIGIN", "https://preview.example.vercel.app");
     vi.stubEnv("DATABASE_URL", "postgresql://localhost:5432/postgres");
     vi.stubEnv("DIRECT_URL", "postgresql://localhost:5433/postgres");
     vi.stubEnv("AUTH_GOOGLE_CLIENT_ID", "client-id");
@@ -890,6 +892,30 @@ describe("env.server", () => {
     vi.stubEnv("TRUSTED_ORIGINS", "");
 
     expect(() => validateServerRuntimeConfig()).not.toThrow();
+  });
+
+  test("requires a stable preview auth origin when OAuth providers are enabled", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("VERCEL_URL", "nexus-dash-immutable.example.vercel.app");
+    vi.stubEnv("DATABASE_URL", "postgresql://localhost:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://localhost:5433/postgres");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_ID", "client-id");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_SECRET", "client-secret");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "PREVIEW_AUTH_ORIGIN is required in Vercel Preview when OAuth providers are enabled."
+    );
+  });
+
+  test("rejects a preview auth origin that is not an exact HTTPS origin", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://localhost:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://localhost:5433/postgres");
+    vi.stubEnv("PREVIEW_AUTH_ORIGIN", "https://preview.example.vercel.app/");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "PREVIEW_AUTH_ORIGIN must be an HTTPS origin without a path, query, or trailing slash."
+    );
   });
 
   test("passes Vercel preview validation for the expected Supabase project", () => {

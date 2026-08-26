@@ -105,8 +105,9 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 - `npm run dev` and `npm run start` run `prisma migrate deploy` before app startup.
 - Runtime config is validated at server startup via `validateServerRuntimeConfig()`.
 - Supabase-backed Vercel Preview and Production runtimes are pinned to an
-  environment-scoped expected project ref; preview auth origins use the
-  immutable Vercel deployment host rather than a static alias.
+  environment-scoped expected project ref. Preview accepts its immutable
+  deployment origin plus one explicit stable OAuth alias; arbitrary aliases
+  fail closed.
 - CI quality gates:
   - `Quality Core`
   - `E2E Smoke`
@@ -117,7 +118,8 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
   - staged production deploy
   - manual preview deploy
     - verifies immutable Preview target, revision/environment metadata, and
-      database readiness before publishing its URL artifact
+      database readiness before assigning and verifying the stable OAuth alias
+      and publishing both URLs
   - promote
   - rollback
 

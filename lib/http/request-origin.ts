@@ -75,13 +75,34 @@ function resolveVercelPreviewOrigin(): string | null {
   }
 }
 
+function resolveConfiguredPreviewAuthOrigin(): string | null {
+  const configuredOrigin = getOptionalServerEnv("PREVIEW_AUTH_ORIGIN");
+  if (!configuredOrigin) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(configuredOrigin);
+    if (parsed.protocol !== "https:" || parsed.origin !== configuredOrigin) {
+      return null;
+    }
+
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
 function isAllowedOrigin(origin: string): boolean {
   if (!isProductionEnvironment()) {
     return true;
   }
 
   if (isPreviewDeployment()) {
-    return origin === resolveVercelPreviewOrigin();
+    return (
+      origin === resolveVercelPreviewOrigin() ||
+      origin === resolveConfiguredPreviewAuthOrigin()
+    );
   }
 
   const trustedOrigin = resolveTrustedProductionOrigin();

@@ -3,6 +3,36 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
+
+- Reproduced the provider failure from the immutable TASK-326 Preview: GitHub
+  rejected its per-deployment callback because the Preview OAuth application is
+  registered against the long-lived static test URL.
+- Confirmed the static alias had become unsafe only because it still targeted a
+  historical Production deployment; removed that stale assignment while the
+  remediation was prepared.
+- Kept TASK-370's immutable deployment validation as the source of truth and
+  added a post-validation step that assigns the static alias only to the exact
+  verified Preview deployment, then verifies the alias target and readiness.
+- Added exact `PREVIEW_AUTH_ORIGIN` request-origin and startup validation so the
+  registered alias works for OAuth without trusting arbitrary Preview aliases.
+- Local validation passed: lint, RLS inventory, 1,052 unit/API tests with two
+  skipped, coverage at 91.37% statements / 81.33% branches / 92.2% functions /
+  91.88% lines, production build, release policy, and workflow YAML parsing.
+- Opened PR #448 and deployed commit `8df7e1c` through workflow run
+  `32843605455`. The run validated immutable Preview
+  `nexus-dash-7ykoau18s-dorian-agaesses-projects.vercel.app`, assigned the
+  static test alias, and verified both hosts report Preview revision `8df7e1c`
+  with database readiness.
+- The initial unauthenticated GitHub probe continued to `/login` before GitHub
+  validated the callback. The user's authenticated smoke correctly showed the
+  callback remained unassociated: TASK-370 had removed the explicit redirect
+  and unintentionally changed GitHub's path from the registered
+  `/api/auth/callback/github` route to `/api/auth/oauth/github/callback`.
+- Preserved GitHub's registered legacy path when deriving redirects from the
+  stable Preview origin. Social Google retains `/api/auth/oauth/google/callback`
+  because `/api/auth/callback/google` is the separate Calendar OAuth handler.
+
 # 2026-08-24 - ChatGPT and Codex connector Epic added to backlog
 
 - Integrated the attached ND-MCP plan as non-executable TASK-385 with a

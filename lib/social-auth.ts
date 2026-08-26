@@ -139,6 +139,10 @@ function normalizeOrigin(value: string): string | null {
 }
 
 function getCallbackPath(provider: SocialAuthProvider): string {
+  if (provider === "github") {
+    return "/api/auth/callback/github";
+  }
+
   return `/api/auth/oauth/${provider}/callback`;
 }
 

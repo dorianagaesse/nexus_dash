@@ -6,6 +6,11 @@ Last reviewed: 2026-08-24
 
 ## Pending
 ### Active Runtime Remediation
+- ID: TASK-406
+  Title: Stable Preview OAuth alias after immutable deployment validation
+  Status: In review; deployed for user OAuth testing (PR #448)
+  Rationale: Keep immutable Vercel URLs as deployment evidence while assigning the provider-registered static Preview alias only after the requested deployment passes target, revision, environment, and database checks. Allow only that configured alias for Preview OAuth callbacks so GitHub and Google sign-in remain usable without trusting arbitrary aliases.
+  Dependencies: TASK-370
 - ID: TASK-370
   Title: Preview authentication and database isolation guardrails
   Status: Complete (2026-08-20; PR #432)

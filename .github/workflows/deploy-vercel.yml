@@ -188,6 +188,7 @@ jobs:
       VERCEL_CLI_VERSION: 50.18.0
       VERCEL_SCOPE: ${{ secrets.VERCEL_ORG_ID }}
       EXPECTED_SUPABASE_PROJECT_REF: ${{ vars.EXPECTED_SUPABASE_PROJECT_REF }}
+      PREVIEW_AUTH_ORIGIN: ${{ vars.PREVIEW_AUTH_ORIGIN }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DIRECT_URL: ${{ secrets.DIRECT_URL }}
       GOOGLE_TOKEN_ENCRYPTION_KEY: ${{ secrets.GOOGLE_TOKEN_ENCRYPTION_KEY }}
@@ -219,6 +220,23 @@ jobs:
           if [ "$missing" -eq 1 ]; then
             exit 1
           fi
+
+      - name: Validate stable preview auth origin
+        if: inputs.action == 'deploy-preview'
+        run: |
+          node <<'NODE'
+          const value = process.env.PREVIEW_AUTH_ORIGIN ?? "";
+          let parsed;
+          try {
+            parsed = new URL(value);
+          } catch {
+            throw new Error("PREVIEW_AUTH_ORIGIN must be configured as an absolute HTTPS origin.");
+          }
+
+          if (parsed.protocol !== "https:" || parsed.origin !== value) {
+            throw new Error("PREVIEW_AUTH_ORIGIN must be an HTTPS origin without a path, query, or trailing slash.");
+          }
+          NODE
 
       - name: Ensure Resend key fallback for preview deploys
         if: inputs.action == 'deploy-preview'
@@ -336,6 +354,7 @@ jobs:
           APP_ENV="$APP_ENV" \
           COMMIT_SHA="$COMMIT_SHA" \
           APP_REPOSITORY_URL="$APP_REPOSITORY_URL" \
+          PREVIEW_AUTH_ORIGIN="$PREVIEW_AUTH_ORIGIN" \
             npx vercel@${VERCEL_CLI_VERSION} build --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
           deployment_url=$(
             npx vercel@${VERCEL_CLI_VERSION} deploy \
@@ -350,7 +369,8 @@ jobs:
               -e "APP_ENV=$APP_ENV" \
               -e "EXPECTED_SUPABASE_PROJECT_REF=$EXPECTED_SUPABASE_PROJECT_REF" \
               -e "COMMIT_SHA=$COMMIT_SHA" \
-              -e "APP_REPOSITORY_URL=$APP_REPOSITORY_URL"
+              -e "APP_REPOSITORY_URL=$APP_REPOSITORY_URL" \
+              -e "PREVIEW_AUTH_ORIGIN=$PREVIEW_AUTH_ORIGIN"
           )
           echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
           echo "$deployment_url" > preview-deployment.txt
@@ -431,6 +451,64 @@ jobs:
 
           console.log(`Verified preview runtime ${actualRevision} and database readiness.`);
           NODE
+
+      - name: Assign and verify stable preview auth alias
+        if: inputs.action == 'deploy-preview'
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy_preview.outputs.deployment_url }}
+        run: |
+          preview_alias_host=$(node -e 'console.log(new URL(process.env.PREVIEW_AUTH_ORIGIN).hostname)')
+          npx vercel@${VERCEL_CLI_VERSION} alias set \
+            "$DEPLOYMENT_URL" \
+            "$preview_alias_host" \
+            --scope="$VERCEL_SCOPE" \
+            --token="$VERCEL_TOKEN"
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --get "https://api.vercel.com/v13/deployments/${preview_alias_host}" \
+            --data-urlencode "teamId=$VERCEL_ORG_ID" \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            --output /tmp/preview-alias-deployment.json
+
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const immutable = JSON.parse(readFileSync("/tmp/preview-deployment.json", "utf8"));
+          const aliased = JSON.parse(readFileSync("/tmp/preview-alias-deployment.json", "utf8"));
+
+          if (!immutable.id || aliased.id !== immutable.id) {
+            throw new Error("Stable Preview auth alias does not resolve to the validated deployment.");
+          }
+          NODE
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 4 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            "$PREVIEW_AUTH_ORIGIN/api/health/ready" \
+            --output /tmp/preview-alias-readiness.json
+
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const readiness = JSON.parse(readFileSync("/tmp/preview-alias-readiness.json", "utf8"));
+          const expectedRevision = process.env.COMMIT_SHA.slice(0, 7).toLowerCase();
+
+          if (
+            readiness.status !== "ready" ||
+            readiness.checks?.database !== "ok" ||
+            readiness.deployment?.environment !== "preview" ||
+            readiness.deployment?.revision?.toLowerCase() !== expectedRevision
+          ) {
+            throw new Error("Stable Preview auth alias failed revision, environment, or readiness validation.");
+          }
+          NODE
+
+          echo "$PREVIEW_AUTH_ORIGIN" > preview-auth-alias.txt
 
       - name: Deploy production (staged)
         if: inputs.action == 'deploy-production-staged'
@@ -585,7 +663,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: preview-deployment
-          path: preview-deployment.txt
+          path: |
+            preview-deployment.txt
+            preview-auth-alias.txt
           if-no-files-found: error
 
       - name: Upload staged production deployment artifact
@@ -610,8 +690,9 @@ jobs:
           fi
           if [ "${{ inputs.action }}" = "deploy-preview" ]; then
             if [ -n "${{ steps.deploy_preview.outputs.deployment_url }}" ]; then
-              echo "- Preview URL: \`${{ steps.deploy_preview.outputs.deployment_url }}\`" >> "$GITHUB_STEP_SUMMARY"
-              echo "- Preview verification: immutable Vercel Preview target, matching revision/environment, database ready" >> "$GITHUB_STEP_SUMMARY"
+              echo "- Immutable Preview URL: \`${{ steps.deploy_preview.outputs.deployment_url }}\`" >> "$GITHUB_STEP_SUMMARY"
+              echo "- Stable Preview auth URL: \`$PREVIEW_AUTH_ORIGIN\`" >> "$GITHUB_STEP_SUMMARY"
+              echo "- Preview verification: immutable Vercel Preview target plus stable auth alias, matching revision/environment, database ready" >> "$GITHUB_STEP_SUMMARY"
             fi
           fi
           if [ "${{ inputs.action }}" = "deploy-production-staged" ]; then
