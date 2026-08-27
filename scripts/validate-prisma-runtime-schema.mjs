@@ -38,6 +38,19 @@ export function formatMissingRelationsError(missingRelations) {
   ].join(" ");
 }
 
+export function normalizePgConnectionString(connectionString) {
+  const parsed = new URL(connectionString);
+  const sslMode = parsed.searchParams.get("sslmode")?.toLowerCase();
+  if (
+    ["prefer", "require", "verify-ca"].includes(sslMode) &&
+    !parsed.searchParams.has("uselibpqcompat")
+  ) {
+    parsed.searchParams.set("uselibpqcompat", "true");
+  }
+
+  return parsed.toString();
+}
+
 export async function findMissingPrismaRelations(client, expectedRelations) {
   const result = await client.query(
     `
@@ -66,7 +79,9 @@ export async function validatePrismaRuntimeSchema({
     throw new Error("No Prisma models were found in prisma/schema.prisma.");
   }
 
-  const client = new Client({ connectionString });
+  const client = new Client({
+    connectionString: normalizePgConnectionString(connectionString),
+  });
   await client.connect();
   try {
     const missingRelations = await findMissingPrismaRelations(

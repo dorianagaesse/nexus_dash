@@ -6,6 +6,7 @@ import {
   extractPrismaModelRelations,
   findMissingPrismaRelations,
   formatMissingRelationsError,
+  normalizePgConnectionString,
 } from "../../scripts/validate-prisma-runtime-schema.mjs";
 
 describe("validate-prisma-runtime-schema", () => {
@@ -49,5 +50,27 @@ model SystemGuard {
     expect(formatMissingRelationsError(["GoogleCalendarCredential"])).toContain(
       "advanced by another preview branch"
     );
+  });
+
+  test("uses standard libpq semantics for sslmode=require connections", () => {
+    const normalized = new URL(
+      normalizePgConnectionString(
+        "postgresql://user:secret@example.com:5432/postgres?sslmode=require"
+      )
+    );
+
+    expect(normalized.searchParams.get("sslmode")).toBe("require");
+    expect(normalized.searchParams.get("uselibpqcompat")).toBe("true");
+  });
+
+  test("preserves explicit strict SSL compatibility settings", () => {
+    const normalized = new URL(
+      normalizePgConnectionString(
+        "postgresql://user:secret@example.com/postgres?sslmode=verify-full"
+      )
+    );
+
+    expect(normalized.searchParams.get("sslmode")).toBe("verify-full");
+    expect(normalized.searchParams.has("uselibpqcompat")).toBe(false);
   });
 });

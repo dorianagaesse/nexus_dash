@@ -34,6 +34,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
   branches / 92.3% functions / 91.97% lines, and the production build. The
   current shared Preview still requires an isolated database or intentional
   reset before PR #449 itself can be tested end to end.
+- The first explicit-ref guard run (`33109896929`) stopped before Vercel deploy
+  but initially hit Node PostgreSQL SSL compatibility because `pg` v8 interprets
+  `sslmode=require` more strictly than libpq/Prisma. The validator now opts into
+  the connection string's standard libpq semantics while preserving explicit
+  `verify-full`; a follow-up explicit-ref run records the schema verdict.
 
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
 
