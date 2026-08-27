@@ -7,11 +7,15 @@ SHA, deployment URL, and workflow run belong in release evidence.
 ## Unreleased
 
 - Define each release entry before the product-impacting PR is merged.
-- Preview deployment now detects migration history from another branch and
-  automatically realigns guarded disposable staging, without an operator
-  checkbox or conflicting compatibility tables.
-- Restored least-privilege runtime schema/table grants after Preview resets and
+- Preview deployment keeps the shared staging schema forward-only, applies
+  checked-in migrations, and rejects runtime-incompatible schemas before
+  publishing the stable alias. Feature migrations must use expand/contract for
+  destructive changes so concurrently testable branches remain compatible.
+- Made least-privilege runtime schema/table grants explicit in migrations and
   made readiness verify access to an application table instead of only `SELECT 1`.
+- Made the single-connection Calendar service select and mutate one stable
+  credential row by ID instead of depending on a permanent `userId` uniqueness
+  constraint, preparing a backward-compatible TASK-327 expansion.
 
 ## v0.38.0 - 2026-08-24
 

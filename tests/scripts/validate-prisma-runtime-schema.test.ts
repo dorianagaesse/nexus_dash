@@ -46,10 +46,11 @@ model SystemGuard {
     ]);
   });
 
-  test("explains shared Preview schema contamination", () => {
-    expect(formatMissingRelationsError(["GoogleCalendarCredential"])).toContain(
-      "advanced by another preview branch"
-    );
+  test("explains the shared Preview expand/contract requirement", () => {
+    const message = formatMissingRelationsError(["GoogleCalendarCredential"]);
+
+    expect(message).toContain("only moves forward");
+    expect(message).toContain("expand/contract");
   });
 
   test("uses standard libpq semantics for sslmode=require connections", () => {

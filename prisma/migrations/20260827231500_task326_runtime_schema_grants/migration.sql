@@ -1,5 +1,5 @@
--- Keep the least-privileged runtime role usable after a disposable Preview
--- schema reset. RLS remains the authorization boundary on application tables.
+-- Make least-privileged runtime access part of the migrated schema contract.
+-- Forced RLS remains the authorization boundary on application tables.
 
 DO $$
 DECLARE

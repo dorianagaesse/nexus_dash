@@ -34,7 +34,7 @@ export function formatMissingRelationsError(missingRelations) {
   return [
     "Runtime schema is incompatible with the checked-out Prisma models.",
     `Missing table(s): ${missingRelations.join(", ")}.`,
-    "The shared database may have been advanced by another preview branch; use an isolated or reset preview database before deployment.",
+    "The shared Preview database only moves forward: make feature migrations backward-compatible with deployed branches by using an expand/contract rollout.",
   ].join(" ");
 }
 

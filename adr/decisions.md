@@ -16,6 +16,23 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-08-27 - Keep shared Preview schema forward-only
+- Status: Accepted
+- Context: Deploying stacked TASK-327 renamed and removed columns from the
+  Calendar credential table, which made the still-testable TASK-326 branch fail
+  against shared staging. An emergency workflow reset made the database follow
+  the selected branch and also removed runtime-role grants.
+- Decision: Preview deploys only apply checked-in forward migrations and never
+  reset or roll back shared staging. Feature migrations must use expand/contract
+  when old and new branch code can coexist; a pre-deploy runtime-schema guard
+  rejects violations before the stable alias moves.
+- Consequences: Staging preserves one monotonic migration history and branch
+  deploys remain routine when migrations are backward-compatible. A single
+  shared database still cannot support mutually incompatible destructive
+  schemas; those changes must be phased or tested in an isolated database.
+- Links: `docs/runbooks/vercel-env-contract-and-secrets.md`,
+  `.github/workflows/deploy-vercel.yml`, PRs `#449` and `#450`
+
 ## 2026-08-06 - Make Google Calendar disconnect fail-closed and user-owned
 - Status: Accepted
 - Context: The existing Calendar credential is user-scoped, but its revocation

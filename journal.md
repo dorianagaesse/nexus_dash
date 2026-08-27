@@ -60,24 +60,22 @@ Use it for important implementation milestones, blockers, validation runs, and r
   for schema public` because dropping/recreating `public` removed the runtime
   role's Supabase grants. Added an idempotent runtime-grant migration and made
   readiness query `public.Session` through the deployed runtime role.
-- Replaced the temporary opt-in reset checkbox with permanent automatic Preview
-  alignment. The workflow now compares the database's applied migration names
-  with the selected branch, preserves data for compatible history, and performs
-  the same project-ref- and staging-guard-protected reset only when history is
-  divergent or failed.
-- The first alignment run stopped before mutation when the Supabase session
-  pooler terminated its migration-history query. Added the same bounded retry
-  behavior used by migration deployment so transient pooler disconnects do not
-  require an operator rerun or weaken the reset guard.
-- The pooler consistently ended the planner connection between its relation
-  probe and migration-history read. Collapsed planning to one migration query
-  and treats PostgreSQL `42P01` as a fresh forward-deployable database, while
-  retaining bounded retries for genuine transient failures.
-- Even the single-query planner was consistently terminated by the pooler.
-  Replaced the custom `pg` history read with Prisma's own `migrate status`
-  engine and its explicit behind, divergent, failed, and unmanaged states. This
-  uses the same database path as `migrate deploy` and keeps unknown connection
-  failures fail-closed with bounded retries.
+- Architecture review rejected both the operator checkbox and automatic schema
+  alignment. A shared database must not be reset or rolled back to impersonate
+  the selected branch; it keeps one forward-only migration history.
+- The root compatibility defect is TASK-327's destructive rename of
+  `GoogleCalendarCredential` plus removal of `calendarId` while TASK-326 remains
+  independently testable. Shared Preview migrations now follow the same
+  expand/contract rule as production: add compatible structures first and defer
+  destructive cleanup until dependent branches have advanced.
+- Removed the reset manager and automatic `prisma migrate reset --force` path.
+  Preview retains bounded forward migration retries and the pre-publication
+  runtime-schema gate, whose diagnostic now points directly to the
+  expand/contract requirement.
+- Updated TASK-326's legacy single-connection service to choose a deterministic
+  active credential and mutate/delete it by ID. It no longer relies at runtime
+  on `userId` remaining unique and will not update or delete every TASK-327
+  account row when an older branch is tested after the expansion migration.
 
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
 

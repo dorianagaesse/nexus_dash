@@ -20,8 +20,10 @@ connection model while preserving strict authenticated-user ownership.
 - Add accessible disconnect UX and repair the dashboard summary request.
 - Fail Preview deployment before alias publication when the shared database is
   incompatible with the branch's Prisma models.
-- Automatically realign project-ref-validated, staging-guarded Preview when its
-  migration history belongs to another branch, without an operator checkbox.
+- Keep shared Preview forward-only: apply checked-in migrations, never realign
+  staging to a branch, and require expand/contract compatibility.
+- Keep the TASK-326 single-connection runtime compatible when TASK-327 expands
+  the physical credential table to multiple account rows.
 - Keep provider authentication failures distinct from local credential-store
   availability failures.
 - Prove ownership in unit/API/UI and real PostgreSQL RLS tests.
@@ -40,9 +42,9 @@ connection model while preserving strict authenticated-user ownership.
    apparently healthy but schema-incompatible deployment.
 8. Database failures do not present as invalid Google credentials or a 401
    reauthorization requirement.
-9. Preview automatically preserves compatible staging data or safely realigns
-   divergent migration history after validating the configured Supabase project
-   ref and enabled staging guard, restoring runtime grants and the wipe guard.
+9. Preview never resets or rolls back the shared staging schema to match a
+   branch; incompatible migrations fail before alias publication with an
+   actionable expand/contract diagnostic.
 
 ## Definition Of Done
 

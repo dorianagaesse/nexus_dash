@@ -230,15 +230,19 @@ Important:
   then verifies that the alias resolves to the same deployment and retries the
   revision-aware readiness check through the alias while Vercel routing
   propagates before publishing either URL.
-- Preview migrations are forward-only and the Preview database is shared. A
-  stacked or unrelated branch can therefore make an older branch's Prisma
-  model incompatible even when `prisma migrate deploy` reports no pending
-  migrations. Before every Preview deploy, the workflow compares applied
-  migration names with the selected branch. Compatible history keeps existing
-  staging data; unexpected or failed history automatically resets disposable
-  staging after verifying both the exact Supabase project ref and the enabled
-  staging guard. It then reapplies the branch migrations and restores the daily
-  wipe guard. No operator reset input or compatibility table is required.
+- Preview migrations are forward-only and the Preview database is shared. The
+  workflow applies the checked-out branch's pending migrations; it never resets,
+  rolls back, or rewrites staging to match a branch. The daily 5 AM staging wipe
+  removes application data but deliberately preserves schema and migration
+  history.
+- Every feature migration deployed to shared Preview must remain compatible
+  with code from other testable branches. Renames, drops, and incompatible
+  type/constraint changes require an expand/contract rollout: add the new shape,
+  deploy code that can use it while the old shape remains, and remove the old
+  shape only after dependent branches/releases have moved forward. If a branch
+  violates this contract, the runtime-schema check fails before Vercel deploy
+  or stable-alias publication; fix the migration or branch dependency rather
+  than resetting staging.
 - Preview readiness queries an application table through the runtime role, so
   missing `public` schema or table privileges stop publication even when a
   connection-only `SELECT 1` would succeed.
