@@ -24,6 +24,10 @@ connection-per-user model without beginning the multi-account migration.
 - Settings provides accessible confirmation, pending, success, warning, and
   recovery states for disconnect.
 - The project summary Calendar request includes its required `projectId`.
+- Preview deployment verifies that every checked-out Prisma model still has a
+  physical runtime table after migrations, before publishing the stable alias.
+- OAuth token exchange and local credential persistence failures retain
+  separate operator logs and user-facing error states.
 - Preserve current project viewer/editor behavior; TASK-348 owns private versus
   shared schedule semantics.
 
@@ -40,6 +44,8 @@ connection-per-user model without beginning the multi-account migration.
 5. The connected dashboard summary successfully supplies project authorization
    context.
 6. Unit/API/UI and real PostgreSQL RLS tests cover ownership and failure paths.
+7. Shared Preview schema drift cannot masquerade as a successful deployment or
+   an OAuth credential failure.
 
 ## Definition Of Done
 

@@ -18,6 +18,10 @@ connection model while preserving strict authenticated-user ownership.
 - Require token encryption whenever Calendar OAuth is configured outside tests
   and upgrade legacy plaintext rows when read.
 - Add accessible disconnect UX and repair the dashboard summary request.
+- Fail Preview deployment before alias publication when the shared database is
+  incompatible with the branch's Prisma models.
+- Keep provider authentication failures distinct from local credential-store
+  availability failures.
 - Prove ownership in unit/API/UI and real PostgreSQL RLS tests.
 
 ## Acceptance Criteria
@@ -30,6 +34,10 @@ connection model while preserving strict authenticated-user ownership.
    plaintext tokens are rewritten encrypted.
 5. Calendar summary requests include their project authorization context.
 6. Automated and real-database coverage proves the ownership boundary.
+7. A Preview whose database was advanced by another branch cannot publish an
+   apparently healthy but schema-incompatible deployment.
+8. Database failures do not present as invalid Google credentials or a 401
+   reauthorization requirement.
 
 ## Definition Of Done
 

@@ -21,6 +21,12 @@ SHA, deployment URL, and workflow run belong in release evidence.
   Calendar summary request by including its project authorization context.
 - Expanded service, API, component, environment, and real PostgreSQL RLS
   coverage for user-owned Calendar credentials and lifecycle failures.
+- Refused Preview publication when the migrated database no longer contains
+  the tables required by the checked-out Prisma schema, preventing a newer
+  branch's forward-only migration from silently breaking an older Preview.
+- Distinguished Google token-exchange failures from credential persistence and
+  database availability failures so infrastructure drift is no longer reported
+  as invalid OAuth credentials or a reauthorization-required 401.
 
 ## v0.37.2 - 2026-08-25
 

@@ -345,6 +345,12 @@ jobs:
           echo "::error::Prisma migrations failed after 3 attempts."
           exit 1
 
+      - name: Validate preview runtime schema compatibility
+        if: inputs.action == 'deploy-preview'
+        env:
+          MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+        run: DATABASE_URL="$MIGRATION_DATABASE_URL" node scripts/validate-prisma-runtime-schema.mjs
+
       - name: Deploy preview
         if: inputs.action == 'deploy-preview'
         id: deploy_preview

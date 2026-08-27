@@ -3,6 +3,38 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-27 - TASK-326 Preview Calendar 401 root cause and deployment guard
+
+- Investigated PR #449 Preview workflow run `33018066540`, immutable deployment
+  `nexus-dash-ozuo3wxvz-dorian-agaesses-projects.vercel.app`, and stable auth
+  alias. The deployment and alias both resolve to commit `e1aba23`; Google and
+  Vercel OAuth variables are present.
+- Vercel callback logs prove Google token exchange completed. Persistence then
+  failed in `GoogleCalendarCredential.upsert()` with Prisma `P2021` because
+  `public.GoogleCalendarCredential` was absent. Calendar reads caught the same
+  infrastructure exception and incorrectly returned
+  `401 reauthorization-required`, producing the misleading OAuth copy.
+- Read-only PostgreSQL inspection confirmed 53 applied migrations and no
+  `GoogleCalendarCredential` table. The historical baseline, TASK-076, and RLS
+  migrations are recorded as applied, so `prisma migrate deploy` correctly but
+  insufficiently reported no pending migrations.
+- A rolled-back repair migration exposed the decisive evidence: the old
+  `GoogleCalendarCredential_pkey` index now belongs to `CalendarConnection`.
+  TASK-327 Preview migration `20260806112500_task327_calendar_connections` had
+  already renamed the shared table; TASK-342 and TASK-356 Preview migrations
+  were also present although none exist on PR #449. No repair DDL was committed
+  or left applied because recreating the old table would fork token ownership.
+- Added a post-migration, pre-deploy Prisma runtime-table compatibility gate so
+  older branches fail before Vercel deployment and stable-alias movement when a
+  shared Preview database has been advanced. Split token exchange, credential
+  persistence, and credential-store availability errors so database drift is
+  reported as storage/unavailable rather than bad credentials or 401.
+- Validation passed: lint, RLS inventory, 152 test files with 1,077 tests
+  passing and two expected skips, coverage at 91.47% statements / 81.33%
+  branches / 92.3% functions / 91.97% lines, and the production build. The
+  current shared Preview still requires an isolated database or intentional
+  reset before PR #449 itself can be tested end to end.
+
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
 
 - Reproduced the provider failure from the immutable TASK-326 Preview: GitHub

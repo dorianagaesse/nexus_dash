@@ -229,6 +229,14 @@ Important:
   environment, and database readiness before moving the stable auth alias. It
   then verifies that the alias resolves to the same deployment and repeats the
   readiness check through the alias before publishing either URL.
+- Preview migrations are forward-only and the Preview database is shared. A
+  stacked or unrelated branch can therefore make an older branch's Prisma
+  model incompatible even when `prisma migrate deploy` reports no pending
+  migrations. The workflow checks every model's physical table after migration
+  and stops before deployment/alias publication when a required table was
+  renamed or removed. Restore that branch only with an isolated Preview
+  database or an intentional Preview reset; do not recreate a superseded table
+  beside its replacement.
 - Production database secrets must come from the intended Supabase Production
   project, not local `.env` snapshots or preview/staging files. The app rejects
   production startup when Supabase project refs differ across `DATABASE_URL`,
