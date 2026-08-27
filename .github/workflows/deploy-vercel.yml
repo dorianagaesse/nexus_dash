@@ -27,11 +27,6 @@ on:
         required: false
         default: "main"
         type: string
-      reset_preview_schema:
-        description: "Destructively reset the guarded Preview database to the selected git_ref before deploying"
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -329,11 +324,18 @@ jobs:
 
           DATABASE_URL="$MIGRATION_DATABASE_URL" node scripts/validate-supabase-project-ref.mjs
 
-      - name: Reset Preview schema to checked-out branch
-        if: inputs.action == 'deploy-preview' && inputs.reset_preview_schema
+      - name: Align Preview schema with checked-out branch
+        if: inputs.action == 'deploy-preview'
         env:
           MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
         run: |
+          reset_required=$(DATABASE_URL="$MIGRATION_DATABASE_URL" node scripts/manage-preview-schema-reset.mjs needs-reset)
+          if [ "$reset_required" != "true" ]; then
+            echo "Preview migration history is compatible; preserving staging data."
+            exit 0
+          fi
+
+          echo "::warning::Preview contains migrations absent from the selected branch; resetting disposable staging automatically."
           DATABASE_URL="$MIGRATION_DATABASE_URL" node scripts/manage-preview-schema-reset.mjs preflight
           DATABASE_URL="$MIGRATION_DATABASE_URL" DIRECT_URL="$MIGRATION_DATABASE_URL" npx prisma migrate reset --force
 

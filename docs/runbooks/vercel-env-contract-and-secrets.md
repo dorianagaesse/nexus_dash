@@ -233,17 +233,15 @@ Important:
 - Preview migrations are forward-only and the Preview database is shared. A
   stacked or unrelated branch can therefore make an older branch's Prisma
   model incompatible even when `prisma migrate deploy` reports no pending
-  migrations. The workflow checks every model's physical table after migration
-  and stops before deployment/alias publication when a required table was
-  renamed or removed. Restore that branch only with an isolated Preview
-  database or an intentional Preview reset; do not recreate a superseded table
-  beside its replacement.
-- When Preview data is disposable, dispatch `deploy-vercel.yml` from the target
-  branch with `action=deploy-preview`, that branch as `git_ref`, and
-  `reset_preview_schema=true`. The reset checks both the configured Supabase
-  project ref and the enabled staging guard before dropping the Preview schema,
-  reapplies only the selected branch's migrations, and restores the daily wipe
-  guard before deployment.
+  migrations. Before every Preview deploy, the workflow compares applied
+  migration names with the selected branch. Compatible history keeps existing
+  staging data; unexpected or failed history automatically resets disposable
+  staging after verifying both the exact Supabase project ref and the enabled
+  staging guard. It then reapplies the branch migrations and restores the daily
+  wipe guard. No operator reset input or compatibility table is required.
+- Preview readiness queries an application table through the runtime role, so
+  missing `public` schema or table privileges stop publication even when a
+  connection-only `SELECT 1` would succeed.
 - Production database secrets must come from the intended Supabase Production
   project, not local `.env` snapshots or preview/staging files. The app rejects
   production startup when Supabase project refs differ across `DATABASE_URL`,

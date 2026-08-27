@@ -7,9 +7,11 @@ SHA, deployment URL, and workflow run belong in release evidence.
 ## Unreleased
 
 - Define each release entry before the product-impacting PR is merged.
-- Added a guarded manual Preview-schema reset to the Vercel deployment workflow
-  so disposable staging can be restored to an older feature branch without
-  introducing conflicting compatibility tables.
+- Preview deployment now detects migration history from another branch and
+  automatically realigns guarded disposable staging, without an operator
+  checkbox or conflicting compatibility tables.
+- Restored least-privilege runtime schema/table grants after Preview resets and
+  made readiness verify access to an application table instead of only `SELECT 1`.
 
 ## v0.38.0 - 2026-08-24
 

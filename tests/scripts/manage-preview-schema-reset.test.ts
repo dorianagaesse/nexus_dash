@@ -3,6 +3,8 @@ import { describe, expect, test, vi } from "vitest";
 import {
   assertFreshResetGuard,
   assertPreviewResetPreflight,
+  previewMigrationHistoryRequiresReset,
+  previewSchemaResetRequired,
   restorePreviewStagingGuard,
 } from "../../scripts/manage-preview-schema-reset.mjs";
 
@@ -61,6 +63,57 @@ describe("manage-preview-schema-reset", () => {
 
     await restorePreviewStagingGuard({ query });
 
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  test("keeps compatible migration history without a reset", () => {
+    expect(
+      previewMigrationHistoryRequiresReset(
+        [
+          {
+            migration_name: "20260101000000_base",
+            finished_at: new Date(),
+            rolled_back_at: null,
+          },
+        ],
+        ["20260101000000_base", "20260102000000_feature"]
+      )
+    ).toBe(false);
+  });
+
+  test("requires reset for migrations from another branch or failed attempts", () => {
+    expect(
+      previewMigrationHistoryRequiresReset(
+        [
+          {
+            migration_name: "20260103000000_other_branch",
+            finished_at: new Date(),
+            rolled_back_at: null,
+          },
+        ],
+        ["20260101000000_base"]
+      )
+    ).toBe(true);
+    expect(
+      previewMigrationHistoryRequiresReset(
+        [
+          {
+            migration_name: "20260102000000_failed",
+            finished_at: null,
+            rolled_back_at: null,
+          },
+        ],
+        ["20260101000000_base", "20260102000000_failed"]
+      )
+    ).toBe(true);
+  });
+
+  test("treats a database without migration history as forward deployable", async () => {
+    const query = vi.fn().mockResolvedValueOnce({ rows: [{ relation: null }] });
+
+    await expect(
+      previewSchemaResetRequired({ query }, ["20260101000000_base"])
+    ).resolves.toBe(false);
     expect(query).toHaveBeenCalledTimes(1);
   });
 });

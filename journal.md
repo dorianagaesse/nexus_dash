@@ -55,6 +55,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
   marked the run red even though both URLs shortly reported healthy revision
   `1fc830c`; alias verification now retries revision mismatches with cache-busted
   requests during Vercel propagation.
+- The first request after that reset exposed a gap hidden by `SELECT 1` health:
+  Prisma failed `Session.findUnique()` with PostgreSQL `42501 permission denied
+  for schema public` because dropping/recreating `public` removed the runtime
+  role's Supabase grants. Added an idempotent runtime-grant migration and made
+  readiness query `public.Session` through the deployed runtime role.
+- Replaced the temporary opt-in reset checkbox with permanent automatic Preview
+  alignment. The workflow now compares the database's applied migration names
+  with the selected branch, preserves data for compatible history, and performs
+  the same project-ref- and staging-guard-protected reset only when history is
+  divergent or failed.
 
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
 
