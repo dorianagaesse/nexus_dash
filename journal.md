@@ -69,6 +69,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   pooler terminated its migration-history query. Added the same bounded retry
   behavior used by migration deployment so transient pooler disconnects do not
   require an operator rerun or weaken the reset guard.
+- The pooler consistently ended the planner connection between its relation
+  probe and migration-history read. Collapsed planning to one migration query
+  and treats PostgreSQL `42P01` as a fresh forward-deployable database, while
+  retaining bounded retries for genuine transient failures.
 
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
 

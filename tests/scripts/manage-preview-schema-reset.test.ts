@@ -109,7 +109,13 @@ describe("manage-preview-schema-reset", () => {
   });
 
   test("treats a database without migration history as forward deployable", async () => {
-    const query = vi.fn().mockResolvedValueOnce({ rows: [{ relation: null }] });
+    const missingRelation = Object.assign(
+      new Error("relation does not exist"),
+      {
+        code: "42P01",
+      }
+    );
+    const query = vi.fn().mockRejectedValueOnce(missingRelation);
 
     await expect(
       previewSchemaResetRequired({ query }, ["20260101000000_base"])

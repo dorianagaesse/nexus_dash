@@ -59,18 +59,21 @@ async function readCheckoutMigrationNames(
 }
 
 export async function previewSchemaResetRequired(client, checkoutMigrations) {
-  const migrationTable = await client.query(
-    "SELECT to_regclass('public._prisma_migrations') AS relation"
-  );
-  if (!migrationTable.rows[0]?.relation) {
-    return false;
+  try {
+    const result = await client.query(`
+      SELECT migration_name, finished_at, rolled_back_at
+      FROM public._prisma_migrations
+    `);
+    return previewMigrationHistoryRequiresReset(
+      result.rows,
+      checkoutMigrations
+    );
+  } catch (error) {
+    if (error && typeof error === "object" && error.code === "42P01") {
+      return false;
+    }
+    throw error;
   }
-
-  const result = await client.query(`
-    SELECT migration_name, finished_at, rolled_back_at
-    FROM public._prisma_migrations
-  `);
-  return previewMigrationHistoryRequiresReset(result.rows, checkoutMigrations);
 }
 
 async function readGuard(client) {
