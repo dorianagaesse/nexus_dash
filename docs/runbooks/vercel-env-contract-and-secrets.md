@@ -227,8 +227,9 @@ Important:
   `VERCEL_URL` or exact `PREVIEW_AUTH_ORIGIN`.
 - The deploy workflow validates the immutable deployment target, revision,
   environment, and database readiness before moving the stable auth alias. It
-  then verifies that the alias resolves to the same deployment and repeats the
-  readiness check through the alias before publishing either URL.
+  then verifies that the alias resolves to the same deployment and retries the
+  revision-aware readiness check through the alias while Vercel routing
+  propagates before publishing either URL.
 - Preview migrations are forward-only and the Preview database is shared. A
   stacked or unrelated branch can therefore make an older branch's Prisma
   model incompatible even when `prisma migrate deploy` reports no pending

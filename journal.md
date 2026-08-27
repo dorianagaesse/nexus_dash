@@ -49,6 +49,12 @@ Use it for important implementation milestones, blockers, validation runs, and r
   schema to the selected branch migrations, and restores the daily-wipe guard
   before deployment. A compatibility migration was rejected because it would
   create two credential stores and leave TASK-327 marked applied.
+- Reset/deploy run `33111997475` successfully rebuilt Preview to PR #449,
+  passed runtime schema and immutable deployment readiness, and moved the stable
+  alias. Its immediate alias health assertion saw a stale 200 response and
+  marked the run red even though both URLs shortly reported healthy revision
+  `1fc830c`; alias verification now retries revision mismatches with cache-busted
+  requests during Vercel propagation.
 
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
 

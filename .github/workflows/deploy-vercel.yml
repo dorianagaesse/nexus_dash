@@ -517,30 +517,47 @@ jobs:
           }
           NODE
 
-          curl \
-            --fail \
-            --silent \
-            --show-error \
-            --retry 4 \
-            --retry-all-errors \
-            --retry-delay 5 \
-            "$PREVIEW_AUTH_ORIGIN/api/health/ready" \
-            --output /tmp/preview-alias-readiness.json
+          alias_ready=0
+          for attempt in 1 2 3 4 5 6; do
+            curl \
+              --fail \
+              --silent \
+              --show-error \
+              --header "Cache-Control: no-cache" \
+              "$PREVIEW_AUTH_ORIGIN/api/health/ready?alias_check=${COMMIT_SHA}-${attempt}" \
+              --output /tmp/preview-alias-readiness.json
 
-          node <<'NODE'
+            if node <<'NODE'
           const { readFileSync } = require("node:fs");
           const readiness = JSON.parse(readFileSync("/tmp/preview-alias-readiness.json", "utf8"));
           const expectedRevision = process.env.COMMIT_SHA.slice(0, 7).toLowerCase();
+          const valid =
+            readiness.status === "ready" &&
+            readiness.checks?.database === "ok" &&
+            readiness.deployment?.environment === "preview" &&
+            readiness.deployment?.revision?.toLowerCase() === expectedRevision;
 
-          if (
-            readiness.status !== "ready" ||
-            readiness.checks?.database !== "ok" ||
-            readiness.deployment?.environment !== "preview" ||
-            readiness.deployment?.revision?.toLowerCase() !== expectedRevision
-          ) {
-            throw new Error("Stable Preview auth alias failed revision, environment, or readiness validation.");
+          if (!valid) {
+            console.error(
+              `Stable alias has not propagated yet: expected ${expectedRevision}, received ${readiness.deployment?.revision ?? "unknown"}.`
+            );
+            process.exit(1);
           }
           NODE
+            then
+              alias_ready=1
+              break
+            fi
+
+            if [ "$attempt" -lt 6 ]; then
+              sleep $((attempt * 3))
+            fi
+          done
+
+          if [ "$alias_ready" -ne 1 ]; then
+            echo "::error::Stable Preview auth alias failed revision, environment, or readiness validation."
+            exit 1
+          fi
 
           echo "$PREVIEW_AUTH_ORIGIN" > preview-auth-alias.txt
 
