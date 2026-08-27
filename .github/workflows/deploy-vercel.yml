@@ -329,7 +329,25 @@ jobs:
         env:
           MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
         run: |
-          reset_required=$(DATABASE_URL="$MIGRATION_DATABASE_URL" node scripts/manage-preview-schema-reset.mjs needs-reset)
+          plan_ok=0
+          for attempt in 1 2 3; do
+            if reset_required=$(DATABASE_URL="$MIGRATION_DATABASE_URL" node scripts/manage-preview-schema-reset.mjs needs-reset); then
+              plan_ok=1
+              break
+            fi
+
+            if [ "$attempt" -lt 3 ]; then
+              delay=$((attempt * 5))
+              echo "::warning::Preview migration-history check failed; retrying in ${delay}s."
+              sleep "$delay"
+            fi
+          done
+
+          if [ "$plan_ok" -ne 1 ]; then
+            echo "::error::Could not determine Preview migration compatibility after 3 attempts."
+            exit 1
+          fi
+
           if [ "$reset_required" != "true" ]; then
             echo "Preview migration history is compatible; preserving staging data."
             exit 0

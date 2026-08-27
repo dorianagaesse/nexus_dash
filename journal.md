@@ -65,6 +65,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   with the selected branch, preserves data for compatible history, and performs
   the same project-ref- and staging-guard-protected reset only when history is
   divergent or failed.
+- The first alignment run stopped before mutation when the Supabase session
+  pooler terminated its migration-history query. Added the same bounded retry
+  behavior used by migration deployment so transient pooler disconnects do not
+  require an operator rerun or weaken the reset guard.
 
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
 
