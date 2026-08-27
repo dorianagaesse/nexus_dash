@@ -73,6 +73,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
   probe and migration-history read. Collapsed planning to one migration query
   and treats PostgreSQL `42P01` as a fresh forward-deployable database, while
   retaining bounded retries for genuine transient failures.
+- Even the single-query planner was consistently terminated by the pooler.
+  Replaced the custom `pg` history read with Prisma's own `migrate status`
+  engine and its explicit behind, divergent, failed, and unmanaged states. This
+  uses the same database path as `migrate deploy` and keeps unknown connection
+  failures fail-closed with bounded retries.
 
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
 

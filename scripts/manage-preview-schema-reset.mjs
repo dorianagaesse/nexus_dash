@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -32,47 +31,6 @@ export function assertFreshResetGuard(guard) {
     throw new Error(
       "Refusing to restore the staging guard: the freshly migrated guard is not in its safe default state."
     );
-  }
-}
-
-export function previewMigrationHistoryRequiresReset(
-  databaseMigrations,
-  checkoutMigrations
-) {
-  const expected = new Set(checkoutMigrations);
-  return databaseMigrations.some(
-    (migration) =>
-      (!migration.finished_at && !migration.rolled_back_at) ||
-      (migration.finished_at &&
-        !migration.rolled_back_at &&
-        !expected.has(migration.migration_name))
-  );
-}
-
-async function readCheckoutMigrationNames(
-  migrationsPath = resolve("prisma/migrations")
-) {
-  const entries = await readdir(migrationsPath, { withFileTypes: true });
-  return entries
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name);
-}
-
-export async function previewSchemaResetRequired(client, checkoutMigrations) {
-  try {
-    const result = await client.query(`
-      SELECT migration_name, finished_at, rolled_back_at
-      FROM public._prisma_migrations
-    `);
-    return previewMigrationHistoryRequiresReset(
-      result.rows,
-      checkoutMigrations
-    );
-  } catch (error) {
-    if (error && typeof error === "object" && error.code === "42P01") {
-      return false;
-    }
-    throw error;
   }
 }
 
@@ -113,7 +71,6 @@ export async function managePreviewSchemaReset({
   mode,
   connectionString,
   expectedProjectRef,
-  migrationsPath,
 }) {
   validateSupabaseProjectRef(connectionString, expectedProjectRef);
   const client = new Client({
@@ -121,12 +78,6 @@ export async function managePreviewSchemaReset({
   });
   await client.connect();
   try {
-    if (mode === "needs-reset") {
-      return previewSchemaResetRequired(
-        client,
-        await readCheckoutMigrationNames(migrationsPath)
-      );
-    }
     if (mode === "preflight") {
       await preflightPreviewSchemaReset(client);
       return;
@@ -147,16 +98,12 @@ if (
 ) {
   try {
     const mode = process.argv[2];
-    const result = await managePreviewSchemaReset({
+    await managePreviewSchemaReset({
       mode,
       connectionString: readRequiredEnv("DATABASE_URL"),
       expectedProjectRef: readRequiredEnv("EXPECTED_SUPABASE_PROJECT_REF"),
     });
-    process.stdout.write(
-      mode === "needs-reset"
-        ? `${result ? "true" : "false"}\n`
-        : `Preview schema reset ${mode} passed.\n`
-    );
+    process.stdout.write(`Preview schema reset ${mode} passed.\n`);
   } catch (error) {
     process.stderr.write(
       `${error instanceof Error ? error.message : String(error)}\n`
