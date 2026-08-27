@@ -20,6 +20,8 @@ connection model while preserving strict authenticated-user ownership.
 - Add accessible disconnect UX and repair the dashboard summary request.
 - Fail Preview deployment before alias publication when the shared database is
   incompatible with the branch's Prisma models.
+- Allow an explicitly requested, project-ref-validated, staging-guarded reset
+  when disposable Preview must return to the selected branch's migration state.
 - Keep provider authentication failures distinct from local credential-store
   availability failures.
 - Prove ownership in unit/API/UI and real PostgreSQL RLS tests.
@@ -38,6 +40,9 @@ connection model while preserving strict authenticated-user ownership.
    apparently healthy but schema-incompatible deployment.
 8. Database failures do not present as invalid Google credentials or a 401
    reauthorization requirement.
+9. A destructive Preview reset requires both the configured Supabase project
+   ref and the database's enabled staging guard, and restores that guard after
+   applying the selected branch's migrations.
 
 ## Definition Of Done
 

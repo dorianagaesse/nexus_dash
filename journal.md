@@ -39,6 +39,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `sslmode=require` more strictly than libpq/Prisma. The validator now opts into
   the connection string's standard libpq semantics while preserving explicit
   `verify-full`; a follow-up explicit-ref run records the schema verdict.
+- Follow-up run `33110152378` reached the compatibility gate and failed with
+  the intended `Missing table(s): GoogleCalendarCredential` diagnostic before
+  any Vercel deployment or alias movement.
+- Confirmed the 5 AM staging wipe truncates data but intentionally preserves
+  `_prisma_migrations`, so it cannot reverse TASK-327's table rename. Added an
+  opt-in `reset_preview_schema` deployment input that validates both the exact
+  Preview Supabase project ref and its enabled staging guard, resets the public
+  schema to the selected branch migrations, and restores the daily-wipe guard
+  before deployment. A compatibility migration was rejected because it would
+  create two credential stores and leave TASK-327 marked applied.
 
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
 

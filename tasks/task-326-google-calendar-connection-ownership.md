@@ -26,6 +26,9 @@ connection-per-user model without beginning the multi-account migration.
 - The project summary Calendar request includes its required `projectId`.
 - Preview deployment verifies that every checked-out Prisma model still has a
   physical runtime table after migrations, before publishing the stable alias.
+- Disposable Preview can be intentionally restored to this branch only after
+  the configured Supabase project ref and enabled staging wipe guard are
+  verified; the workflow restores that guard after applying branch migrations.
 - OAuth token exchange and local credential persistence failures retain
   separate operator logs and user-facing error states.
 - Preserve current project viewer/editor behavior; TASK-348 owns private versus

@@ -237,6 +237,12 @@ Important:
   renamed or removed. Restore that branch only with an isolated Preview
   database or an intentional Preview reset; do not recreate a superseded table
   beside its replacement.
+- When Preview data is disposable, dispatch `deploy-vercel.yml` from the target
+  branch with `action=deploy-preview`, that branch as `git_ref`, and
+  `reset_preview_schema=true`. The reset checks both the configured Supabase
+  project ref and the enabled staging guard before dropping the Preview schema,
+  reapplies only the selected branch's migrations, and restores the daily wipe
+  guard before deployment.
 - Production database secrets must come from the intended Supabase Production
   project, not local `.env` snapshots or preview/staging files. The app rejects
   production startup when Supabase project refs differ across `DATABASE_URL`,

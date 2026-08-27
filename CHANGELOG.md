@@ -7,6 +7,9 @@ SHA, deployment URL, and workflow run belong in release evidence.
 ## Unreleased
 
 - Define each release entry before the product-impacting PR is merged.
+- Added a guarded manual Preview-schema reset to the Vercel deployment workflow
+  so disposable staging can be restored to an older feature branch without
+  introducing conflicting compatibility tables.
 
 ## v0.38.0 - 2026-08-24
 

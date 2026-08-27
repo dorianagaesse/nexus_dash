@@ -27,6 +27,11 @@ on:
         required: false
         default: "main"
         type: string
+      reset_preview_schema:
+        description: "Destructively reset the guarded Preview database to the selected git_ref before deploying"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -323,6 +328,29 @@ jobs:
           fi
 
           DATABASE_URL="$MIGRATION_DATABASE_URL" node scripts/validate-supabase-project-ref.mjs
+
+      - name: Reset Preview schema to checked-out branch
+        if: inputs.action == 'deploy-preview' && inputs.reset_preview_schema
+        env:
+          MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+        run: |
+          DATABASE_URL="$MIGRATION_DATABASE_URL" node scripts/manage-preview-schema-reset.mjs preflight
+          DATABASE_URL="$MIGRATION_DATABASE_URL" DIRECT_URL="$MIGRATION_DATABASE_URL" npx prisma migrate reset --force
+
+          for attempt in 1 2 3; do
+            if DATABASE_URL="$MIGRATION_DATABASE_URL" node scripts/manage-preview-schema-reset.mjs restore-guard; then
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 3 ]; then
+              delay=$((attempt * 5))
+              echo "::warning::Staging guard restoration failed; retrying in ${delay}s."
+              sleep "$delay"
+            fi
+          done
+
+          echo "::error::Failed to restore the staging wipe guard after reset."
+          exit 1
 
       - name: Apply Prisma migrations (preview)
         if: inputs.action == 'deploy-preview'
