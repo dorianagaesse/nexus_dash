@@ -99,8 +99,12 @@ test.describe("TASK-381 bounded Kanban lanes", () => {
     expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight);
     expect(metrics.overflowY).toBe("auto");
 
-    const laneHeader = backlogLane.locator("#kanban-lane-backlog-title");
-    const headerTop = (await laneHeader.boundingBox())?.y;
+    const headerOffset = await backlogLane.evaluate((lane) => {
+      const header = lane.querySelector("#kanban-lane-backlog-title");
+      return header
+        ? header.getBoundingClientRect().top - lane.getBoundingClientRect().top
+        : null;
+    });
     await backlogScroller.evaluate((element) => {
       element.scrollTop = 240;
     });
@@ -110,7 +114,15 @@ test.describe("TASK-381 bounded Kanban lanes", () => {
     expect(
       await progressScroller.evaluate((element) => element.scrollTop)
     ).toBe(0);
-    expect((await laneHeader.boundingBox())?.y).toBe(headerTop);
+    expect(
+      await backlogLane.evaluate((lane) => {
+        const header = lane.querySelector("#kanban-lane-backlog-title");
+        return header
+          ? header.getBoundingClientRect().top -
+              lane.getBoundingClientRect().top
+          : null;
+      })
+    ).toBe(headerOffset);
 
     await backlogScroller.focus();
     await expect(backlogScroller).toBeFocused();
