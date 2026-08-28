@@ -4,8 +4,8 @@
 
 ## Status
 
-Implementation and local validation complete on
-`feature/task-381-bounded-kanban-lanes`; ready for PR and Preview review.
+In review via PR #459 on `feature/task-381-bounded-kanban-lanes`; local
+validation is complete and Preview/Copilot review is in progress.
 
 ## Objective
 

@@ -29,6 +29,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
   database with `NODE_ENV=test`. On Windows, Prettier-normalizing the existing
   CRLF shebang locally was required for one baseline script test; it produced
   no committed source diff.
+- Opened ready-for-review PR #459 from commit `28073b8`; the branch remains
+  intentionally open and independent from TASK-382 and TASK-384.
 
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
 
