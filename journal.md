@@ -3,6 +3,33 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-29 - TASK-381 bounded Kanban lanes started
+
+- Reprioritized TASK-381 at the user's direction ahead of the broader pending
+  TASK-100 and TASK-133 UX passes while preserving their remaining scope.
+- Created the dedicated `feature/task-381-bounded-kanban-lanes` worktree from
+  current `origin/main` and drafted the task contract before implementation.
+- Selected a `clamp(20rem, 64dvh, 42rem)` lane with fixed metadata and an
+  independently focusable task scroller so dense boards remain bounded without
+  replacing the established mobile status dock or drag-and-drop model.
+- Implemented fixed lane chrome with named, focusable task regions, contained
+  overscroll, stable scrollbar gutters, and a separately bounded Done archive.
+  Kept every lane mounted and retained the flex layout when hidden mobile lanes
+  become visible together at the desktop breakpoint.
+- Added focused component coverage and a dedicated Playwright suite for
+  independent scroll, fixed metadata, pointer and keyboard cross-lane moves,
+  preserved mobile scroll positions, archive access, light/dark behavior,
+  reduced motion, and 375 px plus landscape containment.
+- Local validation passed: diff check, feature release policy from `v0.37.2` to
+  `v0.38.0`, lint, RLS inventory, 1,057 unit/API tests with two skipped,
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, production compilation, all 34 runnable Playwright tests with the one
+  Preview-only scenario skipped, and the final focused browser rerun.
+- Local Docker was unavailable, so validation used the configured development
+  database with `NODE_ENV=test`. On Windows, Prettier-normalizing the existing
+  CRLF shebang locally was required for one baseline script test; it produced
+  no committed source diff.
+
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
 
 - Reproduced the provider failure from the immutable TASK-326 Preview: GitHub

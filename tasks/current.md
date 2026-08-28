@@ -1,86 +1,93 @@
 # Current Task
 
-## TASK-406: Stable Preview OAuth Alias After Immutable Validation
+## TASK-381: Bounded Kanban Height With Independently Scrollable Lanes
 
 ## Status
 
-Ready for user testing on `fix/task-406-stable-preview-auth-alias` via PR #448.
+Implementation and local validation complete on
+`feature/task-381-bounded-kanban-lanes`; ready for PR and Preview review.
 
-## Context
+## Objective
 
-TASK-370 correctly removed a stale alias that pointed to production and made
-immutable deployment validation authoritative. The follow-up Preview test
-showed that social OAuth cannot use a new immutable callback for every deploy:
-GitHub rejected the generated `redirect_uri` because the provider application
-is registered against the long-lived static Preview URL. The static URL must
-therefore remain usable without weakening the immutable deployment checks.
-The first TASK-406 deployment exposed a second regression from TASK-370:
-removing `AUTH_GITHUB_REDIRECT_URI` also changed the derived callback path from
-the registered `/api/auth/callback/github` route to the unregistered
-`/api/auth/oauth/github/callback` route.
+Keep dense Kanban boards usable by bounding each visible lane to a responsive
+viewport-aware height and scrolling each lane's task region independently.
+Lane metadata and board actions must remain visible while long task lists are
+reviewed or reordered.
+
+## Product Decisions
+
+- Each lane uses `clamp(20rem, 64dvh, 42rem)` so it remains useful on small
+  screens without growing indefinitely on large displays.
+- The lane header and count stay outside the scroll region. The existing board
+  header, create action, archive control, and mobile status dock retain their
+  established placement.
+- The task region is an explicitly named, keyboard-focusable scroll region
+  with contained overscroll and a stable scrollbar gutter.
+- All lane components remain mounted while the mobile status dock changes the
+  visible lane, preserving their native scroll positions.
 
 ## Scope
 
-- Add one exact `PREVIEW_AUTH_ORIGIN` allowlist entry for Preview request-origin
-  resolution while preserving the immutable `VERCEL_URL` fallback.
-- Preserve the existing provider-specific callback contracts: GitHub uses
-  `/api/auth/callback/github`, while social Google stays on
-  `/api/auth/oauth/google/callback` to avoid the Calendar OAuth route.
-- Require a valid HTTPS `PREVIEW_AUTH_ORIGIN` whenever social or Calendar OAuth
-  is enabled in Vercel Preview.
-- Validate the immutable deployment first, then atomically assign the stable
-  alias and verify it resolves to the same deployment and readiness metadata.
-- Document which URL is deployment evidence and which URL testers should use
-  for provider-backed OAuth.
+- Bound active Kanban lane height on mobile and desktop.
+- Make every lane's task area vertically scrollable without coupling lane
+  scroll positions.
+- Preserve pointer and keyboard drag-and-drop, including long-lane auto-scroll
+  and movement within or between lanes.
+- Preserve archive access, task selection/editing, viewer behavior, live
+  refresh, and mobile status navigation.
+- Add focused component and Playwright coverage for layout, accessibility,
+  scrolling, responsive containment, and drag behavior.
 
-## Acceptance Criteria
+## Out Of Scope
 
-1. A request through the exact configured stable Preview alias generates
-   callbacks on that alias; any unconfigured alias falls back to the immutable
-   `VERCEL_URL`.
-2. Preview startup fails closed when OAuth is enabled without a valid exact
-   HTTPS `PREVIEW_AUTH_ORIGIN`.
-3. The deploy workflow never moves the stable alias until the immutable target,
-   revision, environment, migration project ref, and database readiness pass.
-4. After assignment, the workflow proves the alias resolves to that same Vercel
-   deployment and repeats environment/revision/database readiness checks.
-5. GitHub OAuth initiation from the stable Preview URL is accepted by GitHub
-   with the registered `/api/auth/callback/github` URI and does not redirect to
-   the production domain.
-6. Existing production routing and TASK-370 database isolation remain unchanged.
-
-## Definition Of Done
-
-- Focused request-origin and runtime-environment coverage passes.
-- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  and `npm run build` pass.
-- GitHub Preview environment metadata contains `PREVIEW_AUTH_ORIGIN` without
-  exposing credentials.
-- The branch preview workflow completes for the explicit branch ref and its
-  logs prove the checked-out ref, validated immutable target, and alias target.
-- A ready-for-review PR is open; required checks and initial Copilot review are
-  complete; actionable threads are resolved before merge.
-- `tasks/current.md`, `tasks/backlog.md`, relevant runbooks, and `journal.md`
-  record the diagnosis and validation outcome.
+- Task search, label filters, or Epic filters.
+- Task virtualization, pagination, persistence changes, or API changes.
+- Redesigning task cards, the task detail dialog, the project shell, or other
+  dashboard sections.
+- URL-backed or persisted lane scroll positions across full navigation.
 
 ## Runtime Assumptions
 
-- The existing static Preview alias is registered in the Preview GitHub and
-  Google OAuth applications.
-- The alias may move only through the Preview deployment workflow after the
-  immutable deployment passes all existing TASK-370 checks.
-- `PREVIEW_AUTH_ORIGIN` is non-secret environment metadata; OAuth client secrets
-  and database connection strings remain secret.
+- Existing PostgreSQL, authentication, and `.env` contracts remain unchanged.
+- `@hello-pangea/dnd` continues to provide pointer and keyboard sensors and
+  recognizes the focusable lane task area as its scroll container.
+- The user has explicitly reprioritized TASK-381 ahead of the still-pending
+  broad TASK-100 and TASK-133 UX passes.
+- Preview validation uses `feature/task-381-bounded-kanban-lanes` as the
+  explicit workflow `git_ref`.
 
-## Validation Evidence
+## Acceptance Criteria
 
-- Workflow run `32843605455` deployed commit `8df7e1c`, validated immutable
-  Preview URL
-  `https://nexus-dash-7ykoau18s-dorian-agaesses-projects.vercel.app`, then
-  assigned and verified the stable Preview auth alias.
-- Both URLs report `APP_ENV=preview`, revision `8df7e1c`, database ready, and
-  the same Vercel deployment identity.
-- The first unauthenticated provider probe only proved that GitHub would send an
-  unauthenticated client to login; the user's authenticated test correctly
-  exposed the callback-path mismatch. Corrected deployment evidence and
-  user-owned completion of the signed-in OAuth flow are pending before merge.
+1. Every visible lane is `clamp(20rem, 64dvh, 42rem)` high and cannot grow with
+   its task count.
+2. Lane title and visible task count remain fixed while only that lane's task
+   region scrolls; scrolling one lane does not move another lane.
+3. Each task region has an accessible lane-specific name, keyboard focus, a
+   visible focus indicator, contained overscroll, and stable scrollbar space.
+4. Pointer and keyboard drag-and-drop continue to work within and across long
+   lanes, with destination auto-scroll and no unrelated scroll reset.
+5. The Done archive remains reachable outside the Done task-list overflow and
+   the global create action remains outside all lane scroll regions.
+6. Switching lanes through the mobile status dock preserves each mounted
+   lane's scroll position and produces no horizontal viewport overflow at
+   375 px or in mobile landscape.
+7. Owner/editor and viewer behavior, task modal actions, live refresh, light
+   and dark themes, and reduced-motion behavior remain unchanged.
+
+## Definition Of Done
+
+- The bounded independent lane layout and accessibility semantics are
+  implemented with focused automated coverage.
+- UI/UX Pro Max guidance is applied for `dvh` sizing, keyboard access, visible
+  focus, responsive containment, theme parity, and non-jacking scroll behavior.
+- `git diff --check`, release validation, `npm run lint`, `npm run rls:check`,
+  `npm test`, `npm run test:coverage`, `npm run build`, and `npm run test:e2e`
+  pass.
+- The explicit-branch Preview workflow succeeds and focused Preview browser
+  checks pass at mobile and desktop widths.
+- The branch is committed and pushed, a ready-for-review PR is open, required
+  checks pass, and Copilot's initial review outcome is handled with all
+  addressed conversations resolved.
+- `tasks/current.md`, `tasks/backlog.md`, `CHANGELOG.md`, and `journal.md` are
+  consistent, and the final handoff records PR, commit, Preview, validation,
+  and review evidence without merging the PR.

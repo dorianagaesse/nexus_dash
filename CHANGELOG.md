@@ -8,6 +8,18 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.38.0 - 2026-08-29
+
+- Bounded every Kanban lane to a responsive viewport-aware height with an
+  independently scrollable, keyboard-focusable task region and fixed lane
+  metadata and controls.
+- Preserved mounted desktop and mobile lane instances so scroll positions and
+  pointer or keyboard drag-and-drop behavior remain stable across task changes
+  and mobile status switches.
+- Added accessible region names, visible focus treatment, contained overscroll,
+  stable scrollbar gutters, and regression coverage for desktop, mobile, and
+  landscape layouts.
+
 ## v0.37.2 - 2026-08-25
 
 - Restored the registered stable Vercel Preview URL for GitHub and Google OAuth

@@ -25,7 +25,7 @@ import type {
   ProjectTaskCollaborator,
 } from "@/components/kanban-board-types";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { getEpicColorFromName } from "@/lib/epic";
 import { renderContentWithMentions } from "@/lib/content-with-mentions";
@@ -131,7 +131,7 @@ export function KanbanColumnsGrid({
             onSelectTask={onSelectTask}
             onEditTask={onEditTask}
             onTaskHoverChange={onTaskHoverChange}
-            className={cn(status !== activeMobileStatus && "hidden xl:block")}
+            className={cn(status !== activeMobileStatus && "hidden xl:flex")}
           />
         ))}
       </div>
@@ -209,19 +209,21 @@ function KanbanColumn({
   className,
 }: KanbanColumnProps) {
   const chrome = COLUMN_CHROME[status];
+  const laneTitleId = `kanban-lane-${status.toLowerCase().replaceAll(" ", "-")}-title`;
 
   return (
     <Card
+      data-kanban-lane={status}
       className={cn(
-        "min-h-[320px] overflow-hidden border shadow-[0_18px_48px_-42px_rgba(15,23,42,0.7)]",
+        "flex h-[clamp(20rem,64dvh,42rem)] min-h-0 flex-col overflow-hidden border shadow-[0_18px_48px_-42px_rgba(15,23,42,0.7)]",
         chrome.column,
         className
       )}
     >
-      <div className={cn("h-1.5 w-full", chrome.accent)} />
-      <CardHeader className="pb-3">
+      <div className={cn("h-1.5 w-full shrink-0", chrome.accent)} />
+      <CardHeader className="shrink-0 pb-3">
         <CardTitle className="flex items-center justify-between text-base">
-          <span>{status}</span>
+          <span id={laneTitleId}>{status}</span>
           <Badge
             variant="outline"
             className={TASK_STATUS_BADGE_CLASS_NAMES[status]}
@@ -230,19 +232,24 @@ function KanbanColumn({
           </Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        {status === "Done" && archivedDoneTasks.length > 0 ? (
-          <details className="mb-3 rounded-xl border border-border/60 bg-background/55">
-            <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground">
+      {status === "Done" && archivedDoneTasks.length > 0 ? (
+        <div className="shrink-0 px-6 pb-3">
+          <details className="rounded-xl border border-border/60 bg-background/55">
+            <summary className="min-h-11 cursor-pointer rounded-xl px-3 py-3 text-xs font-medium text-muted-foreground transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
               Archive ({archivedDoneTasks.length})
             </summary>
-            <div className="space-y-2 border-t border-border/60 p-2">
+            <div
+              className="max-h-40 space-y-2 overflow-y-auto overscroll-y-contain border-t border-border/60 p-2 [scrollbar-gutter:stable]"
+              aria-label="Archived Done tasks"
+              role="region"
+              tabIndex={0}
+            >
               {archivedDoneTasks.map((task) => (
                 <button
                   key={task.id}
                   type="button"
                   className={cn(
-                    "w-full rounded-md border border-border/60 bg-card px-2 py-2 text-left transition hover:bg-muted/40",
+                    "w-full rounded-md border border-border/60 bg-card px-2 py-2 text-left transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     highlightedTaskIds.has(task.id) &&
                       "border-border/80 bg-muted/35 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
                   )}
@@ -277,18 +284,24 @@ function KanbanColumn({
               ))}
             </div>
           </details>
-        ) : null}
+        </div>
+      ) : null}
 
-        <Droppable droppableId={status} isDropDisabled={!canEdit}>
-          {(provided, snapshot) => (
-            <div
-              ref={provided.innerRef}
-              {...provided.droppableProps}
-              className={cn(
-                "min-h-[180px] space-y-3 rounded-md p-2",
-                snapshot.isDraggingOver && chrome.dragState
-              )}
-            >
+      <Droppable droppableId={status} isDropDisabled={!canEdit}>
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            aria-labelledby={laneTitleId}
+            data-kanban-lane-scroll={status}
+            role="region"
+            tabIndex={0}
+            className={cn(
+              "min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain rounded-md px-6 pb-6 pt-2 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+              snapshot.isDraggingOver && chrome.dragState
+            )}
+          >
+            <div className="min-h-[180px] space-y-3 rounded-md p-2">
               {tasks.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border/50 bg-background/70 px-4 py-8 text-center">
                   <p className="text-sm font-medium text-foreground/90">
@@ -314,6 +327,7 @@ function KanbanColumn({
                         ref={draggableProvided.innerRef}
                         {...draggableProvided.draggableProps}
                         {...(canEdit ? draggableProvided.dragHandleProps : {})}
+                        data-kanban-task-id={task.id}
                         style={buildDragStyle(
                           draggableProvided.draggableProps.style,
                           draggableSnapshot.isDragging
@@ -437,9 +451,9 @@ function KanbanColumn({
               ))}
               {provided.placeholder}
             </div>
-          )}
-        </Droppable>
-      </CardContent>
+          </div>
+        )}
+      </Droppable>
     </Card>
   );
 }

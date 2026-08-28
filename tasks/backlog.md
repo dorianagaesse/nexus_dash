@@ -193,7 +193,7 @@ Last reviewed: 2026-08-24
   Dependencies: TASK-031, TASK-107, TASK-343
 - ID: TASK-381
   Title: Bounded Kanban height with independently scrollable lanes
-  Status: Pending
+  Status: In progress on `feature/task-381-bounded-kanban-lanes`
   Rationale: Prevent the Kanban board from growing indefinitely with the number of task cards. Give the board a responsive fixed or viewport-bounded vertical size and make each lane's task area scroll independently while keeping the lane header, task count, and create affordances visible. Preserve drag-and-drop behavior, keyboard access, scroll position, and usable mobile layouts when tasks move within or between long lanes.
   Dependencies: TASK-096, TASK-100, TASK-133, TASK-322
 - ID: TASK-382
