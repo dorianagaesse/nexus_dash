@@ -163,7 +163,7 @@ Last reviewed: 2026-08-24
   Dependencies: TASK-059, TASK-115, TASK-127, TASK-276
 - ID: TASK-375
   Title: Agent task OpenAPI contract for true partial PATCH semantics
-  Status: Pending
+  Status: In review (PR ready on `feature/task-375-partial-patch-contract`, stacked on TASK-373's branch)
   Rationale: Align the published agent OpenAPI contract with the runtime's existing partial-update behavior so `PATCH /api/projects/{projectId}/tasks/{taskId}` does not document `title` as required when only another field changes. Document omitted fields versus explicit null or clear operations, retain validation for supplied values, and add contract coverage that prevents the schema from drifting from the tested route behavior.
   Dependencies: TASK-055, TASK-115, TASK-127
 - ID: TASK-376

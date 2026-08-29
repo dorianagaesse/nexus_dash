@@ -3,6 +3,27 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-30 - TASK-375 true partial PATCH contract
+
+- Removed the incorrect `required: ["title"]` declaration from the
+  `TaskUpdateRequest` OpenAPI schema and documented true partial-update
+  semantics per field: omitted fields are preserved, `deadlineDate` null or
+  empty clears, an empty `labels` array clears all labels, `epicId` and
+  `assigneeUserId` null clear, and an empty `relatedTaskIds` array removes
+  all relations. The legacy singular `label` input is marked deprecated in
+  favor of `labels`.
+- The PATCH onboarding notes now lead with the partial-update behavior. No
+  runtime changes: the handler already applies presence-based updates,
+  pinned by the existing task-update route tests.
+- Added contract assertions in `tests/lib/agent-onboarding.test.ts`
+  covering the missing required list, deprecation marker, and per-field
+  semantics descriptions so schema drift fails fast.
+- Validation passed: lint, RLS inventory, 1058 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, production build, release policy `0.38.0` to `0.39.0`.
+- This branch is stacked on `feature/task-373-labels-canonical-field` and
+  must retarget to `origin/main` after TASK-373 merges.
+
 # 2026-08-30 - TASK-373 agent task API labels contract
 
 - Started the agent API improvement program (TASK-373..379) from the approved

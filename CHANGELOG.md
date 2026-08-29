@@ -8,6 +8,13 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.39.0 - 2026-08-30
+
+- The agent OpenAPI contract now documents true partial PATCH semantics for
+  task updates: `TaskUpdateRequest` declares no required fields, every field
+  describes its omit-vs-null behavior, and the legacy singular `label` input
+  is marked deprecated in favor of `labels`.
+
 ## v0.38.0 - 2026-08-30
 
 - Agent task API responses now include a canonical `labels` string array on
