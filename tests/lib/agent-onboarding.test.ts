@@ -36,4 +36,26 @@ describe("agent-onboarding contract", () => {
         .responses[200].content["application/json"].schema.$ref
     ).toBe("#/components/schemas/RoadmapEventDeleteResponse");
   });
+
+  test("documents the canonical task labels contract", () => {
+    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
+    const taskRecord = document.components.schemas.TaskRecord;
+    const updateResponse = document.components.schemas.TaskUpdateResponse;
+
+    expect(taskRecord.required).toContain("labels");
+    expect(taskRecord.properties.labels).toEqual({
+      type: "array",
+      items: { type: "string" },
+      description: expect.any(String),
+    });
+    expect(taskRecord.properties.label.deprecated).toBe(true);
+    expect(taskRecord.properties.labelsJson.deprecated).toBe(true);
+
+    const updateTaskSchema = updateResponse.properties.task;
+    expect(updateTaskSchema.required).toContain("labels");
+    expect(updateTaskSchema.properties.labels.type).toBe("array");
+    expect(updateTaskSchema.properties.labels.items).toEqual({ type: "string" });
+    expect(updateTaskSchema.properties.label.deprecated).toBe(true);
+    expect(updateTaskSchema.properties.labelsJson.deprecated).toBe(true);
+  });
 });

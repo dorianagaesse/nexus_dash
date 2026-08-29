@@ -153,7 +153,7 @@ Last reviewed: 2026-08-24
   Dependencies: None identified pending clarification
 - ID: TASK-373
   Title: Agent task API labels contract - expose a canonical string array
-  Status: Pending
+  Status: In review (PR ready on `feature/task-373-labels-canonical-field`; stacked tasks TASK-375/376/377 branch from this line)
   Rationale: Return task labels to agent clients as a first-class `labels: string[]` field instead of requiring callers to reconcile the legacy singular `label` value with the JSON-encoded `labelsJson` string. Keep the write and read contracts consistent, document any compatibility window, and cover empty, single-label, and multi-label responses.
   Dependencies: TASK-031, TASK-115, TASK-127
 - ID: TASK-374

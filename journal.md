@@ -3,7 +3,33 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
-# 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
+# 2026-08-30 - TASK-373 agent task API labels contract
+
+- Started the agent API improvement program (TASK-373..379) from the approved
+  plan: stacked PRs for dependent tasks (375/376/377 on 373's branch, 378 on
+  374's branch), proceeding without the pending TASK-331 capability vocabulary
+  because the write/delete scope split and epic/label models already exist.
+- Added the canonical `labels: string[]` field to every agent task read
+  response: the GET /tasks list serializer and the shared
+  `loadTaskMutationPayload` used by both PATCH and create responses, resolved
+  through the existing `getTaskLabelsFromStorage` helper so API output matches
+  the Kanban UI's label resolution. Legacy `label`/`labelsJson` stay for
+  compatibility and are marked `deprecated` in the OpenAPI `TaskRecord` and
+  `TaskUpdateResponse` schemas.
+- Covered empty, single, multi-label, and legacy-fallback serialization in the
+  task-create route tests, updated the exact-response assertions in
+  task-update and agent-project-routes tests, and added OpenAPI contract
+  assertions for the labels shape and deprecation markers.
+- Environment notes: fresh worktrees need `npm install` plus the documented
+  local env placeholders (DATABASE_URL, DIRECT_URL, AGENT_TOKEN_SIGNING_SECRET,
+  RESEND_API_KEY, STORAGE_PROVIDER). The worktree checkout produced CRLF line
+  endings that broke the `validate-supabase-project-ref` script test in
+  vite-node; converted that script to LF (no content diff) and future
+  worktrees will set `core.autocrlf false` at creation.
+- Validation passed: lint, RLS inventory, 1057 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, production build, release policy `0.37.2` to `0.38.0`.
+
 
 - Reproduced the provider failure from the immutable TASK-326 Preview: GitHub
   rejected its per-deployment callback because the Preview OAuth application is

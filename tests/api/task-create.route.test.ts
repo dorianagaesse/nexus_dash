@@ -118,6 +118,61 @@ describe("GET /api/projects/:projectId/tasks", () => {
       },
     ]);
   });
+
+  test("serializes canonical labels arrays with empty, multi-label, and legacy fallbacks", async () => {
+    const baseTask = {
+      id: "task-base",
+      referenceNumber: 1,
+      title: "Task",
+      description: null,
+      blockedNote: null,
+      deadlineAt: null,
+      _count: { comments: 0 },
+      completedAt: null,
+      archivedAt: null,
+      status: "Backlog",
+      position: 0,
+      createdAt: new Date("2026-07-30T08:00:00.000Z"),
+      updatedAt: new Date("2026-07-30T08:00:00.000Z"),
+      epic: null,
+      assigneeUser: null,
+      createdByUser: null,
+      updatedByUser: null,
+      attachments: [],
+      outgoingRelations: [],
+      incomingRelations: [],
+      blockedFollowUps: [],
+    };
+
+    projectServiceMock.listProjectKanbanTasks.mockResolvedValueOnce([
+      { ...baseTask, id: "task-empty", referenceNumber: 2, label: null, labelsJson: null },
+      {
+        ...baseTask,
+        id: "task-multi",
+        referenceNumber: 3,
+        label: "frontend",
+        labelsJson: '["frontend","qa"]',
+      },
+      { ...baseTask, id: "task-legacy", referenceNumber: 4, label: "docs", labelsJson: null },
+    ]);
+
+    const response = await GET(
+      new Request("http://localhost/api/projects/p1/tasks") as never,
+      taskRouteParams("p1")
+    );
+    const payload = (await response.json()) as {
+      tasks: Array<{ id: string; label: string | null; labelsJson: string | null; labels: string[] }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.tasks.map((task) => [task.id, task.labels])).toEqual([
+      ["task-empty", []],
+      ["task-multi", ["frontend", "qa"]],
+      ["task-legacy", ["docs"]],
+    ]);
+    expect(payload.tasks[1]?.label).toBe("frontend");
+    expect(payload.tasks[1]?.labelsJson).toBe('["frontend","qa"]');
+  });
 });
 
 describe("POST /api/projects/:projectId/tasks", () => {

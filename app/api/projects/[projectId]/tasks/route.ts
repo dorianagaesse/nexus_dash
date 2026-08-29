@@ -16,6 +16,7 @@ import { mapTaskEpicSummary } from "@/lib/epic";
 import { mapTaskPersonSummary } from "@/lib/task-person";
 import { formatTaskDeadlineDate } from "@/lib/task-deadline";
 import { formatTaskReference } from "@/lib/task-reference";
+import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import { mergeRelatedTaskSummaries } from "@/lib/task-related";
 
 const ATTACHMENT_FILES_FIELD = "attachmentFiles";
@@ -105,6 +106,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
         position: task.position,
         label: task.label,
         labelsJson: task.labelsJson,
+        labels: getTaskLabelsFromStorage(task.labelsJson, task.label),
         createdAt: task.createdAt,
         updatedAt: task.updatedAt,
         epic: mapTaskEpicSummary(task.epic),
