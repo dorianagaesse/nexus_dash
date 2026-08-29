@@ -8,6 +8,17 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.38.0 - 2026-08-30
+
+- Added a public, unauthenticated NexusDash privacy policy with clear account,
+  workspace, security, service-provider, retention, deletion, and user-choice
+  disclosures.
+- Documented the exact Google Calendar event scope, on-demand event processing,
+  encrypted OAuth token storage, access-removal options, and compliance with
+  the Google API Services User Data Policy Limited Use requirements.
+- Linked the policy from the public sign-in homepage and added canonical page
+  metadata plus responsive Playwright coverage.
+
 ## v0.37.2 - 2026-08-25
 
 - Restored the registered stable Vercel Preview URL for GitHub and Google OAuth
