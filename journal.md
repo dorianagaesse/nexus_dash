@@ -3,6 +3,27 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-30 - TASK-377 server-side epic and label filters
+
+- `GET /api/projects/{projectId}/tasks` now accepts optional `epicId` and
+  `label` query parameters. The service composes them with AND: epicId is an
+  exact match (unknown epic yields an empty list) and label matches
+  case-insensitively on whole label values via legacy singular-label equals
+  plus quoted-JSON containment on `labelsJson`, so substrings like "Bug" in
+  "Bugs" never match.
+- The response echoes the effective filters in a `filters` object (nulls
+  when absent), documented in `TaskListResponse`. Dashboard callers keep the
+  unchanged no-filter behavior.
+- Route tests now construct `NextRequest` so `nextUrl.searchParams` is
+  populated; service tests assert the composed `where` clauses for
+  epic-only, label-only, combined, and empty-value cases; contract tests pin
+  the query parameters and the `filters` response schema.
+- Validation passed: lint, RLS inventory, 1064 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, production build, release policy `0.38.0` to `0.39.0`.
+- This branch is stacked on `feature/task-373-labels-canonical-field` and
+  must retarget to `origin/main` after TASK-373 merges.
+
 # 2026-08-30 - TASK-373 agent task API labels contract
 
 - Started the agent API improvement program (TASK-373..379) from the approved

@@ -58,4 +58,30 @@ describe("agent-onboarding contract", () => {
     expect(updateTaskSchema.properties.label.deprecated).toBe(true);
     expect(updateTaskSchema.properties.labelsJson.deprecated).toBe(true);
   });
+
+  test("documents the task list epic and label filters", () => {
+    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
+
+    const path = document.paths["/api/projects/{projectId}/tasks"].get;
+    const queryParameters = path.parameters.filter(
+      (parameter: { in?: string }) => parameter.in === "query"
+    );
+    expect(queryParameters.map((parameter: { name: string }) => parameter.name)).toEqual([
+      "epicId",
+      "label",
+    ]);
+    expect(queryParameters.every((parameter: { required?: boolean }) => !parameter.required)).toBe(true);
+
+    const listResponse = document.components.schemas.TaskListResponse;
+    expect(listResponse.required).toEqual(["tasks", "filters"]);
+    expect(listResponse.properties.filters.required).toEqual(["epicId", "label"]);
+    expect(listResponse.properties.filters.properties.epicId.type).toEqual([
+      "string",
+      "null",
+    ]);
+    expect(listResponse.properties.filters.properties.label.type).toEqual([
+      "string",
+      "null",
+    ]);
+  });
 });

@@ -173,7 +173,7 @@ Last reviewed: 2026-08-24
   Dependencies: TASK-055, TASK-115, TASK-127, TASK-373
 - ID: TASK-377
   Title: Agent task API server-side epic and label filters
-  Status: Pending
+  Status: In review (PR ready on `feature/task-377-task-list-filters`, stacked on TASK-373's branch)
   Rationale: Add server-side `epicId` and `label` filters to task listing so agent clients can retrieve focused work without downloading and filtering an entire board. Define filter composition, empty and unknown-filter behavior, pagination interaction, and response metadata while preserving project authorization boundaries.
   Dependencies: TASK-059, TASK-107, TASK-115, TASK-127, TASK-331, TASK-373
 - ID: TASK-378
