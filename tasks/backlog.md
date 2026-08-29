@@ -8,7 +8,7 @@ Last reviewed: 2026-08-30
 ### Active Runtime Remediation
 - ID: TASK-407
   Title: Public privacy policy page for Google OAuth production verification
-  Status: In review in PR #463; branch Preview and remote Playwright validation complete - blocks production Google OAuth verification until merge and production promotion
+  Status: Complete (2026-08-30; PR #463) - production promotion remains required before using the live policy URL for Google OAuth verification
   Rationale: Add a public `/privacy` page that accurately explains Nexus Dash data collection, Google identity and Calendar event access, encrypted OAuth token storage, retention and deletion behavior, service-provider sharing, user disconnect controls, and compliance with the Google API Services User Data Policy. Link the policy visibly from the public homepage, keep it accessible without authentication, and use `https://nexus-dash.app/privacy` as the production Google Auth Platform privacy-policy URL so the OAuth application can be published and submitted for verification.
   Dependencies: TASK-005, TASK-040, TASK-325, TASK-326
 - ID: TASK-406

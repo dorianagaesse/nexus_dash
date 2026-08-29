@@ -36,6 +36,18 @@ Use it for important implementation milestones, blockers, validation runs, and r
   URL `https://nexus-dash-md7838l2c-dorian-agaesses-projects.vercel.app`.
 - Both focused privacy-policy Playwright tests passed against that immutable
   Preview URL. Required PR checks/review and merge remain pending.
+- A follow-up Preview for the evidence-only commit passed immutable deployment
+  identity/readiness but hit an existing read-after-write race when immediately
+  verifying the stable alias. Direct checks seconds later confirmed both URLs
+  on revision `0e3e05e`; no product or secret change was needed.
+- Final exact-branch workflow run `33279072092` completed cleanly for `0e3e05e`,
+  including stable-alias verification, and published immutable URL
+  `https://nexus-dash-qv707rgek-dorian-agaesses-projects.vercel.app`; both
+  focused Playwright tests passed against it.
+- PR #463 passed Quality Core, Playwright E2E, PostgreSQL tenant isolation,
+  container-image, branch-name, and release-policy checks. GitHub generated no
+  Copilot review or inline feedback during the monitored review window, leaving
+  no review threads to triage before the authorized merge.
 
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
 

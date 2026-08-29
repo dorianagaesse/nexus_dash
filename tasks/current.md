@@ -4,8 +4,8 @@
 
 ## Status
 
-In review in PR #463 on `feature/task-407-public-privacy-policy`; implementation,
-local validation, and branch Preview validation are complete.
+Complete (2026-08-30; PR #463). Implementation, local validation, final-commit
+branch Preview validation, required checks, and review monitoring are complete.
 
 ## Validation Evidence
 
@@ -31,6 +31,15 @@ local validation, and branch Preview validation are complete.
   proving the homepage link, unauthenticated `/privacy` response, metadata,
   Google scope, encrypted-token disclosure, Limited Use statement, and mobile
   overflow behavior.
+- After the evidence-only commit, final Preview workflow run `33279072092`
+  checked out commit `0e3e05e`, passed identity/readiness and stable-alias
+  verification, and published
+  `https://nexus-dash-qv707rgek-dorian-agaesses-projects.vercel.app`. Both
+  focused Playwright tests passed against that final immutable URL.
+- PR #463 passed Quality Core, Playwright E2E, PostgreSQL tenant isolation,
+  container-image, branch-name, and release-policy checks. The automatic review
+  window was monitored through green checks; GitHub produced no Copilot review
+  or inline feedback to triage.
 
 ## Context
 
