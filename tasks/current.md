@@ -4,8 +4,8 @@
 
 ## Status
 
-Implementation and local validation complete on
-`feature/task-407-public-privacy-policy`; Preview and PR review pending.
+In review in PR #463 on `feature/task-407-public-privacy-policy`; implementation,
+local validation, and branch Preview validation are complete.
 
 ## Validation Evidence
 
@@ -23,6 +23,14 @@ Implementation and local validation complete on
   local development server.
 - Visual QA passed at 390x844 and 1440x1000 in light mode; no horizontal
   overflow was detected and the policy link remained visible on the homepage.
+- Preview workflow run `33278777919` explicitly fetched and checked out
+  `feature/task-407-public-privacy-policy`, deployed
+  `https://nexus-dash-md7838l2c-dorian-agaesses-projects.vercel.app`, validated
+  deployment identity/readiness, and verified the stable Preview alias.
+- Both focused Playwright tests passed against that immutable Preview URL,
+  proving the homepage link, unauthenticated `/privacy` response, metadata,
+  Google scope, encrypted-token disclosure, Limited Use statement, and mobile
+  overflow behavior.
 
 ## Context
 

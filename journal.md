@@ -28,8 +28,14 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - The production build used process-local non-secret placeholders because the
   checkout intentionally contains no usable database or production signing
   secrets; no local, GitHub, Vercel, or Google Cloud secrets were modified.
-- Prepared product release `v0.38.0` with a matching changelog entry. Explicit
-  branch Preview evidence, PR checks/review, and merge are pending.
+- Prepared product release `v0.38.0` with a matching changelog entry and opened
+  PR #463 at commit `9955e16`.
+- Preview workflow run `33278777919` explicitly fetched and checked out
+  `feature/task-407-public-privacy-policy`, validated deployment identity and
+  readiness, assigned/verified the stable Preview alias, and published immutable
+  URL `https://nexus-dash-md7838l2c-dorian-agaesses-projects.vercel.app`.
+- Both focused privacy-policy Playwright tests passed against that immutable
+  Preview URL. Required PR checks/review and merge remain pending.
 
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
 
