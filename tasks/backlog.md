@@ -168,7 +168,7 @@ Last reviewed: 2026-08-24
   Dependencies: TASK-055, TASK-115, TASK-127
 - ID: TASK-376
   Title: Agent task creation OpenAPI complete response contract
-  Status: Pending
+  Status: In review (PR ready on `feature/task-376-create-response-contract`, stacked on TASK-373's branch)
   Rationale: Align the published `TaskCreateResponse` schema and agent documentation with the runtime response, which already includes both `taskId` and the complete created `task`. Describe the canonical labels, status, ordering, epic, assignment, timestamps, and other server-derived fields, and add contract coverage so generated clients can use the full task without a follow-up read.
   Dependencies: TASK-055, TASK-115, TASK-127, TASK-373
 - ID: TASK-377
