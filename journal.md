@@ -3,7 +3,28 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
-# 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
+# 2026-08-30 - TASK-374 single-task status transition
+
+- Added `POST /api/projects/{projectId}/tasks/{taskId}/status` with a
+  `{ status, position? }` payload and a new `moveTaskStatusForProject` service
+  that appends to the destination column by default, clamps explicit
+  positions, shifts destination tasks deterministically (single `updateMany`
+  cross-column, ordered per-row shifts same-column), mirrors the reorder
+  service's `completedAt` semantics, and unarchives on move.
+- No-op detection returns the current task payload without writes when
+  status, position, archive state, and completion date are unchanged.
+- The activity event uses the existing `moved` action from the shared
+  activity vocabulary instead of introducing a new action value.
+- Contract updates: `TaskStatusTransitionRequest`/`TaskStatusTransitionResponse`
+  schemas, a new OpenAPI path, an `AGENT_API_ENDPOINTS` entry, and revised
+  onboarding guidance pointing single-task moves at this route while keeping
+  reorder for full-board ordering.
+- Validation passed: lint, RLS inventory, 1073 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, production build, release policy `0.37.2` to `0.38.0`.
+- TASK-378 (bulk operations) will branch from this line and reuse
+  `moveTaskStatusForProject` for bulk status operations.
+
 
 - Reproduced the provider failure from the immutable TASK-326 Preview: GitHub
   rejected its per-deployment callback because the Preview OAuth application is

@@ -1,86 +1,65 @@
 # Current Task
 
-## TASK-406: Stable Preview OAuth Alias After Immutable Validation
+## TASK-374: Agent task API single-task status transition
 
 ## Status
 
-Ready for user testing on `fix/task-406-stable-preview-auth-alias` via PR #448.
+In progress on `feature/task-374-single-task-status` (worktree `../nexus_dash_task374`).
 
 ## Context
 
-TASK-370 correctly removed a stale alias that pointed to production and made
-immutable deployment validation authoritative. The follow-up Preview test
-showed that social OAuth cannot use a new immutable callback for every deploy:
-GitHub rejected the generated `redirect_uri` because the provider application
-is registered against the long-lived static Preview URL. The static URL must
-therefore remain usable without weakening the immutable deployment checks.
-The first TASK-406 deployment exposed a second regression from TASK-370:
-removing `AUTH_GITHUB_REDIRECT_URI` also changed the derived callback path from
-the registered `/api/auth/callback/github` route to the unregistered
-`/api/auth/oauth/github/callback` route.
+Today the only way an agent can change a task's status is
+`POST /api/projects/{projectId}/tasks/reorder`, which requires submitting the
+ordering of every Kanban column. Agents need a focused project-scoped
+mutation that moves one task to another status column (optionally at a
+position inside the destination column) without rewriting the whole board.
 
 ## Scope
 
-- Add one exact `PREVIEW_AUTH_ORIGIN` allowlist entry for Preview request-origin
-  resolution while preserving the immutable `VERCEL_URL` fallback.
-- Preserve the existing provider-specific callback contracts: GitHub uses
-  `/api/auth/callback/github`, while social Google stays on
-  `/api/auth/oauth/google/callback` to avoid the Calendar OAuth route.
-- Require a valid HTTPS `PREVIEW_AUTH_ORIGIN` whenever social or Calendar OAuth
-  is enabled in Vercel Preview.
-- Validate the immutable deployment first, then atomically assign the stable
-  alias and verify it resolves to the same deployment and readiness metadata.
-- Document which URL is deployment evidence and which URL testers should use
-  for provider-backed OAuth.
+- New `POST /api/projects/{projectId}/tasks/{taskId}/status` agent route
+  accepting `{ status, position? }`.
+- New `moveTaskStatusForProject` service in
+  `lib/services/project-task-service.ts` that preserves deterministic
+  ordering in both source and destination columns, mirrors the reorder
+  service's `completedAt` semantics, unarchives on move, and returns the
+  updated task.
+- OpenAPI contract: `TaskStatusTransitionRequest` and
+  `TaskStatusTransitionResponse` schemas, a new path entry, an
+  `AGENT_API_ENDPOINTS` entry, and updated onboarding notes so agents prefer
+  this route over full-board reorder for single moves.
+- Full-board reorder remains available and unchanged for bulk reordering.
 
 ## Acceptance Criteria
 
-1. A request through the exact configured stable Preview alias generates
-   callbacks on that alias; any unconfigured alias falls back to the immutable
-   `VERCEL_URL`.
-2. Preview startup fails closed when OAuth is enabled without a valid exact
-   HTTPS `PREVIEW_AUTH_ORIGIN`.
-3. The deploy workflow never moves the stable alias until the immutable target,
-   revision, environment, migration project ref, and database readiness pass.
-4. After assignment, the workflow proves the alias resolves to that same Vercel
-   deployment and repeats environment/revision/database readiness checks.
-5. GitHub OAuth initiation from the stable Preview URL is accepted by GitHub
-   with the registered `/api/auth/callback/github` URI and does not redirect to
-   the production domain.
-6. Existing production routing and TASK-370 database isolation remain unchanged.
+1. Moving one task to another column without a position appends it at the
+   end of the destination column; an explicit position inserts at the
+   clamped index and shifts existing destination tasks deterministically.
+2. Same-column moves shift tasks between the old and new index without
+   corrupting ordering.
+3. Moving into `Done` sets `completedAt`; moving within `Done` preserves the
+   existing `completedAt`; moving out of `Done` clears it. A move also
+   clears `archivedAt`.
+4. A request that would not change the task is a no-op that still returns
+   the current task payload.
+5. The route requires `task:write` scope and editor-or-better project role,
+   mirrors the existing activity-version header and error conventions, and
+   returns the complete updated task.
+6. The OpenAPI contract documents the route, its schema, and the ordering
+   semantics; onboarding guidance points single-task moves at this route.
 
 ## Definition Of Done
 
-- Focused request-origin and runtime-environment coverage passes.
+- New `tests/api/task-status.route.test.ts` covers payload validation, 404s,
+  append/insert/same-column moves, `completedAt` semantics, unarchive,
+  no-op, and 500 behavior.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  and `npm run build` pass.
-- GitHub Preview environment metadata contains `PREVIEW_AUTH_ORIGIN` without
-  exposing credentials.
-- The branch preview workflow completes for the explicit branch ref and its
-  logs prove the checked-out ref, validated immutable target, and alias target.
-- A ready-for-review PR is open; required checks and initial Copilot review are
-  complete; actionable threads are resolved before merge.
-- `tasks/current.md`, `tasks/backlog.md`, relevant runbooks, and `journal.md`
-  record the diagnosis and validation outcome.
+  and `npm run build` pass; `npm run release:check` passes with the
+  `feature/*` minor version bump and CHANGELOG entry.
+- A ready-for-review PR is open against `origin/main`.
+- `tasks/current.md`, `tasks/backlog.md`, `journal.md`, and `CHANGELOG.md`
+  are updated in the same PR.
 
 ## Runtime Assumptions
 
-- The existing static Preview alias is registered in the Preview GitHub and
-  Google OAuth applications.
-- The alias may move only through the Preview deployment workflow after the
-  immutable deployment passes all existing TASK-370 checks.
-- `PREVIEW_AUTH_ORIGIN` is non-secret environment metadata; OAuth client secrets
-  and database connection strings remain secret.
-
-## Validation Evidence
-
-- Workflow run `32843605455` deployed commit `8df7e1c`, validated immutable
-  Preview URL
-  `https://nexus-dash-7ykoau18s-dorian-agaesses-projects.vercel.app`, then
-  assigned and verified the stable Preview auth alias.
-- Both URLs report `APP_ENV=preview`, revision `8df7e1c`, database ready, and
-  the same Vercel deployment identity.
-- The first unauthenticated provider probe only proved that GitHub would send an
-  unauthenticated client to login; the user's authenticated test correctly
-  exposed the callback-path mismatch. Corrected deployment evidence and
-  user-owned completion of the signed-in OAuth flow are pending before merge.
+- TASK-378 (bounded bulk operations) will branch from this line and reuse
+  `moveTaskStatusForProject` for bulk status operations.

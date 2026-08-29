@@ -994,6 +994,193 @@ export async function reorderProjectTasks(
   });
 }
 
+export interface TaskStatusTransitionPayload {
+  status: TaskStatus;
+  position?: number;
+}
+
+export function isTaskStatusTransitionPayload(
+  payload: unknown
+): payload is TaskStatusTransitionPayload {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+
+  const candidate = payload as TaskStatusTransitionPayload;
+  if (!isTaskStatus(candidate.status)) {
+    return false;
+  }
+
+  if (
+    candidate.position !== undefined &&
+    (!Number.isInteger(candidate.position) || candidate.position < 0)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+export async function moveTaskStatusForProject(
+  projectId: string,
+  taskId: string,
+  payload: TaskStatusTransitionPayload,
+  actorUserId: string,
+  agentAccess?: AgentProjectAccessContext
+): Promise<ServiceResult<{ task: UpdatedTaskPayload }>> {
+  const normalizedActorUserId = normalizeText(actorUserId);
+  if (!normalizedActorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess,
+    projectId,
+    requiredScopes: ["task:write"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
+  }
+
+  const targetStatus = payload.status;
+
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId: normalizedActorUserId,
+      projectId,
+      minimumRole: "editor",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
+
+    try {
+      const existingTask = await db.task.findUnique({
+        where: { id: taskId },
+        select: {
+          id: true,
+          projectId: true,
+          status: true,
+          position: true,
+          archivedAt: true,
+          completedAt: true,
+        },
+      });
+
+      if (!existingTask || existingTask.projectId !== projectId) {
+        return createError(404, "Task not found");
+      }
+
+      const sameColumn = existingTask.status === targetStatus;
+      const destinationTasks = await db.task.findMany({
+        where: {
+          projectId,
+          status: targetStatus,
+          ...(sameColumn ? { NOT: { id: taskId } } : {}),
+          project: {
+            OR: [
+              { ownerId: normalizedActorUserId },
+              { memberships: { some: { userId: normalizedActorUserId } } },
+            ],
+          },
+        },
+        select: { id: true, position: true },
+        orderBy: [{ position: "asc" }],
+      });
+
+      const destinationCount = destinationTasks.length;
+      const rawPosition =
+        payload.position ?? (sameColumn ? existingTask.position : destinationCount);
+      const finalPosition = Math.min(Math.max(rawPosition, 0), destinationCount);
+
+      const now = new Date();
+      const movedToDone = targetStatus === "Done" && existingTask.status !== "Done";
+      const nextCompletedAt =
+        targetStatus === "Done"
+          ? movedToDone
+            ? now
+            : existingTask.completedAt ?? now
+          : null;
+
+      const completedAtUnchanged =
+        (existingTask.completedAt === null && nextCompletedAt === null) ||
+        existingTask.completedAt?.getTime() === nextCompletedAt?.getTime();
+
+      if (
+        sameColumn &&
+        finalPosition === existingTask.position &&
+        existingTask.archivedAt === null &&
+        completedAtUnchanged
+      ) {
+        const task = await loadTaskMutationPayload(db, taskId);
+        if (!task) {
+          return createError(404, "Task not found");
+        }
+        return { ok: true, data: { task } };
+      }
+
+      if (sameColumn) {
+        const shiftDown = finalPosition > existingTask.position;
+        const shiftedTasks = destinationTasks
+          .filter((task) =>
+            shiftDown
+              ? task.position > existingTask.position &&
+                task.position <= finalPosition
+              : task.position >= finalPosition &&
+                task.position < existingTask.position
+          )
+          .sort((left, right) =>
+            shiftDown
+              ? right.position - left.position
+              : left.position - right.position
+          );
+
+        for (const task of shiftedTasks) {
+          await db.task.update({
+            where: { id: task.id },
+            data: { position: shiftDown ? task.position - 1 : task.position + 1 },
+          });
+        }
+      } else if (
+        destinationTasks.some((task) => task.position >= finalPosition)
+      ) {
+        await db.task.updateMany({
+          where: {
+            projectId,
+            status: targetStatus,
+            position: { gte: finalPosition },
+          },
+          data: { position: { increment: 1 } },
+        });
+      }
+
+      await db.task.update({
+        where: { id: taskId },
+        data: {
+          status: targetStatus,
+          position: finalPosition,
+          archivedAt: null,
+          updatedByUserId: normalizedActorUserId,
+          completedAt: nextCompletedAt,
+        },
+      });
+
+      await touchProjectActivity({ db, projectId });
+
+      const task = await loadTaskMutationPayload(db, taskId);
+      if (!task) {
+        return createError(500, "Failed to move task");
+      }
+
+      return { ok: true, data: { task } };
+    } catch (error) {
+      logServerError("moveTaskStatusForProject", error);
+      return createError(500, "Failed to move task");
+    }
+  });
+}
+
 export async function updateTaskForProject(
   projectId: string,
   taskId: string,

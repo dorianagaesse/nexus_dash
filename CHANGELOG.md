@@ -8,6 +8,15 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.38.0 - 2026-08-30
+
+- Agent API now supports a focused single-task status transition through
+  `POST /api/projects/{projectId}/tasks/{taskId}/status` with optional
+  destination-column position, deterministic ordering, reorder-compatible
+  `completedAt` semantics, and unarchive-on-move behavior.
+- Full-board reorder stays available for bulk ordering; the OpenAPI contract
+  and onboarding guidance point single-task moves at the new route.
+
 ## v0.37.2 - 2026-08-25
 
 - Restored the registered stable Vercel Preview URL for GitHub and Google OAuth

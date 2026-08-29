@@ -158,7 +158,7 @@ Last reviewed: 2026-08-24
   Dependencies: TASK-031, TASK-115, TASK-127
 - ID: TASK-374
   Title: Agent task API single-task status transition
-  Status: Pending
+  Status: In review (PR ready on `feature/task-374-single-task-status`; stacked task TASK-378 branches from this line)
   Rationale: Allow an agent to change one task's status without submitting the ordering of every Kanban column. Define a focused project-scoped mutation that preserves deterministic ordering in both the source and destination columns, returns the updated task, and leaves full-board reorder available for explicit bulk reordering.
   Dependencies: TASK-059, TASK-115, TASK-127, TASK-276
 - ID: TASK-375
