@@ -3,6 +3,31 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-30 - TASK-378 bounded bulk task operations
+
+- Added `POST /api/projects/{projectId}/tasks/bulk` with create, update
+  (partial PATCH semantics), and status operations, capped at 50 per request
+  via the new client-safe `lib/task-bulk.ts` constant. Operations execute
+  sequentially; each delegates to the existing single-item services and
+  enforces the same `task:write` scope and role checks, so failures become
+  per-operation results and never roll back siblings. Bulk v1 excludes
+  delete; update/status are idempotent while create is not.
+- Decision: the shared `MAX_BULK_TASK_OPERATIONS` constant lives in
+  `lib/task-bulk.ts` (re-exported by `project-task-service`) because
+  `agent-onboarding.ts` is imported by client components — importing the
+  service pulled prisma/pg into the client bundle and broke the Turbopack
+  build with unresolvable `fs`/`dns` builtins. This client/server boundary
+  is noted for future contract constants.
+- OpenAPI contract: `TaskBulkRequest` (oneOf create/update/status operation
+  schemas), `TaskBulkResult`/`TaskBulkResponse`, a new path, an endpoint
+  entry with batch-size and partial-failure notes, and an updated
+  `AGENT_LIMITATIONS` entry.
+- Validation passed: lint, RLS inventory, 1085 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, production build, release policy `0.38.0` to `0.39.0`.
+- This branch is stacked on `feature/task-374-single-task-status` and must
+  retarget to `origin/main` after TASK-374 merges.
+
 # 2026-08-30 - TASK-374 single-task status transition
 
 - Added `POST /api/projects/{projectId}/tasks/{taskId}/status` with a

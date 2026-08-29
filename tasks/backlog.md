@@ -178,7 +178,7 @@ Last reviewed: 2026-08-24
   Dependencies: TASK-059, TASK-107, TASK-115, TASK-127, TASK-331, TASK-373
 - ID: TASK-378
   Title: Agent task API bounded bulk operations
-  Status: Pending
+  Status: In review (PR ready on `feature/task-378-bulk-task-operations`, stacked on TASK-374's branch)
   Rationale: Define bounded bulk task operations for common agent workflows without requiring repeated single-item calls or full-board rewrites. Specify supported mutations, maximum batch size, per-item authorization and validation, atomicity or partial-failure behavior, idempotency expectations, and detailed result reporting.
   Dependencies: TASK-059, TASK-115, TASK-127, TASK-331, TASK-374, TASK-375
 - ID: TASK-379

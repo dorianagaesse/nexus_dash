@@ -46,6 +46,8 @@ import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 
 const MIN_TITLE_LENGTH = 2;
 
+export { MAX_BULK_TASK_OPERATIONS } from "@/lib/task-bulk";
+
 interface ServiceErrorResult {
   ok: false;
   status: number;
@@ -80,7 +82,7 @@ export interface UpdateTaskPayload {
   assigneeUserId?: string | null;
 }
 
-interface CreateTaskForProjectInput {
+export interface CreateTaskForProjectInput {
   actorUserId: string;
   projectId: string;
   title: string;
@@ -95,7 +97,7 @@ interface CreateTaskForProjectInput {
   agentAccess?: AgentProjectAccessContext;
 }
 
-interface UpdatedTaskPayload {
+export interface UpdatedTaskPayload {
   id: string;
   reference: string;
   title: string;
