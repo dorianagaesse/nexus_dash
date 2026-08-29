@@ -3,6 +3,34 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-30 - TASK-407 public privacy policy implementation
+
+- Audited the runtime before drafting disclosures: social identity connections
+  are separate from optional Calendar authorization; Calendar requests only
+  `https://www.googleapis.com/auth/calendar.events`; event details are fetched
+  on demand; and access/refresh tokens are encrypted before persistence.
+- Added a public `/privacy` route with canonical production metadata and
+  disclosures for account/workspace data, purposes, service providers,
+  retention, deletion requests, security, user choices, and contact.
+- Added the affirmative Google API Services User Data Policy Limited Use
+  statement, the authoritative policy link, and the Google connected-app access
+  management link. The policy does not claim an in-product disconnect or
+  account-deletion control that NexusDash does not currently provide.
+- Linked the policy from the public auth homepage and added unauthenticated,
+  Google-disclosure, navigation, and mobile-overflow Playwright coverage.
+- Applied the UI/UX design-system guidance using the existing NexusDash visual
+  language, visible focus states, reduced-motion-safe transitions, responsive
+  reading width, and a desktop-only sticky section index. Visual QA passed at
+  390x844 and 1440x1000.
+- Local validation passed: lint, RLS inventory, 1,055 unit/API tests with two
+  skipped, coverage at 91.37% statements / 81.33% branches / 92.2% functions /
+  91.88% lines, production build, and two focused Playwright tests.
+- The production build used process-local non-secret placeholders because the
+  checkout intentionally contains no usable database or production signing
+  secrets; no local, GitHub, Vercel, or Google Cloud secrets were modified.
+- Prepared product release `v0.38.0` with a matching changelog entry. Explicit
+  branch Preview evidence, PR checks/review, and merge are pending.
+
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
 
 - Reproduced the provider failure from the immutable TASK-326 Preview: GitHub

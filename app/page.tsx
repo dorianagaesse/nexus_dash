@@ -579,9 +579,21 @@ export default async function Home({
             </CardContent>
           </Card>
 
-          <p className="mt-6 text-center text-xs leading-5 text-muted-foreground lg:hidden">
-            Plan together. Focus on what matters. Deliver with confidence.
-          </p>
+          <footer className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-center text-xs leading-5 text-muted-foreground">
+            <span className="lg:hidden">
+              Plan together. Focus on what matters. Deliver with confidence.
+            </span>
+            <span className="hidden lg:inline" aria-hidden="true">
+              Your data stays part of the plan.
+            </span>
+            <span aria-hidden="true">&middot;</span>
+            <Link
+              href="/privacy"
+              className="min-h-10 rounded-sm py-2 font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Privacy policy
+            </Link>
+          </footer>
         </div>
       </section>
     </main>
