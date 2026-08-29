@@ -4,8 +4,9 @@
 
 ## Status
 
-In review via PR #459 on `feature/task-381-bounded-kanban-lanes`; local
-validation is complete and Preview/Copilot review is in progress.
+In review via PR #459 on `feature/task-381-bounded-kanban-lanes`; validation
+and Preview QA are complete. Copilot review is unavailable because the account
+is out of credits, and the user will run a DeepSeek review separately.
 
 ## Objective
 
@@ -86,8 +87,9 @@ reviewed or reordered.
 - The explicit-branch Preview workflow succeeds and focused Preview browser
   checks pass at mobile and desktop widths.
 - The branch is committed and pushed, a ready-for-review PR is open, required
-  checks pass, and Copilot's initial review outcome is handled with all
-  addressed conversations resolved.
+  checks pass, and review state is recorded. Copilot is currently unavailable
+  due to exhausted credits; the user will perform the replacement DeepSeek
+  review after delivery.
 - `tasks/current.md`, `tasks/backlog.md`, `CHANGELOG.md`, and `journal.md` are
   consistent, and the final handoff records PR, commit, Preview, validation,
   and review evidence without merging the PR.

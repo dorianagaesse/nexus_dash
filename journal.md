@@ -31,6 +31,19 @@ Use it for important implementation milestones, blockers, validation runs, and r
   no committed source diff.
 - Opened ready-for-review PR #459 from commit `28073b8`; the branch remains
   intentionally open and independent from TASK-382 and TASK-384.
+- Required GitHub checks passed on final implementation/test commit `88cb5e3`,
+  including Quality Core, Playwright smoke, tenant isolation, branch naming,
+  and the container image artifact.
+- Explicit-ref Preview workflow run `33221124897` checked out
+  `feature/task-381-bounded-kanban-lanes` at `88cb5e3`, verified immutable
+  Preview `https://nexus-dash-6pkpwaih9-dorian-agaesses-projects.vercel.app`,
+  and confirmed revision, environment, database readiness, and stable alias.
+  The focused TASK-381 scenarios and existing mobile Kanban smoke passed
+  against that deployment.
+- Automatic, REST, and supported CLI Copilot review requests produced no
+  review because the account is out of credits. At the user's direction,
+  recorded DeepSeek review as a post-delivery replacement and continued to
+  TASK-382 without merging PR #459.
 
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
 
