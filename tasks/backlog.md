@@ -188,7 +188,7 @@ Last reviewed: 2026-08-30
   Dependencies: TASK-059, TASK-115, TASK-127, TASK-331, TASK-374, TASK-375
 - ID: TASK-379
   Title: Agent credential presets for read/write access without delete
-  Status: Pending
+  Status: In review (PR ready on `feature/task-379-credential-presets`)
   Rationale: Make it straightforward to issue a project-scoped agent token that can read and update tasks without deletion permission. The underlying write/delete scope split already exists, so align credential setup guidance, presets, and task-oriented onboarding examples to avoid granting `task:delete` for missions that do not require destructive access.
   Dependencies: TASK-059, TASK-115, TASK-331
 - ID: TASK-380

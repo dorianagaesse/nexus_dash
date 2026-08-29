@@ -8,6 +8,14 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.39.0 - 2026-08-30
+
+- Agent credential creation now offers one-click scope presets with the
+  recommended non-destructive "Read + write (no delete)" preset selected by
+  default, so routine agent missions no longer steer toward task deletion.
+- Onboarding guidance and the hosted smoke-test example no longer grant or
+  exercise `task:delete` for non-destructive task work.
+
 ## v0.38.0 - 2026-08-30
 
 - Added a public, unauthenticated NexusDash privacy policy with clear account,

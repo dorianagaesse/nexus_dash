@@ -1,131 +1,67 @@
 # Current Task
 
-## TASK-407: Public Privacy Policy Page for Google OAuth Production Verification
+## TASK-379: Agent credential presets for read/write access without delete
 
 ## Status
 
-Complete (2026-08-30; PR #463). Implementation, local validation, final-commit
-branch Preview validation, required checks, and review monitoring are complete.
-
-## Validation Evidence
-
-- `npm run lint`: passed.
-- `npm run rls:check`: passed.
-- `npm test`: 149 files passed, 2 skipped; 1,055 tests passed, 2 skipped.
-- `npm run test:coverage`: passed at 91.37% statements, 81.33% branches,
-  92.2% functions, and 91.88% lines. The first Windows run hit fixed five-second
-  timeouts in temporary-Git version-policy fixtures; an unchanged warm rerun
-  passed all tests.
-- `npm run build`: passed with process-local localhost database placeholders,
-  Calendar OAuth disabled, and a non-secret local agent-signing placeholder so
-  no repository or deployed secrets were read or changed.
-- `npx playwright test tests/e2e/privacy-policy.spec.ts`: 2 passed against the
-  local development server.
-- Visual QA passed at 390x844 and 1440x1000 in light mode; no horizontal
-  overflow was detected and the policy link remained visible on the homepage.
-- Preview workflow run `33278777919` explicitly fetched and checked out
-  `feature/task-407-public-privacy-policy`, deployed
-  `https://nexus-dash-md7838l2c-dorian-agaesses-projects.vercel.app`, validated
-  deployment identity/readiness, and verified the stable Preview alias.
-- Both focused Playwright tests passed against that immutable Preview URL,
-  proving the homepage link, unauthenticated `/privacy` response, metadata,
-  Google scope, encrypted-token disclosure, Limited Use statement, and mobile
-  overflow behavior.
-- After the evidence-only commit, final Preview workflow run `33279072092`
-  checked out commit `0e3e05e`, passed identity/readiness and stable-alias
-  verification, and published
-  `https://nexus-dash-qv707rgek-dorian-agaesses-projects.vercel.app`. Both
-  focused Playwright tests passed against that final immutable URL.
-- PR #463 passed Quality Core, Playwright E2E, PostgreSQL tenant isolation,
-  container-image, branch-name, and release-policy checks. The automatic review
-  window was monitored through green checks; GitHub produced no Copilot review
-  or inline feedback to triage.
+In progress on `feature/task-379-credential-presets` (worktree
+`../nexus_dash_task379`, from current `origin/main`).
 
 ## Context
 
-The production Google OAuth application cannot be published while its consent
-screen is missing a public privacy-policy URL. NexusDash also needs a durable,
-unauthenticated explanation of the information the service handles, with
-specific disclosures for Google identity and Calendar data.
+Issuing a project-scoped agent credential today means ticking ten raw
+scope checkboxes, and onboarding examples (including the hosted smoke
+test) end with a task deletion, steering agents toward destructive
+permissions they usually do not need. The underlying write/delete scope
+split already exists and is enforced, so this task is about making the
+non-destructive choice the easy, default path: presets in the credential
+form, preset-aware guidance, and onboarding examples that do not grant or
+exercise `task:delete`.
 
 ## Scope
 
-- Add a public, responsive `/privacy` page with page-specific metadata.
-- Describe the account, workspace, technical, and Google data NexusDash handles.
-- State the Google Calendar scope and purposes accurately from the runtime
-  implementation, including encrypted token storage and user-initiated access
-  removal options.
-- Explain service-provider sharing, retention, deletion requests, security,
-  international processing, children's privacy, policy changes, and contact.
-- Include the Google API Services User Data Policy Limited Use disclosure and
-  link to the authoritative Google policy.
-- Add a visible privacy-policy link to the unauthenticated homepage.
-- Add automated coverage proving the route is public and linked from `/`.
-
-## Out Of Scope
-
-- Adding account deletion or Google Calendar credential-disconnect product
-  controls; the policy will document the controls currently available through
-  Google and the support contact for deletion requests.
-- Changing Google OAuth clients, secrets, scopes, consent-screen settings, or
-  publishing status in Google Cloud.
-- Promoting a production deployment.
-
-## Prerequisites And Runtime Assumptions
-
-- No new secret or database migration is required.
-- Google Calendar authorization requests only
-  `https://www.googleapis.com/auth/calendar.events` in the current runtime.
-- Google Calendar access and refresh tokens are encrypted before database
-  persistence with the server-only `GOOGLE_TOKEN_ENCRYPTION_KEY` contract.
-- Social sign-in may receive identity information from Google or GitHub; this
-  is separate from the optional Google Calendar connection.
-- `https://nexus-dash.app/privacy` becomes usable in Google Auth Platform only
-  after this change is included in a promoted production deployment.
-
-## Deployment And Review Assumptions
-
-- Follow the explicit-branch Preview workflow in `agent.md` and
-  `.github/workflows/deploy-vercel.yml` using
-  `feature/task-407-public-privacy-policy` as `git_ref`.
-- Validate the public route and homepage link against the resulting Preview URL.
-- Open one ready-for-review PR, wait for required checks and the initial Copilot
-  review, resolve actionable feedback, then merge to `main`.
-- Production promotion and Google Auth Platform publication remain user-owned
-  follow-up actions because they change live external state.
+- Add `AGENT_CREDENTIAL_PRESETS` to `lib/agent-access.ts` with
+  validated scope arrays and guidance copy, including:
+  - "Read only" → `["project:read", "task:read"]`
+  - "Read + write (no delete)" → `["project:read", "task:read", "task:write"]` (recommended)
+  - "Full access" → read/write plus `task:delete` (kept for completeness;
+    copy steers away unless destruction is required)
+- Preset chips above the scope checkbox grid in the credential panel;
+  selecting a preset fills the scope selection, and new credential forms
+  start with the non-destructive preset pre-selected. Raw checkboxes stay
+  for advanced editing.
+- Update onboarding guidance: the guide's scope-model card explains the
+  presets and the prefer-no-delete rule; the hosted smoke-test example
+  ends with a non-destructive status transition instead of a task DELETE.
+- No backend changes: the write/delete split is already enforced at the
+  service layer.
 
 ## Acceptance Criteria
 
-1. `/privacy` returns successfully without authentication and presents a clear,
-   readable privacy policy on mobile and desktop in the existing visual system.
-2. The policy accurately covers collected data, purposes, Google identity and
-   Calendar event access, encrypted OAuth token storage, sharing, retention,
-   deletion/access-removal options, security, user choices, and contact details.
-3. The policy links to the Google API Services User Data Policy and explicitly
-   states compliance with its Limited Use requirements.
-4. The public homepage has a visible, keyboard-accessible link to `/privacy`.
-5. Page metadata identifies the route as the NexusDash privacy policy and the
-   canonical URL is `https://nexus-dash.app/privacy`.
-6. Automated tests cover unauthenticated route access, core Google disclosures,
-   and homepage navigation to the policy.
+1. The credential form offers one-click presets that set exactly the
+   documented scope arrays, with the non-destructive read/write preset
+   selected by default for new credentials.
+2. Presets only ever produce valid, vocabulary-ordered scopes accepted by
+   the existing credential service.
+3. Onboarding docs and the smoke-test example no longer instruct agents to
+   grant or use `task:delete` for routine task work, and explain the
+   read/write-without-delete recommendation.
+4. Credential creation, rotation, and revocation behavior is unchanged.
 
 ## Definition Of Done
 
-- The acceptance criteria above are satisfied.
+- Component tests cover preset application and default pre-selection;
+  lib tests validate preset definitions against the scope vocabulary.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  `npm run build`, and the relevant Playwright tests pass.
-- A Preview deploy for the explicit feature branch completes and the generated
-  URL is validated for `/privacy` and its homepage link.
-- The feature version and changelog are updated according to repository policy.
-- `tasks/current.md`, `tasks/backlog.md`, and `journal.md` record the delivered
-  behavior and validation evidence.
-- The ready PR has completed required checks and initial Copilot review, all
-  actionable threads are resolved, and the PR is merged to `main`.
+  and `npm run build` pass; `npm run release:check` passes with the
+  `feature/*` minor version bump and CHANGELOG entry.
+- `npm run test:e2e` passes (UI flow touched) against the local PostgreSQL
+  baseline.
+- A ready-for-review PR is open against `origin/main`.
+- `tasks/current.md`, `tasks/backlog.md`, `journal.md`, and `CHANGELOG.md`
+  are updated in the same PR.
 
-## References
+## Runtime Assumptions
 
-- `agent.md`
-- `docs/runbooks/vercel-env-contract-and-secrets.md`
-- `docs/runbooks/database-connection-hardening.md`
-- `lib/google-calendar.ts`
-- `lib/services/google-calendar-credential-service.ts`
+- TASK-331 (capability vocabulary) remains pending; presets use the
+  existing scope vocabulary and stay compatible with it.
