@@ -2,10 +2,15 @@
 
 Use this file to capture tasks discovered during development. Each entry should include: ID, title, rationale, dependencies.
 
-Last reviewed: 2026-08-24
+Last reviewed: 2026-08-30
 
 ## Pending
 ### Active Runtime Remediation
+- ID: TASK-407
+  Title: Public privacy policy page for Google OAuth production verification
+  Status: Pending - blocks production Google OAuth verification
+  Rationale: Add a public `/privacy` page that accurately explains Nexus Dash data collection, Google identity and Calendar event access, encrypted OAuth token storage, retention and deletion behavior, service-provider sharing, user disconnect controls, and compliance with the Google API Services User Data Policy. Link the policy visibly from the public homepage, keep it accessible without authentication, and use `https://nexus-dash.app/privacy` as the production Google Auth Platform privacy-policy URL so the OAuth application can be published and submitted for verification.
+  Dependencies: TASK-005, TASK-040, TASK-325, TASK-326
 - ID: TASK-406
   Title: Stable Preview OAuth alias after immutable deployment validation
   Status: In review; deployed for user OAuth testing (PR #448)
