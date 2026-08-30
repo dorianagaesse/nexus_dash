@@ -43,6 +43,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
   includes that hidden link while checking its preserved route state.
 - Local Docker was unavailable, so browser validation used the configured
   development database under `NODE_ENV=test` on isolated port 3382.
+- Opened ready-for-review PR #469 from implementation commit `8dd4c18`; the
+  branch remains intentionally open, independent from TASK-381 and TASK-384,
+  and has not been force-pushed.
+- Explicit-ref Preview workflow run `33335844414` checked out
+  `feature/task-382-kanban-task-search-label-filters` at `8dd4c18`, verified
+  Preview revision and database readiness, and assigned the stable auth alias
+  to immutable Preview
+  `https://nexus-dash-qioye82uf-dorian-agaesses-projects.vercel.app`.
+- All four focused TASK-382 Playwright scenarios plus the existing mobile
+  Kanban status-dock smoke passed against that immutable Preview URL.
 
 # 2026-08-30 - TASK-407 public privacy policy implementation
 

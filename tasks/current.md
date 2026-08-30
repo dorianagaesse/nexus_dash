@@ -4,7 +4,7 @@
 
 ## Status
 
-Implementation and local validation complete; in review on
+Implementation, local validation, and Preview QA complete in open PR #469 on
 `feature/task-382-kanban-task-search-label-filters`.
 
 ## Objective
