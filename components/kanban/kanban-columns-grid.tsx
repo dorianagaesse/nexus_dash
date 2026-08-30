@@ -4,7 +4,7 @@ import {
   Droppable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { useState } from "react";
+import { type SyntheticEvent, useState } from "react";
 import {
   Archive,
   CheckCircle2,
@@ -94,11 +94,14 @@ interface KanbanColumnsGridProps {
   canEdit: boolean;
   columns: TaskColumns<KanbanTask>;
   archivedDoneTasks: KanbanTask[];
+  isFiltering: boolean;
   mentionUsers: ProjectTaskCollaborator[];
+  selectedLabels: ReadonlySet<string>;
   highlightedTaskIds: Set<string>;
   onDragEnd: (result: DropResult) => void;
   onSelectTask: (task: KanbanTask) => void;
   onEditTask: (task: KanbanTask) => void;
+  onToggleLabel: (label: string) => void;
   onTaskHoverChange: (taskId: string | null) => void;
 }
 
@@ -106,11 +109,14 @@ export function KanbanColumnsGrid({
   canEdit,
   columns,
   archivedDoneTasks,
+  isFiltering,
   mentionUsers,
+  selectedLabels,
   highlightedTaskIds,
   onDragEnd,
   onSelectTask,
   onEditTask,
+  onToggleLabel,
   onTaskHoverChange,
 }: KanbanColumnsGridProps) {
   const [activeMobileStatus, setActiveMobileStatus] =
@@ -126,10 +132,13 @@ export function KanbanColumnsGrid({
             status={status}
             tasks={columns[status]}
             archivedDoneTasks={status === "Done" ? archivedDoneTasks : []}
+            isFiltering={isFiltering}
             mentionUsers={mentionUsers}
+            selectedLabels={selectedLabels}
             highlightedTaskIds={highlightedTaskIds}
             onSelectTask={onSelectTask}
             onEditTask={onEditTask}
+            onToggleLabel={onToggleLabel}
             onTaskHoverChange={onTaskHoverChange}
             className={cn(status !== activeMobileStatus && "hidden xl:block")}
           />
@@ -188,10 +197,13 @@ interface KanbanColumnProps {
   status: TaskStatus;
   tasks: KanbanTask[];
   archivedDoneTasks: KanbanTask[];
+  isFiltering: boolean;
   mentionUsers: ProjectTaskCollaborator[];
+  selectedLabels: ReadonlySet<string>;
   highlightedTaskIds: Set<string>;
   onSelectTask: (task: KanbanTask) => void;
   onEditTask: (task: KanbanTask) => void;
+  onToggleLabel: (label: string) => void;
   onTaskHoverChange: (taskId: string | null) => void;
   className?: string;
 }
@@ -201,10 +213,13 @@ function KanbanColumn({
   status,
   tasks,
   archivedDoneTasks,
+  isFiltering,
   mentionUsers,
+  selectedLabels,
   highlightedTaskIds,
   onSelectTask,
   onEditTask,
+  onToggleLabel,
   onTaskHoverChange,
   className,
 }: KanbanColumnProps) {
@@ -212,6 +227,7 @@ function KanbanColumn({
 
   return (
     <Card
+      data-kanban-lane={status}
       className={cn(
         "min-h-[320px] overflow-hidden border shadow-[0_18px_48px_-42px_rgba(15,23,42,0.7)]",
         chrome.column,
@@ -232,48 +248,61 @@ function KanbanColumn({
       </CardHeader>
       <CardContent>
         {status === "Done" && archivedDoneTasks.length > 0 ? (
-          <details className="mb-3 rounded-xl border border-border/60 bg-background/55">
+          <details
+            open={isFiltering ? true : undefined}
+            className="mb-3 rounded-xl border border-border/60 bg-background/55"
+          >
             <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground">
               Archive ({archivedDoneTasks.length})
             </summary>
             <div className="space-y-2 border-t border-border/60 p-2">
               {archivedDoneTasks.map((task) => (
-                <button
+                <article
                   key={task.id}
-                  type="button"
                   className={cn(
                     "w-full rounded-md border border-border/60 bg-card px-2 py-2 text-left transition hover:bg-muted/40",
                     highlightedTaskIds.has(task.id) &&
                       "border-border/80 bg-muted/35 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
                   )}
-                  onClick={() => onSelectTask(task)}
                   onMouseEnter={() => onTaskHoverChange(task.id)}
                   onMouseLeave={() => onTaskHoverChange(null)}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground/90">
-                      <Archive
-                        aria-hidden="true"
-                        className="h-3.5 w-3.5 shrink-0 text-emerald-400/80"
-                      />
-                      <span className="truncate">{task.title}</span>
-                    </p>
-                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.18em] text-emerald-300/80">
-                      Archived
-                    </span>
-                  </div>
-                  <TaskCardIndicators task={task} className="mt-1" />
-                  {task.description ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {renderContentWithMentions(
-                        getDescriptionPreview(task.description, 90),
-                        {
-                          mentionUsers,
-                        }
-                      )}
-                    </p>
-                  ) : null}
-                </button>
+                  <button
+                    type="button"
+                    className="w-full rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() => onSelectTask(task)}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground/90">
+                        <Archive
+                          aria-hidden="true"
+                          className="h-3.5 w-3.5 shrink-0 text-emerald-400/80"
+                        />
+                        <span className="truncate">{task.title}</span>
+                      </p>
+                      <span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300/80">
+                        Archived
+                      </span>
+                    </div>
+                    <TaskCardIndicators task={task} className="mt-1" />
+                    {task.description ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {renderContentWithMentions(
+                          getDescriptionPreview(task.description, 90),
+                          {
+                            mentionUsers,
+                          }
+                        )}
+                      </p>
+                    ) : null}
+                  </button>
+                  <TaskLabelButtons
+                    labels={task.labels}
+                    selectedLabels={selectedLabels}
+                    onToggleLabel={onToggleLabel}
+                    className="mt-2"
+                  />
+                </article>
               ))}
             </div>
           </details>
@@ -292,7 +321,9 @@ function KanbanColumn({
               {tasks.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border/50 bg-background/70 px-4 py-8 text-center">
                   <p className="text-sm font-medium text-foreground/90">
-                    {chrome.emptyCopy}
+                    {isFiltering
+                      ? `No matching ${status.toLocaleLowerCase()} tasks`
+                      : chrome.emptyCopy}
                   </p>
                 </div>
               ) : null}
@@ -311,6 +342,7 @@ function KanbanColumn({
 
                     return (
                       <article
+                        data-kanban-task-id={task.id}
                         ref={draggableProvided.innerRef}
                         {...draggableProvided.draggableProps}
                         {...(canEdit ? draggableProvided.dragHandleProps : {})}
@@ -415,21 +447,12 @@ function KanbanColumn({
                           </div>
                         ) : null}
 
-                        {task.labels.length > 0 ? (
-                          <div className="mt-3 flex flex-wrap gap-1">
-                            {task.labels.map((label) => (
-                              <span
-                                key={label}
-                                className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium text-slate-900"
-                                style={{
-                                  backgroundColor: getTaskLabelColor(label),
-                                }}
-                              >
-                                {label}
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
+                        <TaskLabelButtons
+                          labels={task.labels}
+                          selectedLabels={selectedLabels}
+                          onToggleLabel={onToggleLabel}
+                          className="mt-3"
+                        />
                       </article>
                     );
                   }}
@@ -441,6 +464,58 @@ function KanbanColumn({
         </Droppable>
       </CardContent>
     </Card>
+  );
+}
+
+function stopCardInteraction(event: SyntheticEvent) {
+  event.stopPropagation();
+}
+
+function TaskLabelButtons({
+  labels,
+  selectedLabels,
+  onToggleLabel,
+  className,
+}: {
+  labels: string[];
+  selectedLabels: ReadonlySet<string>;
+  onToggleLabel: (label: string) => void;
+  className?: string;
+}) {
+  if (labels.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className={cn("flex flex-wrap gap-1", className)}>
+      {labels.map((label) => (
+        <button
+          key={label}
+          type="button"
+          aria-pressed={selectedLabels.has(label)}
+          aria-label={`${selectedLabels.has(label) ? "Remove" : "Add"} ${label} label filter`}
+          className={cn(
+            "inline-flex min-h-11 max-w-full items-center rounded-full border-2 px-2.5 py-1 text-[11px] font-medium text-slate-950 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+            selectedLabels.has(label)
+              ? "border-foreground/80"
+              : "border-transparent hover:border-foreground/35"
+          )}
+          style={{ backgroundColor: getTaskLabelColor(label) }}
+          onPointerDown={stopCardInteraction}
+          onMouseDown={stopCardInteraction}
+          onTouchStart={stopCardInteraction}
+          onKeyDown={stopCardInteraction}
+          onKeyUp={stopCardInteraction}
+          onDoubleClick={stopCardInteraction}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleLabel(label);
+          }}
+        >
+          <span className="truncate">{label}</span>
+        </button>
+      ))}
+    </div>
   );
 }
 

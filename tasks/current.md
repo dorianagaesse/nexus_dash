@@ -1,131 +1,124 @@
 # Current Task
 
-## TASK-407: Public Privacy Policy Page for Google OAuth Production Verification
+## TASK-382: Kanban Task Search and Clickable Label Filters
 
 ## Status
 
-Complete (2026-08-30; PR #463). Implementation, local validation, final-commit
-branch Preview validation, required checks, and review monitoring are complete.
+Implementation and local validation complete; in review on
+`feature/task-382-kanban-task-search-label-filters`.
 
-## Validation Evidence
+## Objective
 
-- `npm run lint`: passed.
-- `npm run rls:check`: passed.
-- `npm test`: 149 files passed, 2 skipped; 1,055 tests passed, 2 skipped.
-- `npm run test:coverage`: passed at 91.37% statements, 81.33% branches,
-  92.2% functions, and 91.88% lines. The first Windows run hit fixed five-second
-  timeouts in temporary-Git version-policy fixtures; an unchanged warm rerun
-  passed all tests.
-- `npm run build`: passed with process-local localhost database placeholders,
-  Calendar OAuth disabled, and a non-secret local agent-signing placeholder so
-  no repository or deployed secrets were read or changed.
-- `npx playwright test tests/e2e/privacy-policy.spec.ts`: 2 passed against the
-  local development server.
-- Visual QA passed at 390x844 and 1440x1000 in light mode; no horizontal
-  overflow was detected and the policy link remained visible on the homepage.
-- Preview workflow run `33278777919` explicitly fetched and checked out
-  `feature/task-407-public-privacy-policy`, deployed
-  `https://nexus-dash-md7838l2c-dorian-agaesses-projects.vercel.app`, validated
-  deployment identity/readiness, and verified the stable Preview alias.
-- Both focused Playwright tests passed against that immutable Preview URL,
-  proving the homepage link, unauthenticated `/privacy` response, metadata,
-  Google scope, encrypted-token disclosure, Limited Use statement, and mobile
-  overflow behavior.
-- After the evidence-only commit, final Preview workflow run `33279072092`
-  checked out commit `0e3e05e`, passed identity/readiness and stable-alias
-  verification, and published
-  `https://nexus-dash-qv707rgek-dorian-agaesses-projects.vercel.app`. Both
-  focused Playwright tests passed against that final immutable URL.
-- PR #463 passed Quality Core, Playwright E2E, PostgreSQL tenant isolation,
-  container-image, branch-name, and release-policy checks. The automatic review
-  window was monitored through green checks; GitHub produced no Copilot review
-  or inline feedback to triage.
+Help project members find relevant active or archived Kanban tasks quickly by
+combining server-authorized task-text search with local multi-label filtering,
+without weakening project isolation or making filtered drag-and-drop reorder
+hidden tasks unexpectedly.
 
-## Context
+## Product Decisions
 
-The production Google OAuth application cannot be published while its consent
-screen is missing a public privacy-policy URL. NexusDash also needs a durable,
-unauthenticated explanation of the information the service handles, with
-specific disclosures for Google identity and Calendar data.
+- Search is a human-session-only project API because it spans comments and
+  related task content that is not part of the agent task-list contract.
+- Search requests debounce for 200 ms, cancel stale work, and retain the last
+  applied results while a newer request loads so the board does not flash or
+  collapse during typing.
+- Every selected label must match (`AND` semantics). Search and label filters
+  also compose with `AND`.
+- Archived matches contribute to the result count and automatically expose the
+  existing Done archive; archived cards remain read-only and non-draggable.
+- Filtered drops are translated back to complete persisted columns. Hidden
+  tasks keep their relative order, and visible destination cards act as stable
+  insertion anchors.
+- Filter state is component-local and resets after fresh navigation; URL
+  persistence is intentionally deferred.
 
 ## Scope
 
-- Add a public, responsive `/privacy` page with page-specific metadata.
-- Describe the account, workspace, technical, and Google data NexusDash handles.
-- State the Google Calendar scope and purposes accurately from the runtime
-  implementation, including encrypted token storage and user-initiated access
-  removal options.
-- Explain service-provider sharing, retention, deletion requests, security,
-  international processing, children's privacy, policy changes, and contact.
-- Include the Google API Services User Data Policy Limited Use disclosure and
-  link to the authoritative Google policy.
-- Add a visible privacy-policy link to the unauthenticated homepage.
-- Add automated coverage proving the route is public and linked from `/`.
+- Add an accessible toolbar above the Kanban lanes with a labeled search
+  input, clear action, available-label toggles, active-filter presentation,
+  polite visible/total result count, clear-label, and clear-all actions.
+- Add `GET /api/projects/{projectId}/tasks/search?q=...` for authenticated human
+  sessions, with a trimmed 1-200 character query and `{ taskIds: string[] }`
+  response.
+- Search authorized active and archived tasks case-insensitively across title,
+  rich description text, `ND-*` reference, status, comments, labels, Epic
+  name, assignee name/user tag, blocker/follow-up text, attachment names, and
+  related-task titles without returning comment bodies.
+- Re-run active search after relevant local or remote task/comment mutations,
+  excluding pure reorder events.
+- Make task-card label chips keyboard-operable filter buttons that do not open
+  or drag the card.
+- Filter active and archived tasks, expose matching archived results, and keep
+  desktop/mobile counts and empty states aligned with visible results.
+- Add focused utility, component, route/service, and Playwright coverage.
 
 ## Out Of Scope
 
-- Adding account deletion or Google Calendar credential-disconnect product
-  controls; the policy will document the controls currently available through
-  Google and the support contact for deletion requests.
-- Changing Google OAuth clients, secrets, scopes, consent-screen settings, or
-  publishing status in Google Cloud.
-- Promoting a production deployment.
+- Epic filtering (TASK-384), URL-backed filter state, saved searches, search
+  suggestions, fuzzy ranking, or pagination.
+- Agent bearer-token search, agent/OpenAPI contract changes, database schema or
+  migration changes, README changes, project blueprint changes, or an ADR.
+- Making archived tasks draggable or replacing the existing Done archive.
+- Integrating TASK-381's bounded-lane code or depending on its open PR.
 
-## Prerequisites And Runtime Assumptions
+## Runtime Assumptions
 
-- No new secret or database migration is required.
-- Google Calendar authorization requests only
-  `https://www.googleapis.com/auth/calendar.events` in the current runtime.
-- Google Calendar access and refresh tokens are encrypted before database
-  persistence with the server-only `GOOGLE_TOKEN_ENCRYPTION_KEY` contract.
-- Social sign-in may receive identity information from Google or GitHub; this
-  is separate from the optional Google Calendar connection.
-- `https://nexus-dash.app/privacy` becomes usable in Google Auth Platform only
-  after this change is included in a promoted production deployment.
-
-## Deployment And Review Assumptions
-
-- Follow the explicit-branch Preview workflow in `agent.md` and
-  `.github/workflows/deploy-vercel.yml` using
-  `feature/task-407-public-privacy-policy` as `git_ref`.
-- Validate the public route and homepage link against the resulting Preview URL.
-- Open one ready-for-review PR, wait for required checks and the initial Copilot
-  review, resolve actionable feedback, then merge to `main`.
-- Production promotion and Google Auth Platform publication remain user-owned
-  follow-up actions because they change live external state.
+- The worktree starts from `origin/main` commit `77686d6`; TASK-381 remains an
+  independent open PR and is not part of this branch.
+- Existing PostgreSQL task/comment/attachment/relation data is sufficient; no
+  persistence migration is required.
+- Persistence access remains in `lib/services/**`, and project authorization is
+  enforced inside the search service under the authenticated actor's RLS
+  context.
+- The assignment explicitly reprioritizes TASK-382 ahead of pending TASK-100,
+  TASK-133, and TASK-108 dependencies while preserving their remaining scope.
+- Copilot review is unavailable because the account is out of credits. The
+  user will perform a DeepSeek review after delivery.
+- Preview validation uses
+  `feature/task-382-kanban-task-search-label-filters` as the explicit workflow
+  `git_ref`.
 
 ## Acceptance Criteria
 
-1. `/privacy` returns successfully without authentication and presents a clear,
-   readable privacy policy on mobile and desktop in the existing visual system.
-2. The policy accurately covers collected data, purposes, Google identity and
-   Calendar event access, encrypted OAuth token storage, sharing, retention,
-   deletion/access-removal options, security, user choices, and contact details.
-3. The policy links to the Google API Services User Data Policy and explicitly
-   states compliance with its Limited Use requirements.
-4. The public homepage has a visible, keyboard-accessible link to `/privacy`.
-5. Page metadata identifies the route as the NexusDash privacy policy and the
-   canonical URL is `https://nexus-dash.app/privacy`.
-6. Automated tests cover unauthenticated route access, core Google disclosures,
-   and homepage navigation to the policy.
+1. A toolbar above the lanes exposes an accessible debounced search field,
+   clear search action, available and active label controls, clear-label and
+   clear-all actions, and a polite `shown / total` result count.
+2. The human-session-only search endpoint accepts only trimmed 1-200 character
+   queries and returns authorized project task IDs, including archived tasks,
+   with case-insensitive matches for every required field and no comment-body
+   disclosure.
+3. Search cancels stale requests, retains the last applied result while newer
+   work loads, exposes a recoverable inline failure, and refreshes after
+   relevant task/comment mutations but not pure reorders.
+4. Multiple labels use `AND`; search and labels use `AND`. Card label chips are
+   keyboard-operable `aria-pressed` filter buttons whose pointer/keyboard
+   activation neither opens nor drags the task card.
+5. Active and archived filtering, archive disclosure, lane/mobile counts,
+   visible/total totals, no-result states, and viewer behavior stay mutually
+   consistent.
+6. Filtered pointer and keyboard drops preserve hidden-task relative order and
+   map visible destinations to full-column anchors: before a visible target,
+   after the last visible task, or at full-column end when none are visible.
+7. The toolbar and card controls remain usable at 375 px and mobile landscape,
+   in light/dark themes, with keyboard-only operation and reduced motion.
+8. Focused automated coverage proves every indexed search field, project
+   isolation, validation, failure recovery, label semantics, archive behavior,
+   viewer filtering, mutation refresh, and hidden-interleaved drag ordering.
 
 ## Definition Of Done
 
-- The acceptance criteria above are satisfied.
-- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  `npm run build`, and the relevant Playwright tests pass.
-- A Preview deploy for the explicit feature branch completes and the generated
-  URL is validated for `/privacy` and its homepage link.
-- The feature version and changelog are updated according to repository policy.
-- `tasks/current.md`, `tasks/backlog.md`, and `journal.md` record the delivered
-  behavior and validation evidence.
-- The ready PR has completed required checks and initial Copilot review, all
-  actionable threads are resolved, and the PR is merged to `main`.
-
-## References
-
-- `agent.md`
-- `docs/runbooks/vercel-env-contract-and-secrets.md`
-- `docs/runbooks/database-connection-hardening.md`
-- `lib/google-calendar.ts`
-- `lib/services/google-calendar-credential-service.ts`
+- Acceptance criteria are satisfied with persistence isolated in a service and
+  thin route/component boundaries.
+- UI/UX Pro Max guidance is applied for search priority, visible focus,
+  44 px touch targets, announced result/error feedback, stable loading state,
+  responsive containment, and theme parity.
+- `git diff --check`, feature release-policy validation, `npm run lint`,
+  `npm run rls:check`, `npm test`, `npm run test:coverage`, `npm run build`, and
+  `npm run test:e2e` pass.
+- Explicit-ref Preview deployment succeeds and the focused TASK-382 scenarios
+  plus existing Kanban smoke pass against the immutable Preview URL.
+- The branch is pushed and a ready-for-review PR remains open and unmerged with
+  required GitHub checks green. Copilot's credit blocker is recorded for the
+  user's post-delivery DeepSeek review.
+- `tasks/current.md`, `tasks/backlog.md`, `CHANGELOG.md`, and `journal.md` are
+  consistent, and the handoff records PR, commits, validation, Preview, and
+  review state.

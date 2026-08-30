@@ -8,6 +8,20 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.39.0 - 2026-08-30
+
+- Added authorized, case-insensitive Kanban search across task descriptions,
+  references, statuses, comments, labels, Epics, assignees, blocker follow-ups,
+  attachments, and related-task titles, including archived tasks.
+- Added an accessible responsive filter toolbar with debounced cancellable
+  search, recoverable retained results, multi-label `AND` filtering, active
+  filters, clear actions, and visible/total result feedback.
+- Made task-card labels keyboard-operable filter controls and preserved hidden
+  task order when pointer or keyboard dragging through filtered lanes.
+- Added service, route, utility, component, hook, and responsive Playwright
+  coverage for project isolation, viewer access, archive disclosure, search
+  refresh, failure recovery, filtered ordering, and mobile containment.
+
 ## v0.38.0 - 2026-08-30
 
 - Added a public, unauthenticated NexusDash privacy policy with clear account,

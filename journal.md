@@ -3,6 +3,47 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-30 - TASK-382 Kanban search and label filters started
+
+- Reprioritized TASK-382 at the user's direction ahead of pending TASK-100,
+  TASK-133, and TASK-108 while preserving their remaining UX scope.
+- Created `feature/task-382-kanban-task-search-label-filters` in its dedicated
+  worktree from current `origin/main` commit `77686d6` and drafted the task
+  contract before runtime implementation.
+- Kept search authorization and persistence in a human-session service/API,
+  selected `AND` semantics for labels and cross-category composition, and
+  defined full-column anchor mapping so hidden tasks retain stable ordering
+  during filtered drag-and-drop.
+- Applied UI/UX Pro Max guidance without replacing the established NexusDash
+  palette or typography: prioritize search, preserve stable results while
+  loading, announce result/error states, provide visible focus and 44 px touch
+  targets, and verify responsive light/dark behavior.
+- Copilot review is unavailable because the account is out of credits; the
+  user will perform the replacement DeepSeek review after delivery.
+- Implemented a human-session-only task search route backed by a viewer-
+  authorized RLS service. It searches active and archived task text across all
+  required fields while returning only matching task IDs to the browser.
+- Added the responsive search/label toolbar, cancellable 200 ms search hook,
+  retained recoverable results, case-insensitive label deduplication, `AND`
+  filtering, clickable card chips, archive disclosure, filter-aware counts and
+  empty states, and full-column anchor mapping for filtered drag-and-drop.
+- Added service, route, utility, hook, component, and dedicated Playwright
+  coverage. The browser suite validates all search sources, project isolation,
+  archived results, viewer controls, card-chip isolation, error recovery,
+  pointer and keyboard drops around hidden cards, dark/reduced-motion behavior,
+  375 px containment, and mobile landscape.
+- Local validation passed: diff check; feature release policy from `v0.38.0`
+  to `v0.39.0`; lint; RLS inventory; 1,092 unit/API tests with two skipped;
+  coverage at 92.56% statements / 82.51% branches / 93.33% functions / 92.96%
+  lines; production build; and all 38 runnable Playwright scenarios with the
+  Preview-only scenario skipped.
+- Stabilized one pre-existing shell-history assertion exposed by the full run:
+  when the initial task modal is open, its modal semantics correctly hide the
+  background sidebar from the accessibility tree, so the test now explicitly
+  includes that hidden link while checking its preserved route state.
+- Local Docker was unavailable, so browser validation used the configured
+  development database under `NODE_ENV=test` on isolated port 3382.
+
 # 2026-08-30 - TASK-407 public privacy policy implementation
 
 - Audited the runtime before drafting disclosures: social identity connections

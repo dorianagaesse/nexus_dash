@@ -203,7 +203,7 @@ Last reviewed: 2026-08-30
   Dependencies: TASK-096, TASK-100, TASK-133, TASK-322
 - ID: TASK-382
   Title: Kanban task search and clickable label filters
-  Status: Pending
+  Status: In review on feature/task-382-kanban-task-search-label-filters
   Rationale: Add a search and filter surface above the Kanban board that finds authorized tasks by title, description, comments, labels, and other useful task text without exposing hidden or cross-project content. Let users click a label on a task card or in the filter controls to toggle that label filter, clearly show active search/filter state and result counts, support combining or clearing criteria, and keep matching behavior responsive for large boards.
   Dependencies: TASK-031, TASK-099, TASK-108, TASK-133
 - ID: TASK-383
