@@ -4,8 +4,9 @@
 
 On 2026-08-31 the full backlog was migrated to the Nexus Dash project
 **"Nexus Dash"** at <https://nexus-dash.app>. Credentials for agent access live
-in `.config/.nd-nexus-dash.env` (gitignored). All backlog planning, sequencing,
-status tracking, and task relationships now happen in the Nexus Dash kanban.
+in `.config/.nd-nexus-dash.env` (gitignored; contract template at
+`.nd-nexus-dash.example.env`). All backlog planning, sequencing, status
+tracking, and task relationships now happen in the Nexus Dash kanban.
 
 ## What was migrated
 

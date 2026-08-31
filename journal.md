@@ -35,6 +35,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
   Remediation, Execution Queue, External UX Feedback, Codex Session
   Feedback, Collaboration Refinement, Deferred) as redundant; the board now
   carries only work-type labels plus P0/P1/P2 priority labels.
+- Docs: `agent.md` and `project.md` now state that Nexus Dash is the source
+  of truth for task management, with credentials in
+  `.config/.nd-nexus-dash.env` and a committed contract template at
+  `.nd-nexus-dash.example.env` (real secrets stay in the gitignored
+  `.config/` directory).
 - `tasks/backlog.md` is replaced by this migration notice; Nexus Dash is now
   the source of truth for backlog tracking.
 
