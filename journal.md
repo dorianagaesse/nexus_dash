@@ -43,6 +43,35 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - `tasks/backlog.md` is replaced by this migration notice; Nexus Dash is now
   the source of truth for backlog tracking.
 
+# 2026-08-30 - TASK-379 agent credential presets without delete
+
+- Added `AGENT_CREDENTIAL_PRESETS` to `lib/agent-access.ts`: Read only,
+  Read + write (no delete, recommended and default), and Full access. The
+  credential form renders one-click preset chips above the scope grid and
+  pre-selects the recommended non-destructive preset for new credentials;
+  raw checkboxes remain for advanced editing.
+- Onboarding updates: the guide's scope-model card explains the presets and
+  the prefer-no-delete rule, and the hosted smoke-test example now ends
+  with the archived-task note instead of a `DELETE /tasks/{taskId}` call,
+  so routine agent missions no longer grant or exercise `task:delete`.
+- No backend changes: the write/delete split is already enforced at the
+  service layer, and presets produce vocabulary-ordered scopes accepted by
+  the existing credential service.
+- Component coverage is static-markup based (no testing-library in the
+  repo): preset labels, the Recommended badge, and the default three-scope
+  pre-selection are asserted; lib tests validate preset definitions.
+- Validation: lint, RLS inventory, 1061 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions /
+  91.88% lines, production build, release policy `0.38.1` to `0.39.0` (merged `origin/main` at v0.38.1 with the calendar-fix and backlog-migration entries kept).
+- Playwright: full Chromium suite green (34 passed, 1 skipped). Local e2e
+  notes for future runs: `npm run db:local:up` + `npm run db:migrate` first
+  (the Playwright webServer starts `next start` directly, which skips the
+  dev/start migrate step), truncate `AuthRateLimitBucket` when repeated
+  runs hit the durable password-reset throttle, set
+  `OUTBOUND_EMAIL_DELIVERY_MODE=disabled` to avoid live email attempts, and
+  set `NODE_ENV=test` per the local-validation runbook so production-mode
+  trusted-origin resolution accepts the localhost requests.
+
 # 2026-08-30 - TASK-407 public privacy policy implementation
 
 - Audited the runtime before drafting disclosures: social identity connections
