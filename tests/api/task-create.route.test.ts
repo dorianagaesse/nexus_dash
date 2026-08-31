@@ -158,7 +158,7 @@ describe("GET /api/projects/:projectId/tasks", () => {
     ]);
 
     const response = await GET(
-      new Request("http://localhost/api/projects/p1/tasks") as never,
+      new NextRequest("http://localhost/api/projects/p1/tasks"),
       taskRouteParams("p1")
     );
     const payload = (await response.json()) as {
