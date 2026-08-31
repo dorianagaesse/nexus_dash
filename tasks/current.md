@@ -1,56 +1,40 @@
-# TASK-326: Google Calendar Connection Ownership Hardening
+# Current Task
+
+## Backlog migration to Nexus Dash
 
 ## Status
 
-Implementation complete on `feature/task-326-calendar-ownership-r4`; refreshed
-onto current `main` after TASK-406 merged.
+Complete (2026-08-31). The full backlog previously tracked in
+`tasks/backlog.md` now lives in the Nexus Dash project "Nexus Dash" at
+<https://nexus-dash.app> (agent credentials in `.config/.nd-nexus-dash.env`).
 
-## Objective
+## What changed
 
-Close the lifecycle and enforcement gaps in the existing single-Google-
-connection model while preserving strict authenticated-user ownership.
+- 5 epics and 246 tasks created via the agent API, with descriptions carrying
+  the original backlog entries, program-section labels, Brief/Report
+  attachment links, and dependency relationships.
+- Kanban columns: Backlog (72), In Progress (2: TASK-100, TASK-406),
+  Done (172).
+- `tasks/backlog.md` is now a migration notice; Nexus Dash is the source of
+  truth for task management.
 
-## Scope
+## Next task selection
 
-- Enforce active-only credential reads, refreshes, and target updates.
-- Implement idempotent, fail-closed disconnect with provider revocation and
-  unconditional local token removal.
-- Require token encryption whenever Calendar OAuth is configured outside tests
-  and upgrade legacy plaintext rows when read.
-- Add accessible disconnect UX and repair the dashboard summary request.
-- Fail Preview deployment before alias publication when the shared database is
-  incompatible with the branch's Prisma models.
-- Keep shared Preview forward-only: apply checked-in migrations, never realign
-  staging to a branch, and require expand/contract compatibility.
-- Keep the TASK-326 single-connection runtime compatible when TASK-327 expands
-  the physical credential table to multiple account rows.
-- Keep provider authentication failures distinct from local credential-store
-  availability failures.
-- Prove ownership in unit/API/UI and real PostgreSQL RLS tests.
+The next task is picked from the Nexus Dash kanban (In Progress lane first,
+then Backlog in lane order) instead of `tasks/backlog.md`.
 
 ## Acceptance Criteria
 
-1. Revoked credentials cannot authorize Calendar operations.
-2. Disconnect affects only the signed-in user, removes local tokens even when
-   provider revocation fails, and reports a safe revocation status.
-3. Target reset remains available through PATCH while DELETE disconnects.
-4. Configured non-test Calendar OAuth requires token encryption and legacy
-   plaintext tokens are rewritten encrypted.
-5. Calendar summary requests include their project authorization context.
-6. Automated and real-database coverage proves the ownership boundary.
-7. A Preview whose database was advanced by another branch cannot publish an
-   apparently healthy but schema-incompatible deployment.
-8. Database failures do not present as invalid Google credentials or a 401
-   reauthorization requirement.
-9. Preview never resets or rolls back the shared staging schema to match a
-   branch; incompatible migrations fail before alias publication with an
-   actionable expand/contract diagnostic.
+1. Every entry from the pre-migration `tasks/backlog.md` exists in Nexus Dash
+   with its ID, title, status string, rationale, dependencies, and section
+   grouping preserved.
+2. Dependencies are represented as task relations.
+3. Brief/Report files are attached where referenced.
+4. Verification confirms the Nexus Dash board matches the migration plan.
 
 ## Definition Of Done
 
-- Runtime, tests, docs, ADR index, changelog, version, and tracking documents
-  are consistent.
-- Lint, RLS inventory/matrix, tests, coverage, build, and E2E pass.
-- An explicit-ref preview is validated.
-- The branch is pushed and a ready-for-review PR is open with automated feedback
-  handled.
+- Migration verified against the plan (columns, ordering, labels, epics,
+  relations, descriptions, attachments).
+- `tasks/backlog.md`, `tasks/current.md`, and `journal.md` updated in the
+  same PR.

@@ -53,10 +53,11 @@ next-env.d.ts
 # local scratch artifacts
 /tmp/
 /.tmp/
-/tmp_query.sql
 
 # local AI assistant configuration
 /.continue/
+/.config/
+/.claude/
 
 # Python cache for workflow helper scripts
 /scripts/__pycache__/
