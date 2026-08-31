@@ -211,6 +211,35 @@ function parseDeadlineInput(
   };
 }
 
+export function validateTaskCreateFieldTypes(payload: {
+  deadlineDate?: unknown;
+  epicId?: unknown;
+  assigneeUserId?: unknown;
+}): string | null {
+  if (
+    payload.deadlineDate !== undefined &&
+    payload.deadlineDate !== null &&
+    typeof payload.deadlineDate !== "string"
+  ) {
+    return "deadline-invalid";
+  }
+  if (
+    payload.epicId !== undefined &&
+    payload.epicId !== null &&
+    typeof payload.epicId !== "string"
+  ) {
+    return "epic-invalid";
+  }
+  if (
+    payload.assigneeUserId !== undefined &&
+    payload.assigneeUserId !== null &&
+    typeof payload.assigneeUserId !== "string"
+  ) {
+    return "assignee-invalid";
+  }
+  return null;
+}
+
 function parseRelatedTaskIdsJson(rawValue: string): string[] | null {
   const trimmedValue = rawValue.trim();
   if (!trimmedValue) {

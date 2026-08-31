@@ -18,9 +18,13 @@ vi.mock("@/lib/auth/api-guard", () => ({
   requireApiPrincipal: apiGuardMock.requireApiPrincipal,
 }));
 
-vi.mock("@/lib/services/project-task-service", () => ({
-  createTaskForProject: projectTaskServiceMock.createTaskForProject,
-}));
+vi.mock("@/lib/services/project-task-service", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/services/project-task-service")>();
+  return {
+    ...original,
+    createTaskForProject: projectTaskServiceMock.createTaskForProject,
+  };
+});
 
 vi.mock("@/lib/services/project-attachment-service", () => ({
   mapTaskAttachmentResponse: vi.fn((projectId: string, taskId: string, attachment: Record<string, unknown>) => ({

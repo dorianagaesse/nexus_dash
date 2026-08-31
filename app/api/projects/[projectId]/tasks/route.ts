@@ -10,7 +10,10 @@ import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-service";
 import { listProjectKanbanTasks } from "@/lib/services/project-service";
-import { createTaskForProject } from "@/lib/services/project-task-service";
+import {
+  createTaskForProject,
+  validateTaskCreateFieldTypes,
+} from "@/lib/services/project-task-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 import { mapTaskEpicSummary } from "@/lib/epic";
 import { mapTaskPersonSummary } from "@/lib/task-person";
@@ -162,30 +165,13 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     title = typeof payload.title === "string" ? payload.title.trim() : "";
     description =
       typeof payload.description === "string" ? payload.description.trim() : "";
-    if (
-      payload.deadlineDate !== undefined &&
-      payload.deadlineDate !== null &&
-      typeof payload.deadlineDate !== "string"
-    ) {
-      return NextResponse.json({ error: "deadline-invalid" }, { status: 400 });
+    const fieldTypeError = validateTaskCreateFieldTypes(payload);
+    if (fieldTypeError) {
+      return NextResponse.json({ error: fieldTypeError }, { status: 400 });
     }
     deadlineDate =
       typeof payload.deadlineDate === "string" ? payload.deadlineDate.trim() : "";
-    if (
-      payload.epicId !== undefined &&
-      payload.epicId !== null &&
-      typeof payload.epicId !== "string"
-    ) {
-      return NextResponse.json({ error: "epic-invalid" }, { status: 400 });
-    }
     epicId = typeof payload.epicId === "string" ? payload.epicId.trim() || null : null;
-    if (
-      payload.assigneeUserId !== undefined &&
-      payload.assigneeUserId !== null &&
-      typeof payload.assigneeUserId !== "string"
-    ) {
-      return NextResponse.json({ error: "assignee-invalid" }, { status: 400 });
-    }
     assigneeUserId =
       typeof payload.assigneeUserId === "string"
         ? payload.assigneeUserId.trim() || null

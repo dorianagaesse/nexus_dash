@@ -297,6 +297,49 @@ describe("POST /api/projects/:projectId/tasks/bulk", () => {
     });
   });
 
+  test("rejects invalid create field types without blocking valid siblings", async () => {
+    projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
+      ok: true,
+      data: { task: buildTaskPayload({ id: "task-new" }) },
+    });
+    projectTaskServiceMock.updateTaskForProject.mockResolvedValueOnce({
+      ok: true,
+      data: { task: buildTaskPayload({ id: "task-a" }) },
+    });
+
+    const response = await POST(
+      bulkRequest({
+        operations: [
+          { type: "create", task: { title: "Valid create" } },
+          { type: "create", task: { title: "Broken create", deadlineDate: 20260901 } },
+          { type: "update", taskId: "task-a", changes: { title: "A" } },
+        ],
+      }) as never,
+      bulkRouteParams("p1")
+    );
+
+    expect(response.status).toBe(200);
+    const payload = (await readJson(response)) as {
+      results: Array<{ index: number; ok: boolean; status: number; taskId?: string; error?: string }>;
+    };
+
+    expect(
+      payload.results.map(({ index, ok, status, taskId, error }) => ({
+        index,
+        ok,
+        status,
+        taskId,
+        error,
+      }))
+    ).toEqual([
+      { index: 0, ok: true, status: 201, taskId: "task-new", error: undefined },
+      { index: 1, ok: false, status: 400, taskId: undefined, error: "deadline-invalid" },
+      { index: 2, ok: true, status: 200, taskId: "task-a", error: undefined },
+    ]);
+    expect(projectTaskServiceMock.createTaskForProject).toHaveBeenCalledTimes(1);
+    expect(projectTaskServiceMock.updateTaskForProject).toHaveBeenCalledTimes(1);
+  });
+
   test("delegates update and status operations to the single-item services", async () => {
     projectTaskServiceMock.updateTaskForProject.mockResolvedValueOnce({
       ok: true,

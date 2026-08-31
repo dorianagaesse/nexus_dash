@@ -15,6 +15,7 @@ import {
   isTaskStatusTransitionPayload,
   moveTaskStatusForProject,
   updateTaskForProject,
+  validateTaskCreateFieldTypes,
   type CreateTaskForProjectInput,
   type TaskStatusTransitionPayload,
   type UpdateTaskPayload,
@@ -225,6 +226,12 @@ export async function POST(
 
   for (const [index, operation] of operations.entries()) {
     if (operation.type === "create") {
+      const fieldTypeError = validateTaskCreateFieldTypes(operation.task);
+      if (fieldTypeError) {
+        results.push({ index, ok: false, status: 400, error: fieldTypeError });
+        continue;
+      }
+
       const result = await createTaskForProject(
         buildCreateInput(operation, actorUserId, projectId, agentAccess)
       );
