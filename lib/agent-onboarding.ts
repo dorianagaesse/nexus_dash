@@ -240,6 +240,11 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     title: "List tasks",
     description: "List project tasks visible to the scoped credential.",
     requiredScopes: ["task:read"],
+    notes: [
+      "Every task includes a canonical labels: string[] field. The legacy label and labelsJson fields remain for compatibility and are deprecated.",
+      "Optional epicId and label query parameters filter the list server-side. They compose with AND; an unknown epicId returns an empty list. Label matching is case-insensitive on whole label values.",
+      "The response echoes the effective filters in the filters object.",
+    ],
   },
   {
     tag: "Tasks",
@@ -252,8 +257,10 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     notes: [
       "Canonical agent format is application/json; multipart/form-data remains supported for browser-oriented flows.",
       "deadlineDate uses YYYY-MM-DD when provided.",
+      "Provide labels as a string array. Task responses return the canonical labels field.",
       "Use attachmentLinks as an array of { name, url } objects.",
       "Use the direct-upload attachment routes for binary files and images.",
+      "201 responses include taskId and the complete created task covering labels, status, ordering position, epic, assignment, timestamps, attachments, and relations, so no follow-up read is needed.",
     ],
   },
   {
@@ -264,7 +271,12 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     description: "Update task metadata, rich text content, labels, and relations.",
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
-    notes: ["Set deadlineDate to null or an empty string to clear the deadline."],
+    notes: [
+      "True partial update: only the fields present in the request body change; omitted fields are preserved.",
+      "Set deadlineDate to null to clear the deadline.",
+      "Send labels as a string array to replace the full label set; an empty array clears all labels. The legacy singular label field remains accepted for compatibility.",
+      "Set epicId or assigneeUserId to null to clear the epic link or assignment, and relatedTaskIds to an empty array to remove all relations.",
+    ],
   },
   {
     tag: "Tasks",
@@ -814,9 +826,9 @@ export function buildAgentSmokeTestExample(): string {
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  --output "./downloaded-smoke-image.png"',
     "",
-    "# Delete the task when finished",
-    'curl -X DELETE "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID" \\',
-    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
+    "# The completed task stays archived. Use the recommended read + write",
+    "# credential preset (no delete scope) for non-destructive missions;",
+    "# deleting tasks requires the separate task:delete scope and the owner role.",
   ].join("\n");
 }
 
@@ -1464,6 +1476,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             "position",
             "label",
             "labelsJson",
+            "labels",
             "createdAt",
             "updatedAt",
             "epic",
@@ -1492,8 +1505,24 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               enum: TASK_STATUSES,
             },
             position: { type: "integer" },
-            label: { type: ["string", "null"] },
-            labelsJson: { type: ["string", "null"] },
+            label: {
+              type: ["string", "null"],
+              deprecated: true,
+              description:
+                "Legacy first-label value kept for compatibility. Use labels instead.",
+            },
+            labelsJson: {
+              type: ["string", "null"],
+              deprecated: true,
+              description:
+                "Legacy JSON-encoded label array kept for compatibility. Use labels instead.",
+            },
+            labels: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "Canonical label list derived from labelsJson with the legacy label fallback. Empty when the task has no labels.",
+            },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
             epic: {
@@ -1536,12 +1565,28 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
         TaskListResponse: {
           type: "object",
-          required: ["tasks"],
+          required: ["tasks", "filters"],
           properties: {
             tasks: {
               type: "array",
               items: {
                 $ref: "#/components/schemas/TaskRecord",
+              },
+            },
+            filters: {
+              type: "object",
+              required: ["epicId", "label"],
+              properties: {
+                epicId: {
+                  type: ["string", "null"],
+                  description:
+                    "The effective epic filter applied to this response, or null when absent.",
+                },
+                label: {
+                  type: ["string", "null"],
+                  description:
+                    "The effective label filter applied to this response, or null when absent.",
+                },
               },
             },
           },
@@ -1577,32 +1622,67 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
         TaskCreateResponse: {
           type: "object",
-          required: ["taskId"],
+          required: ["taskId", "task"],
           properties: {
             taskId: { type: "string" },
+            task: {
+              $ref: "#/components/schemas/TaskRecord",
+              description:
+                "The complete created task including canonical labels, status, ordering position, epic, assignment, timestamps, attachments, and relations, so generated clients do not need a follow-up read.",
+            },
           },
         },
         TaskUpdateRequest: {
           type: "object",
-          required: ["title"],
+          description:
+            "True partial update: every field is optional and only the fields present in the request body change. Omitted fields are preserved.",
           properties: {
-            title: { type: "string" },
-            label: { type: "string" },
+            title: {
+              type: "string",
+              description:
+                "Replace the title. When provided it must be at least 2 characters.",
+            },
+            label: {
+              type: "string",
+              deprecated: true,
+              description:
+                "Legacy singular label input. Prefer labels; when provided it replaces the full label set.",
+            },
             labels: {
               type: "array",
               items: { type: "string" },
+              description:
+                "Replace the full label set with this array. An empty array clears all labels.",
             },
-            description: { type: "string" },
+            description: {
+              type: "string",
+              description: "Replace the rich-text description.",
+            },
             deadlineDate: {
               type: ["string", "null"],
               format: "date",
+              description:
+                "Replace the deadline using YYYY-MM-DD. Omit to preserve; null clears the deadline.",
             },
-            epicId: { type: ["string", "null"] },
-            assigneeUserId: { type: ["string", "null"] },
-            blockedFollowUpEntry: { type: "string" },
+            epicId: {
+              type: ["string", "null"],
+              description: "Replace the epic link. Omit to preserve; null clears it.",
+            },
+            assigneeUserId: {
+              type: ["string", "null"],
+              description:
+                "Replace the assignee. Omit to preserve; null clears the assignment.",
+            },
+            blockedFollowUpEntry: {
+              type: "string",
+              description:
+                "Append an entry to the blocked follow-up timeline when the task is Blocked.",
+            },
             relatedTaskIds: {
               type: "array",
               items: { type: "string" },
+              description:
+                "Replace the related-task set. Omit to preserve; an empty array removes all relations.",
             },
           },
         },
@@ -1611,81 +1691,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           required: ["task"],
           properties: {
             task: {
-              type: "object",
-              required: [
-                "id",
-                "reference",
-                "title",
-                "label",
-                "labelsJson",
-                "description",
-                "deadlineDate",
-                "commentCount",
-                "blockedNote",
-                "status",
-                "position",
-                "archivedAt",
-                "epic",
-                "assignee",
-                "createdBy",
-                "updatedBy",
-                "createdAt",
-                "updatedAt",
-                "relatedTasks",
-                "blockedFollowUps",
-              ],
-              properties: {
-                id: { type: "string" },
-                reference: {
-                  type: "string",
-                  pattern: "^ND-[1-9][0-9]*$",
-                },
-                title: { type: "string" },
-                label: { type: ["string", "null"] },
-                labelsJson: { type: ["string", "null"] },
-                description: { type: ["string", "null"] },
-                deadlineDate: { type: ["string", "null"], format: "date" },
-                commentCount: { type: "integer" },
-                blockedNote: { type: ["string", "null"] },
-                status: {
-                  type: "string",
-                  enum: TASK_STATUSES,
-                },
-                position: { type: "integer" },
-                archivedAt: { type: ["string", "null"], format: "date-time" },
-                epic: {
-                  anyOf: [
-                    { $ref: "#/components/schemas/TaskEpicSummary" },
-                    { type: "null" },
-                  ],
-                },
-                assignee: {
-                  anyOf: [
-                    { $ref: "#/components/schemas/TaskCommentAuthor" },
-                    { type: "null" },
-                  ],
-                },
-                createdBy: {
-                  $ref: "#/components/schemas/TaskCommentAuthor",
-                },
-                updatedBy: {
-                  $ref: "#/components/schemas/TaskCommentAuthor",
-                },
-                createdAt: { type: "string", format: "date-time" },
-                updatedAt: { type: "string", format: "date-time" },
-                relatedTasks: {
-                  type: "array",
-                  items: {
-                    $ref: "#/components/schemas/RelatedTaskSummary",
-                  },
-                },
-                blockedFollowUps: {
-                  type: "array",
-                  items: {
-                    $ref: "#/components/schemas/TaskBlockedFollowUp",
-                  },
-                },
-              },
+              $ref: "#/components/schemas/TaskRecord",
             },
           },
         },
@@ -2137,7 +2143,25 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         get: {
           ...buildOperationMetadata("GET", "/api/projects/{projectId}/tasks"),
           security: [{ BearerAuth: [] }],
-          parameters: [{ $ref: "#/components/parameters/ProjectId" }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            {
+              name: "epicId",
+              in: "query",
+              required: false,
+              schema: { type: "string" },
+              description:
+                "Return only tasks linked to this epic. An unknown epicId yields an empty list.",
+            },
+            {
+              name: "label",
+              in: "query",
+              required: false,
+              schema: { type: "string" },
+              description:
+                "Return only tasks carrying this label. Matching is case-insensitive on whole label values, never substrings. When both filters are present, they compose with AND.",
+            },
+          ],
           responses: {
             200: {
               description: "Task list returned",

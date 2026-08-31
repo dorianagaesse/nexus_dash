@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.38.0 - 2026-08-30
+## v0.44.0 - 2026-08-31
 
 - Agent API now supports a focused single-task status transition through
   `POST /api/projects/{projectId}/tasks/{taskId}/status` with optional
@@ -16,6 +16,66 @@ SHA, deployment URL, and workflow run belong in release evidence.
   `completedAt` semantics, and unarchive-on-move behavior.
 - Full-board reorder stays available for bulk ordering; the OpenAPI contract
   and onboarding guidance point single-task moves at the new route.
+- Cross-column moves now compact the source lane so later appends cannot collide with existing positions, and the response task carries the updated `completedAt`.
+
+
+## v0.43.0 - 2026-08-31
+
+- Agent task listing now supports server-side `epicId` and `label` query
+  filters that compose with AND, with case-insensitive whole-label matching
+  across legacy and JSON label storage, an empty list for unknown epics, and
+  an echoed `filters` object in the response.
+
+## v0.42.0 - 2026-08-31
+
+- The agent OpenAPI contract now documents the complete task creation
+  response: `TaskCreateResponse` includes both `taskId` and the full created
+  task, and `TaskUpdateResponse` references the shared `TaskRecord` schema.
+- Task create and update responses now include `completedAt`, completing the
+  runtime payload alignment with `TaskRecord`.
+
+## v0.41.0 - 2026-08-31
+
+- The agent OpenAPI contract now documents true partial PATCH semantics for
+  task updates: `TaskUpdateRequest` declares no required fields, every field
+  describes its omit-vs-null behavior, and the legacy singular `label` input
+  is marked deprecated in favor of `labels`.
+- `null` is now the sole documented clear value for `deadlineDate`, matching
+  the `epicId` and `assigneeUserId` contract pattern.
+
+## v0.40.0 - 2026-08-31
+
+- Agent task API responses now include a canonical `labels` string array on
+  every task (list, create, and update) while keeping the legacy `label` and
+  `labelsJson` fields as deprecated compatibility output.
+- The OpenAPI contract documents `labels` in `TaskRecord` and
+  `TaskUpdateResponse` and marks the legacy label fields deprecated.
+
+## v0.39.0 - 2026-08-31
+
+- Agent credential creation now offers one-click scope presets with the
+  recommended non-destructive "Read + write (no delete)" preset selected by
+  default, so routine agent missions no longer steer toward task deletion.
+- Onboarding guidance and the hosted smoke-test example no longer grant or
+  exercise `task:delete` for non-destructive task work.
+
+## v0.38.1 - 2026-08-31
+
+- Fixed Google Calendar events created or edited in the project dashboard
+  shifting by the timezone offset: the form now submits explicit ISO instants,
+  so the wall-clock time the user selects is preserved regardless of the
+  server or Google Calendar timezone.
+
+## v0.38.0 - 2026-08-30
+
+- Added a public, unauthenticated NexusDash privacy policy with clear account,
+  workspace, security, service-provider, retention, deletion, and user-choice
+  disclosures.
+- Documented the exact Google Calendar event scope, on-demand event processing,
+  encrypted OAuth token storage, access-removal options, and compliance with
+  the Google API Services User Data Policy Limited Use requirements.
+- Linked the policy from the public sign-in homepage and added canonical page
+  metadata plus responsive Playwright coverage.
 
 ## v0.37.2 - 2026-08-25
 
