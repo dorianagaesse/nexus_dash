@@ -4,6 +4,7 @@ import {
   AGENT_API_ENDPOINTS,
   buildAgentOpenApiDocument,
 } from "@/lib/agent-onboarding";
+import { MAX_BULK_TASK_OPERATIONS } from "@/lib/task-bulk";
 import { TASK_STATUSES } from "@/lib/task-status";
 
 describe("agent-onboarding contract", () => {
@@ -71,7 +72,70 @@ describe("agent-onboarding contract", () => {
     ).toBe("#/components/schemas/TaskRecord");
   });
 
-test("documents the canonical task labels contract", () => {
+  test("documents the bounded bulk task operations surface", () => {
+    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
+
+    const endpoint = AGENT_API_ENDPOINTS.find(
+      (entry) => entry.path === "/api/projects/{projectId}/tasks/bulk"
+    );
+    expect(endpoint).toMatchObject({
+      method: "POST",
+      tag: "Tasks",
+      requiredScopes: ["task:write"],
+      requestContentType: "application/json",
+    });
+    expect(endpoint?.notes?.join(" ")).toContain(
+      String(MAX_BULK_TASK_OPERATIONS)
+    );
+
+    const requestSchema = document.components.schemas.TaskBulkRequest;
+    expect(requestSchema.required).toEqual(["operations"]);
+    expect(requestSchema.properties.operations.minItems).toBe(1);
+    expect(requestSchema.properties.operations.maxItems).toBe(
+      MAX_BULK_TASK_OPERATIONS
+    );
+    const operationRefs = requestSchema.properties.operations.items.oneOf.map(
+      (entry: { $ref: string }) => entry.$ref
+    );
+    expect(operationRefs).toEqual([
+      "#/components/schemas/TaskBulkCreateOperation",
+      "#/components/schemas/TaskBulkUpdateOperation",
+      "#/components/schemas/TaskBulkStatusOperation",
+    ]);
+
+    expect(document.components.schemas.TaskBulkCreateOperation.properties.type.enum).toEqual([
+      "create",
+    ]);
+    expect(document.components.schemas.TaskBulkUpdateOperation.required).toEqual([
+      "type",
+      "taskId",
+      "changes",
+    ]);
+    expect(
+      document.components.schemas.TaskBulkUpdateOperation.properties.changes.$ref
+    ).toBe("#/components/schemas/TaskUpdateRequest");
+    expect(document.components.schemas.TaskBulkStatusOperation.required).toEqual([
+      "type",
+      "taskId",
+      "status",
+    ]);
+
+    const resultSchema = document.components.schemas.TaskBulkResult;
+    expect(resultSchema.required).toEqual(["index", "ok", "status"]);
+    expect(resultSchema.properties.task.$ref).toBe(
+      "#/components/schemas/TaskRecord"
+    );
+
+    const path = document.paths["/api/projects/{projectId}/tasks/bulk"];
+    expect(path.post.requestBody.content["application/json"].schema.$ref).toBe(
+      "#/components/schemas/TaskBulkRequest"
+    );
+    expect(path.post.responses[200].content["application/json"].schema.$ref).toBe(
+      "#/components/schemas/TaskBulkResponse"
+    );
+  });
+
+  test("documents the canonical task labels contract", () => {
     const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
     const taskRecord = document.components.schemas.TaskRecord;
     const updateResponse = document.components.schemas.TaskUpdateResponse;

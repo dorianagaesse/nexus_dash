@@ -8,6 +8,15 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.45.0 - 2026-08-31
+
+- Agent API now supports bounded bulk task operations through
+  `POST /api/projects/{projectId}/tasks/bulk` with up to 50 create, update,
+  and status operations per request, sequential deterministic execution,
+  and per-operation results with partial-success semantics. Bulk v1 does not
+  include delete.
+- Bulk create items are validated against the single-item field-type contract before coercion (deadline-invalid, epic-invalid, assignee-invalid).
+
 ## v0.44.0 - 2026-08-31
 
 - Agent API now supports a focused single-task status transition through

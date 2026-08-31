@@ -2,6 +2,7 @@ import { AGENT_SCOPE_DEFINITIONS, type AgentScope } from "@/lib/agent-access";
 import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
 import { EPIC_STATUSES } from "@/lib/epic";
 import { ROADMAP_STATUSES } from "@/lib/roadmap-milestone";
+import { MAX_BULK_TASK_OPERATIONS } from "@/lib/task-bulk";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 
 export const AGENT_API_VERSION = "v1";
@@ -335,6 +336,21 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
   {
     tag: "Tasks",
     method: "POST",
+    path: "/api/projects/{projectId}/tasks/bulk",
+    title: "Bulk task operations",
+    description: "Run bounded create, update, and status operations on tasks in one request.",
+    requiredScopes: ["task:write"],
+    requestContentType: "application/json",
+    notes: [
+      `Each request accepts at most ${MAX_BULK_TASK_OPERATIONS} operations.`,
+      "Operations run sequentially and each one is validated and authorized independently. Failures are reported per operation and do not roll back earlier operations.",
+      "Supported operation types are create, update (partial PATCH semantics), and status. Bulk v1 does not include delete.",
+      "Create operations are not idempotent; update and status operations are.",
+    ],
+  },
+  {
+    tag: "Tasks",
+    method: "POST",
     path: "/api/projects/{projectId}/tasks/{taskId}/archive",
     title: "Archive task",
     description: "Archive a completed task.",
@@ -516,6 +532,7 @@ export const AGENT_LIMITATIONS: readonly string[] = [
   "Epic status and progress are automatic. Agents should not try to set them directly.",
   "Roadmap delete scope is separate from roadmap read/write. Grant it only when the agent should remove phases or events.",
   "Change one task's status through POST /api/projects/{projectId}/tasks/{taskId}/status. Use POST /api/projects/{projectId}/tasks/reorder only for full-board ordering, and PATCH /api/projects/{projectId}/tasks/{taskId} never changes status.",
+  `Bulk task operations are capped at ${MAX_BULK_TASK_OPERATIONS} per request. Failures are reported per operation and do not roll back earlier operations. Bulk v1 does not include delete.`,
   "Rich HTML is sanitized. Inline <img> content should not be treated as a supported image-delivery path; use attachments instead.",
   "Preview deployments may still be protected by Vercel. If a preview returns Vercel's auth wall, make the preview reachable or use an approved bypass before testing the agent flow.",
 ];
@@ -1813,6 +1830,134 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
           },
         },
+        TaskBulkRequest: {
+          type: "object",
+          required: ["operations"],
+          properties: {
+            operations: {
+              type: "array",
+              minItems: 1,
+              maxItems: MAX_BULK_TASK_OPERATIONS,
+              items: {
+                oneOf: [
+                  { $ref: "#/components/schemas/TaskBulkCreateOperation" },
+                  { $ref: "#/components/schemas/TaskBulkUpdateOperation" },
+                  { $ref: "#/components/schemas/TaskBulkStatusOperation" },
+                ],
+              },
+            },
+          },
+        },
+        TaskBulkCreateOperation: {
+          type: "object",
+          required: ["type", "task"],
+          properties: {
+            type: {
+              type: "string",
+              enum: ["create"],
+            },
+            task: {
+              type: "object",
+              required: ["title"],
+              properties: {
+                title: { type: "string" },
+                description: { type: "string" },
+                deadlineDate: { type: "string", format: "date" },
+                epicId: { type: ["string", "null"] },
+                assigneeUserId: { type: ["string", "null"] },
+                labels: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                relatedTaskIds: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                attachmentLinks: {
+                  type: "array",
+                  items: {
+                    $ref: "#/components/schemas/AttachmentLinkInput",
+                  },
+                },
+              },
+            },
+          },
+        },
+        TaskBulkUpdateOperation: {
+          type: "object",
+          required: ["type", "taskId", "changes"],
+          properties: {
+            type: {
+              type: "string",
+              enum: ["update"],
+            },
+            taskId: { type: "string" },
+            changes: {
+              $ref: "#/components/schemas/TaskUpdateRequest",
+            },
+          },
+        },
+        TaskBulkStatusOperation: {
+          type: "object",
+          required: ["type", "taskId", "status"],
+          properties: {
+            type: {
+              type: "string",
+              enum: ["status"],
+            },
+            taskId: { type: "string" },
+            status: {
+              type: "string",
+              enum: TASK_STATUSES,
+            },
+            position: {
+              type: "integer",
+              minimum: 0,
+              description:
+                "0-based index inside the destination column. Omit to append at the end.",
+            },
+          },
+        },
+        TaskBulkResult: {
+          type: "object",
+          required: ["index", "ok", "status"],
+          properties: {
+            index: {
+              type: "integer",
+              description: "The 0-based position of the operation in the request.",
+            },
+            ok: { type: "boolean" },
+            status: {
+              type: "integer",
+              description:
+                "Per-operation HTTP-equivalent status: 201 for created tasks, 200 for updates and status moves, or the error status for failed operations.",
+            },
+            taskId: {
+              type: "string",
+              description: "The task id when the operation succeeded.",
+            },
+            task: {
+              $ref: "#/components/schemas/TaskRecord",
+              description: "The complete task when the operation succeeded.",
+            },
+            error: {
+              type: "string",
+              description: "The machine-readable error code when the operation failed.",
+            },
+          },
+        },
+        TaskBulkResponse: {
+          type: "object",
+          required: ["results"],
+          properties: {
+            results: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/TaskBulkResult",
+              },
+            },
+          },
+        },
         OkResponse: {
           type: "object",
           required: ["ok"],
@@ -2197,6 +2342,39 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 "application/json": {
                   schema: {
                     $ref: "#/components/schemas/TaskCreateResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/tasks/bulk": {
+        post: {
+          ...buildOperationMetadata(
+            "POST",
+            "/api/projects/{projectId}/tasks/bulk"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/TaskBulkRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Bulk operation results",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/TaskBulkResponse",
                   },
                 },
               },

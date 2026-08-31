@@ -47,6 +47,8 @@ import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 
 const MIN_TITLE_LENGTH = 2;
 
+export { MAX_BULK_TASK_OPERATIONS } from "@/lib/task-bulk";
+
 interface ServiceErrorResult {
   ok: false;
   status: number;
@@ -81,7 +83,7 @@ export interface UpdateTaskPayload {
   assigneeUserId?: string | null;
 }
 
-interface CreateTaskForProjectInput {
+export interface CreateTaskForProjectInput {
   actorUserId: string;
   projectId: string;
   title: string;
@@ -96,7 +98,7 @@ interface CreateTaskForProjectInput {
   agentAccess?: AgentProjectAccessContext;
 }
 
-interface UpdatedTaskPayload {
+export interface UpdatedTaskPayload {
   id: string;
   reference: string;
   title: string;
@@ -210,6 +212,35 @@ function parseDeadlineInput(
       deadlineAt: parsedDeadline,
     },
   };
+}
+
+export function validateTaskCreateFieldTypes(payload: {
+  deadlineDate?: unknown;
+  epicId?: unknown;
+  assigneeUserId?: unknown;
+}): string | null {
+  if (
+    payload.deadlineDate !== undefined &&
+    payload.deadlineDate !== null &&
+    typeof payload.deadlineDate !== "string"
+  ) {
+    return "deadline-invalid";
+  }
+  if (
+    payload.epicId !== undefined &&
+    payload.epicId !== null &&
+    typeof payload.epicId !== "string"
+  ) {
+    return "epic-invalid";
+  }
+  if (
+    payload.assigneeUserId !== undefined &&
+    payload.assigneeUserId !== null &&
+    typeof payload.assigneeUserId !== "string"
+  ) {
+    return "assignee-invalid";
+  }
+  return null;
 }
 
 function parseRelatedTaskIdsJson(rawValue: string): string[] | null {
