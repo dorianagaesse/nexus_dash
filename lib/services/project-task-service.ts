@@ -1172,6 +1172,20 @@ export async function moveTaskStatusForProject(
         },
       });
 
+      if (!sameColumn) {
+        // Compact the source lane so lanes stay dense: a later append uses the
+        // lane count as its position and would collide with any hole left by
+        // this move.
+        await db.task.updateMany({
+          where: {
+            projectId,
+            status: existingTask.status,
+            position: { gt: existingTask.position },
+          },
+          data: { position: { decrement: 1 } },
+        });
+      }
+
       await touchProjectActivity({ db, projectId });
 
       const task = await loadTaskMutationPayload(db, taskId);

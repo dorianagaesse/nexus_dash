@@ -52,6 +52,7 @@ function buildPayloadTask(overrides: Record<string, unknown> = {}) {
     labelsJson: null,
     description: null,
     deadlineAt: null,
+    completedAt: null,
     _count: { comments: 0 },
     blockedNote: null,
     status: "Done",
@@ -157,7 +158,10 @@ describe("POST /api/projects/:projectId/tasks/:taskId/status", () => {
     const payload = await readJson(response);
     expect(payload.task).toMatchObject({ id: "t1", status: "Done" });
 
-    expect(prismaMock.task.updateMany).not.toHaveBeenCalled();
+    expect(prismaMock.task.updateMany).toHaveBeenCalledWith({
+      where: { projectId: "p1", status: "Backlog", position: { gt: 1 } },
+      data: { position: { decrement: 1 } },
+    });
     expect(prismaMock.task.update).toHaveBeenCalledTimes(1);
     const movedUpdate = prismaMock.task.update.mock.calls[0][0];
     expect(movedUpdate.where).toEqual({ id: "t1" });
@@ -183,7 +187,10 @@ describe("POST /api/projects/:projectId/tasks/:taskId/status", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(prismaMock.task.updateMany).not.toHaveBeenCalled();
+    expect(prismaMock.task.updateMany).toHaveBeenCalledWith({
+      where: { projectId: "p1", status: "Backlog", position: { gt: 1 } },
+      data: { position: { decrement: 1 } },
+    });
     expect(prismaMock.task.update.mock.calls[0][0].data.position).toBe(2);
   });
 
@@ -229,8 +236,32 @@ describe("POST /api/projects/:projectId/tasks/:taskId/status", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(prismaMock.task.updateMany).not.toHaveBeenCalled();
+    expect(prismaMock.task.updateMany).toHaveBeenCalledWith({
+      where: { projectId: "p1", status: "Backlog", position: { gt: 1 } },
+      data: { position: { decrement: 1 } },
+    });
     expect(prismaMock.task.update.mock.calls[0][0].data.position).toBe(2);
+  });
+
+  test("compacts the source lane after a cross-column move", async () => {
+    mockExistingTask({ status: "Backlog", position: 1 });
+    prismaMock.task.findMany.mockResolvedValueOnce([]);
+    prismaMock.task.findUnique.mockResolvedValueOnce(buildPayloadTask());
+
+    const response = await POST(
+      statusRequest({ status: "Done" }) as never,
+      statusRouteParams("p1", "t1")
+    );
+
+    expect(response.status).toBe(200);
+    const compactionCall = prismaMock.task.updateMany.mock.calls[0][0];
+    expect(compactionCall.where).toEqual({
+      projectId: "p1",
+      status: "Backlog",
+      position: { gt: 1 },
+    });
+    expect(compactionCall.data).toEqual({ position: { decrement: 1 } });
+    expect(prismaMock.task.update).toHaveBeenCalledTimes(1);
   });
 
   test("shifts same-column tasks down when moving the task earlier", async () => {
@@ -298,10 +329,13 @@ describe("POST /api/projects/:projectId/tasks/:taskId/status", () => {
     expect(prismaMock.task.update.mock.calls[2][0].data.position).toBe(2);
   });
 
-  test("sets completedAt when moving into Done", async () => {
+  test("sets completedAt when moving into Done and returns it", async () => {
+    const doneDate = new Date("2026-08-31T10:00:00.000Z");
     mockExistingTask();
     prismaMock.task.findMany.mockResolvedValueOnce([]);
-    prismaMock.task.findUnique.mockResolvedValueOnce(buildPayloadTask());
+    prismaMock.task.findUnique.mockResolvedValueOnce(
+      buildPayloadTask({ completedAt: doneDate })
+    );
 
     const response = await POST(
       statusRequest({ status: "Done" }) as never,
@@ -310,6 +344,10 @@ describe("POST /api/projects/:projectId/tasks/:taskId/status", () => {
 
     expect(response.status).toBe(200);
     expect(prismaMock.task.update.mock.calls[0][0].data.completedAt).toBeInstanceOf(Date);
+    const payload = await readJson(response);
+    expect(payload.task).toMatchObject({
+      completedAt: doneDate.toISOString(),
+    });
   });
 
   test("preserves completedAt when moving within Done", async () => {
@@ -327,11 +365,13 @@ describe("POST /api/projects/:projectId/tasks/:taskId/status", () => {
     expect(prismaMock.task.update.mock.calls[0][0].data.completedAt).toBe(existingDoneDate);
   });
 
-  test("clears completedAt when moving out of Done", async () => {
+  test("clears completedAt when moving out of Done and returns it null", async () => {
     const existingDoneDate = new Date("2026-02-01T12:00:00.000Z");
     mockExistingTask({ status: "Done", completedAt: existingDoneDate });
     prismaMock.task.findMany.mockResolvedValueOnce([]);
-    prismaMock.task.findUnique.mockResolvedValueOnce(buildPayloadTask({ status: "Backlog" }));
+    prismaMock.task.findUnique.mockResolvedValueOnce(
+      buildPayloadTask({ status: "Backlog", completedAt: null })
+    );
 
     const response = await POST(
       statusRequest({ status: "Backlog" }) as never,
@@ -340,6 +380,8 @@ describe("POST /api/projects/:projectId/tasks/:taskId/status", () => {
 
     expect(response.status).toBe(200);
     expect(prismaMock.task.update.mock.calls[0][0].data.completedAt).toBeNull();
+    const payload = await readJson(response);
+    expect(payload.task).toMatchObject({ completedAt: null });
   });
 
   test("unarchives an archived task when moving it", async () => {
