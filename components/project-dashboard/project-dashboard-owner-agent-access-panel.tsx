@@ -13,8 +13,11 @@ import {
 } from "lucide-react";
 
 import {
+  AGENT_CREDENTIAL_PRESETS,
   AGENT_SCOPE_DEFINITIONS,
+  DEFAULT_AGENT_CREDENTIAL_PRESET_ID,
   MAX_AGENT_CREDENTIAL_LABEL_LENGTH,
+  resolveAgentCredentialPreset,
   type AgentScope,
 } from "@/lib/agent-access";
 import {
@@ -103,7 +106,12 @@ export function ProjectDashboardOwnerAgentAccessPanel({
 }: ProjectDashboardOwnerAgentAccessPanelProps) {
   const [labelDraft, setLabelDraft] = useState("");
   const [expiryDraft, setExpiryDraft] = useState<(typeof EXPIRY_OPTIONS)[number]["value"]>("");
-  const [selectedScopes, setSelectedScopes] = useState<AgentScope[]>([]);
+  const [selectedScopes, setSelectedScopes] = useState<AgentScope[]>(() => {
+    const defaultPreset = resolveAgentCredentialPreset(
+      DEFAULT_AGENT_CREDENTIAL_PRESET_ID
+    );
+    return defaultPreset ? [...defaultPreset.scopes] : [];
+  });
   const [formError, setFormError] = useState<string | null>(null);
   const [hasCopiedSecret, setHasCopiedSecret] = useState(false);
   const [hasCopiedQuickstart, setHasCopiedQuickstart] = useState(false);
@@ -126,7 +134,10 @@ export function ProjectDashboardOwnerAgentAccessPanel({
     if (latestIssuedSecret.mode === "created") {
       setLabelDraft("");
       setExpiryDraft("");
-      setSelectedScopes([]);
+      const defaultPreset = resolveAgentCredentialPreset(
+        DEFAULT_AGENT_CREDENTIAL_PRESET_ID
+      );
+      setSelectedScopes(defaultPreset ? [...defaultPreset.scopes] : []);
       setFormError(null);
     }
   }, [latestIssuedSecret]);
@@ -173,6 +184,16 @@ export function ProjectDashboardOwnerAgentAccessPanel({
               AGENT_SCOPE_DEFINITIONS.findIndex((entry) => entry.scope === right)
           )
     );
+    setFormError(null);
+  };
+
+  const handleApplyPreset = (presetId: string) => {
+    const preset = resolveAgentCredentialPreset(presetId);
+    if (!preset) {
+      return;
+    }
+
+    setSelectedScopes([...preset.scopes]);
     setFormError(null);
   };
 
@@ -285,8 +306,46 @@ export function ProjectDashboardOwnerAgentAccessPanel({
             <div className="space-y-1">
               <p className="text-sm font-medium">Scopes</p>
               <p className="text-xs text-muted-foreground">
-                Select only what this credential needs. Delete scopes do not imply read or write.
+                Start from a preset, then adjust with the checkboxes. Most agents only
+                need read + write without delete.
               </p>
+            </div>
+
+            <div className="grid gap-2 md:grid-cols-3" role="group" aria-label="Scope presets">
+              {AGENT_CREDENTIAL_PRESETS.map((preset) => {
+                const isActive =
+                  selectedScopes.length === preset.scopes.length &&
+                  preset.scopes.every((scope) => selectedScopes.includes(scope));
+
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleApplyPreset(preset.id)}
+                    aria-pressed={isActive}
+                    className={`rounded-xl border p-3 text-left transition-colors ${
+                      isActive
+                        ? "border-primary bg-primary/10"
+                        : "border-border/60 bg-card hover:border-primary/40"
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5 text-sm font-medium">
+                      {preset.label}
+                      {preset.recommended ? (
+                        <Badge
+                          variant="outline"
+                          className="rounded-full px-2 py-0 text-[10px]"
+                        >
+                          Recommended
+                        </Badge>
+                      ) : null}
+                    </span>
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      {preset.description}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">

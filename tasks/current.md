@@ -1,63 +1,40 @@
 # Current Task
 
-## TASK-376: Agent task creation OpenAPI complete response contract
+## Backlog migration to Nexus Dash
 
 ## Status
 
-In progress on `feature/task-376-create-response-contract` (worktree
-`../nexus_dash_task376`, stacked on `feature/task-373-labels-canonical-field`).
+Complete (2026-08-31). The full backlog previously tracked in
+`tasks/backlog.md` now lives in the Nexus Dash project "Nexus Dash" at
+<https://nexus-dash.app> (agent credentials in `.config/.nd-nexus-dash.env`).
 
-## Context
+## What changed
 
-The runtime `POST /api/projects/{projectId}/tasks` response already includes
-both `taskId` and the complete created `task`, but the published
-`TaskCreateResponse` schema documents only `{ taskId }`, forcing generated
-clients to perform a follow-up read. Additionally, the shared mutation
-payload omits `completedAt`, so the runtime task shape is not fully aligned
-with the `TaskRecord` schema that covers list responses.
+- 5 epics and 246 tasks created via the agent API, with descriptions carrying
+  the original backlog entries, program-section labels, Brief/Report
+  attachment links, and dependency relationships.
+- Kanban columns: Backlog (72), In Progress (2: TASK-100, TASK-406),
+  Done (172).
+- `tasks/backlog.md` is now a migration notice; Nexus Dash is the source of
+  truth for task management.
 
-## Scope
+## Next task selection
 
-- Add `completedAt` to the shared mutation payload
-  (`UpdatedTaskPayload` + `loadTaskMutationPayload` in
-  `lib/services/project-task-service.ts`) so PATCH and create responses
-  match the full `TaskRecord` contract.
-- Update the OpenAPI `TaskCreateResponse` schema to require `taskId` and
-  `task` with `task` referencing `TaskRecord`, describing the canonical
-  labels, status, ordering, epic, assignment, and timestamps.
-- Consolidate the duplicated inline `TaskUpdateResponse` task object into a
-  `$ref` to `TaskRecord` now that runtime parity holds.
-- Update the create endpoint onboarding notes and refresh route tests that
-  pinned the legacy `{ taskId }`-only response shape.
-- Keep the runtime defensive `{ taskId }` fallback branch untouched
-  (unreachable with the current service contract).
+The next task is picked from the Nexus Dash kanban (In Progress lane first,
+then Backlog in lane order) instead of `tasks/backlog.md`.
 
 ## Acceptance Criteria
 
-1. Every successful create and update response carries `taskId` (create)
-   plus the complete task including `completedAt`, `labels`, attachments,
-   and relations, matching `TaskRecord`.
-2. `TaskCreateResponse.required` equals `["taskId", "task"]` and
-   `TaskCreateResponse.properties.task` references `TaskRecord`.
-3. `TaskUpdateResponse` uses `$ref: TaskRecord` for its task instead of a
-   divergent inline schema.
-4. Contract tests assert both schemas so drift is caught.
+1. Every entry from the pre-migration `tasks/backlog.md` exists in Nexus Dash
+   with its ID, title, status string, rationale, dependencies, and section
+   grouping preserved.
+2. Dependencies are represented as task relations.
+3. Brief/Report files are attached where referenced.
+4. Verification confirms the Nexus Dash board matches the migration plan.
 
 ## Definition Of Done
 
-- Updated route/contract tests pass in
-  `tests/api/task-create.route.test.ts`, `tests/api/task-update.route.test.ts`,
-  and `tests/lib/agent-onboarding.test.ts`.
-- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  and `npm run build` pass; `npm run release:check` passes with the
-  `feature/*` minor version bump from the 373 base (`0.38.0` → `0.39.0`).
-- A ready-for-review PR is open targeting the TASK-373 branch, with
-  retargeting to `origin/main` noted after 373 merges.
-- `tasks/current.md`, `tasks/backlog.md`, `journal.md`, and `CHANGELOG.md`
-  are updated in the same PR.
-
-## Runtime Assumptions
-
-- `loadTaskMutationPayload` already selects everything else `TaskRecord`
-  requires; `completedAt` is the only missing field (labels arrived with
-  TASK-373 on this base branch).
+- Migration verified against the plan (columns, ordering, labels, epics,
+  relations, descriptions, attachments).
+- `tasks/backlog.md`, `tasks/current.md`, and `journal.md` updated in the
+  same PR.

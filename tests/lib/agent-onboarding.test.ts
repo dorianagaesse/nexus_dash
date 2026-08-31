@@ -72,6 +72,23 @@ describe("agent-onboarding contract", () => {
     expect(updateResponse.required).toEqual(["task"]);
     expect(updateResponse.properties.task.$ref).toBe(
       "#/components/schemas/TaskRecord"
+
+test("documents true partial PATCH semantics for task updates", () => {
+    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
+    const updateRequest = document.components.schemas.TaskUpdateRequest;
+
+    expect(updateRequest.required).toBeUndefined();
+    expect(updateRequest.description).toContain("partial update");
+
+    expect(updateRequest.properties.label.deprecated).toBe(true);
+    expect(updateRequest.properties.deadlineDate.description).toContain("clears");
+    expect(updateRequest.properties.labels.description).toContain("empty array clears");
+    expect(updateRequest.properties.epicId.description).toContain("null clears");
+    expect(updateRequest.properties.assigneeUserId.description).toContain(
+      "null clears"
+    );
+    expect(updateRequest.properties.relatedTaskIds.description).toContain(
+      "empty array removes"
     );
   });
 });

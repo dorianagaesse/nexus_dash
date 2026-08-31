@@ -131,16 +131,21 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 
 ## 7. Active Priorities
 
-From `tasks/current.md` + `tasks/backlog.md`:
-
-1. The prioritized UI/UX remediation sequence is TASK-321, TASK-322, TASK-100,
-   TASK-133, TASK-129, TASK-108, then the TASK-323 verification gate.
+Task management lives in the Nexus Dash project kanban ("Nexus Dash" at
+<https://nexus-dash.app>), the source of truth for status, sequencing, labels,
+epics, and relationships since the 2026-08-31 backlog migration (see
+`tasks/backlog.md`). Currently in progress: TASK-100 (mobile core-flow
+remediation) and TASK-406 (stable Preview OAuth alias); the Backlog lane
+holds the remaining queue in priority order.
 
 ## 8. Source-of-Truth Docs
 
 - Product/runtime overview: `README.md`
 - Agent workflow rules: `agent.md`
 - Current execution scope: `tasks/current.md`
-- Queue and sequencing: `tasks/backlog.md`
+- Task queue, status, and sequencing: the Nexus Dash project kanban
+  (credentials in `.config/.nd-nexus-dash.env`; template in
+  `.nd-nexus-dash.example.env`)
+- Migration record: `tasks/backlog.md`
 - Execution log: `journal.md`
 - Architecture decisions: `adr/decisions.md` + task-specific ADRs in `adr/`
