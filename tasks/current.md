@@ -1,67 +1,40 @@
 # Current Task
 
-## TASK-379: Agent credential presets for read/write access without delete
+## Backlog migration to Nexus Dash
 
 ## Status
 
-In progress on `feature/task-379-credential-presets` (worktree
-`../nexus_dash_task379`, from current `origin/main`).
+Complete (2026-08-31). The full backlog previously tracked in
+`tasks/backlog.md` now lives in the Nexus Dash project "Nexus Dash" at
+<https://nexus-dash.app> (agent credentials in `.config/.nd-nexus-dash.env`).
 
-## Context
+## What changed
 
-Issuing a project-scoped agent credential today means ticking ten raw
-scope checkboxes, and onboarding examples (including the hosted smoke
-test) end with a task deletion, steering agents toward destructive
-permissions they usually do not need. The underlying write/delete scope
-split already exists and is enforced, so this task is about making the
-non-destructive choice the easy, default path: presets in the credential
-form, preset-aware guidance, and onboarding examples that do not grant or
-exercise `task:delete`.
+- 5 epics and 246 tasks created via the agent API, with descriptions carrying
+  the original backlog entries, program-section labels, Brief/Report
+  attachment links, and dependency relationships.
+- Kanban columns: Backlog (72), In Progress (2: TASK-100, TASK-406),
+  Done (172).
+- `tasks/backlog.md` is now a migration notice; Nexus Dash is the source of
+  truth for task management.
 
-## Scope
+## Next task selection
 
-- Add `AGENT_CREDENTIAL_PRESETS` to `lib/agent-access.ts` with
-  validated scope arrays and guidance copy, including:
-  - "Read only" → `["project:read", "task:read"]`
-  - "Read + write (no delete)" → `["project:read", "task:read", "task:write"]` (recommended)
-  - "Full access" → read/write plus `task:delete` (kept for completeness;
-    copy steers away unless destruction is required)
-- Preset chips above the scope checkbox grid in the credential panel;
-  selecting a preset fills the scope selection, and new credential forms
-  start with the non-destructive preset pre-selected. Raw checkboxes stay
-  for advanced editing.
-- Update onboarding guidance: the guide's scope-model card explains the
-  presets and the prefer-no-delete rule; the hosted smoke-test example
-  ends with a non-destructive status transition instead of a task DELETE.
-- No backend changes: the write/delete split is already enforced at the
-  service layer.
+The next task is picked from the Nexus Dash kanban (In Progress lane first,
+then Backlog in lane order) instead of `tasks/backlog.md`.
 
 ## Acceptance Criteria
 
-1. The credential form offers one-click presets that set exactly the
-   documented scope arrays, with the non-destructive read/write preset
-   selected by default for new credentials.
-2. Presets only ever produce valid, vocabulary-ordered scopes accepted by
-   the existing credential service.
-3. Onboarding docs and the smoke-test example no longer instruct agents to
-   grant or use `task:delete` for routine task work, and explain the
-   read/write-without-delete recommendation.
-4. Credential creation, rotation, and revocation behavior is unchanged.
+1. Every entry from the pre-migration `tasks/backlog.md` exists in Nexus Dash
+   with its ID, title, status string, rationale, dependencies, and section
+   grouping preserved.
+2. Dependencies are represented as task relations.
+3. Brief/Report files are attached where referenced.
+4. Verification confirms the Nexus Dash board matches the migration plan.
 
 ## Definition Of Done
 
-- Component tests cover preset application and default pre-selection;
-  lib tests validate preset definitions against the scope vocabulary.
-- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  and `npm run build` pass; `npm run release:check` passes with the
-  `feature/*` minor version bump and CHANGELOG entry.
-- `npm run test:e2e` passes (UI flow touched) against the local PostgreSQL
-  baseline.
-- A ready-for-review PR is open against `origin/main`.
-- `tasks/current.md`, `tasks/backlog.md`, `journal.md`, and `CHANGELOG.md`
-  are updated in the same PR.
-
-## Runtime Assumptions
-
-- TASK-331 (capability vocabulary) remains pending; presets use the
-  existing scope vocabulary and stay compatible with it.
+- Migration verified against the plan (columns, ordering, labels, epics,
+  relations, descriptions, attachments).
+- `tasks/backlog.md`, `tasks/current.md`, and `journal.md` updated in the
+  same PR.

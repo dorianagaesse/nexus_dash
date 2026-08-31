@@ -4,6 +4,18 @@ This file defines repository-specific execution rules. Keep it focused on workfl
 
 ## 1. Startup Context (Per Task)
 
+**Nexus Dash is the source of truth for task management.** The project kanban
+("Nexus Dash" at <https://nexus-dash.app>) owns task status, sequencing,
+labels (work type + priority), epics, relationships, and descriptions.
+`tasks/current.md` remains the repo-side active-task brief; the 2026-08-31
+migration is recorded in `tasks/backlog.md`.
+
+Agent credentials live in `.config/.nd-nexus-dash.env` (gitignored — never
+commit). The committed contract template is `.nd-nexus-dash.example.env`;
+copy it to `.config/.nd-nexus-dash.env` and fill in real values when first
+needed. Exchange the API key at `/api/auth/agent/token` for a short-lived
+bearer token at runtime.
+
 Before coding, align on these files:
 
 1. `tasks/current.md` (active scope and acceptance criteria)
@@ -22,7 +34,9 @@ make the task brief explicit before deep implementation:
   `Definition Of Done` sections; if either is missing or too vague, add or
   tighten them before implementation starts
 
-If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `tasks/backlog.md`, then update `tasks/current.md` before implementation.
+If `tasks/current.md` is complete or invalid, pick the next task from the
+Nexus Dash kanban (In Progress lane first, then Backlog in lane order), then
+update `tasks/current.md` before implementation.
 
 ## 2. Implementation Quality
 
@@ -33,8 +47,8 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
 ## 3. Execution Contract
 
 - One issue maps to one backlog task. If work starts from a GitHub issue,
-  create or identify the matching `TASK-XXX` entry in `tasks/backlog.md` before
-  implementation.
+  create or identify the matching `TASK-XXX` entry in the Nexus Dash project
+  kanban before implementation.
 - One task maps to exactly one branch and one pull request:
   `1 task = 1 branch = 1 PR`.
 - **Single-agent rule:** When only one agent is running, create a branch from
@@ -104,7 +118,7 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
 Update docs in the same PR when behavior/architecture changes:
 
 - `tasks/current.md`: progress + status
-- `tasks/backlog.md`: sequencing/added tasks if scope evolves
+- Nexus Dash kanban: task status, sequencing, and new tasks
 - `journal.md`: meaningful execution events, blockers, decisions, validation outcomes
 - `adr/decisions.md`: architecture-impacting decisions
 - Add/extend a task ADR in `adr/` only when a decision needs deeper rationale
@@ -162,6 +176,8 @@ Notes:
 
 - Server env access must go through `lib/env.server.ts`.
 - Never commit secrets.
+- Nexus Dash agent credentials live in `.config/.nd-nexus-dash.env`
+  (gitignored); the committed template is `.nd-nexus-dash.example.env`.
 - For deploy-affecting changes, validate contracts in:
   - `README.md`
   - `docs/runbooks/vercel-env-contract-and-secrets.md`

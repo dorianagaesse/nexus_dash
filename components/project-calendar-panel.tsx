@@ -24,6 +24,7 @@ import {
   groupEventsByDay,
   mapEventMutationError,
   parseEventForForm,
+  toCalendarEventDateTime,
   toDateInputValue,
   type CalendarEventItem,
   type CalendarEventsResponse,
@@ -212,8 +213,12 @@ export function ProjectCalendarPanel({
       return;
     }
 
-    const startValue = eventAllDay ? eventStartDate : eventStartDateTime;
-    const endValue = eventAllDay ? eventEndDate : eventEndDateTime;
+    const startValue = eventAllDay
+      ? eventStartDate
+      : toCalendarEventDateTime(eventStartDateTime);
+    const endValue = eventAllDay
+      ? eventEndDate
+      : toCalendarEventDateTime(eventEndDateTime);
     if (!startValue || !endValue) {
       setEventFormError("Please provide start and end values.");
       return;
