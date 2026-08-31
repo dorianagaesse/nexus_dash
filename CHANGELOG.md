@@ -8,6 +8,13 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.38.1 - 2026-08-31
+
+- Fixed Google Calendar events created or edited in the project dashboard
+  shifting by the timezone offset: the form now submits explicit ISO instants,
+  so the wall-clock time the user selects is preserved regardless of the
+  server or Google Calendar timezone.
+
 ## v0.38.0 - 2026-08-30
 
 - Added a public, unauthenticated NexusDash privacy policy with clear account,
