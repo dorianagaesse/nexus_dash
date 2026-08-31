@@ -3,6 +3,52 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-31 - TASK-384 Kanban Epic filtering started
+
+- Started the independent feature branch from current `origin/main` commit
+  `77686d69751ead70524e82d05f16522b311abe89` in the dedicated
+  `nexus_dash_task384` worktree; the shared root checkout remains untouched
+  apart from its pre-existing untracked `.claude/` content.
+- Recorded the user's explicit reprioritization of TASK-384 ahead of pending
+  TASK-100, TASK-133, and TASK-108. Those dependencies remain pending, so this
+  work preserves their accessibility and task-flow intent without marking them
+  complete.
+- Kept TASK-384 independent from the open TASK-382 PR: this branch will include
+  its own Epic filter surface, category predicate, and filtered-drop mapping,
+  with later integration responsible for deduplicating shared helpers.
+- Applied the UI/UX Pro Max guidance to the implementation plan: semantic
+  keyboard-operable selection, non-color-only state, visible focus, 44px touch
+  targets, responsive containment, reduced-motion safety, and separate
+  light/dark validation are required.
+- Copilot review is unavailable because the account is out of credits. Per the
+  user's instruction, automated review is deferred to a later DeepSeek pass;
+  local validation, Preview QA, and required GitHub checks remain mandatory.
+- Implemented an isolated Epic filter surface with sorted project Epics,
+  `No epic`, semantic multi-selection, active state, clear-Epics/clear-all
+  actions, and a polite shown/total result status. The board filters active and
+  archived tasks, automatically opens matching archive results, and presents
+  filter-aware lane/mobile counts and empty states to editors and viewers.
+- Added full-column filtered-drop mapping for pointer and keyboard movement.
+  Visible destination anchors determine insertion while hidden tasks keep their
+  relative order; a destination with no visible task appends to its complete
+  persisted column.
+- Added focused predicate/component/drop tests and a dedicated Playwright spec
+  covering one and multiple named Epics, `No epic` alone/combined, clear and
+  zero-result states, archived results, project isolation, viewers, responsive
+  light/dark/reduced-motion/landscape containment, and persisted pointer plus
+  keyboard drops with hidden interleaved tasks.
+- Local validation passed: whitespace, feature release policy, lint, RLS
+  inventory, 1,062 unit/API tests with two skipped, coverage at 91.37%
+  statements / 81.33% branches / 92.20% functions / 91.88% lines, production
+  build, three focused Playwright tests, and the existing Kanban smoke. The full
+  Playwright run passed 35 tests with one Preview-only skip; two unrelated
+  project-navigation setup cases timed out before their target assertions and
+  both complete unchanged specs passed on immediate rerun (9/9).
+- Prepared independent product release `v0.39.0` from the branch's actual
+  `v0.38.0` base. This intentionally matches the still-open TASK-382 branch
+  version and will need ordinary version/changelog reconciliation if both PRs
+  are later integrated into `main`.
+
 # 2026-08-30 - TASK-407 public privacy policy implementation
 
 - Audited the runtime before drafting disclosures: social identity connections

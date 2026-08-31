@@ -1,131 +1,163 @@
 # Current Task
 
-## TASK-407: Public Privacy Policy Page for Google OAuth Production Verification
+## TASK-384: Kanban Task Filtering by Epic
 
 ## Status
 
-Complete (2026-08-30; PR #463). Implementation, local validation, final-commit
-branch Preview validation, required checks, and review monitoring are complete.
+In review on `feature/task-384-kanban-epic-filter` (started 2026-08-31).
+Implementation and the complete local validation baseline are green; branch
+Preview validation and required GitHub checks remain pending.
 
-## Validation Evidence
+## Local Validation Evidence
 
+- `git diff --check`: passed.
+- Release policy passed against `origin/main` for the independent feature bump
+  from `0.38.0` to `0.39.0`.
 - `npm run lint`: passed.
 - `npm run rls:check`: passed.
-- `npm test`: 149 files passed, 2 skipped; 1,055 tests passed, 2 skipped.
-- `npm run test:coverage`: passed at 91.37% statements, 81.33% branches,
-  92.2% functions, and 91.88% lines. The first Windows run hit fixed five-second
-  timeouts in temporary-Git version-policy fixtures; an unchanged warm rerun
-  passed all tests.
-- `npm run build`: passed with process-local localhost database placeholders,
-  Calendar OAuth disabled, and a non-secret local agent-signing placeholder so
-  no repository or deployed secrets were read or changed.
-- `npx playwright test tests/e2e/privacy-policy.spec.ts`: 2 passed against the
-  local development server.
-- Visual QA passed at 390x844 and 1440x1000 in light mode; no horizontal
-  overflow was detected and the policy link remained visible on the homepage.
-- Preview workflow run `33278777919` explicitly fetched and checked out
-  `feature/task-407-public-privacy-policy`, deployed
-  `https://nexus-dash-md7838l2c-dorian-agaesses-projects.vercel.app`, validated
-  deployment identity/readiness, and verified the stable Preview alias.
-- Both focused Playwright tests passed against that immutable Preview URL,
-  proving the homepage link, unauthenticated `/privacy` response, metadata,
-  Google scope, encrypted-token disclosure, Limited Use statement, and mobile
-  overflow behavior.
-- After the evidence-only commit, final Preview workflow run `33279072092`
-  checked out commit `0e3e05e`, passed identity/readiness and stable-alias
-  verification, and published
-  `https://nexus-dash-qv707rgek-dorian-agaesses-projects.vercel.app`. Both
-  focused Playwright tests passed against that final immutable URL.
-- PR #463 passed Quality Core, Playwright E2E, PostgreSQL tenant isolation,
-  container-image, branch-name, and release-policy checks. The automatic review
-  window was monitored through green checks; GitHub produced no Copilot review
-  or inline feedback to triage.
+- Full Vitest run: 151 files passed, 2 skipped; 1,062 tests passed, 2
+  skipped. The worktree `.env` was loaded for required database configuration
+  while preserving Vitest's intended `NODE_ENV=test`.
+- Coverage passed at 91.37% statements, 81.33% branches, 92.20% functions,
+  and 91.88% lines.
+- Production build and TypeScript validation passed with process-local
+  localhost database and non-secret signing/encryption placeholders; no
+  runtime configuration file or secret was changed.
+- Dedicated TASK-384 Playwright spec: 3 passed, covering one/multiple named
+  Epics, `No epic` alone and combined, clear/no-result/archive states, project
+  isolation, viewer behavior, responsive themes, and persisted pointer/keyboard
+  drops with hidden interleaved tasks.
+- Full Playwright run: all TASK-384 tests and the existing Kanban smoke passed;
+  35 passed and 1 Preview-only test skipped. Two unrelated overlay/app-shell
+  setup cases timed out before their target assertions, then both complete
+  unchanged specs passed on immediate rerun (9 passed).
 
-## Context
+## Objective
 
-The production Google OAuth application cannot be published while its consent
-screen is missing a public privacy-policy URL. NexusDash also needs a durable,
-unauthenticated explanation of the information the service handles, with
-specific disclosures for Google identity and Calendar data.
+Let project collaborators focus the Kanban board on tasks linked to one or more
+selected Epics, including an explicit `No epic` option, without weakening
+authorization, archived-task discoverability, responsive usability, or
+drag-and-drop ordering correctness.
+
+## Product Decisions
+
+- Epic selection is a component-local multi-select and resets on fresh
+  navigation; URL persistence is outside this task.
+- Selected Epics use `OR` semantics because each task has at most one Epic.
+  `No epic` participates in the same set and can be selected alone or alongside
+  named Epics.
+- Empty Epic selection means no Epic predicate is applied. Epic filtering is an
+  isolated category predicate designed to compose with future search and label
+  predicates through `AND` across categories.
+- Result counts include authorized active and archived tasks. Matching archived
+  tasks remain read-only and are exposed through the existing Done archive.
+- Filtering does not rewrite persisted task order. Drag destinations are mapped
+  from filtered positions back into the complete source and destination columns:
+  insert before a visible destination anchor, after the final visible task when
+  dropped at the visible end, or at the full-column end when no destination task
+  is visible. Hidden tasks keep their relative order.
+- This PR remains independent from TASK-382. It therefore owns an isolated Epic
+  filter component plus focused predicate and drop-mapping utilities. A later
+  integration should deduplicate the shared drop helper and compose Epic matching
+  into the combined search/label filter pipeline.
 
 ## Scope
 
-- Add a public, responsive `/privacy` page with page-specific metadata.
-- Describe the account, workspace, technical, and Google data NexusDash handles.
-- State the Google Calendar scope and purposes accurately from the runtime
-  implementation, including encrypted token storage and user-initiated access
-  removal options.
-- Explain service-provider sharing, retention, deletion requests, security,
-  international processing, children's privacy, policy changes, and contact.
-- Include the Google API Services User Data Policy Limited Use disclosure and
-  link to the authoritative Google policy.
-- Add a visible privacy-policy link to the unauthenticated homepage.
-- Add automated coverage proving the route is public and linked from `/`.
+- Add an accessible Epic-filter surface above the Kanban lanes containing all
+  project Epics and a distinct `No epic` option.
+- Expose selected state semantically and visually, show active-filter context and
+  a polite `shown / total` result count, and provide clear-Epics and clear-all
+  actions.
+- Filter active and archived tasks, automatically expose matching archive
+  results, and keep desktop lane counts, mobile status counts, and empty states
+  aligned with visible results.
+- Preserve pointer and keyboard drag-and-drop for editable tasks while filters
+  hide interleaved tasks, without disturbing hidden-task relative order.
+- Preserve viewer read-only behavior and existing project authorization
+  boundaries.
+- Add focused utility/component coverage and a dedicated TASK-384 Playwright
+  specification for Epic combinations, `No epic`, clearing, empty results,
+  archive behavior, viewer behavior, and filtered pointer/keyboard dragging.
+- Validate responsive containment, light/dark parity, keyboard-only use, reduced
+  motion, and 375px/landscape layouts.
 
 ## Out Of Scope
 
-- Adding account deletion or Google Calendar credential-disconnect product
-  controls; the policy will document the controls currently available through
-  Google and the support contact for deletion requests.
-- Changing Google OAuth clients, secrets, scopes, consent-screen settings, or
-  publishing status in Google Cloud.
-- Promoting a production deployment.
+- TASK-382 search, label filters, searchable API behavior, or shared toolbar
+  integration.
+- URL/query-string persistence or server-persisted filter preferences.
+- Making archived tasks draggable or changing archive storage semantics.
+- Database migrations, agent API or OpenAPI changes, README changes, or an ADR.
+- Merging TASK-381, TASK-382, or this PR; all remain independent and open.
+
+## Reprioritization Decision
+
+The user's direct assignment explicitly reprioritizes TASK-384 ahead of the
+pending TASK-100, TASK-133, and TASK-108 dependency sequence. The implementation
+must preserve their intended accessibility and task-flow quality rather than
+silently claiming those dependencies are complete.
 
 ## Prerequisites And Runtime Assumptions
 
-- No new secret or database migration is required.
-- Google Calendar authorization requests only
-  `https://www.googleapis.com/auth/calendar.events` in the current runtime.
-- Google Calendar access and refresh tokens are encrypted before database
-  persistence with the server-only `GOOGLE_TOKEN_ENCRYPTION_KEY` contract.
-- Social sign-in may receive identity information from Google or GitHub; this
-  is separate from the optional Google Calendar connection.
-- `https://nexus-dash.app/privacy` becomes usable in Google Auth Platform only
-  after this change is included in a promoted production deployment.
-
-## Deployment And Review Assumptions
-
-- Follow the explicit-branch Preview workflow in `agent.md` and
-  `.github/workflows/deploy-vercel.yml` using
-  `feature/task-407-public-privacy-policy` as `git_ref`.
-- Validate the public route and homepage link against the resulting Preview URL.
-- Open one ready-for-review PR, wait for required checks and the initial Copilot
-  review, resolve actionable feedback, then merge to `main`.
-- Production promotion and Google Auth Platform publication remain user-owned
-  follow-up actions because they change live external state.
+- Branch base is `origin/main` commit
+  `77686d69751ead70524e82d05f16522b311abe89`, whose product version is
+  `0.38.0`; this independent `feature/*` branch therefore targets `0.39.0`.
+- The project page already supplies authorized project Epics and tasks to the
+  client Kanban board. No new endpoint or persistence access is required.
+- Existing local `.env` values are copied only as ignored worktree runtime
+  configuration; no secrets are committed, printed, or modified.
+- Preview validation uses the manual Preview workflow with
+  `feature/task-384-kanban-epic-filter` passed explicitly as `git_ref`, followed
+  by checkout/revision/readiness evidence and focused remote Playwright checks.
+- Copilot review is unavailable because the account is out of credits. Per the
+  user's instruction, automated review is deferred for later DeepSeek review;
+  required GitHub checks and all implementation/preview validation still apply.
 
 ## Acceptance Criteria
 
-1. `/privacy` returns successfully without authentication and presents a clear,
-   readable privacy policy on mobile and desktop in the existing visual system.
-2. The policy accurately covers collected data, purposes, Google identity and
-   Calendar event access, encrypted OAuth token storage, sharing, retention,
-   deletion/access-removal options, security, user choices, and contact details.
-3. The policy links to the Google API Services User Data Policy and explicitly
-   states compliance with its Limited Use requirements.
-4. The public homepage has a visible, keyboard-accessible link to `/privacy`.
-5. Page metadata identifies the route as the NexusDash privacy policy and the
-   canonical URL is `https://nexus-dash.app/privacy`.
-6. Automated tests cover unauthenticated route access, core Google disclosures,
-   and homepage navigation to the policy.
+1. The Kanban board exposes a keyboard-operable, screen-reader-labeled
+   multi-select containing every authorized project Epic and a distinct
+   `No epic` option, with visible selected state in light and dark themes.
+2. Selecting one or more named Epics shows tasks linked to any selected Epic;
+   selecting `No epic` includes unassigned tasks in the same `OR` set.
+3. Active-filter context, clear-Epics, clear-all, and a polite `shown / total`
+   result count remain understandable and touch-safe at 375px, desktop, and
+   landscape widths.
+4. Active and archived tasks are filtered consistently; archived matches are
+   discoverable through the existing archive, while lane/mobile counts and
+   empty states reflect only visible results.
+5. Editable users retain pointer and keyboard drag-and-drop with hidden,
+   interleaved tasks. Persisted full-column ordering follows visible-anchor
+   mapping and hidden tasks retain their relative order.
+6. Viewers can filter and inspect authorized results but cannot mutate or drag
+   tasks. No cross-project data or new persistence surface is introduced.
+7. Focused unit/component tests and a dedicated Playwright spec cover one and
+   multiple Epics, `No epic` alone and combined, clear/no-result states,
+   archived matches, viewer behavior, and filtered pointer/keyboard dragging.
 
 ## Definition Of Done
 
-- The acceptance criteria above are satisfied.
+- All acceptance criteria are implemented and reviewed against existing
+  NexusDash UI patterns plus the UI/UX accessibility guidance.
+- `git diff --check` and release-policy validation against the branch base pass.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  `npm run build`, and the relevant Playwright tests pass.
-- A Preview deploy for the explicit feature branch completes and the generated
-  URL is validated for `/privacy` and its homepage link.
-- The feature version and changelog are updated according to repository policy.
-- `tasks/current.md`, `tasks/backlog.md`, and `journal.md` record the delivered
-  behavior and validation evidence.
-- The ready PR has completed required checks and initial Copilot review, all
-  actionable threads are resolved, and the PR is merged to `main`.
+  `npm run build`, and `npm run test:e2e` pass.
+- Manual UI/UX QA passes at 375px and desktop widths, in light and dark themes,
+  with keyboard-only use, reduced motion, and landscape containment.
+- `package.json`, `package-lock.json`, and `CHANGELOG.md` carry the feature
+  version derived from the actual branch base.
+- `tasks/current.md`, `tasks/backlog.md`, and `journal.md` record scope, status,
+  decisions, validation, Preview evidence, and the review-credit exception.
+- The branch is pushed without force, one ready-for-review PR to `main` is open,
+  required GitHub checks pass, and a branch-explicit Preview plus focused and
+  existing Kanban smoke flows pass against its immutable URL.
+- The PR is left open and unmerged for the user's later DeepSeek review.
 
 ## References
 
 - `agent.md`
-- `docs/runbooks/vercel-env-contract-and-secrets.md`
-- `docs/runbooks/database-connection-hardening.md`
-- `lib/google-calendar.ts`
-- `lib/services/google-calendar-credential-service.ts`
+- `project.md`
+- `README.md`
+- `docs/runbooks/release-versioning.md`
+- `components/kanban-board.tsx`
+- `components/kanban/kanban-columns-grid.tsx`

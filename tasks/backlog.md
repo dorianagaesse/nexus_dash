@@ -213,7 +213,7 @@ Last reviewed: 2026-08-30
   Dependencies: TASK-107, TASK-118, TASK-276, TASK-311
 - ID: TASK-384
   Title: Kanban task filtering by Epic
-  Status: Pending
+  Status: In review (2026-08-31; `feature/task-384-kanban-epic-filter`)
   Rationale: Add an Epic filter to the Kanban board so users can focus every lane on tasks linked to one or more selected Epics, explicitly include or isolate tasks with no Epic, and clear the selection in one action. Show active Epic filters and filtered result counts, preserve authorized project boundaries, keep drag-and-drop behavior predictable while a filter is active, and compose cleanly with task search and label filters when those controls are available without making this task depend on their delivery.
   Dependencies: TASK-107, TASK-108, TASK-133
 ### ChatGPT and Codex Connector Program (TASK-385 Epic)

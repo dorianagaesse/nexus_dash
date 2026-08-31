@@ -8,6 +8,20 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.39.0 - 2026-08-31
+
+- Added an accessible multi-select Epic filter to the Kanban board with named
+  Epics, a distinct `No epic` option, active state, clear actions, and live
+  shown/total result counts.
+- Applied Epic filtering consistently to active and archived tasks, including
+  filter-aware lane/mobile counts and empty states plus automatic disclosure of
+  matching archived results.
+- Preserved pointer and keyboard task movement while filters hide interleaved
+  cards by mapping visible drops back to complete persisted columns without
+  disturbing hidden-task order.
+- Added focused predicate, component, full-column drop, viewer, project
+  isolation, responsive theme, archive, and Playwright coverage.
+
 ## v0.38.0 - 2026-08-30
 
 - Added a public, unauthenticated NexusDash privacy policy with clear account,

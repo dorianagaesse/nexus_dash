@@ -4,7 +4,7 @@ import {
   Droppable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Archive,
   CheckCircle2,
@@ -96,6 +96,7 @@ interface KanbanColumnsGridProps {
   archivedDoneTasks: KanbanTask[];
   mentionUsers: ProjectTaskCollaborator[];
   highlightedTaskIds: Set<string>;
+  isFiltering: boolean;
   onDragEnd: (result: DropResult) => void;
   onSelectTask: (task: KanbanTask) => void;
   onEditTask: (task: KanbanTask) => void;
@@ -108,6 +109,7 @@ export function KanbanColumnsGrid({
   archivedDoneTasks,
   mentionUsers,
   highlightedTaskIds,
+  isFiltering,
   onDragEnd,
   onSelectTask,
   onEditTask,
@@ -128,6 +130,7 @@ export function KanbanColumnsGrid({
             archivedDoneTasks={status === "Done" ? archivedDoneTasks : []}
             mentionUsers={mentionUsers}
             highlightedTaskIds={highlightedTaskIds}
+            isFiltering={isFiltering}
             onSelectTask={onSelectTask}
             onEditTask={onEditTask}
             onTaskHoverChange={onTaskHoverChange}
@@ -190,6 +193,7 @@ interface KanbanColumnProps {
   archivedDoneTasks: KanbanTask[];
   mentionUsers: ProjectTaskCollaborator[];
   highlightedTaskIds: Set<string>;
+  isFiltering: boolean;
   onSelectTask: (task: KanbanTask) => void;
   onEditTask: (task: KanbanTask) => void;
   onTaskHoverChange: (taskId: string | null) => void;
@@ -203,15 +207,24 @@ function KanbanColumn({
   archivedDoneTasks,
   mentionUsers,
   highlightedTaskIds,
+  isFiltering,
   onSelectTask,
   onEditTask,
   onTaskHoverChange,
   className,
 }: KanbanColumnProps) {
   const chrome = COLUMN_CHROME[status];
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+
+  useEffect(() => {
+    if (isFiltering && archivedDoneTasks.length > 0) {
+      setIsArchiveOpen(true);
+    }
+  }, [archivedDoneTasks.length, isFiltering]);
 
   return (
     <Card
+      data-kanban-status={status}
       className={cn(
         "min-h-[320px] overflow-hidden border shadow-[0_18px_48px_-42px_rgba(15,23,42,0.7)]",
         chrome.column,
@@ -232,8 +245,12 @@ function KanbanColumn({
       </CardHeader>
       <CardContent>
         {status === "Done" && archivedDoneTasks.length > 0 ? (
-          <details className="mb-3 rounded-xl border border-border/60 bg-background/55">
-            <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground">
+          <details
+            className="mb-3 rounded-xl border border-border/60 bg-background/55"
+            open={isArchiveOpen}
+            onToggle={(event) => setIsArchiveOpen(event.currentTarget.open)}
+          >
+            <summary className="flex min-h-11 cursor-pointer items-center px-3 py-2 text-xs font-medium text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
               Archive ({archivedDoneTasks.length})
             </summary>
             <div className="space-y-2 border-t border-border/60 p-2">
@@ -242,7 +259,7 @@ function KanbanColumn({
                   key={task.id}
                   type="button"
                   className={cn(
-                    "w-full rounded-md border border-border/60 bg-card px-2 py-2 text-left transition hover:bg-muted/40",
+                    "min-h-11 w-full rounded-md border border-border/60 bg-card px-2 py-2 text-left transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     highlightedTaskIds.has(task.id) &&
                       "border-border/80 bg-muted/35 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
                   )}
@@ -284,6 +301,7 @@ function KanbanColumn({
             <div
               ref={provided.innerRef}
               {...provided.droppableProps}
+              data-kanban-dropzone={status}
               className={cn(
                 "min-h-[180px] space-y-3 rounded-md p-2",
                 snapshot.isDraggingOver && chrome.dragState
@@ -292,7 +310,9 @@ function KanbanColumn({
               {tasks.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border/50 bg-background/70 px-4 py-8 text-center">
                   <p className="text-sm font-medium text-foreground/90">
-                    {chrome.emptyCopy}
+                    {isFiltering
+                      ? `No ${status} tasks match these Epic filters`
+                      : chrome.emptyCopy}
                   </p>
                 </div>
               ) : null}
@@ -314,6 +334,7 @@ function KanbanColumn({
                         ref={draggableProvided.innerRef}
                         {...draggableProvided.draggableProps}
                         {...(canEdit ? draggableProvided.dragHandleProps : {})}
+                        data-kanban-task-card={task.id}
                         style={buildDragStyle(
                           draggableProvided.draggableProps.style,
                           draggableSnapshot.isDragging
