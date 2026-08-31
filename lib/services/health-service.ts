@@ -2,7 +2,10 @@ import { prisma } from "@/lib/prisma";
 
 const READINESS_DB_TIMEOUT_MS = 2000;
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number
+): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -23,6 +26,8 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
 }
 
 export async function checkDatabaseReadiness(): Promise<void> {
-  await withTimeout(prisma.$queryRaw`SELECT 1`, READINESS_DB_TIMEOUT_MS);
+  await withTimeout(
+    prisma.$queryRaw`SELECT 1 FROM public."Session" LIMIT 1`,
+    READINESS_DB_TIMEOUT_MS
+  );
 }
-

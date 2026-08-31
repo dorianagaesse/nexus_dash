@@ -16,6 +16,23 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-08-27 - Keep shared Preview schema forward-only
+- Status: Accepted
+- Context: Deploying stacked TASK-327 renamed and removed columns from the
+  Calendar credential table, which made the still-testable TASK-326 branch fail
+  against shared staging. An emergency workflow reset made the database follow
+  a branch rather than migration history.
+- Decision: Shared Preview applies checked-in migrations forward only and never
+  resets or rolls back to a branch. A pre-publication gate verifies that every
+  Prisma model has a physical runtime table; incompatible branches fail with an
+  expand/contract diagnostic before the stable alias moves.
+- Consequences: Preview retains production-like migration semantics and ordinary
+  deploys remain routine when migrations are backward-compatible. A single
+  shared database still cannot support mutually incompatible destructive
+  schemas; those changes must be phased or tested in an isolated database.
+- Links: `docs/runbooks/vercel-env-contract-and-secrets.md`,
+  `.github/workflows/deploy-vercel.yml`, PRs `#449` and `#450`
+
 ## 2026-08-06 - Model Calendar accounts, sources, and preferences separately
 - Status: Accepted
 - Context: A singular Google credential and free-form target ID cannot safely

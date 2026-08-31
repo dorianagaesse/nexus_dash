@@ -227,8 +227,25 @@ Important:
   `VERCEL_URL` or exact `PREVIEW_AUTH_ORIGIN`.
 - The deploy workflow validates the immutable deployment target, revision,
   environment, and database readiness before moving the stable auth alias. It
-  then verifies that the alias resolves to the same deployment and repeats the
-  readiness check through the alias before publishing either URL.
+  then verifies that the alias resolves to the same deployment and retries the
+  revision-aware readiness check through the alias while Vercel routing
+  propagates before publishing either URL.
+- Preview migrations are forward-only and the Preview database is shared. The
+  workflow applies the checked-out branch's pending migrations; it never resets,
+  rolls back, or rewrites staging to match a branch. The daily 5 AM staging wipe
+  removes application data but deliberately preserves schema and migration
+  history.
+- Every feature migration deployed to shared Preview must remain compatible
+  with code from other testable branches. Renames, drops, and incompatible
+  type/constraint changes require an expand/contract rollout: add the new shape,
+  deploy code that can use it while the old shape remains, and remove the old
+  shape only after dependent branches/releases have moved forward. If a branch
+  violates this contract, the runtime-schema check fails before Vercel deploy
+  or stable-alias publication; fix the migration or branch dependency rather
+  than resetting staging.
+- Preview readiness queries an application table through the runtime role, so
+  missing `public` schema or table privileges stop publication even when a
+  connection-only `SELECT 1` would succeed.
 - Production database secrets must come from the intended Supabase Production
   project, not local `.env` snapshots or preview/staging files. The app rejects
   production startup when Supabase project refs differ across `DATABASE_URL`,

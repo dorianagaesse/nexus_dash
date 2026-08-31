@@ -1,55 +1,40 @@
-# TASK-327: Multi-account and Multi-calendar Connections
+# Current Task
+
+## Backlog migration to Nexus Dash
 
 ## Status
 
-Implementation complete on `feature/task-327-calendar-connections-r4`, stacked
-after `feature/task-326-calendar-ownership-r4` and refreshed onto current
-`main`. Interactive two-account Google acceptance requires authorized
-test-account access.
+Complete (2026-08-31). The full backlog previously tracked in
+`tasks/backlog.md` now lives in the Nexus Dash project "Nexus Dash" at
+<https://nexus-dash.app> (agent credentials in `.config/.nd-nexus-dash.env`).
 
-## Objective
+## What changed
 
-Replace the singular Google credential with a user-owned, provider-ready
-connection/source/preference domain; expose safe connection management; and
-aggregate live events from every selected Calendar source while Google remains
-the only live provider.
+- 5 epics and 246 tasks created via the agent API, with descriptions carrying
+  the original backlog entries, program-section labels, Brief/Report
+  attachment links, and dependency relationships.
+- Kanban columns: Backlog (72), In Progress (2: TASK-100, TASK-406),
+  Done (172).
+- `tasks/backlog.md` is now a migration notice; Nexus Dash is the source of
+  truth for task management.
 
-## Scope
+## Next task selection
 
-- Data-preserving migration to `CalendarConnection`, `CalendarSource`, and
-  `CalendarPreference`, including direct-user RLS and composite ownership keys.
-- Provider adapter for authorization, identity, refresh, revocation, discovery,
-  and event CRUD; Google OAuth gains identity and CalendarList scopes.
-- Add/reconnect/sync/disconnect/preference APIs plus a compatibility facade for
-  the singular Google settings endpoint.
-- Server-rendered Settings management with focused accessible client controls.
-- Bounded, paginated, partial-failure event aggregation and source-aware writes.
-- Project Calendar source identification, target selection, and origin-locked
-  mutations without durable event copies.
+The next task is picked from the Nexus Dash kanban (In Progress lane first,
+then Backlog in lane order) instead of `tasks/backlog.md`.
 
 ## Acceptance Criteria
 
-1. Existing Google credentials migrate without token loss, receive a legacy
-   identity/source/preference, and adopt the real Google `sub` on OAuth.
-2. Users can add multiple Google accounts, discover/select calendars, retain a
-   single writable target, reconnect safely, and disconnect one account without
-   affecting another.
-3. Selected sources aggregate deterministically with bounded concurrency,
-   pagination, truncation metadata, one read-only retry, and per-source warnings.
-4. Event responses identify connection/source/calendar/write capability;
-   creation chooses an explicit or default writable source and mutations remain
-   locked to the originating source.
-5. Direct-user RLS and composite ownership constraints fail closed across
-   connections, sources, preferences, and refresh-token access.
-6. Settings and project Calendar flows meet keyboard, 44px touch, 375px,
-   responsive, loading/error/empty/reauthorization, and light/dark requirements.
+1. Every entry from the pre-migration `tasks/backlog.md` exists in Nexus Dash
+   with its ID, title, status string, rationale, dependencies, and section
+   grouping preserved.
+2. Dependencies are represented as task relations.
+3. Brief/Report files are attached where referenced.
+4. Verification confirms the Nexus Dash board matches the migration plan.
 
 ## Definition Of Done
 
-- Migration, services, adapters, APIs, UI, compatibility path, ADR/runbook,
-  tracking, changelog, and feature version are complete.
-- Focused migration/provider/API/UI tests plus lint, RLS inventory, full tests,
-  coverage, build, real PostgreSQL RLS, and Playwright pass.
-- An explicit-ref preview and two-account interactive Google smoke are recorded.
-- The branch is pushed and a ready-for-review stacked PR is open with actionable
-  automated review feedback resolved.
+- Migration verified against the plan (columns, ordering, labels, epics,
+  relations, descriptions, attachments).
+- `tasks/backlog.md`, `tasks/current.md`, and `journal.md` updated in the
+  same PR.

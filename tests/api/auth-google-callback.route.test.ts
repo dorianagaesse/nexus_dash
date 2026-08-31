@@ -219,7 +219,7 @@ describe("GET /api/auth/callback/google", () => {
     });
   });
 
-  test("redirects with auth-failed when credential persistence fails", async () => {
+  test("redirects with storage-failed when credential persistence fails", async () => {
     googleCalendarMock.exchangeAuthorizationCodeForTokens.mockResolvedValueOnce({
       accessToken: "access-token",
       expiresIn: 3600,
@@ -243,8 +243,33 @@ describe("GET /api/auth/callback/google", () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(
+      "http://localhost/projects/p1?error=calendar-storage-failed"
+    );
+  });
+
+  test("redirects with auth-failed when Google token exchange fails", async () => {
+    googleCalendarMock.exchangeAuthorizationCodeForTokens.mockRejectedValueOnce(
+      new Error("invalid_client")
+    );
+
+    const response = await GET(
+      createRequest(
+        "http://localhost/api/auth/callback/google?state=expected&code=auth-code",
+        {
+          nexusdash_google_oauth_state: "expected",
+          nexusdash_google_oauth_return_to: "/projects/p1",
+          nexusdash_google_oauth_actor: "test-user",
+        }
+      )
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
       "http://localhost/projects/p1?error=calendar-auth-failed"
     );
+    expect(
+      credentialServiceMock.upsertGoogleCalendarCredentialTokens
+    ).not.toHaveBeenCalled();
   });
 
   test("redirects with config error when callback redirect uri cannot be resolved", async () => {

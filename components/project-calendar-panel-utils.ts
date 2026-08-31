@@ -321,6 +321,10 @@ export function parseDateTimeInputValue(value: string): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+export function toCalendarEventDateTime(value: string): string | null {
+  return parseDateTimeInputValue(value)?.toISOString() ?? null;
+}
+
 export function toMonthStart(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
